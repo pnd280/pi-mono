@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.tmp/
+.scratch/
+.pi/git/
+.pi/npm/
+.pi/sessions/
+.worktrees/

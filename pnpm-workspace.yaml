@@ -1,0 +1,31 @@
+packages:
+  - packages/*
+  - packages/extensions/*
+
+allowBuilds:
+  "@google/genai": true
+  esbuild: true
+  protobufjs: true
+  unrs-resolver: false
+
+catalog:
+  "@earendil-works/pi-ai": ^0.85.1
+  "@earendil-works/pi-coding-agent": ^0.85.1
+  "@earendil-works/pi-tui": ^0.85.1
+  "@oxlint/plugins": ^1.81.0
+  "@types/node": ^24.13.3
+  eslint-import-resolver-typescript: ^4.4.5
+  eslint-plugin-boundaries: ^7.2.0
+  oxlint: ^1.81.0
+  oxlint-tsgolint: ^7.0.2001
+  oxfmt: ^0.65.0
+  typescript: ^7.0.2
+  vitest: ^4.1.11
+
+minimumReleaseAgeExclude:
+  - "@earendil-works/chord@0.85.1"
+  - "@earendil-works/pi-agent-core@0.85.1"
+  - "@earendil-works/pi-ai@0.85.1"
+  - "@earendil-works/pi-coding-agent@0.85.1"
+  - "@earendil-works/pi-telemetry@0.85.1"
+  - "@earendil-works/pi-tui@0.85.1"
