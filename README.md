@@ -1,7 +1,5 @@
 # pi-mono
 
-Opiniated pi setup.
-
 ## Setup
 
 From the repository root:
@@ -10,8 +8,10 @@ From the repository root:
 pnpm install --frozen-lockfile
 ```
 
-List available scripts with `pnpm run`.
+## Extensions
+
+- [pi-tool-display](packages/extensions/pi-tool-display/README.md): compact, borderless tool activity with expandable output and numbered diffs.
 
 ## Development
 
-See the [development conventions](docs/development.md) for package structure, documentation requirements, and validation commands.
+- [Development conventions](docs/development.md)

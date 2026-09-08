@@ -18,9 +18,9 @@ catalog:
   eslint-plugin-boundaries: ^7.2.0
   oxlint: ^1.81.0
   oxlint-tsgolint: ^7.0.2001
-  oxfmt: ^0.65.0
+  oxfmt: ^0.66.0
   typescript: ^7.0.2
-  vitest: ^4.1.11
+  vitest: ^5.0.0
 
 minimumReleaseAgeExclude:
   - "@earendil-works/chord@0.85.1"

@@ -1,0 +1,24 @@
+{
+  "name": "pi-tool-display",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Compact, borderless tool activity rendering for pi",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./renderers": "./src/renderers.ts"
+  },
+  "scripts": {
+    "format": "oxfmt --config ../../../oxfmt.config.ts .",
+    "check": "oxlint --config ../../../oxlint.config.ts index.ts src",
+    "test": "vitest run"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

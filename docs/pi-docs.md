@@ -1,0 +1,11 @@
+Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):
+
+- Main documentation: <node_modules>/@earendil-works/pi-coding-agent/README.md
+- Additional docs: <node_modules>/@earendil-works/pi-coding-agent/docs
+- Examples: <node_modules>/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)
+- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory
+- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md)
+- When working on pi topics, read the docs and examples before implementing
+- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)
+
+`<node_modules>/@earendil-works/pi-coding-agent/` is either the globally installed or the local workspace package
