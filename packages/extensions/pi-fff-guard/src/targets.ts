@@ -42,7 +42,7 @@ export function contains(parent: string, child: string): boolean {
 export function resolvePath(value: string, cwd: string): string {
   return path.resolve(
     cwd,
-    value === "~" || value.startsWith("~/") ? path.join(homedir(), value.slice(1)) : value,
+    value === "~" || value.startsWith("~/") ? path.join(homedir(), value.slice(1)) : value
   );
 }
 
@@ -60,7 +60,7 @@ export function alternatives(value: string): string[] {
       return match[1]
         .split(",")
         .map(
-          (part) => entry.slice(0, match.index) + part + entry.slice(match.index + match[0].length),
+          (part) => entry.slice(0, match.index) + part + entry.slice(match.index + match[0].length)
         );
     });
     if (next.length > 64) throw new Error("too many scope alternatives");
@@ -76,7 +76,7 @@ function globRoot(expression: string): { prefix: string; filter: string } | unde
   if (boundary <= 0) return undefined;
   return {
     prefix: parts.slice(0, boundary).join("/") || "/",
-    filter: parts.slice(boundary).join("/"),
+    filter: parts.slice(boundary).join("/")
   };
 }
 
@@ -243,7 +243,7 @@ async function queryExpressions(
   kind: SearchKind,
   input: SearchInput,
   cwd: string,
-  scope: SearchScope,
+  scope: SearchScope
 ): Promise<ScopeExpression[]> {
   const expressions: ScopeExpression[] = [];
   if (kind !== "multi" && input.path?.trim())
@@ -265,7 +265,7 @@ async function queryExpressions(
           kind === "multi" ||
           /^(?:\/|\.{1,2}\/|~\/)/.test(token) ||
           token.endsWith("/") ||
-          hasGlob(token),
+          hasGlob(token)
       });
   }
   if (expressions.length > 64) throw new Error("too many search scopes");
@@ -300,7 +300,7 @@ async function collectTargets(
   expressions: ScopeExpression[],
   cwd: string,
   scope: SearchScope,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<void> {
   let combined: Target[] | undefined;
   for (const { value: expression, validatePath } of expressions) {
@@ -338,12 +338,12 @@ export async function extractScope(
   kind: SearchKind,
   input: SearchInput,
   cwd: string,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<SearchScope> {
   const scope: SearchScope = {
     targets: [],
     excludes: exclusionTokens(input.exclude, cwd),
-    filters: [],
+    filters: []
   };
   const expressions = await queryExpressions(kind, input, cwd, scope);
   if (scope.excludes.length > 64) throw new Error("too many search exclusions");
@@ -358,13 +358,13 @@ export async function extractScope(
       scope.filters.some(
         (filter) =>
           relativeFilter(filter, root, cwd) === "" ||
-          (!target.directory && !matchesFile(target, filter, cwd)),
+          (!target.directory && !matchesFile(target, filter, cwd))
       )
     )
       continue;
     if (
       !retained.some(
-        (previous) => previous.absolute === target.absolute && previous.filter === target.filter,
+        (previous) => previous.absolute === target.absolute && previous.filter === target.filter
       )
     )
       retained.push(target);

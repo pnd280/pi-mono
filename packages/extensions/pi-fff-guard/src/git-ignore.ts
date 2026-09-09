@@ -24,7 +24,7 @@ export type GitCommand = (
   cwd: string,
   args: string[],
   input: string | undefined,
-  signal: AbortSignal,
+  signal: AbortSignal
 ) => Promise<GitOutput>;
 
 export const runGit: GitCommand = (cwd, args, input, signal) =>
@@ -37,7 +37,7 @@ export const runGit: GitCommand = (cwd, args, input, signal) =>
       "GIT_WORK_TREE",
       "GIT_INDEX_FILE",
       "GIT_COMMON_DIR",
-      "GIT_PREFIX",
+      "GIT_PREFIX"
     ])
       delete env[key as keyof typeof env];
     const child = execFile(
@@ -50,12 +50,12 @@ export const runGit: GitCommand = (cwd, args, input, signal) =>
         timeout: 2000,
         killSignal: "SIGKILL",
         maxBuffer: 128 * 1024,
-        encoding: "utf8",
+        encoding: "utf8"
       },
       (error, stdout, stderr) => {
         if (error && (typeof error.code !== "number" || error.killed)) reject(error);
         else resolve({ code: (error?.code as number | undefined) ?? 0, stdout, stderr });
-      },
+      }
     );
     child.stdin?.on("error", () => {
       /* Process completion reports early pipe closure. */
@@ -66,7 +66,7 @@ export const runGit: GitCommand = (cwd, args, input, signal) =>
 async function repository(
   directory: string,
   signal: AbortSignal,
-  git: GitCommand,
+  git: GitCommand
 ): Promise<string | undefined> {
   const result = await git(directory, ["rev-parse", "--show-toplevel"], undefined, signal);
   if (result.code === 128 && result.stderr.includes("not a git repository")) return undefined;
@@ -80,7 +80,7 @@ async function ignoredIn(
   root: string | undefined,
   absolute: string,
   signal: AbortSignal,
-  git: GitCommand,
+  git: GitCommand
 ): Promise<IgnoreRecord | undefined> {
   if (!root || absolute === root || !contains(root, absolute)) return undefined;
   const relative = path.relative(root, absolute);
@@ -88,7 +88,7 @@ async function ignoredIn(
     root,
     ["check-ignore", "--verbose", "--non-matching", "-z", "--stdin"],
     `${relative}\0`,
-    signal,
+    signal
   );
   if (result.code !== 0 && result.code !== 1) throw new Error("Git ignore inspection failed");
   const fields = result.stdout.split("\0");
@@ -101,7 +101,7 @@ async function ignoredIn(
     path: absolute,
     source: path.isAbsolute(source) ? source : path.join(root, source),
     line,
-    pattern,
+    pattern
   };
 }
 
@@ -123,7 +123,7 @@ async function inspect(
   workspace: string | undefined,
   signal: AbortSignal,
   git: GitCommand,
-  seen: Set<string>,
+  seen: Set<string>
 ): Promise<IgnoreRecord | undefined> {
   signal.throwIfAborted();
   if (seen.has(absolute) || seen.size >= 32) throw new Error("symbolic link cycle or depth limit");
@@ -143,7 +143,7 @@ async function inspect(
   const destination = path.resolve(
     path.dirname(link),
     await readlink(link),
-    path.relative(link, absolute),
+    path.relative(link, absolute)
   );
   // A non-ignored link may point into an ignored scope of another repository.
   return inspect(destination, undefined, signal, git, seen);
@@ -154,7 +154,7 @@ export async function detectIgnored(
   absolute: string,
   cwd: string,
   signal?: AbortSignal,
-  git: GitCommand = runGit,
+  git: GitCommand = runGit
 ): Promise<Detection> {
   if (signal?.aborted) return { status: "cancelled" };
   const controller = new AbortController();

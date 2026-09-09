@@ -1,8 +1,8 @@
 # pi-fff-guard
 
-Temporary workaround for [FFF #714](https://github.com/dmtrKovalenko/fff/issues/714): FFF's workspace index omits Git-ignored files, so searches explicitly targeting them can misleadingly report no matches.
+Blocks FFF searches that explicitly target Git-ignored paths, which FFF's workspace index omits ([FFF #714](https://github.com/dmtrKovalenko/fff/issues/714)).
 
-For example, an ignored-path `fffind` call returns:
+An ignored-path `fffind` call is blocked with:
 
 ```text
 fffind does not work with Git-ignored paths. Retry with rg or another available tool.
@@ -10,20 +10,19 @@ fffind does not work with Git-ignored paths. Retry with rg or another available 
 
 Missing explicit paths return `No such file or directory` before ignore checks.
 
-## Usage
+## Compatibility
 
 Requires Node.js 24+ and Git. Validated with Pi 0.85.1 and `@ff-labs/pi-fff` 0.10.6.
 
+Intercepts `fffind`, `ffgrep`, and enabled `fff-multi-grep`, plus FFF-owned `find`, `grep`, and `multi_grep` overrides. Pi must attribute the tool to the official `@ff-labs/pi-fff` package; built-ins, unrelated tools, and unrecognized forks pass through.
+
 ## Detection
 
-- Intercepts `fffind`, `ffgrep`, and enabled `fff-multi-grep`, plus FFF-owned `find`, `grep`, and `multi_grep` overrides. Pi must attribute the tool to the official npm package or a package-root or `src/` index entry under `@ff-labs/pi-fff/`; built-ins, unrelated tools, and unrecognized forks pass through.
-- Checks concrete positive `path` values and multi-grep constraints for missing or Git-ignored files/directories, including broken links. Relative paths resolve against `ctx.cwd`; `~/` expands to the home directory. Bare filename filters such as `main.ts` do not require a file in the current directory; use `./main.ts` for an explicit file.
-- Filename queries check existing explicit paths and rooted globs such as `node_modules/**`. Missing-path validation requires an anchor (`/`, `./`, `../`, `~/`), a trailing `/`, or a rooted glob.
-- Existing literal paths take precedence over glob syntax. Otherwise, globs validate only the fixed directory prefix before the first wildcard, without requiring matching files. For finite brace alternatives, a missing-path error requires every branch to have a missing concrete root. Missing exclusions are not errors.
-- Fully excluded ignored targets pass through; partially excluded ignored directories still block. Positive `path` values are trimmed but are not split; existing explicit filename-query paths remain intact. Other filename queries and multi-grep constraints use whitespace-separated tokens. FFF's `exclude` field splits comma/space-separated entries, including array entries; multi-grep brace alternatives are not comma-split.
-- Uses Git's effective ignore rules, including nested rules, negations, tracked-file exceptions, `.git/info/exclude`, and global exclusions. Supports worktrees and external repositories. For paths inside the workspace, uses the workspace repository's ignore rules even when the path belongs to a nested repository. Non-ignored links are also checked in their destination repositories.
+Use `path: "./main.ts"` for an explicit file; `path: "main.ts"` is a recursive filename filter and need not exist in the current directory.
 
-Repository-root `.` searches, bare fuzzy queries, generic filters such as `*.ts`, cursor-only calls, and globs without a fixed root such as `**/node_modules/**` remain unchanged. Content patterns are never treated as paths. The extension does not parse shell quoting in multi-grep constraints or decode cursors.
+See [search scopes](docs/search-scopes.md) for path syntax, exclusions, unsupported queries, and Git ignore behavior across repositories and symbolic links.
+
+### Limits
 
 Checks have a two-second deadline and bounded scope/link traversal. Timeouts, Git errors, and link cycles allow the FFF call with a diagnostic (UI notification or stderr); cancellation blocks the call.
 

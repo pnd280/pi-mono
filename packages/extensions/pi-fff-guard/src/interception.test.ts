@@ -6,9 +6,9 @@ import type {
   ExtensionContext,
   ToolCallEvent,
   ToolCallEventResult,
-  ToolInfo,
+  ToolInfo
 } from "@earendil-works/pi-coding-agent";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import extension, { fffAdapter } from "./index.ts";
 import { fixture } from "./test-fixture.ts";
@@ -32,7 +32,7 @@ function harness() {
     on: (eventName: string, callback: typeof handler) => {
       if (eventName === "tool_call") handler = callback;
     },
-    getAllTools: () => tools,
+    getAllTools: () => tools
   } as unknown as ExtensionAPI;
   extension(api);
   expect(handler, "extension must register a tool_call handler").toBeTypeOf("function");
@@ -48,9 +48,9 @@ function harness() {
             path: "/extensions/fixture.ts",
             source,
             scope: "temporary",
-            origin: "top-level",
-          },
-        },
+            origin: "top-level"
+          }
+        }
       ];
     },
     async call(name: string, input: Record<string, unknown>, signal?: AbortSignal) {
@@ -61,12 +61,12 @@ function harness() {
           cwd: directory.root,
           signal,
           hasUI: false,
-          ui: { notify },
-        } as unknown as ExtensionContext,
+          ui: { notify }
+        } as unknown as ExtensionContext
       );
       expect(input).toEqual(original);
       return result;
-    },
+    }
   };
 }
 
@@ -80,7 +80,7 @@ describe("public interception adapter", () => {
         : { pattern: "package", path: "node_modules/" };
       expect(await host.call(name, input)).toStrictEqual({
         block: true,
-        reason: `${name} does not work with Git-ignored paths. Retry with rg or another available tool.`,
+        reason: `${name} does not work with Git-ignored paths. Retry with rg or another available tool.`
       });
     }
   });
@@ -91,18 +91,18 @@ describe("public interception adapter", () => {
     const missingPath = "node_modules/a, b/missing.ts";
     expect(await host.call("ffgrep", { pattern: "marker", path: missingPath })).toStrictEqual({
       block: true,
-      reason: "No such file or directory",
+      reason: "No such file or directory"
     });
     await directory.write(missingPath);
     expect(await host.call("ffgrep", { pattern: "marker", path: missingPath })).toStrictEqual({
       block: true,
       reason:
-        "ffgrep does not work with Git-ignored paths. Retry with rg or another available tool.",
+        "ffgrep does not work with Git-ignored paths. Retry with rg or another available tool."
     });
     await symlink("missing", path.join(directory.root, "src/broken"));
     expect(await host.call("ffgrep", { pattern: "marker", path: "src/broken" })).toStrictEqual({
       block: true,
-      reason: "No such file or directory",
+      reason: "No such file or directory"
     });
   });
 
@@ -110,21 +110,21 @@ describe("public interception adapter", () => {
     const host = harness();
     host.register("grep", "builtin");
     expect(
-      await host.call("grep", { pattern: "fixture_marker", path: "node_modules/missing/" }),
+      await host.call("grep", { pattern: "fixture_marker", path: "node_modules/missing/" })
     ).toBeUndefined();
     host.register("grep");
     expect(
-      (await host.call("grep", { pattern: "fixture_marker", path: "node_modules/" }))?.block,
+      (await host.call("grep", { pattern: "fixture_marker", path: "node_modules/" }))?.block
     ).toBe(true);
     host.register("grep", "sdk");
     expect(
-      await host.call("grep", { pattern: "fixture_marker", path: "node_modules/" }),
+      await host.call("grep", { pattern: "fixture_marker", path: "node_modules/" })
     ).toBeUndefined();
     const sourceInfo = {
       source: "cli",
       path: "/store/@ff-labs/pi-fff/src/index.ts",
       scope: "temporary",
-      origin: "top-level",
+      origin: "top-level"
     } as const;
     expect(fffAdapter({ name: "ffgrep", sourceInfo })).toBe("grep");
     expect(fffAdapter({ name: "fff-future-tool", sourceInfo })).toBeUndefined();
@@ -137,17 +137,17 @@ describe("public interception adapter", () => {
       host.call("ffgrep", { path: ".tmp/**", pattern: "marker" }),
       host.call("ffgrep", { path: "src/", pattern: "node_modules/" }),
       host.call("ffgrep", { path: ".", pattern: "marker", exclude: "node_modules/" }),
-      host.call("ffgrep", { pattern: "node_modules/", cursor: "fff_c1" }),
+      host.call("ffgrep", { pattern: "node_modules/", cursor: "fff_c1" })
     ]);
     expect(results).toStrictEqual([
       {
         block: true,
         reason:
-          "ffgrep does not work with Git-ignored paths. Retry with rg or another available tool.",
+          "ffgrep does not work with Git-ignored paths. Retry with rg or another available tool."
       },
       undefined,
       undefined,
-      undefined,
+      undefined
     ]);
   });
 
@@ -163,11 +163,11 @@ describe("public interception adapter", () => {
     const result = await host.call(
       "ffgrep",
       { path: "node_modules/", pattern: "marker" },
-      controller.signal,
+      controller.signal
     );
     expect(result).toStrictEqual({
       block: true,
-      reason: "Ignored-path detection cancelled; no replacement search was started.",
+      reason: "Ignored-path detection cancelled; no replacement search was started."
     });
     expect(diagnostic).toHaveBeenCalledTimes(1);
     expect(host.notify).not.toHaveBeenCalled();

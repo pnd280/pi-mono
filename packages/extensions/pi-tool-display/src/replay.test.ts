@@ -13,10 +13,10 @@ import {
   SessionManager,
   SettingsManager,
   ToolExecutionComponent,
-  type AgentSession,
+  type AgentSession
 } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, Text, type TUI } from "@earendil-works/pi-tui";
-import { expect, it, vi } from "vitest";
+import { expect, it, vi } from "vite-plus/test";
 
 import toolDisplay from "./index.ts";
 import { installReplayDisplays } from "./replay.ts";
@@ -41,11 +41,11 @@ function readRow(session: AgentSession): ToolExecutionComponent {
     { showImages: false },
     definition,
     ui,
-    session.sessionManager.getCwd(),
+    session.sessionManager.getCwd()
   );
   row.updateResult({
     content: [{ type: "text", text: "retained file content\n" }],
-    isError: false,
+    isError: false
   });
   return row;
 }
@@ -73,7 +73,7 @@ it("preserves restored rows across reloads and removes the hook when the extensi
       noPromptTemplates: true,
       noThemes: true,
       noContextFiles: true,
-      extensionFactories,
+      extensionFactories
     });
     await resourceLoader.reload();
     expect(resourceLoader.getExtensions().errors).toEqual([]);
@@ -82,7 +82,7 @@ it("preserves restored rows across reloads and removes the hook when the extensi
       modelsPath: null,
       modelsStorePath: join(agentDir, "models-store.json"),
       refreshOnCreate: false,
-      allowModelNetwork: false,
+      allowModelNetwork: false
     });
     const created = await createAgentSession({
       cwd: directory,
@@ -90,7 +90,7 @@ it("preserves restored rows across reloads and removes the hook when the extensi
       settingsManager,
       resourceLoader,
       modelRuntime,
-      sessionManager: SessionManager.inMemory(directory),
+      sessionManager: SessionManager.inMemory(directory)
     });
     session = created.session;
     const current = session;
@@ -100,7 +100,7 @@ it("preserves restored rows across reloads and removes the hook when the extensi
       mode: "tui",
       onError: (error) => {
         errors.push(error);
-      },
+      }
     });
     const activeNames = current.getActiveToolNames();
     expect(text(readRow(current))).toContain("• Read example.txt");
@@ -113,9 +113,9 @@ it("preserves restored rows across reloads and removes the hook when the extensi
           restored = readRow(current);
           expect(current.getToolDefinition("read")).toBe(original);
           expect(
-            current.getAllTools().find((tool) => tool.name === "read")?.sourceInfo.source,
+            current.getAllTools().find((tool) => tool.name === "read")?.sourceInfo.source
           ).toBe("builtin");
-        },
+        }
       });
       if (!restored) throw new Error("Expected transcript restoration during reload");
       restored.invalidate();
@@ -145,14 +145,14 @@ it("decorates only built-in rendering without replacing execution or other owner
   try {
     const definition = {
       ...createReadToolDefinition("/tmp"),
-      renderCall: () => new Text("owner display"),
+      renderCall: () => new Text("owner display")
     };
     for (const source of ["builtin", "remote-extension", "sdk"]) {
       const session = {
         getToolDefinition: () => definition,
         getAllTools: () => [
-          { ...definition, sourceInfo: createSyntheticSourceInfo("read", { source }) },
-        ],
+          { ...definition, sourceInfo: createSyntheticSourceInfo("read", { source }) }
+        ]
       };
       const resolved = host.getRegisteredToolDefinition.call({ session }, "read");
       if (!resolved || !("execute" in resolved)) throw new Error("Expected execution definition");
@@ -191,11 +191,11 @@ it("replaces previous installations and preserves later wrappers when disposed",
     const session = {
       getToolDefinition: () => definition,
       getAllTools: () => [
-        { ...definition, sourceInfo: createSyntheticSourceInfo("read", { source: "builtin" }) },
-      ],
+        { ...definition, sourceInfo: createSyntheticSourceInfo("read", { source: "builtin" }) }
+      ]
     };
     expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).not.toBe(
-      "self",
+      "self"
     );
   } finally {
     secondDispose?.();

@@ -12,9 +12,9 @@
     "./renderers": "./src/renderers.ts"
   },
   "scripts": {
-    "format": "oxfmt --config ../../../oxfmt.config.ts .",
-    "check": "oxlint --config ../../../oxlint.config.ts index.ts src",
-    "test": "vitest run"
+    "format": "vp fmt .",
+    "check": "vp check .",
+    "test": "vp test run"
   },
   "pi": {
     "extensions": [

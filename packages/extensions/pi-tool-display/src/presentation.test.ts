@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { diffStatistics, invocationDetail, resultNotices, resultText } from "./presentation.ts";
 
@@ -7,13 +7,13 @@ describe("tool presentation", () => {
     expect(invocationDetail("read", undefined, "read")).toBe("…");
     expect(invocationDetail("read", { path: 42 }, "read")).toBe("…");
     expect(invocationDetail("read", { file_path: "src/a.ts", offset: 10, limit: 2 }, "read")).toBe(
-      "src/a.ts:10-11",
+      "src/a.ts:10-11"
     );
     expect(
-      invocationDetail("grep", { pattern: "token", path: "src", glob: "*.ts" }, "search"),
+      invocationDetail("grep", { pattern: "token", path: "src", glob: "*.ts" }, "search")
     ).toBe("token in src (*.ts)");
     expect(invocationDetail("docs.search", { query: "TUI" }, "invocation")).toBe(
-      'docs.search({"query":"TUI"})',
+      'docs.search({"query":"TUI"})'
     );
   });
 
@@ -23,16 +23,16 @@ describe("tool presentation", () => {
         content: [
           { type: "text", text: "first" },
           { type: "image", mimeType: "image/png", data: "private-image-data" },
-          { type: "text", text: "last\n" },
+          { type: "text", text: "last\n" }
         ],
-        details: undefined,
-      }),
+        details: undefined
+      })
     ).toBe("first\n[Image: image/png]\nlast");
     const notices = resultNotices({
       truncation: { truncated: true },
       fullOutputPath: "/tmp/output",
       matchLimitReached: 20,
-      linesTruncated: true,
+      linesTruncated: true
     });
     expect(notices.join("\n")).toContain("/tmp/output");
     expect(notices.join("\n")).toContain("Match limit");

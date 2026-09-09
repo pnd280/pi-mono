@@ -4,23 +4,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "format": "pnpm -r format",
-    "format:check": "pnpm -r format --check",
-    "check": "pnpm -r check",
-    "test": "pnpm -r test"
+    "format": "vp fmt .",
+    "format:check": "vp fmt --check .",
+    "check": "vp check",
+    "test": "vp test run"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
     "@earendil-works/pi-tui": "catalog:",
-    "@oxlint/plugins": "catalog:",
     "@types/node": "catalog:",
     "eslint-import-resolver-typescript": "catalog:",
     "eslint-plugin-boundaries": "catalog:",
-    "oxfmt": "catalog:",
-    "oxlint": "catalog:",
-    "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
   "packageManager": "pnpm@12.3.4"

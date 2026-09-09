@@ -2,11 +2,14 @@
 
 ## Setup
 
-From the repository root:
+Install the [Vite+ CLI (`vp`)](https://viteplus.dev/guide/), then run from the repository root:
 
 ```sh
-pnpm install --frozen-lockfile
+vp install --frozen-lockfile
+vp hooks enable
 ```
+
+Extensions load directly from TypeScript; there is no build step.
 
 ## Extensions
 
@@ -15,4 +18,4 @@ pnpm install --frozen-lockfile
 
 ## Development
 
-- [Development conventions](docs/development.md)
+[Commands and conventions](docs/development.md)

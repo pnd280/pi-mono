@@ -1,7 +1,7 @@
 import {
   InteractiveMode,
   type AgentSession,
-  type ToolExecutionComponent,
+  type ToolExecutionComponent
 } from "@earendil-works/pi-coding-agent";
 
 import { toolFamily } from "./presentation.ts";

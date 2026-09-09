@@ -10,11 +10,11 @@ const adapters: ReadonlyMap<string, SearchKind> = new Map([
   ["fff-multi-grep", "multi"],
   ["find", "find"],
   ["grep", "grep"],
-  ["multi_grep", "multi"],
+  ["multi_grep", "multi"]
 ]);
 
 export function fffAdapter(
-  tool: Pick<ToolInfo, "name" | "sourceInfo"> | undefined,
+  tool: Pick<ToolInfo, "name" | "sourceInfo"> | undefined
 ): SearchKind | undefined {
   if (!tool) return undefined;
   const { sourceInfo } = tool;
@@ -22,7 +22,7 @@ export function fffAdapter(
   const owned =
     /^npm:@ff-labs\/pi-fff(?:@[^/]+)?$/.test(sourceInfo.source) ||
     /(?:^|\/)@ff-labs\/pi-fff\/(?:src\/)?index\.[cm]?[jt]s$/.test(
-      sourceInfo.path.replaceAll("\\", "/"),
+      sourceInfo.path.replaceAll("\\", "/")
     );
   return owned ? adapters.get(tool.name) : undefined;
 }
@@ -35,7 +35,7 @@ export default function fffGuardExtension(pi: ExtensionAPI): void {
     if (!kind) return;
     const cancelled = {
       block: true,
-      reason: "Ignored-path detection cancelled; no replacement search was started.",
+      reason: "Ignored-path detection cancelled; no replacement search was started."
     };
     if (ctx.signal?.aborted) return cancelled;
     const controller = new AbortController();
@@ -68,7 +68,7 @@ export default function fffGuardExtension(pi: ExtensionAPI): void {
         if (result.status === "ignored")
           return {
             block: true,
-            reason: blockingReason(event.toolName),
+            reason: blockingReason(event.toolName)
           };
       }
     } catch (error) {
@@ -78,7 +78,7 @@ export default function fffGuardExtension(pi: ExtensionAPI): void {
           ? "inspection timed out"
           : error instanceof Error
             ? error.message.replace(/[\r\n]/g, " ").slice(0, 180)
-            : "inspection failed",
+            : "inspection failed"
       );
     } finally {
       clearTimeout(timeout);

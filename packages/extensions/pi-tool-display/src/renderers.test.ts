@@ -1,6 +1,6 @@
 import { initTheme, type AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createToolDisplayRenderers, type ToolDisplayRenderers } from "./renderers.ts";
 
@@ -20,7 +20,7 @@ function context(overrides: Partial<Context> = {}): Context {
     showImages: false,
     isError: false,
     invalidate: () => {},
-    ...overrides,
+    ...overrides
   };
 }
 function result(text: string): AgentToolResult<unknown> {
@@ -42,7 +42,7 @@ describe("tool display renderers", () => {
     expect(failed).toContain("Permission denied");
     const successful = body("read", {
       ...result("content\ncontent"),
-      details: { truncation: { truncated: true } },
+      details: { truncation: { truncated: true } }
     })
       .render(80)
       .join("\n");
@@ -81,32 +81,32 @@ describe("tool display renderers", () => {
         .renderCall(
           { command: "false" },
           theme,
-          context({ isError: true, executionStarted: false }),
+          context({ isError: true, executionStarted: false })
         )
         .render(80)
-        .join("\n"),
+        .join("\n")
     ).toContain("Failed bash");
     expect(
       renderer
         .renderCall(
           {},
           theme,
-          context({ isPartial: true, argsComplete: false, executionStarted: false }),
+          context({ isPartial: true, argsComplete: false, executionStarted: false })
         )
         .render(80)
-        .join("\n"),
+        .join("\n")
     ).toContain("Preparing");
     expect(
       renderer
         .renderCall({ command: "true" }, theme, context({ executionStarted: false }))
         .render(80)
-        .join("\n"),
+        .join("\n")
     ).toContain("Ran true");
   });
 
   it("retains numbered diffs with a separate compact budget and expanded inspection", () => {
     const diff = Array.from({ length: 20 }, (_, index) => `+${index + 1} added ${index}`).join(
-      "\n",
+      "\n"
     );
     const value = { ...result("Successfully edited example.txt"), details: { diff } };
     const compact = body("edit", value).render(80).map(stripTerminalSequences).join("\n");
@@ -118,7 +118,7 @@ describe("tool display renderers", () => {
       body("edit", value, context({ expanded: true }))
         .render(80)
         .map(stripTerminalSequences)
-        .join("\n"),
+        .join("\n")
     ).toContain("+10 added 9");
   });
 
@@ -126,7 +126,7 @@ describe("tool display renderers", () => {
     let color = "\x1b[31m";
     const changingTheme = {
       ...theme,
-      fg: (_token: string, text: string) => `${color}${text}\x1b[0m`,
+      fg: (_token: string, text: string) => `${color}${text}\x1b[0m`
     };
     const renderer = createToolDisplayRenderers("bash");
     const current = context({ expanded: true });

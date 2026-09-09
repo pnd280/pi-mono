@@ -5,8 +5,11 @@
     "**/.hg": true,
     "**/.DS_Store": true,
     "**/Thumbs.db": true,
-    "**/node_modules": true
+    "**/node_modules": true,
+    ".vite-hooks": true
   },
   "editor.defaultFormatter": "oxc.oxc-vscode",
+  "oxc.path.oxlint": "./node_modules/.bin/oxlint",
+  "oxc.path.oxfmt": "./node_modules/.bin/oxfmt",
   "js/ts.experimental.useTsgo": true
 }

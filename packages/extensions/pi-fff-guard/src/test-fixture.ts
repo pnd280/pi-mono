@@ -9,7 +9,7 @@ export async function fixture() {
     execFileSync("git", args, {
       cwd: root,
       encoding: "utf8",
-      env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
+      env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" }
     });
   const write = async (name: string, text = "fixture_marker\n") => {
     const absolute = path.join(root, name);

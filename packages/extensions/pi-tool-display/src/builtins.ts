@@ -9,7 +9,7 @@ import {
   createWriteToolDefinition,
   type ExtensionAPI,
   type SettingsManager,
-  type ToolDefinition,
+  type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 
 import { createToolDisplayRenderers } from "./renderers.ts";
@@ -31,18 +31,18 @@ type ExecutionSettings = Pick<
 export function registerBuiltinDisplays(
   pi: ToolRegistry,
   cwd: string,
-  settings: ExecutionSettings,
+  settings: ExecutionSettings
 ): void {
   const builtinNames = new Set(
     pi
       .getAllTools()
       .filter((tool) => tool.sourceInfo.source === "builtin")
-      .map((tool) => tool.name),
+      .map((tool) => tool.name)
   );
   const active = pi.getActiveTools();
 
   function register<TParams extends ToolDefinition["parameters"], TDetails>(
-    definition: ToolDefinition<TParams, TDetails>,
+    definition: ToolDefinition<TParams, TDetails>
   ): void {
     if (builtinNames.has(definition.name)) {
       pi.registerTool({ ...definition, ...createToolDisplayRenderers(definition.name) });
@@ -55,8 +55,8 @@ export function registerBuiltinDisplays(
   register(
     createBashToolDefinition(cwd, {
       ...(shellPath === undefined ? {} : { shellPath }),
-      ...(commandPrefix === undefined ? {} : { commandPrefix }),
-    }),
+      ...(commandPrefix === undefined ? {} : { commandPrefix })
+    })
   );
   register(createPowerShellToolDefinition(cwd));
   register(createEditToolDefinition(cwd));

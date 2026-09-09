@@ -2,7 +2,7 @@ import {
   stripTerminalSequences,
   truncateToWidth,
   visibleWidth,
-  wrapTextWithAnsi,
+  wrapTextWithAnsi
 } from "@earendil-works/pi-tui";
 
 /** Tool content is text, not terminal instructions. Styling is applied after normalization. */
@@ -29,7 +29,7 @@ export function compactRows(
   rows: readonly string[],
   maximum: number,
   width: number,
-  hint: string,
+  hint: string
 ): string[] {
   if (maximum < 1 || width < 1) return [];
   if (rows.length <= maximum) return [...rows];
@@ -45,10 +45,10 @@ export function prefixRows(
   rows: readonly string[],
   width: number,
   first = "  └ ",
-  continuation = "    ",
+  continuation = "    "
 ): string[] {
   return rows.map((row, index) =>
-    truncateToWidth((index === 0 ? first : continuation) + row, width, ""),
+    truncateToWidth((index === 0 ? first : continuation) + row, width, "")
   );
 }
 

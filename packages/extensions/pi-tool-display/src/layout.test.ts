@@ -1,5 +1,5 @@
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { bodyWidth, compactRows, displayText, prefixRows, wrapRows } from "./layout.ts";
 

@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { extractScope, resolvePath, type SearchInput, type SearchKind } from "./targets.ts";
 import { fixture } from "./test-fixture.ts";
@@ -23,15 +23,15 @@ const roots = async (kind: SearchKind, input: SearchInput) => {
 describe("explicit search scopes", () => {
   it("resolves explicit paths, rooted globs, finite alternatives, and filename constraints", async () => {
     expect(await roots("grep", { path: "node_modules/dependency/package.json" })).toEqual([
-      "node_modules/dependency/package.json",
+      "node_modules/dependency/package.json"
     ]);
     expect(await roots("grep", { path: "./node_modules/" })).toEqual(["node_modules"]);
     expect(await roots("grep", { path: path.join(directory.root, ".tmp/**/*.html") })).toEqual([
-      ".tmp",
+      ".tmp"
     ]);
     expect(await roots("grep", { path: "{src,node_modules}/**" })).toEqual(["src", "node_modules"]);
     expect(
-      await roots("grep", { path: "../" + path.basename(directory.root) + "/node_modules" }),
+      await roots("grep", { path: "../" + path.basename(directory.root) + "/node_modules" })
     ).toEqual(["node_modules"]);
     expect(resolvePath("~/dependency", directory.root)).toBe(path.join(homedir(), "dependency"));
     expect(await roots("find", { pattern: "node_modules/** package" })).toEqual(["node_modules"]);
@@ -58,8 +58,8 @@ describe("explicit search scopes", () => {
       [
         "multi",
         { patterns: ["node_modules/", "missing/"], constraints: "*.ts !node_modules/ !missing/" },
-        [],
-      ],
+        []
+      ]
     ];
     for (const [kind, input, expectedTargets] of cases) {
       expect(await roots(kind, input), JSON.stringify({ kind, input })).toEqual(expectedTargets);
@@ -77,7 +77,7 @@ describe("explicit search scopes", () => {
       "node_modules/missing",
       "src/main.ts/child",
       "node_modules/missing/**/*.ts",
-      "{missing,also-missing}/**",
+      "{missing,also-missing}/**"
     ];
     for (const missingPath of missingPaths) {
       const scope = await extractScope("grep", { path: missingPath }, directory.root);
@@ -85,30 +85,30 @@ describe("explicit search scopes", () => {
       expect(scope.targets, missingPath).toEqual([]);
     }
     expect(
-      (await extractScope("find", { pattern: "./missing.ts" }, directory.root)).missingPath,
+      (await extractScope("find", { pattern: "./missing.ts" }, directory.root)).missingPath
     ).toBe("./missing.ts");
     expect(
-      (await extractScope("multi", { constraints: "src/ missing/" }, directory.root)).missingPath,
+      (await extractScope("multi", { constraints: "src/ missing/" }, directory.root)).missingPath
     ).toBe("missing/");
   });
 
   it("removes wholly excluded targets, but keeps partially excluded directories", async () => {
     expect(
-      await roots("grep", { path: "{src,node_modules}/**", exclude: "node_modules/,*.min.js" }),
+      await roots("grep", { path: "{src,node_modules}/**", exclude: "node_modules/,*.min.js" })
     ).toEqual(["src"]);
     expect(
       await roots("grep", {
         path: "node_modules/dependency/package.json",
-        exclude: ["!*.json", "src/"],
-      }),
+        exclude: ["!*.json", "src/"]
+      })
     ).toEqual([]);
     expect(await roots("grep", { path: ".tmp/**", exclude: ".tmp/**" })).toEqual([]);
     expect(await roots("grep", { path: ".tmp/**", exclude: ". **" })).toEqual([".tmp"]);
     expect(
-      await roots("grep", { path: "node_modules/", exclude: "node_modules/dependency/" }),
+      await roots("grep", { path: "node_modules/", exclude: "node_modules/dependency/" })
     ).toEqual(["node_modules"]);
     expect(
-      await roots("multi", { patterns: ["src/"], constraints: "{src,node_modules}/** !src/" }),
+      await roots("multi", { patterns: ["src/"], constraints: "{src,node_modules}/** !src/" })
     ).toEqual(["node_modules"]);
   });
 
@@ -118,10 +118,10 @@ describe("explicit search scopes", () => {
     expect(await roots("find", { path: ".tmp/page.html", pattern: "*.ts" })).toEqual([]);
     expect(await roots("multi", { constraints: "src/ node_modules/" })).toEqual([]);
     expect(await roots("multi", { constraints: "node_modules/ node_modules/dependency/" })).toEqual(
-      ["node_modules/dependency"],
+      ["node_modules/dependency"]
     );
     expect(
-      await roots("grep", { path: ".tmp/page.html", exclude: directory.root + "/.tmp/**/*.html" }),
+      await roots("grep", { path: ".tmp/page.html", exclude: directory.root + "/.tmp/**/*.html" })
     ).toEqual([]);
   });
 

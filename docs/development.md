@@ -2,31 +2,31 @@
 
 ## Code and tooling
 
-Every workspace package exposes these scripts, scoped to its own files:
+Vite+ owns formatting, linting, type checking, and test execution through the root [vite.config.ts](../vite.config.ts). Checks fail on warnings.
 
-- `check`: Oxlint's combined lint and TypeScript diagnostics, with warnings failing through the shared configuration.
-- `test`: Vitest using the shared [runner convention](agents/testing.md#runner).
-- `format`: Oxfmt formatting, accepting `--check` for validation without writes.
+Every workspace package provides scoped `check`, `test`, and `format` scripts. Tests use the shared [runner convention](agents/testing.md#runner).
 
-Invoke package scripts instead of calling Oxlint or Oxfmt directly. Resolve diagnostics in the implementation, preserving shared checks and explaining any necessary narrow exception.
+Resolve diagnostics in the implementation, preserving shared checks and explaining any necessary narrow exception.
 
 ## Focused validation
 
-Filter by exact manifest name:
+Use `vpr` (the shorthand for `vp run`) and `<package-name>#<task>` to target an exact manifest name:
 
 ```sh
-pnpm --filter '<package-name>' format --check
-pnpm --filter '<package-name>' check
-pnpm --filter '<package-name>' test
+vpr '<package-name>#format' --check
+vpr '<package-name>#check'
+vpr '<package-name>#test'
 ```
 
-Root `check`, `test`, and `format` commands recurse through workspace packages; they do not check root-level files. Reserve them for workspace-wide impact. To check formatting of root-level files, pass their absolute paths to a package's `format --check` script; Oxfmt rejects paths containing `..`.
+Use `vpr --filter <pattern> <task>` for package patterns or dependency/dependent selection.
+
+For workspace-wide changes, run `vp check` and `vp test run` at the repository root to include root-level files and all packages. Use `vp fmt --check` to check repository formatting without writes, or `vp fmt` to format it.
 
 ## Packages and dependencies
 
 - **Manifest:** use a unique name, `"private": true`, and `"type": "module"`.
-- **Source:** use TypeScript under `src/`. Give each package a `tsconfig.json` extending [tsconfig.base.json](../tsconfig.base.json) and including its source and tests. Its scripts must apply the shared lint and format configs from the package's working directory.
-- **Dependencies:** keep shared development tooling and Pi host packages in the root `devDependencies`; declare package-specific dependencies in the owning package. Use `workspace:*` for local packages and `catalog:` for shared external versions. Update dependencies with pnpm and include the resulting lockfile changes.
+- **Source:** use TypeScript under `src/`. Give each package a `tsconfig.json` extending [tsconfig.base.json](../tsconfig.base.json) and including its source and tests. Vite+ discovers the shared root configuration from the package's working directory.
+- **Dependencies:** keep shared development tooling and Pi host packages in the root `devDependencies`; declare package-specific dependencies in the owning package. Use `workspace:*` for local packages and `catalog:` for shared external versions. Update dependencies with `vp add`, `vp remove`, or `vp update` and include the resulting pnpm lockfile changes. Vite+ delegates dependency management to the pinned pnpm version. Keep the `vite` alias, `vitest` pin, and their overrides aligned with the versions reported by `vp toolchain` when updating Vite+.
 - **Package API:** declare supported entry points in `exports`. Import other workspace packages by their declared name and exported subpaths; keep relative imports inside the owning package.
 - **Pi packages:** before editing extension manifests or host/runtime dependencies, read the installed [package documentation](../node_modules/@earendil-works/pi-coding-agent/docs/packages.md). Keep the default pi factory in `src/index.ts`. A package-root `index.ts` must contain only `export { default } from "./src/index.ts";`, and `pi.extensions` must list only `./index.ts`. This gives local extensions their package directory name in Pi's compact startup list. Include the wrapper in `tsconfig.json` and the package's `check` script.
 

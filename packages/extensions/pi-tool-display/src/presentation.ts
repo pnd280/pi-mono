@@ -67,7 +67,7 @@ export function invocationDetail(name: string, input: unknown, family: ToolFamil
 export function resultText(result: AgentToolResult<unknown>): string {
   return result.content
     .map((block) =>
-      block.type === "text" ? displayText(block.text) : `[Image: ${displayText(block.mimeType)}]`,
+      block.type === "text" ? displayText(block.text) : `[Image: ${displayText(block.mimeType)}]`
     )
     .join("\n")
     .replace(/\n+$/, "");

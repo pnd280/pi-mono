@@ -9,9 +9,9 @@ import {
   SettingsManager,
   type ExtensionAPI,
   type ExtensionContext,
-  type ToolDefinition,
+  type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { registerBuiltinDisplays } from "./builtins.ts";
 
@@ -24,7 +24,7 @@ function registry(sources: Record<string, string>, activeNames: string[]) {
         name,
         description: name,
         parameters: {},
-        sourceInfo: createSyntheticSourceInfo(name, { source }),
+        sourceInfo: createSyntheticSourceInfo(name, { source })
       })),
     getActiveTools: () => [...active],
     registerTool: ((tool) => {
@@ -33,7 +33,7 @@ function registry(sources: Record<string, string>, activeNames: string[]) {
     }) satisfies ExtensionAPI["registerTool"],
     setActiveTools: (names) => {
       active = [...names];
-    },
+    }
   };
   return { api, registered };
 }
@@ -41,7 +41,7 @@ function registry(sources: Record<string, string>, activeNames: string[]) {
 const directories: string[] = [];
 afterEach(async () => {
   await Promise.all(
-    directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+    directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true }))
   );
 });
 
@@ -49,7 +49,7 @@ describe("built-in registration", () => {
   it("preserves the active set and skips extension/SDK definitions with built-in names", () => {
     const { api, registered } = registry(
       { read: "builtin", edit: "builtin", bash: "remote-extension", write: "sdk" },
-      ["bash", "read"],
+      ["bash", "read"]
     );
     registerBuiltinDisplays(api, "/tmp", SettingsManager.inMemory());
     expect([...registered.keys()]).toEqual(["read", "edit"]);
@@ -61,10 +61,10 @@ describe("built-in registration", () => {
       parameters: original.parameters,
       promptSnippet: original.promptSnippet,
       promptGuidelines: original.promptGuidelines,
-      renderShell: "self",
+      renderShell: "self"
     });
     expect(edit?.prepareArguments?.({ path: "file", oldText: "before", newText: "after" })).toEqual(
-      original.prepareArguments?.({ path: "file", oldText: "before", newText: "after" }),
+      original.prepareArguments?.({ path: "file", oldText: "before", newText: "after" })
     );
   });
 
@@ -77,13 +77,13 @@ describe("built-in registration", () => {
       "/unused-factory-directory",
       SettingsManager.inMemory({
         shellPath: "/bin/bash",
-        shellCommandPrefix: "export TOOL_DISPLAY_TEST=preserved",
-      }),
+        shellCommandPrefix: "export TOOL_DISPLAY_TEST=preserved"
+      })
     );
     // These built-ins consume cwd and session metadata only.
     const partialContext: Partial<ExtensionContext> = {
       cwd: directory,
-      sessionManager: SessionManager.inMemory(directory),
+      sessionManager: SessionManager.inMemory(directory)
     };
     const context = partialContext as ExtensionContext;
     const edit = registered.get("edit");
@@ -97,13 +97,13 @@ describe("built-in registration", () => {
       { path: "example.txt", edits: [{ oldText: "before", newText: "after" }] },
       undefined,
       undefined,
-      context,
+      context
     );
     expect(await readFile(join(directory, "example.txt"), "utf8")).toBe("after\n");
     expect(edited.details).toMatchObject({
       firstChangedLine: 1,
       diff: expect.stringContaining("+1 after"),
-      patch: expect.stringContaining("+after"),
+      patch: expect.stringContaining("+after")
     });
     const updates: unknown[] = [];
     const output = await bash.execute(
@@ -113,12 +113,12 @@ describe("built-in registration", () => {
       (update) => {
         updates.push(update);
       },
-      context,
+      context
     );
     expect(output.content).toEqual([{ type: "text", text: `preserved\n${directory}\n` }]);
     expect(updates.length).toBeGreaterThan(0);
     await expect(
-      bash.execute("bash-2", { command: "exit 7" }, undefined, undefined, context),
+      bash.execute("bash-2", { command: "exit 7" }, undefined, undefined, context)
     ).rejects.toThrow("Command exited with code 7");
     await expect(
       edit.execute(
@@ -126,8 +126,8 @@ describe("built-in registration", () => {
         { path: "example.txt", edits: [{ oldText: "after", newText: "never" }] },
         AbortSignal.abort(),
         undefined,
-        context,
-      ),
+        context
+      )
     ).rejects.toThrow("aborted");
     expect(await readFile(join(directory, "example.txt"), "utf8")).toBe("after\n");
   });

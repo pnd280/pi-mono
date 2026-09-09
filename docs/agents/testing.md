@@ -15,12 +15,12 @@
 
 ## Runner
 
-Keep `*.test.ts` next to the behavior it covers, with explicit imports from `vitest`. Use `vitest run` with missing-test failures visible.
+Keep `*.test.ts` next to the behavior it covers, with explicit imports from `vite-plus/test`. Use `vp test run` with missing-test failures visible.
 
-For an intentionally test-free package, document the reason in its README and use `vitest run --passWithNoTests`. Remove that exception when meaningful tests are added.
+For an intentionally test-free package, document the reason in its README and use `vp test run --passWithNoTests`. Remove that exception when meaningful tests are added.
 
 Use the whole package suite when the change spans its behavior. For a single file, pass its path to the [package script](../development.md#focused-validation):
 
 ```sh
-pnpm --filter '<package-name>' test src/behavior.test.ts
+vpr '<package-name>#test' src/behavior.test.ts
 ```

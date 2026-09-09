@@ -5,7 +5,7 @@ import {
   renderDiff,
   type AgentToolResult,
   type Theme,
-  type ToolDefinition,
+  type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -18,7 +18,7 @@ import {
   resultText,
   stringField,
   toolFamily,
-  type ToolFamily,
+  type ToolFamily
 } from "./presentation.ts";
 
 export type { ToolFamily } from "./presentation.ts";
@@ -36,7 +36,7 @@ export interface ToolDisplayRenderers {
     result: AgentToolResult<unknown>,
     options: { expanded: boolean; isPartial: boolean },
     theme: DisplayTheme,
-    context: DisplayContext,
+    context: DisplayContext
   ): Component;
 }
 
@@ -47,7 +47,7 @@ const verbs: Record<ToolFamily, [string, string]> = {
   shell: ["Running", "Ran"],
   edit: ["Editing", "Edited"],
   write: ["Writing", "Wrote"],
-  invocation: ["Calling", "Called"],
+  invocation: ["Calling", "Called"]
 };
 
 /** Cache only rendered rows; do not accumulate streamed output. */
@@ -96,7 +96,7 @@ function heading(
   family: ToolFamily,
   context: DisplayContext,
   theme: DisplayTheme,
-  width: number,
+  width: number
 ): string[] {
   const pending = context.isPartial;
   const verb = context.isError ? `Failed ${name}` : pending ? verbs[family][0] : verbs[family][1];
@@ -116,13 +116,13 @@ function heading(
   } else {
     rows = [
       truncateToWidth(title, width, "…"),
-      ...prefixRows(wrapRows(detail, bodyWidth(width)), width, "  │ ", "  │ "),
+      ...prefixRows(wrapRows(detail, bodyWidth(width)), width, "  │ ", "  │ ")
     ];
   }
   if (!context.expanded && rows.length > 3) {
     rows = [
       ...rows.slice(0, 3),
-      truncateToWidth(theme.fg("dim", `  │ … (${expansionHint()})`), width, "…"),
+      truncateToWidth(theme.fg("dim", `  │ … (${expansionHint()})`), width, "…")
     ];
   }
   if (family === "write" && context.expanded) {
@@ -156,7 +156,7 @@ function outputRows(
   text: string,
   width: number,
   theme: DisplayTheme,
-  { expanded, maximum = 5, styled = false, isError = false, firstPrefix = "  └ " }: OutputOptions,
+  { expanded, maximum = 5, styled = false, isError = false, firstPrefix = "  └ " }: OutputOptions
 ): string[] {
   const available = bodyWidth(width);
   const rows = wrapRows(text, available);
@@ -164,7 +164,7 @@ function outputRows(
   return prefixRows(
     visible.map((row) => (styled ? row : theme.fg(isError ? "error" : "muted", row))),
     width,
-    firstPrefix,
+    firstPrefix
   );
 }
 
@@ -173,7 +173,7 @@ function resultRows(
   family: ToolFamily,
   context: DisplayContext,
   theme: DisplayTheme,
-  width: number,
+  width: number
 ): string[] {
   const text = resultText(result);
   const notices = resultNotices(result.details);
@@ -186,8 +186,8 @@ function resultRows(
         expanded: context.expanded,
         maximum: 12,
         styled: true,
-        firstPrefix: "    ",
-      }),
+        firstPrefix: "    "
+      })
     ];
   } else if (family === "read" && !context.isPartial && !context.isError && !context.expanded) {
     const images = result.content.filter((block) => block.type === "image").length;
@@ -199,7 +199,7 @@ function resultRows(
           : "Empty file";
     rows = prefixRows(
       wrapRows(theme.fg("dim", `${summary} (${expansionHint()})`), bodyWidth(width)),
-      width,
+      width
     );
   } else {
     const source =
@@ -217,13 +217,13 @@ function resultRows(
         firstPrefix:
           family === "write" && context.expanded && stringField(record(context.args).content)
             ? "    "
-            : "  └ ",
-      },
+            : "  └ "
+      }
     );
   }
   for (const notice of notices) {
     rows.push(
-      ...prefixRows(wrapRows(theme.fg("warning", notice), bodyWidth(width)), width, "    "),
+      ...prefixRows(wrapRows(theme.fg("warning", notice), bodyWidth(width)), width, "    ")
     );
   }
   return rows;
@@ -232,18 +232,18 @@ function resultRows(
 /** Opt-in rendering for custom/MCP tools; spread after the original definition to preserve execution. */
 export function createToolDisplayRenderers(
   name: string,
-  family: ToolFamily = toolFamily(name),
+  family: ToolFamily = toolFamily(name)
 ): ToolDisplayRenderers {
   return {
     renderShell: "self",
     renderCall(args, theme, context) {
       return component(context, (width) =>
-        heading(displayText(name), args, family, context, theme, width),
+        heading(displayText(name), args, family, context, theme, width)
       );
     },
     renderResult(result, options, theme, context) {
       const current = { ...context, ...options };
       return component(context, (width) => resultRows(result, family, current, theme, width));
-    },
+    }
   };
 }
