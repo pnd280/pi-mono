@@ -1,6 +1,9 @@
 ## Working agreement
 
+- Make clean breaks when changing APIs, configuration, or behavior. Do not retain compatibility layers, deprecated aliases, legacy code paths, or transitional support unless explicitly requested.
+- Update all affected workspace consumers, tests, and documentation in the same change, and remove superseded implementations.
 - Create all worktrees under `.worktrees`.
+- Follow the [documentation conventions](docs/development.md#documentation).
 - After changes, follow the [verification workflow](docs/agents/verification.md) before handoff.
 
 ## Task references

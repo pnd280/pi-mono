@@ -1,9 +1,16 @@
-Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):
+# Pi API references
 
-- Main documentation: ../node_modules/@earendil-works/pi-coding-agent/README.md
-- Additional docs: ../node_modules/@earendil-works/pi-coding-agent/docs
-- Examples: ../node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)
-- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory
-- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md)
-- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing
-- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)
+- [Main documentation](../node_modules/@earendil-works/pi-coding-agent/README.md)
+- [Extensions](../node_modules/@earendil-works/pi-coding-agent/docs/extensions.md) and [extension examples](../node_modules/@earendil-works/pi-coding-agent/examples/extensions/)
+- [TUI components](../node_modules/@earendil-works/pi-coding-agent/docs/tui.md)
+- [Themes](../node_modules/@earendil-works/pi-coding-agent/docs/themes.md)
+- [Skills](../node_modules/@earendil-works/pi-coding-agent/docs/skills.md)
+- [Prompt templates](../node_modules/@earendil-works/pi-coding-agent/docs/prompt-templates.md)
+- [Keybindings](../node_modules/@earendil-works/pi-coding-agent/docs/keybindings.md)
+- [SDK integration](../node_modules/@earendil-works/pi-coding-agent/docs/sdk.md) and [SDK examples](../node_modules/@earendil-works/pi-coding-agent/examples/sdk/)
+- [Custom providers](../node_modules/@earendil-works/pi-coding-agent/docs/custom-provider.md)
+- [Adding models](../node_modules/@earendil-works/pi-coding-agent/docs/models.md)
+- [Packages](../node_modules/@earendil-works/pi-coding-agent/docs/packages.md)
+- [Environment variables](../node_modules/@earendil-works/pi-coding-agent/docs/environment-variables.md)
+
+Before implementing Pi changes, read the relevant documents completely, inspect their examples, and follow related Markdown links. Resolve paths in installed documentation relative to that document, not the workspace root.

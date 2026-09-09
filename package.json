@@ -18,8 +18,7 @@
     "eslint-plugin-boundaries": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plus": "catalog:",
-    "vitest": "catalog:"
+    "vite-plus": "catalog:"
   },
   "packageManager": "pnpm@12.3.4"
 }

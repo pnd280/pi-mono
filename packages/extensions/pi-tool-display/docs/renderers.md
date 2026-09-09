@@ -11,6 +11,8 @@ pi.registerTool({
 });
 ```
 
+In SDK hosts, decorate the host's tool definitions with this factory instead of loading the CLI-only default extension.
+
 Use `"invocation"` to display custom arguments as JSON.
 
 For Pi-compatible tools, select a specialized family. Path arguments accept `path` or `file_path`.
@@ -25,8 +27,6 @@ For Pi-compatible tools, select a specialized family. Path arguments accept `pat
 | `"write"`  | Path and `content`; expansion shows the submitted content.                                                                     |
 
 If the family is omitted, `read`, `edit`, and `write` select their matching families; `grep`/`find` select `"search"`, `ls` selects `"list"`, and `bash`/`powershell` select `"shell"`. Other names use `"invocation"`.
-
-In SDK hosts, decorate the host's tool definitions with this factory instead of loading the CLI-only default extension.
 
 ## Result metadata
 

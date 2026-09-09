@@ -26,11 +26,14 @@ For workspace-wide changes, run `vp check` and `vp test run` at the repository r
 
 - **Manifest:** use a unique name, `"private": true`, and `"type": "module"`.
 - **Source:** use TypeScript under `src/`. Give each package a `tsconfig.json` extending [tsconfig.base.json](../tsconfig.base.json) and including its source and tests. Vite+ discovers the shared root configuration from the package's working directory.
-- **Dependencies:** keep shared development tooling and Pi host packages in the root `devDependencies`; declare package-specific dependencies in the owning package. Use `workspace:*` for local packages and `catalog:` for shared external versions. Update dependencies with `vp add`, `vp remove`, or `vp update` and include the resulting pnpm lockfile changes. Vite+ delegates dependency management to the pinned pnpm version. Keep the `vite` alias, `vitest` pin, and their overrides aligned with the versions reported by `vp toolchain` when updating Vite+.
+- **Dependencies:** keep shared development tooling and Pi host packages in the root `devDependencies`; declare package-specific dependencies in the owning package. Use `workspace:*` for local packages and `catalog:` for shared external versions. Update dependencies with `vp add`, `vp remove`, or `vp update` and include the resulting pnpm lockfile changes.
+- **Vite+ dependencies:** keep the direct `vite` alias to satisfy Vitest's peer dependency under pnpm. `vite-plus` supplies `vitest` transitively. When updating Vite+, align the alias, `vitest` catalog pin, and overrides with the versions reported by `vp toolchain`.
 - **Package API:** declare supported entry points in `exports`. Import other workspace packages by their declared name and exported subpaths; keep relative imports inside the owning package.
 - **Pi packages:** before editing extension manifests or host/runtime dependencies, read the installed [package documentation](../node_modules/@earendil-works/pi-coding-agent/docs/packages.md). Keep the default pi factory in `src/index.ts`. A package-root `index.ts` must contain only `export { default } from "./src/index.ts";`, and `pi.extensions` must list only `./index.ts`. This gives local extensions their package directory name in Pi's compact startup list. Include the wrapper in `tsconfig.json` and the package's `check` script.
 
 ## Documentation
+
+Use progressive disclosure: keep entry documents concise and task-focused, retain essential prerequisites and constraints inline, and link to canonical references for details. Keep short, cohesive topics together.
 
 Every workspace package must have a short `README.md` covering:
 
