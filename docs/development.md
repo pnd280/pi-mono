@@ -5,7 +5,7 @@
 Every workspace package exposes these scripts, scoped to its own files:
 
 - `check`: Oxlint's combined lint and TypeScript diagnostics, with warnings failing through the shared configuration.
-- `test`: a non-watch Vitest runner.
+- `test`: Vitest using the shared [runner convention](agents/testing.md#runner).
 - `format`: Oxfmt formatting, accepting `--check` for validation without writes.
 
 Invoke package scripts instead of calling Oxlint or Oxfmt directly. Resolve diagnostics in the implementation, preserving shared checks and explaining any necessary narrow exception.
@@ -35,7 +35,7 @@ Root `check`, `test`, and `format` commands recurse through workspace packages; 
 Every workspace package must have a short `README.md` covering:
 
 - **Purpose:** what the package does and when to use it.
-- **Usage:** package-specific operation and integration examples where needed; refer to `package.json` for declared entry points.
+- **Usage:** package-specific operation and integration examples where needed. Omit generic extension-loading commands.
 - **Configuration:** available options, environment variables, and defaults.
 - **Side effects:** observable effects such as file writes, persistent state changes, or network requests.
 - **Validation:** a link to the [focused validation commands](#focused-validation) with the package's manifest name, or equivalent runnable package-scoped commands, plus any required manual checks.

@@ -1,0 +1,23 @@
+{
+  "name": "pi-fff-guard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Block FFF searches targeting Git-ignored or missing explicit paths",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "format": "oxfmt --config ../../../oxfmt.config.ts .",
+    "check": "oxlint --config ../../../oxlint.config.ts index.ts src",
+    "test": "vitest run"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

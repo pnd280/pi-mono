@@ -8,7 +8,6 @@
 
 ## Constraints
 
-- Keep display changes out of model-visible arguments/results and delegated execution. Preserve tool ownership and the active list.
 - Keep the extension scoped to individual tool-call rows. Cross-call exploration grouping, transcript pagers, user `!` shell cards, and HTML exports are outside its scope.
 - Keep state local to each host row and derive previews from supplied arguments/results. Leave inline images to Pi; do not retain image bytes separately, accumulate streamed deltas, or introduce timers.
 - Keep replay integration render-only and reversible. Preserve later wrappers when disposing it.
