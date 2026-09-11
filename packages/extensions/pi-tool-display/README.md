@@ -10,15 +10,17 @@ For custom/MCP tools or SDK hosts, use [renderer integration](docs/renderers.md)
 
 ## Configuration
 
-There are no extension-specific settings or environment variables. Appearance follows Pi's theme and expansion state. The extension reads Pi's `shellPath`, `shellCommandPrefix`, and `images.autoResize` settings, honoring project trust. Settings read errors skip registration and produce a warning.
+There are no extension-specific settings or environment variables. Appearance follows Pi's theme and expansion state. Pi retains its own already-configured tools and execution settings; the extension does not read settings.
 
 ## Side effects and compatibility
 
-The default extension decorates only Pi-owned built-ins; tools overridden by other extensions are left unchanged. Model-visible arguments/results, tool execution, and the active tool list stay unchanged.
+In the standard CLI, the default extension decorates only Pi-owned built-ins; tools overridden by other extensions are left unchanged, even when they have built-in names. It never registers tools or changes the active tool list. Stored definitions, schemas, prompt metadata, ownership, execution, and model-visible arguments/results remain unchanged.
 
-Transcript replay during `/reload` depends on a private Pi API; if it is unavailable, Pi warns that restored rows may use default displays.
+Live and historical cards depend on the private `InteractiveMode.prototype.getRegisteredToolDefinition` lookup, verified against Pi **0.85.1**. The extension installs a reversible wrapper before history reconstruction and returns copies with display callbacks. If installation is unavailable, it warns and keeps original rendering. If decoration fails, it returns the available original view; failures in the previous lookup propagate without retry. Shutdown and non-TUI startup deactivate the hook without removing later wrappers.
 
-Settings reads may acquire temporary locks. The extension makes no network requests and writes no settings or session entries.
+The automatic integration is CLI-only: Pi also labels SDK base-tool overrides as `builtin`, so that label alone cannot establish native ownership. SDK hosts must use the explicit [renderer factory](docs/renderers.md) instead.
+
+The extension makes no network requests, reads no tool files, and writes no settings or session entries.
 
 ## Validation
 

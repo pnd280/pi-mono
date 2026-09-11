@@ -1,35 +1,22 @@
-import { SettingsManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import { registerBuiltinDisplays } from "./builtins.ts";
-import { installReplayDisplays } from "./replay.ts";
+import { installBuiltinDisplays } from "./replay.ts";
 
 export default function toolDisplay(pi: ExtensionAPI): void {
-  const disposeReplay = installReplayDisplays();
+  const disposeDisplays = installBuiltinDisplays();
   pi.on("session_shutdown", () => {
-    disposeReplay?.();
+    disposeDisplays?.();
   });
   pi.on("session_start", (_event, context) => {
     if (context.mode !== "tui") {
-      disposeReplay?.();
+      disposeDisplays?.();
       return;
     }
-    if (!disposeReplay) {
+    if (!disposeDisplays) {
       context.ui.notify(
-        "pi-tool-display: transcript replay hook unavailable; /reload may restore default displays.",
+        "pi-tool-display: private TUI display lookup unavailable; keeping original rendering for live and restored tools.",
         "warning"
       );
     }
-    // Mirror the CLI's execution settings without reading untrusted project overrides.
-    const settings = SettingsManager.create(context.cwd, undefined, {
-      projectTrusted: context.isProjectTrusted()
-    });
-    if (settings.drainErrors().length > 0) {
-      context.ui.notify(
-        "pi-tool-display: could not read execution settings; keeping original tools.",
-        "warning"
-      );
-      return;
-    }
-    registerBuiltinDisplays(pi, context.cwd, settings);
   });
 }

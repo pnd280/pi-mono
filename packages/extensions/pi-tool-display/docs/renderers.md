@@ -11,7 +11,7 @@ pi.registerTool({
 });
 ```
 
-In SDK hosts, decorate the host's tool definitions with this factory instead of loading the CLI-only default extension.
+In SDK hosts, decorate the host's tool definitions with this factory instead of loading the CLI-only default extension. Pi labels SDK base-tool overrides as `builtin` too; the automatic lookup cannot distinguish them from native tools by that label. This explicit integration does not depend on the private TUI lookup.
 
 Use `"invocation"` to display custom arguments as JSON.
 
