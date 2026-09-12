@@ -21,6 +21,8 @@ Pending standalone and expanded cards use `Reading`, `Searching`, `Listing`, `Ru
 
 File targets in read/edit/write and native search/list summaries use paths relative to the rendering context's cwd when inside it, and absolute paths when outside it. The cwd itself displays as `.`. Grouped reads retain directory names and read ranges. Range suffixes such as `:10-11` use `dim` in compact, standalone, and expanded cards, while the file path uses `text`. Resolution is lexical, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and FFF search/filter expressions are not rewritten.
 
+For FFF single-pattern tools, explicit empty strings have dedicated summaries: `ffgrep` shows `Search ""` in compact groups and `Searched "" in .` when expanded; a supplied scope appears after `in` unchanged. Empty `fffind` patterns show `List files in <scope>` / `Listed files in <scope>`, with `.` as the default scope. Missing patterns use `(pattern missing)` in specialized headings and do not qualify for grouping. These labels do not change tool arguments or interpret backend results.
+
 Tree branches represent meaningful items: tool invocations in a compact exploration group, or independent result items within a standalone card. `├` marks an item with a later visible sibling; `└` marks the final sibling under that parent. Continuation lines retain `│` only where a later sibling follows. A nested tree can have several `└` endings at different levels.
 
 Warnings, related diagnostics, references, and routine metadata are continuation lines, not additional branches. A patch summary, all its hunks, omission hints, and application diagnostics form one result item. Adjacent text blocks share an output item; independent images and typed MCP content items retain their order. Call-level notices for multiple independent results continue the card heading rather than attaching to its final resource. A collapsed read with only a notice does not invent a result branch. Native image captions suppress equivalent generated fallback descriptions without dropping model warnings or changing the retained result.
@@ -41,7 +43,7 @@ Each invocation stays in its own Pi row so native images remain before the follo
 When enabled and expanded, parameter blocks continue the heading with a straight `│` rule through soft wraps when a visible result follows. Without a visible result, they use indentation instead of an unfinished rail:
 
 ```text
-• Searched … in **/AGENTS.md
+• Listed files in **/AGENTS.md
   │ {
   │   "pattern": "",
   │   "path": "**/AGENTS.md",
@@ -109,6 +111,7 @@ Adapters have:
 - `id`: stable contract identifier. `pi:*`, `fff:*`, and `generic` are reserved by this package.
 - `family`: `read`, `search`, `list`, `shell`, `edit`, `write`, or `invocation`.
 - `supports(args, result)`: optionally validate retained data for coordinated hosts. Returning `false` uses generic rendering and removes the call from exploration groups; a later supported result restores the adapter. Omission accepts the result. This callback runs only once a result exists, including partial updates; it does not change the selected adapter or retained data. Standalone factories use their explicitly supplied adapter directly.
+- `headingVerbs(args)`: optionally return a `[pending, complete]` pair to override action wording for supplied arguments. Omission or `undefined` uses the family's verbs. Cancellation and unavailable outcomes still take precedence; result presentation is unchanged.
 - `invocation(args)`: optionally supply header `InvocationPart[]` (`value`, `path`, `pattern`, `annotation`, or `parameters`, each with `text`) when arguments differ from the family's native shape. The FFF multi-search adapter uses this for `patterns` and `constraints`. Use `path` for a concrete file target, `pattern` for a highlighted search pattern, and `value` for other literal text or filter expressions. Paths are formatted against Pi's render cwd; adapter callbacks still receive the original arguments. Parts follow parameter visibility and semantic styling; the type is exported from `pi-tool-display/adapters`.
 - `exploration(args, result?)`: optional ordered `{ label: "Read" | "Search" | "List", parts: InvocationPart[] }` items for coordinated hosts; return `undefined` or an empty array when the contract is unavailable. Result updates can remove or restore a call's group membership without changing source order.
 - `patch: true`: interpret successful `details.patch` as a bounded unified patch.

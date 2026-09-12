@@ -299,7 +299,8 @@ function status(p: Projection): {
   const current = phase(p);
   const pending = ["preparing", "queued", "executing"].includes(current);
   const failed = p.call ? p.call.outcome === "failure" : p.context.isError;
-  let verb = pending ? verbs[p.adapter.family][0] : verbs[p.adapter.family][1];
+  const actionVerbs = p.adapter.headingVerbs?.(p.context.args) ?? verbs[p.adapter.family];
+  let verb = actionVerbs[pending ? 0 : 1];
   if (current === "unavailable") verb = "Outcome unavailable";
   if (p.call && cancellation(p.call))
     return { verb: "Cancelled", color: "warning", pending: false };

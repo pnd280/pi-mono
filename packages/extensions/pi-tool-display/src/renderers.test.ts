@@ -10,6 +10,7 @@ import {
 import { stripTerminalSequences, visibleWidth, type TUI } from "@earendil-works/pi-tui";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 
+import { fffToolInfo } from "./adapters/fff/test-fixture.ts";
 import {
   genericAdapter,
   nativeAdapter,
@@ -618,12 +619,12 @@ describe("tool display renderers", () => {
         }
         expect(call.args).toBe(args);
         expect(call.result).toBe(retained);
-        for (const empty of [{}, multi ? { patterns: [] } : { pattern: "" }]) {
+        for (const empty of multi ? [{}, { patterns: [] }] : [{}]) {
           const rows = createToolDisplayRenderers(name, adapter)
             .renderCall(empty, themed, context())
             .render(100)
             .join("\n");
-          expect(rows).toContain(themed.fg("dim", "…"));
+          expect(rows).toContain(themed.fg("dim", multi ? "…" : "(pattern missing)"));
         }
         const native = nativeAdapter(name);
         if (native) {
@@ -639,6 +640,80 @@ describe("tool display renderers", () => {
       }
     }
   });
+  it.each(
+    (
+      [
+        [
+          "ffgrep",
+          { pattern: "", path: "packages/utils/src/fff-tools.ts" },
+          'Search "" in packages/utils/src/fff-tools.ts',
+          'Searched "" in packages/utils/src/fff-tools.ts'
+        ],
+        ["ffgrep", { pattern: "" }, 'Search ""', 'Searched "" in .'],
+        [
+          "fffind",
+          { pattern: "", path: "packages/" },
+          "List files in packages/",
+          "Listed files in packages/"
+        ],
+        ["fffind", { pattern: "" }, "List files in .", "Listed files in ."]
+      ] as const
+    ).flatMap(([name, args, compact, expanded]) =>
+      [false, true].map((isExpanded) => ({ name, args, compact, expanded, isExpanded }))
+    )
+  )(
+    "renders explicit empty $name patterns (expanded=$isExpanded, args=$args)",
+    ({ name, args, compact, expanded, isExpanded }) => {
+      Object.freeze(args);
+      const adapter = officialFffAdapter(fffToolInfo(name))!;
+      const coordinator = new TranscriptCoordinator("empty-search-patterns");
+      try {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 0, toolCallId: name },
+          name,
+          args,
+          adapter,
+          "historical"
+        );
+        const supplied = result("retained backend output");
+        coordinator.result(call, supplied, "success");
+        coordinator.expand(call, isExpanded);
+        const renderer = createToolDisplayRenderers(name, adapter, {
+          binding: { call, coordinator }
+        });
+        const current = context({ args, expanded: isExpanded });
+        expect(renderer.renderCall(args, theme, current).render(120)).toEqual(
+          isExpanded ? [`• ${expanded}`] : ["• Explored", `  └ ${compact}`]
+        );
+        expect(renderer.renderResult(supplied, current, theme, current).render(120)).toEqual(
+          isExpanded ? ["  └ retained backend output"] : []
+        );
+        const standalone = createToolDisplayRenderers(name, adapter);
+        expect(standalone.renderCall(args, theme, current).render(120)).toEqual([`• ${expanded}`]);
+        expect(call.args).toBe(args);
+        expect(call.result).toBe(supplied);
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  );
+
+  it.each(["ffgrep", "fffind"])(
+    "keeps missing %s patterns distinct from explicit emptiness",
+    (name) => {
+      const adapter = officialFffAdapter(fffToolInfo(name))!;
+      for (const expanded of [false, true]) {
+        const args = { path: "packages/" };
+        expect(adapter.exploration?.(args)).toBeUndefined();
+        expect(
+          createToolDisplayRenderers(name, adapter)
+            .renderCall(args, theme, context({ expanded }))
+            .render(100)
+        ).toEqual(["• Searched (pattern missing) in packages/"]);
+      }
+    }
+  );
+
   it("uses the current adapter's parameter policy after late registration and generic fallback", () => {
     const adapter = officialFffAdapter({
       name: "fffind",

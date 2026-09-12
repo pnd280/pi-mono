@@ -33,6 +33,8 @@ export interface ToolDisplayAdapter {
   family: ToolFamily;
   /** Coordinated calls fall back to generic rendering when retained data fails this contract. */
   supports?(args: unknown, result: AgentToolResult<unknown>): boolean;
+  /** Override action wording without changing result presentation or terminal outcomes. */
+  headingVerbs?(args: unknown): readonly [pending: string, complete: string] | undefined;
   invocation?(args: unknown): InvocationPart[];
   exploration?(args: unknown, result?: AgentToolResult<unknown>): ExplorationItem[] | undefined;
   savedOutput?: boolean;

@@ -1,7 +1,7 @@
 import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
 
-import { record, stringField, invocationParts } from "../../presentation.ts";
+import { record, stringField, invocationParts, type InvocationPart } from "../../presentation.ts";
 import type { ToolDisplayAdapter } from "../types.ts";
 import { fffResultParts, fffTextNotices } from "./result-presentation.ts";
 
@@ -28,6 +28,12 @@ function supportsFffCall(
   );
 }
 
+function patternPart(kind: FffToolKind, pattern: unknown): InvocationPart {
+  if (typeof pattern !== "string") return { kind: "annotation", text: "(pattern missing)" };
+  if (kind === "find" && pattern === "") return { kind: "annotation", text: "files" };
+  return { kind: "pattern", text: pattern === "" ? '""' : stringField(pattern) };
+}
+
 export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
   const kind = fffAdapter(tool);
   if (!kind || !tool) return undefined;
@@ -41,6 +47,8 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
     id: `fff:${kind}`,
     family: "search",
     supports: (args, result) => supportsFffCall(kind, args, result),
+    headingVerbs: (args) =>
+      kind === "find" && record(args).pattern === "" ? ["Listing", "Listed"] : undefined,
     invocation(args) {
       const data = record(args);
       return invocationParts(
@@ -55,6 +63,7 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
           : args,
         "search"
       ).map((part, index) => {
+        if (index === 0 && kind !== "multi") return patternPart(kind, data.pattern);
         if (index === 0 && part.kind === "value") return { ...part, kind: "pattern" };
         return part.kind === "path" ? { ...part, kind: "value" } : part;
       });
@@ -63,14 +72,16 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
     exploration(args, result) {
       if (!supportsFffCall(kind, args, result)) return undefined;
       const data = record(args);
-      const pattern =
-        kind === "multi" ? (data.patterns as string[]).join(", ") : stringField(data.pattern);
-      const scope = stringField(kind === "multi" ? data.constraints : data.path);
+      const listing = kind === "find" && data.pattern === "";
+      const scope =
+        stringField(kind === "multi" ? data.constraints : data.path) || (listing ? "." : "");
       return [
         {
-          label: "Search",
+          label: listing ? "List" : "Search",
           parts: [
-            { kind: "pattern", text: pattern },
+            kind === "multi"
+              ? { kind: "pattern", text: (data.patterns as string[]).join(", ") }
+              : patternPart(kind, data.pattern),
             ...(scope
               ? [
                   { kind: "annotation" as const, text: " in " },
