@@ -175,7 +175,7 @@ Create observation-enabled definitions with Pi's factories and original settings
 
 **Files:** `src/adapters.ts`, public renderer exports/docs, `packages/utils/`, and the FFF guard's classifier consumer/tests.
 
-1. Extract `fffAdapter()` ownership/name classification from `pi-fff-guard/src/index.ts` into a pure helper exported as `pi-utils/fff-tools`. Initialize the existing empty `packages/utils` directory as a workspace package with scoped scripts, exports, TypeScript configuration, README, and AGENTS. Update both consumers with `workspace:*` dependencies and the resulting lockfile changes. Keep guard blocking/search behavior unchanged.
+1. Extract `fffAdapter()` ownership/name classification from `pi-fff-guard/src/index.ts` into a pure helper exported as `@pi-mono/utils/fff-tools`. Initialize the existing empty `packages/utils` directory as a workspace package with scoped scripts, exports, TypeScript configuration, README, and AGENTS. Update both consumers with `workspace:*` dependencies and the resulting lockfile changes. Keep guard blocking/search behavior unchanged.
 2. Interpret the inspected official FFF contracts for `fffind`, `ffgrep`, enabled `fff-multi-grep`, and their recognized FFF-owned override names. Preserve search scope, patterns, exclusions, limits, and cursors in detailed arguments. Use declared result fields such as `totalMatched`, `totalFiles`, `pageIndex`, and `hasMore` only where that tool supplies them. Keep textual pagination/omission diagnostics available; do not treat a result count as proof of complete output.
 3. Discover ownership per current registry state because FFF registers dynamically. Verify owner plus argument/result contract; leave unrecognized owners/contracts on the applicable original/generic path. Do not enable disabled FFF tools or invoke its search engine for display.
 4. Connect the approved FFF integration through explicit adapter selection. FFF 0.10.6 supplies its own `renderCall`/`renderResult`; it is not a renderer-free generic tool. Preserve owner UI unless the override or explicit integration selects this display, and ensure `original` always bypasses the FFF display integration.
@@ -208,7 +208,7 @@ Create observation-enabled definitions with Pi's factories and original settings
 Run the scoped format, check, and test commands for each affected package:
 
 ```sh
-for package in pi-tool-display pi-fff-guard pi-utils; do
+for package in pi-tool-display pi-fff-guard @pi-mono/utils; do
   vpr "$package#format" --check
   vpr "$package#check"
   vpr "$package#test"

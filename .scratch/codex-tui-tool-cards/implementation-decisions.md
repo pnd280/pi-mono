@@ -300,7 +300,7 @@ Verification against Pi **0.85.1**:
 
 ## Implementation status
 
-The [implementation plan](implementation-plan.md) is implemented in the workspace extension and the new shared [pi-utils](../../packages/utils/README.md) package. The canonical Codex reference and its HTML companion preserve the pinned analysis; source-navigation notes distinguish it from the delivered implementation.
+The [implementation plan](implementation-plan.md) is implemented in the workspace extension and the new shared [@pi-mono/utils](../../packages/utils/README.md) package. The canonical Codex reference and its HTML companion preserve the pinned analysis; source-navigation notes distinguish it from the delivered implementation.
 
 - [Host integration](../../packages/extensions/pi-tool-display/src/host-integration.ts) replaces `replay.ts`. The render-only lookup and row/reconstruction hooks are separate from native construction before Pi middleware wrapping. Inspected Pi 0.85.1 construction-method fingerprints cover its bundled executable and unbundled API, rejecting unknown prior wrappers; SDK overrides are not native evidence. Restoration preserves later owners/wrappers.
 - The local coordinator owns ordered groups, live/historical lifecycle, native expansion/click synchronization, and one 600 ms scheduler. Images stay Pi-owned; unsupported protocols retain image notices. Generic/original overrides bypass specialized observation, and invalid applicable settings preserve original views.

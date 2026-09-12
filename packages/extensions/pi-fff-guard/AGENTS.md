@@ -2,7 +2,7 @@
 
 ## Code navigation
 
-- **Tool interception:** [src/index.ts](src/index.ts) and [src/interception.test.ts](src/interception.test.ts). Official FFF ownership/name classification is shared through [pi-utils/fff-tools](../../utils/README.md); argument interpretation and blocking remain local.
+- **Tool interception:** [src/index.ts](src/index.ts) and [src/interception.test.ts](src/interception.test.ts). Official FFF ownership/name classification is shared through [@pi-mono/utils/fff-tools](../../utils/README.md); argument interpretation and blocking remain local.
 - **Search scopes and missing paths:** [src/targets.ts](src/targets.ts). Local glob matching is for search filters only, never Git ignore rules.
 - **Git ignore checks and symbolic links:** [src/git-ignore.ts](src/git-ignore.ts).
 - **Blocking messages:** [src/redirect.ts](src/redirect.ts).

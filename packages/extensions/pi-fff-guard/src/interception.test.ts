@@ -8,7 +8,7 @@ import type {
   ToolCallEventResult,
   ToolInfo
 } from "@earendil-works/pi-coding-agent";
-import { fffAdapter } from "pi-utils/fff-tools";
+import { fffAdapter } from "@pi-mono/utils/fff-tools";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import extension from "./index.ts";

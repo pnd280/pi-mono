@@ -5,7 +5,7 @@
 Run the affected packages, including both consumers of the shared classifier:
 
 ```sh
-for package in pi-tool-display pi-fff-guard pi-utils; do
+for package in pi-tool-display pi-fff-guard @pi-mono/utils; do
   vpr "$package#format" --check
   vpr "$package#check"
   vpr "$package#test"

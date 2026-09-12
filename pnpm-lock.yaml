@@ -173,13 +173,13 @@ importers:
 
   packages/extensions/pi-fff-guard:
     dependencies:
-      pi-utils:
+      '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
 
   packages/extensions/pi-tool-display:
     dependencies:
-      pi-utils:
+      '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
 

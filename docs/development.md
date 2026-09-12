@@ -24,7 +24,7 @@ For workspace-wide changes, run `vp check` and `vp test run` at the repository r
 
 ## Packages and dependencies
 
-- **Manifest:** use a unique name, `"private": true`, and `"type": "module"`.
+- **Manifest:** use a unique name, `"private": true`, and `"type": "module"`. Name internal packages `@pi-mono/<package-name>` (for example, `@pi-mono/utils`). Extension packages retain their extension names (for example, `pi-fff-guard`).
 - **Source:** use TypeScript under `src/`. Give each package a `tsconfig.json` extending [tsconfig.base.json](../tsconfig.base.json) and including its source and tests. Vite+ discovers the shared root configuration from the package's working directory.
 - **Dependencies:** keep shared development tooling and Pi host packages in the root `devDependencies`; declare package-specific dependencies in the owning package. Use `workspace:*` for local packages and `catalog:` for shared external versions. Update dependencies with `vp add`, `vp remove`, or `vp update` and include the resulting pnpm lockfile changes.
 - **Vite+ dependencies:** keep the direct `vite` alias to satisfy Vitest's peer dependency under pnpm. `vite-plus` supplies `vitest` transitively. When updating Vite+, align the alias, `vitest` catalog pin, and overrides with the versions reported by `vp toolchain`.

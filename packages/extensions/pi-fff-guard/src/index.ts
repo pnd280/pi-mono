@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { fffAdapter } from "pi-utils/fff-tools";
+import { fffAdapter } from "@pi-mono/utils/fff-tools";
 
 import { detectIgnored } from "./git-ignore.ts";
 import { blockingReason, missingPathReason } from "./redirect.ts";

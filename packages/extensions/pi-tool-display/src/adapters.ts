@@ -1,7 +1,7 @@
 import { basename } from "node:path";
 
 import type { AgentToolResult, ToolDefinition, ToolInfo } from "@earendil-works/pi-coding-agent";
-import { fffAdapter } from "pi-utils/fff-tools";
+import { fffAdapter } from "@pi-mono/utils/fff-tools";
 
 import type { ExplorationItem, ToolFamily } from "./display-model.ts";
 import { record, stringField, invocationParts, type InvocationPart } from "./presentation.ts";

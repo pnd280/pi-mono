@@ -1,9 +1,9 @@
-# pi-utils
+# @pi-mono/utils
 
-Pure utilities shared by workspace packages. `pi-utils/fff-tools` classifies official `@ff-labs/pi-fff` ownership and recognized tool aliases for `pi-fff-guard` and `pi-tool-display`.
+Pure utilities shared by workspace packages. `@pi-mono/utils/fff-tools` classifies official `@ff-labs/pi-fff` ownership and recognized tool aliases for `pi-fff-guard` and `pi-tool-display`.
 
 ```ts
-import { fffAdapter } from "pi-utils/fff-tools";
+import { fffAdapter } from "@pi-mono/utils/fff-tools";
 
 const kind = fffAdapter(toolInfo); // "find", "grep", "multi", or undefined
 ```
@@ -12,4 +12,4 @@ The helper checks provenance and names only. Consumers validate their own schema
 
 There is no configuration, environment dependency, filesystem access, persistence, or network access.
 
-Use the [focused validation commands](../../docs/development.md#focused-validation) with `pi-utils`; verify both extension consumers when changing classification.
+Use the [focused validation commands](../../docs/development.md#focused-validation) with `@pi-mono/utils`; verify both extension consumers when changing classification.
