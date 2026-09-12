@@ -13,7 +13,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 
-import { selectAdapter } from "./adapters.ts";
+import { selectAdapter } from "./adapters/registry.ts";
 import type { CallReference, DisplayCall, DisplayFact } from "./display-model.ts";
 import { observeNativeDefinition, type NativeSettings } from "./native-observation.ts";
 import { record, stringField } from "./presentation.ts";
@@ -220,12 +220,12 @@ export function installHostIntegration(
   function refreshHistoricalAdapters(session: AgentSession): void {
     const binding = sessions.get(session);
     if (!binding) return;
-    // FFF registers at session_start, after Pi reconstructs history. Upgrade
-    // its retained generic rows once the explicit contract exists; no replay.
+    // Extensions can register after Pi reconstructs history. Upgrade retained
+    // generic rows once a verified contract exists, without replaying calls.
     for (const call of binding.coordinator.calls.values()) {
       if (call.origin !== "historical" || call.adapter.id !== "generic") continue;
       const selected = adapter(session, call.name, binding.settings);
-      if (selected?.id.startsWith("fff:")) binding.coordinator.setAdapter(call, selected);
+      if (selected && selected.id !== "generic") binding.coordinator.setAdapter(call, selected);
     }
   }
   function observe(binding: Binding, call: DisplayCall, fact: DisplayFact) {

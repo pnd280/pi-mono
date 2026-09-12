@@ -1,6 +1,7 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
-import type { ToolDisplayAdapter } from "./adapters.ts";
+import { resolveResultAdapter } from "./adapters/generic.ts";
+import type { ToolDisplayAdapter } from "./adapters/types.ts";
 import {
   callKey,
   isLive,
@@ -27,6 +28,10 @@ const clock: AnimationClock = {
     return () => clearInterval(timer);
   }
 };
+function canExplore(call: DisplayCall): boolean {
+  const adapter = resolveResultAdapter(call.adapter, call.args, call.result);
+  return (adapter.exploration?.(call.args, call.result)?.length ?? 0) > 0;
+}
 /** Ordered transcript state; renderers only read this model. No session or terminal dependency. */
 export class TranscriptCoordinator {
   readonly calls = new Map<string, DisplayCall>();
@@ -51,12 +56,10 @@ export class TranscriptCoordinator {
     const key = callKey(this.runtime, reference);
     const existing = this.calls.get(key);
     if (existing) {
-      const grouped =
-        (existing.adapter.exploration?.(existing.args, existing.result)?.length ?? 0) > 0;
+      const grouped = canExplore(existing);
       existing.args = args;
       existing.reference = reference;
-      if (grouped !== (existing.adapter.exploration?.(args, existing.result)?.length ?? 0) > 0)
-        this.regroup();
+      if (grouped !== canExplore(existing)) this.regroup();
       this.changed(existing);
       return existing;
     }
@@ -111,7 +114,7 @@ export class TranscriptCoordinator {
       call.outcome = outcome;
       call.liveOutput = undefined;
     }
-    const grouped = (call.adapter.exploration?.(call.args, result)?.length ?? 0) > 0;
+    const grouped = canExplore(call);
     if (this.groups.has(call.key) !== grouped) this.regroup();
     this.changed(call);
   }
@@ -167,7 +170,7 @@ export class TranscriptCoordinator {
     let group: DisplayGroup | undefined;
     for (const key of this.sequence) {
       const call = key ? this.calls.get(key) : undefined;
-      if (!call || (call.adapter.exploration?.(call.args, call.result)?.length ?? 0) === 0) {
+      if (!call || !canExplore(call)) {
         group = undefined;
         continue;
       }

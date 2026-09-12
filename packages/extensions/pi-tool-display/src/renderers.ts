@@ -14,7 +14,13 @@ import {
   visibleWidth
 } from "@earendil-works/pi-tui";
 
-import { genericAdapter, type ToolDisplayAdapter, type McpFacts } from "./adapters.ts";
+import { genericAdapter, resolveResultAdapter } from "./adapters/generic.ts";
+import type {
+  ToolDisplayAdapter,
+  McpFacts,
+  DisplayNotice,
+  ResultTextPart
+} from "./adapters/types.ts";
 import { renderDiffBody } from "./diff-view.ts";
 import { parsePatch } from "./diff.ts";
 import { isLive, type DisplayCall, type DisplayGroup, type ToolFamily } from "./display-model.ts";
@@ -29,18 +35,7 @@ import {
   type TreeItem
 } from "./layout.ts";
 import type { OutputText } from "./output-text.ts";
-import {
-  invocationParts,
-  invocationPartText,
-  record,
-  resultNotices,
-  stringField
-} from "./presentation.ts";
-import {
-  nativeImageCaption,
-  type DisplayNotice,
-  type ResultTextPart
-} from "./result-presentation.ts";
+import { invocationParts, invocationPartText, record, stringField } from "./presentation.ts";
 import type { TranscriptCoordinator } from "./transcript-coordinator.ts";
 export type { ToolFamily } from "./display-model.ts";
 type DisplayTheme = Pick<Theme, "fg" | "bg" | "getBgAnsi" | "bold">;
@@ -508,13 +503,13 @@ function describedImage(
   index: number,
   p: Projection
 ): boolean {
-  if (p.adapter.id !== "pi:read" || p.context.isPartial || p.context.isError) return false;
+  if (p.context.isPartial || p.context.isError) return false;
   const previous = content[index - 1],
     image = content[index];
   return (
     previous?.type === "text" &&
     image?.type === "image" &&
-    nativeImageCaption(previous.text)?.mimeType === image.mimeType
+    p.adapter.imageCaptionMimeType?.(previous.text) === image.mimeType
   );
 }
 function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem[] {
@@ -573,10 +568,7 @@ function unavailableHistory(p: Projection): DisplayNotice[] {
   return notices;
 }
 function notices(result: AgentToolResult<unknown>, p: Projection): string[] {
-  const notices = [
-    ...(p.adapter.id.startsWith("pi:") ? resultNotices(result.details) : []),
-    ...(p.adapter.notices?.(result, p.expanded) ?? [])
-  ];
+  const notices = [...(p.adapter.notices?.(result, p.expanded) ?? [])];
   const path = p.call?.savedPath;
   if (path && !notices.some((notice) => notice.kind === "reference" && notice.value === path))
     notices.push({ kind: "reference", label: "Saved output", value: path });
@@ -685,12 +677,9 @@ export function createToolDisplayRenderers(
   const results = new WeakMap<object, AgentToolResult<unknown>>();
   const projection = (context: DisplayContext, theme: DisplayTheme, width: number): Projection => {
     const selected = binding?.call.adapter ?? adapter;
-    const current =
-      selected.id.startsWith("fff:") &&
-      binding?.call.result &&
-      !selected.exploration?.(binding.call.args, binding.call.result)
-        ? genericAdapter
-        : selected;
+    const current = binding
+      ? resolveResultAdapter(selected, binding.call.args, binding.call.result)
+      : selected;
     return {
       name: displayText(name),
       adapter: current,

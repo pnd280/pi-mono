@@ -6,7 +6,6 @@ import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
 import type { ToolFamily } from "./display-model.ts";
 import { displayText } from "./layout.ts";
-import type { DisplayNotice } from "./result-presentation.ts";
 export type { ToolFamily } from "./display-model.ts";
 
 export function record(value: unknown): Record<string, unknown> {
@@ -101,26 +100,4 @@ export function resultText(result: AgentToolResult<unknown>): string {
     )
     .join("\n")
     .replace(/\n+$/, "");
-}
-
-/** Backend omissions remain visible even when the successful read body is collapsed. */
-export function resultNotices(details: unknown): DisplayNotice[] {
-  const data = record(details);
-  const truncation = record(data.truncation);
-  const notices: DisplayNotice[] = [];
-  const warning = (text: string) => notices.push({ kind: "warning", text });
-  if (truncation.truncated === true)
-    warning("Tool output truncated by pi; expand to inspect retained output.");
-  if (typeof data.fullOutputPath === "string") {
-    notices.push({
-      kind: "reference",
-      label: "Saved output",
-      value: displayText(data.fullOutputPath)
-    });
-  }
-  if (typeof data.matchLimitReached === "number") warning("Match limit reached.");
-  if (typeof data.resultLimitReached === "number") warning("Result limit reached.");
-  if (typeof data.entryLimitReached === "number") warning("Entry limit reached.");
-  if (data.linesTruncated === true) warning("Long result lines truncated by pi.");
-  return notices;
 }

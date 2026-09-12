@@ -1,27 +1,10 @@
-import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { expect, it } from "vite-plus/test";
 
-import { officialFffAdapter, selectAdapter } from "./adapters.ts";
-import { loadDisplaySettings } from "./settings.ts";
-function info(name: string, multi = false): ToolInfo {
-  return {
-    name,
-    description: "FFF",
-    parameters: {
-      type: "object",
-      properties: { [multi ? "patterns" : "pattern"]: { type: multi ? "array" : "string" } }
-    },
-    sourceInfo: {
-      source: "npm:@ff-labs/pi-fff@0.10.6",
-      path: "/fff/src/index.ts",
-      scope: "user",
-      origin: "package"
-    }
-  };
-}
+import { officialFffAdapter } from "./index.ts";
+import { fffToolInfo } from "./test-fixture.ts";
 it("hides FFF pagination while retaining expanded match counts", () => {
-  const find = officialFffAdapter(info("fffind"))!;
-  const grep = officialFffAdapter(info("ffgrep"))!;
+  const find = officialFffAdapter(fffToolInfo("fffind"))!;
+  const grep = officialFffAdapter(fffToolInfo("ffgrep"))!;
   const cursorNotice = '[Continue with cursor="fff_c1"]';
   const paged = {
     content: [{ type: "text" as const, text: `file.ts\n 1: export\n\n${cursorNotice}` }],
@@ -48,8 +31,8 @@ it("hides FFF pagination while retaining expanded match counts", () => {
 
 it("requires official ownership and supplied contracts without enabling disabled tools", () => {
   expect(officialFffAdapter(undefined)).toBeUndefined();
-  expect(officialFffAdapter({ ...info("ffgrep"), parameters: {} })).toBeUndefined();
-  const grep = officialFffAdapter(info("ffgrep"))!;
+  expect(officialFffAdapter({ ...fffToolInfo("ffgrep"), parameters: {} })).toBeUndefined();
+  const grep = officialFffAdapter(fffToolInfo("ffgrep"))!;
   const args = { pattern: "token", path: "src/**", exclude: ["*.min.js"], cursor: "c1", limit: 20 };
   expect(grep.exploration?.(args)).toEqual([
     {
@@ -65,9 +48,14 @@ it("requires official ownership and supplied contracts without enabling disabled
     content: [{ type: "text" as const, text: "limited results; cursor c2" }],
     details: { totalMatched: 20, totalFiles: 2 }
   };
+  expect(grep.supports?.(args, result)).toBe(true);
   expect(grep.exploration?.(args, result)).toBeDefined();
-  expect(grep.exploration?.(args, { ...result, details: { count: 9 } })).toBeUndefined();
-  const find = officialFffAdapter(info("fffind"))!;
+  for (const details of [{ count: 9 }, { totalMatched: NaN, totalFiles: 2 }]) {
+    expect(grep.supports?.(args, { ...result, details })).toBe(false);
+    expect(grep.exploration?.(args, { ...result, details })).toBeUndefined();
+  }
+  expect(grep.supports?.({}, result)).toBe(false);
+  const find = officialFffAdapter(fffToolInfo("fffind"))!;
   expect(
     find
       .notices?.({ ...result, details: { ...result.details, hasMore: true, pageIndex: 1 } }, true)
@@ -81,7 +69,7 @@ it("requires official ownership and supplied contracts without enabling disabled
       .join("\n")
   ).not.toContain("Page");
   expect(
-    officialFffAdapter(info("fff-multi-grep", true))?.exploration?.({
+    officialFffAdapter(fffToolInfo("fff-multi-grep", true))?.exploration?.({
       patterns: ["a", "b"],
       constraints: "src/"
     })
@@ -95,22 +83,4 @@ it("requires official ownership and supplied contracts without enabling disabled
       ]
     }
   ]);
-  const owner = { renderCall: () => ({ render: () => [], invalidate() {} }) };
-  expect(selectAdapter(loadDisplaySettings([]), "ffgrep", owner, false, info("ffgrep"))?.id).toBe(
-    "fff:grep"
-  );
-  expect(
-    selectAdapter(
-      loadDisplaySettings([
-        {
-          path: "settings",
-          settings: { "ext.pi-tool-display": { rendererOverrides: { ffgrep: "original" } } }
-        }
-      ]),
-      "ffgrep",
-      owner,
-      false,
-      info("ffgrep")
-    )
-  ).toBeUndefined();
 });

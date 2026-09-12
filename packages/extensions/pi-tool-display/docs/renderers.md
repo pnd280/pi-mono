@@ -108,15 +108,19 @@ Adapters have:
 
 - `id`: stable contract identifier. `pi:*`, `fff:*`, and `generic` are reserved by this package.
 - `family`: `read`, `search`, `list`, `shell`, `edit`, `write`, or `invocation`.
+- `supports(args, result)`: optionally validate retained data for coordinated hosts. Returning `false` uses generic rendering and removes the call from exploration groups; a later supported result restores the adapter. Omission accepts the result. This callback runs only once a result exists, including partial updates; it does not change the selected adapter or retained data. Standalone factories use their explicitly supplied adapter directly.
 - `invocation(args)`: optionally supply header `InvocationPart[]` (`value`, `path`, `pattern`, `annotation`, or `parameters`, each with `text`) when arguments differ from the family's native shape. The FFF multi-search adapter uses this for `patterns` and `constraints`. Use `path` for a concrete file target, `pattern` for a highlighted search pattern, and `value` for other literal text or filter expressions. Paths are formatted against Pi's render cwd; adapter callbacks still receive the original arguments. Parts follow parameter visibility and semantic styling; the type is exported from `pi-tool-display/adapters`.
 - `exploration(args, result?)`: optional ordered `{ label: "Read" | "Search" | "List", parts: InvocationPart[] }` items for coordinated hosts; return `undefined` or an empty array when the contract is unavailable. Result updates can remove or restore a call's group membership without changing source order.
 - `patch: true`: interpret successful `details.patch` as a bounded unified patch.
 - `savedOutput: true`: declare `details.fullOutputPath` meaningful to a coordinated host. The standalone factory does not load files.
 - `notices(result, expanded)`: return `DisplayNotice[]` with explicit semantics: `{ kind: "info" | "unavailable" | "warning" | "error", text }` or `{ kind: "reference", label, value }`. `info` uses `dim`; `unavailable` uses `muted`. Keep actionable diagnostics in compact groups and reserve routine counts for expansion.
 - `textParts(text, args, context)`: optionally separate a known result envelope into `ResultTextPart[]` (`output`, `value`, `annotation`, `warning`, or `error`). Preserve result content; only explicitly recognized routine metadata may be omitted from presentation. Returning an empty array suppresses the text block without an empty-output placeholder. The retained result remains unchanged. The context supplies `isError`, `isPartial`, and whether the result contains images; do not infer facts from ordinary output. These types are exported from `pi-tool-display/adapters`.
+- `imageCaptionMimeType(text)`: optionally identify the MIME type described by a known text caption. For complete successful results, a matching adjacent image omits its redundant generated fallback label. The caption text and Pi-owned image remain unchanged.
 - `mcp(args, result?)`: supply the typed facts below.
 
 The automatic CLI integration also uses `officialFffAdapter(toolInfo)`. It checks current official FFF ownership and required schema/result shapes, including recognized FFF-owned override names. It neither enables disabled FFF tools nor calls the search engine. Historical generic rows adopt the FFF contract when its tools register after reconstruction. Routine FFF pagination instructions, limit hints, and page-number notices are omitted from both compact and expanded cards. Matches remain available on expansion; query/fallback diagnostics remain visible in compact groups. Retained results and model context keep the original pagination data. Generic adapters do not interpret that envelope. `original` bypasses this explicit FFF integration; `generic` bypasses its specialized interpretation.
+
+See [adapter development](adapters.md) for the directory structure, automatic selection order, and adding another provider contract.
 
 ## MCP facts
 

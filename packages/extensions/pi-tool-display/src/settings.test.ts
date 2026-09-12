@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 
-import { genericAdapter, nativeAdapter, selectAdapter } from "./adapters.ts";
+import { selectAdapter } from "./adapters/registry.ts";
 import { loadDisplaySettings, SETTINGS_KEY } from "./settings.ts";
 const source = (rendererOverrides: unknown, path = "global/settings.json") => ({
   path,
@@ -64,23 +64,4 @@ it.each([null, [], true, { other: {} }])("rejects invalid sections: %j", (sectio
   expect(
     loadDisplaySettings([{ path: "settings.json", settings: { [SETTINGS_KEY]: section } }]).valid
   ).toBe(false);
-});
-it("preserves partial owner slots, distinguishes unknown built-in names, and opts out of capture", () => {
-  const defaults = loadDisplaySettings([]);
-  const renderer = () => ({ render: () => [], invalidate() {} });
-  for (const owner of [{ renderCall: renderer }, { renderResult: renderer }]) {
-    expect(selectAdapter(defaults, "read", owner, false)).toBeUndefined();
-    expect(
-      selectAdapter(loadDisplaySettings([source({ read: "generic" })]), "read", owner, true)
-    ).toBe(genericAdapter);
-  }
-  expect(selectAdapter(defaults, "read", undefined, false)).toBe(genericAdapter);
-  expect(selectAdapter(defaults, "read", undefined, true)?.family).toBe("read");
-  expect(
-    selectAdapter(loadDisplaySettings([source({ read: "original" })]), "read", undefined, true)
-  ).toBeUndefined();
-  expect(genericAdapter.patch).toBeUndefined();
-  expect(genericAdapter.savedOutput).toBeUndefined();
-  expect("exploration" in genericAdapter).toBe(false);
-  expect(nativeAdapter("constructor")).toBeUndefined();
 });

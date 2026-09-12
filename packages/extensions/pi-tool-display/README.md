@@ -10,7 +10,7 @@ File targets in standalone and grouped summaries are relative to the working dir
 
 Edit/write patches show unlabeled side-by-side columns by default when each side has at least 40 code columns; narrower terminals use numbered unified rows. Additions/deletions have theme-colored backgrounds, with stronger inline highlights over syntax colors. Compact previews allow 30 displayed rows of changed code plus surrounding context. Diffs that fit appear in full; larger diffs prioritize the first edit region, with long-line excerpts around changed text and up to two nearby context lines on each side. `Hunk n/N` labels appear only for multi-hunk patches. Raw patch ranges are not displayed. Expansion shows every retained hunk and full wrapped lines. Lines wrap without a separate scroll viewport. See [diff rendering](docs/renderers.md#diff-viewer) for retained-context and comparison limits.
 
-Verified native tools receive specialized cards. Official `@ff-labs/pi-fff` **0.10.6** search tools have an explicit adapter. Other tools receive generic cards unless their owner supplies either renderer slot, in which case the owner's UI is preserved. Missing historical definitions use generic retained-data cards. SDK/tool owners can use the explicit [renderer API](docs/renderers.md).
+Verified native tools receive specialized cards. Official `@ff-labs/pi-fff` **0.10.6** search tools have an explicit adapter. Other tools receive generic cards unless their owner supplies either renderer slot, in which case the owner's UI is preserved. Missing historical definitions use generic retained-data cards. SDK/tool owners can use the explicit [renderer API](docs/renderers.md). See [adapter development](docs/adapters.md) to add another tool integration.
 
 ## Configuration
 

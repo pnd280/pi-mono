@@ -1,7 +1,7 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
-import { nativeAdapter, genericAdapter } from "./adapters.ts";
+import { nativeAdapter, genericAdapter } from "./adapters/index.ts";
 import { isLive } from "./display-model.ts";
 import { TranscriptCoordinator } from "./transcript-coordinator.ts";
 

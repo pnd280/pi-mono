@@ -10,7 +10,12 @@ import {
 import { stripTerminalSequences, visibleWidth, type TUI } from "@earendil-works/pi-tui";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { genericAdapter, nativeAdapter, officialFffAdapter, type McpFacts } from "./adapters.ts";
+import {
+  genericAdapter,
+  nativeAdapter,
+  officialFffAdapter,
+  type McpFacts
+} from "./adapters/index.ts";
 import { OutputBuffer, LIVE_OUTPUT_BYTES } from "./output-buffer.ts";
 import { createToolDisplayRenderers, type ToolDisplayRenderers } from "./renderers.ts";
 import { TranscriptCoordinator } from "./transcript-coordinator.ts";
@@ -71,6 +76,61 @@ function semanticTheme() {
   };
 }
 describe("tool display renderers", () => {
+  it("uses adapter contract validation for fallback and grouping without provider-specific IDs", () => {
+    const adapter = {
+      id: "documentation:search",
+      family: "search" as const,
+      supports: (_args: unknown, result: AgentToolResult<unknown>) =>
+        result.details === "supported",
+      exploration: () => [
+        { label: "Search" as const, parts: [{ kind: "value" as const, text: "documentation" }] }
+      ]
+    };
+    const coordinator = new TranscriptCoordinator("adapter-validation");
+    try {
+      const args = { pattern: "needle", path: "docs", limit: 7 };
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "search" },
+        "search_docs",
+        args,
+        adapter,
+        "historical"
+      );
+      const renderer = createToolDisplayRenderers(call.name, adapter, {
+        binding: { call, coordinator }
+      });
+      const heading = () => renderer.renderCall(args, theme, context()).render(120).join("\n");
+      expect(coordinator.group(call)).toBeDefined();
+      for (const supported of [true, false, true]) {
+        const retained = {
+          ...result("retained documentation"),
+          details: supported ? "supported" : "unknown"
+        };
+        coordinator.result(call, retained, "success");
+        if (supported) {
+          expect(coordinator.group(call)).toBeDefined();
+          expect(heading()).toContain("Explored");
+          expect(heading()).not.toContain('"limit":7');
+        } else {
+          expect(coordinator.group(call)).toBeUndefined();
+          expect(heading()).toContain('search_docs({"pattern":"needle","path":"docs","limit":7})');
+        }
+        coordinator.expand(call, true);
+        expect(
+          renderer
+            .renderResult(retained, { expanded: true, isPartial: false }, theme, context())
+            .render(120)
+            .join("\n")
+        ).toContain("retained documentation");
+        coordinator.expand(call, false);
+        expect(call.adapter).toBe(adapter);
+        expect(call.result).toBe(retained);
+      }
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
   it.each([
     ["edit", "Editing", "Edited", { path: "example.ts", edits: [] }],
     ["write", "Writing", "Wrote", { path: "example.ts", content: "replacement" }],

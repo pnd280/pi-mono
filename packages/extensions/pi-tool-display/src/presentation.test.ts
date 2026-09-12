@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { invocationParts, resultNotices, resultText } from "./presentation.ts";
+import { invocationParts, resultText } from "./presentation.ts";
 
 describe("tool presentation", () => {
   it("accepts partial arguments and preserves paths, read ranges, and search scope", () => {
@@ -45,7 +45,7 @@ describe("tool presentation", () => {
     ]);
   });
 
-  it("keeps every text/media block and reports backend omissions without including image bytes", () => {
+  it("keeps every text/media block without including image bytes", () => {
     expect(
       resultText({
         content: [
@@ -56,21 +56,5 @@ describe("tool presentation", () => {
         details: undefined
       })
     ).toBe("first\n[Image: image/png]\nlast");
-    const notices = resultNotices({
-      truncation: { truncated: true },
-      fullOutputPath: "/tmp/output",
-      matchLimitReached: 20,
-      linesTruncated: true
-    });
-    expect(notices).toContainEqual({
-      kind: "reference",
-      label: "Saved output",
-      value: "/tmp/output"
-    });
-    expect(notices).toContainEqual({ kind: "warning", text: "Match limit reached." });
-    expect(
-      notices.filter((notice) => notice.kind === "warning" && notice.text.includes("truncated"))
-    ).toHaveLength(2);
-    expect(resultNotices(undefined)).toEqual([]);
   });
 });

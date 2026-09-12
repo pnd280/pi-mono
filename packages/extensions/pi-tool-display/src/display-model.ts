@@ -1,6 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
-import type { ToolDisplayAdapter } from "./adapters.ts";
+import type { ToolDisplayAdapter } from "./adapters/types.ts";
 import type { OutputText } from "./output-text.ts";
 import type { InvocationPart } from "./presentation.ts";
 
