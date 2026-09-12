@@ -1,12 +1,12 @@
 ---
-name: change-qa
+name: codebase-review
 description: Review and improve medium, large, or high-risk changes in pi-mono for correctness, architecture, maintainability, test quality, runtime behavior, and documentation accuracy.
 disable-model-invocation: true
 ---
 
-# Change QA
+# Codebase Review
 
-Use `/skill:change-qa` after an implementation. Arguments may identify packages, paths, a comparison base, or `review-only`. By default, review and fix concrete in-scope issues; `review-only` leaves files unchanged.
+Use `/skill:codebase-review` after an implementation. Arguments may identify packages, paths, a comparison base, or `review-only`. By default, review and fix concrete in-scope issues; `review-only` leaves files unchanged.
 
 ## References
 
