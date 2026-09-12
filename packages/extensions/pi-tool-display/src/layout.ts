@@ -10,11 +10,58 @@ export function displayText(text: string): string {
   return (
     stripTerminalSequences(text)
       .replace(/\r\n?/g, "\n")
-      .replace(/\t/g, "   ")
+      .replace(/\t/g, "    ")
       // C0/C1 bytes left outside recognized escape sequences must not control the terminal.
       // oxlint-disable-next-line no-control-regex
       .replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, "")
   );
+}
+
+function escapeSequence(text: string, position: number): { end: number; sgr: string } {
+  const code = text.charCodeAt(position);
+  let index = position;
+  const kind = code === 27 ? text[++index] : code === 0x9b ? "[" : code === 0x9d ? "]" : "P";
+  index++;
+  let sgr = "";
+  if (kind === "[") {
+    const start = index;
+    while (index < text.length && !/[\x40-\x7e]/.test(text[index]!)) index++;
+    if (text[index] === "m" && /^[0-9;:]*$/.test(text.slice(start, index)))
+      sgr = `\x1b[${text.slice(start, index)}m`;
+    index++;
+  } else if (["]", "P", "_", "^", "X"].includes(kind ?? "")) {
+    while (
+      index < text.length &&
+      text[index] !== "\x07" &&
+      text[index] !== "\x9c" &&
+      !(text[index] === "\x1b" && text[index + 1] === "\\")
+    )
+      index++;
+    index += text[index] === "\x1b" ? 2 : 1;
+  }
+  return { end: index, sgr };
+}
+
+/** Allow SGR only. OSC/DCS/APC and cursor/screen controls never reach the terminal. */
+export function styledOutput(text: string): string {
+  let result = "";
+  for (let index = 0; index < text.length;) {
+    const code = text.charCodeAt(index);
+    if (code === 27 || code === 0x9b || code === 0x9d || code === 0x90) {
+      const sequence = escapeSequence(text, index);
+      result += sequence.sgr;
+      index = sequence.end;
+      continue;
+    }
+    const character = text[index++]!;
+    if (character === "\r") {
+      if (text[index] === "\n") index++;
+      result += "\n";
+    } else if (character === "\t") result += "    ";
+    else if (character === "\n" || (code >= 32 && !(code >= 127 && code <= 159)))
+      result += character;
+  }
+  return result;
 }
 
 export function wrapRows(text: string, width: number): string[] {
@@ -29,7 +76,8 @@ export function compactRows(
   rows: readonly string[],
   maximum: number,
   width: number,
-  hint: string
+  hint: string,
+  styleNotice: (text: string) => string = (text) => text
 ): string[] {
   if (maximum < 1 || width < 1) return [];
   if (rows.length <= maximum) return [...rows];
@@ -37,7 +85,7 @@ export function compactRows(
   const head = Math.ceil(retained / 2);
   const tail = Math.floor(retained / 2);
   const omitted = rows.length - retained;
-  const notice = truncateToWidth(`… ${omitted} more rows (${hint})`, width, "…");
+  const notice = truncateToWidth(styleNotice(`… ${omitted} more rows (${hint})`), width, "…");
   return [...rows.slice(0, head), notice, ...(tail > 0 ? rows.slice(-tail) : [])];
 }
 

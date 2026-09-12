@@ -1,0 +1,14 @@
+{
+  "name": "pi-utils",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./fff-tools": "./src/fff-tools.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "check": "vp check .",
+    "test": "vp test run"
+  }
+}

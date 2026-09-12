@@ -1,20 +1,50 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { diffStatistics, invocationDetail, resultNotices, resultText } from "./presentation.ts";
+import { invocationParts, resultNotices, resultText } from "./presentation.ts";
 
 describe("tool presentation", () => {
   it("accepts partial arguments and preserves paths, read ranges, and search scope", () => {
-    expect(invocationDetail("read", undefined, "read")).toBe("…");
-    expect(invocationDetail("read", { path: 42 }, "read")).toBe("…");
-    expect(invocationDetail("read", { file_path: "src/a.ts", offset: 10, limit: 2 }, "read")).toBe(
+    const text = (...args: Parameters<typeof invocationParts>) =>
+      invocationParts(...args)
+        .map((part) => part.text)
+        .join("");
+    expect(text("read", undefined, "read")).toBe("…");
+    expect(text("read", { path: 42 }, "read")).toBe("…");
+    expect(text("read", { file_path: "src/a.ts", offset: 10, limit: 2 }, "read")).toBe(
       "src/a.ts:10-11"
     );
-    expect(
-      invocationDetail("grep", { pattern: "token", path: "src", glob: "*.ts" }, "search")
-    ).toBe("token in src (*.ts)");
-    expect(invocationDetail("docs.search", { query: "TUI" }, "invocation")).toBe(
+    expect(text("grep", { pattern: "token", path: "src", glob: "*.ts" }, "search")).toBe(
+      "token in src (*.ts)"
+    );
+    expect(text("docs.search", { query: "TUI" }, "invocation")).toBe(
       'docs.search({"query":"TUI"})'
     );
+  });
+
+  it("distinguishes supplied values from annotations even when they contain the same delimiters", () => {
+    const parts = invocationParts(
+      "grep",
+      { pattern: " in ", path: "a (b)", glob: "(c)" },
+      "search"
+    );
+    expect(parts.filter((part) => part.kind === "value").map((part) => part.text)).toEqual([
+      " in ",
+      "a (b)",
+      "(c)"
+    ]);
+    expect(
+      parts
+        .filter((part) => part.kind === "annotation")
+        .map((part) => part.text)
+        .join("")
+    ).toBe(" in  ()");
+    const shell = invocationParts("bash", { command: "echo '(timeout 10s)'", timeout: 5 }, "shell");
+    expect(shell.filter((part) => part.kind === "value").map((part) => part.text)).toEqual([
+      "echo '(timeout 10s)'"
+    ]);
+    expect(shell.filter((part) => part.kind === "annotation").map((part) => part.text)).toEqual([
+      " (timeout 5s)"
+    ]);
   });
 
   it("keeps every text/media block and reports backend omissions without including image bytes", () => {
@@ -34,13 +64,15 @@ describe("tool presentation", () => {
       matchLimitReached: 20,
       linesTruncated: true
     });
-    expect(notices.join("\n")).toContain("/tmp/output");
-    expect(notices.join("\n")).toContain("Match limit");
-    expect(notices.filter((notice) => notice.includes("truncated"))).toHaveLength(2);
+    expect(notices).toContainEqual({
+      kind: "reference",
+      label: "Saved output",
+      value: "/tmp/output"
+    });
+    expect(notices).toContainEqual({ kind: "warning", text: "Match limit reached." });
+    expect(
+      notices.filter((notice) => notice.kind === "warning" && notice.text.includes("truncated"))
+    ).toHaveLength(2);
     expect(resultNotices(undefined)).toEqual([]);
-  });
-
-  it("counts Pi diff lines without mistaking source text or context for changes", () => {
-    expect(diffStatistics(" 10 +context\n-11 old\n+11 new\n+12 more\n ...")).toBe("+2 -1");
   });
 });

@@ -14,11 +14,16 @@ export interface SearchInput {
   cursor?: string;
   limit?: number;
 }
+interface ScopeFilter {
+  root: string;
+  pattern: string;
+}
 export interface Target {
   /** Lexical absolute path, never the resolved dependency-store path. */
   absolute: string;
   directory: boolean;
-  filter?: string;
+  /** Intersected globs retain their original roots when a later scope narrows the target. */
+  filters: ScopeFilter[];
 }
 export interface SearchScope {
   targets: Target[];
@@ -48,6 +53,21 @@ export function resolvePath(value: string, cwd: string): string {
 
 export function hasGlob(value: string): boolean {
   return /[*?[{]/.test(value);
+}
+
+function isFilenameFilter(expression: string): boolean {
+  return !expression.includes("/") && /\.[a-zA-Z][a-zA-Z0-9]{0,9}$/.test(expression);
+}
+
+function normalizeFilenameConstraint(expression: string, cwd: string): string {
+  // FFF normalizes path/exclude fields before parsing. Workspace-local absolute
+  // paths and ./ prefixes cannot make a bare filename filter concrete.
+  const value =
+    path.isAbsolute(expression) && contains(cwd, expression)
+      ? path.relative(cwd, expression).split(path.sep).join("/") || "."
+      : expression;
+  const normalized = value.replace(/^\.\//, "");
+  return isFilenameFilter(normalized) ? normalized : expression;
 }
 
 /** Finite brace alternatives only. Bound expansion, never enumerate the filesystem. */
@@ -81,24 +101,30 @@ function globRoot(expression: string): { prefix: string; filter: string } | unde
 }
 
 export async function existingTarget(expression: string, cwd: string): Promise<Target | undefined> {
-  // A literal filename containing glob characters takes precedence when it exists.
+  // FFF applies bare filenames recursively, even when a cwd match exists.
+  if (isFilenameFilter(expression)) return undefined;
+  // An explicit literal path containing glob characters takes precedence when it exists.
   const absolute = resolvePath(expression, cwd);
   const info = await fileInfo(absolute);
-  if (info?.isDirectory() || info?.isFile()) return { absolute, directory: info.isDirectory() };
+  if (info?.isDirectory() || info?.isFile())
+    return { absolute, directory: info.isDirectory(), filters: [] };
   const glob = globRoot(expression);
   if (!glob) return undefined;
   const root = resolvePath(glob.prefix, cwd);
   const rootInfo = await fileInfo(root);
   if (!rootInfo?.isDirectory()) return undefined;
-  return { absolute: root, directory: true, filter: glob.filter };
+  return {
+    absolute: root,
+    directory: true,
+    filters: [{ root, pattern: glob.filter }]
+  };
 }
 
 async function isMissingPath(expression: string, cwd: string): Promise<boolean> {
   const glob = globRoot(expression);
   if (hasGlob(expression) && !glob) return false;
-  // FFF treats a bare filename with an extension as a recursive filter, not a
-  // cwd-relative file. An explicit ./ prefix opts into concrete path validation.
-  if (!expression.includes("/") && /\.[a-zA-Z][a-zA-Z0-9]{0,9}$/.test(expression)) return false;
+  // Bare filenames remain recursive filters after path-field normalization.
+  if (isFilenameFilter(expression)) return false;
   const info = await fileInfo(resolvePath(glob?.prefix ?? expression, cwd));
   return !info || (glob !== undefined && !info.isDirectory());
 }
@@ -119,7 +145,7 @@ function exclusionTokens(exclude: SearchInput["exclude"], cwd: string): string[]
   return list
     .flatMap((entry) => entry.split(/[,\s]+/))
     .filter(Boolean)
-    .map((entry) => entry.replace(/^!/, ""))
+    .map((entry) => normalizeFilenameConstraint(entry.replace(/^!/, ""), cwd))
     .filter((entry) => !["**", "**/", "**/*"].includes(entry) && resolvePath(entry, cwd) !== cwd);
 }
 
@@ -203,11 +229,12 @@ function matchesFile(target: Target, expression: string, cwd: string): boolean {
 }
 
 function excludesFilter(target: Target, expression: string, cwd: string): boolean {
-  if (!target.filter) return false;
-  const projected = relativeFilter(expression, target.absolute, cwd);
-  if (projected === `/${target.filter}` || projected === "/**") return true;
-  const basenameFilter = target.filter.replace(/^\*\*\//, "");
-  return !basenameFilter.includes("/") && projected === basenameFilter;
+  return target.filters.some((filter) => {
+    const projected = relativeFilter(expression, filter.root, cwd);
+    if (projected === `/${filter.pattern}` || projected === "/**") return true;
+    const basenameFilter = filter.pattern.replace(/^\*\*\//, "");
+    return !basenameFilter.includes("/") && projected === basenameFilter;
+  });
 }
 
 async function excluded(target: Target, excludes: string[], cwd: string): Promise<boolean> {
@@ -215,7 +242,7 @@ async function excluded(target: Target, excludes: string[], cwd: string): Promis
     const concrete = await existingTarget(expression, cwd);
     if (
       concrete &&
-      !concrete.filter &&
+      !concrete.filters.length &&
       (concrete.absolute === target.absolute ||
         (concrete.directory && contains(concrete.absolute, target.absolute)))
     )
@@ -247,7 +274,10 @@ async function queryExpressions(
 ): Promise<ScopeExpression[]> {
   const expressions: ScopeExpression[] = [];
   if (kind !== "multi" && input.path?.trim())
-    expressions.push({ value: input.path.trim(), validatePath: true });
+    expressions.push({
+      value: normalizeFilenameConstraint(input.path.trim(), cwd),
+      validatePath: true
+    });
   const tokens =
     kind === "multi"
       ? (input.constraints ?? "").split(/\s+/).filter(Boolean)
@@ -272,6 +302,10 @@ async function queryExpressions(
   return expressions.filter((expression) => !expression.value.startsWith("!"));
 }
 
+function targetKey(target: Target): string {
+  return JSON.stringify([target.absolute, target.filters]);
+}
+
 function intersectTargets(left: Target[], right: Target[]): Target[] {
   const targets: Target[] = [];
   const seen = new Set<string>();
@@ -281,14 +315,23 @@ function intersectTargets(left: Target[], right: Target[]): Target[] {
       const inner = outer === first ? second : first;
       if (!contains(outer.absolute, inner.absolute)) continue;
       if (!outer.directory && outer.absolute !== inner.absolute) continue;
-      if (outer.filter && !["**", "**/*"].includes(outer.filter)) {
-        const relative = path.relative(outer.absolute, inner.absolute);
-        if (!inner.directory && !matchesFilter(relative, outer.filter)) continue;
-      }
-      const key = `${inner.absolute}\0${inner.filter ?? ""}`;
+      const filters = [...first.filters, ...second.filters];
+      if (
+        !inner.directory &&
+        filters.some(
+          (filter) =>
+            !matchesFilter(
+              path.relative(filter.root, inner.absolute).split(path.sep).join("/"),
+              filter.pattern
+            )
+        )
+      )
+        continue;
+      const target = { ...inner, filters };
+      const key = targetKey(target);
       if (!seen.has(key)) {
         seen.add(key);
-        targets.push(inner);
+        targets.push(target);
       }
       if (targets.length > 64) throw new Error("too many intersecting targets");
     }
@@ -306,7 +349,7 @@ async function collectTargets(
   for (const { value: expression, validatePath } of expressions) {
     signal?.throwIfAborted();
     const literal = await existingTarget(expression, cwd);
-    const entries = literal && !literal.filter ? [expression] : alternatives(expression);
+    const entries = literal && !literal.filters.length ? [expression] : alternatives(expression);
     const targets: Target[] = [];
     for (const entry of entries) {
       signal?.throwIfAborted();
@@ -326,7 +369,7 @@ async function collectTargets(
         // A missing brace alternative must not invalidate the other branches.
         if (allMissing) scope.missingPath = expression;
       }
-      if (hasGlob(expression)) scope.filters.push(expression);
+      if (hasGlob(expression) || isFilenameFilter(expression)) scope.filters.push(expression);
     } else {
       combined = combined === undefined ? targets : intersectTargets(combined, targets);
     }
@@ -348,6 +391,16 @@ export async function extractScope(
   const expressions = await queryExpressions(kind, input, cwd, scope);
   if (scope.excludes.length > 64) throw new Error("too many search exclusions");
   await collectTargets(expressions, cwd, scope, signal);
+  // A positive filename filter excluded in full makes even directory targets empty.
+  const excludedFilters = new Set(scope.excludes.flatMap(alternatives));
+  if (
+    scope.filters.some((filter) =>
+      alternatives(filter).every((alternative) => excludedFilters.has(alternative))
+    )
+  ) {
+    scope.targets = [];
+    return scope;
+  }
   const retained: Target[] = [];
   for (const target of scope.targets) {
     signal?.throwIfAborted();
@@ -362,11 +415,7 @@ export async function extractScope(
       )
     )
       continue;
-    if (
-      !retained.some(
-        (previous) => previous.absolute === target.absolute && previous.filter === target.filter
-      )
-    )
+    if (!retained.some((previous) => targetKey(previous) === targetKey(target)))
       retained.push(target);
   }
   scope.targets = retained;

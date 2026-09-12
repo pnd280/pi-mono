@@ -47,6 +47,8 @@ describe("explicit search scopes", () => {
       ["grep", { pattern: "node_modules/", exclude: "node_modules/", cursor: "fff_c1" }, []],
       ["grep", { pattern: "./missing.ts", exclude: "missing/" }, []],
       ["grep", { path: "missing.ts" }, []],
+      ["grep", { path: "./missing.ts" }, []],
+      ["grep", { path: path.join(directory.root, "missing.ts") }, []],
       ["grep", { path: " src/ " }, ["src"]],
       ["grep", { path: " " }, []],
       ["grep", { path: "." }, [""]],
@@ -70,7 +72,7 @@ describe("explicit search scopes", () => {
     const missingPaths = [
       "missing",
       "missing/",
-      "./missing.ts",
+      "./src/missing.ts",
       "../node_modules/@earendil-works/pi-coding-agent",
       path.join(directory.root, "missing"),
       `~/${path.relative(homedir(), directory.root)}/missing`,

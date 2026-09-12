@@ -2,17 +2,22 @@
 
 ## Code navigation
 
-- **Extension lifecycle:** [src/index.ts](src/index.ts) installs the display hook before history reconstruction, warns when unavailable, and disposes it on shutdown or non-TUI startup.
-- **Live/history lookup or Pi upgrades:** [src/replay.ts](src/replay.ts) decorates render-definition copies; [src/replay.test.ts](src/replay.test.ts) exercises Pi's real lookup, components, and session lifecycle. Verify the private lookup and restoration order against the installed Pi implementation before changing this hook.
-- **Rendering:** [src/renderers.ts](src/renderers.ts) owns components and previews; [src/presentation.ts](src/presentation.ts) owns tool-family interpretation; [src/layout.ts](src/layout.ts) owns terminal normalization and row budgets.
+- **Lifecycle/private Pi integration:** [src/index.ts](src/index.ts), [src/host-integration.ts](src/host-integration.ts), and its real session/component tests. All private host types/accesses belong here. Pi upgrades require re-inspecting construction, registry wrapping, reconstruction, and row expansion before accepting new method fingerprints. Check both the bundled executable and unbundled API; [src/host-integration-cli.test.ts](src/host-integration-cli.test.ts) exercises the installed manifest's `bin.pi` entry point.
+- **Contracts/policy:** [src/display-model.ts](src/display-model.ts), [src/settings.ts](src/settings.ts), and [src/adapters.ts](src/adapters.ts). Shared FFF ownership/name classification is in [pi-utils](../../utils/README.md); filesystem guard policy stays in `pi-fff-guard`.
+- **Coordination:** [src/transcript-coordinator.ts](src/transcript-coordinator.ts) owns ordering, lifecycle, groups, expansion, and the single animation scheduler independently of Pi.
+- **Observation/history:** [src/native-observation.ts](src/native-observation.ts), [src/output-buffer.ts](src/output-buffer.ts), [src/diff.ts](src/diff.ts), [src/session-metadata.ts](src/session-metadata.ts), and [src/saved-output.ts](src/saved-output.ts).
+- **Rendering:** [src/renderers.ts](src/renderers.ts), [src/presentation.ts](src/presentation.ts), and [src/layout.ts](src/layout.ts). [src/result-presentation.ts](src/result-presentation.ts) classifies known native/FFF prose; [src/output-text.ts](src/output-text.ts) retains explicit ranges for generated preview omissions. The public owner API is documented in [renderer integration](docs/renderers.md).
 
 ## Constraints
 
-- Keep the extension scoped to individual tool-call rows. Cross-call exploration grouping, transcript pagers, user `!` shell cards, and HTML exports are outside its scope.
-- Keep state local to each host row and derive previews from supplied arguments/results. Leave inline images to Pi; do not retain image bytes separately, accumulate streamed deltas, or introduce timers.
-- Keep the lookup render-only and reversible. Never register replacement tools, mutate stored definitions, reconstruct execution settings, or write the active-tool list for automatic presentation. Preserve later wrappers when disposing it.
-- Keep automatic eligibility limited to known built-in names with CLI built-in provenance. The `builtin` source label also covers SDK base-tool overrides; SDK hosts must use the public renderer factory instead of the default extension.
+Keep the display lookup render-only. The separate approved execution exception reconstructs verified, unmodified Pi-native bash/PowerShell/edit/write definitions through Pi factories, only for participating TUI sessions and specialized selection. Preserve middleware, schemas/prompts, settings, active selection, operation results, and mutation ordering. Never register tools for presentation or recreate unknown SDK/custom closures automatically.
+
+Renderers perform no filesystem work, tool execution, or persistence. Separate observed operation outcome from Pi's published result. Persist bounded additional facts, not output/image copies or styled text. Historical reconstruction must not observe today's files, rerun tools, or animate missing results.
+
+Use Pi's expansion, mouse routing, image path, theme, highlighter, and width utilities. Assign semantic colors at known prose/metadata sources; never use arbitrary result text to invent statuses. Keep omission ranges transient and apply colors only during rendering. Suppress grouped sibling text, not image-bearing rows. Keep one scheduler per coordinator, bounded saved-output work, and restoration limited to owned hooks/definitions. Preserve later wrappers and make disposed callbacks inert.
+
+User `!`/`!!` commands, separate transcript browsers, HTML exports, new keybindings, and durable output archives are outside scope. Automatic observation and animation are disabled in print/JSON/RPC.
 
 ## Validation
 
-Follow the workspace [verification workflow](../../../docs/agents/verification.md) and the package's [manual checks](docs/validation.md).
+Follow the workspace [verification workflow](../../../docs/agents/verification.md), including both consumers when changing the shared classifier. Run [manual host checks](docs/validation.md) for integration/interaction changes. Use an offline provider; distinguish portable factory tests from real PowerShell and terminal-image protocol checks.

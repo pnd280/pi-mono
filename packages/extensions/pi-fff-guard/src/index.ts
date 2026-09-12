@@ -1,31 +1,9 @@
-import type { ExtensionAPI, ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { fffAdapter } from "pi-utils/fff-tools";
 
 import { detectIgnored } from "./git-ignore.ts";
 import { blockingReason, missingPathReason } from "./redirect.ts";
-import { extractScope, type SearchInput, type SearchKind } from "./targets.ts";
-
-const adapters: ReadonlyMap<string, SearchKind> = new Map([
-  ["fffind", "find"],
-  ["ffgrep", "grep"],
-  ["fff-multi-grep", "multi"],
-  ["find", "find"],
-  ["grep", "grep"],
-  ["multi_grep", "multi"]
-]);
-
-export function fffAdapter(
-  tool: Pick<ToolInfo, "name" | "sourceInfo"> | undefined
-): SearchKind | undefined {
-  if (!tool) return undefined;
-  const { sourceInfo } = tool;
-  if (sourceInfo.source === "builtin" || sourceInfo.source === "sdk") return undefined;
-  const owned =
-    /^npm:@ff-labs\/pi-fff(?:@[^/]+)?$/.test(sourceInfo.source) ||
-    /(?:^|\/)@ff-labs\/pi-fff\/(?:src\/)?index\.[cm]?[jt]s$/.test(
-      sourceInfo.path.replaceAll("\\", "/")
-    );
-  return owned ? adapters.get(tool.name) : undefined;
-}
+import { extractScope, type SearchInput } from "./targets.ts";
 
 export default function fffGuardExtension(pi: ExtensionAPI): void {
   // Temporary workaround: https://github.com/dmtrKovalenko/fff/issues/714

@@ -18,7 +18,7 @@ Intercepts `fffind`, `ffgrep`, and enabled `fff-multi-grep`, plus FFF-owned `fin
 
 ## Detection
 
-Use `path: "./main.ts"` for an explicit file; `path: "main.ts"` is a recursive filename filter and need not exist in the current directory.
+A file path with a directory component, such as `path: "src/main.ts"`, is checked as an explicit target. `path: "main.ts"` is a recursive filename filter, including its `./main.ts` and workspace-local absolute aliases after FFF normalization. A missing or Git-ignored file with that name in the current directory does not block the recursive search.
 
 See [search scopes](docs/search-scopes.md) for path syntax, exclusions, unsupported queries, and Git ignore behavior across repositories and symbolic links.
 

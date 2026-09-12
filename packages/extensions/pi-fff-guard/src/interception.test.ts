@@ -8,9 +8,10 @@ import type {
   ToolCallEventResult,
   ToolInfo
 } from "@earendil-works/pi-coding-agent";
+import { fffAdapter } from "pi-utils/fff-tools";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import extension, { fffAdapter } from "./index.ts";
+import extension from "./index.ts";
 import { fixture } from "./test-fixture.ts";
 
 let directory: Awaited<ReturnType<typeof fixture>>;
@@ -104,6 +105,82 @@ describe("public interception adapter", () => {
       block: true,
       reason: "No such file or directory"
     });
+  });
+
+  it("keeps recursive filename filters independent of ignored cwd matches", async () => {
+    await directory.write(".gitignore", "/config.json\n/ignored/\n");
+    await directory.write("config.json");
+    await directory.write("src/config.json");
+    await directory.write("ignored/config.json");
+    const host = harness();
+    const aliases = ["config.json", "./config.json", path.join(directory.root, "config.json")];
+    for (const name of ["fffind", "ffgrep"]) {
+      host.register(name);
+      for (const filename of aliases)
+        expect(
+          await host.call(name, { pattern: "marker", path: filename }),
+          filename
+        ).toBeUndefined();
+      expect(
+        await host.call(name, { pattern: "marker", path: "./ignored/config.json" })
+      ).toMatchObject({
+        block: true,
+        reason: expect.stringContaining("Git-ignored")
+      });
+    }
+    await rm(path.join(directory.root, "config.json"));
+    for (const name of ["fffind", "ffgrep"]) {
+      host.register(name);
+      for (const filename of aliases)
+        expect(
+          await host.call(name, { pattern: "marker", path: filename }),
+          filename
+        ).toBeUndefined();
+    }
+  });
+
+  it("retains intersecting scopes across exclusions and concrete files, independent of order", async () => {
+    const host = harness();
+    host.register("fff-multi-grep");
+    for (const constraints of [
+      "node_modules/** node_modules/**/*.ts !*.ts",
+      "node_modules/**/*.ts node_modules/** !*.ts",
+      "node_modules/**/*.{ts,js} node_modules/**/*.ts !*.ts",
+      "node_modules/**/*.ts node_modules/**/*.{ts,js} !*.ts",
+      "node_modules/**/*.ts node_modules/dependency/ !*.ts",
+      "node_modules/**/*.ts node_modules/** node_modules/dependency/package.json",
+      "node_modules/** node_modules/**/*.ts node_modules/dependency/package.json"
+    ])
+      expect(
+        await host.call("fff-multi-grep", { patterns: ["marker"], constraints }),
+        constraints
+      ).toBeUndefined();
+    expect(
+      await host.call("fff-multi-grep", {
+        patterns: ["marker"],
+        constraints: "node_modules/**/*.{ts,js} node_modules/dependency/ !*.ts"
+      })
+    ).toMatchObject({ block: true, reason: expect.stringContaining("Git-ignored") });
+  });
+
+  it("allows fully excluded filename filters within ignored directories", async () => {
+    const host = harness();
+    host.register("fffind");
+    for (const exclude of ["*.ts", "./*.ts", path.join(directory.root, "*.ts")])
+      expect(
+        await host.call("fffind", { path: "node_modules/", pattern: "*.ts", exclude }),
+        exclude
+      ).toBeUndefined();
+    expect(
+      await host.call("fffind", { path: "node_modules/", pattern: "*.ts", exclude: "*.js" })
+    ).toMatchObject({ block: true, reason: expect.stringContaining("Git-ignored") });
+    host.register("fff-multi-grep");
+    expect(
+      await host.call("fff-multi-grep", {
+        patterns: ["marker"],
+        constraints: "*.ts node_modules/ !*.ts"
+      })
+    ).toBeUndefined();
   });
 
   it("checks ownership on every invocation, including reloads, without intercepting builtins", async () => {
