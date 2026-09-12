@@ -69,6 +69,43 @@ function unchangedDefinition(definition: ToolDefinition, fields: ToolDefinition)
     Object.keys(fields).every((key) => Reflect.get(definition, key) === Reflect.get(fields, key))
   );
 }
+/** Pi 0.85.1's self shell prepends one margin row and subtracts it in handleMouse.
+ * Join adjacent compact members without moving their native image components or
+ * replacing Pi's mouse routing. Expanded and unrelated cards retain the margin.
+ */
+function joinGroupedRow(
+  row: ToolExecutionComponent,
+  call: DisplayCall,
+  coordinator: TranscriptCoordinator,
+  active: () => boolean
+): () => void {
+  // Preserve unbound method identity for conditional restoration; calls rebind this.
+  // oxlint-disable-next-line typescript/unbound-method
+  const previousRender = row.render;
+  // oxlint-disable-next-line typescript/unbound-method
+  const previousMouse = row.handleMouse;
+  let removedMargin = false;
+  const render: typeof row.render = function (this: ToolExecutionComponent, width) {
+    const rows = previousRender.call(this, width);
+    const group = active() && !call.expanded ? coordinator.group(call) : undefined;
+    removedMargin = !!group && group.members[0] !== call && rows[0] === "";
+    return removedMargin ? rows.slice(1) : rows;
+  };
+  const handleMouse: typeof row.handleMouse = function (this: ToolExecutionComponent, event) {
+    return previousMouse.call(
+      this,
+      removedMargin && active() ? { ...event, y: event.y + 1, height: event.height + 1 } : event
+    );
+  };
+  row.render = render;
+  row.handleMouse = handleMouse;
+  return () => {
+    removedMargin = false;
+    if (row.render === render) row.render = previousRender;
+    if (row.handleMouse === handleMouse) row.handleMouse = previousMouse;
+  };
+}
+
 const hook = Symbol.for("pi-tool-display.hostIntegration");
 type Prototype = Host & { [hook]?: () => void };
 const nativeSession = (session: AgentSession) => session as unknown as SessionInternals;
@@ -485,6 +522,14 @@ export function installHostIntegration(
         rowCalls.get(row.toolDefinition as object) ?? binding.coordinator.byId(row.toolCallId);
       if (!call || !rowCalls.has(row.toolDefinition as object)) continue;
       binding.boundRows.add(child);
+      binding.rowDisposers.push(
+        joinGroupedRow(
+          child,
+          call,
+          binding.coordinator,
+          () => active && hosts.get(binding.host) === binding
+        )
+      );
       // Preserve identity for restoration and explicitly rebind the original receiver.
       // oxlint-disable-next-line typescript/unbound-method
       const previous = child.setExpanded;

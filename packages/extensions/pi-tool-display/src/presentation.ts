@@ -1,6 +1,10 @@
+import { homedir } from "node:os";
+import { isAbsolute, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
-import type { ToolFamily, DisplayGroup, ExplorationItem } from "./display-model.ts";
+import type { ToolFamily } from "./display-model.ts";
 import { displayText } from "./layout.ts";
 import type { DisplayNotice } from "./result-presentation.ts";
 export type { ToolFamily } from "./display-model.ts";
@@ -21,11 +25,32 @@ function readRange(args: Record<string, unknown>): string {
 }
 
 export interface InvocationPart {
-  kind: "value" | "annotation" | "parameters";
+  kind: "value" | "path" | "pattern" | "annotation" | "parameters";
   text: string;
 }
 const value = (text: string): InvocationPart => ({ kind: "value", text });
 const annotation = (text: string): InvocationPart => ({ kind: "annotation", text });
+
+/** Resolve only explicitly tagged file targets. Retained rendering must not inspect
+ * current files or follow symlinks, and search expressions are not filesystem paths.
+ */
+export function invocationPartText(part: InvocationPart, cwd: string): string {
+  if (part.kind !== "path" || !part.text) return displayText(part.text);
+  let path = part.text.startsWith("@") ? part.text.slice(1) : part.text;
+  if (path === "~" || path.startsWith("~/") || (sep === "\\" && path.startsWith("~\\")))
+    path = resolve(homedir(), path.slice(2));
+  if (path.startsWith("file://")) {
+    try {
+      path = fileURLToPath(path);
+    } catch {
+      return displayText(part.text);
+    }
+  }
+  const absolute = resolve(cwd, path);
+  const local = relative(cwd, absolute);
+  const inside = local !== ".." && !local.startsWith(`..${sep}`) && !isAbsolute(local);
+  return displayText((inside ? local || "." : absolute).split(sep).join("/"));
+}
 
 /** Keep supplied values separate from generated labels; styling must not parse user text. */
 export function invocationParts(
@@ -34,7 +59,9 @@ export function invocationParts(
   family: ToolFamily
 ): InvocationPart[] {
   const args = record(input);
-  const path = stringField(args.path ?? args.file_path);
+  const rawPath = args.path ?? args.file_path;
+  const path = typeof rawPath === "string" ? rawPath : "";
+  const target = (text: string): InvocationPart => ({ kind: "path", text });
   switch (family) {
     case "shell": {
       const timeout = typeof args.timeout === "number" ? ` (timeout ${args.timeout}s)` : "";
@@ -46,17 +73,17 @@ export function invocationParts(
       return [
         stringField(args.pattern) ? value(stringField(args.pattern)) : annotation("…"),
         annotation(" in "),
-        value(path || "."),
+        target(path || "."),
         ...(glob ? [annotation(" ("), value(glob), annotation(")")] : [])
       ];
     }
     case "list":
-      return [value(path || ".")];
+      return [target(path || ".")];
     case "read":
-      return [path ? value(path) : annotation("…"), annotation(readRange(args))];
+      return [path ? target(path) : annotation("…"), annotation(readRange(args))];
     case "edit":
     case "write":
-      return [path ? value(path) : annotation("…")];
+      return [path ? target(path) : annotation("…")];
     case "invocation":
       return [
         value(name),
@@ -96,24 +123,4 @@ export function resultNotices(details: unknown): DisplayNotice[] {
   if (typeof data.entryLimitReached === "number") warning("Entry limit reached.");
   if (data.linesTruncated === true) warning("Long result lines truncated by pi.");
   return notices;
-}
-
-export function explorationSummary(group: DisplayGroup): ExplorationItem[] {
-  const summary: ExplorationItem[] = [];
-  let reads: string[] = [];
-  const flush = () => {
-    if (reads.length) summary.push({ label: "Read", text: [...new Set(reads)].join(", ") });
-    reads = [];
-  };
-  for (const call of group.members) {
-    const items = call.adapter.exploration?.(call.args, call.result) ?? [];
-    if (items.length && items.every((item) => item.label === "Read"))
-      reads.push(...items.map((item) => item.text));
-    else {
-      flush();
-      summary.push(...items);
-    }
-  }
-  flush();
-  return summary;
 }

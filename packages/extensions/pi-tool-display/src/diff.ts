@@ -1,75 +1,98 @@
-import { generateUnifiedPatch } from "@earendil-works/pi-coding-agent";
+import { DiffLineType, DiffParser, type DiffHunk } from "@git-diff-view/core";
+import { createPatch, FILE_HEADERS_ONLY } from "diff";
 
 import type { ChangeFact } from "./display-model.ts";
 
 export const OBSERVATION_BYTES = 64 * 1024;
-export const DIFF_LINE_LIMIT = 1000;
-export const DIFF_WORK_LIMIT = 40_000;
+const DIFF_EDIT_LIMIT = 2000;
+const DIFF_TIMEOUT_MS = 50;
 export interface PatchLine {
-  kind: "added" | "removed" | "context" | "separator";
+  kind: "added" | "removed" | "context";
   text: string;
   oldLine?: number;
   newLine?: number;
+  noNewline?: true;
+}
+export interface PatchHunk {
+  lines: PatchLine[];
 }
 export interface ParsedPatch {
-  lines: PatchLine[];
+  hunks: PatchHunk[];
   added: number;
   removed: number;
 }
-function hunkNumbers(hunk: RegExpExecArray): number[] | undefined {
-  const values = [Number(hunk[1]), Number(hunk[3]), Number(hunk[2] ?? 1), Number(hunk[4] ?? 1)];
-  return values.every(Number.isSafeInteger) ? values : undefined;
-}
-function ignorablePatchLine(text: string): boolean {
-  return !text || text.startsWith("\\ No newline");
+function validHunk(hunk: DiffHunk): boolean {
+  const { oldStartLine, oldLineCount, newStartLine, newLineCount } = hunk.header;
+  for (const [start, count] of [
+    [oldStartLine, oldLineCount],
+    [newStartLine, newLineCount]
+  ] as const) {
+    if (
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(count) ||
+      !Number.isSafeInteger(start + count) ||
+      (count > 0 && start === 0)
+    )
+      return false;
+  }
+  const content = hunk.lines.slice(1);
+  return (
+    !hunk.lines[0]?.noTrailingNewLine &&
+    content.filter((line) => line.type !== DiffLineType.Add).length === oldLineCount &&
+    content.filter((line) => line.type !== DiffLineType.Delete).length === newLineCount
+  );
 }
 
-/** Interpret native unified patches; never infer changes from the legacy numbered UI diff. */
+/** Parse retained patches only; DiffFile would allocate placeholders up to the largest line number. */
 export function parsePatch(patch: string): ParsedPatch | undefined {
   if (Buffer.byteLength(patch) > 128 * 1024) return undefined;
-  const lines: PatchLine[] = [];
-  let oldLine = 0,
-    newLine = 0,
-    oldRemaining = 0,
-    newRemaining = 0,
-    hunks = 0,
-    added = 0,
-    removed = 0;
-  for (const text of patch.replaceAll("\r\n", "\n").split("\n")) {
-    const hunk = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?:.*)$/.exec(text);
-    if (hunk) {
-      if (Math.max(oldRemaining, newRemaining) > 0) return undefined;
-      const numbers = hunkNumbers(hunk);
-      if (!numbers) return undefined;
-      [oldLine, newLine, oldRemaining, newRemaining] = numbers as [number, number, number, number];
-      if (hunks++) lines.push({ kind: "separator", text: "⋮" });
-    } else if (hunks && Math.max(oldRemaining, newRemaining) > 0) {
-      if (text.startsWith("\\ No newline")) continue;
-      if (text.startsWith("+")) {
-        lines.push({ kind: "added", text: text.slice(1), newLine: newLine++ });
-        newRemaining--;
-        added++;
-      } else if (text.startsWith("-")) {
-        lines.push({ kind: "removed", text: text.slice(1), oldLine: oldLine++ });
-        oldRemaining--;
-        removed++;
-      } else if (text.startsWith(" ")) {
+  const normalized = patch.replaceAll("\r\n", "\n").replace(/\n+$/, "");
+  if (
+    normalized
+      .split("\n")
+      .some((line) => line.startsWith("\\") && line !== "\\ No newline at end of file")
+  )
+    return undefined;
+  // Native/owner contracts may omit file headers. The parser requires them; these
+  // synthetic names are never displayed, persisted, or used to access files.
+  const source = (normalized.startsWith("@@ ") ? "--- a\n+++ b\n" : "") + normalized + "\n";
+  try {
+    const parsed = new DiffParser().parse(source);
+    if (
+      parsed.isBinary ||
+      (!parsed.hunks.length && !/^--- [^\n]*\n\+\+\+ [^\n]*$/.test(normalized))
+    )
+      return undefined;
+    const hunks: PatchHunk[] = [];
+    let added = 0,
+      removed = 0;
+    for (const hunk of parsed.hunks) {
+      // Upstream deliberately tolerates mismatched counts; tool results must not.
+      if (!validHunk(hunk)) return undefined;
+      const lines: PatchLine[] = [];
+      for (const line of hunk.lines.slice(1)) {
+        const kind =
+          line.type === DiffLineType.Add
+            ? "added"
+            : line.type === DiffLineType.Delete
+              ? "removed"
+              : "context";
+        if (kind === "added") added++;
+        if (kind === "removed") removed++;
         lines.push({
-          kind: "context",
-          text: text.slice(1),
-          oldLine: oldLine++,
-          newLine: newLine++
+          kind,
+          text: line.text.replace(/\n$/, ""),
+          ...(line.oldLineNumber !== null ? { oldLine: line.oldLineNumber } : {}),
+          ...(line.newLineNumber !== null ? { newLine: line.newLineNumber } : {}),
+          ...(line.noTrailingNewLine ? { noNewline: true } : {})
         });
-        oldRemaining--;
-        newRemaining--;
-      } else return undefined;
-      if (oldRemaining < 0 || newRemaining < 0) return undefined;
-    } else if (hunks && !ignorablePatchLine(text)) return undefined;
+      }
+      hunks.push({ lines });
+    }
+    return { hunks, added, removed };
+  } catch {
+    return undefined;
   }
-  const emptyPatch = /^--- [^\n]*\n\+\+\+ [^\n]*\n?$/.test(patch);
-  return (hunks > 0 || emptyPatch) && Math.max(oldRemaining, newRemaining) === 0
-    ? { lines, added, removed }
-    : undefined;
 }
 export function computeChange(
   path: string,
@@ -86,21 +109,25 @@ export function computeChange(
     return unavailable("Change exceeds the 64 KiB observation limit.");
   // Observation rejects invalid UTF-8 while decoding; a literal U+FFFD is valid text.
   if (before.includes("\0") || after.includes("\0")) return unavailable("Binary content.");
-  const oldLines = before.split("\n").length,
-    newLines = after.split("\n").length;
-  // The diff helper is synchronous. Bound both input and its quadratic line-search space
-  // before invoking it, rather than measuring an already-completed expensive computation.
-  if (
-    oldLines > DIFF_LINE_LIMIT ||
-    newLines > DIFF_LINE_LIMIT ||
-    oldLines * newLines > DIFF_WORK_LIMIT
-  )
-    return unavailable("Change exceeds the diff computation budget.");
-  const patch = generateUnifiedPatch(
+  // Let jsdiff bound its search by actual edit distance and elapsed time. Whole-file
+  // line products reject tiny changes in otherwise identical files unnecessarily.
+  const patch = createPatch(
     path,
     before.replaceAll("\r\n", "\n"),
-    after.replaceAll("\r\n", "\n")
+    after.replaceAll("\r\n", "\n"),
+    undefined,
+    undefined,
+    {
+      context: 4,
+      headerOptions: FILE_HEADERS_ONLY,
+      maxEditLength: DIFF_EDIT_LIMIT,
+      timeout: DIFF_TIMEOUT_MS
+    }
   );
+  if (patch === undefined)
+    return unavailable(
+      `Diff generation exceeded ${DIFF_TIMEOUT_MS} ms or ${DIFF_EDIT_LIMIT} changed lines.`
+    );
   if (Buffer.byteLength(patch) > 128 * 1024)
     return unavailable("Patch exceeds the 128 KiB retention limit.");
   return { kind: "change", availability: "available", change, patch };

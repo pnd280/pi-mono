@@ -2,6 +2,7 @@ import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
 import type { ToolDisplayAdapter } from "./adapters.ts";
 import type { OutputText } from "./output-text.ts";
+import type { InvocationPart } from "./presentation.ts";
 
 export type ToolFamily = "read" | "search" | "list" | "shell" | "edit" | "write" | "invocation";
 export interface CallReference {
@@ -60,7 +61,7 @@ export interface DisplayCall {
 }
 export interface ExplorationItem {
   label: "Read" | "Search" | "List";
-  text: string;
+  parts: InvocationPart[];
 }
 export interface DisplayGroup {
   members: DisplayCall[];

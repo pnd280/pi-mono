@@ -27,11 +27,9 @@ describe("tool presentation", () => {
       { pattern: " in ", path: "a (b)", glob: "(c)" },
       "search"
     );
-    expect(parts.filter((part) => part.kind === "value").map((part) => part.text)).toEqual([
-      " in ",
-      "a (b)",
-      "(c)"
-    ]);
+    expect(
+      parts.filter((part) => part.kind === "value" || part.kind === "path").map((part) => part.text)
+    ).toEqual([" in ", "a (b)", "(c)"]);
     expect(
       parts
         .filter((part) => part.kind === "annotation")

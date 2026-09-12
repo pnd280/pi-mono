@@ -1,5 +1,3 @@
-import { basename } from "node:path";
-
 import type { AgentToolResult, ToolDefinition, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { fffAdapter } from "@pi-mono/utils/fff-tools";
 
@@ -65,7 +63,8 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
       ? {
           exploration(args: unknown) {
             const data = record(args);
-            if (family === "read" && typeof data.path !== "string") return undefined;
+            if (family === "read" && typeof (data.path ?? data.file_path) !== "string")
+              return undefined;
             if (family === "search" && typeof data.pattern !== "string") return undefined;
             return [
               {
@@ -75,12 +74,7 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
                     : family === "search"
                       ? ("Search" as const)
                       : ("List" as const),
-                text:
-                  family === "read"
-                    ? basename(stringField(data.path).replaceAll("\\", "/"))
-                    : invocationParts(name, args, family)
-                        .map((part) => part.text)
-                        .join("")
+                parts: invocationParts(name, args, family)
               }
             ];
           }
@@ -100,23 +94,24 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
   return {
     id: `fff:${kind}`,
     family: "search",
-    ...(kind === "multi"
-      ? {
-          invocation(args: unknown) {
-            const data = record(args);
-            return invocationParts(
-              tool.name,
-              {
-                pattern: Array.isArray(data.patterns)
-                  ? data.patterns.map(stringField).join(", ")
-                  : "",
-                path: data.constraints
-              },
-              "search"
-            );
-          }
-        }
-      : {}),
+    invocation(args) {
+      const data = record(args);
+      return invocationParts(
+        tool.name,
+        kind === "multi"
+          ? {
+              pattern: Array.isArray(data.patterns)
+                ? data.patterns.map(stringField).join(", ")
+                : "",
+              path: data.constraints
+            }
+          : args,
+        "search"
+      ).map((part, index) => {
+        if (index === 0 && part.kind === "value") return { ...part, kind: "pattern" };
+        return part.kind === "path" ? { ...part, kind: "value" } : part;
+      });
+    },
     textParts: (text, _args, context) => fffResultParts(text, kind, context),
     exploration(args, result) {
       const data = record(args);
@@ -138,7 +133,20 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
       const pattern =
         kind === "multi" ? (data.patterns as string[]).join(", ") : stringField(data.pattern);
       const scope = stringField(kind === "multi" ? data.constraints : data.path);
-      return [{ label: "Search", text: `${pattern}${scope ? ` in ${scope}` : ""}` }];
+      return [
+        {
+          label: "Search",
+          parts: [
+            { kind: "pattern", text: pattern },
+            ...(scope
+              ? [
+                  { kind: "annotation" as const, text: " in " },
+                  { kind: "value" as const, text: scope }
+                ]
+              : [])
+          ]
+        }
+      ];
     },
     notices(result, expanded) {
       const details = record(result.details);
@@ -147,15 +155,6 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
         notices.push({
           kind: "info",
           text: `${details.totalMatched} ${details.totalMatched === 1 ? "match" : "matches"} reported${typeof details.totalFiles === "number" ? ` across ${details.totalFiles} ${details.totalFiles === 1 ? "file" : "files"}` : ""}.`
-        });
-      if (
-        kind === "find" &&
-        typeof details.pageIndex === "number" &&
-        (expanded || (details.hasMore === true && notices.length === 0))
-      )
-        notices.push({
-          kind: details.hasMore === true ? "warning" : "info",
-          text: `Page ${details.pageIndex + 1}${details.hasMore === true ? "; more results available" : ""}.`
         });
       return notices;
     }

@@ -19,7 +19,7 @@ function info(name: string, multi = false): ToolInfo {
     }
   };
 }
-it("keeps ordinary FFF counts in details and only actionable pagination in compact cards", () => {
+it("hides FFF pagination while retaining expanded match counts", () => {
   const find = officialFffAdapter(info("fffind"))!;
   const grep = officialFffAdapter(info("ffgrep"))!;
   const cursorNotice = '[Continue with cursor="fff_c1"]';
@@ -27,7 +27,7 @@ it("keeps ordinary FFF counts in details and only actionable pagination in compa
     content: [{ type: "text" as const, text: `file.ts\n 1: export\n\n${cursorNotice}` }],
     details: { totalMatched: 1, totalFiles: 5 }
   };
-  expect(grep.notices?.(paged, false)).toEqual([{ kind: "warning", text: cursorNotice }]);
+  expect(grep.notices?.(paged, false)).toEqual([]);
   expect(grep.notices?.(paged, true)).not.toContainEqual({ kind: "warning", text: cursorNotice });
   const complete = {
     content: [{ type: "text" as const, text: "file-test.txt" }],
@@ -35,12 +35,15 @@ it("keeps ordinary FFF counts in details and only actionable pagination in compa
   };
   expect(find.notices?.(complete, false)).toEqual([]);
   expect(find.notices?.(complete, true)).toEqual([
-    { kind: "info", text: "1 match reported across 1 file." },
-    { kind: "info", text: "Page 1." }
+    { kind: "info", text: "1 match reported across 1 file." }
   ]);
-  expect(
-    find.notices?.({ ...complete, details: { ...complete.details, hasMore: true } }, false)
-  ).toEqual([{ kind: "warning", text: "Page 1; more results available." }]);
+  for (const hasMore of [false, true]) {
+    const pagedFind = { ...complete, details: { ...complete.details, hasMore } };
+    expect(find.notices?.(pagedFind, false)).toEqual([]);
+    expect(find.notices?.(pagedFind, true)).toEqual([
+      { kind: "info", text: "1 match reported across 1 file." }
+    ]);
+  }
 });
 
 it("requires official ownership and supplied contracts without enabling disabled tools", () => {
@@ -48,7 +51,16 @@ it("requires official ownership and supplied contracts without enabling disabled
   expect(officialFffAdapter({ ...info("ffgrep"), parameters: {} })).toBeUndefined();
   const grep = officialFffAdapter(info("ffgrep"))!;
   const args = { pattern: "token", path: "src/**", exclude: ["*.min.js"], cursor: "c1", limit: 20 };
-  expect(grep.exploration?.(args)).toEqual([{ label: "Search", text: "token in src/**" }]);
+  expect(grep.exploration?.(args)).toEqual([
+    {
+      label: "Search",
+      parts: [
+        { kind: "pattern", text: "token" },
+        { kind: "annotation", text: " in " },
+        { kind: "value", text: "src/**" }
+      ]
+    }
+  ]);
   const result = {
     content: [{ type: "text" as const, text: "limited results; cursor c2" }],
     details: { totalMatched: 20, totalFiles: 2 }
@@ -61,7 +73,7 @@ it("requires official ownership and supplied contracts without enabling disabled
       .notices?.({ ...result, details: { ...result.details, hasMore: true, pageIndex: 1 } }, true)
       .map((notice) => (notice.kind === "reference" ? notice.value : notice.text))
       .join("\n")
-  ).toContain("Page 2; more results available");
+  ).not.toContain("Page");
   expect(
     grep
       .notices?.({ ...result, details: { ...result.details, hasMore: true, pageIndex: 1 } }, true)
@@ -73,7 +85,16 @@ it("requires official ownership and supplied contracts without enabling disabled
       patterns: ["a", "b"],
       constraints: "src/"
     })
-  ).toEqual([{ label: "Search", text: "a, b in src/" }]);
+  ).toEqual([
+    {
+      label: "Search",
+      parts: [
+        { kind: "pattern", text: "a, b" },
+        { kind: "annotation", text: " in " },
+        { kind: "value", text: "src/" }
+      ]
+    }
+  ]);
   const owner = { renderCall: () => ({ render: () => [], invalidate() {} }) };
   expect(selectAdapter(loadDisplaySettings([]), "ffgrep", owner, false, info("ffgrep"))?.id).toBe(
     "fff:grep"

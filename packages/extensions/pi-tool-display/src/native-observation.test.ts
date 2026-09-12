@@ -1,3 +1,4 @@
+import { mkdirSync, renameSync } from "node:fs";
 import { chmod, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -73,44 +74,128 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
     await rm(directory, { recursive: true, force: true });
   }
 });
-it.each(["edit", "write"] as const)("preserves BOMs in observed %s changes", async (name) => {
-  const directory = await mkdtemp(join(tmpdir(), "display-native-bom-"));
+it.each(["edit", "write"] as const)(
+  "preserves BOM-bearing files during observed %s",
+  async (name) => {
+    const directory = await mkdtemp(join(tmpdir(), "display-native-bom-"));
+    try {
+      const before = "\uFEFFbefore\n";
+      const after = "\uFEFFafter\n";
+      await writeFile(join(directory, "file"), before);
+      const facts: DisplayFact[] = [];
+      const original =
+        name === "edit"
+          ? createEditToolDefinition(directory)
+          : createWriteToolDefinition(directory);
+      const observed = observeNativeDefinition(
+        original as unknown as ToolDefinition,
+        { cwd: directory },
+        () => ({
+          started() {},
+          preview() {},
+          fact: (fact) => facts.push(fact)
+        })
+      );
+      const result = await observed.execute(
+        "bom",
+        name === "edit"
+          ? { path: "file", edits: [{ oldText: "before", newText: "after" }] }
+          : { path: "file", content: after },
+        undefined,
+        undefined,
+        { cwd: directory } as ExtensionContext
+      );
+      expect(await readFile(join(directory, "file"), "utf8")).toBe(after);
+      const change = facts.find((fact) => fact.kind === "change");
+      expect(change?.availability).toBe("available");
+      if (name === "edit") expect(change!.patch).toBe((result.details as { patch: string }).patch);
+      const bom = name === "write" ? "\uFEFF" : "";
+      expect(parsePatch(change!.patch!)?.hunks[0]?.lines).toEqual([
+        { kind: "removed", text: `${bom}before`, oldLine: 1 },
+        { kind: "added", text: `${bom}after`, newLine: 1 }
+      ]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+);
+it("reuses the native edit patch even when the file exceeds the observation limit", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "display-native-large-edit-"));
   try {
-    const before = "\uFEFFbefore\n";
-    const after = "\uFEFFafter\n";
+    const before = Array.from(
+      { length: 900 },
+      (_, index) => `line ${index} ${"x".repeat(80)}\n`
+    ).join("");
+    const after = before.replace("line 450 ", "changed 450 ");
     await writeFile(join(directory, "file"), before);
     const facts: DisplayFact[] = [];
-    const original =
-      name === "edit" ? createEditToolDefinition(directory) : createWriteToolDefinition(directory);
     const observed = observeNativeDefinition(
-      original as unknown as ToolDefinition,
+      createEditToolDefinition(directory) as unknown as ToolDefinition,
       { cwd: directory },
-      () => ({
-        started() {},
-        preview() {},
-        fact: (fact) => facts.push(fact)
-      })
+      () => ({ started() {}, preview() {}, fact: (fact) => facts.push(fact) })
     );
-    await observed.execute(
-      "bom",
-      name === "edit"
-        ? { path: "file", edits: [{ oldText: "before", newText: "after" }] }
-        : { path: "file", content: after },
+    const result = await observed.execute(
+      "large-edit",
+      { path: "file", edits: [{ oldText: "line 450 ", newText: "changed 450 " }] },
       undefined,
       undefined,
       { cwd: directory } as ExtensionContext
     );
     expect(await readFile(join(directory, "file"), "utf8")).toBe(after);
     const change = facts.find((fact) => fact.kind === "change");
-    expect(change?.availability).toBe("available");
-    expect(parsePatch(change!.patch!)?.lines).toEqual([
-      { kind: "removed", text: "\uFEFFbefore", oldLine: 1 },
-      { kind: "added", text: "\uFEFFafter", newLine: 1 }
-    ]);
+    expect(change).toMatchObject({
+      availability: "available",
+      patch: (result.details as { patch: string }).patch
+    });
+    expect(parsePatch(change!.patch!)).toMatchObject({ added: 1, removed: 1 });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+it("retains a failed edit proposal and preserves the native filesystem error", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "display-native-failed-edit-"));
+  try {
+    const path = join(directory, "file");
+    await writeFile(path, "before\n");
+    const facts: DisplayFact[] = [];
+    const observed = observeNativeDefinition(
+      createEditToolDefinition(directory) as unknown as ToolDefinition,
+      { cwd: directory },
+      () => ({
+        started() {
+          renameSync(path, path + ".original");
+          mkdirSync(path);
+        },
+        preview() {},
+        fact: (fact) => facts.push(fact)
+      })
+    );
+    await expect(
+      observed.execute(
+        "failed-edit",
+        { path, edits: [{ oldText: "before", newText: "after" }] },
+        undefined,
+        undefined,
+        { cwd: directory } as ExtensionContext
+      )
+    ).rejects.toMatchObject({ code: "EISDIR" });
+    expect(facts).toContainEqual(
+      expect.objectContaining({ kind: "operation", outcome: "failure" })
+    );
+    expect(facts).toContainEqual(
+      expect.objectContaining({
+        kind: "change",
+        availability: "available",
+        patch: expect.stringContaining("+after")
+      })
+    );
+    expect(await readFile(path + ".original", "utf8")).toBe("before\n");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   "retains proposed failed writes and distinguishes unreadability from absence",
   async () => {
@@ -202,7 +287,7 @@ it("observes validated mutations inside Pi's queue, including aliases, CRLF, and
     expect(
       outputs.every((value) => typeof (value.details as { patch: string }).patch === "string")
     ).toBe(true);
-    expect(facts.get("first")?.[0]).toMatchObject({
+    expect(facts.get("first")?.find((fact) => fact.kind === "change")).toMatchObject({
       kind: "change",
       availability: "available",
       patch: expect.stringContaining("+ALPHA")

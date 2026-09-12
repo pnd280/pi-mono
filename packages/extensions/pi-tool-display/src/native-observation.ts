@@ -12,7 +12,7 @@ import {
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 
-import { computeChange, OBSERVATION_BYTES } from "./diff.ts";
+import { computeChange, OBSERVATION_BYTES, parsePatch } from "./diff.ts";
 import type { DisplayFact, Outcome } from "./display-model.ts";
 import { OutputBuffer } from "./output-buffer.ts";
 import type { OutputText } from "./output-text.ts";
@@ -132,6 +132,7 @@ export function observeNativeDefinition(
               : computeChange(path, before, after, change)
           );
         });
+      let recordFallbackChange: (() => void) | undefined;
       let definition: Pick<ToolDefinition, "execute">;
       if (original.name === "bash" || original.name === "powershell") {
         const local =
@@ -204,8 +205,11 @@ export function observeNativeDefinition(
               return bytes;
             },
             async writeFile(path, content) {
-              proposal(path, before, content, "modification");
+              const previous = before;
               before = undefined;
+              // Successful edits supply their own patch. Keep captured inputs only
+              // for failed writes or results without a usable native patch.
+              recordFallbackChange = () => proposal(path, previous, content, "modification");
               const started = start();
               try {
                 await writeFile(path, content, "utf8");
@@ -245,7 +249,24 @@ export function observeNativeDefinition(
           }
         });
       } else return original.execute(id, args, signal, onUpdate, context);
-      return executeWithSavedReference(definition, [id, args, signal, onUpdate, context], fact);
+      try {
+        const result = await executeWithSavedReference(
+          definition,
+          [id, args, signal, onUpdate, context],
+          fact
+        );
+        if (recordFallbackChange) {
+          const patch = record(result.details).patch;
+          if (typeof patch === "string" && parsePatch(patch)) {
+            // Record before outer result middleware can replace or reject Pi's result.
+            fact({ kind: "change", availability: "available", change: "modification", patch });
+            recordFallbackChange = undefined;
+          }
+        }
+        return result;
+      } finally {
+        recordFallbackChange?.();
+      }
     }
   };
 }

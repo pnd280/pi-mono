@@ -15,28 +15,35 @@ import {
 } from "@earendil-works/pi-tui";
 
 import { genericAdapter, type ToolDisplayAdapter, type McpFacts } from "./adapters.ts";
+import { renderDiffBody } from "./diff-view.ts";
 import { parsePatch } from "./diff.ts";
 import { isLive, type DisplayCall, type DisplayGroup, type ToolFamily } from "./display-model.ts";
 import {
   bodyWidth,
   compactRows,
   displayText,
-  prefixRows,
+  renderTree,
+  renderTreeContinuation,
   styledOutput,
-  wrapRows
+  wrapRows,
+  type TreeItem
 } from "./layout.ts";
 import type { OutputText } from "./output-text.ts";
 import {
-  explorationSummary,
   invocationParts,
+  invocationPartText,
   record,
   resultNotices,
   stringField
 } from "./presentation.ts";
-import type { DisplayNotice, ResultTextPart } from "./result-presentation.ts";
+import {
+  nativeImageCaption,
+  type DisplayNotice,
+  type ResultTextPart
+} from "./result-presentation.ts";
 import type { TranscriptCoordinator } from "./transcript-coordinator.ts";
 export type { ToolFamily } from "./display-model.ts";
-type DisplayTheme = Pick<Theme, "fg" | "bold">;
+type DisplayTheme = Pick<Theme, "fg" | "bg" | "getBgAnsi" | "bold">;
 type HostContext = Parameters<NonNullable<ToolDefinition["renderCall"]>>[2];
 type DisplayContext = Omit<HostContext, "args" | "state"> & { args: unknown; state: unknown };
 export interface ToolDisplayRenderers {
@@ -123,13 +130,17 @@ function highlight(text: string, path: string, language = getLanguageFromPath(pa
   if (lines.length > 10_000 || lines.some((line) => Buffer.byteLength(line) > 4096)) return text;
   return highlightCode(text, language).join("\n");
 }
-function treeRows(
-  rows: readonly string[],
-  p: Projection,
-  first = "  └ ",
-  continuation = "    "
-): string[] {
-  return prefixRows(rows, p.width, p.theme.fg("dim", first), p.theme.fg("dim", continuation));
+function tree(items: readonly TreeItem[], p: Projection, followingSibling = false): string[] {
+  return renderTree(items, p.width, (text) => p.theme.fg("dim", text), followingSibling);
+}
+function headingContinuation(rows: readonly string[], p: Projection): string[] {
+  if (!rows.length) return [];
+  return renderTreeContinuation(
+    rows,
+    p.width,
+    (text) => p.theme.fg("dim", text),
+    !!p.result && resultBody(p.result, p).items.some((item) => item.rows.length > 0)
+  );
 }
 function compactOutput(
   rows: readonly string[],
@@ -149,18 +160,12 @@ function styleParameters(text: string, theme: DisplayTheme): string {
       theme.fg(colon || "{}[],:".includes(token) ? "dim" : "text", token)
   );
 }
-function output(
-  text: string,
-  p: Projection,
-  maximum = 5,
-  first = "  └ ",
-  expanded = p.expanded
-): string[] {
+function output(text: string, p: Projection, maximum = 5, expanded = p.expanded): string[] {
   const rows = wrapRows(text, bodyWidth(p.width));
-  return treeRows(expanded ? rows : compactOutput(rows, maximum, p), p, first);
+  return expanded ? rows : compactOutput(rows, maximum, p);
 }
 function message(text: string, p: Projection, color: Parameters<Theme["fg"]>[0]): string[] {
-  return treeRows(wrapRows(p.theme.fg(color, displayText(text)), bodyWidth(p.width)), p);
+  return wrapRows(p.theme.fg(color, displayText(text)), bodyWidth(p.width));
 }
 function reference(label: string, value: string, p: Projection): string {
   return p.theme.fg("dim", label) + p.theme.fg("text", displayText(value));
@@ -169,7 +174,7 @@ function titleRows(title: string, detail: string, p: Projection): string[] {
   if (p.adapter.family === "invocation" && visibleWidth(title) + 1 + visibleWidth(detail) > p.width)
     return [
       truncateToWidth(title, p.width, "…"),
-      ...treeRows(wrapRows(detail, bodyWidth(p.width)), p, "  │ ", "  │ ")
+      ...headingContinuation(wrapRows(detail, bodyWidth(p.width)), p)
     ];
   const source = detail.split("\n");
   const first = wrapRows(source[0] ?? "", Math.max(1, p.width - visibleWidth(title) - 1));
@@ -178,15 +183,16 @@ function titleRows(title: string, detail: string, p: Projection): string[] {
     ...source.slice(1).flatMap((line) => wrapRows(line, bodyWidth(p.width)))
   ];
   const rows = [truncateToWidth(`${title}${first.length ? ` ${first[0]}` : ""}`, p.width, "")];
-  rows.push(...treeRows(p.expanded ? rest : rest.slice(0, 2), p, "  │ ", "  │ "));
+  const continuation = p.expanded ? rest : rest.slice(0, 2);
   if (!p.expanded && rest.length > 2)
-    rows.push(
+    continuation.push(
       truncateToWidth(
-        p.theme.fg("dim", `  │ … ${rest.length - 2} more rows (${expansionHint()})`),
-        p.width,
+        p.theme.fg("dim", `… ${rest.length - 2} more rows (${expansionHint()})`),
+        bodyWidth(p.width),
         "…"
       )
     );
+  rows.push(...headingContinuation(continuation, p));
   return rows;
 }
 const verbs: Record<ToolFamily, [string, string]> = {
@@ -202,24 +208,15 @@ function cancellation(call: DisplayCall): boolean {
   return call.outcome === "cancelled" || call.operation?.outcome === "cancelled";
 }
 function groupHeading(group: DisplayGroup, p: Projection): string[] {
-  if (group.members[0] !== p.call) return [];
-  const active = group.members.some(isLive);
+  const first = group.members[0] === p.call;
+  const active = first && group.members.some(isLive);
   const marker = active && p.phase ? "◦" : "•";
-  const rows = [
-    `${p.theme.fg(active ? "accent" : "dim", marker)} ${p.theme.fg("toolTitle", p.theme.bold(active ? "Exploring" : "Explored"))}`
-  ];
-  rows.push(
-    ...treeRows(
-      explorationSummary(group).flatMap((item) =>
-        wrapRows(
-          `${p.theme.fg("accent", item.label)} ${p.theme.fg("text", displayText(item.text))}`,
-          bodyWidth(p.width)
-        )
-      ),
-      p
-    )
-  );
-  if (!active) {
+  const rows = first
+    ? [
+        `${p.theme.fg(active ? "accent" : "dim", marker)} ${p.theme.fg("toolTitle", p.theme.bold(active ? "Exploring" : "Explored"))}`
+      ]
+    : [];
+  if (first && !active) {
     const failed = group.members.filter(
       (member) => member.outcome === "failure" && !cancellation(member)
     ).length;
@@ -232,32 +229,66 @@ function groupHeading(group: DisplayGroup, p: Projection): string[] {
     ]
       .filter(Boolean)
       .join(p.theme.fg("dim", ", "));
-    if (summary) rows.push(...output(summary, p, 5, "    ", true));
+    if (summary) {
+      const suffix = p.theme.fg("dim", " · ") + summary;
+      if (visibleWidth(rows[0]! + suffix) <= p.width) rows[0] += suffix;
+      else
+        rows.push(
+          ...renderTreeContinuation(
+            wrapRows(summary, bodyWidth(p.width)),
+            p.width,
+            (text) => p.theme.fg("dim", text),
+            true
+          )
+        );
+    }
   }
-  rows.push(...groupResultRows(group, p));
+  // A call remains in its own Pi row: native images and mouse targets must not be
+  // displaced behind later summaries. Even repeated reads retain their identity.
+  const item: TreeItem = {
+    rows: (p.adapter.exploration?.(p.context.args, p.result) ?? []).flatMap((entry) =>
+      wrapRows(
+        `${p.theme.fg("accent", entry.label)} ${entry.parts
+          .map((part) =>
+            p.theme.fg(
+              part.kind === "annotation"
+                ? "dim"
+                : part.kind === "pattern"
+                  ? "syntaxString"
+                  : "text",
+              invocationPartText(part, p.context.cwd)
+            )
+          )
+          .join("")}`,
+        bodyWidth(p.width)
+      )
+    )
+  };
+  const detail = { ...p, width: p.width - 2 };
+  item.rows.push(...groupResultRows(detail).map((row) => `  ${row}`));
+  rows.push(...tree([item], p, group.members.at(-1) !== p.call));
   return rows;
 }
-function groupResultRows(group: DisplayGroup, p: Projection): string[] {
-  return group.members.flatMap((member) => {
-    if (!member.result) return [];
-    const rows: string[] = [];
-    if (member.outcome === "failure" || cancellation(member)) {
-      const diagnostic = member.result.content
-        .filter((block) => block.type === "text")
-        .map((block) => block.text)
-        .join("\n");
-      rows.push(
-        ...output(
-          p.theme.fg(cancellation(member) ? "warning" : "error", displayText(diagnostic)),
-          p,
-          5,
-          "    "
-        )
-      );
-    }
-    rows.push(...notices(member.result, { ...p, call: member, adapter: member.adapter }));
-    return rows;
-  });
+function groupResultRows(p: Projection): string[] {
+  if (!p.call) return [];
+  if (!p.result)
+    return p.call.lifecycle === "unavailable" ? message("Outcome unavailable", p, "muted") : [];
+  const rows: string[] = [];
+  if (p.call.outcome === "failure" || cancellation(p.call)) {
+    const diagnostic = p.result.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join("\n");
+    rows.push(
+      ...output(p.theme.fg(cancellation(p.call) ? "warning" : "error", displayText(diagnostic)), p)
+    );
+  }
+  rows.push(
+    ...imageItems(p.result.content, p).flatMap((item) => item.rows),
+    ...notices(p.result, p)
+  );
+  if (p.call.lifecycle === "unavailable") rows.push(...message("Outcome unavailable", p, "muted"));
+  return rows;
 }
 function phase(p: Projection): string {
   if (p.call) return p.call.lifecycle;
@@ -275,8 +306,6 @@ function status(p: Projection): {
   const failed = p.call ? p.call.outcome === "failure" : p.context.isError;
   let verb = pending ? verbs[p.adapter.family][0] : verbs[p.adapter.family][1];
   if (current === "unavailable") verb = "Outcome unavailable";
-  if (current === "preparing") verb = "Preparing";
-  if (current === "queued") verb = "Queued";
   if (p.call && cancellation(p.call))
     return { verb: "Cancelled", color: "warning", pending: false };
   if (
@@ -303,8 +332,9 @@ function invocation(p: Projection): string {
   )
     .filter((part) => part.kind !== "parameters" || p.showParameters)
     .map((part) => {
-      const text = displayText(part.text);
+      const text = invocationPartText(part, p.context.cwd);
       if (part.kind === "annotation") return p.theme.fg("dim", text);
+      if (part.kind === "pattern") return p.theme.fg("syntaxString", text);
       if (part.kind === "parameters") return styleParameters(text, p.theme);
       if (p.adapter.family === "shell")
         return highlight(text, "", p.name === "powershell" ? "powershell" : "bash");
@@ -327,7 +357,7 @@ function heading(p: Projection): string[] {
   const rows = titleRows(title, invocation(p), p);
   if (p.showParameters && p.expanded && !["shell", "invocation"].includes(p.adapter.family))
     rows.push(
-      ...treeRows(
+      ...headingContinuation(
         wrapRows(
           styleParameters(
             displayText(
@@ -337,9 +367,7 @@ function heading(p: Projection): string[] {
           ),
           bodyWidth(p.width)
         ),
-        p,
-        "  │ ",
-        "  │ "
+        p
       )
     );
   return rows;
@@ -347,37 +375,17 @@ function heading(p: Projection): string[] {
 function patchRows(patch: string, p: Projection): string[] | undefined {
   const parsed = parsePatch(patch);
   if (!parsed) return undefined;
-  const digits = String(
-    Math.max(1, ...parsed.lines.map((line) => line.newLine ?? line.oldLine ?? 0))
-  ).length;
-  const rows = treeRows(
-    [
-      `${p.theme.fg("toolDiffAdded", `+${parsed.added}`)} ${p.theme.fg("toolDiffRemoved", `-${parsed.removed}`)}`
-    ],
-    p
-  );
-  const body = parsed.lines.flatMap((line) => {
-    if (line.kind === "separator")
-      return [`    ${" ".repeat(digits + 1)}${p.theme.fg("dim", "⋮")}`];
-    const number = String(line.kind === "removed" ? line.oldLine : line.newLine).padStart(digits);
-    const token =
-      line.kind === "added"
-        ? "toolDiffAdded"
-        : line.kind === "removed"
-          ? "toolDiffRemoved"
-          : "toolDiffContext";
-    const sign = line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " ";
-    const source = displayText(line.text);
-    const highlighted = highlight(source, stringField(record(p.context.args).path));
-    const content = highlighted === source ? p.theme.fg(token, source) : highlighted;
-    const wrapped = wrapRows(content, Math.max(1, p.width - digits - 6));
-    return (wrapped.length ? wrapped : [""]).map((row, index) =>
-      index === 0
-        ? `    ${p.theme.fg("dim", number)} ${p.theme.fg(token, sign)}${row}`
-        : `    ${" ".repeat(digits + 2)}${row}`
-    );
+  const rows = [
+    `${p.theme.fg("toolDiffAdded", `+${parsed.added}`)} ${p.theme.fg("toolDiffRemoved", `-${parsed.removed}`)}`
+  ];
+  const body = renderDiffBody(parsed, {
+    width: bodyWidth(p.width),
+    expanded: p.expanded,
+    expansionHint: expansionHint(),
+    theme: p.theme,
+    highlight: (source) => highlight(source, stringField(record(p.context.args).path))
   });
-  rows.push(...(p.expanded ? body : compactOutput(body, 12, p, p.width)));
+  rows.push(...body);
   return rows;
 }
 function applicationFailure(p: Projection): string[] {
@@ -399,25 +407,29 @@ function changeRows(
     p.adapter.patch && !p.context.isError ? stringField(record(result.details).patch) : "";
   const proposal = p.call?.change?.patch;
   const rows: string[] = [];
+  let renderedPatch: string[] | undefined;
   if (patch || proposal) {
-    if (!patch && p.call?.operation?.outcome !== "success")
-      rows.push(...message("Proposed change; application not confirmed.", p, "warning"));
+    renderedPatch = patchRows(patch || proposal!, p);
+    const unconfirmed =
+      !patch && p.call?.operation?.outcome !== "success"
+        ? message("Proposed change; application not confirmed.", p, "warning")
+        : [];
+    if (renderedPatch) renderedPatch.splice(1, 0, ...unconfirmed);
     rows.push(
-      ...(patchRows(patch || proposal!, p) ??
-        message("Patch display unavailable: invalid or oversized patch.", p, "warning"))
+      ...(renderedPatch ?? [
+        ...unconfirmed,
+        ...message("Patch display unavailable: invalid or oversized patch.", p, "warning")
+      ])
     );
     rows.push(...applicationFailure(p));
   }
-  if (p.call?.change?.availability === "unavailable")
+  if (!renderedPatch && p.call?.change?.availability === "unavailable")
     rows.push(...message(p.call.change.reason ?? "Change information unavailable.", p, "warning"));
   return { rows, hasPatch: !!(patch || proposal) };
 }
-function mcpRows(facts: McpFacts, p: Projection): string[] {
-  const rows: string[] = [];
+function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
+  const items: TreeItem[] = [];
   const failed = facts.outcome === "transport-error" || facts.outcome === "returned-error";
-  if (facts.outcome === "transport-error") rows.push(...message("Transport error", p, "error"));
-  if (facts.outcome === "returned-error")
-    rows.push(...message("Tool returned an error", p, "error"));
   for (const block of facts.content) {
     const text =
       block.type === "text"
@@ -425,28 +437,24 @@ function mcpRows(facts: McpFacts, p: Projection): string[] {
         : block.type === "resource"
           ? `${reference("Resource: ", block.uri, p)}${block.text ? `\n${p.theme.fg("toolOutput", displayText(block.text))}` : ""}`
           : `${reference("[Media: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`;
-    rows.push(
-      ...output(
-        text,
-        p,
-        block.type === "text" ? 10 : Number.MAX_SAFE_INTEGER,
-        rows.length ? "    " : "  └ "
-      )
-    );
+    items.push({ rows: output(text, p, block.type === "text" ? 10 : Number.MAX_SAFE_INTEGER) });
   }
-  return rows;
+  return items;
 }
-function imageNotices(content: AgentToolResult<unknown>["content"], p: Projection): string[] {
+function imageItems(content: AgentToolResult<unknown>["content"], p: Projection): TreeItem[] {
   if (p.context.showImages && getCapabilities().images) return [];
   return content.flatMap((block) =>
     block.type === "image"
-      ? output(
-          `${reference("[Image: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`,
-          p,
-          5,
-          "  └ ",
-          true
-        )
+      ? [
+          {
+            rows: output(
+              `${reference("[Image: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`,
+              p,
+              5,
+              true
+            )
+          }
+        ]
       : []
   );
 }
@@ -495,38 +503,58 @@ function outputPreview(p: Projection): OutputText | undefined {
   if (saved?.text !== undefined) return { ...saved, text: saved.text };
   return p.call?.lifecycle !== "complete" ? p.call?.liveOutput : undefined;
 }
-function contentRows(result: AgentToolResult<unknown>, p: Projection): string[] {
+function describedImage(
+  content: AgentToolResult<unknown>["content"],
+  index: number,
+  p: Projection
+): boolean {
+  if (p.adapter.id !== "pi:read" || p.context.isPartial || p.context.isError) return false;
+  const previous = content[index - 1],
+    image = content[index];
+  return (
+    previous?.type === "text" &&
+    image?.type === "image" &&
+    nativeImageCaption(previous.text)?.mimeType === image.mimeType
+  );
+}
+function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem[] {
   const preview = outputPreview(p);
-  const rows =
+  const items: TreeItem[] =
     preview === undefined
       ? []
-      : output(styleResultParts(previewParts(preview), p) || emptyOutputText(p), p);
+      : [
+          {
+            rows: output(styleResultParts(previewParts(preview), p) || emptyOutputText(p), p)
+          }
+        ];
   // Saved files contain process output, not Pi's failure footer or result middleware diagnostics.
-  if (preview !== undefined && !p.context.isError) return rows;
+  if (preview !== undefined && !p.context.isError) return items;
   const textContext = {
     ...p.context,
     hasImages: result.content.some((block) => block.type === "image")
   };
-  for (const block of result.content) {
+  for (const [index, block] of result.content.entries()) {
     if (block.type === "image") {
-      rows.push(...imageNotices([block], p));
+      if (!describedImage(result.content, index, p)) items.push(...imageItems([block], p));
       continue;
     }
     const parts = p.adapter.textParts?.(block.text, p.context.args, textContext) ?? [
       { kind: p.context.isError ? "error" : "output", text: block.text } satisfies ResultTextPart
     ];
+    if (!parts.length) continue;
     const text = styleResultParts(parts, p);
-    rows.push(
-      ...output(
-        text || emptyOutputText(p),
-        p,
-        p.adapter.family === "invocation" ? 10 : 5,
-        rows.length ? "    " : "  └ "
-      )
-    );
+    const rows = output(text || emptyOutputText(p), p, p.adapter.family === "invocation" ? 10 : 5);
+    if (index === 0 || result.content[index - 1]?.type === "text") appendDetails(items, rows);
+    else items.push({ rows });
   }
-  if (!result.content.length && preview === undefined) rows.push(...output(emptyOutputText(p), p));
-  return rows;
+  if (!result.content.length && preview === undefined)
+    items.push({ rows: output(emptyOutputText(p), p) });
+  return items;
+}
+function appendDetails(items: TreeItem[], rows: string[]): void {
+  if (!rows.length) return;
+  if (!items.length) items.push({ rows: [] });
+  items.at(-1)!.rows.push(...rows);
 }
 function unavailableHistory(p: Projection): DisplayNotice[] {
   if (p.call?.origin !== "historical") return [];
@@ -563,7 +591,7 @@ function notices(result: AgentToolResult<unknown>, p: Projection): string[] {
             notice.kind === "info" ? "dim" : notice.kind === "unavailable" ? "muted" : notice.kind,
             displayText(notice.text)
           );
-    return treeRows(wrapRows(text, bodyWidth(p.width)), p, "    ");
+    return wrapRows(text, bodyWidth(p.width));
   });
   if (p.expanded && p.call?.operation) {
     const operation = p.call.operation;
@@ -583,22 +611,67 @@ function notices(result: AgentToolResult<unknown>, p: Projection): string[] {
         ? p.theme.fg("dim", "; exit ") + p.theme.fg(color, String(operation.exitCode ?? "unknown"))
         : "") +
       (operation.timedOut ? p.theme.fg("error", "; timed out") : "");
-    rows.push(...output(detail, p, 5, "    ", true));
+    rows.push(...output(detail, p, 5, true));
   }
   return rows;
 }
-function resultRows(result: AgentToolResult<unknown>, p: Projection): string[] {
+interface ResultBody {
+  items: TreeItem[];
+  annotations: string[];
+}
+function annotateResult(items: TreeItem[], annotations: string[]): ResultBody {
+  // Call-level notices must not become children of an unrelated final media/resource.
+  // With one result item they can continue its body; otherwise they continue the root.
+  if (items.length === 1) {
+    appendDetails(items, annotations);
+    return { items, annotations: [] };
+  }
+  return { items, annotations };
+}
+function resultBody(result: AgentToolResult<unknown>, p: Projection): ResultBody {
   const current = p.result ?? result;
-  if (p.group && !p.expanded) return imageNotices(current.content, p);
+  const annotations = notices(current, p);
   if (p.adapter.family === "read" && !p.expanded && !p.context.isError && !p.context.isPartial)
-    return [...imageNotices(current.content, p), ...notices(current, p)];
+    return annotateResult(imageItems(current.content, p), annotations);
   const change = changeRows(current, p);
+  const items: TreeItem[] = change.hasPatch ? [{ rows: change.rows }] : [];
   const facts = p.adapter.mcp?.(p.context.args, current);
-  const rows = change.rows;
-  if (facts) rows.push(...mcpRows(facts, p));
-  else if (!change.hasPatch || p.context.isError) rows.push(...contentRows(current, p));
-  rows.push(...notices(current, p));
-  return rows;
+  if (facts)
+    return {
+      items: [...items, ...mcpItems(facts, p)],
+      annotations: [
+        ...(facts.outcome === "transport-error" ? message("Transport error", p, "error") : []),
+        ...(facts.outcome === "returned-error"
+          ? message("Tool returned an error", p, "error")
+          : []),
+        ...(!change.hasPatch ? change.rows : []),
+        ...annotations
+      ]
+    };
+  if (!change.hasPatch || p.context.isError) {
+    const content = contentItems(current, p);
+    if (change.hasPatch || ["edit", "write", "shell"].includes(p.adapter.family))
+      appendDetails(
+        items,
+        content.flatMap((item) => item.rows)
+      );
+    else items.push(...content);
+  }
+  if (!change.hasPatch) appendDetails(items, change.rows);
+  return annotateResult(items, annotations);
+}
+function resultRows(result: AgentToolResult<unknown>, p: Projection): string[] {
+  if (p.group && !p.expanded) return [];
+  const { items, annotations } = resultBody(result, p);
+  return [
+    ...renderTreeContinuation(
+      annotations,
+      p.width,
+      (text) => p.theme.fg("dim", text),
+      items.some((item) => item.rows.length > 0)
+    ),
+    ...tree(items, p)
+  ];
 }
 /** Explicit owner/SDK integration. No adapter means generic even for built-in names. */
 export function createToolDisplayRenderers(

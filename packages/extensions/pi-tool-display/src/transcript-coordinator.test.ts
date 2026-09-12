@@ -3,7 +3,6 @@ import { expect, it, vi } from "vite-plus/test";
 
 import { nativeAdapter, genericAdapter } from "./adapters.ts";
 import { isLive } from "./display-model.ts";
-import { explorationSummary } from "./presentation.ts";
 import { TranscriptCoordinator } from "./transcript-coordinator.ts";
 
 const result = (text = "retained") => ({
@@ -50,7 +49,9 @@ it("regroups late historical contracts without changing results, source order, o
     const adapter = {
       id: "fff:find",
       family: "search" as const,
-      exploration: () => [{ label: "Search" as const, text: "supplied pattern" }]
+      exploration: () => [
+        { label: "Search" as const, parts: [{ kind: "value" as const, text: "supplied pattern" }] }
+      ]
     };
     c.setAdapter(first, adapter);
     c.setAdapter(second, adapter);
@@ -75,7 +76,7 @@ it("restores exploration groups when final results establish a previously unavai
       family: "search" as const,
       exploration: (_args: unknown, value?: AgentToolResult<unknown>) =>
         value?.content[0]?.type === "text" && value.content[0].text === "search results"
-          ? [{ label: "Search" as const, text: "needle" }]
+          ? [{ label: "Search" as const, parts: [{ kind: "value" as const, text: "needle" }] }]
           : undefined
     };
     const calls = [0, 1].map((index) =>
@@ -100,7 +101,7 @@ it("restores exploration groups when final results establish a previously unavai
   }
 });
 
-it("coalesces consecutive reads only in summaries and retains ordered failures and original calls", () => {
+it("retains every ordered call and failure while expanding the group together", () => {
   const { coordinator: c, add } = fixture();
   const first = add("read", "/src/a.ts");
   c.result(first, result(), "success");
@@ -110,7 +111,6 @@ it("coalesces consecutive reads only in summaries and retains ordered failures a
   c.result(second, result("denied"), "failure");
   const group = c.group(first)!;
   expect(group.members).toEqual([first, second, third]);
-  expect(explorationSummary(group)).toEqual([{ label: "Read", text: "a.ts, b.ts" }]);
   expect(group.members.map((call) => call.outcome)).toEqual(["success", "failure", "success"]);
   const rows = group.members.map((call) => {
     const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
@@ -121,7 +121,7 @@ it("coalesces consecutive reads only in summaries and retains ordered failures a
   expect(group.members.every((call) => call.expanded)).toBe(true);
   for (const row of rows) expect(row.setExpanded).toHaveBeenCalledWith(true);
   c.expand(first, false);
-  expect(explorationSummary(group)[0]?.text).toBe("a.ts, b.ts");
+  expect(group.members).toEqual([first, second, third]);
   c.boundary();
   const next = add("read", "c.ts");
   expect(c.group(next)).not.toBe(group);

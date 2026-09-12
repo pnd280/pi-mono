@@ -1,10 +1,14 @@
 # pi-tool-display
 
-Borderless tool cards for Pi **0.85.1**, with grouped exploration, native expansion, live activity, and numbered patches. Colors and code highlighting follow Pi's active theme, with [dimmed structure and tree-prefixed parameters](docs/renderers.md#card-layout).
+Borderless tool cards for Pi **0.85.1**, with grouped exploration, native expansion, live activity, and a [git-diff-view](https://github.com/MrWangJustToDo/git-diff-view) diff viewer. Colors and code highlighting follow Pi's active theme, with [dimmed structure and tree-prefixed parameters](docs/renderers.md#card-layout).
 
 ## Usage
 
-Adjacent reads/searches/lists share an `Exploring`/`Explored` summary. Compact groups keep actionable diagnostics together, including up to five rows of text per failed or cancelled call; expansion reveals the full retained diagnostics. Routine FFF counts/page numbers appear only when expanded. Repeated filenames are deduplicated only in the compact summary. Pi's tool expansion action (**Ctrl+O** by default) reveals every original call and available output. Parameter details for native tools and known adapters are hidden by default; command/path/search summaries stay visible. A fullscreen group click expands or collapses its members together. Regular-mode mouse handling stays with the terminal.
+Adjacent reads/searches/lists share an `Exploring`/`Explored` heading. Each invocation remains a separate tree item in source order, including repeated reads. Its visible notices, images, and failure diagnostics appear directly beneath it, before the next tool. Compact groups retain up to five rows of text per failed or cancelled call; expansion reveals the full retained diagnostics. FFF search patterns use the theme's string color, while search scopes stay neutral. Match counts appear only when expanded; routine pagination instructions and page numbers are hidden. Pi's tool expansion action (**Ctrl+O** by default) reveals every original call and available output. Parameter details for native tools and known adapters are hidden by default; command/path/search summaries stay visible. A fullscreen group click expands or collapses its members together. Regular-mode mouse handling stays with the terminal. Standalone and expanded cards retain action headings such as `Editing` throughout argument streaming, queueing, and execution.
+
+File targets in standalone and grouped summaries are relative to the working directory when inside it, and absolute when outside. Grouped reads retain directory names, so `src/file.ts` and `tests/file.ts` remain distinguishable. Raw parameter blocks, retained result text, and FFF filter expressions are unchanged.
+
+Edit/write patches show unlabeled side-by-side columns by default when each side has at least 40 code columns; narrower terminals use numbered unified rows. Additions/deletions have theme-colored backgrounds, with stronger inline highlights over syntax colors. Compact previews allow 30 displayed rows of changed code plus surrounding context. Diffs that fit appear in full; larger diffs prioritize the first edit region, with long-line excerpts around changed text and up to two nearby context lines on each side. `Hunk n/N` labels appear only for multi-hunk patches. Raw patch ranges are not displayed. Expansion shows every retained hunk and full wrapped lines. Lines wrap without a separate scroll viewport. See [diff rendering](docs/renderers.md#diff-viewer) for retained-context and comparison limits.
 
 Verified native tools receive specialized cards. Official `@ff-labs/pi-fff` **0.10.6** search tools have an explicit adapter. Other tools receive generic cards unless their owner supplies either renderer slot, in which case the owner's UI is preserved. Missing historical definitions use generic retained-data cards. SDK/tool owners can use the explicit [renderer API](docs/renderers.md).
 
@@ -36,6 +40,8 @@ Only participating interactive TUI sessions observe verified native bash/PowerSh
 
 Observation adds bounded shell previews, operation timing/outcomes, before-write reads inside Pi's existing mutation queue, and versioned `pi-tool-display.facts` custom session entries. These entries do not enter model context. **Deleted/context lines from overwritten files can remain in session history.** Display failures do not change tool outcomes. Pi's mutation queue does not prevent races with external writers.
 
+Successful native edits reuse Pi's unified patch, retained before result middleware can replace it. Writes and edit attempts without a usable native patch generate one with [`diff` (jsdiff)](https://github.com/kpdecker/jsdiff) from captured before/after text. A usable patch takes precedence over a saved observation-budget warning.
+
 Print, JSON, and RPC execution adds no automatic display observations. Opening those sessions in the TUI reconstructs cards from retained calls/results, without executing tools or animating incomplete history. Unrecorded durations, exact exit codes, write before-states, and lost MCP types remain unavailable.
 
 Expanding shell output loads Pi's existing temporary output files asynchronously; collapsed cards do not start reads. Failed calls retain Pi's published result alongside the saved preview so exit diagnostics and middleware errors stay visible. Missing, unreadable, changing, or non-regular files leave retained output with a limitation notice. If all read slots are occupied, collapse and expand the card again to retry. There is no durable output archive or network access.
@@ -44,7 +50,7 @@ Resource limits:
 
 - Live shell output: full through **1 MiB**, then **50 head + 50 tail lines**, with bounded partial lines and **10,280-byte** long-line retention.
 - Saved output: **256 KiB / 4,000 lines** per preview, bounded head/tail reads, at most **8** cached previews and **8** in-flight reads.
-- Before-state/input: **64 KiB / 1,000 lines**; synchronous diff work requires old-line-count × new-line-count ≤ **40,000**. Larger/binary/unavailable changes do not block the native operation.
+- Before-state/input for generated patches: **64 KiB** per text. jsdiff uses a cooperative **50 ms** search timeout and a **2,000 changed-line** edit-distance limit. Native edit patches bypass these input/search limits. Larger/binary/unavailable changes do not block the native operation.
 - Patches: **128 KiB**; display records: **160 KiB**. Highlighting skips inputs above **512 KiB**.
 - One session-owned **600 ms** animation scheduler, active only while known live calls remain. Disposal releases timers, rows, and saved-output work.
 

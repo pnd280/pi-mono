@@ -344,26 +344,28 @@ it("binds real transcript rows, group clicks and observed native calls before Pi
         (child) => child instanceof ToolExecutionComponent
       );
       expect(rows).toHaveLength(3);
-      expect(text(rows[0]!)).toBe("\n• Explored\n  └ Read a.ts, b.ts");
-      expect(rows[1]!.render(80)).toEqual([]);
-      expect(rows[2]!.render(80)).toEqual([]);
-      rows[0]!.handleMouse({
+      expect(text(rows[0]!)).toBe("\n• Explored\n  ├ Read a.ts");
+      expect(text(rows[1]!)).toBe("  ├ Read b.ts");
+      expect(text(rows[2]!)).toBe("  └ Read a.ts");
+      // The joined sibling's first visible line remains a native group click target.
+      rows[1]!.handleMouse({
         type: "click",
         button: "left",
         x: 5,
-        y: 1,
+        y: 0,
         screenX: 5,
-        screenY: 1,
+        screenY: 2,
         width: 80,
-        height: 3,
+        height: 1,
         shift: false,
         alt: false,
         ctrl: false
       });
       expect(text(rows[1]!)).toContain("retained r2");
       expect(text(rows[1]!)).not.toContain('"path"');
+      expect(rows[1]!.render(80)[0]).toBe("");
       rows[2]!.setExpanded(false);
-      expect(rows[1]!.render(80)).toEqual([]);
+      expect(text(rows[1]!)).toBe("  ├ Read b.ts");
       await session.bindExtensions({ mode: "tui" });
       assertNoRegistration();
       const shellMessage = assistantMessage(
@@ -445,6 +447,67 @@ it("restores row expansion after compaction reconstructs the transcript inside a
       // Compare method identity without invoking either unbound reference.
       // oxlint-disable-next-line typescript/unbound-method
       expect(row.setExpanded).toBe(ToolExecutionComponent.prototype.setExpanded);
+      // oxlint-disable-next-line typescript/unbound-method
+      expect(row.render).toBe(ToolExecutionComponent.prototype.render);
+      // oxlint-disable-next-line typescript/unbound-method
+      expect(row.handleMouse).toBe(ToolExecutionComponent.prototype.handleMouse);
+    } finally {
+      tui.footerDataProvider.dispose();
+    }
+  });
+});
+
+it("leaves later row wrappers installed and makes retained spacing and mouse callbacks inert on removal", async () => {
+  await withSession(async ({ session }) => {
+    const tui = interactiveHost(session);
+    try {
+      const message = assistantMessage([
+        toolCall("first", "read", { path: "a.ts" }),
+        toolCall("second", "read", { path: "b.ts" })
+      ]);
+      tui.renderSessionItems([
+        message,
+        ...["first", "second"].map((toolCallId) => ({
+          role: "toolResult",
+          toolCallId,
+          toolName: "read",
+          content: [{ type: "text", text: "retained body" }],
+          isError: false,
+          timestamp: 2
+        }))
+      ]);
+      const rows = tui.chatContainer.children.filter(
+        (child) => child instanceof ToolExecutionComponent
+      );
+      const sibling = rows[1]!;
+      const retainedRender = sibling.render.bind(sibling);
+      const retainedMouse = sibling.handleMouse.bind(sibling);
+      const render = vi.fn((width: number) => retainedRender(width));
+      const mouse = vi.fn((event: Parameters<typeof sibling.handleMouse>[0]) =>
+        retainedMouse(event)
+      );
+      sibling.render = render;
+      sibling.handleMouse = mouse;
+      expect(text(sibling)).toBe("  └ Read b.ts");
+      await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+      expect(sibling.render === render).toBe(true);
+      expect(sibling.handleMouse === mouse).toBe(true);
+      expect(sibling.render(80)[0]).toBe("");
+      sibling.handleMouse({
+        type: "click",
+        button: "left",
+        x: 5,
+        y: 1,
+        screenX: 5,
+        screenY: 1,
+        width: 80,
+        height: 2,
+        shift: false,
+        alt: false,
+        ctrl: false
+      });
+      expect(text(sibling)).toContain("retained body");
+      expect(text(rows[0]!)).not.toContain("retained body");
     } finally {
       tui.footerDataProvider.dispose();
     }
@@ -491,7 +554,8 @@ it.each([null, "kitty"] as const)(
           setCapabilityOverrides({ images });
           const message = assistantMessage([
             toolCall("text", "read", { path: "a.ts" }),
-            toolCall("image", "read", { path: "image.png" })
+            toolCall("image", "read", { path: "image.png" }),
+            toolCall("after-image", "read", { path: "after.ts" })
           ]);
           const result = (toolCallId: string, content: unknown[]) => ({
             role: "toolResult",
@@ -509,13 +573,21 @@ it.each([null, "kitty"] as const)(
           tui.renderSessionItems([
             message,
             result("text", [{ type: "text", text: "hidden text" }]),
-            result("image", [image])
+            result("image", [image]),
+            result("after-image", [{ type: "text", text: "later hidden contents" }])
           ]);
           const rows = tui.chatContainer.children.filter(
             (child) => child instanceof ToolExecutionComponent
           );
           const projected = rows[1]!.render(80).join("\n");
+          expect(stripTerminalSequences(projected).startsWith("  ├ Read image.png")).toBe(true);
           expect(projected).not.toContain("Explored");
+          const rendered = rows.flatMap((row) => row.render(80)).join("\n");
+          const transcript = images ? rendered : stripTerminalSequences(rendered);
+          const imagePosition = transcript.indexOf(images ? "\x1b_G" : "[Image: image/png]");
+          expect(imagePosition).toBeGreaterThan(transcript.indexOf("image.png"));
+          expect(imagePosition).toBeLessThan(transcript.indexOf("after.ts"));
+          expect(transcript.split(images ? "\x1b_Ga=T" : "[Image: image/png]")).toHaveLength(2);
           expect(images ? projected : stripTerminalSequences(projected)).toContain(
             images ? "\x1b_G" : "[Image: image/png]"
           );
@@ -795,12 +867,22 @@ it.each([true, false])(
         }
         const rows = () =>
           tui.chatContainer.children.filter((child) => child instanceof ToolExecutionComponent);
-        expect(text(rows()[0]!)).toContain(visible ? "Read a.ts" : "Read a.ts, b.ts");
-        expect(rows()[1]!.render(80).length > 0).toBe(visible);
+        expect(
+          rows()
+            .map(text)
+            .join("\n")
+            .match(/Explor(?:ed|ing)/g)
+        ).toHaveLength(visible ? 2 : 1);
+        expect(text(rows()[1]!)).toContain("Read b.ts");
         tui.chatContainer.clear();
         tui.renderSessionItems([messages[0], entry, messages[1]]);
-        expect(text(rows()[0]!)).toContain(visible ? "Read a.ts" : "Read a.ts, b.ts");
-        expect(rows()[1]!.render(80).length > 0).toBe(visible);
+        expect(
+          rows()
+            .map(text)
+            .join("\n")
+            .match(/Explor(?:ed|ing)/g)
+        ).toHaveLength(visible ? 2 : 1);
+        expect(text(rows()[1]!)).toContain("Read b.ts");
       } finally {
         tui.footerDataProvider.dispose();
       }

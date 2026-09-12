@@ -1,9 +1,4 @@
-import {
-  stripTerminalSequences,
-  truncateToWidth,
-  visibleWidth,
-  wrapTextWithAnsi
-} from "@earendil-works/pi-tui";
+import { stripTerminalSequences, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 /** Tool content is text, not terminal instructions. Styling is applied after normalization. */
 export function displayText(text: string): string {
@@ -89,17 +84,63 @@ export function compactRows(
   return [...rows.slice(0, head), notice, ...(tail > 0 ? rows.slice(-tail) : [])];
 }
 
-export function prefixRows(
-  rows: readonly string[],
-  width: number,
-  first = "  └ ",
-  continuation = "    "
-): string[] {
-  return rows.map((row, index) =>
-    truncateToWidth((index === 0 ? first : continuation) + row, width, "")
-  );
+/** A meaningful item with already measured content and optional child items.
+ * Related notices, metadata, and wrapped lines stay in rows, not separate children.
+ */
+export interface TreeItem {
+  rows: string[];
+  children?: TreeItem[];
+}
+type StructureStyle = (text: string) => string;
+
+function continuationPrefix(hasFollowingSibling: boolean): string {
+  return hasFollowingSibling ? "│ " : "  ";
 }
 
-export function bodyWidth(width: number): number {
-  return Math.max(1, width - visibleWidth("  └ "));
+/** Assign connectors only after visible siblings are known. followingSibling joins
+ * fragments hosted by separate Pi rows without moving their content or images.
+ */
+export function renderTree(
+  items: readonly TreeItem[],
+  width: number,
+  style: StructureStyle = (text) => text,
+  followingSibling = false
+): string[] {
+  if (width < 1) return [];
+  const visit = (siblings: readonly TreeItem[], prefix: string, following: boolean): string[] => {
+    const visible = siblings.filter((item) => item.rows.length > 0);
+    return visible.flatMap((item, index) => {
+      const more = index < visible.length - 1 || following;
+      const continuation = prefix + continuationPrefix(more);
+      return [
+        ...item.rows.map((row, offset) =>
+          truncateToWidth(
+            style(offset === 0 ? prefix + (more ? "├ " : "└ ") : continuation) + row,
+            width,
+            ""
+          )
+        ),
+        ...visit(item.children ?? [], continuation, false)
+      ];
+    });
+  };
+  return visit(items, "  ", followingSibling);
+}
+
+/** Continuations of the card heading, including parameters. No branch is invented
+ * for these lines; the rail exists only when a visible result follows.
+ */
+export function renderTreeContinuation(
+  rows: readonly string[],
+  width: number,
+  style: StructureStyle = (text) => text,
+  hasChildren = false
+): string[] {
+  if (width < 1) return [];
+  const prefix = style("  " + continuationPrefix(hasChildren));
+  return rows.map((row) => truncateToWidth(prefix + row, width, ""));
+}
+
+export function bodyWidth(width: number, depth = 1): number {
+  return Math.max(1, width - 2 - depth * 2);
 }

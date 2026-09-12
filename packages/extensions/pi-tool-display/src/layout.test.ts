@@ -5,7 +5,8 @@ import {
   bodyWidth,
   compactRows,
   displayText,
-  prefixRows,
+  renderTree,
+  renderTreeContinuation,
   styledOutput,
   wrapRows
 } from "./layout.ts";
@@ -25,10 +26,39 @@ describe("display row budgets", () => {
     const text = "\x1b[31m界 👩🏽‍💻 é\x1b[0m\n".repeat(12);
     for (const width of [1, 2, 4, 5, 12, 80]) {
       const compact = compactRows(wrapRows(text, bodyWidth(width)), 5, bodyWidth(width), "expand");
-      const rows = prefixRows(compact, width);
+      const rows = renderTree([{ rows: compact }], width);
       expect(rows.length).toBeLessThanOrEqual(5);
       expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
     }
+  });
+
+  it("assigns endings per visible parent and preserves ancestor rails through nested items", () => {
+    const items = [
+      { rows: ["first", "wrapped"], children: [{ rows: ["nested", "note"] }] },
+      { rows: [] },
+      { rows: ["last", "metadata"] }
+    ];
+    expect(renderTree(items, 80)).toEqual([
+      "  ├ first",
+      "  │ wrapped",
+      "  │ └ nested",
+      "  │   note",
+      "  └ last",
+      "    metadata"
+    ]);
+    expect(renderTree(items.slice(0, 2), 80)).toEqual([
+      "  └ first",
+      "    wrapped",
+      "    └ nested",
+      "      note"
+    ]);
+    expect(renderTree([{ rows: ["first", "notice"] }], 80, undefined, true)).toEqual([
+      "  ├ first",
+      "  │ notice"
+    ]);
+    expect(renderTreeContinuation(["parameters"], 80, undefined, true)).toEqual(["  │ parameters"]);
+    expect(renderTreeContinuation(["parameters"], 80)).toEqual(["    parameters"]);
+    expect(renderTree(items, 0)).toEqual([]);
   });
 
   it("handles empty output, blank rows, and a hint-only budget without duplicating the tail", () => {

@@ -18,7 +18,9 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@pi-mono/utils": "workspace:*"
+    "@git-diff-view/core": "0.1.7",
+    "@pi-mono/utils": "workspace:*",
+    "diff": "9.0.0"
   },
   "pi": {
     "extensions": [

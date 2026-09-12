@@ -19,6 +19,12 @@ const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultText
   kind
 });
 
+/** Native image captions describe the adjacent image block, including optional model notices. */
+export function nativeImageCaption(text: string): { mimeType: string; tail: string } | undefined {
+  const match = /^Read image file \[([^\n\]]+)\]/.exec(text);
+  return match ? { mimeType: match[1]!, tail: text.slice(match[0].length) } : undefined;
+}
+
 /** Interpret only the pinned native result envelope, never arbitrary tool names or output lines. */
 export function nativeResultParts(
   name: string,
@@ -66,14 +72,14 @@ function nativeContentParts(
 ): ResultTextPart[] {
   const shell = name === "bash" || name === "powershell";
   if (name === "read" && context.hasImages) {
-    const image = /^Read image file \[([^\n\]]+)\]/.exec(text);
+    const image = nativeImageCaption(text);
     if (image) {
       const note =
         "[Current model does not support images. The image will be omitted from this request.]";
-      const tail = text.slice(image[0].length);
+      const tail = image.tail;
       return [
         part("Read image file [", "annotation"),
-        part(image[1]!, "value"),
+        part(image.mimeType, "value"),
         part("]", "annotation"),
         ...(tail.endsWith(note)
           ? [part(tail.slice(0, -note.length), "annotation"), part(note, "warning")]
@@ -126,14 +132,14 @@ export function fffResultParts(
     text = text.slice(fuzzy.length + 1);
   }
   const match =
-    /(?:^|\n\n)(\[(?:Continue with cursor=|Invalid regex:|Query |\d+ more matches? available\.|More available\. cursor=|\d+\+ matches \(refine patterns\))[^\n]*\])$/.exec(
+    /(?:^|\n\n)(\[(?:Invalid regex:[\s\S]*?, used literal match(?:\. Continue with cursor="[^"\n]+")?|(?:Continue with cursor=|Query |\d+ more match(?:es)? available\.|More available\. cursor=|\d+\+ matches \(refine patterns\))[^\n]*)\])$/.exec(
       text
     );
   const trailer = match && match.index + match[0].length === text.length ? match : null;
   const content = trailer ? text.slice(0, trailer.index) : text;
   if (content === (kind === "find" ? "No files found matching pattern" : "No matches found")) {
     parts.push(part(content, "annotation"));
-  } else {
+  } else if (content) {
     const lines = content.split("\n");
     lines.forEach((line, index) => {
       if (index) parts.push(part("\n"));
@@ -147,8 +153,22 @@ export function fffResultParts(
       else parts.push(part(line));
     });
   }
-  if (trailer)
-    parts.push(part(trailer[0].slice(0, -trailer[1]!.length)), part(trailer[1]!, "warning"));
+  if (trailer) {
+    const notice = trailer[1]!;
+    // Pagination guides the agent's next call, not the user's attention. A combined
+    // trailer can still contain a regex fallback diagnostic that must remain visible.
+    const pagination =
+      /(?:^\[|\. )(?:Continue with cursor="[^"\n]+"|\d+ more match(?:es)? available\. cursor="[^"\n]+" to continue|More available\. cursor="[^"\n]+" to continue|\d+\+ matches \(refine patterns\)(?:\. More available\. cursor="[^"\n]+" to continue)?)\]$/.exec(
+        notice
+      );
+    const diagnostic = pagination
+      ? pagination.index === 0
+        ? ""
+        : `${notice.slice(0, pagination.index)}]`
+      : notice;
+    if (diagnostic)
+      parts.push(part(trailer[0].slice(0, -notice.length)), part(diagnostic, "warning"));
+  }
   return parts;
 }
 
