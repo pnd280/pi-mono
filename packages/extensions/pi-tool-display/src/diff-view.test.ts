@@ -56,6 +56,28 @@ it("shows split previews by default when wide and unified rows when narrow witho
   expect(wrapped.filter((row) => stripTerminalSequences(row).includes("+short"))).toHaveLength(1);
 });
 
+it.each([
+  ["additions", "@@ -7,2 +7,3 @@", "+", 9],
+  ["removals", "@@ -7,3 +7,2 @@", "-", 8]
+] as const)(
+  "uses the full unified width for %s even with retained context",
+  (_, header, sign, trailingLine) => {
+    const changed = "changed_" + "x".repeat(70);
+    const parsed = parsePatch(`${header}\n leading\n${sign}${changed}\n trailing\n`)!;
+    for (const width of [120, 240]) {
+      for (const expanded of [false, true]) {
+        const rows = renderDiffBody(parsed, { ...displayOptions, width, expanded });
+        expect(rows.map((row) => stripTerminalSequences(row).trimEnd())).toEqual([
+          "7  leading",
+          `8 ${sign}${changed}`,
+          `${trailingLine}  trailing`
+        ]);
+        expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
+      }
+    }
+  }
+);
+
 it("restores row backgrounds after inline highlights and clears styles between columns", () => {
   const parsed = parsePatch(
     "@@ -1,2 +1,2 @@\n-const value = old;\n+const value = new;\n context\n"

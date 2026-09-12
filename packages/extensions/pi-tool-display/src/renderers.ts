@@ -368,20 +368,28 @@ function heading(p: Projection): string[] {
     );
   return rows;
 }
-function patchRows(patch: string, p: Projection): string[] | undefined {
+function patchRows(
+  patch: string,
+  p: Projection,
+  annotations: readonly string[]
+): string[] | undefined {
   const parsed = parsePatch(patch);
   if (!parsed) return undefined;
-  const rows = [
-    `${p.theme.fg("toolDiffAdded", `+${parsed.added}`)} ${p.theme.fg("toolDiffRemoved", `-${parsed.removed}`)}`
-  ];
+  const rows =
+    p.adapter.family === "write"
+      ? []
+      : [
+          `${p.theme.fg("toolDiffAdded", `+${parsed.added}`)} ${p.theme.fg("toolDiffRemoved", `-${parsed.removed}`)}`
+        ];
   const body = renderDiffBody(parsed, {
     width: bodyWidth(p.width),
     expanded: p.expanded,
+    forceUnified: p.adapter.family === "write",
     expansionHint: expansionHint(),
     theme: p.theme,
     highlight: (source) => highlight(source, stringField(record(p.context.args).path))
   });
-  rows.push(...body);
+  rows.push(...annotations, ...body);
   return rows;
 }
 function applicationFailure(p: Projection): string[] {
@@ -405,12 +413,11 @@ function changeRows(
   const rows: string[] = [];
   let renderedPatch: string[] | undefined;
   if (patch || proposal) {
-    renderedPatch = patchRows(patch || proposal!, p);
     const unconfirmed =
       !patch && p.call?.operation?.outcome !== "success"
         ? message("Proposed change; application not confirmed.", p, "warning")
         : [];
-    if (renderedPatch) renderedPatch.splice(1, 0, ...unconfirmed);
+    renderedPatch = patchRows(patch || proposal!, p, unconfirmed);
     rows.push(
       ...(renderedPatch ?? [
         ...unconfirmed,

@@ -1016,48 +1016,56 @@ describe("tool display renderers", () => {
     }
   });
 
-  it("keeps a failed patch and related diagnostics in one result item", () => {
-    const coordinator = new TranscriptCoordinator("change-tree");
-    try {
-      const adapter = nativeAdapter("edit")!;
-      const call = coordinator.add(
-        { messageTimestamp: 1, contentIndex: 0, toolCallId: "failed" },
-        "edit",
-        { path: "a.txt" },
-        adapter,
-        "historical"
-      );
-      coordinator.fact(call, {
-        kind: "change",
-        availability: "available",
-        patch: "@@ -1 +1 @@\n-before\n+after\n"
-      });
-      coordinator.fact(call, {
-        kind: "operation",
-        availability: "available",
-        outcome: "failure",
-        durationMs: 12
-      });
-      const supplied = result("Permission denied");
-      coordinator.result(call, supplied, "failure");
-      const renderer = createToolDisplayRenderers("edit", adapter, {
-        binding: { call, coordinator }
-      });
-      for (const expanded of [false, true]) {
-        coordinator.expand(call, expanded);
-        const current = context({ args: call.args, isError: true, expanded });
-        const rows = renderer
-          .renderResult(supplied, current, theme, current)
-          .render(100)
-          .map(stripTerminalSequences);
-        expect(rows.filter((row) => /^  [├└] /.test(row))).toEqual(["  └ +1 -1"]);
-        for (const detail of ["Proposed change", "Failed to apply change", "Permission denied"])
-          expect(rows.some((row) => row.startsWith("    ") && row.includes(detail))).toBe(true);
+  it.each(["edit", "write"])(
+    "keeps a failed %s patch and related diagnostics in one result item",
+    (name) => {
+      const coordinator = new TranscriptCoordinator("change-tree");
+      try {
+        const adapter = nativeAdapter(name)!;
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 0, toolCallId: "failed" },
+          name,
+          { path: "a.txt" },
+          adapter,
+          "historical"
+        );
+        coordinator.fact(call, {
+          kind: "change",
+          availability: "available",
+          patch: "@@ -1 +1 @@\n-before\n+after\n"
+        });
+        coordinator.fact(call, {
+          kind: "operation",
+          availability: "available",
+          outcome: "failure",
+          durationMs: 12
+        });
+        const supplied = result("Permission denied");
+        coordinator.result(call, supplied, "failure");
+        const renderer = createToolDisplayRenderers(name, adapter, {
+          binding: { call, coordinator }
+        });
+        for (const expanded of [false, true]) {
+          coordinator.expand(call, expanded);
+          const current = context({ args: call.args, isError: true, expanded });
+          const rows = renderer
+            .renderResult(supplied, current, theme, current)
+            .render(100)
+            .map(stripTerminalSequences);
+          expect(rows.filter((row) => /^  [├└] /.test(row))).toEqual([
+            name === "write" ? "  └ Proposed change; application not confirmed." : "  └ +1 -1"
+          ]);
+          const proposalIndex = rows.findIndex((row) => row.includes("Proposed change"));
+          expect(proposalIndex).toBeGreaterThanOrEqual(0);
+          expect(proposalIndex).toBeLessThan(rows.findIndex((row) => row.includes("1 -before")));
+          for (const detail of ["Failed to apply change", "Permission denied"])
+            expect(rows.some((row) => row.startsWith("    ") && row.includes(detail))).toBe(true);
+        }
+      } finally {
+        coordinator.dispose();
       }
-    } finally {
-      coordinator.dispose();
     }
-  });
+  );
 
   it("avoids redundant native image descriptions without removing generic text or native warnings", () => {
     const supplied = {
@@ -1182,6 +1190,54 @@ describe("tool display renderers", () => {
         );
         expect(text.includes("diff computation budget")).toBe(!patch.startsWith("@@"));
         if (patch.startsWith("@@")) expect(text).toContain("+new");
+      }
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it("keeps observed write overwrites unified without counts at every width and expansion state", () => {
+    const coordinator = new TranscriptCoordinator("write-layout");
+    try {
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "write" },
+        "write",
+        { path: "example.txt", content: "after\n" },
+        nativeAdapter("write")!,
+        "historical"
+      );
+      coordinator.fact(call, {
+        kind: "change",
+        availability: "available",
+        change: "modification",
+        patch: "@@ -1 +1 @@\n-before\n+after\n"
+      });
+      coordinator.fact(call, {
+        kind: "operation",
+        availability: "available",
+        outcome: "success",
+        durationMs: 1
+      });
+      const supplied = result("Successfully wrote 6 bytes to example.txt");
+      coordinator.result(call, supplied, "success");
+      const renderer = createToolDisplayRenderers(call.name, call.adapter, {
+        binding: { call, coordinator }
+      });
+      for (const expanded of [false, true]) {
+        coordinator.expand(call, expanded);
+        const current = context({ args: call.args, expanded });
+        const component = renderer.renderResult(supplied, current, theme, current);
+        for (const width of [80, 120, 240]) {
+          const rows = component.render(width).map(stripTerminalSequences);
+          const text = rows.join("\n");
+          expect(text).not.toContain("+1 -1");
+          expect(rows[0]).toMatch(/^  └ 1 -before\s*$/);
+          expect(text).not.toContain("│");
+          expect(rows.find((row) => row.includes("1 -before"))).not.toContain("1 +after");
+          expect(text).toContain("1 -before");
+          expect(text).toContain("1 +after");
+          expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
+        }
       }
     } finally {
       coordinator.dispose();
