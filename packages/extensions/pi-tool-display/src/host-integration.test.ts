@@ -32,20 +32,23 @@ import { expect, it, vi } from "vite-plus/test";
 import { installHostIntegration } from "./host-integration.ts";
 import toolDisplay from "./index.ts";
 import { METADATA_TYPE } from "./session-metadata.ts";
-import { assistantMessage, toolCall } from "./test-fixture.ts";
+import { assistantMessage, messageToolCall, renderingTui, toolCall } from "./test-fixture.ts";
 
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
+
 type LookupSession = Pick<AgentSession, "getAllTools" | "settingsManager" | "sessionManager"> & {
   getToolDefinition: (name: string) => RenderDefinition;
 };
 
-// Exercise the actual TUI lookup without starting a terminal or an agent turn.
+// Pi 0.85.1's lookup is private; exercise its actual implementation without starting a terminal.
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: LookupSession }, name: string) => RenderDefinition;
 };
 
 function lookupSession(name = "read", source = "builtin"): LookupSession {
   const definition = { ...createReadToolDefinition("/tmp"), name };
+
   return {
     settingsManager: SettingsManager.inMemory(),
     sessionManager: SessionManager.inMemory("/tmp"),
@@ -56,7 +59,7 @@ function lookupSession(name = "read", source = "builtin"): LookupSession {
 
 function readRow(session: AgentSession, completed = true): ToolExecutionComponent {
   const definition = host.getRegisteredToolDefinition.call({ session }, "read");
-  const ui = { requestRender: () => {} } as TUI;
+  const ui = renderingTui();
   const row = new ToolExecutionComponent(
     "read",
     "read-1",
@@ -66,21 +69,31 @@ function readRow(session: AgentSession, completed = true): ToolExecutionComponen
     ui,
     session.sessionManager.getCwd()
   );
+
   if (completed) {
     row.updateResult({
       content: [{ type: "text", text: "retained file content\n" }],
       isError: false
     });
   }
+
   return row;
 }
 
 function interactiveHost(session: AgentSession) {
-  const mode = new InteractiveMode({
+  const runtime = {
     session,
     setBeforeSessionInvalidate() {},
     setRebindSession() {}
-  } as unknown as AgentSessionRuntime);
+  } satisfies Pick<
+    AgentSessionRuntime,
+    "session" | "setBeforeSessionInvalidate" | "setRebindSession"
+  >;
+  // Construction only reads the session and registers these lifecycle callbacks.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  const mode = new InteractiveMode(runtime as AgentSessionRuntime);
+  // Exercise Pi 0.85.1's private reconstruction/event paths without terminal startup.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as {
     ui: TUI;
     isInitialized: boolean;
@@ -90,8 +103,9 @@ function interactiveHost(session: AgentSession) {
     renderSessionEntries(entries: ReturnType<SessionManager["buildContextEntries"]>): void;
     handleEvent(event: AgentSessionEvent): Promise<void>;
   };
-  boundary.ui = { requestRender() {}, terminal: { setProgress() {} } } as unknown as TUI;
+  boundary.ui = renderingTui();
   boundary.isInitialized = true;
+
   return boundary;
 }
 
@@ -103,12 +117,15 @@ function preserveRegistry(session: AgentSession): () => void {
   const tools = structuredClone(session.getAllTools());
   const definitions = tools.map(({ name }) => {
     const definition = session.getToolDefinition(name);
+
     return { name, definition, fields: { ...definition } };
   });
   const active = [...session.agent.state.tools];
   const prompt = session.systemPrompt;
+
   return () => {
     expect(session.getAllTools()).toEqual(tools);
+
     for (const { name, definition, fields } of definitions) {
       expect(session.getToolDefinition(name)).toBe(definition);
       expect(definition).toEqual(fields);
@@ -120,6 +137,7 @@ function preserveRegistry(session: AgentSession): () => void {
       expect(view.promptGuidelines).toBe(definition?.promptGuidelines);
       expect(view.prepareArguments).toBe(definition?.prepareArguments);
     }
+
     expect(session.getActiveToolNames()).toEqual(active.map(({ name }) => name));
     session.agent.state.tools.forEach((tool, index) => {
       expect(tool).toBe(active[index]);
@@ -149,6 +167,7 @@ async function withSession(
     }
   ];
   let session: AgentSession | undefined;
+
   try {
     const settingsManager = SettingsManager.inMemory({
       shellPath: "/bin/bash",
@@ -185,6 +204,7 @@ async function withSession(
       sessionManager: SessionManager.inMemory(directory)
     });
     session = created.session;
+
     if (baseToolsOverride) {
       created.session.dispose();
       session = new AgentSession({
@@ -197,6 +217,7 @@ async function withSession(
         baseToolsOverride
       });
     }
+
     initTheme("dark", false);
     await run({
       session,
@@ -289,6 +310,7 @@ it("applies parameter visibility to standalone and reconstructed host rows throu
       standalone.setExpanded(true);
       expect(text(standalone)).toContain('"path"');
       const tui = interactiveHost(session);
+
       try {
         const message = assistantMessage([toolCall("parameters", "read", { path: "example.txt" })]);
         const result = {
@@ -299,6 +321,7 @@ it("applies parameter visibility to standalone and reconstructed host rows throu
           isError: false,
           timestamp: 2
         };
+
         const reconstruct = () => {
           tui.chatContainer.clear();
           tui.renderSessionItems([message, result]);
@@ -311,6 +334,7 @@ it("applies parameter visibility to standalone and reconstructed host rows throu
           row.setExpanded(false);
           expect(text(row)).not.toContain('"path"');
         };
+
         reconstruct();
         await session.bindExtensions({ mode: "tui" });
         await session.reload({ beforeSessionStart: reconstruct });
@@ -326,6 +350,7 @@ it("applies parameter visibility to standalone and reconstructed host rows throu
 it("binds real transcript rows, group clicks and observed native calls before Pi middleware wrapping", async () => {
   await withSession(async ({ session, assertNoRegistration }) => {
     const tui = interactiveHost(session);
+
     try {
       const message = assistantMessage([
         toolCall("r1", "read", { path: "a.ts" }),
@@ -383,7 +408,7 @@ it("binds real transcript rows, group clicks and observed native calls before Pi
         assistantMessageEvent: {
           type: "toolcall_end",
           contentIndex: 0,
-          toolCall: shellMessage.content[0] as ReturnType<typeof toolCall>,
+          toolCall: messageToolCall(shellMessage),
           partial: shellMessage
         }
       });
@@ -419,6 +444,7 @@ it("binds real transcript rows, group clicks and observed native calls before Pi
 it("separates new exploration after compaction reconstruction and restores row expansion", async () => {
   await withSession(async ({ session }) => {
     const tui = interactiveHost(session);
+
     try {
       const message = assistantMessage([toolCall("retained-read", "read", { path: "a.ts" })]);
       const firstKeptEntryId = session.sessionManager.appendMessage(message);
@@ -455,7 +481,7 @@ it("separates new exploration after compaction reconstruction and restores row e
         assistantMessageEvent: {
           type: "toolcall_end",
           contentIndex: 0,
-          toolCall: nextMessage.content[0] as ReturnType<typeof toolCall>,
+          toolCall: messageToolCall(nextMessage),
           partial: nextMessage
         }
       });
@@ -497,6 +523,7 @@ it.each(["failure", "cancelled", "silent"])(
   async (outcome) => {
     await withSession(async ({ session }) => {
       const tui = interactiveHost(session);
+
       try {
         const first = assistantMessage([toolCall("a", "read", { path: "a.ts" })]);
         const firstResult = {
@@ -524,7 +551,7 @@ it.each(["failure", "cancelled", "silent"])(
           assistantMessageEvent: {
             type: "toolcall_end",
             contentIndex: 0,
-            toolCall: next.content[0] as ReturnType<typeof toolCall>,
+            toolCall: messageToolCall(next),
             partial: next
           }
         });
@@ -541,12 +568,14 @@ it.each(["failure", "cancelled", "silent"])(
         );
         const transcript = tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
         const visible = outcome !== "silent";
+
         if (visible) {
           const notice =
             outcome === "failure" ? "Compaction failed fixture" : "Auto-compaction cancelled";
           expect(transcript.indexOf(notice)).toBeGreaterThan(transcript.indexOf("Read a.ts"));
           expect(transcript.indexOf(notice)).toBeLessThan(transcript.indexOf("Read b.ts"));
         }
+
         expect(text(rows[1]!).includes("• Explored")).toBe(visible);
         expect(rows[1]!.render(80)[0] === "").toBe(visible);
         rows[1]!.setExpanded(true);
@@ -564,6 +593,7 @@ it.each(["removal", "reconstruction"])(
   async (transition) => {
     await withSession(async ({ session }) => {
       const tui = interactiveHost(session);
+
       try {
         const message = assistantMessage([
           toolCall("first", "read", { path: "a.ts" }),
@@ -602,12 +632,14 @@ it.each(["removal", "reconstruction"])(
         sibling.setExpanded(false);
         expect(rows.every((row) => !text(row).includes("retained body"))).toBe(true);
         setExpanded.mockClear();
+
         if (transition === "removal")
           await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
         else {
           tui.chatContainer.clear();
           tui.renderSessionItems(history);
         }
+
         expect(sibling.render === render).toBe(true);
         expect(sibling.handleMouse === mouse).toBe(true);
         expect(sibling.setExpanded === setExpanded).toBe(true);
@@ -649,6 +681,7 @@ it("preserves native construction settings when settings change before TUI bindi
     const expected = await original.execute("original-settings", args);
     expect(expected.content).toEqual([{ type: "text", text: "preserved" }]);
     const tui = interactiveHost(session);
+
     try {
       tui.renderSessionItems([]);
       await session.bindExtensions({ mode: "tui" });
@@ -674,9 +707,11 @@ it.each([null, "kitty"] as const)(
   async (images) => {
     const previous = getCapabilities();
     setCapabilityOverrides({ images });
+
     try {
       await withSession(async ({ session }) => {
         const tui = interactiveHost(session);
+
         try {
           setCapabilityOverrides({ images });
           const message = assistantMessage([
@@ -746,6 +781,7 @@ it("keeps real SDK base overrides generic despite their builtin source label", a
       );
       const original = session.getToolDefinition("read");
       const tui = interactiveHost(session);
+
       try {
         tui.renderSessionItems([
           assistantMessage([toolCall("sdk", "read", { path: "not-a-native-path" })])
@@ -787,6 +823,7 @@ it.each(["original", "generic", false])(
           session.getToolDefinition(name)
         );
         const tui = interactiveHost(session);
+
         try {
           const message = assistantMessage([
             toolCall("skip-write", "write", { path: "new.txt", content: "unchanged execution" })
@@ -821,6 +858,7 @@ it("refreshes native binding across two reconstructed reloads and preserves dyna
     const tui = interactiveHost(session);
     const nativeRead = session.getToolDefinition("read");
     const originalShell = session.getToolDefinition("bash")!;
+
     try {
       tui.renderSessionItems([]);
       expect(session.getToolDefinition("read")).toBe(nativeRead);
@@ -831,6 +869,7 @@ it("refreshes native binding across two reconstructed reloads and preserves dyna
           throw new Error(error.error);
         }
       });
+
       for (let reload = 0; reload < 2; reload++) {
         await session.reload({
           beforeSessionStart: () => {
@@ -847,6 +886,7 @@ it("refreshes native binding across two reconstructed reloads and preserves dyna
           ).content
         ).toEqual([{ type: "text", text: "preserved" }]);
       }
+
       assertNoRegistration();
       const ownerExecute = vi.fn(async () => ({
         content: [{ type: "text" as const, text: "owner implementation" }],
@@ -896,6 +936,7 @@ it("refreshes native binding across two reconstructed reloads and preserves dyna
 it("preserves later in-place native wrappers when removing observation", async () => {
   await withSession(async ({ session }) => {
     const tui = interactiveHost(session);
+
     try {
       tui.renderSessionItems([]);
       const definition = session.getToolDefinition("bash")!;
@@ -923,6 +964,7 @@ it.each([false, true])(
   async (expandAll) => {
     await withSession(async ({ session }) => {
       const tui = interactiveHost(session);
+
       try {
         const calls = Array.from({ length: 9 }, (_, index) =>
           toolCall(`saved-${index}`, "bash", { command: `echo ${index}` })
@@ -931,6 +973,7 @@ it.each([false, true])(
           calls.map(async (call, index) => {
             const path = join(session.sessionManager.getCwd(), `output-${index}`);
             await writeFile(path, `complete saved output ${index}`);
+
             return {
               role: "toolResult" as const,
               toolCallId: call.id,
@@ -976,6 +1019,7 @@ it.each(["visible", "suppressed", "unregistered"])(
       });
       await session.reload();
       const tui = interactiveHost(session);
+
       try {
         tui.renderSessionItems([]);
         const messages = [
@@ -984,6 +1028,7 @@ it.each(["visible", "suppressed", "unregistered"])(
         ];
         const entryId = session.sessionManager.appendCustomEntry("display-boundary", {});
         const entry = session.sessionManager.getEntry(entryId)!;
+
         for (const message of messages) {
           await tui.handleEvent({ type: "message_start", message });
           await tui.handleEvent({
@@ -992,13 +1037,14 @@ it.each(["visible", "suppressed", "unregistered"])(
             assistantMessageEvent: {
               type: "toolcall_end",
               contentIndex: 0,
-              toolCall: message.content[0] as ReturnType<typeof toolCall>,
+              toolCall: messageToolCall(message),
               partial: message
             }
           });
           await tui.handleEvent({ type: "message_end", message });
           if (message === messages[0]) await tui.handleEvent({ type: "entry_appended", entry });
         }
+
         const rows = () =>
           tui.chatContainer.children.filter((child) => child instanceof ToolExecutionComponent);
         expect(
@@ -1033,12 +1079,14 @@ it.each(
   async ({ mode, content }) => {
     await withSession(async ({ session }) => {
       const tui = interactiveHost(session);
+
       try {
         tui.renderSessionItems([]);
         const messages = ["a", "b", "c"].map((name, index) =>
           assistantMessage([toolCall(name, "read", { path: `${name}.ts` })], index + 1)
         );
         let notice = "Visible explanation";
+
         if (content === "empty error") {
           const error = assistantMessage([], 1.5);
           error.stopReason = "error";
@@ -1054,9 +1102,12 @@ it.each(
               : { type: "thinking", thinking: notice }
           );
         }
+
         const history: unknown[] = [];
+
         for (const message of messages) {
           const call = message.content.find((block) => block.type === "toolCall");
+
           if (mode === "live") {
             // Text/thinking can arrive after the tool row has already been created.
             const partial = {
@@ -1078,7 +1129,9 @@ it.each(
               });
             await tui.handleEvent({ type: "message_end", message });
           }
+
           history.push(message);
+
           if (call) {
             const result = {
               role: "toolResult" as const,
@@ -1099,6 +1152,7 @@ it.each(
             history.push(result);
           }
         }
+
         if (mode === "replay") tui.renderSessionItems(history);
         const transcript = tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
         expect(transcript.indexOf(notice)).toBeGreaterThan(transcript.indexOf("Read a.ts"));
@@ -1136,18 +1190,22 @@ it.each([
       });
       await session.reload();
       const tui = interactiveHost(session);
+
       try {
         tui.renderSessionItems([]);
         const history: unknown[] = [];
+
         for (const [index, name] of ["a", "b", "c"].entries()) {
           const call = toolCall(name, "read", { path: `${name}.ts` });
           const message = assistantMessage([call], index + 1);
           const partial = structuredClone(message);
+
           if (name === "b" && position !== "none") {
             const withdrawn = { type: "text" as const, text: "Withdrawn text" };
             if (position === "before") partial.content.unshift(withdrawn);
             else partial.content.push(withdrawn);
           }
+
           await tui.handleEvent({ type: "message_start", message: partial });
           await tui.handleEvent({
             type: "message_update",
@@ -1159,12 +1217,14 @@ it.each([
               partial
             }
           });
+
           if (name === "b") {
             const row = tui.chatContainer.children
               .filter((child) => child instanceof ToolExecutionComponent)
               .at(-1)!;
             if (position !== "none") expect(text(row)).toContain("Exploring");
             expect(row.render(80)[0] === "").toBe(position !== "none");
+
             if (entryVisible) {
               const id = session.sessionManager.appendCustomEntry("retained-boundary", {});
               const entry = session.sessionManager.getEntry(id)!;
@@ -1172,6 +1232,7 @@ it.each([
               await tui.handleEvent({ type: "entry_appended", entry });
             }
           }
+
           // Public message_end middleware may replace the finalized assistant content.
           await tui.handleEvent({ type: "message_end", message });
           const result = {
@@ -1191,11 +1252,13 @@ it.each([
           });
           history.push(message, result);
         }
+
         for (const replay of [false, true]) {
           if (replay) {
             tui.chatContainer.clear();
             tui.renderSessionItems(history);
           }
+
           const transcript = tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
           expect(transcript).not.toContain("Withdrawn text");
           expect(transcript.includes("Retained entry")).toBe(entryVisible);
@@ -1204,6 +1267,7 @@ it.each([
             (child) => child instanceof ToolExecutionComponent
           );
           expect(rows).toHaveLength(3);
+
           if (entryVisible) {
             expect(transcript.indexOf("Retained entry")).toBeGreaterThan(
               transcript.indexOf("Read a.ts")
@@ -1214,6 +1278,7 @@ it.each([
             expect(text(rows[0]!)).toContain("└ Read a.ts");
             expect(text(rows[1]!)).toContain("• Explored");
           }
+
           expect(text(rows[2]!)).not.toContain("• Explored");
           expect(rows[1]!.render(80)[0] === "").toBe(entryVisible);
           expect(text(rows[1]!).includes("body b")).toBe(position === "before");
@@ -1237,6 +1302,7 @@ it.each(["read", "write"].flatMap((name) => [false, true].map((isError) => ({ na
   async ({ name, isError }) => {
     await withSession(async ({ session }) => {
       const tui = interactiveHost(session);
+
       try {
         tui.renderSessionItems([]);
         await session.bindExtensions({ mode: "tui" });
@@ -1284,14 +1350,17 @@ it.each(["read", "write"].flatMap((name) => [false, true].map((isError) => ({ na
         session.sessionManager.appendMessage(message);
         const original = structuredClone(message);
         const renderings: string[] = [];
+
         for (const replay of [false, true]) {
           if (replay) {
             tui.chatContainer.clear();
             tui.renderSessionEntries(session.sessionManager.buildContextEntries());
           }
+
           const row = tui.chatContainer.children.find(
             (child) => child instanceof ToolExecutionComponent
           )!;
+
           for (const expanded of [false, true]) {
             row.setExpanded(expanded);
             const rendered = text(row);
@@ -1302,13 +1371,16 @@ it.each(["read", "write"].flatMap((name) => [false, true].map((isError) => ({ na
             expect(rendered.includes("Tool result reports failure after application.")).toBe(
               name === "write" && isError
             );
+
             if (name === "write") {
               expect(rendered).toContain("-BEFORE");
               expect(rendered).toContain("+AFTER");
             }
+
             renderings.push(rendered);
           }
         }
+
         expect(renderings.slice(0, 2)).toEqual(renderings.slice(2));
         expect(message).toEqual(original);
         expect(await readFile(join(directory, "final-result.txt"), "utf8")).toBe(
@@ -1327,6 +1399,7 @@ it.each(["auto", "generic"])(
     await withSession(
       async ({ session }) => {
         const tui = interactiveHost(session);
+
         try {
           tui.renderSessionItems([]);
           const directory = session.sessionManager.getCwd();
@@ -1374,26 +1447,32 @@ it.each(["auto", "generic"])(
             timestamp: 2
           });
           const renderings: string[] = [];
+
           for (const replay of [false, true]) {
             if (replay) {
               tui.chatContainer.clear();
               tui.renderSessionEntries(session.sessionManager.buildContextEntries());
             }
+
             const row = tui.chatContainer.children.find(
               (child) => child instanceof ToolExecutionComponent
             )!;
+
             for (const expanded of [false, true]) {
               row.setExpanded(expanded);
               const rendered = text(row);
               expect(rendered).toContain("after.ts");
               expect(rendered).not.toContain("before.ts");
+
               if (expanded) {
                 expect(rendered).toContain('"path"');
                 expect(rendered).toContain("AFTER_TARGET");
               }
+
               renderings.push(rendered);
             }
           }
+
           expect(renderings.slice(0, 2)).toEqual(renderings.slice(2));
           expect(streamedCall.arguments.path).toBe("before.ts");
           expect(call.arguments.path).toBe("after.ts");
@@ -1422,11 +1501,13 @@ it.each(
     await withSession(async ({ session }) => {
       session.settingsManager.setShowCacheMissNotices(enabled);
       const tui = interactiveHost(session);
+
       try {
         tui.renderSessionItems([]);
         const messages = ["a", "b", "c"].map((name, index) =>
           assistantMessage([toolCall(name, "read", { path: `${name}.ts` })], index + 1)
         );
+
         if (notice === "diagnostic") {
           messages[0]!.diagnostics = [
             {
@@ -1443,16 +1524,19 @@ it.each(
           messages[0]!.usage.input = tokens;
           for (const message of messages.slice(1)) message.usage.cacheRead = tokens;
         }
+
         const history: unknown[] = [];
+
         for (const message of messages) {
           const result = {
             role: "toolResult" as const,
-            toolCallId: (message.content[0] as ReturnType<typeof toolCall>).id,
+            toolCallId: messageToolCall(message).id,
             toolName: "read",
             content: [{ type: "text" as const, text: `body ${message.timestamp}` }],
             isError: false,
             timestamp: message.timestamp
           };
+
           if (mode === "live") {
             await tui.handleEvent({ type: "message_start", message });
             await tui.handleEvent({
@@ -1461,7 +1545,7 @@ it.each(
               assistantMessageEvent: {
                 type: "toolcall_end",
                 contentIndex: 0,
-                toolCall: message.content[0] as ReturnType<typeof toolCall>,
+                toolCall: messageToolCall(message),
                 partial: message
               }
             });
@@ -1474,10 +1558,12 @@ it.each(
               isError: false
             });
           }
+
           session.sessionManager.appendMessage(message);
           session.sessionManager.appendMessage(result);
           history.push(message, result);
         }
+
         if (mode === "replay") tui.renderSessionItems(history);
         const transcript = tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
         expect(
@@ -1523,6 +1609,7 @@ it.each(["print", "json", "rpc"] as const)(
 it("leaves external owner rendering untouched, including built-in names and inherited slots", () => {
   const original = host.getRegisteredToolDefinition;
   const dispose = installHostIntegration();
+
   try {
     for (const name of ["read", "external_tool"]) {
       for (const [source, inherited] of [
@@ -1547,6 +1634,7 @@ it("leaves external owner rendering untouched, including built-in names and inhe
         }
       }
     }
+
     // A tool without an owner must be decorated, proving lookup is not simply failing open.
     const session = { ...lookupSession("unknown_builtin"), getToolDefinition: () => undefined };
     expect(host.getRegisteredToolDefinition.call({ session }, "unknown_builtin")?.renderShell).toBe(
@@ -1566,12 +1654,16 @@ it.each(["missing", "non-writable"])(
       ...descriptor,
       ...(availability === "missing" ? { value: undefined } : { writable: false })
     });
+
     try {
       await withSession(async ({ session, assertNoRegistration }) => {
-        const notify = vi.fn();
+        const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
+        const uiContext = { notify } satisfies Pick<ExtensionContext["ui"], "notify">;
         await session.bindExtensions({
           mode: "tui",
-          uiContext: { notify } as unknown as ExtensionContext["ui"]
+          // This binding only reports the unavailable lookup; no dialogs or editor are used.
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          uiContext: uiContext as unknown as ExtensionContext["ui"]
         });
         expect(notify).toHaveBeenCalledWith(
           expect.stringContaining("keeping original rendering"),
@@ -1595,6 +1687,7 @@ it("returns an available original view when decoration fails and never retries a
   const previous = vi.fn().mockReturnValue(view);
   host.getRegisteredToolDefinition = previous;
   const dispose = installHostIntegration();
+
   try {
     const ownershipFailure = vi.fn(() => {
       throw new Error("ownership unavailable");
@@ -1638,13 +1731,16 @@ it("replaces repeated installations and preserves later wrappers during repeated
   const firstDispose = installHostIntegration();
   const secondDispose = installHostIntegration();
   let thirdDispose: (() => void) | undefined;
+
   try {
     firstDispose?.();
     const installed = host.getRegisteredToolDefinition;
     expect(installed).not.toBe(original);
+
     const laterWrapper: typeof installed = function (name) {
       return installed.call(this, name);
     };
+
     host.getRegisteredToolDefinition = laterWrapper;
     secondDispose?.();
     secondDispose?.();

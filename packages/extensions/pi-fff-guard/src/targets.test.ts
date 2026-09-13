@@ -14,9 +14,11 @@ beforeEach(async () => {
 afterEach(async () => {
   await rm(directory.root, { recursive: true, force: true });
 });
+
 const roots = async (kind: SearchKind, input: SearchInput) => {
   const scope = await extractScope(kind, input, directory.root);
   expect(scope.missingPath, JSON.stringify({ kind, input })).toBeUndefined();
+
   return scope.targets.map((target) => path.relative(directory.root, target.absolute));
 };
 
@@ -63,6 +65,7 @@ describe("explicit search scopes", () => {
         []
       ]
     ];
+
     for (const [kind, input, expectedTargets] of cases) {
       expect(await roots(kind, input), JSON.stringify({ kind, input })).toEqual(expectedTargets);
     }
@@ -81,11 +84,13 @@ describe("explicit search scopes", () => {
       "node_modules/missing/**/*.ts",
       "{missing,also-missing}/**"
     ];
+
     for (const missingPath of missingPaths) {
       const scope = await extractScope("grep", { path: missingPath }, directory.root);
       expect(scope.missingPath, missingPath).toBe(missingPath);
       expect(scope.targets, missingPath).toEqual([]);
     }
+
     expect(
       (await extractScope("find", { pattern: "./missing.ts" }, directory.root)).missingPath
     ).toBe("./missing.ts");

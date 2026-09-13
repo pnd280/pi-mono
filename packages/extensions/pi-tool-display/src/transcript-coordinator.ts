@@ -18,20 +18,26 @@ export interface RowHandle {
   invalidate(): void;
   setExpanded(expanded: boolean): void;
 }
+
 export interface AnimationClock {
   start(tick: () => void): () => void;
 }
+
 const clock: AnimationClock = {
   start(tick) {
     const timer = setInterval(tick, 600);
     timer.unref();
+
     return () => clearInterval(timer);
   }
 };
+
 function canExplore(call: DisplayCall): boolean {
   const adapter = resolveResultAdapter(call.adapter, call.args, call.result);
+
   return (adapter.exploration?.(call.args, call.result)?.length ?? 0) > 0;
 }
+
 /** Ordered transcript state; renderers only read this model. No session or terminal dependency. */
 export class TranscriptCoordinator {
   readonly calls = new Map<string, DisplayCall>();
@@ -68,14 +74,17 @@ export class TranscriptCoordinator {
               call.reference.toolCallId === reference.toolCallId
           )
         : undefined);
+
     if (existing) {
       const grouped = canExplore(existing);
       existing.args = args;
       existing.reference = reference;
       if (grouped !== canExplore(existing)) this.regroup();
       this.changed(existing);
+
       return existing;
     }
+
     const call: DisplayCall = {
       key,
       reference,
@@ -92,6 +101,7 @@ export class TranscriptCoordinator {
     this.sequence.push(key);
     this.regroup();
     this.schedule();
+
     return call;
   }
   setAdapter(call: DisplayCall, adapter: ToolDisplayAdapter): void {
@@ -141,11 +151,13 @@ export class TranscriptCoordinator {
   ): void {
     if (partial && !isLive(call)) return;
     call.result = result;
+
     if (!partial) {
       call.lifecycle = "complete";
       call.outcome = outcome;
       call.liveOutput = undefined;
     }
+
     const grouped = canExplore(call);
     if (this.groups.has(call.key) !== grouped) this.regroup();
     this.changed(call);
@@ -173,6 +185,7 @@ export class TranscriptCoordinator {
     const rows = this.rows.get(call.key) ?? new Set();
     rows.add(row);
     this.rows.set(call.key, rows);
+
     return () => {
       rows.delete(row);
       if (!rows.size) this.rows.delete(call.key);
@@ -183,6 +196,7 @@ export class TranscriptCoordinator {
     if (this.disposed || call.expanded === expanded) return;
     const group = this.groups.get(call.key);
     if (group) group.expanded = expanded;
+
     for (const member of group?.members ?? [call]) {
       member.expanded = expanded;
       member.revision++;
@@ -191,30 +205,37 @@ export class TranscriptCoordinator {
   }
   changed(call: DisplayCall): void {
     if (this.disposed) return;
+
     for (const member of this.groups.get(call.key)?.members ?? [call]) {
       member.revision++;
       for (const row of this.rows.get(member.key) ?? []) row.invalidate();
     }
+
     this.schedule();
   }
   private regroup(): void {
     this.groups.clear();
     const boundaries = new Set(this.boundaries.values());
     let group: DisplayGroup | undefined;
+
     for (const key of this.sequence) {
       const call = key ? this.calls.get(key) : undefined;
+
       if (!call || !canExplore(call)) {
         group = undefined;
         continue;
       }
+
       group ??= { members: [], expanded: call.expanded };
       group.members.push(call);
       call.expanded = group.expanded;
       this.groups.set(call.key, group);
       if (boundaries.has(call.key)) group = undefined;
     }
+
     for (const call of this.calls.values()) {
       call.revision++;
+
       for (const row of this.rows.get(call.key) ?? []) {
         row.setExpanded(call.expanded);
         row.invalidate();
@@ -233,6 +254,7 @@ export class TranscriptCoordinator {
         for (const call of affected)
           for (const row of this.rows.get(call.key) ?? []) row.invalidate();
       });
+
     if (!active) {
       this.stopAnimation?.();
       this.stopAnimation = undefined;

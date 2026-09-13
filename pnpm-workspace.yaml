@@ -12,6 +12,7 @@ catalog:
   "@earendil-works/pi-ai": ^0.85.1
   "@earendil-works/pi-coding-agent": ^0.85.1
   "@earendil-works/pi-tui": ^0.85.1
+  "@stylistic/eslint-plugin": ^5.10.0
   "@types/node": ^24.13.3
   eslint-import-resolver-typescript: ^4.4.5
   eslint-plugin-boundaries: ^7.2.0

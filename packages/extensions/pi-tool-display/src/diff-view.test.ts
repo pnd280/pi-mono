@@ -43,12 +43,14 @@ it("shows split previews by default when wide and unified rows when narrow witho
   expect(split[0]).toMatch(/1 -old\s+│ 1 \+new/);
   expect(split[1]).toMatch(/^\s+│ 2 \+extra/);
   expect(split[2]).toMatch(/2  context\s+│ 3  context/);
+
   for (const width of [40, 80]) {
     const unified = render(width).map(stripTerminalSequences).join("\n");
     expect(unified).not.toContain("│");
     for (const text of ["1 -old", "1 +new", "2 +extra", "3  context"])
       expect(unified).toContain(text);
   }
+
   const longPatch = parsePatch("@@ -1 +1 @@\n-" + "界".repeat(80) + "\n+short\n")!;
   const wrapped = renderDiffBody(longPatch, { ...displayOptions, width: 120 });
   expect(wrapped.every((row) => visibleWidth(row) <= 120)).toBe(true);
@@ -64,6 +66,7 @@ it.each([
   (_, header, sign, trailingLine) => {
     const changed = "changed_" + "x".repeat(70);
     const parsed = parsePatch(`${header}\n leading\n${sign}${changed}\n trailing\n`)!;
+
     for (const width of [120, 240]) {
       for (const expanded of [false, true]) {
         const rows = renderDiffBody(parsed, { ...displayOptions, width, expanded });
@@ -134,6 +137,7 @@ it("bounds total inline comparison work across pairs without dropping later chan
 it("shows complete focused diffs through the row limit and labels only multi-hunk patches", () => {
   for (const width of [80, 120]) {
     const limit = 30;
+
     for (const count of [limit, limit + 1]) {
       const parsed = parsePatch(
         `@@ -0,0 +1,${count} @@\n${Array.from({ length: count }, (_, index) => `+line ${index}`).join("\n")}\n`
@@ -149,6 +153,7 @@ it("shows complete focused diffs through the row limit and labels only multi-hun
       );
       expect(expanded).not.toContain("Hunk 1/1");
       expect(expanded).toContain(`+line ${count - 1}`);
+
       for (const rendered of [text, expanded]) {
         expect(rendered).not.toContain("Before");
         expect(rendered).not.toContain("After");
@@ -156,7 +161,9 @@ it("shows complete focused diffs through the row limit and labels only multi-hun
       }
     }
   }
+
   const multiple = parsePatch("@@ -3 +3,0 @@\n-old\n@@ -50,0 +51 @@\n+new\n")!;
+
   for (const expanded of [false, true]) {
     const text = renderDiffBody(multiple, { ...displayOptions, width: 120, expanded }).join("\n");
     expect(stripTerminalSequences(text)).toContain("Hunk 1/2");
@@ -170,6 +177,7 @@ it("keeps the whole first hunk when it fits even if later hunks exceed the compa
     "@@ -1,7 +1,7 @@\n leading 1\n leading 2\n leading 3\n-old\n+new\n trailing 1\n trailing 2\n trailing 3\n@@ -100,0 +101,40 @@\n" +
       "+later\n".repeat(40)
   )!;
+
   for (const width of [80, 120]) {
     const rows = renderDiffBody(parsed, { ...displayOptions, width });
     const text = stripTerminalSequences(rows.join("\n"));
@@ -214,6 +222,7 @@ it("keeps both sides of a large replacement in compact unified order", () => {
   const removed = Array.from({ length: 30 }, (_, index) => `-OLD_${index}`).join("\n");
   const added = Array.from({ length: 30 }, (_, index) => `+NEW_${index}`).join("\n");
   const parsed = parsePatch(`@@ -1,30 +1,30 @@\n${removed}\n${added}\n`)!;
+
   for (const width of [40, 80, 120]) {
     const rows = renderDiffBody(parsed, { ...displayOptions, width });
     const text = stripTerminalSequences(rows.join("\n"));

@@ -4,8 +4,10 @@ import { createPatch, FILE_HEADERS_ONLY } from "diff";
 import type { ChangeFact } from "./display-model.ts";
 
 export const OBSERVATION_BYTES = 64 * 1024;
+
 const DIFF_EDIT_LIMIT = 2000;
 const DIFF_TIMEOUT_MS = 50;
+
 export interface PatchLine {
   kind: "added" | "removed" | "context";
   text: string;
@@ -13,16 +15,20 @@ export interface PatchLine {
   newLine?: number;
   noNewline?: true;
 }
+
 export interface PatchHunk {
   lines: PatchLine[];
 }
+
 export interface ParsedPatch {
   hunks: PatchHunk[];
   added: number;
   removed: number;
 }
+
 function validHunk(hunk: DiffHunk): boolean {
   const { oldStartLine, oldLineCount, newStartLine, newLineCount } = hunk.header;
+
   for (const [start, count] of [
     [oldStartLine, oldLineCount],
     [newStartLine, newLineCount]
@@ -35,7 +41,9 @@ function validHunk(hunk: DiffHunk): boolean {
     )
       return false;
   }
+
   const content = hunk.lines.slice(1);
+
   return (
     !hunk.lines[0]?.noTrailingNewLine &&
     content.filter((line) => line.type !== DiffLineType.Add).length === oldLineCount &&
@@ -56,6 +64,7 @@ export function parsePatch(patch: string): ParsedPatch | undefined {
   // Native/owner contracts may omit file headers. The parser requires them; these
   // synthetic names are never displayed, persisted, or used to access files.
   const source = (normalized.startsWith("@@ ") ? "--- a\n+++ b\n" : "") + normalized + "\n";
+
   try {
     const parsed = new DiffParser().parse(source);
     if (
@@ -66,10 +75,12 @@ export function parsePatch(patch: string): ParsedPatch | undefined {
     const hunks: PatchHunk[] = [];
     let added = 0,
       removed = 0;
+
     for (const hunk of parsed.hunks) {
       // Upstream deliberately tolerates mismatched counts; tool results must not.
       if (!validHunk(hunk)) return undefined;
       const lines: PatchLine[] = [];
+
       for (const line of hunk.lines.slice(1)) {
         const kind =
           line.type === DiffLineType.Add
@@ -87,13 +98,16 @@ export function parsePatch(patch: string): ParsedPatch | undefined {
           ...(line.noTrailingNewLine ? { noNewline: true } : {})
         });
       }
+
       hunks.push({ lines });
     }
+
     return { hunks, added, removed };
   } catch {
     return undefined;
   }
 }
+
 export function computeChange(
   path: string,
   before: string,
@@ -130,5 +144,6 @@ export function computeChange(
     );
   if (Buffer.byteLength(patch) > 128 * 1024)
     return unavailable("Patch exceeds the 128 KiB retention limit.");
+
   return { kind: "change", availability: "available", change, patch };
 }

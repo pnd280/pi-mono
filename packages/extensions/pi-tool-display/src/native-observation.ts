@@ -23,11 +23,13 @@ export interface ObservationSink {
   fact(fact: DisplayFact): void;
   preview(output: OutputText): void;
 }
+
 export interface NativeSettings {
   cwd: string;
   shellPath?: string | undefined;
   commandPrefix?: string | undefined;
 }
+
 const ignoreFailure = (action: () => void): void => {
   try {
     action();
@@ -35,10 +37,12 @@ const ignoreFailure = (action: () => void): void => {
     /* Display failure cannot fail execution. */
   }
 };
+
 async function beforeWrite(
   path: string
 ): Promise<{ text: string; change: "creation" | "modification" } | undefined> {
   let file;
+
   try {
     // O_NONBLOCK prevents a FIFO from blocking an observation read before fstat.
     file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
@@ -47,6 +51,7 @@ async function beforeWrite(
     const buffer = Buffer.alloc(Math.min(stat.size + 1, OBSERVATION_BYTES + 1));
     const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
     if (bytesRead !== stat.size) return undefined;
+
     return {
       text: new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
         buffer.subarray(0, bytesRead)
@@ -59,12 +64,14 @@ async function beforeWrite(
     await file?.close().catch(() => {});
   }
 }
+
 async function executeWithSavedReference(
   definition: Pick<ToolDefinition, "execute">,
   [id, args, signal, onUpdate, context]: Parameters<ToolDefinition["execute"]>,
   fact: (fact: DisplayFact) => void
 ) {
   let savedPath: string | undefined;
+
   const update: NonNullable<typeof onUpdate> = (value) => {
     ignoreFailure(() => {
       const path = record(value.details).fullOutputPath;
@@ -72,6 +79,7 @@ async function executeWithSavedReference(
     });
     onUpdate?.(value);
   };
+
   try {
     const result = await definition.execute(
       id,
@@ -81,6 +89,7 @@ async function executeWithSavedReference(
       context
     );
     if (record(result.details).fullOutputPath === savedPath) savedPath = undefined;
+
     return result;
   } finally {
     if (savedPath) fact({ kind: "saved-output", availability: "available", path: savedPath });
@@ -103,10 +112,13 @@ export function observeNativeDefinition(
       if (!sink) return original.execute(id, args, signal, onUpdate, context);
       const observer = sink;
       const fact = (value: DisplayFact) => ignoreFailure(() => observer.fact(value));
+
       const start = () => {
         ignoreFailure(() => observer.started());
+
         return performance.now();
       };
+
       const terminal = (started: number, outcome: Outcome, extra = {}) =>
         fact({
           kind: "operation",
@@ -143,6 +155,7 @@ export function observeNativeDefinition(
         const operations: BashOperations = {
           async exec(command, cwd, options) {
             const started = start();
+
             try {
               const result = await local.exec(command, cwd, {
                 ...options,
@@ -163,6 +176,7 @@ export function observeNativeDefinition(
                     : "failure",
                 { exitCode: result.exitCode }
               );
+
               return result;
             } catch (error) {
               // These are the verified local backend's control outcomes, not rendered output parsing.
@@ -202,6 +216,7 @@ export function observeNativeDefinition(
                 if (bytes.length <= OBSERVATION_BYTES)
                   before = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
               });
+
               return bytes;
             },
             async writeFile(path, content) {
@@ -211,6 +226,7 @@ export function observeNativeDefinition(
               // for failed writes or results without a usable native patch.
               recordFallbackChange = () => proposal(path, previous, content, "modification");
               const started = start();
+
               try {
                 await writeFile(path, content, "utf8");
                 terminal(started, "success");
@@ -230,14 +246,17 @@ export function observeNativeDefinition(
             async writeFile(path, content) {
               // Pi already owns the mutation queue here; do not queue again.
               let before;
+
               try {
                 if (Buffer.byteLength(content) <= OBSERVATION_BYTES)
                   before = await beforeWrite(path);
               } catch {
                 /* Observation only. */
               }
+
               proposal(path, before?.text, content, before?.change ?? "modification");
               const started = start();
+
               try {
                 await writeFile(path, content, "utf8");
                 terminal(started, "success");
@@ -249,20 +268,24 @@ export function observeNativeDefinition(
           }
         });
       } else return original.execute(id, args, signal, onUpdate, context);
+
       try {
         const result = await executeWithSavedReference(
           definition,
           [id, args, signal, onUpdate, context],
           fact
         );
+
         if (recordFallbackChange) {
           const patch = record(result.details).patch;
+
           if (typeof patch === "string" && parsePatch(patch)) {
             // Record before outer result middleware can replace or reject Pi's result.
             fact({ kind: "change", availability: "available", change: "modification", patch });
             recordFallbackChange = undefined;
           }
         }
+
         return result;
       } finally {
         recordFallbackChange?.();

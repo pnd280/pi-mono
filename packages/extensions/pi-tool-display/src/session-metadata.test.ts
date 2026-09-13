@@ -15,6 +15,7 @@ import { assistantMessage, toolCall } from "./test-fixture.ts";
 
 it("persists extra facts outside model context and associates ancestry across branches and forks", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-metadata-"));
+
   try {
     const session = SessionManager.create(directory, directory);
     session.appendMessage({ role: "user", content: "fixture", timestamp: 0 });
@@ -28,9 +29,11 @@ it("persists extra facts outside model context and associates ancestry across br
       toolCallId: "write-1"
     };
     const context = structuredClone(session.buildSessionContext());
+
     const append = (type: string, data: unknown) => {
       session.appendCustomEntry(type, data);
     };
+
     persistDisplayFact(append, reference, "pi:write", {
       kind: "change",
       availability: "available",

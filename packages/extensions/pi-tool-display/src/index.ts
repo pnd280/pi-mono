@@ -19,8 +19,10 @@ export default function toolDisplay(pi: ExtensionAPI): void {
   pi.on("session_start", (_event, context) => {
     if (context.mode !== "tui") {
       dispose?.();
+
       return;
     }
+
     notify = (message) => context.ui.notify(message, "warning");
     if (!dispose)
       warnings.push(

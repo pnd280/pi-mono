@@ -6,6 +6,7 @@ import {
 } from "./renderers.ts";
 
 export type { ToolFamily } from "./display-model.ts";
+
 export type { ToolDisplayRenderers } from "./renderers.ts";
 
 /** Public owner integration exposes parameter policy, not private transcript state. */

@@ -30,6 +30,7 @@ export default defineConfig({
     ignorePatterns: [".pi/**", "dist/**", "node_modules/**"],
     plugins: ["typescript", "import", "unicorn"],
     jsPlugins: [
+      "@stylistic/eslint-plugin",
       "eslint-plugin-boundaries",
       { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }
     ],
@@ -43,6 +44,7 @@ export default defineConfig({
       ],
       "boundaries/additional-dependency-nodes": [
         {
+          name: "type-import-equals",
           selector:
             "TSImportEqualsDeclaration[importKind=type] > TSExternalModuleReference > Literal",
           kind: "type"
@@ -61,6 +63,19 @@ export default defineConfig({
       typeCheck: true
     },
     rules: {
+      "@stylistic/padding-line-between-statements": [
+        "error",
+        {
+          blankLine: "always",
+          prev: "*",
+          next: ["block-like", "export", "interface", "type", "return"]
+        },
+        {
+          blankLine: "always",
+          prev: ["block-like", "export", "interface", "type"],
+          next: "*"
+        }
+      ],
       "vite-plus/prefer-vite-plus-imports": "error",
       complexity: "error",
       "import/extensions": ["error", "always", { ignorePackages: true, checkTypeImports: true }],
@@ -91,8 +106,23 @@ export default defineConfig({
       ],
       "eslint/prefer-const": "warn",
       "typescript/consistent-type-imports": "error",
+      "typescript/no-unsafe-type-assertion": "error",
+      "typescript/no-unnecessary-type-assertion": "error",
       "typescript/no-unnecessary-condition": "warn",
+      "typescript/no-unsafe-assignment": "error",
+      "typescript/no-unsafe-argument": "error",
+      "typescript/no-unsafe-call": "error",
+      "typescript/no-unsafe-member-access": "error",
+      "typescript/no-unsafe-return": "error",
       "typescript/no-explicit-any": "warn",
+      "typescript/consistent-type-assertions": [
+        "error",
+        {
+          assertionStyle: "as",
+          objectLiteralTypeAssertions: "never",
+          arrayLiteralTypeAssertions: "never"
+        }
+      ],
       "typescript/no-floating-promises": [
         "warn",
         {

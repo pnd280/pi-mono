@@ -3,20 +3,27 @@ import { StringDecoder } from "node:string_decoder";
 import { joinOutputText, outputOmission, type OutputText } from "./output-text.ts";
 
 export const LIVE_OUTPUT_BYTES = 1024 * 1024;
+
 export const LIVE_OUTPUT_LINES = 50;
+
 export const LIVE_LINE_BYTES = 10_280;
+
 function prefix(text: string, bytes: number): string {
   const buffer = Buffer.from(text);
   let end = Math.min(bytes, buffer.length);
   while (end > 0 && end < buffer.length && (buffer[end]! & 0xc0) === 0x80) end--;
+
   return buffer.subarray(0, end).toString("utf8");
 }
+
 function suffix(text: string, bytes: number): string {
   const buffer = Buffer.from(text);
   let start = Math.max(0, buffer.length - bytes);
   while (start < buffer.length && (buffer[start]! & 0xc0) === 0x80) start++;
+
   return buffer.subarray(start).toString("utf8");
 }
+
 class RetainedLine {
   head = "";
   tail = "";
@@ -32,6 +39,7 @@ class RetainedLine {
   }
   text(): OutputText {
     const omitted = this.bytes - Buffer.byteLength(this.head) - Buffer.byteLength(this.tail);
+
     return omitted > 0
       ? joinOutputText([
           this.head,
@@ -42,6 +50,7 @@ class RetainedLine {
       : { text: this.head + this.tail };
   }
 }
+
 /** Observes real chunks only, never Pi replacement snapshots. */
 export class OutputBuffer {
   private decoder = new StringDecoder("utf8");
@@ -68,16 +77,19 @@ export class OutputBuffer {
   private ingest(text: string): void {
     if (this.full !== undefined) this.full += text;
     const fragments = text.split("\n");
+
     for (let index = 0; index < fragments.length; index++) {
       this.line.append(fragments[index]!);
       if (index === fragments.length - 1) break;
       const line = this.line.text();
       line.text = line.text.replace(/\r$/, "");
+
       if (this.head.length < LIVE_OUTPUT_LINES) this.head.push(line);
       else {
         this.tail.push(line);
         if (this.tail.length > LIVE_OUTPUT_LINES) this.tail.shift();
       }
+
       this.completed++;
       this.line = new RetainedLine();
     }
@@ -85,6 +97,7 @@ export class OutputBuffer {
   snapshot(): OutputText {
     if (this.full !== undefined) return { text: this.full };
     const omitted = this.completed - this.head.length - this.tail.length;
+
     return joinOutputText(
       [
         ...this.head,

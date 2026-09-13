@@ -38,6 +38,7 @@ export async function createFixtureWorkspace(): Promise<string> {
       })
     )
   ]);
+
   return directory;
 }
 
@@ -61,6 +62,7 @@ export async function fixtureLaunch(directory: string) {
     typeof manifest.bin.pi !== "string"
   )
     throw new Error("Installed Pi package has no bin.pi executable.");
+
   return {
     command: process.execPath,
     args: [

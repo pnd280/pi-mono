@@ -7,18 +7,19 @@ import {
   createBashToolDefinition,
   createEditToolDefinition,
   createWriteToolDefinition,
-  SessionManager,
-  type ExtensionContext,
-  type ToolDefinition
+  defineTool
 } from "@earendil-works/pi-coding-agent";
 import { expect, it } from "vite-plus/test";
 
 import { parsePatch } from "./diff.ts";
 import type { DisplayFact } from "./display-model.ts";
 import { observeNativeDefinition } from "./native-observation.ts";
+import { record } from "./presentation.ts";
+import { nativeToolContext } from "./test-fixture.ts";
 
 it("preserves shell settings, environment, bytes, errors and structured operation outcomes", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-native-shell-"));
+
   try {
     const original = createBashToolDefinition(directory, {
       shellPath: "/bin/bash",
@@ -27,7 +28,7 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
     const facts: DisplayFact[] = [];
     const previews: string[] = [];
     const observed = observeNativeDefinition(
-      original as unknown as ToolDefinition,
+      defineTool(original),
       { cwd: directory, shellPath: "/bin/bash", commandPrefix: "export DISPLAY_TEST=preserved" },
       () => ({
         started() {},
@@ -35,10 +36,7 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
         preview: (value) => previews.push(value.text)
       })
     );
-    const context = {
-      cwd: directory,
-      sessionManager: SessionManager.inMemory(directory)
-    } as unknown as ExtensionContext;
+    const context = nativeToolContext(directory);
     const params = { command: 'printf "α\\r\\n%s\\n%s" "$DISPLAY_TEST" "$PI_SESSION_ID"' };
     const expected = await original.execute("plain", params, undefined, undefined, context);
     const updates: unknown[] = [];
@@ -78,6 +76,7 @@ it.each(["edit", "write"] as const)(
   "preserves BOM-bearing files during observed %s",
   async (name) => {
     const directory = await mkdtemp(join(tmpdir(), "display-native-bom-"));
+
     try {
       const before = "\uFEFFbefore\n";
       const after = "\uFEFFafter\n";
@@ -85,17 +84,13 @@ it.each(["edit", "write"] as const)(
       const facts: DisplayFact[] = [];
       const original =
         name === "edit"
-          ? createEditToolDefinition(directory)
-          : createWriteToolDefinition(directory);
-      const observed = observeNativeDefinition(
-        original as unknown as ToolDefinition,
-        { cwd: directory },
-        () => ({
-          started() {},
-          preview() {},
-          fact: (fact) => facts.push(fact)
-        })
-      );
+          ? defineTool(createEditToolDefinition(directory))
+          : defineTool(createWriteToolDefinition(directory));
+      const observed = observeNativeDefinition(original, { cwd: directory }, () => ({
+        started() {},
+        preview() {},
+        fact: (fact) => facts.push(fact)
+      }));
       const result = await observed.execute(
         "bom",
         name === "edit"
@@ -103,12 +98,17 @@ it.each(["edit", "write"] as const)(
           : { path: "file", content: after },
         undefined,
         undefined,
-        { cwd: directory } as ExtensionContext
+        nativeToolContext(directory)
       );
       expect(await readFile(join(directory, "file"), "utf8")).toBe(after);
       const change = facts.find((fact) => fact.kind === "change");
       expect(change?.availability).toBe("available");
-      if (name === "edit") expect(change!.patch).toBe((result.details as { patch: string }).patch);
+
+      if (name === "edit") {
+        expect(record(result.details).patch).toBeTypeOf("string");
+        expect(change!.patch).toBe(record(result.details).patch);
+      }
+
       const bom = name === "write" ? "\uFEFF" : "";
       expect(parsePatch(change!.patch!)?.hunks[0]?.lines).toEqual([
         { kind: "removed", text: `${bom}before`, oldLine: 1 },
@@ -121,6 +121,7 @@ it.each(["edit", "write"] as const)(
 );
 it("reuses the native edit patch even when the file exceeds the observation limit", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-native-large-edit-"));
+
   try {
     const before = Array.from(
       { length: 900 },
@@ -130,7 +131,7 @@ it("reuses the native edit patch even when the file exceeds the observation limi
     await writeFile(join(directory, "file"), before);
     const facts: DisplayFact[] = [];
     const observed = observeNativeDefinition(
-      createEditToolDefinition(directory) as unknown as ToolDefinition,
+      defineTool(createEditToolDefinition(directory)),
       { cwd: directory },
       () => ({ started() {}, preview() {}, fact: (fact) => facts.push(fact) })
     );
@@ -139,13 +140,14 @@ it("reuses the native edit patch even when the file exceeds the observation limi
       { path: "file", edits: [{ oldText: "line 450 ", newText: "changed 450 " }] },
       undefined,
       undefined,
-      { cwd: directory } as ExtensionContext
+      nativeToolContext(directory)
     );
     expect(await readFile(join(directory, "file"), "utf8")).toBe(after);
     const change = facts.find((fact) => fact.kind === "change");
+    expect(record(result.details).patch).toBeTypeOf("string");
     expect(change).toMatchObject({
       availability: "available",
-      patch: (result.details as { patch: string }).patch
+      patch: record(result.details).patch
     });
     expect(parsePatch(change!.patch!)).toMatchObject({ added: 1, removed: 1 });
   } finally {
@@ -155,12 +157,13 @@ it("reuses the native edit patch even when the file exceeds the observation limi
 
 it("retains a failed edit proposal and preserves the native filesystem error", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-native-failed-edit-"));
+
   try {
     const path = join(directory, "file");
     await writeFile(path, "before\n");
     const facts: DisplayFact[] = [];
     const observed = observeNativeDefinition(
-      createEditToolDefinition(directory) as unknown as ToolDefinition,
+      defineTool(createEditToolDefinition(directory)),
       { cwd: directory },
       () => ({
         started() {
@@ -177,19 +180,15 @@ it("retains a failed edit proposal and preserves the native filesystem error", a
         { path, edits: [{ oldText: "before", newText: "after" }] },
         undefined,
         undefined,
-        { cwd: directory } as ExtensionContext
+        nativeToolContext(directory)
       )
     ).rejects.toMatchObject({ code: "EISDIR" });
     expect(facts).toContainEqual(
       expect.objectContaining({ kind: "operation", outcome: "failure" })
     );
-    expect(facts).toContainEqual(
-      expect.objectContaining({
-        kind: "change",
-        availability: "available",
-        patch: expect.stringContaining("+after")
-      })
-    );
+    const change = facts.find((fact) => fact.kind === "change");
+    expect(change?.availability).toBe("available");
+    expect(change?.patch).toContain("+after");
     expect(await readFile(path + ".original", "utf8")).toBe("before\n");
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -200,27 +199,25 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   "retains proposed failed writes and distinguishes unreadability from absence",
   async () => {
     const directory = await mkdtemp(join(tmpdir(), "display-native-permissions-"));
+
     try {
       const path = join(directory, "protected");
       const facts: DisplayFact[] = [];
       const write = observeNativeDefinition(
-        createWriteToolDefinition(directory) as unknown as ToolDefinition,
+        defineTool(createWriteToolDefinition(directory)),
         { cwd: directory },
         () => ({ started() {}, preview() {}, fact: (fact) => facts.push(fact) })
       );
-      const context = { cwd: directory } as ExtensionContext;
+      const context = nativeToolContext(directory);
       await writeFile(path, "before\n", { mode: 0o400 });
       await expect(
         write.execute("failed-write", { path, content: "after\n" }, undefined, undefined, context)
       ).rejects.toThrow();
       expect(facts).toEqual([
-        expect.objectContaining({
-          kind: "change",
-          availability: "available",
-          patch: expect.stringContaining("-before")
-        }),
+        expect.objectContaining({ kind: "change", availability: "available" }),
         expect.objectContaining({ kind: "operation", outcome: "failure" })
       ]);
+      expect(facts.find((fact) => fact.kind === "change")?.patch).toContain("-before");
       expect(await readFile(path, "utf8")).toBe("before\n");
       facts.length = 0;
       await chmod(path, 0o200);
@@ -243,6 +240,7 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
 
 it("preserves queued mutations, aliases, CRLF, cancellation, and observer failures", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-native-change-"));
+
   try {
     const facts = new Map<string, DisplayFact[]>();
     const begin = (id: string) => ({
@@ -255,16 +253,16 @@ it("preserves queued mutations, aliases, CRLF, cancellation, and observer failur
       }
     });
     const edit = observeNativeDefinition(
-      createEditToolDefinition(directory) as unknown as ToolDefinition,
+      defineTool(createEditToolDefinition(directory)),
       { cwd: directory },
       begin
     );
     const write = observeNativeDefinition(
-      createWriteToolDefinition(directory) as unknown as ToolDefinition,
+      defineTool(createWriteToolDefinition(directory)),
       { cwd: directory },
       begin
     );
-    const context = { cwd: directory } as ExtensionContext;
+    const context = nativeToolContext(directory);
     await writeFile(join(directory, "file"), "alpha\r\nbeta\r\n");
     await symlink("file", join(directory, "alias"));
     const outputs = await Promise.all([
@@ -284,14 +282,10 @@ it("preserves queued mutations, aliases, CRLF, cancellation, and observer failur
       )
     ]);
     expect(await readFile(join(directory, "file"), "utf8")).toBe("ALPHA\r\nBETA\r\n");
-    expect(
-      outputs.every((value) => typeof (value.details as { patch: string }).patch === "string")
-    ).toBe(true);
-    expect(facts.get("first")?.find((fact) => fact.kind === "change")).toMatchObject({
-      kind: "change",
-      availability: "available",
-      patch: expect.stringContaining("+ALPHA")
-    });
+    for (const output of outputs) expect(record(output.details).patch).toBeTypeOf("string");
+    const firstChange = facts.get("first")?.find((fact) => fact.kind === "change");
+    expect(firstChange?.availability).toBe("available");
+    expect(firstChange?.patch).toContain("+ALPHA");
     await expect(
       edit.execute(
         "bad-match",
@@ -339,9 +333,10 @@ it("preserves queued mutations, aliases, CRLF, cancellation, and observer failur
         context
       )
     ]);
-    expect(facts.get("queued-write-2")?.[0]).toMatchObject({
-      patch: expect.stringContaining("-first replacement")
-    });
+    expect(facts.get("queued-write-2")?.[0]).toHaveProperty(
+      "patch",
+      expect.stringContaining("-first replacement")
+    );
     expect(await readFile(join(directory, "file"), "utf8")).toBe("second replacement\n");
     await write.execute(
       "oversized",
@@ -367,12 +362,10 @@ it("preserves queued mutations, aliases, CRLF, cancellation, and observer failur
       undefined,
       context
     );
-    expect(facts.get("overwrite")?.[0]).toMatchObject({
-      change: "modification",
-      patch: expect.stringContaining("-new")
-    });
+    expect(facts.get("overwrite")?.[0]).toMatchObject({ change: "modification" });
+    expect(facts.get("overwrite")?.[0]).toHaveProperty("patch", expect.stringContaining("-new"));
     const failingObserver = observeNativeDefinition(
-      createWriteToolDefinition(directory) as unknown as ToolDefinition,
+      defineTool(createWriteToolDefinition(directory)),
       { cwd: directory },
       () => ({
         started() {

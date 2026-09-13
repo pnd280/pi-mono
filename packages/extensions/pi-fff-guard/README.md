@@ -24,7 +24,7 @@ See [search scopes](docs/search-scopes.md) for path syntax, exclusions, unsuppor
 
 ### Limits
 
-Checks have a two-second deadline and bounded scope/link traversal. Timeouts, Git errors, and link cycles allow the FFF call with a diagnostic (UI notification or stderr); cancellation blocks the call.
+Checks have a two-second deadline and bounded scope/link traversal. Malformed scope arguments, timeouts, Git errors, and link cycles allow the FFF call with a diagnostic (UI notification or stderr); cancellation blocks the call.
 
 Wrappers must dispatch child tool calls through Pi's hooks; direct `execute()` calls bypass detection. Slash commands and `@` autocomplete are not intercepted.
 

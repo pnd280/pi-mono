@@ -11,8 +11,7 @@ import {
   getCapabilities,
   setCapabilityOverrides,
   stripTerminalSequences,
-  visibleWidth,
-  type TUI
+  visibleWidth
 } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers as createPublicRenderers } from "pi-tool-display/renderers";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
@@ -26,15 +25,18 @@ import {
 } from "./adapters/index.ts";
 import type { OutputText } from "./output-text.ts";
 import { createToolDisplayRenderers, type ToolDisplayRenderers } from "./renderers.ts";
+import { renderingTui } from "./test-fixture.ts";
 import { TranscriptCoordinator } from "./transcript-coordinator.ts";
 
 type Context = Parameters<ToolDisplayRenderers["renderCall"]>[2];
+
 const theme = {
   fg: (_color: string, text: string) => text,
   bg: (_color: string, text: string) => text,
   getBgAnsi: (_color: string) => "",
   bold: (text: string) => text
 };
+
 function context(overrides: Partial<Context> = {}): Context {
   return {
     args: {},
@@ -52,9 +54,11 @@ function context(overrides: Partial<Context> = {}): Context {
     ...overrides
   };
 }
+
 function result(text: string): AgentToolResult<unknown> {
   return { content: [{ type: "text", text }], details: undefined };
 }
+
 function body(name: string, value: AgentToolResult<unknown>, current = context()) {
   return createPublicRenderers(name, nativeAdapter(name)).renderResult(
     value,
@@ -78,11 +82,13 @@ function semanticTheme() {
     syntaxString: "\x1b[32m",
     toolOutput: "\x1b[37m"
   };
+
   return {
     ...theme,
     fg: (token: string, text: string) => `${colors[token] ?? "\x1b[39m"}${text}\x1b[39m`
   };
 }
+
 describe("tool display renderers", () => {
   it("uses adapter contract validation for fallback and grouping without provider-specific IDs", () => {
     const adapter = {
@@ -95,6 +101,7 @@ describe("tool display renderers", () => {
       ]
     };
     const coordinator = new TranscriptCoordinator("adapter-validation");
+
     try {
       const args = { pattern: "needle", path: "docs", limit: 7 };
       const call = coordinator.add(
@@ -109,12 +116,14 @@ describe("tool display renderers", () => {
       });
       const heading = () => renderer.renderCall(args, theme, context()).render(120).join("\n");
       expect(coordinator.group(call)).toBeDefined();
+
       for (const supported of [true, false, true]) {
         const retained = {
           ...result("retained documentation"),
           details: supported ? "supported" : "unknown"
         };
         coordinator.result(call, retained, "success");
+
         if (supported) {
           expect(coordinator.group(call)).toBeDefined();
           expect(heading()).toContain("Explored");
@@ -123,6 +132,7 @@ describe("tool display renderers", () => {
           expect(coordinator.group(call)).toBeUndefined();
           expect(heading()).toContain('search_docs({"pattern":"needle","path":"docs","limit":7})');
         }
+
         coordinator.expand(call, true);
         expect(
           renderer
@@ -174,6 +184,7 @@ describe("tool display renderers", () => {
             }
           })!
         : (nativeAdapter(name) ?? genericAdapter);
+
       // Replayed completion must not depend on a preceding call, execution event, or component.
       for (const isError of [false, true]) {
         const heading = createToolDisplayRenderers(name, adapter)
@@ -183,8 +194,10 @@ describe("tool display renderers", () => {
           .find((line) => /^[•◦] /.test(line));
         expect(heading).toMatch(new RegExp(`^[•◦] ${complete}(?: |$)`));
       }
+
       for (const coordinated of [false, true]) {
         const coordinator = new TranscriptCoordinator("action-headings");
+
         try {
           const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: name };
           const call = coordinator.add(reference, name, {}, adapter, "live");
@@ -199,7 +212,7 @@ describe("tool display renderers", () => {
             {},
             { showImages: false },
             renderer,
-            { requestRender() {} } as TUI,
+            renderingTui(),
             "/tmp"
           );
           if (coordinated)
@@ -207,12 +220,14 @@ describe("tool display renderers", () => {
               invalidate: () => row.invalidate(),
               setExpanded: (expanded) => row.setExpanded(expanded)
             });
+
           const assertHeading = (verb: string, groupVerb: string) => {
             for (const expanded of [false, true]) {
               if (coordinated) coordinator.expand(call, expanded);
               else row.setExpanded(expanded);
               const expected =
                 coordinated && !expanded && coordinator.group(call) ? groupVerb : verb;
+
               for (const width of [40, 100]) {
                 const heading = row
                   .render(width)
@@ -225,6 +240,7 @@ describe("tool display renderers", () => {
               }
             }
           };
+
           assertHeading(active, "Exploring");
           coordinator.add(reference, name, args, adapter, "live");
           row.updateArgs(args);
@@ -239,6 +255,7 @@ describe("tool display renderers", () => {
           row.updateResult({ ...partial, isError: false }, true);
           assertHeading(active, "Exploring");
           const final = result("retained output");
+
           for (const isError of [false, true]) {
             coordinator.result(call, final, isError ? "failure" : "success");
             row.updateResult({ ...final, isError });
@@ -253,6 +270,7 @@ describe("tool display renderers", () => {
 
   it("preserves terminal outcomes and waits for completion before labeling a write as added", () => {
     const coordinator = new TranscriptCoordinator("terminal-headings");
+
     try {
       const call = coordinator.add(
         { messageTimestamp: 1, contentIndex: 0, toolCallId: "write" },
@@ -273,6 +291,7 @@ describe("tool display renderers", () => {
         durationMs: 1
       });
       expect(heading()).toBe("• Writing created.ts");
+
       for (const [outcome, verb] of [
         ["success", "Added"],
         ["failure", "Wrote"],
@@ -281,6 +300,7 @@ describe("tool display renderers", () => {
         coordinator.result(call, result("retained outcome"), outcome);
         expect(heading()).toBe(`• ${verb} created.ts`);
       }
+
       const historical = coordinator.add(
         { messageTimestamp: 2, contentIndex: 0, toolCallId: "missing" },
         "edit",
@@ -320,10 +340,13 @@ describe("tool display renderers", () => {
       [pathToFileURL(resolve(cwd, "src/file name.ts")).href, "src/file name.ts"],
       ["new/未作成 file.ts", "new/未作成 file.ts"]
     ] as const;
+
     for (const name of ["read", "edit", "write", "ls", "grep", "find"]) {
       const renderer = createToolDisplayRenderers(name, nativeAdapter(name));
+
       for (const [path, expected] of paths) {
         const args = Object.freeze({ path, pattern: "needle" });
+
         for (const expanded of [false, true]) {
           const rows = renderer.renderCall(args, theme, context({ cwd, expanded })).render(240);
           expect(rows[0]?.endsWith(` ${expected.split(sep).join("/")}`), `${name}: ${path}`).toBe(
@@ -333,6 +356,7 @@ describe("tool display renderers", () => {
         }
       }
     }
+
     const renderer = createToolDisplayRenderers("read", nativeAdapter("read"));
     expect(
       renderer
@@ -355,6 +379,7 @@ describe("tool display renderers", () => {
   it("keeps full cwd-relative or outside-absolute paths in grouped and expanded reads", () => {
     const cwd = resolve("/workspace/project");
     const coordinator = new TranscriptCoordinator("file-paths");
+
     try {
       const paths = [resolve(cwd, "src/file.ts"), "tests/file.ts", "../shared/file.ts"];
       const expected = [
@@ -371,8 +396,10 @@ describe("tool display renderers", () => {
           "historical"
         );
         coordinator.result(call, result("retained"), "success");
+
         return call;
       });
+
       for (const expanded of [false, true]) {
         coordinator.expand(calls[0]!, expanded);
         calls.forEach((call, index) => {
@@ -392,13 +419,16 @@ describe("tool display renderers", () => {
   });
   it("dims native empty-output prose and separates failure status from process output", () => {
     const themed = semanticTheme();
+
     const render = (name: string, text: string, isError = false, specialized = true) => {
       const current = context({ isError, expanded: true });
+
       return createToolDisplayRenderers(name, specialized ? nativeAdapter(name) : undefined)
         .renderResult(result(text), current, themed, current)
         .render(120)
         .join("\n");
     };
+
     for (const name of ["bash", "powershell"]) {
       expect(render(name, "(no output)")).toContain(themed.fg("dim", "(no output)"));
       const failed = render(name, "(no output)\n\nCommand exited with code 42", true);
@@ -417,6 +447,7 @@ describe("tool display renderers", () => {
         themed.fg("dim", "(no output)")
       );
     }
+
     expect(render("read", "Permission denied", true)).toContain(
       themed.fg("error", "Permission denied")
     );
@@ -429,6 +460,7 @@ describe("tool display renderers", () => {
       omissions: [{ start: marker.length + 1, end: marker.length * 2 + 1 }]
     } satisfies OutputText;
     const coordinator = new TranscriptCoordinator("output-colors");
+
     try {
       const adapter = nativeAdapter("bash")!;
       const call = coordinator.add(
@@ -444,11 +476,13 @@ describe("tool display renderers", () => {
         binding: { call, coordinator }
       });
       coordinator.preview(call, preview);
+
       for (const saved of [false, true]) {
         if (saved) {
           coordinator.result(call, result("retained result"), "success");
           call.savedOutput = { path: "saved-output", ...preview };
         }
+
         const rows = renderer
           .renderResult(result("partial result"), context(), themed, context())
           .render(120)
@@ -466,6 +500,7 @@ describe("tool display renderers", () => {
     (replacement) => {
       const images = getCapabilities().images;
       const coordinator = new TranscriptCoordinator("substituted-image-body");
+
       try {
         const adapter =
           replacement === "patch"
@@ -494,10 +529,13 @@ describe("tool display renderers", () => {
         const renderer = createToolDisplayRenderers(call.name, adapter, {
           binding: { call, coordinator }
         });
+
         for (const expanded of [false, true]) {
           coordinator.expand(call, expanded);
+
           for (const capability of [null, "kitty"] as const) {
             setCapabilityOverrides({ images: capability });
+
             for (const showImages of [false, true]) {
               const current = context({
                 args: call.args,
@@ -514,6 +552,7 @@ describe("tool display renderers", () => {
                 capability && showImages ? 1 : 2
               );
               expect(rows).not.toContain("private-image-bytes");
+
               if (replacement === "patch") {
                 expect(rows).toContain("+1 -1");
                 expect(rows).not.toContain("retained text");
@@ -524,6 +563,7 @@ describe("tool display renderers", () => {
             }
           }
         }
+
         expect(supplied).toEqual(original);
       } finally {
         setCapabilityOverrides({ images });
@@ -533,6 +573,7 @@ describe("tool display renderers", () => {
   );
   it("keeps published failure diagnostics visible when expanded saved output is available", () => {
     const coordinator = new TranscriptCoordinator("saved-failure");
+
     try {
       const adapter = nativeAdapter("bash")!;
       const call = coordinator.add(
@@ -546,6 +587,7 @@ describe("tool display renderers", () => {
       const renderer = createToolDisplayRenderers("bash", adapter, {
         binding: { call, coordinator }
       });
+
       for (const diagnostic of ["Command exited with code 7", "Rejected by result middleware"]) {
         const published = result(diagnostic);
         coordinator.result(call, published, "failure");
@@ -586,6 +628,7 @@ describe("tool display renderers", () => {
       ).toContain("retained output");
       expect(current.args).toBe(args);
     }
+
     const args = { path: "example.txt" };
     expect(
       createPublicRenderers("read", undefined, { showParameters: false })
@@ -596,6 +639,7 @@ describe("tool display renderers", () => {
   });
   it("colors only FFF search patterns in grouped, expanded, and standalone summaries", () => {
     const themed = semanticTheme();
+
     for (const name of ["fffind", "ffgrep", "fff-multi-grep", "find", "grep", "multi_grep"]) {
       const multi = name === "fff-multi-grep" || name === "multi_grep";
       const adapter = officialFffAdapter({
@@ -620,6 +664,7 @@ describe("tool display renderers", () => {
           : { pattern, path: scope }
       );
       const coordinator = new TranscriptCoordinator("search-pattern-colors");
+
       try {
         const call = coordinator.add(
           { messageTimestamp: 1, contentIndex: 0, toolCallId: name },
@@ -630,8 +675,10 @@ describe("tool display renderers", () => {
         );
         const retained = result("retained matching source");
         coordinator.result(call, retained, "success");
+
         for (const expanded of [false, true]) {
           coordinator.expand(call, expanded);
+
           for (const options of [{}, { binding: { call, coordinator } }]) {
             const renderer = createToolDisplayRenderers(name, adapter, options);
             const rows = renderer
@@ -644,8 +691,10 @@ describe("tool display renderers", () => {
             expect(rows).not.toContain('"patterns"');
           }
         }
+
         expect(call.args).toBe(args);
         expect(call.result).toBe(retained);
+
         for (const empty of multi ? [{}, { patterns: [] }] : [{}]) {
           const rows = createToolDisplayRenderers(name, adapter)
             .renderCall(empty, themed, context())
@@ -653,7 +702,9 @@ describe("tool display renderers", () => {
             .join("\n");
           expect(rows).toContain(themed.fg("dim", multi ? "…" : "(pattern missing)"));
         }
+
         const native = nativeAdapter(name);
+
         if (native) {
           const rows = createToolDisplayRenderers(name, native)
             .renderCall(args, themed, context())
@@ -694,6 +745,7 @@ describe("tool display renderers", () => {
       Object.freeze(args);
       const adapter = officialFffAdapter(fffToolInfo(name))!;
       const coordinator = new TranscriptCoordinator("empty-search-patterns");
+
       try {
         const call = coordinator.add(
           { messageTimestamp: 1, contentIndex: 0, toolCallId: name },
@@ -729,6 +781,7 @@ describe("tool display renderers", () => {
     "keeps missing %s patterns distinct from explicit emptiness",
     (name) => {
       const adapter = officialFffAdapter(fffToolInfo(name))!;
+
       for (const expanded of [false, true]) {
         const args = { path: "packages/" };
         expect(adapter.exploration?.(args)).toBeUndefined();
@@ -754,6 +807,7 @@ describe("tool display renderers", () => {
       }
     })!;
     const coordinator = new TranscriptCoordinator("parameter-policy");
+
     try {
       const args = { pattern: "", path: "**/AGENTS.md", limit: 10 };
       const call = coordinator.add(
@@ -785,6 +839,7 @@ describe("tool display renderers", () => {
   });
   it("keeps compact group diagnostics with their heading without adding sibling text gaps", () => {
     const coordinator = new TranscriptCoordinator("group-notices");
+
     try {
       const adapter = nativeAdapter("read")!;
       const first = coordinator.add(
@@ -836,6 +891,7 @@ describe("tool display renderers", () => {
   });
   it("keeps failed read and FFF diagnostics visible in compact groups without duplicating sibling text", () => {
     const coordinator = new TranscriptCoordinator("group-failures");
+
     try {
       const adapters = [
         nativeAdapter("read")!,
@@ -869,6 +925,7 @@ describe("tool display renderers", () => {
           "historical"
         );
         coordinator.result(call, result(diagnostics[index]!), "failure");
+
         return call;
       });
       const heading = [first, ...failures]
@@ -883,6 +940,7 @@ describe("tool display renderers", () => {
       expect(heading).toContain("2 failed");
       for (const diagnostic of diagnostics) expect(heading).toContain(diagnostic);
       expect(heading).not.toContain("successful body stays hidden");
+
       for (const call of failures) {
         const renderer = createToolDisplayRenderers(call.name, call.adapter, {
           binding: { call, coordinator }
@@ -939,6 +997,7 @@ describe("tool display renderers", () => {
         .join("\n");
       expect(generic).toContain(notice);
       const coordinator = new TranscriptCoordinator("hidden-pagination");
+
       try {
         const search = coordinator.add(
           { messageTimestamp: 1, contentIndex: 0, toolCallId: "search" },
@@ -961,6 +1020,7 @@ describe("tool display renderers", () => {
           const renderer = createToolDisplayRenderers(call.name, call.adapter, {
             binding: { call, coordinator }
           });
+
           return [
             ...renderer.renderCall(call.args, theme, current).render(100),
             ...renderer.renderResult(call.result!, current, theme, current).render(100)
@@ -986,6 +1046,7 @@ describe("tool display renderers", () => {
 
   it("keeps wrapped FFF diagnostics immediately under their source-ordered calls", () => {
     const coordinator = new TranscriptCoordinator("notice-ownership");
+
     try {
       const search = officialFffAdapter({
         name: "fffind",
@@ -1018,6 +1079,7 @@ describe("tool display renderers", () => {
       coordinator.result(members[2]!, result("last file contents"), "success");
       coordinator.result(members[1]!, result(`renderers.ts\n\n${notice}`), "success");
       coordinator.result(members[0]!, result("first file contents"), "success");
+
       for (const width of [34, 100]) {
         const rendered = members.map((call) =>
           createToolDisplayRenderers(call.name, call.adapter, {
@@ -1045,6 +1107,7 @@ describe("tool display renderers", () => {
 
   it("retains multiline FFF query warnings in collapsed exploration", () => {
     const coordinator = new TranscriptCoordinator("multiline-query-warning");
+
     try {
       const adapter = officialFffAdapter(fffToolInfo("fffind"))!;
       const call = coordinator.add(
@@ -1089,6 +1152,7 @@ describe("tool display renderers", () => {
     "keeps a failed %s patch and related diagnostics in one result item",
     (name) => {
       const coordinator = new TranscriptCoordinator("change-tree");
+
       try {
         const adapter = nativeAdapter(name)!;
         const call = coordinator.add(
@@ -1114,6 +1178,7 @@ describe("tool display renderers", () => {
         const renderer = createToolDisplayRenderers(name, adapter, {
           binding: { call, coordinator }
         });
+
         for (const expanded of [false, true]) {
           coordinator.expand(call, expanded);
           const current = context({ args: call.args, isError: true, expanded });
@@ -1186,6 +1251,7 @@ describe("tool display renderers", () => {
       };
       const original = structuredClone(supplied);
       const coordinator = new TranscriptCoordinator("image-warning");
+
       try {
         const adapter = nativeAdapter("read")!;
         const call = coordinator.add(
@@ -1196,12 +1262,14 @@ describe("tool display renderers", () => {
           "historical"
         );
         coordinator.result(call, supplied, "success");
+
         for (const grouped of [false, true]) {
           const renderer = createToolDisplayRenderers(
             "read",
             adapter,
             grouped ? { binding: { call, coordinator } } : {}
           );
+
           for (const expanded of [false, true]) {
             coordinator.expand(call, expanded);
             const current = context({ args: call.args, expanded, showImages: false });
@@ -1216,6 +1284,7 @@ describe("tool display renderers", () => {
             expect(rows).not.toContain("failed");
           }
         }
+
         expect(supplied).toEqual(original);
       } finally {
         coordinator.dispose();
@@ -1248,6 +1317,7 @@ describe("tool display renderers", () => {
 
   it("shows observation limitations only when no usable patch is available", () => {
     const coordinator = new TranscriptCoordinator("patch-precedence");
+
     try {
       const adapter = nativeAdapter("edit")!;
       const call = coordinator.add(
@@ -1265,6 +1335,7 @@ describe("tool display renderers", () => {
       const renderer = createToolDisplayRenderers("edit", adapter, {
         binding: { call, coordinator }
       });
+
       for (const patch of ["@@ -1 +1 @@\n-old\n+new\n", "invalid", ""]) {
         const supplied = { ...result("Successfully edited file.ts"), details: { patch } };
         coordinator.result(call, supplied, "success");
@@ -1289,6 +1360,7 @@ describe("tool display renderers", () => {
     "keeps edit counts while hiding only one-sided write counts for patches with %s",
     (_, patch, added, removed, summary) => {
       const coordinator = new TranscriptCoordinator("write-layout");
+
       try {
         const call = coordinator.add(
           { messageTimestamp: 1, contentIndex: 0, toolCallId: "write" },
@@ -1314,6 +1386,7 @@ describe("tool display renderers", () => {
         const renderer = createToolDisplayRenderers(call.name, call.adapter, {
           binding: { call, coordinator }
         });
+
         for (const expanded of [false, true]) {
           coordinator.expand(call, expanded);
           const current = context({ args: call.args, expanded });
@@ -1328,17 +1401,21 @@ describe("tool display renderers", () => {
               `+${added} -${removed}`
             ]
           ] as const;
+
           for (const [component, expectedSummary] of components) {
             for (const width of [80, 120, 240]) {
               const rows = component.render(width).map(stripTerminalSequences);
               const text = rows.join("\n");
+
               if (expectedSummary) expect(rows[0]).toBe(`  └ ${expectedSummary}`);
               else {
                 expect(text).not.toContain(`+${added} -${removed}`);
                 expect(rows[0]?.trimEnd()).toBe(`  └ 1 ${added ? "+after" : "-before"}`);
               }
+
               if (added) expect(text).toContain("1 +after");
               if (removed) expect(text).toContain("1 -before");
+
               if (added && removed && width >= 120)
                 expect(rows.find((row) => row.includes("1 -before"))).toMatch(
                   /1 -before\s+│ 1 \+after/
@@ -1348,6 +1425,7 @@ describe("tool display renderers", () => {
                 if (added && removed)
                   expect(text.indexOf("1 -before")).toBeLessThan(text.indexOf("1 +after"));
               }
+
               expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
             }
           }
@@ -1366,6 +1444,7 @@ describe("tool display renderers", () => {
     const shared = "shared ".repeat(10);
     const patch = `@@ -23,9 +23,9 @@ first section\n${leading}\n-FIRST_OLD ${shared} END_OLD\n+FIRST_NEW ${shared} END_NEW\n${trailing}\n@@ -100 +100 @@ second section\n-SECOND_OLD\n+SECOND_NEW\n`;
     const value = { ...result("Successfully edited example.txt"), details: { patch } };
+
     for (const width of [40, 80, 157]) {
       const rows = body("edit", value).render(width);
       const compact = stripTerminalSequences(rows.join("\n"));
@@ -1396,6 +1475,7 @@ describe("tool display renderers", () => {
       ...result("Successfully edited example.txt"),
       details: { patch: `@@ -5 +5 @@\n-${before}\n+${after}\n` }
     };
+
     for (const width of [80, 157]) {
       const rows = body("edit", value).render(width);
       const compact = stripTerminalSequences(rows.join("\n"));
@@ -1428,6 +1508,7 @@ describe("tool display renderers", () => {
       .render(80)
       .join("\n");
     expect(genericResult).not.toContain("private");
+
     for (const outcome of [
       "transport-error",
       "returned-error",
@@ -1497,6 +1578,7 @@ describe("tool display renderers", () => {
       outcome: "success",
       content: []
     };
+
     for (const showParameters of [false, true]) {
       const renderer = createToolDisplayRenderers(
         "proxy",
@@ -1513,10 +1595,11 @@ describe("tool display renderers", () => {
     }
   });
   it("uses row-local result metadata for standalone MCP headings and error markers", () => {
+    const factsByDetails = new Map<unknown, McpFacts>();
     const renderer = createToolDisplayRenderers("proxy", {
       id: "owner:mcp-result",
       family: "invocation",
-      mcp: (_args, supplied) => supplied?.details as McpFacts | undefined
+      mcp: (_args, supplied) => factsByDetails.get(supplied?.details)
     });
     let errorMarker = "",
       successMarker = "";
@@ -1525,31 +1608,29 @@ describe("tool display renderers", () => {
       renderCall(args, theme, context) {
         errorMarker = theme.fg("error", "•");
         successMarker = theme.fg("success", "•");
+
         return renderer.renderCall(args, theme, context);
       }
     };
+
     const createRow = (id: string, outcome: McpFacts["outcome"], tool: string) => {
-      const row = new ToolExecutionComponent(
-        "proxy",
-        id,
-        {},
-        {},
-        themed,
-        { requestRender() {} } as TUI,
-        "/tmp"
-      );
+      const row = new ToolExecutionComponent("proxy", id, {}, {}, themed, renderingTui(), "/tmp");
+      const details: McpFacts = {
+        server: "docs",
+        tool,
+        outcome,
+        content: [{ type: "text", text: "typed result" }]
+      };
+      factsByDetails.set(details, details);
       row.updateResult({
         content: [{ type: "text", text: "flattened result" }],
-        details: {
-          server: "docs",
-          tool,
-          outcome,
-          content: [{ type: "text", text: "typed result" }]
-        } satisfies McpFacts,
+        details,
         isError: false
       });
+
       return row;
     };
+
     const failed = createRow("failed", "returned-error", "search");
     const successful = createRow("successful", "success", "list");
     failed.invalidate();
@@ -1576,6 +1657,7 @@ describe("tool display renderers", () => {
     color = "\x1b[32m";
     component.invalidate();
     expect(component.render(80)).not.toEqual(first);
+
     for (const width of [1, 4, 8, 20]) {
       expect(component.render(width).every((row) => visibleWidth(row) <= width)).toBe(true);
     }

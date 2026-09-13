@@ -4,6 +4,7 @@ import path from "node:path";
 import type {
   ExtensionAPI,
   ExtensionContext,
+  ExtensionHandler,
   ToolCallEvent,
   ToolCallEventResult,
   ToolInfo
@@ -24,19 +25,24 @@ afterEach(async () => {
 });
 
 function harness() {
-  let handler:
-    | ((event: ToolCallEvent, ctx: ExtensionContext) => Promise<ToolCallEventResult | undefined>)
-    | undefined;
+  let handler: ExtensionHandler<ToolCallEvent, ToolCallEventResult> | undefined;
   let tools: ToolInfo[] = [];
-  const notify = vi.fn();
+  const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
+
+  const on = (eventName: "tool_call", callback: NonNullable<typeof handler>) => {
+    expect(eventName).toBe("tool_call");
+    handler = callback;
+  };
+
   const api = {
-    on: (eventName: string, callback: typeof handler) => {
-      if (eventName === "tool_call") handler = callback;
-    },
+    on,
     getAllTools: () => tools
-  } as unknown as ExtensionAPI;
-  extension(api);
+  } satisfies Pick<ExtensionAPI, "getAllTools"> & { on: typeof on };
+  // This adapter registers only tool_call and discovers tools; other host APIs are unused.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  extension(api as unknown as ExtensionAPI);
   expect(handler, "extension must register a tool_call handler").toBeTypeOf("function");
+
   return {
     notify,
     register(name: string, source = "npm:@ff-labs/pi-fff@0.10.6") {
@@ -56,16 +62,22 @@ function harness() {
     },
     async call(name: string, input: Record<string, unknown>, signal?: AbortSignal) {
       const original = structuredClone(input);
+      const context = {
+        cwd: directory.root,
+        signal,
+        hasUI: false,
+        ui: { notify }
+      } satisfies Pick<ExtensionContext, "cwd" | "signal" | "hasUI"> & {
+        ui: Pick<ExtensionContext["ui"], "notify">;
+      };
       const result = await handler!(
         { type: "tool_call", toolName: name, toolCallId: name, input },
-        {
-          cwd: directory.root,
-          signal,
-          hasUI: false,
-          ui: { notify }
-        } as unknown as ExtensionContext
+        // The guard only reads these context fields; no session or interactive UI is needed.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        context as unknown as ExtensionContext
       );
       expect(input).toEqual(original);
+
       return result;
     }
   };
@@ -74,6 +86,7 @@ function harness() {
 describe("public interception adapter", () => {
   it("blocks all six FFF variants registered after initialization", async () => {
     const host = harness();
+
     for (const name of ["fffind", "ffgrep", "fff-multi-grep", "find", "grep", "multi_grep"]) {
       host.register(name);
       const input = name.includes("multi")
@@ -114,6 +127,7 @@ describe("public interception adapter", () => {
     await directory.write("ignored/config.json");
     const host = harness();
     const aliases = ["config.json", "./config.json", path.join(directory.root, "config.json")];
+
     for (const name of ["fffind", "ffgrep"]) {
       host.register(name);
       for (const filename of aliases)
@@ -121,14 +135,13 @@ describe("public interception adapter", () => {
           await host.call(name, { pattern: "marker", path: filename }),
           filename
         ).toBeUndefined();
-      expect(
-        await host.call(name, { pattern: "marker", path: "./ignored/config.json" })
-      ).toMatchObject({
-        block: true,
-        reason: expect.stringContaining("Git-ignored")
-      });
+      const blocked = await host.call(name, { pattern: "marker", path: "./ignored/config.json" });
+      expect(blocked?.block).toBe(true);
+      expect(blocked?.reason).toContain("Git-ignored");
     }
+
     await rm(path.join(directory.root, "config.json"));
+
     for (const name of ["fffind", "ffgrep"]) {
       host.register(name);
       for (const filename of aliases)
@@ -155,12 +168,12 @@ describe("public interception adapter", () => {
         await host.call("fff-multi-grep", { patterns: ["marker"], constraints }),
         constraints
       ).toBeUndefined();
-    expect(
-      await host.call("fff-multi-grep", {
-        patterns: ["marker"],
-        constraints: "node_modules/**/*.{ts,js} node_modules/dependency/ !*.ts"
-      })
-    ).toMatchObject({ block: true, reason: expect.stringContaining("Git-ignored") });
+    const blocked = await host.call("fff-multi-grep", {
+      patterns: ["marker"],
+      constraints: "node_modules/**/*.{ts,js} node_modules/dependency/ !*.ts"
+    });
+    expect(blocked?.block).toBe(true);
+    expect(blocked?.reason).toContain("Git-ignored");
   });
 
   it("allows fully excluded filename filters within ignored directories", async () => {
@@ -171,9 +184,13 @@ describe("public interception adapter", () => {
         await host.call("fffind", { path: "node_modules/", pattern: "*.ts", exclude }),
         exclude
       ).toBeUndefined();
-    expect(
-      await host.call("fffind", { path: "node_modules/", pattern: "*.ts", exclude: "*.js" })
-    ).toMatchObject({ block: true, reason: expect.stringContaining("Git-ignored") });
+    const blocked = await host.call("fffind", {
+      path: "node_modules/",
+      pattern: "*.ts",
+      exclude: "*.js"
+    });
+    expect(blocked?.block).toBe(true);
+    expect(blocked?.reason).toContain("Git-ignored");
     host.register("fff-multi-grep");
     expect(
       await host.call("fff-multi-grep", {
@@ -227,6 +244,24 @@ describe("public interception adapter", () => {
       undefined
     ]);
   });
+
+  it.each([
+    ["fffind", { pattern: 42 }],
+    ["ffgrep", { path: false }],
+    ["fff-multi-grep", { constraints: [] }],
+    ["ffgrep", { exclude: ["*.ts", 42] }]
+  ] as const)(
+    "allows malformed scope fields for %s with a diagnostic: %j",
+    async (name, invalid) => {
+      const host = harness();
+      host.register(name);
+      const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
+      expect(
+        await host.call(name, { path: "node_modules/", pattern: "*.ts", ...invalid })
+      ).toBeUndefined();
+      expect(diagnostic).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Invalid FFF"));
+    }
+  );
 
   it("allows detection failures with a diagnostic and blocks cancelled calls", async () => {
     const host = harness();

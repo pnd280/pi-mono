@@ -1,31 +1,42 @@
 import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
 
-import type { CallReference, DisplayFact } from "./display-model.ts";
+import type { CallReference, ChangeFact, DisplayFact, OperationFact } from "./display-model.ts";
 
 export const METADATA_TYPE = "pi-tool-display.facts";
+
 export const MAX_RECORD_BYTES = 160 * 1024;
+
 export interface DisplayRecord {
   version: 1;
   call: CallReference;
   adapter: string;
   fact: DisplayFact;
 }
+
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const finite = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value >= 0;
-function validReference(call: Record<string, unknown>): boolean {
+
+function validReference(
+  call: Record<string, unknown>
+): call is Record<string, unknown> & CallReference {
   return !(
     typeof call.toolCallId !== "string" ||
     call.toolCallId.length > 1024 ||
     !finite(call.messageTimestamp) ||
+    typeof call.contentIndex !== "number" ||
     !Number.isSafeInteger(call.contentIndex) ||
-    Number(call.contentIndex) < 0 ||
+    call.contentIndex < 0 ||
     (call.messageEntryId !== undefined && typeof call.messageEntryId !== "string")
   );
 }
-function validOperation(fact: Record<string, unknown>): boolean {
+
+function validOperation(
+  fact: Record<string, unknown>
+): fact is Record<string, unknown> & OperationFact {
   return !(
+    fact.kind !== "operation" ||
     fact.availability !== "available" ||
     !finite(fact.durationMs) ||
     typeof fact.outcome !== "string" ||
@@ -36,8 +47,10 @@ function validOperation(fact: Record<string, unknown>): boolean {
     (fact.timedOut !== undefined && typeof fact.timedOut !== "boolean")
   );
 }
-function validChange(fact: Record<string, unknown>): boolean {
+
+function validChange(fact: Record<string, unknown>): fact is Record<string, unknown> & ChangeFact {
   return !(
+    fact.kind !== "change" ||
     (fact.availability !== "available" && fact.availability !== "unavailable") ||
     (fact.availability === "available" && typeof fact.patch !== "string") ||
     (fact.patch !== undefined &&
@@ -46,9 +59,11 @@ function validChange(fact: Record<string, unknown>): boolean {
     (fact.change !== undefined && fact.change !== "creation" && fact.change !== "modification")
   );
 }
-function validFact(fact: Record<string, unknown>): boolean {
+
+function validFact(fact: Record<string, unknown>): fact is Record<string, unknown> & DisplayFact {
   if (fact.kind === "operation") return validOperation(fact);
   if (fact.kind === "change") return validChange(fact);
+
   if (fact.kind === "saved-output") {
     if (
       fact.availability !== "available" ||
@@ -57,11 +72,14 @@ function validFact(fact: Record<string, unknown>): boolean {
       fact.path.length > 4096
     )
       return false;
+
     return true;
   }
+
   return false;
 }
-export function parseDisplayRecord(value: unknown): DisplayRecord | undefined {
+
+function validDisplayRecord(value: unknown): value is DisplayRecord {
   if (
     !object(value) ||
     value.version !== 1 ||
@@ -70,25 +88,36 @@ export function parseDisplayRecord(value: unknown): DisplayRecord | undefined {
     typeof value.adapter !== "string" ||
     value.adapter.length > 128
   )
-    return undefined;
-  if (!validReference(value.call) || !validFact(value.fact)) return undefined;
+    return false;
+
+  return validReference(value.call) && validFact(value.fact);
+}
+
+export function parseDisplayRecord(value: unknown): DisplayRecord | undefined {
+  if (!validDisplayRecord(value)) return undefined;
+
   try {
     if (Buffer.byteLength(JSON.stringify(value)) > MAX_RECORD_BYTES) return undefined;
   } catch {
     return undefined;
   }
-  return value as unknown as DisplayRecord;
+
+  return value;
 }
+
 export function referenceKey(call: CallReference): string {
   return JSON.stringify([call.messageTimestamp, call.contentIndex, call.toolCallId]);
 }
+
 /** The caller supplies only the selected ancestry, not all branches or only the latest leaf. */
 export function readDisplayRecords(branch: readonly SessionEntry[]): DisplayRecord[] {
   const records = new Map<string, DisplayRecord>();
+
   for (const entry of branch) {
     if (entry.type !== "custom" || entry.customType !== METADATA_TYPE) continue;
     const record = parseDisplayRecord(entry.data);
     if (!record) continue;
+
     if (record.call.messageEntryId) {
       const source = branch.find((candidate) => candidate.id === record.call.messageEntryId);
       if (!source || source.type !== "message" || source.message.role !== "assistant") continue;
@@ -100,10 +129,13 @@ export function readDisplayRecords(branch: readonly SessionEntry[]): DisplayReco
       )
         continue;
     }
+
     records.set(`${referenceKey(record.call)}:${record.adapter}:${record.fact.kind}`, record);
   }
+
   return [...records.values()];
 }
+
 /** Best effort: collection and persistence must never change the delegated result. */
 export function persistDisplayFact(
   append: ExtensionAPI["appendEntry"],

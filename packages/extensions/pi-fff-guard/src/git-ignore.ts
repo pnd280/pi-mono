@@ -9,11 +9,13 @@ export type Detection =
   | { status: "allowed" }
   | { status: "unavailable"; diagnostic: string }
   | { status: "cancelled" };
+
 interface GitOutput {
   code: number;
   stdout: string;
   stderr: string;
 }
+
 export type GitCommand = (
   cwd: string,
   args: string[],
@@ -24,7 +26,12 @@ export type GitCommand = (
 export const runGit: GitCommand = (cwd, args, input, signal) =>
   new Promise((resolve, reject) => {
     signal.throwIfAborted();
-    const env = { ...process.env, LC_ALL: "C", GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" };
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      LC_ALL: "C",
+      GIT_OPTIONAL_LOCKS: "0",
+      GIT_TERMINAL_PROMPT: "0"
+    };
     // Explicit -C/cwd must not be redirected by a parent Git process's repository.
     for (const key of [
       "GIT_DIR",
@@ -33,7 +40,7 @@ export const runGit: GitCommand = (cwd, args, input, signal) =>
       "GIT_COMMON_DIR",
       "GIT_PREFIX"
     ])
-      delete env[key as keyof typeof env];
+      delete env[key];
     const child = execFile(
       "git",
       args,
@@ -47,8 +54,10 @@ export const runGit: GitCommand = (cwd, args, input, signal) =>
         encoding: "utf8"
       },
       (error, stdout, stderr) => {
-        if (error && (typeof error.code !== "number" || error.killed)) reject(error);
-        else resolve({ code: (error?.code as number | undefined) ?? 0, stdout, stderr });
+        if (!error) resolve({ code: 0, stdout, stderr });
+        else if (typeof error.code === "number" && !error.killed)
+          resolve({ code: error.code, stdout, stderr });
+        else reject(error);
       }
     );
     child.stdin?.on("error", () => {
@@ -67,6 +76,7 @@ async function repository(
   if (result.code !== 0) throw new Error("Git repository discovery failed");
   const root = result.stdout.replace(/\r?\n$/, "");
   if (!path.isAbsolute(root)) throw new Error("unexpected Git repository response");
+
   return root;
 }
 
@@ -91,6 +101,7 @@ async function ignoredIn(
   const [source, line, pattern] = fields;
   if (!pattern || pattern.startsWith("!")) return false;
   if (!source || !line || !/^\d+$/.test(line)) throw new Error("unexpected Git ignore record");
+
   return true;
 }
 
@@ -99,11 +110,13 @@ async function firstLink(absolute: string, signal: AbortSignal): Promise<string 
   let current = parsed.root;
   const components = absolute.slice(parsed.root.length).split(path.sep).filter(Boolean);
   if (components.length > 128) throw new Error("path component limit exceeded");
+
   for (const component of components) {
     signal.throwIfAborted();
     current = path.join(current, component);
     if ((await lstat(current)).isSymbolicLink()) return current;
   }
+
   return undefined;
 }
 
@@ -133,6 +146,7 @@ async function inspect(
     await readlink(link),
     path.relative(link, absolute)
   );
+
   // Keep workspace authority for local destinations; external paths use their own repository.
   return inspect(destination, workspace, signal, git, seen);
 }
@@ -148,6 +162,7 @@ export async function detectIgnored(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2000);
   const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+
   try {
     const workspace = await repository(cwd, combined, git);
     // Validate final existence before considering lexical link parents. Missing
@@ -155,11 +170,14 @@ export async function detectIgnored(
     await lstat(absolute);
     const ignored = await inspect(absolute, workspace, combined, git, new Set());
     combined.throwIfAborted();
+
     return { status: ignored ? "ignored" : "allowed" };
   } catch (error) {
     if (signal?.aborted) return { status: "cancelled" };
     if (
-      ["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException).code ?? "") &&
+      error instanceof Error &&
+      "code" in error &&
+      (error.code === "ENOENT" || error.code === "ENOTDIR") &&
       !String(error).includes("spawn")
     )
       return { status: "allowed" };
@@ -168,6 +186,7 @@ export async function detectIgnored(
       : error instanceof Error
         ? error.message
         : "Git inspection failed";
+
     return { status: "unavailable", diagnostic: message.replace(/[\r\n]/g, " ").slice(0, 180) };
   } finally {
     clearTimeout(timeout);

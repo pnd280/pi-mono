@@ -7,15 +7,21 @@ import { promisify } from "node:util";
 
 import { expect, it } from "vite-plus/test";
 
+import { record } from "./presentation.ts";
+
 it("recognizes native construction through the installed pi executable, not just its unbundled API", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-cli-contract-"));
+
   try {
     const packageDirectory = dirname(
       dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")))
     );
-    const manifest = JSON.parse(await readFile(join(packageDirectory, "package.json"), "utf8")) as {
-      bin: { pi: string };
-    };
+    const manifest: unknown = JSON.parse(
+      await readFile(join(packageDirectory, "package.json"), "utf8")
+    );
+    const executable = record(record(manifest).bin).pi;
+    if (typeof executable !== "string")
+      throw new Error("Installed Pi package has no bin.pi executable.");
     const integration = fileURLToPath(new URL("./host-integration.ts", import.meta.url));
     const fixture = join(directory, "verify-display.ts");
     await writeFile(
@@ -38,7 +44,7 @@ it("recognizes native construction through the installed pi executable, not just
     const execution = promisify(execFile)(
       process.execPath,
       [
-        join(packageDirectory, manifest.bin.pi),
+        join(packageDirectory, executable),
         "--no-extensions",
         "--no-skills",
         "--no-prompt-templates",

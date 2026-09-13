@@ -26,6 +26,7 @@ it("applies renderer overrides before native and extension adapters", () => {
               : "fff:grep"
       );
     }
+
     const invalid = loadDisplaySettings([
       { path: "settings", settings: { "ext.pi-tool-display": { showParameters: "invalid" } } }
     ]);
@@ -39,10 +40,12 @@ it("selects verified extension contracts before owner slots and otherwise preser
     owner,
     { renderResult: () => ({ render: () => [], invalidate() {} }) }
   ];
+
   for (const original of renderers) {
     expect(selectAdapter(settings, "ffgrep", original, false, fffToolInfo("ffgrep"))?.id).toBe(
       "fff:grep"
     );
+
     for (const info of [
       undefined,
       { ...fffToolInfo("ffgrep"), parameters: {} },
@@ -55,6 +58,7 @@ it("selects verified extension contracts before owner slots and otherwise preser
       expect(selectAdapter(settings, "ffgrep", undefined, false, info)?.id).toBe("generic");
     }
   }
+
   expect(selectAdapter(settings, "read", undefined, false)?.id).toBe("generic");
   expect(selectAdapter(settings, "read", owner, true)?.id).toBe("pi:read");
   expect(selectAdapter(settings, "unknown", undefined, true)?.id).toBe("generic");

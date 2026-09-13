@@ -24,6 +24,7 @@ describe("display row budgets", () => {
 
   it("fits gutters, wide graphemes, ANSI, and hints in narrow viewports", () => {
     const text = "\x1b[31m界 👩🏽‍💻 é\x1b[0m\n".repeat(12);
+
     for (const width of [1, 2, 4, 5, 12, 80]) {
       const compact = compactRows(wrapRows(text, bodyWidth(width)), 5, bodyWidth(width), "expand");
       const rows = renderTree([{ rows: compact }], width);

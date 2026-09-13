@@ -35,6 +35,7 @@ it.each(["repository", "configuration"])(
       vi.stubEnv("GIT_INDEX_FILE", indexPath);
     } else vi.stubEnv("GIT_CONFIG", configPath);
     const isolated = await fixture();
+
     try {
       expect(await readFile(configPath)).toEqual(originalConfig);
       expect(isolated.git("rev-parse", "--show-toplevel").trim()).toBe(isolated.root);
@@ -132,12 +133,15 @@ describe("Git authority", () => {
     await rm(path.join(external.root, ".git"), { recursive: true, force: true });
     expect((await detectIgnored(external.root, external.root)).status).toBe("allowed");
     expect((await detectIgnored(outside, external.root)).status).toBe("allowed");
+
     const missing: GitCommand = async () => {
       throw new Error("spawn git ENOENT");
     };
+
     expect((await detectIgnored(directory.root, directory.root, undefined, missing)).status).toBe(
       "unavailable"
     );
+
     for (const stdout of [
       "bad",
       [".gitignore", "1", ".tmp/", "wrong-path", ""].join("\0"),
@@ -161,6 +165,7 @@ describe("Git authority", () => {
         stdout
       ).toBe("unavailable");
     }
+
     const waiting: GitCommand = (_cwd, _args, _input, signal) =>
       new Promise((_resolve, reject) =>
         signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true })

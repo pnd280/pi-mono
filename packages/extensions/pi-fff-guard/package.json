@@ -12,7 +12,8 @@
   },
   "scripts": {
     "format": "vp fmt .",
-    "check": "vp check .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
     "test": "vp test run"
   },
   "dependencies": {

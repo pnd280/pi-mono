@@ -12,6 +12,7 @@ const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultText
 /** Native image captions describe the adjacent image block, including optional model notices. */
 export function nativeImageCaption(text: string): { mimeType: string; tail: string } | undefined {
   const match = /^Read image file \[([^\n\]]+)\]/.exec(text);
+
   return match ? { mimeType: match[1]!, tail: text.slice(match[0].length) } : undefined;
 }
 
@@ -21,6 +22,7 @@ const imageOmissionNotes = new Set([
   "[Image omitted: could not be converted to a supported inline image format.]",
   "[Image omitted: could not be resized below the inline image size limit.]"
 ]);
+
 function nativeImageWarnings(text: string, hasImages: boolean): string[] {
   const caption = nativeImageCaption(text);
   if (!caption?.tail.startsWith("\n")) return [];
@@ -34,6 +36,7 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
       (notes.length === 2 && notes[1] !== nonVisionImageNote))
   )
     return [];
+
   return notes.filter((note) => note === nonVisionImageNote || imageOmissionNotes.has(note));
 }
 
@@ -42,6 +45,7 @@ export function nativeReadImageNotices(
   content: AgentToolResult<unknown>["content"]
 ): DisplayNotice[] {
   const hasImages = content.some((block) => block.type === "image");
+
   return content.flatMap((block) =>
     block.type === "text"
       ? nativeImageWarnings(block.text, hasImages).map((text) => ({
@@ -86,12 +90,15 @@ export function nativeResultParts(
           ? /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/
           : undefined
   )?.exec(text);
+
   if (trailer && trailer.index + trailer[0].length === text.length) {
     text = text.slice(0, trailer.index);
     suffix.unshift(part(trailer[0].slice(0, -trailer[1]!.length)), part(trailer[1]!, "warning"));
   }
+
   return [...nativeContentParts(name, text, record(input), context), ...suffix];
 }
+
 function nativeContentParts(
   name: string,
   text: string,
@@ -99,6 +106,7 @@ function nativeContentParts(
   context: ResultTextContext
 ): ResultTextPart[] {
   const shell = name === "bash" || name === "powershell";
+
   if (name === "read") {
     const image = nativeImageCaption(text);
     const warnings = nativeImageWarnings(text, context.hasImages === true);
@@ -112,6 +120,7 @@ function nativeContentParts(
           .map((text) => part(text, warnings.includes(text) ? "warning" : "annotation"))
       ];
   }
+
   const empty = shell
     ? "(no output)"
     : name === "ls"
@@ -135,6 +144,7 @@ function nativeContentParts(
       part(path, "value"),
       ...(name === "edit" ? [part(".", "annotation")] : [])
     ];
+
   return [part(text)];
 }
 
@@ -146,6 +156,7 @@ export function nativeResultNotices(details: unknown): DisplayNotice[] {
   const warning = (text: string) => notices.push({ kind: "warning", text });
   if (truncation.truncated === true)
     warning("Tool output truncated by pi; expand to inspect retained output.");
+
   if (typeof data.fullOutputPath === "string") {
     notices.push({
       kind: "reference",
@@ -153,9 +164,11 @@ export function nativeResultNotices(details: unknown): DisplayNotice[] {
       value: displayText(data.fullOutputPath)
     });
   }
+
   if (typeof data.matchLimitReached === "number") warning("Match limit reached.");
   if (typeof data.resultLimitReached === "number") warning("Result limit reached.");
   if (typeof data.entryLimitReached === "number") warning("Entry limit reached.");
   if (data.linesTruncated === true) warning("Long result lines truncated by pi.");
+
   return notices;
 }

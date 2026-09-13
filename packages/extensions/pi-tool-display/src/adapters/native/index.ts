@@ -18,10 +18,12 @@ const nativeFamilies: Readonly<Record<string, ToolFamily>> = {
   edit: "edit",
   write: "write"
 };
+
 /** Explicit contract assertion for owners; this function does not establish native ownership. */
 export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
   const family = Object.hasOwn(nativeFamilies, name) ? nativeFamilies[name] : undefined;
   if (!family) return undefined;
+
   return {
     id: `pi:${name}`,
     family,
@@ -42,6 +44,7 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
             if (family === "read" && typeof (data.path ?? data.file_path) !== "string")
               return undefined;
             if (family === "search" && typeof data.pattern !== "string") return undefined;
+
             return [
               {
                 label:

@@ -11,8 +11,10 @@ import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
 it("runs fixed plans through the installed CLI and resumes without replaying mutations", async () => {
   const directory = await createFixtureWorkspace();
+
   try {
     const launch = await fixtureLaunch(directory);
+
     const run = async (prompt: string) => {
       const execution = promisify(execFile)(launch.command, [...launch.args, "--print", prompt], {
         ...launch.options,
@@ -21,8 +23,10 @@ it("runs fixed plans through the installed CLI and resumes without replaying mut
       execution.child.stdin?.end();
       const { stdout, stderr } = await execution;
       expect(stderr).not.toContain("Failed to load extension");
+
       return stdout;
     };
+
     expect(await run("diff")).toContain("Fixture finished: diff.");
     const changed = await readFile(join(directory, "work", "a.ts"), "utf8");
     expect(changed).toBe('export const label = "after";\n');

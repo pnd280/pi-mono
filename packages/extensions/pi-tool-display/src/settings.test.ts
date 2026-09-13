@@ -34,6 +34,7 @@ it("defaults parameters to hidden and merges explicit visibility independently o
     valid: true,
     showParameters: false
   });
+
   for (const invalid of [null, "true", 0, [], {}]) {
     const settings = loadDisplaySettings([
       visibility(invalid),

@@ -30,6 +30,7 @@ it("requires a native image envelope before promoting image warnings", () => {
     "[Current model does not support images. The image will be omitted from this request.]";
   const omitted = "[Image omitted: could not be converted to a supported inline image format.]";
   const image = { type: "image" as const, data: "private", mimeType: "image/png" };
+
   for (const text of [
     note,
     omitted,
@@ -39,6 +40,7 @@ it("requires a native image envelope before promoting image warnings", () => {
   ]) {
     expect(nativeReadImageNotices([{ type: "text", text }, image])).toEqual([]);
   }
+
   for (const text of [
     `Read image file [image/png]\n${note}`,
     `Read image file [image/png]\n${omitted}\nliteral prose`,

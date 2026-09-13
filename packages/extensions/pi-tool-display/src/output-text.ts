@@ -3,17 +3,21 @@ export interface OutputText {
   /** UTF-16 ranges of inserted budget notices, never inferred from process output. */
   omissions?: readonly { start: number; end: number }[];
 }
+
 export function outputOmission(text: string): OutputText {
   return { text, omissions: [{ start: 0, end: text.length }] };
 }
+
 export function joinOutputText(
   parts: readonly (string | OutputText)[],
   separator = ""
 ): OutputText {
   let text = "";
   const omissions: { start: number; end: number }[] = [];
+
   for (const [index, part] of parts.entries()) {
     if (index) text += separator;
+
     if (typeof part === "string") text += part;
     else {
       for (const range of part.omissions ?? [])
@@ -21,8 +25,10 @@ export function joinOutputText(
       text += part.text;
     }
   }
+
   return { text, omissions };
 }
+
 export function sliceOutputText(
   output: OutputText,
   start: number,

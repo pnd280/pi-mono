@@ -14,6 +14,7 @@ import { assistantMessage, toolCall } from "../test-fixture.ts";
 import { assertFixtureWorkspace } from "./workspace.ts";
 
 type PlannedCall = { name: string; args: Record<string, unknown> };
+
 const quote = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
 
 /** Only these fixed plans execute; prompts never become shell commands or file paths. */
@@ -27,6 +28,7 @@ function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
     name: "bash",
     args: { command: `${quote(process.execPath)} -e ${quote(source)}` }
   });
+
   return new Map([
     [
       "explore",
@@ -80,6 +82,7 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
   const cwd = process.cwd();
   await assertFixtureWorkspace(cwd);
   const plans = scenarios(cwd);
+
   const stream: ProviderStreams["stream"] = (model, context, options) => {
     const events = createAssistantMessageEventStream();
     const output = {
@@ -88,6 +91,7 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
       provider: model.provider,
       model: model.id
     };
+
     void (async () => {
       try {
         options?.signal?.throwIfAborted();
@@ -110,6 +114,7 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
           .slice(userIndex + 1)
           .some((message) => message.role === "toolResult");
         events.push({ type: "start", partial: output });
+
         if (plan && !completed) {
           for (const planned of plan) {
             await setTimeout(120, undefined, { signal: options?.signal });
@@ -127,6 +132,7 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
             });
             events.push({ type: "toolcall_end", contentIndex, toolCall: call, partial: output });
           }
+
           output.stopReason = "toolUse";
         } else {
           const text = plan
@@ -138,6 +144,7 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
           events.push({ type: "text_end", contentIndex: 0, content: text, partial: output });
           output.stopReason = "stop";
         }
+
         events.push({ type: "done", reason: output.stopReason, message: output });
       } catch (error) {
         output.stopReason = options?.signal?.aborted ? "aborted" : "error";
@@ -147,8 +154,10 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
         events.end();
       }
     })();
+
     return events;
   };
+
   pi.registerProvider(
     createProvider({
       id: "display-fixture",

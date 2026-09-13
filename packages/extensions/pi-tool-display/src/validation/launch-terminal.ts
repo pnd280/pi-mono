@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
 const [mode, ...args] = process.argv.slice(2);
+
 if (mode === "--help") {
   console.log(`Usage: validate:terminal <regular|fullscreen> [--reuse <directory>] [pi arguments...]
 
@@ -31,6 +32,7 @@ Prompts: explore, diff, output, cancel, images, public`);
     ...launch.options,
     stdio: "inherit"
   });
-  const [code] = await once(child, "exit");
+  const exit: unknown[] = await once(child, "exit");
+  const [code] = exit;
   process.exitCode = typeof code === "number" ? code : 1;
 }

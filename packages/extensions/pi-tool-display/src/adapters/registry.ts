@@ -22,9 +22,11 @@ export function selectAdapter(
   if (mode === "original") return undefined;
   if (mode === "generic") return genericAdapter;
   if (native) return nativeAdapter(name) ?? genericAdapter;
+
   for (const resolve of extensionAdapterResolvers) {
     const adapter = resolve(info);
     if (adapter) return adapter;
   }
+
   return original?.renderCall || original?.renderResult ? undefined : genericAdapter;
 }

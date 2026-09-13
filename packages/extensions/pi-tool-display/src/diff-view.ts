@@ -14,6 +14,7 @@ interface PatchRow {
   old?: PatchLine | undefined;
   new?: PatchLine | undefined;
 }
+
 interface DiffViewOptions {
   width: number;
   expanded: boolean;
@@ -27,12 +28,14 @@ export function pairPatchLines(lines: readonly PatchLine[]): PatchRow[] {
   const rows: PatchRow[] = [];
   let removed: PatchLine[] = [],
     added: PatchLine[] = [];
+
   const flush = () => {
     for (let index = 0; index < Math.max(removed.length, added.length); index++)
       rows.push({ old: removed[index], new: added[index] });
     removed = [];
     added = [];
   };
+
   for (const line of lines) {
     if (line.kind === "removed") {
       if (added.length) flush();
@@ -43,13 +46,16 @@ export function pairPatchLines(lines: readonly PatchLine[]): PatchRow[] {
       rows.push({ old: line, new: line });
     }
   }
+
   flush();
+
   return rows;
 }
 
 function changeRanges(rows: readonly PatchRow[]): Map<PatchLine, DiffRange> {
   const ranges = new Map<PatchLine, DiffRange>();
   let remaining = INLINE_DIFF_WORK_LIMIT;
+
   for (const row of rows) {
     if (row.old?.kind !== "removed" || row.new?.kind !== "added") continue;
     // Compare terminal-safe text so tabs and stripped controls cannot shift range offsets.
@@ -70,10 +76,12 @@ function changeRanges(rows: readonly PatchRow[]): Map<PatchLine, DiffRange> {
     ranges.set(row.old, delRange);
     ranges.set(row.new, addRange);
   }
+
   return ranges;
 }
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
 function emphasizeChanges(
   source: string,
   styled: string,
@@ -86,24 +94,30 @@ function emphasizeChanges(
     start = 0,
     active = false,
     result = "";
+
   const append = () => {
     const text = sliceByColumn(styled, start, column - start);
     result += active ? emphasize(text) : text;
     start = column;
   };
+
   // Fast-diff uses UTF-16 offsets. Expand emphasis to whole graphemes before
   // slicing ANSI text by terminal columns, preserving emoji and combining marks.
   for (const { segment, index } of graphemes.segment(source)) {
     const selected = changed.some(
       (range) => range.startIndex < index + segment.length && range.endIndex >= index
     );
+
     if (selected !== active) {
       append();
       active = selected;
     }
+
     column += visibleWidth(segment);
   }
+
   append();
+
   return result;
 }
 
@@ -114,6 +128,7 @@ function token(line: PatchLine): "toolDiffAdded" | "toolDiffRemoved" | "toolDiff
       ? "toolDiffRemoved"
       : "toolDiffContext";
 }
+
 function shadeRow(
   row: string,
   line: PatchLine,
@@ -126,6 +141,7 @@ function shadeRow(
   if (line.kind !== "added" && line.kind !== "removed") return padded;
   const color = line.kind === "added" ? "toolSuccessBg" : "toolErrorBg";
   const background = theme.getBgAnsi(color);
+
   return (
     theme.bg(
       color,
@@ -139,16 +155,19 @@ function shadeRow(
 
 function columnAt(source: string, offset: number): number {
   let column = 0;
+
   for (const { segment, index } of graphemes.segment(source)) {
     if (index + segment.length > offset) break;
     column += visibleWidth(segment);
   }
+
   return column;
 }
 
 /** Linear focus detection stays available when the quadratic inline comparison is skipped. */
 function changeColumns(rows: readonly PatchRow[]): Map<PatchLine, number> {
   const columns = new Map<PatchLine, number>();
+
   for (const row of rows) {
     if (row.old?.kind !== "removed" || row.new?.kind !== "added") continue;
     const before = displayText(row.old.text),
@@ -158,6 +177,7 @@ function changeColumns(rows: readonly PatchRow[]): Map<PatchLine, number> {
     columns.set(row.old, columnAt(before, start));
     columns.set(row.new, columnAt(after, start));
   }
+
   return columns;
 }
 
@@ -173,6 +193,7 @@ function excerptLine(
   const available = Math.max(1, width - 4);
   const start = Math.max(0, Math.min(focus - Math.floor(available / 4), total - available));
   const excerpt = sliceByColumn(styled, start, available, true);
+
   return (
     (start ? theme.fg("dim", "… ") : "") +
     excerpt +
@@ -185,9 +206,11 @@ interface HunkPreview {
   rows: ReadonlySet<PatchRow>;
   excerpts: ReadonlySet<PatchRow>;
 }
+
 function isChangedRow(row: PatchRow): boolean {
   return row.old?.kind === "removed" || row.new?.kind === "added";
 }
+
 function selectPreviewRows(
   rows: readonly PatchRow[],
   height: (row: PatchRow, excerpt: boolean) => number
@@ -196,6 +219,7 @@ function selectPreviewRows(
     excerpts = new Set<PatchRow>();
   let remaining = COMPACT_DIFF_ROWS;
   const changed = rows.filter(isChangedRow);
+
   for (const row of changed.length ? changed : rows.slice(0, 1)) {
     // Count only changed display rows; context and structural rows are additional.
     // Preserve complete wrapped pairs whenever they fit. Excerpt only as needed.
@@ -206,7 +230,9 @@ function selectPreviewRows(
     selected.add(row);
     if (excerpt) excerpts.add(row);
   }
+
   const anchors = [...selected].map((row) => rows.indexOf(row));
+
   for (let distance = 1; distance <= COMPACT_CONTEXT_ROWS; distance++) {
     for (const anchor of anchors) {
       for (const index of [anchor - distance, anchor + distance]) {
@@ -218,6 +244,7 @@ function selectPreviewRows(
       }
     }
   }
+
   return { rows: selected, excerpts };
 }
 
@@ -237,8 +264,10 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
   const split = parsed.added > 0 && parsed.removed > 0 && leftWidth - digits - 2 >= 40;
   const presentations = new Map<PatchLine, { source: string; styled: string }>();
   let columns = new Map<PatchLine, number>();
+
   const presentation = (line: PatchLine) => {
     let value = presentations.get(line);
+
     if (!value) {
       const source = displayText(line.text),
         highlighted = options.highlight(source);
@@ -253,8 +282,10 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
       };
       presentations.set(line, value);
     }
+
     return value;
   };
+
   const lineRows = (
     line: PatchLine | undefined,
     side: "old" | "new",
@@ -278,23 +309,29 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
       rows.push(
         ...wrapRows(theme.fg("dim", "\\ No newline at end of file"), Math.max(1, cellWidth))
       );
+
     return rows;
   };
+
   const join = (left: string, right: string) =>
     `${left}${" ".repeat(Math.max(0, leftWidth - visibleWidth(left)))}${theme.fg("dim", " │ ")}${right}`;
   const hunkHeader = (index: number) =>
     truncateToWidth(theme.fg("accent", `Hunk ${index + 1}/${hunks.length}`), width, "…");
+
   const rowHeight = (row: PatchRow, excerpt: boolean) => {
     const left = lineRows(row.old, "old", split ? leftWidth : available, excerpt).length;
     if (!split && row.old?.kind === "context") return left;
     const right = lineRows(row.new, "new", split ? rightWidth : available, excerpt).length;
+
     return split ? Math.max(left, right) : left + right;
   };
+
   const fits = (rows: readonly PatchRow[], height: number) =>
     height <= COMPACT_DIFF_ROWS + 2 * COMPACT_CONTEXT_ROWS &&
     rows.filter(isChangedRow).reduce((total, row) => total + rowHeight(row, false), 0) <=
       COMPACT_DIFF_ROWS;
   const gap = split ? join(theme.fg("dim", "⋮"), theme.fg("dim", "⋮")) : theme.fg("dim", "⋮");
+
   const renderHunk = (index: number, preview?: HunkPreview): string[] => {
     const selectedLines =
       preview && new Set([...preview.rows].flatMap((row) => [row.old, row.new]));
@@ -302,21 +339,26 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
       preview && new Set([...preview.excerpts].flatMap((row) => [row.old, row.new]));
     const rows: string[] = [];
     let skipped = false;
+
     const append = (include: boolean, render: () => string[]) => {
       if (!include) {
         skipped = true;
+
         return;
       }
+
       if (skipped && rows.length) rows.push(gap);
       skipped = false;
       rows.push(...render());
     };
+
     if (split) {
       for (const row of hunks[index]!)
         append(!preview || preview.rows.has(row), () => {
           const excerpt = preview?.excerpts.has(row) ?? false;
           const left = lineRows(row.old, "old", leftWidth, excerpt);
           const right = lineRows(row.new, "new", rightWidth, excerpt);
+
           return Array.from({ length: Math.max(left.length, right.length) }, (_, offset) =>
             join(left[offset] ?? "", right[offset] ?? "")
           );
@@ -333,8 +375,10 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
           )
         );
     }
+
     return rows;
   };
+
   const fullHunks = hunks.map((_, index) => renderHunk(index));
   const full = fullHunks.flatMap((rows, index) => [
     ...(hunks.length > 1 ? [hunkHeader(index)] : []),
@@ -353,6 +397,7 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
   // must never evict the first replacement, and both sides remain selected together.
   const first = hunks[0]!;
   const headers = hunks.length > 1 ? [hunkHeader(0)] : [];
+
   const finish = (rows: string[], excerpted: boolean) => {
     const more = hunks.length - 1;
     const notice = [
@@ -361,16 +406,19 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
     ]
       .filter(Boolean)
       .join("; ");
+
     return [
       ...headers,
       ...rows,
       truncateToWidth(theme.fg("dim", `… ${notice} (${options.expansionHint})`), width, "…")
     ];
   };
+
   const firstFull = fullHunks[0]!;
   if (fits(first, firstFull.length)) return finish(firstFull, false);
   columns = changeColumns(first);
   const preview = selectPreviewRows(first, rowHeight);
+
   return finish(
     renderHunk(0, preview),
     preview.rows.size < first.length || preview.excerpts.size > 0

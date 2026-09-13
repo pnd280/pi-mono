@@ -9,14 +9,17 @@ export interface ResultTextPart {
   kind: "output" | "value" | "annotation" | "warning" | "error";
   text: string;
 }
+
 export type DisplayNotice =
   | { kind: "info" | "unavailable" | "warning" | "error"; text: string }
   | { kind: "reference"; label: string; value: string };
+
 export interface ResultTextContext {
   isError: boolean;
   isPartial: boolean;
   hasImages?: boolean;
 }
+
 export interface McpFacts {
   server: string;
   tool: string;
@@ -28,6 +31,7 @@ export interface McpFacts {
     | { type: "resource"; uri: string; text?: string }
   )[];
 }
+
 export interface ToolDisplayAdapter {
   id: string;
   family: ToolFamily;
@@ -45,6 +49,7 @@ export interface ToolDisplayAdapter {
   imageCaptionMimeType?(text: string): string | undefined;
   mcp?(args: unknown, result?: AgentToolResult<unknown>): McpFacts | undefined;
 }
+
 /** Return a contract only after validating the registered tool's ownership and schema. */
 export type ToolDisplayAdapterResolver = (
   tool: ToolInfo | undefined

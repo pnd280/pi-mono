@@ -22,16 +22,19 @@ export function fffResultParts(
     return [part(text, "warning")];
   const parts: ResultTextPart[] = [];
   const fuzzy = "[0 exact matches. Maybe you meant this?]";
+
   if (text.startsWith(`${fuzzy}\n`)) {
     parts.push(part(fuzzy, "warning"), part("\n"));
     text = text.slice(fuzzy.length + 1);
   }
+
   const match =
     /(?:^|\n\n)(\[(?:Invalid regex:[\s\S]*?, used literal match(?:\. Continue with cursor="[^"\n]+")?|Query "[\s\S]*?" produced only weak scattered fuzzy matches\. Output capped at \d+\/\d+\.|(?:Continue with cursor=|\d+ more match(?:es)? available\.|More available\. cursor=|\d+\+ matches \(refine patterns\))[^\n]*)\])$/.exec(
       text
     );
   const trailer = match && match.index + match[0].length === text.length ? match : null;
   const content = trailer ? text.slice(0, trailer.index) : text;
+
   if (content === (kind === "find" ? "No files found matching pattern" : "No matches found")) {
     parts.push(part(content, "annotation"));
   } else if (content) {
@@ -48,6 +51,7 @@ export function fffResultParts(
       else parts.push(part(line));
     });
   }
+
   if (trailer) {
     const notice = trailer[1]!;
     // Pagination guides the agent's next call, not the user's attention. A combined
@@ -64,6 +68,7 @@ export function fffResultParts(
     if (diagnostic)
       parts.push(part(trailer[0].slice(0, -notice.length)), part(diagnostic, "warning"));
   }
+
   return parts;
 }
 

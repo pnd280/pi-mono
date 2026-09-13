@@ -18,6 +18,7 @@ function escapeSequence(text: string, position: number): { end: number; sgr: str
   const kind = code === 27 ? text[++index] : code === 0x9b ? "[" : code === 0x9d ? "]" : "P";
   index++;
   let sgr = "";
+
   if (kind === "[") {
     const start = index;
     while (index < text.length && !/[\x40-\x7e]/.test(text[index]!)) index++;
@@ -34,20 +35,24 @@ function escapeSequence(text: string, position: number): { end: number; sgr: str
       index++;
     index += text[index] === "\x1b" ? 2 : 1;
   }
+
   return { end: index, sgr };
 }
 
 /** Allow SGR only. OSC/DCS/APC and cursor/screen controls never reach the terminal. */
 export function styledOutput(text: string): string {
   let result = "";
+
   for (let index = 0; index < text.length;) {
     const code = text.charCodeAt(index);
+
     if (code === 27 || code === 0x9b || code === 0x9d || code === 0x90) {
       const sequence = escapeSequence(text, index);
       result += sequence.sgr;
       index = sequence.end;
       continue;
     }
+
     const character = text[index++]!;
     if (character === "\r") {
       if (text[index] === "\n") index++;
@@ -56,11 +61,13 @@ export function styledOutput(text: string): string {
     else if (character === "\n" || (code >= 32 && !(code >= 127 && code <= 159)))
       result += character;
   }
+
   return result;
 }
 
 export function wrapRows(text: string, width: number): string[] {
   if (width < 1 || text === "") return [];
+
   // A wide grapheme cannot fit in a one-column viewport. The final clamp also covers
   // widths smaller than a gutter without emitting an over-width line to pi.
   return wrapTextWithAnsi(text, width).map((row) => truncateToWidth(row, width, ""));
@@ -81,6 +88,7 @@ export function compactRows(
   const tail = Math.floor(retained / 2);
   const omitted = rows.length - retained;
   const notice = truncateToWidth(styleNotice(`… ${omitted} more rows (${hint})`), width, "…");
+
   return [...rows.slice(0, head), notice, ...(tail > 0 ? rows.slice(-tail) : [])];
 }
 
@@ -90,6 +98,7 @@ export function compactRows(
 export interface TreeItem {
   rows: string[];
 }
+
 type StructureStyle = (text: string) => string;
 
 function continuationPrefix(hasFollowingSibling: boolean): string {
@@ -107,9 +116,11 @@ export function renderTree(
 ): string[] {
   if (width < 1) return [];
   const visible = items.filter((item) => item.rows.length > 0);
+
   return visible.flatMap((item, index) => {
     const more = index < visible.length - 1 || followingSibling;
     const continuation = "  " + continuationPrefix(more);
+
     return item.rows.map((row, offset) =>
       truncateToWidth(
         style(offset === 0 ? (more ? "  ├ " : "  └ ") : continuation) + row,
@@ -131,6 +142,7 @@ export function renderTreeContinuation(
 ): string[] {
   if (width < 1) return [];
   const prefix = style("  " + continuationPrefix(hasChildren));
+
   return rows.map((row) => truncateToWidth(prefix + row, width, ""));
 }
 

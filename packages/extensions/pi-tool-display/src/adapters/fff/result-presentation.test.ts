@@ -50,6 +50,7 @@ it.each([
   ).toBe(content);
   expect(fffTextNotices(supplied, kind)).toEqual([]);
   expect(fffResultParts(notice, kind, complete)).toEqual([]);
+
   for (const context of [
     { ...complete, isError: true },
     { ...complete, isPartial: true }
@@ -60,6 +61,7 @@ it.each([
         .join("")
     ).toBe(text);
   }
+
   for (const literal of [`example.ts\n 1: ${notice}`, `${text}\n\nnext-file.ts`, `${text}\n`]) {
     expect(
       fffResultParts(literal, kind, complete)
@@ -67,6 +69,7 @@ it.each([
         .join("")
     ).toBe(literal);
   }
+
   expect(supplied.content[0]!.text).toBe(text);
 });
 it.each(["foo\nbar", 'foo"]\n\n[bar'])(
@@ -81,6 +84,7 @@ it.each(["foo\nbar", 'foo"]\n\n[bar'])(
         .map((part) => part.text)
         .join("")
     ).toBe(text);
+
     for (const literal of [
       `src/example.ts\n 1: ${warning}`,
       `${text}\nnext-file.ts`,
@@ -95,6 +99,7 @@ it.each(["foo\nbar", 'foo"]\n\n[bar'])(
           .join("")
       ).toBe(literal);
     }
+
     expect(supplied.content[0]!.text).toBe(text);
   }
 );
@@ -114,6 +119,7 @@ it.each(["unclosed group", "regex parse error:\n    (\n    ^\nerror: unclosed gr
         .map((part) => part.text)
         .join("")
     ).toBe(`example.ts\n 1: match\n\n${warning}`);
+
     for (const diagnostic of [
       '[Query "needle" produced only weak scattered fuzzy matches. Output capped at 5/100.]',
       "[0 exact matches. Maybe you meant this?]\nexample.ts\n 1: match"

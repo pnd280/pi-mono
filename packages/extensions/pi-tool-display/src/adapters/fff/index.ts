@@ -5,20 +5,20 @@ import { record, stringField, invocationParts, type InvocationPart } from "../..
 import type { ToolDisplayAdapter } from "../types.ts";
 import { fffResultParts, fffTextNotices } from "./result-presentation.ts";
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((pattern: unknown) => typeof pattern === "string");
+}
+
 function supportsFffCall(
   kind: FffToolKind,
   args: unknown,
   result?: AgentToolResult<unknown>
 ): boolean {
   const data = record(args);
-  if (
-    kind === "multi"
-      ? !Array.isArray(data.patterns) ||
-        !data.patterns.every((pattern) => typeof pattern === "string")
-      : typeof data.pattern !== "string"
-  )
+  if (kind === "multi" ? !isStringArray(data.patterns) : typeof data.pattern !== "string")
     return false;
   const details = record(result?.details);
+
   return (
     !result ||
     !Object.keys(details).length ||
@@ -31,6 +31,7 @@ function supportsFffCall(
 function patternPart(kind: FffToolKind, pattern: unknown): InvocationPart {
   if (typeof pattern !== "string") return { kind: "annotation", text: "(pattern missing)" };
   if (kind === "find" && pattern === "") return { kind: "annotation", text: "files" };
+
   return { kind: "pattern", text: pattern === "" ? '""' : stringField(pattern) };
 }
 
@@ -43,6 +44,7 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
     (kind === "multi" ? "array" : "string")
   )
     return undefined;
+
   return {
     id: `fff:${kind}`,
     family: "search",
@@ -51,6 +53,7 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
       kind === "find" && record(args).pattern === "" ? ["Listing", "Listed"] : undefined,
     invocation(args) {
       const data = record(args);
+
       return invocationParts(
         tool.name,
         kind === "multi"
@@ -65,6 +68,7 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
       ).map((part, index) => {
         if (index === 0 && kind !== "multi") return patternPart(kind, data.pattern);
         if (index === 0 && part.kind === "value") return { ...part, kind: "pattern" };
+
         return part.kind === "path" ? { ...part, kind: "value" } : part;
       });
     },
@@ -75,12 +79,13 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
       const listing = kind === "find" && data.pattern === "";
       const scope =
         stringField(kind === "multi" ? data.constraints : data.path) || (listing ? "." : "");
+
       return [
         {
           label: listing ? "List" : "Search",
           parts: [
-            kind === "multi"
-              ? { kind: "pattern", text: (data.patterns as string[]).join(", ") }
+            kind === "multi" && isStringArray(data.patterns)
+              ? { kind: "pattern", text: data.patterns.join(", ") }
               : patternPart(kind, data.pattern),
             ...(scope
               ? [
@@ -100,6 +105,7 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
           kind: "info",
           text: `${details.totalMatched} ${details.totalMatched === 1 ? "match" : "matches"} reported${typeof details.totalFiles === "number" ? ` across ${details.totalFiles} ${details.totalFiles === 1 ? "file" : "files"}` : ""}.`
         });
+
       return notices;
     }
   };

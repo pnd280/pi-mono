@@ -9,6 +9,7 @@ import { SavedOutputLoader, SAVED_OUTPUT_BYTES } from "./saved-output.ts";
 it("loads bounded head/tail files and falls back for missing and nonregular output", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-output-"));
   const loader = new SavedOutputLoader();
+
   try {
     const path = join(directory, "large");
     await writeFile(path, `BEGIN\n${"x\n".repeat(SAVED_OUTPUT_BYTES)}\nEND`);
@@ -31,6 +32,7 @@ it("loads bounded head/tail files and falls back for missing and nonregular outp
 it("marks only generated omissions, preserving identical literal output and UTF-16 offsets", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-output-spans-"));
   const loader = new SavedOutputLoader();
+
   try {
     const marker = "… 256 bytes omitted …";
     const prefix = `界😀 ${marker}\n`;
@@ -53,6 +55,7 @@ it("marks only generated omissions, preserving identical literal output and UTF-
 it("preserves BOMs and literal replacement characters while omitting only split UTF-8 boundaries", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-output-unicode-"));
   const loader = new SavedOutputLoader();
+
   try {
     const complete = join(directory, "complete");
     const text = "\uFEFFstart\nend\uFFFD";

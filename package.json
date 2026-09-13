@@ -6,13 +6,15 @@
   "scripts": {
     "format": "vp fmt .",
     "format:check": "vp fmt --check .",
-    "check": "vp check",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
     "test": "vp test run"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
     "@earendil-works/pi-tui": "catalog:",
+    "@stylistic/eslint-plugin": "catalog:",
     "@types/node": "catalog:",
     "eslint-import-resolver-typescript": "catalog:",
     "eslint-plugin-boundaries": "catalog:",

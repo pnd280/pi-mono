@@ -4,7 +4,7 @@
 
 Vite+ owns formatting, linting, type checking, and test execution through the root [vite.config.ts](../vite.config.ts). Checks fail on warnings.
 
-Every workspace package provides scoped `check`, `test`, and `format` scripts. Tests use the shared [runner convention](agents/testing.md#runner).
+Every workspace package provides scoped `lint`, `check`, `test`, and `format` scripts. `lint` runs linting and type checking with stylish output; `check` checks formatting, then runs `lint`. Tests use the shared [runner convention](agents/testing.md#runner).
 
 Resolve diagnostics in the implementation, preserving shared checks and explaining any necessary narrow exception.
 
@@ -14,13 +14,14 @@ Use `vpr` (the shorthand for `vp run`) and `<package-name>#<task>` to target an 
 
 ```sh
 vpr '<package-name>#format' --check
+vpr '<package-name>#lint'
 vpr '<package-name>#check'
 vpr '<package-name>#test'
 ```
 
 Use `vpr --filter <pattern> <task>` for package patterns or dependency/dependent selection.
 
-For workspace-wide changes, run `vp check` and `vp test run` at the repository root to include root-level files and all packages. Use `vp fmt --check` to check repository formatting without writes, or `vp fmt` to format it.
+For workspace-wide changes, run `vpr check` and `vp test run` at the repository root to include root-level files and all packages. Use `vpr lint` for linting and type checking only. `vpr check` runs the package script with stylish lint output; `vp check` invokes the built-in command, which does not support custom output formats. Use `vp fmt --check` to check repository formatting without writes, or `vp fmt` to format it.
 
 ## Packages and dependencies
 

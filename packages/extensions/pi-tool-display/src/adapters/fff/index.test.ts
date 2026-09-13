@@ -20,6 +20,7 @@ it("hides FFF pagination while retaining expanded match counts", () => {
   expect(find.notices?.(complete, true)).toEqual([
     { kind: "info", text: "1 match reported across 1 file." }
   ]);
+
   for (const hasMore of [false, true]) {
     const pagedFind = { ...complete, details: { ...complete.details, hasMore } };
     expect(find.notices?.(pagedFind, false)).toEqual([]);
@@ -50,10 +51,12 @@ it("requires official ownership and supplied contracts without enabling disabled
   };
   expect(grep.supports?.(args, result)).toBe(true);
   expect(grep.exploration?.(args, result)).toBeDefined();
+
   for (const details of [{ count: 9 }, { totalMatched: NaN, totalFiles: 2 }]) {
     expect(grep.supports?.(args, { ...result, details })).toBe(false);
     expect(grep.exploration?.(args, { ...result, details })).toBeUndefined();
   }
+
   expect(grep.supports?.({}, result)).toBe(false);
   const find = officialFffAdapter(fffToolInfo("fffind"))!;
   expect(

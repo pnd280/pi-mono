@@ -9,11 +9,15 @@ const result = (text = "retained") => ({
   content: [{ type: "text" as const, text }],
   details: undefined
 });
+
 function fixture() {
   const stop = vi.fn();
+
   let tick = () => {};
+
   const start = vi.fn((callback: () => void) => {
     tick = callback;
+
     return stop;
   });
   const coordinator = new TranscriptCoordinator("runtime", { start });
@@ -26,10 +30,13 @@ function fixture() {
       nativeAdapter(name) ?? genericAdapter,
       origin
     );
+
   return { coordinator, add, start, stop, tick: () => tick() };
 }
+
 it("regroups late historical contracts without changing results, source order, or live activity", () => {
   const { coordinator: c, start } = fixture();
+
   try {
     const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "first" };
     const first = c.add(reference, "fffind", { pattern: "a" }, genericAdapter, "historical");
@@ -70,6 +77,7 @@ it("regroups late historical contracts without changing results, source order, o
 
 it("restores exploration groups when final results establish a previously unavailable contract", () => {
   const { coordinator: c, start } = fixture();
+
   try {
     const adapter = {
       id: "owner:search",
@@ -115,6 +123,7 @@ it("retains every ordered call and failure while expanding the group together", 
   const rows = group.members.map((call) => {
     const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
     c.attach(call, row);
+
     return row;
   });
   c.expand(second, true);
@@ -132,6 +141,7 @@ it("retains every ordered call and failure while expanding the group together", 
 });
 it("withdraws only the owning component's boundary and preserves other separators", () => {
   const { coordinator: c, add, start } = fixture();
+
   try {
     const calls = ["a", "b", "c"].map((path) => add("read", path, "historical"));
     const [first, second] = calls;
@@ -165,6 +175,7 @@ it("withdraws only the owning component's boundary and preserves other separator
 
 it("applies global expansion once per group while keeping independent groups synchronized", () => {
   const { coordinator: c, add } = fixture();
+
   try {
     const first = add("read", "a.ts", "historical");
     const sibling = add("read", "b.ts", "historical");
@@ -174,15 +185,19 @@ it("applies global expansion once per group while keeping independent groups syn
     const rows = calls.map((call) => {
       const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
       c.attach(call, row);
+
       return row;
     });
+
     // Pi's global action visits every row, including siblings of an expanded group.
     for (const expanded of [true, false]) {
       for (const call of calls) c.expand(call, expanded);
+
       for (const row of rows) {
         expect(row.setExpanded).toHaveBeenCalledExactlyOnceWith(expanded);
         row.setExpanded.mockClear();
       }
+
       expect(calls.every((call) => call.expanded === expanded)).toBe(true);
     }
   } finally {
@@ -219,6 +234,7 @@ it("runs one scheduler only for known live activity, rejects late previews, and 
 });
 it("retains a live call's row and outcome when finalized content moves its source position", () => {
   const { coordinator: c, start, stop } = fixture();
+
   try {
     const reference = { messageTimestamp: 1, contentIndex: 1, toolCallId: "moved" };
     const first = c.add(reference, "read", { path: "first.ts" }, nativeAdapter("read")!, "live");
