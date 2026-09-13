@@ -44,6 +44,10 @@ export class TranscriptCoordinator {
   private sequence: (string | null)[] = [];
   private boundaries = new Map<object, string>();
   private groups = new Map<string, DisplayGroup>();
+  private boundaryCounts = new Map<string, number>();
+  private latestById = new Map<string, DisplayCall>();
+  private liveIdentities = new Map<string, DisplayCall>();
+  private activeCalls = new Set<DisplayCall>();
   private rows = new Map<string, Set<RowHandle>>();
   private stopAnimation: (() => void) | undefined;
   private disposed = false;
@@ -63,17 +67,9 @@ export class TranscriptCoordinator {
     const key = callKey(this.runtime, reference);
     // Finalized assistant middleware can remove/reorder blocks around a streamed call.
     // Keep its runtime row identity; only historical calls use source position alone.
+    const identity = JSON.stringify([reference.messageTimestamp, reference.toolCallId, name]);
     const existing =
-      this.calls.get(key) ??
-      (origin === "live"
-        ? [...this.calls.values()].find(
-            (call) =>
-              call.origin === "live" &&
-              call.name === name &&
-              call.reference.messageTimestamp === reference.messageTimestamp &&
-              call.reference.toolCallId === reference.toolCallId
-          )
-        : undefined);
+      this.calls.get(key) ?? (origin === "live" ? this.liveIdentities.get(identity) : undefined);
 
     if (existing) {
       const grouped = canExplore(existing);
@@ -98,8 +94,27 @@ export class TranscriptCoordinator {
       revision: 0
     };
     this.calls.set(key, call);
+    this.latestById.set(reference.toolCallId, call);
+    if (origin === "live") this.liveIdentities.set(identity, call);
+    const previous = this.sequence.at(-1);
     this.sequence.push(key);
-    this.regroup();
+
+    // Append is the common path, including history reconstruction. Only the old
+    // heading and final connector can change; unrelated row caches stay valid.
+    if (canExplore(call)) {
+      const group =
+        previous && !this.boundaryCounts.has(previous) ? this.groups.get(previous) : undefined;
+      const first = group?.members[0];
+      const last = group?.members.at(-1);
+      const current = group ?? { members: [], expanded };
+      current.members.push(call);
+      call.expanded = current.expanded;
+      this.groups.set(key, current);
+      for (const member of new Set([first, last]))
+        if (member && !member.expanded) this.invalidate(member);
+    }
+
+    if (isLive(call)) this.activeCalls.add(call);
     this.schedule();
 
     return call;
@@ -128,12 +143,22 @@ export class TranscriptCoordinator {
     const key = after?.key;
     if (this.disposed || (key && !this.calls.has(key)) || this.boundaries.get(owner) === key)
       return;
-    if (key) this.boundaries.set(owner, key);
-    else this.boundaries.delete(owner);
+    const previous = this.boundaries.get(owner);
+
+    if (previous) {
+      const count = this.boundaryCounts.get(previous)! - 1;
+      if (count) this.boundaryCounts.set(previous, count);
+      else this.boundaryCounts.delete(previous);
+    }
+
+    if (key) {
+      this.boundaries.set(owner, key);
+      this.boundaryCounts.set(key, (this.boundaryCounts.get(key) ?? 0) + 1);
+    } else this.boundaries.delete(owner);
     this.regroup();
   }
   byId(id: string): DisplayCall | undefined {
-    return [...this.calls.values()].reverse().find((call) => call.reference.toolCallId === id);
+    return this.latestById.get(id);
   }
   group(call: DisplayCall): DisplayGroup | undefined {
     return this.groups.get(call.key);
@@ -175,11 +200,10 @@ export class TranscriptCoordinator {
     this.changed(call);
   }
   settle(): void {
-    for (const call of this.calls.values())
-      if (isLive(call)) {
-        call.lifecycle = "unavailable";
-        this.changed(call);
-      }
+    for (const call of this.activeCalls) {
+      call.lifecycle = "unavailable";
+      this.changed(call);
+    }
   }
   attach(call: DisplayCall, row: RowHandle): () => void {
     const rows = this.rows.get(call.key) ?? new Set();
@@ -206,51 +230,74 @@ export class TranscriptCoordinator {
   changed(call: DisplayCall): void {
     if (this.disposed) return;
 
-    for (const member of this.groups.get(call.key)?.members ?? [call]) {
-      member.revision++;
-      for (const row of this.rows.get(member.key) ?? []) row.invalidate();
-    }
-
+    this.invalidate(call);
+    const first = this.groups.get(call.key)?.members[0];
+    if (first && first !== call && !first.expanded) this.invalidate(first);
+    if (isLive(call)) this.activeCalls.add(call);
+    else this.activeCalls.delete(call);
     this.schedule();
   }
+  private invalidate(call: DisplayCall): void {
+    call.revision++;
+    for (const row of this.rows.get(call.key) ?? []) row.invalidate();
+  }
   private regroup(): void {
-    this.groups.clear();
-    const boundaries = new Set(this.boundaries.values());
+    const previous = this.groups;
+    this.groups = new Map();
     let group: DisplayGroup | undefined;
+
+    const finish = () => {
+      if (!group) return;
+      const old = previous.get(group.members[0]!.key);
+      // Keep stable group identity so boundaries and late contracts invalidate
+      // only the groups whose membership or expansion actually changed.
+      if (
+        old &&
+        old.expanded === group.expanded &&
+        old.members.length === group.members.length &&
+        old.members.every((member, index) => member === group!.members[index])
+      )
+        group = old;
+      for (const member of group.members) this.groups.set(member.key, group);
+      group = undefined;
+    };
 
     for (const key of this.sequence) {
       const call = key ? this.calls.get(key) : undefined;
 
       if (!call || !canExplore(call)) {
-        group = undefined;
+        finish();
         continue;
       }
 
       group ??= { members: [], expanded: call.expanded };
       group.members.push(call);
-      call.expanded = group.expanded;
-      this.groups.set(call.key, group);
-      if (boundaries.has(call.key)) group = undefined;
+      if (this.boundaryCounts.has(call.key)) finish();
     }
 
-    for (const call of this.calls.values()) {
-      call.revision++;
+    finish();
 
-      for (const row of this.rows.get(call.key) ?? []) {
-        row.setExpanded(call.expanded);
-        row.invalidate();
+    for (const call of this.calls.values()) {
+      const current = this.groups.get(call.key);
+      if (current === previous.get(call.key)) continue;
+      const expanded = current?.expanded ?? call.expanded;
+
+      if (call.expanded !== expanded) {
+        call.expanded = expanded;
+        for (const row of this.rows.get(call.key) ?? []) row.setExpanded(expanded);
       }
+
+      this.invalidate(call);
     }
   }
   private schedule(): void {
-    const active = !this.disposed && [...this.calls.values()].some(isLive);
+    const active = !this.disposed && this.activeCalls.size > 0;
     if (active && !this.stopAnimation)
       this.stopAnimation = this.animationClock.start(() => {
         this.phase = 1 - this.phase;
         const affected = new Set<DisplayCall>();
-        for (const call of this.calls.values())
-          if (isLive(call))
-            for (const member of this.groups.get(call.key)?.members ?? [call]) affected.add(member);
+        for (const call of this.activeCalls)
+          affected.add(!call.expanded ? (this.groups.get(call.key)?.members[0] ?? call) : call);
         for (const call of affected)
           for (const row of this.rows.get(call.key) ?? []) row.invalidate();
       });
@@ -268,6 +315,10 @@ export class TranscriptCoordinator {
     this.calls.clear();
     this.groups.clear();
     this.boundaries.clear();
+    this.boundaryCounts.clear();
+    this.latestById.clear();
+    this.liveIdentities.clear();
+    this.activeCalls.clear();
     this.sequence = [];
   }
 }

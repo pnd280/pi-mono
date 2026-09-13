@@ -27,6 +27,8 @@ Tree branches represent meaningful items: tool invocations in a compact explorat
 
 Warnings, related diagnostics, references, and routine metadata are continuation lines, not additional branches. A patch's hunks and diagnostics form one result item. Independent images and typed MCP content retain their order. Call-level notices for multiple independent results continue the card heading.
 
+Collapsed text bodies keep initial and final output within their displayed-row budget. Above the [formatting limit](../README.md#resource-limits), they wrap bounded head/tail excerpts and show `… more output` rather than calculating an exact row count for hidden text. Excerpts preserve whole graphemes and carry ANSI styling into the tail. These hints use `dim`: expansion still shows all retained output, subject to the existing live/saved-output retention limits.
+
 Native image captions suppress equivalent generated fallback descriptions without changing the retained result. Native model-support and image conversion/resize omission warnings remain visible in compact standalone and grouped reads, and appear once in expanded bodies. Patch and live/saved-text previews retain image fallback notices when Pi's native image display is unavailable or disabled.
 
 Compact exploration keeps every call in source order, including repeated reads. Visible assistant content, diagnostics, cache-miss notices, compaction summaries/notices, and rendered custom entries separate groups; hidden content does not. Assistant content separates groups before that message's tools, even if it arrives later. Finalized-message middleware can remove that separator by removing the visible content. Tool-result notices and failure diagnostics stay immediately beneath their originating invocation:
@@ -70,7 +72,7 @@ Live and saved-output previews instead tag generated omissions separately from p
 
 ## Diff viewer
 
-Mixed patches use side-by-side columns when space permits; narrow terminals and one-sided patches use unified rows. Write cards omit counts for one-sided patches, while edit cards retain them. Compact previews prioritize changed code and nearby context, with omission hints for excerpts and remaining hunks.
+Mixed patches use side-by-side columns when space permits; narrow terminals and one-sided patches use unified rows. Write cards omit counts for one-sided patches, while edit cards retain them. Compact previews prioritize changed code and nearby context, with omission hints for excerpts and remaining hunks. Only selected preview lines are highlighted and rendered; other hunks are deferred until expansion.
 
 Pi's whole-card expansion action reveals **every retained hunk** with full wrapping. Hunks have no separate input controls. Added/removed rows and inline changes use Pi's theme colors; context and separators retain the terminal background.
 

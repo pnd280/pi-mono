@@ -257,19 +257,32 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
     lines.reduce((maximum, line) => Math.max(maximum, line.oldLine ?? 0, line.newLine ?? 0), 1)
   ).length;
   const hunks = parsed.hunks.map((hunk) => pairPatchLines(hunk.lines));
-  const ranges = changeRanges(hunks.flat());
+  let ranges = new Map<PatchLine, DiffRange>();
   const available = width;
   const leftWidth = Math.floor((available - 3) / 2),
     rightWidth = available - 3 - leftWidth;
   const split = parsed.added > 0 && parsed.removed > 0 && leftWidth - digits - 2 >= 40;
   const presentations = new Map<PatchLine, { source: string; styled: string }>();
+  const sources = new Map<PatchLine, string>();
+
+  const sourceText = (line: PatchLine) => {
+    let source = sources.get(line);
+
+    if (source === undefined) {
+      source = displayText(line.text);
+      sources.set(line, source);
+    }
+
+    return source;
+  };
+
   let columns = new Map<PatchLine, number>();
 
   const presentation = (line: PatchLine) => {
     let value = presentations.get(line);
 
     if (!value) {
-      const source = displayText(line.text),
+      const source = sourceText(line),
         highlighted = options.highlight(source);
       value = {
         source,
@@ -318,18 +331,55 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
   const hunkHeader = (index: number) =>
     truncateToWidth(theme.fg("accent", `Hunk ${index + 1}/${hunks.length}`), width, "…");
 
+  const heights = new Map<PatchLine, { width: number; height: number }>();
+
+  const lineHeight = (line: PatchLine | undefined, cellWidth: number, excerpt: boolean) => {
+    if (!line) return 0;
+    const contentWidth = Math.max(1, cellWidth - digits - 2);
+    const newline = line.noNewline
+      ? wrapRows("\\ No newline at end of file", Math.max(1, cellWidth)).length
+      : 0;
+    if (excerpt) return 1 + newline;
+    const cached = heights.get(line);
+    let height = cached?.width === contentWidth ? cached.height : undefined;
+
+    if (height === undefined) {
+      const source = sourceText(line);
+      // Only a fit decision is needed. Do not fully wrap a huge line just to
+      // discover it exceeds the compact budget; expanded rendering stays exact.
+      height =
+        visibleWidth(source) > contentWidth * (COMPACT_DIFF_ROWS + 4)
+          ? COMPACT_DIFF_ROWS + 5
+          : Math.max(1, wrapRows(source, contentWidth).length) + newline;
+      heights.set(line, { width: contentWidth, height });
+    }
+
+    return height;
+  };
+
   const rowHeight = (row: PatchRow, excerpt: boolean) => {
-    const left = lineRows(row.old, "old", split ? leftWidth : available, excerpt).length;
+    const left = lineHeight(row.old, split ? leftWidth : available, excerpt);
     if (!split && row.old?.kind === "context") return left;
-    const right = lineRows(row.new, "new", split ? rightWidth : available, excerpt).length;
+    const right = lineHeight(row.new, split ? rightWidth : available, excerpt);
 
     return split ? Math.max(left, right) : left + right;
   };
 
-  const fits = (rows: readonly PatchRow[], height: number) =>
-    height <= COMPACT_DIFF_ROWS + 2 * COMPACT_CONTEXT_ROWS &&
-    rows.filter(isChangedRow).reduce((total, row) => total + rowHeight(row, false), 0) <=
-      COMPACT_DIFF_ROWS;
+  const fits = (rows: Iterable<PatchRow>) => {
+    let total = 0,
+      changed = 0;
+
+    for (const row of rows) {
+      const height = rowHeight(row, false);
+      total += height;
+      if (isChangedRow(row)) changed += height;
+      if (total > COMPACT_DIFF_ROWS + 2 * COMPACT_CONTEXT_ROWS || changed > COMPACT_DIFF_ROWS)
+        return false;
+    }
+
+    return true;
+  };
+
   const gap = split ? join(theme.fg("dim", "⋮"), theme.fg("dim", "⋮")) : theme.fg("dim", "⋮");
 
   const renderHunk = (index: number, preview?: HunkPreview): string[] => {
@@ -379,19 +429,14 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
     return rows;
   };
 
-  const fullHunks = hunks.map((_, index) => renderHunk(index));
-  const full = fullHunks.flatMap((rows, index) => [
-    ...(hunks.length > 1 ? [hunkHeader(index)] : []),
-    ...rows
-  ]);
-  if (
-    expanded ||
-    fits(
-      hunks.flat(),
-      fullHunks.reduce((total, rows) => total + rows.length, 0)
-    )
-  )
-    return full;
+  if (expanded || fits(hunks.flat())) {
+    ranges = changeRanges(hunks.flat());
+
+    return hunks.flatMap((_, index) => [
+      ...(hunks.length > 1 ? [hunkHeader(index)] : []),
+      ...renderHunk(index)
+    ]);
+  }
 
   // Choose source changes before applying a displayed-row budget. Wrapped context
   // must never evict the first replacement, and both sides remain selected together.
@@ -414,10 +459,15 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
     ];
   };
 
-  const firstFull = fullHunks[0]!;
-  if (fits(first, firstFull.length)) return finish(firstFull, false);
-  columns = changeColumns(first);
+  if (fits(first)) {
+    ranges = changeRanges(first);
+
+    return finish(renderHunk(0), false);
+  }
+
   const preview = selectPreviewRows(first, rowHeight);
+  ranges = changeRanges([...preview.rows]);
+  columns = changeColumns([...preview.excerpts]);
 
   return finish(
     renderHunk(0, preview),

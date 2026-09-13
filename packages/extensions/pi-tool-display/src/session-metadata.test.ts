@@ -7,6 +7,7 @@ import { expect, it } from "vite-plus/test";
 
 import {
   METADATA_TYPE,
+  displayRecordKey,
   parseDisplayRecord,
   persistDisplayFact,
   readDisplayRecords
@@ -42,17 +43,18 @@ it("persists extra facts outside model context and associates ancestry across br
     });
     const metadataLeaf = session.getLeafId()!;
     expect(session.buildSessionContext()).toEqual(context);
-    expect(readDisplayRecords(session.getBranch())).toHaveLength(1);
+    const key = displayRecordKey(reference, "pi:write");
+    expect(readDisplayRecords(session.getBranch()).get(key)).toHaveLength(1);
     const file = session.getSessionFile()!;
     const reopened = SessionManager.open(file);
-    expect(readDisplayRecords(reopened.getBranch())).toHaveLength(1);
+    expect(readDisplayRecords(reopened.getBranch()).get(key)).toHaveLength(1);
     const fork = SessionManager.forkFrom(file, directory, join(directory, "fork"));
-    expect(readDisplayRecords(fork.getBranch())).toHaveLength(1);
+    expect(readDisplayRecords(fork.getBranch()).get(key)).toHaveLength(1);
     session.branch(entry);
-    expect(readDisplayRecords(session.getBranch())).toEqual([]);
+    expect(readDisplayRecords(session.getBranch()).size).toBe(0);
     session.branch(metadataLeaf);
     session.appendCompaction("summary", entry, 100);
-    expect(readDisplayRecords(session.getBranch())).toHaveLength(1);
+    expect(readDisplayRecords(session.getBranch()).get(key)).toHaveLength(1);
     session.appendCustomEntry(METADATA_TYPE, { version: 2 });
     session.appendCustomEntry(METADATA_TYPE, {
       version: 1,
@@ -60,11 +62,52 @@ it("persists extra facts outside model context and associates ancestry across br
       adapter: "pi:write",
       fact: { kind: "operation", availability: "available", durationMs: "bad" }
     });
-    expect(readDisplayRecords(session.getBranch())).toHaveLength(1);
+    expect(readDisplayRecords(session.getBranch()).get(key)).toHaveLength(1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
+it("indexes source entries once and keeps the latest fact per adapter, call, and kind", () => {
+  const session = SessionManager.inMemory("/tmp");
+
+  for (let index = 0; index < 100; index++) {
+    const id = session.appendMessage(
+      assistantMessage([toolCall(String(index), "bash", {})], index)
+    );
+    const call = {
+      messageEntryId: id,
+      messageTimestamp: index,
+      contentIndex: 0,
+      toolCallId: String(index)
+    };
+    for (const durationMs of [1, 2])
+      session.appendCustomEntry(METADATA_TYPE, {
+        version: 1,
+        call,
+        adapter: "pi:bash",
+        fact: { kind: "operation", availability: "available", outcome: "success", durationMs }
+      });
+  }
+
+  let accesses = 0;
+  const branch = session.getBranch().map((entry) => ({
+    ...entry,
+    get id() {
+      accesses++;
+
+      return entry.id;
+    }
+  }));
+  const records = readDisplayRecords(branch);
+  expect(accesses).toBeLessThanOrEqual(branch.length);
+  expect(records.size).toBe(100);
+
+  for (const facts of records.values()) {
+    expect(facts).toHaveLength(1);
+    expect(facts[0]!.fact).toMatchObject({ durationMs: 2 });
+  }
+});
+
 it.each([
   { kind: "operation", availability: "available", durationMs: 1, outcome: ["success"] },
   { kind: "change", availability: ["available"] },

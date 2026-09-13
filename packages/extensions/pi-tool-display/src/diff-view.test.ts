@@ -18,6 +18,30 @@ const theme = {
 const highlight = (text: string) => `\x1b[34m${text}\x1b[39m`;
 const displayOptions = { expanded: false, expansionHint: "ctrl+o to expand", theme, highlight };
 
+it("does not highlight omitted compact lines or hunks, but expands all retained source", () => {
+  const parsed = parsePatch(
+    "@@ -0,0 +1,1000 @@\n" + "+first hunk\n".repeat(1000) + "@@ -50,0 +1051 @@\n+last hunk\n"
+  )!;
+  const highlighted: string[] = [];
+  const options = {
+    ...displayOptions,
+    width: 120,
+    highlight: (text: string) => {
+      highlighted.push(text);
+
+      return highlight(text);
+    }
+  };
+  const compact = renderDiffBody(parsed, options);
+  expect(compact.join("\n")).toContain("1 more hunk");
+  expect(highlighted).toHaveLength(30);
+  expect(highlighted).not.toContain("last hunk");
+  highlighted.length = 0;
+  const expanded = renderDiffBody(parsed, { ...options, expanded: true });
+  expect(expanded.join("\n")).toContain("last hunk");
+  expect(highlighted).toHaveLength(1001);
+});
+
 it("pairs unequal change blocks without moving lines across context or hunk boundaries", () => {
   const parsed = parsePatch(
     "@@ -5,3 +8,4 @@\n-old\n+new\n+extra\n context\n-deleted\n+replaced\n@@ -100000000,0 +100000002 @@\n+last\n"

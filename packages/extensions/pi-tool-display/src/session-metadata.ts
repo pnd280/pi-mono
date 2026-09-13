@@ -105,13 +105,14 @@ export function parseDisplayRecord(value: unknown): DisplayRecord | undefined {
   return value;
 }
 
-export function referenceKey(call: CallReference): string {
-  return JSON.stringify([call.messageTimestamp, call.contentIndex, call.toolCallId]);
+export function displayRecordKey(call: CallReference, adapter: string): string {
+  return JSON.stringify([adapter, call.messageTimestamp, call.contentIndex, call.toolCallId]);
 }
 
 /** The caller supplies only the selected ancestry, not all branches or only the latest leaf. */
-export function readDisplayRecords(branch: readonly SessionEntry[]): DisplayRecord[] {
-  const records = new Map<string, DisplayRecord>();
+export function readDisplayRecords(branch: readonly SessionEntry[]): Map<string, DisplayRecord[]> {
+  const records = new Map<string, Map<DisplayFact["kind"], DisplayRecord>>();
+  const sources = new Map(branch.map((entry) => [entry.id, entry]));
 
   for (const entry of branch) {
     if (entry.type !== "custom" || entry.customType !== METADATA_TYPE) continue;
@@ -119,7 +120,7 @@ export function readDisplayRecords(branch: readonly SessionEntry[]): DisplayReco
     if (!record) continue;
 
     if (record.call.messageEntryId) {
-      const source = branch.find((candidate) => candidate.id === record.call.messageEntryId);
+      const source = sources.get(record.call.messageEntryId);
       if (!source || source.type !== "message" || source.message.role !== "assistant") continue;
       const content = source.message.content[record.call.contentIndex];
       if (
@@ -130,10 +131,13 @@ export function readDisplayRecords(branch: readonly SessionEntry[]): DisplayReco
         continue;
     }
 
-    records.set(`${referenceKey(record.call)}:${record.adapter}:${record.fact.kind}`, record);
+    const key = displayRecordKey(record.call, record.adapter);
+    const facts = records.get(key) ?? new Map<DisplayFact["kind"], DisplayRecord>();
+    facts.set(record.fact.kind, record);
+    records.set(key, facts);
   }
 
-  return [...records.values()];
+  return new Map([...records].map(([key, facts]) => [key, [...facts.values()]]));
 }
 
 /** Best effort: collection and persistence must never change the delegated result. */

@@ -6,7 +6,7 @@
 
 Adjacent read, search, and list calls share an **Exploring** or **Explored** heading. Each call keeps its place in source order, including repeated reads. Notices, images, and failure diagnostics appear directly beneath their call.
 
-Pi's tool expansion action, **Ctrl+O** by default, reveals individual cards and available output. In fullscreen mode, a group click expands or collapses all its members. In regular mode, the terminal handles mouse input.
+Pi's tool expansion action, **Ctrl+O** by default, reveals individual cards and available output. Large collapsed text uses bounded head/tail excerpts with a **more output** hint instead of an exact wrapped-row count. This does not discard retained output. In fullscreen mode, a group click expands or collapses all its members. In regular mode, the terminal handles mouse input.
 
 Specialized cards hide parameter blocks by default, even when expanded. Command, path, and search summaries remain visible. Generic cards always show their arguments. The [card layout reference](docs/renderers.md#card-layout) covers headings, file paths, FFF search summaries, and diagnostics.
 
@@ -70,12 +70,13 @@ Expanded shell cards load bounded previews from Pi's existing temporary output f
 
 ### Resource limits
 
-| Resource              | Limit                                                                                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Live shell output     | Full output through 1 MiB. Above 1 MiB, the first 50 and last 50 lines plus any partial line, capped at 10,280 bytes per line.                               |
-| Saved output preview  | 256 KiB and 4,000 lines, with bounded reads from the start and end of the file. At most 8 cached previews and 8 concurrent reads.                            |
-| Generated patch input | 64 KiB per text, a cooperative 50 ms search timeout, and a 2,000 changed-line edit-distance limit. Native edit patches bypass these input and search limits. |
-| Retained patch        | 128 KiB.                                                                                                                                                     |
+| Resource                  | Limit                                                                                                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Collapsed text formatting | 16,384 UTF-16 code units of styled text, split between the start and end, plus carried ANSI state. Expansion shows all retained text.                        |
+| Live shell output         | Full output through 1 MiB. Above 1 MiB, the first 50 and last 50 lines plus any partial line, capped at 10,280 bytes per line.                               |
+| Saved output preview      | 256 KiB and 4,000 lines, with bounded reads from the start and end of the file. At most 8 cached previews and 8 concurrent reads.                            |
+| Generated patch input     | 64 KiB per text, a cooperative 50 ms search timeout, and a 2,000 changed-line edit-distance limit. Native edit patches bypass these input and search limits. |
+| Retained patch            | 128 KiB.                                                                                                                                                     |
 
 Large, binary, or unavailable changes do not block native operations.
 

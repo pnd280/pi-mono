@@ -90,6 +90,38 @@ function semanticTheme() {
 }
 
 describe("tool display renderers", () => {
+  it("shares a result projection between wrapped headings and bodies, then refreshes it", () => {
+    let preparations = 0;
+    const renderer = createToolDisplayRenderers(
+      "custom",
+      {
+        id: "owner",
+        family: "invocation",
+        textParts(text) {
+          preparations++;
+
+          return [{ kind: "output", text }];
+        }
+      },
+      { showParameters: true }
+    );
+    const current = context({ args: { query: "long query ".repeat(20) } });
+
+    for (const text of ["first result", "replacement result"]) {
+      const header = renderer.renderCall(current.args, theme, current);
+      const body = renderer.renderResult(result(text), current, theme, current);
+      preparations = 0;
+      expect(header.render(80).join("\n")).toContain("│");
+      expect(body.render(80).join("\n")).toContain(text);
+      expect(preparations).toBe(1);
+      header.invalidate();
+      body.invalidate();
+      header.render(40);
+      expect(body.render(40).join("\n")).toContain(text);
+      expect(preparations).toBe(2);
+    }
+  });
+
   it("uses adapter contract validation for fallback and grouping without provider-specific IDs", () => {
     const adapter = {
       id: "documentation:search",

@@ -26,7 +26,7 @@ import { parsePatch } from "./diff.ts";
 import { isLive, type DisplayCall, type DisplayGroup, type ToolFamily } from "./display-model.ts";
 import {
   bodyWidth,
-  compactRows,
+  compactText,
   displayText,
   renderTree,
   renderTreeContinuation,
@@ -80,14 +80,26 @@ interface Projection {
   result: AgentToolResult<unknown> | undefined;
   group: DisplayGroup | undefined;
   phase: number;
+  row: RowState;
+}
+
+interface RowState {
+  result?: AgentToolResult<unknown>;
+  body?:
+    | { projection: Projection; result: AgentToolResult<unknown>; value: ResultBody }
+    | undefined;
 }
 
 class DisplayComponent implements Component {
   private width: number | undefined;
   private rows: string[] | undefined;
-  constructor(private project: (width: number) => string[]) {}
-  update(project: (width: number) => string[]): void {
+  constructor(
+    private project: (width: number) => string[],
+    private reset: () => void
+  ) {}
+  update(project: (width: number) => string[], reset: () => void): void {
     this.project = project;
+    this.reset = reset;
     this.invalidate();
   }
   render(width: number): string[] {
@@ -103,6 +115,7 @@ class DisplayComponent implements Component {
   invalidate(): void {
     this.width = undefined;
     this.rows = undefined;
+    this.reset();
   }
 }
 const MAX_HIGHLIGHT_BYTES = 512 * 1024;
@@ -111,15 +124,16 @@ const expansionHint = () => `${keyText("app.tools.expand")} to expand`;
 function component(
   context: DisplayContext,
   project: (width: number) => string[],
+  reset: () => void,
   binding?: DisplayBinding
 ): Component {
   if (!binding && context.lastComponent instanceof DisplayComponent) {
-    context.lastComponent.update(project);
+    context.lastComponent.update(project, reset);
 
     return context.lastComponent;
   }
 
-  const content = new DisplayComponent(project);
+  const content = new DisplayComponent(project, reset);
 
   return binding
     ? new MouseRegion(content, (event) => {
@@ -159,15 +173,6 @@ function headingContinuation(rows: readonly string[], p: Projection): string[] {
   );
 }
 
-function compactOutput(
-  rows: readonly string[],
-  maximum: number,
-  p: Projection,
-  width = bodyWidth(p.width)
-): string[] {
-  return compactRows(rows, maximum, width, expansionHint(), (notice) => p.theme.fg("dim", notice));
-}
-
 function styleParameters(text: string, theme: DisplayTheme): string {
   if (Buffer.byteLength(text) > MAX_HIGHLIGHT_BYTES) return theme.fg("text", text);
 
@@ -181,9 +186,11 @@ function styleParameters(text: string, theme: DisplayTheme): string {
 }
 
 function output(text: string, p: Projection, maximum = 5, expanded = p.expanded): string[] {
-  const rows = wrapRows(text, bodyWidth(p.width));
+  const width = bodyWidth(p.width);
 
-  return expanded ? rows : compactOutput(rows, maximum, p);
+  return expanded || maximum === Number.MAX_SAFE_INTEGER
+    ? wrapRows(text, width)
+    : compactText(text, maximum, width, expansionHint(), (notice) => p.theme.fg("dim", notice));
 }
 
 function message(text: string, p: Projection, color: Parameters<Theme["fg"]>[0]): string[] {
@@ -727,6 +734,30 @@ function annotateResult(items: TreeItem[], annotations: string[]): ResultBody {
 
 function resultBody(result: AgentToolResult<unknown>, p: Projection): ResultBody {
   const current = p.result ?? result;
+  const cached = p.row.body;
+  const previous = cached?.projection;
+  if (
+    cached &&
+    cached.result === current &&
+    previous &&
+    previous.width === p.width &&
+    previous.expanded === p.expanded &&
+    previous.adapter === p.adapter &&
+    previous.theme === p.theme &&
+    previous.context.args === p.context.args &&
+    previous.context.cwd === p.context.cwd &&
+    previous.context.isError === p.context.isError &&
+    previous.context.isPartial === p.context.isPartial &&
+    previous.context.showImages === p.context.showImages
+  )
+    return cached.value;
+  const value = buildResultBody(current, p);
+  p.row.body = { projection: p, result: current, value };
+
+  return value;
+}
+
+function buildResultBody(current: AgentToolResult<unknown>, p: Projection): ResultBody {
   const annotations = notices(current, p);
   if (p.adapter.family === "read" && !p.expanded && !p.context.isError && !p.context.isPartial)
     return annotateResult(imageItems(current.content, p), annotations);
@@ -783,7 +814,19 @@ export function createToolDisplayRenderers(
   const { binding } = options;
   // Pi calls the header slot before the result slot, then renders both components.
   // Key retained results by Pi's row-local state so owner factories can serve many rows.
-  const results = new WeakMap<object, AgentToolResult<unknown>>();
+  const states = new WeakMap<object, RowState>();
+
+  const rowState = (context: DisplayContext): RowState => {
+    if (context.state === null || typeof context.state !== "object") return {};
+    let row = states.get(context.state);
+
+    if (!row) {
+      row = {};
+      states.set(context.state, row);
+    }
+
+    return row;
+  };
 
   const projection = (context: DisplayContext, theme: DisplayTheme, width: number): Projection => {
     const selected = binding?.call.adapter ?? adapter;
@@ -812,32 +855,39 @@ export function createToolDisplayRenderers(
         ? binding.call.expanded
         : context.expanded,
       call: binding?.call,
-      result:
-        binding?.call.result ??
-        (context.state !== null && typeof context.state === "object"
-          ? results.get(context.state)
-          : undefined),
+      result: binding?.call.result ?? rowState(context).result,
       group: binding ? binding.coordinator.group(binding.call) : undefined,
-      phase: binding?.coordinator.phase ?? 1
+      phase: binding?.coordinator.phase ?? 1,
+      row: rowState(context)
     };
   };
 
   return {
     renderShell: "self",
     renderCall(args, theme, context) {
+      const row = rowState(context);
+      row.body = undefined;
+
       return component(
         context,
         (width) => heading(projection({ ...context, args }, theme, width)),
+        () => {
+          row.body = undefined;
+        },
         binding
       );
     },
     renderResult(result, options, theme, context) {
-      if (!binding && context.state !== null && typeof context.state === "object")
-        results.set(context.state, result);
+      const row = rowState(context);
+      row.result = result;
+      row.body = undefined;
 
       return component(
         context,
         (width) => resultRows(result, projection({ ...context, ...options }, theme, width)),
+        () => {
+          row.body = undefined;
+        },
         binding
       );
     }

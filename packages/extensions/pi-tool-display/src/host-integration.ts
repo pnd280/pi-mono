@@ -20,7 +20,7 @@ import { observeNativeDefinition, type NativeSettings } from "./native-observati
 import { record, stringField } from "./presentation.ts";
 import { createToolDisplayRenderers } from "./renderers.ts";
 import { SavedOutputLoader } from "./saved-output.ts";
-import { persistDisplayFact, readDisplayRecords, referenceKey } from "./session-metadata.ts";
+import { persistDisplayFact, readDisplayRecords, displayRecordKey } from "./session-metadata.ts";
 import { loadDisplaySettings, type DisplaySettings } from "./settings.ts";
 import { TranscriptCoordinator } from "./transcript-coordinator.ts";
 
@@ -62,6 +62,8 @@ interface Binding {
   decorated: Set<string>;
   messages: Set<string>;
   metadata: ReturnType<typeof readDisplayRecords>;
+  messageEntries: Map<number, string>;
+  indexedLeaf: string | null;
 }
 
 interface ObservedDefinition {
@@ -349,16 +351,8 @@ export function installHostIntegration(
           call.adapter.id !== `pi:${name}`
         )
           return undefined;
-        const source = session.sessionManager
-          .getBranch()
-          .reverse()
-          .find(
-            (entry) =>
-              entry.type === "message" &&
-              entry.message.role === "assistant" &&
-              entry.message.timestamp === call.reference.messageTimestamp
-          );
-        if (source) call.reference.messageEntryId = source.id;
+        const source = messageEntry(currentBinding, call.reference.messageTimestamp);
+        if (source) call.reference.messageEntryId = source;
 
         return {
           started: () => currentBinding.coordinator.update(call, "executing"),
@@ -393,6 +387,7 @@ export function installHostIntegration(
     const configuration = settings(host.session);
     configuration.warnings.forEach(warning);
     const coordinator = new TranscriptCoordinator(randomUUID());
+    const branch = host.session.sessionManager.getBranch();
     binding = {
       host,
       settings: configuration,
@@ -408,7 +403,15 @@ export function installHostIntegration(
       boundRows: new WeakSet(),
       decorated: new Set(),
       messages: new Set(),
-      metadata: readDisplayRecords(host.session.sessionManager.getBranch())
+      metadata: readDisplayRecords(branch),
+      messageEntries: new Map(
+        branch.flatMap((entry) =>
+          entry.type === "message" && entry.message.role === "assistant"
+            ? [[entry.message.timestamp, entry.id] as const]
+            : []
+        )
+      ),
+      indexedLeaf: host.session.sessionManager.getLeafId()
     };
     hosts.set(host, binding);
     sessions.set(host.session, binding);
@@ -425,6 +428,33 @@ export function installHostIntegration(
       );
 
     return binding;
+  }
+
+  function messageEntry(binding: Binding, timestamp: number): string | undefined {
+    const manager = binding.host.session.sessionManager;
+    const leaf = manager.getLeafId();
+
+    if (leaf !== binding.indexedLeaf) {
+      const added: ReturnType<typeof manager.getBranch> = [];
+      let id = leaf;
+
+      while (id && id !== binding.indexedLeaf) {
+        const entry = manager.getEntry(id);
+        if (!entry) break;
+        added.push(entry);
+        id = entry.parentId;
+      }
+
+      // Usually only the newly appended entries are visited. A divergent ancestry
+      // must drop stale timestamp associations even before the host reconstructs.
+      if (id !== binding.indexedLeaf) binding.messageEntries.clear();
+      for (const entry of added.reverse())
+        if (entry.type === "message" && entry.message.role === "assistant")
+          binding.messageEntries.set(entry.message.timestamp, entry.id);
+      binding.indexedLeaf = leaf;
+    }
+
+    return binding.messageEntries.get(timestamp);
   }
 
   function saved(binding: Binding, call: DisplayCall) {
@@ -492,15 +522,7 @@ export function installHostIntegration(
     }
 
     const timestamp = Number(value.timestamp);
-    const source = binding.host.session.sessionManager
-      .getBranch()
-      .reverse()
-      .find(
-        (entry) =>
-          entry.type === "message" &&
-          entry.message.role === "assistant" &&
-          entry.message.timestamp === timestamp
-      );
+    const source = messageEntry(binding, timestamp);
     value.content.forEach((block: unknown, index: number) => {
       const content = record(block);
       const position = `${timestamp}:${index}`;
@@ -519,7 +541,7 @@ export function installHostIntegration(
         messageTimestamp: timestamp,
         contentIndex: index,
         toolCallId: String(content.id),
-        ...(source ? { messageEntryId: source.id } : {})
+        ...(source ? { messageEntryId: source } : {})
       };
       const call = coordinator.add(
         reference,
@@ -530,12 +552,9 @@ export function installHostIntegration(
         binding.host.toolOutputExpanded ?? false
       );
       if (origin === "historical")
-        for (const metadata of binding.metadata)
-          if (
-            metadata.adapter === call.adapter.id &&
-            referenceKey(metadata.call) === referenceKey(reference)
-          )
-            coordinator.fact(call, metadata.fact);
+        for (const metadata of binding.metadata.get(displayRecordKey(reference, call.adapter.id)) ??
+          [])
+          coordinator.fact(call, metadata.fact);
       if (origin === "live" && complete) coordinator.update(call, "queued");
       finalizeInterruptedMessage(coordinator, call, value);
     });

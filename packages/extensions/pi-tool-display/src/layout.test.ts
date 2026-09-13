@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   bodyWidth,
   compactRows,
+  compactText,
   displayText,
   renderTree,
   renderTreeContinuation,
@@ -12,6 +13,33 @@ import {
 } from "./layout.ts";
 
 describe("display row budgets", () => {
+  it("bounds compact wrapping while retaining tail ANSI state, graphemes, and diagnostics", () => {
+    const source = "\x1b[31mBEGIN\n" + "x".repeat(1024 * 1024) + "\n👩🏽‍💻 é\nFINAL ERROR\x1b[0m";
+    const compact = compactText(source, 5, 80, "expand");
+    expect(compact).toHaveLength(5);
+    expect(stripTerminalSequences(compact[0]!)).toBe("BEGIN");
+    expect(stripTerminalSequences(compact.at(-2)!)).toBe("👩🏽‍💻 é");
+    expect(stripTerminalSequences(compact.at(-1)!)).toBe("FINAL ERROR");
+    expect(compact.at(-1)).toContain("\x1b[31m");
+    expect(compact[2]).toBe("… more output (expand)");
+    expect(compact.every((row) => visibleWidth(row) <= 80)).toBe(true);
+    expect(compactText(source, 1, 80, "expand")).toEqual(["… more output (expand)"]);
+  });
+
+  it("matches full wrapping for small output, including cross-line colors and narrow cells", () => {
+    for (const source of [
+      "",
+      "\n".repeat(20),
+      "first\n" + "word ".repeat(50) + "\nlast",
+      "\x1b[31m界 é\n👩🏽‍💻 tail\x1b[0m"
+    ]) {
+      for (const width of [1, 4, 20, 80])
+        expect(compactText(source, 5, width, "expand")).toEqual(
+          compactRows(wrapRows(source, width), 5, width, "expand")
+        );
+    }
+  });
+
   it("counts wrapped rows and preserves the first and last diagnostics", () => {
     const rows = wrapRows(`BEGIN\n${"https://example.invalid/".repeat(20)}\nFINAL ERROR`, 24);
     const compact = compactRows(rows, 5, 24, "ctrl+o to expand");

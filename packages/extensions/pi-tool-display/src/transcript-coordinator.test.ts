@@ -34,6 +34,63 @@ function fixture() {
   return { coordinator, add, start, stop, tick: () => tick() };
 }
 
+it("keeps unrelated completed row caches and group interiors when appending calls", () => {
+  const { coordinator: c, add, tick } = fixture();
+
+  try {
+    const edit = add("edit", "old.ts", "historical");
+    const first = add("read", "a.ts", "historical");
+    const middle = add("read", "b.ts", "historical");
+    const last = add("read", "c.ts", "historical");
+    const rows = [edit, first, middle, last].map((call) => {
+      const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+      c.attach(call, row);
+
+      return row;
+    });
+    const live = add("read", "pending.ts");
+    expect(rows[0]!.invalidate).not.toHaveBeenCalled();
+    expect(rows[2]!.invalidate).not.toHaveBeenCalled();
+    expect(rows[1]!.invalidate).toHaveBeenCalledOnce();
+    expect(rows[3]!.invalidate).toHaveBeenCalledOnce();
+
+    for (const row of rows) {
+      expect(row.setExpanded).not.toHaveBeenCalled();
+      row.invalidate.mockClear();
+    }
+
+    tick();
+    expect(rows[1]!.invalidate).toHaveBeenCalledOnce();
+    for (const index of [0, 2, 3]) expect(rows[index]!.invalidate).not.toHaveBeenCalled();
+    c.result(live, result(), "success");
+    c.boundary();
+    for (const row of rows) row.invalidate.mockClear();
+    add("bash", "unrelated");
+    for (const row of rows) expect(row.invalidate).not.toHaveBeenCalled();
+  } finally {
+    c.dispose();
+  }
+});
+
+it("does not revisit old adapter contracts while appending history", () => {
+  const c = new TranscriptCoordinator("append-history");
+  const exploration = vi.fn(() => undefined);
+
+  try {
+    for (let index = 0; index < 100; index++)
+      c.add(
+        { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) },
+        "custom",
+        {},
+        { id: "owner", family: "invocation", exploration },
+        "historical"
+      );
+    expect(exploration).toHaveBeenCalledTimes(100);
+  } finally {
+    c.dispose();
+  }
+});
+
 it("regroups late historical contracts without changing results, source order, or live activity", () => {
   const { coordinator: c, start } = fixture();
 
