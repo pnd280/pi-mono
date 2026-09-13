@@ -676,7 +676,7 @@ function resultRows(result: AgentToolResult<unknown>, p: Projection): string[] {
     ...tree(items, p)
   ];
 }
-/** Explicit owner/SDK integration. No adapter means generic even for built-in names. */
+/** Internal card factory; renderer-api.ts exposes the standalone owner surface. */
 export function createToolDisplayRenderers(
   name: string,
   adapter: ToolDisplayAdapter = genericAdapter,

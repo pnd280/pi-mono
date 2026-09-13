@@ -14,6 +14,7 @@ import {
   visibleWidth,
   type TUI
 } from "@earendil-works/pi-tui";
+import { createToolDisplayRenderers as createPublicRenderers } from "pi-tool-display/renderers";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { fffToolInfo } from "./adapters/fff/test-fixture.ts";
@@ -55,7 +56,7 @@ function result(text: string): AgentToolResult<unknown> {
   return { content: [{ type: "text", text }], details: undefined };
 }
 function body(name: string, value: AgentToolResult<unknown>, current = context()) {
-  return createToolDisplayRenderers(name, nativeAdapter(name)).renderResult(
+  return createPublicRenderers(name, nativeAdapter(name)).renderResult(
     value,
     current,
     theme,
@@ -567,12 +568,12 @@ describe("tool display renderers", () => {
       ["write", { path: "example.txt", content: "proposed content" }, "example.txt", '"content"'],
       ["grep", { pattern: "needle", path: "src" }, "needle in src", '"pattern"']
     ] as const) {
-      const renderer = createToolDisplayRenderers(name, nativeAdapter(name));
+      const renderer = createPublicRenderers(name, nativeAdapter(name));
       const current = context({ args, expanded: true });
       const heading = renderer.renderCall(args, theme, current).render(80).join("\n");
       expect(heading).toContain(summary);
       expect(heading).not.toContain(key);
-      const visible = createToolDisplayRenderers(name, nativeAdapter(name), {
+      const visible = createPublicRenderers(name, nativeAdapter(name), {
         showParameters: true
       });
       expect(visible.renderCall(args, theme, current).render(80).join("\n")).toContain(key);
@@ -587,7 +588,7 @@ describe("tool display renderers", () => {
     }
     const args = { path: "example.txt" };
     expect(
-      createToolDisplayRenderers("read", undefined, { showParameters: false })
+      createPublicRenderers("read", undefined, { showParameters: false })
         .renderCall(args, theme, context({ expanded: true }))
         .render(80)
         .join("\n")

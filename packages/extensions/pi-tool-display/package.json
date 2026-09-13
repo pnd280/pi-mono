@@ -9,13 +9,14 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./renderers": "./src/renderers.ts",
+    "./renderers": "./src/renderer-api.ts",
     "./adapters": "./src/adapters/index.ts"
   },
   "scripts": {
     "format": "vp fmt .",
     "check": "vp check .",
-    "test": "vp test run"
+    "test": "vp test run",
+    "validate:terminal": "node src/validation/launch-terminal.ts"
   },
   "dependencies": {
     "@git-diff-view/core": "0.1.7",

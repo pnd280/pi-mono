@@ -52,7 +52,7 @@ export function nativeReadImageNotices(
   );
 }
 
-/** Interpret only the pinned native result envelope, never arbitrary tool names or output lines. */
+/** Interpret retained native envelopes; exact literal lookalikes share their styling. */
 export function nativeResultParts(
   name: string,
   text: string,
@@ -75,7 +75,8 @@ export function nativeResultParts(
     );
   } else if (context.isError) return [part(text, "error")];
 
-  // These are trailers added by the native factories, not matches anywhere in file/process text.
+  // Match native trailer positions, not arbitrary lines. Retained text alone cannot
+  // prove provenance; operation outcomes come from structured observations elsewhere.
   const trailer = (
     shell
       ? /(?:^|\n\n)(\[Showing (?:lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?|last [\d.]+[KMG]?B of line \d+ \(line is [\d.]+[KMG]?B\))\. Full output: [^\n]+\])$/

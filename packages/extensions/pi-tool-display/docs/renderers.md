@@ -15,21 +15,21 @@ The default is **generic**, even for names such as `read`, `bash`, or `server.se
 
 ## Card layout
 
-Native tools and explicit adapters hide parameter details by default. To show them in the automatic integration, set [`ext.pi-tool-display.showParameters`](../README.md#configuration) to `true`. Command/path/search summaries remain visible regardless; generic invocations always retain their arguments.
-
 Pending standalone and expanded cards use `Reading`, `Searching`, `Listing`, `Running`, `Editing`, `Writing`, or `Calling` throughout argument streaming, queueing, and execution. These headings describe the pending call, not confirmation that execution has started or a change has applied. Compact exploration groups use `Exploring`. Completed calls use past-tense headings; cancellation and missing historical outcomes remain `Cancelled` and `Outcome unavailable`.
 
-File targets in read/edit/write and native search/list summaries use paths relative to the rendering context's cwd when inside it, and absolute paths when outside it. The cwd itself displays as `.`. Grouped reads retain directory names and read ranges. Range suffixes such as `:10-11` use `dim` in compact, standalone, and expanded cards, while the file path uses `text`. Resolution is lexical, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and FFF search/filter expressions are not rewritten.
+File targets in read/edit/write and native search/list summaries use paths relative to the rendering context's cwd when inside it, and absolute paths when outside it. The cwd itself displays as `.`. Grouped reads retain directory names and read ranges. Resolution is lexical, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and FFF search/filter expressions are not rewritten.
 
 For FFF single-pattern tools, explicit empty strings have dedicated summaries: `ffgrep` shows `Search ""` in compact groups and `Searched "" in .` when expanded; a supplied scope appears after `in` unchanged. Empty `fffind` patterns show `List files in <scope>` / `Listed files in <scope>`, with `.` as the default scope. Missing patterns use `(pattern missing)` in specialized headings and do not qualify for grouping.
 
 FFF pagination instructions, routine limit hints, and page-number notices are omitted from both compact and expanded cards. Matches remain available on expansion; query/fallback diagnostics remain visible in compact groups, including warnings containing multiline queries. Retained results and model context keep the original pagination data. Generic adapters do not interpret that envelope.
 
-Tree branches represent meaningful items: tool invocations in a compact exploration group, or independent result items within a standalone card. `├` marks an item with a later visible sibling; `└` marks the final sibling under that parent. Continuation lines retain `│` only where a later sibling follows.
+Tree branches represent meaningful items: tool invocations in a compact exploration group, or independent result items within a standalone card.
 
-Warnings, related diagnostics, references, and routine metadata are continuation lines, not additional branches. A patch's count summary (when shown), all its hunks, omission hints, and application diagnostics form one result item. Adjacent text blocks share an output item; independent images and typed MCP content items retain their order. Call-level notices for multiple independent results continue the card heading rather than attaching to its final resource. A collapsed read with only a notice does not invent a result branch. Native image captions suppress equivalent generated fallback descriptions without changing the retained result. Native model-support and image conversion/resize omission warnings remain visible in compact standalone and grouped reads, and appear once in expanded bodies. Patch and live/saved-text previews retain image fallback notices when Pi's native image display is unavailable or disabled.
+Warnings, related diagnostics, references, and routine metadata are continuation lines, not additional branches. A patch's hunks and diagnostics form one result item. Independent images and typed MCP content retain their order. Call-level notices for multiple independent results continue the card heading.
 
-Compact exploration keeps every call in source order, including repeated reads. Visible assistant content, diagnostics, cache-miss notices, compaction summaries/notices, and rendered custom entries separate groups; suppressed notices and custom renderers returning `undefined` do not. Assistant boundaries precede that message's tool rows even when text, thinking, or generated errors arrive later. If finalized-message middleware removes visible text, its boundary disappears without changing call identity, result ownership, expansion, or other boundaries. Custom entries split groups at their actual insertion position. Tool-result notices and failure diagnostics stay immediately beneath their originating invocation:
+Native image captions suppress equivalent generated fallback descriptions without changing the retained result. Native model-support and image conversion/resize omission warnings remain visible in compact standalone and grouped reads, and appear once in expanded bodies. Patch and live/saved-text previews retain image fallback notices when Pi's native image display is unavailable or disabled.
+
+Compact exploration keeps every call in source order, including repeated reads. Visible assistant content, diagnostics, cache-miss notices, compaction summaries/notices, and rendered custom entries separate groups; hidden content does not. Assistant content separates groups before that message's tools, even if it arrives later. Finalized-message middleware can remove that separator by removing the visible content. Tool-result notices and failure diagnostics stay immediately beneath their originating invocation:
 
 ```text
 • Explored
@@ -40,9 +40,7 @@ Compact exploration keeps every call in source order, including repeated reads. 
   └ Read renderers.ts
 ```
 
-Each invocation stays in its own Pi row so native images remain before the following tool. Compact siblings omit Pi's inter-card margin; expansion restores separate cards and their normal spacing. Clicks on summaries or diagnostics use Pi's group expansion routing.
-
-When enabled and expanded, parameter blocks continue the heading with a straight `│` rule through soft wraps when a visible result follows. Without a visible result, they use indentation instead of an unfinished rail:
+When [enabled](../README.md#configuration) and expanded, parameter blocks continue the heading with a straight `│` rule through soft wraps when a visible result follows. Without a visible result, they use indentation instead of an unfinished rail:
 
 ```text
 • Listed files in **/AGENTS.md
@@ -66,17 +64,15 @@ Wrapped generic invocations use the same continuation rule. Syntax highlighting 
 - **`syntaxString`:** explicitly tagged search patterns, including every FFF multi-search pattern, in compact, standalone, and expanded summaries. Scope/filter text retains `text`; patterns are not parsed as code or rewritten.
 - **`toolTitle`, `text`, and `toolOutput`:** card titles, parameter/reference values, and retained result content respectively. Commands/source retain syntax highlighting; patch additions/removals retain diff colors.
 
-Native and FFF adapters recognize only their inspected text envelopes. Generic output is not searched for placeholder or error phrases. Interpretation changes presentation, not retained text, execution outcomes, or session facts. Text printed by a process remains ordinary output even when it matches a generated omission notice.
+Native and FFF adapters interpret their inspected text envelopes. In retained native shell results, literal process output matching a native placeholder or truncation trailer receives that envelope's styling; the text alone does not establish its provenance. Generic output is not searched for these phrases. Interpretation changes presentation, not retained text, execution outcomes, or session facts.
+
+Live and saved-output previews instead tag generated omissions separately from process text. Identical literal output in those previews retains ordinary styling.
 
 ## Diff viewer
 
-Both compact and expanded edit and write cards use **unified order** for patches containing only additions (`+n -0`) or only deletions (`+0 -n`), even with retained context. Only write cards omit the count summary for these one-sided patches; edit cards retain it. Patches with both additions and deletions show addition/deletion counts and **unlabeled side-by-side columns** when both sides have at least **40 content columns** after gutters; narrower terminals use unified order. Replacements align within each change block, never across hunk boundaries, with blank cells for unmatched additions or deletions. Missing-final-newline markers appear below the affected lines.
+Mixed patches use side-by-side columns when space permits; narrow terminals and one-sided patches use unified rows. Write cards omit counts for one-sided patches, while edit cards retain them. Compact previews prioritize changed code and nearby context, with omission hints for excerpts and remaining hunks.
 
-Compact previews allow **30 displayed rows of changed code**, plus context, hunk labels, and omission hints. A split replacement row counts once; unified removals and additions count separately. A complete diff appears when its changes fit that budget and its body fits **34 rows** (30 plus four context rows). **`Hunk n/N`** labels appear only for multi-hunk patches, in both compact and expanded views, without raw patch ranges or section labels. Larger diffs show the first hunk in full if that fits. Larger first hunks prioritize changed line pairs in source order, then add up to two nearby context lines on each side outside the change budget. Long context lines use single-row excerpts so wrapped paragraphs cannot bury the edits. Internal omissions use `⋮`; the footer aligns with the diff's line-number gutter, identifies excerpts, and counts remaining hunks. Generic head/tail truncation is never applied to patches.
-
-Selected changed lines keep their complete wrapping when it fits the remaining budget. Otherwise, long lines show an excerpt around the first changed grapheme, with ellipses for omitted text. Expansion shows **every retained hunk**, with complete context and full line wrapping. It follows the same layout rules and uses Pi's existing whole-card expansion action; hunks have no separate input controls.
-
-Added and removed rows use Pi's `toolSuccessBg` and `toolErrorBg` backgrounds, including wrapped continuations and padding. Context rows, unmatched empty cells, and column separators keep the terminal background. Inline changes use `selectedBg` and bold emphasis over Pi's syntax colors, respecting complete Unicode graphemes. Long lines or many comparisons can exceed the inline-highlighting budget; this skips emphasis, not source text or the patch itself.
+Pi's whole-card expansion action reveals **every retained hunk** with full wrapping. Hunks have no separate input controls. Added/removed rows and inline changes use Pi's theme colors; context and separators retain the terminal background.
 
 Only retained patch context is available; rendering never reads current files. Invalid, incomplete, multi-file, and oversized patches display an unavailable notice. A valid displayed patch suppresses observation-budget warnings, including in retained history. See [resource limits](../README.md#resource-limits) for patch generation and retention bounds.
 
@@ -102,7 +98,7 @@ createToolDisplayRenderers(compatibleEdit.name, nativeAdapter("edit"), {
 });
 ```
 
-Coordinated hosts pass `binding: { call, coordinator }` in that same options object. Visibility follows the current adapter, including late FFF registration and generic fallback. Summaries, parameter blocks, and argument-dependent presentation use the coordinated arguments, including finalized assistant replacements. Completed cards use the coordinated result and published outcome, including finalized-message middleware changes, rather than an earlier native row error flag. Observed operation facts remain separate from the published outcome. Images remain Pi-owned and have a [live finalization limitation](validation.md#platform-limitations).
+Transcript coordination belongs to the automatic CLI integration and has no public binding or coordinator constructor. Images have a [live finalization limitation](validation.md#platform-limitations).
 
 Native contracts use `path`, read `offset`/`limit`, search `pattern`/scope, shell `command`/`timeout`, and successful edit **`details.patch` in unified format**. Numbered `details.diff` is not interpreted. Write arguments alone do not establish creation, previous contents, or a successful change.
 
@@ -110,12 +106,12 @@ Adapters have:
 
 - `id`: stable contract identifier. `pi:*`, `fff:*`, and `generic` are reserved by this package.
 - `family`: `read`, `search`, `list`, `shell`, `edit`, `write`, or `invocation`.
-- `supports(args, result)`: optionally validate retained data for coordinated hosts. Returning `false` uses generic rendering and removes the call from exploration groups; a later supported result restores the adapter. Omission accepts the result. This callback runs only once a result exists, including partial updates; it does not change the selected adapter or retained data. Standalone factories use their explicitly supplied adapter directly.
+- `supports(args, result)`: optionally validate retained data for the automatic CLI integration. Returning `false` uses generic rendering and removes the call from exploration groups; a later supported result restores the adapter. Omission accepts the result. This callback runs only once a result exists, including partial updates; it does not change the selected adapter or retained data. Standalone factories use their explicitly supplied adapter directly.
 - `headingVerbs(args)`: optionally return a `[pending, complete]` pair to override action wording for supplied arguments. Omission or `undefined` uses the family's verbs. Cancellation and unavailable outcomes still take precedence; result presentation is unchanged.
 - `invocation(args)`: optionally supply header `InvocationPart[]` (`value`, `path`, `pattern`, `annotation`, or `parameters`, each with `text`) when arguments differ from the family's native shape. The FFF multi-search adapter uses this for `patterns` and `constraints`. Use `path` for a concrete file target, `pattern` for a highlighted search pattern, and `value` for other literal text or filter expressions. Paths are formatted against Pi's render cwd; adapter callbacks still receive the original arguments. Parts follow parameter visibility and semantic styling; the type is exported from `pi-tool-display/adapters`.
-- `exploration(args, result?)`: optional ordered `{ label: "Read" | "Search" | "List", parts: InvocationPart[] }` items for coordinated hosts; return `undefined` or an empty array when the contract is unavailable. Result updates can remove or restore a call's group membership without changing source order.
+- `exploration(args, result?)`: optional ordered `{ label: "Read" | "Search" | "List", parts: InvocationPart[] }` items for the automatic CLI integration; return `undefined` or an empty array when the contract is unavailable. Result updates can remove or restore a call's group membership without changing source order.
 - `patch: true`: interpret successful `details.patch` as a bounded unified patch.
-- `savedOutput: true`: declare `details.fullOutputPath` meaningful to a coordinated host. The standalone factory does not load files.
+- `savedOutput: true`: declare `details.fullOutputPath` meaningful to the automatic CLI integration. The standalone factory does not load files.
 - `notices(result, expanded)`: return `DisplayNotice[]` with explicit semantics: `{ kind: "info" | "unavailable" | "warning" | "error", text }` or `{ kind: "reference", label, value }`. `info` uses `dim`; `unavailable` uses `muted`. Keep actionable diagnostics in compact groups and reserve routine counts for expansion.
 - `textParts(text, args, context)`: optionally separate a known result envelope into `ResultTextPart[]` (`output`, `value`, `annotation`, `warning`, or `error`). Preserve result content; only explicitly recognized routine metadata may be omitted from presentation. Returning an empty array suppresses the text block without an empty-output placeholder. The retained result remains unchanged. The context supplies `isError`, `isPartial`, and whether the result contains images; do not infer facts from ordinary output. These types are exported from `pi-tool-display/adapters`.
 - `imageCaptionMimeType(text)`: optionally identify the MIME type described by a known text caption. For complete successful results, a matching adjacent image omits its redundant generated fallback label. The caption text and Pi-owned image remain unchanged.

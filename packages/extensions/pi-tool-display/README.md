@@ -1,6 +1,6 @@
 # pi-tool-display
 
-`pi-tool-display` renders borderless tool cards in Pi 0.85.1's interactive terminal UI. It groups adjacent exploration calls and adds live shell previews and file diffs. Colors and syntax highlighting use Pi's active theme.
+`pi-tool-display` renders borderless tool cards in Pi's interactive terminal UI. It groups adjacent exploration calls and adds live shell previews and file diffs. Colors and syntax highlighting use Pi's active theme.
 
 ## Usage
 
@@ -12,13 +12,13 @@ Specialized cards hide parameter blocks by default, even when expanded. Command,
 
 ### File diffs
 
-Compact previews show changed code with nearby context. Expansion shows every retained hunk with full line wrapping. Mixed patches use side-by-side columns when space permits; narrow terminals and addition-only/deletion-only patches use unified rows. See the [diff viewer reference](docs/renderers.md#diff-viewer) for layout, count summaries, and preview limits.
+Compact [file diffs](docs/renderers.md#diff-viewer) show changed code with nearby context. Expansion shows every retained hunk with full line wrapping.
 
 ## Tool coverage
 
 Verified native tools and official `@ff-labs/pi-fff` 0.10.6 search tools receive specialized cards. Other tools receive generic cards unless their owner supplies `renderCall` or `renderResult`. In that case, the owner's UI remains unchanged. Historical calls without a current tool definition use generic cards built from saved data.
 
-The [renderer API](docs/renderers.md) supports explicit integration by tool owners and SDK hosts. The [adapter development guide](docs/adapters.md) covers additional tool integrations.
+The [renderer API](docs/renderers.md) supports standalone integration by tool owners and SDK hosts. The [adapter development guide](docs/adapters.md) covers additional tool integrations.
 
 ## Configuration
 
@@ -83,6 +83,6 @@ Large, binary, or unavailable changes do not block native operations.
 
 The integration verifies Pi 0.85.1's native construction methods in both the bundled executable and unbundled API. Unavailable or previously wrapped methods disable observation with a warning; rendering from saved data can continue where available.
 
-The extension does not register tools, change active tool selection, modify Pi or its dependencies, or add keybindings. Pi handles inline images. HTML export and a separate transcript browser are outside this package.
+The extension does not register tools, change active tool selection, modify Pi or its dependencies, or add keybindings. Pi handles inline images. Custom card rendering does not apply to HTML exports.
 
 The [focused validation commands](../../../docs/development.md#focused-validation) apply to the manifest name `pi-tool-display`. The [validation guide](docs/validation.md) lists manual host checks and known platform limitations.
