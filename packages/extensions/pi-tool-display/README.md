@@ -1,63 +1,88 @@
 # pi-tool-display
 
-Borderless tool cards for Pi **0.85.1**, with grouped exploration, native expansion, live activity, and a [git-diff-view](https://github.com/MrWangJustToDo/git-diff-view) diff viewer. Colors and code highlighting follow Pi's active theme, with [dimmed structure and tree-prefixed parameters](docs/renderers.md#card-layout).
+`pi-tool-display` renders borderless tool cards in Pi 0.85.1's interactive terminal UI. It groups adjacent exploration calls and adds live shell previews and file diffs. Colors and syntax highlighting use Pi's active theme.
 
 ## Usage
 
-Adjacent reads/searches/lists share an `Exploring`/`Explored` heading. Each invocation remains a separate tree item in source order, including repeated reads. Its visible notices, images, and failure diagnostics appear directly beneath it, before the next tool. Compact groups retain up to five rows of text per failed or cancelled call; expansion reveals the full retained diagnostics. FFF search patterns use the theme's string color, while search scopes stay neutral. Explicit empty `ffgrep` patterns display as `""`; empty `fffind` patterns display as `List files in <scope>` / `Listed files in <scope>`. Match counts appear only when expanded; routine pagination instructions and page numbers are hidden. Pi's tool expansion action (**Ctrl+O** by default) reveals every original call and available output. Parameter details for native tools and known adapters are hidden by default; command/path/search summaries stay visible. A fullscreen group click expands or collapses its members together. Regular-mode mouse handling stays with the terminal. Standalone and expanded cards retain action headings such as `Editing` throughout argument streaming, queueing, and execution.
+Adjacent read, search, and list calls share an **Exploring** or **Explored** heading. Each call keeps its place in source order, including repeated reads. Notices, images, and failure diagnostics appear directly beneath their call.
 
-File targets in standalone and grouped summaries are relative to the working directory when inside it, and absolute when outside. Grouped reads retain directory names, so `src/file.ts` and `tests/file.ts` remain distinguishable. Raw parameter blocks, retained result text, and FFF filter expressions are unchanged.
+Pi's tool expansion action, **Ctrl+O** by default, reveals individual cards and available output. In fullscreen mode, a group click expands or collapses all its members. In regular mode, the terminal handles mouse input.
 
-Write patches and addition-only (`+n -0`) or deletion-only (`+0 -n`) edits always use numbered unified rows. Edits with both additions and deletions show unlabeled side-by-side columns when each side has at least 40 code columns; narrower terminals use unified rows. These rules apply to both compact and expanded cards. Write cards omit the `+/-` count summary; edit cards retain it. Additions/deletions have theme-colored backgrounds, with stronger inline highlights over syntax colors. Compact previews allow 30 displayed rows of changed code plus surrounding context. Diffs that fit appear in full; larger diffs prioritize the first edit region, with long-line excerpts around changed text and up to two nearby context lines on each side. `Hunk n/N` labels appear only for multi-hunk patches. Raw patch ranges are not displayed. Expansion shows every retained hunk and full wrapped lines. Lines wrap without a separate scroll viewport. See [diff rendering](docs/renderers.md#diff-viewer) for retained-context and comparison limits.
+Specialized cards hide parameter blocks by default, even when expanded. Command, path, and search summaries remain visible. Generic cards always show their arguments. The [card layout reference](docs/renderers.md#card-layout) covers headings, file paths, FFF search summaries, and diagnostics.
 
-Verified native tools receive specialized cards. Official `@ff-labs/pi-fff` **0.10.6** search tools have an explicit adapter. Other tools receive generic cards unless their owner supplies either renderer slot, in which case the owner's UI is preserved. Missing historical definitions use generic retained-data cards. SDK/tool owners can use the explicit [renderer API](docs/renderers.md). See [adapter development](docs/adapters.md) to add another tool integration.
+### File diffs
+
+Compact previews show changed code with nearby context. Expansion shows every retained hunk with full line wrapping. Mixed patches use side-by-side columns when space permits; narrow terminals and addition-only/deletion-only patches use unified rows. See the [diff viewer reference](docs/renderers.md#diff-viewer) for layout, count summaries, and preview limits.
+
+## Tool coverage
+
+Verified native tools and official `@ff-labs/pi-fff` 0.10.6 search tools receive specialized cards. Other tools receive generic cards unless their owner supplies `renderCall` or `renderResult`. In that case, the owner's UI remains unchanged. Historical calls without a current tool definition use generic cards built from saved data.
+
+The [renderer API](docs/renderers.md) supports explicit integration by tool owners and SDK hosts. The [adapter development guide](docs/adapters.md) covers additional tool integrations.
 
 ## Configuration
 
-Use the literal top-level key in Pi's configured global settings or a trusted project's `.pi/settings.json`:
+The literal top-level key `ext.pi-tool-display` belongs in Pi's configured global settings or a trusted project's `.pi/settings.json`. For example:
 
+<!-- prettier-ignore -->
 ```json
 {
-  "ext.pi-tool-display": {
-    "showParameters": false,
-    "rendererOverrides": {
-      "search_docs": "generic",
-      "bash": "original"
-    }
-  }
+	"ext.pi-tool-display": {
+		"showParameters": false,
+		"rendererOverrides": {
+			"search_docs": "generic",
+			"bash": "original"
+		}
+	}
 }
 ```
 
-`showParameters` is a boolean, default **`false`**. Set it to `true` to show parameter blocks when specialized cards are expanded. Generic cards always show their arguments, including tools forced to `generic`; owner-provided renderers remain unchanged. This controls presentation only: full arguments remain available to execution and in session history.
+`showParameters` is a boolean that defaults to `false`. A value of `true` enables parameter details for specialized cards. Structured parameter blocks still require expansion. This setting does not change generic cards, owner-provided renderers, tool execution, or saved arguments.
 
-`rendererOverrides` keys are exact tool names; values must be the strings `auto`, `generic`, or `original`. `auto` (the default) selects the coverage above; `generic` uses supplied arguments/results without specialized observation; `original` bypasses this extension's rendering, grouping, and future observation. Overrides do not enable tools or remove existing metadata.
+`rendererOverrides` maps exact tool names to these string values:
 
-Settings load before history reconstruction and on `/reload`. A trusted project's explicit `showParameters` value replaces the global value; omission inherits. Trusted project renderer overrides replace global entries by tool name; project `auto` resets an inherited override, and an empty map inherits. Untrusted project settings are ignored. An invalid applicable section disables this extension's presentation/observation and reports its source and key, even if a later source overrides the invalid value. Unavailable tool names are valid. There are no extension-specific environment variables, CLI flags, watchers, or settings writes.
+| Value      | Behavior                                                                          |
+| ---------- | --------------------------------------------------------------------------------- |
+| `auto`     | The default. Uses the selection described in [Tool coverage](#tool-coverage).     |
+| `generic`  | Uses supplied arguments and results without specialized rendering or observation. |
+| `original` | Bypasses this extension's rendering, grouping, and future observation.            |
+
+Overrides accept unavailable tool names. They do not enable tools or delete saved metadata.
+
+Settings load before history reconstruction and on `/reload`. Trusted project settings merge with global settings as follows:
+
+- An explicit `showParameters` value replaces the global value. Omission inherits it.
+- Renderer overrides replace global entries by tool name. Project `auto` resets an inherited override. An empty map inherits global entries.
+
+Untrusted project settings are ignored. An invalid applicable section disables the extension's rendering and observation, even if a later source overrides the invalid value. The warning names the source and key.
+
+There are no extension-specific environment variables, CLI flags, file watchers, or settings writes.
 
 ## Observation and saved history
 
-Only participating interactive TUI sessions observe verified native bash/PowerShell/edit/write operations. Pi's factories retain their construction-time settings, middleware, results, cancellation, and mutation ordering. Automatic observation excludes SDK/custom implementations and user `!`/`!!` commands.
+In interactive TUI sessions, the extension observes verified native `bash`, `powershell`, `edit`, and `write` operations. It collects shell previews, operation timing, and outcomes. Before-write reads run inside Pi's existing file mutation queue, though external writers can still race with it. Native settings, middleware, results, cancellation, and mutation ordering remain unchanged. Display failures do not change tool outcomes.
 
-Observation adds bounded shell previews, operation timing/outcomes, before-write reads inside Pi's existing mutation queue, and versioned `pi-tool-display.facts` custom session entries. These entries do not enter model context. **Deleted/context lines from overwritten files can remain in session history.** Display failures do not change tool outcomes. Pi's mutation queue does not prevent races with external writers.
+The extension saves versioned `pi-tool-display.facts` custom session entries outside model context. **Deleted lines and context lines from overwritten files can remain in session history.** Native edit patches are saved before result middleware can replace them.
 
-Successful native edits reuse Pi's unified patch, retained before result middleware can replace it. Writes and edit attempts without a usable native patch generate one with [`diff` (jsdiff)](https://github.com/kpdecker/jsdiff) from captured before/after text. A usable patch takes precedence over a saved observation-budget warning.
+Automatic observation excludes SDK tools, custom implementations, and user `!` and `!!` commands. Print, JSON, and RPC execution adds no automatic display observations. The TUI reconstructs those sessions from saved calls and results without rerunning tools or animating incomplete history. Unrecorded durations, exact exit codes, file contents before writes, and lost MCP types remain unavailable.
 
-Print, JSON, and RPC execution adds no automatic display observations. Opening those sessions in the TUI reconstructs cards from retained calls/results, without executing tools or animating incomplete history. Unrecorded durations, exact exit codes, write before-states, and lost MCP types remain unavailable.
+Expanded shell cards load bounded previews from Pi's existing temporary output files asynchronously. Collapsed cards do not start reads. Failed calls retain Pi's published result beside the preview. Missing, unreadable, changing, or non-regular files leave the retained output visible with a limitation notice. If all read slots are occupied, another collapse and expansion retries the read. The extension creates no durable output archive and makes no network requests.
 
-Expanding shell output loads Pi's existing temporary output files asynchronously; collapsed cards do not start reads. Failed calls retain Pi's published result alongside the saved preview so exit diagnostics and middleware errors stay visible. Missing, unreadable, changing, or non-regular files leave retained output with a limitation notice. If all read slots are occupied, collapse and expand the card again to retry. There is no durable output archive or network access.
+### Resource limits
 
-Resource limits:
+| Resource              | Limit                                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Live shell output     | Full output through 1 MiB. Above 1 MiB, the first 50 and last 50 lines plus any partial line, capped at 10,280 bytes per line.                               |
+| Saved output preview  | 256 KiB and 4,000 lines, with bounded reads from the start and end of the file. At most 8 cached previews and 8 concurrent reads.                            |
+| Generated patch input | 64 KiB per text, a cooperative 50 ms search timeout, and a 2,000 changed-line edit-distance limit. Native edit patches bypass these input and search limits. |
+| Retained patch        | 128 KiB.                                                                                                                                                     |
 
-- Live shell output: full through **1 MiB**, then **50 head + 50 tail lines**, with bounded partial lines and **10,280-byte** long-line retention.
-- Saved output: **256 KiB / 4,000 lines** per preview, bounded head/tail reads, at most **8** cached previews and **8** in-flight reads.
-- Before-state/input for generated patches: **64 KiB** per text. jsdiff uses a cooperative **50 ms** search timeout and a **2,000 changed-line** edit-distance limit. Native edit patches bypass these input/search limits. Larger/binary/unavailable changes do not block the native operation.
-- Patches: **128 KiB**; display records: **160 KiB**. Highlighting skips inputs above **512 KiB**.
-- One session-owned **600 ms** animation scheduler, active only while known live calls remain. Disposal releases timers, rows, and saved-output work.
+Large, binary, or unavailable changes do not block native operations.
 
 ## Compatibility and validation
 
-Private integration is isolated in `src/host-integration.ts`: display lookup, transcript/row lifecycle, and native construction before Pi middleware wrapping. The inspected Pi 0.85.1 construction methods are fingerprinted in both its bundled executable and unbundled API because a `builtin` label alone cannot establish factory-closure behavior. Unavailable or previously wrapped construction disables observation with a warning; available retained-data rendering can continue. Disposal restores only hooks/definitions still owned by this extension and preserves later wrappers.
+The integration verifies Pi 0.85.1's native construction methods in both the bundled executable and unbundled API. Unavailable or previously wrapped methods disable observation with a warning; rendering from saved data can continue where available.
 
-The extension never registers presentation-only tools, changes active selection, edits Pi/dependencies, or adds keybindings. Inline images remain Pi-owned. HTML export and a separate transcript browser are outside this package.
+The extension does not register tools, change active tool selection, modify Pi or its dependencies, or add keybindings. Pi handles inline images. HTML export and a separate transcript browser are outside this package.
 
-Use the [focused validation commands](../../../docs/development.md#focused-validation) with `pi-tool-display`. See [validation](docs/validation.md) for host checks and recorded limitations.
+The [focused validation commands](../../../docs/development.md#focused-validation) apply to the manifest name `pi-tool-display`. The [validation guide](docs/validation.md) lists manual host checks and known platform limitations.

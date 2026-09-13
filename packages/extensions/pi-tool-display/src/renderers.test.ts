@@ -1120,9 +1120,7 @@ describe("tool display renderers", () => {
             .renderResult(supplied, current, theme, current)
             .render(100)
             .map(stripTerminalSequences);
-          expect(rows.filter((row) => /^  [├└] /.test(row))).toEqual([
-            name === "write" ? "  └ Proposed change; application not confirmed." : "  └ +1 -1"
-          ]);
+          expect(rows.filter((row) => /^  [├└] /.test(row))).toEqual(["  └ +1 -1"]);
           const proposalIndex = rows.findIndex((row) => row.includes("Proposed change"));
           expect(proposalIndex).toBeGreaterThanOrEqual(0);
           expect(proposalIndex).toBeLessThan(rows.findIndex((row) => row.includes("1 -before")));
@@ -1281,53 +1279,83 @@ describe("tool display renderers", () => {
     }
   });
 
-  it("keeps observed write overwrites unified without counts at every width and expansion state", () => {
-    const coordinator = new TranscriptCoordinator("write-layout");
-    try {
-      const call = coordinator.add(
-        { messageTimestamp: 1, contentIndex: 0, toolCallId: "write" },
-        "write",
-        { path: "example.txt", content: "after\n" },
-        nativeAdapter("write")!,
-        "historical"
-      );
-      coordinator.fact(call, {
-        kind: "change",
-        availability: "available",
-        change: "modification",
-        patch: "@@ -1 +1 @@\n-before\n+after\n"
-      });
-      coordinator.fact(call, {
-        kind: "operation",
-        availability: "available",
-        outcome: "success",
-        durationMs: 1
-      });
-      const supplied = result("Successfully wrote 6 bytes to example.txt");
-      coordinator.result(call, supplied, "success");
-      const renderer = createToolDisplayRenderers(call.name, call.adapter, {
-        binding: { call, coordinator }
-      });
-      for (const expanded of [false, true]) {
-        coordinator.expand(call, expanded);
-        const current = context({ args: call.args, expanded });
-        const component = renderer.renderResult(supplied, current, theme, current);
-        for (const width of [80, 120, 240]) {
-          const rows = component.render(width).map(stripTerminalSequences);
-          const text = rows.join("\n");
-          expect(text).not.toContain("+1 -1");
-          expect(rows[0]).toMatch(/^  └ 1 -before\s*$/);
-          expect(text).not.toContain("│");
-          expect(rows.find((row) => row.includes("1 -before"))).not.toContain("1 +after");
-          expect(text).toContain("1 -before");
-          expect(text).toContain("1 +after");
-          expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
+  it.each([
+    ["overwrites", "@@ -1 +1 @@\n-before\n+after\n", 1, 1, "+1 -1"],
+    ["additions", "@@ -0,0 +1 @@\n+after\n", 1, 0, undefined],
+    ["deletions", "@@ -1 +0,0 @@\n-before\n", 0, 1, undefined],
+    ["no changes", "--- a\n+++ b\n", 0, 0, "+0 -0"]
+  ] as const)(
+    "keeps edit counts while hiding only one-sided write counts for patches with %s",
+    (_, patch, added, removed, summary) => {
+      const coordinator = new TranscriptCoordinator("write-layout");
+      try {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 0, toolCallId: "write" },
+          "write",
+          { path: "example.txt", content: added ? "after\n" : "" },
+          nativeAdapter("write")!,
+          "historical"
+        );
+        coordinator.fact(call, {
+          kind: "change",
+          availability: "available",
+          change: "modification",
+          patch
+        });
+        coordinator.fact(call, {
+          kind: "operation",
+          availability: "available",
+          outcome: "success",
+          durationMs: 1
+        });
+        const supplied = result(`Successfully wrote ${added ? 6 : 0} bytes to example.txt`);
+        coordinator.result(call, supplied, "success");
+        const renderer = createToolDisplayRenderers(call.name, call.adapter, {
+          binding: { call, coordinator }
+        });
+        for (const expanded of [false, true]) {
+          coordinator.expand(call, expanded);
+          const current = context({ args: call.args, expanded });
+          const components = [
+            [renderer.renderResult(supplied, current, theme, current), summary],
+            [
+              body(
+                "edit",
+                { ...result("Successfully edited example.txt"), details: { patch } },
+                current
+              ),
+              `+${added} -${removed}`
+            ]
+          ] as const;
+          for (const [component, expectedSummary] of components) {
+            for (const width of [80, 120, 240]) {
+              const rows = component.render(width).map(stripTerminalSequences);
+              const text = rows.join("\n");
+              if (expectedSummary) expect(rows[0]).toBe(`  └ ${expectedSummary}`);
+              else {
+                expect(text).not.toContain(`+${added} -${removed}`);
+                expect(rows[0]?.trimEnd()).toBe(`  └ 1 ${added ? "+after" : "-before"}`);
+              }
+              if (added) expect(text).toContain("1 +after");
+              if (removed) expect(text).toContain("1 -before");
+              if (added && removed && width >= 120)
+                expect(rows.find((row) => row.includes("1 -before"))).toMatch(
+                  /1 -before\s+│ 1 \+after/
+                );
+              else {
+                expect(text).not.toContain("│");
+                if (added && removed)
+                  expect(text.indexOf("1 -before")).toBeLessThan(text.indexOf("1 +after"));
+              }
+              expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
+            }
+          }
         }
+      } finally {
+        coordinator.dispose();
       }
-    } finally {
-      coordinator.dispose();
     }
-  });
+  );
 
   it("keeps the first hunk's edits visible when wrapped context would consume the compact budget", () => {
     const leading = Array.from({ length: 4 }, () => " " + "leading context ".repeat(40)).join("\n");

@@ -17,7 +17,6 @@ interface PatchRow {
 interface DiffViewOptions {
   width: number;
   expanded: boolean;
-  forceUnified?: boolean;
   expansionHint: string;
   theme: Pick<Theme, "fg" | "bg" | "getBgAnsi" | "bold">;
   highlight: (text: string) => string;
@@ -235,8 +234,7 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
   const available = width;
   const leftWidth = Math.floor((available - 3) / 2),
     rightWidth = available - 3 - leftWidth;
-  const split =
-    !options.forceUnified && parsed.added > 0 && parsed.removed > 0 && leftWidth - digits - 2 >= 40;
+  const split = parsed.added > 0 && parsed.removed > 0 && leftWidth - digits - 2 >= 40;
   const presentations = new Map<PatchLine, { source: string; styled: string }>();
   let columns = new Map<PatchLine, number>();
   const presentation = (line: PatchLine) => {

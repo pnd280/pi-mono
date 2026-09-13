@@ -375,8 +375,11 @@ function patchRows(
 ): string[] | undefined {
   const parsed = parsePatch(patch);
   if (!parsed) return undefined;
+  // Preserve +0 -0 for empty patches so a no-op still has visible output.
+  const oneSided =
+    (parsed.added > 0 && parsed.removed === 0) || (parsed.removed > 0 && parsed.added === 0);
   const rows =
-    p.adapter.family === "write"
+    p.adapter.family === "write" && oneSided
       ? []
       : [
           `${p.theme.fg("toolDiffAdded", `+${parsed.added}`)} ${p.theme.fg("toolDiffRemoved", `-${parsed.removed}`)}`
@@ -384,7 +387,6 @@ function patchRows(
   const body = renderDiffBody(parsed, {
     width: bodyWidth(p.width),
     expanded: p.expanded,
-    forceUnified: p.adapter.family === "write",
     expansionHint: expansionHint(),
     theme: p.theme,
     highlight: (source) => highlight(source, stringField(record(p.context.args).path))
