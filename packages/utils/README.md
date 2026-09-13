@@ -12,4 +12,4 @@ The helper checks provenance and names only. Consumers validate their own schema
 
 There is no configuration, environment dependency, filesystem access, persistence, or network access.
 
-Use the [focused validation commands](../../docs/development.md#focused-validation) with `@pi-mono/utils`; verify both extension consumers when changing classification.
+Use the [focused validation commands](../../docs/development.md#focused-validation) with `@pi-mono/utils`.

@@ -16,8 +16,8 @@ Renderers perform no filesystem work, tool execution, or persistence. Separate o
 
 Use Pi's expansion, mouse routing, image path, theme, highlighter, and width utilities. Keep native/FFF text-envelope interpretation inside their adapters and distinguish its provenance limitations from tagged preview omissions; see [semantic colors](docs/renderers.md#semantic-colors). Derive operation outcomes from structured observations, not result text. Keep omission ranges transient and apply colors only during rendering. Keep each grouped invocation and its notices in its own Pi row; collapse successful body text, never image-bearing rows. The host adapter joins compact row margins and adjusts Pi's mouse coordinates together. Keep one scheduler per coordinator, bounded saved-output work, and restoration limited to owned hooks/definitions. Preserve later wrappers and make disposed callbacks inert.
 
-Automatic observation and animation are disabled in print/JSON/RPC. See the [README](README.md#observation-and-saved-history) for observation exclusions, side effects, and limits.
+See the [README](README.md#observation-and-saved-history) for observation exclusions, side effects, and limits.
 
 ## Validation
 
-Follow the workspace [verification workflow](../../../docs/agents/verification.md) and package [validation guide](docs/validation.md).
+Use the [terminal fixture and host checks](docs/validation.md) for integration and interaction changes.

@@ -1,6 +1,6 @@
 # pi-fff-guard
 
-Blocks FFF searches that explicitly target Git-ignored paths, which FFF's workspace index omits ([FFF #714](https://github.com/dmtrKovalenko/fff/issues/714)).
+Blocks FFF searches that explicitly target missing or Git-ignored paths. FFF's workspace index omits ignored paths ([FFF #714](https://github.com/dmtrKovalenko/fff/issues/714)).
 
 An ignored-path `fffind` call is blocked with:
 
