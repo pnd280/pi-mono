@@ -2,7 +2,6 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { fffAdapter } from "@pi-mono/utils/fff-tools";
 
 import { detectIgnored } from "./git-ignore.ts";
-import { blockingReason, missingPathReason } from "./redirect.ts";
 import { extractScope, type SearchInput } from "./targets.ts";
 
 export default function fffGuardExtension(pi: ExtensionAPI): void {
@@ -30,7 +29,7 @@ export default function fffGuardExtension(pi: ExtensionAPI): void {
       const input = event.input as SearchInput;
       const scope = await extractScope(kind, input, ctx.cwd, signal);
       signal.throwIfAborted();
-      if (scope.missingPath) return { block: true, reason: missingPathReason() };
+      if (scope.missingPath) return { block: true, reason: "No such file or directory" };
       const inspected = new Set<string>();
       for (const target of scope.targets) {
         signal.throwIfAborted();
@@ -46,7 +45,7 @@ export default function fffGuardExtension(pi: ExtensionAPI): void {
         if (result.status === "ignored")
           return {
             block: true,
-            reason: blockingReason(event.toolName)
+            reason: `${event.toolName} does not work with Git-ignored paths. Retry with rg or another available tool.`
           };
       }
     } catch (error) {

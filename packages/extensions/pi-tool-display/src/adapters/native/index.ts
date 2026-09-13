@@ -4,6 +4,7 @@ import type { ToolDisplayAdapter } from "../types.ts";
 import {
   nativeResultParts,
   nativeResultNotices,
+  nativeReadImageNotices,
   nativeImageCaption
 } from "./result-presentation.ts";
 
@@ -26,7 +27,10 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
     family,
     savedOutput: family === "shell",
     patch: family === "edit",
-    notices: (result) => nativeResultNotices(result.details),
+    notices: (result, expanded) => [
+      ...nativeResultNotices(result.details),
+      ...(name === "read" && !expanded ? nativeReadImageNotices(result.content) : [])
+    ],
     textParts: (text, args, context) => nativeResultParts(name, text, args, context),
     ...(family === "read"
       ? { imageCaptionMimeType: (text: string) => nativeImageCaption(text)?.mimeType }

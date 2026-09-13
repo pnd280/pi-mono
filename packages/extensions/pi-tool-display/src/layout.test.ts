@@ -32,26 +32,10 @@ describe("display row budgets", () => {
     }
   });
 
-  it("assigns endings per visible parent and preserves ancestor rails through nested items", () => {
-    const items = [
-      { rows: ["first", "wrapped"], children: [{ rows: ["nested", "note"] }] },
-      { rows: [] },
-      { rows: ["last", "metadata"] }
-    ];
-    expect(renderTree(items, 80)).toEqual([
-      "  ├ first",
-      "  │ wrapped",
-      "  │ └ nested",
-      "  │   note",
-      "  └ last",
-      "    metadata"
-    ]);
-    expect(renderTree(items.slice(0, 2), 80)).toEqual([
-      "  └ first",
-      "    wrapped",
-      "    └ nested",
-      "      note"
-    ]);
+  it("assigns endings to visible siblings and preserves rails through wrapped rows", () => {
+    const items = [{ rows: ["first", "wrapped"] }, { rows: [] }, { rows: ["last", "metadata"] }];
+    expect(renderTree(items, 80)).toEqual(["  ├ first", "  │ wrapped", "  └ last", "    metadata"]);
+    expect(renderTree(items.slice(0, 2), 80)).toEqual(["  └ first", "    wrapped"]);
     expect(renderTree([{ rows: ["first", "notice"] }], 80, undefined, true)).toEqual([
       "  ├ first",
       "  │ notice"

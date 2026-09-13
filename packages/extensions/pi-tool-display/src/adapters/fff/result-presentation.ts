@@ -27,7 +27,7 @@ export function fffResultParts(
     text = text.slice(fuzzy.length + 1);
   }
   const match =
-    /(?:^|\n\n)(\[(?:Invalid regex:[\s\S]*?, used literal match(?:\. Continue with cursor="[^"\n]+")?|(?:Continue with cursor=|Query |\d+ more match(?:es)? available\.|More available\. cursor=|\d+\+ matches \(refine patterns\))[^\n]*)\])$/.exec(
+    /(?:^|\n\n)(\[(?:Invalid regex:[\s\S]*?, used literal match(?:\. Continue with cursor="[^"\n]+")?|Query "[\s\S]*?" produced only weak scattered fuzzy matches\. Output capped at \d+\/\d+\.|(?:Continue with cursor=|\d+ more match(?:es)? available\.|More available\. cursor=|\d+\+ matches \(refine patterns\))[^\n]*)\])$/.exec(
       text
     );
   const trailer = match && match.index + match[0].length === text.length ? match : null;

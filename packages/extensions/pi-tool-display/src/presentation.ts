@@ -2,8 +2,6 @@ import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
-
 import type { ToolFamily } from "./display-model.ts";
 import { displayText } from "./layout.ts";
 export type { ToolFamily } from "./display-model.ts";
@@ -91,13 +89,4 @@ export function invocationParts(
         annotation(")")
       ];
   }
-}
-
-export function resultText(result: AgentToolResult<unknown>): string {
-  return result.content
-    .map((block) =>
-      block.type === "text" ? displayText(block.text) : `[Image: ${displayText(block.mimeType)}]`
-    )
-    .join("\n")
-    .replace(/\n+$/, "");
 }

@@ -5,11 +5,15 @@ import path from "node:path";
 
 export async function fixture() {
   const root = await mkdtemp(path.join(tmpdir(), "fff-guard-"));
+  // Fixture writes must never target a parent Git process's repository or config.
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_"))
+  );
   const git = (...args: string[]) =>
     execFileSync("git", args, {
       cwd: root,
       encoding: "utf8",
-      env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" }
+      env: { ...env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" }
     });
   const write = async (name: string, text = "fixture_marker\n") => {
     const absolute = path.join(root, name);

@@ -7,12 +7,7 @@ it("decodes split UTF-8 and CRLF without treating replacement snapshots as delta
   for (const byte of bytes) buffer.append(Buffer.from([byte]));
   buffer.finish();
   buffer.append(Buffer.from("late"));
-  expect(buffer.snapshot()).toEqual({
-    text: "α\r\n界\r\nlast",
-    totalBytes: bytes.length,
-    totalLines: 3,
-    retainedLines: 3
-  });
+  expect(buffer.snapshot().text).toBe("α\r\n界\r\nlast");
 });
 it("preserves chunk order when a multibyte character cannot fit in the retained line head", () => {
   const buffer = new OutputBuffer();
@@ -36,8 +31,12 @@ it("switches after exactly one MiB and bounds long lines with head/tail counts",
   buffer.append(Buffer.from("last"));
   buffer.finish();
   const snapshot = buffer.snapshot();
-  expect(snapshot.totalLines).toBe(182);
-  expect(snapshot.retainedLines).toBe(101);
+  const lines = snapshot.text.split("\n");
+  expect(lines).toHaveLength(102);
+  expect(lines[1]).toBe("line 0");
+  expect(lines[49]).toBe("line 48");
+  expect(lines[50]).toBe("… 81 lines omitted …");
+  expect(lines[51]).toBe("line 130");
   expect(snapshot.text.length).toBeLessThan(20_000);
   expect(snapshot.text).toContain("bytes omitted");
   expect(snapshot.text).toContain("81 lines omitted");

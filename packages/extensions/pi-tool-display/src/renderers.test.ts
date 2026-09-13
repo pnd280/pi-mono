@@ -7,7 +7,13 @@ import {
   ToolExecutionComponent,
   type AgentToolResult
 } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences, visibleWidth, type TUI } from "@earendil-works/pi-tui";
+import {
+  getCapabilities,
+  setCapabilityOverrides,
+  stripTerminalSequences,
+  visibleWidth,
+  type TUI
+} from "@earendil-works/pi-tui";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { fffToolInfo } from "./adapters/fff/test-fixture.ts";
@@ -17,7 +23,7 @@ import {
   officialFffAdapter,
   type McpFacts
 } from "./adapters/index.ts";
-import { OutputBuffer, LIVE_OUTPUT_BYTES } from "./output-buffer.ts";
+import type { OutputText } from "./output-text.ts";
 import { createToolDisplayRenderers, type ToolDisplayRenderers } from "./renderers.ts";
 import { TranscriptCoordinator } from "./transcript-coordinator.ts";
 
@@ -146,7 +152,7 @@ describe("tool display renderers", () => {
     ["fff-multi-grep", "Searching", "Searched", { patterns: ["example"] }],
     ["custom.lookup", "Calling", "Called", { query: "example" }]
   ] as const)(
-    "keeps %s action headings through preparation, queueing, execution, and completion",
+    "keeps %s action headings through preparation, queueing, execution, completion, and replay",
     (name, active, complete, args) => {
       const adapter = name.startsWith("ff")
         ? officialFffAdapter({
@@ -167,6 +173,15 @@ describe("tool display renderers", () => {
             }
           })!
         : (nativeAdapter(name) ?? genericAdapter);
+      // Replayed completion must not depend on a preceding call, execution event, or component.
+      for (const isError of [false, true]) {
+        const heading = createToolDisplayRenderers(name, adapter)
+          .renderCall(args, theme, context({ isError, executionStarted: false }))
+          .render(100)
+          .map(stripTerminalSequences)
+          .find((line) => /^[•◦] /.test(line));
+        expect(heading).toMatch(new RegExp(`^[•◦] ${complete}(?: |$)`));
+      }
       for (const coordinated of [false, true]) {
         const coordinator = new TranscriptCoordinator("action-headings");
         try {
@@ -374,66 +389,6 @@ describe("tool display renderers", () => {
       coordinator.dispose();
     }
   });
-  it("preserves accented group actions, dim read ranges, and neutral file targets", () => {
-    const themed = semanticTheme();
-    const coordinator = new TranscriptCoordinator("group-colors");
-    try {
-      const calls = (
-        [
-          ["read", { path: "example:2.ts", offset: 10, limit: 2 }],
-          ["grep", { pattern: "value", path: "src" }],
-          ["ls", { path: "src" }]
-        ] as const
-      ).map(([name, args], index) => {
-        const call = coordinator.add(
-          { messageTimestamp: 1, contentIndex: index, toolCallId: `group-${index}` },
-          name,
-          args,
-          nativeAdapter(name)!,
-          "historical"
-        );
-        coordinator.result(call, result("retained output"), "success");
-        return call;
-      });
-      const first = calls[0]!;
-      const renderer = createToolDisplayRenderers(first.name, first.adapter, {
-        binding: { call: first, coordinator }
-      });
-      for (const width of [38, 100]) {
-        const rows = calls
-          .flatMap((call) =>
-            createToolDisplayRenderers(call.name, call.adapter, {
-              binding: { call, coordinator }
-            })
-              .renderCall(call.args, themed, context())
-              .render(width)
-          )
-          .join("\n");
-        for (const label of ["Read", "Search", "List"])
-          expect(rows).toContain(themed.fg("accent", label));
-        expect(rows).toContain(themed.fg("toolTitle", "Explored"));
-        expect(rows).toContain(themed.fg("dim", "  └ "));
-        expect(rows).toContain(themed.fg("text", "example:2.ts"));
-        expect(rows).toContain(themed.fg("dim", ":10-11"));
-      }
-      coordinator.expand(first, true);
-      const expanded = renderer.renderCall(first.args, themed, context()).render(80).join("\n");
-      expect(expanded).toContain(themed.fg("toolTitle", "Read"));
-      expect(expanded).toContain(themed.fg("text", "example:2.ts"));
-      expect(expanded).toContain(themed.fg("dim", ":10-11"));
-      const standalone = createToolDisplayRenderers(first.name, first.adapter);
-      for (const expanded of [false, true]) {
-        const rows = standalone
-          .renderCall(first.args, themed, context({ expanded }))
-          .render(80)
-          .join("\n");
-        expect(rows).toContain(themed.fg("text", "example:2.ts"));
-        expect(rows).toContain(themed.fg("dim", ":10-11"));
-      }
-    } finally {
-      coordinator.dispose();
-    }
-  });
   it("dims native empty-output prose and separates failure status from process output", () => {
     const themed = semanticTheme();
     const render = (name: string, text: string, isError = false, specialized = true) => {
@@ -467,10 +422,11 @@ describe("tool display renderers", () => {
   });
   it("colors inserted live/saved budget notices without recoloring identical process text", () => {
     const marker = "… 81 lines omitted …";
-    const buffer = new OutputBuffer();
-    buffer.append(Buffer.from(marker + " " + "x".repeat(LIVE_OUTPUT_BYTES) + "\n"));
-    for (let line = 0; line < 180; line++) buffer.append(Buffer.from(`line ${line}\n`));
-    const preview = buffer.snapshot();
+    const preview = {
+      text: `${marker}\n${marker}\nretained output`,
+      // Only the second occurrence is a generated notice.
+      omissions: [{ start: marker.length + 1, end: marker.length * 2 + 1 }]
+    } satisfies OutputText;
     const coordinator = new TranscriptCoordinator("output-colors");
     try {
       const adapter = nativeAdapter("bash")!;
@@ -504,6 +460,76 @@ describe("tool display renderers", () => {
       coordinator.dispose();
     }
   });
+  it.each(["patch", "live preview", "saved output"])(
+    "preserves image fallback when %s replaces retained text",
+    (replacement) => {
+      const images = getCapabilities().images;
+      const coordinator = new TranscriptCoordinator("substituted-image-body");
+      try {
+        const adapter =
+          replacement === "patch"
+            ? { id: "owner:patch", family: "invocation" as const, patch: true }
+            : nativeAdapter("bash")!;
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 0, toolCallId: "image-result" },
+          replacement === "patch" ? "owner_patch" : "bash",
+          { command: "fixture" },
+          adapter,
+          "live"
+        );
+        const supplied = {
+          content: [
+            { type: "text" as const, text: "retained text" },
+            { type: "image" as const, mimeType: "image/png", data: "private-image-bytes" }
+          ],
+          details: { patch: "@@ -1 +1 @@\n-old\n+new\n" }
+        };
+        const original = structuredClone(supplied);
+        coordinator.result(call, supplied, "success", replacement === "live preview");
+        if (replacement === "live preview")
+          coordinator.preview(call, { text: "substituted output" });
+        if (replacement === "saved output")
+          call.savedOutput = { path: "saved-output", text: "substituted output" };
+        const renderer = createToolDisplayRenderers(call.name, adapter, {
+          binding: { call, coordinator }
+        });
+        for (const expanded of [false, true]) {
+          coordinator.expand(call, expanded);
+          for (const capability of [null, "kitty"] as const) {
+            setCapabilityOverrides({ images: capability });
+            for (const showImages of [false, true]) {
+              const current = context({
+                args: call.args,
+                expanded,
+                showImages,
+                isPartial: replacement === "live preview"
+              });
+              const rows = renderer
+                .renderResult(supplied, current, theme, current)
+                .render(100)
+                .map(stripTerminalSequences)
+                .join("\n");
+              expect(rows.split("[Image: image/png]")).toHaveLength(
+                capability && showImages ? 1 : 2
+              );
+              expect(rows).not.toContain("private-image-bytes");
+              if (replacement === "patch") {
+                expect(rows).toContain("+1 -1");
+                expect(rows).not.toContain("retained text");
+              } else if (replacement === "live preview" || expanded) {
+                expect(rows).toContain("substituted output");
+                expect(rows).not.toContain("retained text");
+              }
+            }
+          }
+        }
+        expect(supplied).toEqual(original);
+      } finally {
+        setCapabilityOverrides({ images });
+        coordinator.dispose();
+      }
+    }
+  );
   it("keeps published failure diagnostics visible when expanded saved output is available", () => {
     const coordinator = new TranscriptCoordinator("saved-failure");
     try {
@@ -1016,6 +1042,48 @@ describe("tool display renderers", () => {
     }
   });
 
+  it("retains multiline FFF query warnings in collapsed exploration", () => {
+    const coordinator = new TranscriptCoordinator("multiline-query-warning");
+    try {
+      const adapter = officialFffAdapter(fffToolInfo("fffind"))!;
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "multiline" },
+        "fffind",
+        { pattern: "foo\nbar" },
+        adapter,
+        "historical"
+      );
+      const warning =
+        '[Query "foo\nbar" produced only weak scattered fuzzy matches. Output capped at 1/10.]';
+      const supplied = result(`src/example.ts\n\n${warning}`);
+      const original = structuredClone(supplied);
+      coordinator.result(call, supplied, "success");
+      const renderer = createToolDisplayRenderers("fffind", adapter, {
+        binding: { call, coordinator }
+      });
+      const compact = renderer
+        .renderCall(call.args, theme, context())
+        .render(100)
+        .map(stripTerminalSequences)
+        .join("\n");
+      expect(compact).toContain("weak scattered fuzzy matches");
+      expect(compact).toContain("Output capped at 1/10.");
+      expect(compact).not.toContain("src/example.ts");
+      coordinator.expand(call, true);
+      const current = context({ args: call.args, expanded: true });
+      const expanded = renderer
+        .renderResult(supplied, current, theme, current)
+        .render(100)
+        .map(stripTerminalSequences)
+        .join("\n");
+      expect(expanded).toContain("src/example.ts");
+      expect(expanded).toContain("weak scattered fuzzy matches");
+      expect(supplied).toEqual(original);
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
   it.each(["edit", "write"])(
     "keeps a failed %s patch and related diagnostics in one result item",
     (name) => {
@@ -1091,21 +1159,70 @@ describe("tool display renderers", () => {
     expect(supplied).toEqual(original);
   });
 
-  it("keeps supplied read results and backend limitations inspectable", () => {
-    const failed = body("read", result("Permission denied"), context({ isError: true }))
-      .render(80)
-      .join("\n");
-    expect(failed).toContain("Permission denied");
-    const successful = body("read", {
-      ...result("content\ncontent"),
-      details: { truncation: { truncated: true } }
-    })
-      .render(80)
-      .join("\n");
-    expect(successful).toContain("truncated");
-    expect(successful).not.toMatch(/[├└]/);
-    expect(successful).not.toContain("content");
-  });
+  it.each([
+    {
+      warning:
+        "[Current model does not support images. The image will be omitted from this request.]",
+      image: true
+    },
+    {
+      warning: "[Image omitted: could not be converted to a supported inline image format.]",
+      image: false
+    },
+    {
+      warning: "[Image omitted: could not be resized below the inline image size limit.]",
+      image: false
+    }
+  ])(
+    "retains native image warning $warning in compact and expanded reads",
+    ({ warning, image }) => {
+      const supplied: AgentToolResult<unknown> = {
+        content: [
+          { type: "text", text: `Read image file [image/png]\n${warning}` },
+          ...(image
+            ? [{ type: "image" as const, mimeType: "image/png", data: "private-image-bytes" }]
+            : [])
+        ],
+        details: undefined
+      };
+      const original = structuredClone(supplied);
+      const coordinator = new TranscriptCoordinator("image-warning");
+      try {
+        const adapter = nativeAdapter("read")!;
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 0, toolCallId: "image-warning" },
+          "read",
+          { path: "image.png" },
+          adapter,
+          "historical"
+        );
+        coordinator.result(call, supplied, "success");
+        for (const grouped of [false, true]) {
+          const renderer = createToolDisplayRenderers(
+            "read",
+            adapter,
+            grouped ? { binding: { call, coordinator } } : {}
+          );
+          for (const expanded of [false, true]) {
+            coordinator.expand(call, expanded);
+            const current = context({ args: call.args, expanded, showImages: false });
+            const rows = [
+              ...renderer.renderCall(call.args, theme, current).render(180),
+              ...renderer.renderResult(supplied, current, theme, current).render(180)
+            ]
+              .map(stripTerminalSequences)
+              .join("\n");
+            expect(rows.split(warning)).toHaveLength(2);
+            expect(rows).not.toContain("private-image-bytes");
+            expect(rows).not.toContain("failed");
+          }
+        }
+        expect(supplied).toEqual(original);
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  );
 
   it("replaces streamed previews with the final payload and isolates overlapping calls", () => {
     const renderer = createToolDisplayRenderers("bash", nativeAdapter("bash"));
@@ -1128,38 +1245,6 @@ describe("tool display renderers", () => {
     expect(expanded.render(80)).toHaveLength(30);
     expect(expanded.render(10).every((row) => visibleWidth(row) <= 10)).toBe(true);
     expect(value).toEqual(original);
-  });
-
-  it("renders completion and failure on replay without a preceding call or event", () => {
-    const renderer = createToolDisplayRenderers("bash", nativeAdapter("bash"));
-    expect(
-      renderer
-        .renderCall(
-          { command: "false" },
-          theme,
-          context({ isError: true, executionStarted: false })
-        )
-        .render(80)
-        .map(stripTerminalSequences)
-        .join("\n")
-    ).toContain("Ran false");
-    expect(
-      renderer
-        .renderCall(
-          {},
-          theme,
-          context({ isPartial: true, argsComplete: false, executionStarted: false })
-        )
-        .render(80)
-        .join("\n")
-    ).toContain("Running");
-    expect(
-      renderer
-        .renderCall({ command: "true" }, theme, context({ executionStarted: false }))
-        .render(80)
-        .map(stripTerminalSequences)
-        .join("\n")
-    ).toContain("Ran true");
   });
 
   it("shows observation limitations only when no usable patch is available", () => {
@@ -1241,33 +1326,6 @@ describe("tool display renderers", () => {
       }
     } finally {
       coordinator.dispose();
-    }
-  });
-
-  it("retains native unified patches with a separate compact budget and expanded inspection", () => {
-    const patch =
-      "--- a/example.txt\n+++ b/example.txt\n@@ -0,0 +1,40 @@\n" +
-      Array.from({ length: 40 }, (_, index) => `+added ${index}`).join("\n") +
-      "\n";
-    const value = { ...result("Successfully edited example.txt"), details: { patch } };
-    for (const width of [80, 120]) {
-      const compact = body("edit", value).render(width).map(stripTerminalSequences).join("\n");
-      expect(compact).toContain("+40 -0");
-      expect(compact).toContain("1 +added 0");
-      expect(compact).toContain("30 +added 29");
-      expect(compact).not.toContain("31 +added 30");
-      expect(compact).not.toContain("Hunk 1/1");
-      expect(compact).toContain("hunk excerpt");
-      expect(compact.split("\n").at(-1)).toMatch(/^ {4}… /);
-      expect(compact).not.toContain("Before");
-      expect(compact).not.toContain("After");
-      expect(compact).not.toContain("@@");
-      expect(
-        body("edit", value, context({ expanded: true }))
-          .render(width)
-          .map(stripTerminalSequences)
-          .join("\n")
-      ).toContain("40 +added 39");
     }
   });
 

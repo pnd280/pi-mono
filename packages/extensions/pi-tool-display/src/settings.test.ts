@@ -60,6 +60,33 @@ it.each([false, [], null, "generic", { read: false }, { read: "special" }, { "":
     expect(selectAdapter(settings, "read", undefined, true)).toBeUndefined();
   }
 );
+it.each(['{"toString":"generic"}', '[{"toString":null}]'])(
+  "rejects non-string JSON overrides without coercion despite later replacement: %s",
+  (json) => {
+    const sources = [
+      {
+        path: "global/settings.json",
+        settings: JSON.parse(
+          `{"ext.pi-tool-display":{"showParameters":true,"rendererOverrides":{"read":${json},"write":"generic"}}}`
+        ) as unknown
+      },
+      source({ read: "auto" }, "project/settings.json")
+    ];
+    const supplied = structuredClone(sources);
+    const settings = loadDisplaySettings(sources);
+    expect(settings).toEqual({
+      valid: false,
+      showParameters: false,
+      rendererOverrides: {},
+      warnings: [
+        "global/settings.json: invalid ext.pi-tool-display.rendererOverrides.read; keeping original rendering and disabling display observation."
+      ]
+    });
+    expect(selectAdapter(settings, "read", undefined, true)).toBeUndefined();
+    expect(selectAdapter(settings, "write", undefined, true)).toBeUndefined();
+    expect(sources).toEqual(supplied);
+  }
+);
 it.each([null, [], true, { other: {} }])("rejects invalid sections: %j", (section) => {
   expect(
     loadDisplaySettings([{ path: "settings.json", settings: { [SETTINGS_KEY]: section } }]).valid

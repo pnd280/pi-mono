@@ -4,14 +4,8 @@ import path from "node:path";
 
 import { contains } from "./targets.ts";
 
-export interface IgnoreRecord {
-  path: string;
-  source: string;
-  line: string;
-  pattern: string;
-}
 export type Detection =
-  | { status: "ignored"; record: IgnoreRecord }
+  | { status: "ignored" }
   | { status: "allowed" }
   | { status: "unavailable"; diagnostic: string }
   | { status: "cancelled" };
@@ -81,8 +75,8 @@ async function ignoredIn(
   absolute: string,
   signal: AbortSignal,
   git: GitCommand
-): Promise<IgnoreRecord | undefined> {
-  if (!root || absolute === root || !contains(root, absolute)) return undefined;
+): Promise<boolean> {
+  if (!root || absolute === root || !contains(root, absolute)) return false;
   const relative = path.relative(root, absolute);
   const result = await git(
     root,
@@ -95,14 +89,9 @@ async function ignoredIn(
   if (fields.length !== 5 || fields[4] !== "" || fields[3] !== relative)
     throw new Error("unexpected Git ignore response");
   const [source, line, pattern] = fields;
-  if (!pattern || pattern.startsWith("!")) return undefined;
+  if (!pattern || pattern.startsWith("!")) return false;
   if (!source || !line || !/^\d+$/.test(line)) throw new Error("unexpected Git ignore record");
-  return {
-    path: absolute,
-    source: path.isAbsolute(source) ? source : path.join(root, source),
-    line,
-    pattern
-  };
+  return true;
 }
 
 async function firstLink(absolute: string, signal: AbortSignal): Promise<string | undefined> {
@@ -124,7 +113,7 @@ async function inspect(
   signal: AbortSignal,
   git: GitCommand,
   seen: Set<string>
-): Promise<IgnoreRecord | undefined> {
+): Promise<boolean> {
   signal.throwIfAborted();
   if (seen.has(absolute) || seen.size >= 32) throw new Error("symbolic link cycle or depth limit");
   seen.add(absolute);
@@ -137,16 +126,15 @@ async function inspect(
     workspace && contains(workspace, lexical)
       ? workspace
       : await repository(directory, signal, git);
-  const record = await ignoredIn(root, lexical, signal, git);
-  if (record) return record;
-  if (!link) return undefined;
+  if (await ignoredIn(root, lexical, signal, git)) return true;
+  if (!link) return false;
   const destination = path.resolve(
     path.dirname(link),
     await readlink(link),
     path.relative(link, absolute)
   );
-  // A non-ignored link may point into an ignored scope of another repository.
-  return inspect(destination, undefined, signal, git, seen);
+  // Keep workspace authority for local destinations; external paths use their own repository.
+  return inspect(destination, workspace, signal, git, seen);
 }
 
 /** One two-second deadline includes repository discovery and link traversal. */
@@ -165,9 +153,9 @@ export async function detectIgnored(
     // Validate final existence before considering lexical link parents. Missing
     // targets must not be blocked merely because an existing parent is ignored.
     await lstat(absolute);
-    const record = await inspect(absolute, workspace, combined, git, new Set());
+    const ignored = await inspect(absolute, workspace, combined, git, new Set());
     combined.throwIfAborted();
-    return record ? { status: "ignored", record } : { status: "allowed" };
+    return { status: ignored ? "ignored" : "allowed" };
   } catch (error) {
     if (signal?.aborted) return { status: "cancelled" };
     if (

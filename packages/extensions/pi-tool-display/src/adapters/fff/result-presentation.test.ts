@@ -69,6 +69,36 @@ it.each([
   }
   expect(supplied.content[0]!.text).toBe(text);
 });
+it.each(["foo\nbar", 'foo"]\n\n[bar'])(
+  "retains weak-match warnings for multiline find queries: %j",
+  (query) => {
+    const warning = `[Query "${query}" produced only weak scattered fuzzy matches. Output capped at 1/10.]`;
+    const text = `src/example.ts\n\n${warning}`;
+    const supplied = { content: [{ type: "text" as const, text }], details: undefined };
+    expect(fffTextNotices(supplied, "find")).toEqual([{ kind: "warning", text: warning }]);
+    expect(
+      fffResultParts(text, "find", complete)
+        .map((part) => part.text)
+        .join("")
+    ).toBe(text);
+    for (const literal of [
+      `src/example.ts\n 1: ${warning}`,
+      `${text}\nnext-file.ts`,
+      '[Query "foo\nbar" is literal output]'
+    ]) {
+      expect(
+        fffResultParts(literal, "find", complete).filter((part) => part.kind === "warning")
+      ).toEqual([]);
+      expect(
+        fffResultParts(literal, "find", complete)
+          .map((part) => part.text)
+          .join("")
+      ).toBe(literal);
+    }
+    expect(supplied.content[0]!.text).toBe(text);
+  }
+);
+
 it.each(["unclosed group", "regex parse error:\n    (\n    ^\nerror: unclosed group"])(
   "retains FFF fallback diagnostics without their combined pagination instruction: %s",
   (error) => {

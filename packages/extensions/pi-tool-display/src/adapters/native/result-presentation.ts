@@ -1,3 +1,5 @@
+import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
+
 import { displayText } from "../../layout.ts";
 import { record, stringField } from "../../presentation.ts";
 import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../types.ts";
@@ -11,6 +13,43 @@ const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultText
 export function nativeImageCaption(text: string): { mimeType: string; tail: string } | undefined {
   const match = /^Read image file \[([^\n\]]+)\]/.exec(text);
   return match ? { mimeType: match[1]!, tail: text.slice(match[0].length) } : undefined;
+}
+
+const nonVisionImageNote =
+  "[Current model does not support images. The image will be omitted from this request.]";
+const imageOmissionNotes = new Set([
+  "[Image omitted: could not be converted to a supported inline image format.]",
+  "[Image omitted: could not be resized below the inline image size limit.]"
+]);
+function nativeImageWarnings(text: string, hasImages: boolean): string[] {
+  const caption = nativeImageCaption(text);
+  if (!caption?.tail.startsWith("\n")) return [];
+  const notes = caption.tail.slice(1).split("\n");
+  // An omitted image has no attachment. Require its exact native omission envelope;
+  // a model-warning lookalike in ordinary text alone does not establish an image read.
+  if (
+    !hasImages &&
+    (!imageOmissionNotes.has(notes[0] ?? "") ||
+      notes.length > 2 ||
+      (notes.length === 2 && notes[1] !== nonVisionImageNote))
+  )
+    return [];
+  return notes.filter((note) => note === nonVisionImageNote || imageOmissionNotes.has(note));
+}
+
+/** Read bodies collapse independently of their image/model limitations. */
+export function nativeReadImageNotices(
+  content: AgentToolResult<unknown>["content"]
+): DisplayNotice[] {
+  const hasImages = content.some((block) => block.type === "image");
+  return content.flatMap((block) =>
+    block.type === "text"
+      ? nativeImageWarnings(block.text, hasImages).map((text) => ({
+          kind: "warning" as const,
+          text
+        }))
+      : []
+  );
 }
 
 /** Interpret only the pinned native result envelope, never arbitrary tool names or output lines. */
@@ -59,21 +98,18 @@ function nativeContentParts(
   context: ResultTextContext
 ): ResultTextPart[] {
   const shell = name === "bash" || name === "powershell";
-  if (name === "read" && context.hasImages) {
+  if (name === "read") {
     const image = nativeImageCaption(text);
-    if (image) {
-      const note =
-        "[Current model does not support images. The image will be omitted from this request.]";
-      const tail = image.tail;
+    const warnings = nativeImageWarnings(text, context.hasImages === true);
+    if (image && (context.hasImages || warnings.length))
       return [
         part("Read image file [", "annotation"),
         part(image.mimeType, "value"),
         part("]", "annotation"),
-        ...(tail.endsWith(note)
-          ? [part(tail.slice(0, -note.length), "annotation"), part(note, "warning")]
-          : [part(tail, "annotation")])
+        ...image.tail
+          .split(/(\n)/)
+          .map((text) => part(text, warnings.includes(text) ? "warning" : "annotation"))
       ];
-    }
   }
   const empty = shell
     ? "(no output)"

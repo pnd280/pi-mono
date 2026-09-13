@@ -1,6 +1,10 @@
 import { expect, it } from "vite-plus/test";
 
-import { nativeResultParts, nativeResultNotices } from "./result-presentation.ts";
+import {
+  nativeResultParts,
+  nativeResultNotices,
+  nativeReadImageNotices
+} from "./result-presentation.ts";
 
 it("reports backend omissions and saved-output references", () => {
   const notices = nativeResultNotices({
@@ -19,6 +23,40 @@ it("reports backend omissions and saved-output references", () => {
     notices.filter((notice) => notice.kind === "warning" && notice.text.includes("truncated"))
   ).toHaveLength(2);
   expect(nativeResultNotices(undefined)).toEqual([]);
+});
+
+it("requires a native image envelope before promoting image warnings", () => {
+  const note =
+    "[Current model does not support images. The image will be omitted from this request.]";
+  const omitted = "[Image omitted: could not be converted to a supported inline image format.]";
+  const image = { type: "image" as const, data: "private", mimeType: "image/png" };
+  for (const text of [
+    note,
+    omitted,
+    `file prose\nRead image file [image/png]\n${note}`,
+    `Read image file [image/png] literal prose\n${note}`,
+    `Read image file [image/png]\n${note} literal prose`
+  ]) {
+    expect(nativeReadImageNotices([{ type: "text", text }, image])).toEqual([]);
+  }
+  for (const text of [
+    `Read image file [image/png]\n${note}`,
+    `Read image file [image/png]\n${omitted}\nliteral prose`,
+    `Read image file [image/png]\nliteral prose\n${omitted}`,
+    `Read image file [image/png]\n${omitted}\n${note}\n`
+  ])
+    expect(nativeReadImageNotices([{ type: "text", text }])).toEqual([]);
+  const text = `Read image file [image/bmp]\n${omitted}\n${note}`;
+  expect(nativeReadImageNotices([{ type: "text", text }])).toEqual([
+    { kind: "warning", text: omitted },
+    { kind: "warning", text: note }
+  ]);
+  const parts = nativeResultParts("read", text, {}, { isPartial: false, isError: false });
+  expect(parts.map((part) => part.text).join("")).toBe(text);
+  expect(parts.filter((part) => part.kind === "warning").map((part) => part.text)).toEqual([
+    omitted,
+    note
+  ]);
 });
 
 const complete = { isError: false, isPartial: false };

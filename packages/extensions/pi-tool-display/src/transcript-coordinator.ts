@@ -36,6 +36,7 @@ function canExplore(call: DisplayCall): boolean {
 export class TranscriptCoordinator {
   readonly calls = new Map<string, DisplayCall>();
   private sequence: (string | null)[] = [];
+  private boundaries = new Map<object, string>();
   private groups = new Map<string, DisplayGroup>();
   private rows = new Map<string, Set<RowHandle>>();
   private stopAnimation: (() => void) | undefined;
@@ -54,7 +55,19 @@ export class TranscriptCoordinator {
     expanded = false
   ): DisplayCall {
     const key = callKey(this.runtime, reference);
-    const existing = this.calls.get(key);
+    // Finalized assistant middleware can remove/reorder blocks around a streamed call.
+    // Keep its runtime row identity; only historical calls use source position alone.
+    const existing =
+      this.calls.get(key) ??
+      (origin === "live"
+        ? [...this.calls.values()].find(
+            (call) =>
+              call.origin === "live" &&
+              call.name === name &&
+              call.reference.messageTimestamp === reference.messageTimestamp &&
+              call.reference.toolCallId === reference.toolCallId
+          )
+        : undefined);
     if (existing) {
       const grouped = canExplore(existing);
       existing.args = args;
@@ -87,8 +100,27 @@ export class TranscriptCoordinator {
     this.regroup();
     this.changed(call);
   }
-  boundary(): void {
-    if (this.sequence.at(-1) !== null) this.sequence.push(null);
+  /** Reconstruction can reveal a host-generated notice after later calls were indexed. */
+  boundary(after?: DisplayCall): void {
+    const position = after ? this.sequence.indexOf(after.key) + 1 : this.sequence.length;
+    if (
+      this.disposed ||
+      (after && position === 0) ||
+      this.sequence[position] === null ||
+      this.sequence[position - 1] === null
+    )
+      return;
+    this.sequence.splice(position, 0, null);
+    if (after) this.regroup();
+  }
+  /** Visible components can withdraw their own boundary without removing other separators. */
+  setBoundary(owner: object, after?: DisplayCall): void {
+    const key = after?.key;
+    if (this.disposed || (key && !this.calls.has(key)) || this.boundaries.get(owner) === key)
+      return;
+    if (key) this.boundaries.set(owner, key);
+    else this.boundaries.delete(owner);
+    this.regroup();
   }
   byId(id: string): DisplayCall | undefined {
     return [...this.calls.values()].reverse().find((call) => call.reference.toolCallId === id);
@@ -167,6 +199,7 @@ export class TranscriptCoordinator {
   }
   private regroup(): void {
     this.groups.clear();
+    const boundaries = new Set(this.boundaries.values());
     let group: DisplayGroup | undefined;
     for (const key of this.sequence) {
       const call = key ? this.calls.get(key) : undefined;
@@ -178,6 +211,7 @@ export class TranscriptCoordinator {
       group.members.push(call);
       call.expanded = group.expanded;
       this.groups.set(call.key, group);
+      if (boundaries.has(call.key)) group = undefined;
     }
     for (const call of this.calls.values()) {
       call.revision++;
@@ -211,6 +245,7 @@ export class TranscriptCoordinator {
     this.rows.clear();
     this.calls.clear();
     this.groups.clear();
+    this.boundaries.clear();
     this.sequence = [];
   }
 }

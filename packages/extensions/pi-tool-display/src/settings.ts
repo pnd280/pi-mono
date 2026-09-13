@@ -43,13 +43,9 @@ export function loadDisplaySettings(sources: readonly SettingsSource[]): Display
       continue;
     }
     for (const [name, value] of Object.entries(overrides)) {
-      if (
-        name.length === 0 ||
-        !["auto", "generic", "original"].includes(String(value)) ||
-        typeof value !== "string"
-      ) {
+      if (name.length === 0 || (value !== "auto" && value !== "generic" && value !== "original")) {
         invalid(`${SETTINGS_KEY}.rendererOverrides.${name}`);
-      } else rendererOverrides[name] = value as RendererMode;
+      } else rendererOverrides[name] = value;
     }
   }
   return {

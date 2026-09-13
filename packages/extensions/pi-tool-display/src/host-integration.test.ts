@@ -35,7 +35,7 @@ import { METADATA_TYPE } from "./session-metadata.ts";
 import { assistantMessage, toolCall } from "./test-fixture.ts";
 
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
-type LookupSession = Pick<AgentSession, "getAllTools"> & {
+type LookupSession = Pick<AgentSession, "getAllTools" | "settingsManager" | "sessionManager"> & {
   getToolDefinition: (name: string) => RenderDefinition;
 };
 
@@ -47,6 +47,8 @@ const host = InteractiveMode.prototype as unknown as {
 function lookupSession(name = "read", source = "builtin"): LookupSession {
   const definition = { ...createReadToolDefinition("/tmp"), name };
   return {
+    settingsManager: SettingsManager.inMemory(),
+    sessionManager: SessionManager.inMemory("/tmp"),
     getToolDefinition: () => definition,
     getAllTools: () => [{ ...definition, sourceInfo: createSyntheticSourceInfo(name, { source }) }]
   };
@@ -85,6 +87,7 @@ function interactiveHost(session: AgentSession) {
     chatContainer: Container;
     footerDataProvider: { dispose(): void };
     renderSessionItems(items: unknown[]): void;
+    renderSessionEntries(entries: ReturnType<SessionManager["buildContextEntries"]>): void;
     handleEvent(event: AgentSessionEvent): Promise<void>;
   };
   boundary.ui = { requestRender() {}, terminal: { setProgress() {} } } as unknown as TUI;
@@ -413,7 +416,7 @@ it("binds real transcript rows, group clicks and observed native calls before Pi
   });
 });
 
-it("restores row expansion after compaction reconstructs the transcript inside a host event", async () => {
+it("separates new exploration after compaction reconstruction and restores row expansion", async () => {
   await withSession(async ({ session }) => {
     const tui = interactiveHost(session);
     try {
@@ -441,6 +444,38 @@ it("restores row expansion after compaction reconstructs the transcript inside a
         (child) => child instanceof ToolExecutionComponent
       )!;
       expect(text(row)).not.toContain("retained after compaction");
+      const nextMessage = assistantMessage(
+        [toolCall("after-compaction", "read", { path: "b.ts" })],
+        3
+      );
+      await tui.handleEvent({ type: "message_start", message: nextMessage });
+      await tui.handleEvent({
+        type: "message_update",
+        message: nextMessage,
+        assistantMessageEvent: {
+          type: "toolcall_end",
+          contentIndex: 0,
+          toolCall: nextMessage.content[0] as ReturnType<typeof toolCall>,
+          partial: nextMessage
+        }
+      });
+      await tui.handleEvent({ type: "message_end", message: nextMessage });
+      await tui.handleEvent({
+        type: "tool_execution_end",
+        toolCallId: "after-compaction",
+        toolName: "read",
+        result: { content: [{ type: "text", text: "new exploration body" }], details: undefined },
+        isError: false
+      });
+      const nextRow = tui.chatContainer.children
+        .filter((child) => child instanceof ToolExecutionComponent)
+        .at(-1)!;
+      expect(text(row)).toContain("└ Read a.ts");
+      expect(text(nextRow)).toContain("• Explored");
+      expect(nextRow.render(80)[0]).toBe("");
+      nextRow.setExpanded(true);
+      expect(text(nextRow)).toContain("new exploration body");
+      expect(text(row)).not.toContain("retained after compaction");
       await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
       row.setExpanded(true);
       expect(text(row)).toContain("retained after compaction");
@@ -457,62 +492,154 @@ it("restores row expansion after compaction reconstructs the transcript inside a
   });
 });
 
-it("leaves later row wrappers installed and makes retained spacing and mouse callbacks inert on removal", async () => {
-  await withSession(async ({ session }) => {
-    const tui = interactiveHost(session);
-    try {
-      const message = assistantMessage([
-        toolCall("first", "read", { path: "a.ts" }),
-        toolCall("second", "read", { path: "b.ts" })
-      ]);
-      tui.renderSessionItems([
-        message,
-        ...["first", "second"].map((toolCallId) => ({
-          role: "toolResult",
-          toolCallId,
+it.each(["failure", "cancelled", "silent"])(
+  "separates exploration only when unsuccessful compaction is visible: %s",
+  async (outcome) => {
+    await withSession(async ({ session }) => {
+      const tui = interactiveHost(session);
+      try {
+        const first = assistantMessage([toolCall("a", "read", { path: "a.ts" })]);
+        const firstResult = {
+          role: "toolResult" as const,
+          toolCallId: "a",
           toolName: "read",
-          content: [{ type: "text", text: "retained body" }],
+          content: [{ type: "text" as const, text: "body a" }],
           isError: false,
           timestamp: 2
-        }))
-      ]);
-      const rows = tui.chatContainer.children.filter(
-        (child) => child instanceof ToolExecutionComponent
-      );
-      const sibling = rows[1]!;
-      const retainedRender = sibling.render.bind(sibling);
-      const retainedMouse = sibling.handleMouse.bind(sibling);
-      const render = vi.fn((width: number) => retainedRender(width));
-      const mouse = vi.fn((event: Parameters<typeof sibling.handleMouse>[0]) =>
-        retainedMouse(event)
-      );
-      sibling.render = render;
-      sibling.handleMouse = mouse;
-      expect(text(sibling)).toBe("  └ Read b.ts");
-      await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
-      expect(sibling.render === render).toBe(true);
-      expect(sibling.handleMouse === mouse).toBe(true);
-      expect(sibling.render(80)[0]).toBe("");
-      sibling.handleMouse({
-        type: "click",
-        button: "left",
-        x: 5,
-        y: 1,
-        screenX: 5,
-        screenY: 1,
-        width: 80,
-        height: 2,
-        shift: false,
-        alt: false,
-        ctrl: false
-      });
-      expect(text(sibling)).toContain("retained body");
-      expect(text(rows[0]!)).not.toContain("retained body");
-    } finally {
-      tui.footerDataProvider.dispose();
-    }
-  });
-});
+        };
+        tui.renderSessionItems([first, firstResult]);
+        await tui.handleEvent({
+          type: "compaction_end",
+          reason: "threshold",
+          aborted: outcome === "cancelled",
+          result: undefined,
+          willRetry: false,
+          ...(outcome === "failure" ? { errorMessage: "Compaction failed fixture" } : {})
+        });
+        const next = assistantMessage([toolCall("b", "read", { path: "b.ts" })], 3);
+        await tui.handleEvent({ type: "message_start", message: next });
+        await tui.handleEvent({
+          type: "message_update",
+          message: next,
+          assistantMessageEvent: {
+            type: "toolcall_end",
+            contentIndex: 0,
+            toolCall: next.content[0] as ReturnType<typeof toolCall>,
+            partial: next
+          }
+        });
+        await tui.handleEvent({ type: "message_end", message: next });
+        await tui.handleEvent({
+          type: "tool_execution_end",
+          toolCallId: "b",
+          toolName: "read",
+          result: { content: [{ type: "text", text: "body b" }], details: undefined },
+          isError: false
+        });
+        const rows = tui.chatContainer.children.filter(
+          (child) => child instanceof ToolExecutionComponent
+        );
+        const transcript = tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
+        const visible = outcome !== "silent";
+        if (visible) {
+          const notice =
+            outcome === "failure" ? "Compaction failed fixture" : "Auto-compaction cancelled";
+          expect(transcript.indexOf(notice)).toBeGreaterThan(transcript.indexOf("Read a.ts"));
+          expect(transcript.indexOf(notice)).toBeLessThan(transcript.indexOf("Read b.ts"));
+        }
+        expect(text(rows[1]!).includes("• Explored")).toBe(visible);
+        expect(rows[1]!.render(80)[0] === "").toBe(visible);
+        rows[1]!.setExpanded(true);
+        expect(text(rows[0]!).includes("body a")).toBe(!visible);
+        expect(text(rows[1]!)).toContain("body b");
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
+
+it.each(["removal", "reconstruction"])(
+  "preserves later row wrappers and native expansion after %s",
+  async (transition) => {
+    await withSession(async ({ session }) => {
+      const tui = interactiveHost(session);
+      try {
+        const message = assistantMessage([
+          toolCall("first", "read", { path: "a.ts" }),
+          toolCall("second", "read", { path: "b.ts" })
+        ]);
+        const history = [
+          message,
+          ...["first", "second"].map((toolCallId) => ({
+            role: "toolResult",
+            toolCallId,
+            toolName: "read",
+            content: [{ type: "text", text: "retained body" }],
+            isError: false,
+            timestamp: 2
+          }))
+        ];
+        tui.renderSessionItems(history);
+        const rows = tui.chatContainer.children.filter(
+          (child) => child instanceof ToolExecutionComponent
+        );
+        const sibling = rows[1]!;
+        const retainedRender = sibling.render.bind(sibling);
+        const retainedMouse = sibling.handleMouse.bind(sibling);
+        const retainedExpansion = sibling.setExpanded.bind(sibling);
+        const render = vi.fn((width: number) => retainedRender(width));
+        const mouse = vi.fn((event: Parameters<typeof sibling.handleMouse>[0]) =>
+          retainedMouse(event)
+        );
+        const setExpanded = vi.fn((expanded: boolean) => retainedExpansion(expanded));
+        sibling.render = render;
+        sibling.handleMouse = mouse;
+        sibling.setExpanded = setExpanded;
+        expect(text(sibling)).toBe("  └ Read b.ts");
+        sibling.setExpanded(true);
+        expect(rows.every((row) => text(row).includes("retained body"))).toBe(true);
+        sibling.setExpanded(false);
+        expect(rows.every((row) => !text(row).includes("retained body"))).toBe(true);
+        setExpanded.mockClear();
+        if (transition === "removal")
+          await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+        else {
+          tui.chatContainer.clear();
+          tui.renderSessionItems(history);
+        }
+        expect(sibling.render === render).toBe(true);
+        expect(sibling.handleMouse === mouse).toBe(true);
+        expect(sibling.setExpanded === setExpanded).toBe(true);
+        expect(sibling.render(80)[0]).toBe("");
+        sibling.handleMouse({
+          type: "click",
+          button: "left",
+          x: 5,
+          y: 1,
+          screenX: 5,
+          screenY: 1,
+          width: 80,
+          height: 2,
+          shift: false,
+          alt: false,
+          ctrl: false
+        });
+        expect(setExpanded).toHaveBeenCalledExactlyOnceWith(true);
+        expect(text(sibling)).toContain("retained body");
+        expect(text(rows[0]!)).not.toContain("retained body");
+        if (transition === "reconstruction")
+          for (const row of tui.chatContainer.children)
+            if (row instanceof ToolExecutionComponent)
+              expect(text(row)).not.toContain("retained body");
+        sibling.setExpanded(false);
+        expect(text(sibling)).not.toContain("retained body");
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
 
 it("preserves native construction settings when settings change before TUI binding", async () => {
   await withSession(async ({ session }) => {
@@ -821,10 +948,14 @@ it.each([false, true])(
         );
         if (expandAll) rows.forEach((row) => row.setExpanded(true));
         else rows[0]!.setExpanded(true);
-        await vi.waitFor(() => expect(text(rows[0]!)).toContain("complete saved output 0"));
+        await vi.waitFor(() => expect(text(rows[0]!)).toContain("complete saved output 0"), {
+          interval: 5
+        });
         rows[8]!.setExpanded(false);
         rows[8]!.setExpanded(true);
-        await vi.waitFor(() => expect(text(rows[8]!)).toContain("complete saved output 8"));
+        await vi.waitFor(() => expect(text(rows[8]!)).toContain("complete saved output 8"), {
+          interval: 5
+        });
       } finally {
         tui.footerDataProvider.dispose();
       }
@@ -832,13 +963,16 @@ it.each([false, true])(
   }
 );
 
-it.each([true, false])(
-  "keeps visible-entry grouping boundaries consistent during live execution and replay: %s",
-  async (visible) => {
+it.each(["visible", "suppressed", "unregistered"])(
+  "keeps entry grouping consistent during live execution and replay: %s",
+  async (renderer) => {
+    const visible = renderer === "visible";
     await withSession(async ({ session, extensionFactories }) => {
       extensionFactories.push((pi) => {
-        if (visible)
-          pi.registerEntryRenderer("display-boundary", () => new Text("Visible boundary"));
+        if (renderer !== "unregistered")
+          pi.registerEntryRenderer("display-boundary", () =>
+            visible ? new Text("Visible boundary") : undefined
+          );
       });
       await session.reload();
       const tui = interactiveHost(session);
@@ -890,51 +1024,485 @@ it.each([true, false])(
   }
 );
 
-it("keeps Pi's configured execution, updates, results, failures, and cancellation", async () => {
-  await withSession(async ({ session, assertNoRegistration }) => {
-    const assertPreserved = preserveRegistry(session);
-    await session.bindExtensions({ mode: "tui" });
-    assertNoRegistration();
-    assertPreserved();
-    const directory = session.sessionManager.getCwd();
-    const edit = session.agent.state.tools.find(({ name }) => name === "edit");
-    const bash = session.agent.state.tools.find(({ name }) => name === "bash");
-    if (!edit || !bash) throw new Error("Expected native tools");
-    await writeFile(join(directory, "example.txt"), "before\n");
-    const edited = await edit.execute("edit-1", {
-      path: "example.txt",
-      edits: [{ oldText: "before", newText: "after" }]
-    });
-    expect(await readFile(join(directory, "example.txt"), "utf8")).toBe("after\n");
-    expect(edited.details).toMatchObject({
-      firstChangedLine: 1,
-      diff: expect.stringContaining("+1 after"),
-      patch: expect.stringContaining("+after")
-    });
-    const updates: unknown[] = [];
-    const output = await bash.execute(
-      "bash-1",
-      { command: 'printf "%s\\n" "$TOOL_DISPLAY_TEST"; pwd', timeout: 5 },
-      undefined,
-      (update) => {
-        updates.push(update);
+it.each(
+  ["live", "replay"].flatMap((mode) =>
+    ["text", "thinking", "empty error", "length"].map((content) => ({ mode, content }))
+  )
+)(
+  "positions $mode assistant $content boundaries before their tool rows",
+  async ({ mode, content }) => {
+    await withSession(async ({ session }) => {
+      const tui = interactiveHost(session);
+      try {
+        tui.renderSessionItems([]);
+        const messages = ["a", "b", "c"].map((name, index) =>
+          assistantMessage([toolCall(name, "read", { path: `${name}.ts` })], index + 1)
+        );
+        let notice = "Visible explanation";
+        if (content === "empty error") {
+          const error = assistantMessage([], 1.5);
+          error.stopReason = "error";
+          error.errorMessage = notice;
+          messages.splice(1, 0, error);
+        } else if (content === "length") {
+          messages[1]!.stopReason = "length";
+          notice = "Response was truncated";
+        } else {
+          messages[1]!.content.push(
+            content === "text"
+              ? { type: "text", text: notice }
+              : { type: "thinking", thinking: notice }
+          );
+        }
+        const history: unknown[] = [];
+        for (const message of messages) {
+          const call = message.content.find((block) => block.type === "toolCall");
+          if (mode === "live") {
+            // Text/thinking can arrive after the tool row has already been created.
+            const partial = {
+              ...message,
+              content: call ? [call] : [],
+              stopReason: "toolUse" as const
+            };
+            await tui.handleEvent({ type: "message_start", message: partial });
+            if (call)
+              await tui.handleEvent({
+                type: "message_update",
+                message: partial,
+                assistantMessageEvent: {
+                  type: "toolcall_end",
+                  contentIndex: 0,
+                  toolCall: call,
+                  partial
+                }
+              });
+            await tui.handleEvent({ type: "message_end", message });
+          }
+          history.push(message);
+          if (call) {
+            const result = {
+              role: "toolResult" as const,
+              toolCallId: call.id,
+              toolName: "read",
+              content: [{ type: "text" as const, text: `body ${call.id}` }],
+              isError: false,
+              timestamp: message.timestamp
+            };
+            if (mode === "live")
+              await tui.handleEvent({
+                type: "tool_execution_end",
+                toolCallId: call.id,
+                toolName: "read",
+                result,
+                isError: false
+              });
+            history.push(result);
+          }
+        }
+        if (mode === "replay") tui.renderSessionItems(history);
+        const transcript = tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
+        expect(transcript.indexOf(notice)).toBeGreaterThan(transcript.indexOf("Read a.ts"));
+        expect(transcript.indexOf(notice)).toBeLessThan(transcript.indexOf("Read b.ts"));
+        const rows = tui.chatContainer.children.filter(
+          (child) => child instanceof ToolExecutionComponent
+        );
+        expect(text(rows[0]!)).toContain("└ Read a.ts");
+        expect(text(rows[1]!)).toContain("• Explored");
+        expect(text(rows[2]!)).not.toContain("• Explored");
+        expect(rows[1]!.render(80)[0]).toBe("");
+        expect(rows[2]!.render(80)[0]).not.toBe("");
+        rows[1]!.setExpanded(true);
+        expect(text(rows[0]!)).not.toContain("body a");
+        expect(text(rows[1]!)).toContain("body b");
+        expect(text(rows[2]!)).toContain("body c");
+      } finally {
+        tui.footerDataProvider.dispose();
       }
+    });
+  }
+);
+
+it.each([
+  ...[false, true].flatMap((entryVisible) =>
+    ["before", "after"].map((position) => ({ entryVisible, position }))
+  ),
+  { entryVisible: true, position: "none" }
+])(
+  "preserves streaming call identity and custom-entry boundaries (entry: $entryVisible, withdrawn text: $position)",
+  async ({ entryVisible, position }) => {
+    await withSession(async ({ session, extensionFactories }) => {
+      extensionFactories.push((pi) => {
+        pi.registerEntryRenderer("retained-boundary", () => new Text("Retained entry"));
+      });
+      await session.reload();
+      const tui = interactiveHost(session);
+      try {
+        tui.renderSessionItems([]);
+        const history: unknown[] = [];
+        for (const [index, name] of ["a", "b", "c"].entries()) {
+          const call = toolCall(name, "read", { path: `${name}.ts` });
+          const message = assistantMessage([call], index + 1);
+          const partial = structuredClone(message);
+          if (name === "b" && position !== "none") {
+            const withdrawn = { type: "text" as const, text: "Withdrawn text" };
+            if (position === "before") partial.content.unshift(withdrawn);
+            else partial.content.push(withdrawn);
+          }
+          await tui.handleEvent({ type: "message_start", message: partial });
+          await tui.handleEvent({
+            type: "message_update",
+            message: partial,
+            assistantMessageEvent: {
+              type: "toolcall_end",
+              contentIndex: partial.content.findIndex((part) => part.type === "toolCall"),
+              toolCall: call,
+              partial
+            }
+          });
+          if (name === "b") {
+            const row = tui.chatContainer.children
+              .filter((child) => child instanceof ToolExecutionComponent)
+              .at(-1)!;
+            if (position !== "none") expect(text(row)).toContain("Exploring");
+            expect(row.render(80)[0] === "").toBe(position !== "none");
+            if (entryVisible) {
+              const id = session.sessionManager.appendCustomEntry("retained-boundary", {});
+              const entry = session.sessionManager.getEntry(id)!;
+              history.push(entry);
+              await tui.handleEvent({ type: "entry_appended", entry });
+            }
+          }
+          // Public message_end middleware may replace the finalized assistant content.
+          await tui.handleEvent({ type: "message_end", message });
+          const result = {
+            role: "toolResult" as const,
+            toolCallId: name,
+            toolName: "read",
+            content: [{ type: "text" as const, text: `body ${name}` }],
+            isError: name === "b" && position === "before",
+            timestamp: index + 1
+          };
+          await tui.handleEvent({
+            type: "tool_execution_end",
+            toolCallId: name,
+            toolName: "read",
+            result,
+            isError: result.isError
+          });
+          history.push(message, result);
+        }
+        for (const replay of [false, true]) {
+          if (replay) {
+            tui.chatContainer.clear();
+            tui.renderSessionItems(history);
+          }
+          const transcript = tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
+          expect(transcript).not.toContain("Withdrawn text");
+          expect(transcript.includes("Retained entry")).toBe(entryVisible);
+          expect(transcript.match(/• Explored/g)).toHaveLength(entryVisible ? 2 : 1);
+          const rows = tui.chatContainer.children.filter(
+            (child) => child instanceof ToolExecutionComponent
+          );
+          expect(rows).toHaveLength(3);
+          if (entryVisible) {
+            expect(transcript.indexOf("Retained entry")).toBeGreaterThan(
+              transcript.indexOf("Read a.ts")
+            );
+            expect(transcript.indexOf("Retained entry")).toBeLessThan(
+              transcript.indexOf("Read b.ts")
+            );
+            expect(text(rows[0]!)).toContain("└ Read a.ts");
+            expect(text(rows[1]!)).toContain("• Explored");
+          }
+          expect(text(rows[2]!)).not.toContain("• Explored");
+          expect(rows[1]!.render(80)[0] === "").toBe(entryVisible);
+          expect(text(rows[1]!).includes("body b")).toBe(position === "before");
+          expect(text(rows[2]!)).not.toContain("body b");
+          expect(text(rows[2]!)).toContain("└ Read c.ts");
+          rows[1]!.setExpanded(true);
+          expect(text(rows[0]!).includes("body a")).toBe(!entryVisible);
+          expect(text(rows[1]!)).toContain("body b");
+          expect(text(rows[2]!)).toContain("body c");
+          expect(text(rows[2]!)).not.toContain("body b");
+        }
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
+
+it.each(["read", "write"].flatMap((name) => [false, true].map((isError) => ({ name, isError }))))(
+  "uses finalized $name result outcome $isError in live and replayed rows",
+  async ({ name, isError }) => {
+    await withSession(async ({ session }) => {
+      const tui = interactiveHost(session);
+      try {
+        tui.renderSessionItems([]);
+        await session.bindExtensions({ mode: "tui" });
+        const directory = session.sessionManager.getCwd();
+        await writeFile(join(directory, "final-result.txt"), "BEFORE\n");
+        const args = {
+          path: "final-result.txt",
+          ...(name === "write" ? { content: "AFTER\n" } : {})
+        };
+        const call = toolCall("final-result", name, args);
+        const assistant = assistantMessage([call]);
+        session.sessionManager.appendMessage(assistant);
+        await tui.handleEvent({ type: "message_start", message: assistant });
+        await tui.handleEvent({
+          type: "message_update",
+          message: assistant,
+          assistantMessageEvent: {
+            type: "toolcall_end",
+            contentIndex: 0,
+            toolCall: call,
+            partial: assistant
+          }
+        });
+        await tui.handleEvent({ type: "message_end", message: assistant });
+        const tool = session.agent.state.tools.find((tool) => tool.name === name)!;
+        const result = await tool.execute(call.id, args);
+        await tui.handleEvent({
+          type: "tool_execution_end",
+          toolCallId: call.id,
+          toolName: name,
+          result: { ...result, content: [{ type: "text", text: "Superseded result" }] },
+          isError: !isError
+        });
+        const message = {
+          role: "toolResult" as const,
+          toolCallId: call.id,
+          toolName: name,
+          content: [{ type: "text" as const, text: "Final middleware result" }],
+          isError,
+          timestamp: 2
+        };
+        // Pi's message_end replacement is authoritative after tool_execution_end.
+        await tui.handleEvent({ type: "message_start", message });
+        await tui.handleEvent({ type: "message_end", message });
+        session.sessionManager.appendMessage(message);
+        const original = structuredClone(message);
+        const renderings: string[] = [];
+        for (const replay of [false, true]) {
+          if (replay) {
+            tui.chatContainer.clear();
+            tui.renderSessionEntries(session.sessionManager.buildContextEntries());
+          }
+          const row = tui.chatContainer.children.find(
+            (child) => child instanceof ToolExecutionComponent
+          )!;
+          for (const expanded of [false, true]) {
+            row.setExpanded(expanded);
+            const rendered = text(row);
+            expect(rendered).not.toContain("Superseded result");
+            expect(rendered.includes("Final middleware result")).toBe(
+              isError || (name === "read" && expanded)
+            );
+            expect(rendered.includes("Tool result reports failure after application.")).toBe(
+              name === "write" && isError
+            );
+            if (name === "write") {
+              expect(rendered).toContain("-BEFORE");
+              expect(rendered).toContain("+AFTER");
+            }
+            renderings.push(rendered);
+          }
+        }
+        expect(renderings.slice(0, 2)).toEqual(renderings.slice(2));
+        expect(message).toEqual(original);
+        expect(await readFile(join(directory, "final-result.txt"), "utf8")).toBe(
+          name === "write" ? "AFTER\n" : "BEFORE\n"
+        );
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
+
+it.each(["auto", "generic"])(
+  "uses finalized arguments in %s live summaries and expanded parameters",
+  async (renderer) => {
+    await withSession(
+      async ({ session }) => {
+        const tui = interactiveHost(session);
+        try {
+          tui.renderSessionItems([]);
+          const directory = session.sessionManager.getCwd();
+          await writeFile(join(directory, "before.ts"), "BEFORE_TARGET");
+          await writeFile(join(directory, "after.ts"), "AFTER_TARGET");
+          const streamedCall = toolCall("final-args", "read", { path: "before.ts" });
+          const streamed = assistantMessage([streamedCall]);
+          await tui.handleEvent({ type: "message_start", message: streamed });
+          await tui.handleEvent({
+            type: "message_update",
+            message: streamed,
+            assistantMessageEvent: {
+              type: "toolcall_end",
+              contentIndex: 0,
+              toolCall: streamedCall,
+              partial: streamed
+            }
+          });
+          const call = toolCall(streamedCall.id, "read", { path: "after.ts" });
+          const finalized = assistantMessage([call]);
+          session.sessionManager.appendMessage(finalized);
+          await tui.handleEvent({ type: "message_end", message: finalized });
+          await tui.handleEvent({
+            type: "tool_execution_start",
+            toolCallId: call.id,
+            toolName: "read",
+            args: call.arguments
+          });
+          const tool = session.agent.state.tools.find((tool) => tool.name === "read")!;
+          const result = await tool.execute(call.id, call.arguments);
+          expect(result.content).toEqual([{ type: "text", text: "AFTER_TARGET" }]);
+          await tui.handleEvent({
+            type: "tool_execution_end",
+            toolCallId: call.id,
+            toolName: "read",
+            result,
+            isError: false
+          });
+          session.sessionManager.appendMessage({
+            role: "toolResult",
+            toolCallId: call.id,
+            toolName: "read",
+            ...result,
+            isError: false,
+            timestamp: 2
+          });
+          const renderings: string[] = [];
+          for (const replay of [false, true]) {
+            if (replay) {
+              tui.chatContainer.clear();
+              tui.renderSessionEntries(session.sessionManager.buildContextEntries());
+            }
+            const row = tui.chatContainer.children.find(
+              (child) => child instanceof ToolExecutionComponent
+            )!;
+            for (const expanded of [false, true]) {
+              row.setExpanded(expanded);
+              const rendered = text(row);
+              expect(rendered).toContain("after.ts");
+              expect(rendered).not.toContain("before.ts");
+              if (expanded) {
+                expect(rendered).toContain('"path"');
+                expect(rendered).toContain("AFTER_TARGET");
+              }
+              renderings.push(rendered);
+            }
+          }
+          expect(renderings.slice(0, 2)).toEqual(renderings.slice(2));
+          expect(streamedCall.arguments.path).toBe("before.ts");
+          expect(call.arguments.path).toBe("after.ts");
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
+      },
+      { showParameters: true, rendererOverrides: { read: renderer } }
     );
-    expect(output.content).toEqual([{ type: "text", text: `preserved\n${directory}\n` }]);
-    expect(updates.length).toBeGreaterThan(0);
-    await expect(bash.execute("bash-2", { command: "exit 7" })).rejects.toThrow(
-      "Command exited with code 7"
-    );
-    await expect(
-      edit.execute(
-        "edit-2",
-        { path: "example.txt", edits: [{ oldText: "after", newText: "never" }] },
-        AbortSignal.abort()
-      )
-    ).rejects.toThrow("aborted");
-    expect(await readFile(join(directory, "example.txt"), "utf8")).toBe("after\n");
-  });
-});
+  }
+);
+
+it.each(
+  ["live", "replay"].flatMap((mode) =>
+    [
+      { notice: "diagnostic", enabled: true, visible: true },
+      { notice: "diagnostic", enabled: false, visible: false },
+      { notice: "cache miss", enabled: true, visible: true },
+      { notice: "cache miss", enabled: false, visible: false },
+      { notice: "small cache miss", enabled: true, visible: false }
+    ].map((scenario) => ({ ...scenario, mode }))
+  )
+)(
+  "separates $mode groups only for visible $notice notices (enabled: $enabled)",
+  async ({ mode, notice, enabled, visible }) => {
+    await withSession(async ({ session }) => {
+      session.settingsManager.setShowCacheMissNotices(enabled);
+      const tui = interactiveHost(session);
+      try {
+        tui.renderSessionItems([]);
+        const messages = ["a", "b", "c"].map((name, index) =>
+          assistantMessage([toolCall(name, "read", { path: `${name}.ts` })], index + 1)
+        );
+        if (notice === "diagnostic") {
+          messages[0]!.diagnostics = [
+            {
+              type: "anthropic_input_transformations",
+              timestamp: 1,
+              details: { transformations: [{ type: "thinking_dropped", reason: "fixture" }] }
+            }
+          ];
+        } else {
+          const tokens = notice === "small cache miss" ? 2000 : 30000;
+          const previous = assistantMessage([], 0);
+          previous.usage.cacheWrite = tokens;
+          session.sessionManager.appendMessage(previous);
+          messages[0]!.usage.input = tokens;
+          for (const message of messages.slice(1)) message.usage.cacheRead = tokens;
+        }
+        const history: unknown[] = [];
+        for (const message of messages) {
+          const result = {
+            role: "toolResult" as const,
+            toolCallId: (message.content[0] as ReturnType<typeof toolCall>).id,
+            toolName: "read",
+            content: [{ type: "text" as const, text: `body ${message.timestamp}` }],
+            isError: false,
+            timestamp: message.timestamp
+          };
+          if (mode === "live") {
+            await tui.handleEvent({ type: "message_start", message });
+            await tui.handleEvent({
+              type: "message_update",
+              message,
+              assistantMessageEvent: {
+                type: "toolcall_end",
+                contentIndex: 0,
+                toolCall: message.content[0] as ReturnType<typeof toolCall>,
+                partial: message
+              }
+            });
+            await tui.handleEvent({ type: "message_end", message });
+            await tui.handleEvent({
+              type: "tool_execution_end",
+              toolCallId: result.toolCallId,
+              toolName: "read",
+              result,
+              isError: false
+            });
+          }
+          session.sessionManager.appendMessage(message);
+          session.sessionManager.appendMessage(result);
+          history.push(message, result);
+        }
+        if (mode === "replay") tui.renderSessionItems(history);
+        const transcript = tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
+        expect(
+          transcript.includes(notice === "diagnostic" ? "Anthropic dropped" : "Cache miss")
+        ).toBe(visible);
+        const rows = tui.chatContainer.children.filter(
+          (child) => child instanceof ToolExecutionComponent
+        );
+        expect(
+          rows
+            .map(text)
+            .join("\n")
+            .match(/Explored/g)
+        ).toHaveLength(visible ? 2 : 1);
+        expect(rows[1]!.render(80)[0] === "").toBe(visible);
+        rows[1]!.setExpanded(true);
+        expect(text(rows[1]!)).toContain("body 2");
+        expect(text(rows[2]!)).toContain("body 3");
+        expect(text(rows[0]!).includes("body 1")).toBe(!visible);
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
 
 it.each(["print", "json", "rpc"] as const)(
   "removes the hook in %s mode, including reload",
@@ -957,26 +1525,33 @@ it("leaves external owner rendering untouched, including built-in names and inhe
   const dispose = installHostIntegration();
   try {
     for (const name of ["read", "external_tool"]) {
-      for (const source of ["remote-extension", "sdk"]) {
+      for (const [source, inherited] of [
+        ["remote-extension", false],
+        ["sdk", true]
+      ] as const) {
         for (const renderers of [
-          {},
           { renderCall: () => new Text("owner call") },
           { renderResult: () => new Text("owner result") }
         ]) {
-          const definition = Object.freeze({
-            ...createReadToolDefinition("/tmp"),
-            name,
-            ...renderers
-          });
+          const definition = { ...createReadToolDefinition("/tmp"), name };
+          delete definition.renderCall;
+          delete definition.renderResult;
+          if (inherited) Object.setPrototypeOf(definition, renderers);
+          else Object.assign(definition, renderers);
+          Object.freeze(definition);
           const session = { ...lookupSession(name, source), getToolDefinition: () => definition };
+          const ownership = vi.spyOn(session, "getAllTools");
           const previous = original.call({ session }, name);
           expect(host.getRegisteredToolDefinition.call({ session }, name)).toEqual(previous);
+          expect(ownership).toHaveBeenCalled();
         }
       }
     }
-    const session = lookupSession("unknown_builtin");
-    const previous = original.call({ session }, "unknown_builtin");
-    expect(host.getRegisteredToolDefinition.call({ session }, "unknown_builtin")).toBe(previous);
+    // A tool without an owner must be decorated, proving lookup is not simply failing open.
+    const session = { ...lookupSession("unknown_builtin"), getToolDefinition: () => undefined };
+    expect(host.getRegisteredToolDefinition.call({ session }, "unknown_builtin")?.renderShell).toBe(
+      "self"
+    );
   } finally {
     dispose?.();
   }
@@ -1015,31 +1590,35 @@ it.each(["missing", "non-writable"])(
 
 it("returns an available original view when decoration fails and never retries a failing previous lookup", () => {
   const original = host.getRegisteredToolDefinition;
-  const session = lookupSession();
+  const session: LookupSession = { ...lookupSession(), getToolDefinition: () => undefined };
   const view = original.call({ session }, "read");
   const previous = vi.fn().mockReturnValue(view);
   host.getRegisteredToolDefinition = previous;
   const dispose = installHostIntegration();
   try {
-    session.getAllTools = () => {
+    const ownershipFailure = vi.fn(() => {
       throw new Error("ownership unavailable");
-    };
+    });
+    session.getAllTools = ownershipFailure;
     expect(host.getRegisteredToolDefinition.call({ session }, "read")).toBe(view);
     expect(previous).toHaveBeenCalledTimes(1);
+    expect(ownershipFailure).toHaveBeenCalledOnce();
 
     session.getAllTools = lookupSession().getAllTools;
+    const copyFailure = vi.fn(() => {
+      throw new Error("cannot copy view");
+    });
     const invalidView = Object.defineProperty({}, "renderCall", {
       enumerable: true,
-      get: () => {
-        throw new Error("cannot copy view");
-      }
+      get: copyFailure
     });
     previous.mockReturnValue(invalidView);
     expect(host.getRegisteredToolDefinition.call({ session }, "read")).toBe(invalidView);
     expect(previous).toHaveBeenCalledTimes(2);
+    expect(copyFailure).toHaveBeenCalledOnce();
 
     previous.mockReturnValue(undefined);
-    expect(host.getRegisteredToolDefinition.call({ session }, "read")).toBeUndefined();
+    expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).toBe("self");
     expect(previous).toHaveBeenCalledTimes(3);
 
     const failure = new Error("previous lookup failed");
@@ -1072,8 +1651,6 @@ it("replaces repeated installations and preserves later wrappers during repeated
     expect(host.getRegisteredToolDefinition).toBe(laterWrapper);
     const session = {
       ...lookupSession(),
-      settingsManager: SettingsManager.inMemory(),
-      sessionManager: SessionManager.inMemory(),
       getToolDefinition: () => undefined
     };
     expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).not.toBe(

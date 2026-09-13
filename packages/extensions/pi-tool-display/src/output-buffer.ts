@@ -51,7 +51,7 @@ export class OutputBuffer {
   private line = new RetainedLine();
   private completed = 0;
   private finished = false;
-  totalBytes = 0;
+  private totalBytes = 0;
   append(buffer: Buffer): void {
     if (this.finished) return;
     this.totalBytes += buffer.length;
@@ -82,30 +82,17 @@ export class OutputBuffer {
       this.line = new RetainedLine();
     }
   }
-  snapshot(): OutputText & { totalLines: number; retainedLines: number; totalBytes: number } {
-    const partial = this.line.bytes > 0 ? 1 : 0;
-    const totalLines = this.completed + partial;
-    if (this.full !== undefined)
-      return {
-        text: this.full,
-        totalLines,
-        retainedLines: totalLines,
-        totalBytes: this.totalBytes
-      };
+  snapshot(): OutputText {
+    if (this.full !== undefined) return { text: this.full };
     const omitted = this.completed - this.head.length - this.tail.length;
-    return {
-      ...joinOutputText(
-        [
-          ...this.head,
-          ...(omitted ? [outputOmission(`… ${omitted} lines omitted …`)] : []),
-          ...this.tail,
-          ...(partial ? [this.line.text()] : [])
-        ],
-        "\n"
-      ),
-      totalLines,
-      retainedLines: this.head.length + this.tail.length + partial,
-      totalBytes: this.totalBytes
-    };
+    return joinOutputText(
+      [
+        ...this.head,
+        ...(omitted ? [outputOmission(`… ${omitted} lines omitted …`)] : []),
+        ...this.tail,
+        ...(this.line.bytes > 0 ? [this.line.text()] : [])
+      ],
+      "\n"
+    );
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { invocationParts, resultText } from "./presentation.ts";
+import { invocationParts } from "./presentation.ts";
 
 describe("tool presentation", () => {
   it("accepts partial arguments and preserves paths, read ranges, and search scope", () => {
@@ -43,18 +43,5 @@ describe("tool presentation", () => {
     expect(shell.filter((part) => part.kind === "annotation").map((part) => part.text)).toEqual([
       " (timeout 5s)"
     ]);
-  });
-
-  it("keeps every text/media block without including image bytes", () => {
-    expect(
-      resultText({
-        content: [
-          { type: "text", text: "first" },
-          { type: "image", mimeType: "image/png", data: "private-image-data" },
-          { type: "text", text: "last\n" }
-        ],
-        details: undefined
-      })
-    ).toBe("first\n[Image: image/png]\nlast");
   });
 });

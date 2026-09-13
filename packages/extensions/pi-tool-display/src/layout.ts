@@ -84,12 +84,11 @@ export function compactRows(
   return [...rows.slice(0, head), notice, ...(tail > 0 ? rows.slice(-tail) : [])];
 }
 
-/** A meaningful item with already measured content and optional child items.
- * Related notices, metadata, and wrapped lines stay in rows, not separate children.
+/** A meaningful item with already measured content.
+ * Related notices, metadata, and wrapped lines stay in rows, not separate items.
  */
 export interface TreeItem {
   rows: string[];
-  children?: TreeItem[];
 }
 type StructureStyle = (text: string) => string;
 
@@ -107,24 +106,18 @@ export function renderTree(
   followingSibling = false
 ): string[] {
   if (width < 1) return [];
-  const visit = (siblings: readonly TreeItem[], prefix: string, following: boolean): string[] => {
-    const visible = siblings.filter((item) => item.rows.length > 0);
-    return visible.flatMap((item, index) => {
-      const more = index < visible.length - 1 || following;
-      const continuation = prefix + continuationPrefix(more);
-      return [
-        ...item.rows.map((row, offset) =>
-          truncateToWidth(
-            style(offset === 0 ? prefix + (more ? "├ " : "└ ") : continuation) + row,
-            width,
-            ""
-          )
-        ),
-        ...visit(item.children ?? [], continuation, false)
-      ];
-    });
-  };
-  return visit(items, "  ", followingSibling);
+  const visible = items.filter((item) => item.rows.length > 0);
+  return visible.flatMap((item, index) => {
+    const more = index < visible.length - 1 || followingSibling;
+    const continuation = "  " + continuationPrefix(more);
+    return item.rows.map((row, offset) =>
+      truncateToWidth(
+        style(offset === 0 ? (more ? "  ├ " : "  └ ") : continuation) + row,
+        width,
+        ""
+      )
+    );
+  });
 }
 
 /** Continuations of the card heading, including parameters. No branch is invented
@@ -141,6 +134,6 @@ export function renderTreeContinuation(
   return rows.map((row) => truncateToWidth(prefix + row, width, ""));
 }
 
-export function bodyWidth(width: number, depth = 1): number {
-  return Math.max(1, width - 2 - depth * 2);
+export function bodyWidth(width: number): number {
+  return Math.max(1, width - 4);
 }

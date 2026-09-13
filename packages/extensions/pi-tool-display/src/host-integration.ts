@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import {
   AgentSession,
+  AssistantMessageComponent,
   CONFIG_DIR_NAME,
   getAgentDir,
   InteractiveMode,
@@ -11,7 +12,7 @@ import {
   type ExtensionAPI,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
-import type { Component, TUI } from "@earendil-works/pi-tui";
+import { Container, type Component, type TUI } from "@earendil-works/pi-tui";
 
 import { selectAdapter } from "./adapters/registry.ts";
 import type { CallReference, DisplayCall, DisplayFact } from "./display-model.ts";
@@ -39,12 +40,16 @@ interface Host {
   ui?: TUI;
   chatContainer?: { children: Component[] };
   toolOutputExpanded?: boolean;
+  streamingComponent?: AssistantMessageComponent;
+  addMessageToChat?: (this: Host, message: unknown, options?: unknown) => void;
+  addCustomEntryToChat?: (this: Host, entry: unknown) => void;
   getRegisteredToolDefinition: (this: Host, name: string) => RenderDefinition;
   renderSessionItems: (this: Host, items: unknown[], options?: unknown) => void;
   handleEvent: (this: Host, event: AgentSessionEvent) => Promise<void>;
+  maybeShowAssistantDiagnostics?: (this: Host, message: unknown) => void;
+  addCacheMissNotice?: (this: Host, notice: unknown) => void;
 }
 interface RowInternals {
-  toolCallId: string;
   toolDefinition?: RenderDefinition;
 }
 interface Binding {
@@ -412,11 +417,7 @@ export function installHostIntegration(
   ) {
     const value = record(input);
     const coordinator = binding.coordinator;
-    if (value.type === "custom") {
-      if (binding.host.session.extensionRunner.getEntryRenderer(String(value.customType)))
-        coordinator.boundary();
-      return;
-    }
+    if (value.type === "custom") return; // The host may suppress or reposition this entry.
     if (value.role === "custom" && value.display === false) return;
     if (value.role === "toolResult") {
       const call = coordinator.byId(String(value.toolCallId));
@@ -447,17 +448,7 @@ export function installHostIntegration(
     value.content.forEach((block: unknown, index: number) => {
       const content = record(block);
       const position = `${timestamp}:${index}`;
-      if (content.type !== "toolCall") {
-        if (
-          !binding.messages.has(position) &&
-          (content.type === "text" || content.type === "thinking") &&
-          stringField(content.text ?? content.thinking).trim()
-        ) {
-          coordinator.boundary();
-          binding.messages.add(position);
-        }
-        return;
-      }
+      if (content.type !== "toolCall") return; // Pi renders assistant content before its tool rows.
       const name = String(content.name);
       const selected = adapter(binding.host.session, name, binding.settings);
       if (!selected) {
@@ -512,15 +503,47 @@ export function installHostIntegration(
       aborted ? "cancelled" : "failure"
     );
   }
+  function precedingCall(binding: Binding, component: Component): DisplayCall | undefined {
+    if (!active || hosts.get(binding.host) !== binding) return;
+    const children = binding.host.chatContainer?.children ?? [];
+    for (let index = children.indexOf(component) - 1; index >= 0; index--) {
+      const child = children[index];
+      if (!(child instanceof ToolExecutionComponent)) continue;
+      const call = rowCalls.get((child as unknown as RowInternals).toolDefinition as object);
+      if (call) return call;
+    }
+  }
+  function boundaryBefore(binding: Binding, component: Component): void {
+    const call = precedingCall(binding, component);
+    if (call) binding.coordinator.boundary(call);
+  }
+  function assistantBoundary(binding: Binding, component: Component | undefined): void {
+    // Pi 0.85.1 keeps rendered text/thinking and generated errors in a child Container.
+    // Final-message middleware can remove previously visible streaming content.
+    if (!(component instanceof AssistantMessageComponent)) return;
+    const visible = component.children.some(
+      (child) => child instanceof Container && child.children.length > 0
+    );
+    binding.coordinator.setBoundary(
+      component,
+      visible ? precedingCall(binding, component) : undefined
+    );
+  }
+  function compactionBoundary(host: Host, before: readonly Component[] | undefined): void {
+    if (!before) return;
+    const binding = hosts.get(host);
+    const last = host.chatContainer?.children.at(-1);
+    // Success reconstructs the binding; failures/cancellation can append notices without it.
+    if (binding && last && !before.includes(last)) boundaryBefore(binding, last);
+  }
   function bindRows(binding: Binding) {
     // A host event can reconstruct the transcript and replace its binding before returning.
     if (!active || hosts.get(binding.host) !== binding) return;
     for (const child of binding.host.chatContainer?.children ?? []) {
       if (!(child instanceof ToolExecutionComponent) || binding.boundRows.has(child)) continue;
       const row = child as unknown as RowInternals;
-      const call =
-        rowCalls.get(row.toolDefinition as object) ?? binding.coordinator.byId(row.toolCallId);
-      if (!call || !rowCalls.has(row.toolDefinition as object)) continue;
+      const call = rowCalls.get(row.toolDefinition as object);
+      if (!call) continue;
       binding.boundRows.add(child);
       binding.rowDisposers.push(
         joinGroupedRow(
@@ -534,7 +557,10 @@ export function installHostIntegration(
       // oxlint-disable-next-line typescript/unbound-method
       const previous = child.setExpanded;
       const setExpanded = function (expanded: boolean) {
-        binding.coordinator.expand(call, expanded);
+        if (active && hosts.get(binding.host) === binding)
+          binding.coordinator.expand(call, expanded);
+        // Later wrappers can retain this callback after disposal or reconstruction.
+        else previous.call(child, expanded);
       };
       child.setExpanded = setExpanded;
       const detach = binding.coordinator.attach(call, {
@@ -666,6 +692,37 @@ export function installHostIntegration(
       };
       replace(sessionPrototype, "_refreshToolRegistry", installedRefresh);
     }
+    // Pi derives notices and can suppress custom entries or insert them before streaming
+    // rows. Observe the actual insertion, not registration or the last indexed call.
+    for (const key of [
+      "maybeShowAssistantDiagnostics",
+      "addCacheMissNotice",
+      "addCustomEntryToChat"
+    ] as const) {
+      const insert = prototype[key];
+      if (typeof insert !== "function") continue;
+      replace(prototype, key, function (this: Host, value: unknown) {
+        const binding = active ? hosts.get(this) : undefined;
+        if (!binding) return insert.call(this, value);
+        const before = this.chatContainer?.children.slice() ?? [];
+        const result = insert.call(this, value);
+        const children = this.chatContainer?.children ?? [];
+        if (children.length > before.length) {
+          const inserted = children.find((child, index) => child !== before[index]);
+          if (inserted) boundaryBefore(binding, inserted);
+        }
+        return result;
+      });
+    }
+    const addMessage = prototype.addMessageToChat;
+    if (typeof addMessage === "function")
+      replace(prototype, "addMessageToChat", function (this: Host, value, options) {
+        const result = addMessage.call(this, value, options);
+        const binding = active ? hosts.get(this) : undefined;
+        if (binding && record(value).role === "assistant")
+          assistantBoundary(binding, this.chatContainer?.children.at(-1));
+        return result;
+      });
     const reconstruct = prototype.renderSessionItems;
     const handle = prototype.handleEvent;
     if (typeof reconstruct === "function" && typeof handle === "function") {
@@ -682,8 +739,6 @@ export function installHostIntegration(
       replace(prototype, "handleEvent", async function (this: Host, event) {
         const binding = active ? ensure(this) : undefined;
         if (binding) {
-          if (event.type === "entry_appended" && event.entry.type === "custom")
-            message(binding, event.entry, "live");
           if (
             event.type === "message_start" ||
             event.type === "message_update" ||
@@ -710,8 +765,16 @@ export function installHostIntegration(
           }
           if (event.type === "agent_end") binding.coordinator.settle();
         }
+        // message_end updates the component and clears the host's streaming reference.
+        const streaming = this.streamingComponent;
+        const compactionChildren =
+          event.type === "compaction_end" ? this.chatContainer?.children.slice() : undefined;
         await handle.call(this, event);
-        if (binding) bindRows(binding);
+        compactionBoundary(this, compactionChildren);
+        if (binding) {
+          assistantBoundary(binding, this.streamingComponent ?? streaming);
+          bindRows(binding);
+        }
       });
     } else warning("transcript row contract unavailable; grouping disabled.");
     prototype[hook] = dispose;

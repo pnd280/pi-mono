@@ -19,4 +19,4 @@ Repository-root `.` searches, bare fuzzy queries, generic filters such as `*.ts`
 
 ## Git ignore rules
 
-Uses Git's effective ignore rules and tracked-file exceptions, including repository-local and global exclusions. Supports worktrees and external repositories. For paths inside the workspace, uses the workspace repository's ignore rules even when the path belongs to a nested repository. Non-ignored links are also checked in their destination repositories.
+Uses Git's effective ignore rules and tracked-file exceptions, including repository-local and global exclusions. Supports worktrees and external repositories. For paths inside the workspace, uses the workspace repository's ignore rules even when the path belongs to a nested repository. Non-ignored links are also checked at their destinations: same-workspace targets retain workspace ignore authority, while external targets use their own repositories.

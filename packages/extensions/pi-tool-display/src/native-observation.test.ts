@@ -241,7 +241,7 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   }
 );
 
-it("observes validated mutations inside Pi's queue, including aliases, CRLF, and capture failures", async () => {
+it("preserves queued mutations, aliases, CRLF, cancellation, and observer failures", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-native-change-"));
   try {
     const facts = new Map<string, DisplayFact[]>();
@@ -312,6 +312,17 @@ it("observes validated mutations inside Pi's queue, including aliases, CRLF, and
       )
     ).rejects.toThrow();
     expect(facts.has("no-change")).toBe(false);
+    await expect(
+      edit.execute(
+        "cancelled-edit",
+        { path: "file", edits: [{ oldText: "ALPHA", newText: "never" }] },
+        AbortSignal.abort(),
+        undefined,
+        context
+      )
+    ).rejects.toThrow("aborted");
+    expect(facts.has("cancelled-edit")).toBe(false);
+    expect(await readFile(join(directory, "file"), "utf8")).toBe("ALPHA\r\nBETA\r\n");
     await Promise.all([
       write.execute(
         "queued-write-1",

@@ -130,6 +130,39 @@ it("retains every ordered call and failure while expanding the group together", 
   expect(c.group(afterCustom)?.members).toEqual([afterCustom]);
   c.dispose();
 });
+it("withdraws only the owning component's boundary and preserves other separators", () => {
+  const { coordinator: c, add, start } = fixture();
+  try {
+    const calls = ["a", "b", "c"].map((path) => add("read", path, "historical"));
+    const [first, second] = calls;
+    const assistant = {},
+      entry = {};
+    c.setBoundary(assistant, first);
+    c.setBoundary(entry, first);
+    c.setBoundary(assistant);
+    expect(c.group(first!)?.members).toEqual([first]);
+    expect(c.group(second!)?.members).toEqual(calls.slice(1));
+    c.setBoundary(entry);
+    expect(c.group(first!)?.members).toEqual(calls);
+    c.setBoundary(assistant, second);
+    expect(c.group(first!)?.members).toEqual(calls.slice(0, 2));
+    c.boundary(second);
+    c.setBoundary(assistant);
+    expect(c.group(first!)?.members).toEqual(calls.slice(0, 2));
+    c.setBoundary(assistant, first);
+    c.setBoundary(assistant, second);
+    expect(c.group(first!)?.members).toEqual(calls.slice(0, 2));
+    c.expand(first!, true);
+    expect(calls.map((call) => call.expanded)).toEqual([true, true, false]);
+    expect(start).not.toHaveBeenCalled();
+    c.dispose();
+    c.setBoundary(assistant, first);
+    expect(c.calls.size).toBe(0);
+  } finally {
+    c.dispose();
+  }
+});
+
 it("applies global expansion once per group while keeping independent groups synchronized", () => {
   const { coordinator: c, add } = fixture();
   try {
@@ -184,6 +217,44 @@ it("runs one scheduler only for known live activity, rejects late previews, and 
   c.dispose();
   expect(stop).toHaveBeenCalledTimes(1);
 });
+it("retains a live call's row and outcome when finalized content moves its source position", () => {
+  const { coordinator: c, start, stop } = fixture();
+  try {
+    const reference = { messageTimestamp: 1, contentIndex: 1, toolCallId: "moved" };
+    const first = c.add(reference, "read", { path: "first.ts" }, nativeAdapter("read")!, "live");
+    const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+    c.attach(first, row);
+    c.expand(first, true);
+    const finalized = { ...reference, contentIndex: 0 };
+    const same = c.add(finalized, "read", { path: "final.ts" }, nativeAdapter("read")!, "live");
+    expect(same).toBe(first);
+    expect(first.reference).toEqual(finalized);
+    expect(first.args).toEqual({ path: "final.ts" });
+    expect(first.expanded).toBe(true);
+    expect(c.calls.size).toBe(1);
+    expect(c.group(first)?.members).toEqual([first]);
+    row.invalidate.mockClear();
+    c.result(c.byId("moved")!, result("only this call failed"), "failure");
+    expect(row.invalidate).toHaveBeenCalled();
+    c.settle();
+    expect(first.lifecycle).toBe("complete");
+    expect(first.outcome).toBe("failure");
+    expect(start).toHaveBeenCalledOnce();
+    expect(stop).toHaveBeenCalledOnce();
+    const next = c.add(
+      { ...finalized, messageTimestamp: 2 },
+      "read",
+      {},
+      nativeAdapter("read")!,
+      "live"
+    );
+    expect(next).not.toBe(first);
+    expect(c.calls.size).toBe(2);
+  } finally {
+    c.dispose();
+  }
+});
+
 it("keeps historical missing results still and separates identical call IDs by source position", () => {
   const { coordinator: c, start } = fixture();
   const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "duplicate" };

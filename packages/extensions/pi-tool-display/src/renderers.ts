@@ -531,7 +531,8 @@ function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem
           }
         ];
   // Saved files contain process output, not Pi's failure footer or result middleware diagnostics.
-  if (preview !== undefined && !p.context.isError) return items;
+  if (preview !== undefined && !p.context.isError)
+    return [...items, ...imageItems(result.content, p)];
   const textContext = {
     ...p.context,
     hasImages: result.content.some((block) => block.type === "image")
@@ -656,7 +657,7 @@ function resultBody(result: AgentToolResult<unknown>, p: Projection): ResultBody
         content.flatMap((item) => item.rows)
       );
     else items.push(...content);
-  }
+  } else items.push(...imageItems(current.content, p));
   if (!change.hasPatch) appendDetails(items, change.rows);
   return annotateResult(items, annotations);
 }
@@ -692,7 +693,17 @@ export function createToolDisplayRenderers(
       name: displayText(name),
       adapter: current,
       showParameters: current.id === "generic" || options.showParameters === true,
-      context,
+      // Pi's row can retain streamed arguments and the pre-message_end error flag.
+      context: binding
+        ? {
+            ...context,
+            args: binding.call.args,
+            isError:
+              binding.call.lifecycle === "complete"
+                ? binding.call.outcome === "failure" || binding.call.outcome === "cancelled"
+                : context.isError
+          }
+        : context,
       theme,
       width,
       expanded: binding?.coordinator.calls.has(binding.call.key)
