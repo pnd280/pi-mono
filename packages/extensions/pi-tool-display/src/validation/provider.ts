@@ -74,7 +74,26 @@ function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
       ]
     ],
     ["cancel", [shell('console.log("Cancel this call with Esc"); setTimeout(() => {}, 30000);')]],
-    ["public", [{ name: "display_fixture_read", args: { path: path("a.ts") } }]]
+    ["public", [{ name: "display_fixture_read", args: { path: path("a.ts") } }]],
+    [
+      "mcp",
+      [
+        { name: "mcp", args: { connect: "display" } },
+        { name: "mcp", args: { describe: "display_echo" } },
+        {
+          name: "mcp",
+          args: { tool: "echo", server: "display", args: { value: "gateway output" } }
+        },
+        { name: "mcp__display", args: { tool: "image" } },
+        { name: "direct_echo", args: { value: "direct output" } },
+        {
+          name: "mcpScript",
+          args: { code: 'emit(await tools.call("display_echo", { value: "script output" }));' }
+        },
+        { name: "mcp", args: { tool: "fail", server: "display" } },
+        { name: "mcp", args: { tool: "large", server: "display" } }
+      ]
+    ]
   ]);
 }
 

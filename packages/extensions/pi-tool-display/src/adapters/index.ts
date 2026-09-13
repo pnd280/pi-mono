@@ -2,6 +2,8 @@ export { officialFffAdapter } from "./fff/index.ts";
 
 export { genericAdapter } from "./generic.ts";
 
+export { officialMcpAdapter } from "./mcp/index.ts";
+
 export { nativeAdapter } from "./native/index.ts";
 
 export { selectAdapter } from "./registry.ts";

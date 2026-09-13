@@ -99,11 +99,11 @@ Native contracts use `path`, read `offset`/`limit`, search `pattern`/scope, shel
 
 Adapters have:
 
-- `id`: stable contract identifier. `pi:*`, `fff:*`, and `generic` are reserved by this package.
+- `id`: stable contract identifier. `pi:*`, `fff:*`, `mcp:*`, and `generic` are reserved by this package.
 - `family`: `read`, `search`, `list`, `shell`, `edit`, `write`, or `invocation`.
 - `supports(args, result)`: optionally validate retained data for the automatic CLI integration. Returning `false` uses generic rendering and removes the call from exploration groups; a later supported result restores the adapter. Omission accepts the result. This callback runs only once a result exists, including partial updates; it does not change the selected adapter or retained data. Standalone factories use their explicitly supplied adapter directly.
 - `headingVerbs(args)`: optionally return a `[pending, complete]` pair to override action wording for supplied arguments. Omission or `undefined` uses the family's verbs. Cancellation and unavailable outcomes still take precedence; result presentation is unchanged.
-- `invocation(args)`: optionally supply header `InvocationPart[]` (`value`, `path`, `pattern`, `annotation`, or `parameters`, each with `text`) when arguments differ from the family's native shape. The FFF multi-search adapter uses this for `patterns` and `constraints`. Use `path` for a concrete file target, `pattern` for a highlighted search pattern, and `value` for other literal text or filter expressions. Paths are formatted against Pi's render cwd; adapter callbacks still receive the original arguments. Parts follow parameter visibility and semantic styling; the type is exported from `pi-tool-display/adapters`.
+- `invocation(args, result?)`: optionally supply header `InvocationPart[]` (`value`, `path`, `pattern`, `annotation`, or `parameters`, each with `text`) when arguments differ from the family's native shape. The FFF multi-search adapter uses this for `patterns` and `constraints`. Use `path` for a concrete file target, `pattern` for a highlighted search pattern, and `value` for other literal text or filter expressions. Paths are formatted against Pi's render cwd; adapter callbacks still receive the original arguments. Only `parameters` parts are hidden when `showParameters` is false, including for invocation-family adapters. Put optional parameter delimiters inside that part so hiding it leaves no empty punctuation. Use the optional retained result to resolve tool identities. The type is exported from `pi-tool-display/adapters`.
 - `exploration(args, result?)`: optional ordered `{ label: "Read" | "Search" | "List", parts: InvocationPart[] }` items for the automatic CLI integration; return `undefined` or an empty array when the contract is unavailable. Result updates can remove or restore a call's group membership without changing source order.
 - `patch: true`: interpret successful `details.patch` as a bounded unified patch.
 - `savedOutput: true`: declare `details.fullOutputPath` meaningful to the automatic CLI integration. The standalone factory does not load files.
@@ -112,28 +112,15 @@ Adapters have:
 - `imageCaptionMimeType(text)`: optionally identify the MIME type described by a known text caption. For complete successful results, a matching adjacent image omits its redundant generated fallback label. The caption text and Pi-owned image remain unchanged.
 - `mcp(args, result?)`: supply the typed facts below.
 
-`officialFffAdapter(toolInfo)` checks official FFF ownership and required schema/result shapes, including recognized FFF-owned override names. It neither enables disabled FFF tools nor calls the search engine. See [adapter development](adapters.md) for automatic selection and adding another provider contract.
+Built-in resolvers [`officialFffAdapter(toolInfo)`](adapters.md#fff) and [`officialMcpAdapter(toolInfo)`](adapters.md#pi-mcp-adapter) verify provider ownership and supported contracts. See [adapter development](adapters.md) for automatic selection and adding another provider.
 
 ## MCP facts
 
-A protocol owner can return `McpFacts` through its adapter:
+The adapter's `mcp(args, result?)` callback returns `McpFacts`, or `undefined` when typed facts are unavailable. Facts contain `server`, `tool`, `outcome` (`transport-error`, `returned-error`, `success`, or `unavailable`), and ordered content blocks:
 
 ```ts
-import type { McpFacts, ToolDisplayAdapter } from "pi-tool-display/adapters";
+import type { McpFacts } from "pi-tool-display/adapters";
 
-const adapter: ToolDisplayAdapter = {
-  id: "example:mcp-search",
-  family: "invocation",
-  mcp(_args, result): McpFacts | undefined {
-    // decodeMcpFacts is the owner's validation of its own retained details.
-    return decodeMcpFacts(result?.details);
-  }
-};
-```
-
-Facts contain `server`, `tool`, `outcome` (`transport-error`, `returned-error`, `success`, or `unavailable`), and ordered content blocks:
-
-```ts
 const facts: McpFacts = {
   server: "documentation",
   tool: "search",

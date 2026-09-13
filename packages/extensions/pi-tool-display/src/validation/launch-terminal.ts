@@ -13,7 +13,7 @@ Creates disposable files, settings, temporary output, and session history.
 Prints their directory and retains it after exit for replay.
 Use --reuse with that directory to reopen it without resetting files.
 Additional arguments are passed to the installed Pi executable.
-Prompts: explore, diff, output, cancel, images, public`);
+Prompts: explore, diff, output, cancel, images, public, mcp (requires MCP fixture setup)`);
 } else if (mode !== "regular" && mode !== "fullscreen") {
   console.error("Choose regular or fullscreen; use --help for usage.");
   process.exitCode = 1;
@@ -27,7 +27,9 @@ Prompts: explore, diff, output, cancel, images, public`);
   } else directory = await createFixtureWorkspace();
   const launch = await fixtureLaunch(directory);
   console.log(`Fixture directory: ${directory}`);
-  console.log("Prompts: explore, diff, output, cancel, images, public");
+  console.log(
+    "Prompts: explore, diff, output, cancel, images, public, mcp (requires MCP fixture setup)"
+  );
   const child = spawn(launch.command, [...launch.args, "--tui-mode", mode, ...args], {
     ...launch.options,
     stdio: "inherit"

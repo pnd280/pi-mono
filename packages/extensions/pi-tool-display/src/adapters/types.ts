@@ -39,7 +39,7 @@ export interface ToolDisplayAdapter {
   supports?(args: unknown, result: AgentToolResult<unknown>): boolean;
   /** Override action wording without changing result presentation or terminal outcomes. */
   headingVerbs?(args: unknown): readonly [pending: string, complete: string] | undefined;
-  invocation?(args: unknown): InvocationPart[];
+  invocation?(args: unknown, result?: AgentToolResult<unknown>): InvocationPart[];
   exploration?(args: unknown, result?: AgentToolResult<unknown>): ExplorationItem[] | undefined;
   savedOutput?: boolean;
   patch?: boolean;

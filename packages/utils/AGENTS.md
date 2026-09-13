@@ -6,4 +6,4 @@
 
 ## Constraints and validation
 
-Keep utilities pure and shared by concrete consumers. Do not move extension display state, filesystem guard policy, tool execution, or Pi-private integration here. Changes to classification require scoped checks/tests for `@pi-mono/utils`, `pi-fff-guard`, and `pi-tool-display` under the workspace [verification workflow](../../docs/agents/verification.md).
+Do not move extension display state, filesystem guard policy, tool execution, or Pi-private integration here. Changes to classification require scoped checks/tests for `@pi-mono/utils`, `pi-fff-guard`, and `pi-tool-display` under the workspace [verification workflow](../../docs/agents/verification.md).

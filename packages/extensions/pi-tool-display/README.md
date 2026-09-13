@@ -14,7 +14,7 @@ Compact [file diffs](docs/renderers.md#diff-viewer) show changed code with nearb
 
 ## Tool coverage
 
-Verified native tools and official `@ff-labs/pi-fff` 0.10.6 search tools receive specialized cards. Other tools receive generic cards unless their owner supplies `renderCall` or `renderResult`. In that case, the owner's UI remains unchanged. Historical calls without a current tool definition use generic cards built from saved data.
+Verified native tools, [official `@ff-labs/pi-fff` 0.10.6 search tools](docs/adapters.md#fff), and [`pi-mcp-adapter` 2.33.0 tools](docs/adapters.md#pi-mcp-adapter) receive specialized cards. Other tools receive generic cards unless their owner supplies `renderCall` or `renderResult`. In that case, the owner's UI remains unchanged. Historical calls without a current tool definition use generic cards built from saved data.
 
 The [renderer API](docs/renderers.md) supports standalone integration by tool owners and SDK hosts. The [adapter development guide](docs/adapters.md) covers additional tool integrations.
 

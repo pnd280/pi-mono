@@ -374,12 +374,11 @@ function status(p: Projection): {
 function invocation(p: Projection): string {
   const mcp = p.adapter.mcp?.(p.context.args, p.result);
   const name = mcp ? displayText(`${mcp.server}.${mcp.tool}`) : p.name;
-  if (p.adapter.family === "invocation" && !p.showParameters) return p.theme.fg("accent", name);
+  const parts = p.adapter.invocation?.(p.context.args, p.result);
+  if (!parts && p.adapter.family === "invocation" && !p.showParameters)
+    return p.theme.fg("accent", name);
 
-  return (
-    p.adapter.invocation?.(p.context.args) ??
-    invocationParts(name, p.context.args, p.adapter.family)
-  )
+  return (parts ?? invocationParts(name, p.context.args, p.adapter.family))
     .filter((part) => part.kind !== "parameters" || p.showParameters)
     .map((part) => {
       const text = invocationPartText(part, p.context.cwd);
@@ -502,7 +501,8 @@ function changeRows(
 
 function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
   const items: TreeItem[] = [];
-  const failed = facts.outcome === "transport-error" || facts.outcome === "returned-error";
+  const failed =
+    p.context.isError || facts.outcome === "transport-error" || facts.outcome === "returned-error";
 
   for (const block of facts.content) {
     const text =

@@ -12,7 +12,7 @@ Use `/skill:codebase-review` after an implementation. Arguments may identify pac
 
 Read the repository's [AGENTS.md](../../../AGENTS.md) and applicable package instructions.
 
-Load companion skills only when a selected branch requests them. Resolve Pi's global skills directory in the shell as `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/skills/`. Look there and in any additional skill directories configured for the session for companion `SKILL.md` files. If a companion skill is unavailable, report the missing dependency and continue with repository conventions and the selected checks. Do not claim that the companion workflow ran.
+Load companion skills only when a selected branch requests them. Resolve Pi's global skills directory in the shell as `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/skills/`. Look there and in any additional skill directories configured for the session for companion `SKILL.md` files. If a companion skill is unavailable, report the missing dependency and continue with repository conventions and the selected checks.
 
 ## 1. Establish scope and intent
 
