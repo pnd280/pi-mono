@@ -80,8 +80,7 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
       if (!supportsFffCall(kind, args, result)) return undefined;
       const data = record(args);
       const listing = kind === "find" && data.pattern === "";
-      const scope =
-        stringField(kind === "multi" ? data.constraints : data.path) || (listing ? "." : "");
+      const scope = stringField(kind === "multi" ? data.constraints : data.path) || ".";
 
       return [
         {
@@ -90,12 +89,8 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
             kind === "multi" && isStringArray(data.patterns)
               ? { kind: "pattern", text: data.patterns.join(", ") }
               : patternPart(kind, data.pattern),
-            ...(scope
-              ? [
-                  { kind: "annotation" as const, text: " in " },
-                  { kind: "value" as const, text: scope }
-                ]
-              : [])
+            { kind: "annotation", text: " in " },
+            { kind: "value", text: scope }
           ]
         }
       ];

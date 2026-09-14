@@ -755,7 +755,7 @@ describe("tool display renderers", () => {
           'Search "" in packages/utils/src/fff-tools.ts',
           'Searched "" in packages/utils/src/fff-tools.ts'
         ],
-        ["ffgrep", { pattern: "" }, 'Search ""', 'Searched "" in .'],
+        ["ffgrep", { pattern: "" }, 'Search "" in .', 'Searched "" in .'],
         [
           "fffind",
           { pattern: "", path: "packages/" },

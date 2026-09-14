@@ -18,13 +18,13 @@ Registered schemas must declare `pattern` as a string or `patterns` as an array.
 
 ## Display behavior and limitations
 
-Supported calls participate in exploration groups. Explicit empty patterns remain valid searches: `ffgrep` displays `""`; `fffind` lists files in the supplied scope, defaulting to `.`. Missing patterns show `(pattern missing)` and do not qualify for grouping.
+Supported calls participate in exploration groups. Explicit empty patterns remain valid searches: `ffgrep` displays `""`; `fffind` lists files. Missing patterns show `(pattern missing)` and do not qualify for grouping.
 
-Search patterns and scope/filter expressions remain literal; they are not rewritten as file paths. Every pattern uses `syntaxString` in compact, standalone, and expanded summaries; scope/filter text retains `text`.
+Searches and file listings show `in .` when their scope is omitted or empty, in both compact and expanded summaries. Search patterns and scope/filter expressions remain literal; they are not rewritten as file paths.
 
 Pagination instructions, limit hints, and query/fallback diagnostics remain visible in compact and expanded cards, preserving the full text of combined notices and multiline queries. Matches remain available on expansion. Counts and file annotations use `dim`; pagination/limit notices and query/fallback diagnostics use `warning`.
 
-FFF text-envelope styling does not establish text provenance. The shared [interpretation limits](../../../../docs/renderers.md#semantic-colors) apply.
+The shared [semantic colors and interpretation limits](../../../../docs/renderers.md#semantic-colors) apply.
 
 ## Validation
 

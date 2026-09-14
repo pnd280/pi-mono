@@ -30,6 +30,30 @@ it("shows compact FFF pagination while retaining expanded match counts", () => {
   }
 });
 
+it.each(["fffind", "ffgrep", "fff-multi-grep"])(
+  "defaults compact %s searches to . while preserving explicit scopes",
+  (name) => {
+    const multi = name === "fff-multi-grep";
+    const adapter = piFffAdapter(fffToolInfo(name, multi))!;
+
+    for (const scope of [undefined, "", ".", "src/**"]) {
+      const args = multi
+        ? { patterns: ["token"], constraints: scope }
+        : { pattern: "token", path: scope };
+      expect(adapter.exploration?.(args)).toEqual([
+        {
+          label: "Search",
+          parts: [
+            { kind: "pattern", text: "token" },
+            { kind: "annotation", text: " in " },
+            { kind: "value", text: scope || "." }
+          ]
+        }
+      ]);
+    }
+  }
+);
+
 it("requires official ownership and supplied contracts without enabling disabled tools", () => {
   expect(piFffAdapter(undefined)).toBeUndefined();
   expect(piFffAdapter({ ...fffToolInfo("ffgrep"), parameters: {} })).toBeUndefined();
