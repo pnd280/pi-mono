@@ -111,7 +111,7 @@ it("regroups late historical contracts without changing results, source order, o
     c.attach(first, row);
     c.expand(first, true);
     const adapter = {
-      id: "fff:find",
+      id: "@ff-labs/pi-fff:find",
       family: "search" as const,
       exploration: () => [
         { label: "Search" as const, parts: [{ kind: "value" as const, text: "supplied pattern" }] }

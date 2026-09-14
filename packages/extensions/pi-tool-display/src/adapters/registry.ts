@@ -1,18 +1,18 @@
 import type { ToolDefinition, ToolInfo } from "@earendil-works/pi-coding-agent";
 
 import type { DisplaySettings } from "../settings.ts";
-import { officialFffAdapter } from "./fff/index.ts";
+import { piFffAdapter } from "./@ff-labs/pi-fff/index.ts";
 import { genericAdapter } from "./generic.ts";
-import { officialMcpAdapter } from "./mcp/index.ts";
 import { nativeAdapter } from "./native/index.ts";
+import { piMcpAdapter } from "./pi-mcp-adapter/index.ts";
 import type { ToolDisplayAdapter, ToolDisplayAdapterResolver } from "./types.ts";
 
 // First matching contract wins. Each entry explicitly opts its verified owner into
 // this display, even when that owner supplies renderer slots. Keep native ownership
 // separate: only the host can establish the factory provenance required for it.
 const extensionAdapterResolvers: readonly ToolDisplayAdapterResolver[] = [
-  officialFffAdapter,
-  officialMcpAdapter
+  piFffAdapter,
+  piMcpAdapter
 ];
 
 export function selectAdapter(

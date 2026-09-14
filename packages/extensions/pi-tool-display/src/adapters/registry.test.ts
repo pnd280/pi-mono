@@ -2,7 +2,7 @@ import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { expect, it } from "vite-plus/test";
 
 import { loadDisplaySettings } from "../settings.ts";
-import { fffToolInfo } from "./fff/test-fixture.ts";
+import { fffToolInfo } from "./@ff-labs/pi-fff/test-fixture.ts";
 import { genericAdapter, nativeAdapter, selectAdapter } from "./index.ts";
 
 const owner = { renderCall: () => ({ render: () => [], invalidate() {} }) };
@@ -23,7 +23,7 @@ it("applies renderer overrides before native and extension adapters", () => {
             ? "generic"
             : native
               ? "pi:grep"
-              : "fff:grep"
+              : "@ff-labs/pi-fff:grep"
       );
     }
 
@@ -43,7 +43,7 @@ it("selects verified extension contracts before owner slots and otherwise preser
 
   for (const original of renderers) {
     expect(selectAdapter(settings, "ffgrep", original, false, fffToolInfo("ffgrep"))?.id).toBe(
-      "fff:grep"
+      "@ff-labs/pi-fff:grep"
     );
 
     for (const info of [

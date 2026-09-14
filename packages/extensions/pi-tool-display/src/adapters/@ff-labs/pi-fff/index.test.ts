@@ -1,10 +1,10 @@
 import { expect, it } from "vite-plus/test";
 
-import { officialFffAdapter } from "./index.ts";
+import { piFffAdapter } from "./index.ts";
 import { fffToolInfo } from "./test-fixture.ts";
 it("shows compact FFF pagination while retaining expanded match counts", () => {
-  const find = officialFffAdapter(fffToolInfo("fffind"))!;
-  const grep = officialFffAdapter(fffToolInfo("ffgrep"))!;
+  const find = piFffAdapter(fffToolInfo("fffind"))!;
+  const grep = piFffAdapter(fffToolInfo("ffgrep"))!;
   const cursorNotice = '[Continue with cursor="fff_c1"]';
   const paged = {
     content: [{ type: "text" as const, text: `file.ts\n 1: export\n\n${cursorNotice}` }],
@@ -31,9 +31,9 @@ it("shows compact FFF pagination while retaining expanded match counts", () => {
 });
 
 it("requires official ownership and supplied contracts without enabling disabled tools", () => {
-  expect(officialFffAdapter(undefined)).toBeUndefined();
-  expect(officialFffAdapter({ ...fffToolInfo("ffgrep"), parameters: {} })).toBeUndefined();
-  const grep = officialFffAdapter(fffToolInfo("ffgrep"))!;
+  expect(piFffAdapter(undefined)).toBeUndefined();
+  expect(piFffAdapter({ ...fffToolInfo("ffgrep"), parameters: {} })).toBeUndefined();
+  const grep = piFffAdapter(fffToolInfo("ffgrep"))!;
   const args = { pattern: "token", path: "src/**", exclude: ["*.min.js"], cursor: "c1", limit: 20 };
   expect(grep.exploration?.(args)).toEqual([
     {
@@ -58,7 +58,7 @@ it("requires official ownership and supplied contracts without enabling disabled
   }
 
   expect(grep.supports?.({}, result)).toBe(false);
-  const find = officialFffAdapter(fffToolInfo("fffind"))!;
+  const find = piFffAdapter(fffToolInfo("fffind"))!;
   expect(
     find
       .notices?.({ ...result, details: { ...result.details, hasMore: true, pageIndex: 1 } }, true)
@@ -72,7 +72,7 @@ it("requires official ownership and supplied contracts without enabling disabled
       .join("\n")
   ).not.toContain("Page");
   expect(
-    officialFffAdapter(fffToolInfo("fff-multi-grep", true))?.exploration?.({
+    piFffAdapter(fffToolInfo("fff-multi-grep", true))?.exploration?.({
       patterns: ["a", "b"],
       constraints: "src/"
     })

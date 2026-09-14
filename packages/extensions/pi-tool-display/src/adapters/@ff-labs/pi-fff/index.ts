@@ -1,8 +1,13 @@
 import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
 
-import { record, stringField, invocationParts, type InvocationPart } from "../../presentation.ts";
-import type { ToolDisplayAdapter } from "../types.ts";
+import {
+  record,
+  stringField,
+  invocationParts,
+  type InvocationPart
+} from "../../../presentation.ts";
+import type { ToolDisplayAdapter } from "../../types.ts";
 import { fffResultParts, fffTextNotices } from "./result-presentation.ts";
 
 function isStringArray(value: unknown): value is string[] {
@@ -35,7 +40,7 @@ function patternPart(kind: FffToolKind, pattern: unknown): InvocationPart {
   return { kind: "pattern", text: pattern === "" ? '""' : stringField(pattern) };
 }
 
-export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
+export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
   const kind = fffAdapter(tool);
   if (!kind || !tool) return undefined;
   const properties = record(record(tool.parameters).properties);
@@ -46,7 +51,7 @@ export function officialFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
     return undefined;
 
   return {
-    id: `fff:${kind}`,
+    id: `@ff-labs/pi-fff:${kind}`,
     family: "search",
     supports: (args, result) => supportsFffCall(kind, args, result),
     headingVerbs: (args) =>

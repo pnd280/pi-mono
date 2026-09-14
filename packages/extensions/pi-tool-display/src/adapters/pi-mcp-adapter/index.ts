@@ -169,7 +169,7 @@ function toolKind(tool: ToolInfo): ToolKind | undefined {
 }
 
 /** pi-mcp-adapter 2.33.0: registration provenance, then each public tool schema. */
-export function officialMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
+export function piMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
   if (!tool || ["builtin", "sdk"].includes(tool.sourceInfo.source)) return undefined;
   const owned =
     /^npm:pi-mcp-adapter(?:@[^/]+)?$/.test(tool.sourceInfo.source) ||
@@ -178,7 +178,7 @@ export function officialMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapt
   if (!kind) return undefined;
 
   return {
-    id: `mcp:${kind}`,
+    id: `pi-mcp-adapter:${kind}`,
     family: "invocation",
     supports: (args, result) => supportsResult(kind, args, result),
     invocation: (args, result) => invocation(kind, tool.name, args, result),

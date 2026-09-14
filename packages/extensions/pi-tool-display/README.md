@@ -4,23 +4,23 @@
 
 ## Usage
 
-Adjacent read, search, and list calls share an **Exploring** or **Explored** heading in source order. Notices, images, and failure diagnostics appear directly beneath their call.
+Adjacent read, search, and list calls form [exploration groups](docs/renderers.md#card-layout) with an **Exploring** or **Explored** heading in source order. Notices, images, and failure diagnostics appear directly beneath their call.
 
 Pi's tool expansion action, **Ctrl+O** by default, reveals individual cards and available output. In fullscreen mode, a group click expands or collapses all its members. In regular mode, the terminal handles mouse input.
 
-Specialized cards hide parameter blocks by default, even when expanded. Command, path, and search summaries remain visible. Generic cards always show their arguments. The [card layout reference](docs/renderers.md#card-layout) covers headings, file paths, FFF search summaries, and diagnostics.
+Specialized cards hide parameter blocks by default, even when expanded. Command, path, and search summaries remain visible. Generic cards always show their arguments.
 
 Compact [file diffs](docs/renderers.md#diff-viewer) show changed code with nearby context.
 
 ## Tool coverage
 
-Verified native tools, [official `@ff-labs/pi-fff` 0.10.6 search tools](docs/adapters.md#fff), and [`pi-mcp-adapter` 2.33.0 tools](docs/adapters.md#pi-mcp-adapter) receive specialized cards. Other tools receive generic cards unless their owner supplies `renderCall` or `renderResult`. In that case, the owner's UI remains unchanged. Historical calls without a current tool definition use generic cards built from saved data.
+[Verified native tools](src/adapters/native/README.md), [`@ff-labs/pi-fff` tools](src/adapters/@ff-labs/pi-fff/README.md), and [`pi-mcp-adapter` tools](src/adapters/pi-mcp-adapter/README.md) receive specialized cards. Other tools receive generic cards unless their owner supplies `renderCall` or `renderResult`. In that case, the owner's UI remains unchanged. Historical calls without a current tool definition use generic cards built from saved data.
 
 The [renderer API](docs/renderers.md) supports standalone integration by tool owners and SDK hosts. The [adapter development guide](docs/adapters.md) covers additional tool integrations.
 
 ## Configuration
 
-The literal top-level key `ext.pi-tool-display` belongs in Pi's configured global settings or a trusted project's `.pi/settings.json`. For example:
+The literal top-level key `ext.pi-tool-display` belongs in Pi's configured global settings or a trusted project's `.pi/settings.json`:
 
 <!-- prettier-ignore -->
 ```json

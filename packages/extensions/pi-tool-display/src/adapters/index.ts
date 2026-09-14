@@ -1,8 +1,8 @@
-export { officialFffAdapter } from "./fff/index.ts";
+export { piFffAdapter } from "./@ff-labs/pi-fff/index.ts";
 
 export { genericAdapter } from "./generic.ts";
 
-export { officialMcpAdapter } from "./mcp/index.ts";
+export { piMcpAdapter } from "./pi-mcp-adapter/index.ts";
 
 export { nativeAdapter } from "./native/index.ts";
 

@@ -16,13 +16,8 @@ import {
 import { createToolDisplayRenderers as createPublicRenderers } from "pi-tool-display/renderers";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { fffToolInfo } from "./adapters/fff/test-fixture.ts";
-import {
-  genericAdapter,
-  nativeAdapter,
-  officialFffAdapter,
-  type McpFacts
-} from "./adapters/index.ts";
+import { fffToolInfo } from "./adapters/@ff-labs/pi-fff/test-fixture.ts";
+import { genericAdapter, nativeAdapter, piFffAdapter, type McpFacts } from "./adapters/index.ts";
 import type { OutputText } from "./output-text.ts";
 import { createToolDisplayRenderers, type ToolDisplayRenderers } from "./renderers.ts";
 import { renderingTui } from "./test-fixture.ts";
@@ -198,7 +193,7 @@ describe("tool display renderers", () => {
     "keeps %s action headings through preparation, queueing, execution, completion, and replay",
     (name, active, complete, args) => {
       const adapter = name.startsWith("ff")
-        ? officialFffAdapter({
+        ? piFffAdapter({
             name,
             description: "FFF search",
             parameters: {
@@ -674,7 +669,7 @@ describe("tool display renderers", () => {
 
     for (const name of ["fffind", "ffgrep", "fff-multi-grep", "find", "grep", "multi_grep"]) {
       const multi = name === "fff-multi-grep" || name === "multi_grep";
-      const adapter = officialFffAdapter({
+      const adapter = piFffAdapter({
         name,
         description: "FFF search",
         parameters: {
@@ -775,7 +770,7 @@ describe("tool display renderers", () => {
     "renders explicit empty $name patterns (expanded=$isExpanded, args=$args)",
     ({ name, args, compact, expanded, isExpanded }) => {
       Object.freeze(args);
-      const adapter = officialFffAdapter(fffToolInfo(name))!;
+      const adapter = piFffAdapter(fffToolInfo(name))!;
       const coordinator = new TranscriptCoordinator("empty-search-patterns");
 
       try {
@@ -812,7 +807,7 @@ describe("tool display renderers", () => {
   it.each(["ffgrep", "fffind"])(
     "keeps missing %s patterns distinct from explicit emptiness",
     (name) => {
-      const adapter = officialFffAdapter(fffToolInfo(name))!;
+      const adapter = piFffAdapter(fffToolInfo(name))!;
 
       for (const expanded of [false, true]) {
         const args = { path: "packages/" };
@@ -827,7 +822,7 @@ describe("tool display renderers", () => {
   );
 
   it("uses the current adapter's parameter policy after late registration and generic fallback", () => {
-    const adapter = officialFffAdapter({
+    const adapter = piFffAdapter({
       name: "fffind",
       description: "FFF find",
       parameters: { type: "object", properties: { pattern: { type: "string" } } },
@@ -927,7 +922,7 @@ describe("tool display renderers", () => {
     try {
       const adapters = [
         nativeAdapter("read")!,
-        officialFffAdapter({
+        piFffAdapter({
           name: "ffgrep",
           description: "FFF search",
           parameters: { type: "object", properties: { pattern: { type: "string" } } },
@@ -995,7 +990,7 @@ describe("tool display renderers", () => {
   it.each([false, true])(
     "shows FFF pagination in standalone and grouped cards (expanded=%s)",
     (expanded) => {
-      const adapter = officialFffAdapter({
+      const adapter = piFffAdapter({
         name: "fffind",
         description: "FFF find",
         parameters: { type: "object", properties: { pattern: { type: "string" } } },
@@ -1083,7 +1078,7 @@ describe("tool display renderers", () => {
     const coordinator = new TranscriptCoordinator("notice-ownership");
 
     try {
-      const search = officialFffAdapter({
+      const search = piFffAdapter({
         name: "fffind",
         description: "FFF find",
         parameters: { type: "object", properties: { pattern: { type: "string" } } },
@@ -1144,7 +1139,7 @@ describe("tool display renderers", () => {
     const coordinator = new TranscriptCoordinator("multiline-query-warning");
 
     try {
-      const adapter = officialFffAdapter(fffToolInfo("fffind"))!;
+      const adapter = piFffAdapter(fffToolInfo("fffind"))!;
       const call = coordinator.add(
         { messageTimestamp: 1, contentIndex: 0, toolCallId: "multiline" },
         "fffind",

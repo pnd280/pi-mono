@@ -17,15 +17,9 @@ The default is **generic**, even for names such as `read`, `bash`, or `server.se
 
 Pending headings cover argument streaming, queueing, and execution; they do not confirm that execution has started or a change has applied. Cancelled calls and missing historical outcomes use `Cancelled` and `Outcome unavailable`.
 
-File targets in read/edit/write and native search/list summaries use paths relative to the rendering context's cwd when inside it, and absolute paths when outside it. The cwd itself displays as `.`. Grouped reads retain directory names and read ranges. Resolution is lexical, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and FFF search/filter expressions are not rewritten.
-
-Explicit empty FFF patterns remain valid searches: `ffgrep` displays `""`; `fffind` lists files in the supplied scope, defaulting to `.`. Missing patterns show `(pattern missing)` and do not qualify for grouping.
-
-FFF pagination instructions, limit hints, and query/fallback diagnostics remain visible in compact and expanded cards, preserving the full text of combined notices and multiline queries. Matches remain available on expansion.
+Concrete file targets (`path` parts) in summaries use paths relative to the rendering context's cwd when inside it, and absolute paths when outside it. The cwd itself displays as `.`. Grouped reads retain directory names and read ranges. Resolution is lexical, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and literal scope/filter expressions are not rewritten.
 
 Collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show bounded head/tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling. Expansion shows all retained output, subject to live/saved-output retention limits.
-
-Native image captions suppress equivalent generated fallback descriptions without changing the retained result. Native model-support and image conversion/resize omission warnings remain visible in compact standalone and grouped reads, and appear once in expanded bodies. Patch and live/saved-text previews retain image fallback notices when Pi's native image display is unavailable or disabled.
 
 Compact exploration keeps every call in source order, including repeated reads. Visible assistant content, diagnostics, cache-miss notices, compaction summaries/notices, and rendered custom entries separate groups; hidden content does not. Assistant content separates groups before that message's tools, even if it arrives later. Tool-result notices and failure diagnostics stay immediately beneath their originating invocation:
 
@@ -40,17 +34,17 @@ Compact exploration keeps every call in source order, including repeated reads. 
 
 ### Semantic colors
 
-- **`dim`:** tree rules, JSON keys/punctuation, generated header annotations, empty/waiting messages (including native `(no output)`), FFF counts and file annotations, routine timing/success metadata, and hints for collapsed rows that remain available on expansion.
+- **`dim`:** tree rules, JSON keys/punctuation, generated header annotations, empty/waiting messages, routine timing/success metadata, and hints for collapsed rows that remain available on expansion.
 - **`muted`:** unavailable historical observations and unknown operation details. Missing observations are not reported as execution failures.
-- **`warning`:** cancellation, unconfirmed application, unavailable patches/previews, backend or budget omissions, and FFF pagination/limit notices and query/fallback diagnostics.
-- **`error`:** reported failures, native nonzero-exit/timeout diagnostics, failed application, and typed MCP errors. Process output preceding a native failure footer retains its own styling.
+- **`warning`:** cancellation, unconfirmed application, unavailable patches/previews, backend or budget omissions, and actionable adapter diagnostics.
+- **`error`:** reported failures and failed application.
 - **`accent`:** grouped `Read`/`Search`/`List` action labels, invocation-family tool identities, and pending indicators.
-- **`syntaxString`:** explicitly tagged search patterns, including every FFF multi-search pattern, in compact, standalone, and expanded summaries. Scope/filter text retains `text`; patterns are not parsed as code or rewritten.
+- **`syntaxString`:** explicitly tagged search patterns in compact, standalone, and expanded summaries. Scope/filter text retains `text`; patterns are not parsed as code or rewritten.
 - **`toolTitle`, `text`, and `toolOutput`:** card titles, parameter/reference values, and retained result content respectively. Commands/source retain syntax highlighting; patch additions/removals retain diff colors.
 
-Native and FFF adapters interpret their inspected text envelopes. In retained native shell results, literal process output matching a native placeholder or truncation trailer receives that envelope's styling; the text alone does not establish its provenance. Generic output is not searched for these phrases. Interpretation changes presentation, not retained text, execution outcomes, or session facts.
+Adapters may interpret known result envelopes through [`textParts`](#explicit-contracts). Generic output is not searched for extension-specific phrases. Interpretation changes presentation, not retained text, execution outcomes, or session facts. Contract-specific styling and provenance limits live with the [built-in adapters](adapters.md#built-in-adapters).
 
-Live and saved-output previews instead tag generated omissions separately from process text. Identical literal output in those previews retains ordinary styling.
+Live and saved-output previews distinguish generated omissions from process text. Identical literal output in those previews retains ordinary styling.
 
 ## Diff viewer
 
@@ -75,7 +69,7 @@ Live/saved-output collection and patch generation belong to the [automatic integ
 
 ## Explicit contracts
 
-Pass a `ToolDisplayAdapter` from `pi-tool-display/adapters` to opt into interpretation. `nativeAdapter(name)` asserts compatibility with a supported Pi contract; it does not verify ownership or install native execution observation:
+Pass a `ToolDisplayAdapter` from `pi-tool-display/adapters` to opt into interpretation. For example, a tool owner can supply a compatible [native contract](../src/adapters/native/README.md#compatibility-and-selection) without enabling execution observation:
 
 ```ts
 import { nativeAdapter } from "pi-tool-display/adapters";
@@ -87,7 +81,7 @@ pi.registerTool({
 });
 ```
 
-The factory's third argument is a `ToolDisplayRendererOptions` object. Set `showParameters: true` to opt into parameter details; omission defaults to hidden for explicit adapters. Structured native/FFF parameters still require expansion; invocation-family adapters include enabled arguments in their invocation text. The standalone factory does not read CLI settings:
+The factory's third argument is a `ToolDisplayRendererOptions` object. Set `showParameters: true` to opt into parameter details; omission defaults to hidden for explicit adapters. Structured parameter blocks still require expansion; invocation-family adapters include enabled arguments in their invocation text. The standalone factory does not read CLI settings:
 
 ```ts
 createToolDisplayRenderers(compatibleEdit.name, nativeAdapter("edit"), {
@@ -95,28 +89,26 @@ createToolDisplayRenderers(compatibleEdit.name, nativeAdapter("edit"), {
 });
 ```
 
-Native contracts use `path`, read `offset`/`limit`, search `pattern`/scope, shell `command`/`timeout`, and successful edit **`details.patch` in unified format**. Numbered `details.diff` is not interpreted. Write arguments alone do not establish creation, previous contents, or a successful change.
-
 Adapters have:
 
-- `id`: stable contract identifier. `pi:*`, `fff:*`, `mcp:*`, and `generic` are reserved by this package.
+- `id`: stable contract identifier. `pi:*`, `@ff-labs/pi-fff:*`, `pi-mcp-adapter:*`, and `generic` are reserved by this package.
 - `family`: `read`, `search`, `list`, `shell`, `edit`, `write`, or `invocation`.
 - `supports(args, result)`: optionally validate retained data for the automatic CLI integration. Returning `false` uses generic rendering and removes the call from exploration groups; a later supported result restores the adapter. Omission accepts the result. This callback runs only once a result exists, including partial updates; it does not change the selected adapter or retained data. Standalone factories use their explicitly supplied adapter directly.
 - `headingVerbs(args)`: optionally return a `[pending, complete]` pair to override action wording for supplied arguments. Omission or `undefined` uses the family's verbs. Cancellation and unavailable outcomes still take precedence; result presentation is unchanged.
-- `invocation(args, result?)`: optionally supply header `InvocationPart[]` (`value`, `path`, `pattern`, `annotation`, or `parameters`, each with `text`) when arguments differ from the family's native shape. The FFF multi-search adapter uses this for `patterns` and `constraints`. Use `path` for a concrete file target, `pattern` for a highlighted search pattern, and `value` for other literal text or filter expressions. Paths are formatted against Pi's render cwd; adapter callbacks still receive the original arguments. Only `parameters` parts are hidden when `showParameters` is false, including for invocation-family adapters. Put optional parameter delimiters inside that part so hiding it leaves no empty punctuation. Use the optional retained result to resolve tool identities. The type is exported from `pi-tool-display/adapters`.
+- `invocation(args, result?)`: optionally supply header `InvocationPart[]` (`value`, `path`, `pattern`, `annotation`, or `parameters`, each with `text`) when arguments differ from the family's native shape. Use `path` for a concrete file target, `pattern` for a highlighted search pattern, and `value` for other literal text or filter expressions. Paths are formatted against Pi's render cwd; adapter callbacks still receive the original arguments. Only `parameters` parts are hidden when `showParameters` is false, including for invocation-family adapters. Put optional parameter delimiters inside that part so hiding it leaves no empty punctuation. Use the optional retained result to resolve tool identities. The type is exported from `pi-tool-display/adapters`.
 - `exploration(args, result?)`: optional ordered `{ label: "Read" | "Search" | "List", parts: InvocationPart[] }` items for the automatic CLI integration; return `undefined` or an empty array when the contract is unavailable. Result updates can remove or restore a call's group membership without changing source order.
 - `patch: true`: interpret successful `details.patch` as a bounded unified patch.
 - `savedOutput: true`: declare `details.fullOutputPath` meaningful to the automatic CLI integration. The standalone factory does not load files.
 - `notices(result, expanded)`: return `DisplayNotice[]` with explicit semantics: `{ kind: "info" | "unavailable" | "warning" | "error", text }` or `{ kind: "reference", label, value }`. `info` uses `dim`; `unavailable` uses `muted`. Keep actionable diagnostics in compact groups and reserve routine counts for expansion.
 - `textParts(text, args, context)`: optionally separate a known result envelope into `ResultTextPart[]` (`output`, `value`, `annotation`, `warning`, or `error`). Preserve result content; only explicitly recognized routine metadata may be omitted from presentation. Returning an empty array suppresses the text block without an empty-output placeholder. The retained result remains unchanged. The context supplies `isError`, `isPartial`, and whether the result contains images; do not infer facts from ordinary output. These types are exported from `pi-tool-display/adapters`.
 - `imageCaptionMimeType(text)`: optionally identify the MIME type described by a known text caption. For complete successful results, a matching adjacent image omits its redundant generated fallback label. The caption text and Pi-owned image remain unchanged.
-- `mcp(args, result?)`: supply the typed facts below.
+- `mcp(args, result?)`: supply typed [MCP facts](#mcp-facts).
 
-Built-in resolvers [`officialFffAdapter(toolInfo)`](adapters.md#fff) and [`officialMcpAdapter(toolInfo)`](adapters.md#pi-mcp-adapter) verify provider ownership and supported contracts. See [adapter development](adapters.md) for automatic selection and adding another provider.
+See [adapter development](adapters.md) for automatic selection, built-in contracts, and integrating another extension.
 
 ## MCP facts
 
-The adapter's `mcp(args, result?)` callback returns `McpFacts`, or `undefined` when typed facts are unavailable. Facts contain `server`, `tool`, `outcome` (`transport-error`, `returned-error`, `success`, or `unavailable`), and ordered content blocks:
+The `ToolDisplayAdapter.mcp(args, result?)` callback returns `McpFacts`, or `undefined` when typed facts are unavailable. Facts contain `server`, `tool`, `outcome` (`transport-error`, `returned-error`, `success`, or `unavailable`), and ordered content blocks:
 
 ```ts
 import type { McpFacts } from "pi-tool-display/adapters";

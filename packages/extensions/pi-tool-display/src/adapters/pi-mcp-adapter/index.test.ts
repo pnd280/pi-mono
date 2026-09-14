@@ -5,7 +5,7 @@ import { createToolDisplayRenderers } from "../../renderers.ts";
 import { loadDisplaySettings } from "../../settings.ts";
 import { resolveResultAdapter } from "../generic.ts";
 import { selectAdapter } from "../registry.ts";
-import { officialMcpAdapter } from "./index.ts";
+import { piMcpAdapter } from "./index.ts";
 import { mcpToolInfo } from "./test-fixture.ts";
 
 const result = (details: unknown): AgentToolResult<unknown> => ({
@@ -44,7 +44,7 @@ it("selects owned gateway, script, namespace and arbitrary direct names before o
   ] as const) {
     const info = mcpToolInfo(name);
     expect(selectAdapter(loadDisplaySettings([]), name, owner, false, info)?.id).toBe(
-      `mcp:${kind}`
+      `pi-mcp-adapter:${kind}`
     );
 
     for (const mode of ["original", "generic"] as const) {
@@ -68,7 +68,7 @@ it("rejects lookalike owners, SDK tools and incompatible schemas", () => {
 
   for (const source of ["sdk", "builtin", "npm:pi-mcp-adapter-fork", "npm:other"]) {
     expect(
-      officialMcpAdapter({
+      piMcpAdapter({
         ...info,
         sourceInfo: {
           ...info.sourceInfo,
@@ -79,13 +79,13 @@ it("rejects lookalike owners, SDK tools and incompatible schemas", () => {
     ).toBeUndefined();
   }
 
-  expect(officialMcpAdapter(undefined)).toBeUndefined();
+  expect(piMcpAdapter(undefined)).toBeUndefined();
   for (const name of ["mcp", "mcpScript", "mcp__docs"])
     expect(
-      officialMcpAdapter({ ...mcpToolInfo(name), parameters: { type: "object", properties: {} } })
+      piMcpAdapter({ ...mcpToolInfo(name), parameters: { type: "object", properties: {} } })
     ).toBeUndefined();
   expect(
-    officialMcpAdapter({
+    piMcpAdapter({
       ...info,
       sourceInfo: {
         ...info.sourceInfo,
@@ -93,11 +93,11 @@ it("rejects lookalike owners, SDK tools and incompatible schemas", () => {
         path: "C:\\agent\\node_modules\\pi-mcp-adapter\\index.ts"
       }
     })?.id
-  ).toBe("mcp:gateway");
+  ).toBe("pi-mcp-adapter:gateway");
 });
 
 it("keeps gateway routing summaries visible without parameter details and honors action precedence", () => {
-  const adapter = officialMcpAdapter(mcpToolInfo())!;
+  const adapter = piMcpAdapter(mcpToolInfo())!;
   const renderer = createToolDisplayRenderers("mcp", adapter);
 
   for (const [args, title] of [
@@ -119,7 +119,7 @@ it("keeps gateway routing summaries visible without parameter details and honors
 });
 
 it("uses resolved result identity with visible parameters and never substitutes raw MCP output", () => {
-  const adapter = officialMcpAdapter(mcpToolInfo())!;
+  const adapter = piMcpAdapter(mcpToolInfo())!;
   const args = { tool: "docs_search", args: '{"query":"needle"}' };
   const supplied = result({
     mode: "call",
@@ -138,7 +138,7 @@ it("uses resolved result identity with visible parameters and never substitutes 
 });
 
 it("accepts real gateway metadata results and keeps middleware failure diagnostics styled as errors", () => {
-  const adapter = officialMcpAdapter(mcpToolInfo())!;
+  const adapter = piMcpAdapter(mcpToolInfo())!;
   for (const [args, details] of [
     [
       { describe: "display_echo" },
@@ -157,7 +157,7 @@ it("accepts real gateway metadata results and keeps middleware failure diagnosti
 });
 
 it("retains ordered published media without copying bytes or inferring flattened resources", () => {
-  const adapter = officialMcpAdapter(mcpToolInfo())!;
+  const adapter = piMcpAdapter(mcpToolInfo())!;
   const supplied: AgentToolResult<unknown> = {
     content: [
       { type: "text", text: "before" },
@@ -179,7 +179,7 @@ it("retains ordered published media without copying bytes or inferring flattened
 });
 
 it("distinguishes returned errors without claiming a caught failure is a transport error", () => {
-  const adapter = officialMcpAdapter(mcpToolInfo())!;
+  const adapter = piMcpAdapter(mcpToolInfo())!;
   const identity = { mode: "call", server: "docs", tool: "search" };
   expect(adapter.mcp?.({}, result({ ...identity, error: "tool_error" }))?.outcome).toBe(
     "returned-error"
@@ -196,7 +196,7 @@ it("distinguishes returned errors without claiming a caught failure is a transpo
 });
 
 it("falls back for missing or malformed retained contracts without adding observation", () => {
-  const adapter = officialMcpAdapter(mcpToolInfo())!;
+  const adapter = piMcpAdapter(mcpToolInfo())!;
   for (const details of [
     undefined,
     {},
@@ -219,7 +219,7 @@ it("falls back for missing or malformed retained contracts without adding observ
 });
 
 it("exposes bounded-output references and script failures without dumping details", () => {
-  const adapter = officialMcpAdapter(mcpToolInfo("mcpScript"))!;
+  const adapter = piMcpAdapter(mcpToolInfo("mcpScript"))!;
   const supplied = result({
     mode: "script",
     calls: [{ ok: true }, { ok: false }],
