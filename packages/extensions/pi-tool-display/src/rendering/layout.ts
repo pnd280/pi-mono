@@ -45,6 +45,11 @@ function excerptBoundary(text: string, offset: number, side: "head" | "tail"): n
   return side === "head" ? segment.index : segment.index + segment.segment.length;
 }
 
+/** Bound normalized heading text before styling, preserving whole graphemes and SGR. */
+export function textPrefix(text: string, maximum: number): string {
+  return text.length <= maximum ? text : text.slice(0, excerptBoundary(text, maximum, "head"));
+}
+
 function activeSgr(text: string, end: number): string {
   // A full reset makes earlier state irrelevant. Fold other SGR through Pi's
   // own tracker in bounded batches rather than retaining unbounded escape text.

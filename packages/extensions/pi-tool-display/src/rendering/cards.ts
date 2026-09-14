@@ -7,7 +7,7 @@ import {
 } from "@earendil-works/pi-tui";
 
 import { genericAdapter, resolveResultAdapter } from "../adapters/generic.ts";
-import type { ToolDisplayAdapter } from "../contracts.ts";
+import { isLive, type ToolDisplayAdapter } from "../contracts.ts";
 import { displayText } from "../terminal-text.ts";
 import { heading } from "./headings.ts";
 import { buildGroupRows, buildResultBody } from "./result-content.ts";
@@ -76,6 +76,13 @@ function prepareCard(base: Omit<Projection, "mcp">): PreparedCard {
   return prepared;
 }
 
+function hasAnimatedHeading(card: PreparedCard): boolean {
+  if (card.group && !card.expanded)
+    return card.group.members[0] === card.call && card.group.members.some(isLive);
+
+  return card.call ? isLive(card.call) : card.context.isPartial;
+}
+
 /** A Pi row owns both slots, borrowed results, and all preparation/invalidation.
  * Slot renders check the transcript revision even when Pi reuses a component
  * without calling the renderer again (late adapters and observation updates).
@@ -87,7 +94,8 @@ class CardRow {
     | {
         width: number;
         revision: number | undefined;
-        phase: number;
+        headingPhase: number | undefined;
+        animated: boolean;
         expanded: boolean;
         adapter: ToolDisplayAdapter;
         images: ReturnType<typeof getCapabilities>["images"];
@@ -123,15 +131,20 @@ class CardRow {
     this.prepared = undefined;
   }
 
+  private get expanded(): boolean {
+    const { binding } = this.options;
+
+    return binding?.coordinator.calls.has(binding.call.key)
+      ? binding.call.expanded
+      : this.context.expanded;
+  }
+
   render(slot: Slot, width: number): string[] {
     if (width < 1) return [];
     const { binding } = this.options;
     const call = binding?.call;
     const adapter = call?.adapter ?? this.adapter;
-    const phase = binding?.coordinator.phase ?? 1;
-    const expanded = binding?.coordinator.calls.has(binding.call.key)
-      ? binding.call.expanded
-      : this.context.expanded;
+    const expanded = this.expanded;
     const revision = call?.revision;
     const images = getCapabilities().images;
     let current = this.prepared;
@@ -140,22 +153,40 @@ class CardRow {
       !current ||
       current.width !== width ||
       current.revision !== revision ||
-      current.phase !== phase ||
       current.expanded !== expanded ||
       current.adapter !== adapter ||
       current.images !== images
     ) {
-      const card = this.prepare({ width, expanded, phase });
-      current = { width, revision, phase, expanded, adapter, images, card, rows: {} };
+      const card = this.prepare({ width, expanded });
+      current = {
+        width,
+        revision,
+        headingPhase: undefined,
+        animated: hasAnimatedHeading(card),
+        expanded,
+        adapter,
+        images,
+        card,
+        rows: {}
+      };
       this.prepared = current;
     }
 
+    // Pi renders every row on an animation redraw. Only a live heading depends on
+    // the clock; its body and every completed card keep their prepared data.
+    const phase = current.animated ? (binding?.coordinator.phase ?? 1) : 0;
+
+    if (slot === "call" && current.headingPhase !== phase) {
+      delete current.rows.call;
+      current.headingPhase = phase;
+    }
+
     return (current.rows[slot] ??= (
-      slot === "call" ? heading(current.card) : resultRows(current.card)
+      slot === "call" ? heading(current.card, phase) : resultRows(current.card)
     ).map((row) => truncateToWidth(row, width, "")));
   }
 
-  private prepare(view: Pick<Projection, "width" | "expanded" | "phase">): PreparedCard {
+  private prepare(view: Pick<Projection, "width" | "expanded">): PreparedCard {
     const { binding } = this.options;
     const call = binding?.call;
     const selected = call

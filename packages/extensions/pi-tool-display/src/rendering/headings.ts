@@ -1,12 +1,65 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
-import { isLive, isCancelled, type DisplayGroup, type ToolFamily } from "../contracts.ts";
+import {
+  isLive,
+  isCancelled,
+  type DisplayGroup,
+  type InvocationPart,
+  type ToolFamily
+} from "../contracts.ts";
 import { invocationParts, invocationPartText } from "../invocation.ts";
 import { displayText } from "../terminal-text.ts";
 import { expansionHint, highlight, tree, styleParameters } from "./format.ts";
-import { bodyWidth, renderTreeContinuation, wrapRows } from "./layout.ts";
+import { bodyWidth, renderTreeContinuation, textPrefix, wrapRows } from "./layout.ts";
 import type { PreparedCard } from "./types.ts";
+
+const COMPACT_HEADING_CHARACTERS = 16 * 1024;
+const COMPACT_HEADING_ROWS = 3;
+
+type HeadingDetail = { text: string; truncated: boolean };
+
+function formatParts(
+  parts: readonly InvocationPart[],
+  p: PreparedCard,
+  style: (part: InvocationPart, text: string) => string
+): HeadingDetail {
+  let remaining = p.expanded ? Infinity : COMPACT_HEADING_CHARACTERS;
+  let text = "";
+
+  for (const part of parts) {
+    const source = invocationPartText(part, p.context.cwd);
+    const prefix = textPrefix(source, remaining);
+    if (prefix) text += style(part, prefix);
+    if (prefix.length < source.length) return { text, truncated: true };
+    remaining -= prefix.length;
+  }
+
+  return { text, truncated: false };
+}
+
+function previewRows(
+  rows: string[],
+  p: PreparedCard,
+  detail: HeadingDetail,
+  maximum = COMPACT_HEADING_ROWS
+): string[] {
+  if (p.expanded) return rows;
+  const retained = rows.slice(0, maximum);
+  if (detail.truncated || rows.length > maximum)
+    retained.push(
+      truncateToWidth(
+        p.theme.fg(
+          "dim",
+          `… ${detail.truncated ? "more details" : `${rows.length - maximum} more rows`} (${expansionHint()})`
+        ),
+        bodyWidth(p.width),
+        "…"
+      )
+    );
+
+  return retained;
+}
 
 function headingContinuation(rows: readonly string[], p: PreparedCard): string[] {
   if (!rows.length) return [];
@@ -14,29 +67,23 @@ function headingContinuation(rows: readonly string[], p: PreparedCard): string[]
   return renderTreeContinuation(rows, p.width, (text) => p.theme.fg("dim", text), p.hasBody);
 }
 
-function titleRows(title: string, detail: string, p: PreparedCard): string[] {
-  if (p.adapter.family === "invocation" && visibleWidth(title) + 1 + visibleWidth(detail) > p.width)
+function titleRows(title: string, detail: HeadingDetail, p: PreparedCard): string[] {
+  if (
+    p.adapter.family === "invocation" &&
+    visibleWidth(title) + 1 + visibleWidth(detail.text) > p.width
+  )
     return [
       truncateToWidth(title, p.width, "…"),
-      ...headingContinuation(wrapRows(detail, bodyWidth(p.width)), p)
+      ...headingContinuation(previewRows(wrapRows(detail.text, bodyWidth(p.width)), p, detail), p)
     ];
-  const source = detail.split("\n");
+  const source = detail.text.split("\n");
   const first = wrapRows(source[0] ?? "", Math.max(1, p.width - visibleWidth(title) - 1));
   const rest = [
     ...first.slice(1),
     ...source.slice(1).flatMap((line) => wrapRows(line, bodyWidth(p.width)))
   ];
   const rows = [truncateToWidth(`${title}${first.length ? ` ${first[0]}` : ""}`, p.width, "")];
-  const continuation = p.expanded ? rest : rest.slice(0, 2);
-  if (!p.expanded && rest.length > 2)
-    continuation.push(
-      truncateToWidth(
-        p.theme.fg("dim", `… ${rest.length - 2} more rows (${expansionHint()})`),
-        bodyWidth(p.width),
-        "…"
-      )
-    );
-  rows.push(...headingContinuation(continuation, p));
+  rows.push(...headingContinuation(previewRows(rest, p, detail, COMPACT_HEADING_ROWS - 1), p));
 
   return rows;
 }
@@ -51,10 +98,10 @@ const verbs: Record<ToolFamily, [string, string]> = {
   invocation: ["Calling", "Called"]
 };
 
-function groupHeading(group: DisplayGroup, p: PreparedCard): string[] {
+function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: number): string[] {
   const first = group.members[0] === p.call;
   const active = first && group.members.some(isLive);
-  const marker = active && p.phase ? "◦" : "•";
+  const marker = active && animationPhase ? "◦" : "•";
   const rows = first
     ? [
         `${p.theme.fg(active ? "accent" : "dim", marker)} ${p.theme.fg("toolTitle", p.theme.bold(active ? "Exploring" : "Explored"))}`
@@ -93,23 +140,20 @@ function groupHeading(group: DisplayGroup, p: PreparedCard): string[] {
   // A call remains in its own Pi row: native images and mouse targets must not be
   // displaced behind later summaries. Even repeated reads retain their identity.
   const item = {
-    rows: p.exploration.flatMap((entry) =>
-      wrapRows(
-        `${p.theme.fg("accent", entry.label)} ${entry.parts
-          .map((part) =>
-            p.theme.fg(
-              part.kind === "annotation"
-                ? "dim"
-                : part.kind === "pattern"
-                  ? "syntaxString"
-                  : "text",
-              invocationPartText(part, p.context.cwd)
-            )
-          )
-          .join("")}`,
-        bodyWidth(p.width)
-      )
-    )
+    rows: p.exploration.flatMap((entry) => {
+      const detail = formatParts(entry.parts, p, (part, text) =>
+        p.theme.fg(
+          part.kind === "annotation" ? "dim" : part.kind === "pattern" ? "syntaxString" : "text",
+          text
+        )
+      );
+
+      return previewRows(
+        wrapRows(`${p.theme.fg("accent", entry.label)} ${detail.text}`, bodyWidth(p.width)),
+        p,
+        detail
+      );
+    })
   };
   item.rows.push(...p.groupRows.map((row) => `  ${row}`));
   rows.push(...tree([item], p, group.members.at(-1) !== p.call));
@@ -153,17 +197,19 @@ function status(p: PreparedCard): {
   return { verb, color: quiet ? "dim" : "success", pending };
 }
 
-function invocation(p: PreparedCard): string {
+function invocation(p: PreparedCard): HeadingDetail {
   const mcp = p.mcp;
   const name = mcp ? displayText(`${mcp.server}.${mcp.tool}`) : p.name;
-  const parts = p.invocation;
-  if (!parts && p.adapter.family === "invocation" && !p.showParameters)
-    return p.theme.fg("accent", name);
+  const parts =
+    p.invocation ??
+    (p.adapter.family === "invocation" && !p.showParameters
+      ? [{ kind: "value" as const, text: name }]
+      : invocationParts(name, p.context.args, p.adapter.family));
 
-  return (parts ?? invocationParts(name, p.context.args, p.adapter.family))
-    .filter((part) => part.kind !== "parameters" || p.showParameters)
-    .map((part) => {
-      const text = invocationPartText(part, p.context.cwd);
+  return formatParts(
+    parts.filter((part) => part.kind !== "parameters" || p.showParameters),
+    p,
+    (part, text) => {
       if (part.kind === "annotation") return p.theme.fg("dim", text);
       if (part.kind === "pattern") return p.theme.fg("syntaxString", text);
       if (part.kind === "parameters") return styleParameters(text, p.theme);
@@ -171,12 +217,12 @@ function invocation(p: PreparedCard): string {
         return highlight(text, "", p.name === "powershell" ? "powershell" : "bash");
 
       return p.theme.fg(p.adapter.family === "invocation" ? "accent" : "text", text);
-    })
-    .join("");
+    }
+  );
 }
 
-export function heading(p: PreparedCard): string[] {
-  if (p.group && !p.expanded) return groupHeading(p.group, p);
+export function heading(p: PreparedCard, animationPhase: number): string[] {
+  if (p.group && !p.expanded) return groupHeading(p.group, p, animationPhase);
   const state = status(p);
   const typedOutcome = p.mcp?.outcome;
 
@@ -187,7 +233,7 @@ export function heading(p: PreparedCard): string[] {
     state.verb = "Outcome unavailable";
   }
 
-  const marker = state.pending && p.phase ? "◦" : "•";
+  const marker = state.pending && animationPhase ? "◦" : "•";
   const title = `${p.theme.fg(state.color, marker)} ${p.theme.fg("toolTitle", p.theme.bold(state.verb))}`;
   const rows = titleRows(title, invocation(p), p);
   if (p.showParameters && p.expanded && !["shell", "invocation"].includes(p.adapter.family))

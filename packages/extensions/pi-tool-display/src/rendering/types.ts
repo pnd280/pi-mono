@@ -55,7 +55,6 @@ export type Projection = Readonly<{
   call: DisplayCall | undefined;
   result: AgentToolResult<unknown> | undefined;
   group: DisplayGroup | undefined;
-  phase: number;
   mcp: McpFacts | undefined;
 }>;
 

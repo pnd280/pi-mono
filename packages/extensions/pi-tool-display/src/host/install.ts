@@ -82,7 +82,11 @@ export function installHostIntegration(
     const current: Binding = {
       host,
       display,
-      rows: new TranscriptRows(host, display, () => active && hosts.get(host) === current)
+      rows: new TranscriptRows(
+        host,
+        display.coordinator,
+        () => active && hosts.get(host) === current
+      )
     };
     hosts.set(host, current);
     sessions.set(host.session, current);
@@ -184,11 +188,16 @@ export function installHostIntegration(
     if (typeof reconstruct === "function" && typeof handle === "function") {
       hooks.replace(prototype, "renderSessionItems", function (this: Host, items, options) {
         const binding = active ? ensure(this, true) : undefined;
-        if (binding)
+        if (!binding) return reconstruct.call(this, items, options);
+        const result = binding.display.coordinator.batch(() => {
           for (const item of items) binding.display.message(transcriptMessage(item), "historical");
-        const result = reconstruct.call(this, items, options);
 
-        binding?.rows.bind();
+          // Pi discovers visible assistant/notice boundaries while creating rows.
+          // Reconcile once after those insertions, before binding expansion state.
+          return reconstruct.call(this, items, options);
+        });
+
+        binding.rows.bind();
 
         return result;
       });

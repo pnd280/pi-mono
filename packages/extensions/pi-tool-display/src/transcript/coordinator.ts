@@ -18,6 +18,7 @@ import type { OutputText } from "../output-text.ts";
 
 export interface RowHandle {
   invalidate(): void;
+  requestRender(): void;
   setExpanded(expanded: boolean): void;
 }
 
@@ -50,7 +51,10 @@ export class TranscriptCoordinator implements TranscriptView {
   get calls(): ReadonlyMap<string, DisplayCall> {
     return this.state;
   }
-  private sequence: (string | null)[] = [];
+  private sequence: string[] = [];
+  private separators = new Set<string>();
+  private groupingDepth = 0;
+  private regroupPending = false;
   private boundaries = new Map<object, string>();
   private groups = new Map<string, MutableGroup>();
   private boundaryCounts = new Map<string, number>();
@@ -116,7 +120,9 @@ export class TranscriptCoordinator implements TranscriptView {
     // heading and final connector can change; unrelated row caches stay valid.
     if (canExplore(call)) {
       const group =
-        previous && !this.boundaryCounts.has(previous) ? this.groups.get(previous) : undefined;
+        previous && !this.separators.has(previous) && !this.boundaryCounts.has(previous)
+          ? this.groups.get(previous)
+          : undefined;
       const first = group?.members[0];
       const last = group?.members.at(-1);
       const current = group ?? { members: [], expanded };
@@ -139,17 +145,24 @@ export class TranscriptCoordinator implements TranscriptView {
     this.regroup();
     this.changed(call);
   }
+  /** Reconcile groups once after synchronous reconstruction or registration updates.
+   * Intermediate group views are not ready for rendering or expansion.
+   */
+  batch<T>(update: () => T): T {
+    this.groupingDepth++;
+
+    try {
+      return update();
+    } finally {
+      this.groupingDepth--;
+      if (!this.groupingDepth && this.regroupPending) this.regroup();
+    }
+  }
   /** Reconstruction can reveal a host-generated notice after later calls were indexed. */
   boundary(after?: DisplayCall): void {
-    const position = after ? this.sequence.indexOf(after.key) + 1 : this.sequence.length;
-    if (
-      this.disposed ||
-      (after && position === 0) ||
-      this.sequence[position] === null ||
-      this.sequence[position - 1] === null
-    )
-      return;
-    this.sequence.splice(position, 0, null);
+    const key = after?.key ?? this.sequence.at(-1);
+    if (this.disposed || !key || !this.state.has(key) || this.separators.has(key)) return;
+    this.separators.add(key);
     if (after) this.regroup();
   }
   /** Visible components can withdraw their own boundary without removing other separators. */
@@ -296,6 +309,15 @@ export class TranscriptCoordinator implements TranscriptView {
     for (const row of this.rows.get(call.key) ?? []) row.invalidate();
   }
   private regroup(): void {
+    if (this.disposed) return;
+
+    if (this.groupingDepth) {
+      this.regroupPending = true;
+
+      return;
+    }
+
+    this.regroupPending = false;
     const previous = this.groups;
     this.groups = new Map();
     let group: MutableGroup | undefined;
@@ -317,16 +339,16 @@ export class TranscriptCoordinator implements TranscriptView {
     };
 
     for (const key of this.sequence) {
-      const call = key ? this.state.get(key) : undefined;
+      const call = this.state.get(key)!;
 
-      if (!call || !canExplore(call)) {
+      if (!canExplore(call)) {
         finish();
         continue;
       }
 
       group ??= { members: [], expanded: call.expanded };
       group.members.push(call);
-      if (this.boundaryCounts.has(call.key)) finish();
+      if (this.separators.has(call.key) || this.boundaryCounts.has(call.key)) finish();
     }
 
     finish();
@@ -353,8 +375,10 @@ export class TranscriptCoordinator implements TranscriptView {
         const affected = new Set<DisplayCall>();
         for (const call of this.activeCalls)
           affected.add(!call.expanded ? (this.groups.get(call.key)?.members[0] ?? call) : call);
+        // A phase change only affects heading markers. Invalidating Pi's row also
+        // rebuilds both renderer slots and discards unchanged body preparation.
         for (const call of affected)
-          for (const row of this.rows.get(call.key) ?? []) row.invalidate();
+          for (const row of this.rows.get(call.key) ?? []) row.requestRender();
       });
 
     if (!active) {
@@ -369,6 +393,8 @@ export class TranscriptCoordinator implements TranscriptView {
     this.rows.clear();
     this.state.clear();
     this.groups.clear();
+    this.separators.clear();
+    this.regroupPending = false;
     this.boundaries.clear();
     this.boundaryCounts.clear();
     this.latestById.clear();

@@ -2,7 +2,7 @@ import { AssistantMessageComponent, ToolExecutionComponent } from "@earendil-wor
 import { Container, type Component } from "@earendil-works/pi-tui";
 
 import type { DisplayCall, TranscriptView } from "../contracts.ts";
-import type { DisplaySession } from "../transcript/session.ts";
+import type { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { record } from "../values.ts";
 import type { Host } from "./compatibility.ts";
 
@@ -51,18 +51,34 @@ function joinGroupedRow(
 export class TranscriptRows {
   private disposers: (() => void)[] = [];
   private bound = new WeakSet<ToolExecutionComponent>();
-  private decorated = new Set<string>();
+  private pendingCalls = new Map<string, { calls: DisplayCall[]; next: number }>();
+  private unindexedCalls: MapIterator<DisplayCall>;
+  private indexedCalls = 0;
   private calls = new WeakMap<object, DisplayCall>();
   constructor(
-    private host: Host,
-    private display: DisplaySession,
+    private host: Pick<Host, "ui" | "chatContainer" | "toolOutputExpanded">,
+    private coordinator: TranscriptCoordinator,
     private active: () => boolean
-  ) {}
+  ) {
+    this.unindexedCalls = coordinator.calls.values();
+  }
   claimCall(name: string): DisplayCall | undefined {
-    const call = [...this.display.coordinator.calls.values()].find(
-      (candidate) => candidate.name === name && !this.decorated.has(candidate.key)
-    );
-    if (call) this.decorated.add(call.key);
+    // Calls are append-only until disposal. Stop at the indexed size rather than
+    // exhausting the iterator, so later live calls remain visible to this cursor.
+    while (this.indexedCalls < this.coordinator.calls.size) {
+      const entry = this.unindexedCalls.next();
+      if (entry.done) break;
+      const call = entry.value;
+      const queue = this.pendingCalls.get(call.name) ?? { calls: [], next: 0 };
+      queue.calls.push(call);
+      this.pendingCalls.set(call.name, queue);
+      this.indexedCalls++;
+    }
+
+    const queue = this.pendingCalls.get(name);
+    if (!queue) return undefined;
+    const call = queue.calls[queue.next++];
+    if (queue.next === queue.calls.length) this.pendingCalls.delete(name);
 
     return call;
   }
@@ -80,7 +96,10 @@ export class TranscriptRows {
     if (!this.active()) return;
     const children = this.host.chatContainer?.children ?? [];
 
-    for (let index = children.indexOf(component) - 1; index >= 0; index--) {
+    const position =
+      children.at(-1) === component ? children.length - 1 : children.indexOf(component);
+
+    for (let index = position - 1; index >= 0; index--) {
       const child = children[index];
       if (!(child instanceof ToolExecutionComponent)) continue;
       const call = this.rowCall(child);
@@ -89,7 +108,7 @@ export class TranscriptRows {
   }
   boundaryBefore(component: Component): void {
     const call = this.precedingCall(component);
-    if (call) this.display.coordinator.boundary(call);
+    if (call) this.coordinator.boundary(call);
   }
   assistantBoundary(component: Component | undefined): void {
     // Pi keeps rendered text/thinking and generated errors in a child Container.
@@ -98,15 +117,12 @@ export class TranscriptRows {
     const visible = component.children.some(
       (child) => child instanceof Container && child.children.length > 0
     );
-    this.display.coordinator.setBoundary(
-      component,
-      visible ? this.precedingCall(component) : undefined
-    );
+    this.coordinator.setBoundary(component, visible ? this.precedingCall(component) : undefined);
   }
   bind(): void {
     // A host event may reconstruct the transcript before its original handler returns.
     if (!this.active()) return;
-    const coordinator = this.display.coordinator;
+    const coordinator = this.coordinator;
 
     for (const child of this.host.chatContainer?.children ?? []) {
       if (!(child instanceof ToolExecutionComponent) || this.bound.has(child)) continue;
@@ -130,6 +146,7 @@ export class TranscriptRows {
           child.invalidate();
           this.host.ui?.requestRender();
         },
+        requestRender: () => this.host.ui?.requestRender(),
         setExpanded: (expanded) => previous.call(child, expanded)
       });
       previous.call(
@@ -144,6 +161,6 @@ export class TranscriptRows {
   }
   dispose(): void {
     this.disposers.splice(0).forEach((dispose) => dispose());
-    this.decorated.clear();
+    this.pendingCalls.clear();
   }
 }

@@ -86,6 +86,122 @@ function semanticTheme() {
 }
 
 describe("tool display renderers", () => {
+  it("animates live headings without preparing unrelated cards or unchanged result bodies", () => {
+    let tick = () => {};
+
+    const coordinator = new TranscriptCoordinator("animation-cache", {
+      animationClock: {
+        start(callback) {
+          tick = callback;
+
+          return () => {};
+        }
+      }
+    });
+    let preparations = 0;
+    const shell = {
+      ...nativeAdapter("bash")!,
+      textParts(text: string) {
+        preparations++;
+
+        return [{ kind: "output" as const, text }];
+      }
+    };
+    const rows: ToolExecutionComponent[] = [];
+
+    try {
+      for (const [index, name, origin] of [
+        [0, "bash", "historical"],
+        [1, "bash", "live"],
+        [2, "read", "historical"],
+        [3, "read", "live"]
+      ] as const) {
+        const args = name === "bash" ? { command: `echo ${index}` } : { path: `${index}.txt` };
+        const adapter = name === "bash" ? shell : nativeAdapter(name)!;
+        const call = coordinator.add(
+          { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) },
+          name,
+          args,
+          adapter,
+          origin
+        );
+        const supplied = result(`output ${index}`);
+        coordinator.result(call, supplied, "success", origin === "live");
+        const row = new ToolExecutionComponent(
+          name,
+          String(index),
+          args,
+          { showImages: false },
+          createToolDisplayRenderers(name, adapter, { binding: { call, coordinator } }),
+          renderingTui(),
+          "/tmp"
+        );
+        row.updateResult({ ...supplied, isError: false }, origin === "live");
+        coordinator.attach(call, {
+          invalidate: () => row.invalidate(),
+          requestRender: () => {},
+          setExpanded: (expanded) => row.setExpanded(expanded)
+        });
+        rows.push(row);
+      }
+
+      const render = () => rows.map((row) => stripTerminalSequences(row.render(80).join("\n")));
+      const initial = render();
+      expect(preparations).toBe(2);
+      tick();
+      const animated = render();
+      expect(animated[0]).toBe(initial[0]);
+      expect(animated[1]).not.toBe(initial[1]);
+      expect(animated[2]).not.toBe(initial[2]); // Completed group leader, live sibling.
+      expect(animated[3]).toBe(initial[3]);
+      expect(preparations).toBe(2);
+      tick();
+      expect(render()).toEqual(initial);
+      expect(preparations).toBe(2);
+
+      coordinator.result(coordinator.byId("1")!, result("replacement output"), "success");
+      expect(render()[1]).toContain("replacement output");
+      expect(preparations).toBe(3);
+      rows[0]!.invalidate();
+      render();
+      expect(preparations).toBe(4);
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it.each(["custom", "bash"])(
+    "bounds collapsed %s arguments before formatting and retains them on expansion",
+    (name) => {
+      const command = `BEGIN ${"middle ".repeat(75_000)} FINAL_ARGUMENT`;
+      const current = context({ args: { command } });
+      let largestStyledText = 0;
+      const measuredTheme = {
+        ...theme,
+        fg(color: string, text: string) {
+          largestStyledText = Math.max(largestStyledText, text.length);
+
+          return theme.fg(color, text);
+        }
+      };
+      const renderer = createToolDisplayRenderers(name, nativeAdapter(name));
+      const header = renderer.renderCall(current.args, measuredTheme, current);
+      const compact = header.render(100);
+      expect(compact.length).toBeLessThanOrEqual(5);
+      expect(compact.join("\n")).toContain("BEGIN");
+      expect(compact.join("\n")).toContain("more details");
+      expect(compact.join("\n")).not.toContain("FINAL_ARGUMENT");
+      expect(largestStyledText).toBeLessThanOrEqual(16 * 1024);
+      const expanded = renderer.renderCall(current.args, theme, {
+        ...current,
+        expanded: true,
+        lastComponent: header
+      });
+      expect(expanded.render(100).join("\n")).toContain("FINAL_ARGUMENT");
+      expect(current.args).toEqual({ command });
+    }
+  );
+
   it("shares a result projection between wrapped headings and bodies, then refreshes it", () => {
     let preparations = 0;
     const renderer = createToolDisplayRenderers(
@@ -401,6 +517,7 @@ describe("tool display renderers", () => {
           if (coordinated)
             coordinator.attach(call, {
               invalidate: () => row.invalidate(),
+              requestRender: () => {},
               setExpanded: (expanded) => row.setExpanded(expanded)
             });
 

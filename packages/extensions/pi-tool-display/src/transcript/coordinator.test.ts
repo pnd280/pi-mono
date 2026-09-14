@@ -10,6 +10,10 @@ const result = (text = "retained") => ({
   details: undefined
 });
 
+function rowHandle() {
+  return { invalidate: vi.fn(), requestRender: vi.fn(), setExpanded: vi.fn() };
+}
+
 function fixture() {
   const stop = vi.fn();
 
@@ -47,7 +51,7 @@ it("keeps unrelated completed row caches and group interiors when appending call
     const middle = add("read", "b.ts", "historical");
     const last = add("read", "c.ts", "historical");
     const rows = [edit, first, middle, last].map((call) => {
-      const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+      const row = rowHandle();
       c.attach(call, row);
 
       return row;
@@ -64,8 +68,9 @@ it("keeps unrelated completed row caches and group interiors when appending call
     }
 
     tick();
-    expect(rows[1]!.invalidate).toHaveBeenCalledOnce();
-    for (const index of [0, 2, 3]) expect(rows[index]!.invalidate).not.toHaveBeenCalled();
+    expect(rows[1]!.requestRender).toHaveBeenCalledOnce();
+    for (const row of rows) expect(row.invalidate).not.toHaveBeenCalled();
+    for (const index of [0, 2, 3]) expect(rows[index]!.requestRender).not.toHaveBeenCalled();
     c.result(live, result(), "success");
     c.boundary();
     for (const row of rows) row.invalidate.mockClear();
@@ -83,7 +88,7 @@ it("owns supplemental state and invalidates calls and collapsed headings on upda
     const first = add("read", "a.ts", "historical");
     const second = add("read", "b.ts", "historical");
     const rows = [first, second].map((call) => {
-      const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+      const row = rowHandle();
       c.attach(call, row);
 
       return row;
@@ -115,7 +120,7 @@ it("rejects foreign and disposed call updates without changing retained views or
   const { coordinator: c } = fixture();
   const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "owned" };
   const call = c.add(reference, "bash", {}, nativeAdapter("bash")!, "live");
-  const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+  const row = rowHandle();
   c.attach(call, row);
   reference.toolCallId = "changed by caller";
   expect(call.reference.toolCallId).toBe("owned");
@@ -163,6 +168,49 @@ it("does not revisit old adapter contracts while appending history", () => {
   }
 });
 
+it("batches reconstruction boundaries and late adapters into one contract pass", () => {
+  const { coordinator: c, onExpansion } = fixture();
+  const exploration = vi.fn(() => [
+    { label: "Read" as const, parts: [{ kind: "path" as const, text: "file.txt" }] }
+  ]);
+  const adapter = { id: "owner:read", family: "read" as const, exploration };
+  const calls = Array.from({ length: 100 }, (_, index) =>
+    c.add(
+      { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) },
+      "read",
+      {},
+      genericAdapter,
+      "historical",
+      index % 2 === 0
+    )
+  );
+
+  try {
+    c.batch(() => {
+      for (const call of calls) c.setAdapter(call, adapter);
+      c.batch(() => {
+        for (const call of calls.slice(0, -1)) c.setBoundary({}, call);
+      });
+    });
+    expect(exploration).toHaveBeenCalledTimes(calls.length);
+    for (const call of calls) expect(c.group(call)?.members).toEqual([call]);
+    expect(calls.map((call) => call.expanded)).toEqual(calls.map((_, index) => index % 2 === 0));
+    expect(onExpansion).not.toHaveBeenCalled();
+
+    exploration.mockClear();
+    expect(() =>
+      c.batch(() => {
+        c.boundary(calls[0]);
+        throw new Error("reconstruction failed");
+      })
+    ).toThrow("reconstruction failed");
+    expect(exploration).toHaveBeenCalledTimes(calls.length);
+    expect(c.group(calls[0]!)?.members).toEqual([calls[0]]);
+  } finally {
+    c.dispose();
+  }
+});
+
 it("regroups late historical contracts without changing results, source order, or live activity", () => {
   const { coordinator: c, start, onExpansion } = fixture();
 
@@ -179,7 +227,7 @@ it("regroups late historical contracts without changing results, source order, o
     const retained = result("retained results");
     c.result(first, retained, "success");
     c.result(second, retained, "failure");
-    const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+    const row = rowHandle();
     c.attach(first, row);
     c.expand(first, true);
     onExpansion.mockClear();
@@ -252,7 +300,7 @@ it("retains every ordered call and failure while expanding the group together", 
   expect(group.members).toEqual([first, second, third]);
   expect(group.members.map((call) => call.outcome)).toEqual(["success", "failure", "success"]);
   const rows = group.members.map((call) => {
-    const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+    const row = rowHandle();
     c.attach(call, row);
 
     return row;
@@ -314,7 +362,7 @@ it("applies global expansion once per group while keeping independent groups syn
     const separate = add("read", "c.ts", "historical");
     const calls = [first, sibling, separate];
     const rows = calls.map((call) => {
-      const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+      const row = rowHandle();
       c.attach(call, row);
 
       return row;
@@ -345,10 +393,11 @@ it("runs one scheduler only for known live activity, rejects late previews, and 
   const first = add("bash", "a"),
     second = add("bash", "b");
   expect(start).toHaveBeenCalledTimes(1);
-  const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+  const row = rowHandle();
   c.attach(first, row);
   tick();
-  expect(row.invalidate).toHaveBeenCalledTimes(1);
+  expect(row.requestRender).toHaveBeenCalledOnce();
+  expect(row.invalidate).not.toHaveBeenCalled();
   c.preview(first, { text: "real chunks" });
   c.result(first, result("authoritative"), "success");
   c.preview(first, { text: "late" });
@@ -371,7 +420,7 @@ it("retains a live call's row and outcome when finalized content moves its sourc
   try {
     const reference = { messageTimestamp: 1, contentIndex: 1, toolCallId: "moved" };
     const first = c.add(reference, "read", { path: "first.ts" }, nativeAdapter("read")!, "live");
-    const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
+    const row = rowHandle();
     c.attach(first, row);
     c.expand(first, true);
     const finalized = { ...reference, contentIndex: 0 };

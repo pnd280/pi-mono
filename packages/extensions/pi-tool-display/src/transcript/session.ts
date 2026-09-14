@@ -64,11 +64,13 @@ export class DisplaySession {
     if (this.disposed) return;
 
     // Registration can finish after reconstruction. Upgrade contracts without replaying calls.
-    for (const call of this.coordinator.calls.values()) {
-      if (call.origin !== "historical" || call.adapter.id !== "generic") continue;
-      const selected = this.options.selectAdapter(call.name);
-      if (selected && selected.id !== "generic") this.coordinator.setAdapter(call, selected);
-    }
+    this.coordinator.batch(() => {
+      for (const call of this.coordinator.calls.values()) {
+        if (call.origin !== "historical" || call.adapter.id !== "generic") continue;
+        const selected = this.options.selectAdapter(call.name);
+        if (selected && selected.id !== "generic") this.coordinator.setAdapter(call, selected);
+      }
+    });
   }
   beginObservation(id: string, adapter: string): ObservationSink | undefined {
     const call = this.coordinator.byId(id);

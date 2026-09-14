@@ -19,6 +19,8 @@ Pending headings cover argument streaming, queueing, and execution; they do not 
 
 Concrete file targets (`path` parts) in summaries use paths relative to the rendering context's cwd when inside it, and absolute paths when outside it. The cwd itself displays as `.`. Grouped reads retain directory names and read ranges. Resolution is lexical, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and literal scope/filter expressions are not rewritten.
 
+Collapsed invocation and command summaries show up to three detail rows, with an expansion hint when truncated. A long invocation can place its action title on a separate row. Grouped exploration summaries use the same limits per item without hiding diagnostics or images. Expansion removes the [heading preview limits](#resource-limits); parameter visibility still follows [`showParameters`](#explicit-contracts).
+
 Successful completed read bodies stay hidden until expansion; their notices and images remain visible. Other collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show bounded head/tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling. Expansion shows all retained output, subject to live/saved-output retention limits.
 
 Compact exploration keeps every call in source order, including repeated reads. Visible assistant content, diagnostics, cache-miss notices, compaction summaries/notices, and rendered custom entries separate groups; hidden content does not. Assistant content separates groups before that message's tools, even if it arrives later. Tool-result notices and failure diagnostics stay immediately beneath their originating invocation:
@@ -56,14 +58,15 @@ Only retained patch context is available; rendering never reads current files. I
 
 ## Resource limits
 
-| Resource                  | Limit                                                                                                                                                        |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Collapsed text formatting | 16,384 UTF-16 code units of styled text, split between the start and end, plus carried ANSI state. Expansion shows all retained text.                        |
-| Syntax highlighting       | 512 KiB per text. Larger source and JSON remain readable without token styling.                                                                              |
-| Live shell output         | Full output through 1 MiB. Above 1 MiB, the first 50 and last 50 lines plus any partial line, capped at 10,280 bytes per line.                               |
-| Saved output preview      | 256 KiB and 4,000 lines, with bounded reads from the start and end of the file. At most 8 cached previews and 8 concurrent reads.                            |
-| Generated patch input     | 64 KiB per text, a cooperative 50 ms search timeout, and a 2,000 changed-line edit-distance limit. Native edit patches bypass these input and search limits. |
-| Retained patch            | 128 KiB.                                                                                                                                                     |
+| Resource                     | Limit                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Collapsed heading formatting | 16,384 UTF-16 code units of normalized text per invocation or exploration item, before styling and wrapping.                                                 |
+| Collapsed result formatting  | 16,384 UTF-16 code units of styled text, split between the start and end, plus carried ANSI state.                                                           |
+| Syntax highlighting          | 512 KiB per text. Larger source and JSON remain readable without token styling.                                                                              |
+| Live shell output            | Full output through 1 MiB. Above 1 MiB, the first 50 and last 50 lines plus any partial line, capped at 10,280 bytes per line.                               |
+| Saved output preview         | 256 KiB and 4,000 lines, with bounded reads from the start and end of the file. At most 8 cached previews and 8 concurrent reads.                            |
+| Generated patch input        | 64 KiB per text, a cooperative 50 ms search timeout, and a 2,000 changed-line edit-distance limit. Native edit patches bypass these input and search limits. |
+| Retained patch               | 128 KiB.                                                                                                                                                     |
 
 Live/saved-output collection and patch generation belong to the [automatic integration](../README.md#observation-and-saved-history), not the standalone factory.
 

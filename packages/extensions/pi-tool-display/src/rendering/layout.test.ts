@@ -7,10 +7,23 @@ import {
   compactText,
   renderTree,
   renderTreeContinuation,
+  textPrefix,
   wrapRows
 } from "./layout.ts";
 
 describe("display row budgets", () => {
+  it("bounds heading prefixes without cutting graphemes or ANSI sequences", () => {
+    for (const unit of ["👩🏽‍💻", "é", "\x1b[31m"]) {
+      const text = `start${unit}tail`;
+      for (let offset = 1; offset < unit.length; offset++)
+        expect(textPrefix(text, 5 + offset)).toBe("start");
+      expect(textPrefix(text, 5 + unit.length)).toBe(`start${unit}`);
+    }
+
+    expect(textPrefix("👩🏽‍💻", 0)).toBe("");
+    expect(textPrefix("unchanged", Infinity)).toBe("unchanged");
+  });
+
   it("bounds compact wrapping while retaining tail ANSI state, graphemes, and diagnostics", () => {
     const source = "\x1b[31mBEGIN\n" + "x".repeat(1024 * 1024) + "\n👩🏽‍💻 é\nFINAL ERROR\x1b[0m";
     const compact = compactText(source, 5, 80, "expand");
