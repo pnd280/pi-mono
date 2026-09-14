@@ -54,19 +54,9 @@ export function fffResultParts(
 
   if (trailer) {
     const notice = trailer[1]!;
-    // Pagination guides the agent's next call, not the user's attention. A combined
-    // trailer can still contain a regex fallback diagnostic that must remain visible.
-    const pagination =
-      /(?:^\[|\. )(?:Continue with cursor="[^"\n]+"|\d+ more match(?:es)? available\. cursor="[^"\n]+" to continue|More available\. cursor="[^"\n]+" to continue|\d+\+ matches \(refine patterns\)(?:\. More available\. cursor="[^"\n]+" to continue)?)\]$/.exec(
-        notice
-      );
-    const diagnostic = pagination
-      ? pagination.index === 0
-        ? ""
-        : `${notice.slice(0, pagination.index)}]`
-      : notice;
-    if (diagnostic)
-      parts.push(part(trailer[0].slice(0, -notice.length)), part(diagnostic, "warning"));
+    const separator = trailer[0].slice(0, -notice.length);
+    if (separator) parts.push(part(separator));
+    parts.push(part(notice, "warning"));
   }
 
   return parts;

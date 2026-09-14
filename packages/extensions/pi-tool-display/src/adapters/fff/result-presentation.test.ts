@@ -16,8 +16,10 @@ it("distinguishes FFF metadata and diagnostics from matching source text", () =>
   const cursor = '[Continue with cursor="fff_c1"]';
   const text = `example.ts  [staged_modified in git]\n 4: literal No matches found\n 5- [Invalid regex: source text]\n\n${cursor}`;
   const parts = fffResultParts(text, "grep", complete);
-  expect(parts.map((part) => part.text).join("")).toBe(text.slice(0, text.indexOf("\n\n")));
-  expect(parts.filter((part) => part.kind === "warning")).toEqual([]);
+  expect(parts.map((part) => part.text).join("")).toBe(text);
+  expect(parts.filter((part) => part.kind === "warning")).toEqual([
+    { kind: "warning", text: cursor }
+  ]);
   expect(parts.filter((part) => part.kind === "annotation").map((part) => part.text)).toEqual([
     "  [staged_modified in git]",
     " 4: ",
@@ -39,39 +41,45 @@ it.each([
   ["multi", '[More available. cursor="fff_c2" to continue]'],
   ["multi", '[10+ matches (refine patterns). More available. cursor="next" to continue]'],
   ["multi", "[10+ matches (refine patterns)]"]
-] as const)("hides %s pagination only in complete successful FFF envelopes: %s", (kind, notice) => {
-  const content = kind === "find" ? "example.ts" : "example.ts\n 1: retained match";
-  const text = `${content}\n\n${notice}`;
-  const supplied = { content: [{ type: "text" as const, text }], details: undefined };
-  expect(
-    fffResultParts(text, kind, complete)
-      .map((part) => part.text)
-      .join("")
-  ).toBe(content);
-  expect(fffTextNotices(supplied, kind)).toEqual([]);
-  expect(fffResultParts(notice, kind, complete)).toEqual([]);
-
-  for (const context of [
-    { ...complete, isError: true },
-    { ...complete, isPartial: true }
-  ]) {
+] as const)(
+  "retains %s pagination warnings in complete successful FFF envelopes: %s",
+  (kind, notice) => {
+    const content = kind === "find" ? "example.ts" : "example.ts\n 1: retained match";
+    const text = `${content}\n\n${notice}`;
+    const supplied = { content: [{ type: "text" as const, text }], details: undefined };
     expect(
-      fffResultParts(text, kind, context)
+      fffResultParts(text, kind, complete)
         .map((part) => part.text)
         .join("")
     ).toBe(text);
-  }
+    expect(fffTextNotices(supplied, kind)).toEqual([{ kind: "warning", text: notice }]);
+    expect(fffResultParts(notice, kind, complete)).toEqual([{ kind: "warning", text: notice }]);
 
-  for (const literal of [`example.ts\n 1: ${notice}`, `${text}\n\nnext-file.ts`, `${text}\n`]) {
-    expect(
-      fffResultParts(literal, kind, complete)
-        .map((part) => part.text)
-        .join("")
-    ).toBe(literal);
-  }
+    for (const context of [
+      { ...complete, isError: true },
+      { ...complete, isPartial: true }
+    ]) {
+      expect(
+        fffResultParts(text, kind, context)
+          .map((part) => part.text)
+          .join("")
+      ).toBe(text);
+    }
 
-  expect(supplied.content[0]!.text).toBe(text);
-});
+    for (const literal of [`example.ts\n 1: ${notice}`, `${text}\n\nnext-file.ts`, `${text}\n`]) {
+      expect(
+        fffResultParts(literal, kind, complete).filter((part) => part.kind === "warning")
+      ).toEqual([]);
+      expect(
+        fffResultParts(literal, kind, complete)
+          .map((part) => part.text)
+          .join("")
+      ).toBe(literal);
+    }
+
+    expect(supplied.content[0]!.text).toBe(text);
+  }
+);
 it.each(["foo\nbar", 'foo"]\n\n[bar'])(
   "retains weak-match warnings for multiline find queries: %j",
   (query) => {
@@ -105,20 +113,19 @@ it.each(["foo\nbar", 'foo"]\n\n[bar'])(
 );
 
 it.each(["unclosed group", "regex parse error:\n    (\n    ^\nerror: unclosed group"])(
-  "retains FFF fallback diagnostics without their combined pagination instruction: %s",
+  "retains FFF fallback diagnostics with their combined pagination instruction: %s",
   (error) => {
-    const warning = `[Invalid regex: ${error}, used literal match]`;
     const combined = `[Invalid regex: ${error}, used literal match. Continue with cursor="fff_c1"]`;
     const supplied = {
       content: [{ type: "text" as const, text: `example.ts\n 1: match\n\n${combined}` }],
       details: undefined
     };
-    expect(fffTextNotices(supplied, "grep")).toEqual([{ kind: "warning", text: warning }]);
+    expect(fffTextNotices(supplied, "grep")).toEqual([{ kind: "warning", text: combined }]);
     expect(
       fffResultParts(supplied.content[0]!.text, "grep", complete)
         .map((part) => part.text)
         .join("")
-    ).toBe(`example.ts\n 1: match\n\n${warning}`);
+    ).toBe(supplied.content[0]!.text);
 
     for (const diagnostic of [
       '[Query "needle" produced only weak scattered fuzzy matches. Output capped at 5/100.]',

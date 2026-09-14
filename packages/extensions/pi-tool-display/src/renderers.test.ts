@@ -993,7 +993,7 @@ describe("tool display renderers", () => {
   });
 
   it.each([false, true])(
-    "hides FFF pagination in standalone and grouped cards (expanded=%s)",
+    "shows FFF pagination in standalone and grouped cards (expanded=%s)",
     (expanded) => {
       const adapter = officialFffAdapter({
         name: "fffind",
@@ -1019,16 +1019,17 @@ describe("tool display renderers", () => {
         .render(100)
         .join("\n");
       expect(standalone).toContain("renderers.ts");
-      expect(standalone).not.toMatch(/cursor=|more matches|Page /);
-      expect(renderer.renderResult(result(notice), current, theme, current).render(100)).toEqual(
-        []
-      );
+      expect(standalone).toContain(notice);
+      expect(standalone).not.toContain("Page ");
+      expect(
+        renderer.renderResult(result(notice), current, theme, current).render(100).join("\n")
+      ).toContain(notice);
       const generic = createToolDisplayRenderers("fffind")
         .renderResult(supplied, current, theme, current)
         .render(100)
         .join("\n");
       expect(generic).toContain(notice);
-      const coordinator = new TranscriptCoordinator("hidden-pagination");
+      const coordinator = new TranscriptCoordinator("visible-pagination");
 
       try {
         const search = coordinator.add(
@@ -1058,7 +1059,8 @@ describe("tool display renderers", () => {
             ...renderer.renderResult(call.result!, current, theme, current).render(100)
           ];
         });
-        expect(rows.join("\n")).not.toMatch(/cursor=|more matches|Page /);
+        expect(rows.join("\n").split(notice)).toHaveLength(2);
+        expect(rows.join("\n")).not.toContain("Page ");
         if (expanded) {
           expect(rows.join("\n")).toContain("renderers.ts");
           expect(rows.join("\n")).toContain("retained file text");
@@ -1066,6 +1068,7 @@ describe("tool display renderers", () => {
           expect(rows).toEqual([
             "• Explored",
             "  ├ Search renderers in src/",
+            `  │   ${notice}`,
             "  └ Read renderers.ts"
           ]);
         expect(search.result).toBe(supplied);

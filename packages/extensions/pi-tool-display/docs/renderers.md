@@ -21,7 +21,7 @@ File targets in read/edit/write and native search/list summaries use paths relat
 
 Explicit empty FFF patterns remain valid searches: `ffgrep` displays `""`; `fffind` lists files in the supplied scope, defaulting to `.`. Missing patterns show `(pattern missing)` and do not qualify for grouping.
 
-FFF pagination instructions, routine limit hints, and page-number notices are omitted from both compact and expanded cards. Matches remain available on expansion; query/fallback diagnostics remain visible in compact groups, including warnings containing multiline queries. Retained results and model context keep the original pagination data. Generic adapters do not interpret that envelope.
+FFF pagination instructions, limit hints, and query/fallback diagnostics remain visible in compact and expanded cards, preserving the full text of combined notices and multiline queries. Matches remain available on expansion.
 
 Collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show bounded head/tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling. Expansion shows all retained output, subject to live/saved-output retention limits.
 
@@ -42,7 +42,7 @@ Compact exploration keeps every call in source order, including repeated reads. 
 
 - **`dim`:** tree rules, JSON keys/punctuation, generated header annotations, empty/waiting messages (including native `(no output)`), FFF counts and file annotations, routine timing/success metadata, and hints for collapsed rows that remain available on expansion.
 - **`muted`:** unavailable historical observations and unknown operation details. Missing observations are not reported as execution failures.
-- **`warning`:** cancellation, unconfirmed application, unavailable patches/previews, backend or budget omissions, and FFF query/fallback diagnostics.
+- **`warning`:** cancellation, unconfirmed application, unavailable patches/previews, backend or budget omissions, and FFF pagination/limit notices and query/fallback diagnostics.
 - **`error`:** reported failures, native nonzero-exit/timeout diagnostics, failed application, and typed MCP errors. Process output preceding a native failure footer retains its own styling.
 - **`accent`:** grouped `Read`/`Search`/`List` action labels, invocation-family tool identities, and pending indicators.
 - **`syntaxString`:** explicitly tagged search patterns, including every FFF multi-search pattern, in compact, standalone, and expanded summaries. Scope/filter text retains `text`; patterns are not parsed as code or rewritten.

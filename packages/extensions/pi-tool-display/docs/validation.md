@@ -54,7 +54,7 @@ Additional arguments go to Pi. For example, append `--use-theme light` for appea
 
 For FFF or finalized-message middleware checks, add the relevant fixed call plan or scoped middleware to [provider.ts](../src/validation/provider.ts) and prepare disposable inputs in [workspace.ts](../src/validation/workspace.ts). MCP has a [separate fixture setup](#mcp-fixture).
 
-For FFF checks, explicitly load the installed official extension with an additional `-e` argument and enable its names through Pi's `--tools` option. Multi-search also needs that extension's `PI_FFF_MULTIGREP=1` environment in the isolated launch configuration. Exercise real results before and after reload: pagination remains hidden, matches remain available on expansion, and query/fallback diagnostics remain visible. Do not substitute invented FFF ownership for this check.
+For FFF checks, explicitly load the installed official extension with an additional `-e` argument and enable its names through Pi's `--tools` option. Multi-search also needs that extension's `PI_FFF_MULTIGREP=1` environment in the isolated launch configuration. Exercise real results before and after reload: pagination, limit hints, and query/fallback diagnostics remain visible in compact and expanded cards, and matches remain available on expansion.
 
 For finalized-message changes, compare live and replayed results with the corresponding [host integration cases](../src/host-integration.test.ts). Observed operation facts must remain separate from published outcomes. Modify disposable working files before replay to distinguish retained patches from observations of today's files.
 

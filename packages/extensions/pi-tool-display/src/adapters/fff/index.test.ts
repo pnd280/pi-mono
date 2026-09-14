@@ -2,7 +2,7 @@ import { expect, it } from "vite-plus/test";
 
 import { officialFffAdapter } from "./index.ts";
 import { fffToolInfo } from "./test-fixture.ts";
-it("hides FFF pagination while retaining expanded match counts", () => {
+it("shows compact FFF pagination while retaining expanded match counts", () => {
   const find = officialFffAdapter(fffToolInfo("fffind"))!;
   const grep = officialFffAdapter(fffToolInfo("ffgrep"))!;
   const cursorNotice = '[Continue with cursor="fff_c1"]';
@@ -10,7 +10,7 @@ it("hides FFF pagination while retaining expanded match counts", () => {
     content: [{ type: "text" as const, text: `file.ts\n 1: export\n\n${cursorNotice}` }],
     details: { totalMatched: 1, totalFiles: 5 }
   };
-  expect(grep.notices?.(paged, false)).toEqual([]);
+  expect(grep.notices?.(paged, false)).toEqual([{ kind: "warning", text: cursorNotice }]);
   expect(grep.notices?.(paged, true)).not.toContainEqual({ kind: "warning", text: cursorNotice });
   const complete = {
     content: [{ type: "text" as const, text: "file-test.txt" }],
