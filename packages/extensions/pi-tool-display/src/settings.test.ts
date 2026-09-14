@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 
-import { selectAdapter } from "./adapters/registry.ts";
+import { selectAdapter } from "./host/selection.ts";
 import { loadDisplaySettings, SETTINGS_KEY } from "./settings.ts";
 const source = (rendererOverrides: unknown, path = "global/settings.json") => ({
   path,

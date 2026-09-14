@@ -8,7 +8,7 @@
 
 ## Task references
 
-- **Reuse**: behavior changes or refactors: [architecture](docs/agents/architecture.md).
+- **Reuse**: behavior changes or refactors: [ownership guidance](docs/agents/architecture.md) and [workspace architecture](docs/architecture.md).
 - **Tests**: coverage decisions or test edits/reviews: [testing](docs/agents/testing.md).
 - **Development**: validation, TypeScript/tooling edits, package setup, dependencies, or pi API work: [development](docs/development.md).
 - **Commits**: composing a commit message: [commit-messages skill](.agents/skills/commit-messages/SKILL.md).

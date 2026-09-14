@@ -1,7 +1,8 @@
 import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
 
-import { record, type InvocationPart } from "../../presentation.ts";
-import type { ToolDisplayAdapter } from "../types.ts";
+import { type InvocationPart } from "../../contracts.ts";
+import type { ToolDisplayAdapter } from "../../contracts.ts";
+import { record } from "../../values.ts";
 import { mcpCallFacts, mcpCallIdentity, mcpNotices } from "./result-presentation.ts";
 
 type ToolKind = "gateway" | "namespace" | "script" | "direct";

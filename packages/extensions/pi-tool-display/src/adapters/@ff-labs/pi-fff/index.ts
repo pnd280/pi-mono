@@ -1,13 +1,11 @@
 import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
 
-import {
-  record,
-  stringField,
-  invocationParts,
-  type InvocationPart
-} from "../../../presentation.ts";
-import type { ToolDisplayAdapter } from "../../types.ts";
+import { type InvocationPart } from "../../../contracts.ts";
+import type { ToolDisplayAdapter } from "../../../contracts.ts";
+import { invocationParts } from "../../../invocation.ts";
+import { stringField } from "../../../terminal-text.ts";
+import { record } from "../../../values.ts";
 import { fffResultParts, fffTextNotices } from "./result-presentation.ts";
 
 function isStringArray(value: unknown): value is string[] {

@@ -18,4 +18,4 @@ Extensions load directly from TypeScript; there is no build step.
 
 ## Development
 
-[Commands and conventions](docs/development.md)
+[Architecture](docs/architecture.md) · [Commands and conventions](docs/development.md)

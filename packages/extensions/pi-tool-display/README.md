@@ -1,6 +1,6 @@
 # pi-tool-display
 
-`pi-tool-display` renders borderless tool cards in Pi's interactive terminal UI. It groups adjacent exploration calls and adds live shell previews and file diffs. Colors and syntax highlighting use Pi's active theme.
+`pi-tool-display` renders borderless tool cards in Pi's interactive terminal UI. It groups adjacent exploration calls and adds live shell previews and [file diffs](docs/renderers.md#diff-viewer). Colors and syntax highlighting use Pi's active theme.
 
 ## Usage
 
@@ -9,8 +9,6 @@ Adjacent read, search, and list calls form [exploration groups](docs/renderers.m
 Pi's tool expansion action, **Ctrl+O** by default, reveals individual cards and available output. In fullscreen mode, a group click expands or collapses all its members. In regular mode, the terminal handles mouse input.
 
 Specialized cards hide parameter blocks by default, even when expanded. Command, path, and search summaries remain visible. Generic cards always show their arguments.
-
-Compact [file diffs](docs/renderers.md#diff-viewer) show changed code with nearby context.
 
 ## Tool coverage
 

@@ -1,7 +1,7 @@
 export interface OutputText {
   text: string;
   /** UTF-16 ranges of inserted budget notices, never inferred from process output. */
-  omissions?: readonly { start: number; end: number }[];
+  omissions?: readonly { readonly start: number; readonly end: number }[];
 }
 
 export function outputOmission(text: string): OutputText {

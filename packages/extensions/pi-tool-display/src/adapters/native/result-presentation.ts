@@ -1,8 +1,9 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
-import { displayText } from "../../layout.ts";
-import { record, stringField } from "../../presentation.ts";
-import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../types.ts";
+import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../contracts.ts";
+import { displayText } from "../../terminal-text.ts";
+import { stringField } from "../../terminal-text.ts";
+import { record } from "../../values.ts";
 
 const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultTextPart => ({
   text,

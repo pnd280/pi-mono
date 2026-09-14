@@ -1,5 +1,7 @@
 # Ownership and reuse
 
+See the [workspace architecture](../architecture.md) for the current package structure and runtime flow.
+
 ## Ownership
 
 - `packages/extensions/<name>/`: one workspace package per extension.

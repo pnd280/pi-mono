@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import { installHostIntegration } from "./host-integration.ts";
+import { installHostIntegration } from "./host/install.ts";
 
 export default function toolDisplay(pi: ExtensionAPI): void {
   const warnings: string[] = [];

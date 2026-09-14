@@ -1,6 +1,7 @@
-import type { ToolFamily } from "../../display-model.ts";
-import { record, invocationParts } from "../../presentation.ts";
-import type { ToolDisplayAdapter } from "../types.ts";
+import type { ToolFamily } from "../../contracts.ts";
+import type { ToolDisplayAdapter } from "../../contracts.ts";
+import { invocationParts } from "../../invocation.ts";
+import { record } from "../../values.ts";
 import {
   nativeResultParts,
   nativeResultNotices,

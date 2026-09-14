@@ -1,6 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
-import type { ToolDisplayAdapter } from "./types.ts";
+import type { ToolDisplayAdapter } from "../contracts.ts";
 
 export const genericAdapter: ToolDisplayAdapter = { id: "generic", family: "invocation" };
 

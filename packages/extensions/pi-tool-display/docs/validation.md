@@ -2,15 +2,15 @@
 
 ## Terminal procedure
 
-For integration/interaction changes, launch the [offline fixture](../src/validation/launch-terminal.ts) from the workspace root. It requires the installed workspace dependencies, Node, and a Unix Bash backend:
+For integration/interaction changes, launch the [offline fixture](../validation/launch-terminal.ts) from the workspace root. It requires the installed workspace dependencies, Node, and a Unix Bash backend:
 
 ```sh
 vpr 'pi-tool-display#validate:terminal' regular
 ```
 
-The launcher uses the installed Pi executable with only this extension and an offline [scripted provider](../src/validation/provider.ts). The provider emits fixed tool calls; it does not contact a model service or interpret arbitrary prompts as commands.
+The launcher uses the installed Pi executable with this extension and an offline [scripted provider](../validation/provider.ts). The provider emits fixed tool calls without contacting a model service.
 
-The printed `Fixture directory` contains disposable working files, isolated home/settings directories, temporary output, and session history. It is retained after exit. The fixture changes only its prepared files and settings; it does not load your normal extensions, credentials, or project instructions. Keep it until replay checks finish, then remove that printed directory when no longer needed.
+The printed `Fixture directory` contains disposable working files, isolated home/settings directories, temporary output, and session history. It is retained after exit. The fixture does not load your normal extensions, credentials, or project instructions. Keep it until replay checks finish, then remove that printed directory when no longer needed.
 
 Enter these literal prompts in Pi:
 
@@ -52,9 +52,9 @@ Additional arguments go to Pi. For example, append `--use-theme light` for appea
 
 ### Finalized-message middleware
 
-Add the relevant fixed call plan or scoped middleware to [provider.ts](../src/validation/provider.ts) and prepare disposable inputs in [workspace.ts](../src/validation/workspace.ts).
+Add the relevant fixed call plan or scoped middleware to [provider.ts](../validation/provider.ts) and prepare disposable inputs in [workspace.ts](../validation/workspace.ts).
 
-Compare live and replayed results with the corresponding [host integration cases](../src/host-integration.test.ts). Observed operation facts must remain separate from published outcomes. Modify disposable working files before replay to distinguish retained patches from observations of today's files.
+Compare live and replayed results with the corresponding [host integration cases](../src/host/install.test.ts). Observed operation facts must remain separate from published outcomes. Modify disposable working files before replay to distinguish retained patches from observations of today's files.
 
 ## Adapter validation
 

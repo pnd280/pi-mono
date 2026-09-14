@@ -1,7 +1,7 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
-import { record } from "../../presentation.ts";
-import type { DisplayNotice, McpFacts } from "../types.ts";
+import type { DisplayNotice, McpFacts } from "../../contracts.ts";
+import { record } from "../../values.ts";
 
 export function mcpCallIdentity(
   result?: AgentToolResult<unknown>

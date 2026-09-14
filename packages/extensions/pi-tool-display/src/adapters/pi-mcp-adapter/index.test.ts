@@ -1,10 +1,10 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { expect, it } from "vite-plus/test";
 
-import { createToolDisplayRenderers } from "../../renderers.ts";
+import { selectAdapter } from "../../host/selection.ts";
+import { createToolDisplayRenderers } from "../../rendering/cards.ts";
 import { loadDisplaySettings } from "../../settings.ts";
 import { resolveResultAdapter } from "../generic.ts";
-import { selectAdapter } from "../registry.ts";
 import { piMcpAdapter } from "./index.ts";
 import { mcpToolInfo } from "./test-fixture.ts";
 

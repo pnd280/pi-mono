@@ -1,7 +1,7 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 
-import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../types.ts";
+import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../../contracts.ts";
 
 const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultTextPart => ({
   text,

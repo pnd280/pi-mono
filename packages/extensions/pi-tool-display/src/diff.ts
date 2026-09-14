@@ -1,7 +1,7 @@
 import { DiffLineType, DiffParser, type DiffHunk } from "@git-diff-view/core";
 import { createPatch, FILE_HEADERS_ONLY } from "diff";
 
-import type { ChangeFact } from "./display-model.ts";
+import type { ChangeFact } from "./contracts.ts";
 
 export const OBSERVATION_BYTES = 64 * 1024;
 

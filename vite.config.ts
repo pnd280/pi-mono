@@ -43,6 +43,8 @@ export default defineConfig({
             "error",
             {
               default: "allow",
+              checkInternals: true,
+              checkAllOrigins: true,
               policies: [
                 {
                   disallow: { to: { element: { type: "extension" } } },
@@ -55,8 +57,109 @@ export default defineConfig({
                   message: "Pure utilities must not depend on stateful libraries or UI components."
                 },
                 {
-                  disallow: { dependency: { source: "@(./|../|/)*([\\s\\S])" } },
+                  disallow: {
+                    dependency: {
+                      source: "@(./|../|/)*([\\s\\S])",
+                      // Separate package elements have no relationship (null).
+                      relationship: { to: [null, "!internal"] }
+                    }
+                  },
                   message: "Import other workspace packages by package name through their exports."
+                },
+                {
+                  from: { file: { categories: { noneOf: ["test", "fixture", "validation"] } } },
+                  disallow: { to: { file: { categories: ["test", "fixture", "validation"] } } },
+                  message: "Runtime modules must not import tests or validation fixtures."
+                },
+                {
+                  from: {
+                    file: {
+                      categories: { allOf: ["display-rendering"], noneOf: ["test", "fixture"] }
+                    }
+                  },
+                  disallow: {
+                    to: {
+                      file: {
+                        categories: ["display-host", "display-transcript", "display-observation"]
+                      }
+                    }
+                  },
+                  message:
+                    "Rendering consumes display contracts, not host, transcript, or observation implementations."
+                },
+                {
+                  from: {
+                    file: {
+                      categories: { allOf: ["display-transcript"], noneOf: ["test", "fixture"] }
+                    }
+                  },
+                  disallow: { to: { file: { categories: ["display-host", "display-rendering"] } } },
+                  message:
+                    "Transcript orchestration must stay independent of Pi-private integration and rendering."
+                },
+                {
+                  from: {
+                    file: {
+                      categories: { allOf: ["display-observation"], noneOf: ["test", "fixture"] }
+                    }
+                  },
+                  disallow: {
+                    to: {
+                      file: {
+                        categories: ["display-host", "display-transcript", "display-rendering"]
+                      }
+                    }
+                  },
+                  message:
+                    "Observation publishes facts through contracts, not host or transcript implementations."
+                },
+                {
+                  from: {
+                    file: {
+                      categories: {
+                        anyOf: ["display-adapter", "display-core"],
+                        noneOf: ["test", "fixture", "display-entry"]
+                      }
+                    }
+                  },
+                  disallow: {
+                    to: {
+                      file: {
+                        categories: [
+                          "display-host",
+                          "display-transcript",
+                          "display-observation",
+                          "display-rendering"
+                        ]
+                      }
+                    }
+                  },
+                  message:
+                    "Display contracts and tool interpretation must not depend on runtime integration or card layout."
+                },
+                {
+                  from: {
+                    file: {
+                      categories: {
+                        anyOf: ["display-rendering", "display-adapter", "display-core"],
+                        noneOf: ["test", "fixture", "display-entry"]
+                      }
+                    }
+                  },
+                  disallow: {
+                    to: {
+                      module: {
+                        origin: "core",
+                        source: [
+                          "{node:,}fs{,/**}",
+                          "{node:,}child_process",
+                          "{node:,}{net,http,https,tls,dgram}"
+                        ]
+                      }
+                    }
+                  },
+                  message:
+                    "Display presentation and contracts must not perform filesystem, process, or network I/O."
                 }
               ]
             }
@@ -171,6 +274,31 @@ export default defineConfig({
         { pattern: "packages/libs", type: "libs" },
         { pattern: "packages/tui-components", type: "tui-components" }
       ],
+      "boundaries/files": [
+        { pattern: "packages/**/*.ts", category: "source" },
+        { pattern: "**/*.test.ts", category: "test" },
+        { pattern: "**/test-fixture.ts", category: "fixture" },
+        { pattern: "packages/extensions/*/validation/**", category: "validation" },
+        { pattern: "packages/extensions/pi-tool-display/src/host/**", category: "display-host" },
+        {
+          pattern: "packages/extensions/pi-tool-display/src/transcript/**",
+          category: "display-transcript"
+        },
+        {
+          pattern: "packages/extensions/pi-tool-display/src/observation/**",
+          category: "display-observation"
+        },
+        {
+          pattern: "packages/extensions/pi-tool-display/src/rendering/**",
+          category: "display-rendering"
+        },
+        {
+          pattern: "packages/extensions/pi-tool-display/src/adapters/**",
+          category: "display-adapter"
+        },
+        { pattern: "packages/extensions/pi-tool-display/src/*.ts", category: "display-core" },
+        { pattern: "packages/extensions/pi-tool-display/src/index.ts", category: "display-entry" }
+      ],
       "boundaries/flag-as-external": { unresolvableAlias: false },
       "boundaries/root-path": import.meta.dirname,
       "import/resolver": {
@@ -186,8 +314,10 @@ export default defineConfig({
   test: {
     include: [
       "src/**/*.test.ts",
+      "validation/**/*.test.ts",
       "packages/*/src/**/*.test.ts",
-      "packages/extensions/*/src/**/*.test.ts"
+      "packages/extensions/*/src/**/*.test.ts",
+      "packages/extensions/*/validation/**/*.test.ts"
     ]
   }
 });

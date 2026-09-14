@@ -6,8 +6,6 @@ export { piMcpAdapter } from "./pi-mcp-adapter/index.ts";
 
 export { nativeAdapter } from "./native/index.ts";
 
-export { selectAdapter } from "./registry.ts";
-
 export type {
   DisplayNotice,
   InvocationPart,
@@ -16,4 +14,4 @@ export type {
   ResultTextPart,
   ToolDisplayAdapter,
   ToolDisplayAdapterResolver
-} from "./types.ts";
+} from "../contracts.ts";

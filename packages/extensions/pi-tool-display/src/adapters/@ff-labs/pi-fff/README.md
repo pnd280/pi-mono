@@ -28,7 +28,7 @@ FFF text-envelope styling does not establish text provenance. The shared [interp
 
 ## Validation
 
-Use the [shared terminal fixture](../../../../docs/validation.md#terminal-procedure). Add the relevant fixed call plan to [provider.ts](../../../validation/provider.ts) and prepare disposable inputs in [workspace.ts](../../../validation/workspace.ts).
+Use the [shared terminal fixture](../../../../docs/validation.md#terminal-procedure). Add the relevant fixed call plan to [provider.ts](../../../../validation/provider.ts) and prepare disposable inputs in [workspace.ts](../../../../validation/workspace.ts).
 
 Explicitly load the installed official extension with an additional `-e` argument and enable its names through Pi's `--tools` option. Multi-search also needs that extension's `PI_FFF_MULTIGREP=1` environment in the isolated launch configuration.
 

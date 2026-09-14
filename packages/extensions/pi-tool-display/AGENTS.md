@@ -2,11 +2,13 @@
 
 ## Code navigation
 
-- **Lifecycle/private Pi integration:** [src/index.ts](src/index.ts) and [src/host-integration.ts](src/host-integration.ts). Keep private host types/accesses here. Pi upgrades require re-inspecting construction, registry wrapping, reconstruction, and row expansion before accepting new method fingerprints. Check both the bundled executable and unbundled API; [src/host-integration-cli.test.ts](src/host-integration-cli.test.ts) exercises the installed manifest's `bin.pi` entry point.
-- **Contracts/policy:** [src/display-model.ts](src/display-model.ts), [src/settings.ts](src/settings.ts), and [src/adapters/types.ts](src/adapters/types.ts). See [adapter development](docs/adapters.md) for selection and extension integrations. Shared FFF ownership/name classification is in [@pi-mono/utils](../../utils/README.md); filesystem guard policy stays in `pi-fff-guard`.
-- **Coordination:** [src/transcript-coordinator.ts](src/transcript-coordinator.ts) owns ordering, lifecycle, groups, expansion, and the single animation scheduler independently of Pi.
-- **Observation/history:** [src/native-observation.ts](src/native-observation.ts), [src/session-metadata.ts](src/session-metadata.ts), and [src/saved-output.ts](src/saved-output.ts).
-- **Rendering:** [src/renderer-api.ts](src/renderer-api.ts) exposes the [standalone API](docs/renderers.md); transcript bindings stay internal. [src/renderers.ts](src/renderers.ts) builds cards, [src/layout.ts](src/layout.ts) alone assigns connectors, and [src/diff-view.ts](src/diff-view.ts) renders diff bodies.
+See the [workspace architecture](../../../docs/architecture.md#tool-display) for state ownership, dependency direction, and live/history flow.
+
+- **Lifecycle/private Pi integration:** [src/index.ts](src/index.ts) and [host/install.ts](src/host/install.ts). Keep private host types/accesses under `host/`: [compatibility.ts](src/host/compatibility.ts) contains inspected contracts, [native-registry.ts](src/host/native-registry.ts) owns native replacements, and [rows.ts](src/host/rows.ts) binds Pi rows. Pi upgrades require re-inspecting construction, registry wrapping, reconstruction, and row expansion before accepting new method fingerprints. Check both the bundled executable and unbundled API; [install-cli.test.ts](src/host/install-cli.test.ts) exercises the installed manifest's `bin.pi` entry point.
+- **Contracts/policy:** [contracts.ts](src/contracts.ts), [settings.ts](src/settings.ts), and internal [host/selection.ts](src/host/selection.ts). See [adapter development](docs/adapters.md). Shared FFF ownership/name classification is in [@pi-mono/utils](../../utils/README.md); filesystem guard policy stays in `pi-fff-guard`.
+- **Transcript:** [coordinator.ts](src/transcript/coordinator.ts) exclusively updates call state and invalidation. [session.ts](src/transcript/session.ts) orchestrates messages, observations, and output loading; [history.ts](src/transcript/history.ts) indexes the selected ancestry and [metadata.ts](src/transcript/metadata.ts) validates persisted facts.
+- **Observation:** [native.ts](src/observation/native.ts), [output-buffer.ts](src/observation/output-buffer.ts), and [saved-output.ts](src/observation/saved-output.ts).
+- **Rendering:** [api.ts](src/rendering/api.ts) exposes the [standalone API](docs/renderers.md). [cards.ts](src/rendering/cards.ts) composes [components.ts](src/rendering/components.ts), [headings.ts](src/rendering/headings.ts), and [results.ts](src/rendering/results.ts). [layout.ts](src/rendering/layout.ts) alone assigns connectors; [diff-view.ts](src/rendering/diff-view.ts) renders diff bodies. Terminal-text normalization is separate in [terminal-text.ts](src/terminal-text.ts).
 
 ## Constraints
 

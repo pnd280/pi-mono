@@ -12,7 +12,7 @@ Native execution observation and unavailable-history notices remain separate bec
 
 ## Automatic selection
 
-Add the resolver to `extensionAdapterResolvers` in [`src/adapters/registry.ts`](../src/adapters/registry.ts). Selection applies, in order:
+Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts). Selection applies, in order:
 
 1. Invalid settings or `original`: preserve the original renderer.
 2. `generic`: force generic rendering.
@@ -20,7 +20,7 @@ Add the resolver to `extensionAdapterResolvers` in [`src/adapters/registry.ts`](
 4. Extension resolvers: use the first match, including when the verified owner supplies renderer slots.
 5. Unmatched tools: preserve either owner renderer slot; otherwise use generic rendering.
 
-A resolver entry explicitly opts its verified owner into automatic display replacement. This list is local source configuration, not a runtime registration API. Explicit SDK/tool-owner adapters can instead be passed directly to `createToolDisplayRenderers` without joining the list.
+A resolver entry explicitly opts its verified owner into automatic display replacement. The resolver list and `selectAdapter` are internal host policy, not exports of `pi-tool-display/adapters` or a runtime registration API. Explicit SDK/tool-owner adapters can instead be passed directly to `createToolDisplayRenderers` without joining the list.
 
 Historical generic rows adopt newly available contracts when tools register after reconstruction. Export an owner-facing factory from [`src/adapters/index.ts`](../src/adapters/index.ts) when it should be part of the public adapter API.
 
