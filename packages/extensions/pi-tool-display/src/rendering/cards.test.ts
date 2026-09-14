@@ -118,6 +118,161 @@ describe("tool display renderers", () => {
     }
   });
 
+  it("refreshes retained slots after observation and published-result changes", () => {
+    const coordinator = new TranscriptCoordinator("retained-slots");
+
+    try {
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "late" },
+        "write",
+        { path: "created.txt", content: "new" },
+        nativeAdapter("write")!,
+        "live",
+        true
+      );
+      const supplied = result("published result");
+      coordinator.result(call, supplied, "success", true);
+      const renderer = createToolDisplayRenderers(call.name, call.adapter, {
+        binding: { call, coordinator }
+      });
+      const current = context({ args: call.args });
+      const header = renderer.renderCall(call.args, theme, current);
+      const body = renderer.renderResult(supplied, current, theme, current);
+      expect(header.render(80).join("\n")).toContain("Writing created.txt");
+      expect(body.render(80).join("\n")).toContain("published result");
+      coordinator.fact(call, {
+        kind: "change",
+        availability: "available",
+        change: "creation",
+        patch: "@@ -0,0 +1 @@\n+new\n"
+      });
+      coordinator.fact(call, {
+        kind: "operation",
+        availability: "available",
+        outcome: "success",
+        durationMs: 7
+      });
+      coordinator.result(call, supplied, "success");
+      expect(header.render(80).join("\n")).toContain("Added created.txt");
+      const observed = body.render(80).join("\n");
+      expect(observed).toContain("+new");
+      expect(observed).toContain("7ms");
+      expect(observed).not.toContain("Before-state unavailable");
+      expect(call.result).toBe(supplied);
+
+      const published = result("Rejected by result middleware");
+      coordinator.result(call, published, "failure");
+      expect(header.render(80).join("\n")).toContain("Wrote created.txt");
+      expect(body.render(80).join("\n")).toContain("Rejected by result middleware");
+      expect(body.render(80).join("\n")).not.toContain("published result");
+      expect(call.result).toBe(published);
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it("shares lazy MCP preparation and refreshes both slots when only the result slot updates", () => {
+    let preparations = 0;
+    const renderer = createPublicRenderers("proxy", {
+      id: "owner:lazy-mcp",
+      family: "invocation",
+      mcp(_args, supplied) {
+        preparations++;
+        if (typeof supplied?.details !== "string") return undefined;
+
+        return {
+          server: "docs",
+          tool: supplied.details,
+          outcome: "success",
+          content: [{ type: "text", text: `typed ${supplied.details}` }]
+        };
+      }
+    });
+    const current = context();
+    const header = renderer.renderCall(current.args, theme, current);
+    expect(preparations).toBe(0);
+    expect(header.render(80).join("\n")).toContain("Called proxy");
+    expect(preparations).toBe(1);
+    const supplied = { ...result("flattened"), details: "search" };
+    const body = renderer.renderResult(supplied, current, theme, current);
+    expect(preparations).toBe(1);
+    expect(header.render(80).join("\n")).toContain("Called docs.search");
+    expect(body.render(80).join("\n")).toContain("typed search");
+    expect(preparations).toBe(2);
+
+    const updated = renderer.renderResult({ ...supplied, details: "list" }, current, theme, {
+      ...current,
+      lastComponent: body
+    });
+    expect(updated).toBe(body);
+    expect(body.render(80).join("\n")).toContain("typed list");
+    expect(header.render(80).join("\n")).toContain("Called docs.list");
+    expect(preparations).toBe(3);
+    body.invalidate();
+    header.render(80);
+    body.render(80);
+    expect(preparations).toBe(4);
+  });
+
+  it("does not prepare hidden read or grouped text, or bodies for short headings", () => {
+    let preparations = 0;
+    const adapter = {
+      ...nativeAdapter("read")!,
+      textParts(text: string) {
+        preparations++;
+
+        return [{ kind: "output" as const, text }];
+      }
+    };
+    const coordinator = new TranscriptCoordinator("lazy-bodies");
+
+    try {
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "read" },
+        "read",
+        { path: "large.txt" },
+        adapter,
+        "historical"
+      );
+      const supplied = result("retained file body");
+      coordinator.result(call, supplied, "success");
+
+      for (const options of [{}, { binding: { call, coordinator } }]) {
+        preparations = 0;
+        const renderer = createToolDisplayRenderers("read", adapter, options);
+        const current = context({ args: call.args });
+        const header = renderer.renderCall(call.args, theme, current);
+        const body = renderer.renderResult(supplied, current, theme, current);
+        expect(preparations).toBe(0);
+        header.render(80);
+        expect(body.render(80)).toEqual([]);
+        expect(preparations).toBe(0);
+
+        coordinator.expand(call, true);
+        const expanded = renderer.renderResult(supplied, { ...current, expanded: true }, theme, {
+          ...current,
+          lastComponent: body
+        });
+        header.render(80);
+        expect(expanded.render(80).join("\n")).toContain("retained file body");
+        expect(preparations).toBe(1);
+        coordinator.expand(call, false);
+      }
+
+      preparations = 0;
+      const renderer = createPublicRenderers("custom", { ...adapter, family: "invocation" });
+      const current = context();
+      const header = renderer.renderCall(current.args, theme, current);
+      const body = renderer.renderResult(supplied, current, theme, current);
+      header.render(80);
+      expect(preparations).toBe(0);
+      expect(body.render(80).join("\n")).toContain("retained file body");
+      expect(preparations).toBe(1);
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
   it("uses adapter contract validation for fallback and grouping without provider-specific IDs", () => {
     const adapter = {
       id: "documentation:search",
@@ -849,7 +1004,8 @@ describe("tool display renderers", () => {
       const renderer = createToolDisplayRenderers("fffind", genericAdapter, {
         binding: { call, coordinator }
       });
-      const heading = () => renderer.renderCall(args, theme, context()).render(80).join("\n");
+      const retainedHeading = renderer.renderCall(args, theme, context());
+      const heading = () => retainedHeading.render(80).join("\n");
       expect(heading()).toContain('"limit"');
       coordinator.setAdapter(call, adapter);
       expect(heading()).not.toContain('"limit"');

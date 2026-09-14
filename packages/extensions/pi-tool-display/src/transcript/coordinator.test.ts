@@ -2,7 +2,7 @@ import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
 import { nativeAdapter, genericAdapter } from "../adapters/index.ts";
-import { isLive } from "../contracts.ts";
+import { isLive, type DisplayCall } from "../contracts.ts";
 import { TranscriptCoordinator } from "./coordinator.ts";
 
 const result = (text = "retained") => ({
@@ -20,7 +20,11 @@ function fixture() {
 
     return stop;
   });
-  const coordinator = new TranscriptCoordinator("runtime", { start });
+  const onExpansion = vi.fn<(call: DisplayCall) => void>();
+  const coordinator = new TranscriptCoordinator("runtime", {
+    animationClock: { start },
+    onExpansion
+  });
   let position = 0;
   const add = (name: string, path: string, origin: "live" | "historical" = "live") =>
     coordinator.add(
@@ -31,7 +35,7 @@ function fixture() {
       origin
     );
 
-  return { coordinator, add, start, stop, tick: () => tick() };
+  return { coordinator, add, start, stop, onExpansion, tick: () => tick() };
 }
 
 it("keeps unrelated completed row caches and group interiors when appending calls", () => {
@@ -160,7 +164,7 @@ it("does not revisit old adapter contracts while appending history", () => {
 });
 
 it("regroups late historical contracts without changing results, source order, or live activity", () => {
-  const { coordinator: c, start } = fixture();
+  const { coordinator: c, start, onExpansion } = fixture();
 
   try {
     const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "first" };
@@ -178,6 +182,7 @@ it("regroups late historical contracts without changing results, source order, o
     const row = { invalidate: vi.fn(), setExpanded: vi.fn() };
     c.attach(first, row);
     c.expand(first, true);
+    onExpansion.mockClear();
     const adapter = {
       id: "@ff-labs/pi-fff:find",
       family: "search" as const,
@@ -189,6 +194,7 @@ it("regroups late historical contracts without changing results, source order, o
     c.setAdapter(second, adapter);
     expect(c.group(first)?.members).toEqual([first, second]);
     expect(second.expanded).toBe(true);
+    expect(onExpansion).toHaveBeenCalledExactlyOnceWith(second);
     expect(first.result).toBe(retained);
     expect(second.outcome).toBe("failure");
     expect(first.origin).toBe("historical");
@@ -299,7 +305,7 @@ it("withdraws only the owning component's boundary and preserves other separator
 });
 
 it("applies global expansion once per group while keeping independent groups synchronized", () => {
-  const { coordinator: c, add } = fixture();
+  const { coordinator: c, add, onExpansion } = fixture();
 
   try {
     const first = add("read", "a.ts", "historical");
@@ -324,6 +330,8 @@ it("applies global expansion once per group while keeping independent groups syn
       }
 
       expect(calls.every((call) => call.expanded === expanded)).toBe(true);
+      expect(onExpansion.mock.calls.map(([call]) => call)).toEqual(calls);
+      onExpansion.mockClear();
     }
   } finally {
     c.dispose();

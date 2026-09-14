@@ -63,7 +63,11 @@ export class TranscriptCoordinator implements TranscriptView {
   phase = 0;
   constructor(
     readonly runtime: string,
-    private animationClock: AnimationClock = clock
+    private options: {
+      animationClock?: AnimationClock;
+      /** State consequences must not depend on whether a Pi row is attached. */
+      onExpansion?(call: DisplayCall): void;
+    } = {}
   ) {}
   add(
     reference: CallReference,
@@ -269,6 +273,7 @@ export class TranscriptCoordinator implements TranscriptView {
       member.expanded = expanded;
       member.revision++;
       for (const row of this.rows.get(member.key) ?? []) row.setExpanded(expanded);
+      this.options.onExpansion?.(member);
     }
   }
   private mutable(view: DisplayCall): MutableCall | undefined {
@@ -334,6 +339,7 @@ export class TranscriptCoordinator implements TranscriptView {
       if (call.expanded !== expanded) {
         call.expanded = expanded;
         for (const row of this.rows.get(call.key) ?? []) row.setExpanded(expanded);
+        this.options.onExpansion?.(call);
       }
 
       this.invalidate(call);
@@ -342,7 +348,7 @@ export class TranscriptCoordinator implements TranscriptView {
   private schedule(): void {
     const active = !this.disposed && this.activeCalls.size > 0;
     if (active && !this.stopAnimation)
-      this.stopAnimation = this.animationClock.start(() => {
+      this.stopAnimation = (this.options.animationClock ?? clock).start(() => {
         this.phase = 1 - this.phase;
         const affected = new Set<DisplayCall>();
         for (const call of this.activeCalls)

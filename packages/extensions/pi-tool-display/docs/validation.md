@@ -2,7 +2,7 @@
 
 ## Terminal procedure
 
-For integration/interaction changes, launch the [offline fixture](../validation/launch-terminal.ts) from the workspace root. It requires the installed workspace dependencies, Node, and a Unix Bash backend:
+For integration/interaction changes, launch the [offline fixture](../validation/launch-terminal.ts) from the workspace root. It requires the installed workspace dependencies, Node **22.19.0 or later** (Pi 0.85.1's minimum), and a Unix Bash backend:
 
 ```sh
 vpr 'pi-tool-display#validate:terminal' regular

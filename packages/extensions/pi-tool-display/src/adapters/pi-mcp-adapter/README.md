@@ -22,7 +22,7 @@ This adapter does not load the MCP package or read its caches or saved output.
 
 ## Validation
 
-The `mcp` prompt uses the offline [stdio backend](../../../validation/mcp-server.ts) through the installed package. It covers gateway connection/description/calls, a namespace image/resource result, a direct tool, scripting, a returned error, and output truncation. The backend performs no network requests or filesystem work; the MCP package writes its normal cache and output artifacts inside the isolated fixture.
+The `mcp` prompt requires a separate installation of `pi-mcp-adapter`; it is not a workspace dependency. It uses the offline [stdio backend](../../../validation/mcp-server.ts) through that package. It covers gateway connection/description/calls, a namespace image/resource result, a direct tool, scripting, a returned error, and output truncation. The backend performs no network requests or filesystem work; the MCP package writes its normal cache and output artifacts inside the isolated fixture.
 
 Create a [terminal fixture using the shared launcher](../../../docs/validation.md#terminal-procedure), then exit. In its printed directory, create `agent/mcp.json` with the following configuration. Replace `/absolute/path/to/pi-mono` with your checkout path:
 

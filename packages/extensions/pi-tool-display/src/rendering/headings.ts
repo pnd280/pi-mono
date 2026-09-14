@@ -5,22 +5,16 @@ import { isLive, isCancelled, type DisplayGroup, type ToolFamily } from "../cont
 import { invocationParts, invocationPartText } from "../invocation.ts";
 import { displayText } from "../terminal-text.ts";
 import { expansionHint, highlight, tree, styleParameters } from "./format.ts";
-import { bodyWidth, renderTreeContinuation, wrapRows, type TreeItem } from "./layout.ts";
-import { groupResultRows, resultBody } from "./results.ts";
-import type { Projection } from "./types.ts";
+import { bodyWidth, renderTreeContinuation, wrapRows } from "./layout.ts";
+import type { PreparedCard } from "./types.ts";
 
-function headingContinuation(rows: readonly string[], p: Projection): string[] {
+function headingContinuation(rows: readonly string[], p: PreparedCard): string[] {
   if (!rows.length) return [];
 
-  return renderTreeContinuation(
-    rows,
-    p.width,
-    (text) => p.theme.fg("dim", text),
-    !!p.result && resultBody(p.result, p).items.some((item) => item.rows.length > 0)
-  );
+  return renderTreeContinuation(rows, p.width, (text) => p.theme.fg("dim", text), p.hasBody);
 }
 
-function titleRows(title: string, detail: string, p: Projection): string[] {
+function titleRows(title: string, detail: string, p: PreparedCard): string[] {
   if (p.adapter.family === "invocation" && visibleWidth(title) + 1 + visibleWidth(detail) > p.width)
     return [
       truncateToWidth(title, p.width, "…"),
@@ -57,7 +51,7 @@ const verbs: Record<ToolFamily, [string, string]> = {
   invocation: ["Calling", "Called"]
 };
 
-function groupHeading(group: DisplayGroup, p: Projection): string[] {
+function groupHeading(group: DisplayGroup, p: PreparedCard): string[] {
   const first = group.members[0] === p.call;
   const active = first && group.members.some(isLive);
   const marker = active && p.phase ? "◦" : "•";
@@ -98,8 +92,8 @@ function groupHeading(group: DisplayGroup, p: Projection): string[] {
 
   // A call remains in its own Pi row: native images and mouse targets must not be
   // displaced behind later summaries. Even repeated reads retain their identity.
-  const item: TreeItem = {
-    rows: (p.adapter.exploration?.(p.context.args, p.result) ?? []).flatMap((entry) =>
+  const item = {
+    rows: p.exploration.flatMap((entry) =>
       wrapRows(
         `${p.theme.fg("accent", entry.label)} ${entry.parts
           .map((part) =>
@@ -117,14 +111,13 @@ function groupHeading(group: DisplayGroup, p: Projection): string[] {
       )
     )
   };
-  const detail = { ...p, width: p.width - 2 };
-  item.rows.push(...groupResultRows(detail).map((row) => `  ${row}`));
+  item.rows.push(...p.groupRows.map((row) => `  ${row}`));
   rows.push(...tree([item], p, group.members.at(-1) !== p.call));
 
   return rows;
 }
 
-function phase(p: Projection): string {
+function phase(p: PreparedCard): string {
   if (p.call) return p.call.lifecycle;
   if (!p.context.isPartial) return "complete";
   if (!p.context.argsComplete) return "preparing";
@@ -132,7 +125,7 @@ function phase(p: Projection): string {
   return p.context.executionStarted ? "executing" : "queued";
 }
 
-function status(p: Projection): {
+function status(p: PreparedCard): {
   verb: string;
   color: Parameters<Theme["fg"]>[0];
   pending: boolean;
@@ -140,7 +133,7 @@ function status(p: Projection): {
   const current = phase(p);
   const pending = ["preparing", "queued", "executing"].includes(current);
   const failed = p.call ? p.call.outcome === "failure" : p.context.isError;
-  const actionVerbs = p.adapter.headingVerbs?.(p.context.args) ?? verbs[p.adapter.family];
+  const actionVerbs = p.headingVerbs ?? verbs[p.adapter.family];
   let verb = actionVerbs[pending ? 0 : 1];
   if (current === "unavailable") verb = "Outcome unavailable";
   if (p.call && isCancelled(p.call)) return { verb: "Cancelled", color: "warning", pending: false };
@@ -160,10 +153,10 @@ function status(p: Projection): {
   return { verb, color: quiet ? "dim" : "success", pending };
 }
 
-function invocation(p: Projection): string {
-  const mcp = p.adapter.mcp?.(p.context.args, p.result);
+function invocation(p: PreparedCard): string {
+  const mcp = p.mcp;
   const name = mcp ? displayText(`${mcp.server}.${mcp.tool}`) : p.name;
-  const parts = p.adapter.invocation?.(p.context.args, p.result);
+  const parts = p.invocation;
   if (!parts && p.adapter.family === "invocation" && !p.showParameters)
     return p.theme.fg("accent", name);
 
@@ -182,10 +175,10 @@ function invocation(p: Projection): string {
     .join("");
 }
 
-export function heading(p: Projection): string[] {
+export function heading(p: PreparedCard): string[] {
   if (p.group && !p.expanded) return groupHeading(p.group, p);
   const state = status(p);
-  const typedOutcome = p.adapter.mcp?.(p.context.args, p.result)?.outcome;
+  const typedOutcome = p.mcp?.outcome;
 
   if (typedOutcome === "transport-error" || typedOutcome === "returned-error")
     state.color = "error";

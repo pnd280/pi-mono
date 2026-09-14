@@ -5,6 +5,7 @@ import type {
   DisplayCall,
   DisplayFact,
   Outcome,
+  SavedOutput,
   ToolDisplayAdapter
 } from "../contracts.ts";
 import type { ObservationSink } from "../observation/native.ts";
@@ -38,6 +39,7 @@ type DisplaySessionOptions = {
   selectAdapter(name: string): ToolDisplayAdapter | undefined;
   expanded(): boolean;
   append?: ExtensionAPI["appendEntry"] | undefined;
+  readSavedOutput?: (path: string) => Promise<SavedOutput>;
 };
 
 /** Session orchestration without a Pi runtime or terminal. All call writes go through the coordinator. */
@@ -50,9 +52,11 @@ export class DisplaySession {
   private disposed = false;
   constructor(private options: DisplaySessionOptions) {
     this.settings = options.settings;
-    this.coordinator = new TranscriptCoordinator(options.runtime);
+    this.coordinator = new TranscriptCoordinator(options.runtime, {
+      onExpansion: (call) => this.loadSavedOutput(call)
+    });
     this.history = new DisplayHistory(options.history);
-    this.output = new SavedOutputLoader(undefined, (path) =>
+    this.output = new SavedOutputLoader(options.readSavedOutput, (path) =>
       this.coordinator.evictSavedOutput(path)
     );
   }
@@ -85,7 +89,7 @@ export class DisplaySession {
     if (this.options.append && call.origin === "live")
       persistDisplayFact(this.options.append, call.reference, call.adapter.id, fact);
   }
-  loadSavedOutput(call: DisplayCall): void {
+  private loadSavedOutput(call: DisplayCall): void {
     const path = call.savedPath;
     if (
       this.disposed ||

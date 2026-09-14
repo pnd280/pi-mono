@@ -19,7 +19,7 @@ Pending headings cover argument streaming, queueing, and execution; they do not 
 
 Concrete file targets (`path` parts) in summaries use paths relative to the rendering context's cwd when inside it, and absolute paths when outside it. The cwd itself displays as `.`. Grouped reads retain directory names and read ranges. Resolution is lexical, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and literal scope/filter expressions are not rewritten.
 
-Collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show bounded head/tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling. Expansion shows all retained output, subject to live/saved-output retention limits.
+Successful completed read bodies stay hidden until expansion; their notices and images remain visible. Other collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show bounded head/tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling. Expansion shows all retained output, subject to live/saved-output retention limits.
 
 Compact exploration keeps every call in source order, including repeated reads. Visible assistant content, diagnostics, cache-miss notices, compaction summaries/notices, and rendered custom entries separate groups; hidden content does not. Assistant content separates groups before that message's tools, even if it arrives later. Tool-result notices and failure diagnostics stay immediately beneath their originating invocation:
 
@@ -42,7 +42,7 @@ Compact exploration keeps every call in source order, including repeated reads. 
 - **`syntaxString`:** explicitly tagged search patterns in compact, standalone, and expanded summaries. Scope/filter text retains `text`; patterns are not parsed as code or rewritten.
 - **`toolTitle`, `text`, and `toolOutput`:** card titles, parameter/reference values, and retained result content respectively. Commands/source retain syntax highlighting; patch additions/removals retain diff colors.
 
-Adapters may interpret known result envelopes through [`textParts`](#explicit-contracts). Generic output is not searched for extension-specific phrases. Interpretation changes presentation, not retained text, execution outcomes, or session facts. Contract-specific styling and provenance limits live with the [built-in adapters](adapters.md#built-in-adapters).
+Generic output is not searched for extension-specific phrases. Contract-specific styling and provenance limits live with the [built-in adapters](adapters.md#built-in-adapters).
 
 Live and saved-output previews distinguish generated omissions from process text. Identical literal output in those previews retains ordinary styling.
 
@@ -77,17 +77,13 @@ import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 
 pi.registerTool({
   ...compatibleEdit,
-  ...createToolDisplayRenderers(compatibleEdit.name, nativeAdapter("edit"))
+  ...createToolDisplayRenderers(compatibleEdit.name, nativeAdapter("edit"), {
+    showParameters: true
+  })
 });
 ```
 
-The factory's third argument is a `ToolDisplayRendererOptions` object. Set `showParameters: true` to opt into parameter details; omission defaults to hidden for explicit adapters. Structured parameter blocks still require expansion; invocation-family adapters include enabled arguments in their invocation text. The standalone factory does not read CLI settings:
-
-```ts
-createToolDisplayRenderers(compatibleEdit.name, nativeAdapter("edit"), {
-  showParameters: true
-});
-```
+The factory's third argument is a `ToolDisplayRendererOptions` object. Set `showParameters: true` to opt into parameter details; omission defaults to hidden for explicit adapters. Structured parameter blocks still require expansion; invocation-family adapters include enabled arguments in their invocation text. The standalone factory does not read CLI settings.
 
 Adapters have:
 

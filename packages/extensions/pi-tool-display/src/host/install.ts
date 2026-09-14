@@ -188,11 +188,7 @@ export function installHostIntegration(
           for (const item of items) binding.display.message(transcriptMessage(item), "historical");
         const result = reconstruct.call(this, items, options);
 
-        if (binding) {
-          binding.rows.bind();
-          for (const call of binding.display.coordinator.calls.values())
-            binding.display.loadSavedOutput(call);
-        }
+        binding?.rows.bind();
 
         return result;
       });

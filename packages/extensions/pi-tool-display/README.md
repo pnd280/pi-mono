@@ -58,11 +58,11 @@ There are no extension-specific environment variables, CLI flags, file watchers,
 
 In interactive TUI sessions, the extension observes verified native `bash`, `powershell`, `edit`, and `write` operations. It collects shell previews, operation timing, outcomes, and file contents before writes. External writers can race with those reads. Display failures do not change tool outcomes.
 
-The extension saves versioned `pi-tool-display.facts` custom session entries outside model context. **Deleted lines and context lines from overwritten files can remain in session history.** Native edit patches are saved before result middleware can replace them.
+The extension saves versioned `pi-tool-display.facts` custom session entries outside model context. These contain operation facts, bounded patches, and saved-output references; shell previews stay in memory. **Deleted lines and context lines from overwritten files can remain in session history.** Native edit patches are saved before result middleware can replace them.
 
 Automatic observation excludes SDK tools, custom implementations, and user `!` and `!!` commands. Print, JSON, and RPC execution adds no automatic display observations. The TUI reconstructs those sessions from saved calls and results without rerunning tools or animating incomplete history. Unrecorded durations, exact exit codes, file contents before writes, and lost MCP types remain unavailable.
 
-Expanded shell cards load bounded previews from Pi's existing temporary output files asynchronously. Collapsed cards do not start reads. Failed calls retain Pi's published result beside the preview. Missing, unreadable, changing, or non-regular files leave the retained output visible with a limitation notice. If all read slots are occupied, another collapse and expansion retries the read. The extension creates no durable output archive and makes no network requests.
+Expanded, completed shell cards load bounded previews from Pi's existing temporary output files asynchronously. Expanding a running call defers the read until completion; collapsed cards do not start reads. Failed calls retain Pi's published result beside the preview. Missing, unreadable, changing, or non-regular files leave the retained output visible with a limitation notice. If all read slots are occupied, another collapse and expansion retries the read. The extension creates no durable output archive and makes no network requests.
 
 Live output, saved previews, and patches have [resource limits](docs/renderers.md#resource-limits). Large, binary, or unavailable changes do not block native operations.
 

@@ -98,7 +98,7 @@ export function compactText(
  * Related notices, metadata, and wrapped lines stay in rows, not separate items.
  */
 export interface TreeItem {
-  rows: string[];
+  readonly rows: readonly string[];
 }
 
 type StructureStyle = (text: string) => string;

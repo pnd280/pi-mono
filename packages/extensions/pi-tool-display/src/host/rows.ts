@@ -130,10 +130,7 @@ export class TranscriptRows {
           child.invalidate();
           this.host.ui?.requestRender();
         },
-        setExpanded: (expanded) => {
-          previous.call(child, expanded);
-          if (expanded) this.display.loadSavedOutput(call);
-        }
+        setExpanded: (expanded) => previous.call(child, expanded)
       });
       previous.call(
         child,

@@ -24,12 +24,12 @@ Searches and file listings show `in .` when their scope is omitted or empty, in 
 
 Pagination instructions, limit hints, and query/fallback diagnostics remain visible in compact and expanded cards, preserving the full text of combined notices and multiline queries. Matches remain available on expansion. Counts and file annotations use `dim`; pagination/limit notices and query/fallback diagnostics use `warning`.
 
-The shared [semantic colors and interpretation limits](../../../../docs/renderers.md#semantic-colors) apply.
-
 ## Validation
 
-Use the [shared terminal fixture](../../../../docs/validation.md#terminal-procedure). Add the relevant fixed call plan to [provider.ts](../../../../validation/provider.ts) and prepare disposable inputs in [workspace.ts](../../../../validation/workspace.ts).
+The [shared terminal fixture](../../../../docs/validation.md#terminal-procedure) has no built-in FFF scenario. Add the relevant fixed call plan to [provider.ts](../../../../validation/provider.ts) and prepare disposable inputs in [workspace.ts](../../../../validation/workspace.ts).
 
-Explicitly load the installed official extension with an additional `-e` argument and enable its names through Pi's `--tools` option. Multi-search also needs that extension's `PI_FFF_MULTIGREP=1` environment in the isolated launch configuration.
+The official `@ff-labs/pi-fff` extension must be installed separately; it is not a workspace dependency. Load its `src/index.ts` with an additional `-e` argument and enable its tool names through Pi's `--tools` option.
+
+For multi-search, add `PI_FFF_MULTIGREP: "1"` to the `env` object returned by `fixtureLaunch` in [workspace.ts](../../../../validation/workspace.ts). The launcher filters the environment, so prefixing its command with `PI_FFF_MULTIGREP=1` does not enable multi-search.
 
 Before and after reload, check that pagination, limit hints, and query/fallback diagnostics remain visible in compact and expanded cards, and that expansion reveals retained matches.

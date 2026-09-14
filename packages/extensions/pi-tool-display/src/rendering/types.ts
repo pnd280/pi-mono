@@ -4,6 +4,9 @@ import type { Component } from "@earendil-works/pi-tui";
 import type {
   DisplayCall,
   DisplayGroup,
+  ExplorationItem,
+  InvocationPart,
+  McpFacts,
   ToolDisplayAdapter,
   TranscriptView
 } from "../contracts.ts";
@@ -41,10 +44,10 @@ export interface ToolDisplayRendererOptions {
 
 export type CardRendererOptions = ToolDisplayRendererOptions & { binding?: DisplayBinding };
 
-export interface Projection {
+export type Projection = Readonly<{
   name: string;
-  adapter: ToolDisplayAdapter;
-  context: DisplayContext;
+  adapter: Readonly<ToolDisplayAdapter>;
+  context: Readonly<DisplayContext>;
   theme: DisplayTheme;
   width: number;
   expanded: boolean;
@@ -53,17 +56,21 @@ export interface Projection {
   result: AgentToolResult<unknown> | undefined;
   group: DisplayGroup | undefined;
   phase: number;
-  row: RowState;
-}
+  mcp: McpFacts | undefined;
+}>;
 
-export interface RowState {
-  result?: AgentToolResult<unknown>;
-  body?:
-    | { projection: Projection; result: AgentToolResult<unknown>; value: ResultBody }
-    | undefined;
-}
+/** Lazily prepared, row-owned data. Layout consumers cannot invalidate or replace it. */
+export type PreparedCard = Projection &
+  Readonly<{
+    invocation: readonly InvocationPart[] | undefined;
+    exploration: readonly ExplorationItem[];
+    headingVerbs: readonly [pending: string, complete: string] | undefined;
+    body: ResultBody;
+    hasBody: boolean;
+    groupRows: readonly string[];
+  }>;
 
-export interface ResultBody {
-  items: TreeItem[];
-  annotations: string[];
-}
+export type ResultBody = Readonly<{
+  items: readonly TreeItem[];
+  annotations: readonly string[];
+}>;
