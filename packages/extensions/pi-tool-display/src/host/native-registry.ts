@@ -1,4 +1,5 @@
 import type { AgentSession, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import { observeNativeDefinition, type NativeSettings } from "../observation/native.ts";
 import type { DisplaySession } from "../transcript/session.ts";
@@ -9,7 +10,6 @@ import {
   unchangedDefinition,
   type SessionInternals
 } from "./compatibility.ts";
-import type { OwnedHooks } from "./hooks.ts";
 
 type ObservedDefinition = {
   original: ToolDefinition;

@@ -1,3 +1,5 @@
+# Workspace development
+
 ## Working agreement
 
 - Make clean breaks when changing APIs, configuration, or behavior. Do not retain compatibility layers, deprecated aliases, legacy code paths, or transitional support unless explicitly requested.
@@ -8,8 +10,10 @@
 
 ## Task references
 
-- **Reuse**: behavior changes or refactors: [ownership guidance](docs/agents/architecture.md) and [workspace architecture](docs/architecture.md).
-- **Tests**: coverage decisions or test edits/reviews: [testing](docs/agents/testing.md).
-- **Development**: validation, TypeScript/tooling edits, package setup, dependencies, or pi API work: [development](docs/development.md).
-- **Commits**: composing a commit message: [commit-messages skill](.agents/skills/commit-messages/SKILL.md).
-- **Setup**: installing the workspace or resolving prerequisites: [README.md](README.md).
+| Task                                                                                                  | Guidance                                                                                                   |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Change behavior or refactor                                                                           | [Code organization and reuse](docs/agents/architecture.md), [workspace architecture](docs/architecture.md) |
+| Choose coverage, edit tests, or review tests                                                          | [Testing](docs/agents/testing.md)                                                                          |
+| Validate changes, edit TypeScript or tooling, configure packages, update dependencies, or use Pi APIs | [Development](docs/development.md)                                                                         |
+| Compose a commit message                                                                              | [Commit messages](.agents/skills/commit-messages/SKILL.md)                                                 |
+| Install the workspace or resolve prerequisites                                                        | [Setup](README.md#setup)                                                                                   |

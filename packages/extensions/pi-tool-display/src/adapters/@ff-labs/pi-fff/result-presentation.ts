@@ -12,7 +12,7 @@ const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultText
 export function fffResultParts(
   text: string,
   kind: FffToolKind,
-  context: ResultTextContext
+  context: Pick<ResultTextContext, "isError" | "isPartial">
 ): ResultTextPart[] {
   if (context.isPartial) return [part(text)];
   if (context.isError) return [part(text, "error")];

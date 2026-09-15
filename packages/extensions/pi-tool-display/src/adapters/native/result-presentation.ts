@@ -1,5 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
-import { displayText } from "@pi-mono/utils/terminal-text";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { z } from "zod";
 
 import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../contracts.ts";
 import { stringField } from "../../terminal-text.ts";
@@ -65,6 +66,12 @@ export function nativeResultParts(
   context: ResultTextContext
 ): ResultTextPart[] {
   if (context.isPartial) return [part(text)];
+  const compactCancellation = context.isCancelled && !context.expanded;
+  if (
+    compactCancellation &&
+    ["Operation aborted", "Tool execution was cancelled before completion."].includes(text)
+  )
+    return [];
   const shell = name === "bash" || name === "powershell";
   const suffix: ResultTextPart[] = [];
   if (shell && context.isError) {
@@ -74,23 +81,24 @@ export function nativeResultParts(
       );
     if (!status || status.index + status[0].length !== text.length) return [part(text, "error")];
     text = text.slice(0, status.index);
-    suffix.push(
-      part(status[0].slice(0, -status[1]!.length)),
-      part(status[1]!, status[1] === "Command aborted" ? "warning" : "error")
-    );
+    if (!compactCancellation || status[1] !== "Command aborted")
+      suffix.push(part(status[0].slice(0, -status[1]!.length)), part(status[1]!, "error"));
+    else if (["", "(no output)"].includes(text)) return [];
   } else if (context.isError) return [part(text, "error")];
 
   // Match native trailer positions, not arbitrary lines. Retained text alone cannot
   // prove provenance; operation outcomes come from structured observations elsewhere.
-  const trailer = (
-    shell
-      ? /(?:^|\n\n)(\[Showing (?:lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?|last [\d.]+[KMG]?B of line \d+ \(line is [\d.]+[KMG]?B\))\. Full output: [^\n]+\])$/
-      : name === "read"
-        ? /(?:^|\n\n)(\[(?:Showing lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?\. Use offset=\d+ to continue\.|\d+ more lines in file\. Use offset=\d+ to continue\.|Line \d+ is [\d.]+[KMG]?B, exceeds [\d.]+[KMG]?B limit\. Use bash: [^\n]+)\])$/
-        : ["grep", "find", "ls"].includes(name)
-          ? /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/
-          : undefined
-  )?.exec(text);
+  let trailerPattern: RegExp | undefined;
+  if (shell)
+    trailerPattern =
+      /(?:^|\n\n)(\[Showing (?:lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?|last [\d.]+[KMG]?B of line \d+ \(line is [\d.]+[KMG]?B\))\. Full output: [^\n]+\])$/;
+  else if (name === "read")
+    trailerPattern =
+      /(?:^|\n\n)(\[(?:Showing lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?\. Use offset=\d+ to continue\.|\d+ more lines in file\. Use offset=\d+ to continue\.|Line \d+ is [\d.]+[KMG]?B, exceeds [\d.]+[KMG]?B limit\. Use bash: [^\n]+)\])$/;
+  else if (["grep", "find", "ls"].includes(name))
+    trailerPattern =
+      /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/;
+  const trailer = trailerPattern?.exec(text);
 
   if (trailer && trailer.index + trailer[0].length === text.length) {
     text = text.slice(0, trailer.index);
@@ -122,23 +130,17 @@ function nativeContentParts(
       ];
   }
 
-  const empty = shell
-    ? "(no output)"
-    : name === "ls"
-      ? "(empty directory)"
-      : name === "find"
-        ? "No files found matching pattern"
-        : name === "grep"
-          ? "No matches found"
-          : undefined;
+  let empty: string | undefined;
+  if (shell) empty = "(no output)";
+  else if (name === "ls") empty = "(empty directory)";
+  else if (name === "find") empty = "No files found matching pattern";
+  else if (name === "grep") empty = "No matches found";
   if (text === empty) return [part(text, "annotation")];
   const path = stringField(args.path);
-  const confirmation =
-    name === "write"
-      ? "Successfully wrote to "
-      : name === "edit" && Array.isArray(args.edits)
-        ? `Successfully replaced ${args.edits.length} block(s) in `
-        : undefined;
+  let confirmation: string | undefined;
+  if (name === "write") confirmation = "Successfully wrote to ";
+  else if (name === "edit" && Array.isArray(args.edits))
+    confirmation = `Successfully replaced ${args.edits.length} block(s) in `;
   if (confirmation && text === `${confirmation}${path}${name === "edit" ? "." : ""}`)
     return [
       part(confirmation, "annotation"),
@@ -149,16 +151,28 @@ function nativeContentParts(
   return [part(text)];
 }
 
+const noticesSchema = z.object({
+  truncation: z
+    .object({ truncated: z.boolean().optional().catch(undefined) })
+    .optional()
+    .catch(undefined),
+  fullOutputPath: z.string().optional().catch(undefined),
+  matchLimitReached: z.number().optional().catch(undefined),
+  resultLimitReached: z.number().optional().catch(undefined),
+  entryLimitReached: z.number().optional().catch(undefined),
+  linesTruncated: z.boolean().optional().catch(undefined)
+});
+
 /** Backend omissions remain visible even when the successful read body is collapsed. */
 export function nativeResultNotices(details: unknown): DisplayNotice[] {
-  const data = record(details);
-  const truncation = record(data.truncation);
+  const data = noticesSchema.safeParse(details).data;
+  if (!data) return [];
   const notices: DisplayNotice[] = [];
   const warning = (text: string) => notices.push({ kind: "warning", text });
-  if (truncation.truncated === true)
+  if (data.truncation?.truncated)
     warning("Tool output truncated by pi; expand to inspect retained output.");
 
-  if (typeof data.fullOutputPath === "string") {
+  if (data.fullOutputPath !== undefined) {
     notices.push({
       kind: "reference",
       label: "Saved output",
@@ -166,9 +180,9 @@ export function nativeResultNotices(details: unknown): DisplayNotice[] {
     });
   }
 
-  if (typeof data.matchLimitReached === "number") warning("Match limit reached.");
-  if (typeof data.resultLimitReached === "number") warning("Result limit reached.");
-  if (typeof data.entryLimitReached === "number") warning("Entry limit reached.");
+  if (data.matchLimitReached !== undefined) warning("Match limit reached.");
+  if (data.resultLimitReached !== undefined) warning("Result limit reached.");
+  if (data.entryLimitReached !== undefined) warning("Entry limit reached.");
   if (data.linesTruncated === true) warning("Long result lines truncated by pi.");
 
   return notices;

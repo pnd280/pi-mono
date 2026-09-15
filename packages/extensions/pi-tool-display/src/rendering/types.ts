@@ -1,5 +1,11 @@
-import type { AgentToolResult, Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type {
+  AgentToolResult,
+  Theme,
+  ToolDefinition,
+  ToolRenderResultOptions
+} from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
+import type { TreeItem } from "@pi-mono/libs/tui/components/tree";
 
 import type {
   DisplayCall,
@@ -7,10 +13,10 @@ import type {
   ExplorationItem,
   InvocationPart,
   McpFacts,
+  Outcome,
   ToolDisplayAdapter,
   TranscriptView
 } from "../contracts.ts";
-import type { TreeItem } from "./layout.ts";
 
 export type DisplayTheme = Pick<Theme, "fg" | "bg" | "getBgAnsi" | "bold">;
 
@@ -26,7 +32,7 @@ export interface ToolDisplayRenderers {
   renderCall(args: unknown, theme: DisplayTheme, context: DisplayContext): Component;
   renderResult(
     result: AgentToolResult<unknown>,
-    options: { expanded: boolean; isPartial: boolean },
+    options: ToolRenderResultOptions,
     theme: DisplayTheme,
     context: DisplayContext
   ): Component;
@@ -56,6 +62,7 @@ export type Projection = Readonly<{
   result: AgentToolResult<unknown> | undefined;
   group: DisplayGroup | undefined;
   mcp: McpFacts | undefined;
+  outcome: Outcome;
 }>;
 
 /** Lazily prepared, row-owned data. Layout consumers cannot invalidate or replace it. */
@@ -63,7 +70,7 @@ export type PreparedCard = Projection &
   Readonly<{
     invocation: readonly InvocationPart[] | undefined;
     exploration: readonly ExplorationItem[];
-    headingVerbs: readonly [pending: string, complete: string] | undefined;
+    headingVerbs: ReturnType<NonNullable<ToolDisplayAdapter["headingVerbs"]>>;
     body: ResultBody;
     hasBody: boolean;
     groupRows: readonly string[];

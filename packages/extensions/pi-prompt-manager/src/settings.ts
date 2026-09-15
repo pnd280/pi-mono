@@ -1,126 +1,87 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { Key, type KeyId } from "@earendil-works/pi-tui";
+import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
+import { z } from "zod";
 
-import { isRecord } from "./model.ts";
+const objectSchema = z.looseObject({});
+const shortcutListSchema = z.array(canonicalKeySchema).transform((keys) => [...new Set(keys)]);
+const shortcutsSchema = z.strictObject({
+  history: shortcutListSchema.default(["ctrl+r"]),
+  saveDraft: shortcutListSchema.default(["ctrl+shift+s"])
+});
+const settingsSchema = z.strictObject({
+  historyRetention: z
+    .number()
+    .transform((value) => Math.max(1, Math.min(5000, Math.floor(value))))
+    .default(250),
+  shortcuts: shortcutsSchema.prefault({})
+});
+const globalSettingsSchema = z.object({ "ext.pi-prompt-manager": z.unknown().optional() });
+const missingFileSchema = z.object({ code: z.literal("ENOENT") });
 
-export type Settings = {
-  historyRetention: number;
-  customMessageTypes: string[];
-  shortcuts: { history: KeyId[]; saveDraft: KeyId[] };
-};
+export type Settings = z.output<typeof settingsSchema>;
 
-const baseKeys = new Set<string>(Object.values(Key).filter((key) => typeof key === "string"));
-const modifiers = ["ctrl", "shift", "alt", "super"];
+export function parseSettings(value: unknown): { settings: Settings; warnings: string[] } {
+  const result = settingsSchema.safeParse(value === undefined ? {} : value);
+  const warnings: string[] = [];
+  if (result.success) return resolveShortcuts(result.data, warnings);
 
-function validKey(value: string): value is KeyId {
-  // A plus symbol may itself be the base key, including in ctrl++.
-  const parts = value.endsWith("+")
-    ? [...value.slice(0, -1).split("+").filter(Boolean), "+"]
-    : value.split("+");
-  const base = parts.pop();
+  for (const issue of result.error.issues) {
+    if (issue.code === "unrecognized_keys")
+      warnings.push("Unknown pi-prompt-manager settings fields were ignored.");
+    else if (!issue.path.length)
+      warnings.push("Invalid pi-prompt-manager settings section; using defaults.");
+    else if (issue.path[0] === "historyRetention")
+      warnings.push("Invalid historyRetention; using 250.");
+    else if (issue.path.length === 1) warnings.push("Invalid shortcuts object; using defaults.");
+  }
 
-  return (
-    base !== undefined &&
-    (baseKeys.has(base) || /^[a-z0-9]$/.test(base)) &&
-    parts.every((part) => modifiers.includes(part)) &&
-    new Set(parts).size === parts.length
+  // Recover fields independently; a bad action must not reset another action's bindings.
+  const section = objectSchema.safeParse(value).data ?? {};
+  const shortcuts = objectSchema.safeParse(section.shortcuts).data ?? {};
+  const historyRetention =
+    settingsSchema.shape.historyRetention.safeParse(section.historyRetention).data ?? 250;
+
+  const bindings = (action: "history" | "saveDraft") => {
+    const parsed = shortcutsSchema.shape[action].safeParse(shortcuts[action]);
+    if (parsed.success) return parsed.data;
+    warnings.push("Invalid launch shortcut list; using that action's default.");
+
+    return shortcutsSchema.shape[action].parse(undefined);
+  };
+
+  return resolveShortcuts(
+    {
+      historyRetention,
+      shortcuts: { history: bindings("history"), saveDraft: bindings("saveDraft") }
+    },
+    warnings
   );
 }
 
-export function canonicalKey(value: unknown): KeyId | undefined {
-  if (typeof value !== "string" || !value || value.trim() !== value) return undefined;
-  const parts = value.toLowerCase().split("+");
-  let base = parts.pop() ?? "";
-
-  if (!base && value.endsWith("+")) {
-    base = "+";
-    if (parts.length > 0 && parts.pop() !== "") return undefined;
-  }
-
-  if (base === "esc") base = "escape";
-  if (base === "return") base = "enter";
-  if (base === "pageup") base = "pageUp";
-  if (base === "pagedown") base = "pageDown";
-  if (parts.some((part) => !modifiers.includes(part)) || new Set(parts).size !== parts.length)
-    return undefined;
-  const key = [...modifiers.filter((modifier) => parts.includes(modifier)), base].join("+");
-
-  return validKey(key) ? key : undefined;
-}
-
-function unknownKeys(value: Record<string, unknown>, allowed: string[], warnings: string[]) {
-  if (Object.keys(value).some((key) => !allowed.includes(key)))
-    warnings.push("Unknown pi-prompt-manager settings fields were ignored.");
-}
-
-function shortcutList(value: unknown, fallback: KeyId[], warnings: string[]): KeyId[] {
-  if (value === undefined) return fallback;
-
-  if (Array.isArray(value)) {
-    const keys = value.map(canonicalKey);
-
-    if (keys.every((key) => key !== undefined)) return [...new Set(keys)];
-  }
-
-  warnings.push("Invalid launch shortcut list; using that action's default.");
-
-  return fallback;
-}
-
-export function parseSettings(value: unknown): { settings: Settings; warnings: string[] } {
-  const warnings: string[] = [];
-  const section = isRecord(value) ? value : {};
-
-  if (value !== undefined && !isRecord(value))
-    warnings.push("Invalid pi-prompt-manager settings section; using defaults.");
-  unknownKeys(section, ["historyRetention", "customMessageTypes", "shortcuts"], warnings);
-  const retention = section.historyRetention;
-  let historyRetention = 250;
-
-  if (typeof retention === "number" && Number.isFinite(retention))
-    historyRetention = Math.max(1, Math.min(5000, Math.floor(retention)));
-  else if (retention !== undefined) warnings.push("Invalid historyRetention; using 250.");
-  const allowlist = section.customMessageTypes;
-  let customMessageTypes: string[] = [];
-
-  if (
-    Array.isArray(allowlist) &&
-    allowlist.every((item): item is string => typeof item === "string" && item.length > 0)
-  )
-    customMessageTypes = [...new Set(allowlist)];
-  else if (allowlist !== undefined)
-    warnings.push("Invalid customMessageTypes; custom-message capture is disabled.");
-  const shortcuts = isRecord(section.shortcuts) ? section.shortcuts : {};
-
-  if (section.shortcuts !== undefined && !isRecord(section.shortcuts))
-    warnings.push("Invalid shortcuts object; using defaults.");
-  unknownKeys(shortcuts, ["history", "saveDraft"], warnings);
-  const history = shortcutList(shortcuts.history, ["ctrl+r"], warnings);
-  const saveDraft = shortcutList(shortcuts.saveDraft, ["ctrl+shift+s"], warnings).filter((key) => {
-    if (!history.includes(key)) return true;
+function resolveShortcuts(settings: Settings, warnings: string[]) {
+  settings.shortcuts.saveDraft = settings.shortcuts.saveDraft.filter((key) => {
+    if (!settings.shortcuts.history.includes(key)) return true;
     warnings.push(`History owns launch shortcut ${key}; it will not save drafts.`);
 
     return false;
   });
 
-  return {
-    settings: { historyRetention, customMessageTypes, shortcuts: { history, saveDraft } },
-    warnings
-  };
+  return { settings, warnings };
 }
 
 /** The caller must establish TUI mode before calling this global-only reader. */
 export async function loadSettings(agentDir: string) {
   try {
     const raw: unknown = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8"));
+    const parsed = globalSettingsSchema.safeParse(raw);
 
-    return parseSettings(isRecord(raw) ? raw["ext.pi-prompt-manager"] : null);
+    return parseSettings(parsed.success ? parsed.data["ext.pi-prompt-manager"] : null);
   } catch (error) {
     const result = parseSettings(undefined);
 
-    if (!isRecord(error) || error.code !== "ENOENT")
+    if (!missingFileSchema.safeParse(error).success)
       result.warnings.push("Global settings could not be read; using prompt-manager defaults.");
 
     return result;

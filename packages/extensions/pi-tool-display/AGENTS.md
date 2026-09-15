@@ -2,22 +2,34 @@
 
 ## Code navigation
 
-See the [workspace architecture](../../../docs/architecture.md#tool-display) for state ownership, dependency direction, and live/history flow.
-
-- **Lifecycle/private Pi integration:** [host/install.ts](src/host/install.ts) and the inspected contracts in [host/compatibility.ts](src/host/compatibility.ts). Keep private host types/accesses under `host/`. Pi upgrades require re-inspecting construction, registry wrapping, reconstruction, and row expansion before accepting new method fingerprints. Check both the bundled executable and unbundled API; [install-cli.test.ts](src/host/install-cli.test.ts) exercises the installed manifest's `bin.pi` entry point.
-- **Transcript:** [coordinator.ts](src/transcript/coordinator.ts) exclusively updates call state and invalidation. [session.ts](src/transcript/session.ts) orchestrates messages and observations, and owns saved-output eligibility and retry independently of attached rows.
-- **Rendering:** [cards.ts](src/rendering/cards.ts) owns lazy row preparation and invalidation across both Pi slots. [result-content.ts](src/rendering/result-content.ts) prepares result bodies and grouped diagnostics; [headings.ts](src/rendering/headings.ts) and [results.ts](src/rendering/results.ts) consume prepared data. [layout.ts](src/rendering/layout.ts) alone assigns connectors. Plain terminal-text normalization comes from [`@pi-mono/utils/terminal-text`](../../utils/README.md); specialized styled-output filtering remains in [terminal-text.ts](src/terminal-text.ts). See the [standalone API](docs/renderers.md).
+- **Pi lifecycle:** [host/install.ts](src/host/install.ts) handles integration and teardown; [host/compatibility.ts](src/host/compatibility.ts) records inspected contracts; [native-registry.ts](src/host/native-registry.ts) verifies and restores native definitions.
+- **Transcript:** [coordinator.ts](src/transcript/coordinator.ts) owns call-state changes; [session.ts](src/transcript/session.ts) coordinates live events, history reconstruction, and saved-output eligibility. [history.ts](src/transcript/history.ts) and [metadata.ts](src/transcript/metadata.ts) handle reconstruction and persisted facts.
+- **Observation and rows:** [native.ts](src/observation/native.ts) observes verified operations; [output-policy.ts](src/observation/output-policy.ts) chooses live retention budgets; [saved-output.ts](src/observation/saved-output.ts) sets preview and cache policy. [host/rows.ts](src/host/rows.ts) integrates Pi invalidation, expansion, and mouse routing.
+- **Rendering:** start at [cards.ts](src/rendering/cards.ts) for preparation across Pi slots, [format.ts](src/rendering/format.ts) for shared text and tree rendering, or [result-content.ts](src/rendering/result-content.ts) for result bodies and diff rendering. [diff.ts](src/diff.ts) generates patches and enforces retention limits. See the [standalone API](docs/renderers.md) for tool-author integration.
+- **Offline launchers:** [validation/workspace.ts](validation/workspace.ts) supplies fixture data, provider loading, flags, and reuse checks.
 
 ## Constraints
 
-Keep the display lookup render-only. Native observation may reconstruct verified, unmodified Pi-native bash/PowerShell/edit/write definitions through Pi factories, only for participating TUI sessions and specialized selection. Preserve middleware, schemas/prompts, settings, active selection, operation results, and mutation ordering. Never register tools for presentation or recreate unknown SDK/custom closures automatically. Keep restoration limited to owned hooks/definitions. Preserve later wrappers and make disposed callbacks inert.
+Keep private host access under `host/`. Before changing shared hooks, trace how callbacks are deactivated and native definitions are restored.
 
-Renderers perform no filesystem work, tool execution, or persistence. Separate observed operation outcome from Pi's published result. Derive operation outcomes from structured observations, not result text. Render published output without restoring omitted or pre-middleware content from adapter metadata. Persist bounded additional facts, not output/image copies or styled text. Historical reconstruction must not observe today's files, rerun tools, or animate missing results.
+Keep display lookup and renderers free of filesystem work, tool execution, and persistence.
 
-Use Pi's expansion, mouse routing, image path, theme, highlighter, and width utilities. Keep tool-contract result interpretation inside its adapter and follow the provenance limits in its [contract documentation](docs/adapters.md#built-in-adapters). Keep omission ranges transient, applying colors only during rendering. Keep each grouped invocation and its notices in its own Pi row; collapse successful body text, never image-bearing rows. The host adapter joins compact row margins and adjusts Pi's mouse coordinates together.
+- Native observation must preserve middleware, schemas, prompts, settings, active tool selection, operation results, and mutation ordering.
+- Observe only definitions whose provenance [NativeRegistry](src/host/native-registry.ts) verifies, in participating TUI sessions with specialized rendering selected.
+- Never register tools for presentation or recreate unknown SDK or custom closures.
+- Undo only this extension's hook and definition replacements. Preserve later wrappers and make disposed callbacks inert.
 
-See the [README](README.md#observation-and-saved-history) for observation exclusions, side effects, and limits.
+Treat Pi arguments and published results as borrowed, read-only data. Derive operation facts from structured observations, separately from published results. Never restore omitted output from adapter metadata. Persist bounded additional facts, not output copies, image copies, or styled text. Reconstruct history from retained data without repeating file observations, rerunning tools, or animating missing results.
+
+Use Pi's expansion, mouse routing, image handling, theme, highlighter, and width utilities.
+
+- Keep result interpretation in its adapter under the [provenance limits](docs/adapters.md#built-in-adapters).
+- Apply colors during rendering and keep omission ranges transient.
+- Keep grouped calls and their notices in their corresponding Pi rows. Collapse successful body text, never image-bearing rows.
+- Change compact margins and mouse-coordinate adjustment together.
+
+See [observation and saved history](README.md#observation-and-saved-history) for exclusions, side effects, and limits.
 
 ## Validation
 
-Use the [terminal fixture and host checks](docs/validation.md) for integration and interaction changes.
+Use [package validation](README.md#validation) and the [terminal procedure](docs/validation.md) for integration or interaction changes. On Pi upgrades, reinspect construction, registry wrapping, reconstruction, and row expansion before accepting new fingerprints; check both [API](src/host/install.test.ts) and [installed-CLI](src/host/install-cli.test.ts) fixtures.

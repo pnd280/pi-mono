@@ -55,6 +55,13 @@ export class TranscriptRows {
   private unindexedCalls: MapIterator<DisplayCall>;
   private indexedCalls = 0;
   private calls = new WeakMap<object, DisplayCall>();
+  private children: readonly Component[] | undefined;
+  private indexedChildren = 0;
+  private lastChild: Component | undefined;
+  private lastCall: DisplayCall | undefined;
+  private components = new Set<Component>();
+  private predecessors = new WeakMap<Component, DisplayCall>();
+  private pendingRows = new Set<ToolExecutionComponent>();
   constructor(
     private host: Pick<Host, "ui" | "chatContainer" | "toolOutputExpanded">,
     private coordinator: TranscriptCoordinator,
@@ -92,19 +99,59 @@ export class TranscriptRows {
       ? this.calls.get(definition)
       : undefined;
   }
-  private precedingCall(component: Component): DisplayCall | undefined {
-    if (!this.active()) return;
-    const children = this.host.chatContainer?.children ?? [];
+  /** Pi appends rows during streaming and reconstruction. Only insertion/removal
+   * within an indexed prefix needs a new predecessor pass, never ordinary events.
+   */
+  private indexChildren(): Component[] {
+    if (!this.active()) return [];
+    const children = this.host.chatContainer?.children;
+    if (!children) return [];
+    const previous = this.components;
 
-    const position =
-      children.at(-1) === component ? children.length - 1 : children.indexOf(component);
+    if (
+      children !== this.children ||
+      children.length < this.indexedChildren ||
+      (this.indexedChildren > 0 && children[this.indexedChildren - 1] !== this.lastChild)
+    ) {
+      this.children = children;
+      this.indexedChildren = 0;
+      this.lastCall = undefined;
+      this.components = new Set();
+      this.predecessors = new WeakMap();
+      this.pendingRows.clear();
+    }
 
-    for (let index = position - 1; index >= 0; index--) {
-      const child = children[index];
+    const added: Component[] = [];
+
+    for (; this.indexedChildren < children.length; this.indexedChildren++) {
+      const child = children[this.indexedChildren]!;
+      if (!previous.has(child)) added.push(child);
+      this.components.add(child);
+      if (this.lastCall) this.predecessors.set(child, this.lastCall);
       if (!(child instanceof ToolExecutionComponent)) continue;
       const call = this.rowCall(child);
-      if (call) return call;
+      if (call) this.lastCall = call;
+      if (call && !this.bound.has(child)) this.pendingRows.add(child);
     }
+
+    this.lastChild = children.at(-1);
+
+    return added;
+  }
+  /** Capture actual insertions, including custom entries inserted before a
+   * streaming assistant. No-op notice hooks neither copy nor scan old children.
+   */
+  prepareInsertion(): void {
+    this.indexChildren();
+  }
+  finishInsertion(): void {
+    for (const component of this.indexChildren()) this.boundaryBefore(component);
+  }
+  private precedingCall(component: Component): DisplayCall | undefined {
+    if (!this.active()) return;
+    this.indexChildren();
+
+    return this.predecessors.get(component);
   }
   boundaryBefore(component: Component): void {
     const call = this.precedingCall(component);
@@ -123,9 +170,10 @@ export class TranscriptRows {
     // A host event may reconstruct the transcript before its original handler returns.
     if (!this.active()) return;
     const coordinator = this.coordinator;
+    this.indexChildren();
 
-    for (const child of this.host.chatContainer?.children ?? []) {
-      if (!(child instanceof ToolExecutionComponent) || this.bound.has(child)) continue;
+    for (const child of this.pendingRows) {
+      this.pendingRows.delete(child);
       const call = this.rowCall(child);
       if (!call) continue;
       this.bound.add(child);
@@ -162,5 +210,11 @@ export class TranscriptRows {
   dispose(): void {
     this.disposers.splice(0).forEach((dispose) => dispose());
     this.pendingCalls.clear();
+    this.pendingRows.clear();
+    this.components.clear();
+    this.children = undefined;
+    this.lastChild = undefined;
+    this.lastCall = undefined;
+    this.predecessors = new WeakMap();
   }
 }

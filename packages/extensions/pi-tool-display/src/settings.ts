@@ -1,6 +1,26 @@
+import { z } from "zod";
+
 export const SETTINGS_KEY = "ext.pi-tool-display";
 
-export type RendererMode = "auto" | "generic" | "original";
+const rendererModeSchema = z.enum(["auto", "generic", "original"]);
+// Zod records omit __proto__, but every exact tool name must be validated and retained.
+const rendererOverridesSchema = z
+  .preprocess(
+    (value) => {
+      if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+
+      return new Map(Object.entries(value));
+    },
+    z.map(z.string().min(1), rendererModeSchema)
+  )
+  .transform((entries) => Object.fromEntries(entries));
+const settingsSchema = z.strictObject({
+  showParameters: z.boolean().optional(),
+  rendererOverrides: rendererOverridesSchema.optional()
+});
+const sourceSchema = z.object({ [SETTINGS_KEY]: z.unknown().optional() });
+
+export type RendererMode = z.infer<typeof rendererModeSchema>;
 
 export interface DisplaySettings {
   valid: boolean;
@@ -14,10 +34,6 @@ export interface SettingsSource {
   settings: unknown;
 }
 
-function object(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 /** Validate every applicable source before merging, including values overridden later. */
 export function loadDisplaySettings(sources: readonly SettingsSource[]): DisplaySettings {
   const rendererOverrides: Record<string, RendererMode> = {};
@@ -26,40 +42,27 @@ export function loadDisplaySettings(sources: readonly SettingsSource[]): Display
   let showParameters = false;
 
   for (const source of sources) {
-    const section = object(source.settings) ? source.settings[SETTINGS_KEY] : undefined;
+    const section = sourceSchema.safeParse(source.settings).data?.[SETTINGS_KEY];
     if (section === undefined) continue;
-    const invalid = (key: string) =>
-      warnings.push(
-        `${source.path}: invalid ${key}; keeping original rendering and disabling display observation.`
-      );
+    const parsed = settingsSchema.safeParse(section);
 
-    if (!object(section)) {
-      invalid(SETTINGS_KEY);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const paths =
+          issue.code === "unrecognized_keys"
+            ? issue.keys.map((key) => [...issue.path, key])
+            : [issue.path];
+        for (const path of paths)
+          warnings.push(
+            `${source.path}: invalid ${[SETTINGS_KEY, ...path].join(".")}; keeping original rendering and disabling display observation.`
+          );
+      }
+
       continue;
     }
 
-    for (const key of Object.keys(section))
-      if (key !== "rendererOverrides" && key !== "showParameters")
-        invalid(`${SETTINGS_KEY}.${key}`);
-
-    if (section.showParameters !== undefined) {
-      if (typeof section.showParameters !== "boolean") invalid(`${SETTINGS_KEY}.showParameters`);
-      else showParameters = section.showParameters;
-    }
-
-    const overrides = section.rendererOverrides;
-    if (overrides === undefined) continue;
-
-    if (!object(overrides)) {
-      invalid(`${SETTINGS_KEY}.rendererOverrides`);
-      continue;
-    }
-
-    for (const [name, value] of Object.entries(overrides)) {
-      if (name.length === 0 || (value !== "auto" && value !== "generic" && value !== "original")) {
-        invalid(`${SETTINGS_KEY}.rendererOverrides.${name}`);
-      } else rendererOverrides[name] = value;
-    }
+    if (parsed.data.showParameters !== undefined) showParameters = parsed.data.showParameters;
+    Object.assign(rendererOverrides, parsed.data.rendererOverrides);
   }
 
   return {

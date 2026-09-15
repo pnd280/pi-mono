@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { fffAdapter } from "@pi-mono/utils/fff-tools";
 
 import { evaluateSearch } from "./evaluate-search.ts";
@@ -19,7 +20,10 @@ export default function fffGuardExtension(pi: ExtensionAPI): void {
     if (decision.kind === "block") return { block: true, reason: decision.reason };
 
     if (decision.diagnostic) {
-      const text = `FFF ignored-path detection unavailable: ${decision.diagnostic}. Allowing the FFF call.`;
+      // OS errors can include terminal controls from file names.
+      const text = displayText(
+        `FFF ignored-path detection unavailable: ${decision.diagnostic}. Allowing the FFF call.`
+      );
       if (ctx.hasUI) ctx.ui.notify(text, "warning");
       else console.error(text);
     }

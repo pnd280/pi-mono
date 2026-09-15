@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 
-import { canonicalKey, parseSettings } from "./settings.ts";
+import { parseSettings } from "./settings.ts";
 
 it("validates fields independently, floors/clamps finite numbers without coercion", () => {
   for (const [value, expected] of [
@@ -17,19 +17,14 @@ it("validates fields independently, floors/clamps finite numbers without coercio
 
   const result = parseSettings({
     historyRetention: 3,
-    customMessageTypes: ["Exact", " space "],
     extra: true,
     shortcuts: { history: [], saveDraft: [null] }
   });
   expect(result.settings).toEqual({
     historyRetention: 3,
-    customMessageTypes: ["Exact", " space "],
     shortcuts: { history: [], saveDraft: ["ctrl+shift+s"] }
   });
   expect(result.warnings).toHaveLength(2);
-  expect(parseSettings({ customMessageTypes: ["good", ""] }).settings.customMessageTypes).toEqual(
-    []
-  );
 });
 
 it("canonicalizes aliases/modifier order and gives History collision ownership", () => {
@@ -44,13 +39,6 @@ it("canonicalizes aliases/modifier order and gives History collision ownership",
     saveDraft: ["ctrl+x"]
   });
   expect(warnings).toHaveLength(2);
-  expect(canonicalKey("alt+return")).toBe("alt+enter");
-  expect(canonicalKey("pageup")).toBe("pageUp");
-  expect(canonicalKey("+")).toBe("+");
-  expect(canonicalKey("ctrl++")).toBe("ctrl++");
-
-  for (const value of [" ctrl+r", "control+r", "ctrl+ctrl+s", "ctrl+", "foo", "f13"])
-    expect(canonicalKey(value)).toBeUndefined();
   expect(
     parseSettings({ shortcuts: { history: ["ctrl+x", "bogus"] } }).settings.shortcuts.history
   ).toEqual(["ctrl+r"]);

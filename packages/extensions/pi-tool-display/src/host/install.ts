@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { AgentSession, ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
+import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
 import type { DisplaySettings } from "../settings.ts";
@@ -9,8 +9,7 @@ import { DisplaySession } from "../transcript/session.ts";
 import { record } from "../values.ts";
 import { hostHook, interactivePrototype, type Host } from "./compatibility.ts";
 import { displaySettings } from "./configuration.ts";
-import { OwnedHooks } from "./hooks.ts";
-import { hostToolResult, transcriptMessage } from "./messages.ts";
+import { executionOutcome, hostToolResult, transcriptMessage } from "./messages.ts";
 import { NativeRegistry } from "./native-registry.ts";
 import { TranscriptRows } from "./rows.ts";
 import { selectAdapter } from "./selection.ts";
@@ -100,14 +99,6 @@ export function installHostIntegration(
     return current;
   }
 
-  function compactionBoundary(host: Host, before: readonly Component[] | undefined): void {
-    if (!before) return;
-    const binding = hosts.get(host);
-    const last = host.chatContainer?.children.at(-1);
-    // Success reconstructs the binding; failures/cancellation can append notices without it.
-    if (binding && last && !before.includes(last)) binding.rows.boundaryBefore(last);
-  }
-
   const lookup: Host["getRegisteredToolDefinition"] = function (this: Host, name) {
     const definition = previousLookup.call(this, name); // Exactly once; preserve failures.
     if (!active) return definition;
@@ -160,14 +151,9 @@ export function installHostIntegration(
       hooks.replace(prototype, key, function (this: Host, value: unknown) {
         const binding = active ? hosts.get(this) : undefined;
         if (!binding) return insert.call(this, value);
-        const before = this.chatContainer?.children.slice() ?? [];
+        binding.rows.prepareInsertion();
         const result = insert.call(this, value);
-        const children = this.chatContainer?.children ?? [];
-
-        if (children.length > before.length) {
-          const inserted = children.find((child, index) => child !== before[index]);
-          if (inserted) binding.rows.boundaryBefore(inserted);
-        }
+        binding.rows.finishInsertion();
 
         return result;
       });
@@ -219,7 +205,9 @@ export function installHostIntegration(
               hostToolResult(
                 event.type === "tool_execution_update" ? event.partialResult : event.result
               ),
-              event.type === "tool_execution_end" && event.isError ? "failure" : "success",
+              event.type === "tool_execution_end"
+                ? executionOutcome(event.isError, this.session.agent.signal)
+                : "success",
               event.type === "tool_execution_update"
             );
           if (event.type === "agent_end") display.coordinator.settle();
@@ -227,10 +215,11 @@ export function installHostIntegration(
 
         // message_end updates the component and clears the host's streaming reference.
         const streaming = this.streamingComponent;
-        const compactionChildren =
-          event.type === "compaction_end" ? this.chatContainer?.children.slice() : undefined;
+        if (event.type === "compaction_end") binding?.rows.prepareInsertion();
         await handle.call(this, event);
-        compactionBoundary(this, compactionChildren);
+        // Success reconstructs the binding before appending the summary; failed
+        // compactions append notices to the original binding instead.
+        if (event.type === "compaction_end") hosts.get(this)?.rows.finishInsertion();
 
         if (binding) {
           binding.rows.assistantBoundary(this.streamingComponent ?? streaming);

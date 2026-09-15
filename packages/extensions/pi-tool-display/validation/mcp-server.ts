@@ -1,15 +1,24 @@
 import { createInterface } from "node:readline";
 
-import { record } from "../src/values.ts";
+import { z } from "zod";
 
-const tools = ["echo", "fail", "image", "large"].map((name) => ({
+const toolNameSchema = z.enum(["echo", "fail", "image", "large"]);
+const inputSchema = z.object({ value: z.string().optional() });
+const callSchema = z.object({ name: toolNameSchema, arguments: inputSchema.prefault({}) });
+const requestSchema = z.object({
+  jsonrpc: z.literal("2.0"),
+  id: z.union([z.string(), z.number(), z.null()]).optional(),
+  method: z.string(),
+  params: z.unknown().optional()
+});
+const tools = toolNameSchema.options.map((name) => ({
   name,
   description: `Offline display fixture: ${name}`,
-  inputSchema: { type: "object", properties: { value: { type: "string" } } }
+  inputSchema: z.toJSONSchema(inputSchema)
 }));
 
 /** Minimal stdio MCP backend for the fixed terminal plan; no network or filesystem work. */
-function respond(method: unknown, params: unknown): unknown {
+function respond(method: string, params: unknown): unknown {
   if (method === "initialize")
     return {
       protocolVersion: "2024-11-05",
@@ -19,7 +28,7 @@ function respond(method: unknown, params: unknown): unknown {
   if (method === "ping") return {};
   if (method === "tools/list") return { tools };
   if (method !== "tools/call") return undefined;
-  const { name, arguments: args } = record(params);
+  const { name, arguments: args } = callSchema.parse(params);
   if (name === "image")
     return {
       content: [
@@ -33,24 +42,20 @@ function respond(method: unknown, params: unknown): unknown {
       ]
     };
 
+  let text: string;
+  if (name === "large") text = "retained fixture output\n".repeat(3000);
+  else if (name === "fail") text = "intentional MCP error";
+  else text = args.value ?? "fixture output";
+
   return {
     ...(name === "fail" ? { isError: true } : {}),
-    content: [
-      {
-        type: "text",
-        text:
-          name === "large"
-            ? "retained fixture output\n".repeat(3000)
-            : name === "fail"
-              ? "intentional MCP error"
-              : (record(args).value ?? "fixture output")
-      }
-    ]
+    content: [{ type: "text", text }]
   };
 }
 
 for await (const line of createInterface({ input: process.stdin })) {
-  const message = record(JSON.parse(line));
+  const raw: unknown = JSON.parse(line);
+  const message = requestSchema.parse(raw);
   if (message.id === undefined) continue;
   const result = respond(message.method, message.params);
   process.stdout.write(

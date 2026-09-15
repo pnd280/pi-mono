@@ -1,7 +1,7 @@
+import { inspectGitIgnore } from "@pi-mono/libs/git-ignore";
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 
-import { detectIgnored } from "./git-ignore.ts";
-import { extractScope, type SearchInput } from "./targets.ts";
+import { extractScope, searchInputSchema } from "./targets.ts";
 
 export type SearchDecision =
   | { kind: "block"; reason: string }
@@ -15,28 +15,21 @@ type SearchRequest = {
   signal?: AbortSignal | undefined;
 };
 
-function parseSearchInput(input: Record<string, unknown>): SearchInput {
-  const scope: SearchInput = {};
+// Only scope-affecting arguments belong to ignored-path inspection.
+const scopeInputSchema = searchInputSchema.pick({
+  pattern: true,
+  path: true,
+  constraints: true,
+  exclude: true
+});
 
-  for (const key of ["pattern", "path", "constraints"] as const) {
-    const value = input[key];
-    if (value === undefined) continue;
-    if (typeof value !== "string") throw new Error(`Invalid FFF ${key}: expected a string`);
-    scope[key] = value;
-  }
+function parseSearchInput(input: unknown) {
+  const parsed = scopeInputSchema.safeParse(input);
+  if (parsed.success) return parsed.data;
+  const key = parsed.error.issues[0]?.path[0];
+  if (key === "exclude") throw new Error("Invalid FFF exclude: expected a string or string array");
 
-  const exclude = input.exclude;
-
-  if (exclude !== undefined) {
-    if (
-      typeof exclude !== "string" &&
-      !(Array.isArray(exclude) && exclude.every((entry: unknown) => typeof entry === "string"))
-    )
-      throw new Error("Invalid FFF exclude: expected a string or string array");
-    scope.exclude = exclude;
-  }
-
-  return scope;
+  throw new Error(`Invalid FFF ${String(key ?? "input")}: expected a string`);
 }
 
 /** Inspection policy without Pi registration or notification delivery. */
@@ -69,12 +62,23 @@ export async function evaluateSearch({
       inspectionSignal.throwIfAborted();
       if (inspected.has(target.absolute)) continue;
       inspected.add(target.absolute);
-      const result = await detectIgnored(target.absolute, cwd, inspectionSignal);
+      const result = await inspectGitIgnore({
+        path: target.absolute,
+        cwd,
+        signal: inspectionSignal,
+        timeoutMs: 2000
+      });
       if (signal?.aborted) return cancelled;
       if (result.status === "cancelled") throw new Error("inspection timed out");
 
+      if (result.status === "timed-out")
+        return { kind: "allow", diagnostic: "Git inspection timed out" };
+
       if (result.status === "unavailable") {
-        return { kind: "allow", diagnostic: result.diagnostic };
+        const message =
+          result.cause instanceof Error ? result.cause.message : "Git inspection failed";
+
+        return { kind: "allow", diagnostic: message.replace(/[\r\n]/g, " ").slice(0, 180) };
       }
 
       if (result.status === "ignored")
@@ -86,14 +90,12 @@ export async function evaluateSearch({
   } catch (error) {
     if (signal?.aborted) return cancelled;
 
-    return {
-      kind: "allow",
-      diagnostic: controller.signal.aborted
-        ? "inspection timed out"
-        : error instanceof Error
-          ? error.message.replace(/[\r\n]/g, " ").slice(0, 180)
-          : "inspection failed"
-    };
+    let diagnostic = "inspection failed";
+    if (controller.signal.aborted) diagnostic = "inspection timed out";
+    else if (error instanceof Error)
+      diagnostic = error.message.replace(/[\r\n]/g, " ").slice(0, 180);
+
+    return { kind: "allow", diagnostic };
   } finally {
     clearTimeout(timeout);
   }

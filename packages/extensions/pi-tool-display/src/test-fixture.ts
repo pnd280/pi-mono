@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { AssistantMessage, ToolCall } from "@earendil-works/pi-ai";
 import { SessionManager, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
+import { createFixtureMessage } from "@pi-mono/libs/validation/provider";
 
 export function renderingTui(): TUI {
   const terminal = { setProgress() {} } satisfies Pick<TUI["terminal"], "setProgress">;
@@ -38,24 +39,11 @@ export function assistantMessage(
   timestamp = 1
 ): AssistantMessage {
   return {
-    role: "assistant",
+    ...createFixtureMessage(
+      { api: "anthropic-messages", provider: "fixture", id: "offline" },
+      timestamp
+    ),
     content,
-    api: "anthropic-messages",
-    provider: "fixture",
-    model: "offline",
-    timestamp,
-    stopReason: "toolUse",
-    usage: {
-      input: 0,
-      output: 0,
-      cacheRead: 0,
-      cacheWrite: 0,
-      totalTokens: 0,
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
-    }
+    stopReason: "toolUse"
   };
-}
-
-export function toolCall(id: string, name: string, args: Record<string, unknown>): ToolCall {
-  return { type: "toolCall", id, name, arguments: args };
 }

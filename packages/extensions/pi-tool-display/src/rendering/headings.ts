@@ -1,17 +1,22 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { displayText } from "@pi-mono/utils/terminal-text";
+import { highlightCodeBounded } from "@pi-mono/libs/tui/components/code-highlight";
+import { renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { textPrefix, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import {
   isLive,
-  isCancelled,
   type DisplayGroup,
+  type HeadingVerbs,
   type InvocationPart,
+  type Outcome,
   type ToolFamily
 } from "../contracts.ts";
 import { invocationParts, invocationPartText } from "../invocation.ts";
-import { expansionHint, highlight, tree, styleParameters } from "./format.ts";
-import { bodyWidth, renderTreeContinuation, textPrefix, wrapRows } from "./layout.ts";
+import { expansionHint, codeHighlightLimits, tree, styleParameters } from "./format.ts";
+import { bodyWidth } from "./layout.ts";
+import { callOutcome } from "./outcome.ts";
 import type { PreparedCard } from "./types.ts";
 
 const COMPACT_HEADING_CHARACTERS = 16 * 1024;
@@ -64,7 +69,12 @@ function previewRows(
 function headingContinuation(rows: readonly string[], p: PreparedCard): string[] {
   if (!rows.length) return [];
 
-  return renderTreeContinuation(rows, p.width, (text) => p.theme.fg("dim", text), p.hasBody);
+  return renderTreeContinuation(rows, {
+    width: p.width,
+    indent: 2,
+    style: (text) => p.theme.fg("dim", text),
+    hasChildren: p.hasBody
+  });
 }
 
 function titleRows(title: string, detail: HeadingDetail, p: PreparedCard): string[] {
@@ -88,15 +98,30 @@ function titleRows(title: string, detail: HeadingDetail, p: PreparedCard): strin
   return rows;
 }
 
-const verbs: Record<ToolFamily, [string, string]> = {
-  read: ["Reading", "Read"],
-  search: ["Searching", "Searched"],
-  list: ["Listing", "Listed"],
-  shell: ["Running", "Ran"],
-  edit: ["Editing", "Edited"],
-  write: ["Writing", "Wrote"],
-  invocation: ["Calling", "Called"]
+const verbs: Record<ToolFamily, HeadingVerbs> = {
+  read: { action: "Read", pending: "Reading", complete: "Read" },
+  search: { action: "Search", pending: "Searching", complete: "Searched" },
+  list: { action: "List", pending: "Listing", complete: "Listed" },
+  shell: { action: "Run", pending: "Running", complete: "Ran" },
+  edit: { action: "Edit", pending: "Editing", complete: "Edited" },
+  write: { action: "Write", pending: "Writing", complete: "Wrote" },
+  invocation: { action: "Call", pending: "Calling", complete: "Called" }
 };
+
+function terminalStatus(
+  outcome: Outcome
+): { suffix: string; color: Parameters<Theme["fg"]>[0] } | undefined {
+  switch (outcome) {
+    case "failure":
+      return { suffix: "failed", color: "error" };
+    case "cancelled":
+      return { suffix: "cancelled", color: "warning" };
+    case "unavailable":
+      return { suffix: "outcome unavailable", color: "muted" };
+    case "success":
+      return undefined;
+  }
+}
 
 function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: number): string[] {
   const first = group.members[0] === p.call;
@@ -109,11 +134,10 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
     : [];
 
   if (first && !active) {
-    const failed = group.members.filter(
-      (member) => member.outcome === "failure" && !isCancelled(member)
-    ).length;
-    const cancelled = group.members.filter(isCancelled).length;
-    const unavailable = group.members.filter((member) => member.outcome === "unavailable").length;
+    const outcomes = group.members.map(callOutcome);
+    const failed = outcomes.filter((outcome) => outcome === "failure").length;
+    const cancelled = outcomes.filter((outcome) => outcome === "cancelled").length;
+    const unavailable = outcomes.filter((outcome) => outcome === "unavailable").length;
     const summary = [
       failed ? p.theme.fg("error", `${failed} failed`) : "",
       cancelled ? p.theme.fg("warning", `${cancelled} cancelled`) : "",
@@ -127,12 +151,12 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
       if (visibleWidth(rows[0]! + suffix) <= p.width) rows[0] += suffix;
       else
         rows.push(
-          ...renderTreeContinuation(
-            wrapRows(summary, bodyWidth(p.width)),
-            p.width,
-            (text) => p.theme.fg("dim", text),
-            true
-          )
+          ...renderTreeContinuation(wrapRows(summary, bodyWidth(p.width)), {
+            width: p.width,
+            indent: 2,
+            style: (text) => p.theme.fg("dim", text),
+            hasChildren: true
+          })
         );
     }
   }
@@ -141,15 +165,20 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
   // displaced behind later summaries. Even repeated reads retain their identity.
   const item = {
     rows: p.exploration.flatMap((entry) => {
-      const detail = formatParts(entry.parts, p, (part, text) =>
-        p.theme.fg(
-          part.kind === "annotation" ? "dim" : part.kind === "pattern" ? "syntaxString" : "text",
-          text
-        )
-      );
+      const detail = formatParts(entry.parts, p, (part, text) => {
+        if (part.kind === "annotation") return p.theme.fg("dim", text);
+
+        return p.theme.fg(part.kind === "pattern" ? "syntaxString" : "text", text);
+      });
+
+      const terminal = isLive(p.call!) ? undefined : terminalStatus(p.outcome);
+      const label = terminal ? `${entry.label} ${terminal.suffix}` : entry.label;
 
       return previewRows(
-        wrapRows(`${p.theme.fg("accent", entry.label)} ${detail.text}`, bodyWidth(p.width)),
+        wrapRows(
+          `${p.theme.fg(terminal?.color ?? "accent", label)} ${detail.text}`,
+          bodyWidth(p.width)
+        ),
         p,
         detail
       );
@@ -176,22 +205,18 @@ function status(p: PreparedCard): {
 } {
   const current = phase(p);
   const pending = ["preparing", "queued", "executing"].includes(current);
-  const failed = p.call ? p.call.outcome === "failure" : p.context.isError;
   const actionVerbs = p.headingVerbs ?? verbs[p.adapter.family];
-  let verb = actionVerbs[pending ? 0 : 1];
-  if (current === "unavailable") verb = "Outcome unavailable";
-  if (p.call && isCancelled(p.call)) return { verb: "Cancelled", color: "warning", pending: false };
+  if (pending) return { verb: actionVerbs.pending, color: "accent", pending };
+  const terminal = terminalStatus(p.outcome);
+  if (terminal)
+    return { verb: `${actionVerbs.action} ${terminal.suffix}`, color: terminal.color, pending };
+  let verb = actionVerbs.complete;
   if (
     p.adapter.family === "write" &&
     p.call?.change?.change === "creation" &&
-    p.call.operation?.outcome === "success" &&
-    !pending &&
-    !failed
+    p.call.operation?.outcome === "success"
   )
     verb = "Added";
-  if (pending) return { verb, color: "accent", pending };
-  if (failed) return { verb, color: "error", pending };
-  if (current === "unavailable") return { verb, color: "warning", pending };
   const quiet = ["read", "search", "list"].includes(p.adapter.family);
 
   return { verb, color: quiet ? "dim" : "success", pending };
@@ -214,7 +239,10 @@ function invocation(p: PreparedCard): HeadingDetail {
       if (part.kind === "pattern") return p.theme.fg("syntaxString", text);
       if (part.kind === "parameters") return styleParameters(text, p.theme);
       if (p.adapter.family === "shell")
-        return highlight(text, "", p.name === "powershell" ? "powershell" : "bash");
+        return highlightCodeBounded(text, {
+          ...codeHighlightLimits,
+          language: p.name === "powershell" ? "powershell" : "bash"
+        });
 
       return p.theme.fg(p.adapter.family === "invocation" ? "accent" : "text", text);
     }
@@ -224,15 +252,6 @@ function invocation(p: PreparedCard): HeadingDetail {
 export function heading(p: PreparedCard, animationPhase: number): string[] {
   if (p.group && !p.expanded) return groupHeading(p.group, p, animationPhase);
   const state = status(p);
-  const typedOutcome = p.mcp?.outcome;
-
-  if (typedOutcome === "transport-error" || typedOutcome === "returned-error")
-    state.color = "error";
-  else if (typedOutcome === "unavailable" && !state.pending) {
-    state.color = "warning";
-    state.verb = "Outcome unavailable";
-  }
-
   const marker = state.pending && animationPhase ? "◦" : "•";
   const title = `${p.theme.fg(state.color, marker)} ${p.theme.fg("toolTitle", p.theme.bold(state.verb))}`;
   const rows = titleRows(title, invocation(p), p);

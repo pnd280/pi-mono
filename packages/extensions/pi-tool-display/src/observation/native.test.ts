@@ -12,7 +12,7 @@ import {
 import { expect, it } from "vite-plus/test";
 
 import type { DisplayFact } from "../contracts.ts";
-import { parsePatch } from "../diff.ts";
+import { parseRetainedPatch } from "../diff.ts";
 import { nativeToolContext } from "../test-fixture.ts";
 import { record } from "../values.ts";
 import { observeNativeDefinition } from "./native.ts";
@@ -110,7 +110,7 @@ it.each(["edit", "write"] as const)(
       }
 
       const bom = name === "write" ? "\uFEFF" : "";
-      expect(parsePatch(change!.patch!)?.hunks[0]?.lines).toEqual([
+      expect(parseRetainedPatch(change!.patch!)?.hunks[0]?.lines).toEqual([
         { kind: "removed", text: `${bom}before`, oldLine: 1 },
         { kind: "added", text: `${bom}after`, newLine: 1 }
       ]);
@@ -149,7 +149,7 @@ it("reuses the native edit patch even when the file exceeds the observation limi
       availability: "available",
       patch: record(result.details).patch
     });
-    expect(parsePatch(change!.patch!)).toMatchObject({ added: 1, removed: 1 });
+    expect(parseRetainedPatch(change!.patch!)).toMatchObject({ added: 1, removed: 1 });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

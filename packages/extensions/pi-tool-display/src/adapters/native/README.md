@@ -1,28 +1,38 @@
 # Native adapter
 
+[Tool coverage](../../../README.md#tool-coverage) · [Adapter development](../../../docs/adapters.md)
+
 ## Compatibility and selection
 
-`nativeAdapter(name)` supports `read`, `grep`, `find`, `ls`, `bash`, `powershell`, `edit`, and `write`. Passing it to the [standalone factory](../../../docs/renderers.md#explicit-contracts) asserts compatibility; it does not verify ownership or install native execution observation.
+`nativeAdapter(name)` supports `read`, `grep`, `find`, `ls`, `bash`, `powershell`, `edit`, and `write`. Passing it to the [standalone factory](../../../docs/renderers.md#explicit-contracts) asserts compatibility; it does not verify provenance or install native execution observation.
 
-Automatic selection requires verified native ownership. Execution observation remains a separate host integration with its own provenance checks; see [observation and saved history](../../../README.md#observation-and-saved-history) and [automatic selection](../../../docs/adapters.md#automatic-selection).
+[Automatic selection](../../../docs/adapters.md#automatic-selection) requires verified native provenance. [Execution observation](../../../README.md#observation-and-saved-history) has separate host provenance checks.
 
-## Argument and result contract
+## Arguments and results
 
-Native contracts use `path`, read `offset`/`limit`, search `pattern`/scope, shell `command`/`timeout`, and successful edit **`details.patch` in unified format**. Numbered `details.diff` is not interpreted. Write arguments alone do not establish creation, previous contents, or a successful change.
+| Operation       | Fields                            |
+| --------------- | --------------------------------- |
+| File targeting  | `path`                            |
+| Read range      | `offset`, `limit`                 |
+| Search          | `pattern` and scope arguments     |
+| Shell           | `command`, `timeout`              |
+| Successful edit | `details.patch` in unified format |
 
-## Display behavior and limitations
+Numbered `details.diff` is not interpreted. Write arguments alone do not establish creation, previous contents, or a successful change.
 
-Read, search, and list calls can participate in exploration groups. Concrete file targets follow the shared [path layout](../../../docs/renderers.md#card-layout).
+## Display
 
-Native image captions suppress equivalent generated fallback descriptions without changing the retained result. Native model-support and image conversion/resize omission warnings remain visible in compact standalone and grouped reads, and appear once in expanded bodies. Patch and live/saved-text previews retain image fallback notices when Pi's native image display is unavailable or disabled.
+Read, search, and list calls can participate in exploration groups. Concrete file targets follow the shared [path layout](../../../docs/presentation.md#card-layout).
 
-The native `(no output)` placeholder uses `dim`. Nonzero-exit/timeout diagnostics use `error`; process output preceding a native failure footer retains its own styling.
+Native image captions suppress equivalent generated fallback descriptions without changing the retained result. Warnings about models without image support or images omitted during conversion or resizing remain visible in compact standalone and grouped reads. They appear once in expanded bodies. Patch, live-output, and saved-output previews retain image fallback notices when Pi's native image display is unavailable or disabled.
+
+The native `(no output)` placeholder uses `dim`. Nonzero-exit and timeout diagnostics use `error`; process output preceding a native failure footer retains its own styling.
 
 ### Text-envelope provenance
 
-In retained shell results, literal process output matching a native placeholder or truncation trailer receives that envelope's styling; the text alone does not establish its provenance.
+In retained shell results, process output that matches a native placeholder or truncation trailer receives the same styling. The text alone cannot identify its source.
 
-Live and saved-output previews [distinguish generated omissions from process text](../../../docs/renderers.md#semantic-colors).
+Live and saved-output previews [distinguish generated omissions from process text](../../../docs/presentation.md#notices-and-colors).
 
 ## Validation
 

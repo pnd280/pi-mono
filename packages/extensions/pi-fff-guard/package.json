@@ -17,7 +17,9 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@pi-mono/utils": "workspace:*"
+    "@pi-mono/libs": "workspace:*",
+    "@pi-mono/utils": "workspace:*",
+    "zod": "catalog:"
   },
   "pi": {
     "extensions": [

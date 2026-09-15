@@ -4,7 +4,7 @@ description: Review and improve medium, large, or high-risk changes in pi-mono f
 disable-model-invocation: true
 ---
 
-# Codebase Review
+# Codebase review
 
 Use `/skill:codebase-review` after an implementation. Arguments may identify packages, paths, a comparison base, or `review-only`. By default, review and fix concrete in-scope issues; `review-only` leaves files unchanged.
 
@@ -21,7 +21,7 @@ Load companion skills only when a selected branch requests them. Resolve Pi's gl
 - Identify intended user-visible outcomes, contracts, affected packages, and consumers of changed shared code. Read surrounding implementations and callers where needed; keep unrelated cleanup out of scope.
 - Find affected documentation even when it is absent from the diff: package READMEs, package instructions, linked guides, and comments explaining constraints.
 - Name the consequential failure modes and choose review depth by risk as well as size. Small changes to lifecycle handling, persistence, or shared contracts may need deeper review.
-- For each meaningful changed behavior, identify existing evidence or a consequential gap. Run useful focused baseline checks. A failure observed before QA fixes is not necessarily pre-existing to the implementation; establish that distinction before reporting it.
+- For each meaningful behavior change, identify supporting evidence or a gap that could hide a defect. Run focused baseline checks. Before reporting a failure as pre-existing, establish that it predates the implementation, not just the review fixes.
 
 For larger changes, delegate independent, read-only reviews of the affected areas below when collaboration tools are available. Give each reviewer the scope, intended behavior, applicable conventions, and a distinct responsibility. Prefer fresh context, and require findings to include a location, concrete consequence, and supporting evidence. Integrate findings before editing overlapping areas.
 
@@ -39,4 +39,4 @@ Distinguish defects and concrete maintenance costs from stylistic preferences. D
 
 Reproduce or substantiate findings before changing code. Make the smallest coherent in-scope fixes, preserving unrelated work. Report larger redesigns and unrelated issues separately rather than expanding the task. In `review-only` mode, report recommendations without applying fixes.
 
-Report findings with locations and consequences, including unresolved issues, proposed broader changes, and material evidence gaps ordered by impact. Follow the repository's [verification and handoff workflow](../../../docs/agents/verification.md). Repeat checks only when new edits, failures, or unresolved concerns justify them.
+Report findings in order of impact, with locations and consequences. Include unresolved issues, proposed broader changes, and significant gaps in evidence. Follow the repository's [verification and handoff workflow](../../../docs/agents/verification.md). Repeat checks only when new edits, failures, or unresolved concerns justify them.

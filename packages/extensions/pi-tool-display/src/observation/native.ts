@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, mkdir, open, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 
 import {
   createBashToolDefinition,
@@ -11,12 +11,14 @@ import {
   type BashOperations,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
+import { observeTextFile } from "@pi-mono/libs/file-observation";
+import { OutputBuffer } from "@pi-mono/libs/output-buffer";
+import type { OutputText } from "@pi-mono/utils/output-text";
 
 import type { DisplayFact, Outcome } from "../contracts.ts";
-import { computeChange, OBSERVATION_BYTES, parsePatch } from "../diff.ts";
-import type { OutputText } from "../output-text.ts";
+import { computeChange, OBSERVATION_BYTES, parseRetainedPatch } from "../diff.ts";
 import { record } from "../values.ts";
-import { OutputBuffer } from "./output-buffer.ts";
+import { liveOutputOptions } from "./output-policy.ts";
 
 export interface ObservationSink {
   started(): void;
@@ -41,28 +43,11 @@ const ignoreFailure = (action: () => void): void => {
 async function beforeWrite(
   path: string
 ): Promise<{ text: string; change: "creation" | "modification" } | undefined> {
-  let file;
+  const result = await observeTextFile(path, OBSERVATION_BYTES);
+  if (result.status === "ready") return { text: result.text, change: "modification" };
+  if (result.status === "missing") return { text: "", change: "creation" };
 
-  try {
-    // O_NONBLOCK prevents a FIFO from blocking an observation read before fstat.
-    file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
-    const stat = await file.stat();
-    if (!stat.isFile() || stat.size > OBSERVATION_BYTES) return undefined;
-    const buffer = Buffer.alloc(Math.min(stat.size + 1, OBSERVATION_BYTES + 1));
-    const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
-    if (bytesRead !== stat.size) return undefined;
-
-    return {
-      text: new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
-        buffer.subarray(0, bytesRead)
-      ),
-      change: "modification"
-    };
-  } catch (error) {
-    return record(error).code === "ENOENT" ? { text: "", change: "creation" } : undefined;
-  } finally {
-    await file?.close().catch(() => {});
-  }
+  return undefined;
 }
 
 async function executeWithSavedReference(
@@ -151,7 +136,7 @@ export function observeNativeDefinition(
           original.name === "bash"
             ? createLocalBashOperations(settings.shellPath ? { shellPath: settings.shellPath } : {})
             : createLocalPowerShellOperations();
-        const buffer = new OutputBuffer();
+        const buffer = new OutputBuffer(liveOutputOptions);
         const operations: BashOperations = {
           async exec(command, cwd, options) {
             const started = start();
@@ -167,15 +152,10 @@ export function observeNativeDefinition(
                   });
                 }
               });
-              terminal(
-                started,
-                result.exitCode === null
-                  ? "unavailable"
-                  : result.exitCode === 0
-                    ? "success"
-                    : "failure",
-                { exitCode: result.exitCode }
-              );
+              let outcome: Outcome = "failure";
+              if (result.exitCode === null) outcome = "unavailable";
+              else if (result.exitCode === 0) outcome = "success";
+              terminal(started, outcome, { exitCode: result.exitCode });
 
               return result;
             } catch (error) {
@@ -279,7 +259,7 @@ export function observeNativeDefinition(
         if (recordFallbackChange) {
           const patch = record(result.details).patch;
 
-          if (typeof patch === "string" && parsePatch(patch)) {
+          if (typeof patch === "string" && parseRetainedPatch(patch)) {
             // Record before outer result middleware can replace or reject Pi's result.
             fact({ kind: "change", availability: "available", change: "modification", patch });
             recordFallbackChange = undefined;

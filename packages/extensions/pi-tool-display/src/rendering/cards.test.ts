@@ -13,12 +13,12 @@ import {
   stripTerminalSequences,
   visibleWidth
 } from "@earendil-works/pi-tui";
+import type { OutputText } from "@pi-mono/utils/output-text";
 import { createToolDisplayRenderers as createPublicRenderers } from "pi-tool-display/renderers";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
 import { genericAdapter, nativeAdapter, piFffAdapter, type McpFacts } from "../adapters/index.ts";
-import type { OutputText } from "../output-text.ts";
 import { renderingTui } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { createToolDisplayRenderers } from "./cards.ts";
@@ -278,7 +278,7 @@ describe("tool display renderers", () => {
 
       const published = result("Rejected by result middleware");
       coordinator.result(call, published, "failure");
-      expect(header.render(80).join("\n")).toContain("Wrote created.txt");
+      expect(header.render(80).join("\n")).toContain("Write failed created.txt");
       expect(body.render(80).join("\n")).toContain("Rejected by result middleware");
       expect(body.render(80).join("\n")).not.toContain("published result");
       expect(call.result).toBe(published);
@@ -449,21 +449,22 @@ describe("tool display renderers", () => {
   });
 
   it.each([
-    ["edit", "Editing", "Edited", { path: "example.ts", edits: [] }],
-    ["write", "Writing", "Wrote", { path: "example.ts", content: "replacement" }],
-    ["read", "Reading", "Read", { path: "example.ts" }],
-    ["grep", "Searching", "Searched", { pattern: "needle", path: "." }],
-    ["find", "Searching", "Searched", { pattern: "*.ts", path: "." }],
-    ["ls", "Listing", "Listed", { path: "." }],
-    ["bash", "Running", "Ran", { command: "printf example" }],
-    ["powershell", "Running", "Ran", { command: "Write-Output example" }],
-    ["fffind", "Searching", "Searched", { pattern: "example" }],
-    ["ffgrep", "Searching", "Searched", { pattern: "example" }],
-    ["fff-multi-grep", "Searching", "Searched", { patterns: ["example"] }],
-    ["custom.lookup", "Calling", "Called", { query: "example" }]
+    ["edit", "Edit", "Editing", "Edited", { path: "example.ts", edits: [] }],
+    ["write", "Write", "Writing", "Wrote", { path: "example.ts", content: "replacement" }],
+    ["read", "Read", "Reading", "Read", { path: "example.ts" }],
+    ["grep", "Search", "Searching", "Searched", { pattern: "needle", path: "." }],
+    ["find", "Search", "Searching", "Searched", { pattern: "*.ts", path: "." }],
+    ["ls", "List", "Listing", "Listed", { path: "." }],
+    ["bash", "Run", "Running", "Ran", { command: "printf example" }],
+    ["powershell", "Run", "Running", "Ran", { command: "Write-Output example" }],
+    ["fffind", "Search", "Searching", "Searched", { pattern: "example" }],
+    ["fffind", "List", "Listing", "Listed", { pattern: "" }],
+    ["ffgrep", "Search", "Searching", "Searched", { pattern: "example" }],
+    ["fff-multi-grep", "Search", "Searching", "Searched", { patterns: ["example"] }],
+    ["custom.lookup", "Call", "Calling", "Called", { query: "example" }]
   ] as const)(
     "keeps %s action headings through preparation, queueing, execution, completion, and replay",
-    (name, active, complete, args) => {
+    (name, action, active, complete, args) => {
       const adapter = name.startsWith("ff")
         ? piFffAdapter({
             name,
@@ -491,7 +492,9 @@ describe("tool display renderers", () => {
           .render(100)
           .map(stripTerminalSequences)
           .find((line) => /^[•◦] /.test(line));
-        expect(heading).toMatch(new RegExp(`^[•◦] ${complete}(?: |$)`));
+        expect(heading).toMatch(
+          new RegExp(`^[•◦] ${isError ? `${action} failed` : complete}(?: |$)`)
+        );
       }
 
       for (const coordinated of [false, true]) {
@@ -541,7 +544,7 @@ describe("tool display renderers", () => {
             }
           };
 
-          assertHeading(active, "Exploring");
+          assertHeading(name === "fffind" && action === "List" ? "Searching" : active, "Exploring");
           coordinator.add(reference, name, args, adapter, "live");
           row.updateArgs(args);
           assertHeading(active, "Exploring");
@@ -559,11 +562,226 @@ describe("tool display renderers", () => {
           for (const isError of [false, true]) {
             coordinator.result(call, final, isError ? "failure" : "success");
             row.updateResult({ ...final, isError });
-            assertHeading(complete, "Explored");
+            assertHeading(isError ? `${action} failed` : complete, "Explored");
+          }
+
+          if (coordinated) {
+            coordinator.result(call, final, "cancelled");
+            assertHeading(`${action} cancelled`, "Explored");
           }
         } finally {
           coordinator.dispose();
         }
+      }
+    }
+  );
+
+  it.each([
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "bash",
+    "powershell",
+    "edit",
+    "write",
+    "fffind",
+    "ffgrep",
+    "fff-multi-grep",
+    "custom"
+  ])("keeps %s cancellation diagnostics warning-colored in compact and expanded cards", (name) => {
+    const coordinator = new TranscriptCoordinator("cancelled-colors");
+    const adapter =
+      nativeAdapter(name) ??
+      piFffAdapter(fffToolInfo(name, name === "fff-multi-grep")) ??
+      genericAdapter;
+    const args = { path: "file.ts", pattern: "needle", patterns: ["needle"], command: "sleep 30" };
+    const colored = semanticTheme();
+
+    try {
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: name },
+        name,
+        args,
+        adapter,
+        "live"
+      );
+      coordinator.result(call, result("Operation aborted: retained diagnostic"), "cancelled");
+      const renderer = createToolDisplayRenderers(name, adapter, {
+        binding: { call, coordinator }
+      });
+
+      for (const expanded of [false, true]) {
+        coordinator.expand(call, expanded);
+        const current = context({ expanded });
+        const rows = [
+          ...renderer.renderCall(args, colored, current).render(100),
+          ...renderer.renderResult(call.result!, current, colored, current).render(100)
+        ].join("\n");
+        expect(rows).toContain(colored.fg("warning", "Operation aborted: retained diagnostic"));
+        expect(rows).not.toContain(colored.fg("error", "Operation aborted: retained diagnostic"));
+      }
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it.each(["failure", "cancelled", "unavailable"] as const)(
+    "keeps custom action identity and ignores partial %s metadata",
+    (outcome) => {
+      const renderer = createPublicRenderers("health", {
+        id: "owner:health",
+        family: "invocation",
+        headingVerbs: () => ({ action: "Check", pending: "Checking", complete: "Checked" }),
+        outcome: () => outcome
+      });
+      const current = context({ isPartial: true });
+      const header = renderer.renderCall({}, theme, current);
+      renderer.renderResult(result("diagnostic"), current, theme, current);
+      expect(header.render(100)[0]).toBe("◦ Checking health");
+      renderer.renderResult(result("diagnostic"), { ...current, isPartial: false }, theme, current);
+      const status = {
+        failure: "failed",
+        cancelled: "cancelled",
+        unavailable: "outcome unavailable"
+      }[outcome];
+      expect(header.render(100)[0]).toBe(`• Check ${status} health`);
+    }
+  );
+
+  it("identifies each failed or cancelled member without repeating native cancellation boilerplate", () => {
+    const coordinator = new TranscriptCoordinator("group-outcomes");
+
+    try {
+      const calls = (["success", "failure", "cancelled"] as const).map((outcome, index) => {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: index, toolCallId: outcome },
+          "read",
+          { path: `${outcome}.ts` },
+          nativeAdapter("read")!,
+          "historical"
+        );
+        coordinator.result(
+          call,
+          result(outcome === "cancelled" ? "Operation aborted" : "retained diagnostic"),
+          outcome
+        );
+
+        return call;
+      });
+      const rows = calls
+        .flatMap((call) =>
+          createToolDisplayRenderers(call.name, call.adapter, {
+            binding: { call, coordinator }
+          })
+            .renderCall(call.args, theme, context())
+            .render(100)
+        )
+        .join("\n");
+      expect(rows).toContain("Explored · 1 failed, 1 cancelled");
+      expect(rows).toContain("Read success.ts");
+      expect(rows).toContain("Read failed failure.ts");
+      expect(rows).toContain("Read cancelled cancelled.ts");
+      expect(rows).toContain("retained diagnostic");
+      expect(rows).not.toContain("Operation aborted");
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it.each(["edit", "write", "bash", "powershell"])(
+    "suppresses only redundant compact %s cancellation text and retains expanded diagnostics",
+    (name) => {
+      const coordinator = new TranscriptCoordinator("cancelled-boilerplate");
+      const shell = name === "bash" || name === "powershell";
+      const diagnostic = shell ? "Command aborted" : "Operation aborted";
+      const retained = result(shell ? `stdout\n\n${diagnostic}` : diagnostic);
+
+      try {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 0, toolCallId: name },
+          name,
+          { path: "file.ts", command: "fixture" },
+          nativeAdapter(name)!,
+          "live"
+        );
+        coordinator.result(call, retained, "cancelled");
+        const renderer = createToolDisplayRenderers(name, call.adapter, {
+          binding: { call, coordinator }
+        });
+
+        for (const expanded of [false, true]) {
+          coordinator.expand(call, expanded);
+          // Pi may still have the partial flag from a streamed result.
+          const current = context({ expanded, isPartial: true });
+          const rows = renderer
+            .renderResult(retained, current, semanticTheme(), current)
+            .render(100)
+            .join("\n");
+          if (expanded) expect(rows).toContain(semanticTheme().fg("warning", diagnostic));
+          else expect(rows).not.toContain(diagnostic);
+          expect(rows).not.toContain("(no output)");
+          if (shell) expect(rows).toContain("stdout");
+        }
+
+        expect(call.result).toBe(retained);
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  );
+
+  it.each(["failure", "cancelled"] as const)(
+    "keeps confirmed %s above unavailable MCP metadata",
+    (outcome) => {
+      const coordinator = new TranscriptCoordinator("mcp-precedence");
+      const adapter = {
+        id: "owner:mcp-unavailable",
+        family: "invocation" as const,
+        mcp: (): McpFacts => ({
+          server: "docs",
+          tool: "search",
+          outcome: "unavailable",
+          content: [{ type: "text", text: "diagnostic" }]
+        })
+      };
+      const colored = semanticTheme();
+
+      try {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 0, toolCallId: "proxy" },
+          "proxy",
+          {},
+          adapter,
+          "live"
+        );
+        coordinator.result(call, result("diagnostic"), outcome);
+        const renderer = createToolDisplayRenderers("proxy", adapter, {
+          binding: { call, coordinator }
+        });
+        const current = context();
+        const header = renderer.renderCall({}, colored, current).render(100).join("\n");
+        expect(stripTerminalSequences(header)).toContain(
+          outcome === "cancelled" ? "Call cancelled" : "Call failed"
+        );
+        expect(header).toContain(colored.fg(outcome === "cancelled" ? "warning" : "error", "•"));
+        expect(
+          renderer.renderResult(call.result!, current, colored, current).render(100).join("\n")
+        ).toContain(colored.fg(outcome === "cancelled" ? "warning" : "error", "diagnostic"));
+
+        if (outcome === "failure") {
+          const standalone = createPublicRenderers("proxy", adapter);
+          expect(
+            stripTerminalSequences(
+              standalone
+                .renderCall({}, colored, context({ isError: true }))
+                .render(100)
+                .join("\n")
+            )
+          ).toContain("Call failed");
+        }
+      } finally {
+        coordinator.dispose();
       }
     }
   );
@@ -594,8 +812,8 @@ describe("tool display renderers", () => {
 
       for (const [outcome, verb] of [
         ["success", "Added"],
-        ["failure", "Wrote"],
-        ["cancelled", "Cancelled"]
+        ["failure", "Write failed"],
+        ["cancelled", "Write cancelled"]
       ] as const) {
         coordinator.result(call, result("retained outcome"), outcome);
         expect(heading()).toBe(`• ${verb} created.ts`);
@@ -618,7 +836,7 @@ describe("tool display renderers", () => {
             context({ isPartial: true, argsComplete: false, executionStarted: false })
           )
           .render(80)[0]
-      ).toBe("• Outcome unavailable missing.ts");
+      ).toBe("• Edit outcome unavailable missing.ts");
     } finally {
       coordinator.dispose();
     }
@@ -708,9 +926,8 @@ describe("tool display renderers", () => {
           })
             .renderCall(call.args, theme, context({ cwd, expanded }))
             .render(240);
-          expect(rows).toContain(
-            `${expanded ? "•" : index === calls.length - 1 ? "  └" : "  ├"} Read ${expected[index]}`
-          );
+          const branch = index === calls.length - 1 ? "  └" : "  ├";
+          expect(rows).toContain(`${expanded ? "•" : branch} Read ${expected[index]}`);
         });
       }
     } finally {
@@ -735,7 +952,7 @@ describe("tool display renderers", () => {
       expect(failed).toContain(themed.fg("dim", "(no output)"));
       expect(failed).toContain(themed.fg("error", "Command exited with code 42"));
       expect(render(name, "stdout\n\nCommand aborted", true)).toContain(
-        themed.fg("warning", "Command aborted")
+        themed.fg("error", "Command aborted")
       );
       expect(render(name, "stdout\n\nCommand timed out after 5 seconds", true)).toContain(
         themed.fg("error", "Command timed out after 5 seconds")
@@ -1740,64 +1957,6 @@ describe("tool display renderers", () => {
     }
   );
 
-  it("keeps the first hunk's edits visible when wrapped context would consume the compact budget", () => {
-    const leading = Array.from({ length: 4 }, () => " " + "leading context ".repeat(40)).join("\n");
-    const trailing = Array.from({ length: 4 }, () => " " + "trailing context ".repeat(40)).join(
-      "\n"
-    );
-    const shared = "shared ".repeat(10);
-    const patch = `@@ -23,9 +23,9 @@ first section\n${leading}\n-FIRST_OLD ${shared} END_OLD\n+FIRST_NEW ${shared} END_NEW\n${trailing}\n@@ -100 +100 @@ second section\n-SECOND_OLD\n+SECOND_NEW\n`;
-    const value = { ...result("Successfully edited example.txt"), details: { patch } };
-
-    for (const width of [40, 80, 157]) {
-      const rows = body("edit", value).render(width);
-      const compact = stripTerminalSequences(rows.join("\n"));
-      expect(compact).toContain("FIRST_OLD");
-      expect(compact).toContain("FIRST_NEW");
-      expect(compact).toContain("END_OLD");
-      expect(compact).toContain("END_NEW");
-      expect(compact).toContain("Hunk 1/2");
-      expect(compact).not.toContain("SECOND_OLD");
-      expect(rows.length).toBeLessThanOrEqual(37); // Summary, 30 changed rows, context and labels.
-      const expanded = stripTerminalSequences(
-        body("edit", value, context({ expanded: true }))
-          .render(width)
-          .join("\n")
-      );
-      expect(expanded).toContain("Hunk 2/2");
-      expect(expanded).toContain("SECOND_OLD");
-      expect(expanded).toContain("SECOND_NEW");
-    }
-  });
-
-  it("excerpts long changed lines around the actual edit instead of their shared prefix or suffix", () => {
-    const prefix = "unchanged prefix ".repeat(100);
-    const suffix = " unchanged suffix".repeat(100);
-    const before = prefix + "OLD_TARGET" + suffix;
-    const after = prefix + "NEW_TARGET" + suffix;
-    const value = {
-      ...result("Successfully edited example.txt"),
-      details: { patch: `@@ -5 +5 @@\n-${before}\n+${after}\n` }
-    };
-
-    for (const width of [80, 157]) {
-      const rows = body("edit", value).render(width);
-      const compact = stripTerminalSequences(rows.join("\n"));
-      expect(compact).toContain("OLD_TARGET");
-      expect(compact).toContain("NEW_TARGET");
-      expect(compact).not.toContain("Hunk 1/1");
-      expect(rows.length).toBeLessThanOrEqual(37);
-      const expanded = stripTerminalSequences(
-        body("edit", value, context({ expanded: true }))
-          .render(width)
-          .join("\n")
-      );
-      expect(expanded).toContain("OLD_TARGET");
-      expect(expanded).toContain("NEW_TARGET");
-      expect(expanded.match(/unchanged/g)).toHaveLength(400);
-    }
-  });
-
   it("uses explicit typed MCP facts without inferring identity or exposing arbitrary details", () => {
     const supplied = {
       content: [{ type: "text" as const, text: "flattened" }],
@@ -1939,7 +2098,7 @@ describe("tool display renderers", () => {
     const successful = createRow("successful", "success", "list");
     failed.invalidate();
     const failedRows = failed.render(80).join("\n");
-    expect(stripTerminalSequences(failedRows)).toContain("Called docs.search");
+    expect(stripTerminalSequences(failedRows)).toContain("Call failed docs.search");
     expect(stripTerminalSequences(failedRows)).not.toContain("docs.search(");
     expect(errorMarker).not.toBe(successMarker);
     expect(failedRows).toContain(errorMarker);

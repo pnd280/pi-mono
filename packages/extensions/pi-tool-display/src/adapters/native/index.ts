@@ -1,13 +1,20 @@
+import { z } from "zod";
+
 import type { ToolFamily } from "../../contracts.ts";
 import type { ToolDisplayAdapter } from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
-import { record } from "../../values.ts";
 import {
   nativeResultParts,
   nativeResultNotices,
   nativeReadImageNotices,
   nativeImageCaption
 } from "./result-presentation.ts";
+
+const readArgsSchema = z
+  .object({ path: z.unknown().optional(), file_path: z.unknown().optional() })
+  .transform((args) => args.path ?? args.file_path)
+  .pipe(z.string());
+const searchArgsSchema = z.object({ pattern: z.string() });
 
 const nativeFamilies: Readonly<Record<string, ToolFamily>> = {
   read: "read",
@@ -20,7 +27,7 @@ const nativeFamilies: Readonly<Record<string, ToolFamily>> = {
   write: "write"
 };
 
-/** Explicit contract assertion for owners; this function does not establish native ownership. */
+/** Tool authors assert compatibility; this function does not verify native provenance. */
 export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
   const family = Object.hasOwn(nativeFamilies, name) ? nativeFamilies[name] : undefined;
   if (!family) return undefined;
@@ -41,19 +48,12 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
     ...(family === "read" || family === "search" || family === "list"
       ? {
           exploration(args: unknown) {
-            const data = record(args);
-            if (family === "read" && typeof (data.path ?? data.file_path) !== "string")
-              return undefined;
-            if (family === "search" && typeof data.pattern !== "string") return undefined;
+            if (family === "read" && !readArgsSchema.safeParse(args).success) return undefined;
+            if (family === "search" && !searchArgsSchema.safeParse(args).success) return undefined;
 
             return [
               {
-                label:
-                  family === "read"
-                    ? ("Read" as const)
-                    : family === "search"
-                      ? ("Search" as const)
-                      : ("List" as const),
+                label: ({ read: "Read", search: "Search", list: "List" } as const)[family],
                 parts: invocationParts(name, args, family)
               }
             ];

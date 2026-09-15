@@ -1,9 +1,8 @@
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { copyNative } from "@pi-mono/libs/native-clipboard";
 
 import { openBrowser } from "./browser/open.ts";
-import { copyNative } from "./clipboard.ts";
 import { completions } from "./commands.ts";
-import { extensionInputEligible, installCustomAppend } from "./host/custom-append.ts";
 import { editorPort } from "./host/editor.ts";
 import { PromptManager } from "./manager.ts";
 import { errorMessage, type Repository } from "./model.ts";
@@ -12,23 +11,13 @@ import { FileRepository } from "./storage/repository.ts";
 
 export default function promptManager(pi: ExtensionAPI): void {
   let manager: PromptManager | undefined;
-  let detach: (() => void) | undefined;
   let generation = 0;
 
   const dispose = async () => {
     generation++;
     const previous = manager;
     manager = undefined;
-    const remove = detach;
-    detach = undefined;
-    // Expiry precedes awaiting either the previous write or a new activation.
-    const finishing = previous?.dispose();
-
-    try {
-      remove?.();
-    } finally {
-      await finishing;
-    }
+    await previous?.dispose();
   };
 
   pi.on("session_shutdown", dispose);
@@ -63,7 +52,17 @@ export default function promptManager(pi: ExtensionAPI): void {
       editor: editorPort(ctx),
       copy: copyNative,
       notify: (message, severity) => ctx.ui.notify(message, severity),
-      open: (request) => openBrowser(ctx, current, request),
+      open: (request) =>
+        openBrowser(
+          ctx.ui,
+          {
+            read: (collection, signal) => repository.read(collection, signal),
+            copy: (target) => current.copy(target),
+            remove: (collection, target) => current.remove(collection, target),
+            notify: (message, severity) => current.notify(message, severity)
+          },
+          request
+        ),
       now: () => new Date()
     });
     manager = current;
@@ -84,27 +83,9 @@ export default function promptManager(pi: ExtensionAPI): void {
         handler: () => current.saveEditor()
       });
     for (const warning of warnings) current.notify(warning, "warning");
-
-    if (settings.customMessageTypes.length) {
-      detach = installCustomAppend({
-        manager: ctx.sessionManager,
-        allowlist: settings.customMessageTypes,
-        capture: (text, recordedAt) => current.capture(text, recordedAt),
-        now: () => new Date()
-      });
-      if (!detach)
-        current.notify(
-          "Custom-message append integration is unavailable; only that capture path is disabled.",
-          "warning"
-        );
-    }
   });
   pi.on("input", (event, ctx) => {
-    if (ctx.mode !== "tui" || !manager?.active) return;
-    if (
-      event.source === "interactive" ||
-      (event.source === "extension" && extensionInputEligible(ctx.sessionManager))
-    )
-      manager.capture(event.text);
+    if (ctx.mode !== "tui" || event.source !== "interactive") return;
+    manager?.capture(event.text);
   });
 }

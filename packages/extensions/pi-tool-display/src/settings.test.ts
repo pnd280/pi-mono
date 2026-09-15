@@ -88,6 +88,25 @@ it.each(['{"toString":"generic"}', '[{"toString":null}]'])(
     expect(sources).toEqual(supplied);
   }
 );
+it("treats prototype-like renderer names as exact keys and validates their values", () => {
+  const overrides: unknown = JSON.parse(
+    '{"__proto__":"generic","constructor":"original","toString":"auto"}'
+  );
+  const settings = loadDisplaySettings([source(overrides)]);
+  expect(settings.valid).toBe(true);
+  expect(Object.keys(settings.rendererOverrides).sort()).toEqual([
+    "__proto__",
+    "constructor",
+    "toString"
+  ]);
+  expect(settings.rendererOverrides.__proto__).toBe("generic");
+  const invalid: unknown = JSON.parse('{"__proto__":false}');
+  expect(loadDisplaySettings([source(invalid)])).toMatchObject({
+    valid: false,
+    rendererOverrides: {}
+  });
+});
+
 it.each([null, [], true, { other: {} }])("rejects invalid sections: %j", (section) => {
   expect(
     loadDisplaySettings([{ path: "settings.json", settings: { [SETTINGS_KEY]: section } }]).valid

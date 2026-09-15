@@ -1,11 +1,15 @@
+import { fauxToolCall } from "@earendil-works/pi-ai";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
 import { genericAdapter, nativeAdapter, piFffAdapter, piMcpAdapter } from "../adapters/index.ts";
 import { mcpToolInfo } from "../adapters/pi-mcp-adapter/test-fixture.ts";
-import type { DisplayCall, SavedOutput } from "../contracts.ts";
+import { isCancelled, type DisplayCall, type SavedOutput } from "../contracts.ts";
 import { SAVED_OUTPUT_CACHE_ENTRIES } from "../observation/saved-output.ts";
 import { loadDisplaySettings } from "../settings.ts";
+import { assistantMessage } from "../test-fixture.ts";
+import { METADATA_TYPE } from "./metadata.ts";
 import { DisplaySession } from "./session.ts";
 
 function fixture(options: Partial<ConstructorParameters<typeof DisplaySession>[0]> = {}) {
@@ -58,6 +62,112 @@ function files() {
     }
   };
 }
+
+it.each(["host", "operation"])(
+  "retains %s cancellation separately from published results and renderer selection",
+  (source) => {
+    const history = SessionManager.inMemory();
+    history.appendMessage(
+      assistantMessage([fauxToolCall("bash", { command: "echo cancelled" }, { id: "cancelled" })])
+    );
+    const appendEntry = vi.fn(history.appendCustomEntry.bind(history));
+    const live = fixture({ history, append: appendEntry });
+    const published = {
+      content: [{ type: "text" as const, text: "middleware diagnostic" }],
+      details: undefined
+    };
+
+    try {
+      const call = shellCall(live, "cancelled", "live");
+      if (source === "operation") {
+        live.beginObservation("cancelled", "pi:bash")!.fact({
+          kind: "operation",
+          availability: "available",
+          durationMs: 1,
+          outcome: "cancelled"
+        });
+        live.result("cancelled", published, "failure");
+      } else live.result("cancelled", published, "cancelled");
+      live.message(
+        {
+          kind: "result",
+          id: "cancelled",
+          name: call.name,
+          result: published,
+          outcome: "failure"
+        },
+        "live"
+      );
+      expect(call.result).toBe(published);
+      expect(call.outcome).toBe("failure");
+      expect(isCancelled(call)).toBe(true);
+      expect(appendEntry).toHaveBeenCalledOnce();
+      const replay = fixture({ history, append: appendEntry, selectAdapter: () => genericAdapter });
+
+      try {
+        const retained = shellCall(replay, "cancelled");
+        replay.result("cancelled", published, "failure");
+        expect(retained.adapter).toBe(genericAdapter);
+        expect(retained.outcome).toBe("failure");
+        expect(isCancelled(retained)).toBe(true);
+        expect(appendEntry).toHaveBeenCalledOnce();
+      } finally {
+        replay.dispose();
+      }
+    } finally {
+      live.dispose();
+    }
+  }
+);
+
+it("validates facts only for requested historical calls, including cancellation from other adapters", () => {
+  const history = SessionManager.inMemory();
+  const hidden = vi.fn(() => ({
+    kind: "change",
+    availability: "available",
+    patch: "x".repeat(64 * 1024)
+  }));
+  const retained = vi.fn(() => 1);
+  const operation = {
+    kind: "operation",
+    availability: "available",
+    outcome: "cancelled",
+    get durationMs() {
+      return retained();
+    }
+  };
+
+  for (const [index, fact] of [hidden, () => operation].entries()) {
+    const id = `call-${index}`;
+    const messageEntryId = history.appendMessage(
+      assistantMessage([fauxToolCall("bash", {}, { id })], index)
+    );
+    history.appendCustomEntry(METADATA_TYPE, {
+      version: 1,
+      call: { messageTimestamp: index, contentIndex: 0, toolCallId: id, messageEntryId },
+      adapter: "pi:bash",
+      get fact() {
+        return fact();
+      }
+    });
+  }
+
+  const session = fixture({ history, selectAdapter: () => genericAdapter });
+
+  try {
+    expect(hidden).not.toHaveBeenCalled();
+    expect(retained).not.toHaveBeenCalled();
+    const call = shellCall(session, "call-1");
+    expect(isCancelled(call)).toBe(true);
+    expect(hidden).not.toHaveBeenCalled();
+    expect(retained).toHaveBeenCalled();
+    retained.mockClear();
+    shellCall(session, "call-1");
+    expect(retained).not.toHaveBeenCalled();
+  } finally {
+    session.dispose();
+  }
+});
 
 it("loads on transcript expansion without Pi rows, but never while collapsed or still executing", async () => {
   const file = files();

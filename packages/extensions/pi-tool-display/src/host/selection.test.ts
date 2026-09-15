@@ -17,14 +17,13 @@ it("applies renderer overrides before native and extension adapters", () => {
           settings: { "ext.pi-tool-display": { rendererOverrides: { grep: mode } } }
         }
       ]);
+      const expected = {
+        original: undefined,
+        generic: "generic",
+        auto: native ? "pi:grep" : "@ff-labs/pi-fff:grep"
+      };
       expect(selectAdapter(settings, "grep", owner, native, fffToolInfo("grep"))?.id).toBe(
-        mode === "original"
-          ? undefined
-          : mode === "generic"
-            ? "generic"
-            : native
-              ? "pi:grep"
-              : "@ff-labs/pi-fff:grep"
+        expected[mode]
       );
     }
 

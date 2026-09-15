@@ -1,14 +1,23 @@
+import type { WriteScope } from "@pi-mono/libs/private-files";
+import { z } from "zod";
+
 export type Collection = "history" | "drafts";
 
-/** Parsed JSON, including unknown fields, is retained rather than reconstructed. */
-export type StoredEntry = { text: string; [key: string]: unknown };
+/** These schemas validate without normalizing source or rejecting recovery metadata. */
+export const storedEntrySchema = z.looseObject({
+  text: z.string().refine((text) => text.trim().length > 0)
+});
 
-export type Document = {
-  version: 1;
-  cwd: string;
-  entries: StoredEntry[];
-  [key: string]: unknown;
-};
+export const documentSchema = z.looseObject({
+  version: z.literal(1),
+  cwd: z.string(),
+  entries: z.array(storedEntrySchema)
+});
+
+/** Parsed JSON, including unknown fields, is retained rather than reconstructed. */
+export type StoredEntry = z.infer<typeof storedEntrySchema>;
+
+export type Document = z.infer<typeof documentSchema>;
 
 export type Occurrence = {
   source: StoredEntry;
@@ -39,19 +48,9 @@ export type MutationResult =
   | { status: "unchanged"; snapshot: Snapshot }
   | { status: "failed"; message: string };
 
-export type MutationSession = {
-  signal: AbortSignal;
-  /** Called synchronously at the final session check, before starting file creation. */
-  atomic<T>(write: () => Promise<T>): Promise<T>;
-};
-
 export type Repository = {
-  read(collection: Collection): Promise<ReadResult>;
-  mutate(
-    collection: Collection,
-    operation: Mutation,
-    session: MutationSession
-  ): Promise<MutationResult>;
+  read(collection: Collection, signal?: AbortSignal): Promise<ReadResult>;
+  mutate(collection: Collection, operation: Mutation, session: WriteScope): Promise<MutationResult>;
 };
 
 export const limits = {
@@ -67,9 +66,13 @@ export const limits = {
   queueBytes: 8 * 1024 * 1024
 } as const;
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+export const historyTextSchema = storedEntrySchema.shape.text.refine(
+  (text) => Buffer.byteLength(text) <= limits.historyText
+);
+
+export const draftTextSchema = storedEntrySchema.shape.text.refine(
+  (text) => Buffer.byteLength(text) <= limits.draftText
+);
 
 export class PromptError extends Error {}
 

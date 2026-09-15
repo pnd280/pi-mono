@@ -123,6 +123,8 @@ export class DisplaySession {
     if (this.disposed) return;
     const call = this.coordinator.byId(id);
     if (!call) return;
+    if (!partial && outcome === "cancelled" && call.origin === "live" && !call.cancellation)
+      this.observe(call, { kind: "cancellation", availability: "available" });
     this.coordinator.result(call, result, outcome, partial);
     this.retainPath(call, result);
   }

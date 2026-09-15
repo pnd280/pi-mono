@@ -3,9 +3,11 @@ import { mkdir, mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { WriteScope } from "@pi-mono/libs/private-files";
+
 import { PromptManager, type ManagerPorts } from "./manager.ts";
-import type { Collection, MutationSession, Snapshot, StoredEntry } from "./model.ts";
-import { snapshot } from "./storage/codec.ts";
+import type { Collection, Document, Snapshot, StoredEntry } from "./model.ts";
+import { readCollection } from "./storage/collection.ts";
 import { FileRepository } from "./storage/repository.ts";
 
 export const recordedAt = "2026-01-01T12:00:00.000Z";
@@ -14,8 +16,16 @@ export function entry(text: string, extra: Record<string, unknown> = {}): Stored
   return { id: randomUUID(), text, recordedAt, ...extra };
 }
 
+export function encode(document: Document): string {
+  return JSON.stringify(document, null, 2) + "\n";
+}
+
 export function collection(entries: StoredEntry[] = [], kind: Collection = "drafts"): Snapshot {
-  return snapshot(kind, { version: 1, cwd: "/fixture", entries }, 1000);
+  return readCollection(
+    kind,
+    "/fixture",
+    Buffer.from(encode({ version: 1, cwd: "/fixture", entries }))
+  );
 }
 
 export function deferred<T>() {
@@ -29,7 +39,7 @@ export function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-export function session(): MutationSession {
+export function session(): WriteScope {
   return { signal: new AbortController().signal, atomic: (write) => write() };
 }
 

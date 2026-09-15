@@ -1,96 +1,108 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { fauxToolCall } from "@earendil-works/pi-ai";
+import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
+import { expect, it, vi } from "vite-plus/test";
 
-import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { expect, it } from "vite-plus/test";
-
-import { assistantMessage, toolCall } from "../test-fixture.ts";
+import type { DisplayFact } from "../contracts.ts";
+import { assistantMessage } from "../test-fixture.ts";
 import {
   METADATA_TYPE,
-  displayRecordKey,
+  DisplayRecordIndex,
   parseDisplayRecord,
-  persistDisplayFact,
-  readDisplayRecords
+  persistDisplayFact
 } from "./metadata.ts";
 
-it("persists extra facts outside model context and associates ancestry across branches and forks", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "display-metadata-"));
+it("persists typed facts and reads only matching source calls from the supplied ancestry", () => {
+  const source = {
+    type: "message",
+    id: "source",
+    parentId: null,
+    timestamp: new Date(0).toISOString(),
+    message: assistantMessage([
+      fauxToolCall("write", { path: "a", content: "new" }, { id: "write-1" })
+    ])
+  } satisfies SessionEntry;
+  const reference = {
+    messageEntryId: source.id,
+    messageTimestamp: 1,
+    contentIndex: 0,
+    toolCallId: "write-1"
+  };
+  const fact = {
+    kind: "change",
+    availability: "available",
+    patch: "--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+new\n",
+    change: "modification"
+  } satisfies DisplayFact;
+  const append = vi.fn<ExtensionAPI["appendEntry"]>();
+  persistDisplayFact(append, reference, "pi:write", fact);
+  const record = { version: 1, call: reference, adapter: "pi:write", fact };
+  expect(append).toHaveBeenCalledExactlyOnceWith(METADATA_TYPE, record);
+  const metadata = {
+    type: "custom",
+    id: "facts",
+    parentId: source.id,
+    timestamp: source.timestamp,
+    customType: METADATA_TYPE,
+    data: append.mock.calls[0]![1]
+  } satisfies SessionEntry;
+  expect(new DisplayRecordIndex([source, metadata]).forCall(reference)).toEqual([record]);
+  expect(new DisplayRecordIndex([source]).forCall(reference)).toEqual([]);
+  expect(new DisplayRecordIndex([metadata]).forCall(reference)).toEqual([]);
 
-  try {
-    const session = SessionManager.create(directory, directory);
-    session.appendMessage({ role: "user", content: "fixture", timestamp: 0 });
-    const entry = session.appendMessage(
-      assistantMessage([toolCall("write-1", "write", { path: "a", content: "new" })])
-    );
-    const reference = {
-      messageEntryId: entry,
-      messageTimestamp: 1,
-      contentIndex: 0,
-      toolCallId: "write-1"
-    };
-    const context = structuredClone(session.buildSessionContext());
+  for (const mismatch of [
+    { ...source, id: "other-branch" },
+    { ...source, message: { ...source.message, timestamp: 2 } },
+    { ...source, message: assistantMessage([fauxToolCall("write", {}, { id: "other-call" })]) },
+    { ...source, message: assistantMessage([{ type: "text", text: "no tool call" }]) }
+  ])
+    expect(new DisplayRecordIndex([mismatch, metadata]).forCall(reference)).toEqual([]);
 
-    const append = (type: string, data: unknown) => {
-      session.appendCustomEntry(type, data);
-    };
-
-    persistDisplayFact(append, reference, "pi:write", {
-      kind: "change",
-      availability: "available",
-      patch: "--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+new\n",
-      change: "modification"
-    });
-    const metadataLeaf = session.getLeafId()!;
-    expect(session.buildSessionContext()).toEqual(context);
-    const key = displayRecordKey(reference, "pi:write");
-    expect(readDisplayRecords(session.getBranch()).get(key)).toHaveLength(1);
-    const file = session.getSessionFile()!;
-    const reopened = SessionManager.open(file);
-    expect(readDisplayRecords(reopened.getBranch()).get(key)).toHaveLength(1);
-    const fork = SessionManager.forkFrom(file, directory, join(directory, "fork"));
-    expect(readDisplayRecords(fork.getBranch()).get(key)).toHaveLength(1);
-    session.branch(entry);
-    expect(readDisplayRecords(session.getBranch()).size).toBe(0);
-    session.branch(metadataLeaf);
-    session.appendCompaction("summary", entry, 100);
-    expect(readDisplayRecords(session.getBranch()).get(key)).toHaveLength(1);
-    session.appendCustomEntry(METADATA_TYPE, { version: 2 });
-    session.appendCustomEntry(METADATA_TYPE, {
-      version: 1,
-      call: reference,
-      adapter: "pi:write",
-      fact: { kind: "operation", availability: "available", durationMs: "bad" }
-    });
-    expect(readDisplayRecords(session.getBranch()).get(key)).toHaveLength(1);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+  expect(
+    new DisplayRecordIndex([
+      source,
+      metadata,
+      { ...metadata, data: { ...record, version: 2 } },
+      { ...metadata, customType: "other-extension", data: { ...record, adapter: "other" } }
+    ]).forCall(reference)
+  ).toEqual([record]);
 });
 it("indexes source entries once and keeps the latest fact per adapter, call, and kind", () => {
-  const session = SessionManager.inMemory("/tmp");
+  const entries: SessionEntry[] = [];
+  const timestamp = new Date(0).toISOString();
 
   for (let index = 0; index < 100; index++) {
-    const id = session.appendMessage(
-      assistantMessage([toolCall(String(index), "bash", {})], index)
-    );
+    const id = String(index);
+    entries.push({
+      type: "message",
+      id,
+      parentId: null,
+      timestamp,
+      message: assistantMessage([fauxToolCall("bash", {}, { id })], index)
+    });
     const call = {
       messageEntryId: id,
       messageTimestamp: index,
       contentIndex: 0,
-      toolCallId: String(index)
+      toolCallId: id
     };
     for (const durationMs of [1, 2])
-      session.appendCustomEntry(METADATA_TYPE, {
-        version: 1,
-        call,
-        adapter: "pi:bash",
-        fact: { kind: "operation", availability: "available", outcome: "success", durationMs }
+      entries.push({
+        type: "custom",
+        id: `fact-${id}-${durationMs}`,
+        parentId: id,
+        timestamp,
+        customType: METADATA_TYPE,
+        data: {
+          version: 1,
+          call,
+          adapter: "pi:bash",
+          fact: { kind: "operation", availability: "available", outcome: "success", durationMs }
+        }
       });
   }
 
   let accesses = 0;
-  const branch = session.getBranch().map((entry) => ({
+  const branch = entries.map((entry) => ({
     ...entry,
     get id() {
       accesses++;
@@ -98,21 +110,43 @@ it("indexes source entries once and keeps the latest fact per adapter, call, and
       return entry.id;
     }
   }));
-  const records = readDisplayRecords(branch);
-  expect(accesses).toBeLessThanOrEqual(branch.length);
-  expect(records.size).toBe(100);
+  const records = new DisplayRecordIndex(branch);
 
-  for (const facts of records.values()) {
+  for (let index = 0; index < 100; index++) {
+    const reference = { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) };
+    const facts = records.forCall(reference);
     expect(facts).toHaveLength(1);
     expect(facts[0]!.fact).toMatchObject({ durationMs: 2 });
+    expect(records.forCall(reference)).toBe(facts);
   }
+
+  expect(accesses).toBeLessThanOrEqual(branch.length);
 });
 
 it.each([
   { kind: "operation", availability: "available", durationMs: 1, outcome: ["success"] },
   { kind: "change", availability: ["available"] },
-  { kind: "change", availability: ["unavailable"] }
-])("rejects persisted facts with non-string enum values: %j", (fact) => {
+  { kind: "change", availability: ["unavailable"] },
+  { kind: "change", availability: "available" },
+  { kind: "change", availability: "unavailable", reason: "x".repeat(257) },
+  { kind: "operation", availability: "available", outcome: "success", durationMs: -1 },
+  { kind: "operation", availability: "available", outcome: "success", durationMs: Infinity },
+  {
+    kind: "operation",
+    availability: "available",
+    outcome: "success",
+    durationMs: 1,
+    exitCode: 1.5
+  },
+  {
+    kind: "operation",
+    availability: "available",
+    outcome: "success",
+    durationMs: 1,
+    timedOut: "false"
+  },
+  { kind: "saved-output", availability: "available", path: "" }
+])("rejects persisted facts with invalid fields: %j", (fact) => {
   expect(
     parseDisplayRecord({
       version: 1,
@@ -121,6 +155,42 @@ it.each([
       fact
     })
   ).toBeUndefined();
+});
+
+it("bounds the original record, including unknown fields, and rejects unsafe call references", () => {
+  const record = {
+    version: 1,
+    call: { messageTimestamp: 1, contentIndex: 0, toolCallId: "a" },
+    adapter: "pi:bash",
+    fact: {
+      kind: "operation",
+      availability: "available",
+      outcome: "success",
+      durationMs: 0,
+      exitCode: null
+    }
+  };
+  expect(parseDisplayRecord(record)).toBe(record);
+  expect(parseDisplayRecord({ ...record, extra: "x".repeat(160 * 1024) })).toBeUndefined();
+  expect(
+    parseDisplayRecord({
+      ...record,
+      extra: record,
+      cycle: {
+        get self() {
+          return this;
+        }
+      }
+    })
+  ).toBeUndefined();
+  for (const call of [
+    { ...record.call, contentIndex: Number.MAX_SAFE_INTEGER + 1 },
+    { ...record.call, contentIndex: -1 },
+    { ...record.call, messageTimestamp: NaN },
+    { ...record.call, messageTimestamp: "1" },
+    { ...record.call, messageEntryId: null }
+  ])
+    expect(parseDisplayRecord({ ...record, call })).toBeUndefined();
 });
 
 it("ignores malformed and oversized records and isolates serialization/persistence failures", () => {

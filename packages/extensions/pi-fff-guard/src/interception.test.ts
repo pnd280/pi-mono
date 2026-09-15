@@ -24,7 +24,7 @@ afterEach(async () => {
   await rm(directory.root, { recursive: true, force: true });
 });
 
-function harness() {
+function harness({ hasUI = false }: { hasUI?: boolean } = {}) {
   let handler: ExtensionHandler<ToolCallEvent, ToolCallEventResult> | undefined;
   let tools: ToolInfo[] = [];
   const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
@@ -65,7 +65,7 @@ function harness() {
       const context = {
         cwd: directory.root,
         signal,
-        hasUI: false,
+        hasUI,
         ui: { notify }
       } satisfies Pick<ExtensionContext, "cwd" | "signal" | "hasUI"> & {
         ui: Pick<ExtensionContext["ui"], "notify">;
@@ -262,6 +262,25 @@ describe("public interception adapter", () => {
       expect(diagnostic).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Invalid FFF"));
     }
   );
+
+  it.each([false, true])("sanitizes filesystem diagnostics (UI: %s)", async (hasUI) => {
+    const host = harness({ hasUI });
+    host.register("ffgrep");
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => {});
+    const name = "\x1b]52;c;Zml4dHVyZQ==\x07\x1b[31mcycle\x1b[0m";
+    await symlink(name, path.join(directory.root, "src", name));
+
+    expect(await host.call("ffgrep", { path: `src/${name}`, pattern: "marker" })).toBeUndefined();
+    const report = hasUI ? host.notify : stderr;
+    expect(report).toHaveBeenCalledTimes(1);
+    const message: unknown = report.mock.calls[0]?.[0];
+    if (typeof message !== "string") throw new Error("Expected a diagnostic string.");
+    expect(message).toContain("detection unavailable");
+    expect(message).toContain("Allowing the FFF call.");
+    expect(message.includes("\x1b")).toBe(false);
+    expect(message.includes("\x07")).toBe(false);
+    expect(hasUI ? stderr : host.notify).not.toHaveBeenCalled();
+  });
 
   it("allows detection failures with a diagnostic and blocks cancelled calls", async () => {
     const host = harness();

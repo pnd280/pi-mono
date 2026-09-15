@@ -2,8 +2,18 @@
 
 ## Code navigation
 
-[Source](src/fff-tools.ts) and [tests](src/fff-tools.test.ts) classify FFF ownership and names. The supported entry point is `@pi-mono/utils/fff-tools`. [Terminal-text normalization](src/terminal-text.ts) and its [tests](src/terminal-text.test.ts) are exported through `@pi-mono/utils/terminal-text`.
+[Helpers](README.md#usage)
 
-## Constraints and validation
+Indirect consumers:
 
-Do not move extension display state, filesystem guard policy, tool execution, or Pi-private integration here. Terminal-text changes require scoped checks/tests for `@pi-mono/utils`, `pi-prompt-manager`, and `pi-tool-display`. Changes to classification require scoped checks/tests for `@pi-mono/utils`, `pi-fff-guard`, and `pi-tool-display` under the workspace [verification workflow](../../docs/agents/verification.md).
+- Search: [cooperative search](../libs/src/text-search/README.md), then [prompt occurrence preparation](../extensions/pi-prompt-manager/src/search.ts) and [browser search](../libs/src/tui/components/browser/controller.ts).
+- Patch types: [shared diff rendering](../libs/src/tui/components/diff-view/README.md), then [display result content](../extensions/pi-tool-display/src/rendering/result-content.ts).
+- Output text and UTF-8: [bounded stream output](../libs/src/output-buffer/README.md) and [bounded file output](../libs/src/bounded-output/README.md), then [display preview loading](../extensions/pi-tool-display/src/observation/saved-output.ts).
+
+## Constraints
+
+Keep helpers pure. Callers supply clocks, state, and feature policy. Scheduling and I/O belong in [shared libraries](../libs/README.md).
+
+## Validation
+
+Use [package validation](README.md#validation).

@@ -1,36 +1,33 @@
-import {
-  getLanguageFromPath,
-  highlightCode,
-  keyText,
-  type Theme
-} from "@earendil-works/pi-coding-agent";
-import { displayText } from "@pi-mono/utils/terminal-text";
+import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
+import type { CodeHighlightOptions } from "@pi-mono/libs/tui/components/code-highlight";
+import { renderTree, type TreeItem } from "@pi-mono/libs/tui/components/tree";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { compactText, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
-import { bodyWidth, compactText, renderTree, wrapRows, type TreeItem } from "./layout.ts";
+import { bodyWidth } from "./layout.ts";
 import type { Projection, DisplayTheme } from "./types.ts";
 
 const MAX_HIGHLIGHT_BYTES = 512 * 1024;
 
 export const expansionHint = () => `${keyText("app.tools.expand")} to expand`;
 
-export function highlight(
-  text: string,
-  path: string,
-  language = getLanguageFromPath(path)
-): string {
-  if (!language || Buffer.byteLength(text) > MAX_HIGHLIGHT_BYTES) return text;
-  const lines = text.split("\n");
-  if (lines.length > 10_000 || lines.some((line) => Buffer.byteLength(line) > 4096)) return text;
-
-  return highlightCode(text, language).join("\n");
-}
+export const codeHighlightLimits = {
+  maxBytes: MAX_HIGHLIGHT_BYTES,
+  maxLines: 10_000,
+  maxLineBytes: 4096
+} satisfies CodeHighlightOptions;
 
 export function tree(
   items: readonly TreeItem[],
   p: Projection,
   followingSibling = false
 ): string[] {
-  return renderTree(items, p.width, (text) => p.theme.fg("dim", text), followingSibling);
+  return renderTree(items, {
+    width: p.width,
+    indent: 2,
+    style: (text) => p.theme.fg("dim", text),
+    followingSibling
+  });
 }
 
 export function styleParameters(text: string, theme: DisplayTheme): string {
@@ -50,7 +47,18 @@ export function output(text: string, p: Projection, maximum = 5, expanded = p.ex
 
   return expanded || maximum === Number.MAX_SAFE_INTEGER
     ? wrapRows(text, width)
-    : compactText(text, maximum, width, expansionHint(), (notice) => p.theme.fg("dim", notice));
+    : compactText(text, {
+        maxRows: maximum,
+        width,
+        maxCharacters: 16 * 1024,
+        notice: (omitted) =>
+          p.theme.fg(
+            "dim",
+            omitted === undefined
+              ? `… more output (${expansionHint()})`
+              : `… ${omitted} more rows (${expansionHint()})`
+          )
+      });
 }
 
 export function message(text: string, p: Projection, color: Parameters<Theme["fg"]>[0]): string[] {

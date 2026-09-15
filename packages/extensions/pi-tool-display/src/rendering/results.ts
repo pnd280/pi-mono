@@ -1,5 +1,6 @@
+import { renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
+
 import { tree } from "./format.ts";
-import { renderTreeContinuation } from "./layout.ts";
 import type { PreparedCard } from "./types.ts";
 
 export function resultRows(p: PreparedCard): string[] {
@@ -7,7 +8,12 @@ export function resultRows(p: PreparedCard): string[] {
   const { items, annotations } = p.body;
 
   return [
-    ...renderTreeContinuation(annotations, p.width, (text) => p.theme.fg("dim", text), p.hasBody),
+    ...renderTreeContinuation(annotations, {
+      width: p.width,
+      indent: 2,
+      style: (text) => p.theme.fg("dim", text),
+      hasChildren: p.hasBody
+    }),
     ...tree(items, p)
   ];
 }

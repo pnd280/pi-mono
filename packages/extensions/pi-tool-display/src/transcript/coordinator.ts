@@ -1,4 +1,5 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
+import type { OutputText } from "@pi-mono/utils/output-text";
 
 import { resolveResultAdapter } from "../adapters/generic.ts";
 import type { ToolDisplayAdapter } from "../contracts.ts";
@@ -14,7 +15,6 @@ import {
   type SavedOutput,
   type TranscriptView
 } from "../contracts.ts";
-import type { OutputText } from "../output-text.ts";
 
 export interface RowHandle {
   invalidate(): void;
@@ -52,6 +52,8 @@ export class TranscriptCoordinator implements TranscriptView {
     return this.state;
   }
   private sequence: string[] = [];
+  private positions = new Map<string, number>();
+  private explorable = new Set<string>();
   private separators = new Set<string>();
   private groupingDepth = 0;
   private regroupPending = false;
@@ -89,10 +91,9 @@ export class TranscriptCoordinator implements TranscriptView {
       this.state.get(key) ?? (origin === "live" ? this.liveIdentities.get(identity) : undefined);
 
     if (existing) {
-      const grouped = canExplore(existing);
       existing.args = args;
       existing.reference = { ...reference };
-      if (grouped !== canExplore(existing)) this.regroup();
+      this.refreshGrouping(existing);
       this.changed(existing);
 
       return existing;
@@ -114,23 +115,14 @@ export class TranscriptCoordinator implements TranscriptView {
     this.latestById.set(reference.toolCallId, call);
     if (origin === "live") this.liveIdentities.set(identity, call);
     const previous = this.sequence.at(-1);
+    this.positions.set(key, this.sequence.length);
     this.sequence.push(key);
 
     // Append is the common path, including history reconstruction. Only the old
     // heading and final connector can change; unrelated row caches stay valid.
     if (canExplore(call)) {
-      const group =
-        previous && !this.separators.has(previous) && !this.boundaryCounts.has(previous)
-          ? this.groups.get(previous)
-          : undefined;
-      const first = group?.members[0];
-      const last = group?.members.at(-1);
-      const current = group ?? { members: [], expanded };
-      current.members.push(call);
-      call.expanded = current.expanded;
-      this.groups.set(key, current);
-      for (const member of new Set([first, last]))
-        if (member && !member.expanded) this.invalidate(member);
+      this.explorable.add(key);
+      this.appendGroup(call, previous);
     }
 
     if (isLive(call)) this.activeCalls.add(call);
@@ -142,7 +134,7 @@ export class TranscriptCoordinator implements TranscriptView {
     const call = this.mutable(view);
     if (!call || call.adapter.id === adapter.id) return;
     call.adapter = adapter;
-    this.regroup();
+    this.refreshGrouping(call);
     this.changed(call);
   }
   /** Reconcile groups once after synchronous reconstruction or registration updates.
@@ -155,15 +147,16 @@ export class TranscriptCoordinator implements TranscriptView {
       return update();
     } finally {
       this.groupingDepth--;
-      if (!this.groupingDepth && this.regroupPending) this.regroup();
+      if (!this.groupingDepth && this.regroupPending) this.regroup([[0, this.sequence.length - 1]]);
     }
   }
   /** Reconstruction can reveal a host-generated notice after later calls were indexed. */
   boundary(after?: DisplayCall): void {
     const key = after?.key ?? this.sequence.at(-1);
     if (this.disposed || !key || !this.state.has(key) || this.separators.has(key)) return;
+    const separated = this.separated(key);
     this.separators.add(key);
-    if (after) this.regroup();
+    if (after && !separated) this.regroupBoundaries([key]);
   }
   /** Visible components can withdraw their own boundary without removing other separators. */
   setBoundary(owner: object, after?: DisplayCall): void {
@@ -171,6 +164,9 @@ export class TranscriptCoordinator implements TranscriptView {
     if (this.disposed || (key && !this.calls.has(key)) || this.boundaries.get(owner) === key)
       return;
     const previous = this.boundaries.get(owner);
+    const affected = new Map(
+      [previous, key].filter((key) => key !== undefined).map((key) => [key, this.separated(key)])
+    );
 
     if (previous) {
       const count = this.boundaryCounts.get(previous)! - 1;
@@ -182,7 +178,11 @@ export class TranscriptCoordinator implements TranscriptView {
       this.boundaries.set(owner, key);
       this.boundaryCounts.set(key, (this.boundaryCounts.get(key) ?? 0) + 1);
     } else this.boundaries.delete(owner);
-    this.regroup();
+    this.regroupBoundaries(
+      [...affected]
+        .filter(([key, separated]) => separated !== this.separated(key))
+        .map(([key]) => key)
+    );
   }
   byId(id: string): DisplayCall | undefined {
     return this.latestById.get(id);
@@ -212,14 +212,14 @@ export class TranscriptCoordinator implements TranscriptView {
       call.liveOutput = undefined;
     }
 
-    const grouped = canExplore(call);
-    if (this.groups.has(call.key) !== grouped) this.regroup();
+    this.refreshGrouping(call);
     this.changed(call);
   }
   fact(view: DisplayCall, fact: DisplayFact): void {
     const call = this.mutable(view);
     if (!call) return;
     if (fact.kind === "operation") call.operation = { ...fact };
+    if (fact.kind === "cancellation") call.cancellation = { ...fact };
     if (fact.kind === "change") call.change = { ...fact };
     if (fact.kind === "saved-output") call.savedPath = fact.path;
     this.changed(call);
@@ -308,8 +308,75 @@ export class TranscriptCoordinator implements TranscriptView {
     call.revision++;
     for (const row of this.rows.get(call.key) ?? []) row.invalidate();
   }
-  private regroup(): void {
-    if (this.disposed) return;
+  private separated(key: string): boolean {
+    return this.separators.has(key) || this.boundaryCounts.has(key);
+  }
+  private groupRange(key: string): [number, number] {
+    const members = this.groups.get(key)?.members;
+
+    return [
+      this.positions.get(members?.[0]?.key ?? key)!,
+      this.positions.get(members?.at(-1)?.key ?? key)!
+    ];
+  }
+  private appendGroup(call: MutableCall, previous: string | undefined): void {
+    const group = previous && !this.separated(previous) ? this.groups.get(previous) : undefined;
+    const first = group?.members[0];
+    const last = group?.members.at(-1);
+    const current = group ?? { members: [], expanded: call.expanded };
+    current.members.push(call);
+    this.groups.set(call.key, current);
+    this.synchronizeExpansion(call, current.expanded);
+    for (const member of new Set([first, last]))
+      if (member && !member.expanded) this.invalidate(member);
+  }
+  private synchronizeExpansion(call: MutableCall, expanded: boolean): void {
+    if (call.expanded === expanded) return;
+    call.expanded = expanded;
+    for (const row of this.rows.get(call.key) ?? []) row.setExpanded(expanded);
+    this.options.onExpansion?.(call);
+  }
+  private refreshGrouping(call: MutableCall): void {
+    const eligible = canExplore(call);
+    if (eligible === this.explorable.has(call.key)) return;
+    if (eligible) this.explorable.add(call.key);
+    else this.explorable.delete(call.key);
+    const position = this.positions.get(call.key)!;
+    const previous = this.sequence[position - 1];
+    const next = this.sequence[position + 1];
+
+    // Argument streaming commonly makes the last row explorable after creation.
+    // Extend its predecessor exactly like an append, without rebuilding interiors.
+    if (eligible && !next && !this.groupingDepth) {
+      this.appendGroup(call, previous);
+
+      return;
+    }
+
+    let [start, end] = this.groupRange(call.key);
+
+    if (eligible) {
+      if (previous && this.explorable.has(previous) && !this.separated(previous))
+        start = Math.min(start, this.groupRange(previous)[0]);
+      if (next && this.explorable.has(next) && !this.separated(call.key))
+        end = Math.max(end, this.groupRange(next)[1]);
+    }
+
+    this.regroup([[start, end]]);
+  }
+  private regroupBoundaries(keys: readonly string[]): void {
+    const ranges: [number, number][] = [];
+
+    for (const key of keys) {
+      const next = this.sequence[this.positions.get(key)! + 1];
+      if (!next || !this.explorable.has(key) || !this.explorable.has(next)) continue;
+      ranges.push([this.groupRange(key)[0], this.groupRange(next)[1]]);
+    }
+
+    this.regroup(ranges);
+  }
+  private regroup(ranges: [number, number][]): void {
+    if (this.disposed || !ranges.length) return;
 
     if (this.groupingDepth) {
       this.regroupPending = true;
@@ -318,8 +385,31 @@ export class TranscriptCoordinator implements TranscriptView {
     }
 
     this.regroupPending = false;
-    const previous = this.groups;
-    this.groups = new Map();
+    // Moving a boundary can affect overlapping groups. Reconcile their final
+    // partition together so expansion never propagates through a temporary merge.
+    ranges.sort((left, right) => left[0] - right[0]);
+    let current = ranges[0]!;
+
+    for (const range of ranges.slice(1)) {
+      if (range[0] <= current[1] + 1) current[1] = Math.max(current[1], range[1]);
+      else {
+        this.rebuildGroups(...current);
+        current = range;
+      }
+    }
+
+    this.rebuildGroups(...current);
+  }
+  private rebuildGroups(start: number, end: number): void {
+    const previous = new Map<string, MutableGroup>();
+
+    for (let index = start; index <= end; index++) {
+      const key = this.sequence[index]!;
+      const group = this.groups.get(key);
+      if (group) previous.set(key, group);
+      this.groups.delete(key);
+    }
+
     let group: MutableGroup | undefined;
 
     const finish = () => {
@@ -338,10 +428,11 @@ export class TranscriptCoordinator implements TranscriptView {
       group = undefined;
     };
 
-    for (const key of this.sequence) {
+    for (let index = start; index <= end; index++) {
+      const key = this.sequence[index]!;
       const call = this.state.get(key)!;
 
-      if (!canExplore(call)) {
+      if (!this.explorable.has(key)) {
         finish();
         continue;
       }
@@ -353,17 +444,13 @@ export class TranscriptCoordinator implements TranscriptView {
 
     finish();
 
-    for (const call of this.state.values()) {
+    for (let index = start; index <= end; index++) {
+      const call = this.state.get(this.sequence[index]!)!;
       const current = this.groups.get(call.key);
       if (current === previous.get(call.key)) continue;
       const expanded = current?.expanded ?? call.expanded;
 
-      if (call.expanded !== expanded) {
-        call.expanded = expanded;
-        for (const row of this.rows.get(call.key) ?? []) row.setExpanded(expanded);
-        this.options.onExpansion?.(call);
-      }
-
+      this.synchronizeExpansion(call, expanded);
       this.invalidate(call);
     }
   }
@@ -400,6 +487,8 @@ export class TranscriptCoordinator implements TranscriptView {
     this.latestById.clear();
     this.liveIdentities.clear();
     this.activeCalls.clear();
+    this.positions.clear();
+    this.explorable.clear();
     this.sequence = [];
   }
 }

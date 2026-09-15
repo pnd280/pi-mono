@@ -1,8 +1,8 @@
 import { homedir } from "node:os";
-import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { displayText } from "@pi-mono/utils/terminal-text";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { expandHomePath, relativeDisplayPath } from "@pi-mono/utils/paths";
 
 import type { ToolFamily, InvocationPart } from "./contracts.ts";
 import { stringField } from "./terminal-text.ts";
@@ -24,9 +24,7 @@ const annotation = (text: string): InvocationPart => ({ kind: "annotation", text
  */
 export function invocationPartText(part: InvocationPart, cwd: string): string {
   if (part.kind !== "path" || !part.text) return displayText(part.text);
-  let path = part.text.startsWith("@") ? part.text.slice(1) : part.text;
-  if (path === "~" || path.startsWith("~/") || (sep === "\\" && path.startsWith("~\\")))
-    path = resolve(homedir(), path.slice(2));
+  let path = expandHomePath(part.text.startsWith("@") ? part.text.slice(1) : part.text, homedir());
 
   if (path.startsWith("file://")) {
     try {
@@ -36,11 +34,7 @@ export function invocationPartText(part: InvocationPart, cwd: string): string {
     }
   }
 
-  const absolute = resolve(cwd, path);
-  const local = relative(cwd, absolute);
-  const inside = local !== ".." && !local.startsWith(`..${sep}`) && !isAbsolute(local);
-
-  return displayText((inside ? local || "." : absolute).split(sep).join("/"));
+  return displayText(relativeDisplayPath(path, cwd));
 }
 
 /** Keep supplied values separate from generated labels; styling must not parse user text. */

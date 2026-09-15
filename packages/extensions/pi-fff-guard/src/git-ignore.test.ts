@@ -1,9 +1,9 @@
 import { readFile, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 
+import { inspectGitIgnore, runGit, type GitCommand } from "@pi-mono/libs/git-ignore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { detectIgnored, runGit, type GitCommand } from "./git-ignore.ts";
 import { fixture } from "./test-fixture.ts";
 
 let directory: Awaited<ReturnType<typeof fixture>>;
@@ -18,7 +18,12 @@ afterEach(async () => {
     [directory, external].map(({ root }) => rm(root, { recursive: true, force: true }))
   );
 });
-const detect = (name: string) => detectIgnored(path.join(directory.root, name), directory.root);
+const detect = (name: string) =>
+  inspectGitIgnore({
+    path: path.join(directory.root, name),
+    cwd: directory.root,
+    timeoutMs: 2000
+  });
 
 it.each(["repository", "configuration"])(
   "isolates fixture writes from inherited Git %s selectors",
@@ -58,15 +63,15 @@ describe("Git authority", () => {
     await directory.write(".tmp/keep/.gitignore", "*.log\n!retained.log\n");
     await directory.write(".tmp/keep/excluded.log");
     await directory.write(".tmp/keep/retained.log");
-    expect((await detect(".tmp/keep/visible.ts")).status).toBe("allowed");
+    expect((await detect(".tmp/keep/visible.ts")).status).toBe("not-ignored");
     expect((await detect(".tmp/keep/excluded.log")).status).toBe("ignored");
-    expect((await detect(".tmp/keep/retained.log")).status).toBe("allowed");
+    expect((await detect(".tmp/keep/retained.log")).status).toBe("not-ignored");
     directory.git("add", "-f", "node_modules/dependency/package.json");
-    expect((await detect("node_modules/dependency/package.json")).status).toBe("allowed");
+    expect((await detect("node_modules/dependency/package.json")).status).toBe("not-ignored");
     expect((await detect(".tmp/page.html")).status).toBe("ignored");
     await directory.write(".gitignore", "");
-    expect((await detect(".tmp/page.html")).status).toBe("allowed");
-    expect((await detect(".")).status).toBe("allowed");
+    expect((await detect(".tmp/page.html")).status).toBe("not-ignored");
+    expect((await detect(".")).status).toBe("not-ignored");
   });
 
   it("respects info/exclude, configured global excludes, and literal NUL-delimited names", async () => {
@@ -88,11 +93,23 @@ describe("Git authority", () => {
     await symlink(".tmp/nested", path.join(directory.root, "nested-link"));
     expect((await detect("nested-link/file.ts")).status).toBe("ignored");
     expect(
-      (await detectIgnored(path.join(external.root, "node_modules"), directory.root)).status
+      (
+        await inspectGitIgnore({
+          path: path.join(external.root, "node_modules"),
+          cwd: directory.root,
+          timeoutMs: 2000
+        })
+      ).status
     ).toBe("ignored");
-    expect((await detectIgnored(path.join(external.root, "src"), directory.root)).status).toBe(
-      "allowed"
-    );
+    expect(
+      (
+        await inspectGitIgnore({
+          path: path.join(external.root, "src"),
+          cwd: directory.root,
+          timeoutMs: 2000
+        })
+      ).status
+    ).toBe("not-ignored");
     directory.git("add", "src/main.ts");
     directory.git(
       "-c",
@@ -107,9 +124,15 @@ describe("Git authority", () => {
     directory.git("worktree", "add", "--detach", "-q", worktree);
     await directory.write("linked-worktree/.gitignore", "ignored/\n");
     await directory.write("linked-worktree/ignored/file.ts");
-    expect((await detectIgnored(path.join(worktree, "ignored/file.ts"), worktree)).status).toBe(
-      "ignored"
-    );
+    expect(
+      (
+        await inspectGitIgnore({
+          path: path.join(worktree, "ignored/file.ts"),
+          cwd: worktree,
+          timeoutMs: 2000
+        })
+      ).status
+    ).toBe("ignored");
   });
 
   it("checks dependency links lexically, then resolves non-ignored links without beyond-link errors", async () => {
@@ -122,25 +145,36 @@ describe("Git authority", () => {
     );
     expect((await detect("dependency-link/package.json")).status).toBe("ignored");
     await symlink(path.join(external.root, "src"), path.join(directory.root, "source-link"));
-    expect((await detect("source-link/main.ts")).status).toBe("allowed");
+    expect((await detect("source-link/main.ts")).status).toBe("not-ignored");
     await symlink("cycle", path.join(directory.root, "cycle"));
     expect((await detect("cycle")).status).toBe("unavailable");
-    expect((await detect("node_modules/linked/missing.ts")).status).toBe("allowed");
+    expect((await detect("node_modules/linked/missing.ts")).status).toBe("missing");
   });
 
-  it("fails open outside repositories and on process errors, malformed records, or deadlines", async () => {
+  it("distinguishes non-repositories, missing paths, process errors, and malformed records", async () => {
     const outside = path.join(external.root, "outside");
     await rm(path.join(external.root, ".git"), { recursive: true, force: true });
-    expect((await detectIgnored(external.root, external.root)).status).toBe("allowed");
-    expect((await detectIgnored(outside, external.root)).status).toBe("allowed");
+    expect(
+      (await inspectGitIgnore({ path: external.root, cwd: external.root, timeoutMs: 2000 })).status
+    ).toBe("not-ignored");
+    expect(
+      (await inspectGitIgnore({ path: outside, cwd: external.root, timeoutMs: 2000 })).status
+    ).toBe("missing");
 
     const missing: GitCommand = async () => {
       throw new Error("spawn git ENOENT");
     };
 
-    expect((await detectIgnored(directory.root, directory.root, undefined, missing)).status).toBe(
-      "unavailable"
-    );
+    expect(
+      (
+        await inspectGitIgnore({
+          path: directory.root,
+          cwd: directory.root,
+          timeoutMs: 2000,
+          git: missing
+        })
+      ).status
+    ).toBe("unavailable");
 
     for (const stdout of [
       "bad",
@@ -155,27 +189,15 @@ describe("Git authority", () => {
           : runGit(cwd, args, input, signal);
       expect(
         (
-          await detectIgnored(
-            path.join(directory.root, ".tmp"),
-            directory.root,
-            undefined,
-            malformed
-          )
+          await inspectGitIgnore({
+            path: path.join(directory.root, ".tmp"),
+            cwd: directory.root,
+            timeoutMs: 2000,
+            git: malformed
+          })
         ).status,
         stdout
       ).toBe("unavailable");
     }
-
-    const waiting: GitCommand = (_cwd, _args, _input, signal) =>
-      new Promise((_resolve, reject) =>
-        signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true })
-      );
-    const controller = new AbortController();
-    const pending = detectIgnored(directory.root, directory.root, controller.signal, waiting);
-    controller.abort();
-    expect((await pending).status).toBe("cancelled");
-    expect((await detectIgnored(directory.root, directory.root, undefined, waiting)).status).toBe(
-      "unavailable"
-    );
   });
 });

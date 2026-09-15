@@ -1,96 +1,62 @@
 import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
+import { z } from "zod";
 
-import type { CallReference, ChangeFact, DisplayFact, OperationFact } from "../contracts.ts";
+import { callKey, type CallReference, type DisplayFact } from "../contracts.ts";
+import { PATCH_BYTES } from "../diff.ts";
+import { record } from "../values.ts";
 
 export const METADATA_TYPE = "pi-tool-display.facts";
 
 export const MAX_RECORD_BYTES = 160 * 1024;
 
-export interface DisplayRecord {
-  version: 1;
-  call: CallReference;
-  adapter: string;
-  fact: DisplayFact;
-}
+const callReferenceSchema = z.object({
+  toolCallId: z.string().max(1024),
+  messageTimestamp: z.number().nonnegative(),
+  contentIndex: z.int().nonnegative(),
+  messageEntryId: z.string().optional()
+});
 
-const object = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === "object" && !Array.isArray(value);
-const finite = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value) && value >= 0;
+const displayRecordSchema = z.object({
+  version: z.literal(1),
+  call: callReferenceSchema,
+  adapter: z.string().max(128),
+  fact: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("cancellation"),
+      availability: z.literal("available")
+    }),
+    z.object({
+      kind: z.literal("operation"),
+      availability: z.literal("available"),
+      durationMs: z.number().nonnegative(),
+      outcome: z.enum(["success", "failure", "cancelled", "unavailable"]),
+      exitCode: z.int().nullable().optional(),
+      timedOut: z.boolean().optional()
+    }),
+    z
+      .object({
+        kind: z.literal("change"),
+        availability: z.enum(["available", "unavailable"]),
+        patch: z
+          .string()
+          .refine((patch) => Buffer.byteLength(patch) <= PATCH_BYTES)
+          .optional(),
+        reason: z.string().max(256).optional(),
+        change: z.enum(["creation", "modification"]).optional()
+      })
+      .refine((fact) => fact.availability !== "available" || fact.patch !== undefined),
+    z.object({
+      kind: z.literal("saved-output"),
+      availability: z.literal("available"),
+      path: z.string().min(1).max(4096)
+    })
+  ])
+});
 
-function validReference(
-  call: Record<string, unknown>
-): call is Record<string, unknown> & CallReference {
-  return !(
-    typeof call.toolCallId !== "string" ||
-    call.toolCallId.length > 1024 ||
-    !finite(call.messageTimestamp) ||
-    typeof call.contentIndex !== "number" ||
-    !Number.isSafeInteger(call.contentIndex) ||
-    call.contentIndex < 0 ||
-    (call.messageEntryId !== undefined && typeof call.messageEntryId !== "string")
-  );
-}
-
-function validOperation(
-  fact: Record<string, unknown>
-): fact is Record<string, unknown> & OperationFact {
-  return !(
-    fact.kind !== "operation" ||
-    fact.availability !== "available" ||
-    !finite(fact.durationMs) ||
-    typeof fact.outcome !== "string" ||
-    !["success", "failure", "cancelled", "unavailable"].includes(fact.outcome) ||
-    (fact.exitCode !== undefined &&
-      fact.exitCode !== null &&
-      !Number.isSafeInteger(fact.exitCode)) ||
-    (fact.timedOut !== undefined && typeof fact.timedOut !== "boolean")
-  );
-}
-
-function validChange(fact: Record<string, unknown>): fact is Record<string, unknown> & ChangeFact {
-  return !(
-    fact.kind !== "change" ||
-    (fact.availability !== "available" && fact.availability !== "unavailable") ||
-    (fact.availability === "available" && typeof fact.patch !== "string") ||
-    (fact.patch !== undefined &&
-      (typeof fact.patch !== "string" || Buffer.byteLength(fact.patch) > 128 * 1024)) ||
-    (fact.reason !== undefined && (typeof fact.reason !== "string" || fact.reason.length > 256)) ||
-    (fact.change !== undefined && fact.change !== "creation" && fact.change !== "modification")
-  );
-}
-
-function validFact(fact: Record<string, unknown>): fact is Record<string, unknown> & DisplayFact {
-  if (fact.kind === "operation") return validOperation(fact);
-  if (fact.kind === "change") return validChange(fact);
-
-  if (fact.kind === "saved-output") {
-    if (
-      fact.availability !== "available" ||
-      typeof fact.path !== "string" ||
-      !fact.path.length ||
-      fact.path.length > 4096
-    )
-      return false;
-
-    return true;
-  }
-
-  return false;
-}
+export type DisplayRecord = z.infer<typeof displayRecordSchema>;
 
 function validDisplayRecord(value: unknown): value is DisplayRecord {
-  if (
-    !object(value) ||
-    value.version !== 1 ||
-    !object(value.call) ||
-    !object(value.fact) ||
-    typeof value.adapter !== "string" ||
-    value.adapter.length > 128
-  )
-    return false;
-
-  return validReference(value.call) && validFact(value.fact);
+  return displayRecordSchema.safeParse(value).success;
 }
 
 export function parseDisplayRecord(value: unknown): DisplayRecord | undefined {
@@ -105,39 +71,61 @@ export function parseDisplayRecord(value: unknown): DisplayRecord | undefined {
   return value;
 }
 
-export function displayRecordKey(call: CallReference, adapter: string): string {
-  return JSON.stringify([adapter, call.messageTimestamp, call.contentIndex, call.toolCallId]);
-}
+/** Index only the selected ancestry. Payload validation is deferred until a
+ * retained call requests its facts, so compacted-away patches are never serialized.
+ */
+export class DisplayRecordIndex {
+  private sources: Map<string, SessionEntry>;
+  private pending = new Map<string, unknown[]>();
+  private parsed = new Map<string, readonly DisplayRecord[]>();
 
-/** The caller supplies only the selected ancestry, not all branches or only the latest leaf. */
-export function readDisplayRecords(branch: readonly SessionEntry[]): Map<string, DisplayRecord[]> {
-  const records = new Map<string, Map<DisplayFact["kind"], DisplayRecord>>();
-  const sources = new Map(branch.map((entry) => [entry.id, entry]));
+  constructor(branch: readonly SessionEntry[]) {
+    this.sources = new Map(branch.map((entry) => [entry.id, entry]));
 
-  for (const entry of branch) {
-    if (entry.type !== "custom" || entry.customType !== METADATA_TYPE) continue;
-    const record = parseDisplayRecord(entry.data);
-    if (!record) continue;
-
-    if (record.call.messageEntryId) {
-      const source = sources.get(record.call.messageEntryId);
-      if (!source || source.type !== "message" || source.message.role !== "assistant") continue;
-      const content = source.message.content[record.call.contentIndex];
-      if (
-        source.message.timestamp !== record.call.messageTimestamp ||
-        content?.type !== "toolCall" ||
-        content.id !== record.call.toolCallId
-      )
-        continue;
+    for (const entry of branch) {
+      if (entry.type !== "custom" || entry.customType !== METADATA_TYPE) continue;
+      const call = callReferenceSchema.safeParse(record(entry.data).call).data;
+      if (!call) continue;
+      const key = callKey("history", call);
+      const values = this.pending.get(key) ?? [];
+      values.push(entry.data);
+      this.pending.set(key, values);
     }
-
-    const key = displayRecordKey(record.call, record.adapter);
-    const facts = records.get(key) ?? new Map<DisplayFact["kind"], DisplayRecord>();
-    facts.set(record.fact.kind, record);
-    records.set(key, facts);
   }
 
-  return new Map([...records].map(([key, facts]) => [key, [...facts.values()]]));
+  forCall(call: CallReference): readonly DisplayRecord[] {
+    const key = callKey("history", call);
+    const cached = this.parsed.get(key);
+    if (cached) return cached;
+    const records = new Map<string, Map<DisplayFact["kind"], DisplayRecord>>();
+
+    for (const value of this.pending.get(key) ?? []) {
+      const record = parseDisplayRecord(value);
+      if (!record || callKey("history", record.call) !== key) continue;
+
+      if (record.call.messageEntryId) {
+        const source = this.sources.get(record.call.messageEntryId);
+        if (!source || source.type !== "message" || source.message.role !== "assistant") continue;
+        const content = source.message.content[record.call.contentIndex];
+        if (
+          source.message.timestamp !== record.call.messageTimestamp ||
+          content?.type !== "toolCall" ||
+          content.id !== record.call.toolCallId
+        )
+          continue;
+      }
+
+      const facts = records.get(record.adapter) ?? new Map<DisplayFact["kind"], DisplayRecord>();
+      facts.set(record.fact.kind, record);
+      records.set(record.adapter, facts);
+    }
+
+    const facts = [...records.values()].flatMap((facts) => [...facts.values()]);
+    this.pending.delete(key);
+    this.parsed.set(key, facts);
+
+    return facts;
+  }
 }
 
 /** Best effort: collection and persistence must never change the delegated result. */

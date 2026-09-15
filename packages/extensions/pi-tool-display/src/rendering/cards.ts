@@ -5,11 +5,12 @@ import {
   truncateToWidth,
   type Component
 } from "@earendil-works/pi-tui";
-import { displayText } from "@pi-mono/utils/terminal-text";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { genericAdapter, resolveResultAdapter } from "../adapters/generic.ts";
 import { isLive, type ToolDisplayAdapter } from "../contracts.ts";
 import { heading } from "./headings.ts";
+import { displayOutcome } from "./outcome.ts";
 import { buildGroupRows, buildResultBody } from "./result-content.ts";
 import { resultRows } from "./results.ts";
 import type {
@@ -29,8 +30,13 @@ function lazy<T>(prepare: () => T): () => T {
   return () => (cached ??= { value: prepare() }).value;
 }
 
-function prepareCard(base: Omit<Projection, "mcp">): PreparedCard {
+function prepareCard(base: Omit<Projection, "mcp" | "outcome">): PreparedCard {
   const mcp = lazy(() => base.adapter.mcp?.(base.context.args, base.result));
+  const outcome = lazy(() => displayOutcome({ ...base, mcp: mcp() }));
+  const context = lazy(() => ({
+    ...base.context,
+    isError: outcome() === "failure" || outcome() === "cancelled"
+  }));
   const invocation = lazy(() => base.adapter.invocation?.(base.context.args, base.result));
   const exploration = lazy(() => base.adapter.exploration?.(base.context.args, base.result) ?? []);
   const headingVerbs = lazy(() => base.adapter.headingVerbs?.(base.context.args));
@@ -43,6 +49,12 @@ function prepareCard(base: Omit<Projection, "mcp">): PreparedCard {
     buildGroupRows({
       ...base,
       width: base.width - 2,
+      get context() {
+        return context();
+      },
+      get outcome() {
+        return outcome();
+      },
       get mcp() {
         return mcp();
       }
@@ -50,6 +62,12 @@ function prepareCard(base: Omit<Projection, "mcp">): PreparedCard {
   );
   const prepared: PreparedCard = {
     ...base,
+    get context() {
+      return context();
+    },
+    get outcome() {
+      return outcome();
+    },
     get mcp() {
       return mcp();
     },
@@ -203,6 +221,7 @@ class CardRow {
         ? {
             ...this.context,
             args: call.args,
+            isPartial: call.lifecycle !== "complete" && call.lifecycle !== "unavailable",
             isError:
               call.lifecycle === "complete"
                 ? call.outcome === "failure" || call.outcome === "cancelled"
@@ -237,7 +256,7 @@ class CardSlot implements Component {
   }
 }
 
-/** Internal card factory; api.ts exposes the standalone owner surface. */
+/** Internal card factory. Tool authors use the public factory in api.ts. */
 export function createToolDisplayRenderers(
   name: string,
   adapter: ToolDisplayAdapter = genericAdapter,

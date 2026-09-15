@@ -1,4 +1,6 @@
-import { displayText } from "@pi-mono/utils/terminal-text";
+import { NativeClipboardError } from "@pi-mono/libs/native-clipboard";
+import { WriteLifetime, type WriteScope } from "@pi-mono/libs/private-files";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { parseCommand, usage, type NumberedAction } from "./commands.ts";
 import { captureText } from "./history.ts";
@@ -9,30 +11,32 @@ import {
   PromptError,
   type Collection,
   type MutationResult,
-  type MutationSession,
   type Occurrence,
   type Repository
 } from "./model.ts";
+
+export type RestorationRequest = { target: Occurrence; remove: boolean };
 
 export type ViewRequest = {
   collection: Collection;
   initialEditor: string;
   inspectionIndex: number | undefined;
   signal: AbortSignal;
+  /** Receives the selection only after final host closure, never during a remount. */
+  afterClose(restoration: RestorationRequest | undefined): Promise<void>;
 };
 
 export type ManagerPorts = {
   repository: Repository;
   editor: EditorPort;
   copy(text: string, signal: AbortSignal): Promise<void>;
-  notify(message: string, severity: "info" | "warning" | "error"): void;
+  notify(this: void, message: string, severity: "info" | "warning" | "error"): void;
   open(request: ViewRequest): Promise<void>;
   now(): Date;
 };
 
 export class PromptManager {
-  private readonly lifetime = new AbortController();
-  private readonly writes = new Set<Promise<unknown>>();
+  private readonly lifetime = new WriteLifetime();
   private queue: { text: string; recordedAt: string; bytes: number }[] = [];
   private queueBytes = 0;
   private pumping = false;
@@ -41,21 +45,9 @@ export class PromptManager {
   private copying = false;
   private restorationRevision = 0;
   private ui: AbortController | undefined;
-  readonly session: MutationSession;
+  readonly session: WriteScope = this.lifetime;
 
-  constructor(readonly ports: ManagerPorts) {
-    this.session = {
-      signal: this.lifetime.signal,
-      atomic: <T>(write: () => Promise<T>): Promise<T> => {
-        this.lifetime.signal.throwIfAborted();
-        const promise = write();
-        this.writes.add(promise);
-        void promise.finally(() => this.writes.delete(promise)).catch(() => {});
-
-        return promise;
-      }
-    };
-  }
+  constructor(readonly ports: ManagerPorts) {}
 
   get active() {
     return !this.lifetime.signal.aborted;
@@ -79,8 +71,9 @@ export class PromptManager {
   }
 
   /** Synchronous event observer: no collection reads/serialization on the input stack. */
-  capture(source: string, recordedAt = this.ports.now().toISOString()): void {
+  capture(source: string): void {
     if (!this.isActive()) return;
+    const recordedAt = this.ports.now().toISOString();
     const text = captureText(source);
 
     if (text === undefined) return;
@@ -149,7 +142,12 @@ export class PromptManager {
         collection,
         inspectionIndex,
         initialEditor: this.ports.editor.read(),
-        signal: controller.signal
+        signal: controller.signal,
+        afterClose: async (restoration) => {
+          if (!restoration || controller.signal.aborted || this.ui !== controller) return;
+          if (restoration.remove) await this.restoreAndRemove(restoration.target);
+          else this.restore(restoration.target);
+        }
       });
     } catch (error) {
       this.notify(errorMessage(error), "error");
@@ -165,10 +163,11 @@ export class PromptManager {
       return false;
     }
 
-    if (result.status === "committed") {
-      this.notify(success);
-      for (const warning of result.warnings) this.notify(warning, "warning");
-    }
+    if (result.status === "committed")
+      this.notify(
+        [success, ...result.warnings].join(" "),
+        result.warnings.length ? "warning" : "info"
+      );
 
     return result.status === "committed";
   }
@@ -246,10 +245,10 @@ export class PromptManager {
 
     try {
       await this.ports.copy(target.source.text, this.lifetime.signal);
-      this.notify("Copied to the native clipboard.");
+      this.notify("Copied to the native clipboard.", "info");
     } catch (error) {
       this.notify(
-        error instanceof PromptError
+        error instanceof NativeClipboardError
           ? error.message
           : "Clipboard operation failed or was cancelled.",
         "error"
@@ -377,11 +376,11 @@ export class PromptManager {
   }
 
   async dispose(): Promise<void> {
-    this.lifetime.abort();
+    const finishing = this.lifetime.dispose();
     this.queue = [];
     this.queueBytes = 0;
     this.ui?.abort();
     this.ui = undefined;
-    await Promise.allSettled(this.writes);
+    await finishing;
   }
 }

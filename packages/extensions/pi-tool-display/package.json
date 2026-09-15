@@ -20,9 +20,9 @@
     "validate:terminal": "node validation/launch-terminal.ts"
   },
   "dependencies": {
-    "@git-diff-view/core": "0.1.7",
+    "@pi-mono/libs": "workspace:*",
     "@pi-mono/utils": "workspace:*",
-    "diff": "9.0.0"
+    "zod": "catalog:"
   },
   "pi": {
     "extensions": [

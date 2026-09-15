@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 
 const marker = ".pi-tool-display-fixture";
 
@@ -11,8 +12,7 @@ export async function assertFixtureWorkspace(cwd: string): Promise<void> {
 }
 
 export async function createFixtureWorkspace(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "pi-tool-display-terminal-"));
-  for (const name of ["work", "home", "agent", "tmp"]) await mkdir(join(directory, name));
+  const directory = await createValidationWorkspace("pi-tool-display-terminal-");
   const work = join(directory, "work");
   await Promise.all([
     writeFile(join(work, marker), "disposable tool-display workspace\n"),
@@ -42,31 +42,13 @@ export async function createFixtureWorkspace(): Promise<string> {
   return directory;
 }
 
-/** Resolve the manifest's executable so manual and automated checks use the same bundle. */
 export async function fixtureLaunch(directory: string) {
   const cwd = join(directory, "work");
   await assertFixtureWorkspace(cwd);
-  const packageDirectory = dirname(
-    dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")))
-  );
-  const manifest: unknown = JSON.parse(
-    await readFile(join(packageDirectory, "package.json"), "utf8")
-  );
-  if (
-    manifest === null ||
-    typeof manifest !== "object" ||
-    !("bin" in manifest) ||
-    manifest.bin === null ||
-    typeof manifest.bin !== "object" ||
-    !("pi" in manifest.bin) ||
-    typeof manifest.bin.pi !== "string"
-  )
-    throw new Error("Installed Pi package has no bin.pi executable.");
 
-  return {
-    command: process.execPath,
+  return createPiLaunch({
+    directory,
     args: [
-      join(packageDirectory, manifest.bin.pi),
       "--offline",
       "--no-extensions",
       "--no-skills",
@@ -86,23 +68,6 @@ export async function fixtureLaunch(directory: string) {
       fileURLToPath(new URL("../index.ts", import.meta.url)),
       "-e",
       fileURLToPath(new URL("./provider.ts", import.meta.url))
-    ],
-    options: {
-      cwd,
-      env: {
-        PATH: process.env.PATH,
-        TERM: process.env.TERM ?? "xterm-256color",
-        COLORTERM: process.env.COLORTERM,
-        LANG: process.env.LANG ?? "en_US.UTF-8",
-        HOME: join(directory, "home"),
-        USERPROFILE: join(directory, "home"),
-        TMPDIR: join(directory, "tmp"),
-        TMP: join(directory, "tmp"),
-        TEMP: join(directory, "tmp"),
-        PI_CODING_AGENT_DIR: join(directory, "agent"),
-        PI_OFFLINE: "1",
-        PI_TELEMETRY: "0"
-      }
-    }
-  };
+    ]
+  });
 }

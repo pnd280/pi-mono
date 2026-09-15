@@ -2,38 +2,42 @@ import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 
 /** Registration shapes inspected in pi-mcp-adapter 2.33.0. No backend is loaded. */
 export function mcpToolInfo(name = "mcp"): ToolInfo {
-  const properties: Record<string, unknown> =
-    name === "mcp"
-      ? Object.fromEntries<unknown>([
-          ...[
-            "tool",
-            "connect",
-            "describe",
-            "instructions",
-            "search",
-            "server",
-            "action",
-            "url",
-            "target"
-          ].map((key) => [key, { type: "string" }] as const),
-          [
-            "args",
-            {
-              anyOf: [
-                { type: "string" },
-                { type: "object", properties: {}, additionalProperties: true }
-              ]
-            }
+  let properties: Record<string, unknown>;
+  let required: string[] | undefined;
+
+  if (name === "mcp") {
+    properties = Object.fromEntries<unknown>([
+      ...[
+        "tool",
+        "connect",
+        "describe",
+        "instructions",
+        "search",
+        "server",
+        "action",
+        "url",
+        "target"
+      ].map((key) => [key, { type: "string" }] as const),
+      [
+        "args",
+        {
+          anyOf: [
+            { type: "string" },
+            { type: "object", properties: {}, additionalProperties: true }
           ]
-        ])
-      : name === "mcpScript"
-        ? { code: { type: "string" }, timeoutMs: { type: "number" } }
-        : name === "mcp__docs"
-          ? {
-              tool: { type: "string" },
-              args: { type: "object", properties: {}, additionalProperties: true }
-            }
-          : { query: { type: "string" } };
+        }
+      ]
+    ]);
+  } else if (name === "mcpScript") {
+    properties = { code: { type: "string" }, timeoutMs: { type: "number" } };
+    required = ["code"];
+  } else if (name === "mcp__docs") {
+    properties = {
+      tool: { type: "string" },
+      args: { type: "object", properties: {}, additionalProperties: true }
+    };
+    required = ["tool"];
+  } else properties = { query: { type: "string" } };
 
   return {
     name,
@@ -44,11 +48,7 @@ export function mcpToolInfo(name = "mcp"): ToolInfo {
     parameters: {
       type: "object",
       properties,
-      ...(name === "mcpScript"
-        ? { required: ["code"] }
-        : name === "mcp__docs"
-          ? { required: ["tool"] }
-          : {})
+      ...(required ? { required } : {})
     },
     sourceInfo: {
       source: "npm:pi-mcp-adapter@2.33.0",

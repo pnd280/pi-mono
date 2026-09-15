@@ -1,23 +1,47 @@
 # @pi-mono/utils
 
-Pure utilities shared by workspace packages. `@pi-mono/utils/fff-tools` classifies official `@ff-labs/pi-fff` ownership and recognized tool aliases for `pi-fff-guard` and `pi-tool-display`.
+Pure helpers shared by workspace packages. Callers supply clocks, state, and feature policy. The [manifest](package.json) defines supported imports and Pi peer dependencies.
 
-```ts
-import { fffAdapter } from "@pi-mono/utils/fff-tools";
+## Usage
 
-const kind = fffAdapter(toolInfo); // "find", "grep", "multi", or undefined
-```
+| Task                                     | Entry point                                            |
+| ---------------------------------------- | ------------------------------------------------------ |
+| Classify FFF provenance and names        | [`@pi-mono/utils/fff-tools`](src/fff-tools.ts)         |
+| Compare lexical paths                    | [`@pi-mono/utils/paths`](src/paths.ts)                 |
+| Parse unified patches                    | [`@pi-mono/utils/patch`](src/patch.ts)                 |
+| Preserve generated omission ranges       | [`@pi-mono/utils/output-text`](src/output-text.ts)     |
+| Clip UTF-8 text at code-point boundaries | [`@pi-mono/utils/utf8`](src/utf8.ts)                   |
+| Format compact ages                      | [`@pi-mono/utils/relative-time`](src/relative-time.ts) |
+| Normalize and rank text matches          | [`@pi-mono/utils/text-search`](src/text-search.ts)     |
 
-The helper checks provenance and names only. Consumers validate their own schemas and apply display or blocking policy. Built-in/SDK provenance and lookalike owners are not official FFF ownership.
+FFF classification checks package provenance and tool names only. Callers must validate schemas and apply their own display or blocking policy.
 
-`@pi-mono/utils/terminal-text` exports `displayText(text)` for `pi-tool-display` and `pi-prompt-manager`. It removes recognized terminal sequences and residual C0/C1 controls, normalizes CR/CRLF to LF, and expands tabs to four spaces without changing the source string. Apply trusted styling afterward. It imports Pi TUI through a peer contract. Specialized styled-output filtering remains in tool display; restoration refusal and clipboard policy remain in prompt manager.
+For terminal text sanitization and shortcut normalization, use [terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md).
 
-```ts
-import { displayText } from "@pi-mono/utils/terminal-text";
+Path helpers compare and format paths lexically, without resolving symlinks or checking filesystem access:
 
-const plain = displayText(untrustedText);
-```
+- `containsPath(parent, child)` includes equality. Both paths must be absolute; relative inputs throw `TypeError`.
+- `expandHomePath(value, home)` expands `~` and `~/`, plus `~\` on Windows. The supplied home path must be absolute.
+- `relativeDisplayPath(value, cwd)` uses paths relative to `cwd` for descendants, `.` for `cwd` itself, and absolute paths otherwise. It uses forward slashes in the result. `cwd` must be absolute.
 
-There is no configuration, filesystem access, persistence, or network access.
+Use `absolutePathSchema` to enforce the same absolute-path requirement in other Zod schemas. These helpers do not interpret tool prefixes, file URLs, or glob syntax.
 
-Use the [focused validation commands](../../docs/development.md#focused-validation) with `@pi-mono/utils`.
+Use `splitOutputText` to partition source and generated omission fragments using recorded UTF-16 ranges. It rejects unordered, overlapping, or out-of-bounds ranges. Joining the fragments reproduces the original text, including source text that resembles omission notices. Consumers choose styling and sanitize fragments for display.
+
+`parsePatch(source, maxBytes)` accepts one unified patch, with or without file headers. It returns `undefined` for invalid or oversized patches and throws `RangeError` for an invalid byte limit. Pass the parsed result to the [diff renderer](../libs/src/tui/components/diff-view/README.md).
+
+Pass text from `normalizeSearch` and a query from `prepareSearchQuery` to `rankText(normalized, query)`. It returns a generator whose completion value is the match rank, or `undefined` when there is no match. It yields checkpoints during long literal and fuzzy scans. Callers control scheduling and cancellation.
+
+For scheduling or I/O, use [cooperative search](../libs/src/text-search/README.md), [bounded stream output](../libs/src/output-buffer/README.md), or [bounded file output](../libs/src/bounded-output/README.md).
+
+## Configuration
+
+There are no configuration files or environment variables. Callers pass helper options in code.
+
+## Side effects
+
+Helpers do not read clocks, perform I/O, or persist state.
+
+## Validation
+
+Use the [focused commands](../../docs/development.md#focused-validation) with `@pi-mono/utils`.

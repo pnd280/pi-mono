@@ -47,12 +47,37 @@ export default defineConfig({
               checkAllOrigins: true,
               policies: [
                 {
+                  from: {
+                    file: { categories: { allOf: ["tui-component"], noneOf: ["test", "fixture"] } }
+                  },
+                  disallow: { to: { file: { categories: ["tui-host"] } } },
+                  message: "TUI components must not depend on host mounting or session integration."
+                },
+                {
+                  from: {
+                    file: { categories: { allOf: ["tui-component"], noneOf: ["test", "fixture"] } }
+                  },
+                  disallow: {
+                    to: {
+                      module: {
+                        origin: "core",
+                        source: [
+                          "{node:,}fs{,/**}",
+                          "{node:,}child_process",
+                          "{node:,}{net,http,https,tls,dgram}"
+                        ]
+                      }
+                    }
+                  },
+                  message: "TUI components must not perform filesystem, process, or network I/O."
+                },
+                {
                   disallow: { to: { element: { type: "extension" } } },
-                  from: { element: { type: ["utils", "libs", "tui-components"] } },
+                  from: { element: { type: ["utils", "libs"] } },
                   message: "Shared packages must not depend on extensions."
                 },
                 {
-                  disallow: { to: { element: { type: ["libs", "tui-components"] } } },
+                  disallow: { to: { element: { type: ["libs"] } } },
                   from: { element: { type: "utils" } },
                   message: "Pure utilities must not depend on stateful libraries or UI components."
                 },
@@ -185,6 +210,7 @@ export default defineConfig({
         }
       ],
       complexity: "error",
+      "eslint/no-nested-ternary": "error",
       "eslint/no-restricted-imports": [
         "error",
         {
@@ -271,14 +297,18 @@ export default defineConfig({
       "boundaries/elements": [
         { pattern: "packages/extensions/*", type: "extension" },
         { pattern: "packages/utils", type: "utils" },
-        { pattern: "packages/libs", type: "libs" },
-        { pattern: "packages/tui-components", type: "tui-components" }
+        { pattern: "packages/libs", type: "libs" }
       ],
       "boundaries/files": [
         { pattern: "packages/**/*.ts", category: "source" },
+        { pattern: "packages/libs/src/tui/components/**", category: "tui-component" },
+        {
+          pattern: "packages/libs/src/tui/{open-browser,responsive-custom-ui}/**",
+          category: "tui-host"
+        },
         { pattern: "**/*.test.ts", category: "test" },
         { pattern: "**/test-fixture.ts", category: "fixture" },
-        { pattern: "packages/extensions/*/validation/**", category: "validation" },
+        { pattern: "packages/**/validation/**", category: "validation" },
         { pattern: "packages/extensions/pi-tool-display/src/host/**", category: "display-host" },
         {
           pattern: "packages/extensions/pi-tool-display/src/transcript/**",

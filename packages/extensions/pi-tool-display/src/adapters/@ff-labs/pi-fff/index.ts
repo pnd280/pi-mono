@@ -1,5 +1,6 @@
 import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
+import { z } from "zod";
 
 import { type InvocationPart } from "../../../contracts.ts";
 import type { ToolDisplayAdapter } from "../../../contracts.ts";
@@ -8,27 +9,32 @@ import { stringField } from "../../../terminal-text.ts";
 import { record } from "../../../values.ts";
 import { fffResultParts, fffTextNotices } from "./result-presentation.ts";
 
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((pattern: unknown) => typeof pattern === "string");
-}
+const patternsSchema = z.array(z.string());
+const argumentSchemas = {
+  multi: z.object({ patterns: patternsSchema }),
+  find: z.object({ pattern: z.string() }),
+  grep: z.object({ pattern: z.string() })
+};
+const countsSchema = z.object({ totalMatched: z.number(), totalFiles: z.number() });
+const noticeCountsSchema = z.object({
+  totalMatched: z.number().optional().catch(undefined),
+  totalFiles: z.number().optional().catch(undefined)
+});
+const registrationSchemas = {
+  multi: z.object({ properties: z.object({ patterns: z.object({ type: z.literal("array") }) }) }),
+  find: z.object({ properties: z.object({ pattern: z.object({ type: z.literal("string") }) }) }),
+  grep: z.object({ properties: z.object({ pattern: z.object({ type: z.literal("string") }) }) })
+};
 
 function supportsFffCall(
   kind: FffToolKind,
   args: unknown,
   result?: AgentToolResult<unknown>
 ): boolean {
-  const data = record(args);
-  if (kind === "multi" ? !isStringArray(data.patterns) : typeof data.pattern !== "string")
-    return false;
+  if (!argumentSchemas[kind].safeParse(args).success) return false;
   const details = record(result?.details);
 
-  return (
-    !result ||
-    !Object.keys(details).length ||
-    [details.totalMatched, details.totalFiles].every(
-      (value) => typeof value === "number" && Number.isFinite(value)
-    )
-  );
+  return !result || !Object.keys(details).length || countsSchema.safeParse(details).success;
 }
 
 function patternPart(kind: FffToolKind, pattern: unknown): InvocationPart {
@@ -41,19 +47,16 @@ function patternPart(kind: FffToolKind, pattern: unknown): InvocationPart {
 export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
   const kind = fffAdapter(tool);
   if (!kind || !tool) return undefined;
-  const properties = record(record(tool.parameters).properties);
-  if (
-    record(properties[kind === "multi" ? "patterns" : "pattern"]).type !==
-    (kind === "multi" ? "array" : "string")
-  )
-    return undefined;
+  if (!registrationSchemas[kind].safeParse(tool.parameters).success) return undefined;
 
   return {
     id: `@ff-labs/pi-fff:${kind}`,
     family: "search",
     supports: (args, result) => supportsFffCall(kind, args, result),
     headingVerbs: (args) =>
-      kind === "find" && record(args).pattern === "" ? ["Listing", "Listed"] : undefined,
+      kind === "find" && record(args).pattern === ""
+        ? { action: "List", pending: "Listing", complete: "Listed" }
+        : undefined,
     invocation(args) {
       const data = record(args);
 
@@ -81,13 +84,14 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
       const data = record(args);
       const listing = kind === "find" && data.pattern === "";
       const scope = stringField(kind === "multi" ? data.constraints : data.path) || ".";
+      const patterns = patternsSchema.safeParse(data.patterns).data;
 
       return [
         {
           label: listing ? "List" : "Search",
           parts: [
-            kind === "multi" && isStringArray(data.patterns)
-              ? { kind: "pattern", text: data.patterns.join(", ") }
+            kind === "multi" && patterns
+              ? { kind: "pattern", text: patterns.join(", ") }
               : patternPart(kind, data.pattern),
             { kind: "annotation", text: " in " },
             { kind: "value", text: scope }
@@ -96,12 +100,12 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
       ];
     },
     notices(result, expanded) {
-      const details = record(result.details);
+      const details = noticeCountsSchema.safeParse(result.details).data;
       const notices = expanded ? [] : fffTextNotices(result, kind);
-      if (expanded && typeof details.totalMatched === "number")
+      if (expanded && details?.totalMatched !== undefined)
         notices.push({
           kind: "info",
-          text: `${details.totalMatched} ${details.totalMatched === 1 ? "match" : "matches"} reported${typeof details.totalFiles === "number" ? ` across ${details.totalFiles} ${details.totalFiles === 1 ? "file" : "files"}` : ""}.`
+          text: `${details.totalMatched} ${details.totalMatched === 1 ? "match" : "matches"} reported${details.totalFiles !== undefined ? ` across ${details.totalFiles} ${details.totalFiles === 1 ? "file" : "files"}` : ""}.`
         });
 
       return notices;

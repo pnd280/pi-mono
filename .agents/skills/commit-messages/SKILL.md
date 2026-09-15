@@ -5,7 +5,7 @@ description: "Commit messages: use when composing or reviewing a message, includ
 
 # Commit messages
 
-Validate the message against the complete diff it describes and every applicable rule below.
+Check the message against the complete diff and these rules.
 
 ## Header
 

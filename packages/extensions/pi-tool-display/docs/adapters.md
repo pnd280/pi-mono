@@ -1,28 +1,32 @@
 # Adapter development
 
-Adapters translate a verified tool contract into the shared display model. The public entry point is `pi-tool-display/adapters`; the [renderer API](renderers.md#explicit-contracts) describes its callbacks.
+[Package usage](../README.md) · [Renderer integration](renderers.md)
 
-## Adding an adapter
+Use a resolver to select an adapter automatically for tools with verified provenance. For tools with custom renderers, use [standalone adapter integration](renderers.md#custom-adapters); no resolver is needed.
 
-Create `src/adapters/<extension-package>/index.ts`, using the owning extension's package name as the directory path, including its scope (for example, `src/adapters/@ff-labs/pi-fff/`). Export a `ToolDisplayAdapterResolver`: `(tool: ToolInfo | undefined) => ToolDisplayAdapter | undefined`. Validate registered ownership and the required parameter schema before returning an adapter. Tool names alone do not establish ownership. Return `undefined` for unsupported definitions.
+## Add an adapter
 
-Keep argument/result validation, presentation, tests, and extension-specific documentation in that directory. Document compatibility, contracts, display behavior, limitations, and extension-specific validation in its `README.md`. Shared renderers consume callbacks rather than recognizing extension names or result envelopes. If coordinated rendering depends on a result shape, implement [`supports(args, result)`](renderers.md#explicit-contracts). Before a result exists, `exploration` must handle partial arguments itself.
+1. Create `src/adapters/<extension-package>/index.ts` using the registering extension's full package name, including its scope. For example, use `src/adapters/@ff-labs/pi-fff/index.ts`.
+2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts). Validate the registered tool's provenance and the required parameter schema before returning an adapter. Tool names alone do not establish provenance. Return `undefined` for unsupported definitions.
+3. Keep [Zod argument and result schemas](../../../../docs/development.md#runtime-validation), presentation, and tests in that directory. If the adapter requires a particular result shape, implement `supports(args, result)` for the automatic CLI integration. Before a result exists, `exploration` must handle partial arguments itself.
+4. Document compatibility, contracts, display behavior, limitations, and extension-specific validation in the adapter's `README.md`.
+5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).
 
-Native execution observation and unavailable-history notices remain separate because they require verified Pi factory provenance. Adapters receive retained arguments/results only: they do not enable tools, execute operations, inspect current files, change retained results or model context, or persist data.
+Export a factory for tool authors from [`src/adapters/index.ts`](../src/adapters/index.ts) only if it should also be part of the public adapter API.
+
+Adapters must not enable or execute tools, access files, or persist data. Arguments and results are borrowed. Do not mutate them or change model context. Native observation and unavailable-history notices require separate [host provenance checks](../README.md#observation-and-saved-history).
 
 ## Automatic selection
 
-Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts). Selection applies, in order:
+The host selects rendering in this order:
 
 1. Invalid settings or `original`: preserve the original renderer.
 2. `generic`: force generic rendering.
-3. Verified native ownership: select the native contract.
-4. Extension resolvers: use the first match, including when the verified owner supplies renderer slots.
-5. Unmatched tools: preserve either owner renderer slot; otherwise use generic rendering.
+3. Verified native provenance: select the native contract.
+4. Extension resolvers: use the first match, even if the verified extension supplies custom renderers.
+5. Unmatched tools: preserve any supplied renderer slots; otherwise use generic rendering.
 
-A resolver entry explicitly opts its verified owner into automatic display replacement. The resolver list and `selectAdapter` are internal host policy, not exports of `pi-tool-display/adapters` or a runtime registration API. Explicit SDK/tool-owner adapters can instead be passed directly to `createToolDisplayRenderers` without joining the list.
-
-Historical generic rows adopt newly available contracts when tools register after reconstruction. Export an owner-facing factory from [`src/adapters/index.ts`](../src/adapters/index.ts) when it should be part of the public adapter API.
+The resolver list and `selectAdapter` are internal to the host. There is no public resolver registration API. When tools register after history reconstruction, their generic rows switch to the newly available adapters.
 
 ## Built-in adapters
 

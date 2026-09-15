@@ -1,27 +1,18 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { resolvePiExecutable } from "@pi-mono/libs/validation/pi-process";
 import { expect, it } from "vite-plus/test";
-
-import { record } from "../values.ts";
 
 it("recognizes native construction through the installed pi executable, not just its unbundled API", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-cli-contract-"));
 
   try {
-    const packageDirectory = dirname(
-      dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")))
-    );
-    const manifest: unknown = JSON.parse(
-      await readFile(join(packageDirectory, "package.json"), "utf8")
-    );
-    const executable = record(record(manifest).bin).pi;
-    if (typeof executable !== "string")
-      throw new Error("Installed Pi package has no bin.pi executable.");
+    const executable = await resolvePiExecutable();
     const integration = fileURLToPath(new URL("./install.ts", import.meta.url));
     const fixture = join(directory, "verify-display.ts");
     await writeFile(
@@ -44,7 +35,7 @@ it("recognizes native construction through the installed pi executable, not just
     const execution = promisify(execFile)(
       process.execPath,
       [
-        join(packageDirectory, executable),
+        executable,
         "--no-extensions",
         "--no-skills",
         "--no-prompt-templates",

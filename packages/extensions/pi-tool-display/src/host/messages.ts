@@ -1,5 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
+import type { Outcome } from "../contracts.ts";
 import { stringField } from "../terminal-text.ts";
 import type { TranscriptMessage } from "../transcript/session.ts";
 import { record } from "../values.ts";
@@ -9,6 +10,16 @@ export function hostToolResult(value: unknown): AgentToolResult<unknown> {
   // blocks, but its event API erases the payload type. Adapters still validate details.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return value as AgentToolResult<unknown>;
+}
+
+/** Pi has no cancellation flag on execution results. An unsuccessful completion
+ * after the live run is aborted is cancelled; successes and earlier failures stay
+ * unchanged. Persist this observation so replay never needs to guess from prose.
+ */
+export function executionOutcome(isError: boolean, signal?: AbortSignal): Outcome {
+  if (!isError) return "success";
+
+  return signal?.aborted ? "cancelled" : "failure";
 }
 
 /** Normalize Pi messages before they enter the session-independent transcript controller. */
@@ -22,15 +33,14 @@ export function transcriptMessage(input: unknown): TranscriptMessage | undefined
       id: String(value.toolCallId),
       name: String(value.toolName),
       result: hostToolResult(input),
-      outcome: value.isError === true ? "failure" : "success"
+      outcome: executionOutcome(value.isError === true)
     };
   if (value.role !== "assistant" || !Array.isArray(value.content)) return { kind: "boundary" };
-  const interruption =
-    value.stopReason === "aborted"
-      ? { outcome: "cancelled" as const, text: "Operation aborted" }
-      : value.stopReason === "error"
-        ? { outcome: "failure" as const, text: stringField(value.errorMessage) || "Error" }
-        : undefined;
+  let interruption: Extract<TranscriptMessage, { kind: "assistant" }>["interruption"];
+  if (value.stopReason === "aborted")
+    interruption = { outcome: "cancelled", text: "Operation aborted" };
+  else if (value.stopReason === "error")
+    interruption = { outcome: "failure", text: stringField(value.errorMessage) || "Error" };
 
   return {
     kind: "assistant",

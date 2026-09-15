@@ -1,27 +1,39 @@
 import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
+import { z } from "zod";
 
 import { type InvocationPart } from "../../contracts.ts";
 import type { ToolDisplayAdapter } from "../../contracts.ts";
 import { record } from "../../values.ts";
-import { mcpCallFacts, mcpCallIdentity, mcpNotices } from "./result-presentation.ts";
+import {
+  mcpCallFacts,
+  mcpCallIdentity,
+  mcpNotices,
+  mcpResultOutcome
+} from "./result-presentation.ts";
+import {
+  argumentSchemas,
+  gatewayActionSchema,
+  gatewayArgsPropertySchema,
+  nonemptyStringSchema,
+  objectPropertySchema,
+  requiredPropertiesSchema,
+  resultDetailsSchema,
+  stringPropertySchema,
+  toolParametersSchema,
+  type ToolKind
+} from "./schemas.ts";
 
-type ToolKind = "gateway" | "namespace" | "script" | "direct";
-
-function isObject(value: unknown): boolean {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
+const optionalStringSchema = z.string().optional();
+const numberSchema = z.number();
 
 function nonempty(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return nonemptyStringSchema.safeParse(value).data;
 }
 
 function gatewayMode(args: unknown): string {
   const data = record(args);
-  if (
-    typeof data.action === "string" &&
-    ["install", "ui-messages", "auth-start", "auth-complete"].includes(data.action)
-  )
-    return data.action;
+  const action = gatewayActionSchema.safeParse(data.action);
+  if (action.success) return action.data;
   for (const key of ["tool", "connect", "describe", "instructions"])
     if (nonempty(data[key])) return key === "tool" ? "call" : key;
   if (data.search !== undefined) return "search";
@@ -29,43 +41,14 @@ function gatewayMode(args: unknown): string {
   return nonempty(data.server) ? "list" : "status";
 }
 
-function supportsArgs(kind: ToolKind, args: unknown): boolean {
-  if (!isObject(args)) return false;
-  const data = record(args);
-  if (kind === "direct") return true;
-  if (kind === "script") return typeof data.code === "string";
-  if (kind === "namespace")
-    return !!nonempty(data.tool) && (data.args === undefined || isObject(data.args));
-
-  return (
-    [
-      "tool",
-      "connect",
-      "describe",
-      "instructions",
-      "search",
-      "server",
-      "action",
-      "url",
-      "target"
-    ].every((key) => data[key] === undefined || typeof data[key] === "string") &&
-    (data.args === undefined || typeof data.args === "string" || isObject(data.args))
-  );
-}
-
 function supportsResult(kind: ToolKind, args: unknown, result: AgentToolResult<unknown>): boolean {
-  if (!supportsArgs(kind, args) || !isObject(result.details)) return false;
-  const details = record(result.details);
-  if (
-    !["error", "server", "mode"].every(
-      (key) => details[key] === undefined || typeof details[key] === "string"
-    )
-  )
-    return false;
+  if (!argumentSchemas[kind].safeParse(args).success) return false;
+  const parsed = resultDetailsSchema.safeParse(result.details);
+  if (!parsed.success) return false;
+  const details = parsed.data;
   if (
     (details.mode === "call" || kind === "direct") &&
-    details.tool !== undefined &&
-    typeof details.tool !== "string"
+    !optionalStringSchema.safeParse(details.tool).success
   )
     return false;
   if (nonempty(details.error)) return true;
@@ -74,7 +57,7 @@ function supportsResult(kind: ToolKind, args: unknown, result: AgentToolResult<u
     return (
       details.mode === gatewayMode(args) ||
       (gatewayMode(args) === "connect" && details.mode === "list") ||
-      (gatewayMode(args) === "ui-messages" && typeof details.sessions === "number")
+      (gatewayMode(args) === "ui-messages" && numberSchema.safeParse(details.sessions).success)
     );
 
   return !!nonempty(details.server) && (kind === "direct" || details.mode === "call");
@@ -105,12 +88,10 @@ function invocation(
       parameters = data.args ?? {};
     } else {
       title = `mcp ${mode}`;
-      const target =
-        mode === "search"
-          ? data.search
-          : mode === "install"
-            ? data.url
-            : (data[mode] ?? data.server);
+      let target: unknown;
+      if (mode === "search") target = data.search;
+      else if (mode === "install") target = data.url;
+      else target = data[mode] ?? data.server;
       if (typeof target === "string")
         parts.push(
           { kind: "annotation", text: " " },
@@ -119,52 +100,53 @@ function invocation(
     }
   }
 
+  let parameterText: string | undefined;
+
   return [
     { kind: "value", text: title },
     ...parts,
-    { kind: "parameters", text: `(${JSON.stringify(parameters ?? {})})` }
+    {
+      kind: "parameters",
+      // Headings filter hidden parts before reading text. Do not serialize or
+      // retain a second copy of arguments merely to display the tool identity.
+      get text() {
+        return (parameterText ??= `(${JSON.stringify(parameters ?? {})})`);
+      }
+    }
   ];
 }
 
 function toolKind(tool: ToolInfo): ToolKind | undefined {
-  const schema = record(tool.parameters);
-  if (schema.type !== "object" || !isObject(schema.properties)) return undefined;
-  const properties = record(schema.properties);
-  const kind: ToolKind =
-    tool.name === "mcp"
-      ? "gateway"
-      : tool.name === "mcpScript"
-        ? "script"
-        : tool.name.startsWith("mcp__") &&
-            tool.description.startsWith("Namespace-proxy for MCP server ")
-          ? "namespace"
-          : "direct";
-  const strings =
-    kind === "gateway"
-      ? ["tool", "connect", "describe", "instructions", "search", "server", "action"]
-      : kind === "namespace"
-        ? ["tool"]
-        : kind === "script"
-          ? ["code"]
-          : [];
-  if (!strings.every((key) => record(properties[key]).type === "string")) return undefined;
-  if (kind === "namespace" && record(properties.args).type !== "object") return undefined;
+  const parsed = toolParametersSchema.safeParse(tool.parameters);
+  if (!parsed.success) return undefined;
+  const schema = parsed.data;
+  const { properties } = schema;
+  let kind: ToolKind = "direct";
+  if (tool.name === "mcp") kind = "gateway";
+  else if (tool.name === "mcpScript") kind = "script";
+  else if (
+    tool.name.startsWith("mcp__") &&
+    tool.description.startsWith("Namespace-proxy for MCP server ")
+  )
+    kind = "namespace";
+  const strings = {
+    gateway: ["tool", "connect", "describe", "instructions", "search", "server", "action"],
+    namespace: ["tool"],
+    script: ["code"],
+    direct: []
+  }[kind];
+  if (!strings.every((key) => stringPropertySchema.safeParse(properties[key]).success))
+    return undefined;
+  if (kind === "namespace" && !objectPropertySchema.safeParse(properties.args).success)
+    return undefined;
   if (
     (kind === "namespace" || kind === "script") &&
-    (!Array.isArray(schema.required) || !schema.required.includes(strings[0]))
+    !requiredPropertiesSchema.safeParse(schema.required).data?.includes(strings[0])
   )
     return undefined;
 
-  if (kind === "gateway") {
-    const variants = record(properties.args).anyOf;
-    if (
-      !Array.isArray(variants) ||
-      !["string", "object"].every((type) =>
-        variants.some((value: unknown) => record(value).type === type)
-      )
-    )
-      return undefined;
-  }
+  if (kind === "gateway" && !gatewayArgsPropertySchema.safeParse(properties.args).success)
+    return undefined;
 
   return kind;
 }
@@ -184,6 +166,7 @@ export function piMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
     supports: (args, result) => supportsResult(kind, args, result),
     invocation: (args, result) => invocation(kind, tool.name, args, result),
     mcp: (_args, result) => mcpCallFacts(result),
+    outcome: mcpResultOutcome,
     notices: mcpNotices
   };
 }

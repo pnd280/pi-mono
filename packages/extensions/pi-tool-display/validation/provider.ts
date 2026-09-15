@@ -3,14 +3,15 @@ import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 
 import {
-  createAssistantMessageEventStream,
+  contentText,
   createProvider,
+  fauxToolCall,
   type ProviderStreams
 } from "@earendil-works/pi-ai";
 import { createReadToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { createFixtureStream } from "@pi-mono/libs/validation/provider";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 
-import { assistantMessage, toolCall } from "../src/test-fixture.ts";
 import { assertFixtureWorkspace } from "./workspace.ts";
 
 type PlannedCall = { name: string; args: Record<string, unknown> };
@@ -102,43 +103,26 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
   await assertFixtureWorkspace(cwd);
   const plans = scenarios(cwd);
 
-  const stream: ProviderStreams["stream"] = (model, context, options) => {
-    const events = createAssistantMessageEventStream();
-    const output = {
-      ...assistantMessage([], Date.now()),
-      api: model.api,
-      provider: model.provider,
-      model: model.id
-    };
-
-    void (async () => {
-      try {
-        options?.signal?.throwIfAborted();
+  const stream: ProviderStreams["stream"] = (model, context, options) =>
+    createFixtureStream({
+      model,
+      signal: options?.signal,
+      async run({ message: output, events, text: appendText }) {
         let userIndex = context.messages.length - 1;
         while (userIndex >= 0 && context.messages[userIndex]?.role !== "user") userIndex--;
         const user = context.messages[userIndex];
-        const prompt =
-          user?.role === "user"
-            ? (typeof user.content === "string"
-                ? user.content
-                : user.content
-                    .filter((part) => part.type === "text")
-                    .map((part) => part.text)
-                    .join("\n")
-              ).trim()
-            : "";
+        const prompt = user?.role === "user" ? contentText(user.content).trim() : "";
         const plan = plans.get(prompt);
         // Context, not a closure counter, determines completion across reload/replay.
         const completed = context.messages
           .slice(userIndex + 1)
           .some((message) => message.role === "toolResult");
-        events.push({ type: "start", partial: output });
 
         if (plan && !completed) {
           for (const planned of plan) {
             await setTimeout(120, undefined, { signal: options?.signal });
             const contentIndex = output.content.length;
-            const call = toolCall(randomUUID(), planned.name, {});
+            const call = fauxToolCall(planned.name, {}, { id: randomUUID() });
             output.content.push(call);
             events.push({ type: "toolcall_start", contentIndex, partial: output });
             await setTimeout(120, undefined, { signal: options?.signal });
@@ -152,30 +136,17 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
             events.push({ type: "toolcall_end", contentIndex, toolCall: call, partial: output });
           }
 
-          output.stopReason = "toolUse";
+          return "toolUse";
         } else {
           const text = plan
             ? `Fixture finished: ${prompt}. Inspect the tool rows; failures may be intentional.`
             : `Choose a fixture prompt: ${[...plans.keys()].join(", ")}.`;
-          output.content.push({ type: "text", text });
-          events.push({ type: "text_start", contentIndex: 0, partial: output });
-          events.push({ type: "text_delta", contentIndex: 0, delta: text, partial: output });
-          events.push({ type: "text_end", contentIndex: 0, content: text, partial: output });
-          output.stopReason = "stop";
+          appendText(text);
+
+          return "stop";
         }
-
-        events.push({ type: "done", reason: output.stopReason, message: output });
-      } catch (error) {
-        output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-        output.errorMessage = error instanceof Error ? error.message : String(error);
-        events.push({ type: "error", reason: output.stopReason, error: output });
-      } finally {
-        events.end();
       }
-    })();
-
-    return events;
-  };
+    });
 
   pi.registerProvider(
     createProvider({

@@ -1,5 +1,7 @@
 # Verification and handoff
 
+[Workspace development](../development.md)
+
 1. Identify changed files and affected packages, including consumers of shared code under the [consumer verification rule](architecture.md#reuse-decision).
 2. Validate formatting and links in changed documents. For code or tooling changes, also run formatting checks, `check`, and relevant tests for affected packages using the [development commands](../development.md#focused-validation). Follow the [testing convention](testing.md) for coverage and manual checks.
 3. Review the final diff for correctness and scope.

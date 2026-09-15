@@ -1,46 +1,32 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { getCapabilities } from "@earendil-works/pi-tui";
-import { displayText } from "@pi-mono/utils/terminal-text";
+import { highlightCodeBounded } from "@pi-mono/libs/tui/components/code-highlight";
+import { renderDiffBody } from "@pi-mono/libs/tui/components/diff-view";
+import { displayText, styledOutput } from "@pi-mono/libs/tui/terminal-text";
+import { wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { splitOutputText, type OutputText } from "@pi-mono/utils/output-text";
 
-import {
-  isCancelled,
-  type McpFacts,
-  type DisplayNotice,
-  type ResultTextPart
-} from "../contracts.ts";
-import { parsePatch } from "../diff.ts";
-import type { OutputText } from "../output-text.ts";
-import { styledOutput, stringField } from "../terminal-text.ts";
+import type { McpFacts, DisplayNotice, ResultTextPart } from "../contracts.ts";
+import { parseRetainedPatch } from "../diff.ts";
+import { stringField } from "../terminal-text.ts";
 import { record } from "../values.ts";
-import { renderDiffBody } from "./diff-view.ts";
-import { expansionHint, highlight, output, message, reference } from "./format.ts";
-import { bodyWidth, wrapRows } from "./layout.ts";
+import { expansionHint, codeHighlightLimits, output, message, reference } from "./format.ts";
+import { bodyWidth } from "./layout.ts";
 import type { Projection, ResultBody } from "./types.ts";
 
 // Mutable only while preparing a body; cards expose read-only measured items.
 type TreeItem = { rows: string[] };
 
 export function buildGroupRows(p: Projection): string[] {
-  if (!p.call) return [];
-  if (!p.result)
-    return p.call.lifecycle === "unavailable" ? message("Outcome unavailable", p, "muted") : [];
+  if (!p.call || !p.result) return [];
   const rows: string[] = [];
 
-  if (p.call.outcome === "failure" || isCancelled(p.call)) {
-    const diagnostic = p.result.content
-      .filter((block) => block.type === "text")
-      .map((block) => block.text)
-      .join("\n");
-    rows.push(
-      ...output(p.theme.fg(isCancelled(p.call) ? "warning" : "error", displayText(diagnostic)), p)
-    );
-  }
-
   rows.push(
-    ...imageItems(p.result.content, p).flatMap((item) => item.rows),
+    ...(p.context.isError ? contentItems(p.result, p) : imageItems(p.result.content, p)).flatMap(
+      (item) => item.rows
+    ),
     ...notices(p.result, p)
   );
-  if (p.call.lifecycle === "unavailable") rows.push(...message("Outcome unavailable", p, "muted"));
 
   return rows;
 }
@@ -50,7 +36,7 @@ function patchRows(
   p: Projection,
   annotations: readonly string[]
 ): string[] | undefined {
-  const parsed = parsePatch(patch);
+  const parsed = parseRetainedPatch(patch);
   if (!parsed) return undefined;
   // Preserve +0 -0 for empty patches so a no-op still has visible output.
   const oneSided =
@@ -64,9 +50,15 @@ function patchRows(
   const body = renderDiffBody(parsed, {
     width: bodyWidth(p.width),
     expanded: p.expanded,
+    compactRows: 30,
+    contextRows: 2,
     expansionHint: expansionHint(),
     theme: p.theme,
-    highlight: (source) => highlight(source, stringField(record(p.context.args).path))
+    highlight: (source) =>
+      highlightCodeBounded(source, {
+        ...codeHighlightLimits,
+        path: stringField(record(p.context.args).path)
+      })
   });
   rows.push(...annotations, ...body);
 
@@ -77,13 +69,17 @@ function applicationFailure(p: Projection): string[] {
   const outcome = p.call?.operation?.outcome;
   if (!p.context.isError && outcome !== "failure") return [];
 
-  return message(
+  let text =
     outcome === "success"
       ? "Tool result reports failure after application."
-      : "Failed to apply change",
-    p,
-    p.call && isCancelled(p.call) ? "warning" : "error"
-  );
+      : "Failed to apply change";
+  if (p.outcome === "cancelled")
+    text =
+      outcome === "success"
+        ? "Tool call cancelled after application."
+        : "Change application cancelled.";
+
+  return message(text, p, p.outcome === "cancelled" ? "warning" : "error");
 }
 
 function changeRows(
@@ -119,16 +115,21 @@ function changeRows(
 
 function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
   const items: TreeItem[] = [];
-  const failed =
-    p.context.isError || facts.outcome === "transport-error" || facts.outcome === "returned-error";
+  const color = (
+    {
+      cancelled: "warning",
+      failure: "error",
+      success: "toolOutput",
+      unavailable: "toolOutput"
+    } as const
+  )[p.outcome];
 
   for (const block of facts.content) {
-    const text =
-      block.type === "text"
-        ? p.theme.fg(failed ? "error" : "toolOutput", displayText(block.text))
-        : block.type === "resource"
-          ? `${reference("Resource: ", block.uri, p)}${block.text ? `\n${p.theme.fg("toolOutput", displayText(block.text))}` : ""}`
-          : `${reference("[Media: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`;
+    let text: string;
+    if (block.type === "text") text = p.theme.fg(color, displayText(block.text));
+    else if (block.type === "resource")
+      text = `${reference("Resource: ", block.uri, p)}${block.text ? `\n${p.theme.fg("toolOutput", displayText(block.text))}` : ""}`;
+    else text = `${reference("[Media: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`;
     items.push({ rows: output(text, p, block.type === "text" ? 10 : Number.MAX_SAFE_INTEGER) });
   }
 
@@ -160,12 +161,22 @@ function styleResultParts(parts: readonly ResultTextPart[], p: Projection): stri
       if (!part.text) return "";
       if (part.kind !== "output")
         return p.theme.fg(
-          part.kind === "annotation" ? "dim" : part.kind === "value" ? "text" : part.kind,
+          (
+            {
+              annotation: "dim",
+              value: "text",
+              warning: "warning",
+              error: p.outcome === "cancelled" ? "warning" : "error"
+            } as const
+          )[part.kind],
           displayText(part.text)
         );
       let content = p.adapter.family === "shell" ? styledOutput(part.text) : displayText(part.text);
       if (p.adapter.family === "read" && p.expanded && !p.context.isError)
-        content = highlight(content, stringField(record(p.context.args).path));
+        content = highlightCodeBounded(content, {
+          ...codeHighlightLimits,
+          path: stringField(record(p.context.args).path)
+        });
 
       return content ? p.theme.fg("toolOutput", content) : "";
     })
@@ -173,33 +184,16 @@ function styleResultParts(parts: readonly ResultTextPart[], p: Projection): stri
 }
 
 function emptyOutputText(p: Projection): string {
-  const unavailable = p.call?.lifecycle === "unavailable";
+  if (p.call?.lifecycle === "unavailable") return p.theme.fg("muted", "Output unavailable.");
 
-  return p.theme.fg(
-    unavailable ? "muted" : "dim",
-    unavailable
-      ? "Output unavailable."
-      : p.context.isPartial
-        ? "Waiting for output…"
-        : "(no output)"
-  );
+  return p.theme.fg("dim", p.context.isPartial ? "Waiting for output…" : "(no output)");
 }
 
 function previewParts(preview: OutputText): ResultTextPart[] {
-  let start = 0;
-  const parts: ResultTextPart[] = [];
-
-  for (const range of preview.omissions ?? []) {
-    parts.push(
-      { kind: "output", text: preview.text.slice(start, range.start) },
-      { kind: "warning", text: preview.text.slice(range.start, range.end) }
-    );
-    start = range.end;
-  }
-
-  parts.push({ kind: "output", text: preview.text.slice(start) });
-
-  return parts;
+  return splitOutputText(preview).map(({ kind, text }) => ({
+    kind: kind === "omission" ? "warning" : "output",
+    text
+  }));
 }
 
 function outputPreview(p: Projection): OutputText | undefined {
@@ -240,6 +234,8 @@ function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem
     return [...items, ...imageItems(result.content, p)];
   const textContext = {
     ...p.context,
+    isCancelled: p.outcome === "cancelled",
+    expanded: p.expanded,
     hasImages: result.content.some((block) => block.type === "image")
   };
 
@@ -302,7 +298,9 @@ function notices(result: AgentToolResult<unknown>, p: Projection): string[] {
       notice.kind === "reference"
         ? reference(`${displayText(notice.label)}: `, notice.value, p)
         : p.theme.fg(
-            notice.kind === "info" ? "dim" : notice.kind === "unavailable" ? "muted" : notice.kind,
+            ({ info: "dim", unavailable: "muted", warning: "warning", error: "error" } as const)[
+              notice.kind
+            ],
             displayText(notice.text)
           );
 
@@ -311,14 +309,9 @@ function notices(result: AgentToolResult<unknown>, p: Projection): string[] {
 
   if (p.expanded && p.call?.operation) {
     const operation = p.call.operation;
-    const color =
-      operation.outcome === "failure"
-        ? "error"
-        : operation.outcome === "cancelled"
-          ? "warning"
-          : operation.outcome === "unavailable"
-            ? "muted"
-            : "dim";
+    const color = (
+      { failure: "error", cancelled: "warning", unavailable: "muted", success: "dim" } as const
+    )[operation.outcome];
     const detail =
       p.theme.fg("dim", "Operation: ") +
       p.theme.fg(color, operation.outcome) +
@@ -356,8 +349,10 @@ export function buildResultBody(current: AgentToolResult<unknown>, p: Projection
     return {
       items: [...items, ...mcpItems(facts, p)],
       annotations: [
-        ...(facts.outcome === "transport-error" ? message("Transport error", p, "error") : []),
-        ...(facts.outcome === "returned-error"
+        ...(p.outcome === "failure" && facts.outcome === "transport-error"
+          ? message("Transport error", p, "error")
+          : []),
+        ...(p.outcome === "failure" && facts.outcome === "returned-error"
           ? message("Tool returned an error", p, "error")
           : []),
         ...(!change.hasPatch ? change.rows : []),

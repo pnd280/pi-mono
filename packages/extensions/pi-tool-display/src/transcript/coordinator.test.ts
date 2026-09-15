@@ -168,6 +168,98 @@ it("does not revisit old adapter contracts while appending history", () => {
   }
 });
 
+it("moves a visible boundary without spreading expansion through a temporary merge", () => {
+  const { coordinator: c, add } = fixture();
+
+  try {
+    const first = add("read", "first.ts", "historical");
+    const second = add("read", "second.ts", "historical");
+    const third = add("read", "third.ts", "historical");
+    const owner = {};
+    c.setBoundary(owner, first);
+    c.expand(first, true);
+    c.setBoundary(owner, second);
+    expect(c.group(first)?.members).toEqual([first, second]);
+    expect(c.group(third)?.members).toEqual([third]);
+    expect([first.expanded, second.expanded, third.expanded]).toEqual([true, true, false]);
+
+    // Losing and regaining membership in the middle reconciles both neighbors.
+    c.setBoundary(owner);
+    c.add(second.reference, "read", {}, second.adapter, "historical");
+    expect(c.group(first)?.members).toEqual([first]);
+    expect(c.group(second)).toBeUndefined();
+    expect(c.group(third)?.members).toEqual([third]);
+    c.add(second.reference, "read", { path: "second.ts" }, second.adapter, "historical");
+    expect(c.group(second)?.members).toEqual([first, second, third]);
+  } finally {
+    c.dispose();
+  }
+});
+
+it("preserves group interiors when a trailing streamed call becomes explorable", () => {
+  const { coordinator: c, add } = fixture();
+
+  try {
+    const first = add("read", "first.ts", "historical");
+    const middle = add("read", "middle.ts", "historical");
+    add("read", "last.ts", "historical");
+    const group = c.group(first);
+    const row = rowHandle();
+    c.attach(middle, row);
+    const reference = { messageTimestamp: 2, contentIndex: 0, toolCallId: "streamed" };
+    const adapter = nativeAdapter("read")!;
+    const call = c.add(reference, "read", {}, adapter, "live");
+    c.add(reference, "read", { path: "streamed.ts" }, adapter, "live");
+    expect(c.group(call)).toBe(group);
+    expect(group?.members.at(-1)).toBe(call);
+    expect(row.invalidate).not.toHaveBeenCalled();
+  } finally {
+    c.dispose();
+  }
+});
+
+it("keeps completed contracts cached across local membership and boundary changes", () => {
+  const c = new TranscriptCoordinator("local-groups");
+  const native = nativeAdapter("read")!;
+  const exploration = vi.fn((...args: Parameters<NonNullable<typeof native.exploration>>) =>
+    native.exploration!(...args)
+  );
+  const adapter = { ...native, exploration };
+
+  try {
+    const old = Array.from({ length: 1000 }, (_, index) => {
+      const call = c.add(
+        { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) },
+        "read",
+        { path: `${index}.ts` },
+        adapter,
+        "historical"
+      );
+      if (index % 2 === 1) c.boundary();
+
+      return call;
+    });
+    const group = c.group(old[0]!)!;
+    const reference = { messageTimestamp: 1001, contentIndex: 0, toolCallId: "new" };
+    const call = c.add(reference, "read", {}, adapter, "historical");
+    exploration.mockClear();
+    c.add(reference, "read", { path: "new.ts" }, adapter, "historical");
+    expect(exploration).toHaveBeenCalledTimes(1);
+    expect(c.group(call)?.members).toEqual([call]);
+    expect(c.group(old[0]!)).toBe(group);
+    exploration.mockClear();
+    const owner = {};
+    c.setBoundary(owner, old[500]);
+    expect(c.group(old[500]!)?.members).toEqual([old[500]]);
+    c.setBoundary(owner);
+    expect(c.group(old[500]!)?.members).toEqual([old[500], old[501]]);
+    expect(exploration).not.toHaveBeenCalled();
+    expect(c.group(old[0]!)).toBe(group);
+  } finally {
+    c.dispose();
+  }
+});
+
 it("batches reconstruction boundaries and late adapters into one contract pass", () => {
   const { coordinator: c, onExpansion } = fixture();
   const exploration = vi.fn(() => [
@@ -204,7 +296,7 @@ it("batches reconstruction boundaries and late adapters into one contract pass",
         throw new Error("reconstruction failed");
       })
     ).toThrow("reconstruction failed");
-    expect(exploration).toHaveBeenCalledTimes(calls.length);
+    expect(exploration).not.toHaveBeenCalled();
     expect(c.group(calls[0]!)?.members).toEqual([calls[0]]);
   } finally {
     c.dispose();

@@ -1,9 +1,18 @@
-import { createHash, randomUUID } from "node:crypto";
-import { realpath } from "node:fs/promises";
 import { join } from "node:path";
 
-import { addDraft } from "../drafts.ts";
-import { captureText, retainHistory } from "../history.ts";
+import {
+  boundedRead,
+  LockTimeoutError,
+  PrivateFileError,
+  PrivateFileTransactions,
+  ReadLimitError,
+  resolveDirectoryScope,
+  type AtomicWriteWarning,
+  type DirectoryScope,
+  type WriteHooks,
+  type WriteScope
+} from "@pi-mono/libs/private-files";
+
 import {
   errorMessage,
   limits,
@@ -11,37 +20,28 @@ import {
   type Collection,
   type Mutation,
   type MutationResult,
-  type MutationSession,
-  type Repository,
-  type Snapshot
+  type Repository
 } from "../model.ts";
-import { atomicReplace, type WriteHooks } from "./atomic.ts";
-import { deleteTarget, encode, parseDocument, snapshot } from "./codec.ts";
-import { acquireLock } from "./lock.ts";
-import { boundedRead, collectionDirectory } from "./privacy.ts";
+import { reductionGuidance } from "./collection.ts";
+import { collectionDirectory } from "./directory.ts";
+import { readCollectionAsync, updateCollectionAsync } from "./processing.ts";
 
-function apply(current: Snapshot, operation: Mutation, retention: number) {
-  if (current.access === "read-only")
-    throw new PromptError(
-      "Collection has invalid occurrence IDs and is read-only. Back up and repair with sessions stopped."
-    );
-  if (operation.kind === "delete")
-    return { ...current.document, entries: deleteTarget(current, operation.target) };
-  const text = current.collection === "history" ? captureText(operation.text) : operation.text;
+function storageErrorMessage(error: unknown): string {
+  if (error instanceof ReadLimitError)
+    return `Collection exceeds the 64 MiB read bound. ${reductionGuidance}`;
+  if (error instanceof LockTimeoutError)
+    return "Collection is busy (two-second lock deadline). Abandoned locks require manual removal with all participating sessions stopped.";
 
-  if (text === undefined) return undefined;
-  const entry = { id: randomUUID(), text, recordedAt: operation.recordedAt };
-
-  return current.collection === "history"
-    ? retainHistory(current.document, entry, retention)
-    : addDraft(current, entry);
+  return error instanceof PrivateFileError ? error.message : errorMessage(error);
 }
 
+const writeWarnings: Record<AtomicWriteWarning, string> = {
+  "post-commit": "Collection committed, but post-commit cleanup failed.",
+  close: "Collection committed, but closing its temporary descriptor failed."
+};
+
 export class FileRepository implements Repository {
-  private readonly queues: Record<Collection, Promise<unknown>> = {
-    history: Promise.resolve(),
-    drafts: Promise.resolve()
-  };
+  private readonly transactions = new PrivateFileTransactions();
 
   private constructor(
     private readonly options: {
@@ -59,10 +59,10 @@ export class FileRepository implements Repository {
     retention: number;
     hooks?: WriteHooks;
   }): Promise<FileRepository> {
-    let cwd: string;
+    let scope: DirectoryScope;
 
     try {
-      cwd = await realpath(options.cwd);
+      scope = await resolveDirectoryScope(options.cwd);
     } catch {
       throw new PromptError(
         "Cannot resolve the working directory's real path; prompt collections are unavailable."
@@ -71,8 +71,8 @@ export class FileRepository implements Repository {
 
     return new FileRepository({
       ...options,
-      cwd,
-      hash: createHash("sha256").update(cwd).digest("hex"),
+      cwd: scope.path,
+      hash: scope.key,
       hooks: options.hooks ?? {}
     });
   }
@@ -84,109 +84,60 @@ export class FileRepository implements Repository {
     );
   }
 
-  async read(collection: Collection) {
+  async read(collection: Collection, signal?: AbortSignal) {
     try {
+      signal?.throwIfAborted();
       const path = await this.path(collection);
 
-      return parseDocument(collection, this.options.cwd, await boundedRead(path));
+      return await readCollectionAsync({
+        collection,
+        cwd: this.options.cwd,
+        raw: await boundedRead(path, limits.read),
+        ...(signal ? { signal } : {})
+      });
     } catch (error) {
-      return { status: "unavailable" as const, message: errorMessage(error) };
+      return { status: "unavailable" as const, message: storageErrorMessage(error) };
     }
   }
 
-  mutate(
+  async mutate(
     collection: Collection,
     operation: Mutation,
-    session: MutationSession
+    session: WriteScope
   ): Promise<MutationResult> {
-    const result = this.queues[collection].then(() =>
-      this.mutateLatest(collection, operation, session)
-    );
-    this.queues[collection] = result.catch(() => {});
-
-    return result;
-  }
-
-  private async mutateLatest(
-    collection: Collection,
-    operation: Mutation,
-    session: MutationSession
-  ): Promise<MutationResult> {
-    try {
-      session.signal.throwIfAborted();
-      const path = await this.path(collection);
-      session.signal.throwIfAborted();
-      const lock = await acquireLock(`${path}.lock`, session.signal);
-      let result: MutationResult;
-      const cleanup: string[] = [];
-      let released = false;
-
-      const release = async () => {
-        if (released) return;
-        released = true;
-
-        try {
-          await lock.release();
-        } catch {
-          cleanup.push(
-            "Collection lock cleanup failed; stop participating sessions before manual lock removal."
-          );
-        }
+    const result = await this.transactions.run(collection, {
+      path: () => this.path(collection),
+      scope: session,
+      maxReadBytes: limits.read,
+      timeoutMs: 2000,
+      hooks: this.options.hooks,
+      update: (raw) =>
+        updateCollectionAsync({
+          collection,
+          cwd: this.options.cwd,
+          raw,
+          operation,
+          retention: this.options.retention,
+          signal: session.signal
+        })
+    });
+    const cleanup = result.cleanupErrors.length
+      ? ["Collection lock cleanup failed; stop participating sessions before manual lock removal."]
+      : [];
+    if (result.status === "committed")
+      return {
+        status: "committed",
+        snapshot: result.value,
+        warnings: [...result.warnings.map((warning) => writeWarnings[warning]), ...cleanup]
+      };
+    if (result.status === "failed" || cleanup.length)
+      return {
+        status: "failed",
+        message: [result.status === "failed" ? storageErrorMessage(result.cause) : "", ...cleanup]
+          .filter(Boolean)
+          .join(" ")
       };
 
-      try {
-        session.signal.throwIfAborted();
-        const current = parseDocument(collection, this.options.cwd, await boundedRead(path));
-        const document = apply(current, operation, this.options.retention);
-
-        if (document === undefined) result = { status: "unchanged", snapshot: current };
-        else {
-          const content = encode(document);
-          const bytes = Buffer.byteLength(content);
-          const recoveryDeletion =
-            collection === "drafts" &&
-            current.access === "delete-only" &&
-            operation.kind === "delete";
-
-          if (
-            recoveryDeletion
-              ? bytes >= current.bytes
-              : bytes > (collection === "history" ? limits.historyFile : limits.draftFile)
-          )
-            throw new PromptError(
-              "Mutation exceeds collection capacity or would not reduce recovery file size; nothing was changed."
-            );
-          session.signal.throwIfAborted();
-          // No await between the expiry check and entering the tracked atomic phase.
-          const warnings = await session.atomic(async () => {
-            try {
-              return await atomicReplace(path, content, this.options.hooks);
-            } finally {
-              await release();
-            }
-          });
-          result = {
-            status: "committed",
-            snapshot: snapshot(collection, document, bytes),
-            warnings
-          };
-        }
-      } catch (error) {
-        result = { status: "failed", message: errorMessage(error) };
-      } finally {
-        await release();
-      }
-
-      if (result.status === "committed") result.warnings.push(...cleanup);
-      else if (cleanup.length)
-        result = {
-          status: "failed",
-          message: `${result.status === "failed" ? result.message + " " : ""}${cleanup.join(" ")}`
-        };
-
-      return result;
-    } catch (error) {
-      return { status: "failed", message: errorMessage(error) };
-    }
+    return { status: "unchanged", snapshot: result.value };
   }
 }

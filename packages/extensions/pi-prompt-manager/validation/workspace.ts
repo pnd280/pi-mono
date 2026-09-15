@@ -1,15 +1,12 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isRecord } from "../src/model.ts";
+import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 
 export async function createWorkspace(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "pi-prompt-manager-terminal-"));
-
-  for (const name of ["work", "agent", "home", "bin", "tmp"])
-    await mkdir(join(directory, name), { mode: 0o700 });
+  const directory = await createValidationWorkspace("pi-prompt-manager-terminal-");
+  await mkdir(join(directory, "bin"), { mode: 0o700 });
   await writeFile(join(directory, ".prompt-manager-fixture"), "offline prompt-manager fixture\n", {
     mode: 0o600
   });
@@ -22,8 +19,7 @@ export async function createWorkspace(): Promise<string> {
     join(directory, "agent", "settings.json"),
     JSON.stringify({
       compaction: { enabled: false },
-      retry: { enabled: false },
-      "ext.pi-prompt-manager": { customMessageTypes: ["allow"] }
+      retry: { enabled: false }
     }),
     { mode: 0o600 }
   );
@@ -42,20 +38,10 @@ export async function launch(directory: string) {
     "offline prompt-manager fixture\n"
   )
     throw new Error("Not a prompt-manager fixture directory.");
-  const packageDirectory = dirname(
-    dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")))
-  );
-  const manifest: unknown = JSON.parse(
-    await readFile(join(packageDirectory, "package.json"), "utf8")
-  );
 
-  if (!isRecord(manifest) || !isRecord(manifest.bin) || typeof manifest.bin.pi !== "string")
-    throw new Error("Installed Pi executable is unavailable.");
-
-  return {
-    command: process.execPath,
+  return createPiLaunch({
+    directory,
     args: [
-      join(packageDirectory, manifest.bin.pi),
       "--offline",
       "--no-extensions",
       "--no-skills",
@@ -73,21 +59,10 @@ export async function launch(directory: string) {
       "-e",
       fileURLToPath(new URL("./provider.ts", import.meta.url))
     ],
-    options: {
-      cwd: join(directory, "work"),
-      env: {
-        PATH: `${join(directory, "bin")}:${process.env.PATH ?? "/usr/bin:/bin"}`,
-        HOME: join(directory, "home"),
-        USERPROFILE: join(directory, "home"),
-        TMPDIR: join(directory, "tmp"),
-        TERM: process.env.TERM ?? "xterm-256color",
-        LANG: process.env.LANG ?? "en_US.UTF-8",
-        PI_CODING_AGENT_DIR: join(directory, "agent"),
-        PI_OFFLINE: "1",
-        PI_TELEMETRY: "0",
-        WAYLAND_DISPLAY: "isolated-fixture",
-        DISPLAY: ":fixture"
-      }
+    env: {
+      PATH: `${join(directory, "bin")}:${process.env.PATH ?? "/usr/bin:/bin"}`,
+      WAYLAND_DISPLAY: "isolated-fixture",
+      DISPLAY: ":fixture"
     }
-  };
+  });
 }

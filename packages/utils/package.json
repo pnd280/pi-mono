@@ -4,14 +4,23 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./relative-time": "./src/relative-time.ts",
+    "./text-search": "./src/text-search.ts",
     "./fff-tools": "./src/fff-tools.ts",
-    "./terminal-text": "./src/terminal-text.ts"
+    "./paths": "./src/paths.ts",
+    "./patch": "./src/patch.ts",
+    "./output-text": "./src/output-text.ts",
+    "./utf8": "./src/utf8.ts"
   },
   "scripts": {
     "format": "vp fmt .",
     "lint": "vp lint --format stylish .",
     "check": "vp fmt --check . && vp run lint",
     "test": "vp test run"
+  },
+  "dependencies": {
+    "@git-diff-view/core": "catalog:",
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "@earendil-works/pi-tui": "*"

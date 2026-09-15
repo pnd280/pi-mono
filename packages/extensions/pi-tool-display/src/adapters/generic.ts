@@ -4,7 +4,7 @@ import type { ToolDisplayAdapter } from "../contracts.ts";
 
 export const genericAdapter: ToolDisplayAdapter = { id: "generic", family: "invocation" };
 
-/** A fallback is a projection, not a replacement of the call's selected contract or result. */
+/** Generic fallback changes presentation without replacing the selected contract or result. */
 export function resolveResultAdapter(
   adapter: ToolDisplayAdapter,
   args: unknown,

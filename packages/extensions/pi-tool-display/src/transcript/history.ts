@@ -1,18 +1,18 @@
 import type { SessionManager } from "@earendil-works/pi-coding-agent";
 
 import type { DisplayCall, DisplayFact } from "../contracts.ts";
-import { displayRecordKey, readDisplayRecords } from "./metadata.ts";
+import { DisplayRecordIndex } from "./metadata.ts";
 
 export type HistorySource = Pick<SessionManager, "getBranch" | "getLeafId" | "getEntry">;
 
 /** Index only the selected ancestry; divergent branches must drop old timestamp associations. */
 export class DisplayHistory {
-  private metadata: ReturnType<typeof readDisplayRecords>;
+  private metadata: DisplayRecordIndex;
   private messageEntries: Map<number, string>;
   private indexedLeaf: string | null;
   constructor(private source: HistorySource) {
     const branch = source.getBranch();
-    this.metadata = readDisplayRecords(branch);
+    this.metadata = new DisplayRecordIndex(branch);
     this.messageEntries = new Map(
       branch.flatMap((entry) =>
         entry.type === "message" && entry.message.role === "assistant"
@@ -49,8 +49,16 @@ export class DisplayHistory {
     return this.messageEntries.get(timestamp);
   }
   facts(call: DisplayCall): readonly DisplayFact[] {
-    return (this.metadata.get(displayRecordKey(call.reference, call.adapter.id)) ?? []).map(
-      (record) => record.fact
+    const records = this.metadata.forCall(call.reference);
+    const facts = records
+      .filter((record) => record.adapter === call.adapter.id && record.fact.kind !== "cancellation")
+      .map((record) => record.fact);
+    // A recorded cancellation remains known when the renderer changes.
+    const cancelled = records.some(
+      ({ fact }) =>
+        fact.kind === "cancellation" || (fact.kind === "operation" && fact.outcome === "cancelled")
     );
+
+    return cancelled ? [...facts, { kind: "cancellation", availability: "available" }] : facts;
   }
 }

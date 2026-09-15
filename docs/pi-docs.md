@@ -1,5 +1,7 @@
 # Pi API references
 
+[Workspace development](development.md#pi-apis)
+
 - [Main documentation](../node_modules/@earendil-works/pi-coding-agent/README.md)
 - [Extensions](../node_modules/@earendil-works/pi-coding-agent/docs/extensions.md) and [extension examples](../node_modules/@earendil-works/pi-coding-agent/examples/extensions/)
 - [TUI components](../node_modules/@earendil-works/pi-coding-agent/docs/tui.md)

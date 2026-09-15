@@ -1,0 +1,54 @@
+{
+  "name": "@pi-mono/libs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./native-clipboard": "./src/native-clipboard/index.ts",
+    "./git-ignore": "./src/git-ignore/index.ts",
+    "./output-buffer": "./src/output-buffer/index.ts",
+    "./bounded-output": "./src/bounded-output/index.ts",
+    "./bounded-diff": "./src/bounded-diff/index.ts",
+    "./async-cache": "./src/async-cache/index.ts",
+    "./file-observation": "./src/file-observation/index.ts",
+    "./latest-task": "./src/latest-task/index.ts",
+    "./expiring-notice": "./src/expiring-notice/index.ts",
+    "./timed-confirmation": "./src/timed-confirmation/index.ts",
+    "./private-files": "./src/private-files/index.ts",
+    "./tui/responsive-custom-ui": "./src/tui/responsive-custom-ui/index.ts",
+    "./tui/open-browser": "./src/tui/open-browser/index.ts",
+    "./tui/keybindings": "./src/tui/keybindings/index.ts",
+    "./tui/terminal-text": "./src/tui/terminal-text/index.ts",
+    "./tui/text-layout": "./src/tui/text-layout/index.ts",
+    "./tui/text-budget": "./src/tui/text-budget/index.ts",
+    "./tui/components/browser": "./src/tui/components/browser/index.ts",
+    "./tui/components/code-highlight": "./src/tui/components/code-highlight/index.ts",
+    "./tui/components/diff-view": "./src/tui/components/diff-view/index.ts",
+    "./tui/components/hint-footer": "./src/tui/components/hint-footer/index.ts",
+    "./tui/components/text-preview": "./src/tui/components/text-preview/index.ts",
+    "./tui/components/tree": "./src/tui/components/tree/index.ts",
+    "./tui/components/windowed-list": "./src/tui/components/windowed-list/index.ts",
+    "./text-search": "./src/text-search/index.ts",
+    "./owned-hooks": "./src/owned-hooks/index.ts",
+    "./validation/pi-process": "./src/validation/pi-process/index.ts",
+    "./validation/terminal-launcher": "./src/validation/terminal-launcher/index.ts",
+    "./validation/provider": "./src/validation/provider/index.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@git-diff-view/core": "catalog:",
+    "@pi-mono/utils": "workspace:*",
+    "diff": "9.0.0",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  }
+}

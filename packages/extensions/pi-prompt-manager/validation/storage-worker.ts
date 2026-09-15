@@ -1,8 +1,15 @@
+import { z } from "zod";
+
 import { FileRepository } from "../src/storage/repository.ts";
 
-const [cwd, agentDir, label, countText, hold] = process.argv.slice(2);
-
-if (!cwd || !agentDir || !label || !countText) throw new Error("Missing storage worker arguments.");
+const argumentsSchema = z.tuple([
+  z.string().min(1),
+  z.string().min(1),
+  z.string().min(1),
+  z.string().regex(/^\d+$/).transform(Number).pipe(z.int().nonnegative()),
+  z.literal("hold").optional()
+]);
+const [cwd, agentDir, label, count, hold] = argumentsSchema.parse(process.argv.slice(2));
 const repository = await FileRepository.create({
   cwd,
   agentDir,
@@ -19,7 +26,7 @@ const repository = await FileRepository.create({
       : {}
 });
 
-for (let index = 0; index < Number(countText); index++) {
+for (let index = 0; index < count; index++) {
   const result = await repository.mutate(
     "drafts",
     { kind: "add", text: `${label}-${index}`, recordedAt: "2026-01-01T00:00:00.000Z" },

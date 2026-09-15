@@ -2,19 +2,24 @@ import { stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { containsPath, expandHomePath } from "@pi-mono/utils/paths";
+import { z } from "zod";
+
 export type SearchKind = "find" | "grep" | "multi";
 
-export interface SearchInput {
-  pattern?: string;
-  patterns?: string[];
-  path?: string;
-  exclude?: string | string[];
-  constraints?: string;
-  caseSensitive?: boolean;
-  context?: number;
-  cursor?: string;
-  limit?: number;
-}
+export const searchInputSchema = z.object({
+  pattern: z.string().optional(),
+  patterns: z.array(z.string()).optional(),
+  path: z.string().optional(),
+  exclude: z.union([z.string(), z.array(z.string())]).optional(),
+  constraints: z.string().optional(),
+  caseSensitive: z.boolean().optional(),
+  context: z.number().optional(),
+  cursor: z.string().optional(),
+  limit: z.number().optional()
+});
+
+export type SearchInput = z.infer<typeof searchInputSchema>;
 
 interface ScopeFilter {
   root: string;
@@ -41,20 +46,8 @@ interface ScopeExpression {
   validatePath: boolean;
 }
 
-export function contains(parent: string, child: string): boolean {
-  const relative = path.relative(parent, child);
-
-  return (
-    relative === "" ||
-    (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))
-  );
-}
-
 export function resolvePath(value: string, cwd: string): string {
-  return path.resolve(
-    cwd,
-    value === "~" || value.startsWith("~/") ? path.join(homedir(), value.slice(1)) : value
-  );
+  return path.resolve(cwd, expandHomePath(value, homedir()));
 }
 
 export function hasGlob(value: string): boolean {
@@ -69,7 +62,7 @@ function normalizeFilenameConstraint(expression: string, cwd: string): string {
   // FFF normalizes path/exclude fields before parsing. Workspace-local absolute
   // paths and ./ prefixes cannot make a bare filename filter concrete.
   const value =
-    path.isAbsolute(expression) && contains(cwd, expression)
+    path.isAbsolute(expression) && containsPath(cwd, expression)
       ? path.relative(cwd, expression).split(path.sep).join("/") || "."
       : expression;
   const normalized = value.replace(/^\.\//, "");
@@ -183,14 +176,14 @@ function relativeFilter(expression: string, root: string, cwd: string): string |
   const prefix = boundary < 0 ? value : parts.slice(0, boundary).join("/") || "/";
   const absolute = resolvePath(prefix, cwd);
 
-  if (contains(root, absolute)) {
+  if (containsPath(root, absolute)) {
     const relative = path.relative(root, absolute).split(path.sep).join("/");
     const suffix = boundary < 0 ? "" : parts.slice(boundary).join("/");
 
     return "/" + [escapeGlob(relative), suffix].filter(Boolean).join("/");
   }
 
-  if (contains(absolute, root)) {
+  if (containsPath(absolute, root)) {
     if (boundary < 0) return "/**";
     const suffix = parts.slice(boundary).join("/");
     if (suffix === "**" || suffix === "**/*") return "/**";
@@ -274,7 +267,7 @@ async function excluded(target: Target, excludes: string[], cwd: string): Promis
       concrete &&
       !concrete.filters.length &&
       (concrete.absolute === target.absolute ||
-        (concrete.directory && contains(concrete.absolute, target.absolute)))
+        (concrete.directory && containsPath(concrete.absolute, target.absolute)))
     )
       return true;
     const relative = path.relative(cwd, target.absolute).split(path.sep).join("/");
@@ -311,12 +304,9 @@ async function queryExpressions(
       value: normalizeFilenameConstraint(input.path.trim(), cwd),
       validatePath: true
     });
-  const tokens =
-    kind === "multi"
-      ? (input.constraints ?? "").split(/\s+/).filter(Boolean)
-      : kind === "find"
-        ? await filenameTokens(input.pattern ?? "", cwd)
-        : [];
+  let tokens: string[] = [];
+  if (kind === "multi") tokens = (input.constraints ?? "").split(/\s+/).filter(Boolean);
+  else if (kind === "find") tokens = await filenameTokens(input.pattern ?? "", cwd);
 
   for (const token of tokens) {
     if (token.startsWith("!")) scope.excludes.push(token.slice(1));
@@ -348,9 +338,9 @@ function intersectTargets(left: Target[], right: Target[]): Target[] {
 
   for (const first of left) {
     for (const second of right) {
-      const outer = contains(first.absolute, second.absolute) ? first : second;
+      const outer = containsPath(first.absolute, second.absolute) ? first : second;
       const inner = outer === first ? second : first;
-      if (!contains(outer.absolute, inner.absolute)) continue;
+      if (!containsPath(outer.absolute, inner.absolute)) continue;
       if (!outer.directory && outer.absolute !== inner.absolute) continue;
       const filters = [...first.filters, ...second.filters];
       if (

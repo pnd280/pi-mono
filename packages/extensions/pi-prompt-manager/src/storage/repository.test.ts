@@ -20,13 +20,13 @@ import { afterEach, beforeEach, expect, it } from "vite-plus/test";
 import { limits, type Snapshot } from "../model.ts";
 import {
   deferred,
+  encode,
   entry,
   managerFixture,
   recordedAt,
   session,
   workspace
 } from "../test-fixture.ts";
-import { encode } from "./codec.ts";
 import { FileRepository } from "./repository.ts";
 
 let fixture: Awaited<ReturnType<typeof workspace>>;
@@ -253,7 +253,7 @@ it("expires queued work but lets started atomic writes and owned lock cleanup fi
 function worker(label: string, count: number, hold = false) {
   return fork(
     new URL("../../validation/storage-worker.ts", import.meta.url),
-    [fixture.cwd, fixture.agentDir, label, String(count), hold ? "hold" : ""],
+    [fixture.cwd, fixture.agentDir, label, String(count), ...(hold ? ["hold"] : [])],
     {
       execArgv: ["--experimental-transform-types", "--disable-warning=ExperimentalWarning"],
       stdio: ["ignore", "pipe", "pipe", "ipc"]

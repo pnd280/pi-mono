@@ -1,5 +1,5 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { selectAdapter } from "../../host/selection.ts";
 import { createToolDisplayRenderers } from "../../rendering/cards.ts";
@@ -118,6 +118,33 @@ it("keeps gateway routing summaries visible without parameter details and honors
   }
 });
 
+it.each(["mcp", "mcpScript", "mcp__docs", "lookup"])(
+  "does not serialize hidden %s parameters, including expanded cards",
+  (name) => {
+    const serialize = vi.fn(() => ({ code: "x".repeat(100 * 1024) }));
+    const parameters = { toJSON: serialize };
+    const args = ["mcp", "mcp__docs"].includes(name)
+      ? { tool: "search", args: parameters }
+      : parameters;
+    const adapter = piMcpAdapter(mcpToolInfo(name))!;
+
+    for (const expanded of [false, true]) {
+      const renderer = createToolDisplayRenderers(name, adapter);
+      const current = { ...context(), expanded };
+      const header = renderer.renderCall(args, theme, current);
+      header.render(120);
+      header.render(80);
+    }
+
+    expect(serialize).not.toHaveBeenCalled();
+    const visible = createToolDisplayRenderers(name, adapter, { showParameters: true });
+    const header = visible.renderCall(args, theme, context());
+    expect(header.render(120).join("\n")).toContain("code");
+    header.render(120);
+    expect(serialize).toHaveBeenCalledOnce();
+  }
+);
+
 it("uses resolved result identity with visible parameters and never substitutes raw MCP output", () => {
   const adapter = piMcpAdapter(mcpToolInfo())!;
   const args = { tool: "docs_search", args: '{"query":"needle"}' };
@@ -194,6 +221,39 @@ it("distinguishes returned errors without claiming a caught failure is a transpo
 
   expect(adapter.mcp?.({}, result({}))).toBeUndefined();
 });
+
+it.each([
+  ["mcp", "aborted", "Call cancelled", "warning"],
+  ["mcp__docs", "aborted", "Call cancelled", "warning"],
+  ["lookup", "aborted", "Call cancelled", "warning"],
+  ["mcpScript", "aborted", "Call cancelled", "warning"],
+  ["mcpScript", "script_error", "Call failed", "error"],
+  ["mcpScript", "timeout", "Call failed", "error"]
+])(
+  "renders %s %s as a terminal outcome even without Pi's error flag",
+  (name, error, verb, color) => {
+    const renderer = createToolDisplayRenderers(name, piMcpAdapter(mcpToolInfo(name)));
+    const colored = {
+      ...theme,
+      fg: (token: string, text: string) => `<${token}>${text}</${token}>`
+    };
+    const supplied = result({
+      mode: name === "mcpScript" ? "script" : "call",
+      server: "docs",
+      tool: "search",
+      error
+    });
+
+    for (const expanded of [false, true]) {
+      const current = { ...context(), expanded };
+      const header = renderer.renderCall({}, colored, current);
+      const body = renderer.renderResult(supplied, current, colored, current);
+      expect(header.render(160).join("\n")).toContain(`<${color}>•</${color}>`);
+      expect(header.render(160).join("\n")).toContain(verb);
+      expect(body.render(160).join("\n")).toContain(`<${color}>published output</${color}>`);
+    }
+  }
+);
 
 it("falls back for missing or malformed retained contracts without adding observation", () => {
   const adapter = piMcpAdapter(mcpToolInfo())!;

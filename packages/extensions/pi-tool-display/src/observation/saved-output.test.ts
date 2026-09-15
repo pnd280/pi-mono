@@ -2,9 +2,8 @@ import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
 
-import type { SavedOutput } from "../contracts.ts";
 import { SavedOutputLoader, SAVED_OUTPUT_BYTES } from "./saved-output.ts";
 it("loads bounded head/tail files and falls back for missing and nonregular output", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-output-"));
@@ -24,29 +23,6 @@ it("loads bounded head/tail files and falls back for missing and nonregular outp
     expect((await loader.load(join(directory, "missing")))?.notice).toContain("unavailable");
     await mkdir(join(directory, "folder"));
     expect((await loader.load(join(directory, "folder")))?.notice).toContain("regular file");
-  } finally {
-    loader.dispose();
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-it("marks only generated omissions, preserving identical literal output and UTF-16 offsets", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "display-output-spans-"));
-  const loader = new SavedOutputLoader();
-
-  try {
-    const marker = "… 256 bytes omitted …";
-    const prefix = `界😀 ${marker}\n`;
-    const path = join(directory, "bytes");
-    await writeFile(
-      path,
-      prefix + "x".repeat(SAVED_OUTPUT_BYTES + 256 - Buffer.byteLength(prefix))
-    );
-    const output = (await loader.load(path))!;
-    expect(output.text).toContain(prefix);
-    expect(output.omissions).toHaveLength(1);
-    const range = output.omissions![0]!;
-    expect(range.start).toBeGreaterThan(prefix.length);
-    expect(output.text!.slice(range.start, range.end)).toBe(marker);
   } finally {
     loader.dispose();
     await rm(directory, { recursive: true, force: true });
@@ -80,21 +56,4 @@ it("preserves BOMs and literal replacement characters while omitting only split 
     loader.dispose();
     await rm(directory, { recursive: true, force: true });
   }
-});
-it("deduplicates in-flight loads and rejects stale completions after disposal", async () => {
-  let complete!: (output: SavedOutput) => void;
-  const load = vi.fn(
-    () =>
-      new Promise<SavedOutput>((resolve) => {
-        complete = resolve;
-      })
-  );
-  const loader = new SavedOutputLoader(load);
-  const first = loader.load("saved");
-  expect(loader.load("saved")).toBe(first);
-  expect(load).toHaveBeenCalledTimes(1);
-  loader.dispose();
-  complete({ path: "saved", text: "stale" });
-  expect(await first).toBeUndefined();
-  expect(await loader.load("new")).toBeUndefined();
 });

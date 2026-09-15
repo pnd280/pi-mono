@@ -1,6 +1,9 @@
+import { setImmediate } from "node:timers/promises";
+
+import { searchText } from "@pi-mono/libs/text-search";
 import { expect, it } from "vite-plus/test";
 
-import { initialHistoryQuery, normalizeSearch, prepareItems, searchItems } from "./search.ts";
+import { initialHistoryQuery, prepareItems } from "./search.ts";
 import { collection, entry } from "./test-fixture.ts";
 
 it("ranks phrase, all literal terms, then summed per-term fuzzy scores in stable order", async () => {
@@ -14,7 +17,7 @@ it("ranks phrase, all literal terms, then summed per-term fuzzy scores in stable
       entry("unrelated")
     ])
   );
-  const result = await searchItems(items, "FOO  bar");
+  const result = await searchText(items, "FOO  bar");
   expect(result.map((item) => item.occurrence.source.text)).toEqual([
     "foo bar first",
     "foo bar second",
@@ -22,9 +25,7 @@ it("ranks phrase, all literal terms, then summed per-term fuzzy scores in stable
     "bar ... foo",
     "f_o_o b_a_r"
   ]);
-  expect(await searchItems(items, "")).toBe(items);
-  expect(normalizeSearch("CAFÉ\t A\nB")).toBe("café a b");
-  expect(normalizeSearch("e\u0301")).not.toBe(normalizeSearch("é"));
+  expect(await searchText(items, "")).toBe(items);
 });
 
 it("searches complete sanitized text while preserving exact copy/restoration source and draft numbering", async () => {
@@ -32,17 +33,22 @@ it("searches complete sanitized text while preserving exact copy/restoration sou
   const items = await prepareItems(
     collection([entry("other"), entry(source, { recordedAt: "invalid" })])
   );
-  expect((await searchItems(items, "needle"))[0]?.occurrence.number).toBe(2);
-  expect(await searchItems(items, "hidden")).toEqual([]);
+  expect((await searchText(items, "needle"))[0]?.occurrence.number).toBe(2);
+  expect(await searchText(items, "hidden")).toEqual([]);
   expect(items[1]?.occurrence.source.text).toBe(source);
   expect(items[1]?.time).toBeUndefined();
 });
 
-it("preserves whitespace and Unicode lowercase semantics across large normalization chunks", async () => {
-  const prefix = "A".repeat(65534);
-  const source = prefix + "ΟΣΑ" + " ".repeat(3 * 65536) + "\u202fEND ";
-  const items = await prepareItems(collection([entry(source)]));
-  expect(items[0]?.normalized).toBe("a".repeat(65534) + "οσα end");
+it("stops preparing a collection when its view expires", async () => {
+  const controller = new AbortController();
+  const snapshot = collection(Array.from({ length: 8 }, () => entry("large ".repeat(50000))));
+  const pending = prepareItems(snapshot, controller.signal);
+  const cancelled = expect(pending.then(() => "completed")).rejects.toMatchObject({
+    name: "AbortError"
+  });
+  await setImmediate();
+  controller.abort();
+  await cancelled;
 });
 
 it("seeds History only from short single-line nonblank original editor text", () => {

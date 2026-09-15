@@ -53,7 +53,7 @@ it("requires a native image envelope before promoting image warnings", () => {
     { kind: "warning", text: omitted },
     { kind: "warning", text: note }
   ]);
-  const parts = nativeResultParts("read", text, {}, { isPartial: false, isError: false });
+  const parts = nativeResultParts("read", text, {}, complete);
   expect(parts.map((part) => part.text).join("")).toBe(text);
   expect(parts.filter((part) => part.kind === "warning").map((part) => part.text)).toEqual([
     omitted,
@@ -61,7 +61,7 @@ it("requires a native image envelope before promoting image warnings", () => {
   ]);
 });
 
-const complete = { isError: false, isPartial: false };
+const complete = { isError: false, isPartial: false, isCancelled: false, expanded: false };
 it("recognizes native envelopes while preserving supplied bytes and literal lookalikes", () => {
   for (const [name, text, context, annotation, warning] of [
     ["bash", "(no output)", complete, "(no output)", ""],
@@ -75,13 +75,7 @@ it("recognizes native envelopes while preserving supplied bytes and literal look
       "",
       "[2 more lines in file. Use offset=3 to continue.]"
     ],
-    [
-      "bash",
-      "\x1b[32mstdout\x1b[0m\n\nCommand aborted",
-      { ...complete, isError: true },
-      "",
-      "Command aborted"
-    ],
+    ["bash", "\x1b[32mstdout\x1b[0m\n\nCommand aborted", { ...complete, isError: true }, "", ""],
     ["bash", "(no output)", { ...complete, isPartial: true }, "", ""],
     ["bash", "literal (no output)\nCommand exited with code 42\n", complete, "", ""],
     ["read", "user prose\n\n[Showing lines unrelated to the native contract]", complete, "", ""],

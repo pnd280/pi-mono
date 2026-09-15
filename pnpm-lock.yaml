@@ -116,6 +116,9 @@ catalogs:
     '@earendil-works/pi-tui':
       specifier: ^0.85.1
       version: 0.85.1
+    '@git-diff-view/core':
+      specifier: ^0.1.7
+      version: 0.1.7
     '@stylistic/eslint-plugin':
       specifier: ^5.10.0
       version: 5.10.0
@@ -137,6 +140,9 @@ catalogs:
     vite-plus:
       specifier: 0.3.0
       version: 0.3.0
+    zod:
+      specifier: ^4.6.5
+      version: 4.6.5
 
 overrides:
   vite@*: npm:@voidzero-dev/vite-plus-core@0.3.0
@@ -148,10 +154,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)
+        version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)
+        version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 0.85.1
@@ -179,39 +185,81 @@ importers:
 
   packages/extensions/pi-fff-guard:
     dependencies:
+      '@pi-mono/libs':
+        specifier: workspace:*
+        version: link:../../libs
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
 
   packages/extensions/pi-prompt-manager:
     dependencies:
       '@earendil-works/pi-coding-agent':
         specifier: '*'
-        version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)
+        version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-tui':
         specifier: '*'
         version: 0.85.1
+      '@pi-mono/libs':
+        specifier: workspace:*
+        version: link:../../libs
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
 
   packages/extensions/pi-tool-display:
     dependencies:
-      '@git-diff-view/core':
-        specifier: 0.1.7
-        version: 0.1.7
+      '@pi-mono/libs':
+        specifier: workspace:*
+        version: link:../../libs
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
+
+  packages/libs:
+    dependencies:
+      '@earendil-works/pi-ai':
+        specifier: '*'
+        version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
+      '@earendil-works/pi-coding-agent':
+        specifier: '*'
+        version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
+      '@earendil-works/pi-tui':
+        specifier: '*'
+        version: 0.85.1
+      '@git-diff-view/core':
+        specifier: 'catalog:'
+        version: 0.1.7
+      '@pi-mono/utils':
+        specifier: workspace:*
+        version: link:../utils
       diff:
         specifier: 9.0.0
         version: 9.0.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
 
   packages/utils:
     dependencies:
       '@earendil-works/pi-tui':
         specifier: '*'
         version: 0.85.1
+      '@git-diff-view/core':
+        specifier: 'catalog:'
+        version: 0.1.7
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
 
 packages:
 
@@ -2604,12 +2652,17 @@ packages:
   yuku-parser@0.5.48:
     resolution: {integrity: sha512-OWBfhrpgK9+/4+IXG9oT8Bao4AhViQA7vdyNNH7EUg8dQYgwa70XtIBWTpCEme1P1ECyoDNYkn0wT63f8XRcVA==}
 
+  zod@4.6.5:
+    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
+
 snapshots:
 
-  '@anthropic-ai/sdk@0.123.0':
+  '@anthropic-ai/sdk@0.123.0(zod@4.6.5)':
     dependencies:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.1.1
+    optionalDependencies:
+      zod: 4.6.5
 
   '@aws-crypto/sha256-browser@5.2.0':
     dependencies:
@@ -2867,10 +2920,10 @@ snapshots:
     dependencies:
       esbuild: 0.28.1
 
-  '@earendil-works/pi-agent-core@0.85.1(supports-color@7.2.0)(ws@8.21.3)':
+  '@earendil-works/pi-agent-core@0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)':
     dependencies:
       '@earendil-works/chord': 0.85.1
-      '@earendil-works/pi-ai': 0.85.1(supports-color@7.2.0)(ws@8.21.3)
+      '@earendil-works/pi-ai': 0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-telemetry': 0.85.1
       diff: 8.0.4
       ignore: 7.0.5
@@ -2884,16 +2937,16 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@0.85.1(supports-color@7.2.0)(ws@8.21.3)':
+  '@earendil-works/pi-ai@0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)':
     dependencies:
-      '@anthropic-ai/sdk': 0.123.0
+      '@anthropic-ai/sdk': 0.123.0(zod@4.6.5)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0
       '@earendil-works/pi-telemetry': 0.85.1
       '@google/genai': 1.52.0(supports-color@7.2.0)
       '@smithy/node-http-handler': 4.7.3
       http-proxy-agent: 7.0.2(supports-color@7.2.0)
       https-proxy-agent: 7.0.6(supports-color@7.2.0)
-      openai: 6.40.0(ws@8.21.3)
+      openai: 6.40.0(ws@8.21.3)(zod@4.6.5)
       partial-json: 0.1.7
       typebox: 1.3.7
     transitivePeerDependencies:
@@ -2904,11 +2957,11 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-coding-agent@0.85.1(supports-color@7.2.0)(ws@8.21.3)':
+  '@earendil-works/pi-coding-agent@0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)':
     dependencies:
       '@earendil-works/chord': 0.85.1
-      '@earendil-works/pi-agent-core': 0.85.1(supports-color@7.2.0)(ws@8.21.3)
-      '@earendil-works/pi-ai': 0.85.1(supports-color@7.2.0)(ws@8.21.3)
+      '@earendil-works/pi-agent-core': 0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
+      '@earendil-works/pi-ai': 0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-tui': 0.85.1
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
@@ -4355,9 +4408,10 @@ snapshots:
 
   obug@2.1.4: {}
 
-  openai@6.40.0(ws@8.21.3):
+  openai@6.40.0(ws@8.21.3)(zod@4.6.5):
     optionalDependencies:
       ws: 8.21.3
+      zod: 4.6.5
 
   optionator@0.9.4:
     dependencies:
@@ -4783,3 +4837,5 @@ snapshots:
       '@yuku-parser/binding-linux-x64-musl': 0.5.48
       '@yuku-parser/binding-win32-arm64': 0.5.48
       '@yuku-parser/binding-win32-x64': 0.5.48
+
+  zod@4.6.5: {}

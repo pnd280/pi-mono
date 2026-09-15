@@ -1,23 +1,36 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
-import type { DisplayNotice, McpFacts } from "../../contracts.ts";
+import type { DisplayNotice, McpFacts, Outcome } from "../../contracts.ts";
 import { record } from "../../values.ts";
+import {
+  callIdentitySchema,
+  failedScriptCallSchema,
+  noticeDetailsSchema,
+  omittedResultSchema,
+  outputGuardSchema
+} from "./schemas.ts";
 
 export function mcpCallIdentity(
   result?: AgentToolResult<unknown>
 ): Pick<McpFacts, "server" | "tool"> | undefined {
-  const details = record(result?.details);
-  const { server, tool } = details;
-  if (
-    typeof server !== "string" ||
-    !server ||
-    typeof tool !== "string" ||
-    !tool ||
-    (details.mode !== undefined && details.mode !== "call")
-  )
-    return undefined;
+  const parsed = callIdentitySchema.safeParse(result?.details);
+  if (!parsed.success) return undefined;
+  const { server, tool } = parsed.data;
 
   return { server, tool };
+}
+
+export function mcpResultOutcome(result: AgentToolResult<unknown>): Outcome | undefined {
+  const details = noticeDetailsSchema.safeParse(result.details).data;
+  if (details?.error === "aborted") return "cancelled";
+  if (
+    details?.error &&
+    (["tool_error", "call_failed", "input_required_needs_ui"].includes(details.error) ||
+      (details.mode === "script" && ["script_error", "timeout"].includes(details.error)))
+  )
+    return "failure";
+
+  return undefined;
 }
 
 export function mcpCallFacts(result?: AgentToolResult<unknown>): McpFacts | undefined {
@@ -40,29 +53,29 @@ export function mcpCallFacts(result?: AgentToolResult<unknown>): McpFacts | unde
 }
 
 function outputNotices(value: unknown): DisplayNotice[] {
-  const guard = record(value);
-  if (guard.truncated !== true) return [];
+  const parsed = outputGuardSchema.safeParse(value);
+  if (!parsed.success) return [];
+  const guard = parsed.data;
   const notices: DisplayNotice[] = [{ kind: "warning", text: "MCP output truncated." }];
-  if (typeof guard.fullOutputPath === "string" && guard.fullOutputPath)
+  if (guard.fullOutputPath)
     notices.push({ kind: "reference", label: "Saved output", value: guard.fullOutputPath });
-  if (typeof guard.writeError === "string" && guard.writeError)
+  if (guard.writeError)
     notices.push({ kind: "warning", text: `MCP output could not be saved: ${guard.writeError}` });
 
   return notices;
 }
 
 export function mcpNotices(result: AgentToolResult<unknown>, expanded: boolean): DisplayNotice[] {
-  const details = record(result.details);
+  const details = noticeDetailsSchema.safeParse(result.details).data;
+  if (!details) return [];
   const notices: DisplayNotice[] = [];
 
-  if (typeof details.error === "string" && details.error) {
+  if (details.error) {
     const typedToolError =
       details.error === "tool_error" && result.content.length > 0 && !!mcpCallIdentity(result);
     if (!typedToolError)
       notices.push({
-        kind: ["tool_error", "call_failed", "input_required_needs_ui"].includes(details.error)
-          ? "error"
-          : "warning",
+        kind: mcpResultOutcome(result) === "failure" ? "error" : "warning",
         // call_failed covers caught local errors as well as transport failures.
         text: `MCP: ${details.error}`
       });
@@ -70,8 +83,10 @@ export function mcpNotices(result: AgentToolResult<unknown>, expanded: boolean):
 
   notices.push(...outputNotices(details.outputGuard));
 
-  if (details.mode === "script" && Array.isArray(details.calls)) {
-    const failed = details.calls.filter((call: unknown) => record(call).ok === false).length;
+  if (details.mode === "script" && details.calls) {
+    const failed = details.calls.filter(
+      (call) => failedScriptCallSchema.safeParse(call).success
+    ).length;
     if (failed)
       notices.push({
         kind: "warning",
@@ -80,13 +95,13 @@ export function mcpNotices(result: AgentToolResult<unknown>, expanded: boolean):
   }
 
   if (expanded) {
-    if (typeof details.resourceUri === "string" && details.resourceUri)
+    if (details.resourceUri)
       notices.push({ kind: "reference", label: "Resource", value: details.resourceUri });
-    const raw = record(details.mcpResult);
+    const raw = omittedResultSchema.safeParse(details.mcpResult).data;
 
-    if (raw.omitted === true) {
+    if (raw) {
       notices.push({ kind: "unavailable", text: "Raw MCP result omitted from retained details." });
-      if (typeof raw.fullResultPath === "string" && raw.fullResultPath)
+      if (raw.fullResultPath)
         notices.push({ kind: "reference", label: "Saved MCP result", value: raw.fullResultPath });
     }
   }

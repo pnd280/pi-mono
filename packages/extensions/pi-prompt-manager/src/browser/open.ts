@@ -1,174 +1,160 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth } from "@earendil-works/pi-tui";
+import { searchText } from "@pi-mono/libs/text-search";
+import type { BrowserOptions, BrowserSnapshot } from "@pi-mono/libs/tui/components/browser";
+import { openBrowser as openSharedBrowser } from "@pi-mono/libs/tui/open-browser";
+import { relativeTime } from "@pi-mono/utils/relative-time";
 
 import { assertRestorable } from "../host/editor.ts";
-import type { PromptManager, ViewRequest } from "../manager.ts";
-import { errorMessage, PromptError, type Occurrence } from "../model.ts";
-import { BrowserController } from "./controller.ts";
-import { usableCancelKeys } from "./controls.ts";
-import { browserLayout } from "./layout.ts";
-import { BrowserView } from "./view.ts";
+import type { RestorationRequest, ViewRequest } from "../manager.ts";
+import {
+  errorMessage,
+  PromptError,
+  type Collection,
+  type Occurrence,
+  type MutationResult,
+  type Repository,
+  type Snapshot
+} from "../model.ts";
+import { initialHistoryQuery, prepareItems, type SearchItem } from "../search.ts";
 
-type RestorationRequest = { target: Occurrence; remove: boolean };
+type PromptItem = SearchItem & { removable: boolean };
+
+type BrowserPorts = {
+  read: Repository["read"];
+  copy(target: Occurrence): Promise<void>;
+  remove(collection: Collection, target: Occurrence): Promise<MutationResult>;
+  notify(message: string, severity: "error"): void;
+};
+
+async function browserSnapshot(
+  snapshot: Snapshot,
+  signal: AbortSignal
+): Promise<BrowserSnapshot<PromptItem>> {
+  const items = await prepareItems(snapshot, signal);
+  let message = snapshot.warnings[0];
+  if (snapshot.access === "read-only") message = "Read-only: repair invalid occurrence IDs.";
+  else if (snapshot.access === "delete-only") message = "Recovery: deletions only.";
+
+  return {
+    items: items.map((item) => ({
+      ...item,
+      removable: item.occurrence.identity === "valid" && snapshot.access !== "read-only"
+    })),
+    ...(message ? { message } : {})
+  };
+}
+
+const formatRows: BrowserOptions<PromptItem>["format"] = (items, theme) => {
+  const now = Date.now();
+  const ageWidth = Math.max(3, ...items.map((item) => relativeTime(item.time, now).length));
+
+  return {
+    items: items.map((item) => ({
+      value: item.occurrence.key,
+      label: `${relativeTime(item.time, now).padEnd(ageWidth)}  ${item.summary}`
+    })),
+    layout: {
+      truncatePrimary: ({ text, maxWidth, isSelected }) => {
+        const label = truncateToWidth(text, maxWidth);
+
+        return isSelected
+          ? label
+          : theme.fg("muted", label.slice(0, ageWidth)) + label.slice(ageWidth);
+      }
+    }
+  };
+};
 
 export async function openBrowser(
-  ctx: ExtensionContext,
-  manager: PromptManager,
+  ui: Pick<ExtensionContext["ui"], "custom">,
+  ports: BrowserPorts,
   request: ViewRequest
 ): Promise<void> {
-  if (request.signal.aborted || !manager.active) return;
-  let requestRender: (() => void) | undefined;
-
-  let finishPresentation = () => {};
-
+  if (request.signal.aborted) return;
   let restoration: RestorationRequest | undefined;
-  let view: BrowserView | undefined;
 
-  const requestRestoration = (next: RestorationRequest) => {
+  const requestRestoration = (item: PromptItem, remove: boolean) => {
     try {
-      assertRestorable(next.target.source.text);
-      restoration = next;
+      assertRestorable(item.occurrence.source.text);
+      restoration = { target: item.occurrence, remove };
 
       return true;
     } catch (error) {
-      manager.notify(errorMessage(error), "error");
+      ports.notify(errorMessage(error), "error");
 
       return false;
     }
   };
 
-  const controller = new BrowserController(
-    {
-      read: (collection) => manager.ports.repository.read(collection),
-      copy: (target) => manager.copy(target),
-      restore: (target) => requestRestoration({ target, remove: false }),
-      restoreAndRemove: async (target) => {
-        if (!requestRestoration({ target, remove: true })) return false;
-        controller.close();
+  const collections: Collection[] = ["history", "drafts"];
+  const browser: BrowserOptions<PromptItem> = {
+    sections: collections.map((collection) => ({
+      id: collection,
+      label: collection,
+      initialQuery: collection === "history" ? initialHistoryQuery(request.initialEditor) : "",
+      load: async (signal) => {
+        const result = await ports.read(collection, signal);
+        if (result.status === "unavailable") throw new PromptError(result.message);
 
-        return true;
+        return browserSnapshot(result, signal);
       },
-      remove: (collection, target) => manager.remove(collection, target),
-      changed: () => requestRender?.(),
-      close: () => finishPresentation(),
-      now: Date.now
-    },
-    {
-      collection: request.collection,
-      initialEditor: request.initialEditor,
-      ...(request.inspectionIndex === undefined ? {} : { inspectionIndex: request.inspectionIndex })
-    }
-  );
-  const abort = () => controller.close();
-  request.signal.addEventListener("abort", abort, { once: true });
-
-  // The first factory supplies Pi's terminal dimensions. If space is short, finish that
-  // inline call before mounting it and reopen as an overlay. No stdout-size guess is needed.
-  let overlay = false;
-  const active = () => !controller.closed && manager.active && !request.signal.aborted;
-
-  try {
-    while (active()) {
-      const presentation: { remount: boolean; nextOverlay: boolean } = {
-        remount: false,
-        nextOverlay: overlay
-      };
-      let mounted = !overlay;
-      let pendingClose = false;
-      let settled = false;
-      await ctx.ui.custom<void>(
-        (tui, theme, keys, done) => {
-          const finish = () => {
-            pendingClose = true;
-            // Closing an unmounted overlay would pop an unrelated overlay in Pi.
-            if (!mounted || settled) return;
-            settled = true;
-            done();
-          };
-
-          finishPresentation = finish;
-
-          requestRender = () => {
-            if (manager.active) tui.requestRender();
-          };
-
-          if (!usableCancelKeys(keys).length)
-            throw new PromptError(
-              "Prompt browser requires an unshadowed cancel binding other than Ctrl+C. Fix tui.select.cancel / tui.input.copy and reload."
-            );
-
-          if (!view) {
-            view = new BrowserView(controller, tui, theme, keys);
-            void controller.activate();
-          }
-
-          const currentView = view;
-
-          const checkLayout = () => {
-            presentation.nextOverlay = browserLayout(tui.terminal.rows).overlay;
-            if (presentation.nextOverlay === overlay) return;
-            presentation.remount = true;
-            controller.cancelConfirmation();
-            // Never change Pi's component tree during its render traversal.
-            queueMicrotask(finish);
-          };
-
-          checkLayout();
-          if (request.signal.aborted || !manager.active || controller.closed)
-            queueMicrotask(() => {
-              controller.close();
-              finish();
-            });
-
-          // Only these host adapters are disposed on a resize. The logical view stays alive
-          // until final closure, retaining its Input cursor and prepared preview as well as state.
-          return {
-            render: (width) => {
-              if (settled || controller.closed) return [];
-              checkLayout();
-
-              return presentation.remount ? [] : currentView.render(width);
-            },
-            handleInput: (data) => {
-              if (!settled && !presentation.remount) currentView.handleInput(data);
-            },
-            invalidate: () => {
-              if (!settled) currentView.invalidate();
-            },
-            get focused() {
-              return !settled && currentView.focused;
-            },
-            set focused(value: boolean) {
-              if (!settled) currentView.focused = value;
-            },
-            dispose: () => {
-              if (!settled) controller.close();
+      confirm: { label: "restore", run: (item) => requestRestoration(item, false) },
+      ...(collection === "drafts"
+        ? {
+            alternate: {
+              label: "restore/remove",
+              run: (item: PromptItem) => requestRestoration(item, true)
             }
-          };
-        },
-        {
-          overlay,
-          overlayOptions: { width: "100%", maxHeight: "75%", anchor: "center" },
-          onHandle: () => {
-            mounted = true;
-            if (pendingClose) finishPresentation();
           }
-        }
-      );
-      if (!presentation.remount) break;
-      overlay = presentation.nextOverlay;
-    }
-  } finally {
-    request.signal.removeEventListener("abort", abort);
-    controller.close();
-  }
+        : {}),
+      copy: (item) => ports.copy(item.occurrence),
+      remove: {
+        label: "remove",
+        confirmation: "Delete again to remove (1.5s)",
+        pending: "Removing occurrence…",
+        durationMs: 1500,
+        enabled: (item) => item.removable,
+        run: async (item, signal) => {
+          const result = await ports.remove(collection, item.occurrence);
 
-  // Inline custom UI restores Pi's opening editor snapshot on close. Apply replacement
-  // only after the final presentation closes, never during an inline/overlay transition.
-  if (restoration) {
-    const operation = restoration.remove
-      ? manager.restoreAndRemove(restoration.target)
-      : manager.restore(restoration.target);
-    requestRender?.(); // setEditorText itself does not request a redraw.
-    await operation;
-  }
+          return result.status === "committed"
+            ? browserSnapshot(result.snapshot, signal)
+            : undefined;
+        }
+      }
+    })),
+    initialSection: request.collection,
+    key: (item) => item.occurrence.key,
+    search: searchText,
+    format: formatRows,
+    preview: (item) => ({
+      text: item.display,
+      metadata:
+        item.time === undefined
+          ? "Unknown time"
+          : new Date(item.time).toLocaleString(undefined, { timeZoneName: "longOffset" })
+    }),
+    ...(request.inspectionIndex === undefined
+      ? {}
+      : {
+          inspection: {
+            index: request.inspectionIndex,
+            title: `Draft ${request.inspectionIndex} · Inspection`,
+            missingMessage: "Draft number is outside the current collection."
+          }
+        }),
+    loadError: "Collection could not be read.",
+    cancelError: new PromptError(
+      "Prompt browser requires an unshadowed cancel binding other than Ctrl+C. Fix tui.select.cancel / tui.input.copy and reload."
+    )
+  };
+
+  await openSharedBrowser({
+    ui,
+    signal: request.signal,
+    browser,
+    onError: (error) => ports.notify(errorMessage(error), "error"),
+    afterClose: () => request.afterClose(restoration)
+  });
 }

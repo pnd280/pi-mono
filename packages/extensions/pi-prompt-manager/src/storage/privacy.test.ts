@@ -1,12 +1,11 @@
 import { execFile } from "node:child_process";
-import { open, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
 
 import { recordedAt, session, workspace } from "../test-fixture.ts";
-import { checkHandle } from "./privacy.ts";
 
 it.runIf(process.platform === "linux")(
   "refuses FIFO reads without hanging or changing unrelated files",
@@ -57,21 +56,3 @@ it.runIf(process.platform === "linux")(
     }
   }
 );
-
-it("checks descriptor ownership before permission repair", async () => {
-  const fixture = await workspace();
-  const path = join(fixture.directory, "owner-check");
-  await writeFile(path, "untouched", { mode: 0o644 });
-  const handle = await open(path, "r");
-
-  try {
-    const uid = (await handle.stat()).uid;
-    vi.spyOn(process, "getuid").mockReturnValue(uid + 1);
-    await expect(checkHandle(handle)).rejects.toThrow("ownership");
-    expect((await handle.stat()).mode & 0o777).toBe(0o644);
-  } finally {
-    vi.restoreAllMocks();
-    await handle.close();
-    await rm(fixture.directory, { recursive: true, force: true });
-  }
-});

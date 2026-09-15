@@ -2,15 +2,17 @@
 
 ## Code navigation
 
-- **Tool interception and diagnostics:** [src/index.ts](src/index.ts) and [src/interception.test.ts](src/interception.test.ts). Official FFF ownership/name classification is shared through [@pi-mono/utils/fff-tools](../../utils/README.md).
-- **Inspection policy:** [src/evaluate-search.ts](src/evaluate-search.ts) owns argument validation, the deadline, and allow/block decisions without a Pi session. Keep UI notification delivery in the entry point. See the [workspace architecture](../../../docs/architecture.md#fff-guard).
-- **Search scopes and missing paths:** [src/targets.ts](src/targets.ts). Local glob matching is for search filters only, never Git ignore rules.
-- **Git ignore checks and symbolic links:** [src/git-ignore.ts](src/git-ignore.ts).
+- **Tool interception and diagnostics:** [src/index.ts](src/index.ts) and [src/interception.test.ts](src/interception.test.ts). Package provenance and tool-name classification are shared in [fff-tools.ts](../../utils/src/fff-tools.ts).
+- **Inspection policy:** [src/evaluate-search.ts](src/evaluate-search.ts) validates arguments, enforces deadlines, and decides whether to allow or block a call.
+- **Search scopes and missing paths:** [src/targets.ts](src/targets.ts).
+- **Git protocol and symbolic links:** shared [Git ignore inspection](../../libs/src/git-ignore/README.md), with real-repository and worktree coverage in [src/git-ignore.test.ts](src/git-ignore.test.ts).
 
 ## Constraints
 
-Do not enumerate ignored directories or cache ignore decisions across calls. Use `{ block: true, reason }` without `terminate`.
+Keep notification delivery in the entry point. Use local glob matching for search filters and Git for ignore rules. Evaluate ignore status afresh for each call without enumerating ignored directories. Block with `{ block: true, reason }` without `terminate`.
 
-Do not generate replacement commands or add search guidance beyond the existing retry-tool hint. When changing adapters, check the installed schemas and normalization. Preserve explicit paths as data.
+Treat explicit paths as data. Limit diagnostics to the existing retry-tool hint; do not generate replacement commands. When changing adapters, check the installed schemas and normalization.
 
-Do not make paid model requests for validation.
+## Validation
+
+Use [package validation](README.md#validation). Do not make paid model requests for validation.
