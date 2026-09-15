@@ -1,9 +1,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { DiffLine, DiffLineType, diffChanges, type DiffRange } from "@git-diff-view/core";
+import { displayText } from "@pi-mono/utils/terminal-text";
 
 import type { ParsedPatch, PatchLine } from "../diff.ts";
-import { displayText } from "../terminal-text.ts";
 import { wrapRows } from "./layout.ts";
 
 const INLINE_DIFF_WORK_LIMIT = 40_000;

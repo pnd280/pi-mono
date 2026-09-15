@@ -2,8 +2,10 @@ import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { displayText } from "@pi-mono/utils/terminal-text";
+
 import type { ToolFamily, InvocationPart } from "./contracts.ts";
-import { displayText, stringField } from "./terminal-text.ts";
+import { stringField } from "./terminal-text.ts";
 import { record } from "./values.ts";
 
 function readRange(args: Record<string, unknown>): string {

@@ -1,0 +1,32 @@
+{
+  "name": "pi-prompt-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private directory-scoped prompt history and saved drafts for Pi TUI",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
+    "test": "vp test run",
+    "validate:terminal": "node validation/launch-terminal.ts"
+  },
+  "dependencies": {
+    "@pi-mono/utils": "workspace:*"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

@@ -183,6 +183,18 @@ importers:
         specifier: workspace:*
         version: link:../../utils
 
+  packages/extensions/pi-prompt-manager:
+    dependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: '*'
+        version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)
+      '@earendil-works/pi-tui':
+        specifier: '*'
+        version: 0.85.1
+      '@pi-mono/utils':
+        specifier: workspace:*
+        version: link:../../utils
+
   packages/extensions/pi-tool-display:
     dependencies:
       '@git-diff-view/core':
@@ -195,7 +207,11 @@ importers:
         specifier: 9.0.0
         version: 9.0.0
 
-  packages/utils: {}
+  packages/utils:
+    dependencies:
+      '@earendil-works/pi-tui':
+        specifier: '*'
+        version: 0.85.1
 
 packages:
 

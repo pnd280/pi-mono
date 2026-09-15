@@ -1,16 +1,4 @@
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
-
-/** Tool content is text, not terminal instructions. Styling is applied after normalization. */
-export function displayText(text: string): string {
-  return (
-    stripTerminalSequences(text)
-      .replace(/\r\n?/g, "\n")
-      .replace(/\t/g, "    ")
-      // C0/C1 bytes left outside recognized escape sequences must not control the terminal.
-      // oxlint-disable-next-line no-control-regex
-      .replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, "")
-  );
-}
+import { displayText } from "@pi-mono/utils/terminal-text";
 
 function escapeSequence(text: string, position: number): { end: number; sgr: string } {
   const code = text.charCodeAt(position);

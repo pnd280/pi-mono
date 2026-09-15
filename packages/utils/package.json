@@ -4,12 +4,16 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./fff-tools": "./src/fff-tools.ts"
+    "./fff-tools": "./src/fff-tools.ts",
+    "./terminal-text": "./src/terminal-text.ts"
   },
   "scripts": {
     "format": "vp fmt .",
     "lint": "vp lint --format stylish .",
     "check": "vp fmt --check . && vp run lint",
     "test": "vp test run"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-tui": "*"
   }
 }

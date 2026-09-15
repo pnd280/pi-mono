@@ -1,5 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { getCapabilities } from "@earendil-works/pi-tui";
+import { displayText } from "@pi-mono/utils/terminal-text";
 
 import {
   isCancelled,
@@ -9,7 +10,7 @@ import {
 } from "../contracts.ts";
 import { parsePatch } from "../diff.ts";
 import type { OutputText } from "../output-text.ts";
-import { displayText, styledOutput, stringField } from "../terminal-text.ts";
+import { styledOutput, stringField } from "../terminal-text.ts";
 import { record } from "../values.ts";
 import { renderDiffBody } from "./diff-view.ts";
 import { expansionHint, highlight, output, message, reference } from "./format.ts";

@@ -1,12 +1,13 @@
 # Workspace architecture
 
-| Package                                                               | Responsibility                                                             |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| [`pi-tool-display`](../packages/extensions/pi-tool-display/README.md) | Tool cards, exploration groups, and bounded display observations.          |
-| [`pi-fff-guard`](../packages/extensions/pi-fff-guard/README.md)       | Reject missing or Git-ignored explicit FFF targets.                        |
-| [`@pi-mono/utils`](../packages/utils/README.md)                       | Pure FFF ownership and tool-name classification shared by both extensions. |
+| Package                                                                   | Responsibility                                                         |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`pi-tool-display`](../packages/extensions/pi-tool-display/README.md)     | Tool cards, exploration groups, and bounded display observations.      |
+| [`pi-fff-guard`](../packages/extensions/pi-fff-guard/README.md)           | Reject missing or Git-ignored explicit FFF targets.                    |
+| [`pi-prompt-manager`](../packages/extensions/pi-prompt-manager/README.md) | Private directory-scoped history, saved drafts, and their TUI browser. |
+| [`@pi-mono/utils`](../packages/utils/README.md)                           | Pure FFF classification and terminal-safe plain-text normalization.    |
 
-Shared classification does not own display or filesystem policy. See [ownership and reuse](agents/architecture.md) for extraction criteria.
+Shared classification and terminal-text normalization do not own extension state or filesystem policy. See [ownership and reuse](agents/architecture.md) for extraction criteria.
 
 ## [Tool display](../packages/extensions/pi-tool-display/AGENTS.md#code-navigation)
 
@@ -35,3 +36,11 @@ The root [lint configuration](../vite.config.ts) checks both cross-package impor
 ## [FFF guard](../packages/extensions/pi-fff-guard/AGENTS.md#code-navigation)
 
 The Pi entry point checks tool ownership on every invocation, blocks rejected calls, and delivers diagnostics. Search-scope resolution, missing-path validation, Git-ignore checks, and the inspection deadline remain independent of the Pi session. Neither extension imports the other's policy.
+
+## [Prompt manager](../packages/extensions/pi-prompt-manager/AGENTS.md#ownership-and-navigation)
+
+The package-root wrapper loads a passive factory. Only TUI `session_start` reads the designated global configuration and installs commands, shortcuts, and optional custom-message append observation. `PromptManager` owns one active-session token, capture FIFO, editor-save/restoration guards, clipboard cancellation, UI reservation, and started atomic writes.
+
+History and drafts share a local repository protocol but retain separate files, locks, policies, and failure states. Canonical working-directory identity isolates collections. Mutations read the latest bounded document under an owned cross-process lock; private temporary-file rename is the commit point. Reads do not lock or wait for capture. Occurrence UUID/text/timestamp checks protect deletion from concurrent inserts or changed targets.
+
+Browser state is independent of rendering and persistence. Snapshot-derived sanitized display/search data stays separate from exact stored source. `@pi-mono/utils/terminal-text` owns the extracted `displayText` helper, also consumed by tool display; styled tool-output handling remains local to `pi-tool-display`. Unsafe restoration refusal is a distinct host boundary. Native clipboard subprocesses are extension-owned, asynchronous, and cancellable, with no OSC 52 fallback. Prompt-manager browsing never adds model context or persistent transcript copies.

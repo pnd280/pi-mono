@@ -1,7 +1,7 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
+import { displayText } from "@pi-mono/utils/terminal-text";
 
 import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../contracts.ts";
-import { displayText } from "../../terminal-text.ts";
 import { stringField } from "../../terminal-text.ts";
 import { record } from "../../values.ts";
 

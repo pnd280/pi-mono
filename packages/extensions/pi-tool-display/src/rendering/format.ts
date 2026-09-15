@@ -4,8 +4,8 @@ import {
   keyText,
   type Theme
 } from "@earendil-works/pi-coding-agent";
+import { displayText } from "@pi-mono/utils/terminal-text";
 
-import { displayText } from "../terminal-text.ts";
 import { bodyWidth, compactText, renderTree, wrapRows, type TreeItem } from "./layout.ts";
 import type { Projection, DisplayTheme } from "./types.ts";
 

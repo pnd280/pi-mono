@@ -1,5 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { displayText } from "@pi-mono/utils/terminal-text";
 
 import {
   isLive,
@@ -9,7 +10,6 @@ import {
   type ToolFamily
 } from "../contracts.ts";
 import { invocationParts, invocationPartText } from "../invocation.ts";
-import { displayText } from "../terminal-text.ts";
 import { expansionHint, highlight, tree, styleParameters } from "./format.ts";
 import { bodyWidth, renderTreeContinuation, textPrefix, wrapRows } from "./layout.ts";
 import type { PreparedCard } from "./types.ts";

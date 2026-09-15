@@ -15,6 +15,7 @@ Extensions load directly from TypeScript; there is no build step.
 
 - [pi-tool-display](packages/extensions/pi-tool-display/README.md): compact, borderless tool activity with expandable output and numbered diffs.
 - [pi-fff-guard](packages/extensions/pi-fff-guard/README.md): block FFF searches targeting Git-ignored or missing explicit paths so the model can retry.
+- [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): private, directory-scoped prompt history and saved drafts with search, preview, native copying, and editor restoration.
 
 ## Development
 

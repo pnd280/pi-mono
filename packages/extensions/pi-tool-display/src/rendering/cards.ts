@@ -5,10 +5,10 @@ import {
   truncateToWidth,
   type Component
 } from "@earendil-works/pi-tui";
+import { displayText } from "@pi-mono/utils/terminal-text";
 
 import { genericAdapter, resolveResultAdapter } from "../adapters/generic.ts";
 import { isLive, type ToolDisplayAdapter } from "../contracts.ts";
-import { displayText } from "../terminal-text.ts";
 import { heading } from "./headings.ts";
 import { buildGroupRows, buildResultBody } from "./result-content.ts";
 import { resultRows } from "./results.ts";
