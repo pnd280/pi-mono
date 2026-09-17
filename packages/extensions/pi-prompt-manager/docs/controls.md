@@ -22,7 +22,7 @@ Configured actions take precedence in this order: copy, cancel, confirm, up, dow
 
 Action hints show the first usable binding, or label the action unavailable when none remains. If you bind copy to Enter, the restore hint shows another confirm binding or `restore unavailable`.
 
-If a configured action uses a fixed control's key, that key performs only the configured action. Hints omit it for the fixed action. For example, if a configured action uses Tab, Shift+Tab can still switch collections. Rebind the configured action to free the key, or use [numbered commands](#numbered-draft-commands) for draft actions.
+A configured action overrides any fixed control using the same key. Hints omit that key for the fixed action. For example, if a configured action uses Tab, Shift+Tab can still switch collections. Rebind the configured action to free the key, or use [numbered commands](#numbered-draft-commands) for draft actions.
 
 With Pi's default fullscreen bindings, PageUp and PageDown scroll the transcript instead of the inline prompt view. To page results or preview text in that view, add these action bindings to `keybindings.json` and run `/reload`:
 
@@ -35,7 +35,9 @@ With Pi's default fullscreen bindings, PageUp and PageDown scroll the transcript
 
 If you have also rebound transcript scrolling, choose keys that it does not use.
 
-Ctrl+C never cancels the browser, even when included in `tui.select.cancel`. It can still perform another configured action, including the default copy action. The browser refuses to open unless cancel has a binding other than Ctrl+C that is not also bound to copy. It does not add an Escape override.
+Ctrl+C never cancels the browser, even when included in `tui.select.cancel`. It can still perform another configured action, including the default copy action.
+
+To open the browser, cancel must have a binding other than Ctrl+C that copy does not also use. The browser does not add an Escape override.
 
 If a modified key does not reach Pi, check [terminal key reporting](../../../../node_modules/@earendil-works/pi-coding-agent/docs/terminal-setup.md) or choose another binding.
 
@@ -67,7 +69,7 @@ Rows show compact ages and truncated prompt text. Future ages have a leading `+`
 
 The list's `(selected/total)` counter refers to filtered results. [Numbered draft commands](#numbered-draft-commands) use positions in the full collection.
 
-In full preview and inspection, the `↑ N more` and `↓ N more` border labels count hidden wrapped rows. The labels disappear when all text fits or layout is still loading.
+In full preview and inspection, the `↑ N more` and `↓ N more` border labels count hidden wrapped rows. The labels are hidden while layout loads and when all text fits.
 
 Short terminals use an overlay; taller terminals use an inline view. Extra widgets or taller custom footers can reduce the available inline space. Resizing preserves browser state but cancels deletion confirmation. Below 40 columns × 10 rows, resize or cancel.
 
@@ -81,7 +83,7 @@ Successful saves and removals include any cleanup warnings in the same notificat
 
 ## Numbered draft commands
 
-Numbers refer to positions in the full saved-draft collection, not filtered results. Positions start at 1, newest first. Each command reloads the collection, so another session can change its order before the command runs.
+Numbers refer to positions in the full saved-draft collection, not filtered results. Positions start at 1, newest first. Each command reloads the collection. Another session can change the order between commands.
 
 Use positive decimal integers without leading zeros. Do not pass trailing arguments.
 

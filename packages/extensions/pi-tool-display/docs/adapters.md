@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md) · [Renderer integration](renderers.md)
 
-Use a resolver to select an adapter automatically for tools with verified provenance. To attach an adapter directly to a tool's renderer fields, use [standalone adapter integration](renderers.md#custom-adapters); no resolver is needed.
+Use a resolver to select an adapter automatically for tools with verified provenance. [Standalone adapter integration](renderers.md#custom-adapters) attaches an adapter directly to a tool's renderer fields without a resolver.
 
 ## Add an adapter
 
@@ -12,7 +12,7 @@ Use a resolver to select an adapter automatically for tools with verified proven
 4. Document compatibility, contracts, display behavior, limitations, and extension-specific validation in the adapter's `README.md`.
 5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).
 
-Export a factory for tool authors from [`src/adapters/index.ts`](../src/adapters/index.ts) only if it should also be part of the public adapter API.
+To expose an adapter factory to tool authors, export it from [`src/adapters/index.ts`](../src/adapters/index.ts).
 
 Adapters must not enable or execute tools, access files, or persist data. Arguments and results are borrowed. Do not mutate them or change model context. Native observation and unavailable-history notices require separate [host provenance checks](../README.md#observation-and-saved-history).
 

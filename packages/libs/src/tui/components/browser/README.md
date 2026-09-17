@@ -6,9 +6,13 @@
 
 [`@pi-mono/libs/tui/components/browser`](index.ts) exports `Browser`, its option types, and `browserLayout`.
 
-The browser manages selection, per-section queries, search cancellation, preview scrolling, timed removal confirmation, input precedence, and layout. Sections can have different data sources and optional confirm, alternate, copy, and removal actions.
+Each section retains its query and selection. Sections can have different data sources and optional confirm, alternate, copy, and removal actions.
 
-Selection uses caller-supplied stable keys, including when filtering or refreshing data. A successful removal replaces the snapshot and selects a nearby result. Failed removal retains the query, selection, and preview. While removal, confirm, or alternate callbacks are pending, only cancellation is available. Copying leaves interaction available. Late results cannot reopen a closed browser.
+Selection uses caller-supplied stable keys, including when filtering or refreshing data. A successful removal replaces the snapshot and selects a nearby result. Failed removal retains the query, selection, and preview.
+
+While removal, confirm, or alternate callbacks are pending, only cancellation is available. Copying leaves interaction available. Late results cannot reopen a closed browser.
+
+### Keys and cancellation
 
 Configured actions take precedence in this order: copy, cancel, confirm, up, down, page up, page down. Fixed controls come next, followed by search editing:
 
@@ -27,13 +31,20 @@ Cancel returns from preview to the list, or closes the browser from the list. Du
 
 Inspection mode selects a one-based item index and allows only copying, scrolling, and closure. Confirm closes without invoking a selection action.
 
-Below 40 columns or 10 terminal rows, only cancellation is available. Inline height is three quarters of the terminal height after reserving three rows for the host UI, rounded down. If that leaves fewer than 12 rows, the browser uses an overlay with three quarters of the terminal height, rounded down. Resizing cancels confirmation but preserves the query, input cursor, selection, and preview position.
+### Layout
+
+Below 40 columns or 10 terminal rows, only cancellation is available. Otherwise, the browser chooses its layout from the terminal height:
+
+- Inline height is `floor((terminalRows - 3) × 3/4)`, reserving three rows for the host UI.
+- If the inline height would be less than 12 rows, the browser uses an overlay with height `floor(terminalRows × 3/4)`.
+
+Resizing cancels confirmation but preserves the query, input cursor, selection, and preview position.
 
 ## Caller responsibilities
 
 Supply at least one section, unique section IDs, an existing initial section, and stable unique item keys within each snapshot. Sections may be empty. The browser treats item values as opaque.
 
-`load(signal)` returns prepared items and an optional status message. Each section activation gets a new signal, shared with `remove.run`. The next activation or final closure aborts it. Responsive remounts do not abort it. Pass the signal through loading and preparation to stop obsolete work.
+`load(signal)` returns prepared items and an optional status message. Each section activation gets a new signal, shared with `remove.run`. The next activation or final closure aborts the signal. Responsive remounts do not. Pass the signal through loading and preparation to stop obsolete work.
 
 The `search` callback filters and ranks results and must honor the supplied `current` callback.
 

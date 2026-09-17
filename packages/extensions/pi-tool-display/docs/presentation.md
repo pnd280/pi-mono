@@ -64,6 +64,8 @@ Headings retain the action when a call fails, is cancelled, or has no known hist
 
 Group headings count failures, cancellations, and unavailable outcomes, excluding pending calls. Each affected member also names its outcome. Outcome counts stay beside **Exploring** or **Explored**. When the scope and outcome counts do not fit together, the scope moves to continuation rows beneath them.
 
+The automatic CLI integration records cancellation when an unsuccessful execution result arrives after the live run is aborted. Successful results and failures received before the abort retain their outcomes.
+
 Confirmed cancellation takes precedence over failure. Successful or unavailable adapter metadata cannot override either.
 
 When cancellation is confirmed, compact native cards omit exact matches for known cancellation messages but retain process output and additional diagnostics. Expansion restores the original diagnostic. Ordinary output and similar messages without confirmed cancellation remain visible.

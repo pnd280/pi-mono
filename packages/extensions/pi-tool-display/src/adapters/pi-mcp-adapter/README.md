@@ -12,7 +12,9 @@ See [automatic selection](../../../docs/adapters.md#automatic-selection) for ren
 
 ## Arguments and results
 
-The adapter's [MCP facts](../../../docs/renderers.md#mcp-facts) preserve the order of published text and Pi image blocks. Raw `details.mcpResult` never replaces published output. It may contain data from before middleware ran or data omitted by the output guard. Flattened resource and audio descriptions remain text, and Pi handles image bytes.
+The adapter's [MCP facts](../../../docs/renderers.md#mcp-facts) preserve the order of published text and Pi image blocks. Flattened resource and audio descriptions remain text, and Pi handles image bytes.
+
+Raw `details.mcpResult` never replaces published output because it may contain data from before middleware ran or data omitted by the output guard.
 
 The adapter interprets `details.error` as follows, even when Pi's error flag is false:
 
@@ -29,7 +31,9 @@ Missing details and error-like text establish no additional protocol facts. Pi's
 
 ## Display
 
-Gateway summaries show the selected action and target while parameter details remain hidden by default. Result metadata supplies resolved `server.tool` identities when available. Otherwise, cards retain the requested tool identity. The adapter does not decode namespace names into server names because normalization can lose information. MCP calls remain individual cards, outside exploration groups.
+Gateway summaries show the selected action and target while parameter details remain hidden by default. Result metadata supplies resolved `server.tool` identities when available. Otherwise, cards retain the requested tool identity. The adapter does not decode namespace names into server names because normalization can lose information.
+
+MCP calls remain individual cards, outside exploration groups.
 
 Direct resource URIs and bounded-result file references appear on expansion. Output truncation, saved-output references, and script operation failures remain visible when collapsed. Failures use `error` for markers, status notices, and diagnostic bodies. Cancellation diagnostics use `warning`.
 

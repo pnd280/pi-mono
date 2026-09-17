@@ -27,7 +27,9 @@ Repeated saves remain separate occurrences. A successful save clears the editor 
 
 ### Restore text
 
-Restoration replaces editor text without submitting it or adding it to Pi's native editor history. Pi may normalize tabs and line endings. The extension refuses to restore text containing unsafe terminal controls. Stored and copied source remains unchanged. Restore-and-remove leaves restored text in the editor if deletion fails.
+Restoration replaces editor text without submitting it or adding it to Pi's native editor history. Pi may normalize tabs and line endings. The extension refuses to restore text containing unsafe terminal controls. Stored and copied source remains unchanged.
+
+If restore-and-remove cannot delete the saved occurrence, the restored text stays in the editor.
 
 ### Browser
 
@@ -46,7 +48,9 @@ See [browser controls](docs/controls.md) for custom bindings, search and duplica
 
 ## Configuration
 
-Set the literal `ext.pi-prompt-manager` key in Pi's global `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` if that environment variable is set. Project settings are not read. Defaults:
+In Pi's global settings file, set the literal key `ext.pi-prompt-manager`. The file is `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when that variable is set. Project settings are not read.
+
+Default settings:
 
 ```json
 {
@@ -76,7 +80,9 @@ History captures interactive user submissions and trims surrounding whitespace. 
 
 The extension captures input before template and skill expansion but after earlier transforms. It excludes intercepted slash commands, extension-generated input, and custom messages. It does not import existing session or native editor history.
 
-Collections persist even with `--no-session`. Symlink aliases share a collection; distinct directories and worktrees remain separate. The extension must be able to resolve the real working directory. Collection files contain unencrypted prompt text, protected by filesystem permissions. See [storage and recovery](docs/storage.md) for paths, capacities, and manual repair.
+Collections persist even with `--no-session`. Symlink aliases share a collection; distinct directories and worktrees remain separate. The extension must be able to resolve the real working directory.
+
+Collection files contain unencrypted prompt text, protected by filesystem permissions. See [storage and recovery](docs/storage.md) for paths, capacities, and manual repair.
 
 Browsing can create storage directories and repair permissions and ACLs. Saves, captures, and deletions write collection files. Notifications contain no prompt text. The extension creates no transcript copies and makes no network requests.
 

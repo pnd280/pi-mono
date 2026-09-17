@@ -35,7 +35,9 @@ pi.registerTool({
 });
 ```
 
-The factory takes a `ToolDisplayRendererOptions` object as its third argument and does not read CLI settings. `showParameters` defaults to `false`. Generic cards always show arguments. Structured parameter blocks still require expansion. Adapters in the `invocation` family include arguments in their invocation text when `showParameters` is `true`.
+The factory takes a `ToolDisplayRendererOptions` object as its third argument and does not read CLI settings. `showParameters` defaults to `false`. When it is `true`, adapters in the `invocation` family include arguments in their invocation text.
+
+Generic cards always show arguments. Structured parameter blocks still require expansion.
 
 ## Custom adapters
 

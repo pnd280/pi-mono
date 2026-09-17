@@ -12,7 +12,7 @@ Disposal clears retained values and discards late results without aborting under
 
 ## Caller responsibilities
 
-Supply the loader, cache capacity, and pending-load limit. Keep `onBusy` and `onEvict` callbacks nonthrowing.
+Supply the loader, cache capacity, and pending-load limit. Both limits must be positive safe integers. Invalid limits throw `RangeError`. Keep `onBusy` and `onEvict` callbacks nonthrowing.
 
 Choose cache lifetime, retry policy, and diagnostics. Call `dispose()` when the owner closes and clean up resources in the owner, including any I/O that must be aborted.
 

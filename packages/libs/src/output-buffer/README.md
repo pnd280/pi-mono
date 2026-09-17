@@ -16,7 +16,9 @@ Snapshots preserve generated omission ranges in `OutputText`. Generated notices 
 
 Use one instance per stream. Append only new chunks, not replacement snapshots. When the stream ends, call `finish()`, then take the final `snapshot()`.
 
-Choose retention limits and omission messages. Preserve the notice ranges in `OutputText` to distinguish notices from identical process output. Sanitize each complete snapshot for terminal display.
+Choose retention limits and omission messages. `maxBytes`, `edgeLines`, and `lineBytes` must be positive safe integers. Invalid limits throw `RangeError`.
+
+Preserve the notice ranges in `OutputText` to distinguish notices from identical process output. Sanitize each complete snapshot for terminal display.
 
 Tool display's [output policy](../../../extensions/pi-tool-display/src/observation/output-policy.ts) supplies stream limits and omission messages. For regular-file previews, use [bounded file output](../bounded-output/README.md).
 

@@ -12,7 +12,9 @@ The library does not cache previews or retry reads.
 
 ## Caller responsibilities
 
-Decide which paths the consumer may read before loading a preview. Supply byte and line limits and omission messages. Preserve the notice ranges in `OutputText` to distinguish notices from identical file contents, and sanitize the complete preview for terminal display.
+Decide which paths the consumer may read before loading a preview. Supply omission messages and byte and line limits. Both limits must be safe integers of at least two. Invalid limits throw `RangeError`.
+
+Preserve the notice ranges in `OutputText` to distinguish notices from identical file contents. Sanitize the complete preview for terminal display.
 
 Choose retries, diagnostics, and cache lifetime. Tool display's [saved-output loader](../../../extensions/pi-tool-display/src/observation/saved-output.ts) combines this reader with an [asynchronous cache](../async-cache/README.md).
 

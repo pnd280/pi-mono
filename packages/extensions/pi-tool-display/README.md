@@ -22,7 +22,7 @@ For tool-author or SDK integration, use the [renderer API](docs/renderers.md). T
 
 ## Configuration
 
-Set the literal top-level key `ext.pi-tool-display` in Pi's global `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` if that environment variable is set. Trusted projects can override it in `.pi/settings.json`:
+In Pi's global settings file, set the literal key `ext.pi-tool-display`. The file is `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when that variable is set. Trusted projects can override it in `.pi/settings.json`:
 
 <!-- prettier-ignore -->
 ```json
@@ -68,9 +68,7 @@ The extension saves operation facts, cancellation facts, bounded patches, and sa
 
 Native operation observation excludes SDK tools, custom implementations, and user `!` and `!!` commands. It does not run in print, JSON, or RPC mode.
 
-The extension records cancellation when an unsuccessful execution result arrives after the live run is aborted. This applies to generic cards as well as specialized cards. Successful results and failures received before the abort retain their outcomes. Recorded cancellations survive result middleware, replay, and renderer changes.
-
-History needs recorded or structured evidence to show cancellation. Output text alone is insufficient, including in older or print-created histories.
+Recorded cancellations survive result middleware, replay, and renderer changes in both generic and specialized cards. [Cancellation detection](docs/presentation.md#outcomes) requires recorded or structured evidence. Output text alone is insufficient, including in older or print-created histories.
 
 The TUI reconstructs history from saved calls and results without rerunning tools or animating incomplete calls. Durations, exact exit codes, and file contents before writes remain unavailable unless recorded.
 

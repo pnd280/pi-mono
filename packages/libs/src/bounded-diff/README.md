@@ -10,7 +10,9 @@ Generation is synchronous and checks the clock to enforce its timeout. Results d
 
 ## Caller responsibilities
 
-Supply the path and source before and after the change. Choose source and patch byte limits, an edit-distance limit, a timeout, and the number of context lines. The library does not read files. Use [file observation](../file-observation/README.md) when complete UTF-8 source must be loaded from disk.
+Supply the path and source before and after the change. Choose source and patch byte limits, an edit-distance limit, a timeout, and the number of context lines. Limits and the context-line count must be nonnegative safe integers. `timeoutMs` must be finite and nonnegative. Invalid limits or timeouts throw `RangeError`.
+
+The library does not read files. Use [file observation](../file-observation/README.md) to load complete UTF-8 source from disk.
 
 Classify the change and translate result statuses into diagnostics in the consumer. Patch parsing belongs to [`@pi-mono/utils/patch`](../../../utils/src/patch.ts), and rendering belongs to the [diff view](../tui/components/diff-view/README.md).
 

@@ -71,7 +71,9 @@ Both collection files use UTF-8 JSON with `version: 1`, the canonical directory 
 }
 ```
 
-New entries have a generated UUID and an ISO timestamp. Stored text must be nonblank. Readers preserve unknown fields and original timestamp data. Invalid timestamps do not prevent inspection. ID comparison is case-insensitive. See [recovery states](#recovery-states) for invalid or duplicate IDs.
+New entries have a generated UUID and an ISO timestamp. Stored text must be nonblank. Readers preserve unknown fields and original timestamp data. Invalid timestamps do not prevent inspection.
+
+ID comparison is case-insensitive. See [recovery states](#recovery-states) for invalid or duplicate IDs.
 
 ## Limits
 
@@ -86,7 +88,9 @@ JSON escaping, metadata, unknown fields, and formatting count toward committed s
 
 History suppresses captures equal to the latest persisted text after trimming. Retention applies only when a capture is committed, never on reads or suppressed duplicates.
 
-Automatic capture queues at most 250 waiting entries and 8 MiB of UTF-8 text per session. New captures are skipped when either limit is reached. Queue overflows and storage failures share one warning per active session; failed captures are not retried. Blank and individually oversized captures are skipped before queueing.
+Automatic capture queues at most 250 waiting entries and 8 MiB of UTF-8 text per session. It skips new captures when either limit is reached, and skips blank or individually oversized captures before queueing.
+
+Queue overflows and storage failures share one warning per active session. Failed captures are not retried.
 
 ## Recovery states
 
@@ -110,7 +114,9 @@ File replacement is atomic across process crashes, but durability after power lo
 
 A cleanup warning after commit means the save or deletion succeeded. Do not retry a committed mutation; saving again creates another draft.
 
-Browsing does not wait for mutation locks or the capture queue. Copy and restoration use the selected snapshot even if another process later removes it. Deletion requires the selected UUID to remain unique, with unchanged text and original timestamp data. It never falls back to text matching or an index.
+Browsing does not wait for mutation locks or the capture queue. Copy and restoration use the selected snapshot even if another process later removes the occurrence.
+
+Deletion requires the selected UUID to remain unique, with unchanged text and original timestamp data. It never falls back to text matching or an index.
 
 Closing the browser or switching collections cancels obsolete collection processing and item preparation. It does not cancel a deletion already started.
 
