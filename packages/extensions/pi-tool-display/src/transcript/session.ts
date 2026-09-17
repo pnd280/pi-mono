@@ -32,6 +32,8 @@ export type TranscriptMessage =
       interruption?: { outcome: "cancelled" | "failure"; text: string };
     };
 
+type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
+
 type DisplaySessionOptions = {
   runtime: string;
   cwd: string;
@@ -42,6 +44,21 @@ type DisplaySessionOptions = {
   append?: ExtensionAPI["appendEntry"] | undefined;
   readSavedOutput?: (path: string) => Promise<SavedOutput>;
 };
+
+function retainedAdapter(
+  coordinator: TranscriptCoordinator,
+  content: AssistantCall,
+  timestamp: number,
+  origin: DisplayCall["origin"]
+): ToolDisplayAdapter | undefined {
+  const existing = coordinator.byId(content.id);
+
+  return existing?.name === content.name &&
+    existing.origin === origin &&
+    existing.reference.messageTimestamp === timestamp
+    ? existing.adapter
+    : undefined;
+}
 
 /** Session orchestration without a Pi runtime or terminal. All call writes go through the coordinator. */
 export class DisplaySession {
@@ -153,40 +170,44 @@ export class DisplaySession {
 
     const source = this.history.messageEntry(input.timestamp);
 
-    for (const content of input.calls) {
-      const position = `${input.timestamp}:${content.index}`;
-      const selected = this.options.selectAdapter(content.name);
+    coordinator.batch(() => {
+      for (const content of input.calls) {
+        const position = `${input.timestamp}:${content.index}`;
+        const selected =
+          retainedAdapter(coordinator, content, input.timestamp, origin) ??
+          this.options.selectAdapter(content.name);
 
-      if (!selected) {
-        if (!this.messages.has(position)) coordinator.boundary();
-        this.messages.add(position);
-        continue;
-      }
+        if (!selected) {
+          if (!this.messages.has(position)) coordinator.boundary();
+          this.messages.add(position);
+          continue;
+        }
 
-      const reference: CallReference = {
-        messageTimestamp: input.timestamp,
-        contentIndex: content.index,
-        toolCallId: content.id,
-        ...(source ? { messageEntryId: source } : {})
-      };
-      const call = coordinator.add(
-        reference,
-        content.name,
-        content.args,
-        selected,
-        origin,
-        this.options.expanded()
-      );
-      if (origin === "historical")
-        for (const fact of this.history.facts(call)) coordinator.fact(call, fact);
-      if (origin === "live" && complete) coordinator.update(call, "queued");
-      if (call.lifecycle !== "complete" && input.interruption)
-        coordinator.result(
-          call,
-          { content: [{ type: "text", text: input.interruption.text }], details: undefined },
-          input.interruption.outcome
+        const reference: CallReference = {
+          messageTimestamp: input.timestamp,
+          contentIndex: content.index,
+          toolCallId: content.id,
+          ...(source ? { messageEntryId: source } : {})
+        };
+        const call = coordinator.add(
+          reference,
+          content.name,
+          content.args,
+          selected,
+          origin,
+          this.options.expanded()
         );
-    }
+        if (origin === "historical")
+          for (const fact of this.history.facts(call)) coordinator.fact(call, fact);
+        if (origin === "live" && complete) coordinator.update(call, "queued");
+        if (call.lifecycle !== "complete" && input.interruption)
+          coordinator.result(
+            call,
+            { content: [{ type: "text", text: input.interruption.text }], details: undefined },
+            input.interruption.outcome
+          );
+      }
+    });
   }
   dispose(): void {
     this.disposed = true;

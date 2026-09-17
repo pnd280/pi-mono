@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { lstat, readlink } from "node:fs/promises";
 import path from "node:path";
 
+import type { ExecResult } from "@earendil-works/pi-coding-agent";
 import { absolutePathSchema, containsPath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
@@ -32,11 +33,7 @@ export type GitIgnoreOptions = {
   git?: GitCommand;
 };
 
-interface GitOutput {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
+type GitOutput = Pick<ExecResult, "code" | "stdout" | "stderr">;
 
 export type GitCommand = (
   cwd: string,

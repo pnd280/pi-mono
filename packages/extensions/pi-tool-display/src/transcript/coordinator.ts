@@ -102,6 +102,8 @@ export class TranscriptCoordinator implements TranscriptView {
   private cwd: string;
   private separators = new Set<string>();
   private groupingDepth = 0;
+  private invalidationDepth = 0;
+  private pendingInvalidations = new Set<MutableCall>();
   private regroupPending = false;
   private boundaries = new Map<object, string>();
   private groups = new Map<string, MutableGroup>();
@@ -140,8 +142,15 @@ export class TranscriptCoordinator implements TranscriptView {
       this.state.get(key) ?? (origin === "live" ? this.liveIdentities.get(identity) : undefined);
 
     if (existing) {
+      const referenceChanged =
+        existing.reference.messageTimestamp !== reference.messageTimestamp ||
+        existing.reference.contentIndex !== reference.contentIndex ||
+        existing.reference.toolCallId !== reference.toolCallId ||
+        existing.reference.messageEntryId !== reference.messageEntryId;
+      if (referenceChanged) existing.reference = { ...reference };
+      if (Object.is(existing.args, args)) return existing;
+
       existing.args = args;
-      existing.reference = { ...reference };
       this.refreshGrouping(existing);
       this.changed(existing);
 
@@ -188,17 +197,25 @@ export class TranscriptCoordinator implements TranscriptView {
     this.refreshGrouping(call);
     this.changed(call);
   }
-  /** Reconcile groups once after synchronous reconstruction or registration updates.
+  /** Reconcile groups and invalidate each affected row once after synchronous updates.
    * Intermediate group views are not ready for rendering or expansion.
    */
   batch<T>(update: () => T): T {
     this.groupingDepth++;
+    this.invalidationDepth++;
 
     try {
       return update();
     } finally {
       this.groupingDepth--;
-      if (!this.groupingDepth && this.regroupPending) this.regroup([[0, this.sequence.length - 1]]);
+
+      try {
+        if (!this.groupingDepth && this.regroupPending)
+          this.regroup([[0, this.sequence.length - 1]]);
+      } finally {
+        this.invalidationDepth--;
+        if (!this.invalidationDepth) this.flushInvalidations();
+      }
     }
   }
   /** Reconstruction can reveal a host-generated notice after later calls were indexed. */
@@ -358,8 +375,26 @@ export class TranscriptCoordinator implements TranscriptView {
     this.schedule();
   }
   private invalidate(call: MutableCall): void {
+    if (this.invalidationDepth) {
+      this.pendingInvalidations.add(call);
+
+      return;
+    }
+
     call.revision++;
     for (const row of this.rows.get(call.key) ?? []) row.invalidate();
+  }
+  private flushInvalidations(): void {
+    if (this.disposed) {
+      this.pendingInvalidations.clear();
+
+      return;
+    }
+
+    const pending = [...this.pendingInvalidations];
+    this.pendingInvalidations.clear();
+
+    for (const call of pending) this.invalidate(call);
   }
   private separated(key: string): boolean {
     return this.separators.has(key) || this.boundaryCounts.has(key);
@@ -562,6 +597,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.groups.clear();
     this.separators.clear();
     this.regroupPending = false;
+    this.pendingInvalidations.clear();
     this.boundaries.clear();
     this.boundaryCounts.clear();
     this.latestById.clear();

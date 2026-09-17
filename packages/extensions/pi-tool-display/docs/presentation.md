@@ -12,13 +12,13 @@ Paths are resolved lexically, including home expansion, without inspecting curre
 
 Paths shown alone or with a read range wrap with continuation lines aligned beneath the target. Paths use the normal foreground color. Ranges and other annotations use `dim`. Wrapping prefers directory and filename separators and keeps a range together when it fits the available width.
 
-These targets have no three-row preview limit when at least four columns remain for the target. Collapsed targets above the [formatting limit](#resource-limits) retain their start and end, separated by `…`.
+When at least four columns remain for a target, it wraps without a row limit. Collapsed targets above the [formatting limit](#resource-limits) retain their start and end, separated by `…`.
 
 Other collapsed invocation and command summaries show up to three detail rows, with an expansion hint when truncated. Targets with fewer than four available columns also use these preview limits. A long invocation can place its action title on a separate row. Grouped summaries follow the same rules per item. Diagnostics and images remain visible.
 
 Expansion removes the [heading preview limits](#resource-limits). Parameter visibility still follows [`showParameters`](../README.md#configuration).
 
-After a successful read completes, its text body stays hidden until expansion. Notices and images remain visible. Other collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show bounded head and tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling.
+After a successful read completes, its text body stays hidden until expansion. Notices and images remain visible. Other collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show head and tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling.
 
 Expansion shows all retained output, subject to live and saved-output retention limits.
 
@@ -101,7 +101,7 @@ These limits affect display, not tool execution or the arguments and results sav
 | Resource                     | Limit                                                                                                                                                                                                       |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Collapsed heading formatting | 16,384 UTF-16 code units of normalized text per invocation, group scope, or exploration item, before styling and wrapping.                                                                                  |
-| Collapsed result formatting  | 16,384 UTF-16 code units of styled text, split between the start and end, plus carried ANSI state.                                                                                                          |
+| Collapsed result formatting  | 16,384 UTF-16 code units of source text per text block or preview, split equally between the start and end before normalization and styling. Carried ANSI state is additional.                              |
 | Syntax highlighting          | 512 KiB per text. Code highlighting also stops above 10,000 lines or 4,096 bytes on any line. Text remains readable without token styling.                                                                  |
 | Live shell output            | Full output up to 1 MiB. Above that, the first 50 and last 50 completed lines plus any partial line, retaining up to 10,280 source bytes per line.                                                          |
 | Saved-output preview         | Read at most 256 KiB total, split between the start and end of oversized files. Retain up to 4,000 preview lines before inserting a line-omission notice. At most 8 cached previews and 8 concurrent reads. |

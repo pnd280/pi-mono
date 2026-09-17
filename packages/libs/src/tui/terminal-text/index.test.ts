@@ -1,7 +1,12 @@
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { expect, it } from "vite-plus/test";
 
-import { displayText, hasUnsafeTerminalControls, styledOutput } from "./index.ts";
+import {
+  displayText,
+  hasUnsafeTerminalControls,
+  sliceTerminalText,
+  styledOutput
+} from "./index.ts";
 
 it("checks editor source without normalizing allowed whitespace or printable Unicode", () => {
   expect(hasUnsafeTerminalControls("\ttext\r\n界😀\uFFFD")).toBe(false);
@@ -15,6 +20,34 @@ it("retains only SGR styling while normalizing whitespace and removing controls"
   expect(styledOutput(text)).toBe("\x1b[31mred\x1b[0m\n    text");
   expect(styledOutput("\x1b[31")).toBe("");
   expect(styledOutput("\x1bPclipboard\x1b\\visible")).toBe("visible");
+});
+
+it("slices whole graphemes and carries only visible SGR state into suffixes", () => {
+  expect(sliceTerminalText("a😀b", 0, 2)).toEqual({ text: "a", leadingSgr: "" });
+  expect(sliceTerminalText("a😀b", 2, 4)).toEqual({ text: "b", leadingSgr: "" });
+
+  const source = "\x1b[31mHEAD\x1b]0;\x1b[32mhidden\x07TAIL";
+  const slice = sliceTerminalText(source, source.indexOf("hidden") + 2, source.length, {
+    preserveSgr: true
+  });
+  expect(slice).toEqual({ text: "TAIL", leadingSgr: "\x1b[31m" });
+  expect(styledOutput(`${slice.leadingSgr}${slice.text}`)).toBe("\x1b[31mTAIL");
+});
+
+it.each([
+  [0, "", "🇺🇸🇨🇦"],
+  [1, "", "🇨🇦"],
+  [2, "", "🇨🇦"],
+  [3, "", "🇨🇦"],
+  [4, "🇺🇸", "🇨🇦"],
+  [5, "🇺🇸", ""],
+  [6, "🇺🇸", ""],
+  [7, "🇺🇸", ""],
+  [8, "🇺🇸🇨🇦", ""]
+])("preserves adjacent flag graphemes at UTF-16 offset %i", (offset, head, tail) => {
+  const source = "🇺🇸🇨🇦";
+  expect(sliceTerminalText(source, 0, offset).text).toBe(head);
+  expect(sliceTerminalText(source, offset, source.length).text).toBe(tail);
 });
 
 it("removes terminal commands and controls without modifying the source", () => {

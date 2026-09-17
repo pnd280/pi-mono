@@ -46,6 +46,44 @@ const result = (path: string) => ({
   details: { fullOutputPath: path }
 });
 
+it("reuses adapters and leaves unchanged streamed call groups untouched", () => {
+  const selectAdapter = vi.fn(nativeAdapter);
+  const session = fixture({ selectAdapter });
+  const calls = Array.from({ length: 50 }, (_, index) => ({
+    index,
+    id: `call-${index}`,
+    name: "grep",
+    args: { pattern: `pattern-${index}`, path: "src" }
+  }));
+  const message = { kind: "assistant" as const, timestamp: 1, calls };
+
+  try {
+    session.message(message, "live", false);
+    const displayed = calls.map((call) => session.coordinator.byId(call.id)!);
+    const revisions = displayed.map((call) => call.revision);
+
+    for (let update = 0; update < 100; update++) session.message(message, "live", false);
+    expect(selectAdapter).toHaveBeenCalledTimes(calls.length);
+    expect(displayed.map((call) => call.revision)).toEqual(revisions);
+
+    const changed = { ...calls.at(-1)!, args: { pattern: "changed", path: "src" } };
+    session.message({ ...message, calls: [changed] }, "live", false);
+    expect(selectAdapter).toHaveBeenCalledTimes(calls.length);
+    expect(displayed[0]!.revision).toBe(revisions[0]! + 1);
+    expect(displayed[1]!.revision).toBe(revisions[1]);
+    expect(displayed.at(-1)!.revision).toBe(revisions.at(-1)! + 1);
+
+    const beforeFinalization = displayed.map((call) => call.revision);
+    session.message({ ...message, calls: [...calls.slice(0, -1), changed] }, "live", true);
+    expect(selectAdapter).toHaveBeenCalledTimes(calls.length);
+    expect(displayed.map((call) => call.revision)).toEqual(
+      beforeFinalization.map((revision) => revision + 1)
+    );
+  } finally {
+    session.dispose();
+  }
+});
+
 function files() {
   const pending = new Map<string, (output: SavedOutput) => void>();
   const read = vi.fn(

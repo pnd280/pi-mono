@@ -40,6 +40,46 @@ const ignoreFailure = (action: () => void): void => {
   }
 };
 
+const PREVIEW_UPDATE_INTERVAL_MS = 100;
+
+function previewPublisher(buffer: OutputBuffer, publish: (output: OutputText) => void) {
+  let dirty = false;
+  let lastPublished = Number.NEGATIVE_INFINITY;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const flush = () => {
+    if (!dirty) return;
+    dirty = false;
+    lastPublished = performance.now();
+    ignoreFailure(() => publish(buffer.snapshot()));
+  };
+
+  const schedule = () => {
+    dirty = true;
+    const delay = PREVIEW_UPDATE_INTERVAL_MS - (performance.now() - lastPublished);
+    if (delay <= 0) flush();
+    else if (!timer)
+      timer = setTimeout(() => {
+        timer = undefined;
+        flush();
+      }, delay);
+  };
+
+  return {
+    append(data: Buffer) {
+      buffer.append(data);
+      schedule();
+    },
+    finish() {
+      if (timer) clearTimeout(timer);
+      timer = undefined;
+      buffer.finish();
+      dirty = true;
+      flush();
+    }
+  };
+}
+
 async function beforeWrite(
   path: string
 ): Promise<{ text: string; change: "creation" | "modification" } | undefined> {
@@ -137,6 +177,7 @@ export function observeNativeDefinition(
             ? createLocalBashOperations(settings.shellPath ? { shellPath: settings.shellPath } : {})
             : createLocalPowerShellOperations();
         const buffer = new OutputBuffer(liveOutputOptions);
+        const previews = previewPublisher(buffer, (value) => observer.preview(value));
         const operations: BashOperations = {
           async exec(command, cwd, options) {
             const started = start();
@@ -146,10 +187,7 @@ export function observeNativeDefinition(
                 ...options,
                 onData(data) {
                   options.onData(data);
-                  ignoreFailure(() => {
-                    buffer.append(data);
-                    observer.preview(buffer.snapshot());
-                  });
+                  ignoreFailure(() => previews.append(data));
                 }
               });
               let outcome: Outcome = "failure";
@@ -170,10 +208,7 @@ export function observeNativeDefinition(
               );
               throw error;
             } finally {
-              ignoreFailure(() => {
-                buffer.finish();
-                observer.preview(buffer.snapshot());
-              });
+              ignoreFailure(() => previews.finish());
             }
           }
         };

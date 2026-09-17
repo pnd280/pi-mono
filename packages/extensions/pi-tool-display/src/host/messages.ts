@@ -22,8 +22,22 @@ export function executionOutcome(isError: boolean, signal?: AbortSignal): Outcom
   return signal?.aborted ? "cancelled" : "failure";
 }
 
+type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
+
+function assistantCall(block: unknown, index: number): AssistantCall | undefined {
+  const content = record(block);
+
+  // Pi renders assistant content before its tool rows, regardless of block order.
+  return content.type === "toolCall"
+    ? { index, id: String(content.id), name: String(content.name), args: content.arguments }
+    : undefined;
+}
+
 /** Normalize Pi messages before they enter the session-independent transcript controller. */
-export function transcriptMessage(input: unknown): TranscriptMessage | undefined {
+export function transcriptMessage(
+  input: unknown,
+  updatedContentIndex?: number
+): TranscriptMessage | undefined {
   const value = record(input);
   if (value.type === "custom") return; // The host may suppress or reposition this entry.
   if (value.role === "custom" && value.display === false) return;
@@ -42,17 +56,22 @@ export function transcriptMessage(input: unknown): TranscriptMessage | undefined
   else if (value.stopReason === "error")
     interruption = { outcome: "failure", text: stringField(value.errorMessage) || "Error" };
 
+  const calls: AssistantCall[] = [];
+
+  if (updatedContentIndex === undefined) {
+    for (const [index, block] of value.content.entries()) {
+      const call = assistantCall(block, index);
+      if (call) calls.push(call);
+    }
+  } else {
+    const call = assistantCall(value.content[updatedContentIndex], updatedContentIndex);
+    if (call) calls.push(call);
+  }
+
   return {
     kind: "assistant",
     timestamp: Number(value.timestamp),
-    calls: value.content.flatMap((block: unknown, index: number) => {
-      const content = record(block);
-
-      // Pi renders assistant content before its tool rows, regardless of block order.
-      return content.type === "toolCall"
-        ? [{ index, id: String(content.id), name: String(content.name), args: content.arguments }]
-        : [];
-    }),
+    calls,
     ...(interruption ? { interruption } : {})
   };
 }

@@ -9,6 +9,8 @@ import type { Projection, DisplayTheme } from "./types.ts";
 
 const MAX_HIGHLIGHT_BYTES = 512 * 1024;
 
+export const COMPACT_OUTPUT_CHARACTERS = 16 * 1024;
+
 export const expansionHint = () => `${keyText("app.tools.expand")} to expand`;
 
 export const codeHighlightLimits = {
@@ -50,7 +52,7 @@ export function output(text: string, p: Projection, maximum = 5, expanded = p.ex
     : compactText(text, {
         maxRows: maximum,
         width,
-        maxCharacters: 16 * 1024,
+        maxCharacters: COMPACT_OUTPUT_CHARACTERS,
         notice: (omitted) =>
           p.theme.fg(
             "dim",

@@ -62,16 +62,60 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
       )
     ).rejects.toThrow("timed out");
     expect(facts.at(-1)).toMatchObject({ timedOut: true, outcome: "failure" });
+    const previewsBeforeCancellation = previews.length;
     await expect(
       observed.execute("cancel", { command: "sleep 3" }, AbortSignal.abort(), undefined, context)
     ).rejects.toThrow("aborted");
     expect(facts.at(-1)).toMatchObject({ outcome: "cancelled" });
+    expect(previews.length).toBeGreaterThan(previewsBeforeCancellation);
     expect(observed.parameters).toBe(original.parameters);
     expect(observed.promptGuidelines).toBe(original.promptGuidelines);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+it("coalesces shell previews while retaining every chunk and flushing completion", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "display-native-stream-"));
+
+  try {
+    const script = join(directory, "stream.mjs");
+    await writeFile(
+      script,
+      `for (let index = 0; index < 25; index++) {\n  process.stdout.write(\`chunk-\${index}\\n\`);\n  await new Promise((resolve) => setTimeout(resolve, 10));\n}\n`
+    );
+    const original = createBashToolDefinition(directory, { shellPath: "/bin/bash" });
+    const previews: string[] = [];
+    const updates: unknown[] = [];
+    const started = performance.now();
+    const observed = observeNativeDefinition(
+      defineTool(original),
+      { cwd: directory, shellPath: "/bin/bash" },
+      () => ({
+        started() {},
+        fact() {},
+        preview: (value) => previews.push(value.text)
+      })
+    );
+
+    await observed.execute(
+      "stream",
+      { command: `${JSON.stringify(process.execPath)} ${JSON.stringify(script)}` },
+      undefined,
+      (value) => updates.push(value),
+      nativeToolContext(directory)
+    );
+
+    const elapsed = performance.now() - started;
+    const final = previews.at(-1) ?? "";
+    for (let index = 0; index < 25; index++) expect(final).toContain(`chunk-${index}\n`);
+    expect(previews.length).toBeLessThanOrEqual(Math.floor(elapsed / 100) + 2);
+    expect(previews.length).toBeLessThanOrEqual(updates.length);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 it.each(["edit", "write"] as const)(
   "preserves BOM-bearing files during observed %s",
   async (name) => {

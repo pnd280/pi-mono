@@ -1,8 +1,8 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
-import { getCapabilities } from "@earendil-works/pi-tui";
+import { getCapabilities, truncateToWidth } from "@earendil-works/pi-tui";
 import { highlightCodeBounded } from "@pi-mono/libs/tui/components/code-highlight";
 import { renderDiffBody } from "@pi-mono/libs/tui/components/diff-view";
-import { displayText, styledOutput } from "@pi-mono/libs/tui/terminal-text";
+import { displayText, sliceTerminalText, styledOutput } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { splitOutputText, type OutputText } from "@pi-mono/utils/output-text";
 
@@ -10,7 +10,14 @@ import type { McpFacts, DisplayNotice, ResultTextPart } from "../contracts.ts";
 import { parseRetainedPatch } from "../diff.ts";
 import { stringField } from "../terminal-text.ts";
 import { record } from "../values.ts";
-import { expansionHint, codeHighlightLimits, output, message, reference } from "./format.ts";
+import {
+  COMPACT_OUTPUT_CHARACTERS,
+  expansionHint,
+  codeHighlightLimits,
+  output,
+  message,
+  reference
+} from "./format.ts";
 import { bodyWidth } from "./layout.ts";
 import type { Projection, ResultBody } from "./types.ts";
 
@@ -125,12 +132,21 @@ function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
   )[p.outcome];
 
   for (const block of facts.content) {
-    let text: string;
-    if (block.type === "text") text = p.theme.fg(color, displayText(block.text));
-    else if (block.type === "resource")
-      text = `${reference("Resource: ", block.uri, p)}${block.text ? `\n${p.theme.fg(color, displayText(block.text))}` : ""}`;
-    else text = `${reference("[Media: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`;
-    items.push({ rows: output(text, p, block.type === "text" ? 10 : Number.MAX_SAFE_INTEGER) });
+    if (block.type === "media") {
+      const text = `${reference("[Media: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`;
+      items.push({ rows: output(text, p, Number.MAX_SAFE_INTEGER) });
+      continue;
+    }
+
+    const parts: ResultTextPart[] =
+      block.type === "text"
+        ? [{ kind: "output", text: block.text }]
+        : [
+            { kind: "annotation", text: "Resource: " },
+            { kind: "value", text: block.uri },
+            ...(block.text ? [{ kind: "output" as const, text: `\n${block.text}` }] : [])
+          ];
+    items.push({ rows: resultPartRows(parts, p, 10, { outputColor: color }) });
   }
 
   return items;
@@ -155,7 +171,53 @@ function imageItems(content: AgentToolResult<unknown>["content"], p: Projection)
   );
 }
 
-function styleResultParts(parts: readonly ResultTextPart[], p: Projection): string {
+type StyledSourcePart = ResultTextPart & { leadingSgr?: string };
+
+type ThemeColor = Parameters<Projection["theme"]["fg"]>[0];
+
+function resultPartSlice(
+  parts: readonly ResultTextPart[],
+  start: number,
+  end: number,
+  shellOutput: boolean
+): StyledSourcePart[] {
+  const selected: StyledSourcePart[] = [];
+  let position = 0;
+
+  for (const part of parts) {
+    const partEnd = position + part.text.length;
+
+    if (partEnd <= start) {
+      position = partEnd;
+      continue;
+    }
+
+    if (position >= end) break;
+
+    const localStart = Math.max(0, start - position);
+    const localEnd = Math.min(part.text.length, end - position);
+    const slice = sliceTerminalText(part.text, localStart, localEnd, {
+      preserveSgr: shellOutput && part.kind === "output" && localStart > 0
+    });
+
+    if (slice.text)
+      selected.push({
+        ...part,
+        text: slice.text,
+        ...(slice.leadingSgr ? { leadingSgr: slice.leadingSgr } : {})
+      });
+
+    position = partEnd;
+  }
+
+  return selected;
+}
+
+function styleResultParts(
+  parts: readonly StyledSourcePart[],
+  p: Projection,
+  outputColor: ThemeColor = "toolOutput"
+): string {
   return parts
     .map((part) => {
       if (!part.text) return "";
@@ -171,16 +233,58 @@ function styleResultParts(parts: readonly ResultTextPart[], p: Projection): stri
           )[part.kind],
           displayText(part.text)
         );
-      let content = p.adapter.family === "shell" ? styledOutput(part.text) : displayText(part.text);
+      let content =
+        p.adapter.family === "shell"
+          ? styledOutput(`${part.leadingSgr ?? ""}${part.text}`)
+          : displayText(part.text);
       if (p.adapter.family === "read" && p.expanded && !p.context.isError)
         content = highlightCodeBounded(content, {
           ...codeHighlightLimits,
           path: stringField(record(p.context.args).path)
         });
 
-      return content ? p.theme.fg("toolOutput", content) : "";
+      return content ? p.theme.fg(outputColor, content) : "";
     })
     .join("");
+}
+
+function resultPartRows(
+  parts: readonly ResultTextPart[],
+  p: Projection,
+  maximum: number,
+  options: { empty?: string; outputColor?: ThemeColor } = {}
+): string[] {
+  const characters = parts.reduce((total, part) => total + part.text.length, 0);
+
+  if (p.expanded || characters <= COMPACT_OUTPUT_CHARACTERS) {
+    const text = styleResultParts(parts, p, options.outputColor) || options.empty || "";
+
+    return output(text, p, maximum);
+  }
+
+  const headCharacters = Math.ceil(COMPACT_OUTPUT_CHARACTERS / 2);
+  const tailCharacters = Math.floor(COMPACT_OUTPUT_CHARACTERS / 2);
+  const head = resultPartSlice(parts, 0, headCharacters, p.adapter.family === "shell");
+  const tail = resultPartSlice(
+    parts,
+    characters - tailCharacters,
+    characters,
+    p.adapter.family === "shell"
+  );
+  const width = bodyWidth(p.width);
+  const headRows = Math.ceil((maximum - 1) / 2);
+  const tailRows = Math.floor((maximum - 1) / 2);
+  const omission = truncateToWidth(
+    p.theme.fg("dim", `… more output (${expansionHint()})`),
+    width,
+    "…"
+  );
+
+  return [
+    ...wrapRows(styleResultParts(head, p, options.outputColor), width).slice(0, headRows),
+    omission,
+    ...wrapRows(styleResultParts(tail, p, options.outputColor), width).slice(-tailRows)
+  ];
 }
 
 function emptyOutputText(p: Projection): string {
@@ -226,7 +330,7 @@ function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem
       ? []
       : [
           {
-            rows: output(styleResultParts(previewParts(preview), p) || emptyOutputText(p), p)
+            rows: resultPartRows(previewParts(preview), p, 5, { empty: emptyOutputText(p) })
           }
         ];
   // Saved files contain process output, not Pi's failure footer or result middleware diagnostics.
@@ -249,8 +353,9 @@ function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem
       { kind: p.context.isError ? "error" : "output", text: block.text } satisfies ResultTextPart
     ];
     if (!parts.length) continue;
-    const text = styleResultParts(parts, p);
-    const rows = output(text || emptyOutputText(p), p, p.adapter.family === "invocation" ? 10 : 5);
+    const rows = resultPartRows(parts, p, p.adapter.family === "invocation" ? 10 : 5, {
+      empty: emptyOutputText(p)
+    });
     if (index === 0 || result.content[index - 1]?.type === "text") appendDetails(items, rows);
     else items.push({ rows });
   }

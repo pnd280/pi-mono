@@ -202,6 +202,39 @@ describe("tool display renderers", () => {
     }
   );
 
+  it.each(["custom", "bash"])(
+    "bounds collapsed %s result styling to head and tail excerpts",
+    (name) => {
+      const source = `${name === "bash" ? "\x1b[31m" : ""}BEGIN\n${"middle output ".repeat(40_000)}\nFINAL_RESULT`;
+      let largestStyledText = 0;
+      const measuredTheme = {
+        ...theme,
+        fg(color: string, text: string) {
+          largestStyledText = Math.max(largestStyledText, text.length);
+
+          return theme.fg(color, text);
+        }
+      };
+      const current = context();
+      const renderer = createToolDisplayRenderers(name, nativeAdapter(name));
+      const rows = renderer
+        .renderResult(result(source), current, measuredTheme, current)
+        .render(100);
+      const compact = rows.join("\n");
+
+      expect(rows.length).toBeLessThanOrEqual(name === "custom" ? 10 : 5);
+      expect(compact).toContain("BEGIN");
+      expect(compact).toContain("more output");
+      expect(compact).toContain("FINAL_RESULT");
+      expect(largestStyledText).toBeLessThanOrEqual(16 * 1024);
+
+      if (name === "bash") {
+        const tail = rows.find((row) => stripTerminalSequences(row).includes("FINAL_RESULT"));
+        expect(tail).toContain("\x1b[31m");
+      }
+    }
+  );
+
   it("shares a result projection between wrapped headings and bodies, then refreshes it", () => {
     let preparations = 0;
     const renderer = createToolDisplayRenderers(

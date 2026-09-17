@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import type { AgentSession, ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  AgentSession,
+  AgentSessionEvent,
+  ExtensionAPI
+} from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
@@ -15,6 +19,14 @@ import { TranscriptRows } from "./rows.ts";
 import { selectAdapter } from "./selection.ts";
 
 type Binding = { host: Host; display: DisplaySession; rows: TranscriptRows };
+
+function updatedContentIndex(event: AgentSessionEvent): number | undefined {
+  if (event.type !== "message_update") return undefined;
+
+  return "contentIndex" in event.assistantMessageEvent
+    ? event.assistantMessageEvent.contentIndex
+    : undefined;
+}
 
 export function installHostIntegration(
   append?: ExtensionAPI["appendEntry"],
@@ -203,12 +215,19 @@ export function installHostIntegration(
 
         if (binding) {
           const display = binding.display;
+
           if (
             event.type === "message_start" ||
             event.type === "message_update" ||
             event.type === "message_end"
-          )
-            display.message(transcriptMessage(event.message), "live", event.type === "message_end");
+          ) {
+            display.message(
+              transcriptMessage(event.message, updatedContentIndex(event)),
+              "live",
+              event.type === "message_end"
+            );
+          }
+
           if (event.type === "tool_execution_start") display.queued(event.toolCallId);
           if (event.type === "tool_execution_update" || event.type === "tool_execution_end")
             display.result(
