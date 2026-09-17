@@ -14,9 +14,13 @@ Pure helpers shared by workspace packages. Callers supply clocks, state, and fea
 | Format compact ages                      | [`@pi-mono/utils/relative-time`](src/relative-time.ts) |
 | Normalize and rank text matches          | [`@pi-mono/utils/text-search`](src/text-search.ts)     |
 
+For terminal text sanitization and shortcut normalization, use [terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md).
+
+### FFF tools
+
 FFF classification checks package provenance and tool names only. Callers must validate schemas and apply their own display or blocking policy.
 
-For terminal text sanitization and shortcut normalization, use [terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md).
+### Paths
 
 Path helpers compare and format paths lexically, without resolving symlinks or checking filesystem access:
 
@@ -26,13 +30,21 @@ Path helpers compare and format paths lexically, without resolving symlinks or c
 
 Use `absolutePathSchema` to enforce the same absolute-path requirement in other Zod schemas. These helpers do not interpret tool prefixes, file URLs, or glob syntax.
 
+### Output text
+
 Use `splitOutputText` to partition source and generated omission fragments using recorded UTF-16 ranges. It rejects unordered, overlapping, or out-of-bounds ranges. Joining the fragments reproduces the original text, including source text that resembles omission notices. Consumers choose styling and sanitize fragments for display.
+
+For stream retention or file previews, use [bounded stream output](../libs/src/output-buffer/README.md) or [bounded file output](../libs/src/bounded-output/README.md).
+
+### Patches
 
 `parsePatch(source, maxBytes)` accepts one unified patch, with or without file headers. It returns `undefined` for invalid or oversized patches and throws `RangeError` for an invalid byte limit. Pass the parsed result to the [diff renderer](../libs/src/tui/components/diff-view/README.md).
 
+### Text search
+
 Pass text from `normalizeSearch` and a query from `prepareSearchQuery` to `rankText(normalized, query)`. It returns a generator whose completion value is the match rank, or `undefined` when there is no match. It yields checkpoints during long literal and fuzzy scans. Callers control scheduling and cancellation.
 
-For scheduling or I/O, use [cooperative search](../libs/src/text-search/README.md), [bounded stream output](../libs/src/output-buffer/README.md), or [bounded file output](../libs/src/bounded-output/README.md).
+Use [cooperative search](../libs/src/text-search/README.md) for event-loop scheduling and cancellation.
 
 ## Configuration
 

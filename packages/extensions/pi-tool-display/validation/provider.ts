@@ -41,6 +41,67 @@ function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
         { name: "ls", args: { path: cwd } }
       ]
     ],
+    [
+      "scopes",
+      [
+        { name: "ls", args: { path: cwd } },
+        read("a.ts"),
+        read("a.ts"),
+        { name: "ls", args: { path: path("src") } },
+        { name: "grep", args: { pattern: "value", path: path("src/./") } },
+        read("src/c.ts"),
+        read("src/missing.ts"),
+        read("b.ts")
+      ]
+    ],
+    [
+      "native-mixed",
+      [
+        { name: "ls", args: { path: "a/" } },
+        { name: "grep", args: { pattern: "alpha", path: "a/", limit: 2 } },
+        read("a/alpha.txt"),
+        { name: "read", args: { path: path("a/alpha.txt"), offset: 15, limit: 2 } },
+        read("a/alpha.txt")
+      ]
+    ],
+    [
+      "normalization",
+      [
+        { name: "ls", args: { path: "a/" } },
+        { name: "grep", args: { pattern: "alpha", path: "./a/nested/../", limit: 2 } },
+        read("a/alpha.txt"),
+        { name: "read", args: { path: "./a/nested/../beta.txt", offset: 15, limit: 2 } }
+      ]
+    ],
+    [
+      "exceptions",
+      [read("a/alpha.txt"), read("a/missing.txt"), read("a/image.png"), read("a/beta.txt")]
+    ],
+    [
+      "filenames",
+      [
+        "space name.txt",
+        "unicode-☃.txt",
+        "this-is-a-deliberately-long-filename-for-wrapping-and-tree-connectors.txt"
+      ].map((name) => ({ name: "read", args: { path: path(`a/${name}`), offset: 15, limit: 2 } }))
+    ],
+    [
+      "thinking",
+      [read("a/alpha.txt"), read("a/beta.txt"), read("a/alpha.txt"), read("a/beta.txt")]
+    ],
+    [
+      "fff",
+      [
+        ...["a/**", "./a/**"].flatMap((scope) => [
+          { name: "ffgrep", args: { pattern: "^1 alpha", path: scope, limit: 2 } },
+          { name: "ffgrep", args: { pattern: "^2 alpha", path: scope, limit: 2 } },
+          { name: "fffind", args: { pattern: "", path: scope, limit: 2 } }
+        ]),
+        { name: "ffgrep", args: { pattern: "^1 alpha", path: "a/", limit: 2 } },
+        { name: "ls", args: { path: "a/" } },
+        read("a/alpha.txt")
+      ]
+    ],
     ["images", [read("a.ts"), read("image.png"), read("b.ts")]],
     [
       "diff",
@@ -113,13 +174,47 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
         const user = context.messages[userIndex];
         const prompt = user?.role === "user" ? contentText(user.content).trim() : "";
         const plan = plans.get(prompt);
+
+        if (!plan) {
+          appendText(`Choose a fixture prompt: ${[...plans.keys()].join(", ")}.`);
+
+          return "stop";
+        }
+
         // Context, not a closure counter, determines completion across reload/replay.
         const completed = context.messages
           .slice(userIndex + 1)
-          .some((message) => message.role === "toolResult");
+          .filter((message) => message.role === "toolResult").length;
+        const available = new Set((context.tools ?? []).map((tool) => tool.name));
+        const missing = plan.filter((call) => !available.has(call.name));
 
-        if (plan && !completed) {
-          for (const planned of plan) {
+        if (missing.length > 0) {
+          appendText(
+            `Skipped fixture ${prompt}: unavailable tools ${[...new Set(missing.map((call) => call.name))].join(", ")}.`
+          );
+
+          return "stop";
+        }
+
+        let pending = completed > 0 ? [] : plan;
+        if (prompt === "thinking") pending = plan.slice(completed, completed + 1);
+
+        if (pending.length > 0) {
+          if (prompt === "thinking") {
+            const contentIndex = output.content.length;
+            const thought = `Fixture thought before read ${completed + 1}.`;
+            output.content.push({ type: "thinking", thinking: thought });
+            events.push({ type: "thinking_start", contentIndex, partial: output });
+            events.push({ type: "thinking_delta", contentIndex, delta: thought, partial: output });
+            await setTimeout(1000, undefined, { signal: options?.signal });
+            events.push({ type: "thinking_end", contentIndex, content: thought, partial: output });
+            if (completed === 2)
+              appendText(
+                "Visible explanation: this remains a group boundary even when thinking is hidden."
+              );
+          }
+
+          for (const planned of pending) {
             await setTimeout(120, undefined, { signal: options?.signal });
             const contentIndex = output.content.length;
             const call = fauxToolCall(planned.name, {}, { id: randomUUID() });
@@ -138,10 +233,9 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
 
           return "toolUse";
         } else {
-          const text = plan
-            ? `Fixture finished: ${prompt}. Inspect the tool rows; failures may be intentional.`
-            : `Choose a fixture prompt: ${[...plans.keys()].join(", ")}.`;
-          appendText(text);
+          appendText(
+            `Fixture finished: ${prompt}. Inspect the tool rows; failures may be intentional.`
+          );
 
           return "stop";
         }

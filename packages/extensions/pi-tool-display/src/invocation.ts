@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
@@ -22,19 +23,25 @@ const annotation = (text: string): InvocationPart => ({ kind: "annotation", text
 /** Resolve only explicitly tagged file targets. Retained rendering must not inspect
  * current files or follow symlinks, and search expressions are not filesystem paths.
  */
-export function invocationPartText(part: InvocationPart, cwd: string): string {
-  if (part.kind !== "path" || !part.text) return displayText(part.text);
-  let path = expandHomePath(part.text.startsWith("@") ? part.text.slice(1) : part.text, homedir());
+export function resolveInvocationPath(value: string, cwd: string): string | undefined {
+  if (!value) return undefined;
+  let path = expandHomePath(value.startsWith("@") ? value.slice(1) : value, homedir());
 
   if (path.startsWith("file://")) {
     try {
       path = fileURLToPath(path);
     } catch {
-      return displayText(part.text);
+      return undefined;
     }
   }
 
-  return displayText(relativeDisplayPath(path, cwd));
+  return resolve(cwd, path);
+}
+
+export function invocationPartText(part: InvocationPart, cwd: string, relativeTo = cwd): string {
+  const path = part.kind === "path" ? resolveInvocationPath(part.text, cwd) : undefined;
+
+  return displayText(path === undefined ? part.text : relativeDisplayPath(path, relativeTo));
 }
 
 /** Keep supplied values separate from generated labels; styling must not parse user text. */
@@ -70,7 +77,7 @@ export function invocationParts(
     case "list":
       return [target(path || ".")];
     case "read":
-      return [path ? target(path) : annotation("…"), annotation(readRange(args))];
+      return [path ? target(path) : annotation("…"), { kind: "range", text: readRange(args) }];
     case "edit":
     case "write":
       return [path ? target(path) : annotation("…")];

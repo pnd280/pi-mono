@@ -2,9 +2,10 @@
 
 ## Code navigation
 
-- **Pi lifecycle:** [host/install.ts](src/host/install.ts) handles integration and teardown; [host/compatibility.ts](src/host/compatibility.ts) records inspected contracts; [native-registry.ts](src/host/native-registry.ts) verifies and restores native definitions.
-- **Transcript:** [coordinator.ts](src/transcript/coordinator.ts) owns call-state changes; [session.ts](src/transcript/session.ts) coordinates live events, history reconstruction, and saved-output eligibility. [history.ts](src/transcript/history.ts) and [metadata.ts](src/transcript/metadata.ts) handle reconstruction and persisted facts.
-- **Observation and rows:** [native.ts](src/observation/native.ts) observes verified operations; [output-policy.ts](src/observation/output-policy.ts) chooses live retention budgets; [saved-output.ts](src/observation/saved-output.ts) sets preview and cache policy. [host/rows.ts](src/host/rows.ts) integrates Pi invalidation, expansion, and mouse routing.
+- **Pi lifecycle:** [host/install.ts](src/host/install.ts) handles integration and teardown. [host/compatibility.ts](src/host/compatibility.ts) records inspected contracts, and [native-registry.ts](src/host/native-registry.ts) verifies and restores native definitions.
+- **Transcript:** [coordinator.ts](src/transcript/coordinator.ts) owns call-state changes. [session.ts](src/transcript/session.ts) coordinates live events, history reconstruction, and saved-output eligibility. [history.ts](src/transcript/history.ts) and [metadata.ts](src/transcript/metadata.ts) handle reconstruction and persisted facts.
+- **Thinking visibility:** [thinking.ts](src/host/thinking.ts) verifies Pi's assistant layout and hides collapsed thinking placeholders after completion.
+- **Observation and rows:** [native.ts](src/observation/native.ts) observes verified operations. [output-policy.ts](src/observation/output-policy.ts) chooses live retention budgets, and [saved-output.ts](src/observation/saved-output.ts) sets preview and cache policy. [host/rows.ts](src/host/rows.ts) integrates Pi invalidation, expansion, and mouse routing.
 - **Rendering:** start at [cards.ts](src/rendering/cards.ts) for preparation across Pi slots, [format.ts](src/rendering/format.ts) for shared text and tree rendering, or [result-content.ts](src/rendering/result-content.ts) for result bodies and diff rendering. [diff.ts](src/diff.ts) generates patches and enforces retention limits. See the [standalone API](docs/renderers.md) for tool-author integration.
 - **Offline launchers:** [validation/workspace.ts](validation/workspace.ts) supplies fixture data, provider loading, flags, and reuse checks.
 
@@ -32,4 +33,4 @@ See [observation and saved history](README.md#observation-and-saved-history) for
 
 ## Validation
 
-Use [package validation](README.md#validation) and the [terminal procedure](docs/validation.md) for integration or interaction changes. On Pi upgrades, reinspect construction, registry wrapping, reconstruction, and row expansion before accepting new fingerprints; check both [API](src/host/install.test.ts) and [installed-CLI](src/host/install-cli.test.ts) fixtures.
+Use [package validation](README.md#validation) and the [terminal procedure](docs/validation.md) for integration or interaction changes. On Pi upgrades, reinspect construction, registry wrapping, reconstruction, row expansion, and the assistant's thinking layout before accepting new fingerprints. Check both [API](src/host/install.test.ts) and [installed-CLI](src/host/install-cli.test.ts) fixtures.

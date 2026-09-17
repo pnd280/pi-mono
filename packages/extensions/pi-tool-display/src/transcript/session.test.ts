@@ -15,6 +15,7 @@ import { DisplaySession } from "./session.ts";
 function fixture(options: Partial<ConstructorParameters<typeof DisplaySession>[0]> = {}) {
   return new DisplaySession({
     runtime: "session",
+    cwd: "/tmp",
     history: { getBranch: () => [], getLeafId: () => null, getEntry: () => undefined },
     settings: loadDisplaySettings([]),
     selectAdapter: nativeAdapter,
@@ -347,7 +348,7 @@ it.each(["fff", "mcp"] as const)(
       expect(call.origin).toBe("historical");
       expect(call.lifecycle).toBe("complete");
       expect(call.outcome).toBe("success");
-      if (fff) expect(session.coordinator.group(call)?.members).toEqual([call]);
+      if (fff) expect(session.coordinator.group(call)).toBeUndefined();
       else
         expect(call.adapter.mcp?.(args, published)).toMatchObject({
           server: "docs",
@@ -368,6 +369,7 @@ it("makes retained observation callbacks inert after session disposal, including
   const append = vi.fn();
   const session = new DisplaySession({
     runtime: "session",
+    cwd: "/tmp",
     history: { getBranch: () => [], getLeafId: () => null, getEntry: () => undefined },
     settings: loadDisplaySettings([]),
     selectAdapter: nativeAdapter,

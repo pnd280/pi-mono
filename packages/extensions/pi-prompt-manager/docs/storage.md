@@ -1,6 +1,6 @@
 # Storage and recovery
 
-[Commands and settings](../README.md) · [Controls](controls.md)
+[pi-prompt-manager](../README.md) · [Browser controls](controls.md)
 
 ## Location and privacy
 
@@ -90,7 +90,7 @@ Automatic capture queues at most 250 waiting entries and 8 MiB of UTF-8 text per
 
 ## Recovery states
 
-- **Unavailable:** invalid UTF-8 or JSON, an unsupported document, or input above the read limits require manual repair. The extension does not overwrite the file. A missing file alone is treated as empty.
+- **Unavailable:** invalid UTF-8 or JSON, an unsupported document, or input above the read limits requires manual repair. The extension does not overwrite the file. A missing file is treated as empty.
 - **Read-only:** usable records with invalid UUIDs remain available for inspection, copying, and [safe restoration](../README.md#restore-text). Collection changes require identity repair first.
 - **Ambiguous deletion:** duplicate UUIDs retain all occurrences but prevent deleting those identities. Unique occurrences can still be deleted if the collection is otherwise writable.
 
@@ -98,7 +98,7 @@ The extension warns about and ignores unusable text records. A successful mutati
 
 Drafts enter deletion-only recovery when they exceed normal count, text, or file-size limits. Additions are refused even if reformatting would bring the file within those limits.
 
-A recovery deletion must remove the selected occurrence, preserve other retained records, and reduce the committed file size. The collection may still exceed its limits afterward. If pretty-printing would increase the file size, deletion is refused.
+A recovery deletion must remove the selected occurrence, preserve other retained records, and reduce the committed file size. The collection may still exceed its limits afterward. The extension refuses deletion if pretty-printing would increase the file size.
 
 Draft recovery accepts at most 64 MiB of input and 5,000 records. Each record's compact JSON encoding must fit within 8 MiB. History reads also stop at 64 MiB. Beyond these limits, repair the file manually.
 

@@ -1,12 +1,12 @@
 ---
 name: pi-api-reuse
-description: Audit hand-rolled modules, helpers, types, fixtures, and TUI code for duplication of public APIs exported by installed Pi packages. Use when checking Pi API reuse or planning a reuse-focused refactor.
+description: Audit local modules, helpers, types, fixtures, and TUI code for duplication of public APIs exported by installed Pi packages. Use when checking Pi API reuse or planning a reuse-focused refactor.
 disable-model-invocation: true
 ---
 
 # Pi API reuse
 
-Identify local code that should reuse Pi's public APIs without losing consumer-specific behavior. Optimize for a smaller maintenance burden, not fewer lines at any cost.
+Identify local code that can reuse Pi's public APIs to reduce maintenance without losing consumer-specific behavior.
 
 Use `/skill:pi-api-reuse` with optional package or path arguments. Default to a read-only audit of the supplied scope, or the workspace when no narrower scope is given. Apply refactors only when the user requests implementation; an existing implementation request does not need another approval.
 
@@ -29,7 +29,7 @@ Search for duplicated behavior as well as duplicated names:
 - Selection, scrolling, wrapping, borders, highlighting, diff rendering, and layout composition.
 - Thin wrappers that only rename or reorder an existing API without enforcing useful policy.
 
-Read likely matches instead of repeatedly broadening searches. Distinguish the reusable primitive from the policy around it: one expression may be replaceable while the enclosing module remains necessary. Include every consumer of a helper proposed for removal.
+Read likely matches instead of repeatedly broadening searches. Distinguish reusable behavior from consumer policy. One expression may be replaceable while the enclosing module remains necessary. Include every consumer of a helper proposed for removal.
 
 ## Verify public availability
 
@@ -39,7 +39,7 @@ For each candidate, establish the exact package specifier and exported symbol.
 - Distinguish public root exports, supported subpath exports, and reachable implementation files. A permissive package without an export map does not make every `dist` file a supported API.
 - Use a minimal runtime import probe when value-export availability is uncertain. Type-only exports require declaration inspection or type checking, not a runtime namespace lookup.
 - Check the installed implementation for relevant defaults and side effects. An import that succeeds proves availability, not behavioral equivalence.
-- Do not bypass an export map or introduce an internal deep import merely to eliminate a small helper. If the needed primitive is not public, classify the replacement as unavailable for this audit.
+- Do not bypass an export map or introduce an internal deep import merely to eliminate a small helper. If the needed API is not public, classify the replacement as unavailable for this audit.
 
 ## Compare behavior
 
@@ -91,4 +91,4 @@ These are examples to reverify against the installed version, not a permanent al
 
 When implementation is requested, apply the established in-scope substitutions. Remove superseded helpers and type mirrors, update all affected consumers, and preserve explicit IDs, data ownership, and surrounding policy. Do not retain compatibility aliases unless requested or silently include conditional redesigns.
 
-Update documentation only when guidance becomes inaccurate. Follow the [verification workflow](../../../docs/agents/verification.md) and [testing conventions](../../../docs/agents/testing.md). Use existing contract tests and relevant offline integration checks; add coverage only for a real gap. Once appropriate checks pass, finish unless new changes, failures, or unresolved concerns justify more testing.
+Update documentation when guidance becomes inaccurate. Follow the [verification workflow](../../../docs/agents/verification.md) and [testing conventions](../../../docs/agents/testing.md).

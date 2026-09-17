@@ -1,3 +1,5 @@
+import { dirname } from "node:path";
+
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import type { OutputText } from "@pi-mono/utils/output-text";
 
@@ -10,11 +12,14 @@ import {
   type DisplayCall,
   type DisplayFact,
   type DisplayGroup,
+  type ExplorationScope,
+  type ExplorationItem,
   type Lifecycle,
   type Outcome,
   type SavedOutput,
   type TranscriptView
 } from "../contracts.ts";
+import { resolveInvocationPath } from "../invocation.ts";
 
 export interface RowHandle {
   invalidate(): void;
@@ -35,15 +40,55 @@ const clock: AnimationClock = {
   }
 };
 
-function canExplore(call: DisplayCall): boolean {
-  const adapter = resolveResultAdapter(call.adapter, call.args, call.result);
+function normalizedScope(
+  scope: ExplorationScope | undefined,
+  cwd: string
+): ExplorationScope | undefined {
+  if (!scope) return undefined;
+  if (scope.kind === "filter") return { ...scope };
+  const path = resolveInvocationPath(scope.value, cwd);
 
-  return (adapter.exploration?.(call.args, call.result)?.length ?? 0) > 0;
+  return path === undefined
+    ? undefined
+    : {
+        kind: "directory",
+        value: scope.kind === "file" ? dirname(path) : path
+      };
+}
+
+function sameScope(
+  left: ExplorationScope | undefined,
+  right: ExplorationScope | undefined
+): boolean {
+  return left?.kind === right?.kind && left?.value === right?.value;
+}
+
+function exploration(
+  call: DisplayCall,
+  cwd: string
+): { scope: ExplorationScope; label: ExplorationItem["label"] } | undefined {
+  const adapter = resolveResultAdapter(call.adapter, call.args, call.result);
+  const items = adapter.exploration?.(call.args, call.result);
+  const first = items?.[0];
+  const scope = normalizedScope(first?.scope, cwd);
+  if (
+    !first ||
+    !scope ||
+    !items.every((item) => sameScope(scope, normalizedScope(item.scope, cwd)))
+  )
+    return undefined;
+
+  return { scope, label: first.label };
 }
 
 type MutableCall = { -readonly [Key in keyof DisplayCall]: DisplayCall[Key] };
 
-type MutableGroup = { members: MutableCall[]; expanded: boolean };
+type MutableGroup = {
+  members: MutableCall[];
+  expanded: boolean;
+  scope: ExplorationScope;
+  counts: Record<ExplorationItem["label"], number>;
+};
 
 /** Ordered transcript state; renderers only read this model. No session or terminal dependency. */
 export class TranscriptCoordinator implements TranscriptView {
@@ -53,7 +98,8 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   private sequence: string[] = [];
   private positions = new Map<string, number>();
-  private explorable = new Set<string>();
+  private explorable = new Map<string, NonNullable<ReturnType<typeof exploration>>>();
+  private cwd: string;
   private separators = new Set<string>();
   private groupingDepth = 0;
   private regroupPending = false;
@@ -70,11 +116,14 @@ export class TranscriptCoordinator implements TranscriptView {
   constructor(
     readonly runtime: string,
     private options: {
+      cwd?: string;
       animationClock?: AnimationClock;
       /** State consequences must not depend on whether a Pi row is attached. */
       onExpansion?(call: DisplayCall): void;
     } = {}
-  ) {}
+  ) {
+    this.cwd = options.cwd ?? process.cwd();
+  }
   add(
     reference: CallReference,
     name: string,
@@ -120,8 +169,10 @@ export class TranscriptCoordinator implements TranscriptView {
 
     // Append is the common path, including history reconstruction. Only the old
     // heading and final connector can change; unrelated row caches stay valid.
-    if (canExplore(call)) {
-      this.explorable.add(key);
+    const facts = exploration(call, this.cwd);
+
+    if (facts) {
+      this.explorable.set(key, facts);
       this.appendGroup(call, previous);
     }
 
@@ -188,7 +239,9 @@ export class TranscriptCoordinator implements TranscriptView {
     return this.latestById.get(id);
   }
   group(call: DisplayCall): DisplayGroup | undefined {
-    return this.groups.get(call.key);
+    const group = this.groups.get(call.key);
+
+    return group && group.members.length > 1 ? group : undefined;
   }
   update(view: DisplayCall, lifecycle: Lifecycle): void {
     const call = this.mutable(view);
@@ -319,12 +372,30 @@ export class TranscriptCoordinator implements TranscriptView {
       this.positions.get(members?.at(-1)?.key ?? key)!
     ];
   }
+  private newGroup(call: MutableCall): MutableGroup {
+    return {
+      members: [],
+      expanded: call.expanded,
+      scope: this.explorable.get(call.key)!.scope,
+      counts: { Read: 0, Search: 0, List: 0 }
+    };
+  }
+  private sharesScope(left: string, right: string): boolean {
+    const first = this.explorable.get(left);
+    const second = this.explorable.get(right);
+
+    return !!first && !!second && sameScope(first.scope, second.scope);
+  }
   private appendGroup(call: MutableCall, previous: string | undefined): void {
-    const group = previous && !this.separated(previous) ? this.groups.get(previous) : undefined;
+    const group =
+      previous && !this.separated(previous) && this.sharesScope(previous, call.key)
+        ? this.groups.get(previous)
+        : undefined;
     const first = group?.members[0];
     const last = group?.members.at(-1);
-    const current = group ?? { members: [], expanded: call.expanded };
+    const current = group ?? this.newGroup(call);
     current.members.push(call);
+    current.counts[this.explorable.get(call.key)!.label]++;
     this.groups.set(call.key, current);
     this.synchronizeExpansion(call, current.expanded);
     for (const member of new Set([first, last]))
@@ -337,9 +408,11 @@ export class TranscriptCoordinator implements TranscriptView {
     this.options.onExpansion?.(call);
   }
   private refreshGrouping(call: MutableCall): void {
-    const eligible = canExplore(call);
-    if (eligible === this.explorable.has(call.key)) return;
-    if (eligible) this.explorable.add(call.key);
+    const facts = exploration(call, this.cwd);
+    const previousFacts = this.explorable.get(call.key);
+    if (sameScope(facts?.scope, previousFacts?.scope) && facts?.label === previousFacts?.label)
+      return;
+    if (facts) this.explorable.set(call.key, facts);
     else this.explorable.delete(call.key);
     const position = this.positions.get(call.key)!;
     const previous = this.sequence[position - 1];
@@ -347,7 +420,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
     // Argument streaming commonly makes the last row explorable after creation.
     // Extend its predecessor exactly like an append, without rebuilding interiors.
-    if (eligible && !next && !this.groupingDepth) {
+    if (facts && !previousFacts && !next && !this.groupingDepth) {
       this.appendGroup(call, previous);
 
       return;
@@ -355,10 +428,10 @@ export class TranscriptCoordinator implements TranscriptView {
 
     let [start, end] = this.groupRange(call.key);
 
-    if (eligible) {
-      if (previous && this.explorable.has(previous) && !this.separated(previous))
+    if (facts) {
+      if (previous && this.sharesScope(previous, call.key) && !this.separated(previous))
         start = Math.min(start, this.groupRange(previous)[0]);
-      if (next && this.explorable.has(next) && !this.separated(call.key))
+      if (next && this.sharesScope(call.key, next) && !this.separated(call.key))
         end = Math.max(end, this.groupRange(next)[1]);
     }
 
@@ -420,6 +493,10 @@ export class TranscriptCoordinator implements TranscriptView {
       if (
         old &&
         old.expanded === group.expanded &&
+        sameScope(old.scope, group.scope) &&
+        old.counts.Read === group.counts.Read &&
+        old.counts.Search === group.counts.Search &&
+        old.counts.List === group.counts.List &&
         old.members.length === group.members.length &&
         old.members.every((member, index) => member === group!.members[index])
       )
@@ -437,8 +514,11 @@ export class TranscriptCoordinator implements TranscriptView {
         continue;
       }
 
-      group ??= { members: [], expanded: call.expanded };
+      const facts = this.explorable.get(key)!;
+      if (group && !sameScope(group.scope, facts.scope)) finish();
+      group ??= this.newGroup(call);
       group.members.push(call);
+      group.counts[facts.label]++;
       if (this.separators.has(call.key) || this.boundaryCounts.has(call.key)) finish();
     }
 

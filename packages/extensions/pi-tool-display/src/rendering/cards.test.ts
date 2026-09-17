@@ -396,7 +396,11 @@ describe("tool display renderers", () => {
       supports: (_args: unknown, result: AgentToolResult<unknown>) =>
         result.details === "supported",
       exploration: () => [
-        { label: "Search" as const, parts: [{ kind: "value" as const, text: "documentation" }] }
+        {
+          label: "Search" as const,
+          scope: { kind: "directory" as const, value: "docs" },
+          parts: [{ kind: "value" as const, text: "documentation" }]
+        }
       ]
     };
     const coordinator = new TranscriptCoordinator("adapter-validation");
@@ -405,6 +409,13 @@ describe("tool display renderers", () => {
       const args = { pattern: "needle", path: "docs", limit: 7 };
       const call = coordinator.add(
         { messageTimestamp: 1, contentIndex: 0, toolCallId: "search" },
+        "search_docs",
+        args,
+        adapter,
+        "historical"
+      );
+      coordinator.add(
+        { messageTimestamp: 1, contentIndex: 1, toolCallId: "sibling" },
         "search_docs",
         args,
         adapter,
@@ -650,7 +661,7 @@ describe("tool display renderers", () => {
   );
 
   it("identifies each failed or cancelled member without repeating native cancellation boilerplate", () => {
-    const coordinator = new TranscriptCoordinator("group-outcomes");
+    const coordinator = new TranscriptCoordinator("group-outcomes", { cwd: "/tmp" });
 
     try {
       const calls = (["success", "failure", "cancelled"] as const).map((outcome, index) => {
@@ -669,6 +680,15 @@ describe("tool display renderers", () => {
 
         return call;
       });
+      const pending = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 3, toolCallId: "pending" },
+        "read",
+        { path: "pending.ts" },
+        nativeAdapter("read")!,
+        "live"
+      );
+      coordinator.update(pending, "queued");
+      calls.push(pending);
       const rows = calls
         .flatMap((call) =>
           createToolDisplayRenderers(call.name, call.adapter, {
@@ -678,12 +698,50 @@ describe("tool display renderers", () => {
             .render(100)
         )
         .join("\n");
-      expect(rows).toContain("Explored · 1 failed, 1 cancelled");
+      expect(rows).toContain("Exploring directory . · 1 failed, 1 cancelled · 4 reads");
+      expect(rows).toContain("Read (queued) pending.ts");
+      expect(rows).not.toContain("outcome unavailable");
       expect(rows).toContain("Read success.ts");
       expect(rows).toContain("Read failed failure.ts");
       expect(rows).toContain("Read cancelled cancelled.ts");
       expect(rows).toContain("retained diagnostic");
       expect(rows).not.toContain("Operation aborted");
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it("dims grouped lifecycle annotations without recoloring actions or targets", () => {
+    const coordinator = new TranscriptCoordinator("group-lifecycle-colors", { cwd: "/tmp" });
+    const themed = semanticTheme();
+
+    try {
+      const calls = (["queued", "executing"] as const).map((lifecycle, index) => {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: index, toolCallId: lifecycle },
+          "read",
+          { path: `src/${lifecycle}.ts` },
+          nativeAdapter("read")!,
+          "live"
+        );
+        coordinator.update(call, lifecycle);
+
+        return call;
+      });
+
+      for (const call of calls) {
+        const renderer = createToolDisplayRenderers(call.name, call.adapter, {
+          binding: { call, coordinator }
+        });
+        const annotation = call.lifecycle === "queued" ? " (queued)" : " (running)";
+        const card = renderer.renderCall(call.args, themed, context());
+        const rows = card.render(100).join("\n");
+        expect(rows).toContain(themed.fg("accent", "Read"));
+        expect(rows).toContain(themed.fg("dim", annotation));
+        expect(rows).toContain(themed.fg("text", `${call.reference.toolCallId}.ts`));
+        coordinator.result(call, result("retained"), "success");
+        expect(stripTerminalSequences(card.render(100).join("\n"))).not.toContain(annotation);
+      }
     } finally {
       coordinator.dispose();
     }
@@ -894,16 +952,156 @@ describe("tool display renderers", () => {
     ).toContain(resolve(cwd, "src/file.ts"));
   });
 
-  it("keeps full cwd-relative or outside-absolute paths in grouped and expanded reads", () => {
+  it("keeps paths in normal foreground and dims invocation annotations across tools", () => {
+    const themed = semanticTheme();
+    const cases = [
+      {
+        name: "read",
+        args: { path: "src/file.ts", offset: 15, limit: 2 },
+        annotations: [":15-16"],
+        paths: ["src/", "file.ts"]
+      },
+      { name: "write", args: { path: "src/file.ts" }, annotations: [], paths: ["src/", "file.ts"] },
+      {
+        name: "bash",
+        args: { command: "true", timeout: 5 },
+        annotations: [" (timeout 5s)"],
+        paths: []
+      },
+      {
+        name: "powershell",
+        args: { command: "Write-Output ok", timeout: 5 },
+        annotations: [" (timeout 5s)"],
+        paths: []
+      },
+      {
+        name: "grep",
+        args: { pattern: "needle", path: "src", glob: "*.ts" },
+        annotations: [" in ", " (", ")"],
+        paths: ["src"]
+      },
+      {
+        name: "fffind",
+        args: { pattern: "", path: "src/**" },
+        annotations: ["files", " in "],
+        paths: ["src/**"]
+      },
+      { name: "custom", args: {}, annotations: ["(", ")"], paths: [] }
+    ];
+
+    for (const { name, args, annotations, paths } of cases) {
+      const adapter =
+        name === "fffind"
+          ? piFffAdapter(fffToolInfo(name))!
+          : (nativeAdapter(name) ?? genericAdapter);
+      const coordinator = new TranscriptCoordinator("annotation-colors", { cwd: "/tmp" });
+
+      try {
+        const calls = [0, 1].map((index) => {
+          const call = coordinator.add(
+            { messageTimestamp: 1, contentIndex: index, toolCallId: String(index) },
+            name,
+            args,
+            adapter,
+            "historical"
+          );
+          coordinator.result(call, result("retained"), "success");
+
+          return call;
+        });
+        const call = calls[0]!;
+
+        for (const expanded of [false, true]) {
+          coordinator.expand(call, expanded);
+
+          for (const options of [{}, { binding: { call, coordinator } }]) {
+            const renderer = createToolDisplayRenderers(name, adapter, options);
+            const rows = renderer
+              .renderCall(args, themed, context({ expanded }))
+              .render(110)
+              .join("\n");
+            const grouped = !expanded && "binding" in options && !!coordinator.group(call);
+
+            for (const annotation of annotations) {
+              if (grouped && name === "fffind" && annotation === " in ") {
+                expect(stripTerminalSequences(rows)).not.toContain(" in ");
+                continue;
+              }
+
+              expect(rows, `${name}: ${annotation}`).toContain(themed.fg("dim", annotation));
+            }
+
+            for (const path of paths)
+              expect(rows, `${name}: ${path}`).toContain(
+                themed.fg("text", grouped && path.endsWith("/") ? path.slice(0, -1) : path)
+              );
+          }
+        }
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  });
+
+  it.each(["success", "failure"] as const)(
+    "keeps %s outcomes on the scope heading without a total call count",
+    (outcome) => {
+      const coordinator = new TranscriptCoordinator("heading-counts", { cwd: "/tmp" });
+      const path = ".tmp/pi-tool-display-scope-runs-20260917-154954-1015792/a";
+
+      try {
+        const calls = ["grep", "ls"].map((name, index) => {
+          const call = coordinator.add(
+            { messageTimestamp: 1, contentIndex: index, toolCallId: name },
+            name,
+            { path, pattern: "alpha" },
+            nativeAdapter(name)!,
+            "historical"
+          );
+          coordinator.result(
+            call,
+            result(outcome === "failure" ? "diagnostic" : "retained"),
+            outcome
+          );
+
+          return call;
+        });
+        const call = calls[0]!;
+        const card = createToolDisplayRenderers(call.name, call.adapter, {
+          binding: { call, coordinator }
+        }).renderCall(call.args, theme, context());
+        const rows = card.render(110);
+        expect(rows[0]).toBe(
+          `• Explored directory ${path}${outcome === "failure" ? " · 2 failed" : ""}`
+        );
+        expect(rows[1]).toBe("  │ 1 search · 1 list");
+        expect(rows.join("\n")).not.toContain("calls");
+        const narrow = card.render(48);
+        if (outcome === "failure") expect(narrow[0]).toBe("• Explored directory · 2 failed");
+        expect(narrow).toContain("  │ 1 search · 1 list");
+        expect(narrow.every((row) => visibleWidth(row) <= 48)).toBe(true);
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  );
+
+  it("uses scope-relative grouped paths and restores full paths on expansion", () => {
     const cwd = resolve("/workspace/project");
-    const coordinator = new TranscriptCoordinator("file-paths");
+    const coordinator = new TranscriptCoordinator("file-paths", { cwd });
 
     try {
-      const paths = [resolve(cwd, "src/file.ts"), "tests/file.ts", "../shared/file.ts"];
+      const paths = [
+        resolve(cwd, "src/file.ts"),
+        "src/other.ts",
+        "../shared/file.ts",
+        "../shared/other.ts"
+      ];
       const expected = [
         "src/file.ts",
-        "tests/file.ts",
-        resolve(cwd, "../shared/file.ts").split(sep).join("/")
+        "src/other.ts",
+        resolve(cwd, "../shared/file.ts").split(sep).join("/"),
+        resolve(cwd, "../shared/other.ts").split(sep).join("/")
       ];
       const calls = paths.map((path, index) => {
         const call = coordinator.add(
@@ -919,15 +1117,21 @@ describe("tool display renderers", () => {
       });
 
       for (const expanded of [false, true]) {
-        coordinator.expand(calls[0]!, expanded);
+        for (const call of calls) coordinator.expand(call, expanded);
         calls.forEach((call, index) => {
           const rows = createToolDisplayRenderers(call.name, call.adapter, {
             binding: { call, coordinator }
           })
             .renderCall(call.args, theme, context({ cwd, expanded }))
             .render(240);
-          const branch = index === calls.length - 1 ? "  └" : "  ├";
-          expect(rows).toContain(`${expanded ? "•" : branch} Read ${expected[index]}`);
+          const branch = index % 2 === 1 ? "  └" : "  ├";
+          const target = expanded ? expected[index] : paths[index]!.split("/").at(-1);
+          expect(rows).toContain(`${expanded ? "•" : branch} Read ${target}`);
+          expect(call.args).toEqual({ path: paths[index] });
+          if (index % 2 === 0 && !expanded)
+            expect(rows[0]).toContain(
+              `Explored directory ${index === 0 ? "src" : resolve(cwd, "../shared").split(sep).join("/")}`
+            );
         });
       }
     } finally {
@@ -1241,17 +1445,12 @@ describe("tool display renderers", () => {
         [
           "ffgrep",
           { pattern: "", path: "packages/utils/src/fff-tools.ts" },
-          'Search "" in packages/utils/src/fff-tools.ts',
+          'Search ""',
           'Searched "" in packages/utils/src/fff-tools.ts'
         ],
-        ["ffgrep", { pattern: "" }, 'Search "" in .', 'Searched "" in .'],
-        [
-          "fffind",
-          { pattern: "", path: "packages/" },
-          "List files in packages/",
-          "Listed files in packages/"
-        ],
-        ["fffind", { pattern: "" }, "List files in .", "Listed files in ."]
+        ["ffgrep", { pattern: "" }, 'Search ""', 'Searched "" in .'],
+        ["fffind", { pattern: "", path: "packages/" }, "List files", "Listed files in packages/"],
+        ["fffind", { pattern: "" }, "List files", "Listed files in ."]
       ] as const
     ).flatMap(([name, args, compact, expanded]) =>
       [false, true].map((isExpanded) => ({ name, args, compact, expanded, isExpanded }))
@@ -1271,15 +1470,25 @@ describe("tool display renderers", () => {
           adapter,
           "historical"
         );
+        coordinator.add(
+          { messageTimestamp: 1, contentIndex: 1, toolCallId: "sibling" },
+          name,
+          args,
+          adapter,
+          "historical"
+        );
         const supplied = result("retained backend output");
-        coordinator.result(call, supplied, "success");
+        for (const member of coordinator.calls.values())
+          coordinator.result(member, supplied, "success");
         coordinator.expand(call, isExpanded);
         const renderer = createToolDisplayRenderers(name, adapter, {
           binding: { call, coordinator }
         });
         const current = context({ args, expanded: isExpanded });
         expect(renderer.renderCall(args, theme, current).render(120)).toEqual(
-          isExpanded ? [`• ${expanded}`] : ["• Explored", `  └ ${compact}`]
+          isExpanded
+            ? [`• ${expanded}`]
+            : [`• Explored filter ${"path" in args ? args.path : "."}`, `  ├ ${compact}`]
         );
         expect(renderer.renderResult(supplied, current, theme, current).render(120)).toEqual(
           isExpanded ? ["  └ retained backend output"] : []
@@ -1310,6 +1519,73 @@ describe("tool display renderers", () => {
       }
     }
   );
+
+  it("omits repeated FFF scopes and operation counts while retaining every error-colored diagnostic", () => {
+    const coordinator = new TranscriptCoordinator("filter-presentation", { cwd: "/tmp" });
+    const themed = semanticTheme();
+    const path = "src/**";
+
+    try {
+      const calls = ["ffgrep", "fffind"].map((name, index) => {
+        const args = Object.freeze({ path, pattern: index === 0 ? "alpha" : "" });
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: index, toolCallId: name },
+          name,
+          args,
+          piFffAdapter(fffToolInfo(name))!,
+          "historical"
+        );
+        coordinator.result(call, result("retained diagnostic"), "failure");
+
+        return call;
+      });
+      const renderers = calls.map((call) =>
+        createToolDisplayRenderers(call.name, call.adapter, { binding: { call, coordinator } })
+      );
+      const compact = renderers.flatMap((renderer, index) =>
+        renderer.renderCall(calls[index]!.args, themed, context()).render(110)
+      );
+      const plain = compact.map(stripTerminalSequences);
+      expect(plain).toEqual([
+        "• Explored filter src/** · 2 failed",
+        "  ├ Search failed alpha",
+        "  │   retained diagnostic",
+        "  └ List failed files",
+        "      retained diagnostic"
+      ]);
+      expect(compact.join("\n")).toContain(themed.fg("error", "2 failed"));
+      expect(compact.join("\n")).toContain(themed.fg("error", "Search failed"));
+      expect(compact.join("\n").split(themed.fg("error", "retained diagnostic"))).toHaveLength(3);
+      expect(compact.join("\n")).toContain(themed.fg("dim", "files"));
+      coordinator.expand(calls[0]!, true);
+
+      for (const [index, call] of calls.entries()) {
+        const renderer = renderers[index]!;
+        expect(
+          stripTerminalSequences(
+            renderer
+              .renderCall(call.args, themed, context({ expanded: true }))
+              .render(110)
+              .join("\n")
+          )
+        ).toContain(` in ${path}`);
+        const body = renderer
+          .renderResult(
+            call.result!,
+            context({ expanded: true }),
+            themed,
+            context({ expanded: true })
+          )
+          .render(110)
+          .join("\n");
+        expect(body).toContain(themed.fg("error", "retained diagnostic"));
+        expect(call.args).toEqual({ path, pattern: index === 0 ? "alpha" : "" });
+        expect(call.result).toEqual(result("retained diagnostic"));
+      }
+    } finally {
+      coordinator.dispose();
+    }
+  });
 
   it("uses the current adapter's parameter policy after late registration and generic fallback", () => {
     const adapter = piFffAdapter({
@@ -1356,7 +1632,7 @@ describe("tool display renderers", () => {
     }
   });
   it("keeps compact group diagnostics with their heading without adding sibling text gaps", () => {
-    const coordinator = new TranscriptCoordinator("group-notices");
+    const coordinator = new TranscriptCoordinator("group-notices", { cwd: "/tmp" });
 
     try {
       const adapter = nativeAdapter("read")!;
@@ -1407,7 +1683,7 @@ describe("tool display renderers", () => {
       coordinator.dispose();
     }
   });
-  it("keeps failed read and FFF diagnostics visible in compact groups without duplicating sibling text", () => {
+  it("keeps failed read and FFF diagnostics visible across standalone scope runs", () => {
     const coordinator = new TranscriptCoordinator("group-failures");
 
     try {
@@ -1447,15 +1723,20 @@ describe("tool display renderers", () => {
         return call;
       });
       const heading = [first, ...failures]
-        .flatMap((call) =>
-          createToolDisplayRenderers(call.name, call.adapter, {
+        .flatMap((call) => {
+          const renderer = createToolDisplayRenderers(call.name, call.adapter, {
             binding: { call, coordinator }
-          })
-            .renderCall(call.args, theme, context())
-            .render(100)
-        )
+          });
+
+          return [
+            ...renderer.renderCall(call.args, theme, context()).render(100),
+            ...renderer.renderResult(call.result!, context(), theme, context()).render(100)
+          ];
+        })
         .join("\n");
-      expect(heading).toContain("2 failed");
+      expect(heading).toContain("Read failed");
+      expect(heading).toContain("Search failed");
+      expect(heading).not.toContain("Explored");
       for (const diagnostic of diagnostics) expect(heading).toContain(diagnostic);
       expect(heading).not.toContain("successful body stays hidden");
 
@@ -1464,9 +1745,9 @@ describe("tool display renderers", () => {
           binding: { call, coordinator }
         });
         const current = context({ args: call.args, isError: true });
-        expect(renderer.renderResult(call.result!, current, theme, current).render(100)).toEqual(
-          []
-        );
+        expect(
+          renderer.renderResult(call.result!, current, theme, current).render(100).join("\n")
+        ).toContain(diagnostics[failures.indexOf(call)]!);
         coordinator.expand(call, true);
         expect(
           renderer.renderResult(call.result!, current, theme, current).render(100).join("\n")
@@ -1505,7 +1786,7 @@ describe("tool display renderers", () => {
         .render(100)
         .join("\n");
       expect(standalone).toContain("renderers.ts");
-      expect(standalone).toContain(notice);
+      expect(standalone.split(notice)).toHaveLength(2);
       expect(standalone).not.toContain("Page ");
       expect(
         renderer.renderResult(result(notice), current, theme, current).render(100).join("\n")
@@ -1525,17 +1806,17 @@ describe("tool display renderers", () => {
           adapter,
           "historical"
         );
-        const read = coordinator.add(
-          { messageTimestamp: 1, contentIndex: 1, toolCallId: "read" },
-          "read",
-          { path: "renderers.ts" },
-          nativeAdapter("read")!,
+        const sibling = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 1, toolCallId: "sibling" },
+          "fffind",
+          { pattern: "cards", path: "src/" },
+          adapter,
           "historical"
         );
-        coordinator.result(read, result("retained file text"), "success");
+        coordinator.result(sibling, result("retained sibling matches"), "success");
         coordinator.result(search, supplied, "success");
         coordinator.expand(search, expanded);
-        const rows = [search, read].flatMap((call) => {
+        const rows = [search, sibling].flatMap((call) => {
           const renderer = createToolDisplayRenderers(call.name, call.adapter, {
             binding: { call, coordinator }
           });
@@ -1549,13 +1830,13 @@ describe("tool display renderers", () => {
         expect(rows.join("\n")).not.toContain("Page ");
         if (expanded) {
           expect(rows.join("\n")).toContain("renderers.ts");
-          expect(rows.join("\n")).toContain("retained file text");
+          expect(rows.join("\n")).toContain("retained sibling matches");
         } else
           expect(rows).toEqual([
-            "• Explored",
-            "  ├ Search renderers in src/",
+            "• Explored filter src/",
+            "  ├ Search renderers",
             `  │   ${notice}`,
-            "  └ Read renderers.ts"
+            "  └ Search cards"
           ]);
         expect(search.result).toBe(supplied);
         expect(supplied.content[0]).toEqual({ type: "text", text: `renderers.ts\n\n${notice}` });
@@ -1581,9 +1862,9 @@ describe("tool display renderers", () => {
         }
       })!;
       const calls = [
-        ["read", { path: "a.ts" }, nativeAdapter("read")!],
+        ["fffind", { pattern: "a", path: "src/" }, search],
         ["fffind", { pattern: "renderers", path: "src/" }, search],
-        ["read", { path: "a.ts" }, nativeAdapter("read")!]
+        ["fffind", { pattern: "a", path: "src/" }, search]
       ] as const;
       const members = calls.map(([name, args, adapter], index) =>
         coordinator.add(
@@ -1609,8 +1890,8 @@ describe("tool display renderers", () => {
             .renderCall(call.args, theme, context())
             .render(width)
         );
-        expect(rendered[0]).toEqual(["• Explored", "  ├ Read a.ts"]);
-        expect(rendered[1]![0]).toBe("  ├ Search renderers in src/");
+        expect(rendered[0]).toEqual(["• Explored filter src/", "  ├ Search a"]);
+        expect(rendered[1]![0]).toBe("  ├ Search renderers");
         expect(rendered[1]!.slice(1).every((row) => row.startsWith("  │   "))).toBe(true);
         expect(
           rendered[1]!
@@ -1618,7 +1899,7 @@ describe("tool display renderers", () => {
             .map((row) => row.slice(6))
             .join(" ")
         ).toContain("only weak scattered fuzzy matches");
-        expect(rendered[2]).toEqual(["  └ Read a.ts"]);
+        expect(rendered[2]).toEqual(["  └ Search a"]);
         expect(rendered.flat().every((row) => visibleWidth(row) <= width)).toBe(true);
       }
     } finally {
@@ -1635,6 +1916,13 @@ describe("tool display renderers", () => {
         { messageTimestamp: 1, contentIndex: 0, toolCallId: "multiline" },
         "fffind",
         { pattern: "foo\nbar" },
+        adapter,
+        "historical"
+      );
+      coordinator.add(
+        { messageTimestamp: 1, contentIndex: 1, toolCallId: "sibling" },
+        "fffind",
+        { pattern: "other" },
         adapter,
         "historical"
       );
@@ -1975,6 +2263,7 @@ describe("tool display renderers", () => {
     for (const outcome of [
       "transport-error",
       "returned-error",
+      "cancelled",
       "success",
       "unavailable"
     ] as const) {
@@ -1992,19 +2281,37 @@ describe("tool display renderers", () => {
           ]
         })
       });
-      const rows = renderer
-        .renderResult(supplied, context(), theme, context())
-        .render(80)
-        .join("\n");
-      const branches = rows.split("\n").filter((row) => /^  [├└] /.test(row));
-      expect(branches).toHaveLength(3);
-      expect(branches.map((row) => row.slice(0, 4))).toEqual(["  ├ ", "  ├ ", "  └ "]);
-      expect(rows).toContain("before");
-      expect(rows.indexOf("before")).toBeLessThan(rows.indexOf("Media"));
-      expect(rows.indexOf("Media")).toBeLessThan(rows.indexOf("after"));
-      expect(rows.includes("Transport error")).toBe(outcome === "transport-error");
-      expect(rows.includes("Tool returned an error")).toBe(outcome === "returned-error");
-      expect(rows).not.toContain("private");
+      const themed = semanticTheme();
+      const color = {
+        "transport-error": "error",
+        "returned-error": "error",
+        cancelled: "warning",
+        success: "toolOutput",
+        unavailable: "toolOutput"
+      }[outcome];
+
+      for (const expanded of [false, true]) {
+        const current = context({ expanded });
+        const styled = renderer
+          .renderResult(supplied, current, themed, current)
+          .render(80)
+          .join("\n");
+        for (const text of ["before", "after"])
+          expect(styled, `${outcome}: ${text}, expanded=${expanded}`).toContain(
+            themed.fg(color, text)
+          );
+        expect(styled).toContain(themed.fg("dim", "Resource: "));
+        expect(styled).toContain(themed.fg("text", "file:///resource"));
+        const rows = stripTerminalSequences(styled);
+        const branches = rows.split("\n").filter((row) => /^  [├└] /.test(row));
+        expect(branches).toHaveLength(3);
+        expect(branches.map((row) => row.slice(0, 4))).toEqual(["  ├ ", "  ├ ", "  └ "]);
+        expect(rows.indexOf("before")).toBeLessThan(rows.indexOf("Media"));
+        expect(rows.indexOf("Media")).toBeLessThan(rows.indexOf("after"));
+        expect(rows.includes("Transport error")).toBe(outcome === "transport-error");
+        expect(rows.includes("Tool returned an error")).toBe(outcome === "returned-error");
+        expect(rows).not.toContain("private");
+      }
     }
   });
 
@@ -2105,6 +2412,88 @@ describe("tool display renderers", () => {
     const successfulRows = successful.render(80).join("\n");
     expect(stripTerminalSequences(successfulRows)).toContain("Called docs.list");
     expect(successfulRows).toContain(successMarker);
+  });
+
+  it.each([48, 80, 110])(
+    "retains scoped filenames, expanded paths and dim atomic ranges at %i columns",
+    (width) => {
+      const coordinator = new TranscriptCoordinator("path-wrapping", { cwd: "/tmp" });
+      const directory = ".tmp/pi-tool-display-scope-runs-20260917-154954-1015792/a";
+      const names = [
+        "space name.txt",
+        "unicode-☃.txt",
+        `${"界é👩‍💻".repeat(20)}.txt`,
+        "this-is-a-deliberately-long-filename-for-wrapping-and-tree-connectors.txt"
+      ];
+
+      try {
+        const calls = names.map((name, index) => {
+          const call = coordinator.add(
+            { messageTimestamp: 1, contentIndex: index, toolCallId: name },
+            "read",
+            { path: `${directory}/${name}`, offset: 15, limit: 2 },
+            nativeAdapter("read")!,
+            "historical"
+          );
+          coordinator.result(call, result("retained"), "success");
+
+          return call;
+        });
+
+        for (const call of calls) {
+          const renderer = createToolDisplayRenderers("read", call.adapter, {
+            binding: { call, coordinator }
+          });
+
+          for (const expanded of [false, true]) {
+            coordinator.expand(call, expanded);
+            const rows = renderer.renderCall(call.args, theme, context({ expanded })).render(width);
+            expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
+            expect(rows.some((row) => row.endsWith(":15-16"))).toBe(true);
+            expect(
+              renderer
+                .renderCall(call.args, semanticTheme(), context({ expanded }))
+                .render(width)
+                .join("\n")
+            ).toContain(semanticTheme().fg("dim", ":15-16"));
+            expect(rows.join("\n")).not.toContain("more rows");
+            const start = rows.findIndex((row) => /Read /.test(row));
+            expect(start).toBeGreaterThanOrEqual(0);
+            const indent = rows[start]!.indexOf("Read ") + 5;
+            const path = rows
+              .slice(start)
+              .map((row) => row.slice(indent))
+              .join("");
+            expect(path).toBe(
+              `${expanded ? `${directory}/` : ""}${call.reference.toolCallId}:15-16`
+            );
+          }
+        }
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  );
+
+  it("bounds pathological compact targets without losing their tail and restores them on expansion", () => {
+    const path = `root/${"é".repeat(10000)}/final.txt`;
+    const renderer = createToolDisplayRenderers("read", nativeAdapter("read"));
+
+    for (const expanded of [false, true]) {
+      const rows = renderer
+        .renderCall({ path, offset: 15, limit: 2 }, theme, context({ expanded }))
+        .render(48);
+      expect(rows.every((row) => visibleWidth(row) <= 48)).toBe(true);
+      const target = rows.map((row) => row.slice(7)).join("");
+      expect(target).toMatch(/^root\//);
+      expect(target).toMatch(/\/final\.txt:15-16$/);
+
+      if (expanded) expect(target).toBe(`${path}:15-16`);
+      else {
+        expect(target).toContain("…");
+        expect(target.length).toBeLessThanOrEqual(16384);
+      }
+    }
   });
 
   it("rebuilds theme-dependent spans after invalidation and handles narrow command headers", () => {

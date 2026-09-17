@@ -1,8 +1,13 @@
+import { homedir } from "node:os";
+import { resolve } from "node:path";
+
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
+import { piFffAdapter } from "../adapters/@ff-labs/pi-fff/index.ts";
+import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
 import { nativeAdapter, genericAdapter } from "../adapters/index.ts";
-import { isLive, type DisplayCall } from "../contracts.ts";
+import { isLive, type DisplayCall, type ExplorationItem } from "../contracts.ts";
 import { TranscriptCoordinator } from "./coordinator.ts";
 
 const result = (text = "retained") => ({
@@ -41,6 +46,152 @@ function fixture() {
 
   return { coordinator, add, start, stop, onExpansion, tick: () => tick() };
 }
+
+it.each(["live", "historical"] as const)(
+  "forms contiguous scope runs for %s calls without merging a return to an earlier scope",
+  (origin) => {
+    const cwd = resolve("/workspace/project");
+    const c = new TranscriptCoordinator("scopes", { cwd });
+    let index = 0;
+    const add = (name: string, args: unknown) =>
+      c.add(
+        { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
+        name,
+        args,
+        nativeAdapter(name)!,
+        origin
+      );
+
+    try {
+      const first = add("ls", { path: "src/rendering/" });
+      const second = add("grep", { pattern: "heading", path: "./src/rendering/../rendering" });
+      const third = add("read", {
+        path: resolve(cwd, "src/rendering/headings.ts"),
+        offset: 1,
+        limit: 80
+      });
+      const repeated = add("read", { path: "src/rendering/headings.ts", offset: 81 });
+      const other = add("read", { path: "src/transcript/coordinator.ts" });
+      const returned = add("read", { path: "src/rendering/cards.ts" });
+      const sibling = add("read", { path: "src/rendering/results.ts" });
+      expect(c.group(first)?.members).toEqual([first, second, third, repeated]);
+      expect(c.group(first)?.counts).toEqual({ Read: 2, Search: 1, List: 1 });
+      expect(c.group(other)).toBeUndefined();
+      expect(c.group(returned)?.members).toEqual([returned, sibling]);
+      c.expand(first, true);
+      expect([...c.calls.values()].map((call) => call.expanded)).toEqual([
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false
+      ]);
+      c.setBoundary({}, second);
+      expect(c.group(first)?.members).toEqual([first, second]);
+      expect(c.group(third)?.members).toEqual([third, repeated]);
+    } finally {
+      c.dispose();
+    }
+  }
+);
+
+it("normalizes home and native path spellings without interpreting literal filters as directories", () => {
+  const c = new TranscriptCoordinator("literal-scopes");
+  let index = 0;
+  const add = (name: string, args: unknown) =>
+    c.add(
+      { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
+      name,
+      args,
+      nativeAdapter(name) ?? piFffAdapter(fffToolInfo(name))!,
+      "historical"
+    );
+
+  try {
+    const home = add("read", { path: "@~/project/a.ts" });
+    const absolute = add("read", { path: resolve(homedir(), "project/b.ts") });
+    expect(c.group(home)?.members).toEqual([home, absolute]);
+    const search = add("ffgrep", { pattern: "one", path: "src/**" });
+    const listing = add("fffind", { pattern: "", path: "src/**" });
+    expect(c.group(search)?.members).toEqual([search, listing]);
+    expect(c.group(search)?.counts).toEqual({ Read: 0, Search: 1, List: 1 });
+    c.add(
+      listing.reference,
+      listing.name,
+      { pattern: "files", path: "src/**" },
+      listing.adapter,
+      "historical"
+    );
+    expect(c.group(search)?.counts).toEqual({ Read: 0, Search: 2, List: 0 });
+    const distinct = add("fffind", { pattern: "two", path: "./src/**" });
+    expect(c.group(distinct)).toBeUndefined();
+    const literal = add("ffgrep", { pattern: "three", path: "src/" });
+    const directory = add("ls", { path: "src/" });
+    expect(c.group(literal)).toBeUndefined();
+    expect(c.group(directory)).toBeUndefined();
+  } finally {
+    c.dispose();
+  }
+});
+
+it("repartitions changed streamed scopes without duplicating members or expanding across other runs", () => {
+  const { coordinator: c, add } = fixture();
+
+  try {
+    const first = add("read", "a/first.ts");
+    const middle = add("read", "a/middle.ts");
+    const last = add("read", "b/last.ts");
+    const stable = add("read", "c/stable.ts");
+    const stableSibling = add("read", "c/sibling.ts");
+    const stableGroup = c.group(stable);
+    const row = rowHandle();
+    c.attach(stable, row);
+    c.expand(last, true);
+    c.add(middle.reference, "read", { path: "b/middle.ts" }, middle.adapter, "live");
+    expect(c.group(first)).toBeUndefined();
+    expect(c.group(middle)?.members).toEqual([middle, last]);
+    expect([middle.expanded, last.expanded]).toEqual([false, false]);
+    c.add(last.reference, "read", { path: "a/last.ts" }, last.adapter, "live");
+    expect(c.group(last)).toBeUndefined();
+    c.add(last.reference, "read", { path: "b/last.ts" }, last.adapter, "live");
+    expect(c.group(last)?.members).toEqual([middle, last]);
+    expect(c.group(stable)).toBe(stableGroup);
+    expect(c.group(stable)?.members).toEqual([stable, stableSibling]);
+    expect(row.invalidate).not.toHaveBeenCalled();
+  } finally {
+    c.dispose();
+  }
+});
+
+it("requires explicit matching scopes for every item without counting items as calls", () => {
+  const c = new TranscriptCoordinator("structured-scopes");
+  const item: ExplorationItem = { label: "Read", parts: [{ kind: "path", text: "src/a.ts" }] };
+  const scoped: ExplorationItem = { ...item, scope: { kind: "file", value: "src/a.ts" } };
+  let index = 0;
+  const add = (items: ExplorationItem[]) =>
+    c.add(
+      { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
+      "custom",
+      {},
+      { id: "custom:read", family: "read", exploration: () => items },
+      "historical"
+    );
+
+  try {
+    const first = add([scoped]);
+    const missing = add([item]);
+    const mixed = add([scoped, { ...scoped, scope: { kind: "file", value: "other/a.ts" } }]);
+    const multiple = add([scoped, { ...scoped, scope: { kind: "file", value: "src/b.ts" } }]);
+    const last = add([scoped]);
+    for (const call of [first, missing, mixed]) expect(c.group(call)).toBeUndefined();
+    expect(c.group(multiple)?.members).toEqual([multiple, last]);
+    expect(c.group(multiple)?.counts).toEqual({ Read: 2, Search: 0, List: 0 });
+  } finally {
+    c.dispose();
+  }
+});
 
 it("keeps unrelated completed row caches and group interiors when appending calls", () => {
   const { coordinator: c, add, tick } = fixture();
@@ -180,15 +331,15 @@ it("moves a visible boundary without spreading expansion through a temporary mer
     c.expand(first, true);
     c.setBoundary(owner, second);
     expect(c.group(first)?.members).toEqual([first, second]);
-    expect(c.group(third)?.members).toEqual([third]);
+    expect(c.group(third)).toBeUndefined();
     expect([first.expanded, second.expanded, third.expanded]).toEqual([true, true, false]);
 
     // Losing and regaining membership in the middle reconciles both neighbors.
     c.setBoundary(owner);
     c.add(second.reference, "read", {}, second.adapter, "historical");
-    expect(c.group(first)?.members).toEqual([first]);
+    expect(c.group(first)).toBeUndefined();
     expect(c.group(second)).toBeUndefined();
-    expect(c.group(third)?.members).toEqual([third]);
+    expect(c.group(third)).toBeUndefined();
     c.add(second.reference, "read", { path: "second.ts" }, second.adapter, "historical");
     expect(c.group(second)?.members).toEqual([first, second, third]);
   } finally {
@@ -245,12 +396,12 @@ it("keeps completed contracts cached across local membership and boundary change
     exploration.mockClear();
     c.add(reference, "read", { path: "new.ts" }, adapter, "historical");
     expect(exploration).toHaveBeenCalledTimes(1);
-    expect(c.group(call)?.members).toEqual([call]);
+    expect(c.group(call)).toBeUndefined();
     expect(c.group(old[0]!)).toBe(group);
     exploration.mockClear();
     const owner = {};
     c.setBoundary(owner, old[500]);
-    expect(c.group(old[500]!)?.members).toEqual([old[500]]);
+    expect(c.group(old[500]!)).toBeUndefined();
     c.setBoundary(owner);
     expect(c.group(old[500]!)?.members).toEqual([old[500], old[501]]);
     expect(exploration).not.toHaveBeenCalled();
@@ -263,7 +414,11 @@ it("keeps completed contracts cached across local membership and boundary change
 it("batches reconstruction boundaries and late adapters into one contract pass", () => {
   const { coordinator: c, onExpansion } = fixture();
   const exploration = vi.fn(() => [
-    { label: "Read" as const, parts: [{ kind: "path" as const, text: "file.txt" }] }
+    {
+      label: "Read" as const,
+      scope: { kind: "file" as const, value: "file.txt" },
+      parts: [{ kind: "path" as const, text: "file.txt" }]
+    }
   ]);
   const adapter = { id: "owner:read", family: "read" as const, exploration };
   const calls = Array.from({ length: 100 }, (_, index) =>
@@ -285,7 +440,7 @@ it("batches reconstruction boundaries and late adapters into one contract pass",
       });
     });
     expect(exploration).toHaveBeenCalledTimes(calls.length);
-    for (const call of calls) expect(c.group(call)?.members).toEqual([call]);
+    for (const call of calls) expect(c.group(call)).toBeUndefined();
     expect(calls.map((call) => call.expanded)).toEqual(calls.map((_, index) => index % 2 === 0));
     expect(onExpansion).not.toHaveBeenCalled();
 
@@ -297,7 +452,7 @@ it("batches reconstruction boundaries and late adapters into one contract pass",
       })
     ).toThrow("reconstruction failed");
     expect(exploration).not.toHaveBeenCalled();
-    expect(c.group(calls[0]!)?.members).toEqual([calls[0]]);
+    expect(c.group(calls[0]!)).toBeUndefined();
   } finally {
     c.dispose();
   }
@@ -327,7 +482,11 @@ it("regroups late historical contracts without changing results, source order, o
       id: "@ff-labs/pi-fff:find",
       family: "search" as const,
       exploration: () => [
-        { label: "Search" as const, parts: [{ kind: "value" as const, text: "supplied pattern" }] }
+        {
+          label: "Search" as const,
+          scope: { kind: "filter" as const, value: "." },
+          parts: [{ kind: "value" as const, text: "supplied pattern" }]
+        }
       ]
     };
     c.setAdapter(first, adapter);
@@ -355,7 +514,13 @@ it("restores exploration groups when final results establish a previously unavai
       family: "search" as const,
       exploration: (_args: unknown, value?: AgentToolResult<unknown>) =>
         value?.content[0]?.type === "text" && value.content[0].text === "search results"
-          ? [{ label: "Search" as const, parts: [{ kind: "value" as const, text: "needle" }] }]
+          ? [
+              {
+                label: "Search" as const,
+                scope: { kind: "directory" as const, value: "." },
+                parts: [{ kind: "value" as const, text: "needle" }]
+              }
+            ]
           : undefined
     };
     const calls = [0, 1].map((index) =>
@@ -371,7 +536,7 @@ it("restores exploration groups when final results establish a previously unavai
     for (const call of calls) c.result(call, result("search results"), "success");
     expect(c.group(calls[0]!)?.members).toEqual(calls);
     c.result(calls[1]!, result("unsupported result"), "failure");
-    expect(c.group(calls[0]!)?.members).toEqual([calls[0]]);
+    expect(c.group(calls[0]!)).toBeUndefined();
     c.result(calls[1]!, result("search results"), "success");
     expect(c.group(calls[0]!)?.members).toEqual(calls);
     expect(start).not.toHaveBeenCalled();
@@ -384,7 +549,7 @@ it("retains every ordered call and failure while expanding the group together", 
   const { coordinator: c, add } = fixture();
   const first = add("read", "/src/a.ts");
   c.result(first, result(), "success");
-  const second = add("read", "/other/b.ts");
+  const second = add("read", "/src/b.ts");
   const third = add("read", "/src/a.ts");
   c.result(third, result("third"), "success");
   c.result(second, result("denied"), "failure");
@@ -407,7 +572,7 @@ it("retains every ordered call and failure while expanding the group together", 
   expect(c.group(next)).not.toBe(group);
   add("custom.read", "unknown");
   const afterCustom = add("read", "d.ts");
-  expect(c.group(afterCustom)?.members).toEqual([afterCustom]);
+  expect(c.group(afterCustom)).toBeUndefined();
   c.dispose();
 });
 it("withdraws only the owning component's boundary and preserves other separators", () => {
@@ -421,7 +586,7 @@ it("withdraws only the owning component's boundary and preserves other separator
     c.setBoundary(assistant, first);
     c.setBoundary(entry, first);
     c.setBoundary(assistant);
-    expect(c.group(first!)?.members).toEqual([first]);
+    expect(c.group(first!)).toBeUndefined();
     expect(c.group(second!)?.members).toEqual(calls.slice(1));
     c.setBoundary(entry);
     expect(c.group(first!)?.members).toEqual(calls);
@@ -522,7 +687,7 @@ it("retains a live call's row and outcome when finalized content moves its sourc
     expect(first.args).toEqual({ path: "final.ts" });
     expect(first.expanded).toBe(true);
     expect(c.calls.size).toBe(1);
-    expect(c.group(first)?.members).toEqual([first]);
+    expect(c.group(first)).toBeUndefined();
     row.invalidate.mockClear();
     c.result(c.byId("moved")!, result("only this call failed"), "failure");
     expect(row.invalidate).toHaveBeenCalled();
@@ -550,7 +715,7 @@ it("keeps historical missing results still and separates identical call IDs by s
   const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "duplicate" };
   const first = c.add(reference, "read", {}, nativeAdapter("read")!, "historical");
   c.add(reference, "read", { path: "prepared.ts" }, nativeAdapter("read")!, "historical");
-  expect(c.group(first)?.members).toEqual([first]);
+  expect(c.group(first)).toBeUndefined();
   const second = c.add(
     { ...reference, contentIndex: 1 },
     "read",

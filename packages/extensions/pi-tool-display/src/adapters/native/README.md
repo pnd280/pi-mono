@@ -4,7 +4,7 @@
 
 ## Compatibility and selection
 
-`nativeAdapter(name)` supports `read`, `grep`, `find`, `ls`, `bash`, `powershell`, `edit`, and `write`. Passing it to the [standalone factory](../../../docs/renderers.md#explicit-contracts) asserts compatibility; it does not verify provenance or install native execution observation.
+`nativeAdapter(name)` supports `read`, `grep`, `find`, `ls`, `bash`, `powershell`, `edit`, and `write`. Passing it to the [standalone factory](../../../docs/renderers.md#explicit-contracts) asserts compatibility. It does not verify provenance or install native execution observation.
 
 [Automatic selection](../../../docs/adapters.md#automatic-selection) requires verified native provenance. [Execution observation](../../../README.md#observation-and-saved-history) has separate host provenance checks.
 
@@ -22,11 +22,13 @@ Numbered `details.diff` is not interpreted. Write arguments alone do not establi
 
 ## Display
 
-Read, search, and list calls can participate in exploration groups. Concrete file targets follow the shared [path layout](../../../docs/presentation.md#card-layout).
+Adjacent read, search, and list calls form [exploration groups](../../../docs/presentation.md#exploration-groups) when their normalized directories match. Reads use their file's parent directory. Searches and lists use the supplied directory or `.`. Single calls use ordinary cards.
 
-Native image captions suppress equivalent generated fallback descriptions without changing the retained result. Warnings about models without image support or images omitted during conversion or resizing remain visible in compact standalone and grouped reads. They appear once in expanded bodies. Patch, live-output, and saved-output previews retain image fallback notices when Pi's native image display is unavailable or disabled.
+Concrete file targets follow the shared [target layout](../../../docs/presentation.md#targets-and-output).
 
-The native `(no output)` placeholder uses `dim`. Nonzero-exit and timeout diagnostics use `error`; process output preceding a native failure footer retains its own styling.
+Native image captions suppress equivalent generated fallback descriptions without changing the retained result. Warnings about models without image support or images omitted during conversion or resizing remain visible in collapsed cards, including groups. These warnings appear once in expanded bodies. Patch, live-output, and saved-output previews retain image fallback notices when Pi's native image display is unavailable or disabled.
+
+The native `(no output)` placeholder uses `dim`. Nonzero-exit and timeout diagnostic bodies and failure markers use `error`. Process output preceding a native failure footer retains its own styling.
 
 ### Text-envelope provenance
 

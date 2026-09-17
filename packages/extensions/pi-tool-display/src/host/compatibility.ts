@@ -27,6 +27,7 @@ export interface Host {
   ui?: TUI;
   chatContainer?: { children: Component[] };
   toolOutputExpanded?: boolean;
+  updateThinkingBlockVisibility?: (this: Host) => void;
   streamingComponent?: AssistantMessageComponent;
   addMessageToChat?: (this: Host, message: unknown, options?: unknown) => void;
   addCustomEntryToChat?: (this: Host, entry: unknown) => void;

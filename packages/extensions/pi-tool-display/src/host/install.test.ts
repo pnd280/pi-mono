@@ -15,6 +15,7 @@ import {
   SettingsManager,
   ToolExecutionComponent,
   AgentSession,
+  AssistantMessageComponent,
   type AgentSessionRuntime,
   type AgentSessionEvent,
   type ExtensionAPI,
@@ -104,6 +105,8 @@ function interactiveHost(session: AgentSession) {
     renderSessionItems(items: unknown[]): void;
     renderSessionEntries(entries: ReturnType<SessionManager["buildContextEntries"]>): void;
     handleEvent(event: AgentSessionEvent): Promise<void>;
+    hideThinkingBlock: boolean;
+    updateThinkingBlockVisibility(): void;
   };
   boundary.ui = renderingTui();
   boundary.isInitialized = true;
@@ -376,7 +379,7 @@ it("binds real transcript rows, group clicks and observed native calls before Pi
         (child) => child instanceof ToolExecutionComponent
       );
       expect(rows).toHaveLength(3);
-      expect(text(rows[0]!)).toBe("\n• Explored\n  ├ Read a.ts");
+      expect(text(rows[0]!)).toBe("\n• Explored directory . · 3 reads\n  ├ Read a.ts");
       expect(text(rows[1]!)).toBe("  ├ Read b.ts");
       expect(text(rows[2]!)).toBe("  └ Read a.ts");
       // The joined sibling's first visible line remains a native group click target.
@@ -508,8 +511,8 @@ it("separates new exploration after compaction reconstruction and restores row e
       const nextRow = tui.chatContainer.children
         .filter((child) => child instanceof ToolExecutionComponent)
         .at(-1)!;
-      expect(text(row)).toContain("└ Read a.ts");
-      expect(text(nextRow)).toContain("• Explored");
+      expect(text(row)).toContain("• Read a.ts");
+      expect(text(nextRow)).toContain("• Read b.ts");
       expect(nextRow.render(80)[0]).toBe("");
       nextRow.setExpanded(true);
       expect(text(nextRow)).toContain("new exploration body");
@@ -588,7 +591,7 @@ it.each(["failure", "cancelled", "silent"])(
           expect(transcript.indexOf(notice)).toBeLessThan(transcript.indexOf("Read b.ts"));
         }
 
-        expect(text(rows[1]!).includes("• Explored")).toBe(visible);
+        expect(text(rows[1]!).includes("• Read b.ts")).toBe(visible);
         expect(rows[1]!.render(80)[0] === "").toBe(visible);
         rows[1]!.setExpanded(true);
         expect(text(rows[0]!).includes("body a")).toBe(!visible);
@@ -1067,17 +1070,17 @@ it.each(["visible", "suppressed", "unregistered"])(
           rows()
             .map(text)
             .join("\n")
-            .match(/Explor(?:ed|ing)/g)
-        ).toHaveLength(visible ? 2 : 1);
-        expect(text(rows()[1]!)).toContain("Read b.ts");
+            .match(/Explor(?:ed|ing)/g) ?? []
+        ).toHaveLength(visible ? 0 : 1);
+        expect(text(rows()[1]!)).toContain(visible ? "Reading b.ts" : "Read (queued) b.ts");
         tui.chatContainer.clear();
         tui.renderSessionItems([messages[0], entry, messages[1]]);
         expect(
           rows()
             .map(text)
             .join("\n")
-            .match(/Explor(?:ed|ing)/g)
-        ).toHaveLength(visible ? 2 : 1);
+            .match(/Explor(?:ed|ing)/g) ?? []
+        ).toHaveLength(visible ? 0 : 1);
         expect(text(rows()[1]!)).toContain("Read outcome unavailable b.ts");
       } finally {
         tui.footerDataProvider.dispose();
@@ -1085,6 +1088,61 @@ it.each(["visible", "suppressed", "unregistered"])(
     });
   }
 );
+
+it("suppresses completed collapsed thinking without losing text, diagnostics, or toggle boundaries", async () => {
+  await withSession(async ({ session }) => {
+    const tui = interactiveHost(session);
+
+    try {
+      const messages = ["a", "b", "c"].map((id, index) =>
+        assistantMessage(
+          [
+            { type: "thinking", thinking: `Thought ${id}` },
+            fauxToolCall("read", { path: `${id}.ts` }, { id })
+          ],
+          index + 1
+        )
+      );
+      const retained = structuredClone(messages);
+      tui.renderSessionItems(messages);
+      const render = () => tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
+      expect(render()).toContain("Thought b");
+      tui.hideThinkingBlock = true;
+      tui.updateThinkingBlockVisibility();
+      expect(render()).not.toContain("Thinking...");
+      expect(render().match(/Explored/g)).toHaveLength(1);
+      expect(render()).toContain("3 reads");
+      tui.hideThinkingBlock = false;
+      tui.updateThinkingBlockVisibility();
+      expect(render()).toContain("Thought b");
+      expect(render()).not.toContain("Explored");
+      const assistants = tui.chatContainer.children.filter(
+        (child) => child instanceof AssistantMessageComponent
+      );
+      const component = assistants[1]!;
+      component.setHideThinkingBlock(true);
+      component.updateContent(messages[1]!, true);
+      expect(render()).toContain("Thinking...");
+      component.updateContent(messages[1]!, false);
+      expect(render()).not.toContain("Thinking...");
+      const diagnostic = {
+        ...messages[1]!,
+        content: [
+          { type: "thinking" as const, thinking: "hidden" },
+          { type: "text" as const, text: "Keep this explanation" }
+        ],
+        stopReason: "error" as const,
+        errorMessage: "Keep this error"
+      };
+      component.updateContent(diagnostic, false);
+      expect(render()).toContain("Keep this explanation");
+      expect(render()).toContain("Keep this error");
+      expect(messages).toEqual(retained);
+    } finally {
+      tui.footerDataProvider.dispose();
+    }
+  });
+});
 
 it.each(
   ["live", "replay"].flatMap((mode) =>
@@ -1176,7 +1234,7 @@ it.each(
         const rows = tui.chatContainer.children.filter(
           (child) => child instanceof ToolExecutionComponent
         );
-        expect(text(rows[0]!)).toContain("└ Read a.ts");
+        expect(text(rows[0]!)).toContain("• Read a.ts");
         expect(text(rows[1]!)).toContain("• Explored");
         expect(text(rows[2]!)).not.toContain("• Explored");
         expect(rows[1]!.render(80)[0]).toBe("");
@@ -1238,7 +1296,7 @@ it.each([
             const row = tui.chatContainer.children
               .filter((child) => child instanceof ToolExecutionComponent)
               .at(-1)!;
-            if (position !== "none") expect(text(row)).toContain("Exploring");
+            if (position !== "none") expect(text(row)).toContain("Reading");
             expect(row.render(80)[0] === "").toBe(position !== "none");
 
             if (entryVisible) {
@@ -1278,7 +1336,7 @@ it.each([
           const transcript = tui.chatContainer.render(80).map(stripTerminalSequences).join("\n");
           expect(transcript).not.toContain("Withdrawn text");
           expect(transcript.includes("Retained entry")).toBe(entryVisible);
-          expect(transcript.match(/• Explored/g)).toHaveLength(entryVisible ? 2 : 1);
+          expect(transcript.match(/• Explored/g)).toHaveLength(1);
           const rows = tui.chatContainer.children.filter(
             (child) => child instanceof ToolExecutionComponent
           );
@@ -1291,7 +1349,7 @@ it.each([
             expect(transcript.indexOf("Retained entry")).toBeLessThan(
               transcript.indexOf(position === "before" ? "Read failed b.ts" : "Read b.ts")
             );
-            expect(text(rows[0]!)).toContain("└ Read a.ts");
+            expect(text(rows[0]!)).toContain("• Read a.ts");
             expect(text(rows[1]!)).toContain("• Explored");
           }
 
@@ -1699,7 +1757,7 @@ it.each(
         expect(insert.mock.contexts[0]).toBe(tui);
         if (mode === "live") await renderLive(history[2]!);
         expect(tui.chatContainer.children.filter((child) => child === notice)).toHaveLength(1);
-        expect(groups()).toHaveLength(2);
+        expect(groups()).toHaveLength(1);
         const [first, second, third] = rows();
         expect(second!.render(80)[0]).toBe("");
         second!.setExpanded(true);

@@ -10,6 +10,10 @@ import { record } from "../../../values.ts";
 import { fffResultParts, fffTextNotices } from "./result-presentation.ts";
 
 const patternsSchema = z.array(z.string());
+const scopeSchema = z
+  .string()
+  .optional()
+  .transform((value) => value || ".");
 const argumentSchemas = {
   multi: z.object({ patterns: patternsSchema }),
   find: z.object({ pattern: z.string() }),
@@ -78,23 +82,30 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
         return part.kind === "path" ? { ...part, kind: "value" } : part;
       });
     },
-    textParts: (text, _args, context) => fffResultParts(text, kind, context),
+    textParts(text, _args, context) {
+      const parts = fffResultParts(text, kind, context);
+
+      // Compact notices own warnings, including standalone scope runs. Expansion
+      // restores the text envelope without adding the same notices a second time.
+      return context.expanded || context.isPartial || context.isError
+        ? parts
+        : parts.filter((part) => part.kind !== "warning");
+    },
     exploration(args, result) {
       if (!supportsFffCall(kind, args, result)) return undefined;
       const data = record(args);
       const listing = kind === "find" && data.pattern === "";
-      const scope = stringField(kind === "multi" ? data.constraints : data.path) || ".";
+      const scope = scopeSchema.safeParse(kind === "multi" ? data.constraints : data.path).data;
       const patterns = patternsSchema.safeParse(data.patterns).data;
 
       return [
         {
           label: listing ? "List" : "Search",
+          ...(scope !== undefined ? { scope: { kind: "filter" as const, value: scope } } : {}),
           parts: [
             kind === "multi" && patterns
               ? { kind: "pattern", text: patterns.join(", ") }
-              : patternPart(kind, data.pattern),
-            { kind: "annotation", text: " in " },
-            { kind: "value", text: scope }
+              : patternPart(kind, data.pattern)
           ]
         }
       ];

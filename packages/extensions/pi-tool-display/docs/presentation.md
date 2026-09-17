@@ -1,39 +1,68 @@
 # Tool card presentation
 
-[Usage and settings](../README.md) · [Renderer integration](renderers.md)
+[pi-tool-display](../README.md) · [Renderer integration](renderers.md)
 
 ## Card layout
 
-File targets inside Pi's rendering working directory use relative paths in summaries. Targets outside it use absolute paths. The working directory itself displays as `.`. Grouped reads retain directory names and read ranges.
+### Targets and output
+
+Standalone and expanded cards show file targets inside Pi's rendering working directory as relative paths. Targets outside it use absolute paths. The working directory itself displays as `.`.
 
 Paths are resolved lexically, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and literal scope or filter expressions are not rewritten.
 
-Collapsed invocation and command summaries show up to three detail rows, with an expansion hint when truncated. A long invocation can place its action title on a separate row. Grouped exploration summaries use the same limits per item without hiding diagnostics or images.
+Paths shown alone or with a read range wrap with continuation lines aligned beneath the target. Paths use the normal foreground color. Ranges and other annotations use `dim`. Wrapping prefers directory and filename separators and keeps a range together when it fits the available width.
+
+These targets have no three-row preview limit when at least four columns remain for the target. Collapsed targets above the [formatting limit](#resource-limits) retain their start and end, separated by `…`.
+
+Other collapsed invocation and command summaries show up to three detail rows, with an expansion hint when truncated. Targets with fewer than four available columns also use these preview limits. A long invocation can place its action title on a separate row. Grouped summaries follow the same rules per item. Diagnostics and images remain visible.
 
 Expansion removes the [heading preview limits](#resource-limits). Parameter visibility still follows [`showParameters`](../README.md#configuration).
 
-After a successful read completes, its body stays hidden until expansion. Notices and images remain visible. Other collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show bounded head and tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling.
+After a successful read completes, its text body stays hidden until expansion. Notices and images remain visible. Other collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show bounded head and tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling.
 
 Expansion shows all retained output, subject to live and saved-output retention limits.
 
-Exploration groups keep every call in source order, including repeated reads. Visible assistant content, diagnostics, cache-miss notices, compaction summaries and notices, and rendered custom entries separate groups. Hidden content does not. Assistant content separates groups before that message's tools, even if it arrives later.
+### Exploration groups
+
+Adjacent exploration calls with the same scope form a group. Every call stays in source order, including repeated reads. A scope change starts a new group, even when returning to a previously visited directory. Single calls use ordinary cards.
+
+Scopes match by these rules in both live and historical views:
+
+- Native reads use the file's parent directory. Native searches and lists use their supplied directory, defaulting to `.`. Directories are compared after lexical resolution against the session working directory, using the same path rules as summaries.
+- Literal filters, including FFF scopes, match only identical filters. They never match filesystem directories.
+- All exploration items within a call must resolve to the same directory or literal filter. Calls with missing or invalid scopes do not group.
+
+Group headings label the scope as `directory` or `filter`. Directory groups count operations by action, including repeated calls. A count for one action, such as `3 reads`, appears beside the scope when it fits, or on a continuation line. Counts for multiple actions appear on a continuation line. Filter groups omit operation counts. There is no separate total call count.
+
+Collapsed directory members show targets relative to the heading's directory, keeping read ranges. Targets outside that directory remain absolute. Collapsed FFF members show only their patterns or `files`, without repeating `in <filter>`. Expanded and standalone cards use the [target layout](#targets-and-output) and retain literal filters.
+
+Queued and executing group members show `queued` and `running` annotations in `dim` when their state is known. Argument streaming does not imply execution.
+
+Visible assistant content, assistant diagnostics, cache-miss notices, compaction summaries and notices, rendered custom entries, and non-exploration tools separate groups. Hidden content does not. Assistant content separates groups before that message's tools, even if it arrives later.
 
 Tool-result notices and failure diagnostics stay immediately beneath their call:
 
 ```text
-• Explored
+• Explored directory . · 2 reads
   ├ Read screenshot.png
   │   [Image: image/png]
-  ├ Search renderers in src/
-  │   [0 exact matches. Maybe you meant this?]
   └ Read renderers.ts
+
+• Searched renderers in src/
+  └ [0 exact matches. Maybe you meant this?]
 ```
+
+### Thinking visibility
+
+With Pi's thinking display collapsed (**Ctrl+T** by default), completed thinking placeholders disappear, including in history. Revealing thinking restores its rows and group boundaries. Live thinking indicators, assistant text, and diagnostics remain visible in either state. Recorded messages do not change.
 
 ## Outcomes
 
 Pending headings cover argument streaming, queueing, and execution. They do not confirm that execution has started or a change has been applied. Adapters can establish an outcome only from completed results.
 
-Headings retain the action when a call fails, is cancelled, or has no known historical outcome: `Write failed`, `Edit cancelled`, or `Read outcome unavailable`. Completed exploration groups count failures, cancellations, and unavailable outcomes. Each affected member also names its outcome.
+Headings retain the action when a call fails, is cancelled, or has no known historical outcome: `Write failed`, `Edit cancelled`, or `Read outcome unavailable`.
+
+Group headings count failures, cancellations, and unavailable outcomes, excluding pending calls. Each affected member also names its outcome. Outcome counts stay beside **Exploring** or **Explored**. When the scope and outcome counts do not fit together, the scope moves to continuation rows beneath them.
 
 Confirmed cancellation takes precedence over failure. Successful or unavailable adapter metadata cannot override either.
 
@@ -41,7 +70,9 @@ When cancellation is confirmed, compact native cards omit exact matches for know
 
 ## Notices and colors
 
-Routine metadata and expansion hints use `dim`. Unknown historical observations use `muted`, not failure styling. Cancellation diagnostics use `warning` in compact cards, expanded cards, and exploration groups. Unavailable patches or previews, output omissions, and actionable diagnostics also use `warning`. Reported failures use `error`.
+Routine metadata and expansion hints use `dim`. Unknown historical observations use `muted`. Cancellation diagnostics, unavailable patches or previews, output omissions, and actionable diagnostics use `warning`.
+
+For failures, markers, grouped action labels, outcome badges, diagnostic bodies, and error notices use `error`. Standalone and expanded action titles retain `toolTitle` styling.
 
 Live and saved-output previews distinguish generated omissions from process text. Identical literal output in those previews retains ordinary styling. Generic output is not searched for extension-specific phrases. See the [built-in adapters](adapters.md#built-in-adapters) for tool-specific interpretation and provenance limits.
 
@@ -67,7 +98,7 @@ These limits affect display, not tool execution or the arguments and results sav
 
 | Resource                     | Limit                                                                                                                                                                                                       |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Collapsed heading formatting | 16,384 UTF-16 code units of normalized text per invocation or exploration item, before styling and wrapping.                                                                                                |
+| Collapsed heading formatting | 16,384 UTF-16 code units of normalized text per invocation, group scope, or exploration item, before styling and wrapping.                                                                                  |
 | Collapsed result formatting  | 16,384 UTF-16 code units of styled text, split between the start and end, plus carried ANSI state.                                                                                                          |
 | Syntax highlighting          | 512 KiB per text. Code highlighting also stops above 10,000 lines or 4,096 bytes on any line. Text remains readable without token styling.                                                                  |
 | Live shell output            | Full output up to 1 MiB. Above that, the first 50 and last 50 completed lines plus any partial line, retaining up to 10,280 source bytes per line.                                                          |

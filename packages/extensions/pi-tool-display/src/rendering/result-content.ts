@@ -128,7 +128,7 @@ function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
     let text: string;
     if (block.type === "text") text = p.theme.fg(color, displayText(block.text));
     else if (block.type === "resource")
-      text = `${reference("Resource: ", block.uri, p)}${block.text ? `\n${p.theme.fg("toolOutput", displayText(block.text))}` : ""}`;
+      text = `${reference("Resource: ", block.uri, p)}${block.text ? `\n${p.theme.fg(color, displayText(block.text))}` : ""}`;
     else text = `${reference("[Media: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`;
     items.push({ rows: output(text, p, block.type === "text" ? 10 : Number.MAX_SAFE_INTEGER) });
   }

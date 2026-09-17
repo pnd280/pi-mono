@@ -1,8 +1,8 @@
 # Adapter development
 
-[Package usage](../README.md) · [Renderer integration](renderers.md)
+[pi-tool-display](../README.md) · [Renderer integration](renderers.md)
 
-Use a resolver to select an adapter automatically for tools with verified provenance. For tools with custom renderers, use [standalone adapter integration](renderers.md#custom-adapters); no resolver is needed.
+Use a resolver to select an adapter automatically for tools with verified provenance. To attach an adapter directly to a tool's renderer fields, use [standalone adapter integration](renderers.md#custom-adapters); no resolver is needed.
 
 ## Add an adapter
 

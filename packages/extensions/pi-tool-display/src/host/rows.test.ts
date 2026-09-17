@@ -19,7 +19,10 @@ it("does not revisit bound transcript rows on events without new components", ()
   });
   const coordinator = new TranscriptCoordinator("row-binding");
   const host = { chatContainer: { children }, ui: renderingTui() };
-  const rows = new TranscriptRows(host, coordinator, () => true);
+  const rows = new TranscriptRows(host, coordinator, {
+    active: () => true,
+    hideCompletedThinking: true
+  });
 
   const append = (index: number) => {
     const call = coordinator.add(
@@ -78,7 +81,10 @@ it("indexes each call once and claims source-ordered names across later appends"
 
     return iterator;
   });
-  const rows = new TranscriptRows({}, coordinator, () => true);
+  const rows = new TranscriptRows({}, coordinator, {
+    active: () => true,
+    hideCompletedThinking: true
+  });
   const add = (index: number, name: string) =>
     coordinator.add(
       { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) },

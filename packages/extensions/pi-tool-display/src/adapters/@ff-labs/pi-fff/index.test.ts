@@ -43,11 +43,8 @@ it.each(["fffind", "ffgrep", "fff-multi-grep"])(
       expect(adapter.exploration?.(args)).toEqual([
         {
           label: "Search",
-          parts: [
-            { kind: "pattern", text: "token" },
-            { kind: "annotation", text: " in " },
-            { kind: "value", text: scope || "." }
-          ]
+          scope: { kind: "filter", value: scope || "." },
+          parts: [{ kind: "pattern", text: "token" }]
         }
       ]);
     }
@@ -62,11 +59,8 @@ it("requires official ownership and supplied contracts without enabling disabled
   expect(grep.exploration?.(args)).toEqual([
     {
       label: "Search",
-      parts: [
-        { kind: "pattern", text: "token" },
-        { kind: "annotation", text: " in " },
-        { kind: "value", text: "src/**" }
-      ]
+      scope: { kind: "filter", value: "src/**" },
+      parts: [{ kind: "pattern", text: "token" }]
     }
   ]);
   const result = {
@@ -103,11 +97,8 @@ it("requires official ownership and supplied contracts without enabling disabled
   ).toEqual([
     {
       label: "Search",
-      parts: [
-        { kind: "pattern", text: "a, b" },
-        { kind: "annotation", text: " in " },
-        { kind: "value", text: "src/" }
-      ]
+      scope: { kind: "filter", value: "src/" },
+      parts: [{ kind: "pattern", text: "a, b" }]
     }
   ]);
 });

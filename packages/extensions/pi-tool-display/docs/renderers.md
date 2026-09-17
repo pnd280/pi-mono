@@ -1,6 +1,6 @@
 # Renderer integration
 
-[Package usage](../README.md) · [Adapter development](adapters.md)
+[pi-tool-display](../README.md) · [Adapter development](adapters.md)
 
 Tool authors and SDK hosts can attach the public renderers to a tool definition:
 
@@ -21,7 +21,7 @@ See [tool card presentation](presentation.md) for layout, diff behavior, and dis
 
 ## Explicit contracts
 
-Pass a `ToolDisplayAdapter` from `pi-tool-display/adapters` to select specialized rendering. For example, supply a compatible [native contract](../src/adapters/native/README.md#compatibility-and-selection) without enabling execution observation:
+Pass a `ToolDisplayAdapter` to select specialized rendering. For compatible tools, use a [native contract](../src/adapters/native/README.md#compatibility-and-selection) from `pi-tool-display/adapters` without enabling execution observation:
 
 ```ts
 import { nativeAdapter } from "pi-tool-display/adapters";
@@ -45,7 +45,7 @@ Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`
 | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
 | Customize action wording and argument summaries                                                        | [`headingVerbs`](#action-wording), `invocation` |
 | Validate retained results                                                                              | `supports`                                      |
-| Join CLI exploration groups                                                                            | `exploration`                                   |
+| Join CLI exploration groups                                                                            | [`exploration`](#exploration-scopes)            |
 | Report an outcome from structured result metadata                                                      | [`outcome`](#outcomes)                          |
 | Present diagnostics and interpret a known text envelope                                                | `notices`, [`textParts`](#result-text)          |
 | Avoid a duplicate image fallback label after a known caption                                           | `imageCaptionMimeType`                          |
@@ -57,9 +57,21 @@ Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`
 
 When `showParameters` is `false`, the renderer skips invocation parts whose `kind` is `parameters` without reading their `text`, even after expansion. Use a `text` getter to avoid serializing hidden parameters.
 
-Standalone adapters must handle incompatible input themselves. Only the automatic CLI integration checks `supports`.
+For a summary containing only a concrete target, return a `path` part optionally followed by a `range` part such as `:15-16`. The renderer [wraps the path](presentation.md#targets-and-output) and keeps the range together when it fits the available width. Use `value` or `pattern` for literal expressions, which receive no path normalization.
 
-To select an adapter automatically for another extension, follow [adapter development](adapters.md). Standalone adapters need no resolver registration.
+Standalone adapters must handle incompatible input themselves. Only the automatic CLI integration checks `supports`. To add automatic selection for another extension, [register a resolver](adapters.md#add-an-adapter).
+
+### Exploration scopes
+
+`exploration(args, result?)` supplies ordered `ExplorationItem` values for CLI grouping. It can run before a result exists, so handle partial arguments. Supply each item's `scope` as `{ kind, value }`:
+
+- `file`: a concrete file target, grouped by its normalized parent directory.
+- `directory`: a concrete directory, resolved lexically against the session working directory.
+- `filter`: an opaque expression, compared exactly without path resolution, trimming, or case folding.
+
+All items must resolve to the same directory or identical filters. A `file` scope and a `directory` scope can therefore group when the file's parent matches the directory. Missing, invalid, or mismatched scopes keep the call standalone, as do `undefined` and empty exploration results. Do not derive scopes from formatted summaries or interpret arbitrary filters as directories.
+
+Directory groups count one operation per call under its first item's label, regardless of how many items it returns. Repeated reads count separately. See [exploration groups](presentation.md#exploration-groups) for boundaries and expansion behavior.
 
 ### Action wording
 
@@ -79,7 +91,7 @@ Cancellation takes precedence over failure. Successful or unavailable metadata c
 
 The factory does not observe execution cancellation. A standalone adapter must supply structured cancellation evidence to display a cancelled outcome.
 
-## MCP facts
+### MCP facts
 
 `ToolDisplayAdapter.mcp(args, result?)` returns `McpFacts`, or `undefined` when typed facts are unavailable. Facts contain `server`, `tool`, `outcome`, and ordered content blocks. The outcome is `transport-error`, `returned-error`, `cancelled`, `success`, or `unavailable`:
 
@@ -99,5 +111,7 @@ const facts: McpFacts = {
 ```
 
 Media entries reference Pi result blocks. Do not copy base64 into display facts. Text, media, and resource notices retain their order, while Pi renders inline images.
+
+Text and embedded resource bodies use the resolved outcome's color: `error` for failures, `warning` for cancellations, and `toolOutput` otherwise. Resource labels use `dim`, and URIs use normal foreground.
 
 Generic rendering never infers missing transport or type information from names or error text. Arbitrary `details` are not displayed.

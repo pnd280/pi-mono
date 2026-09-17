@@ -1,6 +1,6 @@
 # Prompt manager validation
 
-[Package usage](../README.md)
+[pi-prompt-manager](../README.md)
 
 ## Automated checks
 
@@ -54,7 +54,9 @@ To compare tabs with Pi's `/model` view, append `--models prompt-fixture/offline
 #### Capture, reload, or session isolation
 
 - Submit `/raw-template` and compare History with the [capture contract](../README.md#capture-and-storage): it must retain the command before expansion. Submit steering and follow-up input, then withdraw it; the capture must remain.
-- Reload repeatedly and retry `/prompts` and both launch shortcuts without replaying existing history. Start cooperating fixture sessions with the same real cwd, including a symlink alias; a distinct cwd stays isolated. Switch collections and check remembered queries and selection.
+- Reload repeatedly and retry `/prompts` and both launch shortcuts without replaying existing history.
+- Start concurrent fixture sessions in the same real working directory, including through a symlink alias. Check that they share collections and that a different working directory stays isolated.
+- Switch collections and check remembered queries and selection.
 
 #### Storage, recovery, or exact-source handling
 

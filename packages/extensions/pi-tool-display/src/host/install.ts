@@ -72,6 +72,7 @@ export function installHostIntegration(
     configuration.warnings.forEach(warning);
     const display = new DisplaySession({
       runtime: randomUUID(),
+      cwd: host.session.sessionManager.getCwd(),
       history: host.session.sessionManager,
       settings: configuration,
       selectAdapter: (name) => adapter(host.session, name, configuration),
@@ -81,11 +82,10 @@ export function installHostIntegration(
     const current: Binding = {
       host,
       display,
-      rows: new TranscriptRows(
-        host,
-        display.coordinator,
-        () => active && hosts.get(host) === current
-      )
+      rows: new TranscriptRows(host, display.coordinator, {
+        active: () => active && hosts.get(host) === current,
+        hideCompletedThinking: configuration.valid
+      })
     };
     hosts.set(host, current);
     sessions.set(host.session, current);
@@ -158,6 +158,17 @@ export function installHostIntegration(
         return result;
       });
     }
+
+    const thinkingVisibility = prototype.updateThinkingBlockVisibility;
+    if (typeof thinkingVisibility === "function")
+      hooks.replace(prototype, "updateThinkingBlockVisibility", function (this: Host) {
+        const binding = active ? hosts.get(this) : undefined;
+        // A global toggle visits every assistant row. Reconcile only after all
+        // boundaries reflect final visibility, never through intermediate merges.
+        if (binding) return binding.display.coordinator.batch(() => thinkingVisibility.call(this));
+
+        return thinkingVisibility.call(this);
+      });
 
     const addMessage = prototype.addMessageToChat;
     if (typeof addMessage === "function")

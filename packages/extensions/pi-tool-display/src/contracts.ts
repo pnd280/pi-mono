@@ -76,22 +76,35 @@ export type DisplayCall = {
 export type InvocationPart = {
   /**
    * Use `path` for concrete file targets, which render relative to Pi's cwd when
-   * inside it; use `value` for literal filters and `pattern` for search patterns.
+   * inside it (or relative to the directory scope in collapsed groups). Use
+   * `value` for literal filters and `pattern` for search patterns.
+   * A `range` following a concrete `path` stays together when wrapping the target.
    * With `showParameters: false`, only `parameters` parts are hidden. Include their
    * optional delimiters in the same part so hiding it leaves no empty punctuation.
    */
-  kind: "value" | "path" | "pattern" | "annotation" | "parameters";
+  kind: "value" | "path" | "range" | "pattern" | "annotation" | "parameters";
   text: string;
+};
+
+export type ExplorationScope = {
+  /** File targets group by their parent; filters are compared literally, never resolved. */
+  kind: "file" | "directory" | "filter";
+  value: string;
 };
 
 export type ExplorationItem = {
   label: "Read" | "Search" | "List";
   parts: InvocationPart[];
+  /** Omission excludes the call from grouping. All items must have the same scope. */
+  scope?: ExplorationScope;
 };
 
 export type DisplayGroup = {
   readonly members: readonly DisplayCall[];
   readonly expanded: boolean;
+  readonly scope: ExplorationScope;
+  /** Count calls by their first item's label, not paths or item count. */
+  readonly counts: Readonly<Record<ExplorationItem["label"], number>>;
 };
 
 /** Rendering reads state and submits expansion intents without owning transcript updates. */
@@ -163,7 +176,8 @@ export type ToolDisplayAdapter = {
   invocation?(args: unknown, result?: AgentToolResult<unknown>): InvocationPart[];
   /**
    * Supply ordered group items for the automatic CLI integration. Handle partial
-   * arguments before a result exists; undefined or an empty array excludes the call.
+   * arguments before a result exists; undefined, empty items, or missing/mixed scopes
+   * exclude the call. Scope runs compare normalized directories or exact literal filters.
    * Result updates can remove or restore membership without changing source order.
    */
   exploration?(args: unknown, result?: AgentToolResult<unknown>): ExplorationItem[] | undefined;

@@ -5,6 +5,7 @@ import type { DisplayCall, TranscriptView } from "../contracts.ts";
 import type { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { record } from "../values.ts";
 import type { Host } from "./compatibility.ts";
+import { bindThinkingVisibility } from "./thinking.ts";
 
 /** Pi 0.85.1 prepends a margin row and subtracts it in handleMouse. Join compact
  * members without moving native image components or replacing Pi's mouse routing.
@@ -51,6 +52,7 @@ function joinGroupedRow(
 export class TranscriptRows {
   private disposers: (() => void)[] = [];
   private bound = new WeakSet<ToolExecutionComponent>();
+  private assistants = new WeakSet<AssistantMessageComponent>();
   private pendingCalls = new Map<string, { calls: DisplayCall[]; next: number }>();
   private unindexedCalls: MapIterator<DisplayCall>;
   private indexedCalls = 0;
@@ -65,7 +67,7 @@ export class TranscriptRows {
   constructor(
     private host: Pick<Host, "ui" | "chatContainer" | "toolOutputExpanded">,
     private coordinator: TranscriptCoordinator,
-    private active: () => boolean
+    private options: { active: () => boolean; hideCompletedThinking: boolean }
   ) {
     this.unindexedCalls = coordinator.calls.values();
   }
@@ -103,7 +105,7 @@ export class TranscriptRows {
    * within an indexed prefix needs a new predecessor pass, never ordinary events.
    */
   private indexChildren(): Component[] {
-    if (!this.active()) return [];
+    if (!this.options.active()) return [];
     const children = this.host.chatContainer?.children;
     if (!children) return [];
     const previous = this.components;
@@ -148,7 +150,7 @@ export class TranscriptRows {
     for (const component of this.indexChildren()) this.boundaryBefore(component);
   }
   private precedingCall(component: Component): DisplayCall | undefined {
-    if (!this.active()) return;
+    if (!this.options.active()) return;
     this.indexChildren();
 
     return this.predecessors.get(component);
@@ -161,6 +163,15 @@ export class TranscriptRows {
     // Pi keeps rendered text/thinking and generated errors in a child Container.
     // Final-message middleware can remove previously visible streaming content.
     if (!(component instanceof AssistantMessageComponent)) return;
+
+    if (this.options.hideCompletedThinking && !this.assistants.has(component)) {
+      this.assistants.add(component);
+      const dispose = bindThinkingVisibility(component, () => {
+        if (this.options.active()) this.assistantBoundary(component);
+      });
+      if (dispose) this.disposers.push(dispose);
+    }
+
     const visible = component.children.some(
       (child) => child instanceof Container && child.children.length > 0
     );
@@ -168,7 +179,7 @@ export class TranscriptRows {
   }
   bind(): void {
     // A host event may reconstruct the transcript before its original handler returns.
-    if (!this.active()) return;
+    if (!this.options.active()) return;
     const coordinator = this.coordinator;
     this.indexChildren();
 
@@ -177,13 +188,13 @@ export class TranscriptRows {
       const call = this.rowCall(child);
       if (!call) continue;
       this.bound.add(child);
-      this.disposers.push(joinGroupedRow(child, call, coordinator, this.active));
+      this.disposers.push(joinGroupedRow(child, call, coordinator, this.options.active));
       // Preserve identity for restoration and explicitly rebind the original receiver.
       // oxlint-disable-next-line typescript/unbound-method
       const previous = child.setExpanded;
 
       const setExpanded = (expanded: boolean) => {
-        if (this.active()) coordinator.expand(call, expanded);
+        if (this.options.active()) coordinator.expand(call, expanded);
         // Later wrappers can retain this callback after disposal or reconstruction.
         else previous.call(child, expanded);
       };

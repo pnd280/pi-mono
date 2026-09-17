@@ -14,12 +14,14 @@ it("recognizes native construction through the installed pi executable, not just
   try {
     const executable = await resolvePiExecutable();
     const integration = fileURLToPath(new URL("./install.ts", import.meta.url));
+    const thinking = fileURLToPath(new URL("./thinking.ts", import.meta.url));
     const fixture = join(directory, "verify-display.ts");
     await writeFile(
       fixture,
       `
-      import { AgentSession } from "@earendil-works/pi-coding-agent";
+      import { AgentSession, AssistantMessageComponent, initTheme } from "@earendil-works/pi-coding-agent";
       import { installHostIntegration } from ${JSON.stringify(integration)};
+      import { bindThinkingVisibility } from ${JSON.stringify(thinking)};
       const original = Reflect.get(AgentSession.prototype, "_buildRuntime");
       const dispose = installHostIntegration();
       const recognized = Reflect.get(AgentSession.prototype, "_buildRuntime") !== original;
@@ -27,7 +29,16 @@ it("recognizes native construction through the installed pi executable, not just
       const restored = Reflect.get(AgentSession.prototype, "_buildRuntime") === original;
       export default function (pi) {
         pi.registerCommand("verify-display", { handler: async () => {
-          process.stdout.write(JSON.stringify({ recognized, restored }) + "\\n");
+          initTheme("dark", false);
+          const component = new AssistantMessageComponent({ content: [{ type: "thinking", thinking: "retained thought" }], stopReason: "stop" }, true);
+          const release = bindThinkingVisibility(component, () => {});
+          const suppressed = component.render(80).length === 0;
+          component.setHideThinkingBlock(false);
+          const revealed = component.render(80).join(" ").includes("retained thought");
+          component.setHideThinkingBlock(true);
+          release?.();
+          const thinkingRestored = component.render(80).join(" ").includes("Thinking...");
+          process.stdout.write(JSON.stringify({ recognized, restored, suppressed, revealed, thinkingRestored }) + "\\n");
         } });
       }
     `
@@ -59,7 +70,15 @@ it("recognizes native construction through the installed pi executable, not just
     );
     execution.child.stdin?.end();
     const { stdout, stderr } = await execution;
-    expect(stdout + stderr).toContain(JSON.stringify({ recognized: true, restored: true }));
+    expect(stdout + stderr).toContain(
+      JSON.stringify({
+        recognized: true,
+        restored: true,
+        suppressed: true,
+        revealed: true,
+        thinkingRestored: true
+      })
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

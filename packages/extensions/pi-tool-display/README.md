@@ -4,9 +4,11 @@ Borderless tool cards for Pi's interactive terminal UI, with exploration groups,
 
 ## Usage
 
-Adjacent read, search, and list calls form [exploration groups](docs/presentation.md#card-layout) under an **Exploring** or **Explored** heading. Calls stay in source order, with notices, images, and failure diagnostics directly beneath their call.
+Adjacent read, search, and list calls form [exploration groups](docs/presentation.md#exploration-groups) when their directory scopes or literal filters match. Each **Exploring** or **Explored** heading names the scope. Single calls use ordinary cards. Calls stay in source order, with notices, images, and failure diagnostics directly beneath their call.
 
 Pi's tool expansion action, **Ctrl+O** by default, reveals individual cards and available output. In fullscreen mode, a group click expands or collapses all its members. In regular mode, the terminal handles mouse input.
+
+Completed thinking placeholders disappear when Pi's thinking display is collapsed (**Ctrl+T** by default), allowing calls with matching scopes to group across them. Revealing thinking restores those group boundaries. Live thinking indicators and assistant text remain visible.
 
 Specialized cards hide parameter blocks by default, even when expanded. Command, path, and search summaries remain visible. Generic cards always show their arguments, with bounded previews while collapsed.
 
@@ -14,7 +16,7 @@ Specialized cards hide parameter blocks by default, even when expanded. Command,
 
 [Verified native tools](src/adapters/native/README.md), [`@ff-labs/pi-fff` tools](src/adapters/@ff-labs/pi-fff/README.md), and [`pi-mcp-adapter` tools](src/adapters/pi-mcp-adapter/README.md) receive specialized cards, even when they supply custom renderers.
 
-For other tools, the extension preserves custom `renderCall` or `renderResult` fields and uses generic cards when neither is supplied. Historical calls without a current tool definition use generic cards built from saved data.
+For other tools, the extension preserves custom `renderCall` and `renderResult` fields and uses generic cards when neither is supplied. Historical calls without a current tool definition use generic cards built from saved data.
 
 For tool-author or SDK integration, use the [renderer API](docs/renderers.md). To add automatic tool selection, follow [adapter development](docs/adapters.md).
 
@@ -45,14 +47,14 @@ Set the literal top-level key `ext.pi-tool-display` in Pi's global `~/.pi/agent/
 | `generic`  | Uses supplied arguments and results without specialized rendering or native operation observation. |
 | `original` | Bypasses this extension's rendering, grouping, and future observation.                             |
 
-Overrides accept unavailable tool names. They do not enable tools or delete saved metadata.
+Overrides can name unavailable tools. They do not enable tools or delete saved metadata.
 
 Settings load before history reconstruction and on `/reload`. Trusted project settings merge with global settings:
 
 - An explicit `showParameters` value replaces the global value. Omission inherits it.
 - Renderer overrides replace global entries by tool name. Project `auto` resets an inherited override. An empty map inherits global entries.
 
-The extension ignores untrusted project settings. It validates global and trusted project settings before merging them. An invalid section preserves the original renderers and disables this extension's observation, even if a later source overrides the invalid value. The warning names the source and key.
+The extension ignores untrusted project settings. It validates global and trusted project settings before merging them. If either section is invalid, the extension preserves the original renderers and disables observation, even if a later source overrides the invalid value. The warning names the source and key.
 
 There are no extension-specific environment variables, CLI flags, file watchers, or settings writes.
 
@@ -70,7 +72,7 @@ The extension records cancellation when an unsuccessful execution result arrives
 
 History needs recorded or structured evidence to show cancellation. Output text alone is insufficient, including in older or print-created histories.
 
-The TUI reconstructs history from saved calls and results without rerunning tools or animating incomplete history. Durations, exact exit codes, and file contents before writes remain unavailable unless recorded.
+The TUI reconstructs history from saved calls and results without rerunning tools or animating incomplete calls. Durations, exact exit codes, and file contents before writes remain unavailable unless recorded.
 
 Expanding a completed shell card loads a bounded preview from Pi's existing temporary output file. Failed calls retain their published result beside the preview; unavailable files leave retained output visible with a notice. See [saved-output previews](docs/presentation.md#saved-output-previews) for loading and retry behavior. The extension creates no durable output archive and makes no network requests.
 
@@ -79,6 +81,8 @@ Live output, saved previews, and patches have [resource limits](docs/presentatio
 ## Compatibility
 
 Native observation is verified against Pi 0.85.1. If required host hooks are unavailable or already wrapped, the extension disables observation and warns. It can still render saved data where available.
+
+Hiding completed thinking also requires Pi 0.85.1's verified assistant component. If that contract is unavailable or already wrapped, Pi's original thinking presentation remains intact.
 
 The extension does not register tools, change active tool selection, or add keybindings. Custom card rendering does not apply to HTML exports.
 

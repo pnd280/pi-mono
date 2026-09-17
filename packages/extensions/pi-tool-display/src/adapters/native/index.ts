@@ -13,8 +13,9 @@ import {
 const readArgsSchema = z
   .object({ path: z.unknown().optional(), file_path: z.unknown().optional() })
   .transform((args) => args.path ?? args.file_path)
-  .pipe(z.string());
-const searchArgsSchema = z.object({ pattern: z.string() });
+  .pipe(z.string().min(1));
+const directoryArgsSchema = z.object({ path: z.string().optional() });
+const searchArgsSchema = directoryArgsSchema.extend({ pattern: z.string() });
 
 const nativeFamilies: Readonly<Record<string, ToolFamily>> = {
   read: "read",
@@ -48,13 +49,20 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
     ...(family === "read" || family === "search" || family === "list"
       ? {
           exploration(args: unknown) {
-            if (family === "read" && !readArgsSchema.safeParse(args).success) return undefined;
-            if (family === "search" && !searchArgsSchema.safeParse(args).success) return undefined;
+            const path = family === "read" ? readArgsSchema.safeParse(args).data : undefined;
+            const directory = (
+              family === "search" ? searchArgsSchema : directoryArgsSchema
+            ).safeParse(args);
+            if (family === "read" ? path === undefined : !directory.success) return undefined;
 
             return [
               {
                 label: ({ read: "Read", search: "Search", list: "List" } as const)[family],
-                parts: invocationParts(name, args, family)
+                parts: invocationParts(name, args, family),
+                scope:
+                  path !== undefined
+                    ? { kind: "file", value: path }
+                    : { kind: "directory", value: directory.data?.path || "." }
               }
             ];
           }

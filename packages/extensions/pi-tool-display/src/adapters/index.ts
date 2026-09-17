@@ -8,6 +8,8 @@ export { nativeAdapter } from "./native/index.ts";
 
 export type {
   DisplayNotice,
+  ExplorationItem,
+  ExplorationScope,
   HeadingVerbs,
   InvocationPart,
   McpFacts,

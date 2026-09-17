@@ -1,6 +1,6 @@
 # Prompt browser and draft commands
 
-[Commands and settings](../README.md) · [Storage and recovery](storage.md)
+[pi-prompt-manager](../README.md) · [Storage and recovery](storage.md)
 
 ## Keys and precedence
 
@@ -35,7 +35,7 @@ With Pi's default fullscreen bindings, PageUp and PageDown scroll the transcript
 
 If you have also rebound transcript scrolling, choose keys that it does not use.
 
-Ctrl+C never cancels the browser, even when included in `tui.select.cancel`. It can still perform another configured action, including the default copy action. The browser requires a cancel binding other than Ctrl+C that is not also bound to copy. Without one, it refuses to open rather than adding an Escape override.
+Ctrl+C never cancels the browser, even when included in `tui.select.cancel`. It can still perform another configured action, including the default copy action. The browser refuses to open unless cancel has a binding other than Ctrl+C that is not also bound to copy. It does not add an Escape override.
 
 If a modified key does not reach Pi, check [terminal key reporting](../../../../node_modules/@earendil-works/pi-coding-agent/docs/terminal-setup.md) or choose another binding.
 
@@ -47,7 +47,7 @@ Search covers complete terminal-safe plain text. It ignores case and repeated wh
 
 Switch collections or reopen the browser to load fresh data or retry a failed read. There is no background refresh. The browser remembers queries and selection while open. Cancel returns to the editor, including during loading.
 
-History starts its query with editor text only if the original, untrimmed text has one line and fewer than 100 Unicode code points. The query is then trimmed and made terminal-safe. Saved drafts starts with an empty query.
+History uses editor text as its initial query only if the untrimmed text has one line and fewer than 100 Unicode code points. It then trims the query and makes it terminal-safe. Saved drafts starts with an empty query.
 
 ## Deletion
 

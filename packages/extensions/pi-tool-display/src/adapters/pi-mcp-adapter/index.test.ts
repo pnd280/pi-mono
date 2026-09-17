@@ -164,7 +164,7 @@ it("uses resolved result identity with visible parameters and never substitutes 
   expect(body.render(120).join("\n")).not.toContain("PRIVATE_RAW_OUTPUT");
 });
 
-it("accepts real gateway metadata results and keeps middleware failure diagnostics styled as errors", () => {
+it("accepts real gateway metadata results and styles middleware failure diagnostics as errors", () => {
   const adapter = piMcpAdapter(mcpToolInfo())!;
   for (const [args, details] of [
     [
@@ -251,6 +251,7 @@ it.each([
       expect(header.render(160).join("\n")).toContain(`<${color}>•</${color}>`);
       expect(header.render(160).join("\n")).toContain(verb);
       expect(body.render(160).join("\n")).toContain(`<${color}>published output</${color}>`);
+      expect(body.render(160).join("\n")).toContain(`<${color}>MCP: ${error}</${color}>`);
     }
   }
 );

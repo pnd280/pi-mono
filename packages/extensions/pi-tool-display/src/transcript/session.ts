@@ -34,6 +34,7 @@ export type TranscriptMessage =
 
 type DisplaySessionOptions = {
   runtime: string;
+  cwd: string;
   history: HistorySource;
   settings: DisplaySettings;
   selectAdapter(name: string): ToolDisplayAdapter | undefined;
@@ -53,6 +54,7 @@ export class DisplaySession {
   constructor(private options: DisplaySessionOptions) {
     this.settings = options.settings;
     this.coordinator = new TranscriptCoordinator(options.runtime, {
+      cwd: options.cwd,
       onExpansion: (call) => this.loadSavedOutput(call)
     });
     this.history = new DisplayHistory(options.history);

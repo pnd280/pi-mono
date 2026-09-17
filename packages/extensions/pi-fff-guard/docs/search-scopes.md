@@ -1,6 +1,6 @@
 # FFF search scopes
 
-[Package usage](../README.md)
+[pi-fff-guard](../README.md)
 
 ## Paths and filters
 
@@ -15,7 +15,7 @@ The guard trims `path` values without splitting them. Existing explicit paths in
 ## Globs and exclusions
 
 - Existing explicit literal paths take precedence over glob syntax; bare filename filters remain recursive.
-- Globs validate only the fixed directory prefix before the first wildcard, without requiring matching files. For finite brace alternatives, a missing-path error requires every branch to have a missing concrete root.
+- For globs, the guard validates only the fixed directory prefix before the first wildcard, without requiring matching files. For finite brace alternatives, a missing-path error requires every branch to have a missing concrete root.
 - Positive scopes intersect. Each rooted glob still applies when another scope narrows the search to the same directory or a descendant. Constraint order does not change exclusion handling.
 - Missing exclusions are not errors. Fully excluded ignored targets pass through; partially excluded ignored directories still block.
 - FFF's `exclude` field splits entries on commas and whitespace, including array entries. Multi-grep brace alternatives are not split on commas.
