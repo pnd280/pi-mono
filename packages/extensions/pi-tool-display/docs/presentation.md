@@ -4,8 +4,6 @@
 
 ## Card layout
 
-### Targets and output
-
 Standalone and expanded cards show file targets inside Pi's rendering working directory as relative paths. Targets outside it use absolute paths. The working directory itself displays as `.`.
 
 Paths are resolved lexically, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and literal scope or filter expressions are not rewritten.
@@ -22,7 +20,7 @@ After a successful read completes, its text body stays hidden until expansion. N
 
 Expansion shows all retained output, subject to live and saved-output retention limits.
 
-### Exploration groups
+### Groups
 
 Adjacent exploration calls with the same scope form a group. Every call stays in source order, including repeated reads. A scope change starts a new group, even when returning to a previously visited directory. Single calls use ordinary cards.
 
@@ -34,7 +32,7 @@ Scopes match by these rules in both live and historical views:
 
 Group headings label the scope as `directory` or `filter`. Directory groups count operations by action, including repeated calls. A count for one action, such as `3 reads`, appears beside the scope when it fits, or on a continuation line. Counts for multiple actions appear on a continuation line. Filter groups omit operation counts. There is no separate total call count.
 
-Collapsed directory members show targets relative to the heading's directory, keeping read ranges. Targets outside that directory remain absolute. Collapsed FFF members show only their patterns or `files`, without repeating `in <filter>`. Expanded and standalone cards use the [target layout](#targets-and-output) and retain literal filters.
+Collapsed directory members show targets relative to the heading's directory, keeping read ranges. Targets outside that directory remain absolute. Collapsed FFF members show only their patterns or `files`, without repeating `in <filter>`. Expanded and standalone cards use the [target rules](#card-layout) and retain literal filters.
 
 Queued and executing group members show `queued` and `running` annotations in `dim` when their state is known. Argument streaming does not imply execution.
 
@@ -52,7 +50,7 @@ Tool-result notices and failure diagnostics stay immediately beneath their call:
   └ [0 exact matches. Maybe you meant this?]
 ```
 
-### Thinking visibility
+### Thinking
 
 With Pi's thinking display collapsed (**Ctrl+T** by default), completed thinking placeholders disappear, including in history. Revealing thinking restores its rows and group boundaries. Live thinking indicators, assistant text, and diagnostics remain visible in either state. Recorded messages do not change.
 

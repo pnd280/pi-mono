@@ -59,7 +59,7 @@ Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`
 
 When `showParameters` is `false`, the renderer skips invocation parts whose `kind` is `parameters` without reading their `text`, even after expansion. Use a `text` getter to avoid serializing hidden parameters.
 
-For a summary containing only a concrete target, return a `path` part optionally followed by a `range` part such as `:15-16`. The renderer [wraps the path](presentation.md#targets-and-output) and keeps the range together when it fits the available width. Use `value` or `pattern` for literal expressions, which receive no path normalization.
+For a summary containing only a concrete target, return a `path` part optionally followed by a `range` part such as `:15-16`. The renderer [wraps the path](presentation.md#card-layout) and keeps the range together when it fits the available width. Use `value` or `pattern` for literal expressions, which receive no path normalization.
 
 Standalone adapters must handle incompatible input themselves. Only the automatic CLI integration checks `supports`. To add automatic selection for another extension, [register a resolver](adapters.md#add-an-adapter).
 
@@ -73,7 +73,7 @@ Standalone adapters must handle incompatible input themselves. Only the automati
 
 All items must resolve to the same directory or identical filters. A `file` scope and a `directory` scope can therefore group when the file's parent matches the directory. Missing, invalid, or mismatched scopes keep the call standalone, as do `undefined` and empty exploration results. Do not derive scopes from formatted summaries or interpret arbitrary filters as directories.
 
-Directory groups count one operation per call under its first item's label, regardless of how many items it returns. Repeated reads count separately. See [exploration groups](presentation.md#exploration-groups) for boundaries and expansion behavior.
+Directory groups count one operation per call under its first item's label, regardless of how many items it returns. Repeated reads count separately. See [exploration groups](presentation.md#groups) for boundaries and expansion behavior.
 
 ### Action wording
 

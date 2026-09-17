@@ -22,7 +22,7 @@ Missing or empty result details are supported. Nonempty details objects must con
 
 ## Display
 
-Adjacent supported FFF calls form [exploration groups](../../../../docs/presentation.md#exploration-groups) when their literal filters match exactly. The filter is `path`, or `constraints` for multi-search. An omitted or empty filter defaults to `.`. Filters such as `src/**` and `./src/**` remain distinct and never merge with native directory scopes.
+Adjacent supported FFF calls form [exploration groups](../../../../docs/presentation.md#groups) when their literal filters match exactly. The filter is `path`, or `constraints` for multi-search. An omitted or empty filter defaults to `.`. Filters such as `src/**` and `./src/**` remain distinct and never merge with native directory scopes.
 
 Collapsed group headings label the scope as `filter` and omit operation counts. Members show only their search patterns or `files`, without repeating `in <scope>`. Standalone and expanded summaries retain the filter. Search patterns and filters remain literal.
 

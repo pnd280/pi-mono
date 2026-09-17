@@ -4,7 +4,7 @@ Borderless tool cards for Pi's interactive terminal UI, with exploration groups,
 
 ## Usage
 
-Adjacent read, search, and list calls form [exploration groups](docs/presentation.md#exploration-groups) when their directory scopes or literal filters match. Each **Exploring** or **Explored** heading names the scope. Single calls use ordinary cards. Calls stay in source order, with notices, images, and failure diagnostics directly beneath their call.
+Adjacent read, search, and list calls form [exploration groups](docs/presentation.md#groups) when their directory scopes or literal filters match. Each **Exploring** or **Explored** heading names the scope. Single calls use ordinary cards. Calls stay in source order, with notices, images, and failure diagnostics directly beneath their call.
 
 Pi's tool expansion action, **Ctrl+O** by default, reveals individual cards and available output. In fullscreen mode, a group click expands or collapses all its members. In regular mode, the terminal handles mouse input.
 

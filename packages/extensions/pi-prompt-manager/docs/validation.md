@@ -39,7 +39,7 @@ Choose additional checks for the changed behavior:
 To compare tabs with Pi's `/model` view, append `--models prompt-fixture/offline` to the launcher command to show its all/scoped row.
 
 - At wide, 80×24, and 40×10 sizes, compare tabs with `/model` and inspect the [presentation contract](controls.md#presentation). Select short, long, and multiline prompts to check stable list height, age alignment, truncation, and footer wrapping.
-- Resize between 19 terminal rows (12-row inline view) and 18 rows (13-row overlay) in both directions. The query, search cursor, selection, and preview scroll must remain unchanged. Deletion confirmation must cancel. At 80×24, the inline view is capped at 15 rows.
+- Resize between 19 terminal rows (12-row inline view) and 18 rows (13-row overlay) in both directions. The query, search cursor, selection, and preview scroll must remain unchanged. Deletion confirmation must cancel. At 80×24, the inline view uses 15 rows.
 - Open inspection directly on a short terminal, resize, then close.
 - Scroll wrapped previews from start to end and compare border counts with hidden rows, including during compact deletion confirmation. Resize until all text fits and check that the counts disappear. Resize below minimum size and check that cancellation remains available.
 - Cancel during loading and deletion. Retry after read and deletion failures. Check that completion does not reopen a closed view.

@@ -71,7 +71,7 @@ Keep the fixture directory through replay checks. Remove only that directory aft
 - Run `fff`. Filter headings have no operation counts, and grouped members do not repeat `in <scope>`. Expanded and standalone cards retain the filter. FFF filters must not merge with native directory scopes, even when their text matches.
 - Run `thinking` and press **Ctrl+T** during streaming and after completion. Completed thinking placeholders must disappear when collapsed. Live indicators, the visible explanation, and diagnostics remain. Compare live cards with `--reuse` reconstruction.
 - Run `explore`, then `images`. Notices and images must remain beneath their originating call and before the next tool. The assistant completion text separates the two exploration groups. Compare live cards with `--reuse` reconstruction.
-- With `images`, compare image display enabled and disabled. A supported terminal should display each image once before the next tool. Unsupported protocols retain a notice. Account for the [finalized-image limitation](#platform-limitations).
+- With `images`, compare image display enabled and disabled. A supported terminal displays each image once before the next tool. Unsupported protocols retain a notice. Account for the [finalized-image limitation](#platform-limitations).
 
 #### Saved output
 
