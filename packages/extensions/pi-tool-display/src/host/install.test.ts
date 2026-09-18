@@ -379,7 +379,7 @@ it("binds real transcript rows, group clicks and observed native calls before Pi
         (child) => child instanceof ToolExecutionComponent
       );
       expect(rows).toHaveLength(3);
-      expect(text(rows[0]!)).toBe("\n• Explored directory . · 3 reads\n  ├ Read a.ts");
+      expect(text(rows[0]!)).toBe("\n• Explored .\n  ├ Read a.ts");
       expect(text(rows[1]!)).toBe("  ├ Read b.ts");
       expect(text(rows[2]!)).toBe("  └ Read a.ts");
       // The joined sibling's first visible line remains a native group click target.
@@ -447,7 +447,7 @@ it("binds real transcript rows, group clicks and observed native calls before Pi
         .filter((child) => child instanceof ToolExecutionComponent)
         .at(-1)!;
       shellRow.setExpanded(true);
-      expect(text(shellRow)).toContain("exit 0");
+      expect(text(shellRow)).toContain("Exit 0");
     } finally {
       tui.footerDataProvider.dispose();
     }
@@ -1245,7 +1245,7 @@ it("suppresses completed collapsed thinking without losing text, diagnostics, or
       tui.updateThinkingBlockVisibility();
       expect(render()).not.toContain("Thinking...");
       expect(render().match(/Explored/g)).toHaveLength(1);
-      expect(render()).toContain("3 reads");
+      expect(render().match(/Read outcome unavailable [abc]\.ts/g)).toHaveLength(3);
       tui.hideThinkingBlock = false;
       tui.updateThinkingBlockVisibility();
       expect(render()).toContain("Thought b");

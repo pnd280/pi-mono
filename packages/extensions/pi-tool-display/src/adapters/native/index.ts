@@ -38,6 +38,20 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
     family,
     savedOutput: family === "shell",
     patch: family === "edit",
+    summary(_result, { operation }) {
+      if (family !== "shell" || !operation) return undefined;
+      let status = `Operation ${operation.outcome} · exit unknown`;
+      if (operation.timedOut) status = "Timed out";
+      else if (operation.outcome === "cancelled") status = "Cancelled";
+      else if (operation.exitCode !== undefined && operation.exitCode !== null)
+        status = `Exit ${operation.exitCode}`;
+
+      return {
+        text: `${status} · ${Math.round(operation.durationMs)}ms`,
+        // Exit status describes execution, not the command's answer.
+        preserveOutput: true
+      };
+    },
     notices: (result, expanded) => [
       ...nativeResultNotices(result.details),
       ...(name === "read" && !expanded ? nativeReadImageNotices(result.content) : [])

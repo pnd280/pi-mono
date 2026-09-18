@@ -2,7 +2,9 @@ import { expect, it } from "vite-plus/test";
 
 import { piFffAdapter } from "./index.ts";
 import { fffToolInfo } from "./test-fixture.ts";
-it("shows compact FFF pagination while retaining expanded match counts", () => {
+const summaryContext = { args: {}, outcome: "success" as const, operation: undefined };
+
+it("separates FFF summaries from pagination diagnostics", () => {
   const find = piFffAdapter(fffToolInfo("fffind"))!;
   const grep = piFffAdapter(fffToolInfo("ffgrep"))!;
   const cursorNotice = '[Continue with cursor="fff_c1"]';
@@ -17,17 +19,39 @@ it("shows compact FFF pagination while retaining expanded match counts", () => {
     details: { totalMatched: 1, totalFiles: 1, pageIndex: 0, hasMore: false }
   };
   expect(find.notices?.(complete, false)).toEqual([]);
-  expect(find.notices?.(complete, true)).toEqual([
-    { kind: "info", text: "1 match reported across 1 file." }
-  ]);
+  expect(find.notices?.(complete, true)).toEqual([]);
+  expect(find.summary?.(complete, summaryContext)).toEqual({
+    text: "1 matching file · 1 indexed file"
+  });
+  expect(grep.summary?.(paged, summaryContext)).toEqual({
+    text: "1 match collected · 5 indexed files"
+  });
 
   for (const hasMore of [false, true]) {
     const pagedFind = { ...complete, details: { ...complete.details, hasMore } };
     expect(find.notices?.(pagedFind, false)).toEqual([]);
-    expect(find.notices?.(pagedFind, true)).toEqual([
-      { kind: "info", text: "1 match reported across 1 file." }
-    ]);
+    expect(find.notices?.(pagedFind, true)).toEqual([]);
+    expect(find.summary?.(pagedFind, summaryContext)).toEqual({
+      text: "1 matching file · 1 indexed file"
+    });
   }
+});
+
+it("requires nonnegative integer counts and a successful outcome for summaries", () => {
+  const adapter = piFffAdapter(fffToolInfo("ffgrep"))!;
+  for (const details of [
+    undefined,
+    {},
+    { totalMatched: 1 },
+    { totalMatched: -1, totalFiles: 2 },
+    { totalMatched: 0.5, totalFiles: 2 }
+  ])
+    expect(adapter.summary?.({ content: [], details }, summaryContext)).toBeUndefined();
+  const empty = { content: [], details: { totalMatched: 0, totalFiles: 328 } };
+  expect(adapter.summary?.(empty, summaryContext)?.text).toBe(
+    "0 matches collected · 328 indexed files"
+  );
+  expect(adapter.summary?.(empty, { ...summaryContext, outcome: "failure" })).toBeUndefined();
 });
 
 it.each(["fffind", "ffgrep", "fff-multi-grep"])(

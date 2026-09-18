@@ -24,13 +24,19 @@ Missing or empty result details are supported. Nonempty details objects must con
 
 Adjacent supported FFF calls form [exploration groups](../../../../docs/presentation.md#groups) when their literal filters match exactly. The filter is `path`, or `constraints` for multi-search. An omitted or empty filter defaults to `.`. Filters such as `src/**` and `./src/**` remain distinct and never merge with native directory scopes.
 
-Collapsed group headings label the scope as `filter` and omit operation counts. Members show only their search patterns or `files`, without repeating `in <scope>`. Standalone and expanded summaries retain the filter. Search patterns and filters remain literal.
+Collapsed group headings use `Filtering <filter>` while live and `Filtered <filter>` after completion, without call or operation counts. Members show their search patterns or `files` without repeating the filter. Standalone and expanded search headings separate the pattern and filter with an em dash (U+2014). Search patterns and filters remain literal.
 
-Explicit empty patterns remain valid: `ffgrep` displays `""`, and `fffind` lists files. Missing patterns show `(pattern missing)` and do not qualify for grouping.
+Explicit empty patterns remain valid: `ffgrep` displays `""`, and `fffind` uses `Listing <filter>` or `Listed <filter>`, defaulting to `.`. Missing patterns show `(pattern missing)` and do not qualify for grouping.
 
-Pagination instructions, limit hints, and query and fallback diagnostics remain visible in compact and expanded cards. Combined notices and multiline queries retain their full text. Matches remain available on expansion.
+Completed successful calls with nonnegative integer counts show result summaries instead of match excerpts in compact cards, both inside and outside groups:
 
-Counts and file annotations use `dim`. Pagination and limit notices, plus query and fallback diagnostics, use `warning`.
+- `totalFiles` is the unfiltered number of indexed files, not the number searched or containing matches.
+- Grep and multi-grep label `totalMatched` as matches collected for the call, for example `9 matches collected · 328 indexed files`.
+- Find labels `totalMatched` as the total matching files, which can exceed the current page.
+
+Missing or invalid counts use bounded output previews. Calls with [incompatible details](#arguments-and-results) use generic cards. Failed and partial results do not receive completed-result summaries. Expansion shows the summary and retained matches.
+
+Counts and file annotations use `dim`. Pagination instructions, limit hints, and query and fallback diagnostics use `warning` and remain visible in compact and expanded cards. Combined notices and multiline queries retain their full text.
 
 ## Validation
 
@@ -50,6 +56,6 @@ The [shared terminal fixture](../../../../docs/validation.md#terminal-launcher) 
    - A native directory group with a list and a read.
 3. When replaying with `--reuse`, include the same extension and flags.
 
-For multi-search, pass `env: { PI_FFF_MULTIGREP: "1" }` to `createPiLaunch` inside `fixtureLaunch` in [workspace.ts](../../../../validation/workspace.ts). The launcher filters the environment, so prefixing its command with `PI_FFF_MULTIGREP=1` does not enable multi-search.
+For multi-search, pass `env: { PI_FFF_MULTIGREP: "1" }` to `createPiLaunch` inside `fixtureLaunch` in [workspace.ts](../../../../validation/workspace.ts). The launcher filters the environment. Prefixing its command with `PI_FFF_MULTIGREP=1` does not enable multi-search.
 
-Before and after reload, check that pagination, limit hints, and query and fallback diagnostics remain visible in compact and expanded cards. Expansion must reveal retained matches.
+Before and after reload, verify that compact cards show match and index counts instead of excerpts, both inside and outside groups. Compact and expanded cards must retain pagination messages, limit hints, query diagnostics, and fallback diagnostics. Expansion must reveal retained matches beside the summary.

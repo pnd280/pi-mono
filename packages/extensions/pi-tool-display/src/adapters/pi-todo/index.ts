@@ -48,7 +48,8 @@ const taskSchema = z.object({
 
 const detailsSchema = z.object({
   error: z.string().optional(),
-  tasks: z.array(taskSchema).optional()
+  tasks: z.array(taskSchema).optional(),
+  nextId: z.int().positive().optional().catch(undefined)
 });
 
 const parametersSchema = z.object({
@@ -218,9 +219,10 @@ function textParts(text: string, _args: unknown, context: ResultTextContext): Re
   return parts;
 }
 
-function progressSummary(tasks: readonly { status: TaskStatus }[]): string | undefined {
+function progressSummary(tasks: readonly { status: TaskStatus }[]): string {
   const visible = tasks.filter((task) => task.status !== "deleted");
-  if (!visible.length) return undefined;
+  if (!visible.length)
+    return tasks.length ? `${tasks.length} deleted · no active tasks` : "No tasks";
   const completed = visible.filter((task) => task.status === "completed").length;
   const inProgress = visible.filter((task) => task.status === "in_progress").length;
   const pending = visible.filter((task) => task.status === "pending").length;
@@ -240,6 +242,7 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-todo:todo",
   family: "invocation",
   groupTitle: "Todo",
+  supports: (args) => parseArgs(args) !== undefined,
   headingVerbs(args) {
     const action = parseArgs(args)?.action;
 
@@ -263,14 +266,30 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
   outcome(result): Outcome | undefined {
     return parseDetails(result)?.error ? "failure" : undefined;
   },
-  notices(result) {
+  summary(result, { args, outcome }) {
+    if (outcome !== "success") return undefined;
     const details = parseDetails(result);
-    const summary =
-      details === undefined || details.error !== undefined
-        ? undefined
-        : progressSummary(details.tasks ?? []);
+    const parsed = parseArgs(args);
+    if (!parsed || !details?.tasks || details.error) return undefined;
+    const tasks = details.tasks;
+    const progress = progressSummary(tasks);
+    const id =
+      parsed.action === "create" && details.nextId !== undefined ? details.nextId - 1 : parsed.id;
+    const task = tasks.find((task) => task.id === id);
+    if (task && ["create", "update", "get", "delete"].includes(parsed.action))
+      return { text: `#${task.id} ${STATUS_TEXT[task.status]} · ${progress}` };
 
-    return summary === undefined ? [] : [{ kind: "info", text: summary }];
+    if (parsed.action === "list" && (parsed.status !== undefined || parsed.includeDeleted)) {
+      const matching = tasks.filter(
+        (task) =>
+          (parsed.includeDeleted || task.status !== "deleted") &&
+          (parsed.status === undefined || task.status === parsed.status)
+      ).length;
+
+      return { text: `${matching} ${matching === 1 ? "task" : "tasks"} listed · ${progress}` };
+    }
+
+    return { text: progress };
   }
 };
 

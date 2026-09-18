@@ -30,7 +30,7 @@ function lazy<T>(prepare: () => T): () => T {
   return () => (cached ??= { value: prepare() }).value;
 }
 
-function prepareCard(base: Omit<Projection, "mcp" | "outcome">): PreparedCard {
+function prepareCard(base: Omit<Projection, "mcp" | "outcome" | "summary">): PreparedCard {
   const mcp = lazy(() => base.adapter.mcp?.(base.context.args, base.result));
   const outcome = lazy(() => displayOutcome({ ...base, mcp: mcp() }));
   const context = lazy(() => ({
@@ -40,11 +40,21 @@ function prepareCard(base: Omit<Projection, "mcp" | "outcome">): PreparedCard {
   const invocation = lazy(() => base.adapter.invocation?.(base.context.args, base.result));
   const exploration = lazy(() => base.adapter.exploration?.(base.context.args, base.result) ?? []);
   const headingVerbs = lazy(() => base.adapter.headingVerbs?.(base.context.args));
+  const summary = lazy(() => {
+    if (!base.result || base.context.isPartial || outcome() === "unavailable") return undefined;
+    const value = base.adapter.summary?.(base.result, {
+      args: base.context.args,
+      outcome: outcome(),
+      operation: base.call?.operation
+    });
+
+    return value?.text.trim() ? value : undefined;
+  });
   const body = lazy(() =>
     base.result ? buildResultBody(base.result, prepared) : { items: [], annotations: [] }
   );
-  // Compact groups own their diagnostics in the call slot at the nested width.
-  // Never prepare the successful text body just to decide which slot is visible.
+  // Groups use the same result policy in the call slot at their nested width.
+  // Keep preparation lazy so a hidden result slot does not format a second body.
   const groupRows = lazy(() =>
     buildGroupRows({
       ...base,
@@ -57,6 +67,9 @@ function prepareCard(base: Omit<Projection, "mcp" | "outcome">): PreparedCard {
       },
       get mcp() {
         return mcp();
+      },
+      get summary() {
+        return summary();
       }
     })
   );
@@ -70,6 +83,9 @@ function prepareCard(base: Omit<Projection, "mcp" | "outcome">): PreparedCard {
     },
     get mcp() {
       return mcp();
+    },
+    get summary() {
+      return summary();
     },
     get invocation() {
       return invocation();

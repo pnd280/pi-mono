@@ -7,6 +7,7 @@ import { textPrefix, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import {
   isLive,
+  type DisplayCall,
   type DisplayGroup,
   type HeadingVerbs,
   type InvocationPart,
@@ -22,6 +23,10 @@ import type { PreparedCard } from "./types.ts";
 
 const COMPACT_HEADING_CHARACTERS = 16 * 1024;
 const COMPACT_HEADING_ROWS = 3;
+
+type HeadingColor = Parameters<Theme["fg"]>[0];
+
+type ActionTone = "neutral" | "pending" | "error" | "unavailable";
 
 type HeadingDetail = { text: string; truncated: boolean };
 
@@ -150,9 +155,7 @@ const verbs: Record<ToolFamily, HeadingVerbs> = {
   invocation: { action: "Call", pending: "Calling", complete: "Called" }
 };
 
-function terminalStatus(
-  outcome: Outcome
-): { suffix: string; color: Parameters<Theme["fg"]>[0] } | undefined {
+function terminalStatus(outcome: Outcome): { suffix: string; color: HeadingColor } | undefined {
   switch (outcome) {
     case "failure":
       return { suffix: "failed", color: "error" };
@@ -165,15 +168,48 @@ function terminalStatus(
   }
 }
 
-function appendHeadingSummary(
-  rows: string[],
-  summary: string,
-  p: PreparedCard,
-  inline = true
-): void {
-  const suffix = p.theme.fg("dim", " · ") + summary;
-  if (inline && rows.length === 1 && visibleWidth(rows[0]! + suffix) <= p.width) rows[0] += suffix;
-  else rows.push(...headingContinuation(wrapRows(summary, bodyWidth(p.width)), p, true));
+function actionTone(pending: boolean, outcome: Outcome): ActionTone {
+  if (pending) return "pending";
+
+  switch (outcome) {
+    case "failure":
+    case "cancelled":
+      return "error";
+    case "unavailable":
+      return "unavailable";
+    case "success":
+      return "neutral";
+  }
+}
+
+function actionColor(tone: ActionTone): HeadingColor {
+  switch (tone) {
+    case "pending":
+      return "warning";
+    case "error":
+      return "error";
+    case "unavailable":
+      return "muted";
+    case "neutral":
+      return "accent";
+  }
+}
+
+function callActionTone(call: DisplayCall): ActionTone {
+  if (isLive(call)) return "pending";
+
+  return actionTone(false, callOutcome(call));
+}
+
+function groupActionColor(group: DisplayGroup): HeadingColor {
+  const first = group.members[0];
+  if (!first) return "accent";
+
+  const tone = callActionTone(first);
+
+  return group.members.every((call) => callActionTone(call) === tone)
+    ? actionColor(tone)
+    : "accent";
 }
 
 function scopeHeading(
@@ -227,36 +263,27 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
     ]
       .filter(Boolean)
       .join(p.theme.fg("dim", ", "));
+    const titleColor = groupActionColor(group);
 
     if (group.title !== undefined) {
-      // Adapter-defined groups share one literal scope; the title replaces the
-      // exploration scope and action counts.
-      const count = group.members.length;
-      const noun = count === 1 ? "call" : "calls";
+      // Adapter-defined groups use a title instead of exposing their literal scope.
       const badge = summary ? `${p.theme.fg("dim", " · ")}${summary}` : "";
 
       rows.push(
         truncateToWidth(
-          `${p.theme.fg(active ? "accent" : "dim", marker)} ${p.theme.fg("toolTitle", p.theme.bold(group.title))} ${p.theme.fg("dim", `· ${count} ${noun}`)}${badge}`,
+          `${p.theme.fg(titleColor, marker)} ${p.theme.fg(titleColor, p.theme.bold(group.title))}${badge}`,
           p.width,
           ""
         )
       );
     } else {
-      const kind = group.scope.kind === "filter" ? "filter" : "directory";
-      const title = `${p.theme.fg(active ? "accent" : "dim", marker)} ${p.theme.fg("toolTitle", p.theme.bold(active ? "Exploring" : "Explored"))} ${p.theme.fg("dim", kind)}`;
+      const scopeVerbs =
+        group.scope.kind === "filter"
+          ? { pending: "Filtering", complete: "Filtered" }
+          : { pending: "Exploring", complete: "Explored" };
+      const title = `${p.theme.fg(titleColor, marker)} ${p.theme.fg(titleColor, p.theme.bold(active ? scopeVerbs.pending : scopeVerbs.complete))}`;
 
       rows.push(...scopeHeading(group, p, title, summary));
-
-      const counts = (["Read", "Search", "List"] as const).flatMap((label) => {
-        const count = group.counts[label] ?? 0;
-        const noun = label.toLowerCase();
-        const plural = label === "Search" ? "searches" : `${noun}s`;
-
-        return count ? [`${count} ${count === 1 ? noun : plural}`] : [];
-      });
-      if (group.scope.kind !== "filter")
-        appendHeadingSummary(rows, p.theme.fg("dim", counts.join(" · ")), p, counts.length === 1);
     }
   }
 
@@ -320,16 +347,26 @@ function phase(p: PreparedCard): string {
 
 function status(p: PreparedCard): {
   verb: string;
-  color: Parameters<Theme["fg"]>[0];
+  actionColor: HeadingColor;
   pending: boolean;
 } {
   const current = phase(p);
   const pending = ["preparing", "queued", "executing"].includes(current);
   const actionVerbs = p.headingVerbs ?? verbs[p.adapter.family];
-  if (pending) return { verb: actionVerbs.pending, color: "accent", pending };
+  const tone = pending ? "pending" : actionTone(false, p.outcome);
+  if (pending)
+    return {
+      verb: actionVerbs.pending,
+      actionColor: actionColor(tone),
+      pending
+    };
   const terminal = terminalStatus(p.outcome);
   if (terminal)
-    return { verb: `${actionVerbs.action} ${terminal.suffix}`, color: terminal.color, pending };
+    return {
+      verb: `${actionVerbs.action} ${terminal.suffix}`,
+      actionColor: actionColor(tone),
+      pending
+    };
   let verb = actionVerbs.complete;
   if (
     p.adapter.family === "write" &&
@@ -337,9 +374,12 @@ function status(p: PreparedCard): {
     p.call.operation?.outcome === "success"
   )
     verb = "Added";
-  const quiet = ["read", "search", "list"].includes(p.adapter.family);
 
-  return { verb, color: quiet ? "dim" : "success", pending };
+  return {
+    verb,
+    actionColor: actionColor(tone),
+    pending
+  };
 }
 
 function invocation(p: PreparedCard): { parts: InvocationPart[]; detail: HeadingDetail } {
@@ -372,7 +412,7 @@ export function heading(p: PreparedCard, animationPhase: number): string[] {
   if (p.group && !p.expanded) return groupHeading(p.group, p, animationPhase);
   const state = status(p);
   const marker = state.pending && animationPhase ? "◦" : "•";
-  const title = `${p.theme.fg(state.color, marker)} ${p.theme.fg("toolTitle", p.theme.bold(state.verb))}`;
+  const title = `${p.theme.fg(state.actionColor, marker)} ${p.theme.fg(state.actionColor, p.theme.bold(state.verb))}`;
   const { parts, detail } = invocation(p);
   const rows = targetTitleRows(title, parts, p) ?? titleRows(title, detail, p);
   if (p.showParameters && p.expanded && !["shell", "invocation"].includes(p.adapter.family))

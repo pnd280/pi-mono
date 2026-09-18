@@ -10,13 +10,24 @@
 
 ## Arguments and results
 
-A retained `details.tasks` snapshot supplies resolved subjects and the progress notice. A retained `details.error` marks the call as a failure even when Pi's error flag is false. Incompatible retained arguments or details fall back to the preserved renderers or generic cards.
+A retained `details.tasks` snapshot supplies task subjects, confirmed statuses, and progress summaries. For a successful create call, `details.nextId - 1` identifies the new task when that ID exists in the snapshot. A nonempty `details.error` marks the call as a failure even when Pi's error flag is false.
+
+Once a result exists, incompatible arguments use generic cards and do not group. These cards show the tool name and parameters, such as `Call failed todo({})`. Unrecognized details do not force fallback. The adapter uses subjects, progress, and outcomes only when the details validate.
 
 ## Display
 
-Every card starts with the `Todo` heading and the action, for example `Todo · Created Ship it` or `Todo · Updated #3 status → completed`. Create summaries add the subject, parent, and initial dependencies; update summaries name the changed fields. `list` and `get` results dim their known `[status]` brackets. Standalone and expanded cards add a `dim` progress line such as `1/3 completed · 1 in progress · 1 pending`; collapsed group members reserve it for expansion. Failures omit the progress line and use `error` styling for the diagnostic body.
+Supported cards start with `Todo` and the action, for example `Todo · Created Ship it` or `Todo · Updated #3 status → completed`. Create headings add the subject, parent, and initial dependencies. Update headings name the changed fields.
 
-Adjacent `todo` calls form a collapsed `Todo · N calls` group with one member line per action. Expansion restores each call's full card.
+Compact cards replace successful output with a `dim` summary of confirmed task state and overall progress, such as `#3 completed · 1/3 completed · 1 in progress · 1 pending`:
+
+- Progress excludes deleted tasks. Snapshots containing only deleted tasks report their count and `no active tasks`. Empty snapshots report `No tasks`.
+- Lists with a status filter or `includeDeleted: true` also report the number of listed tasks.
+- Missing or invalid snapshots use an output preview.
+- Failures omit the summary and show diagnostic bodies in `error`.
+
+Expansion restores the full result text beside the summary. `list` and `get` results dim their known `[status]` brackets.
+
+Adjacent `todo` calls form a collapsed `Todo` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
 
 ## Validation
 

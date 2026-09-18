@@ -46,9 +46,10 @@ Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`
 | Task                                                                                                   | Adapter members                                    |
 | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
 | Customize action wording and argument summaries                                                        | [`headingVerbs`](#action-wording), `invocation`    |
-| Validate retained results                                                                              | `supports`                                         |
+| Validate retained arguments and results                                                                | `supports`                                         |
 | Join CLI exploration groups                                                                            | [`exploration`](#exploration-scopes)               |
 | Group non-exploration calls under one literal scope                                                    | [`exploration`](#exploration-scopes), `groupTitle` |
+| Summarize results in compact and expanded cards                                                        | [`summary`](#result-summaries)                     |
 | Report an outcome from structured result metadata                                                      | [`outcome`](#outcomes)                             |
 | Present diagnostics and interpret a known text envelope                                                | `notices`, [`textParts`](#result-text)             |
 | Avoid a duplicate image fallback label after a known caption                                           | `imageCaptionMimeType`                             |
@@ -56,11 +57,11 @@ Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`
 | Enable CLI preview loading from `details.fullOutputPath`                                               | `savedOutput`                                      |
 | Supply typed MCP content                                                                               | [`mcp`](#mcp-facts)                                |
 
-`patch` and `savedOutput` are boolean flags. The other members in the table are callbacks. Callbacks receive borrowed arguments and results. Validate unknown input without changing retained data or inferring facts from ordinary output.
+`patch` and `savedOutput` are boolean flags. `groupTitle` is a string. The other members in the table are callbacks. Callbacks receive borrowed arguments and results. Validate unknown input without changing retained data or inferring facts from ordinary output.
 
 When `showParameters` is `false`, the renderer skips invocation parts whose `kind` is `parameters` without reading their `text`, even after expansion. Use a `text` getter to avoid serializing hidden parameters.
 
-For a summary containing only a concrete target, return a `path` part optionally followed by a `range` part such as `:15-16`. The renderer [wraps the path](presentation.md#card-layout) and keeps the range together when it fits the available width. Use `value` or `pattern` for literal expressions, which receive no path normalization.
+For an invocation containing only a concrete target, return a `path` part optionally followed by a `range` part such as `:15-16`. The renderer [wraps the path](presentation.md#card-layout) and keeps the range together when it fits the available width. Use `value` or `pattern` for literal expressions, which receive no path normalization.
 
 Standalone adapters must handle incompatible input themselves. Only the automatic CLI integration checks `supports`. To add automatic selection for another extension, [register a resolver](adapters.md#add-an-adapter).
 
@@ -74,13 +75,25 @@ Standalone adapters must handle incompatible input themselves. Only the automati
 
 All items must resolve to the same directory or identical filters. A `file` scope and a `directory` scope can therefore group when the file's parent matches the directory. Missing, invalid, or mismatched scopes keep the call standalone, as do `undefined` and empty exploration results. Do not derive scopes from formatted summaries or interpret arbitrary filters as directories.
 
-Tool adapters that group calls outside file exploration return one `filter` scope with a stable literal and set [`groupTitle`](../src/contracts.ts). The collapsed heading then reads `<groupTitle> · N calls` instead of naming a scope, and routine `info` notices stay on expansion. `pi-todo` groups its calls this way.
+Tool adapters that group calls outside file exploration return one `filter` scope with a stable literal and set [`groupTitle`](../src/contracts.ts). The collapsed heading then reads `<groupTitle>` instead of naming a scope. Summaries and notices remain visible beneath each member, just as in standalone cards. `pi-todo` groups its calls this way.
 
-Directory groups count one operation per call under its first item's label, regardless of how many items it returns. Repeated reads count separately. See [exploration groups](presentation.md#groups) for boundaries and expansion behavior.
+Group headings omit call and operation counts. Each call remains a separate member, including repeated reads. See [exploration groups](presentation.md#groups) for boundaries and expansion behavior.
 
 ### Action wording
 
 `headingVerbs(args)` returns an object such as `{ action: "Check", pending: "Checking", complete: "Checked" }`. Omitting the callback or returning `undefined` uses family defaults. Failure, cancellation, and unavailable headings append the outcome to `action`, as in `Check failed`.
+
+### Result summaries
+
+`summary(result, context)` returns a `ResultSummary` with `text` and an optional `preserveOutput` boolean. The context contains `args`, the resolved `outcome`, and recorded `operation` facts when available. The renderer calls it only for completed results whose outcome is `success`, `failure`, or `cancelled`.
+
+Derive summaries from validated metadata or recorded operation facts. Label totals precisely, distinguishing collected matches from total matches and failed operations from unfinished ones. Return `undefined` when the data cannot support a summary.
+
+Summaries appear before output in compact and expanded cards. In compact cards, a nonempty summary replaces successful text output by default. Set `preserveOutput: true` for summaries that supplement output, such as a shell exit status. Failure and cancellation output, notices, and images remain visible. Expansion restores retained text.
+
+Missing, empty, or whitespace-only summaries use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
+
+Use `notices` for diagnostics and references that must remain visible when a summary replaces output. Notice severity controls styling, not visibility. Compact groups retain `info` notices.
 
 ### Result text
 

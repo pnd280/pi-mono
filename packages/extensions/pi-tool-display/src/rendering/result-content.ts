@@ -26,16 +26,13 @@ type TreeItem = { rows: string[] };
 
 export function buildGroupRows(p: Projection): string[] {
   if (!p.call || !p.result) return [];
-  const rows: string[] = [];
+  const body = buildResultBody(p.result, p);
 
-  rows.push(
-    ...(p.context.isError ? contentItems(p.result, p) : imageItems(p.result.content, p)).flatMap(
-      (item) => item.rows
-    ),
-    ...notices(p.result, p, false)
-  );
+  return [...body.annotations, ...body.items.flatMap((item) => item.rows)];
+}
 
-  return rows;
+function replacesOutput(p: Projection): boolean {
+  return !p.expanded && !p.context.isError && !!p.summary && !p.summary.preserveOutput;
 }
 
 function patchRows(
@@ -138,13 +135,16 @@ function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
       continue;
     }
 
+    if (block.type === "text" && replacesOutput(p)) continue;
     const parts: ResultTextPart[] =
       block.type === "text"
         ? [{ kind: "output", text: block.text }]
         : [
             { kind: "annotation", text: "Resource: " },
             { kind: "value", text: block.uri },
-            ...(block.text ? [{ kind: "output" as const, text: `\n${block.text}` }] : [])
+            ...(block.text && !replacesOutput(p)
+              ? [{ kind: "output" as const, text: `\n${block.text}` }]
+              : [])
           ];
     items.push({ rows: resultPartRows(parts, p, 10, { outputColor: color }) });
   }
@@ -324,6 +324,7 @@ function describedImage(
 }
 
 function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem[] {
+  if (replacesOutput(p)) return imageItems(result.content, p);
   const preview = outputPreview(p);
   const items: TreeItem[] =
     preview === undefined
@@ -390,11 +391,8 @@ function unavailableHistory(p: Projection): DisplayNotice[] {
   return notices;
 }
 
-function notices(result: AgentToolResult<unknown>, p: Projection, includeInfo = true): string[] {
-  const notices = [...(p.adapter.notices?.(result, p.expanded) ?? [])].filter(
-    // Routine counts stay on expansion; compact group rows keep diagnostics.
-    (notice) => includeInfo || notice.kind !== "info"
-  );
+function notices(result: AgentToolResult<unknown>, p: Projection): string[] {
+  const notices = [...(p.adapter.notices?.(result, p.expanded) ?? [])];
   const path = p.call?.savedPath;
   if (path && !notices.some((notice) => notice.kind === "reference" && notice.value === path))
     notices.push({ kind: "reference", label: "Saved output", value: path });
@@ -415,7 +413,7 @@ function notices(result: AgentToolResult<unknown>, p: Projection, includeInfo = 
     return wrapRows(text, bodyWidth(p.width));
   });
 
-  if (p.expanded && p.call?.operation) {
+  if (p.expanded && p.call?.operation && !(p.adapter.family === "shell" && p.summary)) {
     const operation = p.call.operation;
     const color = (
       { failure: "error", cancelled: "warning", unavailable: "muted", success: "dim" } as const
@@ -447,6 +445,20 @@ function annotateResult(items: TreeItem[], annotations: string[]): ResultBody {
 }
 
 export function buildResultBody(current: AgentToolResult<unknown>, p: Projection): ResultBody {
+  const body = resultBody(current, p);
+  if (!p.summary?.text) return body;
+  const color = p.outcome === "cancelled" ? "warning" : "error";
+
+  return {
+    ...body,
+    annotations: [
+      ...message(p.summary.text, p, p.context.isError ? color : "dim"),
+      ...body.annotations
+    ]
+  };
+}
+
+function resultBody(current: AgentToolResult<unknown>, p: Projection): ResultBody {
   const annotations = notices(current, p);
   if (p.adapter.family === "read" && !p.expanded && !p.context.isError && !p.context.isPartial)
     return annotateResult(imageItems(current.content, p), annotations);

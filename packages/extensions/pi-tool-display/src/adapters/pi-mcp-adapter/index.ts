@@ -8,6 +8,7 @@ import {
   mcpCallFacts,
   mcpCallIdentity,
   mcpNotices,
+  mcpScriptSummary,
   mcpResultOutcome
 } from "./result-presentation.ts";
 import {
@@ -167,6 +168,7 @@ export function piMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
     invocation: (args, result) => invocation(kind, tool.name, args, result),
     mcp: (_args, result) => mcpCallFacts(result),
     outcome: mcpResultOutcome,
+    summary: mcpScriptSummary,
     notices: mcpNotices
   };
 }

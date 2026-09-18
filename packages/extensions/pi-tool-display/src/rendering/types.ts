@@ -14,6 +14,7 @@ import type {
   InvocationPart,
   McpFacts,
   Outcome,
+  ResultSummary,
   ToolDisplayAdapter,
   TranscriptView
 } from "../contracts.ts";
@@ -63,6 +64,7 @@ export type Projection = Readonly<{
   group: DisplayGroup | undefined;
   mcp: McpFacts | undefined;
   outcome: Outcome;
+  summary: ResultSummary | undefined;
 }>;
 
 /** Lazily prepared, row-owned data. Layout consumers cannot invalidate or replace it. */

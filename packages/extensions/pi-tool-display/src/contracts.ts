@@ -105,8 +105,6 @@ export type DisplayGroup = {
   readonly scope: ExplorationScope;
   /** Custom heading for adapter-defined tool groups; exploration groups omit it. */
   readonly title?: string | undefined;
-  /** Count calls by their first item's label, not paths or item count. */
-  readonly counts: Readonly<Record<string, number>>;
 };
 
 /** Rendering reads state and submits expansion intents without owning transcript updates. */
@@ -125,6 +123,12 @@ export type ResultTextPart = {
 export type DisplayNotice =
   | { kind: "info" | "unavailable" | "warning" | "error"; text: string }
   | { kind: "reference"; label: string; value: string };
+
+export type ResultSummary = {
+  text: string;
+  /** Supplement the output preview when these facts do not summarize its content. */
+  preserveOutput?: boolean;
+};
 
 export type ResultTextContext = {
   isError: boolean;
@@ -188,6 +192,16 @@ export type ToolDisplayAdapter = {
    * such as "Todo". Exploration groups leave it undefined and name their scope.
    */
   groupTitle?: string;
+  /**
+   * Summarize completed results from validated metadata or observed operation facts.
+   * Compact successful cards replace text with this summary unless preserveOutput
+   * is true. Diagnostics and images stay visible; expansion restores retained text.
+   * Missing summaries use the ordinary output preview, including inside groups.
+   */
+  summary?(
+    result: AgentToolResult<unknown>,
+    context: { args: unknown; outcome: Outcome; operation: OperationFact | undefined }
+  ): ResultSummary | undefined;
   /** Report a structured result outcome; never infer it from ordinary output text.
    * Cancellation takes precedence over failure, and neither can be downgraded by
    * success or unavailable metadata. Omission uses Pi's outcome and MCP facts.
@@ -198,8 +212,9 @@ export type ToolDisplayAdapter = {
   /** Interpret successful details.patch as a unified patch, within the retained patch byte limit. */
   patch?: boolean;
   /**
-   * Keep actionable diagnostics visible in compact groups; reserve routine counts
-   * for expansion. `info` uses dim styling, `unavailable` uses muted styling.
+   * Keep diagnostics and references visible in compact and expanded cards, including
+   * groups. Severity controls styling, not visibility. Use summary for result totals.
+   * `info` uses dim styling, `unavailable` uses muted styling.
    */
   notices?(result: AgentToolResult<unknown>, expanded: boolean): DisplayNotice[];
   /**

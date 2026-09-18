@@ -79,6 +79,7 @@ function semanticTheme() {
     accent: "\x1b[36m",
     toolTitle: "\x1b[35m",
     dim: "\x1b[90m",
+    muted: "\x1b[2m",
     error: "\x1b[31m",
     warning: "\x1b[33m",
     syntaxString: "\x1b[32m",
@@ -535,7 +536,7 @@ describe("tool display renderers", () => {
           ...secondRenderer.renderCall(secondArgs, theme, context()).render(120)
         ].join("\n");
 
-      expect(heading()).toContain("Todo · 2 calls");
+      expect(heading().split("\n")[0]).toBe("• Todo");
       expect(heading()).toContain("Creating (running) First task");
       expect(heading()).toContain("Creating (running) Second task");
       expect(heading()).not.toContain("{");
@@ -544,13 +545,64 @@ describe("tool display renderers", () => {
       expect(heading()).toContain("Created First task");
       expect(heading()).toContain("Creating (running) Second task");
 
+      coordinator.result(second, result("Task creation failed"), "failure");
+      expect(heading().split("\n")[0]).toBe("• Todo · 1 failed");
+
       coordinator.expand(first, true);
       expect(heading()).toContain("Todo · Created First task");
-      expect(heading()).toContain("Todo · Creating Second task");
+      expect(heading()).toContain("Todo · Create failed Second task");
     } finally {
       coordinator.dispose();
     }
   });
+
+  it.each([{}, { action: "unknown" }, { action: "list", status: 42 }])(
+    "falls back to a named generic card for invalid todo arguments %j",
+    (args) => {
+      const coordinator = new TranscriptCoordinator("invalid-todo");
+
+      try {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 0, toolCallId: "invalid" },
+          "todo",
+          args,
+          todoDisplayAdapter,
+          "historical"
+        );
+        coordinator.add(
+          { messageTimestamp: 1, contentIndex: 1, toolCallId: "valid" },
+          "todo",
+          { action: "list" },
+          todoDisplayAdapter,
+          "historical"
+        );
+        const retained = result("Invalid todo arguments");
+        coordinator.result(call, retained, "failure");
+        const renderer = createToolDisplayRenderers("todo", todoDisplayAdapter, {
+          binding: { call, coordinator },
+          showParameters: false
+        });
+
+        for (const expanded of [false, true]) {
+          coordinator.expand(call, expanded);
+          const current = context({ args, expanded });
+          expect(renderer.renderCall(args, theme, current).render(120)).toEqual([
+            `• Call failed todo(${JSON.stringify(args)})`
+          ]);
+          expect(
+            renderer.renderResult(retained, current, theme, current).render(120).join("\n")
+          ).toContain("Invalid todo arguments");
+        }
+
+        expect(coordinator.group(call)).toBeUndefined();
+        expect(call.adapter).toBe(todoDisplayAdapter);
+        expect(call.args).toBe(args);
+        expect(call.result).toBe(retained);
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  );
 
   it("does not group todo calls separated by another tool", () => {
     const coordinator = new TranscriptCoordinator("todo-separation");
@@ -824,7 +876,7 @@ describe("tool display renderers", () => {
             .render(100)
         )
         .join("\n");
-      expect(rows).toContain("Exploring directory . · 1 failed, 1 cancelled · 4 reads");
+      expect(rows.split("\n")[0]).toBe("• Exploring . · 1 failed, 1 cancelled");
       expect(rows).toContain("Read (queued) pending.ts");
       expect(rows).not.toContain("outcome unavailable");
       expect(rows).toContain("Read success.ts");
@@ -835,6 +887,145 @@ describe("tool display renderers", () => {
     } finally {
       coordinator.dispose();
     }
+  });
+
+  it("uses accent for completed exploration headings", () => {
+    const coordinator = new TranscriptCoordinator("group-heading-colors", { cwd: "/tmp" });
+    const themed = semanticTheme();
+
+    try {
+      const calls = ["a.ts", "b.ts"].map((path, index) => {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: index, toolCallId: path },
+          "read",
+          { path },
+          nativeAdapter("read")!,
+          "historical"
+        );
+        coordinator.result(call, result("retained"), "success");
+
+        return call;
+      });
+      const rows = createToolDisplayRenderers("read", nativeAdapter("read"), {
+        binding: { call: calls[0]!, coordinator }
+      })
+        .renderCall(calls[0]!.args, themed, context())
+        .render(100);
+
+      expect(rows[0]).toContain(themed.fg("accent", "Explored"));
+      expect(rows[0]).toContain(themed.fg("accent", "•"));
+      expect(rows[0]).not.toContain(themed.fg("toolTitle", "Explored"));
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it("uses accent for standalone tool headings", () => {
+    const themed = semanticTheme();
+    const cases = [
+      ["read", nativeAdapter("read")!, { path: "a.ts" }, "Read"],
+      ["bash", nativeAdapter("bash")!, { command: "true" }, "Ran"],
+      ["custom", genericAdapter, {}, "Called"]
+    ] as const;
+
+    for (const [name, adapter, args, verb] of cases) {
+      const line =
+        createToolDisplayRenderers(name, adapter)
+          .renderCall(args, themed, context())
+          .render(100)[0] ?? "";
+      expect(line, name).toContain(themed.fg("accent", verb));
+      expect(line, name).not.toContain(themed.fg("toolTitle", verb));
+    }
+  });
+
+  it("colors standalone action text by lifecycle and outcome while preserving marker colors", () => {
+    const themed = semanticTheme();
+    const renderer = createToolDisplayRenderers("read", nativeAdapter("read"));
+    const args = { path: "a.ts" };
+    const render = (current: Context) =>
+      renderer.renderCall(args, themed, current).render(100)[0] ?? "";
+
+    const completed = render(context());
+    expect(completed).toContain(themed.fg("accent", "Read"));
+    expect(completed).toContain(themed.fg("accent", "•"));
+
+    const pending = render(
+      context({ isPartial: true, argsComplete: true, executionStarted: true })
+    );
+    expect(pending).toContain(themed.fg("warning", "Reading"));
+    expect(pending).toContain(themed.fg("warning", "◦"));
+    expect(pending).not.toContain(themed.fg("accent", "Reading"));
+
+    const failed = render(context({ isError: true }));
+    expect(failed).toContain(themed.fg("error", "Read failed"));
+    expect(failed).toContain(themed.fg("error", "•"));
+  });
+
+  it("colors cancelled standalone action text as an error while retaining the warning marker", () => {
+    const coordinator = new TranscriptCoordinator("standalone-cancelled-action-color");
+    const themed = semanticTheme();
+
+    try {
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "cancelled" },
+        "read",
+        { path: "a.ts" },
+        nativeAdapter("read")!,
+        "live"
+      );
+      coordinator.result(call, result("Operation aborted"), "cancelled");
+      const line = createToolDisplayRenderers("read", call.adapter, {
+        binding: { call, coordinator }
+      })
+        .renderCall(call.args, themed, context())
+        .render(100)[0]!;
+
+      expect(line).toContain(themed.fg("error", "Read cancelled"));
+      expect(line).toContain(themed.fg("error", "•"));
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it("colors homogeneous group action titles and uses accent for mixed groups", () => {
+    type GroupState = "pending" | "success" | "failure" | "cancelled" | "unavailable";
+
+    const themed = semanticTheme();
+
+    const assertGroup = (states: readonly GroupState[], actionColor: string, action: string) => {
+      const coordinator = new TranscriptCoordinator(`group-action-color-${states.join("-")}`);
+
+      try {
+        const calls = states.map((state, index) => {
+          const call = coordinator.add(
+            { messageTimestamp: 1, contentIndex: index, toolCallId: `${state}-${index}` },
+            "read",
+            { path: `${state}-${index}.ts` },
+            nativeAdapter("read")!,
+            "live"
+          );
+          if (state === "pending") coordinator.update(call, "executing");
+          else coordinator.result(call, result("retained"), state);
+
+          return call;
+        });
+        const line = createToolDisplayRenderers("read", calls[0]!.adapter, {
+          binding: { call: calls[0]!, coordinator }
+        })
+          .renderCall(calls[0]!.args, themed, context())
+          .render(100)[0]!;
+
+        expect(line).toContain(themed.fg(actionColor, action));
+        expect(line).toContain(themed.fg(actionColor, "•"));
+      } finally {
+        coordinator.dispose();
+      }
+    };
+
+    assertGroup(["pending", "pending"], "warning", "Exploring");
+    assertGroup(["failure", "cancelled"], "error", "Explored");
+    assertGroup(["success", "failure"], "accent", "Explored");
+    assertGroup(["unavailable", "unavailable"], "muted", "Explored");
   });
 
   it("dims grouped lifecycle annotations without recoloring actions or targets", () => {
@@ -948,7 +1139,7 @@ describe("tool display renderers", () => {
         expect(stripTerminalSequences(header)).toContain(
           outcome === "cancelled" ? "Call cancelled" : "Call failed"
         );
-        expect(header).toContain(colored.fg(outcome === "cancelled" ? "warning" : "error", "•"));
+        expect(header).toContain(colored.fg("error", "•"));
         expect(
           renderer.renderResult(call.result!, current, colored, current).render(100).join("\n")
         ).toContain(colored.fg(outcome === "cancelled" ? "warning" : "error", "diagnostic"));
@@ -1103,13 +1294,13 @@ describe("tool display renderers", () => {
       {
         name: "grep",
         args: { pattern: "needle", path: "src", glob: "*.ts" },
-        annotations: [" in ", " (", ")"],
+        annotations: [" \u2014 ", " (", ")"],
         paths: ["src"]
       },
       {
         name: "fffind",
         args: { pattern: "", path: "src/**" },
-        annotations: ["files", " in "],
+        annotations: ["files"],
         paths: ["src/**"]
       },
       { name: "custom", args: {}, annotations: ["(", ")"], paths: [] }
@@ -1149,8 +1340,8 @@ describe("tool display renderers", () => {
             const grouped = !expanded && "binding" in options && !!coordinator.group(call);
 
             for (const annotation of annotations) {
-              if (grouped && name === "fffind" && annotation === " in ") {
-                expect(stripTerminalSequences(rows)).not.toContain(" in ");
+              if (!grouped && name === "fffind") {
+                expect(stripTerminalSequences(rows)).not.toContain(annotation);
                 continue;
               }
 
@@ -1170,7 +1361,7 @@ describe("tool display renderers", () => {
   });
 
   it.each(["success", "failure"] as const)(
-    "keeps %s outcomes on the scope heading without a total call count",
+    "keeps %s outcomes on the scope heading without call or operation counts",
     (outcome) => {
       const coordinator = new TranscriptCoordinator("heading-counts", { cwd: "/tmp" });
       const path = ".tmp/pi-tool-display-scope-runs-20260917-154954-1015792/a";
@@ -1197,14 +1388,12 @@ describe("tool display renderers", () => {
           binding: { call, coordinator }
         }).renderCall(call.args, theme, context());
         const rows = card.render(110);
-        expect(rows[0]).toBe(
-          `• Explored directory ${path}${outcome === "failure" ? " · 2 failed" : ""}`
-        );
-        expect(rows[1]).toBe("  │ 1 search · 1 list");
-        expect(rows.join("\n")).not.toContain("calls");
+        expect(rows[0]).toBe(`• Explored ${path}${outcome === "failure" ? " · 2 failed" : ""}`);
+        expect(rows[1]).toBe(`  ├ Search${outcome === "failure" ? " failed" : ""} alpha \u2014 .`);
         const narrow = card.render(48);
-        if (outcome === "failure") expect(narrow[0]).toBe("• Explored directory · 2 failed");
-        expect(narrow).toContain("  │ 1 search · 1 list");
+        if (outcome === "failure") expect(narrow[0]).toBe("• Explored · 2 failed");
+        for (const rendered of [rows, narrow])
+          expect(rendered.join("\n")).not.toMatch(/\d+ (calls?|reads?|search(?:es)?|lists?)\b/);
         expect(narrow.every((row) => visibleWidth(row) <= 48)).toBe(true);
       } finally {
         coordinator.dispose();
@@ -1256,7 +1445,7 @@ describe("tool display renderers", () => {
           expect(call.args).toEqual({ path: paths[index] });
           if (index % 2 === 0 && !expanded)
             expect(rows[0]).toContain(
-              `Explored directory ${index === 0 ? "src" : resolve(cwd, "../shared").split(sep).join("/")}`
+              `Explored ${index === 0 ? "src" : resolve(cwd, "../shared").split(sep).join("/")}`
             );
         });
       }
@@ -1455,7 +1644,7 @@ describe("tool display renderers", () => {
     for (const [name, args, summary, key] of [
       ["read", { path: "example.txt", limit: 10 }, "example.txt", '"limit"'],
       ["write", { path: "example.txt", content: "proposed content" }, "example.txt", '"content"'],
-      ["grep", { pattern: "needle", path: "src" }, "needle in src", '"pattern"']
+      ["grep", { pattern: "needle", path: "src" }, "needle \u2014 src", '"pattern"']
     ] as const) {
       const renderer = createPublicRenderers(name, nativeAdapter(name));
       const current = context({ args, expanded: true });
@@ -1532,7 +1721,7 @@ describe("tool display renderers", () => {
               .renderCall(args, themed, context({ expanded }))
               .render(160)
               .join("\n");
-            expect(stripTerminalSequences(rows)).toContain(`${pattern} in ${scope}`);
+            expect(stripTerminalSequences(rows)).toContain(`${pattern} \u2014 ${scope}`);
             expect(rows).toContain(themed.fg("syntaxString", pattern));
             expect(rows).toContain(themed.fg("text", scope));
             expect(rows).not.toContain('"patterns"');
@@ -1572,11 +1761,12 @@ describe("tool display renderers", () => {
           "ffgrep",
           { pattern: "", path: "packages/utils/src/fff-tools.ts" },
           'Search ""',
-          'Searched "" in packages/utils/src/fff-tools.ts'
+          'Searched "" \u2014 packages/utils/src/fff-tools.ts'
         ],
-        ["ffgrep", { pattern: "" }, 'Search ""', 'Searched "" in .'],
-        ["fffind", { pattern: "", path: "packages/" }, "List files", "Listed files in packages/"],
-        ["fffind", { pattern: "" }, "List files", "Listed files in ."]
+        ["ffgrep", { pattern: "" }, 'Search ""', 'Searched "" \u2014 .'],
+        ["fffind", { pattern: "", path: "packages/" }, "List files", "Listed packages/"],
+        ["fffind", { pattern: "", path: "./src/**" }, "List files", "Listed ./src/**"],
+        ["fffind", { pattern: "" }, "List files", "Listed ."]
       ] as const
     ).flatMap(([name, args, compact, expanded]) =>
       [false, true].map((isExpanded) => ({ name, args, compact, expanded, isExpanded }))
@@ -1614,7 +1804,11 @@ describe("tool display renderers", () => {
         expect(renderer.renderCall(args, theme, current).render(120)).toEqual(
           isExpanded
             ? [`• ${expanded}`]
-            : [`• Explored filter ${"path" in args ? args.path : "."}`, `  ├ ${compact}`]
+            : [
+                `• Filtered ${"path" in args ? args.path : "."}`,
+                `  ├ ${compact}`,
+                "  │   retained backend output"
+              ]
         );
         expect(renderer.renderResult(supplied, current, theme, current).render(120)).toEqual(
           isExpanded ? ["  └ retained backend output"] : []
@@ -1641,7 +1835,7 @@ describe("tool display renderers", () => {
           createToolDisplayRenderers(name, adapter)
             .renderCall(args, theme, context({ expanded }))
             .render(100)
-        ).toEqual(["• Searched (pattern missing) in packages/"]);
+        ).toEqual(["• Searched (pattern missing) \u2014 packages/"]);
       }
     }
   );
@@ -1659,21 +1853,26 @@ describe("tool display renderers", () => {
           name,
           args,
           piFffAdapter(fffToolInfo(name))!,
-          "historical"
+          "live"
         );
-        coordinator.result(call, result("retained diagnostic"), "failure");
 
         return call;
       });
       const renderers = calls.map((call) =>
         createToolDisplayRenderers(call.name, call.adapter, { binding: { call, coordinator } })
       );
+      expect(
+        stripTerminalSequences(
+          renderers[0]!.renderCall(calls[0]!.args, themed, context()).render(110)[0]!
+        )
+      ).toBe("• Filtering src/**");
+      for (const call of calls) coordinator.result(call, result("retained diagnostic"), "failure");
       const compact = renderers.flatMap((renderer, index) =>
         renderer.renderCall(calls[index]!.args, themed, context()).render(110)
       );
       const plain = compact.map(stripTerminalSequences);
       expect(plain).toEqual([
-        "• Explored filter src/** · 2 failed",
+        "• Filtered src/** · 2 failed",
         "  ├ Search failed alpha",
         "  │   retained diagnostic",
         "  └ List failed files",
@@ -1694,7 +1893,7 @@ describe("tool display renderers", () => {
               .render(110)
               .join("\n")
           )
-        ).toContain(` in ${path}`);
+        ).toContain(index === 0 ? ` \u2014 ${path}` : `List failed ${path}`);
         const body = renderer
           .renderResult(
             call.result!,
@@ -1911,7 +2110,8 @@ describe("tool display renderers", () => {
         .renderResult(supplied, current, theme, current)
         .render(100)
         .join("\n");
-      expect(standalone).toContain("renderers.ts");
+      expect(standalone.includes("renderers.ts")).toBe(expanded);
+      expect(standalone).toContain("33 matching files · 33 indexed files");
       expect(standalone.split(notice)).toHaveLength(2);
       expect(standalone).not.toContain("Page ");
       expect(
@@ -1959,10 +2159,12 @@ describe("tool display renderers", () => {
           expect(rows.join("\n")).toContain("retained sibling matches");
         } else
           expect(rows).toEqual([
-            "• Explored filter src/",
+            "• Filtered src/",
             "  ├ Search renderers",
+            "  │   33 matching files · 33 indexed files",
             `  │   ${notice}`,
-            "  └ Search cards"
+            "  └ Search cards",
+            "      retained sibling matches"
           ]);
         expect(search.result).toBe(supplied);
         expect(supplied.content[0]).toEqual({ type: "text", text: `renderers.ts\n\n${notice}` });
@@ -1971,6 +2173,50 @@ describe("tool display renderers", () => {
       }
     }
   );
+
+  it("shows compact FFF output excerpts under grouped calls", () => {
+    const coordinator = new TranscriptCoordinator("grouped-fff-output");
+    const adapter = piFffAdapter(fffToolInfo("ffgrep"))!;
+    const calls = [
+      ["setWorkingMessage", "src/state.ts\n 12: setWorkingMessage"],
+      ["working", "src/messages.ts\n 4: working"]
+    ] as const;
+
+    try {
+      const members = calls.map(([pattern, output], index) => {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: index, toolCallId: `grouped-${index}` },
+          "ffgrep",
+          { pattern, path: "." },
+          adapter,
+          "historical"
+        );
+        coordinator.result(call, result(output), "success");
+
+        return call;
+      });
+      const rows = members.flatMap((call) =>
+        createToolDisplayRenderers(call.name, call.adapter, {
+          binding: { call, coordinator }
+        })
+          .renderCall(call.args, theme, context())
+          .render(100)
+          .map(stripTerminalSequences)
+      );
+
+      expect(rows).toEqual([
+        "• Filtered .",
+        "  ├ Search setWorkingMessage",
+        "  │   src/state.ts",
+        "  │    12: setWorkingMessage",
+        "  └ Search working",
+        "      src/messages.ts",
+        "       4: working"
+      ]);
+    } finally {
+      coordinator.dispose();
+    }
+  });
 
   it("keeps wrapped FFF diagnostics immediately under their source-ordered calls", () => {
     const coordinator = new TranscriptCoordinator("notice-ownership");
@@ -2016,7 +2262,11 @@ describe("tool display renderers", () => {
             .renderCall(call.args, theme, context())
             .render(width)
         );
-        expect(rendered[0]).toEqual(["• Explored filter src/", "  ├ Search a"]);
+        expect(rendered[0]).toEqual([
+          "• Filtered src/",
+          "  ├ Search a",
+          "  │   first file contents"
+        ]);
         expect(rendered[1]![0]).toBe("  ├ Search renderers");
         expect(rendered[1]!.slice(1).every((row) => row.startsWith("  │   "))).toBe(true);
         expect(
@@ -2025,7 +2275,7 @@ describe("tool display renderers", () => {
             .map((row) => row.slice(6))
             .join(" ")
         ).toContain("only weak scattered fuzzy matches");
-        expect(rendered[2]).toEqual(["  └ Search a"]);
+        expect(rendered[2]).toEqual(["  └ Search a", "      last file contents"]);
         expect(rendered.flat().every((row) => visibleWidth(row) <= width)).toBe(true);
       }
     } finally {
@@ -2067,7 +2317,7 @@ describe("tool display renderers", () => {
         .join("\n");
       expect(compact).toContain("weak scattered fuzzy matches");
       expect(compact).toContain("Output capped at 1/10.");
-      expect(compact).not.toContain("src/example.ts");
+      expect(compact).toContain("src/example.ts");
       coordinator.expand(call, true);
       const current = context({ args: call.args, expanded: true });
       const expanded = renderer
@@ -2503,7 +2753,7 @@ describe("tool display renderers", () => {
       ...renderer,
       renderCall(args, theme, context) {
         errorMarker = theme.fg("error", "•");
-        successMarker = theme.fg("success", "•");
+        successMarker = theme.fg("accent", "•");
 
         return renderer.renderCall(args, theme, context);
       }

@@ -20,9 +20,9 @@ const argumentSchemas = {
   grep: z.object({ pattern: z.string() })
 };
 const countsSchema = z.object({ totalMatched: z.number(), totalFiles: z.number() });
-const noticeCountsSchema = z.object({
-  totalMatched: z.number().optional().catch(undefined),
-  totalFiles: z.number().optional().catch(undefined)
+const summaryCountsSchema = z.object({
+  totalMatched: z.int().nonnegative(),
+  totalFiles: z.int().nonnegative()
 });
 const registrationSchemas = {
   multi: z.object({ properties: z.object({ patterns: z.object({ type: z.literal("array") }) }) }),
@@ -63,6 +63,7 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
         : undefined,
     invocation(args) {
       const data = record(args);
+      const listing = kind === "find" && data.pattern === "";
 
       return invocationParts(
         tool.name,
@@ -74,9 +75,9 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
               path: data.constraints
             }
           : args,
-        "search"
+        listing ? "list" : "search"
       ).map((part, index) => {
-        if (index === 0 && kind !== "multi") return patternPart(kind, data.pattern);
+        if (!listing && index === 0 && kind !== "multi") return patternPart(kind, data.pattern);
         if (index === 0 && part.kind === "value") return { ...part, kind: "pattern" };
 
         return part.kind === "path" ? { ...part, kind: "value" } : part;
@@ -110,16 +111,20 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
         }
       ];
     },
-    notices(result, expanded) {
-      const details = noticeCountsSchema.safeParse(result.details).data;
-      const notices = expanded ? [] : fffTextNotices(result, kind);
-      if (expanded && details?.totalMatched !== undefined)
-        notices.push({
-          kind: "info",
-          text: `${details.totalMatched} ${details.totalMatched === 1 ? "match" : "matches"} reported${details.totalFiles !== undefined ? ` across ${details.totalFiles} ${details.totalFiles === 1 ? "file" : "files"}` : ""}.`
-        });
+    summary(result, { outcome }) {
+      if (outcome !== "success") return undefined;
+      const counts = summaryCountsSchema.safeParse(result.details).data;
+      if (!counts) return undefined;
+      const { totalMatched, totalFiles } = counts;
+      // FFF grep counts collected matches, while find counts all matching files.
+      // totalFiles is the unfiltered index size, never a count of searched/hit files.
+      const matches =
+        kind === "find"
+          ? `${totalMatched} matching ${totalMatched === 1 ? "file" : "files"}`
+          : `${totalMatched} ${totalMatched === 1 ? "match" : "matches"} collected`;
 
-      return notices;
-    }
+      return { text: `${matches} · ${totalFiles} indexed ${totalFiles === 1 ? "file" : "files"}` };
+    },
+    notices: (result, expanded) => (expanded ? [] : fffTextNotices(result, kind))
   };
 }

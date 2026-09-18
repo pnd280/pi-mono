@@ -123,17 +123,52 @@ it("reports a domain error as a failure outcome", () => {
   expect(todoDisplayAdapter.outcome?.(result({ error: "" }))).toBeUndefined();
 });
 
-it("adds a progress notice excluding failures and empty states", () => {
+it("summarizes progress and empty states without inferring missing snapshots", () => {
   const tasks = [
     { id: 1, subject: "One", status: "completed" },
     { id: 2, subject: "Two", status: "in_progress" },
     { id: 3, subject: "Three", status: "pending" }
   ];
-  expect(todoDisplayAdapter.notices?.(result({ tasks }), false)).toEqual([
-    { kind: "info", text: "1/3 completed · 1 in progress · 1 pending" }
-  ]);
-  expect(todoDisplayAdapter.notices?.(result({ tasks: [] }), false)).toEqual([]);
-  expect(todoDisplayAdapter.notices?.(result({ tasks, error: "boom" }), false)).toEqual([]);
+  const context = { args: { action: "list" }, outcome: "success" as const, operation: undefined };
+  expect(todoDisplayAdapter.summary?.(result({ tasks }), context)).toEqual({
+    text: "1/3 completed · 1 in progress · 1 pending"
+  });
+  expect(todoDisplayAdapter.summary?.(result({ tasks: [] }), context)).toEqual({
+    text: "No tasks"
+  });
+  expect(todoDisplayAdapter.summary?.(result({}), context)).toBeUndefined();
+  expect(todoDisplayAdapter.summary?.(result({ tasks, error: "boom" }), context)).toBeUndefined();
+  expect(
+    todoDisplayAdapter.summary?.(result({ tasks }), { ...context, outcome: "failure" })
+  ).toBeUndefined();
+});
+
+it("uses confirmed task state, create IDs, and filtered list totals", () => {
+  const tasks = [
+    { id: 4, subject: "Review", status: "completed" },
+    { id: 5, subject: "Ship", status: "pending" },
+    { id: 6, subject: "Removed", status: "deleted" }
+  ];
+  const summarize = (args: unknown) =>
+    todoDisplayAdapter.summary?.(result({ tasks, nextId: 6 }), {
+      args,
+      outcome: "success",
+      operation: undefined
+    })?.text;
+  expect(summarize({ action: "create", subject: "Ship" })).toBe(
+    "#5 pending · 1/2 completed · 1 pending"
+  );
+  expect(summarize({ action: "update", id: 5, status: "completed" })).toBe(
+    "#5 pending · 1/2 completed · 1 pending"
+  );
+  expect(summarize({ action: "get", id: 4 })).toBe("#4 completed · 1/2 completed · 1 pending");
+  expect(summarize({ action: "delete", id: 6 })).toBe("#6 deleted · 1/2 completed · 1 pending");
+  expect(summarize({ action: "list", status: "in_progress" })).toBe(
+    "0 tasks listed · 1/2 completed · 1 pending"
+  );
+  expect(summarize({ action: "list", includeDeleted: true })).toBe(
+    "3 tasks listed · 1/2 completed · 1 pending"
+  );
 });
 
 it("dims known status brackets while preserving result text", () => {

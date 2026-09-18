@@ -33,9 +33,16 @@ Missing details and error-like text establish no additional protocol facts. Pi's
 
 Gateway summaries show the selected action and target while parameter details remain hidden by default. Result metadata supplies resolved `server.tool` identities when available. Otherwise, cards retain the requested tool identity. The adapter does not decode namespace names into server names because normalization can lose information.
 
-MCP calls remain individual cards, outside exploration groups.
+MCP calls remain individual cards, outside exploration groups. Calls other than scripts use output previews.
 
-Direct resource URIs and bounded-result file references appear on expansion. Output truncation, saved-output references, and script operation failures remain visible when collapsed. Failures use `error` for markers, status notices, and diagnostic bodies. Cancellation diagnostics use `warning`.
+Completed scripts summarize validated `details.calls` records. Tool calls, tool searches, and tool descriptions each count as operations:
+
+- When the script and all recorded operations succeed, a nonzero total replaces emitted text in compact mode. Expansion restores that text.
+- Failed or unfinished operations keep an output preview beside the total, with separate warning counts. An operation with `ok: false` and `error: "incomplete"` counts as unfinished rather than failed.
+- Scripts with no recorded operations show `0 MCP operations` and keep an output preview.
+- Malformed operation records use an output preview without a summary.
+
+Direct resource URIs and references to omitted raw MCP results appear on expansion. Output truncation, saved-output references, and script operation failures remain visible when collapsed. Failures use `error` for markers, status notices, and diagnostic bodies. Cancellation diagnostics use `warning`.
 
 This adapter does not load the MCP package or read its caches or saved output.
 

@@ -57,7 +57,23 @@ export const noticeDetailsSchema = z.object({
   mcpResult: z.unknown().optional()
 });
 
-export const failedScriptCallSchema = z.object({ ok: z.literal(false) });
+export const failedScriptCallSchema = z.object({
+  ok: z.literal(false),
+  error: z.string().optional().catch(undefined)
+});
+
+export const scriptSummarySchema = z.object({
+  mode: z.literal("script"),
+  calls: z
+    .array(
+      z.object({
+        operation: z.enum(["call", "search", "describe"]),
+        ok: z.boolean(),
+        error: z.string().optional()
+      })
+    )
+    .default([])
+});
 
 export const callIdentitySchema = z.object({
   server: nonemptyStringSchema,

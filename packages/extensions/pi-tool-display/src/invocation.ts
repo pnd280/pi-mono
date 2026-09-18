@@ -68,7 +68,7 @@ export function invocationParts(
 
       return [
         stringField(args.pattern) ? value(stringField(args.pattern)) : annotation("…"),
-        annotation(" in "),
+        annotation(" \u2014 "),
         target(path || "."),
         ...(glob ? [annotation(" ("), value(glob), annotation(")")] : [])
       ];

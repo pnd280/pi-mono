@@ -248,7 +248,7 @@ it.each([
       const current = { ...context(), expanded };
       const header = renderer.renderCall({}, colored, current);
       const body = renderer.renderResult(supplied, current, colored, current);
-      expect(header.render(160).join("\n")).toContain(`<${color}>•</${color}>`);
+      expect(header.render(160).join("\n")).toContain(`<error>•</error>`);
       expect(header.render(160).join("\n")).toContain(verb);
       expect(body.render(160).join("\n")).toContain(`<${color}>published output</${color}>`);
       expect(body.render(160).join("\n")).toContain(`<${color}>MCP: ${error}</${color}>`);
@@ -277,6 +277,39 @@ it("falls back for missing or malformed retained contracts without adding observ
   expect(adapter.savedOutput).toBeUndefined();
   expect(adapter.patch).toBeUndefined();
   expect("exploration" in adapter).toBe(false);
+});
+
+it("summarizes only validated script operations and preserves output without successful operations", () => {
+  const adapter = piMcpAdapter(mcpToolInfo("mcpScript"))!;
+  const summary = (details: unknown) =>
+    adapter.summary?.(result(details), {
+      args: {},
+      outcome: "success",
+      operation: undefined
+    });
+  expect(
+    summary({
+      mode: "script",
+      calls: [
+        { operation: "call", ok: true },
+        { operation: "search", ok: true },
+        { operation: "describe", ok: true }
+      ]
+    })
+  ).toEqual({ text: "3 MCP operations succeeded", preserveOutput: false });
+  expect(summary({ mode: "script" })).toEqual({ text: "0 MCP operations", preserveOutput: true });
+  expect(summary({ mode: "script", calls: [] })).toEqual({
+    text: "0 MCP operations",
+    preserveOutput: true
+  });
+  for (const details of [
+    { mode: "call", calls: [] },
+    { mode: "script", calls: "invalid" },
+    { mode: "script", calls: [{ ok: true }] },
+    { mode: "script", calls: [{ operation: "call", ok: "true" }] },
+    { mode: "script", calls: [{ operation: "future", ok: true }] }
+  ])
+    expect(summary(details)).toBeUndefined();
 });
 
 it("exposes bounded-output references and script failures without dumping details", () => {

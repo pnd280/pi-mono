@@ -1,13 +1,14 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
-import type { DisplayNotice, McpFacts, Outcome } from "../../contracts.ts";
+import type { DisplayNotice, McpFacts, Outcome, ResultSummary } from "../../contracts.ts";
 import { record } from "../../values.ts";
 import {
   callIdentitySchema,
   failedScriptCallSchema,
   noticeDetailsSchema,
   omittedResultSchema,
-  outputGuardSchema
+  outputGuardSchema,
+  scriptSummarySchema
 } from "./schemas.ts";
 
 export function mcpCallIdentity(
@@ -65,6 +66,19 @@ function outputNotices(value: unknown): DisplayNotice[] {
   return notices;
 }
 
+export function mcpScriptSummary(result: AgentToolResult<unknown>): ResultSummary | undefined {
+  const details = scriptSummarySchema.safeParse(result.details).data;
+  if (!details) return undefined;
+  const count = details.calls.length;
+  const succeeded = count > 0 && details.calls.every((call) => call.ok);
+
+  return {
+    text: `${count} MCP ${count === 1 ? "operation" : "operations"}${succeeded ? " succeeded" : ""}`,
+    // Preserve emitted diagnostics when any nested operation failed or is unfinished.
+    preserveOutput: !succeeded
+  };
+}
+
 export function mcpNotices(result: AgentToolResult<unknown>, expanded: boolean): DisplayNotice[] {
   const details = noticeDetailsSchema.safeParse(result.details).data;
   if (!details) return [];
@@ -84,14 +98,22 @@ export function mcpNotices(result: AgentToolResult<unknown>, expanded: boolean):
   notices.push(...outputNotices(details.outputGuard));
 
   if (details.mode === "script" && details.calls) {
-    const failed = details.calls.filter(
-      (call) => failedScriptCallSchema.safeParse(call).success
-    ).length;
-    if (failed)
-      notices.push({
-        kind: "warning",
-        text: `${failed} MCP script ${failed === 1 ? "operation" : "operations"} failed.`
-      });
+    const unsuccessful = details.calls.flatMap((call) => {
+      const parsed = failedScriptCallSchema.safeParse(call).data;
+
+      return parsed ? [parsed] : [];
+    });
+    const unfinished = unsuccessful.filter((call) => call.error === "incomplete").length;
+    const failed = unsuccessful.length - unfinished;
+    for (const [count, status] of [
+      [failed, "failed"],
+      [unfinished, "unfinished"]
+    ] as const)
+      if (count)
+        notices.push({
+          kind: "warning",
+          text: `${count} MCP script ${count === 1 ? "operation" : "operations"} ${status}.`
+        });
   }
 
   if (expanded) {

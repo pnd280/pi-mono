@@ -16,13 +16,17 @@ Other collapsed invocation and command summaries show up to three detail rows, w
 
 Expansion removes the [heading preview limits](#resource-limits). Parameter visibility still follows [`showParameters`](../README.md#configuration).
 
-After a successful read completes, its text body stays hidden until expansion. Notices and images remain visible. Other collapsed text bodies show initial and final output. Above the [formatting limit](#resource-limits), they show head and tail excerpts with `… more output`. Excerpts preserve whole graphemes and ANSI styling.
+### Results
 
-Expansion shows all retained output, subject to live and saved-output retention limits.
+Compact cards replace successful text output with a summary when validated metadata describes the result. Without a summary, cards show bounded output previews. Grouped and standalone cards follow the same rules. For tool-specific summaries, see [FFF results](../src/adapters/@ff-labs/pi-fff/README.md#display), [Todo results](../src/adapters/pi-todo/README.md#display), and [MCP script results](../src/adapters/pi-mcp-adapter/README.md#display).
 
-### Groups
+Observed shell cards show status and duration beside an output preview. Successful file reads keep their text hidden until expansion. Edit and write cards show diff previews. Failure and cancellation output, notices, and images remain visible.
 
-Adjacent exploration calls with the same scope form a group. Every call stays in source order, including repeated reads. A scope change starts a new group, even when returning to a previously visited directory. Single calls use ordinary cards. Adapters may instead define a [custom group title](renderers.md#exploration-scopes) over one literal filter scope; those groups render as `<title> · N calls`.
+Output previews retain initial and final rows. Output above the [formatting limit](#resource-limits) also shows `… more output`. Excerpts preserve whole graphemes and ANSI styling. Expansion shows summaries and retained output, subject to live and saved-output retention limits.
+
+## Groups
+
+Adjacent exploration calls with the same scope form a group. Every call stays in source order, including repeated reads. A scope change starts a new group, even when returning to a previously visited directory. Single calls use ordinary cards. Adapters can define a [custom group title](renderers.md#exploration-scopes) for one literal filter scope. Those groups render as `<title>`.
 
 Scopes match by these rules in both live and historical views:
 
@@ -30,9 +34,9 @@ Scopes match by these rules in both live and historical views:
 - Literal filters, including FFF scopes, match only identical filters. They never match filesystem directories.
 - All exploration items within a call must resolve to the same directory or literal filter. Calls with missing or invalid scopes do not group.
 
-Group headings label the scope as `directory` or `filter`. Directory groups count operations by action, including repeated calls. A count for one action, such as `3 reads`, appears beside the scope when it fits, or on a continuation line. Counts for multiple actions appear on a continuation line. Filter groups omit operation counts. There is no separate total call count.
+Directory headings use `Exploring <path>` while live and `Explored <path>` after completion. Literal-filter headings use `Filtering <filter>` and `Filtered <filter>`. Scope-kind nouns are not displayed. All group headings omit call and operation counts.
 
-Collapsed directory members show targets relative to the heading's directory, keeping read ranges. Targets outside that directory remain absolute. Collapsed FFF members show only their patterns or `files`, without repeating `in <filter>`. Expanded and standalone cards use the [target rules](#card-layout) and retain literal filters.
+Collapsed directory members show targets relative to the heading's directory and keep read ranges. Targets outside that directory remain absolute. Collapsed FFF members show their patterns or `files` without repeating the filter. Expanded and standalone cards use the [target rules](#card-layout) and retain literal filters.
 
 Queued and executing group members show `queued` and `running` annotations in `dim` when their state is known. Argument streaming does not imply execution.
 
@@ -41,16 +45,15 @@ Visible assistant content, assistant diagnostics, cache-miss notices, compaction
 Tool-result notices and failure diagnostics stay immediately beneath their call:
 
 ```text
-• Explored directory . · 2 reads
+• Explored .
   ├ Read screenshot.png
   │   [Image: image/png]
   └ Read renderers.ts
-
-• Searched renderers in src/
-  └ [0 exact matches. Maybe you meant this?]
 ```
 
-### Thinking
+Standalone and expanded searches separate the pattern and scope with an em dash (U+2014), for example: Searched renderers &#x2014; src/.
+
+## Thinking
 
 With Pi's thinking display collapsed (**Ctrl+T** by default), completed thinking placeholders disappear, including in history. Revealing thinking restores its rows and group boundaries. Live thinking indicators, assistant text, and diagnostics remain visible in either state. Recorded messages do not change.
 
@@ -60,7 +63,7 @@ Pending headings cover argument streaming, queueing, and execution. They do not 
 
 Headings retain the action when a call fails, is cancelled, or has no known historical outcome: `Write failed`, `Edit cancelled`, or `Read outcome unavailable`.
 
-Group headings count failures, cancellations, and unavailable outcomes, excluding pending calls. Each affected member also names its outcome. Outcome counts stay beside **Exploring** or **Explored**. When the scope and outcome counts do not fit together, the scope moves to continuation rows beneath them.
+Group headings count failures, cancellations, and unavailable outcomes, excluding pending calls. Each affected member also names its outcome. Outcome counts stay beside the group action or custom title. When the scope and outcome counts do not fit together, the scope moves to continuation rows beneath them.
 
 The automatic CLI integration records cancellation when an unsuccessful execution result arrives after the live run is aborted. Successful results and failures received before the abort retain their outcomes.
 
@@ -70,9 +73,9 @@ When cancellation is confirmed, compact native cards omit exact matches for know
 
 ## Notices and colors
 
-Routine metadata and expansion hints use `dim`. Unknown historical observations use `muted`. Cancellation diagnostics, unavailable patches or previews, output omissions, and actionable diagnostics use `warning`.
+Successful result summaries, informational notices, and expansion hints use `dim`. Notice severity controls styling, not visibility. Compact groups retain informational notices. Unknown historical observations use `muted`. Cancellation diagnostics, unavailable patches or previews, output omissions, and actionable diagnostics use `warning`.
 
-For failures, markers, grouped action labels, outcome badges, diagnostic bodies, and error notices use `error`. Standalone and expanded action titles retain `toolTitle` styling.
+Standalone action text and markers use `accent` for neutral or successful calls, `warning` while pending, `error` for failures or cancellations, and `muted` when the outcome is unavailable. Group action titles and markers use the members' shared action color, or `accent` when those colors differ. Grouped member labels use outcome-specific colors. Diagnostic bodies and error notices use `error`.
 
 Live and saved-output previews distinguish generated omissions from process text. Identical literal output in those previews retains ordinary styling. Generic output is not searched for extension-specific phrases. See the [built-in adapters](adapters.md#built-in-adapters) for tool-specific interpretation and provenance limits.
 

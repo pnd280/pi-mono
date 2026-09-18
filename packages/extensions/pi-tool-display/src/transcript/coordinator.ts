@@ -13,7 +13,6 @@ import {
   type DisplayFact,
   type DisplayGroup,
   type ExplorationScope,
-  type ExplorationItem,
   type Lifecycle,
   type Outcome,
   type SavedOutput,
@@ -63,10 +62,7 @@ function sameScope(
   return left?.kind === right?.kind && left?.value === right?.value;
 }
 
-function exploration(
-  call: DisplayCall,
-  cwd: string
-): { scope: ExplorationScope; label: ExplorationItem["label"] } | undefined {
+function exploration(call: DisplayCall, cwd: string): ExplorationScope | undefined {
   const adapter = resolveResultAdapter(call.adapter, call.args, call.result);
   const items = adapter.exploration?.(call.args, call.result);
   const first = items?.[0];
@@ -78,7 +74,7 @@ function exploration(
   )
     return undefined;
 
-  return { scope, label: first.label };
+  return scope;
 }
 
 type MutableCall = { -readonly [Key in keyof DisplayCall]: DisplayCall[Key] };
@@ -88,7 +84,6 @@ type MutableGroup = {
   expanded: boolean;
   scope: ExplorationScope;
   title: string | undefined;
-  counts: Record<string, number>;
 };
 
 /** Ordered transcript state; renderers only read this model. No session or terminal dependency. */
@@ -99,7 +94,7 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   private sequence: string[] = [];
   private positions = new Map<string, number>();
-  private explorable = new Map<string, NonNullable<ReturnType<typeof exploration>>>();
+  private explorable = new Map<string, ExplorationScope>();
   private cwd: string;
   private separators = new Set<string>();
   private groupingDepth = 0;
@@ -412,26 +407,15 @@ export class TranscriptCoordinator implements TranscriptView {
     return {
       members: [],
       expanded: call.expanded,
-      scope: this.explorable.get(call.key)!.scope,
-      title: call.adapter.groupTitle,
-      counts: {}
+      scope: this.explorable.get(call.key)!,
+      title: call.adapter.groupTitle
     };
-  }
-  private static sameCounts(
-    left: Readonly<Record<string, number>>,
-    right: Readonly<Record<string, number>>
-  ): boolean {
-    const keys = Object.keys(left);
-
-    return (
-      keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key])
-    );
   }
   private sharesScope(left: string, right: string): boolean {
     const first = this.explorable.get(left);
     const second = this.explorable.get(right);
 
-    return !!first && !!second && sameScope(first.scope, second.scope);
+    return !!first && !!second && sameScope(first, second);
   }
   private appendGroup(call: MutableCall, previous: string | undefined): void {
     const group =
@@ -442,8 +426,6 @@ export class TranscriptCoordinator implements TranscriptView {
     const last = group?.members.at(-1);
     const current = group ?? this.newGroup(call);
     current.members.push(call);
-    const label = this.explorable.get(call.key)!.label;
-    current.counts[label] = (current.counts[label] ?? 0) + 1;
     this.groups.set(call.key, current);
     this.synchronizeExpansion(call, current.expanded);
     for (const member of new Set([first, last]))
@@ -458,8 +440,7 @@ export class TranscriptCoordinator implements TranscriptView {
   private refreshGrouping(call: MutableCall): void {
     const facts = exploration(call, this.cwd);
     const previousFacts = this.explorable.get(call.key);
-    if (sameScope(facts?.scope, previousFacts?.scope) && facts?.label === previousFacts?.label)
-      return;
+    if (sameScope(facts, previousFacts)) return;
     if (facts) this.explorable.set(call.key, facts);
     else this.explorable.delete(call.key);
     const position = this.positions.get(call.key)!;
@@ -543,7 +524,6 @@ export class TranscriptCoordinator implements TranscriptView {
         old.expanded === group.expanded &&
         sameScope(old.scope, group.scope) &&
         old.title === group.title &&
-        TranscriptCoordinator.sameCounts(old.counts, group.counts) &&
         old.members.length === group.members.length &&
         old.members.every((member, index) => member === group!.members[index])
       )
@@ -561,11 +541,10 @@ export class TranscriptCoordinator implements TranscriptView {
         continue;
       }
 
-      const facts = this.explorable.get(key)!;
-      if (group && !sameScope(group.scope, facts.scope)) finish();
+      const scope = this.explorable.get(key)!;
+      if (group && !sameScope(group.scope, scope)) finish();
       group ??= this.newGroup(call);
       group.members.push(call);
-      group.counts[facts.label] = (group.counts[facts.label] ?? 0) + 1;
       if (this.separators.has(call.key) || this.boundaryCounts.has(call.key)) finish();
     }
 

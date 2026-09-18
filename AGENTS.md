@@ -1,5 +1,7 @@
 # Workspace development
 
+This workspace contains extensions for the Pi coding agent.
+
 ## Working agreement
 
 - Make clean breaks when changing APIs, configuration, or behavior. Do not retain compatibility layers, deprecated aliases, legacy code paths, or transitional support unless explicitly requested.

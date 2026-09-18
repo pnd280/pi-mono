@@ -2,13 +2,13 @@
 
 [pi-tool-display](../README.md) · [Renderer integration](renderers.md)
 
-Use a resolver to select an adapter automatically for tools with verified provenance. [Standalone adapter integration](renderers.md#custom-adapters) attaches an adapter directly to a tool's renderer fields without a resolver.
+Follow the [tool-card display conventions](conventions.md) for headings, scopes, and invalid-input fallback. Use a resolver to select an adapter automatically for tools with verified provenance. [Standalone adapter integration](renderers.md#custom-adapters) attaches an adapter directly to a tool's renderer fields without a resolver.
 
 ## Add an adapter
 
 1. Create `src/adapters/<extension-package>/index.ts` using the registering extension's full package name, including its scope. For example, use `src/adapters/@ff-labs/pi-fff/index.ts`.
 2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts). Validate the registered tool's provenance and the required parameter schema before returning an adapter. Tool names alone do not establish provenance. Return `undefined` for unsupported definitions.
-3. Keep [Zod argument and result schemas](../../../../docs/development.md#runtime-validation), presentation, and tests in that directory. If the adapter requires a particular result shape, implement `supports(args, result)` for the automatic CLI integration. Before a result exists, `exploration` must handle partial arguments itself.
+3. Keep [Zod argument and result schemas](../../../../docs/development.md#runtime-validation), presentation, and tests in that directory. Implement `supports(args, result)` to reject arguments and result shapes the adapter cannot interpret in the automatic CLI integration. Before a result exists, make `exploration` reject unparseable partial arguments itself.
 4. Document compatibility, contracts, display behavior, limitations, and extension-specific validation in the adapter's `README.md`.
 5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).
 

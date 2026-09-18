@@ -24,7 +24,9 @@ Numbered `details.diff` is not interpreted. Write arguments alone do not establi
 
 Adjacent read, search, and list calls form [exploration groups](../../../docs/presentation.md#groups) when their normalized directories match. Reads use their file's parent directory. Searches and lists use the supplied directory or `.`. Single calls use ordinary cards.
 
-Concrete file targets follow the shared [target rules](../../../docs/presentation.md#card-layout).
+Concrete file targets follow the shared [target rules](../../../docs/presentation.md#card-layout). Search and list calls use bounded output previews in compact cards, including groups. Successful reads hide their text until expansion. Edit and write cards show diff previews.
+
+Observed shell cards show recorded status and duration beside output in compact and expanded modes, for example `Exit 0 · 12ms`. Missing exit codes remain unknown. Ordinary text never establishes exit status, and historical calls without recorded operation facts show no status or timing summary.
 
 Native image captions suppress equivalent generated fallback descriptions without changing the retained result. Warnings about models without image support or images omitted during conversion or resizing remain visible in collapsed cards, including groups. These warnings appear once in expanded bodies. Patch, live-output, and saved-output previews retain image fallback notices when Pi's native image display is unavailable or disabled.
 

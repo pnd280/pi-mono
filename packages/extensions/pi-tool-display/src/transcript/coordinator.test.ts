@@ -75,7 +75,6 @@ it.each(["live", "historical"] as const)(
       const returned = add("read", { path: "src/rendering/cards.ts" });
       const sibling = add("read", { path: "src/rendering/results.ts" });
       expect(c.group(first)?.members).toEqual([first, second, third, repeated]);
-      expect(c.group(first)?.counts).toEqual({ Read: 2, Search: 1, List: 1 });
       expect(c.group(other)).toBeUndefined();
       expect(c.group(returned)?.members).toEqual([returned, sibling]);
       c.expand(first, true);
@@ -116,7 +115,6 @@ it("normalizes home and native path spellings without interpreting literal filte
     const search = add("ffgrep", { pattern: "one", path: "src/**" });
     const listing = add("fffind", { pattern: "", path: "src/**" });
     expect(c.group(search)?.members).toEqual([search, listing]);
-    expect(c.group(search)?.counts).toEqual({ Search: 1, List: 1 });
     c.add(
       listing.reference,
       listing.name,
@@ -124,7 +122,7 @@ it("normalizes home and native path spellings without interpreting literal filte
       listing.adapter,
       "historical"
     );
-    expect(c.group(search)?.counts).toEqual({ Search: 2 });
+    expect(c.group(search)?.members).toEqual([search, listing]);
     const distinct = add("fffind", { pattern: "two", path: "./src/**" });
     expect(c.group(distinct)).toBeUndefined();
     const literal = add("ffgrep", { pattern: "three", path: "src/" });
@@ -165,7 +163,7 @@ it("repartitions changed streamed scopes without duplicating members or expandin
   }
 });
 
-it("requires explicit matching scopes for every item without counting items as calls", () => {
+it("requires explicit matching scopes for every item without duplicating members", () => {
   const c = new TranscriptCoordinator("structured-scopes");
   const item: ExplorationItem = { label: "Read", parts: [{ kind: "path", text: "src/a.ts" }] };
   const scoped: ExplorationItem = { ...item, scope: { kind: "file", value: "src/a.ts" } };
@@ -187,7 +185,6 @@ it("requires explicit matching scopes for every item without counting items as c
     const last = add([scoped]);
     for (const call of [first, missing, mixed]) expect(c.group(call)).toBeUndefined();
     expect(c.group(multiple)?.members).toEqual([multiple, last]);
-    expect(c.group(multiple)?.counts).toEqual({ Read: 2 });
   } finally {
     c.dispose();
   }

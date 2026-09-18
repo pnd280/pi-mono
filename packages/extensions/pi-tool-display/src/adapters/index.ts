@@ -16,6 +16,7 @@ export type {
   InvocationPart,
   McpFacts,
   Outcome,
+  ResultSummary,
   ResultTextContext,
   ResultTextPart,
   ToolDisplayAdapter,

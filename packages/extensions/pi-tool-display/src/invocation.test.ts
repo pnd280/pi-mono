@@ -14,7 +14,7 @@ describe("tool presentation", () => {
       "src/a.ts:10-11"
     );
     expect(text("grep", { pattern: "token", path: "src", glob: "*.ts" }, "search")).toBe(
-      "token in src (*.ts)"
+      "token \u2014 src (*.ts)"
     );
     expect(text("docs.search", { query: "TUI" }, "invocation")).toBe(
       'docs.search({"query":"TUI"})'
@@ -24,18 +24,18 @@ describe("tool presentation", () => {
   it("distinguishes supplied values from annotations even when they contain the same delimiters", () => {
     const parts = invocationParts(
       "grep",
-      { pattern: " in ", path: "a (b)", glob: "(c)" },
+      { pattern: " \u2014 ", path: "a (b)", glob: "(c)" },
       "search"
     );
     expect(
       parts.filter((part) => part.kind === "value" || part.kind === "path").map((part) => part.text)
-    ).toEqual([" in ", "a (b)", "(c)"]);
+    ).toEqual([" \u2014 ", "a (b)", "(c)"]);
     expect(
       parts
         .filter((part) => part.kind === "annotation")
         .map((part) => part.text)
         .join("")
-    ).toBe(" in  ()");
+    ).toBe(" \u2014  ()");
     const shell = invocationParts("bash", { command: "echo '(timeout 10s)'", timeout: 5 }, "shell");
     expect(shell.filter((part) => part.kind === "value").map((part) => part.text)).toEqual([
       "echo '(timeout 10s)'"
