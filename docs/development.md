@@ -18,7 +18,7 @@ Vite+ runs formatting, linting, type checking, and tests through the root [vite.
 
 Every workspace package provides `lint`, `check`, `test`, and `format` scripts. `check` checks formatting, then runs `lint` for linting and type checking. Tests use the shared [runner convention](agents/testing.md#runner).
 
-Fix diagnostics in the implementation. Preserve shared checks and explain any necessary narrow exception.
+Fix diagnostics in the implementation. Preserve shared checks and explain any narrow exception.
 
 ## Focused validation
 

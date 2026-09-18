@@ -32,7 +32,7 @@ export function buildGroupRows(p: Projection): string[] {
     ...(p.context.isError ? contentItems(p.result, p) : imageItems(p.result.content, p)).flatMap(
       (item) => item.rows
     ),
-    ...notices(p.result, p)
+    ...notices(p.result, p, false)
   );
 
   return rows;
@@ -390,8 +390,11 @@ function unavailableHistory(p: Projection): DisplayNotice[] {
   return notices;
 }
 
-function notices(result: AgentToolResult<unknown>, p: Projection): string[] {
-  const notices = [...(p.adapter.notices?.(result, p.expanded) ?? [])];
+function notices(result: AgentToolResult<unknown>, p: Projection, includeInfo = true): string[] {
+  const notices = [...(p.adapter.notices?.(result, p.expanded) ?? [])].filter(
+    // Routine counts stay on expansion; compact group rows keep diagnostics.
+    (notice) => includeInfo || notice.kind !== "info"
+  );
   const path = p.call?.savedPath;
   if (path && !notices.some((notice) => notice.kind === "reference" && notice.value === path))
     notices.push({ kind: "reference", label: "Saved output", value: path });

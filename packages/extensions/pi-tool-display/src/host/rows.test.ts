@@ -65,7 +65,7 @@ it("does not revisit bound transcript rows on events without new components", ()
   }
 });
 
-it("indexes each call once and claims source-ordered names across later appends", () => {
+it("indexes each call once and claims exact IDs without consuming other calls with the same name", () => {
   const coordinator = new TranscriptCoordinator("row-claims");
   const values = coordinator.calls.values.bind(coordinator.calls);
   let visits = 0;
@@ -98,23 +98,36 @@ it("indexes each call once and claims source-ordered names across later appends"
     const calls = Array.from({ length: 100 }, (_, index) =>
       add(index, index % 2 === 0 ? "read" : "bash")
     );
-    for (const name of ["bash", "read"])
-      for (const call of calls.filter((call) => call.name === name))
-        expect(rows.claimCall(name)).toBe(call);
-    expect(rows.claimCall("missing")).toBeUndefined();
-    expect(rows.claimCall("read")).toBeUndefined();
+    expect(rows.claimCall("read", "missing")).toBeUndefined();
+    expect(rows.claimCall("bash", "0")).toBeUndefined();
+    for (const call of [...calls].reverse())
+      expect(rows.claimCall(call.name, call.reference.toolCallId)).toBe(call);
+    expect(rows.claimCall("read", "0")).toBeUndefined();
     expect(visits).toBe(calls.length);
 
     for (let index = 100; index < 110; index++) {
       const call = add(index, "read");
       // Updating streamed arguments must not enqueue the same identity again.
       add(index, "read");
-      expect(rows.claimCall("bash")).toBeUndefined();
-      expect(rows.claimCall("read")).toBe(call);
-      expect(rows.claimCall("read")).toBeUndefined();
+      expect(rows.claimCall("bash", String(index))).toBeUndefined();
+      expect(rows.claimCall("read", String(index))).toBe(call);
+      expect(rows.claimCall("read", String(index))).toBeUndefined();
     }
 
     expect(visits).toBe(110);
+    // Historical branches can reuse an ID in distinct assistant messages.
+    const repeated = [111, 112].map((messageTimestamp) =>
+      coordinator.add(
+        { messageTimestamp, contentIndex: 0, toolCallId: "repeated" },
+        "read",
+        {},
+        genericAdapter,
+        "historical"
+      )
+    );
+    for (const call of repeated) expect(rows.claimCall("read", "repeated")).toBe(call);
+    expect(rows.claimCall("read", "repeated")).toBeUndefined();
+    expect(visits).toBe(112);
   } finally {
     rows.dispose();
     scan.mockRestore();

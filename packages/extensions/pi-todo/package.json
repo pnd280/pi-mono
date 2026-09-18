@@ -1,0 +1,28 @@
+{
+  "name": "pi-todo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Session-backed task hierarchies and a read-only task browser",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "workspace:*",
+    "zod": "catalog:"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

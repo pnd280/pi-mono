@@ -22,7 +22,7 @@ Expansion shows all retained output, subject to live and saved-output retention 
 
 ### Groups
 
-Adjacent exploration calls with the same scope form a group. Every call stays in source order, including repeated reads. A scope change starts a new group, even when returning to a previously visited directory. Single calls use ordinary cards.
+Adjacent exploration calls with the same scope form a group. Every call stays in source order, including repeated reads. A scope change starts a new group, even when returning to a previously visited directory. Single calls use ordinary cards. Adapters may instead define a [custom group title](renderers.md#exploration-scopes) over one literal filter scope; those groups render as `<title> · N calls`.
 
 Scopes match by these rules in both live and historical views:
 

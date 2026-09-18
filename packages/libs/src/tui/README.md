@@ -32,4 +32,4 @@ Components perform no filesystem, clipboard, process, or network I/O. Search and
 
 ## Validation
 
-Use the [package checks](../../README.md#validation). Automated component and host-mounting tests live beside their implementations. For real-terminal appearance, use prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting) and tool display's [terminal scenarios](../../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks).
+Use the [package checks](../../README.md#validation). Automated component and host-mounting tests live beside their implementations. For real-terminal appearance, use prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting) and tool display's [host interaction checks](../../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks).

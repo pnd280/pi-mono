@@ -37,7 +37,7 @@ There is no persistent configuration. Callers pass options per call.
 
 ## Side effects
 
-APIs can launch local helpers, read or write files, repair permissions and ACLs, replace the native clipboard, mount UI components, replace object properties, retain in-memory state, or schedule timers and microtasks. The library makes no network requests.
+APIs can launch local helpers, read or write files, repair permissions and ACLs, replace the native clipboard, mount UI components, replace object properties, retain in-memory state, and schedule timers and microtasks. The library makes no network requests.
 
 ## Validation
 

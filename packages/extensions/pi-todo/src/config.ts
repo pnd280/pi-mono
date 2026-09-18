@@ -1,0 +1,38 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { z } from "zod";
+
+const sectionSchema = z.object({
+  widgetCollapsed: z.boolean().optional()
+});
+const settingsSchema = z.object({ "ext.pi-todo": sectionSchema.optional() });
+
+export type TodoConfig = { [Key in keyof z.output<typeof sectionSchema>]-?: boolean };
+
+function readSection(path: string): z.output<typeof sectionSchema> {
+  try {
+    const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
+
+    return settingsSchema.safeParse(raw).data?.["ext.pi-todo"] ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Only the current directory's trusted project settings participate. */
+export function loadTodoConfig(
+  cwd: string,
+  {
+    projectTrusted = false,
+    agentDir = getAgentDir()
+  }: { projectTrusted?: boolean; agentDir?: string } = {}
+): TodoConfig {
+  const global = readSection(join(agentDir, "settings.json"));
+  const project = projectTrusted ? readSection(join(cwd, ".pi", "settings.json")) : {};
+
+  return {
+    widgetCollapsed: project.widgetCollapsed ?? global.widgetCollapsed ?? false
+  };
+}

@@ -1089,6 +1089,140 @@ it.each(["visible", "suppressed", "unregistered"])(
   }
 );
 
+it.each(["thinking", "tool"])(
+  "binds buffered calls before Pi creates their rows during a %s update",
+  async (update) => {
+    await withSession(async ({ session }) => {
+      const tui = interactiveHost(session);
+      const thought = { type: "thinking" as const, thinking: "Buffered thinking" };
+      const messages = [
+        assistantMessage(
+          [
+            ...(update === "thinking" ? [thought] : []),
+            fauxToolCall("bash", { command: "echo first" }, { id: "shell-1" }),
+            fauxToolCall("bash", { command: "echo second" }, { id: "shell-2" }),
+            fauxToolCall("read", { path: "src/types.ts" }, { id: "read-1" })
+          ],
+          1
+        ),
+        assistantMessage(
+          [thought, fauxToolCall("read", { path: "src/tool-schema.ts" }, { id: "read-2" })],
+          2
+        ),
+        assistantMessage(
+          [
+            thought,
+            fauxToolCall("bash", { command: "echo third" }, { id: "shell-3" }),
+            fauxToolCall("bash", { command: "echo fourth" }, { id: "shell-4" })
+          ],
+          3
+        ),
+        assistantMessage(
+          [thought, fauxToolCall("read", { path: "src/last.ts" }, { id: "read-3" })],
+          4
+        )
+      ];
+      const calls = messages.flatMap((message) =>
+        message.content.filter((block) => block.type === "toolCall")
+      );
+      const history: unknown[] = [];
+      const render = () => tui.chatContainer.render(100).map(stripTerminalSequences).join("\n");
+
+      try {
+        tui.hideThinkingBlock = true;
+        tui.renderSessionItems([]);
+
+        for (const message of messages) {
+          await tui.handleEvent({
+            type: "message_start",
+            message: { ...message, content: [] }
+          });
+
+          for (const [contentIndex, block] of message.content.entries()) {
+            // Pi queues references to mutable partials. An earlier event can expose
+            // later tool calls before those calls' own events have been consumed.
+            const partial = {
+              ...message,
+              content:
+                message === messages[0]
+                  ? message.content
+                  : message.content.slice(0, contentIndex + 1)
+            };
+            await tui.handleEvent({
+              type: "message_update",
+              message: partial,
+              assistantMessageEvent:
+                block.type === "toolCall"
+                  ? { type: "toolcall_end", contentIndex, toolCall: block, partial }
+                  : { type: "thinking_end", contentIndex, content: thought.thinking, partial }
+            });
+          }
+
+          await tui.handleEvent({ type: "message_end", message });
+          history.push(message);
+
+          for (const call of message.content.filter((block) => block.type === "toolCall")) {
+            const result = {
+              role: "toolResult" as const,
+              toolCallId: call.id,
+              toolName: call.name,
+              content: [{ type: "text" as const, text: `retained ${call.id}` }],
+              isError: false,
+              timestamp: message.timestamp
+            };
+            await tui.handleEvent({
+              type: "tool_execution_end",
+              toolCallId: call.id,
+              toolName: call.name,
+              result,
+              isError: false
+            });
+            history.push(result);
+          }
+        }
+
+        const live = render();
+        expect(live).toContain("├ Read types.ts\n  └ Read tool-schema.ts");
+        expect(live).toContain("Ran echo third");
+        expect(live).toContain("Ran echo fourth");
+        expect(live).toContain("Read src/last.ts");
+
+        for (const replay of [false, true]) {
+          if (replay) {
+            tui.chatContainer.clear();
+            tui.renderSessionItems(history);
+            expect(render()).toBe(live);
+          }
+
+          const rows = tui.chatContainer.children.filter(
+            (child) => child instanceof ToolExecutionComponent
+          );
+          expect(rows).toHaveLength(calls.length);
+
+          for (const [index, call] of calls.entries()) {
+            const row = rows[index]!;
+            row.setExpanded(true);
+            expect(text(row)).toContain(`retained ${call.id}`);
+            for (const other of calls)
+              if (other !== call) expect(text(row)).not.toContain(`retained ${other.id}`);
+            row.setExpanded(false);
+          }
+
+          tui.hideThinkingBlock = false;
+          tui.updateThinkingBlockVisibility();
+          expect(render()).toContain(thought.thinking);
+          expect(render()).not.toContain("Explored");
+          tui.hideThinkingBlock = true;
+          tui.updateThinkingBlockVisibility();
+          expect(render()).toBe(live);
+        }
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
+
 it("suppresses completed collapsed thinking without losing text, diagnostics, or toggle boundaries", async () => {
   await withSession(async ({ session }) => {
     const tui = interactiveHost(session);

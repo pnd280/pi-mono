@@ -9,7 +9,7 @@ import {
   type ProviderStreams
 } from "@earendil-works/pi-ai";
 import { createReadToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createFixtureStream } from "@pi-mono/libs/validation/provider";
+import { createFixtureStream, type FixtureStreamContext } from "@pi-mono/libs/validation/provider";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 
 import { assertFixtureWorkspace } from "./workspace.ts";
@@ -90,6 +90,18 @@ function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
       [read("a/alpha.txt"), read("a/beta.txt"), read("a/alpha.txt"), read("a/beta.txt")]
     ],
     [
+      "buffered",
+      [
+        shell('console.log("shell one");'),
+        shell('console.log("shell two");'),
+        read("a/alpha.txt"),
+        read("a/beta.txt"),
+        shell('console.log("shell three");'),
+        shell('console.log("shell four");'),
+        read("a/alpha.txt")
+      ]
+    ],
+    [
       "fff",
       [
         ...["a/**", "./a/**"].flatMap((scope) => [
@@ -159,16 +171,42 @@ function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
   ]);
 }
 
+async function streamCalls(
+  { message, events }: FixtureStreamContext,
+  calls: readonly PlannedCall[],
+  options: { buffered: boolean; signal: AbortSignal | undefined }
+): Promise<void> {
+  for (const planned of calls) {
+    // Queue shared partials without yielding to expose calls in earlier
+    // thinking/tool events, as a buffered provider response can do.
+    if (!options.buffered) await setTimeout(120, undefined, { signal: options.signal });
+    const contentIndex = message.content.length;
+    const call = fauxToolCall(planned.name, {}, { id: randomUUID() });
+    message.content.push(call);
+    events.push({ type: "toolcall_start", contentIndex, partial: message });
+    if (!options.buffered) await setTimeout(120, undefined, { signal: options.signal });
+    call.arguments = planned.args;
+    events.push({
+      type: "toolcall_delta",
+      contentIndex,
+      delta: JSON.stringify(call.arguments),
+      partial: message
+    });
+    events.push({ type: "toolcall_end", contentIndex, toolCall: call, partial: message });
+  }
+}
+
 export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
   const cwd = process.cwd();
   await assertFixtureWorkspace(cwd);
   const plans = scenarios(cwd);
 
-  const stream: ProviderStreams["stream"] = (model, context, options) =>
+  const stream: ProviderStreams["stream"] = (model, context, { signal } = {}) =>
     createFixtureStream({
       model,
-      signal: options?.signal,
-      async run({ message: output, events, text: appendText }) {
+      signal,
+      async run(fixture) {
+        const { message: output, events, text: appendText } = fixture;
         let userIndex = context.messages.length - 1;
         while (userIndex >= 0 && context.messages[userIndex]?.role !== "user") userIndex--;
         const user = context.messages[userIndex];
@@ -199,37 +237,32 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
         let pending = completed > 0 ? [] : plan;
         if (prompt === "thinking") pending = plan.slice(completed, completed + 1);
 
+        if (prompt === "buffered") {
+          let batchSize = 1;
+          if (completed === 0) batchSize = 3;
+          else if (completed === 4) batchSize = 2;
+          pending = plan.slice(completed, completed + batchSize);
+        }
+
         if (pending.length > 0) {
-          if (prompt === "thinking") {
+          if (prompt === "thinking" || prompt === "buffered") {
             const contentIndex = output.content.length;
-            const thought = `Fixture thought before read ${completed + 1}.`;
+            const thought = `Fixture thought before call ${completed + 1}.`;
             output.content.push({ type: "thinking", thinking: thought });
             events.push({ type: "thinking_start", contentIndex, partial: output });
             events.push({ type: "thinking_delta", contentIndex, delta: thought, partial: output });
-            await setTimeout(1000, undefined, { signal: options?.signal });
+            await setTimeout(1000, undefined, { signal });
             events.push({ type: "thinking_end", contentIndex, content: thought, partial: output });
-            if (completed === 2)
+            if (prompt === "thinking" && completed === 2)
               appendText(
                 "Visible explanation: this remains a group boundary even when thinking is hidden."
               );
           }
 
-          for (const planned of pending) {
-            await setTimeout(120, undefined, { signal: options?.signal });
-            const contentIndex = output.content.length;
-            const call = fauxToolCall(planned.name, {}, { id: randomUUID() });
-            output.content.push(call);
-            events.push({ type: "toolcall_start", contentIndex, partial: output });
-            await setTimeout(120, undefined, { signal: options?.signal });
-            call.arguments = planned.args;
-            events.push({
-              type: "toolcall_delta",
-              contentIndex,
-              delta: JSON.stringify(call.arguments),
-              partial: output
-            });
-            events.push({ type: "toolcall_end", contentIndex, toolCall: call, partial: output });
-          }
+          await streamCalls(fixture, pending, {
+            buffered: prompt === "buffered",
+            signal
+          });
 
           return "toolUse";
         } else {

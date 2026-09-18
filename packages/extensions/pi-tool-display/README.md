@@ -4,7 +4,7 @@ Borderless tool cards for Pi's interactive terminal UI, with exploration groups,
 
 ## Usage
 
-Adjacent read, search, and list calls form [exploration groups](docs/presentation.md#groups) when their directory scopes or literal filters match. Each **Exploring** or **Explored** heading names the scope. Single calls use ordinary cards. Calls stay in source order, with notices, images, and failure diagnostics directly beneath their call.
+Adjacent read, search, and list calls form [exploration groups](docs/presentation.md#groups) when their directory scopes or literal filters match. Each **Exploring** or **Explored** heading names the scope. Adjacent `todo` calls form a `Todo · N calls` group. Single calls use ordinary cards. Calls stay in source order, with notices, images, and failure diagnostics directly beneath their call.
 
 Pi's tool expansion action, **Ctrl+O** by default, reveals individual cards and available output. In fullscreen mode, a group click expands or collapses all its members. In regular mode, the terminal handles mouse input.
 
@@ -14,7 +14,7 @@ Specialized cards hide parameter blocks by default, even when expanded. Command,
 
 ### Tool coverage
 
-[Verified native tools](src/adapters/native/README.md), [`@ff-labs/pi-fff` tools](src/adapters/@ff-labs/pi-fff/README.md), and [`pi-mcp-adapter` tools](src/adapters/pi-mcp-adapter/README.md) receive specialized cards, even when they supply custom renderers.
+[Verified native tools](src/adapters/native/README.md), [`@ff-labs/pi-fff` tools](src/adapters/@ff-labs/pi-fff/README.md), [`pi-mcp-adapter` tools](src/adapters/pi-mcp-adapter/README.md), and [`pi-todo` todo calls](src/adapters/pi-todo/README.md) receive specialized cards, even when they supply custom renderers.
 
 For other tools, the extension preserves custom `renderCall` and `renderResult` fields and uses generic cards when neither is supplied. Historical calls without a current tool definition use generic cards built from saved data.
 

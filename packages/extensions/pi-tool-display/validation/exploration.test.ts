@@ -14,7 +14,14 @@ it("executes uninterrupted native scenarios and explicitly skips unavailable FFF
   try {
     const launch = await fixtureLaunch(directory);
 
-    for (const prompt of ["native-mixed", "normalization", "exceptions", "thinking", "fff"]) {
+    for (const prompt of [
+      "native-mixed",
+      "normalization",
+      "exceptions",
+      "thinking",
+      "buffered",
+      "fff"
+    ]) {
       const execution = promisify(execFile)(launch.command, [...launch.args, "--print", prompt], {
         ...launch.options,
         timeout: 15000
@@ -33,7 +40,7 @@ it("executes uninterrupted native scenarios and explicitly skips unavailable FFF
       .getBranch()
       .flatMap((entry) => (entry.type === "message" ? [entry.message] : []));
     const results = messages.filter((message) => message.role === "toolResult");
-    expect(results).toHaveLength(17);
+    expect(results).toHaveLength(24);
     expect(results.filter((message) => message.isError)).toHaveLength(1);
     expect(
       results.filter((message) => message.content.some((block) => block.type === "image"))
@@ -43,12 +50,12 @@ it("executes uninterrupted native scenarios and explicitly skips unavailable FFF
     const assistants = messages.filter((message) => message.role === "assistant");
     expect(
       assistants.filter((message) => message.content.some((block) => block.type === "thinking"))
-    ).toHaveLength(4);
+    ).toHaveLength(8);
     expect(
       assistants.filter(
         (message) => message.content.filter((block) => block.type === "toolCall").length > 1
       )
-    ).toHaveLength(3);
+    ).toHaveLength(5);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

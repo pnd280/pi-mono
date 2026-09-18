@@ -18,7 +18,13 @@ import { createToolDisplayRenderers as createPublicRenderers } from "pi-tool-dis
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
-import { genericAdapter, nativeAdapter, piFffAdapter, type McpFacts } from "../adapters/index.ts";
+import {
+  genericAdapter,
+  nativeAdapter,
+  piFffAdapter,
+  todoDisplayAdapter,
+  type McpFacts
+} from "../adapters/index.ts";
 import { renderingTui } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { createToolDisplayRenderers } from "./cards.ts";
@@ -487,6 +493,93 @@ describe("tool display renderers", () => {
         expect(call.adapter).toBe(adapter);
         expect(call.result).toBe(retained);
       }
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it("groups adjacent todo calls under one Todo heading", () => {
+    const coordinator = new TranscriptCoordinator("todo-groups");
+
+    try {
+      const firstArgs = { action: "create", subject: "First task" };
+      const secondArgs = { action: "create", subject: "Second task" };
+      const first = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "todo-1" },
+        "todo",
+        firstArgs,
+        todoDisplayAdapter,
+        "live"
+      );
+      const second = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 1, toolCallId: "todo-2" },
+        "todo",
+        secondArgs,
+        todoDisplayAdapter,
+        "live"
+      );
+      coordinator.update(first, "executing");
+      coordinator.update(second, "executing");
+      expect(coordinator.group(first)).toBeDefined();
+      expect(todoDisplayAdapter.groupTitle).toBe("Todo");
+
+      const firstRenderer = createToolDisplayRenderers("todo", todoDisplayAdapter, {
+        binding: { call: first, coordinator }
+      });
+      const secondRenderer = createToolDisplayRenderers("todo", todoDisplayAdapter, {
+        binding: { call: second, coordinator }
+      });
+      const heading = () =>
+        [
+          ...firstRenderer.renderCall(firstArgs, theme, context()).render(120),
+          ...secondRenderer.renderCall(secondArgs, theme, context()).render(120)
+        ].join("\n");
+
+      expect(heading()).toContain("Todo · 2 calls");
+      expect(heading()).toContain("Creating (running) First task");
+      expect(heading()).toContain("Creating (running) Second task");
+      expect(heading()).not.toContain("{");
+
+      coordinator.result(first, result("Created #1"), "success", false);
+      expect(heading()).toContain("Created First task");
+      expect(heading()).toContain("Creating (running) Second task");
+
+      coordinator.expand(first, true);
+      expect(heading()).toContain("Todo · Created First task");
+      expect(heading()).toContain("Todo · Creating Second task");
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it("does not group todo calls separated by another tool", () => {
+    const coordinator = new TranscriptCoordinator("todo-separation");
+
+    try {
+      const first = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "todo-1" },
+        "todo",
+        { action: "create", subject: "First task" },
+        todoDisplayAdapter,
+        "historical"
+      );
+      coordinator.add(
+        { messageTimestamp: 1, contentIndex: 1, toolCallId: "read-1" },
+        "read",
+        { path: "a.ts" },
+        nativeAdapter("read")!,
+        "historical"
+      );
+      const third = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 2, toolCallId: "todo-2" },
+        "todo",
+        { action: "create", subject: "Second task" },
+        todoDisplayAdapter,
+        "historical"
+      );
+
+      expect(coordinator.group(first)).toBeUndefined();
+      expect(coordinator.group(third)).toBeUndefined();
     } finally {
       coordinator.dispose();
     }

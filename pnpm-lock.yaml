@@ -213,6 +213,15 @@ importers:
         specifier: 'catalog:'
         version: 4.6.5
 
+  packages/extensions/pi-todo:
+    dependencies:
+      '@pi-mono/libs':
+        specifier: workspace:*
+        version: link:../../libs
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
+
   packages/extensions/pi-tool-display:
     dependencies:
       '@pi-mono/libs':

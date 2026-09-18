@@ -33,3 +33,4 @@ The resolver list and `selectAdapter` are internal to the host. There is no publ
 - [Pi-native tools](../src/adapters/native/README.md): `nativeAdapter(name)`.
 - [@ff-labs/pi-fff](../src/adapters/@ff-labs/pi-fff/README.md): `piFffAdapter(toolInfo)`.
 - [pi-mcp-adapter](../src/adapters/pi-mcp-adapter/README.md): `piMcpAdapter(toolInfo)`.
+- [pi-todo](../src/adapters/pi-todo/README.md): `piTodoAdapter(toolInfo)`.

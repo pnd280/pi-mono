@@ -216,8 +216,6 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
   const rows: string[] = [];
 
   if (first) {
-    const kind = group.scope.kind === "filter" ? "filter" : "directory";
-    const title = `${p.theme.fg(active ? "accent" : "dim", marker)} ${p.theme.fg("toolTitle", p.theme.bold(active ? "Exploring" : "Explored"))} ${p.theme.fg("dim", kind)}`;
     const outcomes = group.members.filter((call) => !isLive(call)).map(callOutcome);
     const failed = outcomes.filter((outcome) => outcome === "failure").length;
     const cancelled = outcomes.filter((outcome) => outcome === "cancelled").length;
@@ -230,17 +228,36 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
       .filter(Boolean)
       .join(p.theme.fg("dim", ", "));
 
-    rows.push(...scopeHeading(group, p, title, summary));
+    if (group.title !== undefined) {
+      // Adapter-defined groups share one literal scope; the title replaces the
+      // exploration scope and action counts.
+      const count = group.members.length;
+      const noun = count === 1 ? "call" : "calls";
+      const badge = summary ? `${p.theme.fg("dim", " · ")}${summary}` : "";
 
-    const counts = (["Read", "Search", "List"] as const).flatMap((label) => {
-      const count = group.counts[label];
-      const noun = label.toLowerCase();
-      const plural = label === "Search" ? "searches" : `${noun}s`;
+      rows.push(
+        truncateToWidth(
+          `${p.theme.fg(active ? "accent" : "dim", marker)} ${p.theme.fg("toolTitle", p.theme.bold(group.title))} ${p.theme.fg("dim", `· ${count} ${noun}`)}${badge}`,
+          p.width,
+          ""
+        )
+      );
+    } else {
+      const kind = group.scope.kind === "filter" ? "filter" : "directory";
+      const title = `${p.theme.fg(active ? "accent" : "dim", marker)} ${p.theme.fg("toolTitle", p.theme.bold(active ? "Exploring" : "Explored"))} ${p.theme.fg("dim", kind)}`;
 
-      return count ? [`${count} ${count === 1 ? noun : plural}`] : [];
-    });
-    if (group.scope.kind !== "filter")
-      appendHeadingSummary(rows, p.theme.fg("dim", counts.join(" · ")), p, counts.length === 1);
+      rows.push(...scopeHeading(group, p, title, summary));
+
+      const counts = (["Read", "Search", "List"] as const).flatMap((label) => {
+        const count = group.counts[label] ?? 0;
+        const noun = label.toLowerCase();
+        const plural = label === "Search" ? "searches" : `${noun}s`;
+
+        return count ? [`${count} ${count === 1 ? noun : plural}`] : [];
+      });
+      if (group.scope.kind !== "filter")
+        appendHeadingSummary(rows, p.theme.fg("dim", counts.join(" · ")), p, counts.length === 1);
+    }
   }
 
   // A call remains in its own Pi row: native images and mouse targets must not be

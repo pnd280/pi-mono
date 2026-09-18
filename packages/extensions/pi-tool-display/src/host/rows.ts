@@ -71,23 +71,26 @@ export class TranscriptRows {
   ) {
     this.unindexedCalls = coordinator.calls.values();
   }
-  claimCall(name: string): DisplayCall | undefined {
+  claimCall(name: string, id: string): DisplayCall | undefined {
+    if (!this.options.active()) return;
+
     // Calls are append-only until disposal. Stop at the indexed size rather than
     // exhausting the iterator, so later live calls remain visible to this cursor.
     while (this.indexedCalls < this.coordinator.calls.size) {
       const entry = this.unindexedCalls.next();
       if (entry.done) break;
       const call = entry.value;
-      const queue = this.pendingCalls.get(call.name) ?? { calls: [], next: 0 };
+      const queue = this.pendingCalls.get(call.reference.toolCallId) ?? { calls: [], next: 0 };
       queue.calls.push(call);
-      this.pendingCalls.set(call.name, queue);
+      this.pendingCalls.set(call.reference.toolCallId, queue);
       this.indexedCalls++;
     }
 
-    const queue = this.pendingCalls.get(name);
-    if (!queue) return undefined;
-    const call = queue.calls[queue.next++];
-    if (queue.next === queue.calls.length) this.pendingCalls.delete(name);
+    const queue = this.pendingCalls.get(id);
+    const call = queue?.calls[queue.next];
+    if (!queue || call?.name !== name) return undefined;
+    queue.next++;
+    if (queue.next === queue.calls.length) this.pendingCalls.delete(id);
 
     return call;
   }

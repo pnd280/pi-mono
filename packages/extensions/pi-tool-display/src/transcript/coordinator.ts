@@ -87,7 +87,8 @@ type MutableGroup = {
   members: MutableCall[];
   expanded: boolean;
   scope: ExplorationScope;
-  counts: Record<ExplorationItem["label"], number>;
+  title: string | undefined;
+  counts: Record<string, number>;
 };
 
 /** Ordered transcript state; renderers only read this model. No session or terminal dependency. */
@@ -412,8 +413,19 @@ export class TranscriptCoordinator implements TranscriptView {
       members: [],
       expanded: call.expanded,
       scope: this.explorable.get(call.key)!.scope,
-      counts: { Read: 0, Search: 0, List: 0 }
+      title: call.adapter.groupTitle,
+      counts: {}
     };
+  }
+  private static sameCounts(
+    left: Readonly<Record<string, number>>,
+    right: Readonly<Record<string, number>>
+  ): boolean {
+    const keys = Object.keys(left);
+
+    return (
+      keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key])
+    );
   }
   private sharesScope(left: string, right: string): boolean {
     const first = this.explorable.get(left);
@@ -430,7 +442,8 @@ export class TranscriptCoordinator implements TranscriptView {
     const last = group?.members.at(-1);
     const current = group ?? this.newGroup(call);
     current.members.push(call);
-    current.counts[this.explorable.get(call.key)!.label]++;
+    const label = this.explorable.get(call.key)!.label;
+    current.counts[label] = (current.counts[label] ?? 0) + 1;
     this.groups.set(call.key, current);
     this.synchronizeExpansion(call, current.expanded);
     for (const member of new Set([first, last]))
@@ -529,9 +542,8 @@ export class TranscriptCoordinator implements TranscriptView {
         old &&
         old.expanded === group.expanded &&
         sameScope(old.scope, group.scope) &&
-        old.counts.Read === group.counts.Read &&
-        old.counts.Search === group.counts.Search &&
-        old.counts.List === group.counts.List &&
+        old.title === group.title &&
+        TranscriptCoordinator.sameCounts(old.counts, group.counts) &&
         old.members.length === group.members.length &&
         old.members.every((member, index) => member === group!.members[index])
       )
@@ -553,7 +565,7 @@ export class TranscriptCoordinator implements TranscriptView {
       if (group && !sameScope(group.scope, facts.scope)) finish();
       group ??= this.newGroup(call);
       group.members.push(call);
-      group.counts[facts.label]++;
+      group.counts[facts.label] = (group.counts[facts.label] ?? 0) + 1;
       if (this.separators.has(call.key) || this.boundaryCounts.has(call.key)) finish();
     }
 

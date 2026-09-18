@@ -43,17 +43,18 @@ Generic cards always show arguments. Structured parameter blocks still require e
 
 Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`. The [type declarations](../src/contracts.ts) document required fields, callback defaults, and restrictions on input mutation.
 
-| Task                                                                                                   | Adapter members                                 |
-| ------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| Customize action wording and argument summaries                                                        | [`headingVerbs`](#action-wording), `invocation` |
-| Validate retained results                                                                              | `supports`                                      |
-| Join CLI exploration groups                                                                            | [`exploration`](#exploration-scopes)            |
-| Report an outcome from structured result metadata                                                      | [`outcome`](#outcomes)                          |
-| Present diagnostics and interpret a known text envelope                                                | `notices`, [`textParts`](#result-text)          |
-| Avoid a duplicate image fallback label after a known caption                                           | `imageCaptionMimeType`                          |
-| Enable unified `details.patch` rendering within the [retention limit](presentation.md#resource-limits) | `patch`                                         |
-| Enable CLI preview loading from `details.fullOutputPath`                                               | `savedOutput`                                   |
-| Supply typed MCP content                                                                               | [`mcp`](#mcp-facts)                             |
+| Task                                                                                                   | Adapter members                                    |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| Customize action wording and argument summaries                                                        | [`headingVerbs`](#action-wording), `invocation`    |
+| Validate retained results                                                                              | `supports`                                         |
+| Join CLI exploration groups                                                                            | [`exploration`](#exploration-scopes)               |
+| Group non-exploration calls under one literal scope                                                    | [`exploration`](#exploration-scopes), `groupTitle` |
+| Report an outcome from structured result metadata                                                      | [`outcome`](#outcomes)                             |
+| Present diagnostics and interpret a known text envelope                                                | `notices`, [`textParts`](#result-text)             |
+| Avoid a duplicate image fallback label after a known caption                                           | `imageCaptionMimeType`                             |
+| Enable unified `details.patch` rendering within the [retention limit](presentation.md#resource-limits) | `patch`                                            |
+| Enable CLI preview loading from `details.fullOutputPath`                                               | `savedOutput`                                      |
+| Supply typed MCP content                                                                               | [`mcp`](#mcp-facts)                                |
 
 `patch` and `savedOutput` are boolean flags. The other members in the table are callbacks. Callbacks receive borrowed arguments and results. Validate unknown input without changing retained data or inferring facts from ordinary output.
 
@@ -72,6 +73,8 @@ Standalone adapters must handle incompatible input themselves. Only the automati
 - `filter`: an opaque expression, compared exactly without path resolution, trimming, or case folding.
 
 All items must resolve to the same directory or identical filters. A `file` scope and a `directory` scope can therefore group when the file's parent matches the directory. Missing, invalid, or mismatched scopes keep the call standalone, as do `undefined` and empty exploration results. Do not derive scopes from formatted summaries or interpret arbitrary filters as directories.
+
+Tool adapters that group calls outside file exploration return one `filter` scope with a stable literal and set [`groupTitle`](../src/contracts.ts). The collapsed heading then reads `<groupTitle> · N calls` instead of naming a scope, and routine `info` notices stay on expansion. `pi-todo` groups its calls this way.
 
 Directory groups count one operation per call under its first item's label, regardless of how many items it returns. Repeated reads count separately. See [exploration groups](presentation.md#groups) for boundaries and expansion behavior.
 

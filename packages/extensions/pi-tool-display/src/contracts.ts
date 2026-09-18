@@ -93,7 +93,7 @@ export type ExplorationScope = {
 };
 
 export type ExplorationItem = {
-  label: "Read" | "Search" | "List";
+  label: string;
   parts: InvocationPart[];
   /** Omission excludes the call from grouping. All items must have the same scope. */
   scope?: ExplorationScope;
@@ -103,8 +103,10 @@ export type DisplayGroup = {
   readonly members: readonly DisplayCall[];
   readonly expanded: boolean;
   readonly scope: ExplorationScope;
+  /** Custom heading for adapter-defined tool groups; exploration groups omit it. */
+  readonly title?: string | undefined;
   /** Count calls by their first item's label, not paths or item count. */
-  readonly counts: Readonly<Record<ExplorationItem["label"], number>>;
+  readonly counts: Readonly<Record<string, number>>;
 };
 
 /** Rendering reads state and submits expansion intents without owning transcript updates. */
@@ -181,6 +183,11 @@ export type ToolDisplayAdapter = {
    * Result updates can remove or restore membership without changing source order.
    */
   exploration?(args: unknown, result?: AgentToolResult<unknown>): ExplorationItem[] | undefined;
+  /**
+   * Label collapsed groups that use a literal filter scope with a custom heading,
+   * such as "Todo". Exploration groups leave it undefined and name their scope.
+   */
+  groupTitle?: string;
   /** Report a structured result outcome; never infer it from ordinary output text.
    * Cancellation takes precedence over failure, and neither can be downgraded by
    * success or unavailable metadata. Omission uses Pi's outcome and MCP facts.

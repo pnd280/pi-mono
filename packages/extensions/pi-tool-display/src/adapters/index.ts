@@ -4,6 +4,8 @@ export { genericAdapter } from "./generic.ts";
 
 export { piMcpAdapter } from "./pi-mcp-adapter/index.ts";
 
+export { piTodoAdapter, todoDisplayAdapter } from "./pi-todo/index.ts";
+
 export { nativeAdapter } from "./native/index.ts";
 
 export type {

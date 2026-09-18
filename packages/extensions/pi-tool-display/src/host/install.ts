@@ -8,17 +8,23 @@ import type {
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
+import type { ToolDisplayRenderers } from "../rendering/types.ts";
 import type { DisplaySettings } from "../settings.ts";
 import { DisplaySession } from "../transcript/session.ts";
 import { record } from "../values.ts";
 import { hostHook, interactivePrototype, type Host } from "./compatibility.ts";
 import { displaySettings } from "./configuration.ts";
-import { executionOutcome, hostToolResult, transcriptMessage } from "./messages.ts";
+import { executionOutcome, hostToolResult, TranscriptMessages } from "./messages.ts";
 import { NativeRegistry } from "./native-registry.ts";
 import { TranscriptRows } from "./rows.ts";
 import { selectAdapter } from "./selection.ts";
 
-type Binding = { host: Host; display: DisplaySession; rows: TranscriptRows };
+type Binding = {
+  host: Host;
+  display: DisplaySession;
+  messages: TranscriptMessages;
+  rows: TranscriptRows;
+};
 
 function updatedContentIndex(event: AgentSessionEvent): number | undefined {
   if (event.type !== "message_update") return undefined;
@@ -94,6 +100,7 @@ export function installHostIntegration(
     const current: Binding = {
       host,
       display,
+      messages: new TranscriptMessages(),
       rows: new TranscriptRows(host, display.coordinator, {
         active: () => active && hosts.get(host) === current,
         hideCompletedThinking: configuration.valid
@@ -120,17 +127,34 @@ export function installHostIntegration(
       const configuration = binding?.display.settings ?? displaySettings(this.session);
       const selected = adapter(this.session, name, configuration);
       if (!selected) return definition;
-      const call = binding?.rows.claimCall(name);
-      const view = {
-        ...definition,
-        ...createToolDisplayRenderers(name, selected, {
+      let renderers: ToolDisplayRenderers | undefined;
+
+      // Lookup has only a tool name. Pi supplies the exact call ID when constructing
+      // the row's renderer slots, before inserting that row into the transcript.
+      const resolveRenderers = (id: string): ToolDisplayRenderers => {
+        if (renderers) return renderers;
+        const call = binding?.rows.claimCall(name, id);
+        renderers = createToolDisplayRenderers(name, selected, {
           showParameters: configuration.showParameters,
           ...(call && binding
             ? { binding: { call, coordinator: binding.display.coordinator } }
             : {})
-        })
+        });
+        if (call) binding?.rows.retainDefinition(view, call);
+
+        return renderers;
       };
-      if (call) binding?.rows.retainDefinition(view, call);
+
+      const slots: ToolDisplayRenderers = {
+        renderShell: "self",
+        renderCall(args, theme, context) {
+          return resolveRenderers(context.toolCallId).renderCall(args, theme, context);
+        },
+        renderResult(result, options, theme, context) {
+          return resolveRenderers(context.toolCallId).renderResult(result, options, theme, context);
+        }
+      };
+      const view = { ...definition, ...slots };
 
       return view;
     } catch {
@@ -199,7 +223,8 @@ export function installHostIntegration(
         const binding = active ? ensure(this, true) : undefined;
         if (!binding) return reconstruct.call(this, items, options);
         const result = binding.display.coordinator.batch(() => {
-          for (const item of items) binding.display.message(transcriptMessage(item), "historical");
+          for (const item of items)
+            binding.display.message(binding.messages.read(item), "historical");
 
           // Pi discovers visible assistant/notice boundaries while creating rows.
           // Reconcile once after those insertions, before binding expansion state.
@@ -222,7 +247,7 @@ export function installHostIntegration(
             event.type === "message_end"
           ) {
             display.message(
-              transcriptMessage(event.message, updatedContentIndex(event)),
+              binding.messages.read(event.message, updatedContentIndex(event)),
               "live",
               event.type === "message_end"
             );
