@@ -1,4 +1,4 @@
-import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { z } from "zod";
 
 const characterLimitSchema = z.int().min(2);
@@ -6,9 +6,12 @@ const characterLimitSchema = z.int().min(2);
 export function wrapRows(text: string, width: number): string[] {
   if (width < 1 || text === "") return [];
 
-  // A wide grapheme cannot fit in a one-column viewport. Clamp rather than emit
-  // an over-width row, including when a caller's gutter exceeds the viewport.
-  return wrapTextWithAnsi(text, width).map((row) => truncateToWidth(row, width, ""));
+  // Wrapping normally fits already. Avoid re-segmenting every styled row just
+  // to return it unchanged, including rows a compact preview will discard.
+  // Still clamp wide graphemes that cannot fit in a one-column viewport.
+  return wrapTextWithAnsi(text, width).map((row) =>
+    visibleWidth(row) > width ? truncateToWidth(row, width, "") : row
+  );
 }
 
 export type RowBudgetOptions = {
