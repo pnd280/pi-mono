@@ -399,13 +399,13 @@ describe("todo overlay", () => {
     );
 
     assert.deepEqual(lines.slice(1), [
-      "├─ ⊖ #1 Root one",
-      "│  ├─ ⊖ #2 First child",
-      "│  │  ├─ ⊖ #3 First grandchild",
-      "│  │  └─ ⊖ #4 Second grandchild",
-      "│  └─ ⊖ #5 Second child",
-      "│     └─ ⊖ #6 Nested under last child",
-      "└─ ⊖ #7 Root two"
+      "├─ ◦ #1 Root one",
+      "│  ├─ ◦ #2 First child",
+      "│  │  ├─ ◦ #3 First grandchild",
+      "│  │  └─ ◦ #4 Second grandchild",
+      "│  └─ ◦ #5 Second child",
+      "│     └─ ◦ #6 Nested under last child",
+      "└─ ◦ #7 Root two"
     ]);
 
     const overflowLines = buildTodoWidgetLines(

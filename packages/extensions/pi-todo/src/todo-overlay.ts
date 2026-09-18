@@ -1,12 +1,12 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, type Component, type TUI } from "@earendil-works/pi-tui";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import { MAX_WIDGET_LINES, WIDGET_KEY } from "./constants.ts";
 import type { TodoController } from "./controller.ts";
 import {
   statusGlyph,
   TASK_STATUS_COLOR,
-  TASK_STATUS_GLYPH,
   TODO_DEPENDENCY_GLYPH,
   TODO_TREE_GLYPH
 } from "./glyphs.ts";
@@ -246,7 +246,7 @@ export function buildTodoWidgetLines(
   const heading = truncate(
     theme.fg(
       TASK_STATUS_COLOR[overallStatus],
-      `${TASK_STATUS_GLYPH[overallStatus]} Todos (${completedCount}/${totalVisible} completed)`
+      `${TUI_GLYPHS.taskStatus[overallStatus]} Todos (${completedCount}/${totalVisible} completed)`
     )
   );
 

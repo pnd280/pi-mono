@@ -1,5 +1,7 @@
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
+
 import { MSG_NO_TODOS } from "./constants.ts";
-import { TASK_STATUS_GLYPH, TASK_STATUS_TEXT, TODO_FEEDBACK_GLYPH } from "./glyphs.ts";
+import { TASK_STATUS_TEXT, TODO_FEEDBACK_GLYPH } from "./glyphs.ts";
 import { deriveTaskHierarchy, type TaskHierarchyEntry } from "./hierarchy.ts";
 import { presentCompactTaskText } from "./text.ts";
 import type { Task } from "./types.ts";
@@ -63,5 +65,5 @@ function renderCommandTask(entry: TaskHierarchyEntry): string {
       : "";
   const indentation = "  ".repeat(entry.depth);
 
-  return `${indentation}${TASK_STATUS_GLYPH[task.status]} ${TASK_STATUS_TEXT[task.status]} ${"·"} #${task.id} ${subject}${inProgressLabel}${blockedBy}`;
+  return `${indentation}${TUI_GLYPHS.taskStatus[task.status]} ${TASK_STATUS_TEXT[task.status]} ${"·"} #${task.id} ${subject}${inProgressLabel}${blockedBy}`;
 }

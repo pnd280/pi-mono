@@ -19,6 +19,7 @@
     "./tui/open-browser": "./src/tui/open-browser/index.ts",
     "./tui/keybindings": "./src/tui/keybindings/index.ts",
     "./tui/terminal-text": "./src/tui/terminal-text/index.ts",
+    "./tui/glyphs": "./src/tui/glyphs/index.ts",
     "./tui/text-layout": "./src/tui/text-layout/index.ts",
     "./tui/text-budget": "./src/tui/text-budget/index.ts",
     "./tui/components/browser": "./src/tui/components/browser/index.ts",

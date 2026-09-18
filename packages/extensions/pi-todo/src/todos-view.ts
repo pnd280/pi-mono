@@ -7,10 +7,11 @@ import {
   type TUI
 } from "@earendil-works/pi-tui";
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import { formatEmptyTodosMessage, formatTodosSummary } from "./format.ts";
-import { statusGlyph, TASK_STATUS_TEXT } from "./glyphs.ts";
+import { statusGlyph, TASK_STATUS_TEXT, TODO_DEPENDENCY_GLYPH, TODO_TREE_GLYPH } from "./glyphs.ts";
 import { deriveTaskHierarchy, projectTaskTreeEntries, type TaskTreeEntry } from "./hierarchy.ts";
 import { taskDetailResultText } from "./reducer.ts";
 import { presentCompactTaskText, presentTaskDescription } from "./text.ts";
@@ -111,7 +112,7 @@ export class TodosView implements Component {
     const { theme } = this.options;
     const selected = this.entries[this.selected]?.task;
     const body = this.bodyLines(width, layout.capacity);
-    const border = theme.fg("border", "─".repeat(width));
+    const border = theme.fg("border", TUI_GLYPHS.tree.horizontal.repeat(width));
     const hints = this.footerHints(this.bodyLength, layout.capacity);
 
     return [
@@ -248,8 +249,9 @@ export class TodosView implements Component {
     const { theme } = this.options;
     const task = entry.task;
     const tree =
-      entry.ancestorHasFollowingSibling.map((next) => (next ? "│  " : "   ")).join("") +
-      (entry.isLastSibling ? "└─" : "├─");
+      entry.ancestorHasFollowingSibling
+        .map((next) => (next ? `${TODO_TREE_GLYPH.guide}  ` : "   "))
+        .join("") + (entry.isLastSibling ? TODO_TREE_GLYPH.lastBranch : TODO_TREE_GLYPH.branch);
     let subject = presentCompactTaskText(task.subject) || "Untitled todo";
 
     if (task.status === "completed") subject = theme.strikethrough(subject);
@@ -259,7 +261,7 @@ export class TodosView implements Component {
         : "";
     const dependencies =
       task.blockedBy !== undefined && task.blockedBy.length > 0
-        ? ` ⊣ ${task.blockedBy.map((id) => `#${id}`).join(",")}`
+        ? ` ${TODO_DEPENDENCY_GLYPH} ${task.blockedBy.map((id) => `#${id}`).join(",")}`
         : "";
 
     return wrapRows(

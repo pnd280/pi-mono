@@ -1,5 +1,7 @@
 import { truncateToWidth } from "@earendil-works/pi-tui";
 
+import { TUI_GLYPHS } from "../../glyphs/index.ts";
+
 /** An item with measured content. Keep related notices in its rows. */
 export type TreeItem = {
   readonly rows: readonly string[];
@@ -22,7 +24,7 @@ export type TreeContinuationOptions = TreeStyleOptions & {
 };
 
 function continuationPrefix(hasFollowingSibling: boolean): string {
-  return hasFollowingSibling ? "│ " : "  ";
+  return hasFollowingSibling ? `${TUI_GLYPHS.tree.guide} ` : "  ";
 }
 
 /** Assign connectors only after visible siblings are known. Empty items have no connector. */
@@ -36,12 +38,10 @@ export function renderTree(items: readonly TreeItem[], options: TreeOptions): st
     const more = index < visible.length - 1 || followingSibling;
     const continuation = prefix + continuationPrefix(more);
 
+    const branch = more ? `${TUI_GLYPHS.tree.branch} ` : `${TUI_GLYPHS.tree.lastBranch} `;
+
     return item.rows.map((row, offset) =>
-      truncateToWidth(
-        style(offset === 0 ? prefix + (more ? "├ " : "└ ") : continuation) + row,
-        width,
-        ""
-      )
+      truncateToWidth(style(offset === 0 ? prefix + branch : continuation) + row, width, "")
     );
   });
 }

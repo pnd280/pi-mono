@@ -20,6 +20,7 @@ Import TUI APIs through `@pi-mono/libs/tui/*`.
 | [Text layout](text-layout/README.md)                     | Cooperative full-text wrapping                                           |
 | [Text budgets](text-budget/README.md)                    | Synchronous wrapping and bounded excerpts                                |
 | [Terminal text](terminal-text/README.md)                 | Display sanitization and unsafe-control detection                        |
+| [Glyphs](glyphs/README.md)                               | Shared activity markers and tree connector glyphs                        |
 | [Keybindings](keybindings/README.md)                     | Shortcut validation and canonicalization                                 |
 
 ## Configuration

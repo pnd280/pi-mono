@@ -1,13 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import type { TaskStatus } from "./types.ts";
-
-export const TASK_STATUS_GLYPH = {
-  pending: "⊖",
-  in_progress: "●",
-  completed: "✓",
-  deleted: "×"
-} satisfies Record<TaskStatus, string>;
 
 export const TASK_STATUS_COLOR = {
   pending: "accent",
@@ -23,12 +17,16 @@ export const TASK_STATUS_TEXT = {
   deleted: "deleted"
 } satisfies Record<TaskStatus, string>;
 
-export const TODO_TREE_GLYPH = { guide: "│", branch: "├─", lastBranch: "└─" };
+export const TODO_TREE_GLYPH = {
+  guide: TUI_GLYPHS.tree.guide,
+  branch: `${TUI_GLYPHS.tree.branch}${TUI_GLYPHS.tree.horizontal}`,
+  lastBranch: `${TUI_GLYPHS.tree.lastBranch}${TUI_GLYPHS.tree.horizontal}`
+};
 
 export const TODO_DEPENDENCY_GLYPH = "⊣";
 
 export const TODO_FEEDBACK_GLYPH = { empty: "○", success: "✓", error: "✗" };
 
 export function statusGlyph(status: TaskStatus, theme: Pick<Theme, "fg">): string {
-  return theme.fg(TASK_STATUS_COLOR[status], TASK_STATUS_GLYPH[status]);
+  return theme.fg(TASK_STATUS_COLOR[status], TUI_GLYPHS.taskStatus[status]);
 }

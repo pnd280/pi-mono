@@ -53,8 +53,8 @@ it("renders list rows with the original selection and tree markers", () => {
   });
 
   const rows = view.render(80);
-  expect(rows).toContain("> ├─ ⊖ pending · #1 Root one");
-  expect(rows).toContain("  └─ ⊖ pending · #2 Root two");
+  expect(rows).toContain("> ├─ ◦ pending · #1 Root one");
+  expect(rows).toContain("  └─ ◦ pending · #2 Root two");
 });
 
 it("selects hierarchy preorder, opens read-only details, returns, and ignores Ctrl+C", () => {
