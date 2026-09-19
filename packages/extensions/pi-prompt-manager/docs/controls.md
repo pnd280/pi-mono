@@ -69,17 +69,13 @@ Rows show compact ages and truncated prompt text. Future ages have a leading `+`
 
 The list's `(selected/total)` counter refers to filtered results. [Numbered draft commands](#numbered-draft-commands) use positions in the full collection.
 
-In full preview and inspection, the `↑ N more` and `↓ N more` border labels count hidden wrapped rows. The labels are hidden while layout loads and when all text fits.
+In full preview and inspection, the `↑ N more` and `↓ N more` border labels count hidden wrapped rows.
 
 Short terminals use an overlay; taller terminals use an inline view. Extra widgets or taller custom footers can reduce the available inline space. Resizing preserves browser state but cancels deletion confirmation. Below 40 columns × 10 rows, resize or cancel.
 
 ## Action feedback
 
-Copy and deletion results, warnings, and errors use Pi notifications without replacing keybinding hints. Search updates also leave hints visible.
-
-Deletion confirmation and in-progress deletion temporarily replace the footer hints without moving the list. Confirmation lasts up to 1.5 seconds; hints return when confirmation or deletion ends.
-
-Successful saves and deletions include any cleanup warnings in the same notification. Numbered commands also use notifications for feedback. Operations that finish after the browser closes still notify while the session remains active.
+Copy and deletion results use Pi notifications. Successful saves and deletions include any cleanup warnings in the same notification. Numbered commands also use notifications for feedback. Operations that finish after the browser closes still notify while the session remains active.
 
 ## Numbered draft commands
 

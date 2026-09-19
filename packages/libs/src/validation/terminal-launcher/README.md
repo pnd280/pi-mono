@@ -6,7 +6,7 @@
 
 [`@pi-mono/libs/validation/terminal-launcher`](index.ts) exports `runTerminalLauncher` for validation code only. It accepts `regular` or `fullscreen`, followed immediately by an optional `--reuse <directory>`. `--help` displays the consumer's help text without creating a workspace.
 
-The launcher creates or reuses a directory, asks the consumer for a launch configuration, and starts the child with inherited terminal I/O. It forwards extra Pi arguments and returns the child's exit code, or `1` if the child exits without a numeric code. Launch failures propagate to the caller.
+The child inherits terminal I/O and receives extra Pi arguments. The launcher returns the child's exit code, or `1` if the child exits without a numeric code. Launch failures propagate to the caller.
 
 ## Caller responsibilities
 

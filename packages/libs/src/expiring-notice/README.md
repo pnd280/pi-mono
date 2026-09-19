@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`@pi-mono/libs/expiring-notice`](index.ts) exports `ExpiringNotice` for replaceable timed feedback. Setting a notice replaces the previous value and expiry timer.
+[`@pi-mono/libs/expiring-notice`](index.ts) exports `ExpiringNotice` for replaceable timed feedback.
 
 `reportOnce()` defers reporting to a microtask and reports at most once per notice. Clearing or replacing the notice, or disposing the instance, suppresses the queued report. Deferral keeps notifications from changing the component tree during rendering.
 

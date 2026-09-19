@@ -71,7 +71,7 @@ Both collection files use UTF-8 JSON with `version: 1`, the canonical directory 
 }
 ```
 
-New entries have a generated UUID and an ISO timestamp. Stored text must be nonblank. Readers preserve unknown fields and original timestamp data. Invalid timestamps do not prevent inspection.
+Stored text must be nonblank. Readers preserve unknown fields and original timestamp data. Invalid timestamps do not prevent inspection.
 
 ID comparison is case-insensitive. See [recovery states](#recovery-states) for invalid or duplicate IDs.
 

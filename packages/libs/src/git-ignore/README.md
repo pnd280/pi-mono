@@ -6,7 +6,7 @@
 
 [`@pi-mono/libs/git-ignore`](index.ts) exports `inspectGitIgnore`, which inspects Git rules and symbolic-link targets without enumerating directories. One deadline covers repository discovery and link traversal.
 
-The result describes ignore status, missing paths, cancellation, timeout, or unavailable inspection. It does not decide whether to allow or block a call.
+The result describes ignore status, missing paths, cancellation, timeout, or unavailable inspection.
 
 ## Caller responsibilities
 

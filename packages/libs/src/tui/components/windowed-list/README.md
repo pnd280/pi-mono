@@ -14,7 +14,7 @@ Only visible items reach the `format` callback. It must preserve item count and 
 
 Manage selection, input handling, search, page size, empty-state text, and collection-wide counters. Supply an integer selection index, a nonnegative safe-integer row limit, and a valid terminal width.
 
-Format display-safe item text and choose width-preserving styles. Render again to update ages or other time-dependent columns.
+Format display-safe item text and choose width-preserving styles.
 
 ## Validation
 

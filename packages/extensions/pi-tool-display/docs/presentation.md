@@ -26,7 +26,7 @@ Output previews retain initial and final rows. Output above the [formatting limi
 
 ## Groups
 
-Adjacent exploration calls with the same scope form a group. Every call stays in source order, including repeated reads. A scope change starts a new group, even when returning to a previously visited directory. Single calls use ordinary cards. Adapters can define a [custom group title](renderers.md#exploration-scopes) for one literal filter scope. Those groups render as `<title>`.
+Adjacent exploration calls with the same scope form a group. Every call stays in source order, including repeated reads. A scope change starts a new group, even when returning to a previously visited directory. Single calls use ordinary cards. Adapters can define a [custom group title](renderers.md#exploration-scopes) for one literal filter scope.
 
 Scopes match by these rules in both live and historical views:
 

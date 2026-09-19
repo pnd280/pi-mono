@@ -24,8 +24,6 @@ Missing or empty result details are supported. Nonempty details objects must con
 
 Adjacent supported FFF calls form [exploration groups](../../../../docs/presentation.md#groups) when their literal filters match exactly. The filter is `path`, or `constraints` for multi-search. An omitted or empty filter defaults to `.`. Filters such as `src/**` and `./src/**` remain distinct and never merge with native directory scopes.
 
-Collapsed group headings use `Filtering <filter>` while live and `Filtered <filter>` after completion, without call or operation counts. Members show their search patterns or `files` without repeating the filter. Standalone and expanded search headings separate the pattern and filter with an em dash (U+2014). Search patterns and filters remain literal.
-
 Explicit empty patterns remain valid: `ffgrep` displays `""`, and `fffind` uses `Listing <filter>` or `Listed <filter>`, defaulting to `.`. Missing patterns show `(pattern missing)` and do not qualify for grouping.
 
 Completed successful calls with nonnegative integer counts show result summaries instead of match excerpts in compact cards, both inside and outside groups:

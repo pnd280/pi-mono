@@ -6,7 +6,7 @@
 
 [`@pi-mono/libs/validation/provider`](index.ts) is for validation code only. It creates fixture messages with independent usage objects and runs scripted scenarios through Pi's message-event stream.
 
-`createFixtureStream` emits the start and completion or error events and closes the stream. Its `text` helper emits a complete text block. Cancellation is checked before and after the scenario, but the library does not interrupt scenario work.
+`createFixtureStream` checks cancellation before and after the scenario but does not interrupt scenario work.
 
 The library does not register a provider or provide a network transport.
 

@@ -20,7 +20,7 @@ After setup, launch the workspace's Pi version with an extension directory:
 vp exec pi -e ./packages/extensions/pi-tool-display
 ```
 
-The extension appears in Pi's startup list. Repeat `-e` for each additional extension. This command does not save the extension selection. For loading across sessions, use Pi's [local package configuration](node_modules/@earendil-works/pi-coding-agent/docs/packages.md#local-paths).
+Repeat `-e` for each additional extension. This command does not save the extension selection. For loading across sessions, use Pi's [local package configuration](node_modules/@earendil-works/pi-coding-agent/docs/packages.md#local-paths).
 
 ## Extensions
 
@@ -29,6 +29,7 @@ The extension appears in Pi's startup list. Repeat `-e` for each additional exte
 - [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): private prompt history and saved drafts, scoped to the working directory.
 - [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks with progress widget and task browser.
 - [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): live elapsed runtime, bash-call counts, and file-change summaries kept outside model context.
+- [pi-session-title](packages/extensions/pi-session-title/README.md): automatic session naming and `/auto-name` regeneration with a configured model.
 
 ## Development
 

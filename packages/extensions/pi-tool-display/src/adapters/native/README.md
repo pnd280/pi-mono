@@ -22,9 +22,7 @@ Numbered `details.diff` is not interpreted. Write arguments alone do not establi
 
 ## Display
 
-Adjacent read, search, and list calls form [exploration groups](../../../docs/presentation.md#groups) when their normalized directories match. Reads use their file's parent directory. Searches and lists use the supplied directory or `.`. Single calls use ordinary cards.
-
-Concrete file targets follow the shared [target rules](../../../docs/presentation.md#card-layout). Search and list calls use bounded output previews in compact cards, including groups. Successful reads hide their text until expansion. Edit and write cards show diff previews.
+See the shared [exploration-group rules](../../../docs/presentation.md#groups), [target formatting](../../../docs/presentation.md#card-layout), and [result presentation](../../../docs/presentation.md#results).
 
 Observed shell cards show recorded status and duration beside output in compact and expanded modes, for example `Exit 0 · 12ms`. Missing exit codes remain unknown. Ordinary text never establishes exit status, and historical calls without recorded operation facts show no status or timing summary.
 

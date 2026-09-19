@@ -73,8 +73,6 @@ vpr 'pi-todo#validate:terminal' fullscreen
 
 The launcher prints and retains its temporary directory without loading user settings or credentials. To reuse saved settings, place `--reuse <directory>` after the mode argument. Sessions are not saved across process restarts, so submit `seed` again when checking task activity.
 
-When a command argument completion is selected, Enter accepts it. Press Enter again to execute the command.
-
 1. Submit `seed` to create an in-progress task. Submit `hold` to show the working message for 30 seconds. Expect `Checking composition · Other status`. Escape cancels the wait.
 2. During `hold`, open `/working-message`. Check the active contributions, `fixture.inactive`, and `unavailable.activity`. Use Up or Down to select and Shift+Up or Shift+Down to move an item. Confirm the working message stays unchanged while editing. Resize to a narrow terminal. Close with Escape and reopen to confirm the unsaved order was discarded.
 3. Use Tab to switch scopes and Ctrl+S to save different global and project orders. Confirm that saving global order leaves the project override active. Reopen the menu and restart with `--reuse <directory>` to check saved orders and retained unavailable IDs.

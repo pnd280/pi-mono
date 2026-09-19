@@ -4,13 +4,13 @@ Shows elapsed agent runtime in Pi's working message. Saves duration, bash-call c
 
 ## Usage
 
-The working message starts at `0s` when the agent starts and updates once per second. When Pi returns to idle, the transcript shows a summary:
+When Pi returns to idle, the transcript shows a summary:
 
 ```text
 Worked for 1m 23s · 4 bash calls · 3 files · +42 −11
 ```
 
-Added and removed line counts use the theme's diff colors. Other summary text stays dim. Zero counts are omitted. A run without bash calls or file changes shows only its duration. Use Pi's tool-output expansion shortcut (Ctrl+O by default) to show per-file statistics.
+Use Pi's tool-output expansion shortcut (Ctrl+O by default) to show per-file statistics.
 
 One summary covers all model turns, tool calls, automatic retries, compaction retries, and queued follow-ups until the agent settles. Time spent waiting for user input during a run is included. Cancellation and errors also produce a summary once Pi settles. The summary does not indicate task success.
 

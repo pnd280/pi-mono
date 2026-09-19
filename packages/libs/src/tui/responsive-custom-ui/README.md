@@ -4,9 +4,9 @@
 
 ## Behavior
 
-[`@pi-mono/libs/tui/responsive-custom-ui`](index.ts) exports `openResponsiveCustomUI`, which preserves one logical component across inline and overlay remounts. It replaces the host adapters and forwards rendering, input, and focus to the component.
+[`@pi-mono/libs/tui/responsive-custom-ui`](index.ts) exports `openResponsiveCustomUI`, which preserves one logical component across inline and overlay remounts.
 
-Closing or aborting the UI ends the remount loop. The helper calls the component's optional `dispose()` at final closure, not during a remount.
+The helper calls the component's optional `dispose()` at final closure, not during a remount.
 
 ## Caller responsibilities
 

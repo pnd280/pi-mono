@@ -8,7 +8,7 @@ Use `@pi-mono/libs/working-message` to combine contributions from multiple exten
 
 - Nonempty contributions are joined with `·` in the configured order. Unlisted components follow in sorted ID order.
 - Components with empty text are inactive but remain registered and visible in settings. With no active text, Pi's default working message is restored.
-- The coordinator sanitizes contribution text for terminal display and collapses whitespace to a single line. The settings list shows component labels and contributors in the primary column, with current text, `inactive`, or `unavailable` in the secondary column.
+- The coordinator sanitizes contribution text for terminal display and collapses whitespace to a single line.
 - Registrations share one owner through Pi's event bus, including separately loaded library instances. Shutdown removes the owner and invalidates old handles. New sessions and reloads register fresh components.
 - Nonparticipating extensions can still overwrite Pi's working message. Their writes are not intercepted. The coordinator does not change the working indicator or its visibility.
 
@@ -27,8 +27,6 @@ An unset scope's draft inherits the other scope's saved order, or uses sorted ID
 | Tab or Shift+Tab       | Switch between global and project drafts               |
 | Ctrl+S                 | Save the displayed scope and apply the effective order |
 | Escape or Ctrl+C       | Close and discard all remaining unsaved drafts         |
-
-The menu shows the save destination, inactive and unavailable components, unsaved changes, and save errors. At narrow widths, component labels take priority over descriptions. At short terminal heights, the destination is hidden.
 
 Drafts do not change the working message until saved. Failed saves leave the draft intact and the menu open. Saving global defaults leaves any project override active. Saving the project draft creates an override even if the order is unchanged. The menu does not enable or disable components.
 

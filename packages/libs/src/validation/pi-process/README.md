@@ -8,8 +8,6 @@
 
 `createPiLaunch` prepares an installed Pi launch without starting a process. It isolates home, agent, and temporary directories and builds an environment without inheriting user credentials or settings. Storage locations and offline settings take precedence over supplied environment additions.
 
-`resolvePiExecutable` reads the installed package manifest and requires a nonempty `bin.pi` string. It returns the executable path without starting Pi or creating directories.
-
 Environment isolation does not restrict filesystem access or tool execution.
 
 ## Caller responsibilities

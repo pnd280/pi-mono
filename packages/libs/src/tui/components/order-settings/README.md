@@ -6,11 +6,11 @@
 
 ## Behavior
 
-Each scope retains its own draft. Up or Down selects an item, Shift+Up or Shift+Down moves it, and Tab or Shift+Tab switches scopes. The selection follows the moved item. Restoring the saved order clears the unsaved marker.
+Each scope retains its own draft. Up or Down selects an item, Shift+Up or Shift+Down moves it, and Tab or Shift+Tab switches scopes.
 
-The header highlights the active scope's tab. Scopes with `isSet: false` show `(not set)` until saved successfully, even if the draft is unchanged. Tabs wrap between scopes at narrow widths.
+Scopes with `isSet: false` show `(not set)` until saved successfully, even if the draft is unchanged.
 
-Only Ctrl+S calls the synchronous save callback, passing the scope ID and a copy of the order, even if unchanged. A successful save marks that scope's draft as saved. Errors leave the draft intact and display an error message. Escape or Ctrl+C closes and discards unsaved drafts without undoing earlier saves.
+Only Ctrl+S calls the synchronous save callback, passing the scope ID and a copy of the order, even if unchanged. Errors leave the draft intact and display an error message. Escape or Ctrl+C closes and discards unsaved drafts without undoing earlier saves.
 
 An unset scope inherits the saved order of its `inheritFrom` source only when that source is set. Saving the source updates the inherited order, replacing the dependent draft only if it has no unsaved edits. The selected item is preserved. Inheritance never copies unsaved source edits or marks a scope as set.
 

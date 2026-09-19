@@ -10,7 +10,7 @@
 
 The preview slices rows to the requested viewport, clamps the scroll offset during rendering, and reports hidden rows through `overflow`. Changing the text resets the offset. Layout adds no theme colors, so `invalidate()` does not force reflow.
 
-`renderOverflowBorder` renders width-bounded overflow labels and Pi borders. The caller supplies the direction, hidden-row count, optional prefix, and color function.
+`renderOverflowBorder` renders width-bounded overflow labels and Pi borders.
 
 ## Caller responsibilities
 

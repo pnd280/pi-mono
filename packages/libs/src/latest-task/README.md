@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`@pi-mono/libs/latest-task`](index.ts) exports `LatestTask`. Only the current task can commit a result, propagate an error, or clear pending state. Starting a new task supersedes the previous task.
+[`@pi-mono/libs/latest-task`](index.ts) exports `LatestTask`. Only the current task can commit a result, propagate an error, or clear pending state.
 
 Cancellation and disposal invalidate the current task without aborting its underlying work.
 

@@ -18,7 +18,7 @@ Use caller-managed paths under trusted private parent directories. Storage must 
 
 Create or validate each caller-managed directory with [`privateDirectory`](privacy.ts). The parent must already exist and be trusted. `privateDirectory` does not create parents recursively.
 
-Use [`boundedRead`](privacy.ts) to read file contents. It closes its handle, returns `undefined` for a missing file, and rejects unsafe files or input above the byte limit. Choose the byte limit and validate the contents. When using `privateOpen` directly, close the returned handle in `finally`.
+Use [`boundedRead`](privacy.ts) to read file contents. It returns `undefined` for a missing file and rejects unsafe files or input above the byte limit. Choose the byte limit and validate the contents. When using `privateOpen` directly, close the returned handle in `finally`.
 
 ### Scoped directories
 
