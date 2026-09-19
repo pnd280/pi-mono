@@ -1,11 +1,12 @@
 # @pi-mono/libs
 
-Shared APIs and [TUI infrastructure](src/tui/README.md) for workspace extensions. Use [utils](../utils/README.md) for general-purpose pure helpers. The [manifest](package.json) defines supported imports and Pi peer dependencies.
+Shared APIs for workspace extensions, including [TUI components and helpers](src/tui/README.md). Use [utils](../utils/README.md) for general-purpose pure helpers. The [manifest](package.json) defines supported imports and Pi peer dependencies.
 
 ## Usage
 
 | Library                                                | Responsibility                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| [working-message](src/working-message/README.md)       | Shared working-message contributions and saved ordering                   |
 | [native-clipboard](src/native-clipboard/README.md)     | Exact UTF-8 clipboard writes through local helpers                        |
 | [private-files](src/private-files/README.md)           | Permission and ACL enforcement, directory scopes, locks, atomic writes    |
 | [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |
@@ -33,7 +34,7 @@ These entry points are for validation code only:
 
 ## Configuration
 
-There is no persistent configuration. Callers pass options per call.
+Callers pass options per call. The [working-message coordinator](src/working-message/README.md#persistence) stores ordering in Pi's global and project settings.
 
 ## Side effects
 

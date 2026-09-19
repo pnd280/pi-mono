@@ -126,7 +126,7 @@ describe("todo overlay", () => {
         if (content === undefined) return;
         content({ requestRender: () => (renderRequests += 1) }, theme);
       },
-      setWorkingMessage() {}
+      setActivity() {}
     });
 
     overlay.update();
@@ -521,7 +521,7 @@ function createUi(
     setWidget(key, content, options) {
       calls.push({ key, content, options });
     },
-    setWorkingMessage(message) {
+    setActivity(message) {
       workingMessages.push(message);
     }
   };

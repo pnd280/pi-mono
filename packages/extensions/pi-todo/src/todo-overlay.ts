@@ -35,7 +35,7 @@ export type TodoOverlayUI = {
     content: TodoWidgetFactory | undefined,
     options?: { placement?: "aboveEditor" | "belowEditor" }
   ): void;
-  setWorkingMessage(message?: string): void;
+  setActivity(text?: string): void;
 };
 
 export type TodoWidgetStateControl = {
@@ -66,6 +66,7 @@ export class TodoOverlay {
     if (ctx === this.uiCtx && this.live) return;
 
     this.clearRegisteredWidget();
+    this.uiCtx?.setActivity();
     this.uiCtx = ctx;
     this.live = true;
     this.generation += 1;
@@ -170,6 +171,7 @@ export class TodoOverlay {
     this.generation += 1;
     this.suppressions.clear();
     this.clearRegisteredWidget();
+    this.uiCtx?.setActivity();
     this.uiCtx = undefined;
   }
 
@@ -200,7 +202,7 @@ export class TodoOverlay {
     const firstInProgress = inProgressEntries[0]?.task;
 
     if (!this.collapsed || !firstInProgress) {
-      this.uiCtx.setWorkingMessage();
+      this.uiCtx.setActivity();
 
       return;
     }
@@ -210,13 +212,13 @@ export class TodoOverlay {
       presentCompactTaskText(firstInProgress.subject);
 
     if (!text) {
-      this.uiCtx.setWorkingMessage();
+      this.uiCtx.setActivity();
 
       return;
     }
 
     const additionalCount = inProgressEntries.length - 1;
-    this.uiCtx.setWorkingMessage(additionalCount > 0 ? `${text} (+${additionalCount} more)` : text);
+    this.uiCtx.setActivity(additionalCount > 0 ? `${text} (+${additionalCount} more)` : text);
   }
 }
 

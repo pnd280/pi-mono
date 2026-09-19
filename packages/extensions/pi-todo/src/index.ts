@@ -3,6 +3,7 @@ import type {
   ExtensionContext,
   ExtensionUIContext
 } from "@earendil-works/pi-coding-agent";
+import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/libs/working-message";
 
 import {
   registerTodosCommand,
@@ -16,7 +17,9 @@ import { TodoOverlay, type TodoOverlayUI } from "./todo-overlay.ts";
 import { registerTodoTool } from "./tool.ts";
 
 export type TodoLifecycleContext = Pick<ExtensionContext, "cwd" | "isProjectTrusted" | "mode"> & {
-  ui: TodoOverlayUI & Pick<ExtensionUIContext, "addAutocompleteProvider">;
+  ui: Omit<TodoOverlayUI, "setActivity"> &
+    Pick<ExtensionUIContext, "addAutocompleteProvider"> &
+    WorkingMessageContext["ui"];
   sessionManager: { getBranch(): readonly object[] };
 };
 
@@ -31,7 +34,7 @@ type TodoEventHandlers = {
   ) => void;
 };
 
-export type TodoExtensionAPI = Pick<ExtensionAPI, "registerCommand"> &
+export type TodoExtensionAPI = Pick<ExtensionAPI, "registerCommand" | "events"> &
   Parameters<typeof registerTodoTool>[0] & {
     on<Event extends keyof TodoEventHandlers>(
       event: Event,
@@ -49,6 +52,11 @@ export default function piTodo(pi: TodoExtensionAPI): void {
     })
   )
     return;
+  const activity = registerWorkingMessage(pi, {
+    id: "pi-todo.activity",
+    label: "Activity",
+    contributor: "pi-todo"
+  });
   const controller = new TodoController();
   const widget = new TodoOverlay(controller);
   const views = new TodosCustomViewHost(widget);
@@ -62,7 +70,10 @@ export default function piTodo(pi: TodoExtensionAPI): void {
     if (ctx.mode === "tui") {
       ctx.ui.addAutocompleteProvider(todosArgumentAutocompleteProvider);
       views.start();
-      widget.setUICtx(ctx.ui);
+      widget.setUICtx({
+        setWidget: (key, content, options) => ctx.ui.setWidget(key, content, options),
+        setActivity: (text) => activity.setText(text)
+      });
       widget.setCollapsed(config.widgetCollapsed);
     } else {
       views.shutdown();

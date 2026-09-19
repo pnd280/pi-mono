@@ -1,0 +1,119 @@
+import {
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+
+import { lockSync } from "proper-lockfile";
+import { afterEach, expect, it } from "vite-plus/test";
+
+import { WorkingMessageSettings } from "./settings.ts";
+
+const roots: string[] = [];
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+function fixture(projectTrusted = true) {
+  const root = mkdtempSync(join(tmpdir(), "working-message-settings-"));
+  roots.push(root);
+  const store = new WorkingMessageSettings({
+    cwd: join(root, "project"),
+    agentDir: join(root, "agent"),
+    projectTrusted
+  });
+
+  const write = (scope: "global" | "project", value: unknown) => {
+    mkdirSync(dirname(store.paths[scope]), { recursive: true });
+    writeFileSync(store.paths[scope], JSON.stringify(value));
+  };
+
+  return { store, write };
+}
+
+it("uses global defaults and replaces them with trusted project order, including an empty override", () => {
+  const { store, write } = fixture();
+  expect(store.load()).toEqual({ global: [], project: undefined, warnings: [] });
+  write("global", { workingMessage: { order: ["b", "a", "b", "unavailable"] } });
+  expect(store.load().global).toEqual(["b", "a", "unavailable"]);
+  write("project", { workingMessage: { order: ["a"] } });
+  expect(store.load().project).toEqual(["a"]);
+  write("project", { workingMessage: { order: [] } });
+  expect(store.load().project).toEqual([]);
+});
+
+it("merges saves with fresh settings without touching unrelated fields or the other scope", () => {
+  const { store, write } = fixture();
+  write("global", { theme: "dark", workingMessage: { order: ["unavailable", "a"], future: true } });
+  store.load();
+  write("global", {
+    theme: "light",
+    workingMessage: { order: ["unavailable", "a"], future: true },
+    nested: { preserved: 2 }
+  });
+  store.save("global", ["a", "unavailable"]);
+  expect(JSON.parse(readFileSync(store.paths.global, "utf8"))).toEqual({
+    theme: "light",
+    workingMessage: { order: ["a", "unavailable"], future: true },
+    nested: { preserved: 2 }
+  });
+  const before = readFileSync(store.paths.global, "utf8");
+  store.save("project", ["unavailable", "a"]);
+  expect(readFileSync(store.paths.global, "utf8")).toBe(before);
+  expect(store.load().project).toEqual(["unavailable", "a"]);
+});
+
+it("preserves settings symlinks and refuses to replace a dangling link", () => {
+  const { store, write } = fixture();
+  write("global", { theme: "dark" });
+  const target = `${store.paths.global}.target`;
+  writeFileSync(target, readFileSync(store.paths.global));
+  rmSync(store.paths.global);
+  symlinkSync(target, store.paths.global);
+  store.save("global", ["a"]);
+  expect(lstatSync(store.paths.global).isSymbolicLink()).toBe(true);
+  expect(JSON.parse(readFileSync(target, "utf8"))).toEqual({
+    theme: "dark",
+    workingMessage: { order: ["a"] }
+  });
+  rmSync(target);
+  expect(() => store.save("global", ["b"])).toThrow("Cannot save");
+  expect(lstatSync(store.paths.global).isSymbolicLink()).toBe(true);
+});
+
+it("ignores untrusted local settings and refuses local writes", () => {
+  const { store, write } = fixture(false);
+  write("global", { workingMessage: { order: ["a"] } });
+  write("project", { workingMessage: { order: ["b"] } });
+  expect(store.load().project).toBeUndefined();
+  expect(() => store.save("project", ["a"])).toThrow("Trust");
+});
+
+it("reports malformed settings and lock failures without overwriting the file", () => {
+  const { store, write } = fixture();
+  write("global", { workingMessage: { order: ["a"] } });
+  write("project", { workingMessage: { order: 123 } });
+  expect(store.load()).toMatchObject({ global: ["a"], project: undefined });
+  expect(store.load().warnings).toHaveLength(1);
+  const before = readFileSync(store.paths.project, "utf8");
+  expect(() => store.save("project", ["b"])).toThrow("Cannot save");
+  expect(readFileSync(store.paths.project, "utf8")).toBe(before);
+  const unlock = lockSync(store.paths.global, { realpath: false });
+
+  try {
+    expect(() => store.save("global", ["b"])).toThrow("lock");
+    expect(store.load().global).toEqual(["a"]);
+  } finally {
+    unlock();
+  }
+
+  writeFileSync(store.paths.project, "{broken");
+  expect(() => store.save("project", ["b"])).toThrow("Cannot save");
+  expect(readFileSync(store.paths.project, "utf8")).toBe("{broken");
+});

@@ -16,6 +16,7 @@
     "@earendil-works/pi-tui": "catalog:",
     "@stylistic/eslint-plugin": "catalog:",
     "@types/node": "catalog:",
+    "@types/proper-lockfile": "4.1.4",
     "eslint-import-resolver-typescript": "catalog:",
     "eslint-plugin-boundaries": "catalog:",
     "typescript": "catalog:",
