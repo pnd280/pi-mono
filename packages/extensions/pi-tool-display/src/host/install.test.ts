@@ -1072,7 +1072,7 @@ it.each(["visible", "suppressed", "unregistered"])(
             .join("\n")
             .match(/Explor(?:ed|ing)/g) ?? []
         ).toHaveLength(visible ? 0 : 1);
-        expect(text(rows()[1]!)).toContain(visible ? "Reading b.ts" : "Read (queued) b.ts");
+        expect(text(rows()[1]!)).toContain(visible ? "Reading b.ts" : "Reading (queued) b.ts");
         tui.chatContainer.clear();
         tui.renderSessionItems([messages[0], entry, messages[1]]);
         expect(

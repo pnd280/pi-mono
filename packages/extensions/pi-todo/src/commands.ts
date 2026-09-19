@@ -4,6 +4,7 @@ import type {
   ExtensionUIContext
 } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteProvider } from "@earendil-works/pi-tui";
+import { browserLayout } from "@pi-mono/libs/tui/components/browser";
 import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
 
 import { ERR_REQUIRES_INTERACTIVE, ERR_TODOS_USAGE } from "./constants.ts";
@@ -21,7 +22,7 @@ export function getTodosArgumentCompletions(prefix: string) {
     .map((value) => ({
       value,
       label: value,
-      description: `${value} the above-editor Task widget`
+      description: `${value} the above-editor task widget`
     }));
 
   return matches.length ? matches : null;
@@ -77,10 +78,9 @@ export class TodosCustomViewHost {
       await openResponsiveCustomUI({
         ui: ctx.ui,
         signal,
-        // Fullscreen overlays receive paging keys before Pi's transcript viewport.
-        // This avoids changing global keybindings while retaining regular inline views.
-        useOverlay: (tui) => tui.mode === "fullscreen",
-        overlayOptions: { width: "100%", maxHeight: "100%", anchor: "center" },
+        // Match shared browser mounting while keeping fullscreen paging above the transcript.
+        useOverlay: (tui) => tui.mode === "fullscreen" || browserLayout(tui.terminal.rows).overlay,
+        overlayOptions: { width: "100%", maxHeight: "75%", anchor: "center" },
         create: (tui, theme, keybindings, done) =>
           new TodosView({ tasks: controller.getTodos(), tui, theme, keybindings, done })
       });
@@ -136,7 +136,7 @@ export function registerTodosCommand(
   widgetStateHost: TodoOverlay
 ): void {
   pi.registerCommand("todos", {
-    description: "Review Tasks or control the above-editor Task widget",
+    description: "Review tasks or control the above-editor task widget",
     getArgumentCompletions: getTodosArgumentCompletions,
     handler: (args, ctx) =>
       runTodosCommand(args, ctx, controller, { customViewHost, widgetStateHost })

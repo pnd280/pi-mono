@@ -1,7 +1,10 @@
+import { getSettingsListTheme, initTheme } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
-import { expect, it, vi } from "vite-plus/test";
+import { beforeAll, expect, it, vi } from "vite-plus/test";
 
 import { TodosView } from "./todos-view.ts";
+
+beforeAll(() => initTheme("dark", false));
 
 it.each(["regular", "fullscreen"] as const)(
   "uses configured selection paging for the list and details in %s mode",
@@ -24,11 +27,14 @@ it.each(["regular", "fullscreen"] as const)(
       done: vi.fn()
     });
     const first = view.render(80);
-    expect(first.join("\n")).toContain("ctrl+p/ctrl+n page");
+    expect(first.join("\n")).toContain("Ctrl+P/Ctrl+N page");
     view.handleInput("\x0e");
-    expect(view.render(80).find((line) => line.startsWith(">"))).toContain("#16 Task 16");
+    const settingsCursor = getSettingsListTheme().cursor;
+    expect(view.render(80).find((line) => line.startsWith(settingsCursor))).toContain(
+      "#16 Task 16"
+    );
     view.handleInput("\x10");
-    expect(view.render(80).find((line) => line.startsWith(">"))).toContain("#1 Task 1");
+    expect(view.render(80).find((line) => line.startsWith(settingsCursor))).toContain("#1 Task 1");
     view.handleInput("\r");
     const detail = view.render(80);
     view.handleInput("\x0e");
@@ -40,7 +46,49 @@ it.each(["regular", "fullscreen"] as const)(
   }
 );
 
-it("renders list rows with the original selection and tree markers", () => {
+it("keeps selection status and all essential hints visible on a narrow terminal", () => {
+  const view = new TodosView({
+    tasks: Array.from({ length: 30 }, (_, index) => ({
+      id: index + 1,
+      subject: `Task ${index + 1}`,
+      status: "pending"
+    })),
+    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
+    keybindings: new KeybindingsManager(TUI_KEYBINDINGS),
+    done: vi.fn()
+  });
+
+  const rendered = view.render(40).join("\n");
+  expect(rendered).toContain("(1/30)");
+  expect(rendered).toContain("Esc close");
+  expect(rendered).toContain("PageUp/PageDown page");
+  expect(rendered).toContain("↓");
+});
+
+it("resolves configured task controls in the same order as their hints", () => {
+  const done = vi.fn();
+  const view = new TodosView({
+    tasks: [{ id: 1, subject: "Task", status: "pending" }],
+    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
+    keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
+      "tui.select.cancel": ["ctrl+c", "escape"],
+      "tui.select.confirm": ["escape", "ctrl+y"]
+    }),
+    done
+  });
+
+  expect(view.render(80).join("\n")).toContain("Ctrl+Y details");
+  view.handleInput("\x19");
+  expect(view.render(80).join("\n")).toContain("Task #1");
+  view.handleInput("\x1b");
+  expect(done).not.toHaveBeenCalled();
+  view.handleInput("\x1b");
+  expect(done).toHaveBeenCalledOnce();
+});
+
+it("renders list rows with Pi's settings arrow and task tree markers", () => {
   const view = new TodosView({
     tasks: [
       { id: 1, subject: "Root one", status: "pending" },
@@ -53,7 +101,7 @@ it("renders list rows with the original selection and tree markers", () => {
   });
 
   const rows = view.render(80);
-  expect(rows).toContain("> ├─ ◦ pending · #1 Root one");
+  expect(rows).toContain(`${getSettingsListTheme().cursor}├─ ◦ pending · #1 Root one`);
   expect(rows).toContain("  └─ ◦ pending · #2 Root two");
 });
 
@@ -74,13 +122,13 @@ it("selects hierarchy preorder, opens read-only details, returns, and ignores Ct
   view.handleInput("\x1b[B");
   view.handleInput("\r");
   const detail = view.render(80).join("\n");
-  expect(detail).toContain("Todo detail");
+  expect(detail).toContain("Task #3");
   expect(detail).toContain("Detail text");
-  expect(detail).toContain("parent: #1");
+  expect(detail).toContain("Parent: #1");
   view.handleInput("\x03");
   expect(done).not.toHaveBeenCalled();
   view.handleInput("\x1b");
-  expect(view.render(80).join("\n")).not.toContain("Todo detail");
+  expect(view.render(80).join("\n")).not.toContain("Task #3");
   view.handleInput("\x1b");
   expect(done).toHaveBeenCalledOnce();
 });

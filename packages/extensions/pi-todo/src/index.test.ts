@@ -15,7 +15,7 @@ import type { TodoWidgetFactory } from "./todo-overlay.ts";
 
 vi.mock("./runtime.ts", () => ({ shouldActivate: vi.fn(() => true) }));
 vi.mock("./config.ts", () => ({
-  loadTodoConfig: vi.fn(() => ({ widgetCollapsed: false }))
+  loadTodoConfig: vi.fn(() => ({ collapseWidgetByDefault: false }))
 }));
 
 const directories: string[] = [];
@@ -106,7 +106,7 @@ it("composes shared state across tool execution, replay, settings, and widget li
   ];
   dispatch("session_compact");
   expect(widget?.render(80).join("\n")).toContain("Restored");
-  vi.mocked(loadTodoConfig).mockReturnValueOnce({ widgetCollapsed: true });
+  vi.mocked(loadTodoConfig).mockReturnValueOnce({ collapseWidgetByDefault: true });
   dispatch("session_start");
   other.setText("Other status");
   dispatch("tool_execution_end", { toolName: "todo", isError: false });

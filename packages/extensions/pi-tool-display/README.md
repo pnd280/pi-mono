@@ -4,7 +4,7 @@ Borderless tool cards for Pi's interactive terminal UI, with exploration groups,
 
 ## Usage
 
-Adjacent read, search, and list calls form [exploration groups](docs/presentation.md#groups) when their directory scopes or literal filters match. Directory headings use **Exploring** or **Explored**. Literal-filter headings use **Filtering** or **Filtered**. Adjacent `todo` calls form a `Todo` group. Group headings omit call and operation counts. Single calls use ordinary cards. Calls stay in source order, with notices, images, and failure diagnostics directly beneath each call.
+Adjacent read, search, and list calls form [exploration groups](docs/presentation.md#groups) when their directory scopes or literal filters match. Adjacent `todo` calls form a **Tasks** group. Single calls use ordinary cards. Calls stay in source order, with notices, images, and failure diagnostics directly beneath each call.
 
 Compact cards use [result summaries](docs/presentation.md#results) when available and bounded output previews otherwise. Shell status appears beside output, successful reads keep their text collapsed, and edit and write cards show diff previews. Diagnostics and images remain visible.
 

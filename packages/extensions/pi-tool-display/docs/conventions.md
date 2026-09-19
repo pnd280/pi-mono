@@ -12,7 +12,7 @@ The CLI checks `supports` only once a result exists, including partial updates. 
 
 ## Action headings
 
-A completed listing reads `Listed <target>`, including an empty-pattern `fffind` listing. Do not add `files in` to that heading. Preserve pending and completed tense: `Listing` and `Listed`, not a bare `List` while running.
+A completed listing reads `Listed <target>`, including an empty-pattern `fffind` listing. Do not add `files in` to that heading. Use `Listing` while pending and `Listed` after success in standalone, grouped, and expanded cards.
 
 Separate search patterns and scopes with a spaced em dash (U+2014), not `in`. Use the `\u2014` escape in TypeScript source because the repository's pre-commit hook rejects literal em dashes:
 
@@ -22,7 +22,7 @@ Separate search patterns and scopes with a spaced em dash (U+2014), not `in`. Us
 
 ## Group headings
 
-Use `Exploring <path>` and `Explored <path>` for directory groups, and `Filtering <filter>` and `Filtered <filter>` for literal-filter groups. Keep `ExplorationScope` kind names such as `directory` and `filter` out of displayed headings. Adapter-defined groups may use a custom title such as `Todo`.
+Use `Exploring <path>` and `Explored <path>` for directory groups, and `Filtering <filter>` and `Filtered <filter>` for literal-filter groups. Keep `ExplorationScope` kind names such as `directory` and `filter` out of displayed headings. Adapter-defined groups may use a custom title such as `Tasks`.
 
 Do not add call or operation counts to group headings. Member rows already show those calls. Preserve failure, cancellation, and unavailable-outcome badges and the diagnostics beneath each affected member.
 

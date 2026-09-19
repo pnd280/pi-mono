@@ -4,9 +4,9 @@
 
 ## Compatibility and selection
 
-`piTodoAdapter(toolInfo)` supports the workspace [`pi-todo`](../../../../pi-todo/README.md) `todo` tool. It verifies package provenance (`npm:pi-todo` or a `pi-todo` entry path) and that the registered parameters declare a string `action` before matching. SDK tools, builtin tools, and unrelated tools named `todo` do not qualify.
+`piTodoAdapter(toolInfo)` supports the workspace [`pi-todo`](../../../../pi-todo/README.md) `todo` tool. It checks package provenance (`npm:pi-todo` or a `pi-todo` entry path) and requires the registered parameters to declare a string `action`. SDK tools, built-in tools, and unrelated tools named `todo` do not qualify.
 
-`pi-todo` supplies no tool renderers and has no dependency on pi-tool-display. This extension's host integration selects the adapter and owns all todo card rendering and grouping. When this extension is inactive, or the `todo` renderer override is `original`, Pi uses its default rendering.
+`pi-todo` supplies no tool renderers and has no dependency on `pi-tool-display`. This extension's host integration selects the adapter and handles task card rendering and grouping. When this extension is inactive, or the `todo` renderer override is `original`, Pi uses its default rendering.
 
 ## Arguments and results
 
@@ -16,7 +16,7 @@ Once a result exists, incompatible arguments use generic cards and do not group.
 
 ## Display
 
-Supported cards start with `Todo` and the action, for example `Todo · Created Ship it` or `Todo · Updated #3 status → completed`. Create headings add the subject, parent, and initial dependencies. Update headings name the changed fields.
+Supported cards start with `Tasks` and the action, for example `Tasks · Created Review docs` or `Tasks · Updated #3 Review docs · status → completed`. Create headings add the subject, parent, and initial dependencies. Update headings name the changed fields, using `activity` for `inProgressLabel`.
 
 Compact cards replace successful output with a `dim` summary of confirmed task state and overall progress, such as `#3 completed · 1/3 completed · 1 in progress · 1 pending`:
 
@@ -25,9 +25,9 @@ Compact cards replace successful output with a `dim` summary of confirmed task s
 - Missing or invalid snapshots use an output preview.
 - Failures omit the summary and show diagnostic bodies in `error`.
 
-Expansion restores the full result text beside the summary. `list` and `get` results dim their known `[status]` brackets.
+Expansion shows the full result text beside the summary. Successful result text displays `[in_progress]` as `[in progress]` and uses labels such as `Activity` and `Blocked by` for `inProgressLabel` and `blockedBy`. Known `[status]` brackets are dimmed. These display changes leave retained results and model-visible content unchanged.
 
-Adjacent `todo` calls form a collapsed `Todo` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
+Adjacent `todo` calls form a collapsed `Tasks` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
 
 ## Validation
 

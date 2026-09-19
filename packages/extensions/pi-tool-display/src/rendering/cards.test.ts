@@ -499,7 +499,7 @@ describe("tool display renderers", () => {
     }
   });
 
-  it("groups adjacent todo calls under one Todo heading", () => {
+  it("groups adjacent task calls under one Tasks heading", () => {
     const coordinator = new TranscriptCoordinator("todo-groups");
 
     try {
@@ -522,7 +522,7 @@ describe("tool display renderers", () => {
       coordinator.update(first, "executing");
       coordinator.update(second, "executing");
       expect(coordinator.group(first)).toBeDefined();
-      expect(todoDisplayAdapter.groupTitle).toBe("Todo");
+      expect(todoDisplayAdapter.groupTitle).toBe("Tasks");
 
       const firstRenderer = createToolDisplayRenderers("todo", todoDisplayAdapter, {
         binding: { call: first, coordinator }
@@ -536,7 +536,7 @@ describe("tool display renderers", () => {
           ...secondRenderer.renderCall(secondArgs, theme, context()).render(120)
         ].join("\n");
 
-      expect(heading().split("\n")[0]).toBe("• Todo");
+      expect(heading().split("\n")[0]).toBe("• Tasks");
       expect(heading()).toContain("Creating (running) First task");
       expect(heading()).toContain("Creating (running) Second task");
       expect(heading()).not.toContain("{");
@@ -546,11 +546,11 @@ describe("tool display renderers", () => {
       expect(heading()).toContain("Creating (running) Second task");
 
       coordinator.result(second, result("Task creation failed"), "failure");
-      expect(heading().split("\n")[0]).toBe("• Todo · 1 failed");
+      expect(heading().split("\n")[0]).toBe("• Tasks · 1 failed");
 
       coordinator.expand(first, true);
-      expect(heading()).toContain("Todo · Created First task");
-      expect(heading()).toContain("Todo · Create failed Second task");
+      expect(heading()).toContain("Tasks · Created First task");
+      expect(heading()).toContain("Tasks · Create failed Second task");
     } finally {
       coordinator.dispose();
     }
@@ -877,13 +877,46 @@ describe("tool display renderers", () => {
         )
         .join("\n");
       expect(rows.split("\n")[0]).toBe("• Exploring . · 1 failed, 1 cancelled");
-      expect(rows).toContain("Read (queued) pending.ts");
+      expect(rows).toContain("Reading (queued) pending.ts");
       expect(rows).not.toContain("outcome unavailable");
       expect(rows).toContain("Read success.ts");
       expect(rows).toContain("Read failed failure.ts");
       expect(rows).toContain("Read cancelled cancelled.ts");
       expect(rows).toContain("retained diagnostic");
       expect(rows).not.toContain("Operation aborted");
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it("uses completed tense for grouped exploration members", () => {
+    const coordinator = new TranscriptCoordinator("group-member-tense", { cwd: "/tmp" });
+
+    try {
+      const calls = ["a", "b"].map((name, index) => {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: index, toolCallId: name },
+          "ls",
+          { path: "." },
+          nativeAdapter("ls")!,
+          "historical"
+        );
+        coordinator.result(call, result("listed"), "success");
+
+        return call;
+      });
+      const rows = calls
+        .flatMap((call) =>
+          createToolDisplayRenderers("ls", call.adapter, {
+            binding: { call, coordinator }
+          })
+            .renderCall(call.args, theme, context())
+            .render(100)
+        )
+        .join("\n");
+
+      expect(rows).toContain("Listed");
+      expect(rows).not.toContain("List .");
     } finally {
       coordinator.dispose();
     }
@@ -987,6 +1020,42 @@ describe("tool display renderers", () => {
     }
   });
 
+  it("uses the same error color for cancelled group outcomes and members", () => {
+    const coordinator = new TranscriptCoordinator("cancelled-group-colors", { cwd: "/tmp" });
+    const themed = semanticTheme();
+
+    try {
+      const calls = ["cancelled.ts", "success.ts"].map((path, index) => {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: index, toolCallId: path },
+          "read",
+          { path },
+          nativeAdapter("read")!,
+          "live"
+        );
+        coordinator.result(
+          call,
+          result("retained"),
+          path.startsWith("cancel") ? "cancelled" : "success"
+        );
+
+        return call;
+      });
+      const rows = createToolDisplayRenderers("read", calls[0]!.adapter, {
+        binding: { call: calls[0]!, coordinator }
+      })
+        .renderCall(calls[0]!.args, themed, context())
+        .render(100)
+        .join("\n");
+
+      expect(rows).toContain(themed.fg("error", "1 cancelled"));
+      expect(rows).toContain(themed.fg("error", "Read cancelled"));
+      expect(rows).not.toContain(themed.fg("warning", "1 cancelled"));
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
   it("colors homogeneous group action titles and uses accent for mixed groups", () => {
     type GroupState = "pending" | "success" | "failure" | "cancelled" | "unavailable";
 
@@ -1053,7 +1122,7 @@ describe("tool display renderers", () => {
         const annotation = call.lifecycle === "queued" ? " (queued)" : " (running)";
         const card = renderer.renderCall(call.args, themed, context());
         const rows = card.render(100).join("\n");
-        expect(rows).toContain(themed.fg("accent", "Read"));
+        expect(rows).toContain(themed.fg("accent", "Reading"));
         expect(rows).toContain(themed.fg("dim", annotation));
         expect(rows).toContain(themed.fg("text", `${call.reference.toolCallId}.ts`));
         coordinator.result(call, result("retained"), "success");
@@ -1389,7 +1458,9 @@ describe("tool display renderers", () => {
         }).renderCall(call.args, theme, context());
         const rows = card.render(110);
         expect(rows[0]).toBe(`• Explored ${path}${outcome === "failure" ? " · 2 failed" : ""}`);
-        expect(rows[1]).toBe(`  ├ Search${outcome === "failure" ? " failed" : ""} alpha \u2014 .`);
+        expect(rows[1]).toBe(
+          `  ├ ${outcome === "failure" ? "Search failed" : "Searched"} alpha \u2014 .`
+        );
         const narrow = card.render(48);
         if (outcome === "failure") expect(narrow[0]).toBe("• Explored · 2 failed");
         for (const rendered of [rows, narrow])
@@ -1760,13 +1831,13 @@ describe("tool display renderers", () => {
         [
           "ffgrep",
           { pattern: "", path: "packages/utils/src/fff-tools.ts" },
-          'Search ""',
+          'Searched ""',
           'Searched "" \u2014 packages/utils/src/fff-tools.ts'
         ],
-        ["ffgrep", { pattern: "" }, 'Search ""', 'Searched "" \u2014 .'],
-        ["fffind", { pattern: "", path: "packages/" }, "List files", "Listed packages/"],
-        ["fffind", { pattern: "", path: "./src/**" }, "List files", "Listed ./src/**"],
-        ["fffind", { pattern: "" }, "List files", "Listed ."]
+        ["ffgrep", { pattern: "" }, 'Searched ""', 'Searched "" \u2014 .'],
+        ["fffind", { pattern: "", path: "packages/" }, "Listed files", "Listed packages/"],
+        ["fffind", { pattern: "", path: "./src/**" }, "Listed files", "Listed ./src/**"],
+        ["fffind", { pattern: "" }, "Listed files", "Listed ."]
       ] as const
     ).flatMap(([name, args, compact, expanded]) =>
       [false, true].map((isExpanded) => ({ name, args, compact, expanded, isExpanded }))
@@ -2160,10 +2231,10 @@ describe("tool display renderers", () => {
         } else
           expect(rows).toEqual([
             "• Filtered src/",
-            "  ├ Search renderers",
+            "  ├ Searched renderers",
             "  │   33 matching files · 33 indexed files",
             `  │   ${notice}`,
-            "  └ Search cards",
+            "  └ Searched cards",
             "      retained sibling matches"
           ]);
         expect(search.result).toBe(supplied);
@@ -2206,10 +2277,10 @@ describe("tool display renderers", () => {
 
       expect(rows).toEqual([
         "• Filtered .",
-        "  ├ Search setWorkingMessage",
+        "  ├ Searched setWorkingMessage",
         "  │   src/state.ts",
         "  │    12: setWorkingMessage",
-        "  └ Search working",
+        "  └ Searched working",
         "      src/messages.ts",
         "       4: working"
       ]);
@@ -2264,10 +2335,10 @@ describe("tool display renderers", () => {
         );
         expect(rendered[0]).toEqual([
           "• Filtered src/",
-          "  ├ Search a",
+          "  ├ Searched a",
           "  │   first file contents"
         ]);
-        expect(rendered[1]![0]).toBe("  ├ Search renderers");
+        expect(rendered[1]![0]).toBe("  ├ Searched renderers");
         expect(rendered[1]!.slice(1).every((row) => row.startsWith("  │   "))).toBe(true);
         expect(
           rendered[1]!
@@ -2275,7 +2346,7 @@ describe("tool display renderers", () => {
             .map((row) => row.slice(6))
             .join(" ")
         ).toContain("only weak scattered fuzzy matches");
-        expect(rendered[2]).toEqual(["  └ Search a", "      last file contents"]);
+        expect(rendered[2]).toEqual(["  └ Searched a", "      last file contents"]);
         expect(rendered.flat().every((row) => visibleWidth(row) <= width)).toBe(true);
       }
     } finally {

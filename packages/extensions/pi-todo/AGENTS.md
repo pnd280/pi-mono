@@ -7,6 +7,7 @@
 - `src/session-state.ts`, `src/limits.ts`, and `src/mutation-schema.ts` validate stored state and mutations.
 - `src/tool.ts` adapts model input and returns replayable results. `src/tool-schema.ts` defines the model-facing schema.
 - `src/commands.ts`, `src/todos-view.ts`, and `src/todo-overlay.ts` manage task navigation, the widget, and activity text.
+- `src/task-presentation.ts` shares task styling between the browser and widget.
 - `validation/` provides the offline working-message launcher and fixture contributors.
 
 ## Constraints

@@ -1,19 +1,22 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import { getSettingsListTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import {
   matchesKey,
   truncateToWidth,
   type Component,
   type KeybindingsManager,
+  type KeyId,
   type TUI
 } from "@earendil-works/pi-tui";
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
-import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
+import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
+import { resolveKeybindings, formatKeyLabel } from "@pi-mono/libs/tui/keybindings";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import { formatEmptyTodosMessage, formatTodosSummary } from "./format.ts";
-import { statusGlyph, TASK_STATUS_TEXT, TODO_DEPENDENCY_GLYPH, TODO_TREE_GLYPH } from "./glyphs.ts";
+import { statusGlyph, TASK_STATUS_TEXT, TODO_TREE_GLYPH } from "./glyphs.ts";
 import { deriveTaskHierarchy, projectTaskTreeEntries, type TaskTreeEntry } from "./hierarchy.ts";
-import { taskDetailResultText } from "./reducer.ts";
+import { deriveBlocks } from "./reducer.ts";
+import { formatTaskLine, formatTaskSubject } from "./task-presentation.ts";
 import { presentCompactTaskText, presentTaskDescription } from "./text.ts";
 import type { Task } from "./types.ts";
 
@@ -31,6 +34,29 @@ type ListLayout = {
   rowStart: readonly number[];
   totalRows: number;
 };
+
+type TodoAction = "cancel" | "confirm" | "up" | "down" | "pageUp" | "pageDown";
+
+type TodoBinding = { action: TodoAction; key: KeyId };
+
+type ViewLayout = {
+  rows: number;
+  hints: boolean;
+  title: boolean;
+  borders: boolean;
+  summary: boolean;
+  capacity: number;
+  footer: string[];
+};
+
+const configuredActions = [
+  ["cancel", "tui.select.cancel"],
+  ["confirm", "tui.select.confirm"],
+  ["up", "tui.select.up"],
+  ["down", "tui.select.down"],
+  ["pageUp", "tui.select.pageUp"],
+  ["pageDown", "tui.select.pageDown"]
+] as const satisfies readonly [TodoAction, string][];
 
 /** Host row counts are coerced directly; the value is host-provided, not untrusted input. */
 function normalizeRows(value: number): number {
@@ -61,6 +87,7 @@ export class TodosView implements Component {
   private detail = false;
   private scroll = 0;
   private bodyLength = 0;
+  private viewportCapacity = 1;
   private readonly entries: readonly TaskTreeEntry[];
   private readonly summary: string;
   private listLayout: ListLayout | undefined;
@@ -75,75 +102,97 @@ export class TodosView implements Component {
     this.summary = formatTodosSummary(options.tasks);
   }
 
-  private layout() {
+  private layout(width: number, bodyLength: number): ViewLayout {
     const rows = normalizeRows(this.options.tui.terminal.rows);
-    const reserve =
-      this.options.tui.mode === "fullscreen"
-        ? Math.min(4, Math.floor(rows / 4), Math.max(0, rows - 8))
-        : 0;
+    // Leave room for Pi's footer in inline views and around fullscreen overlays.
+    const reserve = Math.min(4, Math.floor(rows / 4), Math.max(0, rows - 8));
     const budget = rows - reserve;
     const hasEntries = this.entries.length > 0;
     const hints = budget >= 3,
       title = budget >= 5,
       borders = budget >= 7,
-      summary = budget >= 8 && hasEntries;
+      summary = budget >= 8 && hasEntries && !this.detail;
+    const chromeRows = Number(title) * 2 + Number(borders) * 2 + Number(summary);
+    const maxFooterRows = hints ? Math.max(1, budget - chromeRows - 1) : 0;
+    let capacity = Math.min(16, Math.max(1, budget - chromeRows - (hints ? 2 : 0)));
+    let footer: string[] = [];
 
-    return {
-      rows,
-      hints,
-      title,
-      borders,
-      summary,
-      capacity: Math.min(
-        16,
-        Math.max(
-          1,
-          budget - Number(hints) * 2 - Number(title) * 2 - Number(borders) * 2 - Number(summary)
-        )
-      )
-    };
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const footerHints = this.footerHints(bodyLength, capacity);
+      footer = hints
+        ? renderHintFooter({
+            width,
+            maxRows: maxFooterRows,
+            hints: footerHints,
+            padding: "",
+            separator: " · ",
+            style: (text) => this.options.theme.fg("dim", text)
+          }).rows
+        : [];
+      const footerRows = footer.length ? footer.length + 1 : 0;
+      const nextCapacity = Math.min(16, Math.max(1, budget - chromeRows - footerRows));
+      if (nextCapacity === capacity) break;
+      capacity = nextCapacity;
+    }
+
+    return { rows, hints, title, borders, summary, capacity, footer };
   }
 
   render(width: number): string[] {
-    const layout = this.layout();
-    if (!layout.rows) return [];
     if (!Number.isFinite(width) || width <= 0) return [""];
     width = Math.max(1, Math.floor(width));
+    const bodyLength = this.measureBodyLength(width);
+    const layout = this.layout(width, bodyLength);
+    if (!layout.rows) return [];
     const { theme } = this.options;
     const selected = this.entries[this.selected]?.task;
+    this.viewportCapacity = layout.capacity;
     const body = this.bodyLines(width, layout.capacity);
-    const border = theme.fg("border", TUI_GLYPHS.tree.horizontal.repeat(width));
-    const hints = this.footerHints(this.bodyLength, layout.capacity);
+    const color = (text: string) => theme.fg("border", text);
+    const above = this.scroll;
+    const below = Math.max(0, this.bodyLength - this.scroll - layout.capacity);
+    const topBorder = renderOverflowBorder(width, {
+      color,
+      direction: "↑",
+      hidden: above
+    });
+    const bottomBorder = renderOverflowBorder(width, {
+      color,
+      direction: "↓",
+      hidden: below
+    });
+    const summary = this.selectionSummary();
 
     return [
-      ...(layout.borders ? [border] : []),
+      ...(layout.borders ? [topBorder] : []),
       ...(layout.title
-        ? [theme.fg("accent", theme.bold(this.detail ? "Todo detail" : "Todos")), ""]
-        : []),
-      ...(layout.summary
         ? [
             theme.fg(
-              "dim",
-              `${this.detail ? "" : this.summary}${selected ? ` · #${selected.id}` : ""}`
-            )
+              "accent",
+              theme.bold(this.detail && selected ? `Task #${selected.id}` : "Tasks")
+            ),
+            ""
           ]
         : []),
+      ...(layout.summary ? [theme.fg("dim", `${summary} · ${this.summary}`)] : []),
       ...body,
-      ...(layout.hints
-        ? [
-            "",
-            ...renderHintFooter({
-              width,
-              maxRows: 1,
-              hints,
-              padding: "",
-              separator: " · ",
-              style: (text) => theme.fg("dim", text)
-            }).rows
-          ]
-        : []),
-      ...(layout.borders ? [border] : [])
+      ...(layout.footer.length ? ["", ...layout.footer] : []),
+      ...(layout.borders ? [bottomBorder] : [])
     ].map((line) => truncateToWidth(line, width));
+  }
+
+  private measureBodyLength(width: number): number {
+    const selected = this.entries[this.selected]?.task;
+    if (this.detail && selected) return this.detailRowsFor(selected, width).length;
+
+    const list = this.listRows(width);
+    if (list.totalRows > 0) return list.totalRows;
+
+    return wrapRows(formatEmptyTodosMessage(), width).length;
+  }
+
+  private selectionSummary(): string {
+    return this.entries.length ? `(${this.selected + 1}/${this.entries.length})` : "";
   }
 
   private bodyLines(width: number, capacity: number): string[] {
@@ -155,26 +204,73 @@ export class TodosView implements Component {
   }
 
   /** Detail text only changes with the selected task, so cache wrapped rows by width. */
-  private detailBody(width: number, capacity: number, task: Task): string[] {
+  private detailRowsFor(task: Task, width: number): string[] {
     let cached = this.detailRows;
 
     if (!cached || cached.width !== width || cached.taskId !== task.id) {
-      const detail = taskDetailResultText(this.options.tasks, {
-        ...task,
-        subject: presentCompactTaskText(task.subject),
-        ...(task.description === undefined
-          ? {}
-          : { description: presentTaskDescription(task.description) })
-      });
-      cached = { width, taskId: task.id, rows: wrapRows(detail, width) };
+      cached = { width, taskId: task.id, rows: this.taskDetailRows(task, width) };
       this.detailRows = cached;
     }
 
-    const rows = cached.rows;
+    return cached.rows;
+  }
+
+  private detailBody(width: number, capacity: number, task: Task): string[] {
+    const rows = this.detailRowsFor(task, width);
     this.bodyLength = rows.length;
     this.scroll = clampScroll(this.scroll, rows.length, capacity);
 
     return rows.slice(this.scroll, this.scroll + capacity);
+  }
+
+  private taskDetailRows(task: Task, width: number): string[] {
+    const { theme } = this.options;
+    const rows = [
+      ...wrapRows(theme.bold(formatTaskSubject(task, theme)), width),
+      ...wrapRows(
+        `${statusGlyph(task.status, theme)} ${theme.fg("dim", TASK_STATUS_TEXT[task.status])}`,
+        width
+      )
+    ];
+    const description = presentTaskDescription(task.description ?? "");
+
+    if (description.trim()) {
+      rows.push(
+        "",
+        theme.fg("muted", theme.bold("Description")),
+        ...wrapRows(theme.fg("text", description), width)
+      );
+    }
+
+    const fields: [string, string][] = [];
+    const owner = presentCompactTaskText(task.owner ?? "");
+    const activity = presentCompactTaskText(task.inProgressLabel ?? "");
+    if (owner) fields.push(["Owner", theme.fg("text", owner)]);
+    if (activity) fields.push(["Activity", theme.fg("text", activity)]);
+
+    const references = (label: string, ids: readonly number[]) => {
+      if (ids.length) {
+        fields.push([label, ids.map((id) => theme.fg("accent", `#${id}`)).join(", ")]);
+      }
+    };
+
+    references("Parent", task.parentId === undefined ? [] : [task.parentId]);
+    references(
+      "Children",
+      this.entries.filter((entry) => entry.task.parentId === task.id).map((entry) => entry.task.id)
+    );
+    references("Blocked by", task.blockedBy ?? []);
+    references("Blocks", deriveBlocks(this.options.tasks).get(task.id) ?? []);
+
+    if (fields.length) {
+      rows.push("");
+
+      for (const [label, value] of fields) {
+        rows.push(...wrapRows(`${theme.fg("muted", `${label}:`)} ${value}`, width));
+      }
+    }
+
+    return rows;
   }
 
   private listBody(width: number, capacity: number): string[] {
@@ -183,8 +279,10 @@ export class TodosView implements Component {
 
     if (layout.totalRows === 0) {
       this.scroll = 0;
+      const rows = wrapRows(formatEmptyTodosMessage(), width);
+      this.bodyLength = rows.length;
 
-      return wrapRows(formatEmptyTodosMessage(), width);
+      return rows.slice(0, capacity);
     }
 
     const selectedRow = layout.rowStart[this.selected];
@@ -207,7 +305,7 @@ export class TodosView implements Component {
     let totalRows = 0;
 
     for (const entry of this.entries) {
-      const entryRows = this.entryRows(entry, width, " ");
+      const entryRows = this.entryRows(entry, width, "  ");
       rowStart.push(totalRows);
       rows.push(entryRows);
       totalRows += entryRows.length;
@@ -232,7 +330,9 @@ export class TodosView implements Component {
 
       if (entryStart === undefined || entry === undefined || entryStart >= end) break;
       const entryRows =
-        index === this.selected ? this.entryRows(entry, width, ">") : (layout.rows[index] ?? []);
+        index === this.selected
+          ? this.entryRows(entry, width, getSettingsListTheme().cursor)
+          : (layout.rows[index] ?? []);
       const from = Math.max(0, start - entryStart);
       const to = Math.min(entryRows.length, end - entryStart);
 
@@ -247,55 +347,85 @@ export class TodosView implements Component {
 
   private entryRows(entry: TaskTreeEntry, width: number, marker: string): string[] {
     const { theme } = this.options;
-    const task = entry.task;
     const tree =
       entry.ancestorHasFollowingSibling
         .map((next) => (next ? `${TODO_TREE_GLYPH.guide}  ` : "   "))
         .join("") + (entry.isLastSibling ? TODO_TREE_GLYPH.lastBranch : TODO_TREE_GLYPH.branch);
-    let subject = presentCompactTaskText(task.subject) || "Untitled todo";
+    const content = formatTaskLine(entry.task, theme, { showId: true, showStatus: true });
 
-    if (task.status === "completed") subject = theme.strikethrough(subject);
-    const label =
-      task.status === "in_progress" && task.inProgressLabel
-        ? ` (${presentCompactTaskText(task.inProgressLabel)})`
-        : "";
-    const dependencies =
-      task.blockedBy !== undefined && task.blockedBy.length > 0
-        ? ` ${TODO_DEPENDENCY_GLYPH} ${task.blockedBy.map((id) => `#${id}`).join(",")}`
-        : "";
+    return wrapRows(`${marker}${theme.fg("dim", tree)} ${content}`, width);
+  }
 
-    return wrapRows(
-      `${marker} ${tree} ${statusGlyph(task.status, theme)} ${TASK_STATUS_TEXT[task.status]} · #${task.id} ${subject}${label}${dependencies}`,
-      width
+  private bindings(): TodoBinding[] {
+    return resolveKeybindings(
+      configuredActions.map(([action, id]) => ({
+        action,
+        keys: this.options.keybindings.getKeys(id),
+        ...(action === "cancel" ? { exclude: (key: KeyId) => key === "ctrl+c" } : {})
+      }))
     );
+  }
+
+  private keysFor(action: TodoAction): KeyId[] {
+    return this.bindings()
+      .filter((binding) => binding.action === action)
+      .map((binding) => binding.key);
+  }
+
+  private matchesAction(data: string, action: TodoAction): boolean {
+    return this.keysFor(action).some((key) => matchesKey(data, key));
+  }
+
+  private keyLabel(action: TodoAction): string | undefined {
+    const key = this.keysFor(action)[0];
+
+    return key === undefined ? undefined : formatKeyLabel(key);
+  }
+
+  private navigationHints(label: string): string {
+    const up = this.keyLabel("up");
+    const down = this.keyLabel("down");
+    if (up && down) return `${up === "Up" && down === "Down" ? "↑↓" : `${up}/${down}`} ${label}`;
+
+    return [
+      up ? `${up} ${label} up` : `${label} up unavailable`,
+      down ? `${down} ${label} down` : `${label} down unavailable`
+    ].join(" · ");
+  }
+
+  private keyHint(action: TodoAction, label: string): string {
+    const key = this.keyLabel(action);
+
+    return key ? `${key} ${label}` : `${label} unavailable`;
   }
 
   private footerHints(bodyLength: number, capacity: number): string[] {
     const hints = this.detail
-      ? [
-          `${this.keyHint("tui.select.up")}/${this.keyHint("tui.select.down")} scroll`,
-          `${this.keyHint("tui.select.cancel")} back`
-        ]
+      ? [this.navigationHints("scroll"), this.keyHint("cancel", "back")]
       : [
-          `${this.keyHint("tui.select.up")}/${this.keyHint("tui.select.down")} select`,
-          `${this.keyHint("tui.select.confirm")} details`,
-          `${this.keyHint("tui.select.cancel")} close`
+          this.navigationHints("select"),
+          this.keyHint("confirm", "details"),
+          this.keyHint("cancel", "close")
         ];
-    if (bodyLength > capacity)
-      hints.splice(1, 0, `${this.pageKeys(-1).join("/")}/${this.pageKeys(1).join("/")} page`);
+
+    if (bodyLength > capacity) {
+      const up = this.keyLabel("pageUp");
+      const down = this.keyLabel("pageDown");
+      hints.push(
+        up && down
+          ? `${up}/${down} page`
+          : [
+              up ? `${up} page up` : "page up unavailable",
+              down ? `${down} page down` : "page down unavailable"
+            ].join(" · ")
+      );
+    }
 
     return hints;
   }
 
   handleInput(data: string): void {
-    const keys = this.options.keybindings;
-
-    if (
-      keys
-        .getKeys("tui.select.cancel")
-        .filter((key) => key !== "ctrl+c")
-        .some((key) => matchesKey(data, key))
-    ) {
+    if (this.matchesAction(data, "cancel")) {
       if (this.detail) {
         this.detail = false;
         this.scroll = 0;
@@ -305,7 +435,7 @@ export class TodosView implements Component {
       return;
     }
 
-    if (!this.detail && keys.matches(data, "tui.select.confirm") && this.entries[this.selected]) {
+    if (!this.detail && this.matchesAction(data, "confirm") && this.entries[this.selected]) {
       this.detail = true;
       this.scroll = 0;
     } else {
@@ -314,7 +444,7 @@ export class TodosView implements Component {
       if (this.detail)
         this.scroll = Math.max(
           0,
-          Math.min(this.scroll + delta, this.bodyLength - this.layout().capacity)
+          Math.min(this.scroll + delta, this.bodyLength - this.viewportCapacity)
         );
       else this.selected = Math.max(0, Math.min(this.entries.length - 1, this.selected + delta));
     }
@@ -323,31 +453,13 @@ export class TodosView implements Component {
   }
 
   private navigationDelta(data: string): number {
-    const keys = this.options.keybindings;
-    if (keys.matches(data, "tui.select.up")) return -1;
-    if (keys.matches(data, "tui.select.down")) return 1;
-    const page = Math.max(1, this.layout().capacity - 1);
-    if (this.pageKeys(-1).some((key) => matchesKey(data, key))) return -page;
-    if (this.pageKeys(1).some((key) => matchesKey(data, key))) return page;
+    if (this.matchesAction(data, "up")) return -1;
+    if (this.matchesAction(data, "down")) return 1;
+    const page = Math.max(1, this.viewportCapacity - 1);
+    if (this.matchesAction(data, "pageUp")) return -page;
+    if (this.matchesAction(data, "pageDown")) return page;
 
     return 0;
-  }
-
-  private pageKeys(direction: -1 | 1) {
-    const suffix = direction === -1 ? "pageUp" : "pageDown";
-
-    return this.options.keybindings.getKeys(`tui.select.${suffix}`);
-  }
-
-  private keyHint(
-    action: "tui.select.up" | "tui.select.down" | "tui.select.cancel" | "tui.select.confirm"
-  ) {
-    return (
-      this.options.keybindings
-        .getKeys(action)
-        .filter((key) => key !== "ctrl+c")
-        .join("/") || "unbound"
-    );
   }
 
   invalidate(): void {

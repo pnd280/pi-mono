@@ -66,7 +66,7 @@ describe("todo overlay", () => {
     assert.ok(factory);
     const component = factory({ requestRender: () => (renderRequests += 1) }, theme);
     const renderedWidget = component.render(80).join("\n");
-    assert.match(renderedWidget, /Todos \(0\/1 completed\)/u);
+    assert.match(renderedWidget, /Tasks \(0\/1 completed\)/u);
     assert.match(renderedWidget, /Visible/u);
 
     overlay.update();
@@ -323,7 +323,7 @@ describe("todo overlay", () => {
       80
     );
 
-    assert.match(lines.join("\n"), /Todos \(0\/1 completed\)/u);
+    assert.match(lines.join("\n"), /Tasks \(0\/1 completed\)/u);
     assert.match(lines.join("\n"), /Subject spoof \(working now\)/u);
     assert.equal(lines.join("\n").includes("\x1b"), false);
 

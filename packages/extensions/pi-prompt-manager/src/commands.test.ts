@@ -6,9 +6,9 @@ import { managerFixture } from "./test-fixture.ts";
 it("accepts only canonical positive safe integer indices and literal add text", () => {
   for (const index of ["0", "01", "-1", "+1", "1.0", "1e2", "9007199254740992", "1 trailing", ""])
     expect(parseCommand(`drafts delete ${index}`)).toEqual({ kind: "invalid" });
-  expect(parseCommand("drafts restore-and-remove 23")).toEqual({
+  expect(parseCommand("drafts restore-and-delete 23")).toEqual({
     kind: "numbered",
-    action: "restore-and-remove",
+    action: "restore-and-delete",
     index: 23
   });
   expect(parseCommand(' drafts add  "hello" \\n $HOME --flag\n  rest  ')).toEqual({
@@ -19,7 +19,7 @@ it("accepts only canonical positive safe integer indices and literal add text", 
   expect(completions("drafts ")?.length).toBeGreaterThan(0);
   expect(completions("drafts res")?.map((item) => item.value)).toEqual([
     "drafts restore",
-    "drafts restore-and-remove"
+    "drafts restore-and-delete"
   ]);
 });
 

@@ -54,3 +54,40 @@ export const canonicalKeySchema = z
 export function canonicalKey(value: unknown): KeyId | undefined {
   return canonicalKeySchema.safeParse(value).data;
 }
+
+export function formatKeyLabel(key: string): string {
+  return key
+    .split("+")
+    .map((part) => {
+      if (part === "escape") return "Esc";
+      if (part === "delete") return "Del";
+
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join("+");
+}
+
+export type KeybindingCandidate<Action extends string = string> = {
+  action: Action;
+  keys: readonly string[];
+  exclude?: (key: KeyId) => boolean;
+};
+
+/** Claim alternatives in order so dispatch and user-facing hints share precedence. */
+export function resolveKeybindings<Action extends string>(
+  candidates: readonly KeybindingCandidate<Action>[]
+): Array<{ action: Action; key: KeyId }> {
+  const occupied = new Set<KeyId>();
+  const bindings: Array<{ action: Action; key: KeyId }> = [];
+
+  for (const candidate of candidates) {
+    for (const value of candidate.keys) {
+      const key = canonicalKey(value);
+      if (!key || occupied.has(key) || candidate.exclude?.(key)) continue;
+      occupied.add(key);
+      bindings.push({ action: candidate.action, key });
+    }
+  }
+
+  return bindings;
+}

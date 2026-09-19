@@ -57,7 +57,7 @@ const parametersSchema = z.object({
   properties: z.object({ action: z.object({ type: z.literal("string") }) })
 });
 
-const TOOL_TITLE = "Todo";
+const TOOL_TITLE = "Tasks";
 
 const actionVerbs = {
   create: { action: "Create", pending: "Creating", complete: "Created" },
@@ -128,7 +128,7 @@ function changeSummary(args: NonNullable<ReturnType<typeof parseArgs>>): string 
   if (args.status !== undefined) changes.push(`status → ${STATUS_TEXT[args.status]}`);
   if (args.subject !== undefined) changes.push("subject");
   if (args.description !== undefined) changes.push("description");
-  if (args.inProgressLabel !== undefined) changes.push("in progress label");
+  if (args.inProgressLabel !== undefined) changes.push("activity");
   if (args.owner !== undefined) changes.push("owner");
   if (args.parentId !== undefined)
     changes.push(args.parentId === null ? "detached" : `parent → #${args.parentId}`);
@@ -200,21 +200,45 @@ function invocation(args: unknown, result?: AgentToolResult<unknown>): Invocatio
   }
 }
 
-/** Dim the status brackets the reducer writes into list and detail results. */
+const TASK_FIELD_LABELS = {
+  inProgressLabel: "Activity",
+  blockedBy: "Blocked by",
+  parent: "Parent",
+  children: "Children",
+  description: "Description",
+  owner: "Owner",
+  blocks: "Blocks",
+  path: "Path"
+} as const;
+
+function presentResultText(text: string): string {
+  return text
+    .replace(
+      /\[(pending|in_progress|completed|deleted)\]/g,
+      (_match, status: string) => `[${status.replace("_", " ")}]`
+    )
+    .replace(
+      /\b(inProgressLabel|blockedBy|parent|children|description|owner|blocks|path):/g,
+      (_match, field: keyof typeof TASK_FIELD_LABELS) => `${TASK_FIELD_LABELS[field]}:`
+    );
+}
+
+/** Present task fields with the same friendly labels used by the task browser. */
 function textParts(text: string, _args: unknown, context: ResultTextContext): ResultTextPart[] {
   if (context.isError) return [{ kind: "error", text }];
+  const display = presentResultText(text);
   const parts: ResultTextPart[] = [];
   let index = 0;
 
-  for (const match of text.matchAll(/\[(pending|in_progress|completed|deleted)\]/g)) {
+  for (const match of display.matchAll(/\[(pending|in progress|completed|deleted)\]/g)) {
     const start = match.index;
-    if (start > index) parts.push({ kind: "output", text: text.slice(index, start) });
+    if (start > index) parts.push({ kind: "output", text: display.slice(index, start) });
     parts.push({ kind: "annotation", text: match[0] });
     index = start + match[0].length;
   }
 
-  if (index === 0) return [{ kind: "output", text }];
-  if (index < text.length) parts.push({ kind: "output", text: text.slice(index) });
+  if (index === 0) return [{ kind: "output", text: display }];
+  if (index < display.length) parts.push({ kind: "output", text: display.slice(index) });
 
   return parts;
 }
@@ -241,7 +265,7 @@ function progressSummary(tasks: readonly { status: TaskStatus }[]): string {
 export const todoDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-todo:todo",
   family: "invocation",
-  groupTitle: "Todo",
+  groupTitle: "Tasks",
   supports: (args) => parseArgs(args) !== undefined,
   headingVerbs(args) {
     const action = parseArgs(args)?.action;

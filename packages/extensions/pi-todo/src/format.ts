@@ -61,7 +61,7 @@ function renderCommandTask(entry: TaskHierarchyEntry): string {
       : "";
   const blockedBy =
     task.blockedBy !== undefined && task.blockedBy.length > 0
-      ? `    blockedBy: ${task.blockedBy.map((id) => `#${id}`).join(",")}`
+      ? `    Blocked by: ${task.blockedBy.map((id) => `#${id}`).join(",")}`
       : "";
   const indentation = "  ".repeat(entry.depth);
 

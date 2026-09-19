@@ -58,7 +58,7 @@ export default function promptManager(pi: ExtensionAPI): void {
           {
             read: (collection, signal) => repository.read(collection, signal),
             copy: (target) => current.copy(target),
-            remove: (collection, target) => current.remove(collection, target),
+            remove: (collection, target) => current.deleteOccurrence(collection, target),
             notify: (message, severity) => current.notify(message, severity)
           },
           request

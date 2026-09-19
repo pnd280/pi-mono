@@ -4,7 +4,7 @@ export const ERR_REQUIRES_INTERACTIVE = "/todos requires interactive mode";
 
 export const ERR_TODOS_USAGE = "Usage: /todos [collapse|expand|toggle]";
 
-export const MSG_NO_TODOS = "No todos yet. Ask the agent to add some!";
+export const MSG_NO_TODOS = "No tasks yet. Ask the agent to add some!";
 
 export const MAX_WIDGET_LINES = 12;
 

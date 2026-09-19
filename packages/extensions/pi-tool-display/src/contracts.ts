@@ -189,7 +189,7 @@ export type ToolDisplayAdapter = {
   exploration?(args: unknown, result?: AgentToolResult<unknown>): ExplorationItem[] | undefined;
   /**
    * Label collapsed groups that use a literal filter scope with a custom heading,
-   * such as "Todo". Exploration groups leave it undefined and name their scope.
+   * such as "Tasks". Exploration groups leave it undefined and name their scope.
    */
   groupTitle?: string;
   /**

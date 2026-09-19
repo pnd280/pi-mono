@@ -200,7 +200,7 @@ function addDraft(current: Snapshot, incoming: StoredEntry): Document {
 
 function draftCapacityError() {
   return new PromptError(
-    "Draft capacity reached (1,000 entries / 16 MiB). Remove drafts before saving more; existing drafts were not changed."
+    "Draft capacity reached (1,000 entries / 16 MiB). Delete drafts before saving more; existing drafts were not changed."
   );
 }
 

@@ -15,7 +15,7 @@ import {
   type Repository
 } from "./model.ts";
 
-export type RestorationRequest = { target: Occurrence; remove: boolean };
+export type RestorationRequest = { target: Occurrence; deleteAfterRestore: boolean };
 
 export type ViewRequest = {
   collection: Collection;
@@ -145,7 +145,7 @@ export class PromptManager {
         signal: controller.signal,
         afterClose: async (restoration) => {
           if (!restoration || controller.signal.aborted || this.ui !== controller) return;
-          if (restoration.remove) await this.restoreAndRemove(restoration.target);
+          if (restoration.deleteAfterRestore) await this.restoreAndDelete(restoration.target);
           else this.restore(restoration.target);
         }
       });
@@ -278,7 +278,7 @@ export class PromptManager {
     }
   }
 
-  async remove(collection: Collection, target: Occurrence): Promise<MutationResult> {
+  async deleteOccurrence(collection: Collection, target: Occurrence): Promise<MutationResult> {
     if (!this.isActive()) return { status: "failed", message: "Session expired." };
     let result: MutationResult;
 
@@ -292,17 +292,17 @@ export class PromptManager {
       result = { status: "failed", message: errorMessage(error) };
     }
 
-    this.reportMutation(result, "Occurrence removed.");
+    this.reportMutation(result, "Entry deleted.");
 
     return result;
   }
 
-  async restoreAndRemove(target: Occurrence): Promise<boolean> {
+  async restoreAndDelete(target: Occurrence): Promise<boolean> {
     if (!this.restore(target)) return false;
-    const result = await this.remove("drafts", target);
+    const result = await this.deleteOccurrence("drafts", target);
 
     if (result.status === "failed")
-      this.notify("Text was restored; removal failed. The editor was not rolled back.", "warning");
+      this.notify("Text was restored; deletion failed. The editor was not rolled back.", "warning");
 
     return true;
   }
@@ -339,11 +339,11 @@ export class PromptManager {
       case "restore":
         this.restore(target);
         break;
-      case "restore-and-remove":
-        await this.restoreAndRemove(target);
+      case "restore-and-delete":
+        await this.restoreAndDelete(target);
         break;
       case "delete":
-        await this.remove("drafts", target);
+        await this.deleteOccurrence("drafts", target);
         break;
     }
   }

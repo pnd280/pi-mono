@@ -53,7 +53,7 @@ it("settles session/agent cancellation and host failures with exactly one suppre
 it("routes widget actions, usage errors and non-TUI notifications without opening a view", async () => {
   const controller = new TodoController();
   controller.apply("create", { subject: "Root" });
-  controller.apply("create", { subject: "Child", parentId: 1 });
+  controller.apply("create", { subject: "Child", parentId: 1, blockedBy: [1] });
   const widget = new TodoOverlay(controller),
     host = new TodosCustomViewHost(widget);
   const notify = vi.fn(),
@@ -72,6 +72,7 @@ it("routes widget actions, usage errors and non-TUI notifications without openin
   const options = { widgetStateHost: widget, customViewHost: host, writeOutput };
   await runTodosCommand("", ctx, controller, options);
   expect(notify.mock.calls[0]?.[0]).toContain("#2 Child");
+  expect(notify.mock.calls[0]?.[0]).toContain("Blocked by: #1");
   await runTodosCommand("collapse", ctx, controller, options);
   expect(notify).toHaveBeenLastCalledWith("/todos requires interactive mode", "error");
   await runTodosCommand("nope", ctx, controller, options);

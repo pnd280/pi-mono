@@ -36,7 +36,7 @@ Choose additional checks for the changed behavior:
 
 #### Presentation, preview, or responsive mounting
 
-To compare tabs with Pi's `/model` view, append `--models prompt-fixture/offline` to the launcher command to show its all/scoped row.
+To compare tabs with Pi's `/model` view, append `--models prompt-fixture/offline` to the launcher command. This enables the model view's all/scoped row.
 
 - At wide, 80×24, and 40×10 sizes, compare tabs with `/model` and inspect the [presentation contract](controls.md#presentation). Select short, long, and multiline prompts to check stable list height, age alignment, truncation, and footer wrapping.
 - Resize between 19 terminal rows (12-row inline view) and 18 rows (13-row overlay) in both directions. The query, search cursor, selection, and preview scroll must remain unchanged. Deletion confirmation must cancel. At 80×24, the inline view uses 15 rows.
@@ -46,14 +46,14 @@ To compare tabs with Pi's `/model` view, append `--models prompt-fixture/offline
 
 #### Commands, keys, or editor integration
 
-- Exercise typed `/prompts save`, literal `drafts add`, invalid indices, numbered inspection, and restore-and-remove. Native editor history must remain unchanged.
+- Exercise typed `/prompts save`, literal `/prompts drafts add <text>`, invalid indices, numbered inspection, and `/prompts drafts restore-and-delete <n>`. Native editor history must remain unchanged.
 - Save a multiline bracketed paste. Confirm that storage contains expanded text rather than visual paste markers.
 - In the fixture's `agent/keybindings.json`, rebind confirm, copy, cancel, and navigation to keys used by fixed controls. Reload and check [action precedence and hints](controls.md#keys-and-precedence).
 - Bind cancel only to Ctrl+C and reload. The browser must refuse to open without adding an Escape override. Repeat with cancel bound only to a key used by copy.
 
 #### Capture, reload, or session isolation
 
-- Submit `/raw-template` and compare History with the [capture contract](../README.md#capture-and-storage): it must retain the command before expansion. Submit steering and follow-up input, then withdraw it; the capture must remain.
+- Submit `/raw-template` and compare History with the [capture contract](../README.md#capture-and-storage). History must retain the command before expansion. Submit steering and follow-up input, then withdraw it. The capture must remain.
 - Reload repeatedly and retry `/prompts` and both launch shortcuts without replaying existing history.
 - Start concurrent fixture sessions in the same real working directory, including through a symlink alias. Check that they share collections and that a different working directory stays isolated.
 - Switch collections and check remembered queries and selection.
@@ -98,6 +98,6 @@ When changing collection processing, cooperative search, or preview preparation,
 node --experimental-transform-types packages/extensions/pi-prompt-manager/validation/measure-interaction.ts
 ```
 
-The script measures elapsed time for collection decoding and validation, item preparation, single- and multi-term search, preview layout, and near-capacity history updates. Timings include worker startup when needed and message transfer, but exclude fixture construction and filesystem I/O.
+The script measures elapsed time for collection decoding and validation, item preparation, single- and multi-term search, preview layout, and near-capacity history updates. Timings include message transfer and any worker startup, but exclude fixture construction and filesystem I/O.
 
-It also reports the maximum sampled event-loop delay without printing source text. There are no pass or fail thresholds. Also check terminal responsiveness.
+It also reports the maximum sampled event-loop delay without printing source text. There are no pass or fail thresholds. Check terminal responsiveness too.

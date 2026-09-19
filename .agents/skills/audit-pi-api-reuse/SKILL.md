@@ -1,14 +1,14 @@
 ---
-name: pi-api-reuse
+name: audit-pi-api-reuse
 description: Audit local modules, helpers, types, fixtures, and TUI code for duplication of public APIs exported by installed Pi packages. Use when checking Pi API reuse or planning a reuse-focused refactor.
 disable-model-invocation: true
 ---
 
-# Pi API reuse
+# Pi API reuse audit
 
 Identify local code that can reuse Pi's public APIs to reduce maintenance without losing consumer-specific behavior.
 
-Use `/skill:pi-api-reuse` with optional package or path arguments. Default to a read-only audit of the supplied scope, or the workspace when no narrower scope is given. Apply refactors only when the user requests implementation; an existing implementation request does not need another approval.
+Use `/skill:audit-pi-api-reuse` with optional package or path arguments. Default to a read-only audit of the supplied scope, or the workspace when no narrower scope is given. Apply refactors only when the user requests implementation. An existing implementation request does not need another approval.
 
 ## Establish scope and references
 
@@ -17,7 +17,7 @@ Use `/skill:pi-api-reuse` with optional package or path arguments. Default to a 
 3. Use the [Pi API references](../../../docs/pi-docs.md) to read the relevant installed documentation and examples. Inspect declarations and implementations when documentation does not settle the contract. Do not modify installed Pi packages.
 4. Inventory local utilities, shared libraries, extension logic, TUI components, fixtures, validation providers, and handwritten API types. Follow their consumers and existing tests before deciding that code is redundant.
 
-When collaboration tools are available, independent areas can be audited in parallel. Require reviewers to supply exact locations, import paths, behavioral differences, and evidence; reconcile findings against the same installed versions.
+When collaboration tools are available, independent areas can be audited in parallel. Require reviewers to supply exact locations, import paths, behavioral differences, and evidence. Compare findings against the same installed versions.
 
 ## Find candidates
 
@@ -43,14 +43,14 @@ For each candidate, establish the exact package specifier and exported symbol.
 
 ## Compare behavior
 
-Check only the dimensions relevant to the candidate, but make the comparison explicit:
+Compare the relevant behavior:
 
 - **Inputs and outputs:** accepted content forms, separators, empty values, trimming, sanitization, ordering, truncation, and return types.
 - **Identity and mutation:** caller-supplied IDs, model identity, timestamps, borrowed arguments, cloning, and fresh versus shared nested objects. Compare constructors and streaming paths separately.
-- **Lifecycle:** start/delta/end ordering, partial versus final results, repeat requests, context-derived scenarios, cancellation, error classification, disposal, and restoration.
-- **Dependencies and side effects:** injected versus global theme/keybindings, environment overrides, filesystem access, clipboard transports, process execution, credentials, and network behavior.
-- **Resource limits:** bounded input, retained output, head-and-tail policies, UTF-8/grapheme safety, cooperative yielding, and cancellation during expensive work.
-- **TUI integration:** standalone rendering versus layout-engine participation, viewport clipping, controlled selection/scrolling, async preparation, mouse coordinates, image ownership, and invalidation.
+- **Lifecycle:** ordering of start, delta, and end events, partial versus final results, repeat requests, context-derived scenarios, cancellation, error classification, disposal, and restoration.
+- **Dependencies and side effects:** injected versus global themes and keybindings, environment overrides, filesystem access, clipboard transports, process execution, credentials, and network behavior.
+- **Resource limits:** bounded input, retained output, head-and-tail policies, UTF-8 and grapheme safety, cooperative yielding, and cancellation during expensive work.
+- **TUI integration:** standalone rendering versus layout-engine participation, viewport clipping, controlled selection and scrolling, asynchronous preparation, mouse coordinates, image ownership, and invalidation.
 - **Types:** whether the local shape represents the same upstream contract or deliberately narrows it. Prefer the exported type, or an intentional derivation, over a separately maintained mirror.
 
 Use small offline probes when source inspection leaves a material uncertainty. Exercise the relevant failure or cancellation path, not just success. Use disposable state for checks that write data and do not inherit real credentials. Do not build a new harness or repeat upstream test suites for a straightforward substitution.
@@ -62,7 +62,7 @@ Assign each investigated candidate one classification:
 - **Direct substitution:** a verified public API preserves the required contract and removes duplication without compensating complexity.
 - **Conditional refactor:** a public API exists, but adoption changes behavior, policy, integration, or dependencies. Name the exact condition or decision required.
 - **Keep local:** the code already composes Pi appropriately, adds required behavior, or has no suitable public replacement.
-- **Unresolved:** evidence is insufficient. Name the missing check; do not present the replacement as established.
+- **Unresolved:** evidence is insufficient. Name the missing check. Do not present the replacement as established.
 
 Prioritize direct substitutions. Recommend a conditional refactor only when its concrete benefit justifies the migration and remaining adaptation. A larger module is not automatically a larger opportunity. Do not invent findings to satisfy a count.
 
@@ -74,21 +74,21 @@ Report:
 4. Checks actually performed and unresolved limitations. Separate verified results from proposed verification.
 5. A focused recommendation for what to refactor now and what to defer.
 
-## Lessons from the Pi 0.85.1 audit
+## Pi 0.85.1 examples
 
-These are examples to reverify against the installed version, not a permanent allowlist or blacklist.
+These examples apply to Pi 0.85.1. Recheck them against the installed version before recommending a substitution.
 
-- `contentText()` from `@earendil-works/pi-ai` replaced string-or-block extraction and text-block filter/map/join sequences. Preserve surrounding trimming and sanitization, and verify the separator.
-- `fauxToolCall(name, args, { id })` replaced an equivalent fixture helper. Updating consumers directly retained explicit IDs and removed the helper without an alias.
+- `contentText()` from `@earendil-works/pi-ai` replaced string-or-block extraction and sequences that filtered text blocks and joined their text. Preserve surrounding trimming and sanitization, and verify the separator.
+- `fauxToolCall(name, args, { id })` replaced an equivalent fixture helper while retaining explicit IDs.
 - `ToolRenderResultOptions` from `@earendil-works/pi-coding-agent` replaced an inline `{ expanded: boolean; isPartial: boolean }` contract. API reuse includes types, not just runtime functions.
-- `fauxAssistantMessage()` shared its usage object. Normal faux streaming rewrote model identity and produced independent usage, while a factory-thrown abort became an `error`; the factory-error path used shared defaults. Constructor behavior alone did not establish stream behavior or cancellation parity.
+- `fauxAssistantMessage()` shared its usage object. Normal faux streaming rewrote model identity and produced independent usage. A factory-thrown abort became an `error`, and the factory-error path used shared defaults. Constructor behavior alone did not establish stream behavior or cancellation parity.
 - `getPackageDir()` honored `PI_PACKAGE_DIR`, unlike explicit installed-dependency discovery. A simpler implementation would have changed the isolated launcher's contract.
-- `formatKeyText()` and `keyDisplayText()` were not public coding-agent exports. `getGraphemeSegmenter()` was not a TUI root export. Public key-hint helpers also introduced global theme/keybinding dependencies and different presentation.
-- `ScrollView.render()` did not itself crop to the viewport; clipping relied on layout integration. It was not a direct replacement for a controlled, asynchronously prepared preview.
-- Windowed selection already delegated to `SelectList`. Bounded output/diffs, cooperative text layout, native-only clipboard behavior, terminal sanitization, and responsive UI lifecycle handling added contracts that similarly named Pi APIs did not preserve.
+- `formatKeyText()` and `keyDisplayText()` were not public coding-agent exports. `getGraphemeSegmenter()` was not a TUI root export. Public key-hint helpers also introduced global theme and keybinding dependencies and different presentation.
+- `ScrollView.render()` did not itself crop to the viewport. Clipping relied on layout integration. It was not a direct replacement for a controlled, asynchronously prepared preview.
+- Windowed selection already delegated to `SelectList`. Bounded output and diffs, cooperative text layout, native-only clipboard behavior, terminal sanitization, and responsive UI lifecycle handling added contracts that similarly named Pi APIs did not preserve.
 
 ## Implement requested refactors
 
-When implementation is requested, apply the established in-scope substitutions. Remove superseded helpers and type mirrors, update all affected consumers, and preserve explicit IDs, data ownership, and surrounding policy. Do not retain compatibility aliases unless requested or silently include conditional redesigns.
+When implementation is requested, apply the established in-scope substitutions. Remove superseded helpers and type mirrors, update all affected consumers, and preserve explicit IDs, data ownership, and surrounding policy. Do not retain compatibility aliases unless requested. Keep conditional redesigns outside the refactor unless the user requests them.
 
 Update documentation when guidance becomes inaccurate. Follow the [verification workflow](../../../docs/agents/verification.md) and [testing conventions](../../../docs/agents/testing.md).

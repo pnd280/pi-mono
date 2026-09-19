@@ -74,7 +74,7 @@ export default function piTodo(pi: TodoExtensionAPI): void {
         setWidget: (key, content, options) => ctx.ui.setWidget(key, content, options),
         setActivity: (text) => activity.setText(text)
       });
-      widget.setCollapsed(config.widgetCollapsed);
+      widget.setCollapsed(config.collapseWidgetByDefault);
     } else {
       views.shutdown();
       widget.dispose();

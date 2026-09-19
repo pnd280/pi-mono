@@ -74,10 +74,10 @@ export async function openBrowser(
   if (request.signal.aborted) return;
   let restoration: RestorationRequest | undefined;
 
-  const requestRestoration = (item: PromptItem, remove: boolean) => {
+  const requestRestoration = (item: PromptItem, deleteAfterRestore: boolean) => {
     try {
       assertRestorable(item.occurrence.source.text);
-      restoration = { target: item.occurrence, remove };
+      restoration = { target: item.occurrence, deleteAfterRestore };
 
       return true;
     } catch (error) {
@@ -103,16 +103,16 @@ export async function openBrowser(
       ...(collection === "drafts"
         ? {
             alternate: {
-              label: "restore/remove",
+              label: "restore then delete",
               run: (item: PromptItem) => requestRestoration(item, true)
             }
           }
         : {}),
       copy: (item) => ports.copy(item.occurrence),
       remove: {
-        label: "remove",
-        confirmation: "Delete again to remove (1.5s)",
-        pending: "Removing occurrence…",
+        label: "delete",
+        confirmation: "Delete again to confirm (1.5s)",
+        pending: "Deleting entry…",
         durationMs: 1500,
         enabled: (item) => item.removable,
         run: async (item, signal) => {

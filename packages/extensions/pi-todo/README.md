@@ -39,12 +39,12 @@ Set the literal `ext.pi-todo` key in Pi's global `settings.json` or the current 
 ```json
 {
   "ext.pi-todo": {
-    "widgetCollapsed": false
+    "collapseWidgetByDefault": false
   }
 }
 ```
 
-`widgetCollapsed` defaults to `false`. A trusted project field overrides the global field. An invalid section is ignored. Settings reload on session start. Widget commands do not write settings.
+`collapseWidgetByDefault` defaults to `false`. A trusted project field overrides the global field. An invalid section is ignored. Settings reload on session start. Widget commands do not write settings.
 
 Working-message ordering uses the separate [`workingMessage.order` setting](../../libs/src/working-message/README.md#persistence).
 

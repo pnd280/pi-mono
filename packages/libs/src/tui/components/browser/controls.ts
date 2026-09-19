@@ -6,7 +6,11 @@ import {
   type KeybindingsManager
 } from "@earendil-works/pi-tui";
 
-import { canonicalKey } from "../../keybindings/index.ts";
+import {
+  formatKeyLabel,
+  resolveKeybindings,
+  type KeybindingCandidate
+} from "../../keybindings/index.ts";
 
 export type BrowserAction =
   | "copy"
@@ -47,38 +51,19 @@ export type BrowserKeys = Pick<KeybindingsManager, "getKeys">;
 
 type Binding = { action: BoundAction; key: KeyId };
 
-function keyLabel(key: string): string {
-  return key
-    .split("+")
-    .map((part) => {
-      if (part === "escape") return "Esc";
-      if (part === "delete") return "Del";
-
-      return part.charAt(0).toUpperCase() + part.slice(1);
-    })
-    .join("+");
-}
-
 /** Dispatch and hints resolve the same ordered bindings, including live keybinding changes. */
 export class BrowserControls {
   constructor(private readonly keys: BrowserKeys) {}
 
   private bindings(): Binding[] {
-    const occupied = new Set<KeyId>();
-    const bindings: Binding[] = [];
+    const candidates: KeybindingCandidate<BoundAction>[] = configured.map(([action, id]) => ({
+      action,
+      keys: this.keys.getKeys(id),
+      ...(action === "cancel" ? { exclude: (key: KeyId) => key === "ctrl+c" } : {})
+    }));
+    candidates.push(...fixed.map(([action, key]) => ({ action, keys: [key] })));
 
-    const claim = (action: BoundAction, candidate: KeyId) => {
-      const key = canonicalKey(candidate);
-      if (!key || occupied.has(key) || (action === "cancel" && key === "ctrl+c")) return;
-      occupied.add(key);
-      bindings.push({ action, key });
-    };
-
-    for (const [action, id] of configured)
-      for (const key of this.keys.getKeys(id)) claim(action, key);
-    for (const [action, key] of fixed) claim(action, key);
-
-    return bindings;
+    return resolveKeybindings(candidates);
   }
 
   actionFor(data: string): BrowserAction {
@@ -93,7 +78,7 @@ export class BrowserControls {
   key(action: BoundAction): string | undefined {
     const binding = this.bindings().find((candidate) => candidate.action === action);
 
-    return binding ? keyLabel(binding.key) : undefined;
+    return binding ? formatKeyLabel(binding.key) : undefined;
   }
 
   hint(action: BoundAction, label: string): string | undefined {

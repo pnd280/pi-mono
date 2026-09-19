@@ -14,7 +14,7 @@ process.exitCode = await runTerminalLauncher({
     await writeFile(
       join(directory, "agent", "settings.json"),
       JSON.stringify({
-        "ext.pi-todo": { widgetCollapsed: true },
+        "ext.pi-todo": { collapseWidgetByDefault: true },
         workingMessage: {
           order: ["pi-todo.activity", "fixture.status", "fixture.inactive", "unavailable.activity"]
         },

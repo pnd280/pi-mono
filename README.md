@@ -28,6 +28,7 @@ The extension appears in Pi's startup list. Repeat `-e` for each additional exte
 - [pi-fff-guard](packages/extensions/pi-fff-guard/README.md): block FFF searches targeting Git-ignored or missing explicit paths.
 - [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): private prompt history and saved drafts, scoped to the working directory.
 - [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks with progress widget and task browser.
+- [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): live elapsed runtime, bash-call counts, and file-change summaries kept outside model context.
 
 ## Development
 

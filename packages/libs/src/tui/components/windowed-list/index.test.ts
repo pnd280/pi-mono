@@ -1,7 +1,10 @@
-import { visibleWidth } from "@earendil-works/pi-tui";
-import { expect, it, vi } from "vite-plus/test";
+import { getSettingsListTheme, initTheme } from "@earendil-works/pi-coding-agent";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { beforeAll, expect, it, vi } from "vite-plus/test";
 
 import { renderWindowedList } from "./index.ts";
+
+beforeAll(() => initTheme("dark", false));
 
 const plain = (text: string) => text;
 const theme = {
@@ -28,7 +31,9 @@ it("formats only a bounded window and keeps externally selected items visible", 
   });
   expect(result).toMatchObject({ start: 498, count: 5 });
   expect(format).toHaveBeenCalledWith(items.slice(498, 503));
-  expect(result.lines.join("\n")).toContain("[→ item 500 界]");
+  expect(result.lines.join("\n")).toContain(
+    `[${stripTerminalSequences(getSettingsListTheme().cursor)}item 500 界]`
+  );
   expect(result.lines).toHaveLength(5);
   expect(result.lines.every((line) => visibleWidth(line) <= 30)).toBe(true);
   expect(items).toHaveLength(1000);

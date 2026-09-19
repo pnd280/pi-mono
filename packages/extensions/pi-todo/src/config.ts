@@ -5,7 +5,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 const sectionSchema = z.object({
-  widgetCollapsed: z.boolean().optional()
+  collapseWidgetByDefault: z.boolean().optional()
 });
 const settingsSchema = z.object({ "ext.pi-todo": sectionSchema.optional() });
 
@@ -33,6 +33,7 @@ export function loadTodoConfig(
   const project = projectTrusted ? readSection(join(cwd, ".pi", "settings.json")) : {};
 
   return {
-    widgetCollapsed: project.widgetCollapsed ?? global.widgetCollapsed ?? false
+    collapseWidgetByDefault:
+      project.collapseWidgetByDefault ?? global.collapseWidgetByDefault ?? false
   };
 }

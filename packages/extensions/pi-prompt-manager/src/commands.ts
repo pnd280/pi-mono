@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { Collection } from "./model.ts";
 
-const numberedActionSchema = z.enum(["show", "copy", "restore", "restore-and-remove", "delete"]);
+const numberedActionSchema = z.enum(["show", "copy", "restore", "restore-and-delete", "delete"]);
 const numberedCommandSchema = z.tuple([
   z.literal("drafts"),
   numberedActionSchema,
@@ -23,7 +23,7 @@ export type Command =
   | { kind: "invalid" };
 
 export const usage =
-  "Usage: /prompts [history|save|drafts [list|add <text>|show <n>|copy <n>|restore <n>|restore-and-remove <n>|delete <n>]]";
+  "Usage: /prompts [history|save|drafts [list|add <text>|show <n>|copy <n>|restore <n>|restore-and-delete <n>|delete <n>]]";
 
 export function parseCommand(args: string): Command {
   const value = args.trim();

@@ -161,7 +161,7 @@ function terminalStatus(outcome: Outcome): { suffix: string; color: HeadingColor
     case "failure":
       return { suffix: "failed", color: "error" };
     case "cancelled":
-      return { suffix: "cancelled", color: "warning" };
+      return { suffix: "cancelled", color: "error" };
     case "unavailable":
       return { suffix: "outcome unavailable", color: "muted" };
     case "success":
@@ -246,6 +246,32 @@ function scopeHeading(
   return [...wrapRows(title + suffix, p.width), ...headingContinuation(scope, p, true)];
 }
 
+function explorationVerbs(p: PreparedCard): HeadingVerbs {
+  const source = p.headingVerbs ?? verbs[p.adapter.family];
+
+  const plain = (verb: string) => {
+    const separator = verb.lastIndexOf(" · ");
+
+    return separator < 0 ? verb : verb.slice(separator + 3);
+  };
+
+  return {
+    action: plain(source.action),
+    pending: plain(source.pending),
+    complete: plain(source.complete)
+  };
+}
+
+function groupMemberLabel(p: PreparedCard): string {
+  const actionVerbs = explorationVerbs(p);
+
+  if (isLive(p.call!)) return actionVerbs.pending;
+
+  if (p.outcome === "success") return actionVerbs.complete;
+
+  return actionVerbs.action;
+}
+
 function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: number): string[] {
   const first = group.members[0] === p.call;
   const active = first && group.members.some(isLive);
@@ -259,7 +285,7 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
     const unavailable = outcomes.filter((outcome) => outcome === "unavailable").length;
     const summary = [
       failed ? p.theme.fg("error", `${failed} failed`) : "",
-      cancelled ? p.theme.fg("warning", `${cancelled} cancelled`) : "",
+      cancelled ? p.theme.fg("error", `${cancelled} cancelled`) : "",
       unavailable ? p.theme.fg("muted", `${unavailable} outcome unavailable`) : ""
     ]
       .filter(Boolean)
@@ -306,7 +332,7 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
 
       const terminal = isLive(p.call!) ? undefined : terminalStatus(p.outcome);
       const lifecycle = p.call?.lifecycle;
-      let label: string = entry.label;
+      let label = groupMemberLabel(p);
       let annotation = "";
       if (terminal) label += ` ${terminal.suffix}`;
       else if (lifecycle === "executing") annotation = " (running)";

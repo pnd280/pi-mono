@@ -152,11 +152,6 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
               items: items(),
               scopes,
               initialScope: scope || (preferences.project ? "project" : "global"),
-              note:
-                preferences.warnings.join(" ") ||
-                (projectTrusted
-                  ? "Project order overrides global. Changes apply only on save."
-                  : "Global settings only: this project is not trusted."),
               theme,
               rows: () => tui.terminal.rows,
               requestRender: () => tui.requestRender(),

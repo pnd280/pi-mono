@@ -96,7 +96,7 @@ it("restoration refuses controls or an editor change and never deletes on refusa
   const mutate = vi.fn<Repository["mutate"]>();
   const fixture = managerFixture({ repository: { read: async () => collection(), mutate } });
   expect(
-    await fixture.manager.restoreAndRemove(
+    await fixture.manager.restoreAndDelete(
       collection([entry("unsafe\x1b]52;c;text\x07")]).entries[0]!
     )
   ).toBe(false);
@@ -109,25 +109,25 @@ it("restoration refuses controls or an editor change and never deletes on refusa
   expect(write).not.toHaveBeenCalled();
 });
 
-it("restore-removal failure retains snapshot source and reports deletion failure without rollback", async () => {
+it("restore-then-delete failure retains snapshot source and reports deletion failure without rollback", async () => {
   const current = collection([entry("selected")]);
   const mutate = vi.fn<Repository["mutate"]>(async (): Promise<MutationResult> => ({
     status: "failed",
     message: "target changed"
   }));
   const fixture = managerFixture({ repository: { read: async () => current, mutate } });
-  await fixture.manager.command("drafts restore-and-remove 1");
+  await fixture.manager.command("drafts restore-and-delete 1");
   expect(fixture.getText()).toBe("selected");
   expect(mutate.mock.calls[0]?.slice(0, 2)).toMatchObject([
     "drafts",
     { kind: "delete", target: current.entries[0] }
   ]);
   expect(fixture.notices).toContain(
-    "Text was restored; removal failed. The editor was not rolled back."
+    "Text was restored; deletion failed. The editor was not rolled back."
   );
 });
 
-it.each(["restore", "restore-remove", "cancel", "expired", "unsafe"] as const)(
+it.each(["restore", "restore-delete", "cancel", "expired", "unsafe"] as const)(
   "applies a browser's %s request only after closure and keeps stale callbacks inert",
   async (action) => {
     const closed = deferred<void>();
@@ -140,7 +140,7 @@ it.each(["restore", "restore-remove", "cancel", "expired", "unsafe"] as const)(
       await request.afterClose(
         action === "cancel"
           ? undefined
-          : { target, remove: action === "restore-remove" || action === "unsafe" }
+          : { target, deleteAfterRestore: action === "restore-delete" || action === "unsafe" }
       );
     });
     const fixture = managerFixture({
@@ -153,7 +153,7 @@ it.each(["restore", "restore-remove", "cancel", "expired", "unsafe"] as const)(
     if (action === "expired") await fixture.manager.dispose();
     closed.resolve();
 
-    if (action === "restore-remove") {
+    if (action === "restore-delete") {
       await vi.waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
       expect(fixture.getText()).toBe("selected");
       expect(mutate.mock.calls[0]?.slice(0, 2)).toEqual(["drafts", { kind: "delete", target }]);
@@ -162,13 +162,13 @@ it.each(["restore", "restore-remove", "cancel", "expired", "unsafe"] as const)(
     removal.resolve(committed());
     await opening;
     expect(fixture.getText()).toBe(
-      action === "restore" || action === "restore-remove" ? "selected" : "draft"
+      action === "restore" || action === "restore-delete" ? "selected" : "draft"
     );
-    if (action !== "restore-remove") expect(mutate).not.toHaveBeenCalled();
+    if (action !== "restore-delete") expect(mutate).not.toHaveBeenCalled();
     fixture.setText("new work");
-    await open.mock.calls[0]![0].afterClose({ target, remove: true });
+    await open.mock.calls[0]![0].afterClose({ target, deleteAfterRestore: true });
     expect(fixture.getText()).toBe("new work");
-    expect(mutate).toHaveBeenCalledTimes(action === "restore-remove" ? 1 : 0);
+    expect(mutate).toHaveBeenCalledTimes(action === "restore-delete" ? 1 : 0);
     await fixture.manager.dispose();
   }
 );
@@ -232,7 +232,7 @@ it("reports shared clipboard diagnostics without exposing arbitrary helper error
   }
 });
 
-it("notifies copy and removal results with severity and combined cleanup warnings", async () => {
+it("notifies copy and deletion results with severity and combined cleanup warnings", async () => {
   const copying = deferred<void>();
   const snapshot = collection([entry("source")]);
   const notify = vi.fn();
@@ -258,17 +258,17 @@ it("notifies copy and removal results with severity and combined cleanup warning
     await pending;
     expect(notify).toHaveBeenLastCalledWith("Copied to the native clipboard.", "info");
     notify.mockClear();
-    await fixture.manager.remove("drafts", target);
-    const removalFeedback = "Occurrence removed. Descriptor cleanup warning. Lock cleanup warning.";
+    await fixture.manager.deleteOccurrence("drafts", target);
+    const deletionFeedback = "Entry deleted. Descriptor cleanup warning. Lock cleanup warning.";
     expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith(removalFeedback, "warning");
+    expect(notify).toHaveBeenCalledWith(deletionFeedback, "warning");
 
     notify.mockClear();
     await fixture.manager.command("drafts copy 1");
     await fixture.manager.command("drafts delete 1");
     expect(notify.mock.calls).toEqual([
       ["Copied to the native clipboard.", "info"],
-      [removalFeedback, "warning"]
+      [deletionFeedback, "warning"]
     ]);
     await fixture.manager.dispose();
     notify.mockClear();

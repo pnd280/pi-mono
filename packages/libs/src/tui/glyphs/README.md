@@ -14,4 +14,4 @@ Apply theme styling at the rendering boundary. Keep labels, colors, and other do
 
 ## Validation
 
-Use the [package validation commands](../../../../README.md#validation).
+Use the [package validation commands](../../../README.md#validation).

@@ -1,5 +1,5 @@
-import { initTheme } from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
+import { getSettingsListTheme, initTheme } from "@earendil-works/pi-coding-agent";
+import { stripTerminalSequences, type Component } from "@earendil-works/pi-tui";
 import { expect, it, vi } from "vite-plus/test";
 
 import {
@@ -15,6 +15,7 @@ it.each(["select", "alternate", "cancel", "refuse"] as const)(
   "handles %s across responsive remounts and final editor snapshot restoration",
   async (action) => {
     initTheme("dark", false);
+    const settingsCursor = stripTerminalSequences(getSettingsListTheme().cursor);
     const tui = createTestTui();
     const abort = new AbortController();
     let editor = "original editor";
@@ -86,10 +87,10 @@ it.each(["select", "alternate", "cancel", "refuse"] as const)(
     });
 
     try {
-      await vi.waitFor(() => expect(view?.render(80).join()).toContain("→ "));
+      await vi.waitFor(() => expect(view?.render(80).join()).toContain(settingsCursor));
       view?.handleInput?.("beta");
       await vi.waitFor(() =>
-        expect(view?.render(80).find((line) => line.startsWith("→ "))).toContain("beta")
+        expect(view?.render(80).find((line) => line.startsWith(settingsCursor))).toContain("beta")
       );
 
       for (const rows of [18, 19, 10, 24]) {
@@ -99,7 +100,9 @@ it.each(["select", "alternate", "cancel", "refuse"] as const)(
         previous.render(80);
         await vi.waitFor(() => {
           expect(view).not.toBe(previous);
-          expect(view?.render(80).find((line) => line.startsWith("→ "))).toContain("beta");
+          expect(view?.render(80).find((line) => line.startsWith(settingsCursor))).toContain(
+            "beta"
+          );
         });
         previous.handleInput?.("\r");
         previous.dispose?.();

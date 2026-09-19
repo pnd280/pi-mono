@@ -1,7 +1,13 @@
 import { DynamicBorder, type Theme } from "@earendil-works/pi-coding-agent";
-import { matchesKey, Text, type Component } from "@earendil-works/pi-tui";
+import {
+  matchesKey,
+  Text,
+  type Component,
+  type SelectListLayoutOptions
+} from "@earendil-works/pi-tui";
 
 import { displayText } from "../../terminal-text/index.ts";
+import { renderHintFooter } from "../hint-footer/index.ts";
 import { renderWindowedList } from "../windowed-list/index.ts";
 
 export type OrderSettingsItem = { id: string; label: string; description: string };
@@ -18,7 +24,6 @@ export type OrderSettingsOptions = {
   items: readonly OrderSettingsItem[];
   scopes: readonly OrderSettingsScope[];
   initialScope: string;
-  note: string;
   theme: Pick<Theme, "fg" | "bold">;
   rows(): number;
   requestRender(): void;
@@ -27,6 +32,10 @@ export type OrderSettingsOptions = {
 };
 
 const plainLine = (text: string) => displayText(text).replace(/\s+/g, " ").trim();
+const settingsListLayout = {
+  minPrimaryColumnWidth: 1,
+  maxPrimaryColumnWidth: 38
+} satisfies SelectListLayoutOptions;
 
 /** Scoped reorder drafts. No persistence or live application happens before Ctrl+S. */
 export class OrderSettingsView implements Component {
@@ -89,8 +98,9 @@ export class OrderSettingsView implements Component {
     }
 
     if (matchesKey(data, "ctrl+s")) this.save();
-    else if (matchesKey(data, "tab")) {
-      this.scopeIndex = (this.scopeIndex + 1) % this.drafts.length;
+    else if (matchesKey(data, "tab") || matchesKey(data, "shift+tab")) {
+      const direction = matchesKey(data, "shift+tab") ? -1 : 1;
+      this.scopeIndex = (this.scopeIndex + direction + this.drafts.length) % this.drafts.length;
       this.status = "";
     } else if (matchesKey(data, "shift+up") || matchesKey(data, "shift+down")) {
       const next = draft.selected + (matchesKey(data, "shift+up") ? -1 : 1);
@@ -119,33 +129,51 @@ export class OrderSettingsView implements Component {
     const text = (value: string) => new Text(value, 0, 0).render(width);
     const dirty = this.isDirty(draft);
     const otherDirty = this.drafts.some((other) => other !== draft && this.isDirty(other));
+    const height = Math.max(1, this.options.rows() - 2);
+    const showContext = height >= 10;
+    const roomy = height >= 18;
+    const scopeTabs = this.drafts
+      .map(({ scope }, index) =>
+        theme.fg(index === this.scopeIndex ? "accent" : "muted", plainLine(scope.label))
+      )
+      .join(theme.fg("muted", " | "));
     const header = [
       ...border,
-      ...text(theme.fg("accent", theme.bold(this.options.title))),
-      ...text(
-        theme.fg("muted", `Save to ${draft.scope.label}: ${plainLine(draft.scope.destination)}`)
-      ),
-      ...text(theme.fg("dim", this.options.note))
+      ...text(theme.fg("accent", theme.bold(`  ${this.options.title}`))),
+      "",
+      ...text(theme.fg("muted", "  Scope: ") + scopeTabs),
+      ...(showContext
+        ? text(`  Settings file  ${theme.fg("muted", plainLine(draft.scope.destination))}`)
+        : []),
+      ...(roomy ? [""] : [])
     ];
+    let draftState: string | undefined;
+    if (dirty) draftState = `Unsaved changes${otherDirty ? " · unsaved draft in other scope" : ""}`;
+    else if (otherDirty) draftState = "Unsaved draft in other scope";
+    const hints = renderHintFooter({
+      width,
+      maxRows: 2,
+      hints: [
+        "↑/↓ select",
+        "Shift+↑/↓ move",
+        "Ctrl+S save",
+        ...(this.drafts.length > 1 ? ["Tab scope"] : []),
+        "Esc close"
+      ],
+      padding: "  ",
+      separator: " · ",
+      style: (value) => theme.fg("dim", value)
+    }).rows;
     const footer = [
-      ...text(
-        theme.fg(
-          dirty || otherDirty ? "warning" : "dim",
-          `${dirty ? "Unsaved changes" : "Saved order"}${otherDirty ? " · unsaved draft in other scope" : ""} · ${draft.order.length ? draft.selected + 1 : 0}/${draft.order.length}`
-        )
-      ),
-      ...(this.status ? text(theme.fg(this.failed ? "error" : "success", this.status)) : []),
-      ...text(theme.fg("dim", "↑/↓ select · Shift+↑/↓ move · Ctrl+S save")),
-      ...text(
-        theme.fg(
-          "dim",
-          `${this.drafts.length > 1 ? "Tab scope · " : ""}Esc/Ctrl+C close (discard unsaved)`
-        )
-      ),
+      ...(roomy ? [""] : []),
+      ...(draftState ? text(theme.fg("warning", `  ${draftState}`)) : []),
+      ...(this.status ? text(theme.fg(this.failed ? "error" : "success", `  ${this.status}`)) : []),
+      ...hints,
       ...border
     ];
-    const height = Math.max(1, this.options.rows() - 2);
-    const maxRows = Math.max(0, Math.min(8, height - header.length - footer.length));
+    const availableListRows = Math.max(0, Math.min(10, height - header.length - footer.length));
+    const showListPosition = availableListRows >= 2 && draft.order.length > availableListRows;
+    const maxRows = availableListRows - (showListPosition ? 1 : 0);
     const list = renderWindowedList({
       items: draft.order,
       selectedIndex: draft.selected,
@@ -155,8 +183,8 @@ export class OrderSettingsView implements Component {
         selectedPrefix: (s) => theme.fg("accent", s),
         selectedText: (s) => theme.fg("accent", s),
         description: (s) => theme.fg("muted", s),
-        scrollInfo: (s) => theme.fg("dim", s),
-        noMatch: (s) => theme.fg("dim", s)
+        scrollInfo: (s) => theme.fg("muted", s),
+        noMatch: (s) => theme.fg("muted", s)
       },
       format: (ids) => ({
         items: ids.map((id) => {
@@ -164,12 +192,21 @@ export class OrderSettingsView implements Component {
 
           return {
             value: id,
-            label: item ? `${item.label} · ${item.description}` : `${plainLine(id)} · unavailable`
+            label: item?.label ?? plainLine(id),
+            description: item?.description ?? "unavailable"
           };
-        })
+        }),
+        layout: settingsListLayout
       })
     }).lines;
-    const body = draft.order.length ? list : text(theme.fg("muted", "No registered components."));
+    const body = draft.order.length
+      ? [
+          ...list,
+          ...(showListPosition
+            ? text(theme.fg("muted", `  (${draft.selected + 1}/${draft.order.length})`))
+            : [])
+        ]
+      : text(theme.fg("muted", "  No registered components."));
 
     return [...header, ...body, ...footer].slice(-height);
   }

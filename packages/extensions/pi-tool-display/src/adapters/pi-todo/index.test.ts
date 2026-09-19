@@ -30,13 +30,13 @@ const textContext = {
   expanded: false
 };
 
-it("uses Todo-prefixed action verbs and ignores unknown arguments", () => {
+it("uses Tasks-prefixed action verbs and ignores unknown arguments", () => {
   expect(todoDisplayAdapter.headingVerbs?.({ action: "create" })).toEqual({
-    action: "Todo · Create",
-    pending: "Todo · Creating",
-    complete: "Todo · Created"
+    action: "Tasks · Create",
+    pending: "Tasks · Creating",
+    complete: "Tasks · Created"
   });
-  expect(todoDisplayAdapter.headingVerbs?.({ action: "clear" })?.complete).toBe("Todo · Cleared");
+  expect(todoDisplayAdapter.headingVerbs?.({ action: "clear" })?.complete).toBe("Tasks · Cleared");
   expect(todoDisplayAdapter.headingVerbs?.({ action: "unknown" })).toBeUndefined();
   expect(todoDisplayAdapter.headingVerbs?.({})).toBeUndefined();
 });
@@ -171,21 +171,27 @@ it("uses confirmed task state, create IDs, and filtered list totals", () => {
   );
 });
 
-it("dims known status brackets while preserving result text", () => {
+it("uses friendly task labels while retaining error text", () => {
   const parts = todoDisplayAdapter.textParts?.(
     "[in_progress] #1 Ship it\n[pending] #2 Write notes",
     {},
     textContext
   );
   expect(parts).toEqual([
-    { kind: "annotation", text: "[in_progress]" },
+    { kind: "annotation", text: "[in progress]" },
     { kind: "output", text: " #1 Ship it\n" },
     { kind: "annotation", text: "[pending]" },
     { kind: "output", text: " #2 Write notes" }
   ]);
-  expect(parts?.map((part) => part.text).join("")).toBe(
-    "[in_progress] #1 Ship it\n[pending] #2 Write notes"
-  );
+  expect(
+    todoDisplayAdapter.textParts!(
+      "#1 [in_progress] Review\n  inProgressLabel: inspect\n  blockedBy: #2",
+      {},
+      textContext
+    )
+      .map((part) => part.text)
+      .join("")
+  ).toBe("#1 [in progress] Review\n  Activity: inspect\n  Blocked by: #2");
   expect(todoDisplayAdapter.textParts?.("Created #1: Ship it (pending)", {}, textContext)).toEqual([
     { kind: "output", text: "Created #1: Ship it (pending)" }
   ]);

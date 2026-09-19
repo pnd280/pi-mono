@@ -4,18 +4,14 @@ import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import { MAX_WIDGET_LINES, WIDGET_KEY } from "./constants.ts";
 import type { TodoController } from "./controller.ts";
-import {
-  statusGlyph,
-  TASK_STATUS_COLOR,
-  TODO_DEPENDENCY_GLYPH,
-  TODO_TREE_GLYPH
-} from "./glyphs.ts";
+import { TASK_STATUS_COLOR, TODO_TREE_GLYPH } from "./glyphs.ts";
 import {
   deriveTaskHierarchy,
   projectTaskTreeEntries,
   type TaskHierarchyEntry,
   type TaskTreeEntry
 } from "./hierarchy.ts";
+import { formatTaskLine } from "./task-presentation.ts";
 import { presentCompactTaskText } from "./text.ts";
 import type { Task, TaskStatus } from "./types.ts";
 
@@ -248,7 +244,7 @@ export function buildTodoWidgetLines(
   const heading = truncate(
     theme.fg(
       TASK_STATUS_COLOR[overallStatus],
-      `${TUI_GLYPHS.taskStatus[overallStatus]} Todos (${completedCount}/${totalVisible} completed)`
+      `${TUI_GLYPHS.taskStatus[overallStatus]} Tasks (${completedCount}/${totalVisible} completed)`
     )
   );
 
@@ -349,36 +345,8 @@ function renderWidgetEntry(input: {
   const branch = entry.isLastSibling ? TODO_TREE_GLYPH.lastBranch : TODO_TREE_GLYPH.branch;
 
   return truncate(
-    `${indentation}${theme.fg("dim", branch)} ${formatTaskLine(entry.task, theme, showIds)}`
+    `${indentation}${theme.fg("dim", branch)} ${formatTaskLine(entry.task, theme, { showId: showIds })}`
   );
-}
-
-function formatTaskLine(task: Task, theme: TodoWidgetTheme, showId: boolean): string {
-  const glyph = statusGlyph(task.status, theme);
-  const subjectColor = task.status === "completed" || task.status === "deleted" ? "dim" : "text";
-  let subject = theme.fg(subjectColor, presentCompactTaskText(task.subject) || "Untitled todo");
-
-  if (task.status === "completed" || task.status === "deleted") {
-    subject = theme.strikethrough(subject);
-  }
-
-  let line = glyph;
-  if (showId) line += ` ${theme.fg("accent", `#${task.id}`)}`;
-  line += ` ${subject}`;
-
-  if (task.status === "in_progress" && task.inProgressLabel) {
-    const inProgressLabel = presentCompactTaskText(task.inProgressLabel);
-
-    if (inProgressLabel) {
-      line += ` ${theme.fg("dim", `(${inProgressLabel})`)}`;
-    }
-  }
-
-  if (task.blockedBy && task.blockedBy.length > 0) {
-    line += ` ${theme.fg("dim", `${TODO_DEPENDENCY_GLYPH} ${task.blockedBy.map((id) => `#${id}`).join(",")}`)}`;
-  }
-
-  return line;
 }
 
 function createWidgetTruncator(width: number): (line: string) => string {

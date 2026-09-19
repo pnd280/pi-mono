@@ -29,7 +29,7 @@ Repeated saves remain separate occurrences. A successful save clears the editor 
 
 Restoration replaces editor text without submitting it or adding it to Pi's native editor history. Pi may normalize tabs and line endings. The extension refuses to restore text containing unsafe terminal controls. Stored and copied source remains unchanged.
 
-If restore-and-remove cannot delete the saved occurrence, the restored text stays in the editor.
+If **restore then delete** or `/prompts drafts restore-and-delete <n>` cannot delete the saved entry, the restored text stays in the editor.
 
 ### Browser
 
@@ -40,7 +40,7 @@ If restore-and-remove cannot delete the saved occurrence, the restored text stay
 - **Escape** closes full preview first, then the browser. During deletion, it closes the browser immediately but does not undo the deletion.
 - **Tab** switches collections.
 - **Ctrl+P** opens full preview.
-- **Delete** twice within 1.5 seconds removes the selected occurrence.
+- **Delete** twice within 1.5 seconds deletes the selected entry.
 
 Browsing requires at least **40 columns × 10 rows**; below that size, resize or cancel.
 
@@ -94,4 +94,4 @@ Copying requires `pbcopy` on macOS, `wl-copy` on Wayland, `xclip` or `xsel` on X
 
 ## Validation
 
-Use the [focused validation commands](../../../docs/development.md#focused-validation) with `pi-prompt-manager`. See [validation](docs/validation.md) for test prerequisites, offline fixtures, and platform checks.
+Use the [focused validation commands](../../../docs/development.md#focused-validation) with `pi-prompt-manager`. See [prompt manager validation](docs/validation.md) for test prerequisites, offline fixtures, and platform checks.

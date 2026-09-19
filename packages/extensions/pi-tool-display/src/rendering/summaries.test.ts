@@ -153,7 +153,7 @@ it.each(["failure", "partial"])(
 );
 
 it.each([false, true])(
-  "keeps confirmed Todo state and progress in compact cards (grouped=%s)",
+  "keeps confirmed Tasks state and progress in compact cards (grouped=%s)",
   (grouped) => {
     const options = {
       name: "todo",
