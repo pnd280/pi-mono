@@ -1,6 +1,7 @@
 ---
 name: audit-inconsistencies
 description: Audit user-facing surfaces for inconsistencies in wording, layout, color semantics, visual hierarchy, controls, state, and feedback. Use when reviewing consistency across extensions, commands, widgets, browsers, tool cards, notifications, or settings.
+disable-model-invocation: true
 ---
 
 # User interface consistency audit

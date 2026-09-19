@@ -16,6 +16,10 @@ Use `@pi-mono/libs/working-message` to combine contributions from multiple exten
 
 `/working-message` requires interactive TUI mode. It opens the project scope when an override exists, otherwise the global scope. `/working-message global` and `/working-message project` select a scope explicitly. Project scope requires a trusted project.
 
+A scope tab shows `(not set)` when that scope has no valid saved order. An explicit empty order counts as set. Only a successful save to that scope clears the marker.
+
+An unset scope's draft inherits the other scope's saved order, or uses sorted ID order when neither is set. Saving the source refreshes the inherited draft unless it has unsaved edits. Inheritance does not write settings or change which scope takes precedence.
+
 | Key                    | Action                                                 |
 | ---------------------- | ------------------------------------------------------ |
 | Up or Down             | Select a component                                     |
@@ -24,7 +28,9 @@ Use `@pi-mono/libs/working-message` to combine contributions from multiple exten
 | Ctrl+S                 | Save the displayed scope and apply the effective order |
 | Escape or Ctrl+C       | Close and discard all remaining unsaved drafts         |
 
-The menu displays the save destination, inactive and unavailable components, unsaved changes, and save errors. Narrow widths prioritize component labels over the secondary column. At constrained terminal heights, it omits the destination to preserve the indented title, scope, component list, and controls. Drafts do not change the working message until saved. Failed saves leave the draft intact and the menu open. Saving global defaults leaves any project override active. Saving the project draft creates an override even if the order is unchanged. The menu does not enable or disable components.
+The menu shows the save destination, inactive and unavailable components, unsaved changes, and save errors. At narrow widths, component labels take priority over descriptions. At short terminal heights, the destination is hidden.
+
+Drafts do not change the working message until saved. Failed saves leave the draft intact and the menu open. Saving global defaults leaves any project override active. Saving the project draft creates an override even if the order is unchanged. The menu does not enable or disable components.
 
 ### Persistence
 

@@ -16,7 +16,9 @@ export type OrderSettingsScope = {
   id: string;
   label: string;
   destination: string;
+  isSet: boolean;
   order: readonly string[];
+  inheritFrom?: string;
 };
 
 export type OrderSettingsOptions = {
@@ -44,6 +46,7 @@ export class OrderSettingsView implements Component {
     scope: OrderSettingsScope;
     order: string[];
     saved: string[];
+    isSet: boolean;
     selected: number;
   }[];
   private scopeIndex: number;
@@ -53,12 +56,18 @@ export class OrderSettingsView implements Component {
 
   constructor(private readonly options: OrderSettingsOptions) {
     if (!options.scopes.length) throw new Error("Order settings require a save scope.");
-    this.drafts = options.scopes.map((scope) => ({
-      scope,
-      order: [...scope.order],
-      saved: [...scope.order],
-      selected: 0
-    }));
+    this.drafts = options.scopes.map((scope) => {
+      const source = options.scopes.find((other) => other.id === scope.inheritFrom && other.isSet);
+      const order = scope.isSet ? scope.order : (source?.order ?? scope.order);
+
+      return {
+        scope,
+        order: [...order],
+        saved: [...order],
+        isSet: scope.isSet,
+        selected: 0
+      };
+    });
     this.scopeIndex = Math.max(
       0,
       options.scopes.findIndex((scope) => scope.id === options.initialScope)
@@ -83,6 +92,7 @@ export class OrderSettingsView implements Component {
       draft.saved.push(...newIds);
     }
 
+    this.syncInheritedDrafts();
     this.options.requestRender();
   }
 
@@ -132,16 +142,26 @@ export class OrderSettingsView implements Component {
     const height = Math.max(1, this.options.rows() - 2);
     const showContext = height >= 10;
     const roomy = height >= 18;
-    const scopeTabs = this.drafts
-      .map(({ scope }, index) =>
-        theme.fg(index === this.scopeIndex ? "accent" : "muted", plainLine(scope.label))
-      )
-      .join(theme.fg("muted", " | "));
+    const scopeLines = renderHintFooter({
+      width,
+      maxRows: this.drafts.length,
+      hints: this.drafts.map(
+        ({ scope, isSet }, index) =>
+          (index === 0 ? theme.fg("muted", "Scope: ") : "") +
+          theme.fg(
+            index === this.scopeIndex ? "accent" : "muted",
+            `${plainLine(scope.label)}${isSet ? "" : " (not set)"}`
+          )
+      ),
+      padding: "  ",
+      separator: theme.fg("muted", " | "),
+      style: (value) => value
+    }).rows;
     const header = [
       ...border,
       ...text(theme.fg("accent", theme.bold(`  ${this.options.title}`))),
-      "",
-      ...text(theme.fg("muted", "  Scope: ") + scopeTabs),
+      ...(!showContext && scopeLines.length > 1 ? [] : [""]),
+      ...scopeLines,
       ...(showContext
         ? text(`  Settings file  ${theme.fg("muted", plainLine(draft.scope.destination))}`)
         : []),
@@ -218,7 +238,26 @@ export class OrderSettingsView implements Component {
   }
 
   private isDirty(draft: ReturnType<OrderSettingsView["current"]>): boolean {
-    return draft.order.some((id, index) => id !== draft.saved[index]);
+    return (
+      draft.order.length !== draft.saved.length ||
+      draft.order.some((id, index) => id !== draft.saved[index])
+    );
+  }
+
+  private syncInheritedDrafts(): void {
+    for (const draft of this.drafts) {
+      if (draft.isSet) continue;
+      const source = this.drafts.find(
+        (other) => other.scope.id === draft.scope.inheritFrom && other.isSet
+      );
+      if (!source) continue;
+      const dirty = this.isDirty(draft);
+      const selected = draft.order[draft.selected];
+      draft.saved = [...source.saved];
+      if (dirty) continue;
+      draft.order = [...source.saved];
+      draft.selected = selected === undefined ? 0 : Math.max(0, draft.order.indexOf(selected));
+    }
   }
 
   private save(): void {
@@ -227,6 +266,8 @@ export class OrderSettingsView implements Component {
     try {
       this.status = plainLine(this.options.save(draft.scope.id, [...draft.order]));
       draft.saved = [...draft.order];
+      draft.isSet = true;
+      this.syncInheritedDrafts();
       this.failed = false;
     } catch (error) {
       this.failed = true;

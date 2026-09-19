@@ -72,7 +72,7 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
     const preferences = settings.load();
     coordinator.start(
       ctx.mode === "tui" ? (text) => ctx.ui.setWorkingMessage(text) : undefined,
-      preferences.project ?? preferences.global
+      preferences.project ?? preferences.global ?? []
     );
     if (ctx.mode === "tui")
       for (const warning of preferences.warnings) ctx.ui.notify(warning, "warning");
@@ -119,7 +119,9 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
           id: "global",
           label: "global",
           destination: store.paths.global,
-          order: completeOrder(preferences.global, ids)
+          isSet: preferences.global !== undefined,
+          order: completeOrder(preferences.global ?? [], ids),
+          ...(projectTrusted ? { inheritFrom: "project" } : {})
         }
       ];
       if (projectTrusted)
@@ -127,7 +129,9 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
           id: "project",
           label: "project",
           destination: store.paths.project,
-          order: completeOrder(preferences.project ?? preferences.global, ids)
+          isSet: preferences.project !== undefined,
+          order: completeOrder(preferences.project ?? [], ids),
+          inheritFrom: "global"
         });
       const items = () =>
         coordinator.snapshot().map((entry) => ({
@@ -144,8 +148,7 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
         await openResponsiveCustomUI({
           ui: ctx.ui,
           signal: ctx.signal ? AbortSignal.any([ctx.signal, lifetime.signal]) : lifetime.signal,
-          useOverlay: (tui) => tui.mode === "fullscreen",
-          overlayOptions: { width: "100%", maxHeight: "100%", anchor: "center" },
+          useOverlay: () => false,
           create: (tui, theme, _keys, close) => {
             const view = new OrderSettingsView({
               title: "Working message",
@@ -162,7 +165,7 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
                   throw new Error("Unknown save scope.");
                 store.save(destination, order);
                 const saved = store.load();
-                coordinator.setOrder(saved.project ?? saved.global);
+                coordinator.setOrder(saved.project ?? saved.global ?? []);
 
                 return destination === "global" && saved.project
                   ? "Saved globally; the project override remains active."

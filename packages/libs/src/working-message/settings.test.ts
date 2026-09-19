@@ -39,7 +39,7 @@ function fixture(projectTrusted = true) {
 
 it("uses global defaults and replaces them with trusted project order, including an empty override", () => {
   const { store, write } = fixture();
-  expect(store.load()).toEqual({ global: [], project: undefined, warnings: [] });
+  expect(store.load()).toEqual({ global: undefined, project: undefined, warnings: [] });
   write("global", { workingMessage: { order: ["b", "a", "b", "unavailable"] } });
   expect(store.load().global).toEqual(["b", "a", "unavailable"]);
   write("project", { workingMessage: { order: ["a"] } });
@@ -47,6 +47,20 @@ it("uses global defaults and replaces them with trusted project order, including
   write("project", { workingMessage: { order: [] } });
   expect(store.load().project).toEqual([]);
 });
+
+it.each(["global", "project"] as const)(
+  "distinguishes an unset %s order from an explicit empty order",
+  (scope) => {
+    const { store, write } = fixture();
+    expect(store.load()[scope]).toBeUndefined();
+    write(scope, { theme: "dark" });
+    expect(store.load()[scope]).toBeUndefined();
+    write(scope, { workingMessage: {} });
+    expect(store.load()[scope]).toBeUndefined();
+    store.save(scope, []);
+    expect(store.load()[scope]).toEqual([]);
+  }
+);
 
 it("merges saves with fresh settings without touching unrelated fields or the other scope", () => {
   const { store, write } = fixture();

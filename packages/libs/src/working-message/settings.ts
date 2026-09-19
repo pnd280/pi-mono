@@ -25,7 +25,7 @@ const sectionSchema = z.object({ order: orderSchema.optional() }).passthrough();
 export type WorkingMessageScope = "global" | "project";
 
 export type WorkingMessagePreferences = {
-  global: string[];
+  global: string[] | undefined;
   project: string[] | undefined;
   warnings: string[];
 };
@@ -92,7 +92,7 @@ export class WorkingMessageSettings {
       }
     };
 
-    const global = readOrder("global") ?? [];
+    const global = readOrder("global");
     const project = this.options.projectTrusted ? readOrder("project") : undefined;
 
     return { global, project, warnings };
