@@ -88,10 +88,6 @@ export function emptyTodoState(): TodoState {
   return { tasks: [], nextId: 1 };
 }
 
-function cloneMetadata(metadata: TaskMetadata): TaskMetadata {
-  return structuredClone(metadata);
-}
-
 export function cloneTask(task: TaskCloneSource): Task {
   const cloned: Task = {
     id: task.id,
@@ -110,7 +106,7 @@ export function cloneTask(task: TaskCloneSource): Task {
   if (task.parentId !== undefined) cloned.parentId = task.parentId;
   if (task.blockedBy !== undefined) cloned.blockedBy = [...task.blockedBy];
   if (task.owner !== undefined) cloned.owner = sanitizeCompactTaskText(task.owner);
-  if (task.metadata !== undefined) cloned.metadata = cloneMetadata(task.metadata);
+  if (task.metadata !== undefined) cloned.metadata = structuredClone(task.metadata);
 
   return cloned;
 }
@@ -604,7 +600,7 @@ function buildCreatedTask(
   if (params.inProgressLabel) task.inProgressLabel = params.inProgressLabel;
   if (params.blockedBy && params.blockedBy.length > 0) task.blockedBy = [...params.blockedBy];
   if (params.owner) task.owner = params.owner;
-  if (params.metadata) task.metadata = cloneMetadata(params.metadata);
+  if (params.metadata) task.metadata = structuredClone(params.metadata);
 
   return task;
 }
@@ -681,13 +677,13 @@ function applyUpdateTaskMutation(state: TodoState, params: TaskMutationParams): 
     dependencies.value,
     metadata.value
   );
-  let nextTasks = state.tasks.map(cloneTask);
+  let nextTasks = state.tasks.map((task, taskIndex) =>
+    taskIndex === index ? updated : cloneTask(task)
+  );
 
   if (parent.value.changed) {
     nextTasks = nextTasks.filter((task) => task.id !== current.id);
     nextTasks.push(updated);
-  } else {
-    nextTasks[index] = updated;
   }
 
   const nextState: TodoState = { tasks: nextTasks, nextId: state.nextId };
@@ -950,17 +946,17 @@ function buildUpdatedTask(
   blockedBy: number[],
   metadata: TaskMetadata | undefined
 ): Task {
-  const updated: Task = { ...cloneTask(current), status };
+  const updated = cloneTask({
+    ...current,
+    status,
+    parentId,
+    blockedBy: blockedBy.length > 0 ? blockedBy : undefined,
+    metadata
+  });
   if (params.subject !== undefined) updated.subject = params.subject;
   if (params.description !== undefined) updated.description = params.description;
   if (params.inProgressLabel !== undefined) updated.inProgressLabel = params.inProgressLabel;
-  if (parentId === undefined) delete updated.parentId;
-  else updated.parentId = parentId;
   if (params.owner !== undefined) updated.owner = params.owner;
-  if (blockedBy.length > 0) updated.blockedBy = blockedBy;
-  else delete updated.blockedBy;
-  if (metadata === undefined) delete updated.metadata;
-  else updated.metadata = cloneMetadata(metadata);
 
   return updated;
 }
@@ -1004,8 +1000,9 @@ function applyDeleteTaskMutation(state: TodoState, params: TaskMutationParams): 
   }
 
   const updated: Task = { ...cloneTask(current), status: "deleted" };
-  const nextTasks = state.tasks.map(cloneTask);
-  nextTasks[index] = updated;
+  const nextTasks = state.tasks.map((task, taskIndex) =>
+    taskIndex === index ? updated : cloneTask(task)
+  );
   const nextState: TodoState = { tasks: nextTasks, nextId: state.nextId };
 
   return mutationResult(

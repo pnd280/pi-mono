@@ -6,11 +6,11 @@
 
 ## Constraints
 
-Keep each component or helper's implementation, tests, and contract together. Domain policy stays in extensions.
+Colocate implementation, tests, and contracts; keep domain policy in extensions.
 
-Components manage reusable interaction, dimensions, focus, and layout. Callers control low-level renderers. Keep data loading, persistence, clipboard access, and editor effects behind consumer callbacks. Components must not import host mounting, extension modules, or APIs for filesystem, process, or network access.
+Components own reusable interaction, dimensions, focus, and layout; callers control low-level renderers. Use consumer callbacks for loading, persistence, clipboard, and editor effects. Never import host mounting, extensions, or filesystem/process/network APIs.
 
-Use Pi's text wrapping and borders. Prepare full text outside repeated rendering and input handling so redraws stay bounded. Keep theme colors out of cached layout. Preserve one logical browser across host remounts and dispose it only at final closure.
+Use Pi wrapping and borders. Prepare full text outside render/input loops to bound redraws; keep theme colors out of cached layout. Preserve one browser across host remounts; dispose only at final closure.
 
 ## Validation
 

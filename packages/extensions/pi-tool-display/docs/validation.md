@@ -4,7 +4,7 @@
 
 ## Automated checks
 
-Use the [focused checks and test prerequisites](../../../../docs/development.md#focused-validation) with package name `pi-tool-display`.
+Use [focused checks and prerequisites](../../../../docs/development.md#focused-validation) for `pi-tool-display`.
 
 ## Terminal launcher
 
@@ -16,7 +16,7 @@ Complete [workspace setup](../../../../README.md#setup). The offline fixture req
    vpr 'pi-tool-display#validate:terminal' regular
    ```
 
-2. Work only in the printed `Fixture directory`. The launcher isolates working files, settings, and session history. It creates a disposable Git repository for the working files and loads an offline scripted provider. Reuse only launcher-created fixtures, never real agent or project directories.
+2. Work only in the printed `Fixture directory`: isolated files, settings, history, disposable Git, and an offline provider. Reuse only launcher fixtures, never real agent/project directories.
 3. Enter a prompt for the behavior to check:
 
    | Prompt          | Inspect                                                                                                                                                                                                                                       |
@@ -28,16 +28,16 @@ Complete [workspace setup](../../../../README.md#setup). The offline fixture req
    | `exceptions`    | One four-read group with a missing-file failure and a PNG image.                                                                                                                                                                              |
    | `filenames`     | Spaces, Unicode, and a long filename. Targets wrap without truncation, with `:15-16` ranges intact.                                                                                                                                           |
    | `thinking`      | Four reads with thinking between calls and a visible explanation before the third read. Collapsed thinking produces two two-read groups. Visible thinking produces four standalone cards.                                                     |
-   | `buffered`      | Buffered thinking/tool events followed by repeated tool names. Shell outputs appear once each in order: `shell one`, `shell two`, a two-read group, `shell three`, `shell four`, then a standalone read.                                      |
+   | `buffered`      | Buffered thinking and tool events followed by repeated tool names. Shell outputs appear once each in order: `shell one`, `shell two`, a two-read group, `shell three`, `shell four`, then a standalone read.                                  |
    | `fff`           | Two literal-filter groups, a standalone FFF search, then a native group with a list and a read. Requires the [FFF extension and launch flags](../src/adapters/@ff-labs/pi-fff/README.md#validation). Skips if required tools are unavailable. |
    | `diff`          | Creation and edits, including separated hunks. Run once per fresh workspace. Repeating the exact-match edits intentionally fails.                                                                                                             |
    | `output`        | Live output exceeding the retention budget, saved-file expansion, and a separate nonzero exit.                                                                                                                                                |
    | `cancel`        | A long-running shell call. Press **Esc** while it runs.                                                                                                                                                                                       |
    | `images`        | A native image read between text reads.                                                                                                                                                                                                       |
-   | `public`        | A tool author using the public standalone renderer factory.                                                                                                                                                                                   |
+   | `public`        | A `display_fixture_read` card using the standalone renderer factory.                                                                                                                                                                          |
 
-4. Unless the scenario is skipped or you run `cancel`, wait for `Fixture finished: <prompt>` before inspecting completed cards. Some calls intentionally fail.
-5. Exit with **Ctrl+D** in an empty editor. Repeat the checks in fullscreen mode with a fresh workspace:
+4. Wait for `Fixture finished: <prompt>` before inspecting, except skips and `cancel`. Some calls fail intentionally.
+5. Exit with **Ctrl+D** in an empty editor; repeat fullscreen with a fresh workspace:
 
    ```sh
    vpr 'pi-tool-display#validate:terminal' fullscreen
@@ -45,7 +45,7 @@ Complete [workspace setup](../../../../README.md#setup). The offline fixture req
 
 ### Replay and launch options
 
-To reopen the original fixture session without resetting its files, use the directory printed by its launcher:
+Reopen the printed fixture without resetting files:
 
 ```sh
 vpr 'pi-tool-display#validate:terminal' fullscreen --reuse /tmp/pi-tool-display-terminal-EXAMPLE
@@ -59,8 +59,8 @@ Keep the fixture directory through replay checks. Remove only that directory aft
 
 #### Expansion, layout, and diffs
 
-- Use Pi's configured tool expansion action. In fullscreen mode, click group summaries and diagnostics before and after scrolling and resizing. Each click must expand or collapse only the selected group. Check wheel scrolling and confirm that regular mode does not capture mouse input.
-- Inspect [card layout](presentation.md#card-layout) in dark and light themes and wide and narrow windows. By default, specialized parameter blocks stay hidden even after expansion. Generic arguments stay visible.
+- Check Pi expansion and fullscreen clicks on summaries/diagnostics before/after scroll and resize: toggle only the clicked group. Verify wheel scrolling and no regular-mode mouse capture.
+- Check [layout](presentation.md#card-layout) in dark/light and wide/narrow views. Defaults keep MCP/generic arguments visible and other specialized parameter blocks hidden, even expanded.
 - Set `showParameters: true` under the literal `ext.pi-tool-display` key in the fixture's `agent/settings.json`. Run `/reload` to inspect enabled parameters. For project merging, use a trusted `work/.pi/settings.json` and the [configuration contract](../README.md#configuration).
 - With `diff`, resize between unified and side-by-side views and expand the whole card. Changes must remain visible, and row backgrounds must not extend into separators or following content.
 
@@ -70,9 +70,9 @@ Keep the fixture directory through replay checks. Remove only that directory aft
 - Run `native-mixed`, `normalization`, and `exceptions` to verify the groups listed above. Directory headings use **Exploring** or **Explored** without a scope-kind noun or operation counts. In `exceptions`, the failure count stays beside **Explored**. The diagnostic body uses `error` in collapsed and expanded cards.
 - Run `filenames` at 48, 80, and 110 columns. Check that scope headings are not truncated, filenames are relative to the group directory, and ranges remain intact in `dim`. Expanded paths must be relative to the working directory.
 - Run `fff`. Filter headings use **Filtering** or **Filtered** without call or operation counts, and grouped members do not repeat the filter. Expanded and standalone searches separate the pattern and filter with an em dash; empty-pattern listings use `Listed <filter>`. FFF filters must not merge with native directory scopes, even when their text matches.
-- Run `thinking` and press **Ctrl+T** during streaming and after completion. Completed thinking placeholders must disappear when collapsed. Live indicators, the visible explanation, and diagnostics remain. Compare live cards with `--reuse` reconstruction.
-- Run `buffered` with thinking collapsed. The two-read group must stay contiguous between `shell two` and `shell three`. Expand cards to verify each command, target, and result matches its own call. Toggle thinking and compare live cards with `--reuse` reconstruction; later rows must not reuse earlier commands or results.
-- Run `explore`, then `images`. Notices and images must remain beneath their originating call and before the next tool. The assistant completion text separates the two exploration groups. Compare live cards with `--reuse` reconstruction.
+- In `thinking`, toggle **Ctrl+T** during streaming/after completion: only completed collapsed placeholders disappear, not live indicators, explanation, or diagnostics. Compare `--reuse` replay.
+- In collapsed `buffered`, keep the two-read group between `shell two` and `shell three`. Expand to verify call-specific commands, targets, and results; toggle thinking and compare replay. Later rows must not reuse earlier data.
+- Run `explore`, then `images`: notices/images stay beneath their call before the next tool; assistant completion separates groups. Compare replay.
 - With `images`, compare image display enabled and disabled. A supported terminal displays each image once before the next tool. Unsupported protocols retain a notice. Account for the [finalized-image limitation](#platform-limitations).
 
 #### Saved output
@@ -95,7 +95,7 @@ To check missing output:
 
 Add the relevant fixed call plan or scoped middleware to [provider.ts](../validation/provider.ts) and prepare disposable inputs in [workspace.ts](../validation/workspace.ts).
 
-Compare live and replayed results with the corresponding [host integration cases](../src/host/install.test.ts). Observed operation facts must remain separate from published outcomes. Modify disposable working files before replay to check that patches come from retained data, not current files.
+Compare live/replay results with [host cases](../src/host/install.test.ts). Keep observed facts separate from published outcomes. Change disposable files before replay; patches must come from retained data.
 
 ## Adapter validation
 
@@ -104,6 +104,6 @@ Compare live and replayed results with the corresponding [host integration cases
 
 ## Platform limitations
 
-Pi **0.85.1** does not update a live native image row when finalized-message middleware adds or removes result images. This also occurs without the extension. Reconstructed rows use the finalized images.
+Pi 0.86.0 does not update a live native image row when finalized-message middleware adds or removes result images. This also occurs without the extension. Reconstructed rows use the finalized images.
 
-Visible Kitty and iTerm images, link activation, drag selection, and clipboard behavior require checks in a supporting terminal. The supplied launcher targets Unix Bash. Windows and PowerShell execution require separate checks with an available `pwsh` backend and platform-specific launch settings.
+Check Kitty/iTerm images, links, drag selection, and clipboard in supporting terminals. The launcher uses Unix Bash; Windows/PowerShell need separate `pwsh` and platform-specific launch checks.

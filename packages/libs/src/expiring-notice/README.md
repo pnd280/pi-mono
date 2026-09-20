@@ -6,13 +6,11 @@
 
 [`@pi-mono/libs/expiring-notice`](index.ts) exports `ExpiringNotice` for replaceable timed feedback.
 
-`reportOnce()` defers reporting to a microtask and reports at most once per notice. Clearing or replacing the notice, or disposing the instance, suppresses the queued report. Deferral keeps notifications from changing the component tree during rendering.
+`reportOnce()` reports at most once per notice in a microtask, avoiding component-tree changes during rendering. Clearing, replacing, or disposing suppresses queued reports.
 
 ## Caller responsibilities
 
-Supply the notice value, duration, redraw callback, and report callback. The library does not measure whether feedback fits. Call `reportOnce()` when the consumer detects overflow.
-
-Choose feedback messages and call `dispose()` when the owner closes.
+Supply notice text/value, duration, redraw, and reporting. Detect overflow yourself and call `reportOnce()`; `dispose()` on closure.
 
 ## Validation
 

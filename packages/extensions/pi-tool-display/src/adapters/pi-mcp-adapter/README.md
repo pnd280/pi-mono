@@ -4,17 +4,13 @@
 
 ## Compatibility and selection
 
-`piMcpAdapter(toolInfo)` supports [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) 2.33.0 registration contracts for `mcp`, `mcpScript`, namespace proxies, and direct tools with arbitrary configured names.
-
-It verifies package provenance and parameter schemas. SDK tools and unrelated tools with MCP-like names do not qualify. Unsupported retained arguments or details use generic cards.
+`piMcpAdapter(toolInfo)` verifies [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) 2.33.0 provenance/schemas for `mcp`, `mcpScript`, namespace proxies, and arbitrarily named direct tools. SDK/unrelated MCP-like tools do not qualify; unsupported retained arguments/details use generic cards.
 
 See [automatic selection](../../../docs/adapters.md#automatic-selection) for renderer overrides and fallback policy.
 
 ## Arguments and results
 
-The adapter's [MCP facts](../../../docs/renderers.md#mcp-facts) preserve the order of published text and Pi image blocks. Flattened resource and audio descriptions remain text, and Pi handles image bytes.
-
-Raw `details.mcpResult` never replaces published output because it may contain data from before middleware ran or data omitted by the output guard.
+[MCP facts](../../../docs/renderers.md#mcp-facts) preserve published text/image order. Flattened resource/audio descriptions remain text; Pi handles image bytes. Never substitute raw `details.mcpResult`: it may predate middleware or contain output-guard omissions.
 
 The adapter interprets `details.error` as follows, even when Pi's error flag is false:
 
@@ -25,13 +21,13 @@ The adapter interprets `details.error` as follows, even when Pi's error flag is 
 | `call_failed`, `input_required_needs_ui` | Failure.                                 |
 | `script_error`, `timeout`                | Failure when `details.mode` is `script`. |
 
-`call_failed` can include local processing failures, so it does not establish a transport error. A successful script's individual failed operations remain diagnostics without changing the script's outcome.
-
-Missing details and error-like text establish no additional protocol facts. Pi's error flag still marks failure when MCP metadata reports success or an unavailable outcome. Confirmed cancellation takes precedence and uses `warning` styling.
+`call_failed` includes local failures, not necessarily transport errors. Failed operations remain diagnostics without failing successful scripts. Missing details/error-like text establish no protocol facts. Pi's error flag overrides success/unavailable metadata; confirmed cancellation wins and uses `warning`.
 
 ## Display
 
-Gateway summaries show the selected action and target while parameter details remain hidden by default. Result metadata supplies resolved `server.tool` identities when available. Otherwise, cards retain the requested tool identity. The adapter does not decode namespace names into server names because normalization can lose information.
+Gateway summaries show action/target. All MCP cards show arguments regardless of `showParameters`; names alone may be insufficient. Long arguments/scripts use [previews](../../../docs/presentation.md#card-layout) until expanded. JSON strings are not parsed/repaired.
+
+Validated metadata supplies resolved `server.tool`; otherwise retain requested identity. Never decode namespace names: normalization can lose information.
 
 MCP calls remain individual cards, outside exploration groups. Calls other than scripts use output previews.
 
@@ -48,7 +44,7 @@ This adapter does not load the MCP package or read its caches or saved output.
 
 ## Validation
 
-The `mcp` prompt requires a separate installation of `pi-mcp-adapter`, which is not a workspace dependency. The offline [stdio backend](../../../validation/mcp-server.ts) performs no network requests or filesystem work. The MCP package writes its cache and output artifacts inside the isolated fixture.
+Install `pi-mcp-adapter` separately for `mcp`; it is not a workspace dependency. The offline [stdio backend](../../../validation/mcp-server.ts) performs no network/filesystem work; MCP caches/output stay inside the fixture.
 
 1. Create a [terminal fixture using the shared launcher](../../../docs/validation.md#terminal-launcher), then exit.
 2. In the printed fixture directory, create `agent/mcp.json` with the following configuration. Replace `/absolute/path/to/pi-mono` with your checkout path:
@@ -88,4 +84,6 @@ The `mcp` prompt requires a separate installation of `pi-mcp-adapter`, which is 
 
 - Resolved echo calls show `display.echo` or `direct.echo`. Connection and description headings retain their action and target.
 - Images and resources stay beneath their call. Returned errors remain visible, and large output retains a saved-output reference without reading that file.
-- With `showParameters: true`, call arguments and script code remain available. Use an exact-name [`original` override](../../../README.md#configuration) to compare the MCP adapter's UI.
+- Arguments and script code must remain visible with [`showParameters`](../../../README.md#configuration) omitted, `false`, or `true`. Run `/reload` after each setting change. Check that long parameters use previews when collapsed and appear in full when expanded.
+
+Use an exact-name [`original` override](../../../README.md#configuration) to compare the MCP adapter's UI.

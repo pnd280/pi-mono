@@ -4,27 +4,25 @@
 
 ## Keys and precedence
 
-Configure Pi action IDs in `~/.pi/agent/keybindings.json`, or `$PI_CODING_AGENT_DIR/keybindings.json` when `PI_CODING_AGENT_DIR` is set. Then run `/reload`. These bindings are separate from the extension's [launch shortcuts](../README.md#configuration).
+Set Pi action IDs in `~/.pi/agent/keybindings.json` (or `$PI_CODING_AGENT_DIR/keybindings.json`), then `/reload`. These differ from [launch shortcuts](../README.md#configuration).
 
-| Default keys                    | Binding                                     | Action                                                                       |
-| ------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------- |
-| Ctrl+C                          | `tui.input.copy`                            | Copy complete selected source; stay open                                     |
-| Escape                          | `tui.select.cancel`                         | Close full preview or the view                                               |
-| Enter                           | `tui.select.confirm`                        | Restore selection and close; inspection-only views close without restoring   |
-| Up / Down                       | `tui.select.up` / `tui.select.down`         | Select a result or scroll full preview                                       |
-| PageUp / PageDown               | `tui.select.pageUp` / `tui.select.pageDown` | Move a page of results or preview lines; fullscreen may intercept these keys |
-| Tab / Shift+Tab                 | Fixed                                       | Switch collections; close preview and cancel confirmation                    |
-| Ctrl+P                          | Fixed                                       | Open full preview                                                            |
-| Alt+Enter                       | Fixed                                       | Drafts: restore first, then attempt deletion                                 |
-| Delete twice within 1.5 seconds | Fixed                                       | Delete the exact selected entry                                              |
+| Default                         | Binding                                     | Action                                                  |
+| ------------------------------- | ------------------------------------------- | ------------------------------------------------------- |
+| Ctrl+C                          | `tui.input.copy`                            | Copy complete source; stay open                         |
+| Escape                          | `tui.select.cancel`                         | Close preview or view                                   |
+| Enter                           | `tui.select.confirm`                        | Restore and close; inspection only closes               |
+| Up / Down                       | `tui.select.up` / `tui.select.down`         | Select or scroll preview                                |
+| PageUp / PageDown               | `tui.select.pageUp` / `tui.select.pageDown` | Page results/preview; fullscreen may intercept          |
+| Tab / Shift+Tab                 | Fixed                                       | Switch collections; retain preview, cancel confirmation |
+| Ctrl+P                          | Fixed                                       | Full preview                                            |
+| Alt+Enter                       | Fixed                                       | Drafts: restore, then attempt deletion                  |
+| Delete twice within 1.5 seconds | Fixed                                       | Delete exact selection                                  |
 
-Configured actions take precedence in this order: copy, cancel, confirm, up, down, page up, page down. Fixed browser controls come next, then search editing.
+Precedence: copy, cancel, confirm, up, down, page up, page down, fixed controls, search editing. Hints show the first usable binding or mark the action unavailable. Binding copy to Enter uses another confirm key for restore, or shows `restore unavailable`.
 
-Action hints show the first usable binding, or label the action unavailable when none remains. If you bind copy to Enter, the restore hint shows another confirm binding or `restore unavailable`.
+Configured actions override conflicting fixed keys; hints omit those keys. If Tab conflicts, Shift+Tab may still switch collections. Rebind to free a key or use [numbered commands](#numbered-draft-commands).
 
-A configured action overrides any fixed control using the same key. Hints omit that key for the fixed action. For example, if a configured action uses Tab, Shift+Tab can still switch collections. Rebind the configured action to free the key, or use [numbered commands](#numbered-draft-commands) for draft actions.
-
-With Pi's default fullscreen bindings, PageUp and PageDown scroll the transcript instead of the inline prompt view. To page results or preview text in that view, add these action bindings to `keybindings.json` and run `/reload`:
+Default fullscreen PageUp/PageDown scroll the transcript, not the inline view. For view paging, add and `/reload`:
 
 ```json
 {
@@ -33,64 +31,60 @@ With Pi's default fullscreen bindings, PageUp and PageDown scroll the transcript
 }
 ```
 
-If you have also rebound transcript scrolling, choose keys that it does not use.
+Choose other keys if transcript scrolling also uses these.
 
-Ctrl+C never cancels the browser, even when included in `tui.select.cancel`. It can still perform another configured action, including the default copy action.
+Ctrl+C never cancels, even in `tui.select.cancel`; it may perform another configured action, including copy. Opening requires a cancel key other than Ctrl+C that copy does not use. No Escape override is added.
 
-To open the browser, bind cancel to at least one key other than Ctrl+C that is not also bound to copy. The browser does not add an Escape override.
-
-If a modified key does not reach Pi, check [terminal key reporting](../../../../node_modules/@earendil-works/pi-coding-agent/docs/terminal-setup.md) or choose another binding.
+For missing modified keys, check [terminal reporting](../../../../node_modules/@earendil-works/pi-coding-agent/docs/terminal-setup.md) or rebind.
 
 ## Search and refresh
 
-Only one prompt-manager view can be open per session. History shows only the newest occurrence of each distinct trimmed prompt. Older occurrences remain stored and count toward retention. Saved drafts shows every save, including duplicates.
+One view may open per session. History displays the newest occurrence of each distinct trimmed prompt; older duplicates remain stored and count toward retention. Drafts display every save.
 
-Search covers complete terminal-safe plain text. It ignores case and repeated whitespace, but preserves accents and Unicode forms. Literal phrases rank first, then all-term matches, then fuzzy matches. Selection stays on the same occurrence while it matches. Deletion moves selection to a nearby result.
+Search covers complete terminal-safe plain text, ignoring case/repeated whitespace but preserving accents and Unicode forms. Ranking: literal phrase, all terms, fuzzy. Selection stays on a matching occurrence; deletion selects a nearby result.
 
-Switch collections or reopen the browser to load fresh data or retry a failed read. There is no background refresh. The browser remembers queries and selection while open. Cancel returns to the editor, including during loading.
+Switch collections or reopen to refresh/retry reads; no background refresh. Queries/selections persist while open. Cancel returns to the editor even during loading.
 
-History uses editor text as its initial query only if the untrimmed text has one line and fewer than 100 Unicode code points. It then trims the query and makes it terminal-safe. Saved drafts starts with an empty query.
+Switching collections in preview shows the other selection from the top, or returns to the list for empty collections, no matches, or read failures.
+
+History seeds its query from editor text only when untrimmed text is one line and under 100 Unicode code points, then trims/sanitizes it. Drafts start empty.
 
 ## Deletion
 
-Press Delete twice within 1.5 seconds for the same entry. Other actionable input, refresh, resize, or expiration cancels confirmation. Key repeat and release events do not confirm deletion, but **legacy terminals cannot reliably distinguish a held Delete from separate presses**.
+Delete twice within 1.5 seconds on the same entry. Other actionable input, refresh, resize, or expiry cancels confirmation. Repeat/release events cannot confirm, but **legacy terminals cannot reliably distinguish held Delete from separate presses**.
 
-During deletion, only cancellation remains available. Cancel closes the browser immediately, including from full preview, but does not undo a deletion already underway. On failure, the query, selection, and preview remain; retry with a fresh confirmation. In History, deleting a visible entry can reveal an older duplicate, which needs its own confirmation.
+Only cancel works during deletion; it closes immediately, even from preview, without undoing started deletion. Failure retains query, selection, and preview; retry requires fresh confirmation. Deleting History may reveal an older duplicate requiring its own confirmation.
 
 ## Copying
 
-You can keep browsing during a copy, but cannot start another copy until it finishes. Closing the browser does not cancel the clipboard write; session expiry does.
+Browsing remains available during copy, but another copy must wait. Closing does not cancel the write; session expiry does.
 
 ## Presentation
 
-Prompt content uses terminal-safe plain text, never Markdown. Copying preserves the entire source even when its display differs; [restoration](../README.md#restore-text) can refuse unsafe source.
+Display uses terminal-safe plain text, never Markdown. Copy preserves full source; [restoration](../README.md#restore-text) can reject unsafe source.
 
-Rows show compact ages and truncated prompt text. Future ages have a leading `+`; invalid timestamps display `Unknown time`. Open full preview to inspect complete text and an absolute timestamp with its timezone.
+Future ages start with `+`; invalid timestamps show `Unknown time`. Full preview includes complete text and an absolute timestamp with timezone.
 
-The list's `(selected/total)` counter refers to filtered results. [Numbered draft commands](#numbered-draft-commands) use positions in the full collection.
+`(selected/total)` counts filtered results; [numbered commands](#numbered-draft-commands) index the full collection. Preview/inspection border labels `↑ N more` and `↓ N more` count hidden wrapped rows.
 
-In full preview and inspection, the `↑ N more` and `↓ N more` border labels count hidden wrapped rows.
-
-Short terminals use an overlay; taller terminals use an inline view. Extra widgets or taller custom footers can reduce the available inline space. Resizing preserves browser state but cancels deletion confirmation. Below 40 columns × 10 rows, resize or cancel.
+Short terminals use overlays; taller ones use inline views, whose space widgets/custom footers may reduce. Resize preserves state but cancels deletion confirmation. Below 40×10, resize or cancel.
 
 ## Action feedback
 
-Copy and deletion results use Pi notifications. Successful saves and deletions include any cleanup warnings in the same notification. Numbered commands also use notifications for feedback. Operations that finish after the browser closes still notify while the session remains active.
+Copy, save, deletion, and numbered commands use Pi notifications. Successful mutations include cleanup warnings. Operations finishing after closure still notify while the session is active.
 
 ## Numbered draft commands
 
-Numbers refer to positions in the full saved-draft collection, not filtered results. Positions start at 1, newest first. Each command reloads the collection. Another session can change the order between commands.
+Positions are 1-based, newest-first, in the full collection. Each command reloads; concurrent sessions can reorder entries. Use positive decimal integers without leading zeros or trailing arguments.
 
-Use positive decimal integers without leading zeros. Do not pass trailing arguments.
+| Command                                  | Action                              |
+| ---------------------------------------- | ----------------------------------- |
+| `/prompts drafts show <n>`               | Inspect without restoring           |
+| `/prompts drafts copy <n>`               | Copy                                |
+| `/prompts drafts restore <n>`            | Replace editor text; retain entry   |
+| `/prompts drafts restore-and-delete <n>` | Restore, then attempt deletion      |
+| `/prompts drafts delete <n>`             | Delete without browser confirmation |
 
-| Command                                  | Action                                           |
-| ---------------------------------------- | ------------------------------------------------ |
-| `/prompts drafts show <n>`               | Inspect without restoring                        |
-| `/prompts drafts copy <n>`               | Copy the numbered draft                          |
-| `/prompts drafts restore <n>`            | Replace editor text, keeping the saved entry     |
-| `/prompts drafts restore-and-delete <n>` | Restore, then attempt to delete that saved entry |
-| `/prompts drafts delete <n>`             | Delete directly, without browser confirmation    |
+`show` opens standalone inspection: scroll/copy work; confirm/cancel close. No tabs, restoration, deletion, or collection switching.
 
-`/prompts drafts show <n>` opens standalone inspection without collection tabs. Scrolling and copying work; confirm or cancel closes the view. Restoration, deletion, and collection switching are unavailable.
-
-Restore commands follow the [editor safety rules](../README.md#restore-text). If deletion fails after restoration, the restored text stays in the editor.
+Restore commands follow [editor safety rules](../README.md#restore-text); failed deletion leaves restored editor text intact.

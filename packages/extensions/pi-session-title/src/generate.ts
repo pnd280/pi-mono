@@ -4,6 +4,7 @@ import {
   uuidv7,
   type Context
 } from "@earendil-works/pi-ai";
+import { raceWithAbortSignal } from "@earendil-works/pi-ai/utils/abort";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 
@@ -19,7 +20,7 @@ const systemPrompt = [
 
 export class TitleError extends Error {}
 
-export type TitleRegistry = Pick<ModelRegistry, "find" | "getProvider" | "getApiKeyAndHeaders">;
+export type TitleRegistry = Pick<ModelRegistry, "find" | "streamSimple">;
 
 export function cleanTitle(text: string): string {
   const title = displayText(text)
@@ -48,28 +49,20 @@ async function completeTitle({ config, registry, source, signal }: GenerationReq
   if (!source.trim()) throw new TitleError("No conversation text to name.");
   const slash = config.model.indexOf("/");
   const model = registry.find(config.model.slice(0, slash), config.model.slice(slash + 1));
-  const provider = model && registry.getProvider(model.provider);
-  if (!model || !provider)
+  if (!model)
     throw new TitleError(
       "The configured title model is unavailable. Check ext.pi-session-title.model."
     );
   if (!getSupportedThinkingLevels(model).includes(config.thinkingLevel))
     throw new TitleError("The configured thinkingLevel is unsupported by the title model.");
 
-  const auth = await registry.getApiKeyAndHeaders(model);
-  // The registry's auth method has no signal parameter. Never start transport after cancellation.
-  signal.throwIfAborted();
-  if (!auth.ok)
-    throw new TitleError("Title model authentication failed. Check Pi's provider setup.");
-  const { ok: _ok, baseUrl, ...authOptions } = auth;
   const context: Context = {
     systemPrompt,
     messages: [{ role: "user", content: source, timestamp: Date.now() }]
   };
-  // Use the effective provider's simple API so Pi owns thinking mappings, including custom APIs.
-  const response = await provider
-    .streamSimple(baseUrl ? { ...model, baseUrl } : model, context, {
-      ...authOptions,
+  // Pi normalizes the transcript and owns request-time auth and thinking mappings.
+  const response = await registry
+    .streamSimple(model, context, {
       ...(config.thinkingLevel === "off" ? {} : { reasoning: config.thinkingLevel }),
       signal,
       timeoutMs,
@@ -80,7 +73,9 @@ async function completeTitle({ config, registry, source, signal }: GenerationReq
     .result();
   signal.throwIfAborted();
   if (response.stopReason !== "stop")
-    throw new TitleError("The title model did not return a complete title.");
+    throw new TitleError(
+      "The title model did not return a complete title. Check Pi's provider setup."
+    );
 
   return cleanTitle(contentText(response.content));
 }
@@ -97,20 +92,12 @@ export async function generateTitle(request: GenerationRequest): Promise<string 
   timer.unref();
   const signal = AbortSignal.any([request.signal, deadline.signal]);
 
-  let abort = () => {};
-
-  const aborted = new Promise<never>((_resolve, reject) => {
-    abort = () => reject(signal.reason);
-    signal.addEventListener("abort", abort, { once: true });
-  });
-
   try {
-    return await Promise.race([completeTitle({ ...request, signal }), aborted]);
+    return await raceWithAbortSignal(completeTitle({ ...request, signal }), signal);
   } catch (error) {
     if (request.signal.aborted) return undefined;
     throw error;
   } finally {
     clearTimeout(timer);
-    signal.removeEventListener("abort", abort);
   }
 }

@@ -13,6 +13,8 @@
     "./bounded-diff": "./src/bounded-diff/index.ts",
     "./async-cache": "./src/async-cache/index.ts",
     "./file-observation": "./src/file-observation/index.ts",
+    "./file-mutations": "./src/file-mutations/index.ts",
+    "./native-tools": "./src/native-tools/index.ts",
     "./latest-task": "./src/latest-task/index.ts",
     "./expiring-notice": "./src/expiring-notice/index.ts",
     "./timed-confirmation": "./src/timed-confirmation/index.ts",

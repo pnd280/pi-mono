@@ -2,6 +2,13 @@ import { expect, it } from "vite-plus/test";
 
 import { TranscriptMessages } from "./messages.ts";
 
+it.each([
+  { role: "system", content: "Updated instructions", timestamp: 1 },
+  { type: "usage", kind: "cache_warm" }
+])("leaves visibility of transcript metadata to Pi: %j", (entry) => {
+  expect(new TranscriptMessages().read(entry)).toBeUndefined();
+});
+
 const message = {
   role: "assistant",
   timestamp: 42,

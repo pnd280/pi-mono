@@ -1,146 +1,197 @@
-import { realpath } from "node:fs/promises";
-import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
-import { observeTextFile, type FileObservation } from "@pi-mono/libs/file-observation";
+import {
+  observedSource,
+  type FileMutation,
+  type MutationPatch,
+  type MutationSink
+} from "@pi-mono/libs/file-mutations";
+import type { FileObservation } from "@pi-mono/libs/file-observation";
 import { parsePatch } from "@pi-mono/utils/patch";
-import { expandHomePath, relativeDisplayPath } from "@pi-mono/utils/paths";
+import { relativeDisplayPath } from "@pi-mono/utils/paths";
+import { z } from "zod";
 
 import type { FileChange } from "./summary.ts";
 
-const SOURCE_BYTES = 64 * 1024;
-const PATCH_BYTES = 128 * 1024;
+const WRITE_FAILURE = "File write failed; final contents were not observed.";
+const RETAINED_BYTES = 16 * 1024 * 1024;
+const PATCH_LIMITS = {
+  maxSourceBytes: 8 * 1024 * 1024,
+  maxPatchBytes: 128 * 1024,
+  maxEditLength: 2000,
+  timeoutMs: 50,
+  contextLines: 4
+};
 
-async function canonicalPath(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch {
-    // Resolve the nearest existing ancestor when write will create parent directories.
-    const parent = dirname(path);
-    if (parent === path) return path;
-
-    return join(await canonicalPath(parent), basename(path));
-  }
-}
-
-function targetPath(input: string, cwd: string): Promise<string> {
-  const normalized = input
-    .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ")
-    .replace(/^@/, "");
-  const expanded = normalized.startsWith("file://")
-    ? fileURLToPath(normalized)
-    : expandHomePath(normalized, homedir());
-
-  return canonicalPath(resolve(cwd, expanded));
-}
-
-function source(observation: FileObservation): string | undefined {
-  if (observation.status === "ready") return observation.text;
-  if (observation.status === "missing") return "";
-
-  return undefined;
-}
-
-function compare(
-  path: string,
-  before: FileObservation,
-  after: FileObservation
-): FileChange | undefined {
-  const original = source(before);
-  const current = source(after);
-  if (original === undefined || current === undefined)
-    return {
-      path,
-      status: "unavailable",
-      reason: "Could not read complete UTF-8 source within 64 KiB."
-    };
-  if (before.status === after.status && original === current) return;
-
-  const result = createBoundedPatch({
-    path: "file",
-    before: original,
-    after: current,
-    maxSourceBytes: SOURCE_BYTES,
-    maxPatchBytes: PATCH_BYTES,
-    maxEditLength: 2000,
-    timeoutMs: 50,
-    contextLines: 0
-  });
-
+function statistics(path: string, result: MutationPatch): FileChange {
   if (result.status === "ready") {
-    const patch = parsePatch(result.patch, PATCH_BYTES);
+    const patch = parsePatch(result.patch, PATCH_LIMITS.maxPatchBytes);
     if (patch) return { path, status: "available", added: patch.added, removed: patch.removed };
+
+    return { path, status: "unavailable", reason: "Invalid tool patch." };
   }
 
-  return {
-    path,
-    status: "unavailable",
-    reason:
-      result.status === "binary" ? "Binary content." : "Line statistics exceeded the diff budget."
+  const reasons = {
+    "source-unavailable": "Complete source unavailable for comparison.",
+    "source-too-large": "Source exceeds the 8 MiB observation budget.",
+    binary: "Binary content.",
+    "patch-too-large": "Patch exceeds the 128 KiB retention limit.",
+    "budget-exceeded": "Diff generation exceeded 50 ms, 2000 changed lines, or worker resources."
   };
+
+  return { path, status: "unavailable", reason: reasons[result.status] };
+}
+
+function sourceReason(source: FileObservation): string | undefined {
+  switch (source.status) {
+    case "ready":
+      return source.text.includes("\0") ? "Binary content." : undefined;
+    case "missing":
+      return undefined;
+    case "too-large":
+      return "Source exceeds the 8 MiB observation budget.";
+    case "invalid-utf8":
+      return "Source is not valid UTF-8.";
+    case "changed":
+      return "Source changed during observation.";
+    case "not-file":
+      return "Target is not a regular file.";
+    case "unavailable":
+      return "Source could not be read.";
+  }
+}
+
+async function mutationStatistics(path: string, mutation: FileMutation): Promise<FileChange> {
+  if (mutation.outcome === "failure") return { path, status: "unavailable", reason: WRITE_FAILURE };
+
+  for (const source of [mutation.before, mutation.after]) {
+    const reason = sourceReason(source);
+    // Native edit patches remain useful even if source retention is unavailable.
+    if (reason && source.status !== "too-large") return { path, status: "unavailable", reason };
+  }
+
+  const before = observedSource(mutation.before);
+  if (before !== undefined && before === observedSource(mutation.after))
+    return { path, status: "available", added: 0, removed: 0 };
+
+  return statistics(path, await mutation.patch(PATCH_LIMITS));
 }
 
 type ObservedFile = {
-  before: Promise<FileObservation>;
-  after?: Promise<FileObservation>;
+  firstSequence: number;
+  lastSequence: number;
+  count: number;
+  before: string | undefined;
+  after: string | undefined;
+  created: boolean;
+  bytes: number;
+  single: Promise<FileChange>;
+  firstReason?: string | undefined;
+  lastReason?: string | undefined;
+  retentionReason?: string | undefined;
 };
 
-/** Observe only edit/write targets, retaining one baseline and the latest result per file. */
+/** Retains only the baseline/latest source; tool patches and intermediate snapshots stay call-scoped. */
 export class RunChanges {
-  private readonly cwd: string;
-  private readonly files = new Map<string, ObservedFile>();
-  private readonly calls = new Map<string, string>();
-  private readonly completed = new Map<
-    string,
-    { before: FileObservation; after: FileObservation }
-  >();
+  private files = new Map<string, ObservedFile>();
+  private retainedBytes = 0;
 
-  constructor(cwd: string) {
-    this.cwd = cwd;
+  constructor(
+    private cwd: string,
+    private maxRetainedBytes = RETAINED_BYTES
+  ) {
+    if (!z.int().nonnegative().safeParse(maxRetainedBytes).success)
+      throw new RangeError("Retained source budget must be a nonnegative safe integer.");
   }
 
-  async beforeCall(toolCallId: string, input: string): Promise<void> {
-    let path: string;
+  sink(): MutationSink {
+    return {
+      maxSourceBytes: PATCH_LIMITS.maxSourceBytes,
+      completed: (mutation) => this.record(mutation)
+    };
+  }
 
-    try {
-      path = await targetPath(input, this.cwd);
-    } catch {
-      // Invalid paths must not turn observational hooks into a tool permission gate.
-      return;
+  async record(mutation: FileMutation): Promise<void> {
+    const path = relativeDisplayPath(mutation.path, this.cwd);
+    const before = observedSource(mutation.before);
+    const after = mutation.outcome === "success" ? observedSource(mutation.after) : undefined;
+    const existing = this.files.get(path);
+    const beforeReason = sourceReason(mutation.before);
+    const afterReason =
+      mutation.outcome === "failure" ? WRITE_FAILURE : sourceReason(mutation.after);
+    const single = existing?.single ?? mutationStatistics(path, mutation);
+    const file: ObservedFile = existing ?? {
+      firstSequence: mutation.sequence,
+      lastSequence: mutation.sequence,
+      count: 0,
+      before,
+      after,
+      created: mutation.before.status === "missing",
+      bytes: 0,
+      single,
+      firstReason: beforeReason,
+      lastReason: afterReason
+    };
+
+    if (mutation.sequence < file.firstSequence) {
+      file.firstSequence = mutation.sequence;
+      file.before = before;
+      file.firstReason = beforeReason;
+      file.created = mutation.before.status === "missing";
     }
 
-    this.calls.set(toolCallId, path);
-    let file = this.files.get(path);
-
-    if (!file) {
-      file = { before: observeTextFile(path, SOURCE_BYTES) };
-      this.files.set(path, file);
+    if (mutation.sequence >= file.lastSequence) {
+      file.lastSequence = mutation.sequence;
+      file.after = after;
+      file.lastReason = afterReason;
     }
 
-    await file.before;
+    file.count++;
+    this.retainedBytes -= file.bytes;
+    // UTF-16 code units conservatively budget retained JS strings, not just UTF-8 disk bytes.
+    file.bytes = 2 * ((file.before?.length ?? 0) + (file.after?.length ?? 0));
+
+    if (this.retainedBytes + file.bytes > this.maxRetainedBytes || file.retentionReason) {
+      file.before = undefined;
+      file.after = undefined;
+      file.bytes = 0;
+      file.retentionReason ??= `Run source retention budget exceeded (${this.maxRetainedBytes} bytes).`;
+    }
+
+    this.retainedBytes += file.bytes;
+    this.files.set(path, file);
+    // Publish endpoints before awaiting a patch: sibling calls can finish in any order.
+    await single;
   }
 
-  async afterCall(toolCallId: string): Promise<void> {
-    const path = this.calls.get(toolCallId);
-    if (path === undefined) return;
-    this.calls.delete(toolCallId);
-    const file = this.files.get(path);
-    if (!file) return;
-    const after = observeTextFile(path, SOURCE_BYTES);
-    file.after = after;
-    const [beforeValue, afterValue] = await Promise.all([file.before, after]);
-    // Parallel result hooks must not overwrite a newer observation with an older read.
-    if (file.after === after) this.completed.set(path, { before: beforeValue, after: afterValue });
-  }
-
-  finish(): FileChange[] {
+  async finish(): Promise<FileChange[]> {
     const changes: FileChange[] = [];
+    const files = this.files;
+    this.files = new Map();
+    this.retainedBytes = 0;
 
-    for (const [path, { before, after }] of this.completed) {
-      const change = compare(relativeDisplayPath(path, this.cwd), before, after);
-      if (change) changes.push(change);
+    for (const [path, file] of files) {
+      const reason = file.retentionReason ?? file.firstReason ?? file.lastReason;
+      if (!reason && !file.created && file.before !== undefined && file.before === file.after)
+        continue;
+      if (file.count === 1) changes.push(await file.single);
+      else if (reason || file.before === undefined || file.after === undefined)
+        changes.push({
+          path,
+          status: "unavailable",
+          reason: reason ?? "Complete source unavailable for net comparison."
+        });
+      else
+        changes.push(
+          statistics(
+            path,
+            await createBoundedPatch({
+              path: "file",
+              before: file.before,
+              after: file.after,
+              ...PATCH_LIMITS
+            })
+          )
+        );
     }
 
     return changes.sort((a, b) => a.path.localeCompare(b.path));

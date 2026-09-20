@@ -11,13 +11,13 @@
 - `textPrefix` clips a UTF-16 prefix without cutting a grapheme or SGR sequence.
 - `compactText` limits the text passed to wrapping, preserves head and tail excerpts with their SGR state, and applies the row budget.
 
-`compactText` requires `maxCharacters` to be a safe integer of at least two, measured in UTF-16 code units. Invalid values throw `RangeError`. The `notice` callback receives the omitted-row count when the full text was wrapped, or `undefined` when character clipping skipped that measurement.
+For `compactText`, `maxCharacters` must be a safe integer ≥2 UTF-16 units, otherwise `RangeError`. `notice` receives omitted-row counts after full wrapping, or `undefined` when character clipping skips measurement.
 
 ## Caller responsibilities
 
-Supply normalized text with only SGR styling. Raw terminal-output normalization belongs to [terminal text utilities](../terminal-text/index.ts).
+Supply normalized text with only SGR styling. Use [terminal text utilities](../terminal-text/README.md) to normalize raw terminal output.
 
-Callers choose width, row and character budgets, notice wording, and styling. Source collection and retention remain outside this module. `compactRows` expects already measured rows. Tree callers reserve the connector width before measuring content.
+Own width, row/character budgets, notices, styling, and source retention. `compactRows` needs measured rows; reserve tree connector width before measurement.
 
 Use [text layout](../text-layout/README.md) to wrap complete text cooperatively. Connector placement belongs to [tree](../components/tree/README.md), and patch selection belongs to [diff view](../components/diff-view/README.md).
 

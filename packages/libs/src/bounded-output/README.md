@@ -4,17 +4,13 @@
 
 ## Behavior
 
-[`@pi-mono/libs/bounded-output`](index.ts) exports `readBoundedOutput` for regular-file previews. Oversized files retain head and tail excerpts within source byte and line limits. Generated omission notices can make the result exceed those limits.
+[`readBoundedOutput`](index.ts) (`@pi-mono/libs/bounded-output`) previews regular files, retaining oversized head/tail excerpts within byte/line limits. Omission notices can make previews exceed those limits.
 
-Reads follow symlinks without repairing permissions. Size and timestamp checks detect some concurrent writes but do not guarantee an atomic snapshot. Results distinguish a ready preview, a nonregular file, a changed file, and an unavailable read without exposing raw OS diagnostics.
-
-The library does not cache previews or retry reads.
+Reads follow symlinks without permission repair. Size/timestamp checks detect some races, not atomic snapshots. Results distinguish ready, nonregular, changed, and unavailable without raw OS diagnostics. No caching or retries.
 
 ## Caller responsibilities
 
-Decide which paths the consumer may read before loading a preview. Supply omission messages and byte and line limits. Both limits must be safe integers of at least two. Invalid limits throw `RangeError`.
-
-Preserve the notice ranges in `OutputText` to distinguish notices from identical file contents. Sanitize the complete preview for terminal display.
+Authorize paths before reading; supply omission messages and safe-integer byte/line limits of at least two, or receive `RangeError`. Preserve `OutputText` notice ranges to distinguish identical file text; sanitize complete previews for display.
 
 Choose retries, diagnostics, and cache lifetime. Tool display's [saved-output loader](../../../extensions/pi-tool-display/src/observation/saved-output.ts) combines this reader with an [asynchronous cache](../async-cache/README.md).
 

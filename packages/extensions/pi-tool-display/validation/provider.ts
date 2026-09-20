@@ -6,6 +6,8 @@ import {
   contentText,
   createProvider,
   fauxToolCall,
+  getCurrentTools,
+  type JsonObject,
   type ProviderStreams
 } from "@earendil-works/pi-ai";
 import { createReadToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -14,7 +16,7 @@ import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 
 import { assertFixtureWorkspace } from "./workspace.ts";
 
-type PlannedCall = { name: string; args: Record<string, unknown> };
+type PlannedCall = { name: string; args: JsonObject };
 
 const quote = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
 
@@ -223,7 +225,7 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
         const completed = context.messages
           .slice(userIndex + 1)
           .filter((message) => message.role === "toolResult").length;
-        const available = new Set((context.tools ?? []).map((tool) => tool.name));
+        const available = new Set(getCurrentTools(context.messages).map((tool) => tool.name));
         const missing = plan.filter((call) => !available.has(call.name));
 
         if (missing.length > 0) {

@@ -11,12 +11,10 @@
 
 ## Constraints
 
-Follow the [workspace development conventions](../../../docs/development.md) and [code organization rules](../../../docs/agents/architecture.md).
-
-- Preserve the [configuration rules](README.md#configuration). Reject invalid settings before making requests so conversation text cannot be sent to a fallback model.
+- Preserve [configuration rules](README.md#configuration); reject invalid settings before requests to prevent sending conversation text to a fallback model.
 - Use Pi's authentication and thinking APIs. Do not duplicate provider-specific reasoning mappings.
 - Reuse [LatestTask](../../libs/src/latest-task/README.md) for stale-result protection and [terminal-text](../../libs/src/tui/terminal-text/README.md) for terminal safety and Unicode-safe boundaries. Cancel underlying I/O separately.
-- Store names through Pi's session-name API. Use Pi notifications for feedback without adding conversation messages or custom stdout output.
+- Use Pi's session-name API and notifications, never conversation messages or custom stdout.
 
 ## Validation
 

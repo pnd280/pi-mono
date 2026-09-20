@@ -111,7 +111,7 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
         }
       ];
     },
-    summary(result, { outcome }) {
+    summary(result, { outcome, expanded }) {
       if (outcome !== "success") return undefined;
       const counts = summaryCountsSchema.safeParse(result.details).data;
       if (!counts) return undefined;
@@ -123,7 +123,11 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
           ? `${totalMatched} matching ${totalMatched === 1 ? "file" : "files"}`
           : `${totalMatched} ${totalMatched === 1 ? "match" : "matches"} collected`;
 
-      return { text: `${matches} · ${totalFiles} indexed ${totalFiles === 1 ? "file" : "files"}` };
+      return {
+        text: expanded
+          ? `${matches} · ${totalFiles} indexed ${totalFiles === 1 ? "file" : "files"}`
+          : matches
+      };
     },
     notices: (result, expanded) => (expanded ? [] : fffTextNotices(result, kind))
   };

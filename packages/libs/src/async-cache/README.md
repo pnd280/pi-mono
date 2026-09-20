@@ -4,17 +4,13 @@
 
 ## Behavior
 
-[`@pi-mono/libs/async-cache`](index.ts) exports `AsyncCache`, which shares pending loads for the same key and retains results in a bounded LRU cache.
+[`AsyncCache`](index.ts) (`@pi-mono/libs/async-cache`) shares same-key loads in a bounded LRU cache. At the pending limit, new keys get uncached `onBusy` results or `undefined`. Rejections are uncached and retryable.
 
-At the pending-load limit, new keys receive an uncached `onBusy` result, or `undefined` if no callback is supplied. Rejected loads are not cached and can be retried.
-
-Disposal clears retained values and discards late results without aborting underlying I/O or invoking `onEvict`. Loads after disposal return `undefined`.
+Disposal clears values and drops late results without aborting I/O or invoking `onEvict`; later loads return `undefined`.
 
 ## Caller responsibilities
 
-Supply the loader, cache capacity, and pending-load limit. Both limits must be positive safe integers. Invalid limits throw `RangeError`. Keep `onBusy` and `onEvict` callbacks nonthrowing.
-
-Choose cache lifetime, retry policy, and diagnostics. Call `dispose()` when the owner closes and clean up resources in the owner, including any I/O that must be aborted.
+Supply a loader and positive safe-integer cache/pending limits; invalid limits throw `RangeError`. Keep `onBusy`/`onEvict` nonthrowing. Own lifetime, retries, diagnostics, and resource/I/O cleanup; `dispose()` on closure.
 
 Tool display's [saved-output loader](../../../extensions/pi-tool-display/src/observation/saved-output.ts) supplies preview limits and a retryable busy result.
 

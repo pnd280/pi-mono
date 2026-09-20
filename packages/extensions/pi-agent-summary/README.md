@@ -1,63 +1,68 @@
 # pi-agent-summary
 
-Shows elapsed agent runtime in Pi's working message. Saves duration, bash-call counts, and file-change statistics in the transcript without adding them to model context.
+Shows elapsed runtime in Pi's working message and saves duration, bash-call counts, and file-change statistics outside model context.
 
 ## Usage
 
-When Pi returns to idle, the transcript shows a summary:
+When Pi settles, the transcript shows:
 
 ```text
 Worked for 1m 23s · 4 bash calls · 3 files · +42 −11
 ```
 
-Use Pi's tool-output expansion shortcut (Ctrl+O by default) to show per-file statistics.
+Left-click a summary in fullscreen TUI to toggle its per-file statistics independently. Pi's tool-output shortcut (default Ctrl+O) toggles all summaries in either TUI mode.
 
-One summary covers all model turns, tool calls, automatic retries, compaction retries, and queued follow-ups until the agent settles. Time spent waiting for user input during a run is included. Cancellation and errors also produce a summary once Pi settles. The summary does not indicate task success.
+A run includes model turns, tool calls, automatic/compaction retries, queued follow-ups, and time waiting for user input. Cancellation and errors also produce summaries; summaries do not indicate success.
 
-Summaries survive session resume and render when this extension is loaded. RPC, JSON, and print modes save the same statistics without a UI update timer. Shutdown or reload discards an unfinished run without saving a partial summary.
+Saved summaries render on resume when the extension is loaded. RPC, JSON, and print modes save the same statistics without a UI timer. Shutdown/reload discards unfinished runs.
 
 ### Tool statistics
 
 #### Bash calls
 
-Each agent `bash` call counts once, including failed, cancelled, and blocked calls. Commands inside a script do not count separately. Manual `!` and `!!` commands do not count.
+Each agent `bash` call counts once, including failed, cancelled, or blocked calls. Script commands do not count separately; manual `!` and `!!` commands are excluded.
 
 #### File changes
 
-Only `edit` and `write` targets are observed. Each resolved path counts once. The extension compares contents before the first observed call with contents after the latest result. Repeated edits produce net line counts. Fully reverted changes disappear, but creating an empty file still counts as a changed file.
+Statistics cover native `edit` and `write` verified against Pi 0.86.1. Failures before a disk-write attempt add no file. Canonical paths deduplicate symlink aliases.
 
-Files changed only through bash or other tools are excluded. Other edits to an observed file between calls can enter its net comparison. Statistics assume local tools using Pi's path conventions.
+Net counts compare content before the first observed write attempt with final written content; unavailable intermediate snapshots do not matter if both endpoints exist. Reverted changes disappear; creating an empty file still counts.
+
+Bash-only changes, SDK overrides, custom tools, and unverified definitions are excluded. Other changes between observed native operations can enter the net comparison.
 
 #### Limits
 
-File observations require valid UTF-8 source no larger than 64 KiB. Diff generation has limits of 2,000 added and removed lines in total, 50 ms, and a 128 KiB patch.
+Snapshots require valid UTF-8, at most 8 MiB each. Per-run retained original/final text is limited to 16 MiB measured as UTF-16.
 
-Binary, unreadable, oversized, or unstable observations appear as unavailable, with reasons in the expanded view. File and line totals include only files with available statistics. The summary shows `File changes partial` when only some file changes have statistics, or `File changes unavailable` when all observed changes are unavailable.
+Generated diffs are limited to 2,000 total added/removed lines, 50 ms from worker dispatch to returned patch, 128 KiB per patch, and [shared worker limits](../../libs/src/bounded-diff/README.md#behavior). For a single edit, a native patch within 128 KiB can supply statistics despite source, retention, or generation limits.
+
+Binary/unreadable files, unstable snapshots, failed final writes, and exceeded limits can make statistics unavailable. Expanded views explain why; totals include only files with available statistics.
 
 ## Configuration
 
-No extension-specific options or environment variables. The shared [working-message coordinator](../../libs/src/working-message/README.md) combines `pi-agent-summary.elapsed` with contributions such as task activity from `pi-todo`. Use `/working-message` to reorder components.
+No extension-specific options or environment variables. The shared [coordinator](../../libs/src/working-message/README.md) combines `pi-agent-summary.elapsed` with other contributions, such as `pi-todo` activity. Reorder them with `/working-message`.
 
 ## Side effects
 
-Appends one `pi-agent-summary.summary` custom entry per settled run. Each entry contains the duration, bash-call count, and per-file statistics or reasons statistics are unavailable. Entries never become model messages or trigger another turn. Invalid stored summaries are not rendered.
+Appends one `pi-agent-summary.summary` entry per settled run with duration, bash count, and per-file statistics or unavailability reasons. Entries never enter model context or trigger turns; invalid stored summaries are hidden.
 
-Reads `edit` and `write` targets before execution and after results. File contents and generated patches remain in memory and are not saved in summary entries. The extension does not scan directories, modify target files, run Git, or make network requests.
+Observation adds a bounded read before native `write`, reuses native `edit` reads, and never reads after writing. Observations are [shared](../../libs/src/file-mutations/README.md) with `pi-tool-display` without duplicate reads. Contents and patches stay in memory. No directory scans, extra target writes, Git commands, or network requests.
 
-The elapsed-time component is cleared on completion or shutdown without clearing other components. Saving component order through `/working-message` updates the coordinator's settings files.
+Completion/shutdown clears only the elapsed-time contribution. Saving `/working-message` order writes coordinator settings.
 
 ## Validation
 
-Run the [focused checks](../../../docs/development.md#focused-validation) for `pi-agent-summary`:
+Run [focused checks](../../../docs/development.md#focused-validation) for `pi-agent-summary`:
 
 ```sh
 vpr 'pi-agent-summary#check'
 vpr 'pi-agent-summary#test'
 ```
 
-For a visual check:
+Visual checks:
 
-1. Load the extension with `pi-todo` and run a prompt that uses `bash`, `edit`, and `write`. Confirm that elapsed time updates alongside task activity.
-2. After the run settles, confirm that line counts use diff colors and expanding tool output shows per-file statistics.
-3. Start another run and abort it. Confirm that one summary appears and the timer stops.
-4. Resume the session. Confirm that saved summaries appear.
+1. Load with `pi-todo`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity and diff-colored line counts after settling.
+2. In fullscreen, click summaries independently; verify dragging selects text and the wheel scrolls.
+3. Check Ctrl+O toggles all summaries in regular and fullscreen modes.
+4. Abort another run; expect one summary and a stopped timer.
+5. Resume the session; confirm saved summaries appear.

@@ -4,45 +4,39 @@
 
 ## Card layout
 
-Standalone and expanded cards show file targets inside Pi's rendering working directory as relative paths. Targets outside it use absolute paths. The working directory itself displays as `.`.
+Standalone/expanded targets use paths relative to Pi's rendering cwd for descendants, `.` for cwd, and absolute paths otherwise. Resolution is lexical, including home expansion: no filesystem inspection or symlink following. Raw parameters, retained output, generic arguments, and literal scopes/filters stay unchanged.
 
-Paths are resolved lexically, including home expansion, without inspecting current files or following symlinks. Raw parameter blocks, retained output, generic arguments, and literal scope or filter expressions are not rewritten.
+Targets wrap beneath themselves in normal foreground; ranges/annotations use `dim`. Wrapping prefers path separators and keeps ranges together when they fit. With at least four target columns, wrapping has no row limit; collapsed targets over the [formatting limit](#resource-limits) retain start/end around `…`.
 
-Paths shown alone or with a read range wrap with continuation lines aligned beneath the target. Paths use the normal foreground color. Ranges and other annotations use `dim`. Wrapping prefers directory and filename separators and keeps a range together when it fits the available width.
+Other collapsed summaries, commands, and narrower targets show up to three detail rows with truncation hints. Long invocations may put the action on its own row. Groups apply these rules per member; diagnostics/images remain visible.
 
-When at least four columns remain for a target, it wraps without a row limit. Collapsed targets above the [formatting limit](#resource-limits) retain their start and end, separated by `…`.
-
-Other collapsed invocation and command summaries show up to three detail rows, with an expansion hint when truncated. Targets with fewer than four available columns also use these preview limits. A long invocation can place its action title on a separate row. Grouped summaries follow the same rules per item. Diagnostics and images remain visible.
-
-Expansion removes the [heading preview limits](#resource-limits). Parameter visibility still follows [`showParameters`](../README.md#configuration).
+Expansion removes [heading preview limits](#resource-limits), but parameters hidden by [`showParameters`](../README.md#configuration) stay hidden.
 
 ### Results
 
-Compact cards replace successful text output with a summary when validated metadata describes the result. Without a summary, cards show bounded output previews. Grouped and standalone cards follow the same rules. For tool-specific summaries, see [FFF results](../src/adapters/@ff-labs/pi-fff/README.md#display), [Todo results](../src/adapters/pi-todo/README.md#display), and [MCP script results](../src/adapters/pi-mcp-adapter/README.md#display).
+Validated metadata can replace successful text with compact summaries; otherwise cards use bounded previews, grouped or standalone. See [FFF](../src/adapters/@ff-labs/pi-fff/README.md#display), [Todo](../src/adapters/pi-todo/README.md#display), and [MCP scripts](../src/adapters/pi-mcp-adapter/README.md#display).
 
-Observed shell cards show status and duration beside an output preview. Successful file reads keep their text hidden until expansion. Edit and write cards show diff previews. Failure and cancellation output, notices, and images remain visible.
+Observed shells show status/duration beside previews. Successful reads hide text until expansion; edits/writes show diffs. Failure/cancellation output, notices, and images stay visible.
 
-Output previews retain initial and final rows. Output above the [formatting limit](#resource-limits) also shows `… more output`. Excerpts preserve whole graphemes and ANSI styling. Expansion shows summaries and retained output, subject to live and saved-output retention limits.
+Previews retain initial/final rows, whole graphemes, and ANSI styling; exceeding [formatting limits](#resource-limits) adds `… more output`. Expansion shows summaries and retained output within live/saved retention limits.
 
 ## Groups
 
-Adjacent exploration calls with the same scope form a group. Every call stays in source order, including repeated reads. A scope change starts a new group, even when returning to a previously visited directory. Single calls use ordinary cards. Adapters can define a [custom group title](renderers.md#exploration-scopes) for one literal filter scope.
+Adjacent exploration calls group by scope in source order, including repeated reads. Scope changes start new groups even on returning to an earlier directory. Single calls stay standalone; adapters may give one literal-filter scope a [custom title](renderers.md#exploration-scopes).
 
-Scopes match by these rules in both live and historical views:
+Live and historical matching rules:
 
-- Native reads use the file's parent directory. Native searches and lists use their supplied directory, defaulting to `.`. Directories are compared after lexical resolution against the session working directory, using the same path rules as summaries.
-- Literal filters, including FFF scopes, match only identical filters. They never match filesystem directories.
-- All exploration items within a call must resolve to the same directory or literal filter. Calls with missing or invalid scopes do not group.
+- Native reads use parent directories; native searches/lists use supplied directories, defaulting to `.`. Compare lexical paths against session cwd using summary path rules.
+- Literal filters, including FFF scopes, match exactly and never match directories.
+- Every item in a call must resolve to the same directory or filter; missing/invalid scopes prevent grouping.
 
-Directory headings use `Exploring <path>` while live and `Explored <path>` after completion. Literal-filter headings use `Filtering <filter>` and `Filtered <filter>`. Scope-kind nouns are not displayed. All group headings omit call and operation counts.
+Directory headings use `Exploring`/`Explored <path>`; filter headings use `Filtering`/`Filtered <filter>`. Omit scope-kind nouns and call/operation counts.
 
-Collapsed directory members show targets relative to the heading's directory and keep read ranges. Targets outside that directory remain absolute. Collapsed FFF members show their patterns or `files` without repeating the filter. Expanded and standalone cards use the [target rules](#card-layout) and retain literal filters.
+Collapsed directory members retain ranges and use paths relative to the group, absolute outside it. FFF members show patterns or `files`, not repeated filters. Expanded/standalone cards follow [target rules](#card-layout) and retain filters. Known queued/executing members show `queued`/`running` in `dim`; argument streaming does not imply execution.
 
-Queued and executing group members show `queued` and `running` annotations in `dim` when their state is known. Argument streaming does not imply execution.
+Visible assistant content/diagnostics, cache-miss notices, compaction summaries/notices, custom entries, and non-exploration tools separate groups; hidden content does not. Assistant content precedes its message's tools as a boundary even when arriving later.
 
-Visible assistant content, assistant diagnostics, cache-miss notices, compaction summaries and notices, rendered custom entries, and non-exploration tools separate groups. Hidden content does not. Assistant content separates groups before that message's tools, even if it arrives later.
-
-Tool-result notices and failure diagnostics stay immediately beneath their call:
+Notices, images, and failure diagnostics stay beneath their call:
 
 ```text
 • Explored .
@@ -51,62 +45,62 @@ Tool-result notices and failure diagnostics stay immediately beneath their call:
   └ Read renderers.ts
 ```
 
-Standalone and expanded searches separate the pattern and scope with an em dash (U+2014), for example: Searched renderers &#x2014; src/.
+Standalone/expanded searches separate pattern and scope with an em dash (U+2014): Searched renderers &#x2014; src/.
 
 ## Thinking
 
-With Pi's thinking display collapsed (**Ctrl+T** by default), completed thinking placeholders disappear, including in history. Revealing thinking restores its rows and group boundaries. Live thinking indicators, assistant text, and diagnostics remain visible in either state. Recorded messages do not change.
+Collapsed thinking (default **Ctrl+T**) hides completed placeholders, including history. Revealing restores rows/group boundaries. Live indicators, assistant text, and diagnostics remain; recorded messages never change.
 
 ## Outcomes
 
-Pending headings cover argument streaming, queueing, and execution. They do not confirm that execution has started or a change has been applied. Adapters can establish an outcome only from completed results.
+Pending covers argument streaming, queueing, and execution, not proof of execution or applied changes. Adapter outcomes require completed results. Failed/cancelled/unknown-history headings retain actions: `Write failed`, `Edit cancelled`, `Read outcome unavailable`.
 
-Headings retain the action when a call fails, is cancelled, or has no known historical outcome: `Write failed`, `Edit cancelled`, or `Read outcome unavailable`.
+Groups count failures, cancellations, and unavailable outcomes, not pending calls. Members name their outcomes; counts stay beside the group action/custom title. Scopes wrap beneath when necessary.
 
-Group headings count failures, cancellations, and unavailable outcomes, excluding pending calls. Each affected member also names its outcome. Outcome counts stay beside the group action or custom title. When the scope and outcome counts do not fit together, the scope moves to continuation rows beneath them.
+The CLI records cancellation for unsuccessful execution results arriving after live abort. Earlier failures and successful results retain their outcomes. Cancellation outranks failure; success/unavailable metadata overrides neither.
 
-The automatic CLI integration records cancellation when an unsuccessful execution result arrives after the live run is aborted. Successful results and failures received before the abort retain their outcomes.
-
-Confirmed cancellation takes precedence over failure. Successful or unavailable adapter metadata cannot override either.
-
-When cancellation is confirmed, compact native cards omit exact matches for known cancellation messages but retain process output and additional diagnostics. Expansion restores the original diagnostic. Ordinary output and similar messages without confirmed cancellation remain visible.
+Confirmed cancellation lets compact native cards omit exact known cancellation messages while retaining process output and extra diagnostics. Expansion restores full diagnostics. Similar ordinary output without confirmation stays visible.
 
 ## Notices and colors
 
-Successful result summaries, informational notices, and expansion hints use `dim`. Notice severity controls styling, not visibility. Compact groups retain informational notices. Unknown historical observations use `muted`. Cancellation diagnostics, unavailable patches or previews, output omissions, and actionable diagnostics use `warning`.
+| Content                                                                                   | Color                                                                                          |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Successful summaries, information, expansion hints                                        | `dim`                                                                                          |
+| Unknown historical observations                                                           | `muted`                                                                                        |
+| Cancellation diagnostics, unavailable patches/previews, omissions, actionable diagnostics | `warning`                                                                                      |
+| Standalone action/marker                                                                  | `accent` neutral/success, `warning` pending, `error` failure/cancellation, `muted` unavailable |
+| Group action/marker                                                                       | Shared member action color, or `accent` if mixed                                               |
+| Member labels                                                                             | Outcome-specific                                                                               |
+| Diagnostic bodies/error notices                                                           | `error`                                                                                        |
 
-Standalone action text and markers use `accent` for neutral or successful calls, `warning` while pending, `error` for failures or cancellations, and `muted` when the outcome is unavailable. Group action titles and markers use the members' shared action color, or `accent` when those colors differ. Grouped member labels use outcome-specific colors. Diagnostic bodies and error notices use `error`.
-
-Live and saved-output previews distinguish generated omissions from process text. Identical literal output in those previews retains ordinary styling. Generic output is not searched for extension-specific phrases. See the [built-in adapters](adapters.md#built-in-adapters) for tool-specific interpretation and provenance limits.
+Severity changes styling, never visibility; compact groups retain informational notices. Live/saved previews distinguish generated omissions from identical process text, which keeps ordinary styling. Generic output is not searched for extension phrases. See [adapter provenance limits](adapters.md#built-in-adapters).
 
 ## Diff viewer
 
-Mixed patches use side-by-side columns when space permits. Narrow terminals and one-sided patches use unified rows. Write cards omit counts for one-sided patches, while edit cards retain them. Compact previews prioritize changed code and nearby context, with omission hints for excerpts and remaining hunks.
+Mixed patches use side-by-side columns when wide enough; narrow or one-sided patches use unified rows. Writes omit one-sided counts; edits retain them. Compact previews prioritize changed code/nearby context and mark omitted excerpts/hunks.
 
-Pi's tool expansion action reveals every retained hunk with full wrapping. Hunks have no separate input controls. Added and removed rows and inline changes use Pi's theme colors. Context and separators retain the terminal background.
+Pi expansion reveals all retained hunks with full wrapping; no hunk-specific controls. Added/removed rows and inline changes use theme colors; context/separators retain terminal background.
 
-The viewer shows only retained patch context and never reads current files. Invalid, incomplete, multi-file, and oversized patches display an unavailable notice. A valid displayed patch suppresses warnings about observation limits, including in retained history. See [resource limits](#resource-limits) for patch generation and retention bounds.
+Only retained context is shown; current files are never read. Invalid, incomplete, multi-file, or oversized patches show unavailable notices. Valid patches suppress observation-limit warnings, including history. See [limits](#resource-limits).
 
 ## Saved-output previews
 
-Expanding a shell card starts an asynchronous read of its saved output after the call completes. Expanding a running call defers the read until completion. Collapsed cards do not start reads.
+Expansion asynchronously reads saved shell output after completion, deferring running calls. Collapsed cards never start reads. Failures retain Pi's published result beside previews; missing, unreadable, changing, or nonregular files retain output with a limitation notice.
 
-Failed calls retain Pi's published result beside the preview. Missing, unreadable, changing, or non-regular files leave retained output visible with a limitation notice.
-
-If all read slots are occupied, collapse and expand the card again to retry. Completed reads, including failures, remain cached until eviction or session disposal. To retry a cached failure after repairing a file, run `/reload` and expand the card. Collapsing and expanding alone reuses the cached result.
+When read slots are full, collapse/expand to retry. Completed reads, including failures, cache until eviction/session disposal. After repairing a file, `/reload` and expand to retry a cached failure; toggling alone reuses it.
 
 ## Resource limits
 
-These limits affect display, not tool execution or the arguments and results saved by Pi. Live and saved-output budgets limit retained output. Generated omission notices add bytes and rows.
+Limits affect display, not execution or Pi's saved arguments/results. Live/saved budgets bound retained output; omission notices add bytes/rows.
 
-| Resource                     | Limit                                                                                                                                                                                                       |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Collapsed heading formatting | 16,384 UTF-16 code units of normalized text per invocation, group scope, or exploration item, before styling and wrapping.                                                                                  |
-| Collapsed result formatting  | 16,384 UTF-16 code units of source text per text block or preview, split equally between the start and end before normalization and styling. Carried ANSI state is additional.                              |
-| Syntax highlighting          | 512 KiB per text. Code highlighting also stops above 10,000 lines or 4,096 bytes on any line. Text remains readable without token styling.                                                                  |
-| Live shell output            | Full output up to 1 MiB. Above that, the first 50 and last 50 completed lines plus any partial line, retaining up to 10,280 source bytes per line.                                                          |
-| Saved-output preview         | Read at most 256 KiB total, split between the start and end of oversized files. Retain up to 4,000 preview lines before inserting a line-omission notice. At most 8 cached previews and 8 concurrent reads. |
-| Generated patch input        | 64 KiB per text, a 50 ms timeout checked during synchronous generation, and a 2,000 changed-line edit-distance limit. Native edit patches bypass these input and search limits.                             |
-| Retained patch               | 128 KiB.                                                                                                                                                                                                    |
+| Resource           | Limit                                                                                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collapsed headings | 16,384 normalized UTF-16 units per invocation, group scope, or exploration item before styling/wrapping.                                              |
+| Collapsed results  | 16,384 source UTF-16 units per block/preview, split equally between start/end before normalization/styling; carried ANSI state is extra.              |
+| Highlighting       | 512 KiB per text; code also stops above 10,000 lines or 4,096 bytes per line. Unstyled text remains readable.                                         |
+| Live shell output  | Full through 1 MiB; then first/last 50 completed lines plus partial line, at most 10,280 source bytes per line.                                       |
+| Saved previews     | Read 256 KiB total, split start/end for oversized files; retain 4,000 lines before omission notice. Eight cached previews and eight concurrent reads. |
+| Patch generation   | 8 MiB UTF-8 per snapshot, 50 ms worker dispatch-to-return, 2,000 changed-line edit distance. Native edit patches bypass these limits.                 |
+| Retained patches   | 128 KiB.                                                                                                                                              |
 
-The [automatic integration](../README.md#observation-and-saved-history) collects live and saved output and generates patches. The [standalone factory](renderers.md) formats supplied data without observing tools or loading files.
+Generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behavior); exceeded limits make patches unavailable. [Automatic integration](../README.md#observation-and-saved-history) collects output/generates patches; the [standalone factory](renderers.md) only formats supplied data.

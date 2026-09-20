@@ -61,7 +61,14 @@ it("requires a native image envelope before promoting image warnings", () => {
   ]);
 });
 
-const complete = { isError: false, isPartial: false, isCancelled: false, expanded: false };
+const complete = {
+  result: { content: [], details: undefined },
+  contentIndex: 0,
+  isError: false,
+  isPartial: false,
+  isCancelled: false,
+  expanded: false
+};
 it("recognizes native envelopes while preserving supplied bytes and literal lookalikes", () => {
   for (const [name, text, context, annotation, warning] of [
     ["bash", "(no output)", complete, "(no output)", ""],

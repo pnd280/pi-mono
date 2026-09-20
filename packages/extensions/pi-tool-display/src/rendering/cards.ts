@@ -45,7 +45,8 @@ function prepareCard(base: Omit<Projection, "mcp" | "outcome" | "summary">): Pre
     const value = base.adapter.summary?.(base.result, {
       args: base.context.args,
       outcome: outcome(),
-      operation: base.call?.operation
+      operation: base.call?.operation,
+      expanded: base.expanded
     });
 
     return value?.text.trim() ? value : undefined;
@@ -231,7 +232,8 @@ class CardRow {
       ...view,
       name: this.name,
       adapter: selected,
-      showParameters: selected.id === "generic" || this.options.showParameters === true,
+      showParameters:
+        selected.alwaysShowParameters === true || this.options.showParameters === true,
       // Pi can retain streamed args and the pre-message_end error flag.
       context: call
         ? {

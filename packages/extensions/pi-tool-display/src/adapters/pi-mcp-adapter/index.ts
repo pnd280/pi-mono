@@ -108,8 +108,6 @@ function invocation(
     ...parts,
     {
       kind: "parameters",
-      // Headings filter hidden parts before reading text. Do not serialize or
-      // retain a second copy of arguments merely to display the tool identity.
       get text() {
         return (parameterText ??= `(${JSON.stringify(parameters ?? {})})`);
       }
@@ -164,6 +162,8 @@ export function piMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
   return {
     id: `pi-mcp-adapter:${kind}`,
     family: "invocation",
+    // MCP tool names alone may not explain the request.
+    alwaysShowParameters: true,
     supports: (args, result) => supportsResult(kind, args, result),
     invocation: (args, result) => invocation(kind, tool.name, args, result),
     mcp: (_args, result) => mcpCallFacts(result),

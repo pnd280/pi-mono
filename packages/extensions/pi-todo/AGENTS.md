@@ -12,11 +12,11 @@
 
 ## Constraints
 
-Keep hierarchy independent of status and dependencies. Mutations must remain atomic, and every emitted result must retain the full replayable state.
+Keep hierarchy independent of status and dependencies, mutations atomic, and every result fully replayable.
 
-Leave tool card rendering to the host. Do not attach renderer fields to the tool definition.
+Leave cards to the host; attach no renderer fields to the tool definition.
 
-Reuse shared terminal sanitization, text layout, and custom-UI mounting. Publish activity through the working-message coordinator rather than writing Pi's message directly. Keep task-browser selection, widget status presentation, and suppression ownership local. The fullscreen custom view uses Pi's overlay route so paging does not require global keybinding changes.
+Reuse shared terminal sanitization, text layout, and custom-UI mounting. Publish activity through the working-message coordinator, never directly to Pi's message. Keep task selection, widget status, and suppression ownership local. Use Pi's overlay route for fullscreen paging without global keybinding changes.
 
 See the [package behavior](README.md) and [workspace reuse guidance](../../../docs/agents/architecture.md).
 

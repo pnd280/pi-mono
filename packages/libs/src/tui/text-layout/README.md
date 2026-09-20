@@ -6,13 +6,11 @@
 
 [`@pi-mono/libs/tui/text-layout`](index.ts) prepares complete wrapped text for asynchronous callers.
 
-`layoutPreview(text, width, current)` yields to the event loop between wrapping batches and checks `current` after each yield. Cancellation returns an empty array.
-
-Layout preserves surrogate pairs at chunk boundaries and retains a final blank row for empty input or a trailing newline.
+`layoutPreview(text, width, current)` yields between batches, checking `current` after each yield; cancellation returns `[]`. Layout preserves chunk-boundary surrogate pairs and a final blank row for empty input/trailing newlines.
 
 ## Caller responsibilities
 
-Callers supply terminal-safe text and a `current` callback that returns `false` when work should stop. They manage source retention and decide whether a completed layout is still relevant.
+Supply terminal-safe text and `current` returning false to stop. Own source retention and completed-result relevance.
 
 [Text preview](../components/text-preview/README.md) handles layout caching, stale-result suppression, scroll offsets, and disposal. Direct callers must handle those tasks themselves. Row budgets and synchronous excerpts belong to [text budget](../text-budget/README.md).
 

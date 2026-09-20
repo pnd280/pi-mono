@@ -1,18 +1,18 @@
 # Text and accessibility
 
-[Consistency audit](../SKILL.md)
+[User interface consistency audit](../SKILL.md)
 
-Compare how surfaces display and handle long, multiline, Unicode, or unsafe text. Distinguish displayed text from exact source.
+Compare long, multiline, Unicode, and unsafe text; distinguish display from exact source.
 
 ## Checks
 
-- Do long subjects, multiline descriptions, paths, wide characters, combining marks, and other Unicode content wrap or truncate without misleading changes?
-- Are terminal controls handled consistently without altering copied, restored, or persisted source unintentionally?
-- Do previews explain relevant differences between displayed content and what an action will use? Restoration may refuse unsafe source.
-- Are important status, selection, errors, and disabled states recognizable through text or glyphs rather than color alone?
-- Is contrast adequate across applicable themes and selected states? Check dimming combined with strikethrough or other emphasis.
-- Do constrained layouts preserve readable content and essential controls, or clearly explain the minimum usable size?
+- Do subjects, descriptions, paths, wide characters, and combining marks wrap/truncate without misleading changes?
+- Are controls handled consistently without unintended copy/restore/storage changes?
+- Do previews explain display/action differences, including unsafe-restore refusal?
+- Are status, selection, errors, and disabled states identifiable without color?
+- Is contrast sufficient across themes/selection, including dimming with strikethrough?
+- Do constrained views preserve readability/controls or explain minimum size?
 
 ## Evidence
 
-Use synthetic text with known byte and character content, not private prompts. Compare display output with the source passed to copy or restoration ports without replacing the real clipboard. Check appearance in applicable themes. Token assertions alone do not establish contrast or terminal rendering.
+Use known synthetic bytes/characters, never private prompts. Compare display with copied/restored source without replacing live clipboards. Check applicable themes; token assertions cannot establish contrast or terminal appearance.

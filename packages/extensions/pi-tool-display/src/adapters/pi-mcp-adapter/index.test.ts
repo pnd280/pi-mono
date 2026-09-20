@@ -2,7 +2,7 @@ import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
 import { selectAdapter } from "../../host/selection.ts";
-import { createToolDisplayRenderers } from "../../rendering/cards.ts";
+import { createToolDisplayRenderers } from "../../rendering/api.ts";
 import { loadDisplaySettings } from "../../settings.ts";
 import { resolveResultAdapter } from "../generic.ts";
 import { piMcpAdapter } from "./index.ts";
@@ -96,7 +96,7 @@ it("rejects lookalike owners, SDK tools and incompatible schemas", () => {
   ).toBe("pi-mcp-adapter:gateway");
 });
 
-it("keeps gateway routing summaries visible without parameter details and honors action precedence", () => {
+it("shows gateway parameters while retaining routing summaries and action precedence", () => {
   const adapter = piMcpAdapter(mcpToolInfo())!;
   const renderer = createToolDisplayRenderers("mcp", adapter);
 
@@ -109,57 +109,74 @@ it("keeps gateway routing summaries visible without parameter details and honors
       { action: "install", url: "https://example.test/mcp", tool: "ignored" },
       "mcp install https://example.test/mcp"
     ],
-    [{ tool: "search", server: "docs", args: { query: "PRIVATE_PARAMETER" } }, "docs.search"]
+    [{ tool: "search", server: "docs", args: { query: "needle" } }, "docs.search"]
   ] as const) {
-    const rows = renderer.renderCall(args, theme, context()).render(120).join("\n");
-    expect(rows).toContain(title);
-    expect(rows).not.toContain("PRIVATE_PARAMETER");
-    expect(rows).not.toContain("ignored");
+    const rows = renderer.renderCall(args, theme, context()).render(240).join("\n");
+    const parameters = "args" in args ? args.args : args;
+    expect(rows).toContain(`${title}(${JSON.stringify(parameters)})`);
   }
 });
 
-it.each(["mcp", "mcpScript", "mcp__docs", "lookup"])(
-  "does not serialize hidden %s parameters, including expanded cards",
-  (name) => {
-    const serialize = vi.fn(() => ({ code: "x".repeat(100 * 1024) }));
-    const parameters = { toJSON: serialize };
-    const args = ["mcp", "mcp__docs"].includes(name)
-      ? { tool: "search", args: parameters }
-      : parameters;
-    const adapter = piMcpAdapter(mcpToolInfo(name))!;
+it.each([
+  ["mcp", { tool: "search", args: { query: "needle" } }, 'mcp.search({"query":"needle"})'],
+  [
+    "mcp__docs",
+    { tool: "search", args: { query: "needle" } },
+    'mcp__docs.search({"query":"needle"})'
+  ],
+  ["lookup", { query: "needle" }, 'lookup({"query":"needle"})'],
+  ["mcpScript", { code: 'emit("needle");' }, 'mcpScript({"code":"emit(\\"needle\\");"})']
+])("always shows %s parameters regardless of settings or expansion", (name, args, invocation) => {
+  const adapter = piMcpAdapter(mcpToolInfo(name))!;
+
+  for (const options of [{}, { showParameters: false }, { showParameters: true }]) {
+    const renderer = createToolDisplayRenderers(name, adapter, options);
 
     for (const expanded of [false, true]) {
-      const renderer = createToolDisplayRenderers(name, adapter);
       const current = { ...context(), expanded };
-      const header = renderer.renderCall(args, theme, current);
-      header.render(120);
-      header.render(80);
+      const rows = renderer.renderCall(args, theme, current).render(120).join("\n");
+      expect(rows).toContain(invocation);
     }
-
-    expect(serialize).not.toHaveBeenCalled();
-    const visible = createToolDisplayRenderers(name, adapter, { showParameters: true });
-    const header = visible.renderCall(args, theme, context());
-    expect(header.render(120).join("\n")).toContain("code");
-    header.render(120);
-    expect(serialize).toHaveBeenCalledOnce();
   }
-);
+});
+
+it("bounds long script parameters until expansion and caches serialization between redraws", () => {
+  const serialize = vi.fn(() => ({ code: `START ${"x".repeat(100 * 1024)} END` }));
+  const args = { toJSON: serialize };
+  const renderer = createToolDisplayRenderers("mcpScript", piMcpAdapter(mcpToolInfo("mcpScript")), {
+    showParameters: false
+  });
+  const header = renderer.renderCall(args, theme, context());
+  const collapsed = header.render(80).join("\n");
+  expect(collapsed).toContain('"code":"START');
+  expect(collapsed).toContain("more details");
+  expect(collapsed).not.toContain("END");
+  header.render(80);
+  expect(serialize).toHaveBeenCalledOnce();
+
+  const expanded = renderer
+    .renderCall(args, theme, { ...context(), expanded: true })
+    .render(80)
+    .join("\n");
+  expect(expanded).toContain('END"})');
+  expect(expanded).not.toContain("more details");
+});
 
 it("uses resolved result identity with visible parameters and never substitutes raw MCP output", () => {
   const adapter = piMcpAdapter(mcpToolInfo())!;
-  const args = { tool: "docs_search", args: '{"query":"needle"}' };
+  const args = { tool: "docs_search", args: '{ "query": "needle" }' };
   const supplied = result({
     mode: "call",
     server: "docs",
     tool: "search",
     mcpResult: { content: [{ type: "text", text: "PRIVATE_RAW_OUTPUT" }] }
   });
-  const renderer = createToolDisplayRenderers("mcp", adapter, { showParameters: true });
+  const renderer = createToolDisplayRenderers("mcp", adapter, { showParameters: false });
   const current = context();
   const header = renderer.renderCall(args, theme, current);
   const body = renderer.renderResult(supplied, current, theme, current);
   expect(header.render(120).join("\n")).toContain("docs.search");
-  expect(header.render(120).join("\n")).toContain("needle");
+  expect(header.render(120).join("\n")).toContain(`(${JSON.stringify(args.args)})`);
   expect(body.render(120).join("\n")).toContain("published output");
   expect(body.render(120).join("\n")).not.toContain("PRIVATE_RAW_OUTPUT");
 });
@@ -285,7 +302,8 @@ it("summarizes only validated script operations and preserves output without suc
     adapter.summary?.(result(details), {
       args: {},
       outcome: "success",
-      operation: undefined
+      operation: undefined,
+      expanded: false
     });
   expect(
     summary({

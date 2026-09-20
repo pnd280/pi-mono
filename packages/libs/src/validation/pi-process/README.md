@@ -4,9 +4,9 @@
 
 ## Behavior
 
-[`@pi-mono/libs/validation/pi-process`](index.ts) is for validation code only. `createValidationWorkspace` creates a disposable directory with private `work`, `home`, `agent`, and `tmp` directories. It does not populate fixtures or remove the workspace.
+Validation-only [`@pi-mono/libs/validation/pi-process`](index.ts): `createValidationWorkspace` creates private disposable `work`, `home`, `agent`, and `tmp`, without populating/removing fixtures.
 
-`createPiLaunch` prepares an installed Pi launch without starting a process. It isolates home, agent, and temporary directories and builds an environment without inheriting user credentials or settings. Storage locations and offline settings take precedence over supplied environment additions.
+`createPiLaunch` prepares, never starts, installed Pi with isolated directories/environment, inheriting no credentials/settings. Storage/offline settings override supplied environment additions.
 
 Environment isolation does not restrict filesystem access or tool execution.
 

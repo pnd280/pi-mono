@@ -26,11 +26,11 @@ Import TUI APIs through `@pi-mono/libs/tui/*`.
 
 ## Configuration
 
-There are no configuration files. Callers provide data, formatting, actions, and Pi's injected theme and keybindings. Shared components manage layout and interaction. Extensions provide domain policies and effects.
+No configuration files. Callers supply data, formatting, actions, Pi theme/keybindings, and domain policy/effects; components own layout/interaction.
 
 ## Side effects
 
-Components perform no filesystem, clipboard, process, or network I/O. Search and preview preparation can schedule asynchronous work. Host adapters mount Pi custom UI and dispose it on closure or cancellation.
+No component filesystem, clipboard, process, or network I/O. Search/previews may schedule async work; host adapters mount Pi UI and dispose on closure/cancellation.
 
 ## Validation
 

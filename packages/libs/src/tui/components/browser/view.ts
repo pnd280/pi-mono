@@ -127,7 +127,7 @@ export class Browser<Item> implements Component, Focusable {
         this.controls.hint("confirm", inspection ? "close" : state.section.confirm!.label)
       );
     if (state.section.copy) primary.push(this.controls.hint("copy", "copy"));
-    primary.push(this.controls.hint("cancel", state.preview && !inspection ? "back" : "close"));
+    primary.push(this.controls.hint("cancel", state.canReturnToList ? "back" : "close"));
 
     if (!compact) {
       primary.unshift(...this.controls.navigationHints(state.preview ? "scroll" : "navigate"));
@@ -137,7 +137,7 @@ export class Browser<Item> implements Component, Focusable {
     return renderHintFooter({
       width,
       maxRows,
-      hints: [...primary, ...this.secondaryHints(compact)]
+      hints: [...primary, ...this.secondaryHints()]
         .filter((hint) => hint !== undefined)
         .map(displayText),
       padding: compact ? "" : "  ",
@@ -155,26 +155,11 @@ export class Browser<Item> implements Component, Focusable {
     }).rows;
   }
 
-  private switchKey(): string | undefined {
-    if (this.options.inspection || this.options.sections.length < 2) return undefined;
-
-    return this.controls.key("switch");
-  }
-
-  private switchHint(): string[] {
-    const key = this.switchKey();
-    const { theme } = this.environment;
-    const labels = this.options.sections.map((section) => displayText(section.label)).join("/");
-
-    return key ? [theme.fg("dim", key) + theme.fg("muted", ` view (${labels})`)] : [];
-  }
-
-  private secondaryHints(compact: boolean): (string | undefined)[] {
+  private secondaryHints(): (string | undefined)[] {
     const state = this.controller;
     if (this.options.inspection) return [];
     const hints: (string | undefined)[] = [];
-    const switching = this.switchKey();
-    if (compact && switching) hints.push(`${switching} view`);
+    if (this.options.sections.length > 1) hints.push(this.controls.hint("switch", "view"));
     if (!state.preview) hints.push(this.controls.hint("preview", "preview"));
     if (state.section.remove) hints.push(this.controls.hint("delete", state.section.remove.label));
     if (state.section.alternate)
@@ -237,9 +222,7 @@ export class Browser<Item> implements Component, Focusable {
     const status = state.snapshot?.message;
     const heading = this.heading(compact, status);
     const message = this.footerMessage();
-    const lines = compact
-      ? [""]
-      : ["", heading, ...this.switchHint().map((hint) => (message ? "" : hint))];
+    const lines = compact ? [""] : ["", heading];
 
     if (!state.preview && !this.options.inspection) {
       if (this.input.getValue() !== state.query) this.input.setValue(state.query);

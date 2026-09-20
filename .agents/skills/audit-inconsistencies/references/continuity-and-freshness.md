@@ -1,18 +1,18 @@
 # Continuity and freshness
 
-[Consistency audit](../SKILL.md)
+[User interface consistency audit](../SKILL.md)
 
-Compare the state users retain when navigating and the freshness of the data they see.
+Compare navigation state retention and data freshness.
 
 ## Checks
 
-- Do selection, query, scroll position, focus, and unsaved changes behave predictably when opening and returning from details? Check resizing, switching views, reopening, reloading, and restoring sessions too.
-- Does responsive remounting preserve one logical view without restarting the workflow?
-- Are deliberate resets, such as invalidating a destructive confirmation on resize, consistent with their purpose?
-- Can the user distinguish live data from a snapshot and discover how to refresh it?
-- When the selected item changes or disappears, does selection move to a predictable nearby item without silently applying an action to it?
-- Do asynchronous results avoid updating stale views or replacement sessions?
+- Are selection, query, scroll, focus, and drafts predictable across details, resize, view switches, reopening, reload, and session restoration?
+- Do responsive remounts preserve one logical view/workflow?
+- Do deliberate resets, such as resize cancelling destructive confirmation, serve their purpose?
+- Are snapshots distinct from live data, with discoverable refresh?
+- Does changed/missing selection move predictably without silently targeting actions at another item?
+- Are stale views/replacement sessions protected from async results?
 
 ## Evidence
 
-Record a short transition sequence with the relevant state before and after each step. Compare equivalent transitions between surfaces, and separate intended persistence differences from accidental state loss. Use host-level checks for restoration or focus behavior that component-only rendering cannot establish.
+Record transition sequences with before/after state; compare equivalent surfaces. Separate intended persistence differences from accidental loss. Use host checks for restoration/focus that components cannot establish.

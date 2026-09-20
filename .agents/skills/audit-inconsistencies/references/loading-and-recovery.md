@@ -1,18 +1,18 @@
 # Loading and recovery
 
-[Consistency audit](../SKILL.md)
+[User interface consistency audit](../SKILL.md)
 
-Compare how surfaces communicate readiness, absence of data, access restrictions, and recoverable failures.
+Compare readiness, absent data, restrictions, and recoverable failures.
 
 ## Checks
 
-- Are loading, an empty collection, no search matches, and unavailable data visibly distinct?
-- Do read-only and restricted-recovery messages explain what the user can still do?
-- Do controls reflect the current state, including cancellation during loading and actions disabled by access restrictions?
-- Does a recoverable failure explain how to retry, such as refreshing, switching views, reopening, or reloading?
-- Do cached failures and asynchronous preparation avoid implying that a retry or refresh is already underway?
-- Does a failed operation retain enough query, selection, or content context for the user to recover predictably?
+- Are loading, empty collections, no matches, and unavailable data distinct?
+- Do read-only/recovery messages explain remaining actions?
+- Do controls reflect loading cancellation and access restrictions?
+- Are retry routes such as refresh, switching, reopening, or reload clear?
+- Do cached failures/async preparation avoid implying retries already started?
+- Does failure preserve enough query, selection, and content to recover?
 
 ## Evidence
 
-Reproduce the relevant initial, pending, failed, and recovered states with disposable fixtures. Check the advertised retry action against reload and cache behavior. Do not classify an unavailable source as an empty result merely because both render no items.
+Reproduce relevant initial, pending, failed, and recovered states with disposable fixtures. Verify retry claims against reload/cache behavior. Unavailable sources are not empty results merely because neither shows items.

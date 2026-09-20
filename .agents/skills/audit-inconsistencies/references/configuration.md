@@ -1,18 +1,18 @@
 # Configuration
 
-[Consistency audit](../SKILL.md)
+[User interface consistency audit](../SKILL.md)
 
-Compare how settings views and diagnostics explain which values take effect. Recovery policies may differ when features have different risks or scopes.
+Compare effective-setting explanations; differing risks/scopes may justify different recovery policies.
 
 ## Checks
 
-- Can the user identify the effective value, its scope, and any override?
-- Are global defaults, trusted-project settings, and session-only changes distinguished?
-- Do diagnostics accurately describe how invalid or unknown settings are handled, including silent fallbacks, recovery of individual fields, or disabled features?
-- Are defaults, accepted values, normalization, and disabled states described consistently across documentation and UI?
-- Is the reload or restart requirement clear, and does it match when settings are read?
-- Do save messages identify the destination and distinguish a saved value from the effective value when another scope overrides it?
+- Are effective values, scopes, and overrides identifiable?
+- Are global, trusted-project, and session-only changes distinguished?
+- Do diagnostics explain invalid/unknown settings, silent fallback, field recovery, and disabled features accurately?
+- Are defaults, accepted values, normalization, and disabled states consistent across UI/docs?
+- Do reload/restart instructions match read timing?
+- Do save messages identify destinations and distinguish saved from overridden effective values?
 
 ## Evidence
 
-Use disposable settings with valid values, a relevant invalid field, and competing scopes. Record effective behavior as well as diagnostics. Recommend consistent explanations. Require identical fallback policies only when equivalent contracts justify them.
+Use disposable valid/invalid settings and competing scopes; record behavior and diagnostics. Recommend consistent explanations, but identical fallback only for equivalent contracts.

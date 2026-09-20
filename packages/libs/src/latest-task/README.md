@@ -10,9 +10,7 @@ Cancellation and disposal invalidate the current task without aborting its under
 
 ## Caller responsibilities
 
-Supply the work, result commit, and `changed` callback. Pass the work's `current` callback to cooperative operations such as [text search](../text-search/README.md). Handle errors from the current task in the consumer.
-
-Call `cancel()` when results are no longer relevant and `dispose()` when the owner closes. The consumer controls any I/O cancellation beyond the `current` checks.
+Supply work, commit, and `changed` callbacks; handle current-task errors. Pass `current` to cooperative operations such as [text search](../text-search/README.md). `cancel()` obsolete results and `dispose()` on closure; abort I/O separately.
 
 ## Validation
 

@@ -10,17 +10,15 @@ Each scope retains its own draft. Up or Down selects an item, Shift+Up or Shift+
 
 Scopes with `isSet: false` show `(not set)` until saved successfully, even if the draft is unchanged.
 
-Only Ctrl+S calls the synchronous save callback, passing the scope ID and a copy of the order, even if unchanged. Errors leave the draft intact and display an error message. Escape or Ctrl+C closes and discards unsaved drafts without undoing earlier saves.
+Only Ctrl+S calls synchronous save with scope ID and copied order, even unchanged. Errors display and retain drafts; Escape/Ctrl+C discard unsaved drafts without undoing saves.
 
-An unset scope inherits the saved order of its `inheritFrom` source only when that source is set. Saving the source updates the inherited order, replacing the dependent draft only if it has no unsaved edits. The selected item is preserved. Inheritance never copies unsaved source edits or marks a scope as set.
+Unset scopes inherit only saved, set `inheritFrom` sources. Source saves replace unedited dependent drafts, preserving selection. Inheritance neither copies unsaved edits nor marks scopes set.
 
 `updateItems` refreshes text and appends new IDs in sorted order without losing selection or edits. Missing IDs remain as unavailable entries. The component sanitizes item labels and descriptions to single-line terminal text. It performs no I/O.
 
 ## Caller responsibilities
 
-Supply at least one scope. Give scopes and items unique IDs, and keep each initial order free of duplicates. Provide each scope's save destination, `order`, and `isSet` flag. Set `isSet` to `true` for a persisted order, including an empty order.
-
-To inherit a saved order while a scope is unset, set its `inheritFrom` to another scope's ID. The scope's own `order` is the fallback when the source is unset or unspecified.
+Supply at least one scope, unique scope/item IDs, duplicate-free initial orders, and each scope's destination, `order`, and `isSet`. Persisted orders, even empty, use `isSet: true`. Optional `inheritFrom` names another scope; local `order` is fallback for unset/unspecified sources.
 
 Provide the injected theme, a `rows` function that returns the current terminal row count, a `requestRender` callback, and a `close` callback. Keep the title safe for terminal display.
 

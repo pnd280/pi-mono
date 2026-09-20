@@ -6,21 +6,15 @@
 
 [`@pi-mono/libs/tui/components/text-preview`](index.ts) exports `ScrollableTextPreview` and `renderOverflowBorder`.
 
-`ScrollableTextPreview` caches the layout for its current text and width. It exposes loading state and requests a redraw through `changed` when the current layout completes. Stale or disposed work cannot publish a result.
-
-The preview slices rows to the requested viewport, clamps the scroll offset during rendering, and reports hidden rows through `overflow`. Changing the text resets the offset. Layout adds no theme colors, so `invalidate()` does not force reflow.
-
-`renderOverflowBorder` renders width-bounded overflow labels and Pi borders.
+`ScrollableTextPreview` caches text/width layout, exposes loading, and calls `changed` on completion; stale/disposed work cannot publish. Rendering slices the viewport, clamps scroll, and reports hidden rows through `overflow`. Text changes reset scroll; color-free layout needs no reflow on `invalidate()`.
 
 ## Caller responsibilities
 
 Supply terminal-safe text, for example from [`displayText`](../../terminal-text/index.ts), and retain exact source separately. Handle navigation keys and other view actions. Choose the scroll position, available height, margins, timestamps, and loading messages.
 
-Use one preview instance per logical view. Its `current` callback must return `false` when that view closes, not when a host remount hides it. Call `preview.dispose()` at final closure, not during host remounts. Host remounts belong to [responsive custom UI](../../responsive-custom-ui/README.md).
+Use one instance per logical view; `current` becomes false and `dispose()` runs only at final closure, never [responsive remounts](../../responsive-custom-ui/README.md).
 
 ## Usage
-
-Create the preview once for the logical view:
 
 ```ts
 import { ScrollableTextPreview } from "@pi-mono/libs/tui/components/text-preview";

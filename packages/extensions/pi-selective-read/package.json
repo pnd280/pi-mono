@@ -1,0 +1,34 @@
+{
+  "name": "pi-selective-read",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Highlight source selections in read output with bounded context previews",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "workspace:*",
+    "@pi-mono/utils": "workspace:*",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

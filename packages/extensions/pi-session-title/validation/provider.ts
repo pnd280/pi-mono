@@ -18,7 +18,9 @@ export default function fixtureProvider(pi: ExtensionAPI): void {
         return fauxAssistantMessage("Fixture reply");
       }
 
-      if (contentText(context.messages[0]?.content ?? "").includes("stall-title")) {
+      const user = context.messages.find(({ role }) => role === "user");
+
+      if (contentText(user?.content ?? "").includes("stall-title")) {
         // No live timer: only host cancellation can release this response.
         await new Promise<void>((resolve) => {
           if (options?.signal?.aborted) resolve();

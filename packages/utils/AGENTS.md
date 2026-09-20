@@ -12,7 +12,7 @@ Indirect consumers:
 
 ## Constraints
 
-Keep helpers pure. Callers supply clocks, state, and feature policy. Scheduling and I/O belong in [shared libraries](../libs/README.md).
+Keep helpers pure; callers supply clocks, state, and policy. Put scheduling and I/O in [shared libraries](../libs/README.md).
 
 ## Validation
 

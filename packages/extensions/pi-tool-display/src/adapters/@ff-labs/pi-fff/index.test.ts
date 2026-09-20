@@ -2,7 +2,12 @@ import { expect, it } from "vite-plus/test";
 
 import { piFffAdapter } from "./index.ts";
 import { fffToolInfo } from "./test-fixture.ts";
-const summaryContext = { args: {}, outcome: "success" as const, operation: undefined };
+const summaryContext = {
+  args: {},
+  outcome: "success" as const,
+  operation: undefined,
+  expanded: true
+};
 
 it("separates FFF summaries from pagination diagnostics", () => {
   const find = piFffAdapter(fffToolInfo("fffind"))!;

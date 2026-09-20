@@ -97,20 +97,28 @@ function render({
   }
 }
 
-it.each([false, true])("prefers FFF summaries and retains diagnostics (grouped=%s)", (grouped) => {
-  const adapter = piFffAdapter(fffToolInfo("ffgrep"))!;
+it.each(
+  ["ffgrep", "fffind", "fff-multi-grep"].flatMap((name) =>
+    [false, true].map((grouped) => ({ name, grouped }))
+  )
+)("prefers $name summaries and retains diagnostics (grouped=$grouped)", ({ name, grouped }) => {
+  const multi = name === "fff-multi-grep";
+  const adapter = piFffAdapter(fffToolInfo(name, multi))!;
   const result = {
     content: [{ type: "text" as const, text: 'retained match\n\n[Continue with cursor="next"]' }],
     details: { totalMatched: 9, totalFiles: 328 }
   };
-  const options = { name: "ffgrep", adapter, args: { pattern: "token" }, result, grouped };
+  const args = multi ? { patterns: ["token"] } : { pattern: "token" };
+  const options = { name, adapter, args, result, grouped };
+  const matches = name === "fffind" ? "9 matching files" : "9 matches collected";
   const compact = render(options);
-  expect(compact).toContain("9 matches collected · 328 indexed files");
+  expect(compact).toContain(matches);
+  expect(compact).not.toContain("indexed files");
   expect(compact).toContain('Continue with cursor="next"');
   expect(compact).not.toContain("retained match");
   const expanded = render({ ...options, expanded: true });
   expect(expanded).toContain("retained match");
-  expect(expanded).toContain("9 matches collected · 328 indexed files");
+  expect(expanded).toContain(`${matches} · 328 indexed files`);
   expect(result.content[0]!.text).toContain("retained match");
 });
 
@@ -298,7 +306,7 @@ it.each([false, true])(
       width: 32
     });
     expect(text).toContain("9 matches collected");
-    expect(text).toContain("indexed files");
+    expect(text).not.toContain("indexed files");
     expect(text).toContain("Extra information");
     expect(text).toContain("[Image: image/png]");
     expect(text).not.toContain("hidden output");

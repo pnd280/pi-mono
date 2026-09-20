@@ -4,13 +4,11 @@
 
 ## Behavior
 
-[`@pi-mono/libs/native-clipboard`](index.ts) exports `copyNative`, which replaces the native clipboard with exact UTF-8 text through local helpers. There is no OSC 52 fallback.
-
-The default 5,000 ms timeout covers all helper attempts. Cancellation can throw the signal's reason. Only `NativeClipboardError` messages are safe to display.
+[`copyNative`](index.ts) (`@pi-mono/libs/native-clipboard`) replaces the native clipboard with exact UTF-8 through local helpers, never OSC 52. The default 5,000 ms timeout covers all attempts. Cancellation may throw the signal reason; only `NativeClipboardError` messages are display-safe.
 
 ## Caller responsibilities
 
-Copying requires a local clipboard session and an installed helper:
+Requires a local clipboard session and helper:
 
 | Platform        | Helper                                                |
 | --------------- | ----------------------------------------------------- |
@@ -21,7 +19,7 @@ Copying requires a local clipboard session and an installed helper:
 
 SSH sessions and native Windows are unsupported.
 
-Supply exact source text and a cancellation signal. Define a safe diagnostic for exceptions other than `NativeClipboardError`.
+Supply exact source and a signal; choose safe messages for non-`NativeClipboardError` exceptions.
 
 ## Usage
 

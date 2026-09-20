@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { fauxAssistantMessage, fauxProvider, type Context } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxProvider, type TranscriptContext } from "@earendil-works/pi-ai";
 import {
   CONFIG_DIR_NAME,
   createAgentSession,
@@ -51,7 +51,7 @@ async function host({
 
   vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
   vi.stubEnv("PI_OFFLINE", "1");
-  const titleRequests: Context[] = [];
+  const titleRequests: TranscriptContext[] = [];
   const faux = fauxProvider({
     provider: "title-fixture",
     models: [{ id: "title" }, { id: "project-title" }, { id: "active" }]
@@ -143,10 +143,12 @@ it.each(["tui", "print", "json", "rpc"] as const)(
       expect(fixture.session.sessionManager.getSessionName()).toBe("Offline session title")
     );
     expect(fixture.titleRequests).toHaveLength(1);
-    expect(fixture.titleRequests[0]?.messages[0]?.content).toBe("Opening request");
+    expect(fixture.titleRequests[0]?.messages.find(({ role }) => role === "user")?.content).toBe(
+      "Opening request"
+    );
     expect(fixture.notify).not.toHaveBeenCalled();
     await fixture.command();
-    expect(fixture.titleRequests[1]?.messages[0]?.content).toBe(
+    expect(fixture.titleRequests[1]?.messages.find(({ role }) => role === "user")?.content).toBe(
       "user: Opening request\n\nassistant: Fixture reply"
     );
     if (mode === "tui" || mode === "rpc") expect(fixture.notify).toHaveBeenCalled();
@@ -280,8 +282,9 @@ it("retains the consumed automatic attempt across tree navigation and names only
   await fixture.session.prompt("Selected follow-up");
   expect(fixture.titleRequests).toHaveLength(1);
   await fixture.command();
-  expect(fixture.titleRequests[1]?.messages[0]?.content).toContain("Selected follow-up");
-  expect(fixture.titleRequests[1]?.messages[0]?.content).not.toContain("Abandoned follow-up");
+  const source = fixture.titleRequests[1]?.messages.find(({ role }) => role === "user")?.content;
+  expect(source).toContain("Selected follow-up");
+  expect(source).not.toContain("Abandoned follow-up");
   expect(fixture.errors).toEqual([]);
 });
 

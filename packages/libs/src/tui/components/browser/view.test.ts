@@ -117,6 +117,8 @@ it("preserves section queries and advertises only available actions and switchin
   const lines = view.render(80).join("\n");
   expect(lines).toContain("View: recent | saved");
   expect(lines).toContain("Shift+Tab view");
+  expect(lines.indexOf("Shift+Tab view")).toBeGreaterThan(lines.indexOf("beta"));
+  expect(lines).not.toContain("view (recent/saved)");
   expect(lines).not.toContain("Alt+Enter");
   expect(lines).not.toContain("Del×2");
   view.handleInput("beta");
@@ -150,6 +152,50 @@ it("routes preview input back to the list before closing", async () => {
   view.handleInput("\x10");
   expect(controller.preview).toBe(true);
   await vi.waitFor(() => expect(view.render(40).join()).toContain("preview source"));
+  view.handleInput("\x1b");
+  expect(controller.preview).toBe(false);
+  expect(close).not.toHaveBeenCalled();
+  view.handleInput("\x1b");
+  expect(close).toHaveBeenCalledTimes(1);
+});
+
+it.each([
+  [80, 24, "\t"],
+  [40, 10, "\x1b[Z"]
+] as const)("switches collections within preview at %i×%i", async (width, height, switching) => {
+  const { view, options, controller, tui, close } = browser([
+    "alpha\nrecent detail",
+    "saved\ndraft detail"
+  ]);
+  tui.terminal.rows = height;
+  await controller.activate();
+  view.render(width);
+  view.handleInput("\x1b[B");
+  view.handleInput("\x10");
+  await vi.waitFor(() => expect(view.render(width).join("\n")).toContain("  draft detail"));
+  const preview = view.render(width).join("\n");
+  expect(preview).toContain("Tab view");
+  expect(preview.indexOf("Tab view")).toBeGreaterThan(preview.indexOf("draft detail"));
+  expect(preview).not.toContain("view (recent/saved)");
+  const loading = deferred<void>();
+  const load = options.sections[0]!.load.bind(options.sections[0]);
+
+  options.sections[0]!.load = async (signal) => {
+    await loading.promise;
+
+    return load(signal);
+  };
+
+  view.handleInput(switching);
+  expect(view.render(width).join("\n")).toContain("Esc close");
+  loading.resolve();
+  await vi.waitFor(() => expect(view.render(width).join("\n")).toContain("  recent detail"));
+  expect(controller.section.id).toBe("recent");
+  expect(controller.preview).toBe(true);
+  expect(view.render(width).join("\n")).toContain("Esc back");
+  view.handleInput(switching);
+  await vi.waitFor(() => expect(view.render(width).join("\n")).toContain("  draft detail"));
+  expect(controller.section.id).toBe("saved");
   view.handleInput("\x1b");
   expect(controller.preview).toBe(false);
   expect(close).not.toHaveBeenCalled();

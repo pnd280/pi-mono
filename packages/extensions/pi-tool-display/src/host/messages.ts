@@ -33,6 +33,16 @@ function assistantCall(block: unknown, index: number): AssistantCall | undefined
     : undefined;
 }
 
+function assistantInterruption(
+  value: Record<string, unknown>
+): Extract<TranscriptMessage, { kind: "assistant" }>["interruption"] {
+  if (value.stopReason === "aborted") return { outcome: "cancelled", text: "Operation aborted" };
+  if (value.stopReason === "error")
+    return { outcome: "failure", text: stringField(value.errorMessage) || "Error" };
+
+  return undefined;
+}
+
 /** Normalize messages and discover buffered calls before Pi constructs their rows.
  * Streaming content is append-only; starts, finalization, and replay scan the full
  * message. Ordinary updates visit only the changed block and newly visible tail.
@@ -43,7 +53,8 @@ export class TranscriptMessages {
 
   read(input: unknown, updatedContentIndex?: number): TranscriptMessage | undefined {
     const value = record(input);
-    if (value.type === "custom") return; // The host may suppress or reposition this entry.
+    // System updates are invisible; Pi decides whether usage/custom entries insert rows.
+    if (value.role === "system" || value.type === "usage" || value.type === "custom") return;
     if (value.role === "custom" && value.display === false) return;
     if (value.role === "toolResult")
       return {
@@ -54,11 +65,7 @@ export class TranscriptMessages {
         outcome: executionOutcome(value.isError === true)
       };
     if (value.role !== "assistant" || !Array.isArray(value.content)) return { kind: "boundary" };
-    let interruption: Extract<TranscriptMessage, { kind: "assistant" }>["interruption"];
-    if (value.stopReason === "aborted")
-      interruption = { outcome: "cancelled", text: "Operation aborted" };
-    else if (value.stopReason === "error")
-      interruption = { outcome: "failure", text: stringField(value.errorMessage) || "Error" };
+    const interruption = assistantInterruption(value);
 
     const timestamp = Number(value.timestamp);
     const start =

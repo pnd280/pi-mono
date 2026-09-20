@@ -4,126 +4,122 @@
 
 ## Setup
 
-Complete [workspace setup](../README.md#setup), then enable the repository's Git hooks:
+Complete [workspace setup](../README.md#setup), then enable Git hooks:
 
 ```sh
 vp hooks enable
 ```
 
-The pre-commit hook rejects em dashes (U+2014) in staged text files. Run the [focused checks](#focused-validation) separately; the hook does not run them.
+The pre-commit hook rejects em dashes (U+2014) in staged text; it does not run [focused checks](#focused-validation).
 
 ## Code and tooling
 
-Vite+ runs formatting, linting, type checking, and tests through the root [vite.config.ts](../vite.config.ts). It discovers this configuration when run from a package directory. Checks fail on warnings.
+Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts), also discovered from package directories. Lint warnings fail checks.
 
-Every workspace package provides `lint`, `check`, `test`, and `format` scripts. `check` checks formatting, then runs `lint` for linting and type checking. Tests use the shared [runner convention](agents/testing.md#runner).
+Each package provides `lint`, `check`, `test`, and `format`. `check` checks formatting, then runs `lint` for linting and types. Tests follow the shared [runner convention](agents/testing.md#runner).
 
-Fix diagnostics in the implementation. Preserve shared checks and explain any narrow exception.
+Fix implementation diagnostics without weakening shared checks; explain narrow exceptions.
 
 ## Focused validation
 
-Run checks from the repository root. Tests require Bash and Git. File-preview tests on Unix and prompt-storage tests on Linux also require `mkfifo`. Linux ACL tests require `getfacl` and `setfacl`.
+Run checks from the repository root. Tests require Bash and Git; Unix file-preview and Linux prompt-storage tests also require `mkfifo`. Linux ACL tests require `getfacl` and `setfacl`.
 
-Use `vpr` (shorthand for `vp run`) and `<package-name>#<task>` to target a package by its `package.json` name:
+Use `vpr` (`vp run`) with the package's `package.json` name:
 
 ```sh
 vpr '<package-name>#check'
 vpr '<package-name>#test'
 ```
 
-For formatting or linting alone, use `vpr '<package-name>#format' --check` or `vpr '<package-name>#lint'`. Use `vpr --filter <pattern> <task>` to select packages by pattern, dependency, or dependent.
+For individual checks, use `vpr '<package-name>#format' --check` or `vpr '<package-name>#lint'`. Select packages by pattern, dependency, or dependent with `vpr --filter <pattern> <task>`.
 
-For workspace-wide changes, use:
+Workspace commands:
 
-| Command          | Scope                                             |
-| ---------------- | ------------------------------------------------- |
-| `vpr check`      | Formatting, linting, and type checking everywhere |
-| `vp test run`    | All workspace tests                               |
-| `vpr lint`       | Linting and type checking only                    |
-| `vp fmt --check` | Formatting only, without writes                   |
-| `vp fmt`         | Apply formatting                                  |
+| Command          | Scope                                  |
+| ---------------- | -------------------------------------- |
+| `vpr check`      | Formatting, linting, and type checking |
+| `vp test run`    | All tests                              |
+| `vpr lint`       | Linting and type checking              |
+| `vp fmt --check` | Formatting without writes              |
+| `vp fmt`         | Apply formatting                       |
 
-`vpr check` uses the repository's `stylish` lint format. `vp check` invokes Vite+'s built-in command, which does not support custom output formats.
+Use `vpr check` for the repository's `stylish` lint format; the built-in `vp check` does not support custom output formats.
 
 ## Packages and dependencies
 
 ### Package structure
 
-- Use a unique `package.json` name, `"private": true`, and `"type": "module"`. Name internal packages `@pi-mono/<package-name>` (for example, `@pi-mono/utils`). Extension packages retain their extension names (for example, `pi-fff-guard`).
-- Put TypeScript source in `src/`.
-- Keep offline launchers and providers in package-local `validation/`. Runtime modules must not import validation code. Include validation tests in both root and package-scoped test discovery.
-- Give each package a `tsconfig.json` extending [tsconfig.base.json](../tsconfig.base.json) and including its source, tests, and validation fixtures.
-- Declare supported entry points in `exports`. Import other workspace packages by their declared name and exported subpaths. Keep relative imports within a single package.
+- Set a unique name, `"private": true`, and `"type": "module"` in `package.json`. Use `@pi-mono/<package-name>` for internal packages and extension names such as `pi-fff-guard` for extensions.
+- Put TypeScript in `src/` and offline launchers/providers in package-local `validation/`. Runtime code must not import validation code. Discover validation tests in root and package suites.
+- Extend [tsconfig.base.json](../tsconfig.base.json) in each package's `tsconfig.json`, including source, tests, and validation fixtures.
+- Declare supported entry points in `exports`. Use declared package names and subpaths across packages; keep relative imports within a package.
 
 ### Dependencies
 
-Keep shared development tooling and Pi host packages in the root `devDependencies`. Declare package-specific dependencies in the package that uses them. Use `workspace:*` for local packages and `catalog:` for shared external versions in [pnpm-workspace.yaml](../pnpm-workspace.yaml).
+Keep shared development tooling and Pi host packages in root `devDependencies`; declare package-specific dependencies locally. Use `workspace:*` for local packages and `catalog:` for shared versions in [pnpm-workspace.yaml](../pnpm-workspace.yaml).
 
-Update dependencies with `vp add`, `vp remove`, or `vp update` and include the resulting pnpm lockfile changes.
+Use `vp add`, `vp remove`, or `vp update`; include pnpm lockfile changes.
 
-Keep the direct `vite` alias to satisfy Vitest's peer dependency under pnpm. `vite-plus` supplies `vitest` transitively. When updating Vite+, align the alias, `vitest` catalog pin, and overrides with the versions reported by `vp toolchain`.
+Keep the direct `vite` alias for Vitest's pnpm peer dependency. `vite-plus` supplies `vitest` transitively. On Vite+ updates, align the alias, `vitest` catalog pin, and overrides with `vp toolchain`.
 
 ### Pi extension entry points
 
-Before editing extension manifests or Pi host or runtime dependencies, read the installed [package documentation](../node_modules/@earendil-works/pi-coding-agent/docs/packages.md).
+Before editing extension manifests or Pi host/runtime dependencies, read the installed [package documentation](../node_modules/@earendil-works/pi-coding-agent/docs/packages.md).
 
-Keep the default Pi factory in `src/index.ts`. A package-root `index.ts` must contain only:
+Keep the default Pi factory in `src/index.ts` and only this export in package-root `index.ts`:
 
 ```ts
 export { default } from "./src/index.ts";
 ```
 
-Set `pi.extensions` to `["./index.ts"]` and include the wrapper in `tsconfig.json` and package checks. The wrapper gives local extensions their package directory name in Pi's compact startup list.
+Set `pi.extensions` to `["./index.ts"]`; include the wrapper in `tsconfig.json` and checks. It gives local extensions their package directory name in Pi's compact startup list.
 
 ## Documentation
 
-- Update documentation when existing guidance becomes inaccurate or readers need new information to use or maintain the project.
-- Do not duplicate self-explanatory code or configuration details.
-- Use progressive disclosure: keep entry documents concise and task-focused, retain essential prerequisites and constraints inline, and link to canonical references for details.
-- Use one level-one title per document, sentence-case headings, and consecutive heading levels. Use numbered lists for ordered procedures, bullets for unordered items, and tables for comparisons or lookup. Give code fences a language.
+Update inaccurate guidance and add information readers need to use or maintain the project. Omit self-explanatory code/configuration details. Keep entry documents task-focused, essential prerequisites and constraints inline, and details in canonical references.
+
+Use one H1, sentence-case headings, consecutive heading levels, numbered procedures, bullets for unordered items, tables for lookup/comparison, and language-tagged fences.
 
 ### Package READMEs
 
-Every workspace package must have a short `README.md`. State what the package does and when to use it in the opening paragraph. Include these level-two sections:
+Every package needs a short `README.md` opening with its purpose and when to use it, followed by these H2 sections:
 
-| Section       | Required content                                                                                                                                                                 |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | Package-specific instructions and integration examples where needed. Omit generic extension-loading commands.                                                                    |
-| Configuration | Available options, environment variables, and defaults.                                                                                                                          |
-| Side effects  | Observable effects such as file writes, persistent state changes, or network requests.                                                                                           |
-| Validation    | Link to the [focused validation commands](#focused-validation) with the package's `package.json` name, or give runnable package-scoped commands. Include required manual checks. |
+| Section       | Content                                                                                                              |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Usage         | Package instructions and necessary examples; no generic extension-loading commands.                                  |
+| Configuration | Options, environment variables, and defaults. State when absent.                                                     |
+| Side effects  | Observable writes, persistent state changes, network requests, or explicitly none.                                   |
+| Validation    | [Focused commands](#focused-validation) with the package name, or runnable package commands; required manual checks. |
 
-Add sections such as `Compatibility` when needed.
-
-State explicitly when configuration or side effects are absent.
+Add sections such as `Compatibility` as needed.
 
 ### Package instructions
 
-Every workspace package must have an `AGENTS.md` with `Code navigation`, `Constraints`, and `Validation` sections. Use navigation for source locations and constraints for package-wide development rules. Link to the package README and shared conventions instead of duplicating them.
+Every package needs an `AGENTS.md` with `Code navigation`, `Constraints`, and `Validation` sections. Separate source locations from package-wide rules; link to the README and shared conventions rather than duplicate them.
 
 ### Guides and references
 
-Give each guide a primary task or reference topic and link back to its package or workspace entry document. Keep short, cohesive topics together rather than splitting them to fit a template. Component references use `Behavior`, `Caller responsibilities`, optional `Usage` examples, and `Validation` sections. Keep validation links under their own heading.
+Give each guide one primary task/topic and a link to its package or workspace entry document. Keep short, cohesive topics together. Component references use `Behavior`, `Caller responsibilities`, optional `Usage`, and a separate `Validation` section.
 
-When renaming or removing a heading, update incoming fragment links in the same change.
+Update incoming fragment links when renaming or removing headings.
 
 ### Code comments
 
-Record non-obvious constraints and design decisions in comments near the relevant code, explaining why they matter. Avoid narrating obvious implementation details.
+Explain non-obvious constraints and design decisions near the code; omit obvious implementation narration.
 
 ## Runtime validation
 
-Use Zod to validate configuration, persisted JSON, external structured data, and option limits. Keep schemas with the owning module and derive owned data types from them. Share schemas through package exports when multiple consumers need the same contract.
+Use Zod for configuration, persisted JSON, external structured data, and option limits. Colocate schemas with their owner, derive owned types, and export shared contracts.
 
-- Choose how to handle unknown keys and validation failures. Settings may recover individual fields or reject the whole configuration. Stored documents may retain unknown fields for recovery.
-- Use parsed output for normalization. When a contract requires preserving borrowed data or exact stored source, validate without replacing it.
-- Apply size limits to the original record, including unknown fields.
-- Do not show raw validation errors to users if they could reveal stored content.
+- Choose unknown-key and failure handling: settings may recover fields or reject everything; stored documents may retain unknown fields for recovery.
+- Use parsed output for normalization, but validate without replacement when preserving borrowed data or exact stored source.
+- Limit original record sizes, including unknown fields.
+- Hide raw validation errors that could expose stored content.
 
-Control-flow narrowing, host capability checks, and state-dependent filesystem or lifecycle invariants do not need schemas.
+Schemas are unnecessary for control-flow narrowing, host capability checks, or state-dependent filesystem/lifecycle invariants.
 
 ## Pi APIs
 
-Implement Pi customizations and fixes through workspace extensions, preferring public Pi APIs. Extensions may monkey-patch Pi internals at runtime to work around API limitations. Never suggest or apply edits to Pi core source or upstream package files, including installed dependencies.
+Implement Pi changes through workspace extensions, preferring public APIs. Runtime monkey-patches may work around API limits. Never suggest or edit Pi core or upstream package files, including installed dependencies.
 
-Use the [Pi API references](pi-docs.md) to find installed documentation and examples.
+Find installed documentation and examples in [Pi API references](pi-docs.md).

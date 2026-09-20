@@ -1,5 +1,5 @@
 import type { CustomEntry, EntryRenderOptions, Theme } from "@earendil-works/pi-coding-agent";
-import { Text, type Component } from "@earendil-works/pi-tui";
+import { MouseRegion, Text, type Component } from "@earendil-works/pi-tui";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { formatDuration, summarySchema, type RunSummary } from "./summary.ts";
@@ -30,10 +30,6 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
     theme
   );
   if (counts) parts.push(counts);
-  if (available.length !== summary.files.length)
-    parts.push(
-      theme.fg("dim", available.length ? "File changes partial" : "File changes unavailable")
-    );
   const lines = [parts.join(separator)];
 
   if (expanded) {
@@ -50,17 +46,38 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
   return lines.join("\n");
 }
 
-export function renderSummary(
-  entry: CustomEntry,
-  { expanded }: EntryRenderOptions,
-  theme: SummaryTheme
-): Component | undefined {
-  const parsed = summarySchema.safeParse(entry.data);
-  if (!parsed.success) return;
+export function createSummaryRenderer() {
+  // Pi rebuilds entry components on invalidation. Keep local expansion across
+  // rebuilds, but let changes to the global tool-output toggle take precedence.
+  const states = new WeakMap<CustomEntry, { expanded: boolean; globalExpanded: boolean }>();
 
-  return {
-    // Rebuild styles on every render so theme changes do not retain old colors.
-    render: (width) => new Text(summaryText(parsed.data, expanded, theme), 1, 0).render(width),
-    invalidate() {}
+  return function renderSummary(
+    entry: CustomEntry,
+    { expanded }: EntryRenderOptions,
+    theme: SummaryTheme
+  ): Component | undefined {
+    const parsed = summarySchema.safeParse(entry.data);
+    if (!parsed.success) return;
+
+    const previous = states.get(entry);
+    const expansion =
+      previous?.globalExpanded === expanded ? previous : { expanded, globalExpanded: expanded };
+    states.set(entry, expansion);
+
+    return new MouseRegion(
+      {
+        // Rebuild styles on every render so theme changes do not retain old colors.
+        render: (width) =>
+          new Text(summaryText(parsed.data, expansion.expanded, theme), 1, 0).render(width),
+        invalidate() {}
+      },
+      (event) => {
+        if (event.type !== "click" || event.button !== "left" || parsed.data.files.length === 0)
+          return;
+        expansion.expanded = !expansion.expanded;
+
+        return { handled: true };
+      }
+    );
   };
 }

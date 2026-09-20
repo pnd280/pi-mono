@@ -4,15 +4,15 @@
 
 ## Behavior
 
-[`renderHintFooter`](index.ts), exported from `@pi-mono/libs/tui/components/hint-footer`, fits hints to the visible terminal width, up to `maxRows`. Callers supply padding, a separator, and styling.
+[`renderHintFooter`](index.ts), exported from `@pi-mono/libs/tui/components/hint-footer`, fits hints to the visible terminal width, up to `maxRows`.
 
-An optional message replaces the hint rows without changing the footer height. If the message does not fit, the final row uses `overflowText` and the result sets `messageOverflow`. A nonempty message still reports overflow when no rows are available.
+Messages replace hints without changing height. Overflow sets `messageOverflow` and replaces the final row with `overflowText`; nonempty messages also overflow at zero rows.
 
 ## Caller responsibilities
 
 Supply display-safe strings, width-preserving styling, and finite nonnegative viewport dimensions. Select hints and row limits for the active actions and layout.
 
-Retain the complete message and deliver overflow notifications outside rendering. The renderer neither sends notifications nor schedules timers. The shared [expiring notice](../../../expiring-notice/README.md) can defer delivery and suppress duplicates.
+Retain full messages; notify overflow outside rendering. The renderer sends no notifications/timers; [expiring notices](../../../expiring-notice/README.md) defer/deduplicate delivery.
 
 ## Validation
 

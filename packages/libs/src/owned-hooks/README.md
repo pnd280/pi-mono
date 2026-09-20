@@ -6,9 +6,7 @@
 
 [`@pi-mono/libs/owned-hooks`](index.ts) exports `OwnedHooks` for temporary property replacements.
 
-`restore()` processes replacements in reverse order, changing only properties that still contain the installed value. It restores original descriptors or removes newly introduced properties. If a property can no longer be restored, it skips that property without throwing.
-
-Restoring a property cannot revoke callback references held elsewhere.
+`restore()` reverses replacements only where the installed value remains, restoring descriptors or removing new properties. Unrestorable properties are skipped without throwing. Held callback references cannot be revoked.
 
 ## Caller responsibilities
 

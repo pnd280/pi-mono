@@ -43,7 +43,7 @@ type LookupSession = Pick<AgentSession, "getAllTools" | "settingsManager" | "ses
   getToolDefinition: (name: string) => RenderDefinition;
 };
 
-// Pi 0.85.1's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 0.86.0's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: LookupSession }, name: string) => RenderDefinition;
@@ -95,7 +95,7 @@ function interactiveHost(session: AgentSession) {
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 0.85.1's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 0.86.0's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as Host & {
     ui: TUI;
@@ -141,6 +141,7 @@ function preserveRegistry(session: AgentSession): () => void {
       expect(view.promptSnippet).toBe(definition?.promptSnippet);
       expect(view.promptGuidelines).toBe(definition?.promptGuidelines);
       expect(view.prepareArguments).toBe(definition?.prepareArguments);
+      expect(view.constrainedSampling).toBe(definition?.constrainedSampling);
     }
 
     expect(session.getActiveToolNames()).toEqual(active.map(({ name }) => name));
@@ -1406,7 +1407,7 @@ it.each([
         for (const [index, name] of ["a", "b", "c"].entries()) {
           const call = fauxToolCall("read", { path: `${name}.ts` }, { id: name });
           const message = assistantMessage([call], index + 1);
-          const partial = structuredClone(message);
+          const partial = { ...message, content: [...message.content] };
 
           if (name === "b" && position !== "none") {
             const withdrawn = { type: "text" as const, text: "Withdrawn text" };
@@ -1804,10 +1805,12 @@ it.each(["auto", "generic"])(
 
 it.each(
   ["live", "replay"].flatMap((mode) =>
-    (["maybeShowAssistantDiagnostics", "addCacheMissNotice"] as const).map((hook) => ({
-      mode,
-      hook
-    }))
+    (["maybeShowThinkingDropNotice", "addCacheMissNotice", "addCacheWarmingUsage"] as const).map(
+      (hook) => ({
+        mode,
+        hook
+      })
+    )
   )
 )("separates $mode groups only when $hook inserts a component", async ({ mode, hook }) => {
   const prototype = interactivePrototype();

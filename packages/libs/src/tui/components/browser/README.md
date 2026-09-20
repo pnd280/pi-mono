@@ -6,11 +6,9 @@
 
 [`@pi-mono/libs/tui/components/browser`](index.ts) exports `Browser`, its option types, and `browserLayout`.
 
-Each section retains its query and selection. Sections can have different data sources and optional confirm, alternate, copy, and removal actions.
+Sections retain queries/selections and may supply distinct sources and confirm, alternate, copy, or remove actions. Switching keeps preview open on the destination selection from the top; empty results/load failure return to the list.
 
-Selection uses caller-supplied stable keys, including when filtering or refreshing data. A successful removal replaces the snapshot and selects a nearby result. Failed removal retains the query, selection, and preview.
-
-While removal, confirm, or alternate callbacks are pending, only cancellation is available. Copying leaves interaction available. Late results cannot reopen a closed browser.
+Stable keys preserve selection through search/refresh. Successful removal replaces the snapshot and selects nearby; failure retains query, selection, and preview. Pending remove/confirm/alternate actions allow only cancel; copy allows interaction. Late results cannot reopen closed browsers.
 
 ### Keys and cancellation
 
@@ -23,11 +21,11 @@ Configured actions take precedence in this order: copy, cancel, confirm, up, dow
 | Delete twice     | Confirm removal within the section's confirmation deadline |
 | Alt+Enter        | Invoke the alternate action                                |
 
-Action hints show the first usable binding after resolving conflicts, or an `unavailable` label if none remains. Hints omit actions absent from the section and fixed controls with no remaining binding. Configured keys remain reserved even when the section has no corresponding action.
+Hints show first usable bindings or `unavailable`, omitting absent actions and fully overridden fixed controls. Configured keys stay reserved even for absent actions.
 
 Ctrl+C never cancels. Construction requires a cancel binding other than Ctrl+C that is not also bound to copy.
 
-Cancel returns from preview to the list, or closes the browser from the list. During a pending removal or selection action, cancel closes the browser even from preview. Closing does not cancel effects already started by consumer callbacks.
+Cancel returns from preview to the list, or closes the browser from the list. During loading or a pending removal or selection action, cancel closes the browser even from preview. Closing does not cancel effects already started by consumer callbacks.
 
 Inspection mode selects a one-based item index and allows only copying, scrolling, and closure. Confirm closes without invoking a selection action.
 
@@ -42,19 +40,19 @@ Resizing cancels confirmation but preserves the query, input cursor, selection, 
 
 ## Caller responsibilities
 
-Supply at least one section, unique section IDs, an existing initial section, and stable unique item keys within each snapshot. Sections may be empty. The browser treats item values as opaque.
+Supply at least one section, unique IDs, an existing initial section, and stable unique snapshot item keys. Empty sections are allowed; item values are opaque.
 
-`load(signal)` returns prepared items and an optional status message. Each section activation gets a new signal, shared with `remove.run`. The next activation or final closure aborts the signal. Responsive remounts do not. Pass the signal through loading and preparation to stop obsolete work.
+`load(signal)` returns prepared items/optional status. Each activation's signal is shared with `remove.run`, aborted on next activation/final closure, never remount. Pass it through loading/preparation.
 
 The `search` callback filters and ranks results and must honor the supplied `current` callback.
 
-Supply terminal-safe row and preview text while retaining exact source separately. The row formatter receives only the visible window and must preserve its count and order. It can choose columns, metadata, and width-preserving styles. Preview metadata is optional.
+Supply terminal-safe rows/previews; retain exact source separately. Format only the visible window, preserving count/order; choose columns, metadata, and width-preserving styles. Preview metadata is optional.
 
 Confirm and alternate callbacks perform their actions and return `true` to close or `false` to remain open.
 
 `remove.run(item, signal)` returns a committed snapshot, or `undefined` after reporting failure. Use its signal only to cancel preparation of the replacement snapshot, never to cancel effects already started. `remove.enabled` controls whether an item can be removed.
 
-Errors during section loading or its initial search appear in the browser, so their messages must be safe to disclose. Action errors and subsequent search errors go to `onError`. Supply `cancelError` to choose the error type and message when no usable cancel binding exists.
+Load/initial-search errors display directly: use safe messages. Action/later-search errors go to `onError`. `cancelError` chooses type/message for unusable cancel bindings.
 
 Use the [browser host](../../open-browser/README.md) for Pi mounting and effects after closure. When constructing `Browser` directly, await `browser.controller.activate()` and call `browser.dispose()` at final closure, not during remounts.
 

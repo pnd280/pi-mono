@@ -7,7 +7,7 @@ import { record } from "../values.ts";
 import type { Host } from "./compatibility.ts";
 import { bindThinkingVisibility } from "./thinking.ts";
 
-/** Pi 0.85.1 prepends a margin row and subtracts it in handleMouse. Join compact
+/** Pi 0.86.0 prepends a margin row and subtracts it in handleMouse. Join compact
  * members without moving native image components or replacing Pi's mouse routing.
  */
 function joinGroupedRow(

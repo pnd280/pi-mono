@@ -4,13 +4,25 @@
 
 ## Behavior
 
-[`@pi-mono/libs/bounded-diff`](index.ts) exports `createBoundedPatch` to generate a unified patch. It normalizes CRLF to LF and refuses NUL-containing source.
+[`createBoundedPatch`](index.ts) (`@pi-mono/libs/bounded-diff`) asynchronously generates unified patches, normalizing CRLF to LF and returning `binary` for NULs.
 
-Generation is synchronous and checks the clock to enforce its timeout. Results distinguish oversized source, oversized patches, and binary input. Exceeding either the edit-distance limit or the timeout returns `budget-exceeded`.
+One shared off-main-thread worker handles requests serially. Request timeouts cover dispatch through patch return, excluding queue wait; startup has a separate one-second limit. Timed-out workers terminate before the next request.
+
+Shared resource limits apply across consumers:
+
+| Resource               | Limit                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Pending requests       | Four, including the active request.                                                                         |
+| Retained input strings | 64 MiB total, counted as UTF-16.                                                                            |
+| Worker JavaScript heap | 64 MiB for the old generation and 16 MiB for the young generation. These do not bound total process memory. |
+
+An idle worker does not keep the process alive.
+
+Results distinguish oversized source, oversized patches, and binary input. Exceeding the edit-distance, time, heap, or queue limit returns `budget-exceeded`. Worker startup and execution failures return the same status without preventing later requests.
 
 ## Caller responsibilities
 
-Supply the path and source before and after the change. Choose source and patch byte limits, an edit-distance limit, a timeout, and the number of context lines. Limits and the context-line count must be nonnegative safe integers. `timeoutMs` must be finite and nonnegative. Invalid limits or timeouts throw `RangeError`.
+Supply path, before/after source, source/patch byte limits, edit-distance limit, timeout, and context-line count. Limits/count must be nonnegative safe integers; `timeoutMs` finite and nonnegative. Invalid values reject with `RangeError`.
 
 The library does not read files. Use [file observation](../file-observation/README.md) to load complete UTF-8 source from disk.
 

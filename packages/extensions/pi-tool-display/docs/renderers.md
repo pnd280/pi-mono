@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md) · [Adapter development](adapters.md)
 
-Tool authors and SDK hosts can attach the public renderers to a tool definition:
+Attach public renderers to a tool definition:
 
 ```ts
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
@@ -13,15 +13,13 @@ pi.registerTool({
 });
 ```
 
-The factory uses generic rendering by default, even for names such as `read`, `bash`, or `server.search`. Opt into specialized rendering with an [explicit contract](#explicit-contracts).
-
-The factory changes only renderer fields. It does not execute or observe tools, read files, persist metadata, or establish native provenance. Grouping requires the automatic CLI integration and has no public API. Pi handles [image rendering](validation.md#platform-limitations) and the configured expansion action.
+Rendering defaults to generic, even for `read`, `bash`, or `server.search`; specialization needs an [explicit contract](#explicit-contracts). The factory changes only renderer fields: no execution, observation, file reads, persistence, or native provenance. Grouping is CLI-only with no public API. Pi handles [images](validation.md#platform-limitations) and expansion.
 
 See [tool card presentation](presentation.md) for layout, diff behavior, and display limits.
 
 ## Explicit contracts
 
-Pass a `ToolDisplayAdapter` to select specialized rendering. For compatible tools, use a [native contract](../src/adapters/native/README.md#compatibility-and-selection) from `pi-tool-display/adapters` without enabling execution observation:
+Pass a `ToolDisplayAdapter` for specialization, such as a [native contract](../src/adapters/native/README.md#compatibility-and-selection) for compatible tools, without execution observation:
 
 ```ts
 import { nativeAdapter } from "pi-tool-display/adapters";
@@ -35,9 +33,7 @@ pi.registerTool({
 });
 ```
 
-The factory takes a `ToolDisplayRendererOptions` object as its third argument and does not read CLI settings. `showParameters` defaults to `false`. When it is `true`, adapters in the `invocation` family include arguments in their invocation text.
-
-Generic cards always show arguments. Structured parameter blocks still require expansion.
+The third argument is `ToolDisplayRendererOptions`, not CLI settings. `showParameters` defaults to `false`; `true` includes arguments in `invocation`-family text. MCP/generic cards always show arguments; structured blocks require expansion.
 
 ## Custom adapters
 
@@ -57,9 +53,7 @@ Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`
 | Enable CLI preview loading from `details.fullOutputPath`                                               | `savedOutput`                                      |
 | Supply typed MCP content                                                                               | [`mcp`](#mcp-facts)                                |
 
-`patch` and `savedOutput` are boolean flags. `groupTitle` is a string. The other members in the table are callbacks. Callbacks receive borrowed arguments and results. Validate unknown input without changing retained data or inferring facts from ordinary output.
-
-When `showParameters` is `false`, the renderer skips invocation parts whose `kind` is `parameters` without reading their `text`, even after expansion. Use a `text` getter to avoid serializing hidden parameters.
+Validate borrowed arguments/results without mutation or inferring facts from ordinary output. `alwaysShowParameters: true` overrides `showParameters`. Parts with `kind: "parameters"` skip `text` access when hidden, even after expansion; use a getter to avoid hidden serialization.
 
 For an invocation containing only a concrete target, return a `path` part optionally followed by a `range` part such as `:15-16`. The renderer [wraps the path](presentation.md#card-layout) and keeps the range together when it fits the available width. Use `value` or `pattern` for literal expressions, which receive no path normalization.
 
@@ -73,9 +67,9 @@ Standalone adapters must handle incompatible input themselves. Only the automati
 - `directory`: a concrete directory, resolved lexically against the session working directory.
 - `filter`: an opaque expression, compared exactly without path resolution, trimming, or case folding.
 
-All items must resolve to the same directory or identical filters. A `file` scope and a `directory` scope can therefore group when the file's parent matches the directory. Missing, invalid, or mismatched scopes keep the call standalone, as do `undefined` and empty exploration results. Do not derive scopes from formatted summaries or interpret arbitrary filters as directories.
+Items must resolve to one directory or identical filters; files can group with their parent directory. Missing, invalid, or mismatched scopes and `undefined`/empty results stay standalone. Never derive scopes from summaries or treat arbitrary filters as directories.
 
-Tool adapters that group calls outside file exploration return one `filter` scope with a stable literal and set [`groupTitle`](../src/contracts.ts). The collapsed heading then reads `<groupTitle>` instead of naming a scope. Summaries and notices remain visible beneath each member, just as in standalone cards. `pi-todo` groups its calls this way.
+For non-file groups such as `pi-todo`, return one stable literal `filter` and set [`groupTitle`](../src/contracts.ts). The title replaces the scope heading; member summaries/notices stay visible.
 
 Group headings omit call and operation counts. Each call remains a separate member, including repeated reads. See [exploration groups](presentation.md#groups) for boundaries and expansion behavior.
 
@@ -85,11 +79,11 @@ Group headings omit call and operation counts. Each call remains a separate memb
 
 ### Result summaries
 
-`summary(result, context)` returns a `ResultSummary` with `text` and an optional `preserveOutput` boolean. The context contains `args`, the resolved `outcome`, and recorded `operation` facts when available. The renderer calls it only for completed results whose outcome is `success`, `failure`, or `cancelled`.
+`summary(result, context)` runs only for completed results whose outcome is `success`, `failure`, or `cancelled`.
 
-Derive summaries from validated metadata or recorded operation facts. Label totals precisely, distinguishing collected matches from total matches and failed operations from unfinished ones. Return `undefined` when the data cannot support a summary.
+Use validated metadata or recorded facts. Distinguish collected/total matches and failed/unfinished operations; return `undefined` without sufficient data.
 
-Summaries appear before output in compact and expanded cards. In compact cards, a nonempty summary replaces successful text output by default. Set `preserveOutput: true` for summaries that supplement output, such as a shell exit status. Failure and cancellation output, notices, and images remain visible. Expansion restores retained text.
+Summaries precede output. Nonempty compact summaries replace successful text unless `preserveOutput: true`, as for shell status. Failure/cancellation output, notices, and images remain; expansion restores retained text.
 
 Missing, empty, or whitespace-only summaries use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
 
@@ -98,6 +92,16 @@ Use `notices` for diagnostics and references that must remain visible when a sum
 ### Result text
 
 `textParts(text, args, context)` interprets a known text envelope. Its context includes `isError` (`true` for failure or cancellation), `isCancelled`, `isPartial`, `expanded`, and `hasImages`.
+
+`context.result` and `context.contentIndex` identify the result and its current content block. Distinguish generated blocks from similar source headings through metadata.
+
+For expanded read cards, an `output` part can supply ordered, nonoverlapping `selection` ranges. Each range contains:
+
+- `line`: the zero-based line index within the part's text.
+- `start`: the inclusive UTF-16 offset within that line.
+- `end`: the exclusive UTF-16 offset within that line.
+
+Compute ranges from unsanitized text. The renderer uses [selection-aware code highlighting](../../../libs/src/tui/components/code-highlight/README.md) with `searchMatchBg`. Omit ranges for partial or failed results, including cancellations.
 
 Suppress a known cancellation message only when `isCancelled` is true. Retain useful diagnostics and restore the full diagnostic on expansion.
 
@@ -128,7 +132,7 @@ const facts: McpFacts = {
 };
 ```
 
-Media entries reference Pi result blocks. Do not copy base64 into display facts. Text, media, and resource notices retain their order, while Pi renders inline images.
+Media reference Pi result blocks, never copied base64. Preserve text/media/resource order; Pi renders images.
 
 Text and embedded resource bodies use the resolved outcome's color: `error` for failures, `warning` for cancellations, and `toolOutput` otherwise. Resource labels use `dim`, and URIs use normal foreground.
 

@@ -16,7 +16,7 @@ import {
 import { deriveTaskHierarchy } from "./hierarchy.ts";
 import { metadataLimitError, serializedSnapshotFitsLimit } from "./limits.ts";
 import { jsonMetadataSchema } from "./metadata.ts";
-import { cloneState, cloneTask, emptyTodoState, hasDependencyCycle } from "./reducer.ts";
+import { cloneTask, emptyTodoState, hasDependencyCycle } from "./reducer.ts";
 import { TASK_STATUSES, type Task, type TodoState } from "./types.ts";
 
 const taskStatusSchema = z.enum(TASK_STATUSES);
@@ -126,9 +126,7 @@ function parseTodoStateSnapshotEntry<Entry>(entry: Entry): TodoState | undefined
     const parsed = todoSnapshotEntrySchema.safeParse(entry);
     if (!parsed.success) return undefined;
 
-    const snapshot = parseTodoStateSnapshot(parsed.data.message.details);
-
-    return snapshot ? cloneState(snapshot) : undefined;
+    return parseTodoStateSnapshot(parsed.data.message.details);
   } catch {
     return undefined;
   }

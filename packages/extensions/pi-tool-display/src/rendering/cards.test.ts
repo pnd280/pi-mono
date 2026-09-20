@@ -1744,6 +1744,39 @@ describe("tool display renderers", () => {
         .join("\n")
     ).toContain('"path"');
   });
+  it("does not read hidden parameter parts for adapters that follow the setting", () => {
+    let parameterReads = 0;
+    const adapter = {
+      id: "owner:optional-parameters",
+      family: "invocation" as const,
+      invocation: () => [
+        { kind: "value" as const, text: "lookup" },
+        {
+          kind: "parameters" as const,
+          get text() {
+            parameterReads++;
+
+            return '({"query":"needle"})';
+          }
+        }
+      ]
+    };
+
+    for (const options of [{}, { showParameters: false }]) {
+      const renderer = createPublicRenderers("lookup", adapter, options);
+
+      for (const expanded of [false, true]) {
+        const header = renderer.renderCall({}, theme, context({ expanded }));
+        expect(header.render(120).join("\n")).toContain("lookup");
+        expect(header.render(80).join("\n")).not.toContain("needle");
+      }
+    }
+
+    expect(parameterReads).toBe(0);
+    const renderer = createPublicRenderers("lookup", adapter, { showParameters: true });
+    expect(renderer.renderCall({}, theme, context()).render(80).join("\n")).toContain("needle");
+    expect(parameterReads).toBe(1);
+  });
   it("colors only FFF search patterns in grouped, expanded, and standalone summaries", () => {
     const themed = semanticTheme();
 
@@ -2182,7 +2215,8 @@ describe("tool display renderers", () => {
         .render(100)
         .join("\n");
       expect(standalone.includes("renderers.ts")).toBe(expanded);
-      expect(standalone).toContain("33 matching files · 33 indexed files");
+      expect(standalone).toContain("33 matching files");
+      expect(standalone.includes("33 indexed files")).toBe(expanded);
       expect(standalone.split(notice)).toHaveLength(2);
       expect(standalone).not.toContain("Page ");
       expect(
@@ -2232,7 +2266,7 @@ describe("tool display renderers", () => {
           expect(rows).toEqual([
             "• Filtered src/",
             "  ├ Searched renderers",
-            "  │   33 matching files · 33 indexed files",
+            "  │   33 matching files",
             `  │   ${notice}`,
             "  └ Searched cards",
             "      retained sibling matches"
@@ -2376,7 +2410,6 @@ describe("tool display renderers", () => {
       const warning =
         '[Query "foo\nbar" produced only weak scattered fuzzy matches. Output capped at 1/10.]';
       const supplied = result(`src/example.ts\n\n${warning}`);
-      const original = structuredClone(supplied);
       coordinator.result(call, supplied, "success");
       const renderer = createToolDisplayRenderers("fffind", adapter, {
         binding: { call, coordinator }
@@ -2398,7 +2431,7 @@ describe("tool display renderers", () => {
         .join("\n");
       expect(expanded).toContain("src/example.ts");
       expect(expanded).toContain("weak scattered fuzzy matches");
-      expect(supplied).toEqual(original);
+      expect(supplied).toEqual(result(`src/example.ts\n\n${warning}`));
     } finally {
       coordinator.dispose();
     }
@@ -2562,13 +2595,13 @@ describe("tool display renderers", () => {
   });
 
   it("expands all retained output and reflows without altering model-visible data", () => {
-    const value = result(Array.from({ length: 30 }, (_, index) => `row ${index}`).join("\n"));
-    const original = structuredClone(value);
+    const source = Array.from({ length: 30 }, (_, index) => `row ${index}`).join("\n");
+    const value = result(source);
     expect(body("bash", value).render(80)).toHaveLength(5);
     const expanded = body("bash", value, context({ expanded: true }));
     expect(expanded.render(80)).toHaveLength(30);
     expect(expanded.render(10).every((row) => visibleWidth(row) <= 10)).toBe(true);
-    expect(value).toEqual(original);
+    expect(value).toEqual(result(source));
   });
 
   it("shows observation limitations only when no usable patch is available", () => {

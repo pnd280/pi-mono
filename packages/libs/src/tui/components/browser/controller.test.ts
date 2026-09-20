@@ -40,6 +40,85 @@ it("keeps item selection during filtering and remembers independent section quer
   expect(controller.selected?.id).toBe("1");
 });
 
+it("keeps preview open across sections with remembered queries and selections", async () => {
+  const { controller } = browser();
+  await controller.activate();
+  controller.action("down");
+  controller.setQuery("beta");
+  await vi.waitFor(() => expect(controller.searching).toBe(false));
+  await controller.activate("recent");
+  controller.action("down");
+  controller.action("preview");
+  controller.action("pageDown");
+  controller.action("delete");
+  expect(controller.armed).toBeDefined();
+  controller.action("switch");
+  await vi.waitFor(() => expect(controller.status).toBe("ready"));
+  expect(controller.preview).toBe(true);
+  expect(controller.previewScroll).toBe(0);
+  expect(controller.armed).toBeUndefined();
+  expect(controller.query).toBe("beta");
+  expect(controller.selected?.id).toBe("1");
+  controller.action("switch");
+  await vi.waitFor(() => expect(controller.status).toBe("ready"));
+  expect(controller.preview).toBe(true);
+  expect(controller.query).toBe("alpha");
+  expect(controller.selected?.id).toBe("2");
+});
+
+it.each(["empty", "no matches", "unavailable"] as const)(
+  "leaves preview when the next section has %s",
+  async (outcome) => {
+    const options = browserOptions();
+
+    options.sections[0]!.load = async () => {
+      if (outcome === "unavailable") throw new Error("Read failed");
+
+      return { items: outcome === "empty" ? [] : items(["beta"]) };
+    };
+
+    const { controller } = browser(options);
+    await controller.activate();
+    controller.action("preview");
+    controller.action("switch");
+    await vi.waitFor(() => expect(controller.status).not.toBe("loading"));
+    expect(controller.preview).toBe(false);
+    expect(controller.selected).toBeUndefined();
+    expect(controller.closed).toBe(false);
+    controller.setQuery("beta");
+    await vi.waitFor(() => expect(controller.searching).toBe(false));
+    expect(controller.query).toBe("beta");
+    if (outcome === "no matches") expect(controller.selected?.label).toBe("beta");
+  }
+);
+
+it.each(["switch", "cancel"] as const)(
+  "ignores obsolete preview loads after %s",
+  async (action) => {
+    const options = browserOptions();
+    const pending = deferred<BrowserSnapshot<TestItem>>();
+    options.sections[0]!.load = () => pending.promise;
+    const { controller, ports } = browser(options);
+    await controller.activate();
+    controller.action("preview");
+    controller.action("switch");
+    expect(controller.status).toBe("loading");
+    controller.action(action);
+    if (action === "switch") await vi.waitFor(() => expect(controller.status).toBe("ready"));
+    pending.resolve({ items: [] });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    if (action === "cancel") {
+      expect(controller.closed).toBe(true);
+      expect(ports.close).toHaveBeenCalledTimes(1);
+    } else {
+      expect(controller.section.id).toBe("saved");
+      expect(controller.preview).toBe(true);
+      expect(controller.selected?.id).toBe("0");
+    }
+  }
+);
+
 it("distinguishes loading, empty, no matches and unavailable, ignoring cancelled or superseded loads", async () => {
   const read = deferred<BrowserSnapshot<TestItem>>();
   const options = browserOptions();

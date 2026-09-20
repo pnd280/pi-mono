@@ -4,13 +4,11 @@
 
 ## Behavior
 
-[`@pi-mono/libs/timed-confirmation`](index.ts) exports `TimedConfirmation`. `confirm(target)` succeeds only when the same target is supplied twice before the deadline. Targets are compared with `===`.
+[`TimedConfirmation`](index.ts) (`@pi-mono/libs/timed-confirmation`): `confirm(target)` succeeds only for two `===` targets before the deadline.
 
 ## Caller responsibilities
 
-Supply the duration, clock, and expiry callback. Choose the action and confirmation messages in the consumer.
-
-Cancel confirmation when selection, collection, or mounting context changes. Call `dispose()` when the owner closes.
+Supply duration, clock, expiry callback, and local action/messages. Cancel on selection, collection, or mount changes; `dispose()` on closure.
 
 ## Validation
 

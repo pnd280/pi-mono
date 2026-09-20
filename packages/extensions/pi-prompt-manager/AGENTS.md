@@ -13,13 +13,13 @@
 
 ## Constraints
 
-Activate the feature and access its settings and storage only after TUI session startup. Before changing filesystem integration, read the shared [mutation protocol](../../libs/src/private-files/README.md#mutation-protocol).
+Activate and access settings/storage only after TUI session startup. Before filesystem changes, read the shared [mutation protocol](../../libs/src/private-files/README.md#mutation-protocol).
 
-Keep exact stored and copied source separate from sanitized display text. Reject unsafe text before restoring it to the editor. Use the native-only clipboard library, not Pi's general clipboard helper. Preserve the [capture exclusions and side-effect limits](README.md#side-effects).
+Separate exact stored/copied source from sanitized display text. Reject unsafe editor restores. Use the native-only clipboard library, not Pi's general helper. Preserve [capture exclusions and side-effect limits](README.md#side-effects).
 
-Apply browser restoration requests in the manager only through the [browser host's](../../libs/src/tui/open-browser/README.md) `afterClose` callback, never during a responsive remount. Restore before any requested removal. Preserve one logical browser instead of installing a custom editor.
+Restore selections only in the [browser host's](../../libs/src/tui/open-browser/README.md) `afterClose`, before requested removal and never during responsive remounts. Keep one logical browser; do not install a custom editor.
 
-Keep recovery manual. Never evict existing drafts to make room for additions. Require the UUID, text, and timestamp to match before deletion. Distinguish cleanup warnings after commit from failed writes. Document user-facing contracts in [controls](docs/controls.md) and [storage and recovery](docs/storage.md).
+Keep recovery manual; never evict drafts for additions. Delete only when UUID, text, and timestamp match. Distinguish post-commit cleanup warnings from failed writes. Document contracts in [controls](docs/controls.md) and [storage and recovery](docs/storage.md).
 
 ## Validation
 

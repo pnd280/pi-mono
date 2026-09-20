@@ -4,21 +4,19 @@
 
 ## Package responsibilities
 
-- `packages/extensions/<name>/`: one workspace package per extension.
+- `packages/extensions/<name>/`: one package per extension. Keep registration and event handlers as Pi adapters; put substantial behavior in modules callable without Pi.
 - `packages/utils/`: pure helpers without state, I/O, or runtime abstractions.
-- `packages/libs/`: shared stateful code and abstractions, plus TUI infrastructure under `src/tui/`.
-- `packages/libs/src/tui/components/`: reusable TUI components and views. Shared browsers manage layout and interaction. Extensions supply data, formatting, domain policies, and action effects. Host mounting stays outside `components/`.
+- `packages/libs/`: shared stateful code and abstractions, including TUI infrastructure under `src/tui/`.
+- `packages/libs/src/tui/components/`: reusable components and views. Shared browsers own layout and interaction; extensions supply data, formatting, domain policy, and action effects. Keep host mounting outside `components/`.
 
-Keep registration and event handlers as Pi adapters. Put substantial behavior in modules callable without a Pi session.
-
-Shared packages stay independent of individual extensions.
+Keep shared packages independent of individual extensions.
 
 ## Reuse decision
 
-Before implementing behavior, search the shared packages, relevant extensions, and Pi's APIs and components for an existing implementation.
+Before implementing behavior, search shared packages, relevant extensions, and Pi APIs and components.
 
 - **Reuse** when an existing implementation fits.
-- **Extract** when another extension needs behavior implemented in one extension. Move the common contract into the matching shared package, keeping each consumer's policy local.
+- **Extract** behavior needed by another extension into the matching shared package; keep consumer policy local.
 - **Keep local** when behavior is extension-specific.
 
-For shared-code changes, account for every affected consumer: update affected usages and verify its behavior.
+For shared-code changes, update and verify every affected consumer.

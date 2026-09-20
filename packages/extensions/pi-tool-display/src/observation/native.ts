@@ -1,22 +1,18 @@
-import { constants } from "node:fs";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-
 import {
   createBashToolDefinition,
-  createEditToolDefinition,
   createLocalBashOperations,
   createLocalPowerShellOperations,
   createPowerShellToolDefinition,
-  createWriteToolDefinition,
   type BashOperations,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
-import { observeTextFile } from "@pi-mono/libs/file-observation";
+import { observeMutationDefinition, type MutationSink } from "@pi-mono/libs/file-mutations";
+import type { NativeSettings } from "@pi-mono/libs/native-tools";
 import { OutputBuffer } from "@pi-mono/libs/output-buffer";
 import type { OutputText } from "@pi-mono/utils/output-text";
 
 import type { DisplayFact, Outcome } from "../contracts.ts";
-import { computeChange, OBSERVATION_BYTES, parseRetainedPatch } from "../diff.ts";
+import { mutationChange, OBSERVATION_BYTES } from "../diff.ts";
 import { record } from "../values.ts";
 import { liveOutputOptions } from "./output-policy.ts";
 
@@ -24,12 +20,6 @@ export interface ObservationSink {
   started(): void;
   fact(fact: DisplayFact): void;
   preview(output: OutputText): void;
-}
-
-export interface NativeSettings {
-  cwd: string;
-  shellPath?: string | undefined;
-  commandPrefix?: string | undefined;
 }
 
 const ignoreFailure = (action: () => void): void => {
@@ -80,14 +70,22 @@ function previewPublisher(buffer: OutputBuffer, publish: (output: OutputText) =>
   };
 }
 
-async function beforeWrite(
-  path: string
-): Promise<{ text: string; change: "creation" | "modification" } | undefined> {
-  const result = await observeTextFile(path, OBSERVATION_BYTES);
-  if (result.status === "ready") return { text: result.text, change: "modification" };
-  if (result.status === "missing") return { text: "", change: "creation" };
-
-  return undefined;
+export function displayMutationSink(observer: ObservationSink, name: string): MutationSink {
+  return {
+    maxSourceBytes: OBSERVATION_BYTES,
+    started: () => observer.started(),
+    async completed(mutation) {
+      const change = async () => observer.fact(await mutationChange(mutation));
+      if (name === "write") await change();
+      observer.fact({
+        kind: "operation",
+        availability: "available",
+        durationMs: mutation.durationMs,
+        outcome: mutation.outcome
+      });
+      if (name === "edit") await change();
+    }
+  };
 }
 
 async function executeWithSavedReference(
@@ -127,6 +125,13 @@ export function observeNativeDefinition(
   settings: NativeSettings,
   begin: (id: string) => ObservationSink | undefined
 ): ToolDefinition {
+  if (original.name === "edit" || original.name === "write")
+    return observeMutationDefinition(original, settings.cwd, (id) => {
+      const observer = begin(id);
+
+      return observer ? [displayMutationSink(observer, original.name)] : [];
+    });
+
   return {
     ...original,
     async execute(id, args, signal, onUpdate, context) {
@@ -152,24 +157,6 @@ export function observeNativeDefinition(
           outcome,
           ...extra
         });
-      const proposal = (
-        path: string,
-        before: string | undefined,
-        after: string,
-        change: "creation" | "modification"
-      ) =>
-        ignoreFailure(() => {
-          fact(
-            before === undefined
-              ? {
-                  kind: "change",
-                  availability: "unavailable",
-                  reason: "Before-state unavailable or exceeds the observation budget."
-                }
-              : computeChange(path, before, after, change)
-          );
-        });
-      let recordFallbackChange: (() => void) | undefined;
       let definition: Pick<ToolDefinition, "execute">;
       if (original.name === "bash" || original.name === "powershell") {
         const local =
@@ -220,91 +207,9 @@ export function observeNativeDefinition(
                 ...(settings.commandPrefix ? { commandPrefix: settings.commandPrefix } : {})
               })
             : createPowerShellToolDefinition(settings.cwd, { operations });
-      } else if (original.name === "edit") {
-        let before: string | undefined;
-        definition = createEditToolDefinition(settings.cwd, {
-          operations: {
-            access: (path) => access(path, constants.R_OK | constants.W_OK),
-            async readFile(path) {
-              const bytes = await readFile(path);
-              ignoreFailure(() => {
-                if (bytes.length <= OBSERVATION_BYTES)
-                  before = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
-              });
-
-              return bytes;
-            },
-            async writeFile(path, content) {
-              const previous = before;
-              before = undefined;
-              // Successful edits supply their own patch. Keep captured inputs only
-              // for failed writes or results without a usable native patch.
-              recordFallbackChange = () => proposal(path, previous, content, "modification");
-              const started = start();
-
-              try {
-                await writeFile(path, content, "utf8");
-                terminal(started, "success");
-              } catch (error) {
-                terminal(started, "failure");
-                throw error;
-              }
-            }
-          }
-        });
-      } else if (original.name === "write") {
-        definition = createWriteToolDefinition(settings.cwd, {
-          operations: {
-            mkdir: async (path) => {
-              await mkdir(path, { recursive: true });
-            },
-            async writeFile(path, content) {
-              // Pi already owns the mutation queue here; do not queue again.
-              let before;
-
-              try {
-                if (Buffer.byteLength(content) <= OBSERVATION_BYTES)
-                  before = await beforeWrite(path);
-              } catch {
-                /* Observation only. */
-              }
-
-              proposal(path, before?.text, content, before?.change ?? "modification");
-              const started = start();
-
-              try {
-                await writeFile(path, content, "utf8");
-                terminal(started, "success");
-              } catch (error) {
-                terminal(started, "failure");
-                throw error;
-              }
-            }
-          }
-        });
       } else return original.execute(id, args, signal, onUpdate, context);
 
-      try {
-        const result = await executeWithSavedReference(
-          definition,
-          [id, args, signal, onUpdate, context],
-          fact
-        );
-
-        if (recordFallbackChange) {
-          const patch = record(result.details).patch;
-
-          if (typeof patch === "string" && parseRetainedPatch(patch)) {
-            // Record before outer result middleware can replace or reject Pi's result.
-            fact({ kind: "change", availability: "available", change: "modification", patch });
-            recordFallbackChange = undefined;
-          }
-        }
-
-        return result;
-      } finally {
-        recordFallbackChange?.();
-      }
+      return executeWithSavedReference(definition, [id, args, signal, onUpdate, context], fact);
     }
   };
 }

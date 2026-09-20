@@ -1,91 +1,93 @@
 # pi-tool-display
 
-Borderless tool cards for Pi's interactive terminal UI, with exploration groups, live shell previews, and [file diffs](docs/presentation.md#diff-viewer). Colors and syntax highlighting use Pi's active theme.
+Borderless Pi TUI tool cards with exploration groups, live shell previews, and [file diffs](docs/presentation.md#diff-viewer), using the active theme/highlighter.
 
 ## Usage
 
-Adjacent read, search, and list calls form [exploration groups](docs/presentation.md#groups) when their directory scopes or literal filters match. Adjacent `todo` calls form a **Tasks** group. Single calls use ordinary cards. Calls stay in source order, with notices, images, and failure diagnostics directly beneath each call.
+Adjacent read/search/list calls with matching directory scopes or literal filters form [exploration groups](docs/presentation.md#groups); adjacent `todo` calls form **Tasks**. Single calls use cards. Source order is preserved, with notices, images, and diagnostics beneath each call.
 
-Compact cards use [result summaries](docs/presentation.md#results) when available and bounded output previews otherwise. Shell status appears beside output, successful reads keep their text collapsed, and edit and write cards show diff previews. Diagnostics and images remain visible.
+Compact cards show [result summaries](docs/presentation.md#results) or bounded previews, shell status beside output, collapsed successful-read text, and edit/write diffs. Diagnostics and images stay visible.
 
-Pi's tool expansion action, **Ctrl+O** by default, reveals individual cards and available output. In fullscreen mode, a group click expands or collapses all its members. In regular mode, the terminal handles mouse input.
+Pi expansion (default **Ctrl+O**) reveals individual cards and available output. Fullscreen group clicks toggle all members; regular-mode mouse input belongs to the terminal.
 
-Completed thinking placeholders disappear when Pi's thinking display is collapsed (**Ctrl+T** by default), allowing calls with matching scopes to group across them. Revealing thinking restores those group boundaries. Live thinking indicators and assistant text remain visible.
+Collapsed thinking (default **Ctrl+T**) hides completed placeholders, allowing matching calls to group across them. Revealing thinking restores boundaries; live indicators and assistant text stay visible.
 
-Specialized cards hide parameter blocks by default, even when expanded. Command, path, and search summaries remain visible. Generic cards always show their arguments, with bounded previews while collapsed.
+MCP/generic cards always show arguments, bounded when collapsed. Other specialized cards hide parameter blocks by default even when expanded, but retain command/path/search summaries.
 
 ### Tool coverage
 
-[Verified native tools](src/adapters/native/README.md), [`@ff-labs/pi-fff` tools](src/adapters/@ff-labs/pi-fff/README.md), [`pi-mcp-adapter` tools](src/adapters/pi-mcp-adapter/README.md), and [`pi-todo` todo calls](src/adapters/pi-todo/README.md) receive specialized cards, even when they supply custom renderers.
+Specialized cards override even supplied custom renderers for:
 
-For other tools, the extension preserves custom `renderCall` and `renderResult` fields and uses generic cards when neither is supplied. Historical calls without a current tool definition use generic cards built from saved data.
+- [Verified native tools](src/adapters/native/README.md)
+- [`@ff-labs/pi-fff`](src/adapters/@ff-labs/pi-fff/README.md)
+- [`pi-mcp-adapter`](src/adapters/pi-mcp-adapter/README.md)
+- [`pi-todo`](src/adapters/pi-todo/README.md)
+- [`pi-selective-read`](src/adapters/pi-selective-read/README.md)
 
-For tool-author or SDK integration, use the [renderer API](docs/renderers.md). To add automatic tool selection, follow [adapter development](docs/adapters.md).
+Other tools retain custom `renderCall`/`renderResult`; tools with neither, or historical calls without current definitions, use generic cards from retained data.
+
+Use the [renderer API](docs/renderers.md) for tool-author/SDK integration and [adapter development](docs/adapters.md) for automatic selection.
 
 ## Configuration
 
-In Pi's global settings file, set the literal key `ext.pi-tool-display`. The file is `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when that variable is set. Trusted projects can override it in `.pi/settings.json`:
+Set literal `ext.pi-tool-display` in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`). Trusted projects may override it in `.pi/settings.json`:
 
-<!-- prettier-ignore -->
 ```json
 {
-	"ext.pi-tool-display": {
-		"showParameters": false,
-		"rendererOverrides": {
-			"search_docs": "generic",
-			"bash": "original"
-		}
-	}
+  "ext.pi-tool-display": {
+    "showParameters": false,
+    "rendererOverrides": {
+      "search_docs": "generic",
+      "bash": "original"
+    }
+  }
 }
 ```
 
-`showParameters` is a boolean and defaults to `false`. Set it to `true` to show parameter details for specialized cards. Structured parameter blocks still require expansion. This setting does not change generic cards, custom renderers, tool execution, or saved arguments.
+`showParameters` defaults to `false`; `true` shows optional details, with structured blocks still requiring expansion. MCP/generic cards always show arguments. Custom renderers, execution, and saved arguments are unaffected.
 
-`rendererOverrides` maps exact tool names to these string values:
+`rendererOverrides` maps exact tool names to:
 
-| Value      | Behavior                                                                                           |
-| ---------- | -------------------------------------------------------------------------------------------------- |
-| `auto`     | The default. Uses the selection described in [Tool coverage](#tool-coverage).                      |
-| `generic`  | Uses supplied arguments and results without specialized rendering or native operation observation. |
-| `original` | Bypasses this extension's rendering, grouping, and future observation.                             |
+| Value      | Behavior                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------ |
+| `auto`     | Default [selection](#tool-coverage).                                                       |
+| `generic`  | Supplied arguments/results without specialized rendering or this extension's observations. |
+| `original` | Bypass this extension's rendering, grouping, and future observation.                       |
 
-Overrides can name unavailable tools. They do not enable tools or delete saved metadata.
+Unavailable names are allowed. Overrides neither enable tools, delete metadata, nor disable other extensions' observations.
 
-Settings load before history reconstruction and on `/reload`. Trusted project settings merge with global settings:
+Settings load before history reconstruction and on `/reload`. Trusted project fields merge over global settings: explicit `showParameters` replaces, omission inherits; overrides replace by tool name, `auto` resets inherited overrides, and an empty map inherits.
 
-- An explicit `showParameters` value replaces the global value. Omission inherits it.
-- Renderer overrides replace global entries by tool name. Project `auto` resets an inherited override. An empty map inherits global entries.
+Untrusted settings are ignored. Both sections validate before merging; either invalid section preserves original renderers and disables display observations, even if later overridden. Warnings name the source/key.
 
-The extension ignores untrusted project settings. It validates global and trusted project settings before merging them. If either section is invalid, the extension preserves the original renderers and disables observation, even if a later source overrides the invalid value. The warning names the source and key.
-
-There are no extension-specific environment variables, CLI flags, file watchers, or settings writes.
+No extension-specific environment variables, CLI flags, watchers, or settings writes.
 
 ## Side effects
 
 ### Observation and saved history
 
-In interactive TUI sessions, the extension observes verified native `bash`, `powershell`, `edit`, and `write` operations. It collects shell previews, operation timing, outcomes, and file contents before writes. External writers can race with those reads. Display failures do not change tool outcomes.
+In TUI sessions, verified native `bash`, `powershell`, `edit`, and `write` observations collect shell previews, timing, outcomes, and pre-write contents. [File observations](../../libs/src/file-mutations/README.md) are shared with `pi-agent-summary` without duplicate reads. External writers may race; display failures never change tool outcomes.
 
-The extension saves operation facts, cancellation facts, bounded patches, and saved-output references in session history, outside model context. Live shell previews stay in memory. **Deleted lines and context lines from overwritten files can remain in session history.** Native edit patches are saved before result middleware can replace them.
+Session history stores operation/cancellation facts, bounded patches, and saved-output references outside model context. Live shell previews stay in memory. **Deleted/context lines from overwritten files may persist in history.** Native edit patches are saved before result middleware can replace them.
 
-Native operation observation excludes SDK tools, custom implementations, and user `!` and `!!` commands. It does not run in print, JSON, or RPC mode.
+Display observation excludes SDK overrides, custom tools, and manual `!`/`!!` commands. Other extensions may still observe files in print, JSON, or RPC modes.
 
-Recorded cancellations survive result middleware, replay, and renderer changes in both generic and specialized cards. [Cancellation detection](docs/presentation.md#outcomes) requires recorded or structured evidence. Output text alone is insufficient, including in older or print-created histories.
+Recorded cancellations survive middleware, replay, and renderer changes in generic/specialized cards. [Detection](docs/presentation.md#outcomes) needs recorded or structured evidence, never output text alone, including older/print histories.
 
-The TUI reconstructs history from saved calls and results without rerunning tools or animating incomplete calls. Durations, exact exit codes, and file contents before writes remain unavailable unless recorded.
+History reconstructs without rerunning tools or animating incomplete calls. Unrecorded durations, exact exit codes, and pre-write contents remain unavailable.
 
-Expanding a completed shell card loads a bounded preview from Pi's existing temporary output file. Failed calls retain their published result beside the preview; unavailable files leave retained output visible with a notice. See [saved-output previews](docs/presentation.md#saved-output-previews) for loading and retry behavior. The extension creates no durable output archive and makes no network requests.
+Expanding completed shell cards reads bounded previews from Pi's temporary output files. Failed calls retain published results beside previews; unavailable files retain output with a notice. See [loading/retry behavior](docs/presentation.md#saved-output-previews). No durable output archive or network requests.
 
-Live output, saved previews, and patches have [resource limits](docs/presentation.md#resource-limits). Large, binary, or unavailable changes do not block native operations.
+[Resource limits](docs/presentation.md#resource-limits) bound output, previews, and patches; large, binary, or unavailable changes never block native operations.
 
 ## Compatibility
 
-Native observation is verified against Pi 0.85.1. If required host hooks are unavailable or already wrapped, the extension disables observation and warns. It can still render saved data where available.
+Native observation is verified against Pi 0.86.1 via API and installed CLI. Unverified required hooks disable observation with a warning; saved data can still render.
 
-Hiding completed thinking also requires Pi 0.85.1's verified assistant component. If that contract is unavailable or already wrapped, Pi's original thinking presentation remains intact.
+Hiding completed thinking requires Pi 0.86.1's verified assistant component; unavailable/already-wrapped contracts retain Pi's original presentation.
 
-The extension does not register tools, change active tool selection, or add keybindings. Custom card rendering does not apply to HTML exports.
+No tool registration, active-tool changes, or added keybindings. Custom cards do not apply to HTML exports.
 
 ## Validation
 
-Use the [focused validation commands](../../../docs/development.md#focused-validation) with package name `pi-tool-display`. The [validation guide](docs/validation.md) lists manual host checks and known platform limitations.
+Use [focused checks](../../../docs/development.md#focused-validation) for `pi-tool-display` and the [validation guide](docs/validation.md) for manual host checks and platform limits.

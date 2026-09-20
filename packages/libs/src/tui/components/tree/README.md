@@ -6,11 +6,9 @@
 
 [`@pi-mono/libs/tui/components/tree`](index.ts) adds connectors to already measured rows.
 
-`renderTree` assigns branches after filtering items with no rows. It keeps continuation lines under their item and clips the combined connector and content to the supplied width. `followingSibling` continues the connector into a later fragment rendered by another component.
+`renderTree` omits empty items before assigning branches, aligns continuations, and clips connectors/content to width. `followingSibling` continues connectors into later components' fragments.
 
-`renderTreeContinuation` renders rows beneath a parent heading without creating a child branch. `hasChildren` controls whether those rows retain the vertical connector.
-
-Both functions accept caller-selected indentation and connector styling. Each connector occupies two columns after the indentation.
+`renderTreeContinuation` adds rows beneath a parent without a child branch; `hasChildren` retains vertical connectors. Connectors take two columns after indentation.
 
 ## Caller responsibilities
 

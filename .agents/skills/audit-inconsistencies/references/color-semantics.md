@@ -1,29 +1,29 @@
 # Color semantics
 
-[Consistency audit](../SKILL.md)
+[User interface consistency audit](../SKILL.md)
 
-For each relevant surface, record semantic roles, theme tokens, emphasis, and state-dependent overrides in a table. Compare them with the project's design conventions rather than imposing a universal palette.
-
-## Semantic roles
-
-| Role                             | Audit criteria                                                                                                                                                    |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Primary content                  | Subjects, prompt text, file targets, and result content remain readable and prominent.                                                                            |
-| Heading and accent               | Headings, action verbs, identifiers, and links have distinguishable roles. Accent use preserves those distinctions.                                               |
-| Selection and focus              | Selection is identifiable independently of status. Selection styling does not erase failure, completion, or disabled state. Keyboard focus remains apparent.      |
-| Supporting information           | `muted` and `dim` have consistent roles. Essential outcome and recovery information remains readable.                                                             |
-| Success                          | A neutral successful tool card and a completed-task marker need not share a color when their roles differ.                                                        |
-| Progress and availability        | Queued, running, pending, unavailable, and inactive states have explicit meanings. An unstarted task is not inherently a warning.                                 |
-| Warning, error, and cancellation | Attention and failure colors reflect consequences. Cancellation has an explicit policy and does not change severity merely because a card is grouped or expanded. |
+Table each surface's semantic roles, theme tokens, emphasis, and state overrides. Compare project conventions, not a universal palette.
 
 ## Checks
 
-- Compare the same role across normal, selected, pending, completed, failed, cancelled, unavailable, collapsed, and expanded states as relevant.
-- Distinguish raw output's own ANSI styling from extension-generated status and diagnostics.
-- Include light and dark themes when available, plus selected and unselected forms.
-- Check whether dimming combined with strikethrough makes completed content unnecessarily difficult to read.
-- Ensure glyphs or text communicate important state without color alone.
+- Are roles consistent across relevant normal, selected, pending, completed, failed, cancelled, unavailable, collapsed, and expanded states?
+- Is raw ANSI output distinct from generated status/diagnostics?
+- Are roles consistent in applicable light/dark and selected/unselected forms?
+- Does dimming plus strikethrough hinder reading completed content?
+- Do text/glyphs convey important state without color?
+
+### Semantic roles
+
+| Role                             | Criteria                                                                                                 |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Primary content                  | Subjects, prompts, targets, and results remain readable/prominent.                                       |
+| Heading and accent               | Distinguish headings, verbs, identifiers, and links.                                                     |
+| Selection and focus              | Keep selection/focus apparent without erasing failure, completion, or disabled state.                    |
+| Supporting information           | Use `muted`/`dim` consistently; retain readable outcome/recovery information.                            |
+| Success                          | Different roles, such as neutral cards and completed tasks, may use different colors.                    |
+| Progress and availability        | Define queued, running, pending, unavailable, and inactive; unstarted tasks are not inherently warnings. |
+| Warning, error, and cancellation | Reflect consequences; grouping/expansion must not change cancellation severity.                          |
 
 ## Evidence
 
-Check token use in source and rendered appearance in applicable themes. Include the role table and paired renders or screenshots where available. Headless token assertions establish token selection, not actual contrast or terminal appearance. Do not report a color name such as red as verified from a semantic token alone.
+Check source tokens and appearance in applicable themes. Include role tables and paired renders/screenshots when available. Headless assertions verify tokens, not contrast or terminal colors; never infer verified red, for example, from a semantic token alone.

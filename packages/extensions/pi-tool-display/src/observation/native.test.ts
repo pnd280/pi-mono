@@ -12,7 +12,7 @@ import {
 import { expect, it } from "vite-plus/test";
 
 import type { DisplayFact } from "../contracts.ts";
-import { parseRetainedPatch } from "../diff.ts";
+import { OBSERVATION_BYTES, parseRetainedPatch } from "../diff.ts";
 import { nativeToolContext } from "../test-fixture.ts";
 import { record } from "../values.ts";
 import { observeNativeDefinition } from "./native.ts";
@@ -384,13 +384,13 @@ it("preserves queued mutations, aliases, CRLF, cancellation, and observer failur
     expect(await readFile(join(directory, "file"), "utf8")).toBe("second replacement\n");
     await write.execute(
       "oversized",
-      { path: "file", content: "x".repeat(64 * 1024 + 1) },
+      { path: "file", content: "x".repeat(OBSERVATION_BYTES + 1) },
       undefined,
       undefined,
       context
     );
     expect(facts.get("oversized")?.[0]).toMatchObject({ availability: "unavailable" });
-    expect((await readFile(join(directory, "file"))).length).toBe(64 * 1024 + 1);
+    expect((await readFile(join(directory, "file"))).length).toBe(OBSERVATION_BYTES + 1);
     await write.execute(
       "created",
       { path: "new", content: "new\n" },

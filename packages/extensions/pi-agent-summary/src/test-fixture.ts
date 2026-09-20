@@ -2,7 +2,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createEventBus, SessionManager } from "@earendil-works/pi-coding-agent";
+import {
+  createAgentSession,
+  createEventBus,
+  DefaultResourceLoader,
+  ModelRuntime,
+  SessionManager,
+  SettingsManager
+} from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, vi } from "vite-plus/test";
 
 import entry from "../index.ts";
@@ -14,19 +21,18 @@ type TestEvents = SummaryEvents & {
   user_bash: unknown;
 };
 
-const directories: string[] = [];
+const cleanup: (() => Promise<void>)[] = [];
 beforeEach(() => vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] }));
-afterEach(() => {
+afterEach(async () => {
+  for (const dispose of cleanup.splice(0)) await dispose();
   vi.useRealTimers();
   vi.unstubAllEnvs();
-  for (const directory of directories.splice(0))
-    rmSync(directory, { recursive: true, force: true });
 });
 
-export function fixture(mode: SummaryContext["mode"] = "tui") {
+export async function fixture(mode: SummaryContext["mode"] = "tui") {
   const directory = mkdtempSync(join(tmpdir(), "pi-agent-summary-"));
-  directories.push(directory);
   vi.stubEnv("PI_CODING_AGENT_DIR", directory);
+  vi.stubEnv("PI_OFFLINE", "1");
   const session = SessionManager.inMemory(directory);
   const handlers: {
     [E in keyof TestEvents]: ((
@@ -39,8 +45,6 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
     agent_start: [],
     agent_settled: [],
     tool_execution_start: [],
-    tool_call: [],
-    tool_result: [],
     turn_end: [],
     agent_end: [],
     user_bash: []
@@ -49,30 +53,50 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
   const ctx: SummaryContext = {
     cwd: directory,
     mode,
+    sessionManager: session,
     isIdle: () => true,
     isProjectTrusted: () => false,
     ui: { setWorkingMessage, notify: vi.fn() }
   };
-
-  const on = <E extends keyof TestEvents>(
-    name: E,
-    handler: (event: TestEvents[E], ctx: SummaryContext) => void | Promise<void>
-  ) => {
-    const current = handlers[name];
-    current.push(handler);
-  };
-
   const api: SummaryExtensionAPI = {
     events: createEventBus(),
     registerCommand: vi.fn(),
     registerEntryRenderer: vi.fn(),
-    appendEntry: vi.fn((customType: string, data: unknown) => {
-      session.appendCustomEntry(customType, data);
-    }),
-    on
+    appendEntry: vi.fn((customType: string, data: unknown) =>
+      session.appendCustomEntry(customType, data)
+    ),
+    on: (name, handler) => {
+      handlers[name].push(handler);
+    }
   };
   entry(api);
-  let nextId = 0;
+  const settingsManager = SettingsManager.inMemory();
+  const resourceLoader = new DefaultResourceLoader({
+    cwd: directory,
+    agentDir: directory,
+    settingsManager,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true
+  });
+  await resourceLoader.reload();
+  const modelRuntime = await ModelRuntime.create({
+    authPath: join(directory, "auth.json"),
+    modelsPath: null,
+    modelsStorePath: join(directory, "models-store.json"),
+    refreshOnCreate: false,
+    allowModelNetwork: false
+  });
+  const { session: agentSession } = await createAgentSession({
+    cwd: directory,
+    agentDir: directory,
+    settingsManager,
+    resourceLoader,
+    modelRuntime,
+    sessionManager: session
+  });
 
   const emit = async <E extends keyof TestEvents>(
     name: E,
@@ -81,7 +105,14 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
     for (const handler of handlers[name]) await handler(event, ctx);
   };
 
-  const tool = async (toolName: string, input: Record<string, unknown>, action = () => {}) => {
+  cleanup.push(async () => {
+    await emit("session_shutdown", {});
+    agentSession.dispose();
+    rmSync(directory, { recursive: true, force: true });
+  });
+  let nextId = 0;
+
+  const tool = async (toolName: string, input: Record<string, unknown>, action?: () => void) => {
     const toolCallId = String(nextId++);
     await emit("tool_execution_start", {
       type: "tool_execution_start",
@@ -89,10 +120,15 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
       toolCallId,
       args: input
     });
-    await emit("tool_call", { type: "tool_call", toolName, toolCallId, input });
-    action();
-    await emit("tool_result", { type: "tool_result", toolName, toolCallId });
+
+    if (action) action();
+    else {
+      const tool = agentSession.agent.state.tools.find((tool) => tool.name === toolName);
+      if (!tool) throw new Error(`Missing tool ${toolName}`);
+
+      return tool.execute(toolCallId, input);
+    }
   };
 
-  return { api, ctx, session, setWorkingMessage, emit, tool };
+  return { api, ctx, session, agentSession, setWorkingMessage, emit, tool };
 }

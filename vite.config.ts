@@ -255,6 +255,7 @@ export default defineConfig({
       ],
       "typescript/no-this-alias": "off",
       "typescript/no-unnecessary-condition": "warn",
+      "typescript/no-unnecessary-type-conversion": "warn",
       "typescript/no-unnecessary-type-assertion": "error",
       "typescript/no-unsafe-argument": "error",
       "typescript/no-unsafe-assignment": "error",

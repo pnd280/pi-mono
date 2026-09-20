@@ -4,11 +4,11 @@
 
 ## Behavior
 
-[`@pi-mono/libs/tui/keybindings`](index.ts) exports `canonicalKeySchema` and `canonicalKey`. They validate and normalize Pi shortcut strings, including aliases and modifier order. `canonicalKey` returns `undefined` for invalid input.
+[`canonicalKeySchema` and `canonicalKey`](index.ts) (`@pi-mono/libs/tui/keybindings`) validate/normalize Pi shortcuts, aliases, and modifier order. Invalid input makes `canonicalKey` return `undefined`.
 
 ## Caller responsibilities
 
-Choose actions, default bindings, and diagnostics. Canonicalization does not decide precedence or modify Pi's keybindings.
+Own actions, defaults, diagnostics, precedence, and Pi keybinding changes.
 
 ## Validation
 

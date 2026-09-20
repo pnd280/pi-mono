@@ -2,23 +2,21 @@
 
 [Library index](../../README.md#usage)
 
-Use `@pi-mono/libs/working-message` to combine contributions from multiple extensions in Pi's working message. The first registration installs the coordinator and `/working-message` command. No separate extension is required.
+`@pi-mono/libs/working-message` combines extension contributions in Pi's working message. First registration installs the coordinator and `/working-message`; no separate extension needed.
 
 ## Behavior
 
 - Nonempty contributions are joined with `·` in the configured order. Unlisted components follow in sorted ID order.
-- Components with empty text are inactive but remain registered and visible in settings. With no active text, Pi's default working message is restored.
-- The coordinator sanitizes contribution text for terminal display and collapses whitespace to a single line.
-- Registrations share one owner through Pi's event bus, including separately loaded library instances. Shutdown removes the owner and invalidates old handles. New sessions and reloads register fresh components.
-- Nonparticipating extensions can still overwrite Pi's working message. Their writes are not intercepted. The coordinator does not change the working indicator or its visibility.
+- Empty contributions remain registered/in settings; no active text restores Pi's default message.
+- Text is terminal-sanitized and whitespace collapsed to one line.
+- Pi's event bus shares one owner across library instances. Shutdown removes it and invalidates handles; sessions/reloads register fresh components.
+- Nonparticipants can overwrite the message without interception. Indicator content/visibility is unchanged.
 
 ### Settings menu
 
 `/working-message` requires interactive TUI mode. It opens the project scope when an override exists, otherwise the global scope. `/working-message global` and `/working-message project` select a scope explicitly. Project scope requires a trusted project.
 
-A scope tab shows `(not set)` when that scope has no valid saved order. An explicit empty order counts as set. Only a successful save to that scope clears the marker.
-
-An unset scope's draft inherits the other scope's saved order, or uses sorted ID order when neither is set. Saving the source refreshes the inherited draft unless it has unsaved edits. Inheritance does not write settings or change which scope takes precedence.
+Tabs show `(not set)` without valid saved order; explicit empty orders count as set. Only successful scope saves clear the marker. Unset drafts inherit the other saved scope or sorted IDs. Saving the source refreshes unedited inherited drafts; inheritance neither writes settings nor changes precedence.
 
 | Key                    | Action                                                 |
 | ---------------------- | ------------------------------------------------------ |
@@ -28,7 +26,7 @@ An unset scope's draft inherits the other scope's saved order, or uses sorted ID
 | Ctrl+S                 | Save the displayed scope and apply the effective order |
 | Escape or Ctrl+C       | Close and discard all remaining unsaved drafts         |
 
-Drafts do not change the working message until saved. Failed saves leave the draft intact and the menu open. Saving global defaults leaves any project override active. Saving the project draft creates an override even if the order is unchanged. The menu does not enable or disable components.
+Only saved drafts affect the message; failures retain drafts and the open menu. Global saves preserve project precedence; project saves create overrides even unchanged. The menu never enables/disables components.
 
 ### Persistence
 
@@ -44,7 +42,7 @@ Global defaults live in `getAgentDir()/settings.json` (normally `~/.pi/agent/set
 
 A project `order` replaces the global array. An empty array uses sorted ID order. Removing the project `order` field restores inheritance. Unknown IDs remain in the menu as unavailable, so their positions survive temporary contributor removal. Orders support up to 1,000 nonempty IDs of at most 200 characters. Duplicates are removed, keeping the first occurrence.
 
-Settings load at session start and when the menu opens. Loading an invalid project order produces a warning and falls back to the global order. An invalid global order falls back to sorted ID order with a warning, unless a valid project override applies. The effective order is applied at session start or after a successful save, not merely by opening the menu.
+Settings load at session start/menu opening. Invalid project orders warn and fall back globally; invalid global orders warn and use sorted IDs unless a valid project override applies. Order applies at session start/successful save, not menu opening.
 
 Saves acquire Pi's settings-file lock, merge into the latest JSON, and atomically replace the file. They preserve unrelated fields and existing symlinks, reformat the JSON, and create missing parent directories. Malformed destination settings and dangling symlinks cause saves to fail. Registrations alone do not write files. There are no network requests.
 
@@ -52,9 +50,7 @@ Saves acquire Pi's settings-file lock, merge into the latest JSON, and atomicall
 
 Register once during the extension factory, before installing handlers that publish text. Use a globally unique, stable ID such as `extension-name.component-name`. IDs must match `^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$` and contain at most 200 characters. Labels and contributor names must be nonempty after trimming and contain at most 200 characters. Invalid or duplicate registrations throw.
 
-Keep handles within the extension runtime. The coordinator clears text at session start. Publish restored session state from your `session_start` handler and update the text when the contributor's state changes.
-
-`setText()` or `setText("")` clears only that component. `dispose()` unregisters it. Stale or disposed handles cannot mutate a replacement. For temporary inactivity, clear the text to keep the component available in settings.
+Keep handles runtime-local. Session start clears text; republish restored state in `session_start` and update on state changes. `setText()`/`setText("")` clears only that component; `dispose()` unregisters it. Stale/disposed handles cannot mutate replacements. Clear text for temporary inactivity to retain settings visibility.
 
 ## Usage
 

@@ -160,6 +160,61 @@ describe("todo reducer", () => {
     assert.equal(Object.getPrototypeOf(metadata), Object.prototype);
   });
 
+  it.each<["update" | "delete", TaskMutationParams]>([
+    ["update", { id: 2, subject: "Renamed" }],
+    ["update", { id: 2, parentId: 3 }],
+    ["update", { id: 2, metadata: { values: ["replacement"], remove: null } }],
+    ["update", { id: 2, metadata: { values: null, remove: null } }],
+    ["delete", { id: 2 }]
+  ])("isolates state and result snapshots for %s with %j", (action, params) => {
+    const initial = (): TodoState => ({
+      tasks: [
+        { id: 1, subject: "Parent", status: "pending", metadata: { values: ["parent"] } },
+        {
+          id: 2,
+          subject: "Child",
+          status: "pending",
+          parentId: 1,
+          blockedBy: [1],
+          metadata: { values: ["child"], remove: true }
+        },
+        { id: 3, subject: "Destination", status: "pending", metadata: { values: ["destination"] } }
+      ],
+      nextId: 4
+    });
+    const state = initial();
+    const result = mutate(state, action, params);
+    assert.equal(result.details.error, undefined);
+    assert.deepEqual(state, initial());
+    assert.deepEqual(result.details.tasks, result.state.tasks);
+    const expected = mutate(initial(), action, params);
+
+    for (const task of result.state.tasks) {
+      task.blockedBy?.push(99);
+
+      if (task.metadata) {
+        assert.ok(Array.isArray(task.metadata.values));
+        task.metadata.values.push("changed state");
+      }
+    }
+
+    assert.deepEqual(state, initial());
+    assert.deepEqual(result.details.tasks, expected.details.tasks);
+
+    for (const task of result.details.tasks) {
+      task.blockedBy?.push(100);
+
+      if (task.metadata) {
+        assert.ok(Array.isArray(task.metadata.values));
+        task.metadata.values.push("changed details");
+      }
+    }
+
+    assert.deepEqual(state, initial());
+    if (Array.isArray(params.metadata?.values))
+      assert.deepEqual(params.metadata.values, ["replacement"]);
+  });
+
   it("preserves source-compatible validation errors with complete state snapshots", () => {
     let state = emptyTodoState();
 

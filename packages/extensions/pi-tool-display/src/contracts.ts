@@ -1,4 +1,5 @@
 import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { CodeSelectionRange } from "@pi-mono/libs/tui/components/code-highlight";
 import type { OutputText } from "@pi-mono/utils/output-text";
 
 export type ToolFamily = "read" | "search" | "list" | "shell" | "edit" | "write" | "invocation";
@@ -79,8 +80,9 @@ export type InvocationPart = {
    * inside it (or relative to the directory scope in collapsed groups). Use
    * `value` for literal filters and `pattern` for search patterns.
    * A `range` following a concrete `path` stays together when wrapping the target.
-   * With `showParameters: false`, only `parameters` parts are hidden. Include their
-   * optional delimiters in the same part so hiding it leaves no empty punctuation.
+   * With `showParameters: false`, only `parameters` parts are hidden unless the
+   * adapter sets `alwaysShowParameters: true`. Include optional delimiters in the same
+   * part so hiding it leaves no empty punctuation.
    */
   kind: "value" | "path" | "range" | "pattern" | "annotation" | "parameters";
   text: string;
@@ -118,6 +120,8 @@ export interface TranscriptView {
 export type ResultTextPart = {
   kind: "output" | "value" | "annotation" | "warning" | "error";
   text: string;
+  /** Expanded read output only: zero-based lines and UTF-16 offsets in this part's raw text. */
+  selection?: readonly CodeSelectionRange[];
 };
 
 export type DisplayNotice =
@@ -131,6 +135,9 @@ export type ResultSummary = {
 };
 
 export type ResultTextContext = {
+  /** Borrowed result and the index of the current text block within its content. */
+  result: AgentToolResult<unknown>;
+  contentIndex: number;
   isError: boolean;
   isPartial: boolean;
   isCancelled: boolean;
@@ -161,6 +168,8 @@ export type ToolDisplayAdapter = {
   /** Stable contract ID. `pi:*`, `@ff-labs/pi-fff:*`, `pi-mcp-adapter:*`, and `generic` are reserved. */
   id: string;
   family: ToolFamily;
+  /** When true, show parameters regardless of `showParameters`. Otherwise, follow that setting. */
+  alwaysShowParameters?: boolean;
   /**
    * Validate retained data in the automatic CLI integration after a result exists,
    * including partial updates. False uses generic rendering and excludes the call
@@ -200,7 +209,12 @@ export type ToolDisplayAdapter = {
    */
   summary?(
     result: AgentToolResult<unknown>,
-    context: { args: unknown; outcome: Outcome; operation: OperationFact | undefined }
+    context: {
+      args: unknown;
+      outcome: Outcome;
+      operation: OperationFact | undefined;
+      expanded: boolean;
+    }
   ): ResultSummary | undefined;
   /** Report a structured result outcome; never infer it from ordinary output text.
    * Cancellation takes precedence over failure, and neither can be downgraded by

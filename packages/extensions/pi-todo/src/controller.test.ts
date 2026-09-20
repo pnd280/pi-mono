@@ -16,11 +16,17 @@ it("isolates mutation, read, and replay metadata aliases", () => {
     metadata: { nested: { items: ["original"] } }
   });
   const snapshot = controller.getState();
+  const replayMetadata = { nested: { items: ["replayed"] } };
+  snapshot.tasks[0]!.metadata = replayMetadata;
   controller.reconstructFromBranch([
     { type: "message", message: { role: "toolResult", toolName: "todo", details: snapshot } }
   ]);
   snapshot.tasks[0]!.subject = "changed";
-  expect(controller.getTodos()[0]?.subject).toBe("Task");
+  replayMetadata.nested.items.push("changed");
+  expect(controller.getTodos()[0]).toMatchObject({
+    subject: "Task",
+    metadata: { nested: { items: ["replayed"] } }
+  });
   controller.reconstructFromBranch([]);
   expect(controller.getState()).toEqual({ tasks: [], nextId: 1 });
 });

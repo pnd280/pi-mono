@@ -4,9 +4,9 @@
 
 ## Behavior
 
-[`@pi-mono/libs/validation/terminal-launcher`](index.ts) exports `runTerminalLauncher` for validation code only. It accepts `regular` or `fullscreen`, followed immediately by an optional `--reuse <directory>`. `--help` displays the consumer's help text without creating a workspace.
+Validation-only [`runTerminalLauncher`](index.ts) (`@pi-mono/libs/validation/terminal-launcher`) accepts `regular`/`fullscreen`, immediately followed by optional `--reuse <directory>`. `--help` shows consumer help without creating a workspace.
 
-The child inherits terminal I/O and receives extra Pi arguments. The launcher returns the child's exit code, or `1` if the child exits without a numeric code. Launch failures propagate to the caller.
+Children inherit terminal I/O and extra Pi arguments. Returns the exit code, or `1` without a numeric code; launch failures propagate.
 
 ## Caller responsibilities
 
@@ -14,7 +14,7 @@ Supply help text, fixture creation, directory descriptions, and a `launch` callb
 
 Select offline providers and resource flags in the consumer. [Pi launch preparation](../pi-process/README.md) supplies isolated directories and environment settings but does not restrict filesystem access or tool execution.
 
-Define scenarios in the consumer. Wait for fixture processes to exit before removing their directories. The [prompt-manager](../../../../extensions/pi-prompt-manager/validation/workspace.ts) and [tool-display](../../../../extensions/pi-tool-display/validation/workspace.ts) fixtures provide launch configurations.
+Own scenarios; wait for processes to exit before directory removal. See [prompt-manager](../../../../extensions/pi-prompt-manager/validation/workspace.ts) and [tool-display](../../../../extensions/pi-tool-display/validation/workspace.ts) launch configurations.
 
 ## Validation
 

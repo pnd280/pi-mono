@@ -6,13 +6,11 @@
 
 [`@pi-mono/libs/text-search`](index.ts) exports `normalizeSearchAsync` and `searchText` for large inputs.
 
-Normalization yields during whitespace processing while preserving whole-string Unicode case rules. It does not sanitize terminal text.
-
-Search yields during literal and fuzzy scans, including within individual records. Chunk boundaries do not change matches or scores. Search returns the caller's items, with stable input order for tied ranks, or an empty array when `current()` returns `false`.
+Normalization yields during whitespace processing, preserving whole-string Unicode case rules without terminal sanitization. Search yields within literal/fuzzy scans, including individual records; chunks do not affect matches/scores. Returns caller items with stable ties, or `[]` when `current()` is false.
 
 ## Caller responsibilities
 
-Store normalized text in each item's `normalized` field before searching. To cancel normalization, pass an abort signal to `normalizeSearchAsync(text, signal)`. Cancellation rejects with the signal's reason.
+Populate items' `normalized` fields before searching. `normalizeSearchAsync(text, signal)` rejects with the signal reason on cancellation.
 
 Pass `searchText` a `current` callback that returns `false` when results are no longer relevant. A [latest task](../latest-task/README.md) can supply this callback and prevent stale results from being applied.
 

@@ -6,12 +6,18 @@
 
 [`highlightCodeBounded`](index.ts), exported from `@pi-mono/libs/tui/components/code-highlight`, limits Pi syntax highlighting by total bytes, line count, and bytes per line.
 
-A supplied language takes precedence over path-based detection. If neither provides a language, or the input exceeds any limit, the helper returns the input unchanged. Limits apply to input, not generated ANSI styling.
+Explicit language overrides path detection. Missing language or exceeded input limits returns unchanged text; generated ANSI does not count toward limits.
+
+`highlightCodeSelection(source, options)` sanitizes source, then applies limits and `mark(text)`, returning `{ text, hasSelection }` for visible selections. Marks survive exceeded highlighting limits without splitting sequences/graphemes; invisible-only selections never mark neighbors.
 
 ## Caller responsibilities
 
-Pass display-safe text; the helper does not sanitize terminal controls. Choose the language and limits before rendering. Limits must be nonnegative safe integers. Invalid limits throw `RangeError`. Retain original source separately for exact copying or restoration.
+- Pass display-safe text to `highlightCodeBounded`. It does not sanitize terminal controls.
+- Pass unsanitized source to `highlightCodeSelection`. Supply ordered, nonoverlapping ranges with a zero-based `line` index and UTF-16 offsets within that line. `start` is inclusive and `end` is exclusive.
+- Make `mark` preserve text and restore the caller's background after selection styling.
+- Choose the language and limits before rendering. Limits must be nonnegative safe integers. Invalid limits throw `RangeError`.
+- Retain original source separately for exact copying or restoration.
 
 ## Validation
 
-See [package validation](../../../../README.md#validation) and the [boundary tests](index.test.ts).
+Use [package validation](../../../../README.md#validation). Tests cover [highlighting limits](index.test.ts) and [selection boundaries](selection.test.ts).

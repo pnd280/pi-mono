@@ -24,6 +24,8 @@ function toolInfo(overrides: Partial<ToolInfo> = {}): ToolInfo {
 }
 
 const textContext = {
+  result: result(undefined),
+  contentIndex: 0,
   isError: false,
   isPartial: false,
   isCancelled: false,
@@ -129,7 +131,12 @@ it("summarizes progress and empty states without inferring missing snapshots", (
     { id: 2, subject: "Two", status: "in_progress" },
     { id: 3, subject: "Three", status: "pending" }
   ];
-  const context = { args: { action: "list" }, outcome: "success" as const, operation: undefined };
+  const context = {
+    args: { action: "list" },
+    outcome: "success" as const,
+    operation: undefined,
+    expanded: false
+  };
   expect(todoDisplayAdapter.summary?.(result({ tasks }), context)).toEqual({
     text: "1/3 completed · 1 in progress · 1 pending"
   });
@@ -153,7 +160,8 @@ it("uses confirmed task state, create IDs, and filtered list totals", () => {
     todoDisplayAdapter.summary?.(result({ tasks, nextId: 6 }), {
       args,
       outcome: "success",
-      operation: undefined
+      operation: undefined,
+      expanded: false
     })?.text;
   expect(summarize({ action: "create", subject: "Ship" })).toBe(
     "#5 pending · 1/2 completed · 1 pending"

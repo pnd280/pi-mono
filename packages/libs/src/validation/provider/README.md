@@ -4,11 +4,7 @@
 
 ## Behavior
 
-[`@pi-mono/libs/validation/provider`](index.ts) is for validation code only. It creates fixture messages with independent usage objects and runs scripted scenarios through Pi's message-event stream.
-
-`createFixtureStream` checks cancellation before and after the scenario but does not interrupt scenario work.
-
-The library does not register a provider or provide a network transport.
+Validation-only [`@pi-mono/libs/validation/provider`](index.ts) creates messages with independent usage objects and runs scripted Pi event streams. `createFixtureStream` checks cancellation before/after scenarios without interrupting them. No provider registration or network transport.
 
 ## Caller responsibilities
 

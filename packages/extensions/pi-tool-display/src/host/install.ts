@@ -173,13 +173,13 @@ export function installHostIntegration(
 
   try {
     hooks.replace(prototype, "getRegisteredToolDefinition", lookup);
-    native.install(hooks);
 
     // Pi can suppress custom entries or insert notices before streaming rows.
     // Observe actual insertion, not registration or the last indexed call.
     for (const key of [
-      "maybeShowAssistantDiagnostics",
+      "maybeShowThinkingDropNotice",
       "addCacheMissNotice",
+      "addCacheWarmingUsage",
       "addCustomEntryToChat"
     ] as const) {
       const insert = prototype[key];

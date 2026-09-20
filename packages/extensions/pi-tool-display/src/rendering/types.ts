@@ -45,7 +45,7 @@ export interface DisplayBinding {
 }
 
 export interface ToolDisplayRendererOptions {
-  /** Known adapters hide parameter details by default; generic calls always show arguments. */
+  /** Defaults to false. Ignored when the adapter sets `alwaysShowParameters: true`. */
   showParameters?: boolean;
 }
 

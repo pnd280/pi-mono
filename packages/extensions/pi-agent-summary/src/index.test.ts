@@ -6,12 +6,13 @@ import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { expect, expectTypeOf, it, vi } from "vite-plus/test";
 
 import entry from "../index.ts";
+import { RunChanges } from "./changes.ts";
 import { summaryEntryType } from "./summary.ts";
 import { fixture } from "./test-fixture.ts";
 
 it("records one context-free entry after all turns and retries settle, preserving other working text", async () => {
   expectTypeOf(entry).toExtend<ExtensionFactory>();
-  const runtime = fixture();
+  const runtime = await fixture();
   const other = registerWorkingMessage(runtime.api, {
     id: "other.activity",
     label: "Activity",
@@ -29,7 +30,7 @@ it("records one context-free entry after all turns and retries settle, preservin
   await runtime.emit("agent_end", {});
   vi.advanceTimersByTime(1000);
   await runtime.emit("agent_start", {});
-  await runtime.tool("bash", { command: "false" });
+  await expect(runtime.tool("bash", { command: "false" })).rejects.toThrow();
   vi.advanceTimersByTime(1500);
   expect(runtime.api.appendEntry).not.toHaveBeenCalled();
   await runtime.emit("agent_settled", {});
@@ -51,16 +52,16 @@ it("records one context-free entry after all turns and retries settle, preservin
 });
 
 it("counts unique edit/write files and net lines, without scanning bash-only files", async () => {
-  const runtime = fixture();
+  const runtime = await fixture();
   const path = join(runtime.ctx.cwd, "existing.txt");
   writeFileSync(path, "original\nkeep\n");
   await runtime.emit("agent_start", {});
-  await runtime.tool("edit", { path: "existing.txt" }, () =>
-    writeFileSync(path, "intermediate\nkeep\n")
-  );
-  await runtime.tool("write", { path }, () => writeFileSync(path, "final\nkeep\nextra\n"));
-  const created = join(runtime.ctx.cwd, "new.txt");
-  await runtime.tool("write", { path: "@./new.txt" }, () => writeFileSync(created, "new\n"));
+  await runtime.tool("edit", {
+    path: "existing.txt",
+    edits: [{ oldText: "original", newText: "intermediate" }]
+  });
+  await runtime.tool("write", { path, content: "final\nkeep\nextra\n" });
+  await runtime.tool("write", { path: "@./new.txt", content: "new\n" });
   await runtime.tool("bash", { command: "generate files" }, () => {
     writeFileSync(join(runtime.ctx.cwd, "shell-only.txt"), "not counted\n");
     writeFileSync(path, "later shell change, not counted\n");
@@ -83,26 +84,43 @@ it("counts unique edit/write files and net lines, without scanning bash-only fil
   });
 });
 
+it.each(["edit", "write"])(
+  "counts a small %s change in a file larger than 64 KiB",
+  async (name) => {
+    const runtime = await fixture();
+    const path = join(runtime.ctx.cwd, "large.txt");
+    const before = "unchanged content\n".repeat(6000) + "before\n";
+    writeFileSync(path, before);
+    await runtime.emit("agent_start", {});
+    await runtime.tool(
+      name,
+      name === "edit"
+        ? { path, edits: [{ oldText: "before", newText: "after" }] }
+        : { path, content: before.replace("before\n", "after\n") }
+    );
+    await runtime.emit("agent_settled", {});
+    expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
+      durationMs: 0,
+      bashCalls: 0,
+      files: [{ path: "large.txt", status: "available", added: 1, removed: 1 }]
+    });
+  }
+);
+
 it("omits reverted and failed edits and deduplicates existing symlink aliases", async () => {
-  const runtime = fixture();
+  const runtime = await fixture();
   const path = join(runtime.ctx.cwd, "file.txt");
   writeFileSync(path, "old\n");
   symlinkSync(path, join(runtime.ctx.cwd, "alias.txt"));
   await runtime.emit("agent_start", {});
-  await runtime.tool("edit", { path: "alias.txt" }, () => writeFileSync(path, "new\n"));
-  await runtime.tool("edit", { path: "file.txt" }, () => writeFileSync(path, "old\n"));
-  await runtime.emit("tool_call", {
-    type: "tool_call",
-    toolName: "edit",
-    toolCallId: "failed",
-    input: { path: "missing.txt" }
-  });
-  await runtime.emit("tool_result", {
-    type: "tool_result",
-    toolName: "edit",
-    toolCallId: "failed",
-    isError: true
-  });
+  await runtime.tool("edit", { path: "alias.txt", edits: [{ oldText: "old", newText: "new" }] });
+  await runtime.tool("edit", { path: "file.txt", edits: [{ oldText: "new", newText: "old" }] });
+  await expect(
+    runtime.tool("edit", {
+      path: "missing.txt",
+      edits: [{ oldText: "old", newText: "new" }]
+    })
+  ).rejects.toThrow();
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 0,
@@ -112,7 +130,7 @@ it("omits reverted and failed edits and deduplicates existing symlink aliases", 
 });
 
 it("counts bash calls at start, including unfinished and blocked calls, but not user bash", async () => {
-  const runtime = fixture();
+  const runtime = await fixture();
   await runtime.emit("agent_start", {});
   for (const toolCallId of ["failed", "cancelled", "blocked", "blocked"])
     await runtime.emit("tool_execution_start", {
@@ -131,7 +149,7 @@ it("counts bash calls at start, including unfinished and blocked calls, but not 
 });
 
 it("waits if another extension has already started a run during settlement", async () => {
-  const runtime = fixture();
+  const runtime = await fixture();
   await runtime.emit("session_start", {});
   await runtime.emit("agent_start", {});
   vi.advanceTimersByTime(1000);
@@ -150,13 +168,11 @@ it("waits if another extension has already started a run during settlement", asy
 });
 
 it("cleans up unfinished runs on shutdown without appending a partial summary", async () => {
-  const runtime = fixture();
+  const runtime = await fixture();
   expect(vi.getTimerCount()).toBe(0);
   await runtime.emit("session_start", {});
   await runtime.emit("agent_start", {});
-  await runtime.tool("write", { path: "file.txt" }, () =>
-    writeFileSync(join(runtime.ctx.cwd, "file.txt"), "new\n")
-  );
+  await runtime.tool("write", { path: "file.txt", content: "new\n" });
   vi.advanceTimersByTime(1000);
   await runtime.emit("session_shutdown", {});
   await runtime.emit("session_shutdown", {});
@@ -176,15 +192,38 @@ it("cleans up unfinished runs on shutdown without appending a partial summary", 
   });
 });
 
+it.each(["session_shutdown", "session_start"] as const)(
+  "discards a pending net comparison after %s",
+  async (event) => {
+    const runtime = await fixture();
+    await runtime.emit("agent_start", {});
+    let complete!: (value: Awaited<ReturnType<RunChanges["finish"]>>) => void;
+    const pending = new Promise<Awaited<ReturnType<RunChanges["finish"]>>>((resolve) => {
+      complete = resolve;
+    });
+    const finish = vi.spyOn(RunChanges.prototype, "finish").mockReturnValueOnce(pending);
+    const settlement = runtime.emit("agent_settled", {});
+
+    try {
+      await runtime.emit(event, {});
+      complete([{ path: "file", status: "available", added: 1, removed: 0 }]);
+      await settlement;
+      expect(runtime.api.appendEntry).not.toHaveBeenCalled();
+    } finally {
+      complete([]);
+      await settlement;
+      finish.mockRestore();
+    }
+  }
+);
+
 it.each(["rpc", "json", "print"] as const)(
   "saves summaries in %s mode without touching the working UI",
   async (mode) => {
-    const runtime = fixture(mode);
+    const runtime = await fixture(mode);
     await runtime.emit("session_start", {});
     await runtime.emit("agent_start", {});
-    await runtime.tool("write", { path: "file.txt" }, () =>
-      writeFileSync(join(runtime.ctx.cwd, "file.txt"), "new\n")
-    );
+    await runtime.tool("write", { path: "file.txt", content: "new\n" });
     vi.advanceTimersByTime(1250);
     await runtime.emit("agent_settled", {});
     await runtime.emit("session_shutdown", {});

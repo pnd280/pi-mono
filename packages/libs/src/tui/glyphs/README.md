@@ -4,11 +4,11 @@
 
 ## Behavior
 
-[`@pi-mono/libs/tui/glyphs`](index.ts) provides stable activity markers, task-status markers, and box-drawing glyphs for shared and extension-owned TUI renderers.
+[`@pi-mono/libs/tui/glyphs`](index.ts) supplies stable activity/status markers and box-drawing glyphs for shared and extension TUI.
 
 ## Caller responsibilities
 
-Apply theme styling at the rendering boundary. Keep labels, colors, and other domain-specific feedback semantics in the consumer that owns their meaning.
+Apply theme styling at render time; choose labels, colors, and status meanings locally.
 
 ## Validation
 

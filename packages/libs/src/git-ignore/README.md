@@ -6,15 +6,13 @@
 
 [`@pi-mono/libs/git-ignore`](index.ts) exports `inspectGitIgnore`, which inspects Git rules and symbolic-link targets without enumerating directories. One deadline covers repository discovery and link traversal.
 
-The result describes ignore status, missing paths, cancellation, timeout, or unavailable inspection.
-
 ## Caller responsibilities
 
-Git must be available on `PATH`. Supply absolute `path` and `cwd` values, a timeout in milliseconds, and optional cancellation. An injected `GitCommand` must honor its signal.
+Require Git on `PATH`; supply absolute `path`/`cwd`, a millisecond timeout, and optional cancellation. Injected `GitCommand` must honor its signal.
 
 Use the result to apply the consumer's policy. The guard's [inspection policy](../../../extensions/pi-fff-guard/src/evaluate-search.ts) shows how to allow or block calls.
 
-The `cause` of an `unavailable` result is an internal diagnostic and is not safe to display. Choose user-facing messages in the consumer.
+Never display an `unavailable` result's internal `cause`; choose safe consumer diagnostics.
 
 ## Validation
 

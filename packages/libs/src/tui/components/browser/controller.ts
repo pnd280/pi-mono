@@ -81,6 +81,9 @@ export class BrowserController<Item> {
 
     return selected === undefined ? -1 : this.results.indexOf(selected);
   }
+  get canReturnToList() {
+    return this.preview && this.status === "ready" && !this.busy && !this.options.inspection;
+  }
 
   async activate(id = this.section.id): Promise<void> {
     if (this.isClosed() || this.busy) return;
@@ -92,7 +95,6 @@ export class BrowserController<Item> {
     this.confirmation.dispose();
     this.section = section;
     this.confirmation = this.createConfirmation();
-    this.preview = false;
     this.previewScroll = 0;
     this.status = "loading";
     this.snapshot = undefined;
@@ -110,6 +112,7 @@ export class BrowserController<Item> {
         const item = snapshot.items[inspection.index - 1];
 
         if (item === undefined) {
+          this.preview = false;
           this.status = "unavailable";
           this.error = inspection.missingMessage;
         } else {
@@ -122,6 +125,7 @@ export class BrowserController<Item> {
       } else await this.filter();
     } catch (error) {
       if (activation.signal.aborted) return;
+      this.preview = false;
       this.status = "unavailable";
       this.error =
         error instanceof Error
@@ -142,6 +146,8 @@ export class BrowserController<Item> {
           const selected = results[Math.min(nearby ?? 0, results.length - 1)];
           state.selected = selected === undefined ? undefined : this.options.key(selected);
         }
+
+        if (!results.length) this.preview = false;
       }
     );
   }
@@ -251,7 +257,7 @@ export class BrowserController<Item> {
     if (this.isClosed() || action === "ignore") return;
     if (action !== "delete") this.cancelConfirmation();
     if (action === "cancel") {
-      if (this.preview && !this.busy && !this.options.inspection) {
+      if (this.canReturnToList) {
         this.preview = false;
         this.previewScroll = 0;
       } else this.close();

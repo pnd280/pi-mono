@@ -15,6 +15,15 @@ it("recognizes native construction through the installed pi executable, not just
     const executable = await resolvePiExecutable();
     const integration = fileURLToPath(new URL("./install.ts", import.meta.url));
     const thinking = fileURLToPath(new URL("./thinking.ts", import.meta.url));
+    const selectiveAdapter = fileURLToPath(
+      new URL("../adapters/pi-selective-read/index.ts", import.meta.url)
+    );
+    const selectiveExtension = fileURLToPath(
+      new URL("../../../pi-selective-read/index.ts", import.meta.url)
+    );
+    const boundedDiff = fileURLToPath(
+      new URL("../../../../libs/src/bounded-diff/index.ts", import.meta.url)
+    );
     const fixture = join(directory, "verify-display.ts");
     await writeFile(
       fixture,
@@ -22,6 +31,8 @@ it("recognizes native construction through the installed pi executable, not just
       import { AgentSession, AssistantMessageComponent, initTheme } from "@earendil-works/pi-coding-agent";
       import { installHostIntegration } from ${JSON.stringify(integration)};
       import { bindThinkingVisibility } from ${JSON.stringify(thinking)};
+      import { createBoundedPatch } from ${JSON.stringify(boundedDiff)};
+      import { piSelectiveReadAdapter } from ${JSON.stringify(selectiveAdapter)};
       const original = Reflect.get(AgentSession.prototype, "_buildRuntime");
       const dispose = installHostIntegration();
       const recognized = Reflect.get(AgentSession.prototype, "_buildRuntime") !== original;
@@ -38,7 +49,10 @@ it("recognizes native construction through the installed pi executable, not just
           component.setHideThinkingBlock(true);
           release?.();
           const thinkingRestored = component.render(80).join(" ").includes("Thinking...");
-          process.stdout.write(JSON.stringify({ recognized, restored, suppressed, revealed, thinkingRestored }) + "\\n");
+          const selectiveReadRecognized = piSelectiveReadAdapter(pi.getAllTools().find(tool => tool.name === "read"))?.id === "pi-selective-read:read";
+          const patch = await createBoundedPatch({ path: "file", before: "before\\n", after: "after\\n", maxSourceBytes: 1024, maxPatchBytes: 1024, maxEditLength: 2000, timeoutMs: 1000, contextLines: 4 });
+          const generatedPatch = patch.status === "ready";
+          process.stdout.write(JSON.stringify({ recognized, restored, suppressed, revealed, thinkingRestored, selectiveReadRecognized, generatedPatch }) + "\\n");
         } });
       }
     `
@@ -51,6 +65,8 @@ it("recognizes native construction through the installed pi executable, not just
         "--no-skills",
         "--no-prompt-templates",
         "--no-session",
+        "-e",
+        selectiveExtension,
         "-e",
         fixture,
         "--print",
@@ -76,7 +92,9 @@ it("recognizes native construction through the installed pi executable, not just
         restored: true,
         suppressed: true,
         revealed: true,
-        thinkingRestored: true
+        thinkingRestored: true,
+        selectiveReadRecognized: true,
+        generatedPatch: true
       })
     );
   } finally {

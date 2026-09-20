@@ -1,6 +1,9 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { getCapabilities, truncateToWidth } from "@earendil-works/pi-tui";
-import { highlightCodeBounded } from "@pi-mono/libs/tui/components/code-highlight";
+import {
+  highlightCodeBounded,
+  highlightCodeSelection
+} from "@pi-mono/libs/tui/components/code-highlight";
 import { renderDiffBody } from "@pi-mono/libs/tui/components/diff-view";
 import { displayText, sliceTerminalText, styledOutput } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
@@ -237,11 +240,20 @@ function styleResultParts(
         p.adapter.family === "shell"
           ? styledOutput(`${part.leadingSgr ?? ""}${part.text}`)
           : displayText(part.text);
-      if (p.adapter.family === "read" && p.expanded && !p.context.isError)
-        content = highlightCodeBounded(content, {
+
+      if (p.adapter.family === "read" && p.expanded && !p.context.isError) {
+        const options = {
           ...codeHighlightLimits,
           path: stringField(record(p.context.args).path)
-        });
+        };
+        content = part.selection
+          ? highlightCodeSelection(part.text, {
+              ...options,
+              ranges: part.selection,
+              mark: (text) => p.theme.bg("searchMatchBg", text)
+            }).text
+          : highlightCodeBounded(content, options);
+      }
 
       return content ? p.theme.fg(outputColor, content) : "";
     })
@@ -341,7 +353,8 @@ function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem
     ...p.context,
     isCancelled: p.outcome === "cancelled",
     expanded: p.expanded,
-    hasImages: result.content.some((block) => block.type === "image")
+    hasImages: result.content.some((block) => block.type === "image"),
+    result
   };
 
   for (const [index, block] of result.content.entries()) {
@@ -350,7 +363,10 @@ function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem
       continue;
     }
 
-    const parts = p.adapter.textParts?.(block.text, p.context.args, textContext) ?? [
+    const parts = p.adapter.textParts?.(block.text, p.context.args, {
+      ...textContext,
+      contentIndex: index
+    }) ?? [
       { kind: p.context.isError ? "error" : "output", text: block.text } satisfies ResultTextPart
     ];
     if (!parts.length) continue;

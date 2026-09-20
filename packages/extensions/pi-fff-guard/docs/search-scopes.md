@@ -4,13 +4,13 @@
 
 ## Paths and filters
 
-The guard checks explicit `path` values and multi-grep constraints for missing or Git-ignored files and directories, including broken links. Exclusions follow [separate rules](#globs-and-exclusions). Relative paths resolve against the session's working directory; `~/` expands to the home directory.
+The guard checks explicit `path` values and multi-grep constraints for missing or ignored targets, including broken links. [Exclusions differ](#globs-and-exclusions). Relative paths use session cwd; `~/` expands home.
 
-Bare filename filters do not require a file in the current directory. In `path` and `exclude`, FFF removes `./` and workspace-local absolute prefixes before parsing. For example, `main.ts` and `./main.ts` remain recursive filters, while `src/main.ts` is an explicit target.
+In `path` and `exclude`, FFF strips `./` and workspace-local absolute prefixes. Thus `main.ts` and `./main.ts` are recursive filters requiring no local file; `src/main.ts` is explicit.
 
-In `fffind`'s `pattern`, the guard checks existing explicit paths and rooted globs such as `node_modules/**`. A rooted glob has a fixed directory prefix. Missing-path checks require an anchor (`/`, `./`, `../`, `~/`), a trailing `/`, or a rooted glob.
+For `fffind.pattern`, the guard checks existing explicit paths and globs with fixed directory prefixes, such as `node_modules/**`. Missing-path checks require an anchor (`/`, `./`, `../`, `~/`), trailing `/`, or rooted glob.
 
-The guard trims `path` values without splitting them. Existing explicit paths in `fffind`'s `pattern` remain intact. It splits other filename queries and multi-grep constraints on whitespace without parsing shell quotes.
+The guard trims `path` without splitting it and preserves existing explicit `fffind.pattern` paths. Other filename queries and multi-grep constraints split on whitespace without shell-quote parsing.
 
 ## Globs and exclusions
 
@@ -26,6 +26,4 @@ Repository-root `.` searches, bare fuzzy queries, generic filters such as `*.ts`
 
 ## Git ignore rules
 
-The guard uses Git's effective ignore rules and tracked-file exceptions, including repository-local and global exclusions. It supports worktrees and external repositories.
-
-Paths inside the workspace use the workspace repository's ignore rules, even within a nested repository. External paths use their own repositories' rules. The guard also checks non-ignored links at their destinations, using the rules for the destination's location.
+The guard uses effective Git ignore rules, local/global exclusions, and tracked-file exceptions, supporting worktrees and external repositories. Workspace paths use workspace rules even inside nested repositories; external paths use their own repositories. Non-ignored symlinks are also checked under their destinations' rules.

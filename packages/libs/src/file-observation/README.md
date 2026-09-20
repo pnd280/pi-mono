@@ -4,13 +4,11 @@
 
 ## Behavior
 
-[`@pi-mono/libs/file-observation`](index.ts) exports `observeTextFile`, which reads complete UTF-8 source without clipping. It preserves BOMs and refuses invalid UTF-8, nonregular files, and oversized files.
-
-Reads follow symlinks and never repair permissions. Size and timestamp checks detect some concurrent changes but do not guarantee an atomic snapshot.
+[`observeTextFile`](index.ts) (`@pi-mono/libs/file-observation`) reads complete UTF-8, preserving BOMs and rejecting invalid, nonregular, or oversized input. Reads follow symlinks without permission repair; size/timestamp checks detect some races, not atomic snapshots.
 
 ## Caller responsibilities
 
-Decide which paths the consumer may read and choose the source byte limit. Translate result statuses into diagnostics in the consumer.
+Authorize paths, supply nonnegative safe-integer `maxBytes` (otherwise `RangeError`), and translate statuses into diagnostics.
 
 Use [bounded file output](../bounded-output/README.md) when a preview is sufficient or [private files](../private-files/README.md) for storage with permission enforcement. Complete source can be passed to [bounded patch generation](../bounded-diff/README.md).
 

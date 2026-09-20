@@ -1,6 +1,6 @@
 # @pi-mono/libs
 
-Shared APIs for workspace extensions, including [TUI components and helpers](src/tui/README.md). Use [utils](../utils/README.md) for general-purpose pure helpers. The [manifest](package.json) defines supported imports and Pi peer dependencies.
+Shared extension APIs and [TUI infrastructure](src/tui/README.md). Use [utils](../utils/README.md) for pure helpers. See the [manifest](package.json) for imports and Pi peers.
 
 ## Usage
 
@@ -19,12 +19,14 @@ Shared APIs for workspace extensions, including [TUI components and helpers](src
 | [output-buffer](src/output-buffer/README.md)           | UTF-8 decoding and bounded stream retention                               |
 | [bounded-output](src/bounded-output/README.md)         | Bounded regular-file previews                                             |
 | [file-observation](src/file-observation/README.md)     | Complete UTF-8 file reads                                                 |
+| [native-tools](src/native-tools/README.md)             | Shared observation of verified native tools                               |
+| [file-mutations](src/file-mutations/README.md)         | Native file mutation observations and shared patches                      |
 | [bounded-diff](src/bounded-diff/README.md)             | Bounded unified-patch generation                                          |
 | [git-ignore](src/git-ignore/README.md)                 | Git rule and symbolic-link inspection                                     |
 
 ### Offline validation
 
-These entry points are for validation code only:
+Validation-only entry points:
 
 | Library                                                                    | Responsibility                                                  |
 | -------------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -38,7 +40,7 @@ Callers pass options per call. The [working-message coordinator](src/working-mes
 
 ## Side effects
 
-APIs can launch local helpers, read or write files, repair permissions and ACLs, replace the native clipboard, mount UI components, and replace object properties. The library makes no network requests.
+APIs may launch local helpers/workers, read/write files, repair permissions/ACLs, replace clipboard contents, mount UI, and replace object properties. No network requests.
 
 ## Validation
 

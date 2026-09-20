@@ -1,18 +1,16 @@
 # pi-todo
 
-Track multi-step work with session-backed tasks, an above-editor progress widget, and a read-only `/todos` browser. The extension activates only for interactive TTY sessions, including regular and fullscreen modes. It stays inactive for print, JSON, RPC, and informational CLI invocations.
+Session-backed tasks for multi-step work, with an above-editor widget and read-only `/todos` browser. Active only in regular/fullscreen interactive TTY sessions, never print, JSON, RPC, or informational CLI calls.
 
 ## Usage
 
 ### Tasks
 
-The `todo` tool supports `create`, `update`, `list`, `get`, `delete`, and `clear`. New tasks are pending. Updates can change fields, status, dependencies, or `parentId`. Setting `parentId: null` moves a subtree to the root. Parent status and dependencies do not control children. Dependencies cannot form cycles.
+`todo` supports `create`, `update`, `list`, `get`, `delete`, and `clear`. Tasks start pending; `parentId: null` moves a subtree to the root. Parent status/dependencies do not control children. Dependency cycles are forbidden.
 
-Deletion leaves a tombstone. A task with non-deleted descendants cannot transition to `deleted`, but it can be reparented. `list` hides tombstones unless `includeDeleted: true`. `clear` removes all tasks and resets IDs. Completed tasks cannot return to pending or in progress.
+Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Tasks with live descendants cannot be deleted but can be reparented. `clear` removes everything and resets IDs. Completed tasks cannot return to pending/in progress.
 
-`list` uses a 200-task-line limit and a 32,768-character budget, measured in UTF-16 code units. The first task line is always included, even if oversized. Truncation adds an omitted-task count. Result details retain the complete snapshot.
-
-Current task limits are:
+`list` allows 200 task lines and 32,768 UTF-16 code units, always including the first task line even if oversized. Truncation reports omitted tasks; details retain the full snapshot.
 
 | Item                              | Limit               |
 | --------------------------------- | ------------------- |
@@ -34,7 +32,7 @@ Current task limits are:
 
 ## Configuration
 
-Set the literal `ext.pi-todo` key in Pi's global `settings.json` or the current directory's trusted `.pi/settings.json`:
+Set the literal `ext.pi-todo` key in Pi's global settings file or the current directory's [trusted](../../../node_modules/@earendil-works/pi-coding-agent/docs/settings.md#project-trust) `.pi/settings.json`. The global file is `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when that variable is set:
 
 ```json
 {
@@ -50,11 +48,11 @@ Working-message ordering uses the separate [`workingMessage.order` setting](../.
 
 ## Side effects
 
-Tool-result details persist complete task snapshots in Pi's session and are the only durable task storage. Branch changes and compaction reconstruct state from the latest valid result, skipping malformed snapshots and host errors. Version 2 retains hierarchy; version 1 and bounded unversioned snapshots replay as flat task lists.
+Tool-result details are the only durable storage: full snapshots in Pi sessions. Branch changes/compaction replay the latest valid result, skipping malformed snapshots and host errors. Version 2 retains hierarchy; version 1 and bounded unversioned snapshots replay flat.
 
 Unversioned snapshots accept up to 10,000 tasks and 8 MiB of state. Versioned and unversioned snapshots allow an additional 64 KiB for result parameters and errors, without increasing task capacity. Oversized unversioned state remains readable but cannot be extended beyond current limits.
 
-The extension displays the widget, task browser, and working-message contribution after removing terminal controls from task text. Saving in `/working-message` writes ordering to the displayed global or trusted project `settings.json`, preserving unrelated settings. Task and widget commands perform no independent file writes. There are no network requests.
+Task text is stripped of terminal controls for the widget, browser, and working message. `/working-message` saves order to the displayed global/trusted project `settings.json`, preserving unrelated settings. Task/widget commands write no separate files. No network requests.
 
 ## Validation
 
@@ -71,11 +69,11 @@ vpr 'pi-todo#validate:terminal' regular
 vpr 'pi-todo#validate:terminal' fullscreen
 ```
 
-The launcher prints and retains its temporary directory without loading user settings or credentials. To reuse saved settings, place `--reuse <directory>` after the mode argument. Sessions are not saved across process restarts, so submit `seed` again when checking task activity.
+The launcher prints/retains its temporary directory and loads no user settings or credentials. Add `--reuse <directory>` after the mode to reuse settings; reseed tasks after process restarts because sessions are not saved.
 
-1. Submit `seed` to create an in-progress task. Submit `hold` to show the working message for 30 seconds. Expect `Checking composition · Other status`. Escape cancels the wait.
-2. During `hold`, open `/working-message`. Check the active contributions, `fixture.inactive`, and `unavailable.activity`. Use Up or Down to select and Shift+Up or Shift+Down to move an item. Confirm the working message stays unchanged while editing. Resize to a narrow terminal. Close with Escape and reopen to confirm the unsaved order was discarded.
-3. Use Tab to switch scopes and Ctrl+S to save different global and project orders. Confirm that saving global order leaves the project override active. Reopen the menu and restart with `--reuse <directory>` to check saved orders and retained unavailable IDs.
-4. To check save errors, open the menu and make a draft change. In another editor, set `workingMessage.order` to `123` in the displayed fixture settings file. Press Ctrl+S. Expect an error with the draft intact and the file unchanged by the save. Restore the valid array and retry.
-5. Run `/todos expand` and `/todos collapse`, using `hold` after each to confirm `Other status` remains. `/fixture-status` clears that contribution, while `/fixture-status Other status` restores it. With the widget expanded and the other contribution cleared, `hold` must show Pi's default message.
-6. Collapse the widget and restore `Other status`. Check that `/reload` restores task activity without duplicate components. Check that `/new` clears old task activity. Use `hold` after each to inspect the message.
+1. Submit `seed`, then `hold`: expect `Checking composition · Other status` for 30 seconds; Escape cancels.
+2. During `hold`, open `/working-message`; check active entries, `fixture.inactive`, and `unavailable.activity`. Select with Up/Down and reorder with Shift+Up/Down. The working message must stay unchanged while editing. Resize narrow, Escape, and reopen; unsaved order must be discarded.
+3. Tab between scopes; Ctrl+S different global/project orders. Saving global must preserve the active project override. Reopen and restart with `--reuse <directory>`; verify saved orders and unavailable IDs.
+4. Make a draft change, then externally set `workingMessage.order` to `123` in the displayed fixture settings file. Ctrl+S must report an error, retain the draft, and leave the file unchanged. Restore the valid array and retry.
+5. Use `hold` after `/todos expand` and `/todos collapse`; `Other status` must remain. `/fixture-status` clears it; `/fixture-status Other status` restores it. Expanded widget plus cleared status must show Pi's default message.
+6. Collapse and restore `Other status`. Use `hold` after `/reload` to check restored activity without duplicates, and after `/new` to check old activity is cleared.

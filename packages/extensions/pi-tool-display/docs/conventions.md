@@ -2,17 +2,17 @@
 
 [pi-tool-display](../README.md) · [Adapter development](adapters.md)
 
-Use these conventions when implementing a [`ToolDisplayAdapter`](../src/contracts.ts). For layout, see [tool card presentation](presentation.md). For callback contracts, see [custom adapters](renderers.md#custom-adapters).
+For [`ToolDisplayAdapter`](../src/contracts.ts) implementations; see [layout](presentation.md) and [callback contracts](renderers.md#custom-adapters).
 
 ## Invalid-input fallback
 
-Implement `supports(args, result)` to reject arguments and result shapes the adapter cannot interpret. In the automatic CLI integration, unsupported calls use generic cards with the tool name and parameters visible, even when `showParameters` is false. For example, invalid todo arguments render as `Call failed todo({})` rather than an unnamed `Call failed …`.
+`supports(args, result)` must reject uninterpretable input. Automatic CLI fallback shows generic tool names/parameters even with `showParameters: false`: invalid todo input becomes `Call failed todo({})`, not `Call failed …`.
 
-The CLI checks `supports` only once a result exists, including partial updates. Before then, callbacks must tolerate partial arguments, and `exploration` must reject unparseable arguments itself. Standalone renderers do not check `supports`; their adapters must handle incompatible input directly.
+The CLI checks `supports` only after a result exists, including partial updates. Earlier callbacks must tolerate partial arguments; `exploration` must reject unparseable ones. Standalone renderers never check `supports`; adapters handle incompatibility.
 
 ## Action headings
 
-A completed listing reads `Listed <target>`, including an empty-pattern `fffind` listing. Do not add `files in` to that heading. Use `Listing` while pending and `Listed` after success in standalone, grouped, and expanded cards.
+Use `Listing <target>` while pending and `Listed <target>` after success across standalone, grouped, and expanded cards, including empty-pattern `fffind`. Never add `files in`.
 
 Separate search patterns and scopes with a spaced em dash (U+2014), not `in`. Use the `\u2014` escape in TypeScript source because the repository's pre-commit hook rejects literal em dashes:
 
@@ -24,7 +24,7 @@ Separate search patterns and scopes with a spaced em dash (U+2014), not `in`. Us
 
 Use `Exploring <path>` and `Explored <path>` for directory groups, and `Filtering <filter>` and `Filtered <filter>` for literal-filter groups. Keep `ExplorationScope` kind names such as `directory` and `filter` out of displayed headings. Adapter-defined groups may use a custom title such as `Tasks`.
 
-Do not add call or operation counts to group headings. Member rows already show those calls. Preserve failure, cancellation, and unavailable-outcome badges and the diagnostics beneath each affected member.
+Omit group call/operation counts; member rows show calls. Retain failure, cancellation, and unavailable-outcome badges plus member diagnostics.
 
 ## Literal filters and paths
 
