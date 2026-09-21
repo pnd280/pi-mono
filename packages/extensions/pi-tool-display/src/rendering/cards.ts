@@ -1,4 +1,3 @@
-import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import {
   getCapabilities,
   MouseRegion,
@@ -8,7 +7,7 @@ import {
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { genericAdapter, resolveResultAdapter } from "../adapters/generic.ts";
-import { isLive, type ToolDisplayAdapter } from "../contracts.ts";
+import { isLive, type BorrowedToolResult, type ToolDisplayAdapter } from "../contracts.ts";
 import { heading } from "./headings.ts";
 import { displayOutcome } from "./outcome.ts";
 import { buildGroupRows, buildResultBody } from "./result-content.ts";
@@ -124,7 +123,7 @@ function hasAnimatedHeading(card: PreparedCard): boolean {
  */
 class CardRow {
   private callArgs: { value: unknown } | undefined;
-  private result: AgentToolResult<unknown> | undefined;
+  private result: BorrowedToolResult | undefined;
   private prepared:
     | {
         width: number;
@@ -151,7 +150,7 @@ class CardRow {
     slot: Slot,
     context: DisplayContext,
     theme: DisplayTheme,
-    result?: AgentToolResult<unknown>
+    result?: BorrowedToolResult
   ): void {
     // Standalone owners can pass call arguments separately from the result context.
     // Keep that authoritative reference; result-only rows use their current context.
@@ -288,7 +287,7 @@ export function createToolDisplayRenderers(
     slot: Slot,
     context: DisplayContext,
     theme: DisplayTheme,
-    result?: AgentToolResult<unknown>
+    result?: BorrowedToolResult
   ): Component => {
     const state = context.state;
     const key = state !== null && typeof state === "object" ? state : undefined;

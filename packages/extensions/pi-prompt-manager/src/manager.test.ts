@@ -209,6 +209,22 @@ it("bounds waiting bytes, silently ignores blank/oversized captures, and does no
   await fixture.manager.dispose();
 });
 
+it("passes the session cancellation signal to numbered collection reads", async () => {
+  let signal: AbortSignal | undefined;
+  const read = vi.fn<Repository["read"]>(async (_collection, currentSignal) => {
+    signal = currentSignal;
+
+    return collection();
+  });
+  const { manager } = managerFixture({ repository: { read, mutate: vi.fn() } });
+
+  await manager.command("drafts copy 1");
+  expect(read).toHaveBeenCalledExactlyOnceWith("drafts", manager.session.signal);
+  expect(signal).toBe(manager.session.signal);
+  await manager.dispose();
+  expect(signal?.aborted).toBe(true);
+});
+
 it("reports shared clipboard diagnostics without exposing arbitrary helper errors", async () => {
   for (const [error, message] of [
     [

@@ -29,7 +29,7 @@ import { copyNative } from "@pi-mono/libs/native-clipboard";
 await copyNative(exactText, signal);
 ```
 
-Override the timeout with `copyNative(exactText, signal, { timeout: 10000 })`.
+Override the timeout with `copyNative(exactText, signal, { timeout: 10000 })`. Timeout overrides must be integers from 0 through 2,147,483,647 milliseconds.
 
 ## Validation
 

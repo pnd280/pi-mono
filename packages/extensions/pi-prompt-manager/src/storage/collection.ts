@@ -28,6 +28,7 @@ function encode(document: Document): string {
 const idSchema = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+const jsonValueSchema = z.json();
 const documentEnvelopeSchema = documentSchema.extend({ entries: z.array(z.unknown()) });
 
 function validId(value: unknown): value is string {
@@ -58,7 +59,8 @@ function snapshot(
   collection: Collection,
   document: Document,
   bytes: number,
-  warnings: string[] = []
+  warnings: string[] = [],
+  serializationSafe = true
 ): Snapshot {
   const ids = new Map<string, number>();
 
@@ -91,13 +93,15 @@ function snapshot(
 
   if (invalid)
     warnings.push(`Invalid occurrence IDs: collection is read-only. ${reductionGuidance}`);
+  if (!serializationSafe)
+    warnings.push(`Non-finite numeric values: collection is read-only. ${reductionGuidance}`);
   if (entries.some((entry) => entry.identity === "ambiguous"))
     warnings.push(
       "Duplicate occurrence IDs cannot be deleted. Repair IDs manually with sessions stopped."
     );
   if (recovery) warnings.push("Draft capacity recovery: deletions only; additions are disabled.");
   let access: Snapshot["access"] = "writable";
-  if (invalid) access = "read-only";
+  if (invalid || !serializationSafe) access = "read-only";
   else if (recovery) access = "delete-only";
 
   return {
@@ -122,6 +126,7 @@ export function readCollection(collection: Collection, cwd: string, raw?: Buffer
       `Unsupported version, wrong directory, or invalid collection structure. ${reductionGuidance}`
     );
   const warnings: string[] = [];
+  const serializationSafe = jsonValueSchema.safeParse(value).success;
   const entries: StoredEntry[] = [];
 
   if (collection === "drafts" && value.entries.length > limits.recoveryCount)
@@ -143,7 +148,13 @@ export function readCollection(collection: Collection, cwd: string, raw?: Buffer
     entries.push(entry);
   }
 
-  const result = snapshot(collection, { ...value, version: 1, cwd, entries }, raw.length, warnings);
+  const result = snapshot(
+    collection,
+    { ...value, version: 1, cwd, entries },
+    raw.length,
+    warnings,
+    serializationSafe
+  );
 
   // Invalid/blank records still count against normal capacity until a deletion repairs the file.
   if (

@@ -86,6 +86,18 @@ it.each([
   render();
 });
 
+it("sanitizes confirmation overflow before rendering it", async () => {
+  const { view, options, controller, tui } = browser();
+  tui.terminal.rows = 10;
+  options.sections[1]!.remove!.confirmation = `\x1b]52;c;YQ==\x07${"confirm ".repeat(100)}`;
+  await controller.activate();
+  view.render(40);
+  controller.action("delete");
+  const output = view.render(40).join("\n");
+  expect(output).not.toContain("\x1b]52;");
+  expect(output).toContain("confirm");
+});
+
 it("preserves search cursor edits and focus while keeping action hints during search", async () => {
   const { view, options, controller } = browser(["abXc"]);
   await controller.activate();

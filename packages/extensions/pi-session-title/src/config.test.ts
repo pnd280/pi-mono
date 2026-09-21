@@ -64,6 +64,15 @@ it.each([
   expect(loadTitleConfig(cwd, { agentDir })).toBeUndefined();
 });
 
+it("rejects oversized settings before unknown top-level fields are discarded", () => {
+  const source = JSON.stringify({
+    "ext.pi-session-title": globalConfig,
+    ignored: "x".repeat(1024 * 1024)
+  });
+  const { agentDir, cwd } = settings(source);
+  expect(loadTitleConfig(cwd, { agentDir })).toBeUndefined();
+});
+
 it.each([
   { model: " provider/project " },
   { thinkingLevel: "high" },

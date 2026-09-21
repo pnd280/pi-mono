@@ -12,7 +12,7 @@ After [configuration](#configuration), an unnamed session gets at most one autom
 | `/auto-name clear` | Clear the name even with invalid configuration. |
 | `/name My session` | Set a name with Pi's interactive command.       |
 
-Generation times out after 15 seconds without retrying; failure preserves the name. `/auto-name` reports progress/results through Pi notifications in interactive and RPC modes.
+Generation times out after 15 seconds without retrying and requests at most 1,024 answer tokens (or the model's lower limit); failure preserves the name. Configured reasoning can add provider-specific token usage. `/auto-name` reports progress/results through Pi notifications in interactive and RPC modes.
 
 Setting/clearing a name through Pi cancels generation and suppresses automatic naming until session load/reload. Tree navigation cancels generation without changing the name or allowing another automatic attempt; use `/auto-name` for the selected branch.
 
@@ -51,7 +51,7 @@ Set the literal top-level `ext.pi-session-title` key in global or trusted projec
 
 Only [trusted projects](../../../node_modules/@earendil-works/pi-coding-agent/docs/settings.md#project-trust) override global fields; omitted fields inherit. Both fields are required after merging. No defaults, extension-specific environment variables, or active-model fallback.
 
-Unreadable/malformed global or trusted project files disable generation. Invalid values or unknown keys in either extension section disable it even if the other file is valid. `/auto-name` exposes errors suppressed by automatic naming.
+Unreadable/malformed global or trusted project files disable generation. Each participating settings file is limited to 1 MiB before parsing, including unknown fields. Invalid values or unknown keys in either extension section disable it even if the other file is valid. `/auto-name` exposes errors suppressed by automatic naming.
 
 Apply settings with `/reload`; disable through Pi's [extension configuration](../../../node_modules/@earendil-works/pi-coding-agent/docs/packages.md#enable-and-disable-resources).
 

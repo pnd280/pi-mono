@@ -18,11 +18,11 @@ Validated metadata can replace successful text with compact summaries; otherwise
 
 Observed shells show status/duration beside previews. Successful reads hide text until expansion; edits/writes show diffs. Failure/cancellation output, notices, and images stay visible.
 
-Previews retain initial/final rows, whole graphemes, and ANSI styling; exceeding [formatting limits](#resource-limits) adds `… more output`. Expansion shows summaries and retained output within live/saved retention limits.
+Previews retain initial/final rows, whole graphemes, and ANSI styling; exceeding [formatting limits](#resource-limits) adds `… more output`. Shell cards omit trailing blank output rows without changing internal blank lines or stored output. Expansion shows summaries and retained output within live/saved retention limits.
 
 ## Groups
 
-Adjacent exploration calls group by scope in source order, including repeated reads. Scope changes start new groups even on returning to an earlier directory. Single calls stay standalone; adapters may give one literal-filter scope a [custom title](renderers.md#exploration-scopes).
+Adjacent exploration calls group by scope and custom title in source order, including repeated reads. Scope or title changes start new groups even on returning to an earlier directory. Single calls stay standalone; adapters may give one literal-filter scope a [custom title](renderers.md#exploration-scopes).
 
 Live and historical matching rules:
 
@@ -81,7 +81,7 @@ Mixed patches use side-by-side columns when wide enough; narrow or one-sided pat
 
 Pi expansion reveals all retained hunks with full wrapping; no hunk-specific controls. Added/removed rows and inline changes use theme colors; context/separators retain terminal background.
 
-Only retained context is shown; current files are never read. Invalid, incomplete, multi-file, or oversized patches show unavailable notices. Valid patches suppress observation-limit warnings, including history. See [limits](#resource-limits).
+Only retained context is shown; current files are never read. Invalid, incomplete, multi-file, or oversized patches show unavailable notices. A valid observed patch remains available when result middleware supplies an invalid replacement. Valid patches suppress observation-limit warnings, including history. See [limits](#resource-limits).
 
 ## Saved-output previews
 
@@ -101,6 +101,6 @@ Limits affect display, not execution or Pi's saved arguments/results. Live/saved
 | Live shell output  | Full through 1 MiB; then first/last 50 completed lines plus partial line, at most 10,280 source bytes per line.                                       |
 | Saved previews     | Read 256 KiB total, split start/end for oversized files; retain 4,000 lines before omission notice. Eight cached previews and eight concurrent reads. |
 | Patch generation   | 8 MiB UTF-8 per snapshot, 50 ms worker dispatch-to-return, 2,000 changed-line edit distance. Native edit patches bypass these limits.                 |
-| Retained patches   | 128 KiB.                                                                                                                                              |
+| Retained patches   | 128 KiB of raw UTF-8 before terminal normalization.                                                                                                   |
 
 Generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behavior); exceeded limits make patches unavailable. [Automatic integration](../README.md#observation-and-saved-history) collects output/generates patches; the [standalone factory](renderers.md) only formats supplied data.

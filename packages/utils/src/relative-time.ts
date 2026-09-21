@@ -8,7 +8,7 @@ const relativeTimeUnits = [
   [60, "m"]
 ] as const;
 
-/** Compact age with an explicit clock. Future times have a '+' prefix. */
+/** Compact age with an explicit clock. Nonzero future units have a '+' prefix. */
 export function relativeTime(time: number | undefined, now: number): string {
   if (time === undefined) return "Unknown time";
   const seconds = Math.abs(now - time) / 1000;

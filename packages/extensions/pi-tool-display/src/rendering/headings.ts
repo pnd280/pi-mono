@@ -15,7 +15,7 @@ import {
   type Outcome,
   type ToolFamily
 } from "../contracts.ts";
-import { invocationParts, invocationPartText } from "../invocation.ts";
+import { invocationParts, invocationPartText, serializeParameters } from "../invocation.ts";
 import { expansionHint, codeHighlightLimits, tree, styleParameters } from "./format.ts";
 import { bodyWidth } from "./layout.ts";
 import { callOutcome } from "./outcome.ts";
@@ -252,9 +252,10 @@ function explorationVerbs(p: PreparedCard): HeadingVerbs {
   const source = p.headingVerbs ?? verbs[p.adapter.family];
 
   const plain = (verb: string) => {
-    const separator = verb.lastIndexOf(" · ");
+    const text = displayText(verb);
+    const separator = text.lastIndexOf(" · ");
 
-    return separator < 0 ? verb : verb.slice(separator + 3);
+    return separator < 0 ? text : text.slice(separator + 3);
   };
 
   return {
@@ -300,7 +301,7 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
 
       rows.push(
         truncateToWidth(
-          `${p.theme.fg(titleColor, marker)} ${p.theme.fg(titleColor, p.theme.bold(group.title))}${badge}`,
+          `${p.theme.fg(titleColor, marker)} ${p.theme.fg(titleColor, p.theme.bold(displayText(group.title)))}${badge}`,
           p.width,
           ""
         )
@@ -385,18 +386,18 @@ function status(p: PreparedCard): {
   const tone = pending ? "pending" : actionTone(false, p.outcome);
   if (pending)
     return {
-      verb: actionVerbs.pending,
+      verb: displayText(actionVerbs.pending),
       actionColor: actionColor(tone),
       pending
     };
   const terminal = terminalStatus(p.outcome);
   if (terminal)
     return {
-      verb: `${actionVerbs.action} ${terminal.suffix}`,
+      verb: `${displayText(actionVerbs.action)} ${terminal.suffix}`,
       actionColor: actionColor(tone),
       pending
     };
-  let verb = actionVerbs.complete;
+  let verb = displayText(actionVerbs.complete);
   if (
     p.adapter.family === "write" &&
     p.call?.change?.change === "creation" &&
@@ -449,9 +450,7 @@ export function heading(p: PreparedCard, animationPhase: number): string[] {
       ...headingContinuation(
         wrapRows(
           styleParameters(
-            displayText(
-              JSON.stringify(p.context.args === undefined ? {} : p.context.args, null, 2)
-            ),
+            displayText(serializeParameters(p.context.args === undefined ? {} : p.context.args, 2)),
             p.theme
           ),
           bodyWidth(p.width)

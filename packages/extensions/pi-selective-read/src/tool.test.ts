@@ -192,6 +192,21 @@ it("restores preview provenance after serialization without hiding unmarked sour
   expect(sourceResult(structuredClone(result)).content).toEqual([result.content[0]]);
   const unmarked = { ...result, details: undefined };
   expect(sourceResult(unmarked)).toBe(unmarked);
-  const invalid = { ...result, details: { selectiveRead: { sourceBlocks: 10 } } };
-  expect(sourceResult(invalid)).toBe(invalid);
+  const invalidResults = [
+    { ...result, details: { selectiveRead: { sourceBlocks: 10 } } },
+    {
+      ...result,
+      content: [...result.content, { type: "text", text: "unowned" }],
+      details: { selectiveRead: { sourceBlocks: 1 } }
+    },
+    {
+      ...result,
+      content: [
+        ...result.content.slice(0, 1),
+        { type: "image", data: "AA==", mimeType: "image/png" }
+      ],
+      details: { selectiveRead: { sourceBlocks: 1 } }
+    }
+  ] satisfies ReadResult[];
+  for (const invalid of invalidResults) expect(sourceResult(invalid)).toBe(invalid);
 });

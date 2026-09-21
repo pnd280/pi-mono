@@ -1,6 +1,10 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { expect, it } from "vite-plus/test";
 
-import { parseSettings } from "./settings.ts";
+import { loadSettings, parseSettings } from "./settings.ts";
 
 it("validates fields independently, floors/clamps finite numbers without coercion", () => {
   for (const [value, expected] of [
@@ -25,6 +29,26 @@ it("validates fields independently, floors/clamps finite numbers without coercio
     shortcuts: { history: [], saveDraft: ["ctrl+shift+s"] }
   });
   expect(result.warnings).toHaveLength(2);
+});
+
+it("reads settings with the UTF-8 BOM accepted by Pi", async () => {
+  const agentDir = await mkdtemp(join(tmpdir(), "pi-prompt-settings-"));
+
+  try {
+    await writeFile(
+      join(agentDir, "settings.json"),
+      `\uFEFF${JSON.stringify({ "ext.pi-prompt-manager": { historyRetention: 12 } })}`
+    );
+    expect(await loadSettings(agentDir)).toEqual({
+      settings: {
+        historyRetention: 12,
+        shortcuts: { history: ["ctrl+r"], saveDraft: ["ctrl+shift+s"] }
+      },
+      warnings: []
+    });
+  } finally {
+    await rm(agentDir, { recursive: true, force: true });
+  }
 });
 
 it("canonicalizes aliases/modifier order and gives History collision ownership", () => {

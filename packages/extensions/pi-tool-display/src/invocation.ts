@@ -20,6 +20,18 @@ function readRange(args: Record<string, unknown>): string {
 const value = (text: string): InvocationPart => ({ kind: "value", text });
 const annotation = (text: string): InvocationPart => ({ kind: "annotation", text });
 
+const UNAVAILABLE_PARAMETERS = "<parameters unavailable>";
+
+export function serializeParameters(input: unknown, indentation?: number): string {
+  try {
+    const serialized = JSON.stringify(input, undefined, indentation) as string | undefined;
+
+    return serialized ?? UNAVAILABLE_PARAMETERS;
+  } catch {
+    return UNAVAILABLE_PARAMETERS;
+  }
+}
+
 /** Resolve only explicitly tagged file targets. Retained rendering must not inspect
  * current files or follow symlinks, and search expressions are not filesystem paths.
  */
@@ -85,7 +97,7 @@ export function invocationParts(
       return [
         value(name),
         annotation("("),
-        { kind: "parameters", text: displayText(JSON.stringify(args)) },
+        { kind: "parameters", text: serializeParameters(args) },
         annotation(")")
       ];
   }

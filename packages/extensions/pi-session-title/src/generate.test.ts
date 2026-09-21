@@ -68,6 +68,7 @@ it("passes the configured model, thinking, resolved auth, and text to Pi's effec
       env: { FIXTURE_REGION: "region" },
       reasoning: "low",
       maxRetries: 0,
+      maxTokens: 1024,
       timeoutMs: 15_000,
       cacheRetention: "none"
     })

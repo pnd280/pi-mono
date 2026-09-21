@@ -21,6 +21,17 @@ describe("tool presentation", () => {
     );
   });
 
+  it("falls back when supplied parameters cannot be serialized", () => {
+    const circular: { self?: unknown } = {};
+    circular.self = circular;
+
+    expect(
+      invocationParts("custom", circular, "invocation")
+        .map((part) => part.text)
+        .join("")
+    ).toBe("custom(<parameters unavailable>)");
+  });
+
   it("distinguishes supplied values from annotations even when they contain the same delimiters", () => {
     const parts = invocationParts(
       "grep",

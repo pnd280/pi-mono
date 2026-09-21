@@ -29,8 +29,12 @@ it("rejects invalid omission offsets rather than duplicating or dropping output"
       { start: 0, end: 2 },
       { start: 1, end: 3 }
     ]
-  ])
-    expect(() => splitOutputText({ text: "abc", omissions })).toThrow(RangeError);
+  ]) {
+    const invalid = { text: "abc", omissions };
+    expect(() => splitOutputText(invalid)).toThrow(RangeError);
+    expect(() => joinOutputText(["prefix", invalid])).toThrow(RangeError);
+    expect(() => sliceOutputText(invalid, 0)).toThrow(RangeError);
+  }
 });
 
 it("tracks only inserted notices through UTF-16 joins and partially overlapping slices", () => {

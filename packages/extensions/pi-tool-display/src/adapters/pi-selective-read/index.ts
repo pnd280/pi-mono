@@ -1,7 +1,12 @@
-import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { selectSource, selectionLabel } from "@pi-mono/utils/source-selection";
 
-import type { InvocationPart, ResultTextPart, ToolDisplayAdapter } from "../../contracts.ts";
+import type {
+  BorrowedToolResult,
+  InvocationPart,
+  ResultTextPart,
+  ToolDisplayAdapter
+} from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
 import { nativeAdapter } from "../native/index.ts";
 import { nativeResultParts } from "../native/result-presentation.ts";
@@ -10,7 +15,7 @@ import { argsSchema, parametersSchema, resultSchema } from "./schema.ts";
 const native = nativeAdapter("read");
 if (!native) throw new Error("Native read display adapter is unavailable.");
 
-function supports(args: unknown, result: AgentToolResult<unknown>): boolean {
+function supports(args: unknown, result: BorrowedToolResult): boolean {
   const input = argsSchema.safeParse(args);
   const output = resultSchema.safeParse(result);
 
@@ -40,9 +45,7 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
     const input = argsSchema.safeParse(args);
     if (!input.success || (result && !supports(args, result))) return undefined;
 
-    return [
-      { label: "Read", parts: invocation(args), scope: { kind: "file", value: input.data.path } }
-    ];
+    return [{ parts: invocation(args), scope: { kind: "file", value: input.data.path } }];
   },
   notices(result, expanded) {
     const parsed = resultSchema.safeParse(result);

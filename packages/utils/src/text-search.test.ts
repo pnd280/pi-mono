@@ -44,6 +44,19 @@ it("retains literal and fuzzy matches across scan boundaries, including long que
   expect(rank("ab".repeat(50000), prepareSearchQuery(long))).toBeUndefined();
 });
 
+it("yields between repeated short scans so callers can cancel expensive term searches", () => {
+  for (const [text, query, category] of [
+    ["a".repeat(40000) + "z", "z z", 1],
+    ["a" + "_".repeat(40000) + "z", "az az", 2]
+  ] as const) {
+    const steps = rankText(text, prepareSearchQuery(query));
+    let next = steps.next();
+    expect(next).toEqual({ done: false, value: undefined });
+    while (!next.done) next = steps.next();
+    expect(next.value?.category).toBe(category);
+  }
+});
+
 it("matches Pi's fuzzy scores, gaps, boundaries, Unicode, and letter/digit fallback", () => {
   const samples = [
     ["f_o_o b_a_r", "foo bar"],

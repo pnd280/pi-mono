@@ -267,7 +267,7 @@ describe("public interception adapter", () => {
     const host = harness({ hasUI });
     host.register("ffgrep");
     const stderr = vi.spyOn(console, "error").mockImplementation(() => {});
-    const name = "\x1b]52;c;Zml4dHVyZQ==\x07\x1b[31mcycle\x1b[0m";
+    const name = "\x1b]52;c;Zml4dHVyZQ==\x07cycle";
     await symlink(name, path.join(directory.root, "src", name));
 
     expect(await host.call("ffgrep", { path: `src/${name}`, pattern: "marker" })).toBeUndefined();

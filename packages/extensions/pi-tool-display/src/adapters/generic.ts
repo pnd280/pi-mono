@@ -1,6 +1,4 @@
-import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
-
-import type { ToolDisplayAdapter } from "../contracts.ts";
+import type { BorrowedToolResult, ToolDisplayAdapter } from "../contracts.ts";
 
 export const genericAdapter: ToolDisplayAdapter = {
   id: "generic",
@@ -12,7 +10,7 @@ export const genericAdapter: ToolDisplayAdapter = {
 export function resolveResultAdapter(
   adapter: ToolDisplayAdapter,
   args: unknown,
-  result?: AgentToolResult<unknown>
+  result?: BorrowedToolResult
 ): ToolDisplayAdapter {
   return result && adapter.supports?.(args, result) === false ? genericAdapter : adapter;
 }

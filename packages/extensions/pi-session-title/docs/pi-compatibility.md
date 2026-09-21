@@ -4,7 +4,7 @@
 
 ## Contracts to verify
 
-- [ ] [Generation](../src/generate.ts): registry normalization, authentication, supported thinking, complete responses, safe errors, and request/cache defaults; preserve configured-model validation, no fallback, and no retries.
+- [ ] [Generation](../src/generate.ts): registry normalization, authentication, supported thinking, complete responses, safe errors, and bounded request/cache defaults; preserve configured-model validation, no fallback, and no retries.
 - [ ] [Lifecycle](../src/runtime.ts): one automatic attempt, branch/session/reload cancellation, manual/external name changes, and stale-result rejection.
 - [ ] [Pi adapter](../src/index.ts): naming events and metadata-only updates in TUI, print, JSON, and RPC; no conversation messages or custom stdout.
 

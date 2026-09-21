@@ -17,6 +17,13 @@ it("clips every UTF-8 boundary without introducing replacement characters", () =
   }
 });
 
+it("rejects invalid byte limits instead of violating the requested bound", () => {
+  for (const bytes of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Infinity]) {
+    expect(() => utf8Prefix("abc", bytes)).toThrow(RangeError);
+    expect(() => utf8Suffix("abc", bytes)).toThrow(RangeError);
+  }
+});
+
 it("retains BOMs and literal replacement characters, and replaces interior invalid bytes", () => {
   const text = "\uFEFFa\uFFFD";
   for (const boundary of [undefined, "head", "tail"] as const)

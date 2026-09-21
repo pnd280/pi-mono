@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 const sectionSchema = z.object({
@@ -30,7 +30,7 @@ export function loadTodoConfig(
   }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): TodoConfig {
   const global = readSection(join(agentDir, "settings.json"));
-  const project = projectTrusted ? readSection(join(cwd, ".pi", "settings.json")) : {};
+  const project = projectTrusted ? readSection(join(cwd, CONFIG_DIR_NAME, "settings.json")) : {};
 
   return {
     collapseWidgetByDefault:

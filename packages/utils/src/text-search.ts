@@ -108,9 +108,18 @@ export function* rankText(
 ): Steps<SearchRank | undefined> {
   if (yield* contains(normalized, phrase)) return { category: 0, score: 0 };
   let literal = true;
+  let scanned = 0;
 
   for (const term of terms) {
-    if (!(yield* contains(normalized, term))) {
+    if (scanned > 0 && scanned + normalized.length > chunkSize) {
+      yield;
+      scanned = 0;
+    }
+
+    const found = yield* contains(normalized, term);
+    scanned += normalized.length;
+
+    if (!found) {
       literal = false;
       break;
     }
@@ -118,9 +127,16 @@ export function* rankText(
 
   if (literal) return { category: 1, score: 0 };
   let score = 0;
+  scanned = 0;
 
   for (const term of terms) {
+    if (scanned > 0 && scanned + normalized.length > chunkSize) {
+      yield;
+      scanned = 0;
+    }
+
     const match = yield* fuzzy(normalized, term);
+    scanned += normalized.length;
     if (match === undefined) return undefined;
     score += match;
   }

@@ -11,6 +11,7 @@ export { piSelectiveReadAdapter, selectiveReadDisplayAdapter } from "./pi-select
 export { nativeAdapter } from "./native/index.ts";
 
 export type {
+  BorrowedToolResult,
   DisplayNotice,
   ExplorationItem,
   ExplorationScope,

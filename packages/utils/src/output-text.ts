@@ -20,20 +20,29 @@ export interface OutputText {
 
 export type OutputFragment = { kind: "output" | "omission"; text: string };
 
-/** Partition by generated UTF-16 ranges, never by matching notice wording. */
-export function splitOutputText(output: OutputText): OutputFragment[] {
-  const fragments: OutputFragment[] = [];
-  let start = 0;
+function assertValidOmissions(output: OutputText): void {
+  let end = 0;
 
   for (const range of output.omissions ?? []) {
     if (
       !offsetRangeSchema.safeParse(range).success ||
-      range.start < start ||
+      range.start < end ||
       range.end > output.text.length
     )
       throw new RangeError(
         "Omission ranges must be ordered, nonoverlapping UTF-16 offsets within the text."
       );
+    end = range.end;
+  }
+}
+
+/** Partition by generated UTF-16 ranges, never by matching notice wording. */
+export function splitOutputText(output: OutputText): OutputFragment[] {
+  assertValidOmissions(output);
+  const fragments: OutputFragment[] = [];
+  let start = 0;
+
+  for (const range of output.omissions ?? []) {
     if (range.start > start)
       fragments.push({ kind: "output", text: output.text.slice(start, range.start) });
     if (range.end > range.start)
@@ -63,6 +72,7 @@ export function joinOutputText(
 
     if (typeof part === "string") text += part;
     else {
+      assertValidOmissions(part);
       for (const range of part.omissions ?? [])
         omissions.push({ start: text.length + range.start, end: text.length + range.end });
       text += part.text;
@@ -79,6 +89,7 @@ export function sliceOutputText(
 ): OutputText {
   if (!offsetRangeSchema.safeParse({ start, end }).success)
     throw new RangeError("Output slices require ordered, nonnegative UTF-16 offsets.");
+  assertValidOmissions(output);
 
   return {
     text: output.text.slice(start, end),

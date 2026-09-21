@@ -1,10 +1,22 @@
-import { mkdtemp, open, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import {
+  chmod,
+  link,
+  mkdtemp,
+  open,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
-import { ReadLimitError } from "./errors.ts";
+import { PrivateFileError, ReadLimitError } from "./errors.ts";
 import { boundedRead, checkHandle, privateDirectory } from "./privacy.ts";
 
 let directory: string;
@@ -29,6 +41,69 @@ it("honors caller byte limits, including empty and missing files, and preserves 
   for (const limit of [-1, NaN, Infinity, 1.5])
     await expect(boundedRead(path, limit)).rejects.toBeInstanceOf(RangeError);
 });
+
+it("refuses a final-file symlink without changing the target", async () => {
+  const path = join(directory, "data");
+  const target = join(directory, "unrelated");
+  const bytes = Buffer.from("unrelated symlink target\0");
+  await writeFile(target, bytes);
+  await chmod(target, 0o640);
+  await symlink(target, path);
+
+  await expect(boundedRead(path, bytes.length)).rejects.toBeInstanceOf(PrivateFileError);
+  expect(await readFile(target)).toEqual(bytes);
+  expect((await stat(target)).mode & 0o777).toBe(0o640);
+});
+
+it("refuses a hard link without changing the shared source", async () => {
+  const path = join(directory, "data");
+  const source = join(directory, "unrelated");
+  const bytes = Buffer.from("unrelated hard-link source\0");
+  await writeFile(source, bytes);
+  await chmod(source, 0o640);
+  await link(source, path);
+
+  await expect(boundedRead(path, bytes.length)).rejects.toBeInstanceOf(PrivateFileError);
+  expect(await readFile(source)).toEqual(bytes);
+  expect((await stat(source)).mode & 0o777).toBe(0o640);
+});
+
+it.runIf(process.platform === "linux")(
+  "refuses a FIFO without changing unrelated file bytes or permissions",
+  async () => {
+    const path = join(directory, "data");
+    const unrelated = join(directory, "unrelated");
+    const bytes = Buffer.from("unrelated to FIFO\0");
+    await writeFile(unrelated, bytes);
+    await chmod(unrelated, 0o640);
+    await promisify(execFile)("mkfifo", [path]);
+
+    await expect(boundedRead(path, bytes.length)).rejects.toBeInstanceOf(PrivateFileError);
+    expect(await readFile(unrelated)).toEqual(bytes);
+    expect((await stat(unrelated)).mode & 0o777).toBe(0o640);
+  }
+);
+
+it.runIf(process.platform === "linux")(
+  "repairs effective POSIX ACL access without changing file bytes",
+  async () => {
+    const path = join(directory, "data");
+    const bytes = Buffer.from("private ACL contents\0");
+    const unrelatedUid = (process.getuid?.() ?? 1000) + 1;
+    await writeFile(path, bytes, { mode: 0o600 });
+    await promisify(execFile)("setfacl", ["-m", `u:${unrelatedUid}:rw`, path]);
+    const exposed = await promisify(execFile)("getfacl", ["-cpn", path]);
+    expect(exposed.stdout).toContain(`user:${unrelatedUid}:rw-`);
+    expect(exposed.stdout).toContain("mask::rw-");
+
+    expect(await boundedRead(path, bytes.length)).toEqual(bytes);
+    const repaired = await promisify(execFile)("getfacl", ["-cpn", path]);
+    expect(repaired.stdout).toContain(`user:${unrelatedUid}:rw-`);
+    expect(repaired.stdout).toContain("mask::---");
+    expect(await readFile(path)).toEqual(bytes);
+    expect((await stat(path)).mode & 0o777).toBe(0o600);
+  }
+);
 
 it("checks descriptor ownership before permission repair", async () => {
   const path = join(directory, "owner-check");

@@ -1,9 +1,9 @@
-import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
 import { z } from "zod";
 
 import { type InvocationPart } from "../../../contracts.ts";
-import type { ToolDisplayAdapter } from "../../../contracts.ts";
+import type { BorrowedToolResult, ToolDisplayAdapter } from "../../../contracts.ts";
 import { invocationParts } from "../../../invocation.ts";
 import { stringField } from "../../../terminal-text.ts";
 import { record } from "../../../values.ts";
@@ -30,11 +30,7 @@ const registrationSchemas = {
   grep: z.object({ properties: z.object({ pattern: z.object({ type: z.literal("string") }) }) })
 };
 
-function supportsFffCall(
-  kind: FffToolKind,
-  args: unknown,
-  result?: AgentToolResult<unknown>
-): boolean {
+function supportsFffCall(kind: FffToolKind, args: unknown, result?: BorrowedToolResult): boolean {
   if (!argumentSchemas[kind].safeParse(args).success) return false;
   const details = record(result?.details);
 
@@ -95,13 +91,11 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
     exploration(args, result) {
       if (!supportsFffCall(kind, args, result)) return undefined;
       const data = record(args);
-      const listing = kind === "find" && data.pattern === "";
       const scope = scopeSchema.safeParse(kind === "multi" ? data.constraints : data.path).data;
       const patterns = patternsSchema.safeParse(data.patterns).data;
 
       return [
         {
-          label: listing ? "List" : "Search",
           ...(scope !== undefined ? { scope: { kind: "filter" as const, value: scope } } : {}),
           parts: [
             kind === "multi" && patterns

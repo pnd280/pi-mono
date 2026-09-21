@@ -214,10 +214,8 @@ it("provides a shared scope so adjacent calls share a group", () => {
     { action: "create", subject: "Ship it" },
     result({ tasks: [] })
   );
-  expect(pending?.[0]?.label).toBe("Creating");
   expect(pending?.[0]?.parts).toEqual([{ kind: "value", text: "Ship it" }]);
   expect(pending?.[0]?.scope).toBeDefined();
-  expect(complete?.[0]?.label).toBe("Created");
   expect(complete?.[0]?.scope).toEqual(pending?.[0]?.scope);
   expect(todoDisplayAdapter.exploration?.("not an object")).toBeUndefined();
 });

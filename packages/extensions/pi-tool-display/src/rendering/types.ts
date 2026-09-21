@@ -1,5 +1,4 @@
 import type {
-  AgentToolResult,
   Theme,
   ToolDefinition,
   ToolRenderResultOptions
@@ -8,6 +7,7 @@ import type { Component } from "@earendil-works/pi-tui";
 import type { TreeItem } from "@pi-mono/libs/tui/components/tree";
 
 import type {
+  BorrowedToolResult,
   DisplayCall,
   DisplayGroup,
   ExplorationItem,
@@ -32,7 +32,7 @@ export interface ToolDisplayRenderers {
   renderShell: "self";
   renderCall(args: unknown, theme: DisplayTheme, context: DisplayContext): Component;
   renderResult(
-    result: AgentToolResult<unknown>,
+    result: BorrowedToolResult,
     options: ToolRenderResultOptions,
     theme: DisplayTheme,
     context: DisplayContext
@@ -60,7 +60,7 @@ export type Projection = Readonly<{
   expanded: boolean;
   showParameters: boolean;
   call: DisplayCall | undefined;
-  result: AgentToolResult<unknown> | undefined;
+  result: BorrowedToolResult | undefined;
   group: DisplayGroup | undefined;
   mcp: McpFacts | undefined;
   outcome: Outcome;

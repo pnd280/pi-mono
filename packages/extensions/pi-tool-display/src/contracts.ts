@@ -46,6 +46,15 @@ export type CancellationFact = {
 
 export type DisplayFact = OperationFact | ChangeFact | SavedOutputFact | CancellationFact;
 
+type DeepReadonly<Value> = Value extends readonly (infer Item)[]
+  ? readonly DeepReadonly<Item>[]
+  : Value extends object
+    ? { readonly [Key in keyof Value]: DeepReadonly<Value[Key]> }
+    : Value;
+
+/** Pi-owned result view exposed to adapters and renderers without mutation rights. */
+export type BorrowedToolResult = DeepReadonly<AgentToolResult<unknown>>;
+
 export type SavedOutput = Readonly<Partial<OutputText>> & {
   readonly path: string;
   readonly notice?: string | undefined;
@@ -63,7 +72,7 @@ export type DisplayCall = {
   readonly origin: "live" | "historical";
   readonly lifecycle: Lifecycle;
   readonly outcome: Outcome;
-  readonly result?: AgentToolResult<unknown>;
+  readonly result?: BorrowedToolResult;
   readonly operation?: OperationFact;
   readonly cancellation?: CancellationFact;
   readonly change?: ChangeFact;
@@ -95,7 +104,6 @@ export type ExplorationScope = {
 };
 
 export type ExplorationItem = {
-  label: string;
   parts: InvocationPart[];
   /** Omission excludes the call from grouping. All items must have the same scope. */
   scope?: ExplorationScope;
@@ -136,7 +144,7 @@ export type ResultSummary = {
 
 export type ResultTextContext = {
   /** Borrowed result and the index of the current text block within its content. */
-  result: AgentToolResult<unknown>;
+  result: BorrowedToolResult;
   contentIndex: number;
   isError: boolean;
   isPartial: boolean;
@@ -177,7 +185,7 @@ export type ToolDisplayAdapter = {
    * Omission accepts all results. The selected contract and retained data stay
    * unchanged. Standalone factories use their explicit adapter without this check.
    */
-  supports?(args: unknown, result: AgentToolResult<unknown>): boolean;
+  supports?(args: unknown, result: BorrowedToolResult): boolean;
   /**
    * Override the base action, pending, and successful completion verbs. Omission
    * uses the family's verbs. Terminal problems qualify the action ("Write failed").
@@ -188,17 +196,18 @@ export type ToolDisplayAdapter = {
    * Arguments remain unmodified by path display formatting. The optional retained
    * result can supply a resolved tool identity.
    */
-  invocation?(args: unknown, result?: AgentToolResult<unknown>): InvocationPart[];
+  invocation?(args: unknown, result?: BorrowedToolResult): InvocationPart[];
   /**
    * Supply ordered group items for the automatic CLI integration. Handle partial
    * arguments before a result exists; undefined, empty items, or missing/mixed scopes
    * exclude the call. Scope runs compare normalized directories or exact literal filters.
    * Result updates can remove or restore membership without changing source order.
    */
-  exploration?(args: unknown, result?: AgentToolResult<unknown>): ExplorationItem[] | undefined;
+  exploration?(args: unknown, result?: BorrowedToolResult): ExplorationItem[] | undefined;
   /**
    * Label collapsed groups that use a literal filter scope with a custom heading,
    * such as "Tasks". Exploration groups leave it undefined and name their scope.
+   * Calls group only when both their normalized scope and custom title match.
    */
   groupTitle?: string;
   /**
@@ -208,7 +217,7 @@ export type ToolDisplayAdapter = {
    * Missing summaries use the ordinary output preview, including inside groups.
    */
   summary?(
-    result: AgentToolResult<unknown>,
+    result: BorrowedToolResult,
     context: {
       args: unknown;
       outcome: Outcome;
@@ -220,7 +229,7 @@ export type ToolDisplayAdapter = {
    * Cancellation takes precedence over failure, and neither can be downgraded by
    * success or unavailable metadata. Omission uses Pi's outcome and MCP facts.
    */
-  outcome?(result: AgentToolResult<unknown>): Outcome | undefined;
+  outcome?(result: BorrowedToolResult): Outcome | undefined;
   /** Declare details.fullOutputPath meaningful to the CLI; standalone renderers never load it. */
   savedOutput?: boolean;
   /** Interpret successful details.patch as a unified patch, within the retained patch byte limit. */
@@ -230,7 +239,7 @@ export type ToolDisplayAdapter = {
    * groups. Severity controls styling, not visibility. Use summary for result totals.
    * `info` uses dim styling, `unavailable` uses muted styling.
    */
-  notices?(result: AgentToolResult<unknown>, expanded: boolean): DisplayNotice[];
+  notices?(result: BorrowedToolResult, expanded: boolean): DisplayNotice[];
   /**
    * Interpret a known text envelope using explicit result context, not guessed
    * facts from ordinary output. Preserve content except recognized routine metadata.
@@ -244,7 +253,7 @@ export type ToolDisplayAdapter = {
    */
   imageCaptionMimeType?(text: string): string | undefined;
   /** Supply typed MCP facts, or undefined when unavailable; never infer lost protocol types. */
-  mcp?(args: unknown, result?: AgentToolResult<unknown>): McpFacts | undefined;
+  mcp?(args: unknown, result?: BorrowedToolResult): McpFacts | undefined;
 };
 
 /** Return a contract only after validating the registered tool's ownership and schema. */

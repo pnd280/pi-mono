@@ -77,6 +77,12 @@ it("has a five-second deadline and cancellation prevents later helper fallback",
   }
 }, 8000);
 
+it("rejects timer durations that Node would silently clamp", async () => {
+  await expect(
+    copyNative("text", signal(), { helpers: [], timeout: 2_147_483_648 })
+  ).rejects.toThrow(RangeError);
+});
+
 it("selects platform-native helpers and refuses remote/no-display/native Windows environments", () => {
   expect(nativeHelpers("darwin", {}, "")[0]?.command).toBe("pbcopy");
   expect(

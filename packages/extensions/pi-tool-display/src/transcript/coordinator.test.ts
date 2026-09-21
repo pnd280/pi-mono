@@ -134,6 +134,39 @@ it("normalizes home and native path spellings without interpreting literal filte
   }
 });
 
+it("keeps titled groups separate from exploration groups with the same literal filter", () => {
+  const c = new TranscriptCoordinator("group-titles");
+  let index = 0;
+  const add = (id: string, title?: string) =>
+    c.add(
+      { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
+      id,
+      {},
+      {
+        id,
+        family: "invocation",
+        ...(title === undefined ? {} : { groupTitle: title }),
+        exploration: () => [
+          {
+            parts: [{ kind: "value", text: id }],
+            scope: { kind: "filter", value: "shared" }
+          }
+        ]
+      },
+      "historical"
+    );
+
+  try {
+    const titled = add("tasks", "Tasks");
+    const firstSearch = add("search:first");
+    const secondSearch = add("search:second");
+    expect(c.group(titled)).toBeUndefined();
+    expect(c.group(firstSearch)?.members).toEqual([firstSearch, secondSearch]);
+  } finally {
+    c.dispose();
+  }
+});
+
 it("repartitions changed streamed scopes without duplicating members or expanding across other runs", () => {
   const { coordinator: c, add } = fixture();
 
@@ -165,7 +198,7 @@ it("repartitions changed streamed scopes without duplicating members or expandin
 
 it("requires explicit matching scopes for every item without duplicating members", () => {
   const c = new TranscriptCoordinator("structured-scopes");
-  const item: ExplorationItem = { label: "Read", parts: [{ kind: "path", text: "src/a.ts" }] };
+  const item: ExplorationItem = { parts: [{ kind: "path", text: "src/a.ts" }] };
   const scoped: ExplorationItem = { ...item, scope: { kind: "file", value: "src/a.ts" } };
   let index = 0;
   const add = (items: ExplorationItem[]) =>
@@ -412,7 +445,6 @@ it("batches reconstruction boundaries and late adapters into one contract pass",
   const { coordinator: c, onExpansion } = fixture();
   const exploration = vi.fn(() => [
     {
-      label: "Read" as const,
       scope: { kind: "file" as const, value: "file.txt" },
       parts: [{ kind: "path" as const, text: "file.txt" }]
     }
@@ -480,7 +512,6 @@ it("regroups late historical contracts without changing results, source order, o
       family: "search" as const,
       exploration: () => [
         {
-          label: "Search" as const,
           scope: { kind: "filter" as const, value: "." },
           parts: [{ kind: "value" as const, text: "supplied pattern" }]
         }
@@ -513,7 +544,6 @@ it("restores exploration groups when final results establish a previously unavai
         value?.content[0]?.type === "text" && value.content[0].text === "search results"
           ? [
               {
-                label: "Search" as const,
                 scope: { kind: "directory" as const, value: "." },
                 parts: [{ kind: "value" as const, text: "needle" }]
               }

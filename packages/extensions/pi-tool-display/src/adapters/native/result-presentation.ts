@@ -1,8 +1,12 @@
-import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
-import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../contracts.ts";
+import type {
+  BorrowedToolResult,
+  DisplayNotice,
+  ResultTextContext,
+  ResultTextPart
+} from "../../contracts.ts";
 import { stringField } from "../../terminal-text.ts";
 import { record } from "../../values.ts";
 
@@ -46,9 +50,7 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
 }
 
 /** Read bodies collapse independently of their image/model limitations. */
-export function nativeReadImageNotices(
-  content: AgentToolResult<unknown>["content"]
-): DisplayNotice[] {
+export function nativeReadImageNotices(content: BorrowedToolResult["content"]): DisplayNotice[] {
   const hasImages = content.some((block) => block.type === "image");
 
   return content.flatMap((block) =>

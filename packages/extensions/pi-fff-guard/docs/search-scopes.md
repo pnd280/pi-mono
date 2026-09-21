@@ -6,7 +6,7 @@
 
 The guard checks explicit `path` values and multi-grep constraints for missing or ignored targets, including broken links. [Exclusions differ](#globs-and-exclusions). Relative paths use session cwd; `~/` expands home.
 
-In `path` and `exclude`, FFF strips `./` and workspace-local absolute prefixes. Thus `main.ts` and `./main.ts` are recursive filters requiring no local file; `src/main.ts` is explicit.
+In `path` and `exclude`, FFF strips `./` and workspace-local absolute prefixes. Thus `main.ts` and `./main.ts` are recursive filters requiring no local file; `src/main.ts` is explicit. Extensionless values are directory constraints, so a same-named regular file does not satisfy them.
 
 For `fffind.pattern`, the guard checks existing explicit paths and globs with fixed directory prefixes, such as `node_modules/**`. Missing-path checks require an anchor (`/`, `./`, `../`, `~/`), trailing `/`, or rooted glob.
 
@@ -14,7 +14,7 @@ The guard trims `path` without splitting it and preserves existing explicit `fff
 
 ## Globs and exclusions
 
-- Existing explicit literal paths take precedence over glob syntax; bare filename filters remain recursive.
+- FFF glob syntax takes precedence even when the same literal path exists; bare filename filters remain recursive.
 - For globs, the guard validates only the fixed directory prefix before the first wildcard. It does not require matching files. For finite brace alternatives, it reports a missing-path error only if every branch has a missing concrete root.
 - Positive scopes intersect. Each rooted glob still applies when another scope narrows the search to the same directory or a descendant. Constraint order does not change exclusion handling.
 - Missing exclusions are not errors. Fully excluded ignored targets pass through; partially excluded ignored directories still block.

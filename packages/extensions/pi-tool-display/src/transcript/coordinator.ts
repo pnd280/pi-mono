@@ -62,7 +62,21 @@ function sameScope(
   return left?.kind === right?.kind && left?.value === right?.value;
 }
 
-function exploration(call: DisplayCall, cwd: string): ExplorationScope | undefined {
+type ExplorationGroupKey = {
+  scope: ExplorationScope;
+  title: string | undefined;
+};
+
+function sameGroupKey(
+  left: ExplorationGroupKey | undefined,
+  right: ExplorationGroupKey | undefined
+): boolean {
+  if (!left || !right) return left === right;
+
+  return left.title === right.title && sameScope(left.scope, right.scope);
+}
+
+function exploration(call: DisplayCall, cwd: string): ExplorationGroupKey | undefined {
   const adapter = resolveResultAdapter(call.adapter, call.args, call.result);
   const items = adapter.exploration?.(call.args, call.result);
   const first = items?.[0];
@@ -74,7 +88,7 @@ function exploration(call: DisplayCall, cwd: string): ExplorationScope | undefin
   )
     return undefined;
 
-  return scope;
+  return { scope, title: adapter.groupTitle };
 }
 
 type MutableCall = { -readonly [Key in keyof DisplayCall]: DisplayCall[Key] };
@@ -94,7 +108,7 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   private sequence: string[] = [];
   private positions = new Map<string, number>();
-  private explorable = new Map<string, ExplorationScope>();
+  private explorable = new Map<string, ExplorationGroupKey>();
   private cwd: string;
   private separators = new Set<string>();
   private groupingDepth = 0;
@@ -174,11 +188,11 @@ export class TranscriptCoordinator implements TranscriptView {
 
     // Append is the common path, including history reconstruction. Only the old
     // heading and final connector can change; unrelated row caches stay valid.
-    const facts = exploration(call, this.cwd);
+    const grouping = exploration(call, this.cwd);
 
-    if (facts) {
-      this.explorable.set(key, facts);
-      this.appendGroup(call, previous, facts);
+    if (grouping) {
+      this.explorable.set(key, grouping);
+      this.appendGroup(call, previous, grouping);
     }
 
     if (isLive(call)) this.activeCalls.add(call);
@@ -406,32 +420,32 @@ export class TranscriptCoordinator implements TranscriptView {
 
     return [this.position(members?.[0]?.key ?? key), this.position(members?.at(-1)?.key ?? key)];
   }
-  private newGroup(call: MutableCall, scope: ExplorationScope): MutableGroup {
+  private newGroup(call: MutableCall, grouping: ExplorationGroupKey): MutableGroup {
     return {
       members: [],
       expanded: call.expanded,
-      scope,
-      title: call.adapter.groupTitle
+      scope: grouping.scope,
+      title: grouping.title
     };
   }
-  private sharesScope(left: string, right: string): boolean {
+  private sharesGroup(left: string, right: string): boolean {
     const first = this.explorable.get(left);
     const second = this.explorable.get(right);
 
-    return !!first && !!second && sameScope(first, second);
+    return !!first && !!second && sameGroupKey(first, second);
   }
   private appendGroup(
     call: MutableCall,
     previous: string | undefined,
-    scope: ExplorationScope
+    grouping: ExplorationGroupKey
   ): void {
     const group =
-      previous && !this.separated(previous) && this.sharesScope(previous, call.key)
+      previous && !this.separated(previous) && this.sharesGroup(previous, call.key)
         ? this.groups.get(previous)
         : undefined;
     const first = group?.members[0];
     const last = group?.members.at(-1);
-    const current = group ?? this.newGroup(call, scope);
+    const current = group ?? this.newGroup(call, grouping);
     current.members.push(call);
     this.groups.set(call.key, current);
     this.synchronizeExpansion(call, current.expanded);
@@ -445,10 +459,10 @@ export class TranscriptCoordinator implements TranscriptView {
     this.options.onExpansion?.(call);
   }
   private refreshGrouping(call: MutableCall): void {
-    const facts = exploration(call, this.cwd);
-    const previousFacts = this.explorable.get(call.key);
-    if (sameScope(facts, previousFacts)) return;
-    if (facts) this.explorable.set(call.key, facts);
+    const grouping = exploration(call, this.cwd);
+    const previousGrouping = this.explorable.get(call.key);
+    if (sameGroupKey(grouping, previousGrouping)) return;
+    if (grouping) this.explorable.set(call.key, grouping);
     else this.explorable.delete(call.key);
     const position = this.position(call.key);
     const previous = this.sequence[position - 1];
@@ -456,18 +470,18 @@ export class TranscriptCoordinator implements TranscriptView {
 
     // Argument streaming commonly makes the last row explorable after creation.
     // Extend its predecessor exactly like an append, without rebuilding interiors.
-    if (facts && !previousFacts && !next && !this.groupingDepth) {
-      this.appendGroup(call, previous, facts);
+    if (grouping && !previousGrouping && !next && !this.groupingDepth) {
+      this.appendGroup(call, previous, grouping);
 
       return;
     }
 
     let [start, end] = this.groupRange(call.key);
 
-    if (facts) {
-      if (previous && this.sharesScope(previous, call.key) && !this.separated(previous))
+    if (grouping) {
+      if (previous && this.sharesGroup(previous, call.key) && !this.separated(previous))
         start = Math.min(start, this.groupRange(previous)[0]);
-      if (next && this.sharesScope(call.key, next) && !this.separated(call.key))
+      if (next && this.sharesGroup(call.key, next) && !this.separated(call.key))
         end = Math.max(end, this.groupRange(next)[1]);
     }
 
@@ -548,15 +562,15 @@ export class TranscriptCoordinator implements TranscriptView {
     };
 
     for (const call of calls) {
-      const scope = this.explorable.get(call.key);
+      const grouping = this.explorable.get(call.key);
 
-      if (!scope) {
+      if (!grouping) {
         finish();
         continue;
       }
 
-      if (group && !sameScope(group.scope, scope)) finish();
-      group ??= this.newGroup(call, scope);
+      if (group && !sameGroupKey({ scope: group.scope, title: group.title }, grouping)) finish();
+      group ??= this.newGroup(call, grouping);
       group.members.push(call);
       if (this.separators.has(call.key) || this.boundaryCounts.has(call.key)) finish();
     }

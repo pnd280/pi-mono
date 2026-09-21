@@ -1,6 +1,10 @@
-import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
-
-import type { DisplayNotice, McpFacts, Outcome, ResultSummary } from "../../contracts.ts";
+import type {
+  BorrowedToolResult,
+  DisplayNotice,
+  McpFacts,
+  Outcome,
+  ResultSummary
+} from "../../contracts.ts";
 import { record } from "../../values.ts";
 import {
   callIdentitySchema,
@@ -12,7 +16,7 @@ import {
 } from "./schemas.ts";
 
 export function mcpCallIdentity(
-  result?: AgentToolResult<unknown>
+  result?: BorrowedToolResult
 ): Pick<McpFacts, "server" | "tool"> | undefined {
   const parsed = callIdentitySchema.safeParse(result?.details);
   if (!parsed.success) return undefined;
@@ -21,7 +25,7 @@ export function mcpCallIdentity(
   return { server, tool };
 }
 
-export function mcpResultOutcome(result: AgentToolResult<unknown>): Outcome | undefined {
+export function mcpResultOutcome(result: BorrowedToolResult): Outcome | undefined {
   const details = noticeDetailsSchema.safeParse(result.details).data;
   if (details?.error === "aborted") return "cancelled";
   if (
@@ -34,7 +38,7 @@ export function mcpResultOutcome(result: AgentToolResult<unknown>): Outcome | un
   return undefined;
 }
 
-export function mcpCallFacts(result?: AgentToolResult<unknown>): McpFacts | undefined {
+export function mcpCallFacts(result?: BorrowedToolResult): McpFacts | undefined {
   const identity = mcpCallIdentity(result);
   if (!identity || !result || !result.content.length) return undefined;
   const details = record(result.details);
@@ -66,7 +70,7 @@ function outputNotices(value: unknown): DisplayNotice[] {
   return notices;
 }
 
-export function mcpScriptSummary(result: AgentToolResult<unknown>): ResultSummary | undefined {
+export function mcpScriptSummary(result: BorrowedToolResult): ResultSummary | undefined {
   const details = scriptSummarySchema.safeParse(result.details).data;
   if (!details) return undefined;
   const count = details.calls.length;
@@ -79,7 +83,7 @@ export function mcpScriptSummary(result: AgentToolResult<unknown>): ResultSummar
   };
 }
 
-export function mcpNotices(result: AgentToolResult<unknown>, expanded: boolean): DisplayNotice[] {
+export function mcpNotices(result: BorrowedToolResult, expanded: boolean): DisplayNotice[] {
   const details = noticeDetailsSchema.safeParse(result.details).data;
   if (!details) return [];
   const notices: DisplayNotice[] = [];

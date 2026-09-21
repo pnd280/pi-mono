@@ -37,8 +37,23 @@ export function metadataLimitError<Metadata>(metadata: Metadata): string | undef
     while (stack.length > 0) {
       const frame = stack.pop();
       if (!frame) continue;
-      const container = jsonContainer(frame.value);
-      if (container === undefined) continue;
+      const { value } = frame;
+
+      if (value === null || typeof value === "string" || typeof value === "boolean") continue;
+
+      if (typeof value === "number") {
+        if (!Number.isFinite(value) || Object.is(value, -0)) {
+          return "metadata must be JSON-serializable";
+        }
+
+        continue;
+      }
+
+      if (!Array.isArray(value) && !isPlainObject(value)) {
+        return "metadata must be JSON-serializable";
+      }
+
+      const container = value;
 
       if (frame.exiting) {
         active.delete(container);
@@ -49,7 +64,9 @@ export function metadataLimitError<Metadata>(metadata: Metadata): string | undef
         return `metadata exceeds maximum depth of ${MAX_METADATA_DEPTH}`;
       }
 
-      if (active.has(container)) return "metadata must be JSON-serializable";
+      if (active.has(container) || (Array.isArray(container) && !isDenseJsonArray(container))) {
+        return "metadata must be JSON-serializable";
+      }
 
       active.add(container);
       stack.push({ ...frame, value: container, exiting: true });
@@ -259,6 +276,17 @@ function jsonContainer<Value>(value: Value): object | undefined {
 
 function hasFunctionToJson<Value extends object>(value: Value): boolean {
   return typeof (value as { toJSON?: unknown }).toJSON === "function";
+}
+
+function isPlainObject(value: unknown): value is object {
+  if (!isObject(value)) return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null;
+}
+
+function isDenseJsonArray(value: readonly unknown[]): boolean {
+  return Object.keys(value).length === value.length;
 }
 
 function isObject<Value>(value: Value): value is Value & object {

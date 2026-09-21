@@ -39,6 +39,16 @@ describe("explicit search scopes", () => {
     expect(await roots("find", { pattern: "node_modules/** package" })).toEqual(["node_modules"]);
   });
 
+  it("uses FFF glob syntax even when the same literal path exists", async () => {
+    await directory.write("{src,node_modules}/literal.ts");
+
+    expect(await roots("grep", { path: "{src,node_modules}" })).toEqual(["src", "node_modules"]);
+  });
+
+  it("checks rooted brace globs without requiring matching files", async () => {
+    expect(await roots("grep", { path: "src/{missing,also-missing}.ts" })).toEqual(["src"]);
+  });
+
   it("accepts fuzzy queries, search filters, and viable glob alternatives with the correct targets", async () => {
     const cases: Array<[SearchKind, SearchInput, string[]]> = [
       ["find", { pattern: "node_modules" }, []],
@@ -72,6 +82,11 @@ describe("explicit search scopes", () => {
   });
 
   it("reports missing concrete paths and glob roots without requiring glob matches", async () => {
+    await directory.write("src/LICENSE");
+    const extensionlessFile = await extractScope("grep", { path: "src/LICENSE" }, directory.root);
+    expect(extensionlessFile.missingPath).toBe("src/LICENSE");
+    expect(extensionlessFile.targets).toEqual([]);
+
     const missingPaths = [
       "missing",
       "missing/",
@@ -132,10 +147,15 @@ describe("explicit search scopes", () => {
     ).toEqual([]);
   });
 
-  it("preserves explicit literal paths containing spaces, commas, and glob characters", async () => {
-    const name = "node_modules/a, b/[file].ts";
-    await directory.write(name);
-    expect(await roots("grep", { path: name })).toEqual([name]);
-    expect(await roots("find", { pattern: name })).toEqual([name]);
+  it("preserves spaces and commas while applying FFF glob syntax", async () => {
+    const literalName = "node_modules/a, b/file.ts";
+    const globName = "node_modules/a, b/[file].ts";
+    await directory.write(literalName);
+    await directory.write(globName);
+
+    expect(await roots("grep", { path: literalName })).toEqual([literalName]);
+    expect(await roots("find", { pattern: literalName })).toEqual([literalName]);
+    expect(await roots("grep", { path: globName })).toEqual(["node_modules/a, b"]);
+    expect(await roots("find", { pattern: globName })).toEqual(["node_modules/a, b"]);
   });
 });

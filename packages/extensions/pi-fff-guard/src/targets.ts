@@ -44,6 +44,7 @@ export interface SearchScope {
 interface ScopeExpression {
   value: string;
   validatePath: boolean;
+  directoryOnly: boolean;
 }
 
 export function resolvePath(value: string, cwd: string): string {
@@ -54,11 +55,17 @@ export function hasGlob(value: string): boolean {
   return /[*?[{]/.test(value);
 }
 
-function isFilenameFilter(expression: string): boolean {
-  return !expression.includes("/") && /\.[a-zA-Z][a-zA-Z0-9]{0,9}$/.test(expression);
+function hasFilenameExtension(expression: string): boolean {
+  const lastSegment = expression.split("/").at(-1) ?? "";
+
+  return /\.[a-zA-Z][a-zA-Z0-9]{0,9}$/.test(lastSegment);
 }
 
-function normalizeFilenameConstraint(expression: string, cwd: string): string {
+function isFilenameFilter(expression: string): boolean {
+  return !expression.includes("/") && hasFilenameExtension(expression);
+}
+
+function normalizePathField(expression: string, cwd: string) {
   // FFF normalizes path/exclude fields before parsing. Workspace-local absolute
   // paths and ./ prefixes cannot make a bare filename filter concrete.
   const value =
@@ -67,7 +74,12 @@ function normalizeFilenameConstraint(expression: string, cwd: string): string {
       : expression;
   const normalized = value.replace(/^\.\//, "");
 
-  return isFilenameFilter(normalized) ? normalized : expression;
+  return {
+    value: isFilenameFilter(normalized) ? normalized : expression,
+    // FFF appends a slash to extensionless non-glob path fields. A regular
+    // file with that name is therefore not a viable search root.
+    directoryOnly: normalized !== "." && !hasGlob(normalized) && !hasFilenameExtension(normalized)
+  };
 }
 
 /** Finite brace alternatives only. Bound expansion, never enumerate the filesystem. */
@@ -104,35 +116,50 @@ function globRoot(expression: string): { prefix: string; filter: string } | unde
   };
 }
 
-export async function existingTarget(expression: string, cwd: string): Promise<Target | undefined> {
+export async function existingTarget(
+  expression: string,
+  cwd: string,
+  directoryOnly = expression.endsWith("/")
+): Promise<Target | undefined> {
   // FFF applies bare filenames recursively, even when a cwd match exists.
   if (isFilenameFilter(expression)) return undefined;
-  // An explicit literal path containing glob characters takes precedence when it exists.
+  const glob = globRoot(expression);
+
+  if (hasGlob(expression)) {
+    if (!glob) return undefined;
+    const root = resolvePath(glob.prefix, cwd);
+    const rootInfo = await fileInfo(root);
+    if (!rootInfo?.isDirectory()) return undefined;
+
+    return {
+      absolute: root,
+      directory: true,
+      filters: [{ root, pattern: glob.filter }]
+    };
+  }
+
   const absolute = resolvePath(expression, cwd);
   const info = await fileInfo(absolute);
-  if (info?.isDirectory() || info?.isFile())
+  if (info?.isDirectory() || (info?.isFile() && !directoryOnly))
     return { absolute, directory: info.isDirectory(), filters: [] };
-  const glob = globRoot(expression);
-  if (!glob) return undefined;
-  const root = resolvePath(glob.prefix, cwd);
-  const rootInfo = await fileInfo(root);
-  if (!rootInfo?.isDirectory()) return undefined;
 
-  return {
-    absolute: root,
-    directory: true,
-    filters: [{ root, pattern: glob.filter }]
-  };
+  return undefined;
 }
 
-async function isMissingPath(expression: string, cwd: string): Promise<boolean> {
+async function isMissingPath(
+  expression: string,
+  cwd: string,
+  directoryOnly: boolean
+): Promise<boolean> {
   const glob = globRoot(expression);
   if (hasGlob(expression) && !glob) return false;
   // Bare filenames remain recursive filters after path-field normalization.
   if (isFilenameFilter(expression)) return false;
   const info = await fileInfo(resolvePath(glob?.prefix ?? expression, cwd));
 
-  return !info || (glob !== undefined && !info.isDirectory());
+  return (
+    !info || (directoryOnly && !info.isDirectory()) || (glob !== undefined && !info.isDirectory())
+  );
 }
 
 async function fileInfo(absolute: string) {
@@ -156,7 +183,10 @@ function exclusionTokens(exclude: SearchInput["exclude"], cwd: string): string[]
   return list
     .flatMap((entry) => entry.split(/[,\s]+/))
     .filter(Boolean)
-    .map((entry) => normalizeFilenameConstraint(entry.replace(/^!/, ""), cwd))
+    .map((entry) => normalizePathField(entry.replace(/^!/, ""), cwd))
+    .map(({ value, directoryOnly }) =>
+      directoryOnly && !value.endsWith("/") ? `${value}/` : value
+    )
     .filter((entry) => !["**", "**/", "**/*"].includes(entry) && resolvePath(entry, cwd) !== cwd);
 }
 
@@ -299,12 +329,15 @@ async function queryExpressions(
   scope: SearchScope
 ): Promise<ScopeExpression[]> {
   const expressions: ScopeExpression[] = [];
-  if (kind !== "multi" && input.path?.trim())
-    expressions.push({
-      value: normalizeFilenameConstraint(input.path.trim(), cwd),
-      validatePath: true
-    });
+
+  if (kind !== "multi" && input.path?.trim()) {
+    const normalized = normalizePathField(input.path.trim(), cwd);
+
+    expressions.push({ ...normalized, validatePath: true });
+  }
+
   let tokens: string[] = [];
+
   if (kind === "multi") tokens = (input.constraints ?? "").split(/\s+/).filter(Boolean);
   else if (kind === "find") tokens = await filenameTokens(input.pattern ?? "", cwd);
 
@@ -319,7 +352,8 @@ async function queryExpressions(
           kind === "multi" ||
           /^(?:\/|\.{1,2}\/|~\/)/.test(token) ||
           token.endsWith("/") ||
-          hasGlob(token)
+          hasGlob(token),
+        directoryOnly: token.endsWith("/")
       });
   }
 
@@ -369,6 +403,30 @@ function intersectTargets(left: Target[], right: Target[]): Target[] {
   return targets;
 }
 
+async function targetsForExpression(
+  expression: string,
+  cwd: string,
+  directoryOnly: boolean,
+  signal?: AbortSignal
+) {
+  const literal = await existingTarget(expression, cwd, directoryOnly);
+  const entries = literal && !literal.filters.length ? [expression] : alternatives(expression);
+  const targets: Target[] = [];
+
+  for (const entry of entries) {
+    signal?.throwIfAborted();
+    const target = await existingTarget(entry, cwd, directoryOnly);
+
+    if (target) targets.push(target);
+  }
+
+  // Brace expansion can remove the wildcard from every branch. Retain the
+  // original fixed root rather than requiring one of those branches to exist.
+  if (literal && targets.length === 0 && literal.filters.length > 0) targets.push(literal);
+
+  return { entries, targets };
+}
+
 async function collectTargets(
   expressions: ScopeExpression[],
   cwd: string,
@@ -377,17 +435,9 @@ async function collectTargets(
 ): Promise<void> {
   let combined: Target[] | undefined;
 
-  for (const { value: expression, validatePath } of expressions) {
+  for (const { value: expression, validatePath, directoryOnly } of expressions) {
     signal?.throwIfAborted();
-    const literal = await existingTarget(expression, cwd);
-    const entries = literal && !literal.filters.length ? [expression] : alternatives(expression);
-    const targets: Target[] = [];
-
-    for (const entry of entries) {
-      signal?.throwIfAborted();
-      const target = await existingTarget(entry, cwd);
-      if (target) targets.push(target);
-    }
+    const { entries, targets } = await targetsForExpression(expression, cwd, directoryOnly, signal);
 
     if (!targets.length) {
       if (validatePath && !scope.missingPath) {
@@ -396,7 +446,7 @@ async function collectTargets(
         for (const entry of entries) {
           signal?.throwIfAborted();
 
-          if (!(await isMissingPath(entry, cwd))) {
+          if (!(await isMissingPath(entry, cwd, directoryOnly))) {
             allMissing = false;
             break;
           }

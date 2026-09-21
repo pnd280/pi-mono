@@ -133,6 +133,8 @@ export class Browser<Item> implements Component, Focusable {
       if (!state.preview && !inspection) primary.unshift("Type to search");
     }
 
+    const messageText = message && displayText(message.text);
+
     return renderHintFooter({
       width,
       maxRows,
@@ -142,12 +144,12 @@ export class Browser<Item> implements Component, Focusable {
       padding: compact ? "" : "  ",
       separator: " · ",
       style: (text) => theme.fg("dim", text),
-      ...(message
+      ...(message && messageText !== undefined
         ? {
             message: {
-              text: displayText(message.text),
+              text: messageText,
               style: (text: string) => theme.fg(message.color, text),
-              overflowText: message.text
+              overflowText: messageText
             }
           }
         : {})

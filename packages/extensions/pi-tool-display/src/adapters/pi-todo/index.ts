@@ -1,8 +1,9 @@
-import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { displayText, styledOutput } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
 import type {
+  BorrowedToolResult,
   HeadingVerbs,
   InvocationPart,
   Outcome,
@@ -89,7 +90,7 @@ function parseArgs(args: unknown) {
   return argsSchema.safeParse(args).data;
 }
 
-function parseDetails(result: AgentToolResult<unknown> | undefined) {
+function parseDetails(result: BorrowedToolResult | undefined) {
   return detailsSchema.safeParse(result?.details).data;
 }
 
@@ -114,7 +115,7 @@ function presentTaskText(text: string): string {
 }
 
 function taskSubject(
-  result: AgentToolResult<unknown> | undefined,
+  result: BorrowedToolResult | undefined,
   id: number | undefined
 ): string | undefined {
   if (id === undefined) return undefined;
@@ -141,7 +142,7 @@ function changeSummary(args: NonNullable<ReturnType<typeof parseArgs>>): string 
 }
 
 function idSubjectParts(
-  result: AgentToolResult<unknown> | undefined,
+  result: BorrowedToolResult | undefined,
   id: number | undefined
 ): InvocationPart[] {
   const subject = taskSubject(result, id);
@@ -151,7 +152,7 @@ function idSubjectParts(
     : [{ kind: "annotation", text: `#${id} ` }, subjectPart(subject)];
 }
 
-function invocation(args: unknown, result?: AgentToolResult<unknown>): InvocationPart[] {
+function invocation(args: unknown, result?: BorrowedToolResult): InvocationPart[] {
   const parsed = parseArgs(args);
   if (!parsed) return [{ kind: "annotation", text: "…" }];
 
@@ -276,11 +277,9 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
   exploration(args, result) {
     const parsed = parseArgs(args);
     if (!parsed) return undefined;
-    const verb = actionVerbs[parsed.action];
 
     return [
       {
-        label: result === undefined ? verb.pending : verb.complete,
         parts: invocation(args, result),
         scope: { kind: "filter" as const, value: GROUP_SCOPE }
       }

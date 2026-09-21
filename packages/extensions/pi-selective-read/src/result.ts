@@ -29,7 +29,12 @@ export interface ReadDocument {
 /** Strip only the preview recorded by this extension, never text matched by a heading. */
 export function sourceResult(result: ReadResult): ReadResult {
   const count = detailsSchema.safeParse(result.details).data?.selectiveRead?.sourceBlocks;
-  if (count === undefined || count >= result.content.length) return result;
+  if (
+    count === undefined ||
+    count !== result.content.length - 1 ||
+    result.content.some((block) => block.type !== "text")
+  )
+    return result;
 
   return { ...result, content: result.content.slice(0, count) };
 }

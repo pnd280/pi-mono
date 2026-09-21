@@ -1,4 +1,4 @@
-import { inspectGitIgnore } from "@pi-mono/libs/git-ignore";
+import { inspectGitIgnore, type GitIgnoreResult } from "@pi-mono/libs/git-ignore";
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 
 import { extractScope, searchInputSchema } from "./targets.ts";
@@ -32,6 +32,51 @@ function parseSearchInput(input: unknown) {
   throw new Error(`Invalid FFF ${String(key ?? "input")}: expected a string`);
 }
 
+function settleOnAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+
+    signal.addEventListener("abort", onAbort, { once: true });
+    void operation.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      }
+    );
+  });
+}
+
+function inspectionDecision(result: GitIgnoreResult, toolName: string): SearchDecision | undefined {
+  switch (result.status) {
+    case "cancelled":
+    case "timed-out":
+      return { kind: "allow", diagnostic: "Git inspection timed out" };
+    case "missing":
+      return { kind: "block", reason: "No such file or directory" };
+
+    case "unavailable":
+      return { kind: "allow", diagnostic: "Git inspection failed" };
+
+    case "ignored":
+      return {
+        kind: "block",
+        reason: `${toolName} does not work with Git-ignored paths. Retry with rg or another available tool.`
+      };
+    case "not-ignored":
+      return undefined;
+
+    default:
+      result satisfies never;
+      throw new Error("unexpected Git inspection result");
+  }
+}
+
 /** Inspection policy without Pi registration or notification delivery. */
 export async function evaluateSearch({
   kind,
@@ -53,7 +98,10 @@ export async function evaluateSearch({
 
   try {
     const scopeInput = parseSearchInput(input);
-    const scope = await extractScope(kind, scopeInput, cwd, inspectionSignal);
+    const scope = await settleOnAbort(
+      extractScope(kind, scopeInput, cwd, inspectionSignal),
+      inspectionSignal
+    );
     inspectionSignal.throwIfAborted();
     if (scope.missingPath) return { kind: "block" as const, reason: "No such file or directory" };
     const inspected = new Set<string>();
@@ -62,30 +110,19 @@ export async function evaluateSearch({
       inspectionSignal.throwIfAborted();
       if (inspected.has(target.absolute)) continue;
       inspected.add(target.absolute);
-      const result = await inspectGitIgnore({
-        path: target.absolute,
-        cwd,
-        signal: inspectionSignal,
-        timeoutMs: 2000
-      });
+      const result = await settleOnAbort(
+        inspectGitIgnore({
+          path: target.absolute,
+          cwd,
+          signal: inspectionSignal,
+          timeoutMs: 2000
+        }),
+        inspectionSignal
+      );
       if (signal?.aborted) return cancelled;
-      if (result.status === "cancelled") throw new Error("inspection timed out");
+      const decision = inspectionDecision(result, toolName);
 
-      if (result.status === "timed-out")
-        return { kind: "allow", diagnostic: "Git inspection timed out" };
-
-      if (result.status === "unavailable") {
-        const message =
-          result.cause instanceof Error ? result.cause.message : "Git inspection failed";
-
-        return { kind: "allow", diagnostic: message.replace(/[\r\n]/g, " ").slice(0, 180) };
-      }
-
-      if (result.status === "ignored")
-        return {
-          kind: "block" as const,
-          reason: `${toolName} does not work with Git-ignored paths. Retry with rg or another available tool.`
-        };
+      if (decision) return decision;
     }
   } catch (error) {
     if (signal?.aborted) return cancelled;

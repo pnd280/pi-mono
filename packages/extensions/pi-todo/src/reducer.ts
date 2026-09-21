@@ -187,15 +187,33 @@ function boundedListLines(
   for (const entry of entries) {
     if (lines.length >= MAX_LIST_LINES) break;
     const line = renderListEntry(entry, statusFilter);
-    if (lines.length > 0 && characters + line.length + 1 > MAX_LIST_CHARACTERS) break;
+    const separatorLength = lines.length > 0 ? 1 : 0;
+    if (lines.length > 0 && characters + separatorLength + line.length > MAX_LIST_CHARACTERS) break;
     lines.push(line);
-    characters += line.length + 1;
+    characters += separatorLength + line.length;
   }
 
-  const omitted = entries.length - lines.length;
-  if (omitted > 0) lines.push(`… ${omitted} more tasks omitted (narrow with status or get #id)`);
+  let omitted = entries.length - lines.length;
+  if (omitted === 0) return lines;
+  let notice = omittedTasksNotice(omitted);
+
+  // Keep the notice inside the same model-output budget. A legacy first line may
+  // itself exceed the budget and is deliberately retained by contract.
+  while (lines.length > 1 && characters + 1 + notice.length > MAX_LIST_CHARACTERS) {
+    const removed = lines.pop();
+    if (removed === undefined) break;
+    characters -= removed.length + 1;
+    omitted += 1;
+    notice = omittedTasksNotice(omitted);
+  }
+
+  lines.push(notice);
 
   return lines;
+}
+
+function omittedTasksNotice(omitted: number): string {
+  return `… ${omitted} more tasks omitted (narrow with status or get #id)`;
 }
 
 function renderListEntry(entry: TaskHierarchyEntry, statusFilter: TaskStatus | undefined): string {

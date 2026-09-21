@@ -74,7 +74,8 @@ function resolveShortcuts(settings: Settings, warnings: string[]) {
 /** The caller must establish TUI mode before calling this global-only reader. */
 export async function loadSettings(agentDir: string) {
   try {
-    const raw: unknown = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8"));
+    const content = await readFile(join(agentDir, "settings.json"), "utf8");
+    const raw: unknown = JSON.parse(content.startsWith("\uFEFF") ? content.slice(1) : content);
     const parsed = globalSettingsSchema.safeParse(raw);
 
     return parseSettings(parsed.success ? parsed.data["ext.pi-prompt-manager"] : null);

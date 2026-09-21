@@ -2,6 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { expect, it } from "vite-plus/test";
 
 import { loadTodoConfig } from "./config.ts";
@@ -11,9 +12,9 @@ it("merges only trusted cwd settings and rejects invalid sections without losing
   const agentDir = join(root, "agent"),
     cwd = join(root, "project");
   mkdirSync(agentDir);
-  mkdirSync(join(cwd, ".pi"), { recursive: true });
+  mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
   const global = join(agentDir, "settings.json"),
-    project = join(cwd, ".pi", "settings.json");
+    project = join(cwd, CONFIG_DIR_NAME, "settings.json");
 
   try {
     expect(loadTodoConfig(cwd, { agentDir })).toEqual({ collapseWidgetByDefault: false });

@@ -1,5 +1,14 @@
 import { StringDecoder } from "node:string_decoder";
 
+import { z } from "zod";
+
+const byteLimitSchema = z.int().nonnegative();
+
+function assertByteLimit(bytes: number): void {
+  if (!byteLimitSchema.safeParse(bytes).success)
+    throw new RangeError("UTF-8 byte limits must be nonnegative safe integers.");
+}
+
 /** Decode a standalone byte window, dropping only an incomplete edge character.
  * Complete BOMs and literal replacement characters are retained. Invalid UTF-8
  * otherwise follows Node's replacement decoding, not strict validation.
@@ -15,6 +24,7 @@ export function decodeUtf8(buffer: Buffer, boundary?: "head" | "tail"): string {
 }
 
 export function utf8Prefix(text: string, bytes: number): string {
+  assertByteLimit(bytes);
   const buffer = Buffer.from(text);
   let end = Math.min(bytes, buffer.length);
   while (end > 0 && end < buffer.length && (buffer.readUInt8(end) & 0xc0) === 0x80) end--;
@@ -23,6 +33,7 @@ export function utf8Prefix(text: string, bytes: number): string {
 }
 
 export function utf8Suffix(text: string, bytes: number): string {
+  assertByteLimit(bytes);
   const buffer = Buffer.from(text);
   let start = Math.max(0, buffer.length - bytes);
   while (start < buffer.length && (buffer.readUInt8(start) & 0xc0) === 0x80) start++;

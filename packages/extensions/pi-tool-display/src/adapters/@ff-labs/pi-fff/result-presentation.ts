@@ -1,7 +1,11 @@
-import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 
-import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../../contracts.ts";
+import type {
+  BorrowedToolResult,
+  DisplayNotice,
+  ResultTextContext,
+  ResultTextPart
+} from "../../../contracts.ts";
 
 const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultTextPart => ({
   text,
@@ -63,10 +67,7 @@ export function fffResultParts(
   return parts;
 }
 
-export function fffTextNotices(
-  result: AgentToolResult<unknown>,
-  kind: FffToolKind
-): DisplayNotice[] {
+export function fffTextNotices(result: BorrowedToolResult, kind: FffToolKind): DisplayNotice[] {
   return result.content.flatMap((block) =>
     block.type === "text"
       ? fffResultParts(block.text, kind, { isError: false, isPartial: false })

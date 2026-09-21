@@ -69,7 +69,7 @@ Collections are UTF-8 JSON with canonical `cwd` and newest-first entries:
 }
 ```
 
-Text must be nonblank. Readers preserve unknown fields and original timestamps; invalid timestamps remain inspectable. IDs compare case-insensitively; invalid/duplicate IDs trigger [recovery states](#recovery-states).
+Text must be nonblank. Readers preserve unknown fields and original timestamps; invalid timestamps remain inspectable. Documents with numeric literals that parse as non-finite JavaScript values remain inspectable but read-only because a mutation would otherwise rewrite them as `null`. IDs compare case-insensitively; invalid/duplicate IDs trigger [recovery states](#recovery-states).
 
 ## Limits
 
@@ -89,7 +89,7 @@ Per session, at most 250 captures and 8 MiB of UTF-8 text may wait in the queue.
 ## Recovery states
 
 - **Unavailable:** invalid UTF-8/JSON, unsupported documents, or exceeded read limits require manual repair; no overwrite. Missing files are empty.
-- **Read-only:** usable records with invalid UUIDs allow inspection, copying, and [safe restoration](../README.md#restore-text); mutations require identity repair.
+- **Read-only:** usable records with invalid UUIDs or non-finite parsed numbers allow inspection, copying, and [safe restoration](../README.md#restore-text); mutations require repair.
 - **Ambiguous deletion:** duplicate UUIDs retain every occurrence but prevent deleting those IDs. Unique IDs remain deletable if otherwise writable.
 
 Unusable text records warn and are ignored; successful mutations may omit them. History also ignores oversized records. Collections fail independently.

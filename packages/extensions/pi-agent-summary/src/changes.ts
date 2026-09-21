@@ -63,17 +63,25 @@ function sourceReason(source: FileObservation): string | undefined {
 async function mutationStatistics(path: string, mutation: FileMutation): Promise<FileChange> {
   if (mutation.outcome === "failure") return { path, status: "unavailable", reason: WRITE_FAILURE };
 
+  let patchFallbackReason: string | undefined;
+
   for (const source of [mutation.before, mutation.after]) {
     const reason = sourceReason(source);
+    if (!reason) continue;
     // Native edit patches remain useful even if source retention is unavailable.
-    if (reason && source.status !== "too-large") return { path, status: "unavailable", reason };
+    if (source.status === "too-large") patchFallbackReason ??= reason;
+    else return { path, status: "unavailable", reason };
   }
 
   const before = observedSource(mutation.before);
   if (before !== undefined && before === observedSource(mutation.after))
     return { path, status: "available", added: 0, removed: 0 };
 
-  return statistics(path, await mutation.patch(PATCH_LIMITS));
+  const result = await mutation.patch(PATCH_LIMITS);
+  if (result.status === "source-unavailable" && patchFallbackReason)
+    return { path, status: "unavailable", reason: patchFallbackReason };
+
+  return statistics(path, result);
 }
 
 type ObservedFile = {

@@ -8,6 +8,7 @@ import {
   MAX_DESCRIPTION_LENGTH,
   MAX_DETAILS_OVERHEAD_BYTES,
   MAX_LEGACY_SNAPSHOT_BYTES,
+  MAX_LIST_CHARACTERS,
   MAX_LIST_LINES,
   MAX_METADATA_BYTES,
   MAX_METADATA_DEPTH,
@@ -139,6 +140,19 @@ describe("todo reducer", () => {
 
     const emptySubject = mutate(emptyTodoState(), "create", { subject: "\x1b[31m\x1b[0m" });
     assert.equal(emptySubject.details.error, "subject required for create");
+  });
+
+  it("rejects metadata values that would change during JSON persistence", () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0]) {
+      const result = mutate(emptyTodoState(), "create", {
+        subject: "Keep metadata replayable",
+        metadata: { value }
+      });
+
+      assert.equal(result.details.error, "metadata must be JSON-serializable");
+      assert.deepEqual(result.state, emptyTodoState());
+      assert.deepEqual(parseTodoStateSnapshot(result.details), emptyTodoState());
+    }
   });
 
   it("preserves literal __proto__ metadata keys during updates", () => {
@@ -396,6 +410,18 @@ describe("todo reducer", () => {
     assert.deepEqual(listed.details.tasks, state.tasks);
     assert.equal(listed.details.nextId, state.nextId);
     assert.equal(parseTodoStateSnapshot(listed.details)?.tasks.length, taskCount);
+
+    const characterBoundedState: TodoState = {
+      tasks: Array.from({ length: MAX_TASKS }, (_, index) => ({
+        id: index + 1,
+        subject: "s".repeat(MAX_SUBJECT_LENGTH),
+        status: "pending" as const
+      })),
+      nextId: MAX_TASKS + 1
+    };
+    const characterBoundedText = mutate(characterBoundedState, "list", {}).content[0]?.text ?? "";
+    assert.ok(characterBoundedText.length <= MAX_LIST_CHARACTERS);
+    assert.match(characterBoundedText, /more tasks omitted/u);
   });
 
   it("includes complete snapshots in list, get, and domain-error details", () => {

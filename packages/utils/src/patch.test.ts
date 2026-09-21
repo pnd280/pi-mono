@@ -42,6 +42,7 @@ it("rejects malformed, multi-file, and oversized patches without trusting hunk c
     "+1 legacy",
     "@@ -1,2 +1 @@\n-old\n+new\n",
     "@@ -1 +1 @@\n-old\n+new\n+extra\n",
+    "@@ -1 +1 @@\n context only\n",
     "@@ -0 +0 @@\n-old\n+new\n",
     "@@ -9007199254740992 +1 @@\n-old\n+new\n",
     "@@ -1 +1 @@\n-old\n+new\n\\ Not a newline marker\n",

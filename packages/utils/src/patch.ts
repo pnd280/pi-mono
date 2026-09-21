@@ -38,6 +38,7 @@ function validHunk(hunk: DiffHunk): boolean {
 
   return (
     !hunk.lines[0]?.noTrailingNewLine &&
+    content.some((line) => line.type === DiffLineType.Add || line.type === DiffLineType.Delete) &&
     content.filter((line) => line.type !== DiffLineType.Add).length === oldLineCount &&
     content.filter((line) => line.type !== DiffLineType.Delete).length === newLineCount
   );

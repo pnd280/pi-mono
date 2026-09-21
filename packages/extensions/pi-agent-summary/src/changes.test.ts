@@ -113,6 +113,21 @@ it("does not mistake a failed final write for a reverted change", async () => {
   ]);
 });
 
+it("preserves a known source limit when no tool patch is available", async () => {
+  const changes = new RunChanges("/work");
+  const oversized = mutation("large", "before", "after");
+  oversized.after = { status: "too-large" };
+  oversized.patch = async () => ({ status: "source-unavailable" });
+  await changes.record(oversized);
+  expect(await changes.finish()).toEqual([
+    {
+      path: "large",
+      status: "unavailable",
+      reason: "Source exceeds the 8 MiB observation budget."
+    }
+  ]);
+});
+
 it("distinguishes invalid source, failed writes, and generated diff budgets", async () => {
   const changes = new RunChanges("/work");
   await changes.record(mutation("binary", "before", "a\0b"));

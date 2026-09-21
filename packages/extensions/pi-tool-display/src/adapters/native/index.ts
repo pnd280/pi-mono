@@ -71,7 +71,6 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
 
             return [
               {
-                label: ({ read: "Read", search: "Search", list: "List" } as const)[family],
                 parts: invocationParts(name, args, family),
                 scope:
                   path !== undefined

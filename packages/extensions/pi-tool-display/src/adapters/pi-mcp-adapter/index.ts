@@ -1,8 +1,8 @@
-import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
-import { type InvocationPart } from "../../contracts.ts";
-import type { ToolDisplayAdapter } from "../../contracts.ts";
+import type { BorrowedToolResult, InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
+import { serializeParameters } from "../../invocation.ts";
 import { record } from "../../values.ts";
 import {
   mcpCallFacts,
@@ -42,7 +42,7 @@ function gatewayMode(args: unknown): string {
   return nonempty(data.server) ? "list" : "status";
 }
 
-function supportsResult(kind: ToolKind, args: unknown, result: AgentToolResult<unknown>): boolean {
+function supportsResult(kind: ToolKind, args: unknown, result: BorrowedToolResult): boolean {
   if (!argumentSchemas[kind].safeParse(args).success) return false;
   const parsed = resultDetailsSchema.safeParse(result.details);
   if (!parsed.success) return false;
@@ -68,7 +68,7 @@ function invocation(
   kind: ToolKind,
   name: string,
   args: unknown,
-  result?: AgentToolResult<unknown>
+  result?: BorrowedToolResult
 ): InvocationPart[] {
   const data = record(args);
   const facts = mcpCallIdentity(result);
@@ -109,7 +109,7 @@ function invocation(
     {
       kind: "parameters",
       get text() {
-        return (parameterText ??= `(${JSON.stringify(parameters ?? {})})`);
+        return (parameterText ??= `(${serializeParameters(parameters ?? {})})`);
       }
     }
   ];

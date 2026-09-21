@@ -1,5 +1,4 @@
-import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
-import { getCapabilities, truncateToWidth } from "@earendil-works/pi-tui";
+import { getCapabilities, stripTerminalSequences, truncateToWidth } from "@earendil-works/pi-tui";
 import {
   highlightCodeBounded,
   highlightCodeSelection
@@ -9,7 +8,7 @@ import { displayText, sliceTerminalText, styledOutput } from "@pi-mono/libs/tui/
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { splitOutputText, type OutputText } from "@pi-mono/utils/output-text";
 
-import type { McpFacts, DisplayNotice, ResultTextPart } from "../contracts.ts";
+import type { BorrowedToolResult, DisplayNotice, McpFacts, ResultTextPart } from "../contracts.ts";
 import { parseRetainedPatch } from "../diff.ts";
 import { stringField } from "../terminal-text.ts";
 import { record } from "../values.ts";
@@ -89,37 +88,61 @@ function applicationFailure(p: Projection): string[] {
   return message(text, p, p.outcome === "cancelled" ? "warning" : "error");
 }
 
-function changeRows(
-  result: AgentToolResult<unknown>,
+type PatchCandidate = { patch: string; observed: boolean };
+
+function patchCandidates(result: BorrowedToolResult, p: Projection): PatchCandidate[] {
+  const suppliedPatch = record(result.details).patch;
+  const published =
+    p.adapter.patch && !p.context.isError && typeof suppliedPatch === "string" ? suppliedPatch : "";
+  const observed = p.call?.change?.patch ?? "";
+
+  return [
+    ...(published ? [{ patch: published, observed: false }] : []),
+    ...(observed && observed !== published ? [{ patch: observed, observed: true }] : [])
+  ];
+}
+
+function renderPatchCandidates(
+  candidates: PatchCandidate[],
   p: Projection
-): { rows: string[]; hasPatch: boolean } {
-  const patch =
-    p.adapter.patch && !p.context.isError ? stringField(record(result.details).patch) : "";
-  const proposal = p.call?.change?.patch;
-  const rows: string[] = [];
-  let renderedPatch: string[] | undefined;
+): { rows: string[]; rendered: boolean } {
+  let fallbackAnnotations: string[] = [];
 
-  const candidate = patch || proposal;
-
-  if (candidate) {
-    const unconfirmed =
-      !patch && p.call?.operation?.outcome !== "success"
+  for (const candidate of candidates) {
+    const annotations =
+      candidate.observed && p.call?.operation?.outcome !== "success"
         ? message("Proposed change; application not confirmed.", p, "warning")
         : [];
-    renderedPatch = patchRows(candidate, p, unconfirmed);
-    rows.push(
-      ...(renderedPatch ?? [
-        ...unconfirmed,
-        ...message("Patch display unavailable: invalid or oversized patch.", p, "warning")
-      ])
-    );
-    rows.push(...applicationFailure(p));
+    const rows = patchRows(candidate.patch, p, annotations);
+    fallbackAnnotations = annotations;
+
+    if (rows) return { rows, rendered: true };
   }
 
-  if (!renderedPatch && p.call?.change?.availability === "unavailable")
+  return {
+    rows: [
+      ...fallbackAnnotations,
+      ...message("Patch display unavailable: invalid or oversized patch.", p, "warning")
+    ],
+    rendered: false
+  };
+}
+
+function changeRows(
+  result: BorrowedToolResult,
+  p: Projection
+): { rows: string[]; hasPatch: boolean } {
+  const candidates = patchCandidates(result, p);
+  const rendered = candidates.length
+    ? renderPatchCandidates(candidates, p)
+    : { rows: [], rendered: false };
+  const rows = [...rendered.rows];
+
+  if (candidates.length) rows.push(...applicationFailure(p));
+  if (!rendered.rendered && p.call?.change?.availability === "unavailable")
     rows.push(...message(p.call.change.reason ?? "Change information unavailable.", p, "warning"));
 
-  return { rows, hasPatch: !!(patch || proposal) };
+  return { rows, hasPatch: candidates.length > 0 };
 }
 
 function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
@@ -157,7 +180,7 @@ function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
   return items;
 }
 
-function imageItems(content: AgentToolResult<unknown>["content"], p: Projection): TreeItem[] {
+function imageItems(content: BorrowedToolResult["content"], p: Projection): TreeItem[] {
   if (p.context.showImages && getCapabilities().images) return [];
 
   return content.flatMap((block) =>
@@ -262,6 +285,25 @@ function styleResultParts(
     .join("");
 }
 
+function trimShellTrailingRows(text: string, p: Projection): string {
+  if (p.adapter.family !== "shell") return text;
+  let end = text.length;
+  const trailingStyles: string[] = [];
+
+  // Work backward through normalized rows before preview budgeting. Keep internal
+  // whitespace and move SGR resets off discarded blank rows onto the final row.
+  while (end > 0) {
+    const newline = text.lastIndexOf("\n", end - 1);
+    const row = text.slice(newline + 1, end);
+    if (stripTerminalSequences(row).trim()) break;
+    if (newline < 0) return "";
+    trailingStyles.push(row.replace(/\s/g, ""));
+    end = newline;
+  }
+
+  return end === 0 ? "" : text.slice(0, end) + trailingStyles.reverse().join("");
+}
+
 function resultPartRows(
   parts: readonly ResultTextPart[],
   p: Projection,
@@ -271,9 +313,10 @@ function resultPartRows(
   const characters = parts.reduce((total, part) => total + part.text.length, 0);
 
   if (p.expanded || characters <= COMPACT_OUTPUT_CHARACTERS) {
-    const text = styleResultParts(parts, p, options.outputColor) || options.empty || "";
+    const styled = styleResultParts(parts, p, options.outputColor) || options.empty || "";
+    const text = trimShellTrailingRows(styled, p);
 
-    return output(text, p, maximum);
+    return output(text || (p.adapter.family === "shell" ? emptyOutputText(p) : ""), p, maximum);
   }
 
   const headCharacters = Math.ceil(COMPACT_OUTPUT_CHARACTERS / 2);
@@ -297,7 +340,10 @@ function resultPartRows(
   return [
     ...wrapRows(styleResultParts(head, p, options.outputColor), width).slice(0, headRows),
     omission,
-    ...wrapRows(styleResultParts(tail, p, options.outputColor), width).slice(-tailRows)
+    ...wrapRows(
+      trimShellTrailingRows(styleResultParts(tail, p, options.outputColor), p),
+      width
+    ).slice(-tailRows)
   ];
 }
 
@@ -322,7 +368,7 @@ function outputPreview(p: Projection): OutputText | undefined {
 }
 
 function describedImage(
-  content: AgentToolResult<unknown>["content"],
+  content: BorrowedToolResult["content"],
   index: number,
   p: Projection
 ): boolean {
@@ -337,7 +383,7 @@ function describedImage(
   );
 }
 
-function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem[] {
+function contentItems(result: BorrowedToolResult, p: Projection): TreeItem[] {
   if (replacesOutput(p)) return imageItems(result.content, p);
   const preview = outputPreview(p);
   const items: TreeItem[] =
@@ -410,7 +456,7 @@ function unavailableHistory(p: Projection): DisplayNotice[] {
   return notices;
 }
 
-function notices(result: AgentToolResult<unknown>, p: Projection): string[] {
+function notices(result: BorrowedToolResult, p: Projection): string[] {
   const notices = [...(p.adapter.notices?.(result, p.expanded) ?? [])];
   const path = p.call?.savedPath;
   if (path && !notices.some((notice) => notice.kind === "reference" && notice.value === path))
@@ -463,7 +509,7 @@ function annotateResult(items: TreeItem[], annotations: string[]): ResultBody {
   return { items, annotations };
 }
 
-export function buildResultBody(current: AgentToolResult<unknown>, p: Projection): ResultBody {
+export function buildResultBody(current: BorrowedToolResult, p: Projection): ResultBody {
   const body = resultBody(current, p);
   if (!p.summary?.text) return body;
   const color = p.outcome === "cancelled" ? "warning" : "error";
@@ -477,7 +523,7 @@ export function buildResultBody(current: AgentToolResult<unknown>, p: Projection
   };
 }
 
-function resultBody(current: AgentToolResult<unknown>, p: Projection): ResultBody {
+function resultBody(current: BorrowedToolResult, p: Projection): ResultBody {
   const annotations = notices(current, p);
   if (p.adapter.family === "read" && !p.expanded && !p.context.isError && !p.context.isPartial)
     return annotateResult(imageItems(current.content, p), annotations);

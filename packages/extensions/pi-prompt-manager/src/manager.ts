@@ -314,7 +314,7 @@ export class PromptManager {
       return;
     }
 
-    const current = await this.ports.repository.read("drafts");
+    const current = await this.ports.repository.read("drafts", this.lifetime.signal);
 
     if (!this.isActive()) return;
 

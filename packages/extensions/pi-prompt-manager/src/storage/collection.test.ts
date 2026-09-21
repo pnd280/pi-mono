@@ -25,6 +25,19 @@ it("refuses corrupt documents without treating them as empty", () => {
   expect(readCollection("drafts", scope.cwd).entries).toEqual([]);
 });
 
+it("keeps parsed numbers that cannot be re-encoded inspectable but read-only", () => {
+  const raw = Buffer.from(
+    '{"version":1,"cwd":"/fixture","entries":[{"id":"11111111-1111-1111-1111-111111111111","text":"keep","recordedAt":1e400}],"metadata":{"value":1e400}}'
+  );
+  const current = readCollection("drafts", scope.cwd, raw);
+
+  expect(current).toMatchObject({
+    access: "read-only",
+    document: { entries: [{ recordedAt: Infinity }], metadata: { value: Infinity } }
+  });
+  expect(() => updateCollection({ ...scope, raw, operation: add("new") })).toThrow("read-only");
+});
+
 it("preserves unknown fields and raw timestamps, ignores unusable text, and refuses read-only mutations", () => {
   const good = entry("keep", { recordedAt: { raw: "invalid" }, custom: [1, 2] });
   const invalid = { text: "inspect", custom: true };

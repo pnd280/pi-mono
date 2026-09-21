@@ -1,6 +1,10 @@
 import { spawn } from "node:child_process";
 import { release } from "node:os";
 
+import { z } from "zod";
+
+const timeoutSchema = z.int().nonnegative().max(2_147_483_647);
+
 /** Safe diagnostics never include clipboard contents or helper output. */
 export class NativeClipboardError extends Error {}
 
@@ -105,8 +109,11 @@ export async function copyNative(
   signal: AbortSignal,
   options: { helpers?: NativeHelper[]; timeout?: number } = {}
 ): Promise<void> {
+  const timeout = options.timeout ?? 5000;
+  if (!timeoutSchema.safeParse(timeout).success)
+    throw new RangeError("Clipboard timeout must be a supported nonnegative timer duration.");
   const deadline = new AbortController();
-  const timer = setTimeout(() => deadline.abort(), options.timeout ?? 5000);
+  const timer = setTimeout(() => deadline.abort(), timeout);
   const operationSignal = AbortSignal.any([signal, deadline.signal]);
 
   try {

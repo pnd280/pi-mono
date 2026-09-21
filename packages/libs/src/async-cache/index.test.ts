@@ -61,6 +61,20 @@ it("does not publish late results or start work after disposal", async () => {
   expect(onEvict).not.toHaveBeenCalled();
 });
 
+it("does not publish a loaded value when its eviction callback disposes the cache", async () => {
+  const load = vi.fn(async (key: string) => key);
+  const cache = new AsyncCache<string, string>({
+    capacity: 1,
+    maxPending: 1,
+    load,
+    onEvict: () => cache.dispose()
+  });
+  expect(await cache.load("first")).toBe("first");
+  expect(await cache.load("second")).toBeUndefined();
+  expect(await cache.load("second")).toBeUndefined();
+  expect(load.mock.calls).toEqual([["first"], ["second"]]);
+});
+
 it("rejects invalid capacities", () => {
   for (const capacity of [0, -1, 0.5, Infinity])
     expect(() => new AsyncCache({ capacity, maxPending: 1, load: async () => "a" })).toThrow(

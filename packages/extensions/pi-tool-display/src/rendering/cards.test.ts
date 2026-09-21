@@ -23,7 +23,8 @@ import {
   nativeAdapter,
   piFffAdapter,
   todoDisplayAdapter,
-  type McpFacts
+  type McpFacts,
+  type ToolDisplayAdapter
 } from "../adapters/index.ts";
 import { renderingTui } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
@@ -212,7 +213,7 @@ describe("tool display renderers", () => {
   it.each(["custom", "bash"])(
     "bounds collapsed %s result styling to head and tail excerpts",
     (name) => {
-      const source = `${name === "bash" ? "\x1b[31m" : ""}BEGIN\n${"middle output ".repeat(40_000)}\nFINAL_RESULT`;
+      const source = `${name === "bash" ? "\x1b[31m" : ""}BEGIN\n${"middle output ".repeat(40_000)}\nFINAL_RESULT${name === "bash" ? "\n\n \n\x1b[0m" : ""}`;
       let largestStyledText = 0;
       const measuredTheme = {
         ...theme,
@@ -238,6 +239,7 @@ describe("tool display renderers", () => {
       if (name === "bash") {
         const tail = rows.find((row) => stripTerminalSequences(row).includes("FINAL_RESULT"));
         expect(tail).toContain("\x1b[31m");
+        expect(stripTerminalSequences(rows.at(-1) ?? "").trim()).toBe("FINAL_RESULT");
       }
     }
   );
@@ -437,7 +439,6 @@ describe("tool display renderers", () => {
         result.details === "supported",
       exploration: () => [
         {
-          label: "Search" as const,
           scope: { kind: "directory" as const, value: "docs" },
           parts: [{ kind: "value" as const, text: "documentation" }]
         }
@@ -1524,6 +1525,88 @@ describe("tool display renderers", () => {
       coordinator.dispose();
     }
   });
+  it.each(["bash", "powershell"])(
+    "removes trailing blank %s rows without changing internal whitespace or retained output",
+    (name) => {
+      const samples = [
+        { text: "first\nlast", lines: ["first", "last"] },
+        { text: "first\nlast\n", lines: ["first", "last"] },
+        { text: "first\r\nlast\r\n", lines: ["first", "last"] },
+        { text: "\x1b[31mfirst\nlast\n\x1b[0m", lines: ["first", "last"] },
+        { text: "first\n\nlast\n\n", lines: ["first", "", "last"] },
+        { text: "last \n", lines: ["last "] },
+        { text: "last\n  ", lines: ["last"] },
+        { text: "last\n\x1b[0m \n\x1b[39m\n", lines: ["last"] },
+        { text: "\n", lines: ["(no output)"] },
+        { text: " \r\n\t\r\n", lines: ["(no output)"] }
+      ];
+
+      for (const expanded of [false, true]) {
+        for (const currentTheme of [theme, semanticTheme()]) {
+          for (const { text, lines } of samples) {
+            const supplied = result(text);
+            const current = context({ expanded });
+            const rows = createToolDisplayRenderers(name, nativeAdapter(name))
+              .renderResult(supplied, current, currentTheme, current)
+              .render(120)
+              .map(stripTerminalSequences);
+            expect(rows.map((row) => row.slice(4))).toEqual(lines);
+            expect(supplied).toEqual(result(text));
+          }
+        }
+      }
+    }
+  );
+  it("does not count trailing shell blank rows against the compact row budget", () => {
+    const current = context();
+    const rows = body("bash", result("one\ntwo\nthree\nfour\nfive\n\n\n"), current).render(120);
+    expect(rows).toHaveLength(5);
+    expect(rows.join("\n")).toContain("three");
+    expect(rows.join("\n")).not.toContain("more rows");
+    expect(rows.at(-1)?.trim()).toBe("five");
+  });
+  it("keeps only Pi's separator between complete tool cards after trailing shell blank rows", () => {
+    const supplied = result(
+      "RUN fixture\n\nTest Files 1 passed\nTests 1 passed\nStart at 12:00\nDuration 1s\n\n \n\x1b[0m"
+    );
+    const row = new ToolExecutionComponent(
+      "bash",
+      "shell-spacing",
+      { command: "test" },
+      { showImages: false },
+      createToolDisplayRenderers("bash", nativeAdapter("bash")),
+      renderingTui(),
+      "/tmp"
+    );
+    const next = new ToolExecutionComponent(
+      "read",
+      "next-row",
+      { path: "file.ts" },
+      { showImages: false },
+      createToolDisplayRenderers("read", nativeAdapter("read")),
+      renderingTui(),
+      "/tmp"
+    );
+    next.updateResult({ ...result("file content"), isError: false });
+
+    for (const partial of [true, false]) {
+      row.updateResult({ ...supplied, isError: false }, partial);
+
+      for (const expanded of [false, true]) {
+        row.setExpanded(expanded);
+        const lines = [...row.render(120), ...next.render(120)].map(stripTerminalSequences);
+        const nextHeading = lines.findIndex((line) => line.includes("Read file.ts"));
+        expect(nextHeading).toBeGreaterThan(1);
+        expect(lines[nextHeading - 1]).toBe("");
+        expect(lines[nextHeading - 2]?.trim()).toBe("Duration 1s");
+      }
+    }
+  });
+  it("preserves final blank rows for non-shell results", () => {
+    const rows = body("custom", result("last\n")).render(120);
+    expect(rows).toHaveLength(2);
+    expect(rows.at(-1)?.trim()).toBe("");
+  });
   it("dims native empty-output prose and separates failure status from process output", () => {
     const themed = semanticTheme();
 
@@ -1562,7 +1645,7 @@ describe("tool display renderers", () => {
   it("colors inserted live/saved budget notices without recoloring identical process text", () => {
     const marker = "… 81 lines omitted …";
     const preview = {
-      text: `${marker}\n${marker}\nretained output`,
+      text: `${marker}\n${marker}\nretained output\n\n \n\x1b[0m`,
       // Only the second occurrence is a generated notice.
       omissions: [{ start: marker.length + 1, end: marker.length * 2 + 1 }]
     } satisfies OutputText;
@@ -1597,6 +1680,8 @@ describe("tool display renderers", () => {
         expect(rows.split(themed.fg("warning", marker))).toHaveLength(2);
         expect(rows).toContain(`\x1b[37m${marker}`);
         expect(rows).not.toContain("partial result");
+        expect(stripTerminalSequences(rows).endsWith("retained output")).toBe(true);
+        expect(preview.text.endsWith("\n\n \n\x1b[0m")).toBe(true);
       }
     } finally {
       coordinator.dispose();
@@ -2635,9 +2720,37 @@ describe("tool display renderers", () => {
         expect(text.includes("diff computation budget")).toBe(!patch.startsWith("@@"));
         if (patch.startsWith("@@")) expect(text).toContain("+new");
       }
+
+      coordinator.fact(call, {
+        kind: "change",
+        availability: "available",
+        patch: "@@ -1 +1 @@\n-observed-before\n+observed-after\n"
+      });
+      const replaced = { ...result("Middleware result"), details: { patch: "invalid" } };
+      coordinator.result(call, replaced, "success");
+      const current = context({ args: call.args });
+      const replacementText = stripTerminalSequences(
+        renderer.renderResult(replaced, current, theme, current).render(80).join("\n")
+      );
+      expect(replacementText).toContain("+observed-after");
+      expect(replacementText).not.toContain("Patch display unavailable");
     } finally {
       coordinator.dispose();
     }
+  });
+
+  it("applies the patch limit before terminal normalization", () => {
+    const patch = `@@ -1 +1 @@\n-${"\x1b[31m".repeat(30_000)}before\n+after\n`;
+    const rendered = body(
+      "edit",
+      { ...result("Successfully edited file.ts"), details: { patch } },
+      context({ args: { path: "file.ts" } })
+    )
+      .render(80)
+      .map(stripTerminalSequences)
+      .join("\n");
+
+    expect(rendered).toContain("Patch display unavailable: invalid or oversized patch.");
   });
 
   it.each([
@@ -2819,6 +2932,62 @@ describe("tool display renderers", () => {
     expect(rows[0]).toBe("  ├ +1 -1");
     expect(rows.some((row) => row.startsWith("  │ ") && row.includes("+after"))).toBe(true);
     expect(rows.at(-1)).toBe("  └ Owner diagnostic");
+  });
+
+  it("treats adapter-provided heading text as plain terminal text", () => {
+    const control = "\x1b]52;c;YQ==\x07";
+    const adapter: ToolDisplayAdapter = {
+      id: "custom:plain-headings",
+      family: "invocation",
+      groupTitle: `Tasks${control}`,
+      headingVerbs: () => ({
+        action: `Check${control}`,
+        pending: `Checking${control}`,
+        complete: `Checked${control}`
+      }),
+      exploration: () => [
+        {
+          parts: [{ kind: "value", text: "item" }],
+          scope: { kind: "filter", value: "custom:plain-headings" }
+        }
+      ]
+    };
+    const standalone = createPublicRenderers("custom", adapter)
+      .renderCall({}, theme, context())
+      .render(80)
+      .join("\n");
+    expect(standalone).toContain("Checked");
+    expect(standalone).not.toContain("\x1b");
+
+    const coordinator = new TranscriptCoordinator("plain-headings");
+
+    try {
+      const first = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "first" },
+        "custom",
+        {},
+        adapter,
+        "historical"
+      );
+      coordinator.add(
+        { messageTimestamp: 1, contentIndex: 1, toolCallId: "second" },
+        "custom",
+        {},
+        adapter,
+        "historical"
+      );
+      const grouped = createToolDisplayRenderers("custom", adapter, {
+        binding: { call: first, coordinator }
+      })
+        .renderCall({}, theme, context())
+        .render(80)
+        .join("\n");
+      expect(grouped).toContain("Tasks");
+      expect(grouped).toContain("Check");
+      expect(grouped).not.toContain("\x1b");
+    } finally {
+      coordinator.dispose();
+    }
   });
 
   it("treats typed MCP identities as text rather than terminal control sequences", () => {

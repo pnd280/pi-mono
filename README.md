@@ -1,6 +1,6 @@
 # pi-mono
 
-Extensions for the [Pi coding agent](<(https://github.com/earendil-works/pi/tree/main/packages/coding-agent)>).
+Extensions for the [Pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent).
 
 ## Setup
 

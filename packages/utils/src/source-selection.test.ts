@@ -44,3 +44,9 @@ it("clips code-point ranges to an absolute line window without normalizing raw s
   expect(selectionLabel(span)).toBe("10:2-12:3");
   expect(selectionLabel(selectionSchema.parse({ startLine: 1 }))).toBe("1");
 });
+
+it("rejects invalid source-window line coordinates", () => {
+  const span = selectionSchema.parse({ startLine: 1 });
+  for (const firstLine of [0, 1.5, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Infinity])
+    expect(() => selectSource(["source"], firstLine, span)).toThrow(RangeError);
+});

@@ -42,23 +42,27 @@ Use `absolutePathSchema` to enforce the same absolute-path requirement in other 
 
 The schema rejects unknown fields and reversed or empty explicit ranges.
 
-Pass parsed selections to `selectSource(lines, firstLine, selection)`, where `firstLine` is the absolute line of `lines[0]`. Results clip to the window and line lengths, using zero-based window indexes; `partial` flags selected lines outside the window. Returned `before`/`text` preserve source, including tabs and controls; sanitize only for display.
+Pass parsed selections to `selectSource(lines, firstLine, selection)`, where `firstLine` is the positive safe-integer line number of `lines[0]`; invalid values throw `RangeError`. Results clip to the window and line lengths, using zero-based window indexes; `partial` flags selected lines outside the window. Returned `before`/`text` preserve source, including tabs and controls; sanitize only for display.
 
 ### Output text
 
-`splitOutputText` separates source from generated omissions by recorded UTF-16 ranges, rejecting unordered, overlapping, or out-of-bounds ranges. Rejoining reproduces original text, including source resembling notices. Consumers style and sanitize for display.
+`splitOutputText` separates source from generated omissions by recorded UTF-16 ranges. Output transformations reject unordered, overlapping, or out-of-bounds omission ranges instead of corrupting provenance. Rejoining fragments reproduces original text, including source resembling notices. Consumers style and sanitize for display.
 
 For stream retention or file previews, use [bounded stream output](../libs/src/output-buffer/README.md) or [bounded file output](../libs/src/bounded-output/README.md).
 
 ### Patches
 
-`parsePatch(source, maxBytes)` accepts one unified patch, with or without file headers. It returns `undefined` for invalid or oversized patches and throws `RangeError` for an invalid byte limit. Pass the parsed result to the [diff renderer](../libs/src/tui/components/diff-view/README.md).
+`parsePatch(source, maxBytes)` accepts one unified patch, with or without file headers. Each hunk must contain a change. It returns `undefined` for invalid or oversized patches and throws `RangeError` for an invalid byte limit. Pass the parsed result to the [diff renderer](../libs/src/tui/components/diff-view/README.md).
 
 ### Text search
 
-Pass `normalizeSearch` text and a `prepareSearchQuery` query to `rankText(normalized, query)`. Its generator returns the rank or `undefined` for no match, yielding checkpoints during long literal/fuzzy scans. Callers schedule and cancel.
+Pass `normalizeSearch` text and a `prepareSearchQuery` query to `rankText(normalized, query)`. Its generator returns the rank or `undefined` for no match, yielding checkpoints during long scans and repeated term searches. Callers schedule and cancel.
 
 Use [cooperative search](../libs/src/text-search/README.md) for event-loop scheduling and cancellation.
+
+### UTF-8
+
+`utf8Prefix` and `utf8Suffix` accept nonnegative safe-integer byte limits and throw `RangeError` for invalid limits. They never return partial code points. `decodeUtf8` decodes byte windows while dropping an incomplete code point only at the declared clipped edge.
 
 ## Configuration
 
