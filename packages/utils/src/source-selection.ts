@@ -51,7 +51,9 @@ export function selectSource(
   const to = Math.min(lines.length - 1, span.endLine - firstLine);
 
   for (let index = from; index <= to; index++) {
-    const points = Array.from(lines[index]!);
+    const line = lines[index];
+    if (line === undefined) continue;
+    const points = Array.from(line);
     const number = firstLine + index;
     const start = number === span.startLine ? span.startColumn - 1 : 0;
     const end =

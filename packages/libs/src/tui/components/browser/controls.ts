@@ -81,6 +81,8 @@ export class BrowserControls {
     return binding ? formatKeyLabel(binding.key) : undefined;
   }
 
+  hint(action: (typeof configured)[number][0], label: string): string;
+  hint(action: BoundAction, label: string): string | undefined;
   hint(action: BoundAction, label: string): string | undefined {
     const key = this.key(action);
     if (key) return `${key}${action === "delete" ? "×2" : ""} ${label}`;
@@ -95,6 +97,6 @@ export class BrowserControls {
     const down = this.key("down");
     if (up && down) return [`${up === "Up" && down === "Down" ? "↑↓" : `${up}/${down}`} ${label}`];
 
-    return [this.hint("up", `${label} up`)!, this.hint("down", `${label} down`)!];
+    return [this.hint("up", `${label} up`), this.hint("down", `${label} down`)];
   }
 }

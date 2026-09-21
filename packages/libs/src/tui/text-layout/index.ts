@@ -23,7 +23,7 @@ export async function layoutPreview(
 
     if (newline >= start && newline < end) end = newline;
     // Keep surrogate pairs intact at chunk boundaries.
-    if (end < text.length && end > start && /[\uD800-\uDBFF]/u.test(text[end - 1]!)) end--;
+    if (end < text.length && end > start && /[\uD800-\uDBFF]/u.test(text.charAt(end - 1))) end--;
     lines.push(...wrapTextWithAnsi(text.slice(start, end), Math.max(1, width)));
     start = end + (text[end] === "\n" ? 1 : 0);
   }

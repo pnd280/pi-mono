@@ -129,7 +129,8 @@ export class TranscriptRows {
     const added: Component[] = [];
 
     for (; this.indexedChildren < children.length; this.indexedChildren++) {
-      const child = children[this.indexedChildren]!;
+      const child = children[this.indexedChildren];
+      if (!child) continue;
       if (!previous.has(child)) added.push(child);
       this.components.add(child);
       if (this.lastCall) this.predecessors.set(child, this.lastCall);

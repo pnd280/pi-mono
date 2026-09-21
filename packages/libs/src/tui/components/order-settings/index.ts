@@ -114,12 +114,11 @@ export class OrderSettingsView implements Component {
       this.status = "";
     } else if (matchesKey(data, "shift+up") || matchesKey(data, "shift+down")) {
       const next = draft.selected + (matchesKey(data, "shift+up") ? -1 : 1);
+      const selectedId = draft.order[draft.selected];
+      const nextId = draft.order[next];
 
-      if (next >= 0 && next < draft.order.length) {
-        [draft.order[draft.selected], draft.order[next]] = [
-          draft.order[next]!,
-          draft.order[draft.selected]!
-        ];
+      if (selectedId !== undefined && nextId !== undefined) {
+        [draft.order[draft.selected], draft.order[next]] = [nextId, selectedId];
         draft.selected = next;
         this.status = "";
       }
@@ -234,7 +233,10 @@ export class OrderSettingsView implements Component {
   invalidate(): void {}
 
   private current() {
-    return this.drafts[this.scopeIndex]!;
+    const draft = this.drafts[this.scopeIndex];
+    if (!draft) throw new Error("Order settings scope does not exist.");
+
+    return draft;
   }
 
   private isDirty(draft: ReturnType<OrderSettingsView["current"]>): boolean {

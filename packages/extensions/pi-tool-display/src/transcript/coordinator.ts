@@ -178,7 +178,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
     if (facts) {
       this.explorable.set(key, facts);
-      this.appendGroup(call, previous);
+      this.appendGroup(call, previous, facts);
     }
 
     if (isLive(call)) this.activeCalls.add(call);
@@ -233,8 +233,8 @@ export class TranscriptCoordinator implements TranscriptView {
     );
 
     if (previous) {
-      const count = this.boundaryCounts.get(previous)! - 1;
-      if (count) this.boundaryCounts.set(previous, count);
+      const count = this.boundaryCounts.get(previous) ?? 0;
+      if (count > 1) this.boundaryCounts.set(previous, count - 1);
       else this.boundaryCounts.delete(previous);
     }
 
@@ -395,19 +395,22 @@ export class TranscriptCoordinator implements TranscriptView {
   private separated(key: string): boolean {
     return this.separators.has(key) || this.boundaryCounts.has(key);
   }
+  private position(key: string): number {
+    const position = this.positions.get(key);
+    if (position === undefined) throw new Error("Transcript call position is unavailable.");
+
+    return position;
+  }
   private groupRange(key: string): [number, number] {
     const members = this.groups.get(key)?.members;
 
-    return [
-      this.positions.get(members?.[0]?.key ?? key)!,
-      this.positions.get(members?.at(-1)?.key ?? key)!
-    ];
+    return [this.position(members?.[0]?.key ?? key), this.position(members?.at(-1)?.key ?? key)];
   }
-  private newGroup(call: MutableCall): MutableGroup {
+  private newGroup(call: MutableCall, scope: ExplorationScope): MutableGroup {
     return {
       members: [],
       expanded: call.expanded,
-      scope: this.explorable.get(call.key)!,
+      scope,
       title: call.adapter.groupTitle
     };
   }
@@ -417,14 +420,18 @@ export class TranscriptCoordinator implements TranscriptView {
 
     return !!first && !!second && sameScope(first, second);
   }
-  private appendGroup(call: MutableCall, previous: string | undefined): void {
+  private appendGroup(
+    call: MutableCall,
+    previous: string | undefined,
+    scope: ExplorationScope
+  ): void {
     const group =
       previous && !this.separated(previous) && this.sharesScope(previous, call.key)
         ? this.groups.get(previous)
         : undefined;
     const first = group?.members[0];
     const last = group?.members.at(-1);
-    const current = group ?? this.newGroup(call);
+    const current = group ?? this.newGroup(call, scope);
     current.members.push(call);
     this.groups.set(call.key, current);
     this.synchronizeExpansion(call, current.expanded);
@@ -443,14 +450,14 @@ export class TranscriptCoordinator implements TranscriptView {
     if (sameScope(facts, previousFacts)) return;
     if (facts) this.explorable.set(call.key, facts);
     else this.explorable.delete(call.key);
-    const position = this.positions.get(call.key)!;
+    const position = this.position(call.key);
     const previous = this.sequence[position - 1];
     const next = this.sequence[position + 1];
 
     // Argument streaming commonly makes the last row explorable after creation.
     // Extend its predecessor exactly like an append, without rebuilding interiors.
     if (facts && !previousFacts && !next && !this.groupingDepth) {
-      this.appendGroup(call, previous);
+      this.appendGroup(call, previous, facts);
 
       return;
     }
@@ -470,7 +477,7 @@ export class TranscriptCoordinator implements TranscriptView {
     const ranges: [number, number][] = [];
 
     for (const key of keys) {
-      const next = this.sequence[this.positions.get(key)! + 1];
+      const next = this.sequence[this.position(key) + 1];
       if (!next || !this.explorable.has(key) || !this.explorable.has(next)) continue;
       ranges.push([this.groupRange(key)[0], this.groupRange(next)[1]]);
     }
@@ -490,7 +497,8 @@ export class TranscriptCoordinator implements TranscriptView {
     // Moving a boundary can affect overlapping groups. Reconcile their final
     // partition together so expansion never propagates through a temporary merge.
     ranges.sort((left, right) => left[0] - right[0]);
-    let current = ranges[0]!;
+    let current = ranges[0];
+    if (!current) return;
 
     for (const range of ranges.slice(1)) {
       if (range[0] <= current[1] + 1) current[1] = Math.max(current[1], range[1]);
@@ -504,9 +512,14 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   private rebuildGroups(start: number, end: number): void {
     const previous = new Map<string, MutableGroup>();
+    const calls = this.sequence.slice(start, end + 1).map((key) => {
+      const call = this.state.get(key);
+      if (!call) throw new Error("Transcript call state is unavailable.");
 
-    for (let index = start; index <= end; index++) {
-      const key = this.sequence[index]!;
+      return call;
+    });
+
+    for (const { key } of calls) {
       const group = this.groups.get(key);
       if (group) previous.set(key, group);
       this.groups.delete(key);
@@ -516,7 +529,9 @@ export class TranscriptCoordinator implements TranscriptView {
 
     const finish = () => {
       if (!group) return;
-      const old = previous.get(group.members[0]!.key);
+      const members = group.members;
+      const first = members[0];
+      const old = first ? previous.get(first.key) : undefined;
       // Keep stable group identity so boundaries and late contracts invalidate
       // only the groups whose membership or expansion actually changed.
       if (
@@ -525,33 +540,30 @@ export class TranscriptCoordinator implements TranscriptView {
         sameScope(old.scope, group.scope) &&
         old.title === group.title &&
         old.members.length === group.members.length &&
-        old.members.every((member, index) => member === group!.members[index])
+        old.members.every((member, index) => member === members[index])
       )
         group = old;
       for (const member of group.members) this.groups.set(member.key, group);
       group = undefined;
     };
 
-    for (let index = start; index <= end; index++) {
-      const key = this.sequence[index]!;
-      const call = this.state.get(key)!;
+    for (const call of calls) {
+      const scope = this.explorable.get(call.key);
 
-      if (!this.explorable.has(key)) {
+      if (!scope) {
         finish();
         continue;
       }
 
-      const scope = this.explorable.get(key)!;
       if (group && !sameScope(group.scope, scope)) finish();
-      group ??= this.newGroup(call);
+      group ??= this.newGroup(call, scope);
       group.members.push(call);
       if (this.separators.has(call.key) || this.boundaryCounts.has(call.key)) finish();
     }
 
     finish();
 
-    for (let index = start; index <= end; index++) {
-      const call = this.state.get(this.sequence[index]!)!;
+    for (const call of calls) {
       const current = this.groups.get(call.key);
       if (current === previous.get(call.key)) continue;
       const expanded = current?.expanded ?? call.expanded;

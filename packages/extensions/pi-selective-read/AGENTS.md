@@ -15,4 +15,6 @@ Keep source coordinates independent of terminal width; sanitize only display tex
 
 ## Validation
 
+Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
+
 Use [package validation](README.md#validation) and the shared [testing guidance](../../../docs/agents/testing.md). Cover preview bounds, invalid ranges, source-window boundaries, and native delegation without re-testing Pi's filesystem implementation.

@@ -22,4 +22,6 @@ See the [package behavior](README.md) and [workspace reuse guidance](../../../do
 
 ## Validation
 
+Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
+
 Follow the [workspace verification workflow](../../../docs/agents/verification.md) using package name `pi-todo`. Tests are colocated with their owning modules. See [interactive checks](README.md#validation) for UI changes.

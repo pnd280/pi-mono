@@ -11,7 +11,7 @@ export type AsyncCacheOptions<Key, Value> = z.infer<typeof limitsSchema> & {
 
 /** Bounded LRU storage and same-key in-flight deduplication. Disposal discards late results. */
 export class AsyncCache<Key, Value> {
-  private readonly cache = new Map<Key, Value>();
+  private readonly cache = new Map<Key, { value: Value }>();
   private readonly pending = new Map<Key, Promise<Value | undefined>>();
   private disposed = false;
 
@@ -23,12 +23,13 @@ export class AsyncCache<Key, Value> {
   load(key: Key): Promise<Value | undefined> {
     if (this.disposed) return Promise.resolve(undefined);
 
-    if (this.cache.has(key)) {
-      const value = this.cache.get(key)!;
-      this.cache.delete(key);
-      this.cache.set(key, value);
+    const cached = this.cache.get(key);
 
-      return Promise.resolve(value);
+    if (cached) {
+      this.cache.delete(key);
+      this.cache.set(key, cached);
+
+      return Promise.resolve(cached.value);
     }
 
     const pending = this.pending.get(key);
@@ -46,14 +47,18 @@ export class AsyncCache<Key, Value> {
     if (this.disposed) return undefined;
 
     if (this.cache.size >= this.options.capacity) {
-      const entry = this.cache.entries().next().value!;
-      this.cache.delete(entry[0]);
-      this.options.onEvict?.(...entry);
+      const entry = this.cache.entries().next();
+
+      if (!entry.done) {
+        const [key, cached] = entry.value;
+        this.cache.delete(key);
+        this.options.onEvict?.(key, cached.value);
+      }
     }
 
     // An eviction callback may dispose its owner.
     if (this.isDisposed()) return undefined;
-    this.cache.set(key, value);
+    this.cache.set(key, { value });
 
     return value;
   }

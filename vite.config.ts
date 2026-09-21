@@ -37,6 +37,12 @@ export default defineConfig({
     },
     overrides: [
       {
+        files: ["**/*.test.ts"],
+        rules: {
+          "typescript/no-non-null-assertion": "off"
+        }
+      },
+      {
         files: ["packages/**"],
         rules: {
           "boundaries/dependencies": [
@@ -264,6 +270,7 @@ export default defineConfig({
       "typescript/no-unsafe-member-access": "error",
       "typescript/no-unsafe-return": "error",
       "typescript/no-unsafe-type-assertion": "error",
+      "typescript/no-non-null-assertion": "error",
       "typescript/strict-boolean-expressions": [
         "warn",
         {

@@ -88,8 +88,8 @@ export class OutputBuffer {
     if (this.full !== undefined) this.full += text;
     const fragments = text.split("\n");
 
-    for (let index = 0; index < fragments.length; index++) {
-      this.line.append(fragments[index]!);
+    for (const [index, fragment] of fragments.entries()) {
+      this.line.append(fragment);
       if (index === fragments.length - 1) break;
       const line = this.line.text();
       line.text = line.text.replace(/\r$/, "");

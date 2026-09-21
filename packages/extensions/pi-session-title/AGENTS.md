@@ -18,4 +18,6 @@
 
 ## Validation
 
+Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
+
 Use [package validation](README.md#validation). Keep model tests offline. Cover the one-attempt limit, cancellation across session changes, manual and external name changes, and settings reloads.

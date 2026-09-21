@@ -52,8 +52,9 @@ export function fffResultParts(
     });
   }
 
-  if (trailer) {
-    const notice = trailer[1]!;
+  const notice = trailer?.[1];
+
+  if (trailer && notice !== undefined) {
     const separator = trailer[0].slice(0, -notice.length);
     if (separator) parts.push(part(separator));
     parts.push(part(notice, "warning"));

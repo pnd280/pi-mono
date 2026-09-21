@@ -43,7 +43,9 @@ for (const sample of samples) {
     const prepared = performance.now();
     await searchText(items, sample.query ?? "zzzz");
     const searched = performance.now();
-    const lines = await layoutPreview(items[0]!.display, 40, () => true);
+    const first = items[0];
+    if (!first) throw new Error(`Sample ${sample.name} produced no items.`);
+    const lines = await layoutPreview(first.display, 40, () => true);
     const previewed = performance.now();
     await delay(20);
     console.log(

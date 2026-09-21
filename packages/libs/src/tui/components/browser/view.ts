@@ -122,10 +122,9 @@ export class Browser<Item> implements Component, Focusable {
     const { theme } = this.environment;
     const inspection = this.options.inspection !== undefined;
     const primary: (string | undefined)[] = [];
-    if (inspection || state.section.confirm)
-      primary.push(
-        this.controls.hint("confirm", inspection ? "close" : state.section.confirm!.label)
-      );
+    if (inspection) primary.push(this.controls.hint("confirm", "close"));
+    else if (state.section.confirm)
+      primary.push(this.controls.hint("confirm", state.section.confirm.label));
     if (state.section.copy) primary.push(this.controls.hint("copy", "copy"));
     primary.push(this.controls.hint("cancel", state.canReturnToList ? "back" : "close"));
 
@@ -213,7 +212,7 @@ export class Browser<Item> implements Component, Focusable {
     if (width < 40 || height < 10) {
       return [
         crop("Resize to at least 40 columns × 10 rows."),
-        crop(this.controls.hint("cancel", "close")!)
+        crop(this.controls.hint("cancel", "close"))
       ].slice(0, contentHeight);
     }
 
@@ -261,6 +260,7 @@ export class Browser<Item> implements Component, Focusable {
   private renderContent(lines: string[], width: number, available: number) {
     const state = this.controller;
     const { theme } = this.environment;
+    const selected = state.selected;
     if (state.status === "loading") lines.push(theme.fg("dim", "  Loading collection…"));
     else if (state.status === "unavailable")
       lines.push(
@@ -268,8 +268,8 @@ export class Browser<Item> implements Component, Focusable {
           .slice(0, available)
           .map((line) => theme.fg("error", `  ${line}`))
       );
-    else if (state.preview && state.selected !== undefined)
-      return this.renderPreview(lines, width, available);
+    else if (state.preview && selected !== undefined)
+      return this.renderPreview(selected, lines, width, available);
     else this.renderResults(lines, width, available);
   }
 
@@ -282,10 +282,10 @@ export class Browser<Item> implements Component, Focusable {
     return undefined;
   }
 
-  private renderPreview(lines: string[], width: number, available: number) {
+  private renderPreview(selected: Item, lines: string[], width: number, available: number) {
     const state = this.controller;
     const { theme } = this.environment;
-    const content = this.options.preview(state.selected!);
+    const content = this.options.preview(selected);
     const metadataRows = content.metadata === undefined ? 0 : 2;
     this.pageSize = Math.max(1, available - metadataRows);
     this.textPreview.setText(content.text);

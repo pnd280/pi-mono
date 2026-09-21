@@ -25,8 +25,8 @@ export function conversationSource(entries: readonly SessionEntry[]): string {
   let source = "";
 
   for (let index = entries.length - 1; index >= 0; index--) {
-    const entry = entries[index]!;
-    if (entry.type !== "message") continue;
+    const entry = entries[index];
+    if (entry?.type !== "message") continue;
     const { message } = entry;
     if (message.role !== "user" && message.role !== "assistant") continue;
     const text = contentText(message.content).trim();

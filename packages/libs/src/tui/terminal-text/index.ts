@@ -18,7 +18,7 @@ function escapeSequence(text: string, position: number): { end: number; sgr: str
 
   if (kind === "[") {
     const start = index;
-    while (index < text.length && !/[\x40-\x7e]/.test(text[index]!)) index++;
+    while (index < text.length && !/[\x40-\x7e]/.test(text.charAt(index))) index++;
     if (text[index] === "m" && /^[0-9;:]*$/.test(text.slice(start, index)))
       sgr = `\x1b[${text.slice(start, index)}m`;
     index++;

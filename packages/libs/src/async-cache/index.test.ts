@@ -28,18 +28,24 @@ it("deduplicates pending work, reports saturation without caching it, and retrie
   cache.dispose();
 });
 
-it("evicts least recently used entries, including falsey cached values", async () => {
-  const load = vi.fn(async (key: string) => (key === "a" ? 0 : 1));
-  const onEvict = vi.fn();
-  const cache = new AsyncCache({ capacity: 2, maxPending: 2, load, onEvict });
-  await cache.load("a");
-  await cache.load("b");
-  expect(await cache.load("a")).toBe(0);
-  await cache.load("c");
-  expect(onEvict).toHaveBeenCalledWith("b", 1);
-  expect(load).toHaveBeenCalledTimes(3);
-  cache.dispose();
-});
+it.each([0, undefined, null, false, ""])(
+  "evicts least recently used entries, including the cached value %j",
+  async (value) => {
+    const load = vi.fn(async (key: string) => (key === "a" ? value : 1));
+    const onEvict = vi.fn();
+    const cache = new AsyncCache({ capacity: 2, maxPending: 2, load, onEvict });
+    await cache.load("a");
+    await cache.load("b");
+    expect(await cache.load("a")).toBe(value);
+    await cache.load("c");
+    expect(onEvict).toHaveBeenCalledWith("b", 1);
+    expect(load).toHaveBeenCalledTimes(3);
+    await cache.load("d");
+    expect(onEvict).toHaveBeenLastCalledWith("a", value);
+    expect(load).toHaveBeenCalledTimes(4);
+    cache.dispose();
+  }
+);
 
 it("does not publish late results or start work after disposal", async () => {
   const pending = deferred<string>();

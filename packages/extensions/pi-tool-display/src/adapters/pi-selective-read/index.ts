@@ -7,7 +7,8 @@ import { nativeAdapter } from "../native/index.ts";
 import { nativeResultParts } from "../native/result-presentation.ts";
 import { argsSchema, parametersSchema, resultSchema } from "./schema.ts";
 
-const native = nativeAdapter("read")!;
+const native = nativeAdapter("read");
+if (!native) throw new Error("Native read display adapter is unavailable.");
 
 function supports(args: unknown, result: AgentToolResult<unknown>): boolean {
   const input = argsSchema.safeParse(args);
@@ -88,8 +89,9 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
     // Only the recorded appended block is a model preview. Source lookalikes remain source.
     if (sourceBlocks !== undefined && context.contentIndex === sourceBlocks) return [];
     const parts = nativeResultParts("read", text, input, context);
+    const selection = input.selection;
     if (
-      !input.selection ||
+      !selection ||
       context.isError ||
       context.isPartial ||
       context.isCancelled ||
@@ -120,7 +122,7 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
       if (index !== 0 || part.kind !== "output") return part;
       const lines = part.text === "" ? [] : part.text.split("\n");
       if (part.text.endsWith("\n")) lines.pop();
-      const selected = selectSource(lines.slice(0, remaining), firstLine, input.selection!);
+      const selected = selectSource(lines.slice(0, remaining), firstLine, selection);
 
       return {
         ...part,

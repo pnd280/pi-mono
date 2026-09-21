@@ -60,8 +60,10 @@ export class BrowserController<Item> {
   }
 
   private get state() {
-    // Construction validates each section and creates its state before activation.
-    return this.views.get(this.section.id)!;
+    const state = this.views.get(this.section.id);
+    if (!state) throw new Error("Browser section state does not exist.");
+
+    return state;
   }
 
   get searching() {

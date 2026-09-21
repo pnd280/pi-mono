@@ -23,4 +23,6 @@ Keep recovery manual; never evict drafts for additions. Delete only when UUID, t
 
 ## Validation
 
+Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
+
 Use [package validation](README.md#validation). Keep automated TUI tests in [shared TUI](../../libs/src/tui/README.md#validation), not this extension. For nonvisual host integration changes, check both [API](validation/host.test.ts) and [installed-CLI](validation/bundle.test.ts) fixtures. Choose the relevant [terminal and platform checks](docs/validation.md) for interaction, clipboard, or privacy changes.

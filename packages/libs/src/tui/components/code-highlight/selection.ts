@@ -21,7 +21,8 @@ export function highlightCodeSelection(
 
   for (const { line, start, end } of options.ranges) {
     const raw = lines[line];
-    if (raw === undefined || end <= start) continue;
+    const current = styled[line];
+    if (raw === undefined || current === undefined || end <= start) continue;
     // Whole-line slicing preserves terminal sequences and graphemes crossing an endpoint.
     const selected = sliceTerminalText(raw, start, end).text;
     const prefix = sliceTerminalText(raw, 0, end).text;
@@ -29,7 +30,6 @@ export function highlightCodeSelection(
     if (length === 0) continue;
     hasSelection = true;
     const column = visibleWidth(displayLine(prefix)) - length;
-    const current = styled[line]!;
     styled[line] =
       sliceByColumn(current, 0, column) +
       options.mark(sliceByColumn(current, column, length)) +

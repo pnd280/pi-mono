@@ -99,12 +99,14 @@ function changeRows(
   const rows: string[] = [];
   let renderedPatch: string[] | undefined;
 
-  if (patch || proposal) {
+  const candidate = patch || proposal;
+
+  if (candidate) {
     const unconfirmed =
       !patch && p.call?.operation?.outcome !== "success"
         ? message("Proposed change; application not confirmed.", p, "warning")
         : [];
-    renderedPatch = patchRows(patch || proposal!, p, unconfirmed);
+    renderedPatch = patchRows(candidate, p, unconfirmed);
     rows.push(
       ...(renderedPatch ?? [
         ...unconfirmed,
@@ -385,8 +387,9 @@ function contentItems(result: AgentToolResult<unknown>, p: Projection): TreeItem
 
 function appendDetails(items: TreeItem[], rows: string[]): void {
   if (!rows.length) return;
-  if (!items.length) items.push({ rows: [] });
-  items.at(-1)!.rows.push(...rows);
+  const last = items.at(-1);
+  if (last) last.rows.push(...rows);
+  else items.push({ rows: [...rows] });
 }
 
 function unavailableHistory(p: Projection): DisplayNotice[] {

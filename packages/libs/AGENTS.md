@@ -16,4 +16,6 @@ Keep feature records, capacities, diagnostics, session policy, and fixture scena
 
 ## Validation
 
+Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
+
 Use [package validation](README.md#validation). Browser and mounting coverage lives in [shared TUI](src/tui/README.md#validation), including host remounts and editor snapshot ordering. Extensions retain tests for domain actions and nonvisual SDK integration.

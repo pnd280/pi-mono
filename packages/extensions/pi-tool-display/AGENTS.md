@@ -31,4 +31,6 @@ See [observation and saved history](README.md#observation-and-saved-history) for
 
 ## Validation
 
+Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
+
 Use [package validation](README.md#validation) and [terminal checks](docs/validation.md) for integration or interaction changes. Before accepting Pi upgrade fingerprints, reinspect construction, registry wrapping, reconstruction, expansion, and thinking layout. Check [API](src/host/install.test.ts) and [installed-CLI](src/host/install-cli.test.ts) fixtures.

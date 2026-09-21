@@ -14,9 +14,10 @@ const MAX_TARGET_CHARACTERS = 16 * 1024;
 function boundedTarget(text: string, maximum: number): string {
   if (text.length <= maximum) return text;
   const half = Math.floor(maximum / 2);
-  const tail = graphemes.segment(text).containing(text.length - half)!;
+  const tail = graphemes.segment(text).containing(text.length - half);
+  const tailStart = tail ? tail.index + tail.segment.length : text.length;
 
-  return `${textPrefix(text, half)}…${text.slice(tail.index + tail.segment.length)}`;
+  return `${textPrefix(text, half)}…${text.slice(tailStart)}`;
 }
 
 /** Returns target-only rows; callers own action labels, tree gutters and hanging indent. */

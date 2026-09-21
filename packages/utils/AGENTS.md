@@ -16,4 +16,6 @@ Keep helpers pure; callers supply clocks, state, and policy. Put scheduling and 
 
 ## Validation
 
+Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
+
 Use [package validation](README.md#validation).

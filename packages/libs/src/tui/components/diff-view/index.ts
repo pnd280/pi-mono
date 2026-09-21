@@ -396,6 +396,9 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
   const gap = split ? join(theme.fg("dim", "⋮"), theme.fg("dim", "⋮")) : theme.fg("dim", "⋮");
 
   const renderHunk = (index: number, preview?: HunkPreview): string[] => {
+    const paired = hunks[index];
+    const hunk = parsed.hunks[index];
+    if (!paired || !hunk) return [];
     const selectedLines =
       preview && new Set([...preview.rows].flatMap((row) => [row.old, row.new]));
     const excerptedLines =
@@ -416,7 +419,7 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
     };
 
     if (split) {
-      for (const row of hunks[index]!)
+      for (const row of paired)
         append(!preview || preview.rows.has(row), () => {
           const excerpt = preview?.excerpts.has(row) ?? false;
           const left = lineRows(row.old, "old", leftWidth, excerpt);
@@ -428,7 +431,7 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
         });
     } else {
       // Selecting paired replacements must not reorder a unified patch's removals/additions.
-      for (const line of parsed.hunks[index]!.lines)
+      for (const line of hunk.lines)
         append(!selectedLines || selectedLines.has(line), () =>
           lineRows(
             line,
@@ -453,7 +456,8 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
 
   // Choose source changes before applying a displayed-row budget. Wrapped context
   // must never evict the first replacement, and both sides remain selected together.
-  const first = hunks[0]!;
+  const first = hunks[0];
+  if (!first) return [];
   const headers = hunks.length > 1 ? [hunkHeader(0)] : [];
 
   const finish = (rows: string[], excerpted: boolean) => {

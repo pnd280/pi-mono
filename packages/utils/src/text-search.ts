@@ -26,7 +26,7 @@ function* containsLong(text: string, query: string): Steps<boolean> {
 
   for (let index = 1; index < query.length; index++) {
     if (index % chunkSize === 0) yield;
-    while (matched > 0 && query[index] !== query[matched]) matched = prefixes[matched - 1]!;
+    while (matched > 0 && query[index] !== query[matched]) matched = prefixes[matched - 1] ?? 0;
     if (query[index] === query[matched]) matched++;
     prefixes[index] = matched;
   }
@@ -35,7 +35,7 @@ function* containsLong(text: string, query: string): Steps<boolean> {
 
   for (let index = 0; index < text.length; index++) {
     if (index % chunkSize === 0) yield;
-    while (matched > 0 && text[index] !== query[matched]) matched = prefixes[matched - 1]!;
+    while (matched > 0 && text[index] !== query[matched]) matched = prefixes[matched - 1] ?? 0;
     if (text[index] === query[matched]) matched++;
     if (matched === query.length) return true;
   }
@@ -69,7 +69,7 @@ function* fuzzyScore(text: string, query: string): Steps<number | undefined> {
   for (let index = 0; index < text.length && queryIndex < query.length; index++) {
     if (index > 0 && index % chunkSize === 0) yield;
     if (text[index] !== query[queryIndex]) continue;
-    const boundary = index === 0 || /[\s\-_./:]/.test(text[index - 1]!);
+    const boundary = index === 0 || /[\s\-_./:]/.test(text.charAt(index - 1));
 
     if (lastMatchIndex === index - 1) {
       consecutiveMatches++;

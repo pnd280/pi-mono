@@ -14,12 +14,14 @@ Accept a target version; audit/plan requests remain read-only.
 2. Record target, running CLI, declared workspace, and consumer-resolved versions; they may differ. Ask only for material target ambiguity. Do not update global Pi unless requested.
 3. Read every intervening changelog section and linked migration note. Obtain target release/tagged source first if unavailable locally; use `gh` for GitHub.
 4. Read relevant [Pi docs](../../../docs/pi-docs.md) fully and inspect examples, then declarations/exports/implementation for unsettled contracts. Record source versions; never edit installed/upstream Pi.
-5. Inventory imports, events, provider streams, helpers, private hooks, manifests, settings, tests, launchers, and compatibility claims, following [shared consumers](../../../docs/agents/architecture.md#reuse-decision).
+5. Inventory imports, events, provider streams, helpers, private hooks, manifests, settings, tests, launchers, and compatibility claims, following [shared consumers](../../../docs/agents/architecture.md#reuse-decision). Read every package's `docs/pi-compatibility.md`, including shared packages; report missing checklists.
 6. Run relevant baseline checks to distinguish existing failures from regressions.
 
 ## Audit the release changes
 
-For relevant changes, record affected paths/packages, old/target contracts, versioned evidence, and checks. Classify required migration, optional adoption, unaffected, or unresolved; not every feature needs code changes.
+Review in both directions: map release changes to package contracts, and revisit each package's limitations/replacement opportunities against target APIs. Checklists are minimum coverage; linked historical evidence is not target-version proof.
+
+For every package, record affected paths/consumers, old/target contracts, versioned evidence, and checks. Classify required migration, optional adoption, unaffected, or unresolved. For adoption, identify the verified replacement API, removable code, and preserved policy. Keep target-specific results in the handoff; update reusable checklists when contracts or limitations change.
 
 Review affected areas:
 
@@ -72,4 +74,4 @@ Review the lockfile in the final diff and run `git diff --check`.
 
 ## Handoff
 
-Report target/resolved versions, migrations, decisions, preserved policies, personal-setting/upstream-default changes, red/green evidence, and [verification results](../../../docs/agents/verification.md).
+Report target/resolved versions, per-package dispositions, migrations/adoption opportunities, decisions, preserved policies, personal-setting/upstream-default changes, red/green evidence, and [verification results](../../../docs/agents/verification.md).

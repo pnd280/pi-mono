@@ -227,8 +227,10 @@ function scopeHeading(
   if (!outcome) return rows;
   const suffix = p.theme.fg("dim", " · ") + outcome;
 
-  if (rows.length === 1 && visibleWidth(rows[0]! + suffix) <= p.width) {
-    rows[0] += suffix;
+  const first = rows[0];
+
+  if (rows.length === 1 && first !== undefined && visibleWidth(first + suffix) <= p.width) {
+    rows[0] = first + suffix;
 
     return rows;
   }
@@ -265,7 +267,7 @@ function explorationVerbs(p: PreparedCard): HeadingVerbs {
 function groupMemberLabel(p: PreparedCard): string {
   const actionVerbs = explorationVerbs(p);
 
-  if (isLive(p.call!)) return actionVerbs.pending;
+  if (p.call && isLive(p.call)) return actionVerbs.pending;
 
   if (p.outcome === "success") return actionVerbs.complete;
 
@@ -330,7 +332,7 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
         relativeTo
       );
 
-      const terminal = isLive(p.call!) ? undefined : terminalStatus(p.outcome);
+      const terminal = p.call && isLive(p.call) ? undefined : terminalStatus(p.outcome);
       const lifecycle = p.call?.lifecycle;
       let label = groupMemberLabel(p);
       let annotation = "";

@@ -14,8 +14,11 @@ const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultText
 /** Native image captions describe the adjacent image block, including optional model notices. */
 export function nativeImageCaption(text: string): { mimeType: string; tail: string } | undefined {
   const match = /^Read image file \[([^\n\]]+)\]/.exec(text);
+  const mimeType = match?.[1];
 
-  return match ? { mimeType: match[1]!, tail: text.slice(match[0].length) } : undefined;
+  return match && mimeType !== undefined
+    ? { mimeType, tail: text.slice(match[0].length) }
+    : undefined;
 }
 
 const nonVisionImageNote =
@@ -58,6 +61,19 @@ export function nativeReadImageNotices(
   );
 }
 
+function splitTrailer(text: string, pattern: RegExp | undefined) {
+  const match = pattern?.exec(text);
+  const notice = match?.[1];
+  if (!match || notice === undefined || match.index + match[0].length !== text.length)
+    return undefined;
+
+  return {
+    content: text.slice(0, match.index),
+    separator: match[0].slice(0, -notice.length),
+    notice
+  };
+}
+
 /** Interpret retained native envelopes; exact literal lookalikes share their styling. */
 export function nativeResultParts(
   name: string,
@@ -75,14 +91,14 @@ export function nativeResultParts(
   const shell = name === "bash" || name === "powershell";
   const suffix: ResultTextPart[] = [];
   if (shell && context.isError) {
-    const status =
-      /(?:^|\n\n)(Command exited with code -?\d+|Command aborted|Command timed out after [\d.e+-]+ seconds)$/.exec(
-        text
-      );
-    if (!status || status.index + status[0].length !== text.length) return [part(text, "error")];
-    text = text.slice(0, status.index);
-    if (!compactCancellation || status[1] !== "Command aborted")
-      suffix.push(part(status[0].slice(0, -status[1]!.length)), part(status[1]!, "error"));
+    const status = splitTrailer(
+      text,
+      /(?:^|\n\n)(Command exited with code -?\d+|Command aborted|Command timed out after [\d.e+-]+ seconds)$/
+    );
+    if (!status) return [part(text, "error")];
+    text = status.content;
+    if (!compactCancellation || status.notice !== "Command aborted")
+      suffix.push(part(status.separator), part(status.notice, "error"));
     else if (["", "(no output)"].includes(text)) return [];
   } else if (context.isError) return [part(text, "error")];
 
@@ -98,11 +114,11 @@ export function nativeResultParts(
   else if (["grep", "find", "ls"].includes(name))
     trailerPattern =
       /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/;
-  const trailer = trailerPattern?.exec(text);
+  const trailer = splitTrailer(text, trailerPattern);
 
-  if (trailer && trailer.index + trailer[0].length === text.length) {
-    text = text.slice(0, trailer.index);
-    suffix.unshift(part(trailer[0].slice(0, -trailer[1]!.length)), part(trailer[1]!, "warning"));
+  if (trailer) {
+    text = trailer.content;
+    suffix.unshift(part(trailer.separator), part(trailer.notice, "warning"));
   }
 
   return [...nativeContentParts(name, text, record(input), context), ...suffix];

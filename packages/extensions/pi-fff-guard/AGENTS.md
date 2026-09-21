@@ -15,4 +15,6 @@ Treat explicit paths as data. Diagnostics may give the existing retry-tool hint,
 
 ## Validation
 
+Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
+
 Use [package validation](README.md#validation). Do not make paid model requests for validation.
