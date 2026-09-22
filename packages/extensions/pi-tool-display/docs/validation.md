@@ -88,7 +88,7 @@ To check missing output:
 #### History and lifecycle
 
 - Reload twice and issue another `explore`.
-- Exercise new and resumed sessions, forks, tree navigation, and compaction when changing those integrations. Historical reconstruction must not execute calls or animate missing outcomes. Print-created histories have no automatic display facts; new interactive calls can acquire them.
+- Exercise new and resumed sessions, forks, tree navigation, and compaction when changing those integrations. Include boundary-generated compaction and custom messages: retained groups keep expansion ownership, visible messages separate groups, and hidden messages/context edits do not. Historical reconstruction must not execute calls or animate missing outcomes. Print-created histories have no automatic display facts; new interactive calls can acquire them.
 - Exercise user `!` and `!!` commands when changing shell integration. Pi continues to render these shell cards, outside exploration groups and automatic display observation.
 
 ### Finalized-message middleware
@@ -104,6 +104,6 @@ Compare live/replay results with [host cases](../src/host/install.test.ts). Keep
 
 ## Platform limitations
 
-Pi 0.86.0 does not update a live native image row when finalized-message middleware adds or removes result images. This also occurs without the extension. Reconstructed rows use the finalized images.
+Pi 0.87.0 does not update a live native image row when finalized-message middleware adds or removes result images. API checks with and without the extension reproduce this behavior, including Kitty image output. Reconstructed rows use the finalized images.
 
 Check Kitty/iTerm images, links, drag selection, and clipboard in supporting terminals. The launcher uses Unix Bash; Windows/PowerShell need separate `pwsh` and platform-specific launch checks.

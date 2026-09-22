@@ -209,10 +209,12 @@ export function installHostIntegration(
     const addMessage = prototype.addMessageToChat;
     if (typeof addMessage === "function")
       hooks.replace(prototype, "addMessageToChat", function (this: Host, value, options) {
-        const result = addMessage.call(this, value, options);
         const binding = active ? hosts.get(this) : undefined;
-        if (binding && record(value).role === "assistant")
-          binding.rows.assistantBoundary(this.chatContainer?.children.at(-1));
+        const assistant = record(value).role === "assistant";
+        if (!assistant) binding?.rows.prepareInsertion();
+        const result = addMessage.call(this, value, options);
+        if (assistant) binding?.rows.assistantBoundary(this.chatContainer?.children.at(-1));
+        else binding?.rows.finishInsertion();
 
         return result;
       });
@@ -220,7 +222,11 @@ export function installHostIntegration(
     const handle = prototype.handleEvent;
     if (typeof reconstruct === "function" && typeof handle === "function") {
       hooks.replace(prototype, "renderSessionItems", function (this: Host, items, options) {
-        const binding = active ? ensure(this, true) : undefined;
+        // Pi appends replay slices around a boundary compaction summary. Retain
+        // earlier rows and their ownership until the host clears the transcript.
+        const binding = active
+          ? ensure(this, this.chatContainer?.children.length === 0)
+          : undefined;
         if (!binding) return reconstruct.call(this, items, options);
         const result = binding.display.coordinator.batch(() => {
           for (const item of items)

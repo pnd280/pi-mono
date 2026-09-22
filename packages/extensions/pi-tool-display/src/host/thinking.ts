@@ -5,7 +5,7 @@ import { Container, MouseRegion, Spacer, type Component } from "@earendil-works/
 
 import { record } from "../values.ts";
 
-// Pi 0.86.0 updateContent creates one MouseRegion per nonempty consecutive thinking
+// Pi 0.87.0 updateContent creates one MouseRegion per nonempty consecutive thinking
 // run. Gate this private child-layout contract for both the API and installed CLI.
 const updateHashes = new Set([
   "fd0c8ba64d8a398fce1ff73d93e43bc70b66ba50e06491ddeb4826c37992a302",

@@ -43,7 +43,7 @@ type LookupSession = Pick<AgentSession, "getAllTools" | "settingsManager" | "ses
   getToolDefinition: (name: string) => RenderDefinition;
 };
 
-// Pi 0.86.0's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 0.87.0's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: LookupSession }, name: string) => RenderDefinition;
@@ -95,7 +95,7 @@ function interactiveHost(session: AgentSession) {
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 0.86.0's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 0.87.0's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as Host & {
     ui: TUI;
@@ -528,6 +528,137 @@ it("separates new exploration after compaction reconstruction and restores row e
       expect(row.render).toBe(ToolExecutionComponent.prototype.render);
       // oxlint-disable-next-line typescript/unbound-method
       expect(row.handleMouse).toBe(ToolExecutionComponent.prototype.handleMouse);
+    } finally {
+      tui.footerDataProvider.dispose();
+    }
+  });
+});
+
+it.each(["visible message", "hidden message", "context edit"])(
+  "separates boundary entries only when displayed: %s",
+  async (kind) => {
+    const display = kind === "visible message";
+    await withSession(async ({ session }) => {
+      const tui = interactiveHost(session);
+
+      try {
+        tui.renderSessionItems([]);
+
+        for (const [index, id] of ["a", "b"].entries()) {
+          const message = assistantMessage(
+            [fauxToolCall("read", { path: `${id}.ts` }, { id })],
+            index + 1
+          );
+          session.sessionManager.appendMessage(message);
+          await tui.handleEvent({ type: "message_start", message });
+          await tui.handleEvent({
+            type: "message_update",
+            message,
+            assistantMessageEvent: {
+              type: "toolcall_end",
+              contentIndex: 0,
+              toolCall: messageToolCall(message),
+              partial: message
+            }
+          });
+          await tui.handleEvent({ type: "message_end", message });
+          const result = {
+            role: "toolResult" as const,
+            toolCallId: id,
+            toolName: "read",
+            content: [{ type: "text" as const, text: `body ${id}` }],
+            isError: false,
+            timestamp: index + 1
+          };
+          const resultId = session.sessionManager.appendMessage(result);
+          await tui.handleEvent({
+            type: "tool_execution_end",
+            toolCallId: id,
+            toolName: "read",
+            result,
+            isError: false
+          });
+
+          if (id === "a") {
+            const entryId =
+              kind === "context edit"
+                ? session.sessionManager.appendContextEdit(resultId, null)
+                : session.sessionManager.appendCustomMessageEntry(
+                    "boundary-message",
+                    "Boundary message",
+                    display
+                  );
+            await tui.handleEvent({
+              type: "entry_appended",
+              entry: session.sessionManager.getEntry(entryId)!
+            });
+          }
+        }
+
+        for (const replay of [false, true]) {
+          if (replay) {
+            tui.chatContainer.clear();
+            tui.renderSessionEntries(session.sessionManager.buildContextEntries());
+          }
+
+          const rows = tui.chatContainer.children.filter(
+            (child) => child instanceof ToolExecutionComponent
+          );
+          expect(rows).toHaveLength(2);
+          expect(text(rows[0]!).includes("Explored")).toBe(!display);
+          rows[1]!.setExpanded(true);
+          expect(text(rows[0]!).includes("body a")).toBe(!display);
+          expect(text(rows[1]!)).toContain("body b");
+        }
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
+
+it("retains expansion ownership across both slices of boundary compaction replay", async () => {
+  await withSession(async ({ session }) => {
+    const tui = interactiveHost(session);
+    const manager = session.sessionManager;
+
+    const appendRead = (id: string, timestamp: number) => {
+      const messageId = manager.appendMessage(
+        assistantMessage([fauxToolCall("read", { path: `${id}.ts` }, { id })], timestamp)
+      );
+      manager.appendMessage({
+        role: "toolResult",
+        toolCallId: id,
+        toolName: "read",
+        content: [{ type: "text", text: `body ${id}` }],
+        isError: false,
+        timestamp
+      });
+
+      return messageId;
+    };
+
+    try {
+      const firstKeptEntryId = appendRead("a", 1);
+      appendRead("b", 2);
+      tui.renderSessionEntries(manager.buildContextEntries());
+      const compactionId = manager.appendCompaction("Boundary summary", firstKeptEntryId, 100);
+      appendRead("c", 3);
+      appendRead("d", 4);
+      await tui.handleEvent({ type: "entry_appended", entry: manager.getEntry(compactionId)! });
+      const rows = tui.chatContainer.children.filter(
+        (child) => child instanceof ToolExecutionComponent
+      );
+      expect(rows).toHaveLength(4);
+      expect(text(rows[0]!)).toContain("Explored");
+      expect(text(rows[2]!)).toContain("Explored");
+      rows[1]!.setExpanded(true);
+      expect(text(rows[0]!)).toContain("body a");
+      expect(text(rows[1]!)).toContain("body b");
+      expect(text(rows[2]!)).not.toContain("body c");
+      rows[3]!.setExpanded(true);
+      expect(text(rows[2]!)).toContain("body c");
+      expect(text(rows[3]!)).toContain("body d");
     } finally {
       tui.footerDataProvider.dispose();
     }

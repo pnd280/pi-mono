@@ -24,7 +24,7 @@ Each agent `bash` call counts once, including failed, cancelled, or blocked call
 
 #### File changes
 
-Statistics cover native `edit` and `write` verified against Pi 0.86.1. Failures before a disk-write attempt add no file. Canonical paths deduplicate symlink aliases.
+Statistics cover native `edit` and `write` verified against Pi 0.87.0. Failures before a disk-write attempt add no file. Canonical paths deduplicate symlink aliases.
 
 Net counts compare content before the first observed write attempt with final written content; unavailable intermediate snapshots do not matter if both endpoints exist. Reverted changes disappear; creating an empty file still counts.
 
