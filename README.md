@@ -28,6 +28,7 @@ Repeat `-e` for additional extensions. To persist the selection, use Pi's [local
 - [pi-fff-guard](packages/extensions/pi-fff-guard/README.md): block FFF searches targeting Git-ignored or missing explicit paths.
 - [pi-selective-read](packages/extensions/pi-selective-read/README.md): highlight source spans within surrounding read context.
 - [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): private prompt history and saved drafts, scoped to the working directory.
+- [pi-skills](packages/extensions/pi-skills/README.md): skill file references instead of injected content, with native completion anywhere in the prompt.
 - [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks with progress widget and task browser.
 - [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): live elapsed runtime, bash-call counts, and file-change summaries kept outside model context.
 - [pi-session-title](packages/extensions/pi-session-title/README.md): automatic session naming and `/auto-name` regeneration with a configured model.
