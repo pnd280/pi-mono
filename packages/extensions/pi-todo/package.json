@@ -2,7 +2,7 @@
   "name": "pi-todo",
   "version": "0.1.0",
   "private": true,
-  "description": "Session-backed task hierarchies and a read-only task browser",
+  "description": "Session-backed todo hierarchies and a read-only todo browser",
   "keywords": [
     "pi-package"
   ],

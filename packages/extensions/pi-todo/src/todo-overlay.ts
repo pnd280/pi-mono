@@ -244,7 +244,7 @@ export function buildTodoWidgetLines(
   const heading = truncate(
     theme.fg(
       TASK_STATUS_COLOR[overallStatus],
-      `${TUI_GLYPHS.taskStatus[overallStatus]} Tasks (${completedCount}/${totalVisible} completed)`
+      `${TUI_GLYPHS.taskStatus[overallStatus]} Todos (${completedCount}/${totalVisible} completed)`
     )
   );
 

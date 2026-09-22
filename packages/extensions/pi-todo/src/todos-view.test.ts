@@ -12,7 +12,7 @@ it.each(["regular", "fullscreen"] as const)(
     const view = new TodosView({
       tasks: Array.from({ length: 30 }, (_, index) => ({
         id: index + 1,
-        subject: `Task ${index + 1}`,
+        subject: `Todo ${index + 1}`,
         status: "pending",
         description: Array.from({ length: 50 }, (_, line) => `Detail line ${line + 1}`).join("\n")
       })),
@@ -31,10 +31,10 @@ it.each(["regular", "fullscreen"] as const)(
     view.handleInput("\x0e");
     const settingsCursor = getSettingsListTheme().cursor;
     expect(view.render(80).find((line) => line.startsWith(settingsCursor))).toContain(
-      "#16 Task 16"
+      "#16 Todo 16"
     );
     view.handleInput("\x10");
-    expect(view.render(80).find((line) => line.startsWith(settingsCursor))).toContain("#1 Task 1");
+    expect(view.render(80).find((line) => line.startsWith(settingsCursor))).toContain("#1 Todo 1");
     view.handleInput("\r");
     const detail = view.render(80);
     view.handleInput("\x0e");
@@ -50,7 +50,7 @@ it("keeps selection status and all essential hints visible on a narrow terminal"
   const view = new TodosView({
     tasks: Array.from({ length: 30 }, (_, index) => ({
       id: index + 1,
-      subject: `Task ${index + 1}`,
+      subject: `Todo ${index + 1}`,
       status: "pending"
     })),
     theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
@@ -66,10 +66,10 @@ it("keeps selection status and all essential hints visible on a narrow terminal"
   expect(rendered).toContain("↓");
 });
 
-it("resolves configured task controls in the same order as their hints", () => {
+it("resolves configured todo controls in the same order as their hints", () => {
   const done = vi.fn();
   const view = new TodosView({
-    tasks: [{ id: 1, subject: "Task", status: "pending" }],
+    tasks: [{ id: 1, subject: "Todo", status: "pending" }],
     theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
     tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
     keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
@@ -81,14 +81,14 @@ it("resolves configured task controls in the same order as their hints", () => {
 
   expect(view.render(80).join("\n")).toContain("Ctrl+Y details");
   view.handleInput("\x19");
-  expect(view.render(80).join("\n")).toContain("Task #1");
+  expect(view.render(80).join("\n")).toContain("Todo #1");
   view.handleInput("\x1b");
   expect(done).not.toHaveBeenCalled();
   view.handleInput("\x1b");
   expect(done).toHaveBeenCalledOnce();
 });
 
-it("renders list rows with Pi's settings arrow and task tree markers", () => {
+it("renders list rows with Pi's settings arrow and todo tree markers", () => {
   const view = new TodosView({
     tasks: [
       { id: 1, subject: "Root one", status: "pending" },
@@ -122,13 +122,13 @@ it("selects hierarchy preorder, opens read-only details, returns, and ignores Ct
   view.handleInput("\x1b[B");
   view.handleInput("\r");
   const detail = view.render(80).join("\n");
-  expect(detail).toContain("Task #3");
+  expect(detail).toContain("Todo #3");
   expect(detail).toContain("Detail text");
   expect(detail).toContain("Parent: #1");
   view.handleInput("\x03");
   expect(done).not.toHaveBeenCalled();
   view.handleInput("\x1b");
-  expect(view.render(80).join("\n")).not.toContain("Task #3");
+  expect(view.render(80).join("\n")).not.toContain("Todo #3");
   view.handleInput("\x1b");
   expect(done).toHaveBeenCalledOnce();
 });

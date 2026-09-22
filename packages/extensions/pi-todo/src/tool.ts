@@ -21,9 +21,9 @@ export function registerTodoTool(
 export function createTodoTool(controller: TodoController) {
   return {
     name: "todo",
-    label: "Tasks",
+    label: "Todos",
     description:
-      "Manage a recursive Task hierarchy: create, update, list, get, delete (tombstone), clear. Hierarchy is organizational; statuses and dependencies are independent.",
+      "Manage a todo hierarchy: create, update, list, get, delete (tombstone), clear. Hierarchy is organizational; statuses and dependencies are independent.",
     promptGuidelines,
     executionMode: "sequential",
     parameters: TodoParamsSchema,

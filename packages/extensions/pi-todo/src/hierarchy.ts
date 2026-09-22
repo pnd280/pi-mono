@@ -31,7 +31,7 @@ type TraversalFrame = {
 };
 
 /**
- * Builds the source-ordered Task forest and rejects malformed relations. Callers
+ * Builds the source-ordered todo forest and rejects malformed relations. Callers
  * that render untrusted replacement state fail closed when this returns undefined.
  */
 export function deriveTaskHierarchy(tasks: readonly Task[]): TaskHierarchy | undefined {
@@ -184,7 +184,7 @@ export function subtreeTaskIds(hierarchy: TaskHierarchy, taskId: number): Readon
   return ids;
 }
 
-/** Returns the subtree height with the requested Task as level 1. */
+/** Returns the subtree height with the requested todo as level 1. */
 export function subtreeHeight(hierarchy: TaskHierarchy, taskId: number): number {
   if (!hierarchy.tasksById.has(taskId)) return 0;
 

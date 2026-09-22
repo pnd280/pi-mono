@@ -206,7 +206,7 @@ export type ToolDisplayAdapter = {
   exploration?(args: unknown, result?: BorrowedToolResult): ExplorationItem[] | undefined;
   /**
    * Label collapsed groups that use a literal filter scope with a custom heading,
-   * such as "Tasks". Exploration groups leave it undefined and name their scope.
+   * such as "Todos". Exploration groups leave it undefined and name their scope.
    * Calls group only when both their normalized scope and custom title match.
    */
   groupTitle?: string;

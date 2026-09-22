@@ -5,14 +5,14 @@ import { TodoController } from "./controller.ts";
 it("isolates mutation, read, and replay metadata aliases", () => {
   const controller = new TodoController();
   const metadata = { nested: { items: ["original"] } };
-  const result = controller.apply("create", { subject: "Task", metadata });
+  const result = controller.apply("create", { subject: "Todo", metadata });
   metadata.nested.items.push("changed");
   result.state.tasks[0]!.metadata = { changed: true };
   result.details.tasks[0]!.subject = "changed";
   const read = controller.getState();
   read.tasks[0]!.metadata = { changed: true };
   expect(controller.getTodos()[0]).toMatchObject({
-    subject: "Task",
+    subject: "Todo",
     metadata: { nested: { items: ["original"] } }
   });
   const snapshot = controller.getState();
@@ -24,7 +24,7 @@ it("isolates mutation, read, and replay metadata aliases", () => {
   snapshot.tasks[0]!.subject = "changed";
   replayMetadata.nested.items.push("changed");
   expect(controller.getTodos()[0]).toMatchObject({
-    subject: "Task",
+    subject: "Todo",
     metadata: { nested: { items: ["replayed"] } }
   });
   controller.reconstructFromBranch([]);
@@ -39,7 +39,7 @@ it("advances the revision only when a mutation changes state", () => {
   controller.apply("get", { id: 99 });
   expect(controller.getRevision()).toBe(initial);
 
-  controller.apply("create", { subject: "Task" });
+  controller.apply("create", { subject: "Todo" });
   const created = controller.getRevision();
   expect(created).toBeGreaterThan(initial);
 

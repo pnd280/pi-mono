@@ -23,7 +23,7 @@ type WidgetCall = {
   options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
 };
 
-/** Controller stand-in whose revision advances whenever the task snapshot changes. */
+/** Controller stand-in whose revision advances whenever the todo snapshot changes. */
 function todoSource(initial: readonly Task[] = []) {
   const state = { tasks: initial, revision: 0 };
 
@@ -44,7 +44,7 @@ function todoSource(initial: readonly Task[] = []) {
 }
 
 describe("todo overlay", () => {
-  it("registers above-editor widget only when non-deleted tasks exist", () => {
+  it("registers above-editor widget only when non-deleted todos exist", () => {
     const source = todoSource();
     const setWidgetCalls: WidgetCall[] = [];
     const overlay = new TodoOverlay(source.controller);
@@ -66,7 +66,7 @@ describe("todo overlay", () => {
     assert.ok(factory);
     const component = factory({ requestRender: () => (renderRequests += 1) }, theme);
     const renderedWidget = component.render(80).join("\n");
-    assert.match(renderedWidget, /Tasks \(0\/1 completed\)/u);
+    assert.match(renderedWidget, /Todos \(0\/1 completed\)/u);
     assert.match(renderedWidget, /Visible/u);
 
     overlay.update();
@@ -323,7 +323,7 @@ describe("todo overlay", () => {
       80
     );
 
-    assert.match(lines.join("\n"), /Tasks \(0\/1 completed\)/u);
+    assert.match(lines.join("\n"), /Todos \(0\/1 completed\)/u);
     assert.match(lines.join("\n"), /Subject spoof \(working now\)/u);
     assert.equal(lines.join("\n").includes("\x1b"), false);
 
@@ -427,7 +427,7 @@ describe("todo overlay", () => {
     assert.match(overflowLines.at(-1) ?? "", /^└─ \+2 more \(2 active\)$/u);
   });
 
-  it("prioritizes in-progress paths over earlier pending Tasks on overflow", () => {
+  it("prioritizes in-progress paths over earlier pending todos on overflow", () => {
     const tasks: Task[] = [
       ...Array.from({ length: 10 }, (_, index) => ({
         id: index + 1,
@@ -447,7 +447,7 @@ describe("todo overlay", () => {
     assert.match(text, /\+2 more \(2 active\)/u);
   });
 
-  it("retains completed ancestors of unfinished Tasks before unrelated completed branches", () => {
+  it("retains completed ancestors of unfinished todos before unrelated completed branches", () => {
     const tasks: Task[] = [
       ...Array.from({ length: 6 }, (_, index) => ({
         id: index + 1,

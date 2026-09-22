@@ -104,7 +104,7 @@ export class TodosView implements Component {
 
   private layout(width: number, bodyLength: number): ViewLayout {
     const rows = normalizeRows(this.options.tui.terminal.rows);
-    // Leave room for Pi's footer in inline views and around fullscreen overlays.
+    // Leave room for Pi's footer in inline views.
     const reserve = Math.min(4, Math.floor(rows / 4), Math.max(0, rows - 8));
     const budget = rows - reserve;
     const hasEntries = this.entries.length > 0;
@@ -169,7 +169,7 @@ export class TodosView implements Component {
         ? [
             theme.fg(
               "accent",
-              theme.bold(this.detail && selected ? `Task #${selected.id}` : "Tasks")
+              theme.bold(this.detail && selected ? `Todo #${selected.id}` : "Todos")
             ),
             ""
           ]
@@ -203,7 +203,7 @@ export class TodosView implements Component {
     return this.listBody(width, capacity);
   }
 
-  /** Detail text only changes with the selected task, so cache wrapped rows by width. */
+  /** Detail text only changes with the selected todo, so cache wrapped rows by width. */
   private detailRowsFor(task: Task, width: number): string[] {
     let cached = this.detailRows;
 

@@ -10,7 +10,7 @@
 
 ## Limitations and replacement opportunities
 
-- Revisit public task-state, widget, and contribution APIs against current replay/ownership semantics. Shared [working-message composition](../../../libs/src/working-message/README.md#behavior) cannot prevent nonparticipants from overwriting the message; resolve that boundary in libs if upstream support appears.
+- Revisit public todo-state, widget, and contribution APIs against current replay/ownership semantics. Shared [working-message composition](../../../libs/src/working-message/README.md#behavior) cannot prevent nonparticipants from overwriting the message; resolve that boundary in libs if upstream support appears.
 
 ## Validation
 

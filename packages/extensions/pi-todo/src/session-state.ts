@@ -98,7 +98,7 @@ export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefin
     const parsed = schemas[version ?? "legacy"].safeParse(value);
     if (!parsed.success) return undefined;
     const snapshot = { tasks: parsed.data.tasks, nextId: parsed.data.nextId };
-    // Envelope headroom cannot become additional task capacity on repeated replay.
+    // Envelope headroom cannot become additional todo capacity on repeated replay.
     if (!serializedSnapshotFitsLimit(snapshot, maximumBytes)) return undefined;
 
     const state: TodoState = {

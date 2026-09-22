@@ -14,12 +14,12 @@ export const TodoParamsSchema = Type.Object(
     action: StringEnum(TASK_ACTIONS),
     subject: Type.Optional(
       Type.String({
-        description: "Task subject line (required for create)",
+        description: "Todo subject line (required for create)",
         maxLength: MAX_SUBJECT_LENGTH
       })
     ),
     description: Type.Optional(
-      Type.String({ description: "Long-form task description", maxLength: MAX_DESCRIPTION_LENGTH })
+      Type.String({ description: "Long-form todo description", maxLength: MAX_DESCRIPTION_LENGTH })
     ),
     inProgressLabel: Type.Optional(
       Type.String({
@@ -39,30 +39,30 @@ export const TodoParamsSchema = Type.Object(
         minimum: 1,
         maximum: Number.MAX_SAFE_INTEGER,
         description:
-          "Parent Task id. On create, omit/null for a root or provide a live parent id. On update, omit to keep, provide an id to reparent, or null to detach."
+          "Parent todo ID. On create, omit or use null for a root, or provide a live parent ID. On update, omit to keep the parent, provide an ID to reparent, or use null to detach."
       })
     ),
     blockedBy: Type.Optional(
       Type.Array(Type.Number(), {
-        description: "Initial blockedBy ids (create only)",
+        description: "Initial blockedBy IDs (create only)",
         maxItems: MAX_DEPENDENCIES
       })
     ),
     addBlockedBy: Type.Optional(
       Type.Array(Type.Number(), {
-        description: "Task ids to add to blockedBy (update only, additive merge)",
+        description: "Todo IDs to add to blockedBy (update only, additive merge)",
         maxItems: MAX_DEPENDENCIES
       })
     ),
     removeBlockedBy: Type.Optional(
       Type.Array(Type.Number(), {
-        description: "Task ids to remove from blockedBy (update only, additive merge)",
+        description: "Todo IDs to remove from blockedBy (update only, additive merge)",
         maxItems: MAX_DEPENDENCIES
       })
     ),
     owner: Type.Optional(
       Type.String({
-        description: "Agent/owner assigned to this task",
+        description: "Agent/owner assigned to this todo",
         maxLength: MAX_OWNER_LENGTH
       })
     ),
@@ -73,13 +73,13 @@ export const TodoParamsSchema = Type.Object(
     ),
     id: Type.Optional(
       Type.Number({
-        description: "Task id (required for update, get, delete)"
+        description: "Todo ID (required for update, get, delete)"
       })
     ),
     includeDeleted: Type.Optional(
       Type.Boolean({
         description:
-          "If true, list action returns deleted (tombstoned) tasks as well. Default: false."
+          "If true, list action returns deleted (tombstoned) todos as well. Default: false."
       })
     )
   },

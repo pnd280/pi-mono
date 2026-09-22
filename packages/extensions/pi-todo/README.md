@@ -1,32 +1,34 @@
 # pi-todo
 
-Session-backed tasks for multi-step work, with an above-editor widget and read-only `/todos` browser. Active only in regular/fullscreen interactive TTY sessions, never print, JSON, RPC, or informational CLI calls.
+Session-backed todos for multi-step work, with an above-editor widget and read-only `/todos` browser. Active only in regular/fullscreen interactive TTY sessions, never print, JSON, RPC, or informational CLI calls.
 
 ## Usage
 
-### Tasks
+### Todos
 
-`todo` supports `create`, `update`, `list`, `get`, `delete`, and `clear`. Tasks start pending; `parentId: null` moves a subtree to the root. Parent status/dependencies do not control children. Dependency cycles are forbidden.
+The `todo` tool supports `create`, `update`, `list`, `get`, `delete`, and `clear`. Todos start `pending`. On update, `parentId: null` moves a subtree to the root. Parent status and dependencies do not control children. Dependency cycles are forbidden.
 
-Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Tasks with live descendants cannot be deleted but can be reparented. `clear` removes everything and resets IDs. Completed tasks cannot return to pending/in progress.
+Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Todos with live descendants cannot be deleted but can be reparented. `clear` removes everything and resets IDs. Completed todos cannot return to `pending` or `in_progress`.
 
-`list` allows 200 task lines and 32,768 UTF-16 code units, always including the first task line even if oversized. Truncation reports omitted tasks; details retain the full snapshot.
+`list` limits output to 200 todo lines and 32,768 UTF-16 code units, but always includes the first todo line even if oversized. A truncation notice reports omitted todos; result details retain the full snapshot.
 
 | Item                              | Limit               |
 | --------------------------------- | ------------------- |
-| Tasks, including tombstones       | 1,000               |
+| Todos, including tombstones       | 1,000               |
 | Hierarchy depth                   | 8 levels            |
-| Dependencies                      | 100 per task        |
+| Dependencies                      | 100 per todo        |
 | Subject, in-progress label, owner | 200 characters each |
 | Description                       | 4,000 characters    |
 | Metadata                          | 16 KiB, 8 levels    |
-| Stored task state                 | 512 KiB             |
+| Stored todo state                 | 512 KiB             |
 
-### Task browser and widget
+### Todo browser and widget
 
 `/todos` opens the hierarchy. Use the configured selection keys to navigate, Enter to inspect details, and Escape to return or close. Page keys scroll details or move selection.
 
-`/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session. When collapsed, `pi-todo.activity` contributes the first in-progress task's label or subject to the working message, with `(+N more)` for additional in-progress tasks. Expanding the widget or leaving no tasks in progress clears only that contribution.
+`/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session.
+
+When collapsed, `pi-todo.activity` contributes the first in-progress todo's label or subject to the working message, with `(+N more)` for additional in-progress todos. Expanding the widget or leaving no todos in progress clears only that contribution.
 
 `/working-message` opens the [shared ordering menu](../../libs/src/working-message/README.md#settings-menu) for contributions from participating extensions. Changes apply only when saved with Ctrl+S.
 
@@ -48,11 +50,11 @@ Working-message ordering uses the separate [`workingMessage.order` setting](../.
 
 ## Side effects
 
-Tool-result details are the only durable storage: full snapshots in Pi sessions. Branch changes/compaction replay the latest valid result, skipping malformed snapshots and host errors. Version 2 retains hierarchy; version 1 and bounded unversioned snapshots replay flat.
+Todo state is stored only in tool-result details as full snapshots in Pi sessions. Branch changes and compaction replay the latest valid result, skipping malformed snapshots and host errors. Version 2 retains hierarchy; version 1 and bounded unversioned snapshots replay flat.
 
-Unversioned snapshots accept up to 10,000 tasks and 8 MiB of state. Versioned and unversioned snapshots allow an additional 64 KiB for result parameters and errors, without increasing task capacity. Oversized unversioned state remains readable but cannot be extended beyond current limits.
+Unversioned snapshots accept up to 10,000 todos and 8 MiB of state. Versioned and unversioned snapshots allow an additional 64 KiB for result parameters and errors, without increasing todo capacity. Oversized unversioned state remains readable but cannot be extended beyond current limits.
 
-Task text is stripped of terminal controls for the widget, browser, and working message. `/working-message` saves order to the displayed global/trusted project `settings.json`, preserving unrelated settings. Task/widget commands write no separate files. No network requests.
+Todo text is stripped of terminal controls for the widget, browser, and working message. `/working-message` saves order to the displayed global/trusted project `settings.json`, preserving unrelated settings. The `todo` tool and `/todos` command write no separate files. No network requests.
 
 ## Validation
 
@@ -69,7 +71,7 @@ vpr 'pi-todo#validate:terminal' regular
 vpr 'pi-todo#validate:terminal' fullscreen
 ```
 
-The launcher prints/retains its temporary directory and loads no user settings or credentials. Add `--reuse <directory>` after the mode to reuse settings; reseed tasks after process restarts because sessions are not saved.
+The launcher prints/retains its temporary directory and loads no user settings or credentials. Add `--reuse <directory>` after the mode to reuse settings; reseed todos after process restarts because sessions are not saved.
 
 1. Submit `seed`, then `hold`: expect `Checking composition · Other status` for 30 seconds; Escape cancels.
 2. During `hold`, open `/working-message`; check active entries, `fixture.inactive`, and `unavailable.activity`. Select with Up/Down and reorder with Shift+Up/Down. The working message must stay unchanged while editing. Resize narrow, Escape, and reopen; unsaved order must be discarded.

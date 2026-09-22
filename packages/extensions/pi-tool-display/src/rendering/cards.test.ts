@@ -500,7 +500,7 @@ describe("tool display renderers", () => {
     }
   });
 
-  it("groups adjacent task calls under one Tasks heading", () => {
+  it("groups adjacent todo calls under one Todos heading", () => {
     const coordinator = new TranscriptCoordinator("todo-groups");
 
     try {
@@ -523,7 +523,7 @@ describe("tool display renderers", () => {
       coordinator.update(first, "executing");
       coordinator.update(second, "executing");
       expect(coordinator.group(first)).toBeDefined();
-      expect(todoDisplayAdapter.groupTitle).toBe("Tasks");
+      expect(todoDisplayAdapter.groupTitle).toBe("Todos");
 
       const firstRenderer = createToolDisplayRenderers("todo", todoDisplayAdapter, {
         binding: { call: first, coordinator }
@@ -537,7 +537,7 @@ describe("tool display renderers", () => {
           ...secondRenderer.renderCall(secondArgs, theme, context()).render(120)
         ].join("\n");
 
-      expect(heading().split("\n")[0]).toBe("• Tasks");
+      expect(heading().split("\n")[0]).toBe("• Todos");
       expect(heading()).toContain("Creating (running) First task");
       expect(heading()).toContain("Creating (running) Second task");
       expect(heading()).not.toContain("{");
@@ -547,11 +547,11 @@ describe("tool display renderers", () => {
       expect(heading()).toContain("Creating (running) Second task");
 
       coordinator.result(second, result("Task creation failed"), "failure");
-      expect(heading().split("\n")[0]).toBe("• Tasks · 1 failed");
+      expect(heading().split("\n")[0]).toBe("• Todos · 1 failed");
 
       coordinator.expand(first, true);
-      expect(heading()).toContain("Tasks · Created First task");
-      expect(heading()).toContain("Tasks · Create failed Second task");
+      expect(heading()).toContain("Todos · Created First task");
+      expect(heading()).toContain("Todos · Create failed Second task");
     } finally {
       coordinator.dispose();
     }

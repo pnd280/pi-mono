@@ -10,7 +10,7 @@ function result(details: unknown, text = "Done"): AgentToolResult<unknown> {
 function toolInfo(overrides: Partial<ToolInfo> = {}): ToolInfo {
   const base: ToolInfo = {
     name: "todo",
-    description: "Manage tasks",
+    description: "Manage todos",
     parameters: { type: "object", properties: { action: { type: "string" } } },
     sourceInfo: {
       path: "/workspace/packages/extensions/pi-todo/src/index.ts",
@@ -32,13 +32,13 @@ const textContext = {
   expanded: false
 };
 
-it("uses Tasks-prefixed action verbs and ignores unknown arguments", () => {
+it("uses Todos-prefixed action verbs and ignores unknown arguments", () => {
   expect(todoDisplayAdapter.headingVerbs?.({ action: "create" })).toEqual({
-    action: "Tasks · Create",
-    pending: "Tasks · Creating",
-    complete: "Tasks · Created"
+    action: "Todos · Create",
+    pending: "Todos · Creating",
+    complete: "Todos · Created"
   });
-  expect(todoDisplayAdapter.headingVerbs?.({ action: "clear" })?.complete).toBe("Tasks · Cleared");
+  expect(todoDisplayAdapter.headingVerbs?.({ action: "clear" })?.complete).toBe("Todos · Cleared");
   expect(todoDisplayAdapter.headingVerbs?.({ action: "unknown" })).toBeUndefined();
   expect(todoDisplayAdapter.headingVerbs?.({})).toBeUndefined();
 });
@@ -97,14 +97,14 @@ it("summarizes update changes and resolves the subject from a result", () => {
 
 it("summarizes list, get, delete, and clear arguments", () => {
   expect(todoDisplayAdapter.invocation?.({ action: "list" })).toEqual([
-    { kind: "annotation", text: "all tasks" }
+    { kind: "annotation", text: "all todos" }
   ]);
   expect(todoDisplayAdapter.invocation?.({ action: "list", status: "pending" })).toEqual([
     { kind: "value", text: "pending" },
-    { kind: "annotation", text: " tasks" }
+    { kind: "annotation", text: " todos" }
   ]);
   expect(todoDisplayAdapter.invocation?.({ action: "list", includeDeleted: true })).toEqual([
-    { kind: "annotation", text: "all tasks" },
+    { kind: "annotation", text: "all todos" },
     { kind: "annotation", text: " including deleted" }
   ]);
   expect(todoDisplayAdapter.invocation?.({ action: "get", id: 7 })).toEqual([
@@ -141,7 +141,7 @@ it("summarizes progress and empty states without inferring missing snapshots", (
     text: "1/3 completed · 1 in progress · 1 pending"
   });
   expect(todoDisplayAdapter.summary?.(result({ tasks: [] }), context)).toEqual({
-    text: "No tasks"
+    text: "No todos"
   });
   expect(todoDisplayAdapter.summary?.(result({}), context)).toBeUndefined();
   expect(todoDisplayAdapter.summary?.(result({ tasks, error: "boom" }), context)).toBeUndefined();
@@ -150,7 +150,7 @@ it("summarizes progress and empty states without inferring missing snapshots", (
   ).toBeUndefined();
 });
 
-it("uses confirmed task state, create IDs, and filtered list totals", () => {
+it("uses confirmed todo state, create IDs, and filtered list totals", () => {
   const tasks = [
     { id: 4, subject: "Review", status: "completed" },
     { id: 5, subject: "Ship", status: "pending" },
@@ -172,14 +172,14 @@ it("uses confirmed task state, create IDs, and filtered list totals", () => {
   expect(summarize({ action: "get", id: 4 })).toBe("#4 completed · 1/2 completed · 1 pending");
   expect(summarize({ action: "delete", id: 6 })).toBe("#6 deleted · 1/2 completed · 1 pending");
   expect(summarize({ action: "list", status: "in_progress" })).toBe(
-    "0 tasks listed · 1/2 completed · 1 pending"
+    "0 todos listed · 1/2 completed · 1 pending"
   );
   expect(summarize({ action: "list", includeDeleted: true })).toBe(
-    "3 tasks listed · 1/2 completed · 1 pending"
+    "3 todos listed · 1/2 completed · 1 pending"
   );
 });
 
-it("uses friendly task labels while retaining error text", () => {
+it("uses friendly todo labels while retaining error text", () => {
   const parts = todoDisplayAdapter.textParts?.(
     "[in_progress] #1 Ship it\n[pending] #2 Write notes",
     {},

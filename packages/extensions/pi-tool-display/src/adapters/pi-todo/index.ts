@@ -58,7 +58,7 @@ const parametersSchema = z.object({
   properties: z.object({ action: z.object({ type: z.literal("string") }) })
 });
 
-const TOOL_TITLE = "Tasks";
+const TOOL_TITLE = "Todos";
 
 const actionVerbs = {
   create: { action: "Create", pending: "Creating", complete: "Created" },
@@ -104,7 +104,7 @@ function subjectPart(subject: string | undefined): InvocationPart {
     : { kind: "annotation", text: "…" };
 }
 
-/** Match the extension's compact task subject budget before terminal wrapping. */
+/** Match the extension's compact todo subject budget before terminal wrapping. */
 function presentTaskText(text: string): string {
   const compact = displayText(styledOutput(text.replace(/[\r\n\t]+/g, " ")))
     .replace(/ +/g, " ")
@@ -182,10 +182,10 @@ function invocation(args: unknown, result?: BorrowedToolResult): InvocationPart[
     case "list": {
       const parts: InvocationPart[] =
         parsed.status === undefined
-          ? [{ kind: "annotation", text: "all tasks" }]
+          ? [{ kind: "annotation", text: "all todos" }]
           : [
               { kind: "value", text: STATUS_TEXT[parsed.status] },
-              { kind: "annotation", text: " tasks" }
+              { kind: "annotation", text: " todos" }
             ];
       if (parsed.includeDeleted) parts.push({ kind: "annotation", text: " including deleted" });
 
@@ -224,7 +224,7 @@ function presentResultText(text: string): string {
     );
 }
 
-/** Present task fields with the same friendly labels used by the task browser. */
+/** Present todo fields with the same friendly labels used by the todo browser. */
 function textParts(text: string, _args: unknown, context: ResultTextContext): ResultTextPart[] {
   if (context.isError) return [{ kind: "error", text }];
   const display = presentResultText(text);
@@ -247,7 +247,7 @@ function textParts(text: string, _args: unknown, context: ResultTextContext): Re
 function progressSummary(tasks: readonly { status: TaskStatus }[]): string {
   const visible = tasks.filter((task) => task.status !== "deleted");
   if (!visible.length)
-    return tasks.length ? `${tasks.length} deleted · no active tasks` : "No tasks";
+    return tasks.length ? `${tasks.length} deleted · no active todos` : "No todos";
   const completed = visible.filter((task) => task.status === "completed").length;
   const inProgress = visible.filter((task) => task.status === "in_progress").length;
   const pending = visible.filter((task) => task.status === "pending").length;
@@ -266,7 +266,7 @@ function progressSummary(tasks: readonly { status: TaskStatus }[]): string {
 export const todoDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-todo:todo",
   family: "invocation",
-  groupTitle: "Tasks",
+  groupTitle: TOOL_TITLE,
   supports: (args) => parseArgs(args) !== undefined,
   headingVerbs(args) {
     const action = parseArgs(args)?.action;
@@ -309,7 +309,7 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
           (parsed.status === undefined || task.status === parsed.status)
       ).length;
 
-      return { text: `${matching} ${matching === 1 ? "task" : "tasks"} listed · ${progress}` };
+      return { text: `${matching} ${matching === 1 ? "todo" : "todos"} listed · ${progress}` };
     }
 
     return { text: progress };

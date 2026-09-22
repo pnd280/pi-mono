@@ -10,24 +10,24 @@
 
 ## Arguments and results
 
-A retained `details.tasks` snapshot supplies task subjects, confirmed statuses, and progress summaries. For a successful create call, `details.nextId - 1` identifies the new task when that ID exists in the snapshot. A nonempty `details.error` marks the call as a failure even when Pi's error flag is false.
+A validated snapshot in retained `details.tasks` supplies todo subjects, confirmed statuses, and progress summaries. For a successful create call, `details.nextId - 1` identifies the new todo when that ID exists in the snapshot. A nonempty `details.error` marks the call as a failure even when Pi's error flag is false.
 
 After a result exists, incompatible arguments use ungrouped generic cards, e.g. `Call failed todo({})`. Unrecognized details do not force fallback, but subjects, progress, and outcomes require validated details.
 
 ## Display
 
-Supported cards start with `Tasks` and the action, for example `Tasks · Created Review docs` or `Tasks · Updated #3 Review docs · status → completed`.
+Supported cards start with `Todos` and the action, for example `Todos · Created Review docs` or `Todos · Updated #3 Review docs · status → completed`.
 
-Compact cards replace successful output with a `dim` summary of confirmed task state and overall progress, such as `#3 completed · 1/3 completed · 1 in progress · 1 pending`:
+Compact cards replace successful output with a `dim` summary of the confirmed status and overall progress, such as `#3 completed · 1/3 completed · 1 in progress · 1 pending`:
 
-- Progress excludes deleted tasks. Snapshots containing only deleted tasks report their count and `no active tasks`. Empty snapshots report `No tasks`.
-- Lists with a status filter or `includeDeleted: true` also report the number of listed tasks.
+- Progress excludes deleted todos. Snapshots containing only deleted todos report their count and `no active todos`. Empty snapshots report `No todos`.
+- Lists with a status filter or `includeDeleted: true` also report the number of listed todos.
 - Missing or invalid snapshots use an output preview.
 - Failures omit the summary and show diagnostic bodies in `error`.
 
-Expansion adds full result text. Success displays `[in_progress]` as `[in progress]`, `inProgressLabel` as `Activity`, and `blockedBy` as `Blocked by`, dimming known status brackets without changing retained/model-visible results.
+Expansion adds full result text. For successful results, the adapter displays `[in_progress]` as `[in progress]`, `inProgressLabel` as `Activity`, and `blockedBy` as `Blocked by`. Known status brackets are dimmed; retained results and model-visible content are unchanged.
 
-Adjacent `todo` calls form a collapsed `Tasks` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
+Adjacent `todo` calls form a collapsed `Todos` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
 
 ## Validation
 

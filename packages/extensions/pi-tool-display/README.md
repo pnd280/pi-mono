@@ -4,7 +4,7 @@ Borderless Pi TUI tool cards with exploration groups, live shell previews, and [
 
 ## Usage
 
-Adjacent read/search/list calls with matching directory scopes or literal filters form [exploration groups](docs/presentation.md#groups); adjacent `todo` calls form **Tasks**. Single calls use cards. Source order is preserved, with notices, images, and diagnostics beneath each call.
+Adjacent read/search/list calls with matching directory scopes or literal filters form [exploration groups](docs/presentation.md#groups); adjacent `todo` calls form **Todos** groups. Single calls use cards. Source order is preserved, with notices, images, and diagnostics beneath each call.
 
 Compact cards show [result summaries](docs/presentation.md#results) or bounded previews, shell status beside output, collapsed successful-read text, and edit/write diffs. Diagnostics and images stay visible.
 

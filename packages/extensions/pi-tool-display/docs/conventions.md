@@ -22,7 +22,7 @@ Separate search patterns and scopes with a spaced em dash (U+2014), not `in`. Us
 
 ## Group headings
 
-Use `Exploring <path>` and `Explored <path>` for directory groups, and `Filtering <filter>` and `Filtered <filter>` for literal-filter groups. Keep `ExplorationScope` kind names such as `directory` and `filter` out of displayed headings. Adapter-defined groups may use a custom title such as `Tasks`.
+Use `Exploring <path>` and `Explored <path>` for directory groups, and `Filtering <filter>` and `Filtered <filter>` for literal-filter groups. Keep `ExplorationScope` kind names such as `directory` and `filter` out of displayed headings. Adapter-defined groups may use a custom title such as `Todos`.
 
 Omit group call/operation counts; member rows show calls. Retain failure, cancellation, and unavailable-outcome badges plus member diagnostics.
 

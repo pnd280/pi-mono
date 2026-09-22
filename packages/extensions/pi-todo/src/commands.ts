@@ -22,7 +22,7 @@ export function getTodosArgumentCompletions(prefix: string) {
     .map((value) => ({
       value,
       label: value,
-      description: `${value} the above-editor task widget`
+      description: `${value} the above-editor todo widget`
     }));
 
   return matches.length ? matches : null;
@@ -78,8 +78,7 @@ export class TodosCustomViewHost {
       await openResponsiveCustomUI({
         ui: ctx.ui,
         signal,
-        // Match shared browser mounting while keeping fullscreen paging above the transcript.
-        useOverlay: (tui) => tui.mode === "fullscreen" || browserLayout(tui.terminal.rows).overlay,
+        useOverlay: (tui) => tui.mode !== "fullscreen" && browserLayout(tui.terminal.rows).overlay,
         overlayOptions: { width: "100%", maxHeight: "75%", anchor: "center" },
         create: (tui, theme, keybindings, done) =>
           new TodosView({ tasks: controller.getTodos(), tui, theme, keybindings, done })
@@ -119,7 +118,7 @@ export async function runTodosCommand(
       command === "toggle"
         ? options.widgetStateHost.toggleCollapsed()
         : options.widgetStateHost.setCollapsed(command === "collapse");
-    notify(collapsed ? "Task widget collapsed" : "Task widget expanded");
+    notify(collapsed ? "Todo widget collapsed" : "Todo widget expanded");
   } else if (command) notify(ERR_TODOS_USAGE, "error");
   else if (ctx.mode === "tui") await options.customViewHost.show(ctx, controller);
   else
@@ -136,7 +135,7 @@ export function registerTodosCommand(
   widgetStateHost: TodoOverlay
 ): void {
   pi.registerCommand("todos", {
-    description: "Review tasks or control the above-editor task widget",
+    description: "Review todos or control the above-editor todo widget",
     getArgumentCompletions: getTodosArgumentCompletions,
     handler: (args, ctx) =>
       runTodosCommand(args, ctx, controller, { customViewHost, widgetStateHost })

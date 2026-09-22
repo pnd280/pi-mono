@@ -4,7 +4,7 @@ export const ERR_REQUIRES_INTERACTIVE = "/todos requires interactive mode";
 
 export const ERR_TODOS_USAGE = "Usage: /todos [collapse|expand|toggle]";
 
-export const MSG_NO_TODOS = "No tasks yet. Ask the agent to add some!";
+export const MSG_NO_TODOS = "No todos yet. Ask the agent to add some!";
 
 export const MAX_WIDGET_LINES = 12;
 
@@ -39,5 +39,5 @@ export const MAX_LEGACY_TASKS = 10_000;
 
 export const MAX_LEGACY_SNAPSHOT_BYTES = 8 * 1_024 * 1_024;
 
-// Result parameters and errors must still fit when the stored task state is full.
+// Result parameters and errors must still fit when the stored todo state is full.
 export const MAX_DETAILS_OVERHEAD_BYTES = 64 * 1_024;

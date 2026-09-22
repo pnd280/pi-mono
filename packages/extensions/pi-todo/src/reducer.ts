@@ -161,7 +161,7 @@ export function deriveBlocks(taskList: readonly Task[]): Map<number, number[]> {
 
 export function taskListResultText(taskList: readonly Task[], params: TaskMutationParams): string {
   const hierarchy = deriveTaskHierarchy(taskList);
-  if (!hierarchy) return "No tasks";
+  if (!hierarchy) return "No todos";
 
   const includeDeleted = params.includeDeleted === true;
   const statusFilter = params.status;
@@ -171,7 +171,7 @@ export function taskListResultText(taskList: readonly Task[], params: TaskMutati
       (statusFilter === undefined || task.status === statusFilter)
   );
 
-  if (visibleEntries.length === 0) return "No tasks";
+  if (visibleEntries.length === 0) return "No todos";
 
   return boundedListLines(visibleEntries, statusFilter).join("\n");
 }
@@ -213,7 +213,7 @@ function boundedListLines(
 }
 
 function omittedTasksNotice(omitted: number): string {
-  return `… ${omitted} more tasks omitted (narrow with status or get #id)`;
+  return `… ${omitted} more todos omitted (narrow with status or get #id)`;
 }
 
 function renderListEntry(entry: TaskHierarchyEntry, statusFilter: TaskStatus | undefined): string {
@@ -321,7 +321,7 @@ function detailsFor(
   if (stateFitsCurrentLimits(state)) {
     const details: TaskDetails = { version: TASK_DETAILS_VERSION, ...baseDetails };
     if (error !== undefined) details.error = error;
-    // The structural check already sized the task snapshot at this budget.
+    // The structural check already sized the todo snapshot at this budget.
     if (snapshotDetailsFitLimit(details, MAX_SNAPSHOT_BYTES)) return details;
     throw new Error(`todo result snapshot exceeds ${MAX_SNAPSHOT_BYTES} serialized bytes`);
   }
@@ -477,7 +477,7 @@ function applySanitizedTaskMutation(
       const count = state.tasks.length;
       const nextState = emptyTodoState();
 
-      return mutationResult(state, nextState, action, params, `Cleared ${count} tasks`);
+      return mutationResult(state, nextState, action, params, `Cleared ${count} todos`);
     }
   }
 }
@@ -488,11 +488,11 @@ type MutationValidation<Value> =
 
 function applyCreateTaskMutation(state: TodoState, params: TaskMutationParams): TaskMutationResult {
   if (state.tasks.length >= MAX_TASKS) {
-    return errorResult(state, "create", params, `task limit of ${MAX_TASKS} reached`);
+    return errorResult(state, "create", params, `todo limit of ${MAX_TASKS} reached`);
   }
 
   if (!isValidTaskId(state.nextId) || state.nextId >= Number.MAX_SAFE_INTEGER) {
-    return errorResult(state, "create", params, "task id limit reached");
+    return errorResult(state, "create", params, "todo id limit reached");
   }
 
   if (!params.subject || !params.subject.trim()) {
@@ -535,7 +535,7 @@ function validateCreatedParent(
   if (!isValidTaskId(params.parentId)) {
     return {
       ok: false,
-      result: errorResult(state, "create", params, `parentId: invalid task id ${params.parentId}`)
+      result: errorResult(state, "create", params, `parentId: invalid todo id ${params.parentId}`)
     };
   }
 
@@ -568,7 +568,7 @@ function validateCreatedParent(
   if (!hierarchy || parentDepth === undefined) {
     return {
       ok: false,
-      result: errorResult(state, "create", params, "task hierarchy is invalid")
+      result: errorResult(state, "create", params, "todo hierarchy is invalid")
     };
   }
 
@@ -579,7 +579,7 @@ function validateCreatedParent(
         state,
         "create",
         params,
-        `parentId would exceed maximum task depth of ${MAX_TASK_DEPTH}`
+        `parentId would exceed maximum todo depth of ${MAX_TASK_DEPTH}`
       )
     };
   }
@@ -595,7 +595,7 @@ function createDependencyError(
   const invalidDependency = firstInvalidTaskId(blockedBy);
 
   if (invalidDependency !== undefined) {
-    return `blockedBy: invalid task id ${invalidDependency}`;
+    return `blockedBy: invalid todo id ${invalidDependency}`;
   }
 
   for (const dependency of blockedBy) {
@@ -633,7 +633,7 @@ function applyUpdateTaskMutation(state: TodoState, params: TaskMutationParams): 
     return errorResult(state, "update", params, "id required for update");
 
   if (!isValidTaskId(params.id)) {
-    return errorResult(state, "update", params, `invalid task id ${params.id}`);
+    return errorResult(state, "update", params, `invalid todo id ${params.id}`);
   }
 
   const index = state.tasks.findIndex((task) => task.id === params.id);
@@ -756,7 +756,7 @@ function validateUpdatedParent(
   if (parentId !== undefined && !isValidTaskId(parentId)) {
     return {
       ok: false,
-      result: errorResult(state, "update", params, `parentId: invalid task id ${parentId}`)
+      result: errorResult(state, "update", params, `parentId: invalid todo id ${parentId}`)
     };
   }
 
@@ -776,7 +776,7 @@ function validateUpdatedParent(
   if (!hierarchy) {
     return {
       ok: false,
-      result: errorResult(state, "update", params, "task hierarchy is invalid")
+      result: errorResult(state, "update", params, "todo hierarchy is invalid")
     };
   }
 
@@ -816,7 +816,7 @@ function validateUpdatedParent(
         state,
         "update",
         params,
-        `parentId would exceed maximum task depth of ${MAX_TASK_DEPTH}`
+        `parentId would exceed maximum todo depth of ${MAX_TASK_DEPTH}`
       )
     };
   }
@@ -826,7 +826,7 @@ function validateUpdatedParent(
 
 function liveDescendantDeletionError(tasks: readonly Task[], taskId: number): string | undefined {
   const hierarchy = deriveTaskHierarchy(tasks);
-  if (!hierarchy) return "task hierarchy is invalid";
+  if (!hierarchy) return "todo hierarchy is invalid";
   const descendants = subtreeTaskIds(hierarchy, taskId);
   const liveDescendant = hierarchy.entries.find(
     (entry) =>
@@ -855,7 +855,7 @@ function validateUpdatedDependencies(
           state,
           "update",
           params,
-          `removeBlockedBy: invalid task id ${invalidDependency}`
+          `removeBlockedBy: invalid todo id ${invalidDependency}`
         )
       };
     }
@@ -877,7 +877,7 @@ function validateUpdatedDependencies(
         state,
         "update",
         params,
-        `addBlockedBy: invalid task id ${invalidDependency}`
+        `addBlockedBy: invalid todo id ${invalidDependency}`
       )
     };
   }
@@ -983,7 +983,7 @@ function applyGetTaskMutation(state: TodoState, params: TaskMutationParams): Tas
   if (params.id === undefined) return errorResult(state, "get", params, "id required for get");
 
   if (!isValidTaskId(params.id)) {
-    return errorResult(state, "get", params, `invalid task id ${params.id}`);
+    return errorResult(state, "get", params, `invalid todo id ${params.id}`);
   }
 
   const task = state.tasks.find((candidate) => candidate.id === params.id);
@@ -997,7 +997,7 @@ function applyDeleteTaskMutation(state: TodoState, params: TaskMutationParams): 
     return errorResult(state, "delete", params, "id required for delete");
 
   if (!isValidTaskId(params.id)) {
-    return errorResult(state, "delete", params, `invalid task id ${params.id}`);
+    return errorResult(state, "delete", params, `invalid todo id ${params.id}`);
   }
 
   const index = state.tasks.findIndex((task) => task.id === params.id);
@@ -1089,7 +1089,7 @@ function mutationParamsLimitError(
   for (const [name, value] of dependencyArrays) {
     if (value !== undefined && value.length > MAX_DEPENDENCIES) {
       return {
-        error: `${name} exceeds ${MAX_DEPENDENCIES} task ids`,
+        error: `${name} exceeds ${MAX_DEPENDENCIES} todo ids`,
         param: name
       };
     }

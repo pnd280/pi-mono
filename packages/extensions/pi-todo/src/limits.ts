@@ -248,7 +248,7 @@ export function serializedSnapshotFitsLimit<Value>(
   return serializedValueFitsLimit(value, maximumBytes);
 }
 
-/** Details preflight for callers that already validated the task snapshot at the same budget. */
+/** Details preflight for callers that already validated the todo snapshot at the same budget. */
 export function snapshotDetailsFitLimit(details: TaskDetails, maximumBytes: number): boolean {
   return serializedSnapshotFitsLimit(details, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES);
 }

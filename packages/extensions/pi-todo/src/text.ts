@@ -2,7 +2,7 @@ import { displayText, styledOutput } from "@pi-mono/libs/tui/terminal-text";
 
 import type { TaskMutationParams } from "./types.ts";
 
-/** Normalize task whitespace before the shared terminal sanitizer expands tabs/CR. */
+/** Normalize todo whitespace before the shared terminal sanitizer expands tabs/CR. */
 export function sanitizeCompactTaskText(text: string): string {
   return displayText(styledOutput(text.replace(/[\r\n\t]+/g, " "))).replace(/ +/g, " ");
 }

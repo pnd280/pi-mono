@@ -31,7 +31,7 @@ function mutate(
 }
 
 describe("todo reducer", () => {
-  it("creates, lists, gets, updates, deletes, and clears tasks", () => {
+  it("creates, lists, gets, updates, deletes, and clears todos", () => {
     let state = emptyTodoState();
 
     const created = mutate(state, "create", {
@@ -86,14 +86,14 @@ describe("todo reducer", () => {
     assert.equal(deleted.content[0]?.text, "Deleted #1: Research existing tool");
     assert.equal(deleted.details.tasks[0]?.status, "deleted");
 
-    assert.equal(mutate(state, "list", {}).content[0]?.text, "No tasks");
+    assert.equal(mutate(state, "list", {}).content[0]?.text, "No todos");
     assert.equal(
       mutate(state, "list", { includeDeleted: true }).content[0]?.text,
       "[deleted] #1 Research existing tool"
     );
 
     const cleared = mutate(state, "clear", {});
-    assert.equal(cleared.content[0]?.text, "Cleared 1 tasks");
+    assert.equal(cleared.content[0]?.text, "Cleared 1 todos");
     assert.deepEqual(cleared.details.tasks, []);
     assert.equal(cleared.details.nextId, 1);
   });
@@ -257,37 +257,37 @@ describe("todo reducer", () => {
     assert.equal(missingDependency.details.error, "addBlockedBy: #99 not found");
   });
 
-  it("rejects non-positive, non-integer, and unsafe task ids", () => {
+  it("rejects non-positive, non-integer, and unsafe todo ids", () => {
     let state = emptyTodoState();
     state = mutate(state, "create", { subject: "One" }).state;
 
-    assert.equal(mutate(state, "get", { id: 1.5 }).details.error, "invalid task id 1.5");
-    assert.equal(mutate(state, "delete", { id: -1 }).details.error, "invalid task id -1");
+    assert.equal(mutate(state, "get", { id: 1.5 }).details.error, "invalid todo id 1.5");
+    assert.equal(mutate(state, "delete", { id: -1 }).details.error, "invalid todo id -1");
     assert.equal(
       mutate(state, "get", { id: Number.MAX_SAFE_INTEGER + 1 }).details.error,
-      `invalid task id ${Number.MAX_SAFE_INTEGER + 1}`
+      `invalid todo id ${Number.MAX_SAFE_INTEGER + 1}`
     );
     assert.equal(
       mutate(state, "update", { id: 0, status: "in_progress" }).details.error,
-      "invalid task id 0"
+      "invalid todo id 0"
     );
     assert.equal(
       mutate(state, "create", { subject: "Two", blockedBy: [1, 2.5] }).details.error,
-      "blockedBy: invalid task id 2.5"
+      "blockedBy: invalid todo id 2.5"
     );
     assert.equal(
       mutate(state, "update", { id: 1, addBlockedBy: [2.5] }).details.error,
-      "addBlockedBy: invalid task id 2.5"
+      "addBlockedBy: invalid todo id 2.5"
     );
     assert.equal(
       mutate(state, "update", { id: 1, removeBlockedBy: [-1] }).details.error,
-      "removeBlockedBy: invalid task id -1"
+      "removeBlockedBy: invalid todo id -1"
     );
     assert.equal(
       mutate({ tasks: [], nextId: Number.MAX_SAFE_INTEGER }, "create", {
         subject: "No safe successor id"
       }).details.error,
-      "task id limit reached"
+      "todo id limit reached"
     );
   });
 
@@ -296,7 +296,7 @@ describe("todo reducer", () => {
     const tasks = Array.from({ length: taskCount }, (_, index) => {
       const task: Task = {
         id: index + 1,
-        subject: `Task ${index + 1}`,
+        subject: `Todo ${index + 1}`,
         status: "pending"
       };
       if (index + 1 < taskCount) task.blockedBy = [index + 2];
@@ -308,7 +308,7 @@ describe("todo reducer", () => {
     assert.equal(detectCycle(tasks, taskCount, [1]), true);
   });
 
-  it("bounds task fields, dependencies, metadata, task count, and snapshots", () => {
+  it("bounds todo fields, dependencies, metadata, todo count, and snapshots", () => {
     const state = emptyTodoState();
     assert.equal(
       mutate(state, "create", { subject: "s".repeat(MAX_SUBJECT_LENGTH + 1) }).details.error,
@@ -316,28 +316,28 @@ describe("todo reducer", () => {
     );
     assert.equal(
       mutate(state, "create", {
-        subject: "Task",
+        subject: "Todo",
         description: "d".repeat(MAX_DESCRIPTION_LENGTH + 1)
       }).details.error,
       `description exceeds ${MAX_DESCRIPTION_LENGTH} characters`
     );
     assert.equal(
       mutate(state, "create", {
-        subject: "Task",
+        subject: "Todo",
         inProgressLabel: "a".repeat(MAX_IN_PROGRESS_LABEL_LENGTH + 1)
       }).details.error,
       `inProgressLabel exceeds ${MAX_IN_PROGRESS_LABEL_LENGTH} characters`
     );
     assert.equal(
       mutate(state, "create", {
-        subject: "Task",
+        subject: "Todo",
         blockedBy: Array.from({ length: MAX_DEPENDENCIES + 1 }, () => 1)
       }).details.error,
-      `blockedBy exceeds ${MAX_DEPENDENCIES} task ids`
+      `blockedBy exceeds ${MAX_DEPENDENCIES} todo ids`
     );
     assert.equal(
       mutate(state, "create", {
-        subject: "Task",
+        subject: "Todo",
         metadata: { value: "m".repeat(MAX_METADATA_BYTES) }
       }).details.error,
       `metadata exceeds ${MAX_METADATA_BYTES} serialized bytes`
@@ -346,7 +346,7 @@ describe("todo reducer", () => {
     let nested: JsonObject = {};
     for (let depth = 0; depth < MAX_METADATA_DEPTH; depth += 1) nested = { nested };
     assert.equal(
-      mutate(state, "create", { subject: "Task", metadata: nested }).details.error,
+      mutate(state, "create", { subject: "Todo", metadata: nested }).details.error,
       `metadata exceeds maximum depth of ${MAX_METADATA_DEPTH}`
     );
 
@@ -354,7 +354,7 @@ describe("todo reducer", () => {
       tasks: Array.from({ length: MAX_TASKS - 1 }, (_, index): Task => {
         const task: Task = {
           id: index + 1,
-          subject: `Task ${index + 1}`,
+          subject: `Todo ${index + 1}`,
           status: "pending"
         };
         if (index > 0) task.parentId = 1;
@@ -372,7 +372,7 @@ describe("todo reducer", () => {
     assert.equal(finalChild.state.tasks.at(-1)?.parentId, 1);
     assert.equal(
       mutate(finalChild.state, "create", { subject: "One too many", parentId: 1 }).details.error,
-      `task limit of ${MAX_TASKS} reached`
+      `todo limit of ${MAX_TASKS} reached`
     );
 
     let growingState = state;
@@ -380,7 +380,7 @@ describe("todo reducer", () => {
 
     for (let index = 0; index < MAX_TASKS && sizeError === undefined; index += 1) {
       const result = mutate(growingState, "create", {
-        subject: `Task ${index}`,
+        subject: `Todo ${index}`,
         description: "d".repeat(MAX_DESCRIPTION_LENGTH)
       });
       sizeError = result.details.error;
@@ -396,7 +396,7 @@ describe("todo reducer", () => {
     const state: TodoState = {
       tasks: Array.from({ length: taskCount }, (_, index) => ({
         id: index + 1,
-        subject: `Task ${index + 1}`,
+        subject: `Todo ${index + 1}`,
         status: "pending" as const
       })),
       nextId: taskCount + 1
@@ -406,7 +406,7 @@ describe("todo reducer", () => {
     const lines = listed.content[0]?.text.split("\n") ?? [];
 
     assert.equal(lines.length, MAX_LIST_LINES + 1);
-    assert.match(lines.at(-1) ?? "", new RegExp(`^… ${omitted} more tasks omitted`, "u"));
+    assert.match(lines.at(-1) ?? "", new RegExp(`^… ${omitted} more todos omitted`, "u"));
     assert.deepEqual(listed.details.tasks, state.tasks);
     assert.equal(listed.details.nextId, state.nextId);
     assert.equal(parseTodoStateSnapshot(listed.details)?.tasks.length, taskCount);
@@ -421,7 +421,7 @@ describe("todo reducer", () => {
     };
     const characterBoundedText = mutate(characterBoundedState, "list", {}).content[0]?.text ?? "";
     assert.ok(characterBoundedText.length <= MAX_LIST_CHARACTERS);
-    assert.match(characterBoundedText, /more tasks omitted/u);
+    assert.match(characterBoundedText, /more todos omitted/u);
   });
 
   it("includes complete snapshots in list, get, and domain-error details", () => {
@@ -462,7 +462,7 @@ describe("todo reducer", () => {
     const legacyState: TodoState = {
       tasks: Array.from({ length: MAX_TASKS + 1 }, (_, index) => ({
         id: index + 1,
-        subject: `Task ${index + 1}`,
+        subject: `Todo ${index + 1}`,
         status: "pending"
       })),
       nextId: MAX_TASKS + 2
@@ -586,11 +586,11 @@ describe("todo reducer", () => {
     }
   });
 
-  it("preserves oversized legacy state even when each task fits the current field limits", () => {
+  it("preserves oversized legacy state even when each todo fits the current field limits", () => {
     const state: TodoState = {
       tasks: Array.from({ length: 200 }, (_, index) => ({
         id: index + 1,
-        subject: "Task",
+        subject: "Todo",
         status: "pending",
         description: "d".repeat(MAX_DESCRIPTION_LENGTH)
       })),
@@ -632,8 +632,8 @@ describe("todo reducer", () => {
     const deletedParent = mutate(state, "delete", { id: 7 }).state;
 
     for (const [parentId, error] of [
-      [0, "parentId: invalid task id 0"],
-      [1.5, "parentId: invalid task id 1.5"],
+      [0, "parentId: invalid todo id 0"],
+      [1.5, "parentId: invalid todo id 1.5"],
       [7, "parentId: #7 is deleted"],
       [8, "cannot parent #8 on itself"],
       [99, "parentId: #99 not found"]
@@ -656,8 +656,8 @@ describe("todo reducer", () => {
     const deletedDestination = mutate(state, "delete", { id: 4 }).state;
 
     for (const [parentId, error] of [
-      [0, "parentId: invalid task id 0"],
-      [1.5, "parentId: invalid task id 1.5"],
+      [0, "parentId: invalid todo id 0"],
+      [1.5, "parentId: invalid todo id 1.5"],
       [3, "cannot parent #3 on itself"],
       [4, "parentId: #4 is deleted"],
       [99, "parentId: #99 not found"]
@@ -718,7 +718,7 @@ describe("todo reducer", () => {
     }
 
     const tooDeepCreate = mutate(chain, "create", { subject: "Level 9", parentId: 8 });
-    assert.equal(tooDeepCreate.details.error, "parentId would exceed maximum task depth of 8");
+    assert.equal(tooDeepCreate.details.error, "parentId would exceed maximum todo depth of 8");
     assert.deepEqual(tooDeepCreate.state, chain);
 
     const cycle = mutate(chain, "update", { id: 1, parentId: 8, subject: "Not applied" });
@@ -737,7 +737,7 @@ describe("todo reducer", () => {
     movable = mutate(movable, "create", { subject: "Subtree root" }).state;
     movable = mutate(movable, "create", { subject: "Subtree child", parentId: 8 }).state;
     const tooDeepMove = mutate(movable, "update", { id: 8, parentId: 7 });
-    assert.equal(tooDeepMove.details.error, "parentId would exceed maximum task depth of 8");
+    assert.equal(tooDeepMove.details.error, "parentId would exceed maximum todo depth of 8");
     assert.deepEqual(tooDeepMove.state, movable);
   });
 

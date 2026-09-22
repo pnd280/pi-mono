@@ -78,9 +78,9 @@ it("routes widget actions, usage errors and non-TUI notifications without openin
   await runTodosCommand("nope", ctx, controller, options);
   expect(notify).toHaveBeenLastCalledWith("Usage: /todos [collapse|expand|toggle]", "error");
   await runTodosCommand("collapse", { ...ctx, mode: "tui" }, controller, options);
-  expect(notify).toHaveBeenLastCalledWith("Task widget collapsed", "info");
+  expect(notify).toHaveBeenLastCalledWith("Todo widget collapsed", "info");
   await runTodosCommand("toggle", { ...ctx, mode: "tui" }, controller, options);
-  expect(notify).toHaveBeenLastCalledWith("Task widget expanded", "info");
+  expect(notify).toHaveBeenLastCalledWith("Todo widget expanded", "info");
   await runTodosCommand("", { ...ctx, hasUI: false }, controller, options);
   expect(writeOutput).toHaveBeenCalledWith("/todos requires interactive mode");
 });

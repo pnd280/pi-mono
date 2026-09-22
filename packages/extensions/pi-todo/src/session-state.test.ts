@@ -64,7 +64,7 @@ describe("todo session state", () => {
     assert.deepEqual(restored, emptyTodoState());
   });
 
-  it("clones restored tasks and accepts source-compatible extra detail fields", () => {
+  it("clones restored todos and accepts source-compatible extra detail fields", () => {
     const snapshot = {
       action: "update",
       params: {},
@@ -109,7 +109,7 @@ describe("todo session state", () => {
     assert.deepEqual(snapshot.tasks[0]?.blockedBy, [2]);
   });
 
-  it("normalizes unversioned and version 1 snapshots to Root Tasks", () => {
+  it("normalizes unversioned and version 1 snapshots to root todos", () => {
     const taskWithFutureParent = {
       id: 1,
       subject: "Historical root",
@@ -206,9 +206,9 @@ describe("todo session state", () => {
     });
   });
 
-  it("accepts duplicate edges and dependencies on existing deleted tasks", () => {
+  it("accepts duplicate edges and dependencies on existing deleted todos", () => {
     const tasks = [
-      { id: 1, subject: "Blocked task", status: "pending", blockedBy: [2, 2] },
+      { id: 1, subject: "Blocked todo", status: "pending", blockedBy: [2, 2] },
       { id: 2, subject: "Deleted dependency", status: "deleted" }
     ] satisfies Task[];
 
@@ -247,9 +247,9 @@ describe("todo session state", () => {
     });
   });
 
-  it("rejects semantically corrupt task graphs and colliding next ids", () => {
+  it("rejects semantically corrupt todo graphs and colliding next ids", () => {
     const task = (id: number, blockedBy?: number[]): Task => {
-      const candidate: Task = { id, subject: `Task ${id}`, status: "pending" };
+      const candidate: Task = { id, subject: `Todo ${id}`, status: "pending" };
       if (blockedBy !== undefined) candidate.blockedBy = blockedBy;
 
       return candidate;
@@ -265,11 +265,11 @@ describe("todo session state", () => {
     );
   });
 
-  it("rejects version 1 and version 2 snapshots over the current task-count limit", () => {
+  it("rejects version 1 and version 2 snapshots over the current todo-count limit", () => {
     const taskCount = MAX_TASKS + 1;
     const tasks = Array.from({ length: taskCount }, (_, index): Task => {
       const id = index + 1;
-      const task: Task = { id, subject: `Task ${id}`, status: "pending" };
+      const task: Task = { id, subject: `Todo ${id}`, status: "pending" };
       if (id < taskCount) task.blockedBy = [id + 1];
 
       return task;
@@ -281,7 +281,7 @@ describe("todo session state", () => {
   });
 
   it("rejects replay snapshots whose fields, dependencies, or metadata exceed limits", () => {
-    const task = { id: 1, subject: "Task", status: "pending" };
+    const task = { id: 1, subject: "Todo", status: "pending" };
     assert.equal(
       parseTodoStateSnapshot({
         version: TASK_DETAILS_VERSION,
@@ -317,7 +317,7 @@ describe("todo session state", () => {
   it("rejects version 1 and version 2 snapshots over the serialized-size limit", () => {
     const tasks = Array.from({ length: 200 }, (_, index) => ({
       id: index + 1,
-      subject: `Task ${index + 1}`,
+      subject: `Todo ${index + 1}`,
       description: "d".repeat(MAX_DESCRIPTION_LENGTH),
       status: "pending"
     }));
@@ -331,7 +331,7 @@ describe("todo session state", () => {
     ["current", TASK_DETAILS_VERSION, MAX_SNAPSHOT_BYTES],
     ["legacy", undefined, MAX_LEGACY_SNAPSHOT_BYTES]
   ] as const)(
-    "keeps %s task capacity separate from result overhead",
+    "keeps %s todo capacity separate from result overhead",
     (_label, version, maximumBytes) => {
       const metadata = { padding: "" };
       const tasks: Task[] = Array.from({ length: 128 }, (_, index) => ({
@@ -363,7 +363,7 @@ describe("todo session state", () => {
     const tasks = Array.from({ length: taskCount }, (_, index): Task => {
       const task: Task = {
         id: index + 1,
-        subject: index === 0 ? "s".repeat(MAX_SUBJECT_LENGTH + 1) : `Task ${index + 1}`,
+        subject: index === 0 ? "s".repeat(MAX_SUBJECT_LENGTH + 1) : `Todo ${index + 1}`,
         status: "pending"
       };
 
@@ -383,7 +383,7 @@ describe("todo session state", () => {
     assert.equal(restored.tasks[0]?.blockedBy?.length, MAX_DEPENDENCIES + 1);
   });
 
-  it("enforces the explicit legacy task ceiling and rejects future versions", () => {
+  it("enforces the explicit legacy todo ceiling and rejects future versions", () => {
     const tasks = Array.from({ length: MAX_LEGACY_TASKS + 1 }, (_, index) => ({
       id: index + 1,
       subject: "x",

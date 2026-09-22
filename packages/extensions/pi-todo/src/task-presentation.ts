@@ -10,7 +10,7 @@ export function formatTaskSubject(task: Task, theme: TaskTheme): string {
   const finished = task.status === "completed" || task.status === "deleted";
   const subject = theme.fg(
     finished ? "dim" : "text",
-    presentCompactTaskText(task.subject) || "Untitled task"
+    presentCompactTaskText(task.subject) || "Untitled todo"
   );
 
   return finished ? theme.strikethrough(subject) : subject;
