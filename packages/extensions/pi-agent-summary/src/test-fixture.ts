@@ -22,7 +22,12 @@ type TestEvents = SummaryEvents & {
 };
 
 const cleanup: (() => Promise<void>)[] = [];
-beforeEach(() => vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] }));
+beforeEach(() =>
+  vi.useFakeTimers({
+    toFake: ["Date", "setInterval", "clearInterval", "performance"],
+    now: new Date("2026-01-01T14:34:56.000Z")
+  })
+);
 afterEach(async () => {
   for (const dispose of cleanup.splice(0)) await dispose();
   vi.useRealTimers();

@@ -7,6 +7,7 @@ import { summaryEntryType } from "./summary.ts";
 
 const theme: Pick<Theme, "fg"> = { fg: (_color, text) => text };
 const renderSummary = createSummaryRenderer();
+const finishedAt = new Date(2026, 0, 1, 14, 34, 56).getTime();
 
 function savedEntry(data: unknown) {
   const session = SessionManager.inMemory();
@@ -19,21 +20,25 @@ function savedEntry(data: unknown) {
 
 it("replays persisted statistics with diff colors and expands the per-file breakdown", () => {
   const entry = savedEntry({
-    durationMs: 12000,
+    durationMs: 83000,
+    finishedAt,
     bashCalls: 4,
     files: [
       { path: "src/a.ts", status: "available", added: 40, removed: 10 },
-      { path: "src/b.ts", status: "available", added: 2, removed: 1 }
+      { path: "src/b.ts", status: "available", added: 2, removed: 1 },
+      { path: "src/empty.ts", status: "available", added: 0, removed: 0 }
     ]
   });
+  entry.timestamp = new Date(finishedAt + 60_000).toISOString();
   const fg = vi.fn(theme.fg);
   const collapsed = renderSummary(entry, { expanded: false }, { fg });
-  expect(collapsed?.render(120).join("\n").trim()).toBe(
-    "Worked for 12s · 4 bash calls · 2 files · +42 −11"
-  );
+  expect(collapsed?.render(120).map((line) => line.trim())).toEqual([
+    "Worked for 1m 23s · 2:34:56 PM",
+    "4 bash calls · 3 files changed · +42 −11"
+  ]);
   expect(fg).toHaveBeenCalledWith("toolDiffAdded", "+42");
   expect(fg).toHaveBeenCalledWith("toolDiffRemoved", "−11");
-  expect(fg).toHaveBeenCalledWith("dim", "2 files");
+  expect(fg).toHaveBeenCalledWith("dim", "3 files changed");
   fg.mockClear();
   collapsed?.invalidate();
   collapsed?.render(120);
@@ -60,6 +65,7 @@ const click: TuiMouseEvent = {
 function summaryWithFile() {
   return savedEntry({
     durationMs: 12000,
+    finishedAt,
     bashCalls: 1,
     files: [{ path: "src/a.ts", status: "available", added: 2, removed: 1 }]
   });
@@ -107,7 +113,7 @@ it("leaves scrolling, selection, other buttons, and summaries without details un
   expect(component.render(120)).toEqual(initial);
 
   const empty = renderSummary(
-    savedEntry({ durationMs: 12000, bashCalls: 1, files: [] }),
+    savedEntry({ durationMs: 12000, finishedAt, bashCalls: 1, files: [] }),
     { expanded: false },
     theme
   )!;
@@ -116,17 +122,21 @@ it("leaves scrolling, selection, other buttons, and summaries without details un
 });
 
 it("omits unavailable statistics from totals and rejects malformed summaries", () => {
-  const base = { durationMs: 0, bashCalls: 0, files: [] };
+  const base = { durationMs: 0, finishedAt, bashCalls: 0, files: [] };
   const text = (data: unknown) =>
-    renderSummary(savedEntry(data), { expanded: false }, theme)?.render(120).join("\n").trim();
-  expect(text(base)).toBe("Worked for 0s");
+    renderSummary(savedEntry(data), { expanded: false }, theme)
+      ?.render(120)
+      .map((line) => line.trim())
+      .join("\n");
+  expect(text(base)).toBe("Worked for 0s · 2:34:56 PM");
+  expect(text({ ...base, bashCalls: 1 })).toBe("Worked for 0s · 2:34:56 PM\n1 bash call");
   const unavailable = { path: "large.txt", status: "unavailable", reason: "Too large." };
-  expect(text({ ...base, files: [unavailable] })).toBe("Worked for 0s");
+  expect(text({ ...base, files: [unavailable] })).toBe("Worked for 0s · 2:34:56 PM");
   expect(
     text({
       ...base,
       files: [{ path: "file.txt", status: "available", added: 1, removed: 0 }, unavailable]
     })
-  ).toBe("Worked for 0s · 1 file · +1");
+  ).toBe("Worked for 0s · 2:34:56 PM\n1 file changed · +1");
   expect(text({ durationMs: 1000 })).toBeUndefined();
 });

@@ -37,13 +37,14 @@ it("records one context-free entry after all turns and retries settle, preservin
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 4500,
+    finishedAt: Date.now(),
     bashCalls: 2,
     files: []
   });
   expect(runtime.session.getLeafEntry()).toMatchObject({
     type: "custom",
     customType: summaryEntryType,
-    data: { durationMs: 4500, bashCalls: 2, files: [] }
+    data: { durationMs: 4500, finishedAt: Date.now(), bashCalls: 2, files: [] }
   });
   expect(runtime.session.buildSessionContext().messages).toEqual(before);
   expect(runtime.setWorkingMessage).toHaveBeenLastCalledWith("Checking files");
@@ -69,6 +70,7 @@ it("counts unique edit/write files and net lines, without scanning bash-only fil
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 0,
+    finishedAt: Date.now(),
     bashCalls: 1,
     files: [
       { path: "existing.txt", status: "available", added: 2, removed: 1 },
@@ -79,6 +81,7 @@ it("counts unique edit/write files and net lines, without scanning bash-only fil
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
     durationMs: 0,
+    finishedAt: Date.now(),
     bashCalls: 0,
     files: []
   });
@@ -101,6 +104,7 @@ it.each(["edit", "write"])(
     await runtime.emit("agent_settled", {});
     expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
       durationMs: 0,
+      finishedAt: Date.now(),
       bashCalls: 0,
       files: [{ path: "large.txt", status: "available", added: 1, removed: 1 }]
     });
@@ -124,6 +128,7 @@ it("omits reverted and failed edits and deduplicates existing symlink aliases", 
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 0,
+    finishedAt: Date.now(),
     bashCalls: 0,
     files: []
   });
@@ -143,6 +148,7 @@ it("counts bash calls at start, including unfinished and blocked calls, but not 
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 0,
+    finishedAt: Date.now(),
     bashCalls: 3,
     files: []
   });
@@ -161,6 +167,7 @@ it("waits if another extension has already started a run during settlement", asy
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 2000,
+    finishedAt: Date.now(),
     bashCalls: 0,
     files: []
   });
@@ -187,9 +194,37 @@ it("cleans up unfinished runs on shutdown without appending a partial summary", 
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 0,
+    finishedAt: Date.now(),
     bashCalls: 0,
     files: []
   });
+});
+
+it("captures the finish time before awaiting file statistics", async () => {
+  const runtime = await fixture();
+  await runtime.emit("agent_start", {});
+  vi.advanceTimersByTime(1250);
+  const finishedAt = Date.now();
+  const finish = vi.spyOn(RunChanges.prototype, "finish").mockImplementationOnce(async () => {
+    vi.advanceTimersByTime(5000);
+
+    return [];
+  });
+
+  try {
+    await runtime.emit("agent_settled", {});
+    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+      durationMs: 1250,
+      finishedAt,
+      bashCalls: 0,
+      files: []
+    });
+    expect(runtime.session.getLeafEntry()?.timestamp).toBe(
+      new Date(finishedAt + 5000).toISOString()
+    );
+  } finally {
+    finish.mockRestore();
+  }
 });
 
 it.each(["session_shutdown", "session_start"] as const)(
@@ -229,6 +264,7 @@ it.each(["rpc", "json", "print"] as const)(
     await runtime.emit("session_shutdown", {});
     expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
       durationMs: 1250,
+      finishedAt: Date.now(),
       bashCalls: 0,
       files: [{ path: "file.txt", status: "available", added: 1, removed: 0 }]
     });

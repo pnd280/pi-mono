@@ -1,20 +1,25 @@
 # pi-agent-summary
 
-Shows elapsed runtime in Pi's working message and saves duration, bash-call counts, and file-change statistics outside model context.
+Shows elapsed runtime in Pi's working message and saves run summaries outside model context.
 
 ## Usage
 
 When Pi settles, the transcript shows:
 
 ```text
-Worked for 1m 23s · 4 bash calls · 3 files · +42 −11
+Worked for 1m 23s · 2:34:56 PM
+4 bash calls · 3 files changed · +42 −11
 ```
+
+Finish times use your local timezone. The statistics line appears only when there are bash calls or files with available statistics.
 
 Left-click a summary in fullscreen TUI to toggle its per-file statistics independently. Pi's tool-output shortcut (default Ctrl+O) toggles all summaries in either TUI mode.
 
 A run includes model turns, tool calls, automatic/compaction retries, queued follow-ups, and time waiting for user input. Cancellation and errors also produce summaries; summaries do not indicate success.
 
-Saved summaries render on resume when the extension is loaded. RPC, JSON, and print modes save the same statistics without a UI timer. Shutdown/reload discards unfinished runs.
+Saved summaries render on resume when the extension is loaded. Invalid summaries, including entries without a finish timestamp, are hidden.
+
+RPC, JSON, and print modes save the same statistics without a UI timer. Shutdown/reload discards unfinished runs.
 
 ### Tool statistics
 
@@ -44,7 +49,7 @@ No extension-specific options or environment variables. The shared [coordinator]
 
 ## Side effects
 
-Appends one `pi-agent-summary.summary` entry per settled run with duration, bash count, and per-file statistics or unavailability reasons. Entries never enter model context or trigger turns; invalid stored summaries are hidden.
+Appends one `pi-agent-summary.summary` entry per settled run with duration, finish timestamp, bash count, and per-file statistics or unavailability reasons. Entries never enter model context or trigger turns.
 
 Observation adds a bounded read before native `write`, reuses native `edit` reads, and never reads after writing. Observations are [shared](../../libs/src/file-mutations/README.md) with `pi-tool-display` without duplicate reads. Contents and patches stay in memory. No directory scans, extra target writes, Git commands, or network requests.
 
@@ -61,8 +66,8 @@ vpr 'pi-agent-summary#test'
 
 Visual checks:
 
-1. Load with `pi-todo`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity and diff-colored line counts after settling.
+1. Load with `pi-todo`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity, then a summary with duration and local finish time above diff-colored statistics.
 2. In fullscreen, click summaries independently; verify dragging selects text and the wheel scrolls.
 3. Check Ctrl+O toggles all summaries in regular and fullscreen modes.
 4. Abort another run; expect one summary and a stopped timer.
-5. Resume the session; confirm saved summaries appear.
+5. Resume the session; confirm saved summaries retain their finish times.

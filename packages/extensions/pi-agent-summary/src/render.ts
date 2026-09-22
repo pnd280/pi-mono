@@ -2,7 +2,7 @@ import type { CustomEntry, EntryRenderOptions, Theme } from "@earendil-works/pi-
 import { MouseRegion, Text, type Component } from "@earendil-works/pi-tui";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
-import { formatDuration, summarySchema, type RunSummary } from "./summary.ts";
+import { formatDuration, formatFinishTime, summarySchema, type RunSummary } from "./summary.ts";
 
 type SummaryTheme = Pick<Theme, "fg">;
 
@@ -17,20 +17,28 @@ function lineCounts(added: number, removed: number, theme: SummaryTheme): string
 function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme): string {
   const separator = theme.fg("dim", " · ");
   const available = summary.files.filter((file) => file.status === "available");
-  const parts = [theme.fg("dim", `Worked for ${formatDuration(summary.durationMs)}`)];
+  const lines = [
+    theme.fg(
+      "dim",
+      `Worked for ${formatDuration(summary.durationMs)} · ${formatFinishTime(summary.finishedAt)}`
+    )
+  ];
+  const parts: string[] = [];
   if (summary.bashCalls)
     parts.push(
       theme.fg("dim", `${summary.bashCalls} bash ${summary.bashCalls === 1 ? "call" : "calls"}`)
     );
   if (available.length)
-    parts.push(theme.fg("dim", `${available.length} ${available.length === 1 ? "file" : "files"}`));
+    parts.push(
+      theme.fg("dim", `${available.length} ${available.length === 1 ? "file" : "files"} changed`)
+    );
   const counts = lineCounts(
     available.reduce((total, file) => total + file.added, 0),
     available.reduce((total, file) => total + file.removed, 0),
     theme
   );
   if (counts) parts.push(counts);
-  const lines = [parts.join(separator)];
+  if (parts.length) lines.push(parts.join(separator));
 
   if (expanded) {
     for (const file of summary.files) {

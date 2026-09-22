@@ -1,6 +1,8 @@
 import { expect, it } from "vite-plus/test";
 
-import { formatDuration, summarySchema } from "./summary.ts";
+import { formatDuration, formatFinishTime, summarySchema } from "./summary.ts";
+
+const summary = { durationMs: 1234, finishedAt: 1_767_270_896_000, bashCalls: 2, files: [] };
 
 it.each([
   [0, "0s"],
@@ -15,26 +17,38 @@ it.each([
 });
 
 it.each([
+  [0, 0, 0, "12:00:00 AM"],
+  [2, 3, 4, "2:03:04 AM"],
+  [12, 0, 0, "12:00:00 PM"],
+  [14, 34, 56, "2:34:56 PM"],
+  [23, 59, 59, "11:59:59 PM"]
+] as const)("formats local finish time %i:%i:%i as %s", (hour, minute, second, text) => {
+  expect(formatFinishTime(new Date(2026, 0, 1, hour, minute, second).getTime())).toBe(text);
+});
+
+it.each([
   undefined,
   null,
   {},
-  { durationMs: "1000" },
-  { durationMs: -1 },
-  { durationMs: Infinity },
-  { durationMs: 1.5 },
-  { durationMs: 1000 },
-  { durationMs: 1000, bashCalls: -1, files: [] },
+  { ...summary, durationMs: "1000" },
+  { ...summary, durationMs: -1 },
+  { ...summary, durationMs: Infinity },
+  { ...summary, durationMs: 1.5 },
+  { durationMs: 1000, bashCalls: 1, files: [] },
+  { ...summary, bashCalls: -1 },
   {
-    durationMs: 1000,
-    bashCalls: 1,
+    ...summary,
     files: [{ path: "file", status: "available", added: -1, removed: 0 }]
   },
-  { durationMs: 1000, bashCalls: 1, files: [{ path: "file", status: "unavailable" }] }
+  { ...summary, files: [{ path: "file", status: "unavailable" }] },
+  ...[undefined, null, "1000", -1, 1.5, NaN, Infinity, 8_640_000_000_000_001].map((finishedAt) => ({
+    ...summary,
+    finishedAt
+  }))
 ])("rejects invalid stored summary %j", (data) => {
   expect(summarySchema.safeParse(data).success).toBe(false);
 });
 
 it("ignores unknown fields in valid summaries", () => {
-  const summary = { durationMs: 1234, bashCalls: 2, files: [] };
   expect(summarySchema.parse({ ...summary, extra: "ignored" })).toEqual(summary);
 });

@@ -88,6 +88,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
   pi.on("agent_settled", async (_event, ctx) => {
     // A preceding extension handler may already have started another run.
     if (!ctx.isIdle() || !run) return;
+    const finishedAt = Date.now();
     const finished = run;
     run = undefined;
     const duration = timer.finish();
@@ -98,6 +99,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     if (generation !== startedGeneration) return;
     pi.appendEntry(summaryEntryType, {
       ...duration,
+      finishedAt,
       bashCalls: finished.bashCalls.size,
       files
     });

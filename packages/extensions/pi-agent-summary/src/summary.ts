@@ -20,6 +20,7 @@ const fileChangeSchema = z.discriminatedUnion("status", [
 // Ignore unknown fields, but never render invalid statistics from session JSON.
 export const summarySchema = z.object({
   durationMs: countSchema,
+  finishedAt: countSchema.max(8_640_000_000_000_000),
   bashCalls: countSchema,
   files: z.array(fileChangeSchema)
 });
@@ -27,6 +28,17 @@ export const summarySchema = z.object({
 export type FileChange = z.infer<typeof fileChangeSchema>;
 
 export type RunSummary = z.infer<typeof summarySchema>;
+
+const finishTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true
+});
+
+export function formatFinishTime(finishedAt: number): string {
+  return finishTimeFormatter.format(finishedAt);
+}
 
 export function formatDuration(durationMs: number): string {
   const totalSeconds = Math.floor(durationMs / 1000);
