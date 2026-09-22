@@ -12,7 +12,7 @@ Set Pi action IDs in `~/.pi/agent/keybindings.json` (or `$PI_CODING_AGENT_DIR/ke
 | Escape                          | `tui.select.cancel`                         | Close preview or view                                   |
 | Enter                           | `tui.select.confirm`                        | Restore and close; inspection only closes               |
 | Up / Down                       | `tui.select.up` / `tui.select.down`         | Select or scroll preview                                |
-| PageUp / PageDown               | `tui.select.pageUp` / `tui.select.pageDown` | Page results/preview; fullscreen may intercept          |
+| PageUp / PageDown               | `tui.select.pageUp` / `tui.select.pageDown` | Page results/preview                                    |
 | Tab / Shift+Tab                 | Fixed                                       | Switch collections; retain preview, cancel confirmation |
 | Ctrl+P                          | Fixed                                       | Full preview                                            |
 | Alt+Enter                       | Fixed                                       | Drafts: restore, then attempt deletion                  |
@@ -22,20 +22,15 @@ Precedence: copy, cancel, confirm, up, down, page up, page down, fixed controls,
 
 Configured actions override conflicting fixed keys; hints omit those keys. If Tab conflicts, Shift+Tab may still switch collections. Rebind to free a key or use [numbered commands](#numbered-draft-commands).
 
-Default fullscreen PageUp/PageDown scroll the transcript, not the inline view. For view paging, add and `/reload`:
-
-```json
-{
-  "tui.select.pageUp": "ctrl+pageUp",
-  "tui.select.pageDown": "ctrl+pageDown"
-}
-```
-
-Choose other keys if transcript scrolling also uses these.
-
 Ctrl+C never cancels, even in `tui.select.cancel`; it may perform another configured action, including copy. Opening requires a cancel key other than Ctrl+C that copy does not use. No Escape override is added.
 
 For missing modified keys, check [terminal reporting](../../../../node_modules/@earendil-works/pi-coding-agent/docs/terminal-setup.md) or rebind.
+
+### Fullscreen paging
+
+While an inline browser has focus, paging moves the list or preview without scrolling the transcript. This includes remapped paging keys that survive the precedence above. At scroll boundaries or while navigation is temporarily ignored, paging still does not scroll the transcript.
+
+Search overlays and other dialogs receive input while focused. Closing the browser restores transcript paging. If fullscreen routing is unavailable, a warning appears once per opening; the browser stays open and arrow navigation remains available. See the [shared routing contract](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership) for host compatibility and effects on other extensions.
 
 ## Search and refresh
 

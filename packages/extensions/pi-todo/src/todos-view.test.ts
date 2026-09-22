@@ -27,6 +27,9 @@ it.each(["regular", "fullscreen"] as const)(
       done: vi.fn()
     });
     const first = view.render(80);
+    expect(view.ownsFullscreenInput("\x0e")).toBe(true);
+    expect(view.ownsFullscreenInput("\x10")).toBe(true);
+    expect(view.ownsFullscreenInput("\x1b[6~")).toBe(false);
     expect(first.join("\n")).toContain("Ctrl+P/Ctrl+N page");
     view.handleInput("\x0e");
     const settingsCursor = getSettingsListTheme().cursor;
@@ -45,6 +48,68 @@ it.each(["regular", "fullscreen"] as const)(
     expect(view.render(80)).toEqual(first);
   }
 );
+
+it("claims only effective paging actions, reserves boundaries, and ignores releases", () => {
+  const keys = new KeybindingsManager(TUI_KEYBINDINGS, {
+    "tui.select.pageDown": ["escape", "enter", "down", "pageDown"],
+    "tui.select.pageUp": []
+  });
+  const view = new TodosView({
+    tasks: [{ id: 1, subject: "Todo", status: "pending" }],
+    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    tui: { mode: "fullscreen", requestRender() {}, terminal: { rows: 24 } },
+    keybindings: keys,
+    done: vi.fn()
+  });
+  for (const input of ["\x1b", "\r", "\x1b[B", "\x1b[5~", "x", "\x1b[6;1:3~"])
+    expect(view.ownsFullscreenInput(input)).toBe(false);
+  expect(view.ownsFullscreenInput("\x1b[6~")).toBe(true);
+  expect(view.ownsFullscreenInput("\x1b[6;1:2~")).toBe(true);
+  const before = view.render(80);
+  view.handleInput("\x1b[13;1:3u");
+  expect(view.render(80)).toEqual(before);
+  view.handleInput("\r");
+  expect(view.ownsFullscreenInput("\x1b[6~")).toBe(true);
+});
+
+it("shares dispatch precedence for ambiguous terminal encodings in lists and details", () => {
+  const done = vi.fn();
+  const view = new TodosView({
+    tasks: [
+      {
+        id: 1,
+        subject: "Todo",
+        status: "pending",
+        description: Array.from({ length: 50 }, (_, line) => `Detail ${line + 1}`).join("\n")
+      }
+    ],
+    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    tui: { mode: "fullscreen", requestRender() {}, terminal: { rows: 24 } },
+    keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
+      "tui.select.pageDown": ["ctrl+[", "ctrl+m", "ctrl+n"]
+    }),
+    done
+  });
+  const list = view.render(80);
+  // Legacy terminals encode Ctrl+[ as Escape and Ctrl+M as Enter.
+  expect(view.ownsFullscreenInput("\x1b")).toBe(false);
+  expect(view.ownsFullscreenInput("\r")).toBe(false);
+  expect(view.ownsFullscreenInput("\x0e")).toBe(true);
+  view.handleInput("\r");
+  const detail = view.render(80);
+  expect(detail.join("\n")).toContain("Todo #1");
+  expect(view.ownsFullscreenInput("\x1b")).toBe(false);
+  expect(view.ownsFullscreenInput("\r")).toBe(false);
+  view.handleInput("\r");
+  expect(view.render(80)).toEqual(detail);
+  view.handleInput("\x0e");
+  expect(view.render(80)).not.toEqual(detail);
+  view.handleInput("\x1b");
+  expect(view.render(80)).toEqual(list);
+  expect(done).not.toHaveBeenCalled();
+  view.handleInput("\x1b");
+  expect(done).toHaveBeenCalledOnce();
+});
 
 it("keeps selection status and all essential hints visible on a narrow terminal", () => {
   const view = new TodosView({

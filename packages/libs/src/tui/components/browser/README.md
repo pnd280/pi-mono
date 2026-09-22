@@ -21,6 +21,8 @@ Configured actions take precedence in this order: copy, cancel, confirm, up, dow
 | Delete twice     | Confirm removal within the section's confirmation deadline |
 | Alt+Enter        | Invoke the alternate action                                |
 
+`ownsFullscreenInput(data)` reserves paging for the view even during loading, pending actions, or undersized layout. It uses the precedence above: disabled paging bindings, keys assigned to higher-priority actions, and release events are not claimed. The [browser host](../../open-browser/README.md) provides priority routing; the component installs no listeners.
+
 Hints show first usable bindings or `unavailable`, omitting absent actions and fully overridden fixed controls. Configured keys stay reserved even for absent actions.
 
 Ctrl+C never cancels. Construction requires a cancel binding other than Ctrl+C that is not also bound to copy.
@@ -90,6 +92,8 @@ await openBrowser({
     preview: (file) => ({ text: file.preview })
   },
   onError: reportError,
+  onInputRoutingUnavailable: () =>
+    ctx.ui.notify("Fullscreen paging is unavailable; use arrows.", "warning"),
   afterClose: () => {
     if (selected !== undefined) return openSelectedFile(selected);
   }

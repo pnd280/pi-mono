@@ -8,6 +8,7 @@ export type OpenBrowserOptions<Item> = {
   signal: AbortSignal;
   browser: BrowserOptions<Item>;
   onError(this: void, error: unknown): void;
+  onInputRoutingUnavailable(this: void): void;
   /** Runs after final host closure, when Pi has restored its inline editor snapshot. */
   afterClose?(): void | Promise<void>;
 };
@@ -24,6 +25,7 @@ export async function openBrowser<Item>(options: OpenBrowserOptions<Item>): Prom
     await openResponsiveCustomUI({
       ui: options.ui,
       signal: options.signal,
+      onInputRoutingUnavailable: options.onInputRoutingUnavailable,
       useOverlay: (tui) => browserLayout(tui.terminal.rows).overlay,
       overlayOptions: { width: "100%", maxHeight: "75%", anchor: "center" },
       onTransition: () => view?.controller.cancelConfirmation(),
@@ -37,7 +39,6 @@ export async function openBrowser<Item>(options: OpenBrowserOptions<Item>): Prom
     });
   } finally {
     options.signal.removeEventListener("abort", abort);
-    view?.dispose();
   }
 
   if (active()) {

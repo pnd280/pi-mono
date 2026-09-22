@@ -58,6 +58,7 @@ process.exitCode = await runTerminalLauncher({
   },
   describe: (directory) => [
     `Fixture: ${directory}`,
-    "Use /working-message, /todos expand, /todos collapse, and /fixture-status [text]."
+    "Use /working-message, /todos expand, /todos collapse, and /fixture-status [text].",
+    "Submit pages for 40 long todos and a scrollable transcript, then open /todos."
   ]
 });

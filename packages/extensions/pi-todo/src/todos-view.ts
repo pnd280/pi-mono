@@ -1,5 +1,6 @@
 import { getSettingsListTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import {
+  isKeyRelease,
   matchesKey,
   truncateToWidth,
   type Component,
@@ -372,8 +373,10 @@ export class TodosView implements Component {
       .map((binding) => binding.key);
   }
 
-  private matchesAction(data: string, action: TodoAction): boolean {
-    return this.keysFor(action).some((key) => matchesKey(data, key));
+  private actionFor(data: string): TodoAction | undefined {
+    if (isKeyRelease(data)) return undefined;
+
+    return this.bindings().find(({ key }) => matchesKey(data, key))?.action;
   }
 
   private keyLabel(action: TodoAction): string | undefined {
@@ -424,8 +427,16 @@ export class TodosView implements Component {
     return hints;
   }
 
+  ownsFullscreenInput(data: string): boolean {
+    const action = this.actionFor(data);
+
+    return action === "pageUp" || action === "pageDown";
+  }
+
   handleInput(data: string): void {
-    if (this.matchesAction(data, "cancel")) {
+    const action = this.actionFor(data);
+
+    if (action === "cancel") {
       if (this.detail) {
         this.detail = false;
         this.scroll = 0;
@@ -435,11 +446,11 @@ export class TodosView implements Component {
       return;
     }
 
-    if (!this.detail && this.matchesAction(data, "confirm") && this.entries[this.selected]) {
+    if (!this.detail && action === "confirm" && this.entries[this.selected]) {
       this.detail = true;
       this.scroll = 0;
     } else {
-      const delta = this.navigationDelta(data);
+      const delta = this.navigationDelta(action);
       if (!delta) return;
       if (this.detail)
         this.scroll = Math.max(
@@ -452,12 +463,12 @@ export class TodosView implements Component {
     this.options.tui.requestRender();
   }
 
-  private navigationDelta(data: string): number {
-    if (this.matchesAction(data, "up")) return -1;
-    if (this.matchesAction(data, "down")) return 1;
+  private navigationDelta(action: TodoAction | undefined): number {
+    if (action === "up") return -1;
+    if (action === "down") return 1;
     const page = Math.max(1, this.viewportCapacity - 1);
-    if (this.matchesAction(data, "pageUp")) return -page;
-    if (this.matchesAction(data, "pageDown")) return page;
+    if (action === "pageUp") return -page;
+    if (action === "pageDown") return page;
 
     return 0;
   }

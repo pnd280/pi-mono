@@ -19,6 +19,8 @@ vpr 'pi-prompt-manager#validate:terminal' fullscreen
 
 Work only in the printed `Fixture:` directory. Storage/provider are isolated and offline; copy writes `clipboard.txt`, not the native clipboard. Collections persist with `--no-session`; the directory remains for reuse/inspection. Remove it only after all fixture sessions exit.
 
+New fixtures contain 40 entries in each collection, with long previews. Submit `pages` for a scrollable transcript. Reused fixtures retain their existing collections.
+
 ### Scenarios
 
 In both modes:
@@ -41,11 +43,24 @@ Append `--models prompt-fixture/offline` to enable `/model`'s all/scoped row for
 - Scroll wrapped previews fully; compare border counts with hidden rows, including compact confirmation. Counts disappear when resized to fit; cancel works below minimum size.
 - Cancel during loading/deletion; retry read/deletion failures. Completion must not reopen closed views.
 
+#### Fullscreen paging
+
+Use the fullscreen fixture and submit `pages` before opening the browser.
+
+1. Check PageUp/PageDown in lists, preview, and `/prompts drafts show 1`. Only the focused view should move; at its scroll boundaries the transcript must stay fixed. Close the browser and confirm that paging reaches the transcript again.
+2. Resize between 19-row inline and 18-row overlay presentations in both directions; paging must continue to move only the view.
+3. Open transcript search with `tui.altScreen.search` (Ctrl+Shift+F; Ctrl+F on WSL). Paging must not reach the browser until Escape closes search.
+4. In the fixture's `agent/keybindings.json`, set `tui.select.pageUp` and `tui.altScreen.pageUp` to `ctrl+pageUp`, and both `pageDown` actions to `ctrl+pageDown`. Run `/reload` and repeat the paging checks. Edit only fixture settings, never real agent settings.
+5. Close and reopen repeatedly, then check after `/reload` and `/new`. Submit `pages` again after `/new`; verify editor focus and restoration without submission or duplicate effects.
+
+Unsupported-host diagnostics and listener interference are covered by the [shared routing tests](../../../libs/src/tui/responsive-custom-ui/README.md#validation).
+
 #### Commands, keys, or editor integration
 
 - Exercise typed `/prompts save`, literal `drafts add <text>`, invalid indices, numbered inspection, and `restore-and-delete <n>`. Native editor history must stay unchanged.
 - Save multiline bracketed paste; storage must contain expanded text, not paste markers.
 - In fixture `agent/keybindings.json`, bind confirm/copy/cancel/navigation to fixed-control keys. Reload; check [precedence/hints](controls.md#keys-and-precedence).
+- Disable paging with `[]`. Separately, restore paging and assign the same key to copy, cancel, or confirm. Reload after each change; disabled or overridden bindings must not be reserved as paging.
 - Bind cancel only to Ctrl+C, then only to a copy key. After each reload, opening must fail without an Escape override.
 
 #### Capture, reload, or session isolation

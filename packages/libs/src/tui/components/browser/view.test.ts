@@ -32,6 +32,36 @@ function browser(
   return { view, options, controller: view.controller, tui, close };
 }
 
+it("claims resolved paging only, including loading and undersized views", () => {
+  const { view, tui } = browser(
+    undefined,
+    new KeybindingsManager(TUI_KEYBINDINGS, {
+      "tui.input.copy": "pageUp",
+      "tui.select.pageUp": ["pageUp", "ctrl+y"],
+      "tui.select.pageDown": ["escape", "enter", "down", "ctrl+n"]
+    })
+  );
+  for (const data of ["\x1b[5~", "\x1b", "\r", "\x1b[B", "\x1b[6~", "x", "\x1b[110;5:3u"])
+    expect(view.ownsFullscreenInput(data)).toBe(false);
+  for (const data of ["\x19", "\x0e", "\x1b[110;5:2u"])
+    expect(view.ownsFullscreenInput(data)).toBe(true);
+  tui.terminal.rows = 5;
+  view.render(20);
+  expect(view.ownsFullscreenInput("\x0e")).toBe(true);
+  const selected = view.controller.selectedIndex;
+  view.handleInput("\x0e");
+  expect(view.controller.selectedIndex).toBe(selected);
+  const disabled = browser(
+    undefined,
+    new KeybindingsManager(TUI_KEYBINDINGS, {
+      "tui.select.pageUp": [],
+      "tui.select.pageDown": []
+    })
+  );
+  expect(disabled.view.ownsFullscreenInput("\x1b[5~")).toBe(false);
+  expect(disabled.view.ownsFullscreenInput("\x1b[6~")).toBe(false);
+});
+
 it.each([
   [0, true, 0],
   [2, true, 1],

@@ -74,6 +74,12 @@ export class Browser<Item> implements Component, Focusable {
     return this.controller.closed;
   }
 
+  ownsFullscreenInput(data: string): boolean {
+    const action = this.controls.actionFor(data);
+
+    return action === "pageUp" || action === "pageDown";
+  }
+
   handleInput(data: string): void {
     const action = this.controls.actionFor(data);
     if (action === "ignore" || this.controller.closed) return;

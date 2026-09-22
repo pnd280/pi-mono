@@ -65,7 +65,9 @@ export class TodosCustomViewHost {
   }
 
   async show(
-    ctx: Pick<ExtensionCommandContext, "signal"> & { ui: Pick<ExtensionUIContext, "custom"> },
+    ctx: Pick<ExtensionCommandContext, "signal"> & {
+      ui: Pick<ExtensionUIContext, "custom" | "notify">;
+    },
     controller: Pick<TodoController, "getTodos">
   ): Promise<void> {
     const signal = ctx.signal
@@ -78,6 +80,11 @@ export class TodosCustomViewHost {
       await openResponsiveCustomUI({
         ui: ctx.ui,
         signal,
+        onInputRoutingUnavailable: () =>
+          ctx.ui.notify(
+            "Todo fullscreen paging is unavailable on this host. Use arrow keys to navigate.",
+            "warning"
+          ),
         useOverlay: (tui) => tui.mode !== "fullscreen" && browserLayout(tui.terminal.rows).overlay,
         overlayOptions: { width: "100%", maxHeight: "75%", anchor: "center" },
         create: (tui, theme, keybindings, done) =>

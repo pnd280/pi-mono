@@ -11,6 +11,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createFixtureStream } from "@pi-mono/libs/validation/provider";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 
+import { pagingPlan, pagingTranscript } from "./paging.ts";
+
 export default function workingMessageFixture(pi: ExtensionAPI): void {
   const status = registerWorkingMessage(pi, {
     id: "fixture.status",
@@ -50,7 +52,10 @@ export default function workingMessageFixture(pi: ExtensionAPI): void {
         const completed = context.messages
           .slice(userIndex + 1)
           .filter((item) => item.role === "toolResult").length;
-        const args = prompt === "seed" ? plan[completed] : undefined;
+        let steps: { action: string }[] = [];
+        if (prompt === "pages") steps = pagingPlan;
+        else if (prompt === "seed") steps = plan;
+        const args = steps[completed];
 
         if (args) {
           const call = fauxToolCall("todo", args, { id: randomUUID() });
@@ -63,7 +68,9 @@ export default function workingMessageFixture(pi: ExtensionAPI): void {
 
         if (prompt === "hold") await delay(30_000, undefined, { signal });
         text(
-          "Offline fixture: seed creates an active todo; hold runs for 30 seconds (Esc cancels)."
+          prompt === "pages"
+            ? pagingTranscript
+            : "Offline fixture: seed creates an active todo; pages creates 40 long todos; hold runs for 30 seconds (Esc cancels)."
         );
 
         return "stop";

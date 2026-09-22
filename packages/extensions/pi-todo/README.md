@@ -26,6 +26,8 @@ Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Todo
 
 `/todos` opens the hierarchy. Use the configured selection keys to navigate, Enter to inspect details, and Escape to return or close. Page keys scroll details or move selection.
 
+In fullscreen mode `/todos` stays non-overlay at every terminal size. While focused, its paging actions use [shared input routing](../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership), leaving the transcript fixed even at scroll boundaries. If routing is unavailable, a warning appears once per opening; use arrow navigation.
+
 `/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session.
 
 When collapsed, `pi-todo.activity` contributes the first in-progress todo's label or subject to the working message, with `(+N more)` for additional in-progress todos. Expanding the widget or leaving no todos in progress clears only that contribution.
@@ -60,18 +62,26 @@ Todo text is stripped of terminal controls for the widget, browser, and working 
 
 Run `vpr 'pi-todo#check'` and `vpr 'pi-todo#test'` from the workspace root. See the [workspace workflow](../../../docs/development.md#focused-validation).
 
-For interactive changes, check `/todos` navigation and cancellation in regular and fullscreen modes. Include remapped selection and paging keys, narrow-terminal resizing, and widget restoration in a real Pi session.
-
-### Working-message fixture
-
-Launch the isolated, offline fixture from the workspace root in each mode:
+For interactive changes, launch the isolated, offline fixture from the workspace root in each mode:
 
 ```sh
 vpr 'pi-todo#validate:terminal' regular
 vpr 'pi-todo#validate:terminal' fullscreen
 ```
 
-The launcher prints/retains its temporary directory and loads no user settings or credentials. Add `--reuse <directory>` after the mode to reuse settings; reseed todos after process restarts because sessions are not saved.
+The launcher prints and retains its temporary directory and loads no user settings or credentials. Add `--reuse <directory>` after the mode to reuse settings; reseed todos after process restarts because sessions are not saved. Edit only fixture settings, never real agent settings.
+
+### Fullscreen paging checks
+
+1. Submit `pages`. This clears fixture todos and creates 40 todos with long descriptions plus a scrollable transcript. Open `/todos`; check list/detail PageUp/PageDown at 80×24, narrow, and short sizes. Only the view should move, with the transcript fixed even at view boundaries. Fullscreen `/todos` must stay non-overlay.
+2. In the fixture's `agent/keybindings.json`, set `tui.select.pageUp` and `tui.altScreen.pageUp` to `ctrl+pageUp`, and both `pageDown` actions to `ctrl+pageDown`. Run `/reload` and repeat. Also check disabled paging (`[]`) and keys assigned to cancel or confirm: those bindings must not be reserved as paging.
+3. Open transcript search with `tui.altScreen.search` (Ctrl+Shift+F; Ctrl+F on Windows and WSL). Paging must not reach todos until Escape closes search.
+4. Close and reopen repeatedly, then check after `/reload` and `/new`. Confirm transcript paging, editor focus, and widget restoration after closure; `/new` must clear old todos. Submit `pages` again to repeat the checks.
+5. Open `/working-message`: arrows navigate the menu; page keys retain ordinary host routing. Repeat todo navigation, cancellation, remapped keys, resizing, and widget restoration in regular mode.
+
+### Working-message fixture
+
+Use the [offline launcher](#validation) in both modes:
 
 1. Submit `seed`, then `hold`: expect `Checking composition · Other status` for 30 seconds; Escape cancels.
 2. During `hold`, open `/working-message`; check active entries, `fixture.inactive`, and `unavailable.activity`. Select with Up/Down and reorder with Shift+Up/Down. The working message must stay unchanged while editing. Resize narrow, Escape, and reopen; unsaved order must be discarded.

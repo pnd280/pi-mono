@@ -24,7 +24,7 @@ type BrowserPorts = {
   read: Repository["read"];
   copy(target: Occurrence): Promise<void>;
   remove(collection: Collection, target: Occurrence): Promise<MutationResult>;
-  notify(message: string, severity: "error"): void;
+  notify(message: string, severity: "error" | "warning"): void;
 };
 
 async function browserSnapshot(
@@ -155,6 +155,11 @@ export async function openBrowser(
     signal: request.signal,
     browser,
     onError: (error) => ports.notify(errorMessage(error), "error"),
+    onInputRoutingUnavailable: () =>
+      ports.notify(
+        "Prompt browser fullscreen paging is unavailable on this host. Use arrow keys to navigate.",
+        "warning"
+      ),
     afterClose: () => request.afterClose(restoration)
   });
 }

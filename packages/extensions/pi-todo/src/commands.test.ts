@@ -23,6 +23,8 @@ it("settles session/agent cancellation and host failures with exactly one suppre
     throw new Error("Unexpected direct host call");
   };
 
+  const notify = vi.fn();
+  const ui = { custom, notify };
   const open = vi.mocked(openResponsiveCustomUI);
   open.mockImplementation(
     ({ signal }) =>
@@ -30,21 +32,23 @@ it("settles session/agent cancellation and host failures with exactly one suppre
         signal.addEventListener("abort", () => resolve(), { once: true });
       })
   );
-  const first = host.show({ ui: { custom }, signal: undefined }, controller);
+  const first = host.show({ ui, signal: undefined }, controller);
+  open.mock.calls.at(-1)?.[0].onInputRoutingUnavailable?.();
+  expect(notify).toHaveBeenCalledWith(expect.stringContaining("paging is unavailable"), "warning");
   host.shutdown();
   host.shutdown();
   await first;
   expect(release).toHaveBeenCalledTimes(1);
-  await host.show({ ui: { custom }, signal: undefined }, controller);
+  await host.show({ ui, signal: undefined }, controller);
   expect(suppress).toHaveBeenCalledTimes(1);
   host.start();
   const abort = new AbortController();
-  const second = host.show({ ui: { custom }, signal: abort.signal }, controller);
+  const second = host.show({ ui, signal: abort.signal }, controller);
   abort.abort();
   await second;
   expect(release).toHaveBeenCalledTimes(2);
   open.mockRejectedValueOnce(new Error("host unavailable"));
-  await expect(host.show({ ui: { custom }, signal: undefined }, controller)).rejects.toThrow(
+  await expect(host.show({ ui, signal: undefined }, controller)).rejects.toThrow(
     "host unavailable"
   );
   expect(release).toHaveBeenCalledTimes(3);

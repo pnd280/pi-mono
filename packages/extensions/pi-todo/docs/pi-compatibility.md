@@ -7,6 +7,7 @@
 - [ ] [Activation](../src/runtime.ts) and [tool](../src/tool.ts): interactive TTY eligibility, model-facing schema, atomic mutations, and fully replayable result details; no custom tool renderers.
 - [ ] [Session state](../src/session-state.ts): branch/compaction reconstruction, malformed/error result handling, and bounded snapshots.
 - [ ] [UI integration](../src/index.ts): widget/overlay lifecycle, remapped navigation, session cleanup, and independently owned working-message contributions.
+- [ ] [Fullscreen paging](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): `/todos` stays non-overlay at every size; list/detail paging leaves the transcript fixed only while focused. Unsupported routing warns once per opening without closing the view; arrow navigation and widget restoration still work.
 
 ## Limitations and replacement opportunities
 

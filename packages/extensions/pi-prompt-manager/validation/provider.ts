@@ -1,17 +1,24 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import { createProvider, type ProviderStreams } from "@earendil-works/pi-ai";
+import { contentText, createProvider, type ProviderStreams } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createFixtureStream } from "@pi-mono/libs/validation/provider";
 
+import { pagingTranscript } from "./paging.ts";
+
 export default function provider(pi: ExtensionAPI) {
-  const stream: ProviderStreams["stream"] = (model, _context, options) =>
+  const stream: ProviderStreams["stream"] = (model, context, options) =>
     createFixtureStream({
       model,
       signal: options?.signal,
       async run({ text }) {
         await delay(500, undefined, { signal: options?.signal });
-        text("Offline fixture completed.");
+        const user = context.messages.filter((message) => message.role === "user").at(-1);
+        text(
+          user?.role === "user" && contentText(user.content).trim() === "pages"
+            ? pagingTranscript
+            : "Offline fixture completed."
+        );
 
         return "stop";
       }

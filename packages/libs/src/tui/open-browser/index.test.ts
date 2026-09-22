@@ -8,8 +8,105 @@ import {
   items,
   type TestItem
 } from "../components/browser/test-fixture.ts";
-import { createTestTui, testKeys, testTheme } from "../test-fixture.ts";
+import { createInputHost, createTestTui, testKeys, testTheme } from "../test-fixture.ts";
 import { openBrowser, type OpenBrowserOptions } from "./index.ts";
+
+it.each([24, 18])(
+  "pages the shared browser through fullscreen terminal input at %i rows",
+  async (rows) => {
+    initTheme("dark", false);
+    const host = createInputHost();
+    Object.defineProperty(host.terminal, "rows", { value: rows, configurable: true });
+    const abort = new AbortController();
+    const opening = openBrowser({
+      ui: host.ui,
+      signal: abort.signal,
+      browser: browserOptions(items(Array.from({ length: 40 }, (_, i) => `Item ${i}`))),
+      onInputRoutingUnavailable: vi.fn(),
+      onError: vi.fn()
+    });
+
+    try {
+      await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("(1/40)"));
+      host.transcript.scrollTo(40);
+      host.render();
+      host.send("\x1b[6~");
+      expect(host.presentation?.render(80).join()).toContain(rows === 24 ? "(6/40)" : "(8/40)");
+      expect(host.transcript.scrollTop).toBe(40);
+      host.send("\x1b[5~");
+      expect(host.presentation?.render(80).join()).toContain("(1/40)");
+      abort.abort();
+      await opening;
+      host.send("\x1b[5~");
+      expect(host.transcript.scrollTop).toBeLessThan(40);
+    } finally {
+      abort.abort();
+      await opening;
+      host.dispose();
+    }
+  }
+);
+
+it.each([false, true])(
+  "routes preview paging across real fullscreen remounts (inspection=%s)",
+  async (inspection) => {
+    initTheme("dark", false);
+    const host = createInputHost();
+    const abort = new AbortController();
+    const options = browserOptions(
+      items([Array.from({ length: 100 }, (_, i) => `Detail ${i}`).join("\n")])
+    );
+    if (inspection)
+      options.inspection = { index: 1, title: "Inspection", missingMessage: "Missing" };
+    const unavailable = vi.fn();
+    const afterClose = vi.fn();
+    const opening = openBrowser({
+      ui: host.ui,
+      signal: abort.signal,
+      browser: options,
+      onError: vi.fn(),
+      onInputRoutingUnavailable: unavailable,
+      afterClose
+    });
+
+    try {
+      await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"));
+      if (!inspection) host.send("\x10");
+
+      for (const rows of [24, 18, 19, 10, 24]) {
+        const previous = host.presentation;
+        const oldOverlay = host.tui.hasOverlay();
+        Object.defineProperty(host.terminal, "rows", { value: rows, configurable: true });
+        previous?.render(80);
+        if (oldOverlay !== rows < 19)
+          await vi.waitFor(() => expect(host.presentation).not.toBe(previous));
+        await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"));
+        host.transcript.scrollTo(40);
+        host.render();
+        const initial = host.presentation?.render(80);
+        host.send("\x1b[6~");
+        const paged = host.presentation?.render(80);
+        expect(paged).not.toEqual(initial);
+        expect(host.transcript.scrollTop).toBe(40);
+        host.send("\x1b[6;1:3~");
+        expect(host.presentation?.render(80)).toEqual(paged);
+        host.send("\x1b[5~");
+        expect(host.presentation?.render(80)).toEqual(initial);
+        expect(afterClose).not.toHaveBeenCalled();
+      }
+
+      host.send("\x1b");
+      if (!inspection) host.send("\x1b");
+      await opening;
+      expect(afterClose).toHaveBeenCalledOnce();
+      expect(unavailable).not.toHaveBeenCalled();
+    } finally {
+      abort.abort();
+      await opening;
+      host.dispose();
+    }
+  }
+);
 
 it.each(["select", "alternate", "cancel", "refuse"] as const)(
   "handles %s across responsive remounts and final editor snapshot restoration",
@@ -83,6 +180,7 @@ it.each(["select", "alternate", "cancel", "refuse"] as const)(
       signal: abort.signal,
       browser: options,
       onError: errors,
+      onInputRoutingUnavailable: vi.fn(),
       afterClose
     });
 
@@ -183,6 +281,7 @@ it("expires an inspection before its overlay mounts without popping an unrelated
     signal: abort.signal,
     browser: options,
     afterClose,
+    onInputRoutingUnavailable: vi.fn(),
     onError: vi.fn()
   });
 
