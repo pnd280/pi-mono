@@ -12,13 +12,12 @@ import {
 } from "@earendil-works/pi-ai";
 import { createReadToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createFixtureStream, type FixtureStreamContext } from "@pi-mono/libs/validation/provider";
+import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 
 import { assertFixtureWorkspace } from "./workspace.ts";
 
 type PlannedCall = { name: string; args: JsonObject };
-
-const quote = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
 
 /** Only these fixed plans execute; prompts never become shell commands or file paths. */
 function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
@@ -29,7 +28,9 @@ function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
   });
   const shell = (source: string): PlannedCall => ({
     name: "bash",
-    args: { command: `${quote(process.execPath)} -e ${quote(source)}` }
+    args: {
+      command: `${quotePosixShellArgument(process.execPath)} -e ${quotePosixShellArgument(source)}`
+    }
   });
 
   return new Map([

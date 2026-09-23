@@ -8,6 +8,7 @@ Pure workspace helpers; callers supply clocks, state, and policy. See the [manif
 | ---------------------------------------- | ------------------------------------------------------------ |
 | Classify FFF provenance and names        | [`@pi-mono/utils/fff-tools`](src/fff-tools.ts)               |
 | Compare lexical paths                    | [`@pi-mono/utils/paths`](src/paths.ts)                       |
+| Quote POSIX-shell arguments              | [`@pi-mono/utils/shell`](src/shell.ts)                       |
 | Validate and slice source selections     | [`@pi-mono/utils/source-selection`](src/source-selection.ts) |
 | Parse unified patches                    | [`@pi-mono/utils/patch`](src/patch.ts)                       |
 | Preserve generated omission ranges       | [`@pi-mono/utils/output-text`](src/output-text.ts)           |
@@ -30,6 +31,10 @@ Paths are lexical: no symlink resolution or filesystem checks.
 - `relativeDisplayPath(value, cwd)` uses paths relative to `cwd` for descendants, `.` for `cwd` itself, and absolute paths otherwise. It uses forward slashes in the result. `cwd` must be absolute.
 
 Use `absolutePathSchema` to enforce the same absolute-path requirement in other Zod schemas. These helpers do not interpret tool prefixes, file URLs, or glob syntax.
+
+### Shell arguments
+
+`quotePosixShellArgument` (`@pi-mono/utils/shell`) quotes NUL-free text as one literal POSIX-shell argument, including empty strings. It does not quote whole commands or support PowerShell or Windows command-prompt syntax.
 
 ### Source selections
 

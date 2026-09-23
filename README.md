@@ -32,6 +32,7 @@ Repeat `-e` for additional extensions. To persist the selection, use Pi's [local
 - [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks with progress widget and task browser.
 - [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): live elapsed runtime, bash-call counts, and file-change summaries kept outside model context.
 - [pi-session-title](packages/extensions/pi-session-title/README.md): automatic session naming and `/auto-name` regeneration with a configured model.
+- [pi-session-utils](packages/extensions/pi-session-utils/README.md): persist ephemeral sessions and create empty parent-linked sub-sessions with `/sesh` or `--parent-session`.
 
 ## Development
 

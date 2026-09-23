@@ -17,13 +17,12 @@ function lineCounts(added: number, removed: number, theme: SummaryTheme): string
 function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme): string {
   const separator = theme.fg("dim", " · ");
   const available = summary.files.filter((file) => file.status === "available");
-  const lines = [
+  const parts = [
     theme.fg(
       "dim",
       `Worked for ${formatDuration(summary.durationMs)} · ${formatFinishTime(summary.finishedAt)}`
     )
   ];
-  const parts: string[] = [];
   if (summary.bashCalls)
     parts.push(
       theme.fg("dim", `${summary.bashCalls} bash ${summary.bashCalls === 1 ? "call" : "calls"}`)
@@ -46,7 +45,7 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
         `Statistics unavailable for ${unavailable} ${unavailable === 1 ? "file" : "files"}`
       )
     );
-  if (parts.length) lines.push(parts.join(separator));
+  const lines = [parts.join(separator)];
 
   if (expanded) {
     for (const file of summary.files) {

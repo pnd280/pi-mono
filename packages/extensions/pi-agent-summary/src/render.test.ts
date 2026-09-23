@@ -33,8 +33,7 @@ it("replays persisted statistics with diff colors and expands the per-file break
   const fg = vi.fn(theme.fg);
   const collapsed = renderSummary(entry, { expanded: false }, { fg });
   expect(collapsed?.render(120).map((line) => line.trim())).toEqual([
-    "Worked for 1m 23s · 2:34:56 PM",
-    "4 bash calls · 3 files changed · +42 −11"
+    "Worked for 1m 23s · 2:34:56 PM · 4 bash calls · 3 files changed · +42 −11"
   ]);
   expect(fg).toHaveBeenCalledWith("toolDiffAdded", "+42");
   expect(fg).toHaveBeenCalledWith("toolDiffRemoved", "−11");
@@ -43,7 +42,10 @@ it("replays persisted statistics with diff colors and expands the per-file break
   collapsed?.invalidate();
   collapsed?.render(120);
   expect(fg).toHaveBeenCalledWith("toolDiffAdded", "+42");
-  const expanded = renderSummary(entry, { expanded: true }, theme)?.render(120).join("\n");
+  const expandedLines = renderSummary(entry, { expanded: true }, theme)?.render(120);
+  expect(expandedLines).toHaveLength(4);
+  expect(expandedLines?.[0]).toBe(collapsed?.render(120)[0]);
+  const expanded = expandedLines?.join("\n");
   expect(expanded).toContain("src/a.ts · +40 −10");
   expect(expanded).toContain("src/b.ts · +2 −1");
 });
@@ -129,19 +131,19 @@ it("distinguishes unavailable statistics from no changes without adding them to 
       .map((line) => line.trim())
       .join("\n");
   expect(text(base)).toBe("Worked for 0s · 2:34:56 PM");
-  expect(text({ ...base, bashCalls: 1 })).toBe("Worked for 0s · 2:34:56 PM\n1 bash call");
+  expect(text({ ...base, bashCalls: 1 })).toBe("Worked for 0s · 2:34:56 PM · 1 bash call");
   const unavailable = { path: "large.txt", status: "unavailable", reason: "Too large." };
   expect(text({ ...base, files: [unavailable] })).toBe(
-    "Worked for 0s · 2:34:56 PM\nStatistics unavailable for 1 file"
+    "Worked for 0s · 2:34:56 PM · Statistics unavailable for 1 file"
   );
   expect(text({ ...base, files: [unavailable, { ...unavailable, path: "other.txt" }] })).toBe(
-    "Worked for 0s · 2:34:56 PM\nStatistics unavailable for 2 files"
+    "Worked for 0s · 2:34:56 PM · Statistics unavailable for 2 files"
   );
   expect(
     text({
       ...base,
       files: [{ path: "file.txt", status: "available", added: 1, removed: 0 }, unavailable]
     })
-  ).toBe("Worked for 0s · 2:34:56 PM\n1 file changed · +1 · Statistics unavailable for 1 file");
+  ).toBe("Worked for 0s · 2:34:56 PM · 1 file changed · +1 · Statistics unavailable for 1 file");
   expect(text({ durationMs: 1000 })).toBeUndefined();
 });

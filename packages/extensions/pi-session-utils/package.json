@@ -1,0 +1,32 @@
+{
+  "name": "pi-session-utils",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Persist ephemeral Pi sessions and create empty parent-linked sub-sessions",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "workspace:*",
+    "@pi-mono/utils": "workspace:*",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

@@ -8,6 +8,7 @@
     "./text-search": "./src/text-search.ts",
     "./fff-tools": "./src/fff-tools.ts",
     "./paths": "./src/paths.ts",
+    "./shell": "./src/shell.ts",
     "./source-selection": "./src/source-selection.ts",
     "./patch": "./src/patch.ts",
     "./output-text": "./src/output-text.ts",

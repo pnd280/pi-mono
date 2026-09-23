@@ -7,11 +7,10 @@ Shows elapsed runtime in Pi's working message and saves run summaries outside mo
 When Pi settles, the transcript shows:
 
 ```text
-Worked for 1m 23s · 2:34:56 PM
-4 bash calls · 3 files changed · +42 −11
+Worked for 1m 23s · 2:34:56 PM · 4 bash calls · 3 files changed · +42 −11
 ```
 
-Finish times use your local timezone. The statistics line appears when there are bash calls or observed files, including files whose statistics are unavailable.
+Finish times use your local timezone. Statistics appear on the same line when there are bash calls or observed files, including files whose statistics are unavailable. Narrow terminals wrap the line as needed.
 
 Left-click a summary in fullscreen TUI to toggle its per-file statistics independently. Pi's tool-output shortcut (default Ctrl+O) toggles all summaries in either TUI mode.
 
@@ -68,7 +67,7 @@ vpr 'pi-agent-summary#test'
 
 Visual checks:
 
-1. Load with `pi-todo`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity, then a summary with duration and local finish time above diff-colored statistics.
+1. Load with `pi-todo`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity, then a compact summary with duration, local finish time, and diff-colored statistics. Resize to a narrow terminal and confirm the summary wraps without losing statistics.
 2. In fullscreen, click summaries independently; verify dragging selects text and the wheel scrolls.
 3. Check Ctrl+O toggles all summaries in regular and fullscreen modes.
 4. Abort another run; expect one summary and a stopped timer.
