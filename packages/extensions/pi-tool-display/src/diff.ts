@@ -31,7 +31,9 @@ export async function mutationChange(mutation: FileMutation): Promise<ChangeFact
     "source-too-large": "Change exceeds the 8 MiB observation budget.",
     "source-unavailable": "Complete UTF-8 source unavailable within the 8 MiB observation budget.",
     binary: "Binary content.",
-    "budget-exceeded": "Diff generation exceeded 50 ms, 2000 changed lines, or worker resources.",
+    "budget-exceeded": "Diff generation exceeded 50 ms or 2000 changed lines.",
+    "queue-full": "Diff queue exceeds its 64 MiB memory budget.",
+    "worker-failed": "Diff worker failed to start or complete the comparison.",
     "patch-too-large": "Patch exceeds the 128 KiB retention limit."
   };
 

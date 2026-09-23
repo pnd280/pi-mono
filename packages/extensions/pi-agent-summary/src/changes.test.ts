@@ -148,9 +148,20 @@ it("distinguishes invalid source, failed writes, and generated diff budgets", as
     {
       path: "many-lines",
       status: "unavailable",
-      reason: "Diff generation exceeded 50 ms, 2000 changed lines, or worker resources."
+      reason: "Diff generation exceeded 50 ms or 2000 changed lines."
     }
   ]);
+});
+
+it.each([
+  ["queue-full", "Diff queue exceeds its 64 MiB memory budget."],
+  ["worker-failed", "Diff worker failed to start or complete the comparison."]
+] as const)("reports %s separately from a diff work limit", async (status, reason) => {
+  const changes = new RunChanges("/work");
+  const change = mutation("file", "before\n", "after\n");
+  change.patch = async () => ({ status });
+  await changes.record(change);
+  expect(await changes.finish()).toEqual([{ path: "file", status: "unavailable", reason }]);
 });
 
 it("skips patch generation for unchanged source and awaits pending single-file statistics", async () => {

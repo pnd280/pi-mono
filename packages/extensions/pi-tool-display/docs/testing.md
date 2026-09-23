@@ -15,7 +15,7 @@
 - Group contiguous compatible scopes in source order, not by tool name alone. Visible transcript boundaries split groups; hidden completed thinking can merge them. Streaming, finalized content, and late adapters may regroup calls without duplicating members or changing unrelated expansion state.
 - Keep diagnostics/images with their source call and visible when compact text is hidden. Errors, cancellations, unavailable outcomes, and success remain distinguishable. Expansion restores retained content, not fabricated history.
 - Renderer call/result slots share current call facts, including when rows are reused. Refresh on updates/theme invalidation and avoid preparing hidden or unbounded bodies during redraw. Parameters follow adapter policy and settings while preserving routing/path summaries.
-- Diff, shell preview, and omission rendering preserve source and distinguish generated annotations. Compact budgets retain meaningful changes and both ends of long targets.
+- Diff, shell preview, and omission rendering preserve source and distinguish generated annotations. Diff unavailability distinguishes queue overload and worker failures from per-diff work limits. Compact budgets retain meaningful changes and both ends of long targets.
 
 ### Observation and lifecycle
 

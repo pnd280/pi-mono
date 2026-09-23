@@ -36,7 +36,7 @@ port.on("message", (options: BoundedPatchOptions) => {
   try {
     result = generate(options);
   } catch {
-    result = { status: "budget-exceeded" };
+    result = { status: "worker-failed" };
   }
 
   port.postMessage(result);

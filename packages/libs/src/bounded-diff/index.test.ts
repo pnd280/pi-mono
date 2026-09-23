@@ -54,14 +54,15 @@ it("keeps the main thread responsive while refusing a two-million-line compariso
   }, 0);
 
   try {
-    const result = await change(before, before.replace("before\n", "after\n"), {
+    const slow = change(before, before.replace("before\n", "after\n"), {
       maxSourceBytes: 8 * 1024 * 1024,
       timeoutMs: 50
     });
+    const queued = change("before\n", "after\n", { timeoutMs: 50 });
+    expect((await slow).status).toBe("budget-exceeded");
     expect(yielded).toBe(true);
-    expect(result.status).toBe("budget-exceeded");
-    // A terminated worker must not poison subsequent requests.
-    expect((await change("before\n", "after\n")).status).toBe("ready");
+    // Waiting behind a timed-out worker must not consume the next request's work budget.
+    expect((await queued).status).toBe("ready");
   } finally {
     clearTimeout(timer);
   }
@@ -69,14 +70,14 @@ it("keeps the main thread responsive while refusing a two-million-line compariso
 
 it("survives worker heap exhaustion and starts a healthy worker for the next request", async () => {
   const before = "a\n".repeat(2_000_000) + "before\n";
-  expect(
-    await change(before, before.replace("before\n", "after\n"), {
-      maxSourceBytes: 8 * 1024 * 1024,
-      // Give the worker enough time to hit its heap limit instead of the 50 ms deadline.
-      timeoutMs: 5000
-    })
-  ).toEqual({ status: "budget-exceeded" });
-  expect((await change("before", "after")).status).toBe("ready");
+  const exhausted = change(before, before.replace("before\n", "after\n"), {
+    maxSourceBytes: 8 * 1024 * 1024,
+    // Give the worker enough time to hit its heap limit instead of the 50 ms deadline.
+    timeoutMs: 5000
+  });
+  const queued = change("before", "after", { timeoutMs: 50 });
+  expect(await exhausted).toEqual({ status: "worker-failed" });
+  expect((await queued).status).toBe("ready");
 });
 
 it("skips line tokenization for identical large sources", async () => {
@@ -91,20 +92,45 @@ it("skips line tokenization for identical large sources", async () => {
   });
 });
 
-it("bounds queued requests and retained inputs without poisoning the queue", async () => {
-  const requests = Array.from({ length: 5 }, () => change("before", "after"));
-  expect(await requests[4]).toEqual({ status: "budget-exceeded" });
-  expect((await Promise.all(requests.slice(0, 4))).map((result) => result.status)).toEqual([
-    "ready",
-    "ready",
-    "ready",
-    "ready"
-  ]);
-  const source = "x".repeat(17 * 1024 * 1024);
-  expect(await change(source, source, { maxSourceBytes: source.length })).toEqual({
-    status: "budget-exceeded"
+it("queues a burst of ten small creations instead of dropping files after the fourth", async () => {
+  const sources = Array.from({ length: 10 }, (_, index) => `file ${index}\n`.repeat(25));
+  const results = await Promise.all(sources.map((source) => change("", source, { timeoutMs: 50 })));
+
+  for (const [index, result] of results.entries()) {
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") throw new Error(result.status);
+    expect(applyPatch("", result.patch)).toBe(sources[index]);
+  }
+});
+
+it("bounds active and waiting inputs together and releases capacity after draining", async () => {
+  const source = "x".repeat(6 * 1024 * 1024);
+  const large = () => change(source, source, { maxSourceBytes: source.length });
+  // Each request retains 24 MiB of UTF-16 input plus its path and bookkeeping.
+  const accepted = [large(), large()];
+  expect(await large()).toEqual({ status: "queue-full" });
+  expect((await Promise.all(accepted)).map((result) => result.status)).toEqual(["ready", "ready"]);
+  expect((await large()).status).toBe("ready");
+  const oversized = "x".repeat(17 * 1024 * 1024);
+  expect(await change(oversized, oversized, { maxSourceBytes: oversized.length })).toEqual({
+    status: "queue-full"
   });
   expect((await change("before", "after")).status).toBe("ready");
+});
+
+it("queues only declared options without cloning unrelated caller data", async () => {
+  const options = {
+    ...budgets,
+    path: "file",
+    before: "before\n",
+    after: "after\n",
+    // Structural typing permits extra fields, including values a worker cannot clone.
+    onComplete: () => {}
+  };
+  const result = await createBoundedPatch(options);
+  expect(result.status).toBe("ready");
+  if (result.status !== "ready") throw new Error(result.status);
+  expect(applyPatch(options.before, result.patch)).toBe(options.after);
 });
 
 it("honors zero work budgets and rejects invalid options", async () => {

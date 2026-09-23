@@ -6,8 +6,9 @@ import type { BoundedPatchOptions, BoundedPatchResult } from "./index.ts";
 
 export type WorkerResponse = BoundedPatchResult | { status: "online" };
 
-const MAX_REQUESTS = 4;
 const MAX_RETAINED_BYTES = 64 * 1024 * 1024;
+// Charge bookkeeping as well as strings so even empty requests have a bounded queue.
+const REQUEST_OVERHEAD_BYTES = 1024;
 const STARTUP_MS = 1000;
 const IDLE_MS = 30000;
 
@@ -16,24 +17,24 @@ class PatchProcessor {
   private worker: Worker | undefined;
   private idle: ReturnType<typeof setTimeout> | undefined;
   private queue: Promise<void> = Promise.resolve();
-  private pending = 0;
   private retainedBytes = 0;
 
   run(options: BoundedPatchOptions): Promise<BoundedPatchResult> {
-    const bytes = 2 * (options.before.length + options.after.length + options.path.length);
-    if (
-      options.timeoutMs === 0 ||
-      this.pending >= MAX_REQUESTS ||
-      this.retainedBytes + bytes > MAX_RETAINED_BYTES
-    )
-      return Promise.resolve({ status: "budget-exceeded" });
-    this.pending++;
+    if (options.timeoutMs === 0) return Promise.resolve({ status: "budget-exceeded" });
+    const bytes =
+      REQUEST_OVERHEAD_BYTES +
+      2 * (options.before.length + options.after.length + options.path.length);
+    if (this.retainedBytes + bytes > MAX_RETAINED_BYTES)
+      return Promise.resolve({ status: "queue-full" });
+    // All admitted requests wait in FIFO order, with active and waiting inputs budgeted together.
     this.retainedBytes += bytes;
     const result = this.queue.then(() => this.execute(options));
-    this.queue = result.then(() => {
-      this.pending--;
+
+    const release = () => {
       this.retainedBytes -= bytes;
-    });
+    };
+
+    this.queue = result.then(release, release);
 
     return result;
   }
@@ -64,7 +65,7 @@ class PatchProcessor {
         resolve(response);
       };
 
-      const failed = () => finish();
+      const failed = () => finish({ status: "worker-failed" });
       // Private worker protocol. Check the parent deadline even if a late message beats the timer.
       const received = (response: WorkerResponse) =>
         finish(performance.now() <= deadline ? response : undefined);
@@ -75,7 +76,7 @@ class PatchProcessor {
       try {
         if (options) worker.postMessage(options);
       } catch {
-        finish();
+        failed();
       }
     });
   }
@@ -101,17 +102,17 @@ class PatchProcessor {
         if ((await this.receive(worker, STARTUP_MS))?.status !== "online") {
           await this.stop(worker);
 
-          return { status: "budget-exceeded" };
+          return { status: "worker-failed" };
         }
       }
 
       worker.ref();
       const result = await this.receive(worker, options.timeoutMs, options);
 
-      if (!result || result.status === "online") {
+      if (!result || result.status === "online" || result.status === "worker-failed") {
         await this.stop(worker);
 
-        return { status: "budget-exceeded" };
+        return { status: result ? "worker-failed" : "budget-exceeded" };
       }
 
       const current = worker;
@@ -124,7 +125,7 @@ class PatchProcessor {
     } catch {
       if (worker) await this.stop(worker);
 
-      return { status: "budget-exceeded" };
+      return { status: "worker-failed" };
     }
   }
 }

@@ -22,20 +22,32 @@ export type BoundedPatchOptions = PatchLimits & {
 
 export type BoundedPatchResult =
   | { status: "ready"; patch: string }
-  | { status: "source-too-large" | "binary" | "budget-exceeded" | "patch-too-large" };
+  | {
+      status:
+        | "source-too-large"
+        | "binary"
+        | "budget-exceeded"
+        | "patch-too-large"
+        | "queue-full"
+        | "worker-failed";
+    };
 
 /** Generate a unified patch off-thread, with parent-enforced time and worker memory limits. */
 export async function createBoundedPatch(
   options: BoundedPatchOptions
 ): Promise<BoundedPatchResult> {
-  const { before, after, maxSourceBytes, timeoutMs } = options;
-  if (!limitsSchema.safeParse(options).success)
-    throw new RangeError("Diff limits must be nonnegative safe integers.");
+  const { before, after, path, timeoutMs } = options;
+  const limits = limitsSchema.safeParse(options);
+  if (!limits.success) throw new RangeError("Diff limits must be nonnegative safe integers.");
   if (!durationSchema.safeParse(timeoutMs).success)
     throw new RangeError("Diff timeout must be a finite nonnegative duration.");
-  if (Buffer.byteLength(before) > maxSourceBytes || Buffer.byteLength(after) > maxSourceBytes)
+  if (
+    Buffer.byteLength(before) > limits.data.maxSourceBytes ||
+    Buffer.byteLength(after) > limits.data.maxSourceBytes
+  )
     return { status: "source-too-large" };
   if (before.includes("\0") || after.includes("\0")) return { status: "binary" };
 
-  return processPatch({ ...options });
+  // Retain only budgeted fields; caller objects can carry unrelated data or non-cloneable values.
+  return processPatch({ ...limits.data, path, before, after, timeoutMs });
 }

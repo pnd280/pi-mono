@@ -10,7 +10,8 @@
 - Transactions lock before reading current bytes, serialize cooperating writers, and commit by atomic rename. Cancellation prevents unstarted writes but lets started writes and cleanup finish. Post-commit warnings must not become failed writes or retries; locks are never stolen.
 - Clipboard helpers receive exact UTF-8 through stdin, use platform-native selection/fallback, and respect cancellation/deadlines without shell interpretation or OSC 52 fallback.
 - Settings reads are bounded and preserve caller-owned error policy. File observations distinguish complete, missing, changed, invalid, and nonregular sources without repairing permissions.
-- Stream/file output retention preserves order, byte/line bounds, UTF-8 edges, and generated-omission provenance. Bounded diff work cannot monopolize the main thread; worker failure and queue saturation leave future requests usable.
+- Stream/file output retention preserves order, byte/line bounds, UTF-8 edges, and generated-omission provenance.
+- Bounded diffs run off the main thread. Queue wait does not consume request-time budgets. Active and waiting inputs share an accounting budget; unrelated option fields are not retained. Queue overload, work limits, and worker failures remain distinct. Completed and failed work releases capacity; rejected requests retain no inputs. Waiting and future requests remain usable.
 - Git inspection uses real repository rules, worktrees, tracked exceptions, literal names, and symlink boundaries; cancellation and deadline remain distinct from missing/ignored targets.
 - Native hooks observe only verified definitions, share observations across consumers, preserve execution and mutation order, isolate observer failures, and restore only owned replacements. Disposed consumers cannot affect surviving consumers.
 

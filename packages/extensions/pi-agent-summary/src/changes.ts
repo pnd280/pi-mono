@@ -35,7 +35,9 @@ function statistics(path: string, result: MutationPatch): FileChange {
     "source-too-large": "Source exceeds the 8 MiB observation budget.",
     binary: "Binary content.",
     "patch-too-large": "Patch exceeds the 128 KiB retention limit.",
-    "budget-exceeded": "Diff generation exceeded 50 ms, 2000 changed lines, or worker resources."
+    "budget-exceeded": "Diff generation exceeded 50 ms or 2000 changed lines.",
+    "queue-full": "Diff queue exceeds its 64 MiB memory budget.",
+    "worker-failed": "Diff worker failed to start or complete the comparison."
   };
 
   return { path, status: "unavailable", reason: reasons[result.status] };

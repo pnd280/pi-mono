@@ -38,7 +38,9 @@ it("applies patch retention limits and reports shared observation failures", asy
   expect(parseRetainedPatch("@@ -0,0 +1 @@\n+" + "x".repeat(PATCH_BYTES))).toBeUndefined();
   for (const [status, reason] of [
     ["source-too-large", "Change exceeds the 8 MiB observation budget."],
-    ["budget-exceeded", "Diff generation exceeded 50 ms, 2000 changed lines, or worker resources."],
+    ["budget-exceeded", "Diff generation exceeded 50 ms or 2000 changed lines."],
+    ["queue-full", "Diff queue exceeds its 64 MiB memory budget."],
+    ["worker-failed", "Diff worker failed to start or complete the comparison."],
     ["binary", "Binary content."]
   ] as const)
     expect(await mutationChange(mutation({ status }))).toMatchObject({
