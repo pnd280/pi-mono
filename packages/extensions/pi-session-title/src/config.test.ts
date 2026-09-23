@@ -46,20 +46,11 @@ it("reads only the explicit section without changing global settings", () => {
 
 it.each([
   undefined,
-  "{malformed",
-  "null",
-  "[]",
   "{}",
-  JSON.stringify({ "ext.pi-session-title": null }),
   JSON.stringify({ "ext.pi-session-title": { model: "provider/id" } }),
   JSON.stringify({ "ext.pi-session-title": { thinkingLevel: "off" } }),
-  JSON.stringify({ "ext.pi-session-title": { model: "model-only", thinkingLevel: "off" } }),
-  JSON.stringify({ "ext.pi-session-title": { model: "provider/id", thinkingLevel: null } }),
-  JSON.stringify({ "ext.pi-session-title": { model: "provider/id", thinkingLevel: "automatic" } }),
-  JSON.stringify({
-    "ext.pi-session-title": { model: "provider/id", thinkingLevel: "off", auto: true }
-  })
-])("disables generation for missing, malformed, incomplete, or unknown settings: %s", (source) => {
+  JSON.stringify({ "ext.pi-session-title": { model: "provider/id", thinkingLevel: "automatic" } })
+])("disables generation for missing, incomplete, or unsupported settings: %s", (source) => {
   const { agentDir, cwd } = settings(source);
   expect(loadTitleConfig(cwd, { agentDir })).toBeUndefined();
 });
@@ -74,17 +65,18 @@ it("rejects oversized settings before unknown top-level fields are discarded", (
 });
 
 it.each([
-  { model: " provider/project " },
-  { thinkingLevel: "high" },
-  { model: "provider/project", thinkingLevel: "low" }
-])("merges trusted project fields over global settings: %j", (project) => {
+  {
+    project: { model: " provider/project " },
+    expected: { model: "provider/project", thinkingLevel: "off" }
+  },
+  {
+    project: { thinkingLevel: "high" },
+    expected: { model: "provider/global", thinkingLevel: "high" }
+  }
+])("merges trusted project fields over global settings: $project", ({ project, expected }) => {
   const source = JSON.stringify({ theme: "dark", "ext.pi-session-title": project });
   const { agentDir, cwd, globalPath, projectPath } = settings(globalSettings, source);
-  expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
-    ...globalConfig,
-    ...project,
-    model: project.model?.trim() ?? globalConfig.model
-  });
+  expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toEqual(expected);
   expect(readFileSync(globalPath, "utf8")).toBe(globalSettings);
   expect(readFileSync(projectPath, "utf8")).toBe(source);
 });

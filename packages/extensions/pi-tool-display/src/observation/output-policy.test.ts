@@ -2,20 +2,7 @@ import { OutputBuffer } from "@pi-mono/libs/output-buffer";
 import { expect, it } from "vite-plus/test";
 
 import { liveOutputOptions } from "./output-policy.ts";
-const LIVE_LINE_BYTES = liveOutputOptions.lineBytes;
 const LIVE_OUTPUT_BYTES = liveOutputOptions.maxBytes;
-it("preserves chunk order when a multibyte character cannot fit in the retained line head", () => {
-  const buffer = new OutputBuffer(liveOutputOptions);
-  const prefix = "x".repeat(LIVE_LINE_BYTES / 2 - 1);
-  buffer.append(Buffer.from(prefix));
-  buffer.append(Buffer.from("界"));
-  buffer.append(Buffer.from("a\n"));
-  buffer.append(Buffer.alloc(LIVE_OUTPUT_BYTES, 122));
-  buffer.finish();
-  const retainedLine = buffer.snapshot().text.split("\n")[0]!;
-  expect(retainedLine.slice(0, prefix.length)).toBe(prefix);
-  expect(retainedLine.slice(prefix.length)).toBe("界a");
-});
 it("switches after exactly one MiB and bounds long lines with head/tail counts", () => {
   const buffer = new OutputBuffer(liveOutputOptions);
   buffer.append(Buffer.alloc(LIVE_OUTPUT_BYTES, 97));

@@ -28,32 +28,3 @@ it("loads bounded head/tail files and falls back for missing and nonregular outp
     await rm(directory, { recursive: true, force: true });
   }
 });
-it("preserves BOMs and literal replacement characters while omitting only split UTF-8 boundaries", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "display-output-unicode-"));
-  const loader = new SavedOutputLoader();
-
-  try {
-    const complete = join(directory, "complete");
-    const text = "\uFEFFstart\nend\uFFFD";
-    await writeFile(complete, text);
-    expect((await loader.load(complete))?.text).toBe(text);
-
-    const oversized = join(directory, "oversized");
-    const head = "x".repeat(SAVED_OUTPUT_BYTES / 2 - 3) + "\uFFFD";
-    await writeFile(oversized, head + "界".repeat(SAVED_OUTPUT_BYTES) + "\uFFFD");
-    const preview = (await loader.load(oversized))!.text!;
-    expect(preview.startsWith(head)).toBe(true);
-    expect(preview.endsWith("界\uFFFD")).toBe(true);
-    expect(preview.match(/\uFFFD/g)).toHaveLength(2);
-
-    const split = join(directory, "split");
-    await writeFile(split, "界".repeat(SAVED_OUTPUT_BYTES));
-    const bounded = (await loader.load(split))!.text!;
-    expect(bounded).not.toContain("\uFFFD");
-    expect(bounded.startsWith("界")).toBe(true);
-    expect(bounded.endsWith("界")).toBe(true);
-  } finally {
-    loader.dispose();
-    await rm(directory, { recursive: true, force: true });
-  }
-});

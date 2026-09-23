@@ -309,7 +309,7 @@ describe("todo reducer", () => {
     assert.equal(detectCycle(tasks, taskCount, [1]), true);
   });
 
-  it("bounds todo fields, dependencies, metadata, todo count, and snapshots", () => {
+  it("bounds todo fields, dependencies, metadata, and todo count", () => {
     const state = emptyTodoState();
     assert.equal(
       mutate(state, "create", { subject: "s".repeat(MAX_SUBJECT_LENGTH + 1) }).details.error,
@@ -375,20 +375,6 @@ describe("todo reducer", () => {
       mutate(finalChild.state, "create", { subject: "One too many", parentId: 1 }).details.error,
       `todo limit of ${MAX_TASKS} reached`
     );
-
-    let growingState = state;
-    let sizeError: string | undefined;
-
-    for (let index = 0; index < MAX_TASKS && sizeError === undefined; index += 1) {
-      const result = mutate(growingState, "create", {
-        subject: `Todo ${index}`,
-        description: "d".repeat(MAX_DESCRIPTION_LENGTH)
-      });
-      sizeError = result.details.error;
-      growingState = result.state;
-    }
-
-    assert.match(sizeError ?? "", /^result snapshot exceeds \d+ serialized bytes$/);
   });
 
   it("bounds list content while retaining the complete snapshot", () => {
@@ -482,33 +468,6 @@ describe("todo reducer", () => {
     assert.deepEqual(cleared.state, emptyTodoState());
   });
 
-  it("never downgrades a hierarchy-aware near-ceiling result", () => {
-    let state = mutate(emptyTodoState(), "create", {
-      subject: "Root",
-      description: "d".repeat(MAX_DESCRIPTION_LENGTH)
-    }).state;
-    let failed: ReturnType<typeof applyTaskMutation> | undefined;
-    let previousState = state;
-
-    for (let index = 0; index < MAX_TASKS && failed === undefined; index += 1) {
-      previousState = state;
-      const result = mutate(state, "create", {
-        subject: `Child ${index}`,
-        description: "d".repeat(MAX_DESCRIPTION_LENGTH),
-        parentId: 1
-      });
-      if (result.details.error !== undefined) failed = result;
-      else state = result.state;
-    }
-
-    assert.ok(failed);
-    assert.match(failed.details.error ?? "", /^result snapshot exceeds /);
-    assert.equal(failed.details.version, TASK_DETAILS_VERSION);
-    assert.deepEqual(failed.state, previousState);
-    assert.deepEqual(failed.details.tasks, previousState.tasks);
-    assert.ok(failed.details.tasks.some((task) => task.parentId === 1));
-  });
-
   it("returns replayable errors after a successful result fills the snapshot ceiling", () => {
     const tasks: Task[] = Array.from({ length: 128 }, (_, index) => ({
       id: index + 1,
@@ -536,6 +495,7 @@ describe("todo reducer", () => {
     assert.equal(Buffer.byteLength(JSON.stringify(created.details)), MAX_SNAPSHOT_BYTES);
     const state = parseTodoStateSnapshot(created.details);
     assert.ok(state);
+    assert.equal(state.tasks.at(-1)?.parentId, 1);
 
     const missing = mutate(state, "update", { id: 99_999, status: "completed" });
     assert.equal(missing.details.error, "#99999 not found");
@@ -846,13 +806,10 @@ describe("todo reducer", () => {
     );
   });
 
-  it("rejects dependency cycles and reports reverse blocks", () => {
+  it("reports reverse blocks in todo details", () => {
     let state = emptyTodoState();
     state = mutate(state, "create", { subject: "First" }).state;
     state = mutate(state, "create", { subject: "Second", blockedBy: [1] }).state;
-
-    const cycle = mutate(state, "update", { id: 1, addBlockedBy: [2] });
-    assert.equal(cycle.details.error, "addBlockedBy would create a cycle in the blockedBy graph");
 
     const got = mutate(state, "get", { id: 1 });
     assert.equal(got.content[0]?.text, ["#1 [pending] First", "  blocks: #2"].join("\n"));

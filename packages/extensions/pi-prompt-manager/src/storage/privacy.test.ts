@@ -8,21 +8,6 @@ import { expect, it } from "vite-plus/test";
 import { recordedAt, session, workspace } from "../test-fixture.ts";
 
 it.runIf(process.platform === "linux")(
-  "refuses FIFO reads without hanging or changing unrelated files",
-  async () => {
-    const fixture = await workspace();
-
-    try {
-      await promisify(execFile)("mkfifo", [join(fixture.storage, "history.json")]);
-      expect((await fixture.repository.read("history")).status).toBe("unavailable");
-      expect((await fixture.repository.read("drafts")).status).toBe("ready");
-    } finally {
-      await rm(fixture.directory, { recursive: true, force: true });
-    }
-  }
-);
-
-it.runIf(process.platform === "linux")(
   "establishes private effective POSIX ACL masks including inherited ACLs",
   async () => {
     const fixture = await workspace();

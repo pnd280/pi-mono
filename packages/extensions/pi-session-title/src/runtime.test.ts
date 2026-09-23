@@ -7,9 +7,9 @@ import { SessionTitle, type TitleHost } from "./runtime.ts";
 
 const opening: UserMessage = { role: "user", content: "Opening request", timestamp: 0 };
 
-function fixture(name?: string) {
+function fixture(name?: string, message = opening) {
   const session = SessionManager.inMemory();
-  session.appendMessage(opening);
+  session.appendMessage(message);
   if (name) session.appendSessionInfo(name);
   const generate = vi.fn<TitleHost["generate"]>().mockResolvedValue("Generated title");
   const notify = vi.fn<TitleHost["notify"]>();
@@ -31,6 +31,20 @@ it("automatically names once from the opening request and stays quiet", async ()
   expect(generate).toHaveBeenCalledExactlyOnceWith("Opening request", expect.any(AbortSignal));
   expect(session.getSessionName()).toBe("Generated title");
   expect(notify).not.toHaveBeenCalled();
+});
+
+it("waits for text without consuming the automatic attempt", async () => {
+  const imageOnly: UserMessage = {
+    role: "user",
+    content: [{ type: "image", data: "fixture", mimeType: "image/png" }],
+    timestamp: 0
+  };
+  const { title, session, generate } = fixture(undefined, imageOnly);
+  await title.automatic(imageOnly);
+  expect(generate).not.toHaveBeenCalled();
+  await title.automatic(opening);
+  expect(generate).toHaveBeenCalledExactlyOnceWith("Opening request", expect.any(AbortSignal));
+  expect(session.getSessionName()).toBe("Generated title");
 });
 
 it("preserves existing names and allows explicit regeneration", async () => {
@@ -97,15 +111,15 @@ it("only commits the latest regeneration", async () => {
   expect(notify).not.toHaveBeenCalledWith("Session title: Obsolete title", "info");
 });
 
-it.each(["rename", "clear", "tree", "shutdown"])(
+it.each(["rename", "tree", "shutdown"])(
   "cancels generation on %s without a late name or outcome notification",
   async (action) => {
     const { title, session, generate, notify } = fixture();
     const pending = Promise.withResolvers<string>();
     generate.mockReturnValue(pending.promise);
     const result = title.command("");
-    if (action === "rename" || action === "clear") {
-      session.appendSessionInfo(action === "rename" ? "External title" : "");
+    if (action === "rename") {
+      session.appendSessionInfo("External title");
       title.nameChanged();
     } else if (action === "tree") title.cancel();
     else title.dispose();

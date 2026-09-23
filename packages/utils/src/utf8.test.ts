@@ -6,14 +6,22 @@ it("clips every UTF-8 boundary without introducing replacement characters", () =
   const text = "a界😀z";
   const bytes = Buffer.from(text);
 
-  for (let limit = 0; limit <= bytes.length; limit++) {
-    for (const clipped of [utf8Prefix(text, limit), utf8Suffix(text, limit)]) {
-      expect(Buffer.byteLength(clipped)).toBeLessThanOrEqual(limit);
-      expect(clipped).not.toContain("�");
-    }
-
-    expect(decodeUtf8(bytes.subarray(0, limit), "head")).toBe(utf8Prefix(text, limit));
-    expect(decodeUtf8(bytes.subarray(bytes.length - limit), "tail")).toBe(utf8Suffix(text, limit));
+  for (const [limit, prefix, suffix] of [
+    [0, "", ""],
+    [1, "a", "z"],
+    [2, "a", "z"],
+    [3, "a", "z"],
+    [4, "a界", "z"],
+    [5, "a界", "😀z"],
+    [6, "a界", "😀z"],
+    [7, "a界", "😀z"],
+    [8, "a界😀", "界😀z"],
+    [9, "a界😀z", "a界😀z"]
+  ] as const) {
+    expect(utf8Prefix(text, limit), `prefix at ${limit} bytes`).toBe(prefix);
+    expect(utf8Suffix(text, limit), `suffix at ${limit} bytes`).toBe(suffix);
+    expect(decodeUtf8(bytes.subarray(0, limit), "head")).toBe(prefix);
+    expect(decodeUtf8(bytes.subarray(bytes.length - limit), "tail")).toBe(suffix);
   }
 });
 

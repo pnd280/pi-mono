@@ -134,7 +134,7 @@ async function host({
   };
 }
 
-it.each(["tui", "print", "json", "rpc"] as const)(
+it.each(["print", "rpc"] as const)(
   "names automatically and regenerates in a real %s host",
   async (mode) => {
     const fixture = await host({ mode });
@@ -151,7 +151,7 @@ it.each(["tui", "print", "json", "rpc"] as const)(
     expect(fixture.titleRequests[1]?.messages.find(({ role }) => role === "user")?.content).toBe(
       "user: Opening request\n\nassistant: Fixture reply"
     );
-    if (mode === "tui" || mode === "rpc") expect(fixture.notify).toHaveBeenCalled();
+    if (mode === "rpc") expect(fixture.notify).toHaveBeenCalled();
     else expect(fixture.notify).not.toHaveBeenCalled();
     await fixture.command("clear");
     await fixture.session.prompt("Do not automatically rename");

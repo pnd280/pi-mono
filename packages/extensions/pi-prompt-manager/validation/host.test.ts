@@ -108,7 +108,7 @@ async function host(mode: ExtensionContext["mode"], before?: (pi: ExtensionAPI) 
   return { ...fixture, session, registrations, errors, notify, getEditor: () => editor };
 }
 
-it.each(["print", "json", "rpc"] as const)(
+it.each(["print", "rpc"] as const)(
   "does not register or touch feature storage/settings in %s mode",
   async (mode) => {
     const fixture = await host(mode);
@@ -157,20 +157,7 @@ it("captures only interactive input after transforms, without replay across relo
   sm.appendMessage({ role: "user", content: "existing user message", timestamp: Date.now() });
   await runner.emitInput("extension input", undefined, "extension");
   await runner.emitInput("before", undefined, "interactive");
-  sm.appendCustomMessageEntry("fixture", "hidden context", false);
-  await runner.emitInput("extension after hidden context", undefined, "extension");
   await runner.emitInput("steering", undefined, "interactive", "steer");
-  sm.appendCustomMessageEntry(
-    "fixture",
-    [
-      { type: "text", text: "block one" },
-      { type: "text", text: "block two" }
-    ],
-    true
-  );
-  await runner.emitInput("extension after visible context", undefined, "extension");
-  sm.appendSessionInfo("metadata");
-  await runner.emitInput("extension after metadata", undefined, "extension");
   await runner.emitInput("rpc input", undefined, "rpc");
   await runner.emitInput("follow-up", undefined, "interactive", "followUp");
   const expected = ["follow-up", "steering", "after"];

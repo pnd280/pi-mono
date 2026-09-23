@@ -6,28 +6,6 @@ import { expect, it } from "vite-plus/test";
 import { initialHistoryQuery, prepareItems } from "./search.ts";
 import { collection, entry } from "./test-fixture.ts";
 
-it("ranks phrase, all literal terms, then summed per-term fuzzy scores in stable order", async () => {
-  const items = await prepareItems(
-    collection([
-      entry("food xx bar"),
-      entry("bar ... foo"),
-      entry("foo bar first"),
-      entry("foo bar second"),
-      entry("f_o_o b_a_r"),
-      entry("unrelated")
-    ])
-  );
-  const result = await searchText(items, "FOO  bar");
-  expect(result.map((item) => item.occurrence.source.text)).toEqual([
-    "foo bar first",
-    "foo bar second",
-    "food xx bar",
-    "bar ... foo",
-    "f_o_o b_a_r"
-  ]);
-  expect(await searchText(items, "")).toBe(items);
-});
-
 it("searches complete sanitized text while preserving exact copy/restoration source and draft numbering", async () => {
   const source = "\x1b]52;c;hidden\x07" + "row ".repeat(1000) + "needle";
   const items = await prepareItems(

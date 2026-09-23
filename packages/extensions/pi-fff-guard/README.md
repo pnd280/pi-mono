@@ -36,6 +36,8 @@ No persistent state, network requests, or project writes. Subprocesses only insp
 
 ## Validation
 
+[Coverage specification](docs/testing.md).
+
 Use [focused checks](../../../docs/development.md#focused-validation) for `pi-fff-guard`.
 
 ## Retirement

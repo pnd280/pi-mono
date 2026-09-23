@@ -90,4 +90,6 @@ No tool registration, active-tool changes, or added keybindings. Custom cards do
 
 ## Validation
 
+[Coverage specification](docs/testing.md).
+
 Use [focused checks](../../../docs/development.md#focused-validation) for `pi-tool-display` and the [validation guide](docs/validation.md) for manual host checks and platform limits.

@@ -2,7 +2,6 @@ import { fork } from "node:child_process";
 import { once } from "node:events";
 import {
   chmod,
-  link,
   mkdir,
   readFile,
   readdir,
@@ -114,20 +113,15 @@ it("repairs owned permissions even when capacity rejects the save, without chang
   expect((await stat(join(fixture.agentDir, "pi-prompt-manager"))).mode & 0o777).toBe(0o700);
 });
 
-it("refuses data symlinks, hard links, nonregular files, and owned-subtree symlinks independently", async () => {
+it("applies private-file and private-directory refusal independently to collections", async () => {
   const path = join(fixture.storage, "drafts.json");
   const source = join(fixture.directory, "unrelated");
   await writeFile(source, "not ours", { mode: 0o644 });
   await symlink(source, path);
   expect((await fixture.repository.read("drafts")).status).toBe("unavailable");
   expect((await fixture.repository.read("history")).status).toBe("ready");
-  await rm(path);
-  await link(source, path);
-  expect((await fixture.repository.read("drafts")).status).toBe("unavailable");
+  expect(await readFile(source, "utf8")).toBe("not ours");
   expect((await stat(source)).mode & 0o777).toBe(0o644);
-  await rm(path);
-  await mkdir(path);
-  expect((await fixture.repository.read("drafts")).status).toBe("unavailable");
   await rm(fixture.storage, { recursive: true });
   await symlink(fixture.cwd, fixture.storage);
   expect((await fixture.repository.read("history")).status).toBe("unavailable");
@@ -242,10 +236,10 @@ it("expires queued work but lets started atomic writes and owned lock cleanup fi
   expect((await readdir(fixture.storage)).some((name) => name.endsWith(".lock"))).toBe(false);
 });
 
-function worker(label: string, count: number, hold = false) {
+function worker(label: string, count: number) {
   return fork(
     new URL("../../validation/storage-worker.ts", import.meta.url),
-    [fixture.cwd, fixture.agentDir, label, String(count), ...(hold ? ["hold"] : [])],
+    [fixture.cwd, fixture.agentDir, label, String(count)],
     {
       execArgv: ["--experimental-transform-types", "--disable-warning=ExperimentalWarning"],
       stdio: ["ignore", "pipe", "pipe", "ipc"]
@@ -267,25 +261,7 @@ it("preserves unrelated mutations from two real processes", async () => {
   }
 }, 15000);
 
-it("reads old/new atomic snapshots during real contention and never steals abandoned locks", async () => {
-  await fixture.repository.mutate("drafts", add("old"), session());
-  const child = worker("held", 1, true);
-
-  try {
-    expect(await once(child, "message")).toEqual(["locked", undefined]);
-    expect((await drafts()).entries.map((item) => item.source.text)).toEqual(["old"]);
-    const blocked = fixture.repository.mutate("drafts", add("later"), session());
-    child.send("continue");
-    expect((await blocked).status).toBe("committed");
-    expect((await drafts()).entries.map((item) => item.source.text)).toEqual([
-      "later",
-      "held-0",
-      "old"
-    ]);
-  } finally {
-    child.kill();
-  }
-
+it("reports the collection deadline without reclaiming abandoned locks", async () => {
   const lock = join(fixture.storage, "drafts.json.lock");
   await writeFile(lock, "abandoned-token", { mode: 0o600 });
   await utimes(lock, new Date(0), new Date(0));

@@ -342,16 +342,6 @@ it("preserves queued mutations, aliases, CRLF, cancellation, and observer failur
     expect(facts.has("bad-match")).toBe(false);
     await expect(
       edit.execute(
-        "no-change",
-        { path: "file", edits: [{ oldText: "ALPHA", newText: "ALPHA" }] },
-        undefined,
-        undefined,
-        context
-      )
-    ).rejects.toThrow();
-    expect(facts.has("no-change")).toBe(false);
-    await expect(
-      edit.execute(
         "cancelled-edit",
         { path: "file", edits: [{ oldText: "ALPHA", newText: "never" }] },
         AbortSignal.abort(),

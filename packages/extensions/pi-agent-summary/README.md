@@ -57,6 +57,8 @@ Completion/shutdown clears only the elapsed-time contribution. Saving `/working-
 
 ## Validation
 
+[Coverage specification](docs/testing.md).
+
 Run [focused checks](../../../docs/development.md#focused-validation) for `pi-agent-summary`:
 
 ```sh

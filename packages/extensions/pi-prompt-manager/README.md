@@ -84,4 +84,6 @@ Requires macOS `pbcopy`, Wayland `wl-copy`, X11 `xclip`/`xsel`, or WSL `powershe
 
 ## Validation
 
+[Coverage specification](docs/testing.md).
+
 Use [focused checks](../../../docs/development.md#focused-validation) for `pi-prompt-manager` and [validation guidance](docs/validation.md) for prerequisites, offline fixtures, and platform checks.

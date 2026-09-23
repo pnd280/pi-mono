@@ -62,6 +62,8 @@ Only prompt text changes. Images, steering/follow-up delivery, and queue behavio
 
 ## Validation
 
+[Coverage specification](docs/testing.md).
+
 From the repository root:
 
 ```sh

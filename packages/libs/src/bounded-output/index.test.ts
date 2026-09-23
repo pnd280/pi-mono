@@ -53,6 +53,17 @@ it("marks only generated text using UTF-16 offsets and preserves literal marker 
   expect(result.output.text.slice(range.start, range.end)).toBe("[10 bytes]");
 });
 
+it("omits split UTF-8 edges without discarding literal replacement characters", async () => {
+  const path = join(directory, "output");
+  await writeFile(path, "\uFFFD" + "界".repeat(20) + "\uFFFD");
+  const result = await readBoundedOutput(path, { ...options, maxBytes: 16 });
+  expect(result).toMatchObject({
+    status: "ready",
+    truncated: true,
+    output: { text: "\uFFFD界\n[50 bytes]\n界\uFFFD" }
+  });
+});
+
 it("distinguishes complete, empty, missing, and nonregular files", async () => {
   const path = join(directory, "output");
   await writeFile(path, "\uFEFFstart\nend\uFFFD");

@@ -74,4 +74,6 @@ Helpers do not read clocks, perform I/O, or persist state.
 
 ## Validation
 
+[Coverage specification](docs/testing.md).
+
 Use the [focused commands](../../docs/development.md#focused-validation) with `@pi-mono/utils`.

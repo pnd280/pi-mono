@@ -41,6 +41,7 @@ it("preserves native whitespace and ANSI state across logical-line batches", asy
       expect(await layoutPreview(text, width, () => true)).toEqual(wrapTextWithAnsi(text, width));
 });
 
+// Each seed compares 500 layouts; allow headroom when recursive suites run together.
 it.each([
   {
     name: "reported seed",
@@ -91,23 +92,27 @@ it.each([
       "\x1b[48;5;123m"
     ]
   }
-])("matches native snapshots for $name", async ({ seed, tokens }) => {
-  const random = (maximum: number) => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
+])(
+  "matches native snapshots for $name",
+  async ({ seed, tokens }) => {
+    const random = (maximum: number) => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
 
-    return seed % maximum;
-  };
+      return seed % maximum;
+    };
 
-  for (let sample = 0; sample < 500; sample++) {
-    let text = "";
-    while (text.length < 4500) text += tokens[random(tokens.length)];
-    const width = 1 + random(100);
-    expect(
-      await layoutPreview(text, width, () => true),
-      `sample ${sample}, width ${width}`
-    ).toEqual(wrapTextWithAnsi(text, width));
-  }
-});
+    for (let sample = 0; sample < 500; sample++) {
+      let text = "";
+      while (text.length < 4500) text += tokens[random(tokens.length)];
+      const width = 1 + random(100);
+      expect(
+        await layoutPreview(text, width, () => true),
+        `sample ${sample}, width ${width}`
+      ).toEqual(wrapTextWithAnsi(text, width));
+    }
+  },
+  15000
+);
 
 it("matches native wrapping for long lines, dense ANSI, and many output rows", async () => {
   for (const [text, width] of [

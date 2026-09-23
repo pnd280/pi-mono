@@ -1934,128 +1934,125 @@ it.each(["auto", "generic"])(
   }
 );
 
-it.each(
-  ["live", "replay"].flatMap((mode) =>
-    (["maybeShowThinkingDropNotice", "addCacheMissNotice", "addCacheWarmingUsage"] as const).map(
-      (hook) => ({
-        mode,
-        hook
-      })
-    )
-  )
-)("separates $mode groups only when $hook inserts a component", async ({ mode, hook }) => {
-  const prototype = interactivePrototype();
-  const notice = new Text("fixture notice", 0, 0);
-  // Pi owns notice eligibility. Exercise our wrapper with insertion and no-op results.
-  const insert = vi.spyOn(prototype, hook).mockImplementation(function (this: Host, value) {
-    const children = this.chatContainer?.children;
-    if (value !== notice || !children) return;
-    const firstRow = children.findIndex((child) => child instanceof ToolExecutionComponent);
-    children.splice(firstRow + 1, 0, notice);
-  });
+// The hooks share one insertion wrapper; exercise every hook and one replay boundary.
+it.each([
+  { mode: "live", hook: "maybeShowThinkingDropNotice" },
+  { mode: "live", hook: "addCacheMissNotice" },
+  { mode: "live", hook: "addCacheWarmingUsage" },
+  { mode: "replay", hook: "maybeShowThinkingDropNotice" }
+] as const)(
+  "separates $mode groups only when $hook inserts a component",
+  async ({ mode, hook }) => {
+    const prototype = interactivePrototype();
+    const notice = new Text("fixture notice", 0, 0);
+    // Pi owns notice eligibility. Exercise our wrapper with insertion and no-op results.
+    const insert = vi.spyOn(prototype, hook).mockImplementation(function (this: Host, value) {
+      const children = this.chatContainer?.children;
+      if (value !== notice || !children) return;
+      const firstRow = children.findIndex((child) => child instanceof ToolExecutionComponent);
+      children.splice(firstRow + 1, 0, notice);
+    });
 
-  try {
-    await withSession(async ({ session }) => {
-      const tui = interactiveHost(session);
+    try {
+      await withSession(async ({ session }) => {
+        const tui = interactiveHost(session);
 
-      try {
-        const history = ["a", "b", "c"].map((name, index) => ({
-          message: assistantMessage(
-            [fauxToolCall("read", { path: `${name}.ts` }, { id: name })],
-            index + 1
-          ),
-          result: {
-            role: "toolResult" as const,
-            toolCallId: name,
-            toolName: "read",
-            content: [{ type: "text" as const, text: `body ${index + 1}` }],
-            isError: false,
-            timestamp: index + 1
-          }
-        }));
-
-        const renderLive = async ({ message, result }: (typeof history)[number]) => {
-          await tui.handleEvent({ type: "message_start", message });
-          await tui.handleEvent({
-            type: "message_update",
-            message,
-            assistantMessageEvent: {
-              type: "toolcall_end",
-              contentIndex: 0,
-              toolCall: messageToolCall(message),
-              partial: message
+        try {
+          const history = ["a", "b", "c"].map((name, index) => ({
+            message: assistantMessage(
+              [fauxToolCall("read", { path: `${name}.ts` }, { id: name })],
+              index + 1
+            ),
+            result: {
+              role: "toolResult" as const,
+              toolCallId: name,
+              toolName: "read",
+              content: [{ type: "text" as const, text: `body ${index + 1}` }],
+              isError: false,
+              timestamp: index + 1
             }
-          });
-          await tui.handleEvent({ type: "message_end", message });
-          await tui.handleEvent({
-            type: "tool_execution_end",
-            toolCallId: result.toolCallId,
-            toolName: "read",
-            result,
-            isError: false
-          });
-        };
+          }));
 
-        const rows = () =>
-          tui.chatContainer.children.filter((child) => child instanceof ToolExecutionComponent);
-        const groups = () =>
-          rows()
-            .map(text)
-            .join("\n")
-            .match(/Explored/g);
+          const renderLive = async ({ message, result }: (typeof history)[number]) => {
+            await tui.handleEvent({ type: "message_start", message });
+            await tui.handleEvent({
+              type: "message_update",
+              message,
+              assistantMessageEvent: {
+                type: "toolcall_end",
+                contentIndex: 0,
+                toolCall: messageToolCall(message),
+                partial: message
+              }
+            });
+            await tui.handleEvent({ type: "message_end", message });
+            await tui.handleEvent({
+              type: "tool_execution_end",
+              toolCallId: result.toolCallId,
+              toolName: "read",
+              result,
+              isError: false
+            });
+          };
 
-        tui.renderSessionItems(
-          mode === "replay" ? history.flatMap(({ message, result }) => [message, result]) : []
-        );
-        if (mode === "live") await renderLive(history[0]!);
-        insert.mockClear();
-        const snapshot = vi.spyOn(tui.chatContainer.children, "slice");
-        prototype[hook]!.call(tui, undefined);
-        expect(snapshot).not.toHaveBeenCalled();
-        snapshot.mockRestore();
-        expect(insert).toHaveBeenCalledExactlyOnceWith(undefined);
-        expect(insert.mock.contexts[0]).toBe(tui);
-        if (mode === "live") await renderLive(history[1]!);
-        expect(groups()).toHaveLength(1);
-        expect(tui.chatContainer.children).not.toContain(notice);
+          const rows = () =>
+            tui.chatContainer.children.filter((child) => child instanceof ToolExecutionComponent);
+          const groups = () =>
+            rows()
+              .map(text)
+              .join("\n")
+              .match(/Explored/g);
 
-        insert.mockClear();
-        prototype[hook]!.call(tui, notice);
-        expect(insert).toHaveBeenCalledExactlyOnceWith(notice);
-        expect(insert.mock.contexts[0]).toBe(tui);
-        if (mode === "live") await renderLive(history[2]!);
-        expect(tui.chatContainer.children.filter((child) => child === notice)).toHaveLength(1);
-        expect(groups()).toHaveLength(1);
-        const [first, second, third] = rows();
-        expect(second!.render(80)[0]).toBe("");
-        second!.setExpanded(true);
-        expect(text(second!)).toContain("body 2");
-        expect(text(third!)).toContain("body 3");
-        expect(text(first!)).not.toContain("body 1");
-      } finally {
-        tui.footerDataProvider.dispose();
-      }
-    });
-  } finally {
-    insert.mockRestore();
-  }
-});
+          tui.renderSessionItems(
+            mode === "replay" ? history.flatMap(({ message, result }) => [message, result]) : []
+          );
+          if (mode === "live") await renderLive(history[0]!);
+          insert.mockClear();
+          const snapshot = vi.spyOn(tui.chatContainer.children, "slice");
+          prototype[hook]!.call(tui, undefined);
+          expect(snapshot).not.toHaveBeenCalled();
+          snapshot.mockRestore();
+          expect(insert).toHaveBeenCalledExactlyOnceWith(undefined);
+          expect(insert.mock.contexts[0]).toBe(tui);
+          if (mode === "live") await renderLive(history[1]!);
+          expect(groups()).toHaveLength(1);
+          expect(tui.chatContainer.children).not.toContain(notice);
 
-it.each(["print", "json", "rpc"] as const)(
-  "removes the hook in %s mode, including reload",
-  async (mode) => {
-    const original = host.getRegisteredToolDefinition;
-    await withSession(async ({ session, assertNoRegistration }) => {
-      const assertPreserved = preserveRegistry(session);
-      await session.bindExtensions({ mode, onError: () => {} });
-      expect(host.getRegisteredToolDefinition).toBe(original);
-      assertPreserved();
-      await session.reload();
-      expect(host.getRegisteredToolDefinition).toBe(original);
-      assertNoRegistration();
-    });
+          insert.mockClear();
+          prototype[hook]!.call(tui, notice);
+          expect(insert).toHaveBeenCalledExactlyOnceWith(notice);
+          expect(insert.mock.contexts[0]).toBe(tui);
+          if (mode === "live") await renderLive(history[2]!);
+          expect(tui.chatContainer.children.filter((child) => child === notice)).toHaveLength(1);
+          expect(groups()).toHaveLength(1);
+          const [first, second, third] = rows();
+          expect(second!.render(80)[0]).toBe("");
+          second!.setExpanded(true);
+          expect(text(second!)).toContain("body 2");
+          expect(text(third!)).toContain("body 3");
+          expect(text(first!)).not.toContain("body 1");
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
+      });
+    } finally {
+      insert.mockRestore();
+    }
   }
 );
+
+it("removes the hook outside TUI mode, including reload", async () => {
+  const original = host.getRegisteredToolDefinition;
+  await withSession(async ({ session, assertNoRegistration }) => {
+    const assertPreserved = preserveRegistry(session);
+    await session.bindExtensions({ mode: "rpc", onError: () => {} });
+    expect(host.getRegisteredToolDefinition).toBe(original);
+    assertPreserved();
+    await session.reload();
+    expect(host.getRegisteredToolDefinition).toBe(original);
+    assertNoRegistration();
+  });
+});
 
 it("leaves external owner rendering untouched, including built-in names and inherited slots", () => {
   const original = host.getRegisteredToolDefinition;

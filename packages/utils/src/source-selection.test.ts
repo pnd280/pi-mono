@@ -45,6 +45,22 @@ it("clips code-point ranges to an absolute line window without normalizing raw s
   expect(selectionLabel(selectionSchema.parse({ startLine: 1 }))).toBe("1");
 });
 
+it("clips oversized columns and preserves empty selections at exclusive boundaries", () => {
+  expect(
+    selectSource(
+      ["abc"],
+      1,
+      selectionSchema.parse({ startLine: 1, startColumn: 2, endColumn: 100 })
+    )
+  ).toEqual({ partial: false, lines: [{ index: 0, before: "a", text: "bc" }] });
+  expect(
+    selectSource(["abc"], 1, selectionSchema.parse({ startLine: 1, startColumn: 100 }))
+  ).toEqual({ partial: false, lines: [{ index: 0, before: "abc", text: "" }] });
+  expect(
+    selectSource(["abc", ""], 1, selectionSchema.parse({ startLine: 2, endLine: 3, endColumn: 1 }))
+  ).toEqual({ partial: true, lines: [{ index: 1, before: "", text: "" }] });
+});
+
 it("rejects invalid source-window line coordinates", () => {
   const span = selectionSchema.parse({ startLine: 1 });
   for (const firstLine of [0, 1.5, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Infinity])

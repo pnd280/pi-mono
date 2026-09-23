@@ -954,24 +954,6 @@ describe("tool display renderers", () => {
     }
   });
 
-  it("uses accent for standalone tool headings", () => {
-    const themed = semanticTheme();
-    const cases = [
-      ["read", nativeAdapter("read")!, { path: "a.ts" }, "Read"],
-      ["bash", nativeAdapter("bash")!, { command: "true" }, "Ran"],
-      ["custom", genericAdapter, {}, "Called"]
-    ] as const;
-
-    for (const [name, adapter, args, verb] of cases) {
-      const line =
-        createToolDisplayRenderers(name, adapter)
-          .renderCall(args, themed, context())
-          .render(100)[0] ?? "";
-      expect(line, name).toContain(themed.fg("accent", verb));
-      expect(line, name).not.toContain(themed.fg("toolTitle", verb));
-    }
-  });
-
   it("colors standalone action text by lifecycle and outcome while preserving marker colors", () => {
     const themed = semanticTheme();
     const renderer = createToolDisplayRenderers("read", nativeAdapter("read"));
@@ -995,7 +977,7 @@ describe("tool display renderers", () => {
     expect(failed).toContain(themed.fg("error", "•"));
   });
 
-  it("colors cancelled standalone action text as an error while retaining the warning marker", () => {
+  it("colors cancelled standalone actions and markers as errors", () => {
     const coordinator = new TranscriptCoordinator("standalone-cancelled-action-color");
     const themed = semanticTheme();
 

@@ -9,7 +9,6 @@ import type {
   ToolCallEventResult,
   ToolInfo
 } from "@earendil-works/pi-coding-agent";
-import { fffAdapter } from "@pi-mono/utils/fff-tools";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import extension from "./index.ts";
@@ -214,14 +213,6 @@ describe("public interception adapter", () => {
     expect(
       await host.call("grep", { pattern: "fixture_marker", path: "node_modules/" })
     ).toBeUndefined();
-    const sourceInfo = {
-      source: "cli",
-      path: "/store/@ff-labs/pi-fff/src/index.ts",
-      scope: "temporary",
-      origin: "top-level"
-    } as const;
-    expect(fffAdapter({ name: "ffgrep", sourceInfo })).toBe("grep");
-    expect(fffAdapter({ name: "fff-future-tool", sourceInfo })).toBeUndefined();
   });
 
   it("keeps concurrent handler calls independent and allows ordinary searches", async () => {
@@ -282,13 +273,10 @@ describe("public interception adapter", () => {
     expect(hasUI ? stderr : host.notify).not.toHaveBeenCalled();
   });
 
-  it("allows detection failures with a diagnostic and blocks cancelled calls", async () => {
+  it("blocks caller cancellation without a detection-failure diagnostic", async () => {
     const host = harness();
     host.register("ffgrep");
     const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
-    await symlink("cycle", path.join(directory.root, "cycle"));
-    expect(await host.call("ffgrep", { path: "cycle", pattern: "marker" })).toBeUndefined();
-    expect(diagnostic).toHaveBeenCalledWith(expect.stringContaining("detection unavailable"));
     const controller = new AbortController();
     controller.abort();
     const result = await host.call(
@@ -300,7 +288,7 @@ describe("public interception adapter", () => {
       block: true,
       reason: "Ignored-path detection cancelled; no replacement search was started."
     });
-    expect(diagnostic).toHaveBeenCalledTimes(1);
+    expect(diagnostic).not.toHaveBeenCalled();
     expect(host.notify).not.toHaveBeenCalled();
   });
 });

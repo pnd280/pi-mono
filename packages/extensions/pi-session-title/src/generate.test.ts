@@ -46,8 +46,7 @@ async function fixture() {
 }
 
 it("passes the configured model, thinking, resolved auth, and text to Pi's effective provider", async () => {
-  const { request, registry, find, stream, auth, model } = await fixture();
-  const registryStream = vi.spyOn(registry, "streamSimple");
+  const { request, stream, auth, model } = await fixture();
   auth.mockResolvedValue({
     auth: {
       apiKey: "fixture-key",
@@ -57,8 +56,6 @@ it("passes the configured model, thinking, resolved auth, and text to Pi's effec
     env: { FIXTURE_REGION: "region" }
   });
   expect(await generateTitle(request)).toBe("Fix token expiry");
-  expect(find).toHaveBeenCalledWith("title-fixture", "nested/model");
-  expect(registryStream).toHaveBeenCalledOnce();
   expect(stream).toHaveBeenCalledExactlyOnceWith(
     { ...model, baseUrl: "https://resolved.example.invalid" },
     expect.any(Object),

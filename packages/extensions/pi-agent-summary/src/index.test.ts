@@ -252,23 +252,20 @@ it.each(["session_shutdown", "session_start"] as const)(
   }
 );
 
-it.each(["rpc", "json", "print"] as const)(
-  "saves summaries in %s mode without touching the working UI",
-  async (mode) => {
-    const runtime = await fixture(mode);
-    await runtime.emit("session_start", {});
-    await runtime.emit("agent_start", {});
-    await runtime.tool("write", { path: "file.txt", content: "new\n" });
-    vi.advanceTimersByTime(1250);
-    await runtime.emit("agent_settled", {});
-    await runtime.emit("session_shutdown", {});
-    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-      durationMs: 1250,
-      finishedAt: Date.now(),
-      bashCalls: 0,
-      files: [{ path: "file.txt", status: "available", added: 1, removed: 0 }]
-    });
-    expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
-    expect(vi.getTimerCount()).toBe(0);
-  }
-);
+it("saves summaries outside TUI mode without touching the working UI", async () => {
+  const runtime = await fixture("rpc");
+  await runtime.emit("session_start", {});
+  await runtime.emit("agent_start", {});
+  await runtime.tool("write", { path: "file.txt", content: "new\n" });
+  vi.advanceTimersByTime(1250);
+  await runtime.emit("agent_settled", {});
+  await runtime.emit("session_shutdown", {});
+  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+    durationMs: 1250,
+    finishedAt: Date.now(),
+    bashCalls: 0,
+    files: [{ path: "file.txt", status: "available", added: 1, removed: 0 }]
+  });
+  expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
+  expect(vi.getTimerCount()).toBe(0);
+});

@@ -48,6 +48,8 @@ With `pi-tool-display` in automatic mode, its [selective-read adapter](../pi-too
 
 ## Validation
 
+[Coverage specification](docs/testing.md).
+
 Use the [focused validation commands](../../../docs/development.md#focused-validation) with package name `pi-selective-read`.
 
 For appearance changes, inspect collapsed and expanded reads in Pi with a multiline selection, tabs, wide characters, a narrow terminal, and both light and dark themes. Check that context stays visible and the preview is not duplicated.

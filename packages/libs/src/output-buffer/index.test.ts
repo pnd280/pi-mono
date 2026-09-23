@@ -56,6 +56,16 @@ it("handles odd and sub-character line budgets without reordering later chunks",
   expect(odd.snapshot().text).toBe("abc[4 bytes]hi");
 });
 
+it("preserves chunk order when a character crosses the line-head budget without filling the line", () => {
+  const buffer = new OutputBuffer({ ...options, maxBytes: 16, lineBytes: 8 });
+  buffer.append(Buffer.from("xxx"));
+  buffer.append(Buffer.from("界"));
+  buffer.append(Buffer.from("a\n"));
+  buffer.append(Buffer.alloc(16, 122));
+  buffer.finish();
+  expect(buffer.snapshot().text.split("\n")[0]).toBe("xxx界a");
+});
+
 it("keeps incomplete UTF-8 until finish, retains exact full-byte limits, and validates budgets", () => {
   const buffer = new OutputBuffer(options);
   buffer.append(Buffer.from("12345678"));

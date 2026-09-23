@@ -1,66 +1,35 @@
-import { selectSource, selectionSchema } from "@pi-mono/utils/source-selection";
-import { describe, expect, it } from "vite-plus/test";
+import type { SelectedSource } from "@pi-mono/utils/source-selection";
+import { expect, it } from "vite-plus/test";
 
 import { selectionPreview } from "./selection.ts";
 
-it("slices absolute lines by code point with exclusive end columns and preserves tabs", () => {
-  const span = selectionSchema.parse({ startLine: 10, startColumn: 2, endLine: 12, endColumn: 3 });
-  const selected = selectSource(["a😀bc", "\tmiddle", "界xy", "context"], 10, span);
-  expect(selectionPreview(selected)).toBe("Selected source preview:\n😀bc\n\tmiddle\n界x");
+function selected(lines: string[], partial = false): SelectedSource {
+  return { partial, lines: lines.map((text, index) => ({ index, before: "", text })) };
+}
+
+it("preserves selected source and labels partial or empty previews", () => {
+  expect(selectionPreview(selected(["\t😀\r", ""], true))).toBe(
+    "Selected source preview (partial):\n\t😀\r\n"
+  );
+  expect(selectionPreview(selected([]))).toContain("no text in this read window");
+  expect(selectionPreview(selected([""]))).toContain("no text in this read window");
 });
 
-it("clips oversized columns and identifies overlapping versus absent windows", () => {
-  const partial = selectSource(
-    ["first", "", "last"],
-    8,
-    selectionSchema.parse({ startLine: 7, endLine: 9 })
+it("keeps five lines intact, then keeps the outer two pairs with an omission marker", () => {
+  expect(selectionPreview(selected(["one", "two", "three", "four", "five"]))).toBe(
+    "Selected source preview:\none\ntwo\nthree\nfour\nfive"
   );
-  expect(partial.partial).toBe(true);
-  expect(selectionPreview(partial)).toBe("Selected source preview (partial):\nfirst\n");
-  const clipped = selectSource(
-    ["abc"],
-    1,
-    selectionSchema.parse({ startLine: 1, startColumn: 2, endColumn: 100 })
+  const lines = ["one", "two", "three", "four", "five", "six"];
+  expect(selectionPreview(selected(lines))).toBe(
+    "Selected source preview (truncated):\none\ntwo\n…\nfive\nsix"
   );
-  expect(selectionPreview(clipped)).toBe("Selected source preview:\nbc");
-
-  for (const selection of [
-    { startLine: 1, startColumn: 100 },
-    { startLine: 3 },
-    { startLine: 2, endLine: 3, endColumn: 1 }
-  ]) {
-    const source = selectSource(["abc", ""], 1, selectionSchema.parse(selection));
-    expect(selectionPreview(source)).toContain("no text in this read window");
-  }
+  expect(selectionPreview(selected(lines, true))).toContain("(partial, truncated)");
 });
 
-describe("preview budgets", () => {
-  it("keeps five lines intact, then keeps the outer two pairs with an omission marker", () => {
-    const lines = ["one", "two", "three", "four", "five", "six"];
-    const span = selectionSchema.parse({ startLine: 1, endLine: 5 });
-    expect(selectionPreview(selectSource(lines, 1, span))).toBe(
-      `Selected source preview:\n${lines.slice(0, 5).join("\n")}`
-    );
-    expect(selectionPreview(selectSource(lines, 1, { ...span, endLine: 6 }))).toBe(
-      "Selected source preview (truncated):\none\ntwo\n…\nfive\nsix"
-    );
-    expect(selectionPreview(selectSource(lines, 1, { ...span, endLine: 7 }))).toContain(
-      "(partial, truncated)"
-    );
-  });
-
-  it("counts Unicode code points rather than UTF-16 units and retains both ends", () => {
-    const span = selectionSchema.parse({ startLine: 1 });
-    const full = "😀".repeat(500);
-    expect(selectionPreview(selectSource([full], 1, span))).toBe(
-      `Selected source preview:\n${full}`
-    );
-    const bounded = selectionPreview(
-      selectSource(["😀".repeat(250) + "DROP" + "界".repeat(249)], 1, span)
-    );
-    const preview = bounded.split("\n")[1]!;
-    expect(bounded).toContain("(truncated)");
-    expect(Array.from(preview)).toHaveLength(500);
-    expect(preview).toBe("😀".repeat(250) + "…" + "界".repeat(249));
-  });
+it("counts Unicode code points rather than UTF-16 units and retains both ends", () => {
+  const full = "😀".repeat(500);
+  expect(selectionPreview(selected([full]))).toBe(`Selected source preview:\n${full}`);
+  expect(selectionPreview(selected(["😀".repeat(250) + "DROP" + "界".repeat(249)]))).toBe(
+    "Selected source preview (truncated):\n" + "😀".repeat(250) + "…" + "界".repeat(249)
+  );
 });

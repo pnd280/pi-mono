@@ -45,4 +45,6 @@ APIs may launch local helpers/workers, read/write files, repair permissions/ACLs
 
 ## Validation
 
+[Coverage specification](docs/testing.md).
+
 Use the [focused commands and test prerequisites](../../docs/development.md#focused-validation) with `@pi-mono/libs`. For native clipboard or private-storage changes, also use the [isolated platform checks](../extensions/pi-prompt-manager/docs/validation.md#platform-checks).

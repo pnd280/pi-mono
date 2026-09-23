@@ -26,7 +26,9 @@ it("accepts only canonical positive safe integer indices and literal add text", 
 it("rejects bad syntax before reads, mutation, editor access, or clipboard work", async () => {
   const read = vi.fn();
   const mutate = vi.fn();
-  const { manager } = managerFixture({ repository: { read, mutate } });
+  const editor = { read: vi.fn(), write: vi.fn() };
+  const copy = vi.fn();
+  const { manager } = managerFixture({ repository: { read, mutate }, editor, copy });
 
   for (const args of [
     "History",
@@ -39,4 +41,7 @@ it("rejects bad syntax before reads, mutation, editor access, or clipboard work"
     await manager.command(args);
   expect(read).not.toHaveBeenCalled();
   expect(mutate).not.toHaveBeenCalled();
+  expect(editor.read).not.toHaveBeenCalled();
+  expect(editor.write).not.toHaveBeenCalled();
+  expect(copy).not.toHaveBeenCalled();
 });

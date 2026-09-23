@@ -39,10 +39,15 @@ it("preserves bytes before rename, commits exact text privately, and distinguish
     throw new Error("injected fault");
   };
 
+  const beforeCommit = async () => {
+    expect(await readFile(path, "utf8")).toBe("original");
+    await fault();
+  };
+
   try {
     await writeFile(path, "original");
 
-    for (const hooks of [{ beforeWrite: fault }, { beforeRename: fault }]) {
+    for (const hooks of [{ beforeWrite: beforeCommit }, { beforeRename: beforeCommit }]) {
       await expect(atomicReplace(path, "uncommitted", hooks)).rejects.toThrow("injected");
       expect(await readFile(path, "utf8")).toBe("original");
       expect(await readdir(directory)).toEqual(["notes"]);

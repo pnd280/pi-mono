@@ -6,24 +6,13 @@ const argumentsSchema = z.tuple([
   z.string().min(1),
   z.string().min(1),
   z.string().min(1),
-  z.string().regex(/^\d+$/).transform(Number).pipe(z.int().nonnegative()),
-  z.literal("hold").optional()
+  z.string().regex(/^\d+$/).transform(Number).pipe(z.int().nonnegative())
 ]);
-const [cwd, agentDir, label, count, hold] = argumentsSchema.parse(process.argv.slice(2));
+const [cwd, agentDir, label, count] = argumentsSchema.parse(process.argv.slice(2));
 const repository = await FileRepository.create({
   cwd,
   agentDir,
-  retention: 250,
-  hooks:
-    hold === "hold"
-      ? {
-          beforeRename: () =>
-            new Promise<void>((resolve) => {
-              process.once("message", () => resolve());
-              process.send?.("locked");
-            })
-        }
-      : {}
+  retention: 250
 });
 
 for (let index = 0; index < count; index++) {
@@ -36,5 +25,4 @@ for (let index = 0; index < count; index++) {
   if (result.status !== "committed") throw new Error("Worker mutation failed.");
 }
 
-process.send?.("finished");
 process.disconnect();

@@ -63,6 +63,8 @@ Persists only Pi session-name metadata; adds no conversation messages and never 
 
 ## Validation
 
+[Coverage specification](docs/testing.md).
+
 Run [focused checks](../../../docs/development.md#focused-validation) for `pi-session-title`:
 
 ```sh
