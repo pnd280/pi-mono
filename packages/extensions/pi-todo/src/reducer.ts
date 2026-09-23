@@ -1,3 +1,4 @@
+import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
 import {
@@ -26,11 +27,7 @@ import {
   snapshotDetailsFitLimit,
   snapshotFitsLimit
 } from "./limits.ts";
-import {
-  sanitizeCompactTaskText,
-  sanitizeTaskDescription,
-  sanitizeTaskMutationParams
-} from "./text.ts";
+import { sanitizeTaskDescription, sanitizeTaskMutationParams } from "./text.ts";
 import {
   type Task,
   type TaskAction,
@@ -91,7 +88,7 @@ export function emptyTodoState(): TodoState {
 export function cloneTask(task: TaskCloneSource): Task {
   const cloned: Task = {
     id: task.id,
-    subject: sanitizeCompactTaskText(task.subject),
+    subject: compactDisplayText(task.subject),
     status: task.status
   };
 
@@ -100,12 +97,12 @@ export function cloneTask(task: TaskCloneSource): Task {
   }
 
   if (task.inProgressLabel !== undefined) {
-    cloned.inProgressLabel = sanitizeCompactTaskText(task.inProgressLabel);
+    cloned.inProgressLabel = compactDisplayText(task.inProgressLabel);
   }
 
   if (task.parentId !== undefined) cloned.parentId = task.parentId;
   if (task.blockedBy !== undefined) cloned.blockedBy = [...task.blockedBy];
-  if (task.owner !== undefined) cloned.owner = sanitizeCompactTaskText(task.owner);
+  if (task.owner !== undefined) cloned.owner = compactDisplayText(task.owner);
   if (task.metadata !== undefined) cloned.metadata = structuredClone(task.metadata);
 
   return cloned;
@@ -224,7 +221,7 @@ function renderListEntry(entry: TaskHierarchyEntry, statusFilter: TaskStatus | u
       : "";
   const inProgressLabel =
     task.status === "in_progress" && task.inProgressLabel
-      ? ` (${sanitizeCompactTaskText(task.inProgressLabel)})`
+      ? ` (${compactDisplayText(task.inProgressLabel)})`
       : "";
   const prefix = statusFilter === undefined ? "  ".repeat(entry.depth - 1) : "";
   const path =
@@ -232,7 +229,7 @@ function renderListEntry(entry: TaskHierarchyEntry, statusFilter: TaskStatus | u
       ? ` path: ${entry.ancestorIds.map((id) => `#${id}`).join("/")}`
       : "";
 
-  return `${prefix}[${task.status}] #${task.id} ${sanitizeCompactTaskText(task.subject)}${inProgressLabel}${dependencies}${path}`;
+  return `${prefix}[${task.status}] #${task.id} ${compactDisplayText(task.subject)}${inProgressLabel}${dependencies}${path}`;
 }
 
 export function taskDetailResultText(taskList: readonly Task[], task: Task): string {
@@ -241,7 +238,7 @@ export function taskDetailResultText(taskList: readonly Task[], task: Task): str
   const children = hierarchy
     ? orderedDirectChildren(hierarchy, task.id).filter((child) => child.status !== "deleted")
     : [];
-  const lines = [`#${task.id} [${task.status}] ${sanitizeCompactTaskText(task.subject)}`];
+  const lines = [`#${task.id} [${task.status}] ${compactDisplayText(task.subject)}`];
   if (task.parentId !== undefined) lines.push(`  parent: #${task.parentId}`);
 
   if (children.length > 0) {
@@ -253,7 +250,7 @@ export function taskDetailResultText(taskList: readonly Task[], task: Task): str
   }
 
   if (task.inProgressLabel) {
-    lines.push(`  inProgressLabel: ${sanitizeCompactTaskText(task.inProgressLabel)}`);
+    lines.push(`  inProgressLabel: ${compactDisplayText(task.inProgressLabel)}`);
   }
 
   if (task.blockedBy !== undefined && task.blockedBy.length > 0) {
@@ -261,7 +258,7 @@ export function taskDetailResultText(taskList: readonly Task[], task: Task): str
   }
 
   if (blocks.length > 0) lines.push(`  blocks: ${blocks.map((id) => `#${id}`).join(", ")}`);
-  if (task.owner) lines.push(`  owner: ${sanitizeCompactTaskText(task.owner)}`);
+  if (task.owner) lines.push(`  owner: ${compactDisplayText(task.owner)}`);
 
   return lines.join("\n");
 }

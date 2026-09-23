@@ -82,9 +82,9 @@ Expanding completed shell cards reads bounded previews from Pi's temporary outpu
 
 ## Compatibility
 
-Native observation is verified against Pi 0.87.0 via API and installed CLI. Unverified required hooks disable observation with a warning; saved data can still render.
+Native observation is verified against Pi 0.87.1 via API and installed CLI. Unverified required hooks disable observation with a warning; saved data can still render.
 
-Hiding completed thinking requires Pi 0.87.0's verified assistant component; unavailable/already-wrapped contracts retain Pi's original presentation.
+Hiding completed thinking requires Pi 0.87.1's verified assistant component; unavailable/already-wrapped contracts retain Pi's original presentation.
 
 No tool registration, active-tool changes, or added keybindings. Custom cards do not apply to HTML exports.
 

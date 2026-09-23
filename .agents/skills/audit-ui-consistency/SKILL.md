@@ -1,5 +1,5 @@
 ---
-name: audit-inconsistencies
+name: audit-ui-consistency
 description: Audit wording, layout, colors, hierarchy, controls, state, and feedback across extensions, commands, widgets, browsers, tool cards, notifications, and settings.
 disable-model-invocation: true
 ---

@@ -9,9 +9,9 @@ allowBuilds:
   unrs-resolver: false
 
 catalog:
-  "@earendil-works/pi-ai": ^0.87.0
-  "@earendil-works/pi-coding-agent": ^0.87.0
-  "@earendil-works/pi-tui": ^0.87.0
+  "@earendil-works/pi-ai": ^0.87.1
+  "@earendil-works/pi-coding-agent": ^0.87.1
+  "@earendil-works/pi-tui": ^0.87.1
   "@git-diff-view/core": ^0.1.7
   "@stylistic/eslint-plugin": ^5.10.0
   "@types/node": ^24.13.3
@@ -24,12 +24,12 @@ catalog:
   zod: ^4.6.5
 
 minimumReleaseAgeExclude:
-  - "@earendil-works/chord@0.87.0"
-  - "@earendil-works/pi-agent-core@0.87.0"
-  - "@earendil-works/pi-ai@0.87.0"
-  - "@earendil-works/pi-coding-agent@0.87.0"
-  - "@earendil-works/pi-telemetry@0.87.0"
-  - "@earendil-works/pi-tui@0.87.0"
+  - "@earendil-works/chord@0.87.1"
+  - "@earendil-works/pi-agent-core@0.87.1"
+  - "@earendil-works/pi-ai@0.87.1"
+  - "@earendil-works/pi-coding-agent@0.87.1"
+  - "@earendil-works/pi-telemetry@0.87.1"
+  - "@earendil-works/pi-tui@0.87.1"
 overrides:
   vite@*: "catalog:"
   vitest@*: "catalog:"

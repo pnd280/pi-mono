@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
-import { containsPath, expandHomePath } from "@pi-mono/utils/paths";
+import { containsPath, expandHomePath, relativeDisplayPath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 export const searchInputSchema = z.object({
@@ -69,7 +69,7 @@ function normalizePathField(expression: string, cwd: string) {
   // paths and ./ prefixes cannot make a bare filename filter concrete.
   const value =
     path.isAbsolute(expression) && containsPath(cwd, expression)
-      ? path.relative(cwd, expression).split(path.sep).join("/") || "."
+      ? relativeDisplayPath(expression, cwd)
       : expression;
   const normalized = value.replace(/^\.\//, "");
 

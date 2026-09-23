@@ -4,9 +4,11 @@
 
 ## Behavior
 
-[`@pi-mono/libs/tui/terminal-text`](index.ts) exports `displayText`, `styledOutput`, `sliceTerminalText`, and `hasUnsafeTerminalControls`.
+[`@pi-mono/libs/tui/terminal-text`](index.ts) exports `displayText`, `compactDisplayText`, `styledOutput`, `sliceTerminalText`, and `hasUnsafeTerminalControls`.
 
 `displayText` makes plain terminal-safe text; `styledOutput` retains only SGR styling. Both normalize CRLF/CR to LF and tabs to four spaces.
+
+`compactDisplayText` makes a single-line plain label by replacing CR/LF/tabs with spaces before sanitizing and collapsing repeated spaces. It does not trim or limit length.
 
 `sliceTerminalText(text, start, end, options?)` returns `{ text, leadingSgr }` for a start-inclusive/end-exclusive UTF-16 range, preserving graphemes/recognized sequences, possibly omitting boundary graphemes. `preserveSgr: true` supplies the active SGR prefix for independent styling; otherwise `leadingSgr` is empty.
 

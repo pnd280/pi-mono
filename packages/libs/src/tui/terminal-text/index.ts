@@ -163,3 +163,8 @@ export function displayText(text: string): string {
       .replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, "")
   );
 }
+
+/** Flatten untrusted labels to one line before tab/CR expansion, then collapse spaces. */
+export function compactDisplayText(text: string): string {
+  return displayText(styledOutput(text.replace(/[\r\n\t]+/g, " "))).replace(/ +/g, " ");
+}

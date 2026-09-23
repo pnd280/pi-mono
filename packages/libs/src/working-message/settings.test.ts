@@ -83,6 +83,26 @@ it("merges saves with fresh settings without touching unrelated fields or the ot
   expect(store.load().project).toEqual(["unavailable", "a"]);
 });
 
+it("refuses oversized settings without overwriting unrelated fields", () => {
+  const { store, write } = fixture();
+  write("global", { workingMessage: { order: ["a"] }, unused: "x".repeat(1024 * 1024) });
+  const before = readFileSync(store.paths.global);
+
+  expect(store.load()).toMatchObject({ global: undefined, warnings: [expect.any(String)] });
+  expect(() => store.save("global", ["b"])).toThrow("Cannot save");
+  expect(readFileSync(store.paths.global)).toEqual(before);
+});
+
+it("does not save settings that would exceed the readable size after formatting", () => {
+  const { store, write } = fixture();
+  write("global", { unused: "x".repeat(1024 * 1024 - 64) });
+  const before = readFileSync(store.paths.global);
+  expect(before.byteLength).toBeLessThanOrEqual(1024 * 1024);
+
+  expect(() => store.save("global", ["a"])).toThrow("Cannot save");
+  expect(readFileSync(store.paths.global)).toEqual(before);
+});
+
 it("preserves settings symlinks and refuses to replace a dangling link", () => {
   const { store, write } = fixture();
   write("global", { theme: "dark" });

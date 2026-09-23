@@ -7,7 +7,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 
-// Private Pi 0.87.0 TUI contracts. Native construction belongs to libs/native-tools.
+// Private Pi 0.87.1 TUI contracts. Native construction belongs to libs/native-tools.
 export type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
 export interface Host {
@@ -30,7 +30,7 @@ export interface Host {
 export const hostHook = Symbol.for("pi-tool-display.hostIntegration");
 
 export function interactivePrototype(): Host & { [hostHook]?: () => void } {
-  // Pi 0.87.0 private methods are checked before installing any wrapper.
+  // Pi 0.87.1 private methods are checked before installing any wrapper.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return InteractiveMode.prototype as unknown as Host & { [hostHook]?: () => void };
 }

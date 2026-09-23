@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { AgentSession, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 
-// Private Pi 0.87.0 contracts, gated by both API and installed-CLI fingerprints.
+// Private Pi 0.87.1 contracts, gated by both API and installed-CLI fingerprints.
 export interface SessionInternals {
   _cwd: string;
   _baseToolsOverride?: unknown;

@@ -1,5 +1,5 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { displayText, styledOutput } from "@pi-mono/libs/tui/terminal-text";
+import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
 import type {
@@ -104,9 +104,7 @@ function subjectPart(subject: string | undefined): InvocationPart {
 
 /** Match the extension's compact todo subject budget before terminal wrapping. */
 function presentTaskText(text: string): string {
-  const compact = displayText(styledOutput(text.replace(/[\r\n\t]+/g, " ")))
-    .replace(/ +/g, " ")
-    .trim();
+  const compact = compactDisplayText(text).trim();
   const points = Array.from(compact);
 
   return points.length <= 200 ? compact : points.slice(0, 199).join("") + "…";

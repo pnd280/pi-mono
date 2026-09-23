@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./working-message": "./src/working-message/index.ts",
+    "./settings-file": "./src/settings-file/index.ts",
     "./tui/components/order-settings": "./src/tui/components/order-settings/index.ts",
     "./native-clipboard": "./src/native-clipboard/index.ts",
     "./git-ignore": "./src/git-ignore/index.ts",

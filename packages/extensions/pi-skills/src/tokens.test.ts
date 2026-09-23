@@ -9,18 +9,73 @@ const paths = new Map([
 
 describe("expansion", () => {
   it.each([
-    ["/skill:review", "/skill:/skills/review/SKILL.md"],
-    ["Use /skill:review now", "Use /skill:/skills/review/SKILL.md now"],
-    ["Use /skill:review", "Use /skill:/skills/review/SKILL.md"],
+    ["/skill:review", "[/skill:review](/skills/review/SKILL.md)"],
+    ["Use /skill:review now", "Use [/skill:review](/skills/review/SKILL.md) now"],
+    ["Use /skill:review", "Use [/skill:review](/skills/review/SKILL.md)"],
     [
       " \t/skill:review\r\n/skill:plan  /skill:review\t\n",
-      " \t/skill:/skills/review/SKILL.md\r\n/skill:/skills/my plan/../plan notes.md  /skill:/skills/review/SKILL.md\t\n"
+      " \t[/skill:review](/skills/review/SKILL.md)\r\n[/skill:plan](/skills/my plan/../plan notes.md)  [/skill:review](/skills/review/SKILL.md)\t\n"
     ],
-    ["```md\n/skill:review\n```", "```md\n/skill:/skills/review/SKILL.md\n```"],
+    ["```md\n/skill:review\n```", "```md\n[/skill:review](/skills/review/SKILL.md)\n```"],
     ["/skill:unknown /skill:Review", "/skill:unknown /skill:Review"],
     ["", ""]
   ])("preserves whitespace and replaces exact tokens: %j", (text, expected) => {
     expect(expandSkillTokens(text, paths)).toBe(expected);
+  });
+
+  it("does not expand a previously expanded prompt again", () => {
+    const expanded =
+      "Use [/skill:review](/skills/review/SKILL.md) and [/skill:plan](/skills/my plan/../plan notes.md)";
+
+    expect(expandSkillTokens(expanded, paths)).toBe(expanded);
+    expect(expandSkillTokens(`${expanded} /skill:review`, paths)).toBe(
+      `${expanded} [/skill:review](/skills/review/SKILL.md)`
+    );
+  });
+
+  it("does not rescan skill-shaped tokens inside a previously inserted path", () => {
+    const embedded = new Map(paths);
+    embedded.set("/skill:review", "/skills/notes /skill:plan SKILL.md");
+
+    const expanded = expandSkillTokens("/skill:review", embedded);
+
+    expect(expanded).toBe("[/skill:review](/skills/notes /skill:plan SKILL.md)");
+    expect(expandSkillTokens(expanded, embedded)).toBe(expanded);
+  });
+
+  it.each([
+    ["{path}", "/skills/review/SKILL.md"],
+    [" {command} ({path})", " /skill:review (/skills/review/SKILL.md)"],
+    [
+      "Read {path} for {command} ({path})",
+      "Read /skills/review/SKILL.md for /skill:review (/skills/review/SKILL.md)"
+    ]
+  ])("uses the configured format: %s", (format, expected) => {
+    expect(expandSkillTokens("/skill:review", paths, format)).toBe(expected);
+  });
+
+  it("does not rescan custom references, including skill tokens inside paths", () => {
+    const embedded = new Map(paths);
+    embedded.set("/skill:review", "/skills/notes {command} /skill:plan SKILL.md");
+    const format = "File: {path} for {command}";
+    const expanded = "File: /skills/notes {command} /skill:plan SKILL.md for /skill:review";
+
+    expect(expandSkillTokens("/skill:review", embedded, format)).toBe(expanded);
+    expect(expandSkillTokens(`${expanded} /skill:plan`, embedded, format)).toBe(
+      `${expanded} File: /skills/my plan/../plan notes.md for /skill:plan`
+    );
+  });
+
+  it("protects the longest matching reference when configured outputs share a prefix", () => {
+    const overlapping = new Map([
+      ["/skill:review", "/skills/notes"],
+      ["/skill:plan", "/skills/notes /skill:review SKILL.md"]
+    ]);
+    const format = "File: {path}";
+    const expanded = expandSkillTokens("/skill:plan", overlapping, format);
+
+    expect(expanded).toBe("File: /skills/notes /skill:review SKILL.md");
+    expect(expandSkillTokens(expanded, overlapping, format)).toBe(expanded);
   });
 
   it.each([
@@ -42,7 +97,7 @@ describe("expansion", () => {
       ["/skill:review", "/skills/other.md"]
     ]);
     expect(expandSkillTokens("/skill:review, /skill:review", unusual)).toBe(
-      "/skill:review /skill:/skills/other.md"
+      "[/skill:review,](review) [/skill:review](/skills/other.md)"
     );
   });
 });

@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import {
   lstatSync,
   mkdirSync,
-  readFileSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -14,6 +13,8 @@ import { dirname, join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { lockSync } from "proper-lockfile";
 import { z } from "zod";
+
+import { MAX_SETTINGS_FILE_BYTES, readSettingsFile } from "../settings-file/index.ts";
 
 const recordSchema = z.record(z.string(), z.unknown());
 const orderSchema = z
@@ -48,10 +49,16 @@ function writeTarget(path: string): string {
 
 function readSettings(path: string): Record<string, unknown> {
   try {
-    return recordSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+    const source = readSettingsFile(path);
+    if (source === undefined)
+      throw new Error("Settings must be a complete regular file up to 1 MiB.");
+
+    return recordSchema.parse(JSON.parse(source));
   } catch (error) {
     if (missing(error)) return {};
-    throw new Error(`Cannot read settings at ${path}. Check file access and JSON object syntax.`);
+    throw new Error(
+      `Cannot read settings at ${path}. Check access, JSON syntax, and the 1 MiB file limit.`
+    );
   }
 }
 
@@ -85,7 +92,7 @@ export class WorkingMessageSettings {
         return readSection(readSettings(this.paths[scope])).order;
       } catch {
         warnings.push(
-          `Cannot load working-message order from ${this.paths[scope]}. Check file access and settings syntax.`
+          `Cannot load working-message order from ${this.paths[scope]}. Check access, syntax, and the 1 MiB regular-file limit.`
         );
 
         return undefined;
@@ -125,11 +132,14 @@ export class WorkingMessageSettings {
         if (!missing(error)) throw error;
       }
 
-      writeFileSync(temporary, `${JSON.stringify(record, null, 2)}\n`, { flag: "wx", mode });
+      const content = `${JSON.stringify(record, null, 2)}\n`;
+      if (Buffer.byteLength(content) > MAX_SETTINGS_FILE_BYTES)
+        throw new Error("Saving would exceed the settings file limit.");
+      writeFileSync(temporary, content, { flag: "wx", mode });
       renameSync(temporary, target);
     } catch {
       throw new Error(
-        `Cannot save ${path}. Check file access, settings syntax, and whether another process holds its lock.`
+        `Cannot save ${path}. Check access, syntax, the 1 MiB regular-file limit, and whether another process holds its lock.`
       );
     } finally {
       try {

@@ -7,6 +7,7 @@ Shared extension APIs and [TUI infrastructure](src/tui/README.md). Use [utils](.
 | Library                                                | Responsibility                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | [working-message](src/working-message/README.md)       | Shared working-message contributions and saved ordering                   |
+| [settings-file](src/settings-file/README.md)           | Bounded settings reads without consumer-specific validation or fallback   |
 | [native-clipboard](src/native-clipboard/README.md)     | Exact UTF-8 clipboard writes through local helpers                        |
 | [private-files](src/private-files/README.md)           | Permission and ACL enforcement, directory scopes, locks, atomic writes    |
 | [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |

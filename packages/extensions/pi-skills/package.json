@@ -17,8 +17,9 @@
     "test": "vp test run",
     "validate:terminal": "node validation/launch-terminal.ts"
   },
-  "devDependencies": {
-    "@pi-mono/libs": "workspace:*"
+  "dependencies": {
+    "@pi-mono/libs": "workspace:*",
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

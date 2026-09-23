@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`@pi-mono/libs/native-tools`](index.ts) shares observation across independently loaded consumers using verified Pi 0.87.0 API/CLI construction hooks. SDK overrides, custom tools, and changed definitions are excluded.
+[`@pi-mono/libs/native-tools`](index.ts) shares observation across independently loaded consumers using verified Pi 0.87.1 API/CLI construction hooks. SDK overrides, custom tools, and changed definitions are excluded.
 
 Observers wrap verified definitions before Pi attaches middleware. The registry preserves schemas, prompt metadata, settings, and active tool selection.
 

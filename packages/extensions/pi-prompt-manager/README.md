@@ -59,7 +59,7 @@ Set literal `ext.pi-prompt-manager` in global `~/.pi/agent/settings.json`, or `$
 ```
 
 - `historyRetention`: finite numbers, floored and clamped to 1–5,000; numeric strings are invalid.
-- Shortcuts use [Pi key syntax](../../../node_modules/@earendil-works/pi-coding-agent/docs/keybindings.md#key-format). Empty lists disable an action's launch shortcut; invalid lists use its default.
+- Shortcuts use [Pi key syntax](../../../node_modules/@earendil-works/pi-coding-agent/docs/keybindings.md#key-syntax). Empty lists disable an action's launch shortcut; invalid lists use its default.
 - Equivalent spellings deduplicate; History wins shared bindings.
 
 Fields validate independently with warnings for invalid/unknown values. Pi may warn about built-in conflicts, including Ctrl+R session renaming.

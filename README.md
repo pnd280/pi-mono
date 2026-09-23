@@ -20,7 +20,7 @@ After setup, launch workspace Pi with an extension directory:
 vp exec pi -e ./packages/extensions/pi-tool-display
 ```
 
-Repeat `-e` for additional extensions. To persist the selection, use Pi's [local package configuration](node_modules/@earendil-works/pi-coding-agent/docs/packages.md#local-paths).
+Repeat `-e` for additional extensions. To persist the selection, use Pi's [local package configuration](node_modules/@earendil-works/pi-coding-agent/docs/packages.md#choose-a-source).
 
 ## Extensions
 

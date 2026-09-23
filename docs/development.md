@@ -45,6 +45,15 @@ Workspace commands:
 
 Use `vpr check` for the repository's `stylish` lint format; the built-in `vp check` does not support custom output formats.
 
+### Test caching
+
+Test scripts are uncached by default. Use `vpr --no-cache '<package-name>#test'` to force execution.
+
+To verify caching:
+
+1. Run `vpr -r --cache test` twice without changing inputs.
+2. Inspect cache hits and misses with `vp run --last-details`. For fixture-related misses, see [filesystem fixtures](agents/testing.md#filesystem-fixtures).
+
 ## Packages and dependencies
 
 ### Package structure
@@ -96,6 +105,8 @@ Add sections such as `Compatibility` as needed.
 ### Package instructions
 
 Every package needs an `AGENTS.md` with `Code navigation`, `Constraints`, and `Validation` sections. Separate source locations from package-wide rules; link to the README and shared conventions rather than duplicate them.
+
+Every package also needs a `docs/pi-compatibility.md` checklist covering Pi contracts to verify, limitations and replacement opportunities, and validation.
 
 ### Guides and references
 

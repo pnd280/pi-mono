@@ -42,9 +42,11 @@ Global defaults live in `getAgentDir()/settings.json` (normally `~/.pi/agent/set
 
 A project `order` replaces the global array. An empty array uses sorted ID order. Removing the project `order` field restores inheritance. Unknown IDs remain in the menu as unavailable, so their positions survive temporary contributor removal. Orders support up to 1,000 nonempty IDs of at most 200 characters. Duplicates are removed, keeping the first occurrence.
 
-Settings load at session start/menu opening. Invalid project orders warn and fall back globally; invalid global orders warn and use sorted IDs unless a valid project override applies. Order applies at session start/successful save, not menu opening.
+Settings load at session start and when the menu opens. Invalid settings or failures from the [settings-file reader](../settings-file/README.md#behavior) produce warnings and fall back to the other valid scope or sorted IDs. Order applies at session start or after a successful save, not when the menu opens.
 
-Saves acquire Pi's settings-file lock, merge into the latest JSON, and atomically replace the file. They preserve unrelated fields and existing symlinks, reformat the JSON, and create missing parent directories. Malformed destination settings and dangling symlinks cause saves to fail. Registrations alone do not write files. There are no network requests.
+Saves acquire Pi's settings-file lock, merge into the latest JSON, and atomically replace the file. They preserve unrelated fields and existing symlinks, reformat the JSON, and create missing parent directories.
+
+Saves fail without replacing the destination if existing settings cannot be read or validated, a symlink is dangling, or the formatted result exceeds the reader's size limit. Registrations alone do not write files. There are no network requests.
 
 ## Caller responsibilities
 

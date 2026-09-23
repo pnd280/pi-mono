@@ -2,6 +2,7 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { expect, it } from "vite-plus/test";
 
 import {
+  compactDisplayText,
   displayText,
   hasUnsafeTerminalControls,
   sliceTerminalText,
@@ -20,6 +21,14 @@ it("retains only SGR styling while normalizing whitespace and removing controls"
   expect(styledOutput(text)).toBe("\x1b[31mred\x1b[0m\n    text");
   expect(styledOutput("\x1b[31")).toBe("");
   expect(styledOutput("\x1bPclipboard\x1b\\visible")).toBe("visible");
+});
+
+it("compacts untrusted single-line labels without leaking terminal controls", () => {
+  const source = " A\x1b]52;c;YQ==\x07\r\n\t界😀  \x1b[31mB\x1b[0m\x00 ";
+  expect(compactDisplayText(source)).toBe(" A 界😀 B ");
+  expect(compactDisplayText("one\r\ntwo\tthree\n four")).toBe("one two three four");
+  expect(compactDisplayText("  ")).toBe(" ");
+  expect(source).toContain("\x1b]52;");
 });
 
 it("slices whole graphemes and carries only visible SGR state into suffixes", () => {

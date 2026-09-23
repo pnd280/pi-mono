@@ -4,7 +4,7 @@
 
 - Change APIs, configuration, and behavior without compatibility layers, deprecated aliases, legacy paths, or transitional support unless explicitly requested.
 - Update affected consumers, tests, and docs together; remove superseded implementations.
-- All temporary artifacts must be in `.tmp/`.
+- Keep temporary artifacts in `.tmp/`, except [mutable filesystem fixtures](docs/agents/testing.md#filesystem-fixtures), which use the system temporary directory.
 - Follow [documentation conventions](docs/development.md#documentation) and the [verification workflow](docs/agents/verification.md).
 
 ## Task references

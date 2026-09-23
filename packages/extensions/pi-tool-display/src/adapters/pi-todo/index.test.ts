@@ -56,6 +56,13 @@ it("summarizes create arguments without serializing parameters", () => {
   ]);
 });
 
+it("uses the shared single-line sanitizer while retaining the todo subject budget", () => {
+  const subject = `  \x1b]52;c;Zg==\x07  A\r\n\t${"界".repeat(200)}`;
+  expect(todoDisplayAdapter.invocation?.({ action: "create", subject })).toEqual([
+    { kind: "value", text: `A ${"界".repeat(197)}…` }
+  ]);
+});
+
 it("summarizes update changes and resolves the subject from a result", () => {
   expect(
     todoDisplayAdapter.invocation?.({ action: "update", id: 3, status: "in_progress" })

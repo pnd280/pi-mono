@@ -49,11 +49,11 @@ Set the literal top-level `ext.pi-session-title` key in global or trusted projec
 | Global  | `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when set. |
 | Project | `<cwd>/.pi/settings.json`; no ancestor search.                                 |
 
-Only [trusted projects](../../../node_modules/@earendil-works/pi-coding-agent/docs/settings.md#project-trust) override global fields; omitted fields inherit. Both fields are required after merging. No defaults, extension-specific environment variables, or active-model fallback.
+Only [trusted projects](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#project-trust) override global fields; omitted fields inherit. Both fields are required after merging. No defaults, extension-specific environment variables, or active-model fallback.
 
 Unreadable/malformed global or trusted project files disable generation. Each participating settings file is limited to 1 MiB before parsing, including unknown fields. Invalid values or unknown keys in either extension section disable it even if the other file is valid. `/auto-name` exposes errors suppressed by automatic naming.
 
-Apply settings with `/reload`; disable through Pi's [extension configuration](../../../node_modules/@earendil-works/pi-coding-agent/docs/packages.md#enable-and-disable-resources).
+Apply settings with `/reload`; disable through Pi's [extension configuration](../../../node_modules/@earendil-works/pi-coding-agent/docs/packages.md#select-package-resources).
 
 ## Side effects
 

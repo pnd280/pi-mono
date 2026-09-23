@@ -1,7 +1,7 @@
-import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import { join } from "node:path";
 
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { readSettingsFile } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
 
 const configSchema = z.strictObject({
@@ -12,35 +12,12 @@ const configSchema = z.strictObject({
   thinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"])
 });
 const settingsSchema = z.object({ "ext.pi-session-title": configSchema.partial().optional() });
-const maxSettingsBytes = 1024 * 1024;
 
 export type TitleConfig = z.output<typeof configSchema>;
 
-function readSettings(path: string): string | undefined {
-  const descriptor = openSync(path, "r");
-
-  try {
-    const stats = fstatSync(descriptor);
-    if (!stats.isFile() || stats.size > maxSettingsBytes) return undefined;
-    // Read one extra byte so a file that grows after fstat is rejected rather than truncated.
-    const data = Buffer.allocUnsafe(stats.size + 1);
-    let length = 0;
-
-    while (length < data.length) {
-      const count = readSync(descriptor, data, length, data.length - length, null);
-      if (count === 0) break;
-      length += count;
-    }
-
-    return length > stats.size ? undefined : data.toString("utf8", 0, length);
-  } finally {
-    closeSync(descriptor);
-  }
-}
-
 function readSection(path: string) {
   try {
-    const source = readSettings(path);
+    const source = readSettingsFile(path);
     if (source === undefined) return undefined;
     const raw: unknown = JSON.parse(source);
     const parsed = settingsSchema.safeParse(raw);
