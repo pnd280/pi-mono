@@ -2,9 +2,10 @@ import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { extractScope, resolvePath, type SearchInput, type SearchKind } from "./targets.ts";
+import { extractScope, resolvePath, type SearchInput } from "./targets.ts";
 import { fixture } from "./test-fixture.ts";
 
 let directory: Awaited<ReturnType<typeof fixture>>;
@@ -15,7 +16,7 @@ afterEach(async () => {
   await rm(directory.root, { recursive: true, force: true });
 });
 
-const roots = async (kind: SearchKind, input: SearchInput) => {
+const roots = async (kind: FffToolKind, input: SearchInput) => {
   const scope = await extractScope(kind, input, directory.root);
   expect(scope.missingPath, JSON.stringify({ kind, input })).toBeUndefined();
 
@@ -50,7 +51,7 @@ describe("explicit search scopes", () => {
   });
 
   it("accepts fuzzy queries, search filters, and viable glob alternatives with the correct targets", async () => {
-    const cases: Array<[SearchKind, SearchInput, string[]]> = [
+    const cases: Array<[FffToolKind, SearchInput, string[]]> = [
       ["find", { pattern: "node_modules" }, []],
       ["find", { pattern: "package.json" }, []],
       ["find", { pattern: "missing src/partial" }, []],

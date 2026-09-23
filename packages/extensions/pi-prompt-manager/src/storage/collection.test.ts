@@ -141,6 +141,20 @@ it("enforces every hard recovery bound and identifies count/text/file capacity r
   );
 });
 
+it("rejects history with more records than the recovery count", () => {
+  const records = Array.from({ length: limits.recoveryCount + 1 }, (_, index) =>
+    entry(`entry ${index}`)
+  );
+  const raw = rawDocument(records);
+  expect(raw.length).toBeLessThan(limits.historyFile);
+  expect(readCollection("history", scope.cwd, rawDocument(records.slice(1))).entries).toHaveLength(
+    limits.recoveryCount
+  );
+  expect(() => readCollection("history", scope.cwd, raw)).toThrow(
+    "History exceeds the 5,000-record recovery bound"
+  );
+});
+
 it("counts ignored records for recovery and allows only deletions that shrink original bytes", () => {
   const kept = entry("keep", { recordedAt: { invalid: true }, extra: "retained" });
   const removed = entry("remove");

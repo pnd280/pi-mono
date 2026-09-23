@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import { BrowserController } from "./controller.ts";
-import { browserOptions, deferred, items, type TestItem } from "./test-fixture.ts";
+import { browserOptions, items, type TestItem } from "./test-fixture.ts";
 import type { BrowserOptions, BrowserSnapshot } from "./types.ts";
 
 const opened: BrowserController<TestItem>[] = [];
@@ -96,7 +96,7 @@ it.each(["switch", "cancel"] as const)(
   "ignores obsolete preview loads after %s",
   async (action) => {
     const options = browserOptions();
-    const pending = deferred<BrowserSnapshot<TestItem>>();
+    const pending = Promise.withResolvers<BrowserSnapshot<TestItem>>();
     options.sections[0]!.load = () => pending.promise;
     const { controller, ports } = browser(options);
     await controller.activate();
@@ -120,7 +120,7 @@ it.each(["switch", "cancel"] as const)(
 );
 
 it("distinguishes loading, empty, no matches and unavailable, ignoring cancelled or superseded loads", async () => {
-  const read = deferred<BrowserSnapshot<TestItem>>();
+  const read = Promise.withResolvers<BrowserSnapshot<TestItem>>();
   const options = browserOptions();
   options.sections[1]!.load = () => read.promise;
   const { controller } = browser(options);
@@ -132,7 +132,7 @@ it("distinguishes loading, empty, no matches and unavailable, ignoring cancelled
   expect(controller.section.id).toBe("recent");
   expect(controller.results.map((item) => item.label)).toEqual(["alpha", "alpha"]);
 
-  const cancelled = deferred<BrowserSnapshot<TestItem>>();
+  const cancelled = Promise.withResolvers<BrowserSnapshot<TestItem>>();
   options.sections[1]!.load = () => cancelled.promise;
   const closing = controller.activate("saved");
   controller.close();
@@ -158,6 +158,34 @@ it("distinguishes loading, empty, no matches and unavailable, ignoring cancelled
   await failure.activate();
   expect(failure.status).toBe("unavailable");
   expect(failure.error).toBe("unavailable");
+});
+
+it("clears stale results after a search failure and recovers on the next query", async () => {
+  const options = browserOptions();
+  const search = options.search.bind(options);
+  const failure = new Error("Search failed");
+  const remove = vi.fn(async () => undefined);
+  options.sections[1]!.remove!.run = remove;
+  options.search = (values, query, current) =>
+    query === "fail" ? Promise.reject(failure) : search(values, query, current);
+  const { controller, ports } = browser(options);
+  await controller.activate();
+  expect(controller.selected).toBeDefined();
+
+  controller.setQuery("fail");
+  await vi.waitFor(() => expect(ports.onError).toHaveBeenCalledWith(failure));
+  expect(controller.status).toBe("unavailable");
+  expect(controller.error).toBe("Could not search items.");
+  expect(controller.results).toEqual([]);
+  expect(controller.selected).toBeUndefined();
+  controller.action("delete");
+  controller.action("delete");
+  expect(remove).not.toHaveBeenCalled();
+
+  controller.setQuery("beta");
+  await vi.waitFor(() => expect(controller.status).toBe("ready"));
+  expect(controller.error).toBe("");
+  expect(controller.selected?.id).toBe("1");
 });
 
 it("aborts obsolete preparation on section changes and final closure", async () => {
@@ -219,7 +247,7 @@ it("requires timely confirmation and cancels it on navigation, invalidation and 
 it("freezes during removal, retains state on failure, then selects a nearby committed result", async () => {
   const values = items();
   const options = browserOptions(values);
-  const pending = deferred<BrowserSnapshot<TestItem> | undefined>();
+  const pending = Promise.withResolvers<BrowserSnapshot<TestItem> | undefined>();
   options.sections[1]!.remove!.run = vi
     .fn()
     .mockReturnValueOnce(pending.promise)
@@ -250,7 +278,7 @@ it("freezes during removal, retains state on failure, then selects a nearby comm
 
 it("does not publish completed mutations after close", async () => {
   const options = browserOptions();
-  const removal = deferred<BrowserSnapshot<TestItem> | undefined>();
+  const removal = Promise.withResolvers<BrowserSnapshot<TestItem> | undefined>();
   options.sections[1]!.remove!.run = () => removal.promise;
   const { controller, ports } = browser(options);
   await controller.activate();
@@ -270,7 +298,7 @@ it.each(["accept", "refuse", "reject", "cancel"] as const)(
   "handles %s during an asynchronous selection action",
   async (outcome) => {
     const options = browserOptions();
-    const pending = deferred<void>();
+    const pending = Promise.withResolvers<void>();
     const failure = new Error("Action failed");
 
     options.sections[1]!.confirm!.run = async () => {

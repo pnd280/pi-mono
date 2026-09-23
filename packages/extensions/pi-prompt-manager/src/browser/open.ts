@@ -33,8 +33,8 @@ async function browserSnapshot(
 ): Promise<BrowserSnapshot<PromptItem>> {
   const items = await prepareItems(snapshot, signal);
   let message = snapshot.warnings[0];
-  if (snapshot.access === "read-only") message = "Read-only: repair invalid occurrence IDs.";
-  else if (snapshot.access === "delete-only") message = "Recovery: deletions only.";
+  if (snapshot.access === "read-only") message = "Read-only: copy/restore; repair IDs.";
+  else if (snapshot.access === "delete-only") message = "Recovery: additions disabled.";
 
   return {
     items: items.map((item) => ({
@@ -91,7 +91,7 @@ export async function openBrowser(
   const browser: BrowserOptions<PromptItem> = {
     sections: collections.map((collection) => ({
       id: collection,
-      label: collection,
+      label: collection === "history" ? "History" : "Saved drafts",
       initialQuery: collection === "history" ? initialHistoryQuery(request.initialEditor) : "",
       load: async (signal) => {
         const result = await ports.read(collection, signal);

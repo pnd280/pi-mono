@@ -24,16 +24,6 @@ function fixture(name?: string) {
   return { title, session, generate, notify };
 }
 
-function deferred() {
-  let resolve: (title: string) => void = () => {};
-
-  const promise = new Promise<string>((done) => {
-    resolve = done;
-  });
-
-  return { promise, resolve };
-}
-
 it("automatically names once from the opening request and stays quiet", async () => {
   const { title, session, generate, notify } = fixture();
   await title.automatic({ ...opening, content: "Later request" });
@@ -77,7 +67,7 @@ it("does not retry automatic failure; manual failure preserves the name and hide
 
 it("clears without configuration, cancels pending work, and suppresses automatic naming", async () => {
   const { title, session, generate, notify } = fixture();
-  const pending = deferred();
+  const pending = Promise.withResolvers<string>();
   generate.mockReturnValue(pending.promise);
   const automatic = title.automatic(opening);
   const signal = generate.mock.calls[0]?.[1];
@@ -93,8 +83,8 @@ it("clears without configuration, cancels pending work, and suppresses automatic
 
 it("only commits the latest regeneration", async () => {
   const { title, session, generate, notify } = fixture("Old title");
-  const first = deferred();
-  const second = deferred();
+  const first = Promise.withResolvers<string>();
+  const second = Promise.withResolvers<string>();
   generate.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
   const old = title.command("");
   const current = title.command("");
@@ -111,7 +101,7 @@ it.each(["rename", "clear", "tree", "shutdown"])(
   "cancels generation on %s without a late name or outcome notification",
   async (action) => {
     const { title, session, generate, notify } = fixture();
-    const pending = deferred();
+    const pending = Promise.withResolvers<string>();
     generate.mockReturnValue(pending.promise);
     const result = title.command("");
     if (action === "rename" || action === "clear") {
@@ -131,7 +121,7 @@ it.each(["rename", "clear", "tree", "shutdown"])(
 
 it("checks the live title before committing even if its change event has not arrived", async () => {
   const { title, session, generate } = fixture("Before");
-  const pending = deferred();
+  const pending = Promise.withResolvers<string>();
   generate.mockReturnValue(pending.promise);
   const result = title.command("");
   session.appendSessionInfo("External title");

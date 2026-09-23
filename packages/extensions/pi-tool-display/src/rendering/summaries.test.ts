@@ -185,6 +185,23 @@ it.each([false, true])(
   }
 );
 
+it.each([false, true])("preserves literal todo source in result bodies (failed=%s)", (failed) => {
+  const source =
+    "#1 [in_progress] Explain owner: and [pending]\n  description: Keep blockedBy: and [in_progress] literal.\n  owner: description: example";
+  const result = { content: [{ type: "text" as const, text: source }], details: undefined };
+  const output = render({
+    name: "todo",
+    adapter: todoDisplayAdapter,
+    args: { action: "get", id: 1 },
+    result,
+    expanded: true,
+    failed,
+    width: 120
+  });
+  for (const line of source.split("\n")) expect(output).toContain(line);
+  expect(result.content[0]!.text).toBe(source);
+});
+
 it("preserves shell output beside recorded status and duration", () => {
   const options = {
     name: "bash",

@@ -7,8 +7,6 @@ import type {
   HeadingVerbs,
   InvocationPart,
   Outcome,
-  ResultTextContext,
-  ResultTextPart,
   ToolDisplayAdapter
 } from "../../contracts.ts";
 
@@ -201,49 +199,6 @@ function invocation(args: unknown, result?: BorrowedToolResult): InvocationPart[
   }
 }
 
-const TASK_FIELD_LABELS = {
-  inProgressLabel: "Activity",
-  blockedBy: "Blocked by",
-  parent: "Parent",
-  children: "Children",
-  description: "Description",
-  owner: "Owner",
-  blocks: "Blocks",
-  path: "Path"
-} as const;
-
-function presentResultText(text: string): string {
-  return text
-    .replace(
-      /\[(pending|in_progress|completed|deleted)\]/g,
-      (_match, status: string) => `[${status.replace("_", " ")}]`
-    )
-    .replace(
-      /\b(inProgressLabel|blockedBy|parent|children|description|owner|blocks|path):/g,
-      (_match, field: keyof typeof TASK_FIELD_LABELS) => `${TASK_FIELD_LABELS[field]}:`
-    );
-}
-
-/** Present todo fields with the same friendly labels used by the todo browser. */
-function textParts(text: string, _args: unknown, context: ResultTextContext): ResultTextPart[] {
-  if (context.isError) return [{ kind: "error", text }];
-  const display = presentResultText(text);
-  const parts: ResultTextPart[] = [];
-  let index = 0;
-
-  for (const match of display.matchAll(/\[(pending|in progress|completed|deleted)\]/g)) {
-    const start = match.index;
-    if (start > index) parts.push({ kind: "output", text: display.slice(index, start) });
-    parts.push({ kind: "annotation", text: match[0] });
-    index = start + match[0].length;
-  }
-
-  if (index === 0) return [{ kind: "output", text: display }];
-  if (index < display.length) parts.push({ kind: "output", text: display.slice(index) });
-
-  return parts;
-}
-
 function progressSummary(tasks: readonly { status: TaskStatus }[]): string {
   const visible = tasks.filter((task) => task.status !== "deleted");
   if (!visible.length)
@@ -285,7 +240,6 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
       }
     ];
   },
-  textParts,
   outcome(result): Outcome | undefined {
     return parseDetails(result)?.error ? "failure" : undefined;
   },

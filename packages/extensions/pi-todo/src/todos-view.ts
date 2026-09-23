@@ -95,6 +95,10 @@ export class TodosView implements Component {
   private detailRows: { width: number; taskId: number; rows: string[] } | undefined;
 
   constructor(private readonly options: ViewOptions) {
+    if (!this.keyLabel("cancel"))
+      throw new Error(
+        "Todo browser requires a cancel binding other than Ctrl+C. Fix tui.select.cancel and reload."
+      );
     this.entries = projectTaskTreeEntries(
       deriveTaskHierarchy(options.tasks)?.entries.filter(
         (entry) => entry.task.status !== "deleted"

@@ -13,13 +13,12 @@ import { z } from "zod";
 
 import {
   createBoundedPatch,
-  type BoundedPatchOptions,
-  type BoundedPatchResult
+  patchLimitsSchema,
+  type BoundedPatchResult,
+  type PatchLimits
 } from "../bounded-diff/index.ts";
 import { observeTextFile, type FileObservation } from "../file-observation/index.ts";
 import { observeNativeTools } from "../native-tools/index.ts";
-
-export type PatchLimits = Omit<BoundedPatchOptions, "path" | "before" | "after">;
 
 export type MutationPatch = BoundedPatchResult | { status: "source-unavailable" };
 
@@ -47,13 +46,6 @@ export interface MutationObserver {
 
 const sizeSchema = z.int().nonnegative();
 const patchSchema = z.object({ patch: z.string() });
-const patchLimitsSchema = z.object({
-  maxSourceBytes: sizeSchema,
-  maxPatchBytes: sizeSchema,
-  maxEditLength: sizeSchema,
-  timeoutMs: z.number().nonnegative(),
-  contextLines: sizeSchema
-});
 let sequence = 0;
 
 function safely<T>(action: () => T): T | undefined {

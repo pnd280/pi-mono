@@ -41,12 +41,3 @@ export function browserOptions(values = items()): BrowserOptions<TestItem> {
     preview: (item) => ({ text: item.display })
   };
 }
-
-export function deferred<Value>() {
-  let resolve!: (value: Value) => void;
-  const promise = new Promise<Value>((done) => {
-    resolve = done;
-  });
-
-  return { promise, resolve };
-}

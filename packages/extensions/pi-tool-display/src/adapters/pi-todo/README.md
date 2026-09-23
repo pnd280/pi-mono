@@ -25,7 +25,7 @@ Compact cards replace successful output with a `dim` summary of the confirmed st
 - Missing or invalid snapshots use an output preview.
 - Failures omit the summary and show diagnostic bodies in `error`.
 
-Expansion adds full result text. For successful results, the adapter displays `[in_progress]` as `[in progress]`, `inProgressLabel` as `Activity`, and `blockedBy` as `Blocked by`. Known status brackets are dimmed; retained results and model-visible content are unchanged.
+Expansion adds full result text with terminal-safe rendering. API labels such as `[in_progress]`, `inProgressLabel`, and `blockedBy` stay literal: unstructured output cannot reliably distinguish field labels from subjects or descriptions. Friendly labels remain in generated headings and summaries; retained results and model-visible content are unchanged.
 
 Adjacent `todo` calls form a collapsed `Todos` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
 

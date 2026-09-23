@@ -48,7 +48,7 @@ History seeds its query from editor text only when untrimmed text is one line an
 
 Delete twice within 1.5 seconds on the same entry. Other actionable input, refresh, resize, or expiry cancels confirmation. Repeat/release events cannot confirm, but **legacy terminals cannot reliably distinguish held Delete from separate presses**.
 
-Only cancel works during deletion; it closes immediately, even from preview, without undoing started deletion. Failure retains query, selection, and preview; retry requires fresh confirmation. Deleting History may reveal an older duplicate requiring its own confirmation.
+Deletion hints appear only for removable selections. During deletion, the footer shows progress and the close key. Only cancel works; it closes immediately, even from preview, without undoing started deletion. Failure retains query, selection, and preview; retry requires fresh confirmation. Deleting History may reveal an older duplicate requiring its own confirmation.
 
 ## Copying
 
@@ -57,6 +57,8 @@ Browsing remains available during copy, but another copy must wait. Closing does
 ## Presentation
 
 Display uses terminal-safe plain text, never Markdown. Copy preserves full source; [restoration](../README.md#restore-text) can reject unsafe source.
+
+Tabs are labeled **History** and **Saved drafts**. Compact layouts keep these labels above recovery status. `Read-only` still permits copy and restoration; `Recovery: additions disabled` permits deletion as well. Restore-then-delete still attempts both steps, reporting any deletion failure without undoing restoration.
 
 Future ages start with `+`; invalid timestamps show `Unknown time`. Full preview includes complete text and an absolute timestamp with timezone.
 

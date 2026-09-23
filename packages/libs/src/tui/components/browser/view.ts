@@ -127,15 +127,30 @@ export class Browser<Item> implements Component, Focusable {
     const state = this.controller;
     const { theme } = this.environment;
     const inspection = this.options.inspection !== undefined;
+    const padding = compact ? "" : "  ";
+    if (state.busy)
+      return renderHintFooter({
+        width,
+        maxRows,
+        hints: [this.controls.hint("cancel", "close"), message?.text ?? "Working…"].map(
+          displayText
+        ),
+        padding,
+        separator: " · ",
+        style: (text) => theme.fg("dim", text)
+      }).rows;
+
+    const hasSelection = state.status === "ready" && state.selected !== undefined;
     const primary: (string | undefined)[] = [];
     if (inspection) primary.push(this.controls.hint("confirm", "close"));
-    else if (state.section.confirm)
+    else if (hasSelection && state.section.confirm)
       primary.push(this.controls.hint("confirm", state.section.confirm.label));
-    if (state.section.copy) primary.push(this.controls.hint("copy", "copy"));
+    if (hasSelection && state.section.copy) primary.push(this.controls.hint("copy", "copy"));
     primary.push(this.controls.hint("cancel", state.canReturnToList ? "back" : "close"));
 
     if (!compact) {
-      primary.unshift(...this.controls.navigationHints(state.preview ? "scroll" : "navigate"));
+      if (hasSelection)
+        primary.unshift(...this.controls.navigationHints(state.preview ? "scroll" : "navigate"));
       if (!state.preview && !inspection) primary.unshift("Type to search");
     }
 
@@ -147,7 +162,7 @@ export class Browser<Item> implements Component, Focusable {
       hints: [...primary, ...this.secondaryHints()]
         .filter((hint) => hint !== undefined)
         .map(displayText),
-      padding: compact ? "" : "  ",
+      padding,
       separator: " · ",
       style: (text) => theme.fg("dim", text),
       ...(message && messageText !== undefined
@@ -167,17 +182,19 @@ export class Browser<Item> implements Component, Focusable {
     if (this.options.inspection) return [];
     const hints: (string | undefined)[] = [];
     if (this.options.sections.length > 1) hints.push(this.controls.hint("switch", "view"));
+    const selected = state.selected;
+    if (state.status !== "ready" || selected === undefined) return hints;
     if (!state.preview) hints.push(this.controls.hint("preview", "preview"));
-    if (state.section.remove) hints.push(this.controls.hint("delete", state.section.remove.label));
+    if (state.section.remove?.enabled(selected))
+      hints.push(this.controls.hint("delete", state.section.remove.label));
     if (state.section.alternate)
       hints.push(this.controls.hint("alternate", state.section.alternate.label));
 
     return hints;
   }
 
-  private heading(compact: boolean, status: string | undefined): string {
+  private heading(compact: boolean): string {
     const { theme } = this.environment;
-    if (compact && status) return theme.fg("accent", ` ${displayText(status)} `);
 
     if (this.options.inspection) {
       const title = displayText(this.options.inspection.title);
@@ -227,7 +244,7 @@ export class Browser<Item> implements Component, Focusable {
     const compact = contentHeight < 15 || width < 60;
     const state = this.controller;
     const status = state.snapshot?.message;
-    const heading = this.heading(compact, status);
+    const heading = this.heading(compact);
     const message = this.footerMessage();
     const lines = compact ? [""] : ["", heading];
 
@@ -237,7 +254,7 @@ export class Browser<Item> implements Component, Focusable {
       lines.push(...(compact ? inputLines : ["", ...inputLines, ""]));
     }
 
-    if (!compact && status) lines.push(theme.fg("dim", `  ${displayText(status)}`));
+    if (status) lines.push(theme.fg("muted", `  ${displayText(status)}`));
     const footer = this.footer({
       width,
       compact,
@@ -283,7 +300,14 @@ export class Browser<Item> implements Component, Focusable {
 
   private footerMessage(): FooterMessage | undefined {
     const state = this.controller;
-    if (state.busy) return { text: state.section.remove?.pending ?? "Working…", color: "dim" };
+    if (state.busy)
+      return {
+        text:
+          state.pendingAction === "delete"
+            ? (state.section.remove?.pending ?? "Deleting…")
+            : "Working…",
+        color: "dim"
+      };
     if (state.armed && state.section.remove)
       return { text: state.section.remove.confirmation, color: "warning" };
 

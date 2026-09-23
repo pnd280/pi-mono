@@ -1,4 +1,4 @@
-import type { JsonValue, TextContent } from "@earendil-works/pi-ai";
+import type { JsonObject, JsonValue, TextContent } from "@earendil-works/pi-ai";
 import type { z } from "zod";
 
 import type { mutationParamsSchema } from "./mutation-schema.ts";
@@ -10,8 +10,6 @@ export const TASK_ACTIONS = ["create", "update", "list", "get", "delete", "clear
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export type TaskAction = (typeof TASK_ACTIONS)[number];
-
-export type JsonObject = { [key: string]: JsonValue };
 
 export type TaskMetadata = JsonObject;
 

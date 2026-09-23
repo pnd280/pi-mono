@@ -28,17 +28,6 @@ export function collection(entries: StoredEntry[] = [], kind: Collection = "draf
   );
 }
 
-export function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: Error) => void;
-  const promise = new Promise<T>((yes, no) => {
-    resolve = yes;
-    reject = no;
-  });
-
-  return { promise, resolve, reject };
-}
-
 export function session(): WriteScope {
   return { signal: new AbortController().signal, atomic: (write) => write() };
 }

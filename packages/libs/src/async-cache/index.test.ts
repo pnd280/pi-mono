@@ -1,10 +1,9 @@
 import { expect, it, vi } from "vite-plus/test";
 
-import { deferred } from "../test-fixture.ts";
 import { AsyncCache } from "./index.ts";
 
 it("deduplicates pending work, reports saturation without caching it, and retries failures", async () => {
-  const pending = deferred<string>();
+  const pending = Promise.withResolvers<string>();
   const load = vi
     .fn<(key: string) => Promise<string>>()
     .mockReturnValueOnce(pending.promise)
@@ -48,7 +47,7 @@ it.each([0, undefined, null, false, ""])(
 );
 
 it("does not publish late results or start work after disposal", async () => {
-  const pending = deferred<string>();
+  const pending = Promise.withResolvers<string>();
   const load = vi.fn(() => pending.promise);
   const onEvict = vi.fn();
   const cache = new AsyncCache({ capacity: 1, maxPending: 1, load, onEvict });

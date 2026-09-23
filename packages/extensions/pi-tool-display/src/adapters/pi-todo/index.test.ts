@@ -23,15 +23,6 @@ function toolInfo(overrides: Partial<ToolInfo> = {}): ToolInfo {
   return { ...base, ...overrides };
 }
 
-const textContext = {
-  result: result(undefined),
-  contentIndex: 0,
-  isError: false,
-  isPartial: false,
-  isCancelled: false,
-  expanded: false
-};
-
 it("uses Todos-prefixed action verbs and ignores unknown arguments", () => {
   expect(todoDisplayAdapter.headingVerbs?.({ action: "create" })).toEqual({
     action: "Todos · Create",
@@ -177,35 +168,6 @@ it("uses confirmed todo state, create IDs, and filtered list totals", () => {
   expect(summarize({ action: "list", includeDeleted: true })).toBe(
     "3 todos listed · 1/2 completed · 1 pending"
   );
-});
-
-it("uses friendly todo labels while retaining error text", () => {
-  const parts = todoDisplayAdapter.textParts?.(
-    "[in_progress] #1 Ship it\n[pending] #2 Write notes",
-    {},
-    textContext
-  );
-  expect(parts).toEqual([
-    { kind: "annotation", text: "[in progress]" },
-    { kind: "output", text: " #1 Ship it\n" },
-    { kind: "annotation", text: "[pending]" },
-    { kind: "output", text: " #2 Write notes" }
-  ]);
-  expect(
-    todoDisplayAdapter.textParts!(
-      "#1 [in_progress] Review\n  inProgressLabel: inspect\n  blockedBy: #2",
-      {},
-      textContext
-    )
-      .map((part) => part.text)
-      .join("")
-  ).toBe("#1 [in progress] Review\n  Activity: inspect\n  Blocked by: #2");
-  expect(todoDisplayAdapter.textParts?.("Created #1: Ship it (pending)", {}, textContext)).toEqual([
-    { kind: "output", text: "Created #1: Ship it (pending)" }
-  ]);
-  expect(
-    todoDisplayAdapter.textParts?.("[pending] #1", {}, { ...textContext, isError: true })
-  ).toEqual([{ kind: "error", text: "[pending] #1" }]);
 });
 
 it("provides a shared scope so adjacent calls share a group", () => {

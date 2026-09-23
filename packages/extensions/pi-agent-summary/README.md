@@ -11,7 +11,7 @@ Worked for 1m 23s · 2:34:56 PM
 4 bash calls · 3 files changed · +42 −11
 ```
 
-Finish times use your local timezone. The statistics line appears only when there are bash calls or files with available statistics.
+Finish times use your local timezone. The statistics line appears when there are bash calls or observed files, including files whose statistics are unavailable.
 
 Left-click a summary in fullscreen TUI to toggle its per-file statistics independently. Pi's tool-output shortcut (default Ctrl+O) toggles all summaries in either TUI mode.
 
@@ -41,7 +41,7 @@ Snapshots require valid UTF-8, at most 8 MiB each. Per-run retained original/fin
 
 Generated diffs are limited to 2,000 total added/removed lines, 50 ms from worker dispatch to returned patch, 128 KiB per patch, and [shared worker limits](../../libs/src/bounded-diff/README.md#behavior). For a single edit, a native patch within 128 KiB can supply statistics despite source, retention, or generation limits.
 
-Binary/unreadable files, unstable snapshots, failed final writes, and exceeded limits can make statistics unavailable. Expanded views explain why; totals include only files with available statistics.
+Binary/unreadable files, unstable snapshots, failed final writes, and exceeded limits can make statistics unavailable. Both compact and expanded views show `Statistics unavailable for N files`; expanded views explain each reason. Change totals include only files with available statistics.
 
 ## Configuration
 

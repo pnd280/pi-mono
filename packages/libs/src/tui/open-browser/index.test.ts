@@ -2,12 +2,7 @@ import { getSettingsListTheme, initTheme } from "@earendil-works/pi-coding-agent
 import { stripTerminalSequences, type Component } from "@earendil-works/pi-tui";
 import { expect, it, vi } from "vite-plus/test";
 
-import {
-  browserOptions,
-  deferred,
-  items,
-  type TestItem
-} from "../components/browser/test-fixture.ts";
+import { browserOptions, items, type TestItem } from "../components/browser/test-fixture.ts";
 import { createInputHost, createTestTui, testKeys, testTheme } from "../test-fixture.ts";
 import { openBrowser, type OpenBrowserOptions } from "./index.ts";
 
@@ -168,7 +163,7 @@ it.each(["select", "alternate", "cancel", "refuse"] as const)(
         });
       }
     };
-    const pendingEffect = deferred<void>();
+    const pendingEffect = Promise.withResolvers<void>();
     const afterClose = vi.fn(() => {
       if (chosen) editor = chosen.label;
 
@@ -252,8 +247,8 @@ it("expires an inspection before its overlay mounts without popping an unrelated
   const tui = createTestTui();
   Object.defineProperty(tui.terminal, "rows", { value: 10 });
   const other = tui.showOverlay({ render: () => ["other overlay"], invalidate() {} });
-  const entered = deferred<void>();
-  const mount = deferred<void>();
+  const entered = Promise.withResolvers<void>();
+  const mount = Promise.withResolvers<void>();
   const abort = new AbortController();
   const options = browserOptions();
   options.inspection = { index: 1, title: "Inspection", missingMessage: "Missing item" };

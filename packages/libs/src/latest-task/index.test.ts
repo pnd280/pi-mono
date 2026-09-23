@@ -1,13 +1,12 @@
 import { expect, it, vi } from "vite-plus/test";
 
-import { deferred } from "../test-fixture.ts";
 import { LatestTask } from "./index.ts";
 
 it("only commits the newest query and keeps its pending state while older work finishes", async () => {
   const changed = vi.fn();
   const task = new LatestTask({ changed });
-  const first = deferred<string>();
-  const second = deferred<string>();
+  const first = Promise.withResolvers<string>();
+  const second = Promise.withResolvers<string>();
   const commit = vi.fn();
   let firstCurrent = () => false;
   const a = task.run((current) => {
@@ -31,7 +30,7 @@ it("only commits the newest query and keeps its pending state while older work f
 
 it("cancels queries, suppresses stale failures, and does no work after disposal", async () => {
   const task = new LatestTask({ changed() {} });
-  const pending = deferred<string>();
+  const pending = Promise.withResolvers<string>();
   const commit = vi.fn();
   const work = task.run(() => pending.promise, commit);
   task.cancel();

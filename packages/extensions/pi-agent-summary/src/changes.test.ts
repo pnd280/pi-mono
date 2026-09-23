@@ -1,5 +1,5 @@
-import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
-import type { FileMutation, PatchLimits } from "@pi-mono/libs/file-mutations";
+import { createBoundedPatch, type PatchLimits } from "@pi-mono/libs/bounded-diff";
+import type { FileMutation } from "@pi-mono/libs/file-mutations";
 import { expect, it, vi } from "vite-plus/test";
 
 import { RunChanges } from "./changes.ts";

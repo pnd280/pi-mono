@@ -24,6 +24,8 @@ Results distinguish oversized source, oversized patches, and binary input. Excee
 
 Supply path, before/after source, source/patch byte limits, edit-distance limit, timeout, and context-line count. Limits/count must be nonnegative safe integers; `timeoutMs` finite and nonnegative. Invalid values reject with `RangeError`.
 
+`PatchLimits` and `patchLimitsSchema`, exported from `@pi-mono/libs/bounded-diff`, define the same limits for patch generation and [file mutation observation](../file-mutations/README.md). Consumers retain ownership of their budget values and diagnostics.
+
 The library does not read files. Use [file observation](../file-observation/README.md) to load complete UTF-8 source from disk.
 
 Classify the change and translate result statuses into diagnostics in the consumer. Patch parsing belongs to [`@pi-mono/utils/patch`](../../../utils/src/patch.ts), and rendering belongs to the [diff view](../tui/components/diff-view/README.md).

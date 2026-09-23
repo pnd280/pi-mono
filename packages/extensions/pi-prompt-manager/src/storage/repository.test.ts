@@ -18,15 +18,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vite-plus/test";
 
 import { limits, type Snapshot } from "../model.ts";
-import {
-  deferred,
-  encode,
-  entry,
-  managerFixture,
-  recordedAt,
-  session,
-  workspace
-} from "../test-fixture.ts";
+import { encode, entry, managerFixture, recordedAt, session, workspace } from "../test-fixture.ts";
 import { FileRepository } from "./repository.ts";
 
 let fixture: Awaited<ReturnType<typeof workspace>>;
@@ -222,8 +214,8 @@ it("preserves old snapshots before rename and reports post-commit cleanup separa
 });
 
 it("expires queued work but lets started atomic writes and owned lock cleanup finish", async () => {
-  const started = deferred<void>();
-  const proceed = deferred<void>();
+  const started = Promise.withResolvers<void>();
+  const proceed = Promise.withResolvers<void>();
   const repository = await FileRepository.create({
     cwd: fixture.cwd,
     agentDir: fixture.agentDir,

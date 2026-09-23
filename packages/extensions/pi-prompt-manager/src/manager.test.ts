@@ -3,7 +3,7 @@ import { expect, it, vi } from "vite-plus/test";
 
 import type { ManagerPorts } from "./manager.ts";
 import type { MutationResult, Repository } from "./model.ts";
-import { collection, deferred, entry, managerFixture } from "./test-fixture.ts";
+import { collection, entry, managerFixture } from "./test-fixture.ts";
 
 const committed = (): MutationResult => ({
   status: "committed",
@@ -12,7 +12,7 @@ const committed = (): MutationResult => ({
 });
 
 it("saves exact expanded editor text, rejects overlapping saves, and leaves concurrent edits intact", async () => {
-  const pending = deferred<MutationResult>();
+  const pending = Promise.withResolvers<MutationResult>();
   const mutate = vi.fn<Repository["mutate"]>(() => pending.promise);
   const { manager, setText, getText, notices } = managerFixture({
     repository: { read: async () => collection(), mutate }
@@ -33,7 +33,7 @@ it("saves exact expanded editor text, rejects overlapping saves, and leaves conc
 });
 
 it("same-text explicit restoration prevents an older save from clearing it", async () => {
-  const pending = deferred<MutationResult>();
+  const pending = Promise.withResolvers<MutationResult>();
   const fixture = managerFixture({
     repository: { read: async () => collection(), mutate: () => pending.promise }
   });
@@ -70,7 +70,7 @@ it("clears only after successful commit and reports clear failure separately fro
 });
 
 it("add is independent of editor saving and whitespace-only editor saves open drafts", async () => {
-  const pending = deferred<MutationResult>();
+  const pending = Promise.withResolvers<MutationResult>();
   const mutate = vi
     .fn<Repository["mutate"]>()
     .mockImplementationOnce(() => pending.promise)
@@ -130,8 +130,8 @@ it("restore-then-delete failure retains snapshot source and reports deletion fai
 it.each(["restore", "restore-delete", "cancel", "expired", "unsafe"] as const)(
   "applies a browser's %s request only after closure and keeps stale callbacks inert",
   async (action) => {
-    const closed = deferred<void>();
-    const removal = deferred<MutationResult>();
+    const closed = Promise.withResolvers<void>();
+    const removal = Promise.withResolvers<MutationResult>();
     const mutate = vi.fn<Repository["mutate"]>(() => removal.promise);
     const target = collection([entry(action === "unsafe" ? "unsafe\x1b[2J" : "selected")])
       .entries[0]!;
@@ -174,7 +174,7 @@ it.each(["restore", "restore-delete", "cancel", "expired", "unsafe"] as const)(
 );
 
 it("capture is synchronous, FIFO, bounded by count, and shares one generic warning budget", async () => {
-  const failure = deferred<MutationResult>();
+  const failure = Promise.withResolvers<MutationResult>();
   const mutate = vi.fn<Repository["mutate"]>(() => failure.promise);
   const fixture = managerFixture({ repository: { read: vi.fn(), mutate } });
 
@@ -249,7 +249,7 @@ it("reports shared clipboard diagnostics without exposing arbitrary helper error
 });
 
 it("notifies copy and deletion results with severity and combined cleanup warnings", async () => {
-  const copying = deferred<void>();
+  const copying = Promise.withResolvers<void>();
   const snapshot = collection([entry("source")]);
   const notify = vi.fn();
   const fixture = managerFixture({
@@ -296,9 +296,9 @@ it("notifies copy and deletion results with severity and combined cleanup warnin
 });
 
 it("expires late editor/clipboard/UI callbacks and reserves a UI while it is loading", async () => {
-  const saving = deferred<MutationResult>();
-  const copying = deferred<void>();
-  const opening = deferred<void>();
+  const saving = Promise.withResolvers<MutationResult>();
+  const copying = Promise.withResolvers<void>();
+  const opening = Promise.withResolvers<void>();
   const open = vi.fn<ManagerPorts["open"]>(() => opening.promise);
   const copy = vi.fn<ManagerPorts["copy"]>(() => copying.promise);
   const fixture = managerFixture({

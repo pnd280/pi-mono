@@ -72,4 +72,4 @@ export default function activityExtension(pi: ExtensionAPI) {
 
 ## Validation
 
-Use the [library checks](../../README.md#validation). Tests cover [composition and handle ownership](coordinator.test.ts), [shared registration and runtime cleanup](index.test.ts), and [settings persistence](settings.test.ts). Draft and input tests belong to the [order-settings component](../tui/components/order-settings/README.md#validation). Use the [pi-todo offline fixture](../../../extensions/pi-todo/README.md#working-message-fixture) for real Pi checks in regular and fullscreen modes.
+Use the [library checks](../../README.md#validation). Tests cover [composition and handle ownership](coordinator.test.ts), [shared registration and runtime cleanup](index.test.ts), and [settings persistence](settings.test.ts). Draft and input tests belong to the [order-settings component](../tui/components/order-settings/README.md#validation). Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) for real Pi checks in regular and fullscreen modes.

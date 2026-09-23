@@ -38,6 +38,14 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
     theme
   );
   if (counts) parts.push(counts);
+  const unavailable = summary.files.length - available.length;
+  if (unavailable)
+    parts.push(
+      theme.fg(
+        "muted",
+        `Statistics unavailable for ${unavailable} ${unavailable === 1 ? "file" : "files"}`
+      )
+    );
   if (parts.length) lines.push(parts.join(separator));
 
   if (expanded) {

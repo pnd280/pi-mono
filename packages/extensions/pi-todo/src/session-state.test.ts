@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import type { JsonObject } from "@earendil-works/pi-ai";
 import { describe, it } from "vite-plus/test";
 
 import {
@@ -16,7 +17,7 @@ import {
 } from "./constants.ts";
 import { emptyTodoState } from "./reducer.ts";
 import { parseTodoStateSnapshot, todoStateFromBranch } from "./session-state.ts";
-import type { JsonObject, Task, TaskDetails } from "./types.ts";
+import type { Task, TaskDetails } from "./types.ts";
 
 function toolResultEntry<Details>(id: string, toolName: string, details: Details, isError = false) {
   return {

@@ -125,12 +125,14 @@ export function readCollection(collection: Collection, cwd: string, raw?: Buffer
     throw new PromptError(
       `Unsupported version, wrong directory, or invalid collection structure. ${reductionGuidance}`
     );
+  if (value.entries.length > limits.recoveryCount)
+    throw new PromptError(
+      `${collection === "drafts" ? "Drafts exceed" : "History exceeds"} the 5,000-record recovery bound. ${reductionGuidance}`
+    );
+
   const warnings: string[] = [];
   const serializationSafe = jsonValueSchema.safeParse(value).success;
   const entries: StoredEntry[] = [];
-
-  if (collection === "drafts" && value.entries.length > limits.recoveryCount)
-    throw new PromptError(`Drafts exceed the 5,000-record recovery bound. ${reductionGuidance}`);
 
   for (const entry of value.entries) {
     if (collection === "drafts" && Buffer.byteLength(JSON.stringify(entry)) > limits.recoveryRecord)

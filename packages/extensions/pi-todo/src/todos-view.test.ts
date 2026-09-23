@@ -153,6 +153,28 @@ it("resolves configured todo controls in the same order as their hints", () => {
   expect(done).toHaveBeenCalledOnce();
 });
 
+it.each([{ cancel: [] }, { cancel: ["ctrl+c"] }] as const)(
+  "refuses to open without a usable cancel binding: $cancel",
+  ({ cancel }) => {
+    expect(
+      () =>
+        new TodosView({
+          tasks: [],
+          theme: {
+            fg: (_color, text) => text,
+            bold: (text) => text,
+            strikethrough: (text) => text
+          },
+          tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
+          keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
+            "tui.select.cancel": [...cancel]
+          }),
+          done: vi.fn()
+        })
+    ).toThrow("tui.select.cancel");
+  }
+);
+
 it("renders list rows with Pi's settings arrow and todo tree markers", () => {
   const view = new TodosView({
     tasks: [

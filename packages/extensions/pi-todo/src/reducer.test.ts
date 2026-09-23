@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import type { JsonObject } from "@earendil-works/pi-ai";
 import { describe, it } from "vite-plus/test";
 
 import {
@@ -20,7 +21,7 @@ import {
 } from "./constants.ts";
 import { applyTaskMutation, detectCycle, emptyTodoState } from "./reducer.ts";
 import { parseTodoStateSnapshot } from "./session-state.ts";
-import type { JsonObject, Task, TaskMutationParams, TodoState } from "./types.ts";
+import type { Task, TaskMutationParams, TodoState } from "./types.ts";
 
 function mutate(
   state: TodoState,

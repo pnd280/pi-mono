@@ -11,8 +11,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
-import { deferred } from "../test-fixture.ts";
-import { observeMutationDefinition, type FileMutation, type PatchLimits } from "./index.ts";
+import type { PatchLimits } from "../bounded-diff/index.ts";
+import { observeMutationDefinition, type FileMutation } from "./index.ts";
 
 vi.mock("node:fs/promises", { spy: true });
 
@@ -250,8 +250,8 @@ it("does not report a mutation when an edit fails before attempting a disk write
 
 it("awaits shared asynchronous patches and isolates rejected completion callbacks", async () => {
   const { directory, context } = await fixture();
-  const requested = deferred<void>();
-  const release = deferred<void>();
+  const requested = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
   const patches: ReturnType<FileMutation["patch"]>[] = [];
   const tool = observeMutationDefinition(
     defineTool(createWriteToolDefinition(directory)),
@@ -297,8 +297,8 @@ it("awaits shared asynchronous patches and isolates rejected completion callback
 
 it("releases the native mutation queue before awaiting observer completion", async () => {
   const { directory, context } = await fixture();
-  const started = deferred<void>();
-  const release = deferred<void>();
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
   const changes: FileMutation[] = [];
   const tool = observeMutationDefinition(
     defineTool(createWriteToolDefinition(directory)),

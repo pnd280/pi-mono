@@ -10,7 +10,7 @@ import {
 import { expect, it, vi } from "vite-plus/test";
 
 import { createSkillAutocompleteProvider } from "./autocomplete.ts";
-import { command, deferred } from "./test-fixture.ts";
+import { command } from "./test-fixture.ts";
 
 const plain = (text: string) => text;
 const theme: EditorTheme = {
@@ -98,7 +98,7 @@ it("keeps native Enter submission for unrelated command completions", async () =
 });
 
 it("Escape cancels an asynchronous update to an open picker", async () => {
-  const pending = deferred<AutocompleteSuggestions | null>();
+  const pending = Promise.withResolvers<AutocompleteSuggestions | null>();
   let signal: AbortSignal | undefined;
   const getSuggestions = vi.fn<AutocompleteProvider["getSuggestions"]>(
     (_lines, _line, _col, options) => {
@@ -136,7 +136,7 @@ it("Escape cancels an asynchronous update to an open picker", async () => {
 });
 
 it.each(["edit", "move"])("does not apply stale asynchronous results after %s", async (action) => {
-  const pending = deferred<AutocompleteSuggestions | null>();
+  const pending = Promise.withResolvers<AutocompleteSuggestions | null>();
   const getSuggestions = vi.fn(() => pending.promise);
   const current: AutocompleteProvider = {
     getSuggestions,

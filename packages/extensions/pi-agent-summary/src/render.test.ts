@@ -121,7 +121,7 @@ it("leaves scrolling, selection, other buttons, and summaries without details un
   expect(empty.handleMouse?.(click)).toBeUndefined();
 });
 
-it("omits unavailable statistics from totals and rejects malformed summaries", () => {
+it("distinguishes unavailable statistics from no changes without adding them to totals", () => {
   const base = { durationMs: 0, finishedAt, bashCalls: 0, files: [] };
   const text = (data: unknown) =>
     renderSummary(savedEntry(data), { expanded: false }, theme)
@@ -131,12 +131,17 @@ it("omits unavailable statistics from totals and rejects malformed summaries", (
   expect(text(base)).toBe("Worked for 0s · 2:34:56 PM");
   expect(text({ ...base, bashCalls: 1 })).toBe("Worked for 0s · 2:34:56 PM\n1 bash call");
   const unavailable = { path: "large.txt", status: "unavailable", reason: "Too large." };
-  expect(text({ ...base, files: [unavailable] })).toBe("Worked for 0s · 2:34:56 PM");
+  expect(text({ ...base, files: [unavailable] })).toBe(
+    "Worked for 0s · 2:34:56 PM\nStatistics unavailable for 1 file"
+  );
+  expect(text({ ...base, files: [unavailable, { ...unavailable, path: "other.txt" }] })).toBe(
+    "Worked for 0s · 2:34:56 PM\nStatistics unavailable for 2 files"
+  );
   expect(
     text({
       ...base,
       files: [{ path: "file.txt", status: "available", added: 1, removed: 0 }, unavailable]
     })
-  ).toBe("Worked for 0s · 2:34:56 PM\n1 file changed · +1");
+  ).toBe("Worked for 0s · 2:34:56 PM\n1 file changed · +1 · Statistics unavailable for 1 file");
   expect(text({ durationMs: 1000 })).toBeUndefined();
 });

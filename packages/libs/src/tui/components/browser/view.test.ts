@@ -2,7 +2,7 @@ import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-wor
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import { browserLayout } from "./layout.ts";
-import { browserOptions, deferred, items, type TestItem } from "./test-fixture.ts";
+import { browserOptions, items, type TestItem } from "./test-fixture.ts";
 import { Browser } from "./view.ts";
 
 const opened: Browser<TestItem>[] = [];
@@ -116,6 +116,72 @@ it.each([
   render();
 });
 
+it.each(["confirm", "alternate", "delete"] as const)(
+  "shows only closure and accurate feedback during pending %s",
+  async (action) => {
+    const { view, options, controller, close } = browser();
+    const pending = Promise.withResolvers<void>();
+    const section = options.sections[1]!;
+
+    const select = async () => {
+      await pending.promise;
+
+      return false;
+    };
+
+    section.confirm!.run = select;
+    section.alternate!.run = select;
+
+    section.remove!.run = async () => {
+      await pending.promise;
+
+      return undefined;
+    };
+
+    await controller.activate();
+    view.render(40);
+    if (action === "delete") controller.action("delete");
+    controller.action(action);
+    const output = view.render(40).join("\n");
+    expect(output).toContain(action === "delete" ? "Removing item…" : "Working…");
+    expect(output).toContain("Esc close");
+    for (const hint of ["Enter select", "Ctrl+C copy", "Tab view", "Del×2", "Alt+Enter"])
+      expect(output).not.toContain(hint);
+    view.handleInput("\x1b");
+    expect(close).toHaveBeenCalledOnce();
+    pending.resolve();
+    await vi.waitFor(() => expect(controller.busy).toBe(false));
+  }
+);
+
+it("omits item actions without a ready selection and deletion for ineligible items", async () => {
+  const { view, options, controller } = browser();
+  const output = () => view.render(80).join("\n");
+  expect(output()).not.toContain("Enter select");
+  expect(output()).not.toContain("Ctrl+C copy");
+  expect(output()).toContain("Tab view");
+  options.sections[1]!.remove!.enabled = () => false;
+  await controller.activate();
+  expect(output()).toContain("Enter select");
+  expect(output()).not.toContain("Del×2");
+  controller.setQuery("no matches");
+  await vi.waitFor(() => expect(controller.searching).toBe(false));
+  expect(output()).toContain("No search matches.");
+  for (const hint of ["Enter select", "Ctrl+C copy", "Ctrl+P preview", "Alt+Enter"])
+    expect(output()).not.toContain(hint);
+});
+
+it("retains collection identity beside recovery status in compact layouts", async () => {
+  const { view, options, controller, tui } = browser();
+  options.sections[1]!.load = async () => ({ items: items(), message: "Read-only: repair IDs." });
+  tui.terminal.rows = 10;
+  await controller.activate();
+  const rows = view.render(40);
+  expect(rows.join("\n")).toContain("recent | saved");
+  expect(rows.join("\n")).toContain("Read-only: repair IDs.");
+  expect(rows.length).toBeLessThanOrEqual(browserLayout(10).height);
+});
+
 it("sanitizes confirmation overflow before rendering it", async () => {
   const { view, options, controller, tui } = browser();
   tui.terminal.rows = 10;
@@ -139,7 +205,7 @@ it("preserves search cursor edits and focus while keeping action hints during se
   view.handleInput("X");
   expect(controller.query).toBe("abXc");
   await vi.waitFor(() => expect(controller.searching).toBe(false));
-  const pending = deferred<TestItem[]>();
+  const pending = Promise.withResolvers<TestItem[]>();
   options.search = () => pending.promise;
   view.handleInput("d");
   expect(controller.searching).toBe(true);
@@ -219,7 +285,7 @@ it.each([
   expect(preview).toContain("Tab view");
   expect(preview.indexOf("Tab view")).toBeGreaterThan(preview.indexOf("draft detail"));
   expect(preview).not.toContain("view (recent/saved)");
-  const loading = deferred<void>();
+  const loading = Promise.withResolvers<void>();
   const load = options.sections[0]!.load.bind(options.sections[0]);
 
   options.sections[0]!.load = async (signal) => {

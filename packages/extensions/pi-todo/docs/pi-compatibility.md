@@ -15,4 +15,4 @@
 
 ## Validation
 
-Use [package and interactive checks](../README.md#validation), including the offline working-message fixture with other contributors, reload, new sessions, and regular/fullscreen modes.
+Use [package checks](../README.md#validation) and [interactive checks](validation.md), including the offline working-message fixture with other contributors, reload, new sessions, and regular/fullscreen modes.

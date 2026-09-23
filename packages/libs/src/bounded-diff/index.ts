@@ -10,11 +10,14 @@ const limitsSchema = z.object({
 });
 const durationSchema = z.number().nonnegative();
 
-export type BoundedPatchOptions = z.infer<typeof limitsSchema> & {
+export const patchLimitsSchema = limitsSchema.extend({ timeoutMs: durationSchema });
+
+export type PatchLimits = z.infer<typeof patchLimitsSchema>;
+
+export type BoundedPatchOptions = PatchLimits & {
   path: string;
   before: string;
   after: string;
-  timeoutMs: number;
 };
 
 export type BoundedPatchResult =

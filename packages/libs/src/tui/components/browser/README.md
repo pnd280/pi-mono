@@ -23,7 +23,7 @@ Configured actions take precedence in this order: copy, cancel, confirm, up, dow
 
 `ownsFullscreenInput(data)` reserves paging for the view even during loading, pending actions, or undersized layout. It uses the precedence above: disabled paging bindings, keys assigned to higher-priority actions, and release events are not claimed. The [browser host](../../open-browser/README.md) provides priority routing; the component installs no listeners.
 
-Hints show first usable bindings or `unavailable`, omitting absent actions and fully overridden fixed controls. Configured keys stay reserved even for absent actions.
+Hints show first usable bindings or `unavailable`, omitting absent actions, item actions without a ready selection, ineligible removal, and fully overridden fixed controls. During pending removal or selection actions, the footer retains the close key and names the pending operation. Configured keys stay reserved even for absent actions. Search keeps existing selection hints while results are being prepared; item actions wait for search completion.
 
 Ctrl+C never cancels. Construction requires a cancel binding other than Ctrl+C that is not also bound to copy.
 
@@ -38,7 +38,7 @@ Below 40 columns or 10 terminal rows, only cancellation is available. Otherwise,
 - Inline height is `floor((terminalRows - 3) × 3/4)`, reserving three rows for the host UI.
 - If the inline height would be less than 12 rows, the browser uses an overlay with height `floor(terminalRows × 3/4)`.
 
-Resizing cancels confirmation but preserves the query, input cursor, selection, and preview position.
+Resizing cancels confirmation but preserves the query, input cursor, selection, and preview position. Compact layouts retain the section or inspection heading above collection status, so recovery messages do not replace collection identity.
 
 ## Caller responsibilities
 
@@ -54,7 +54,7 @@ Confirm and alternate callbacks perform their actions and return `true` to close
 
 `remove.run(item, signal)` returns a committed snapshot, or `undefined` after reporting failure. Use its signal only to cancel preparation of the replacement snapshot, never to cancel effects already started. `remove.enabled` controls whether an item can be removed.
 
-Load/initial-search errors display directly: use safe messages. Action/later-search errors go to `onError`. `cancelError` chooses type/message for unusable cancel bindings.
+Load/initial-search errors display directly: use safe messages. Action/later-search errors go to `onError`. A failed later search clears stale results, shows a generic unavailable message, and allows a new query to retry. `cancelError` chooses type/message for unusable cancel bindings.
 
 Use the [browser host](../../open-browser/README.md) for Pi mounting and effects after closure. When constructing `Browser` directly, await `browser.controller.activate()` and call `browser.dispose()` at final closure, not during remounts.
 

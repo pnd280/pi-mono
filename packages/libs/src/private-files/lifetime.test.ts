@@ -1,12 +1,11 @@
 import { expect, it, vi } from "vite-plus/test";
 
-import { deferred } from "../test-fixture.ts";
 import { WriteLifetime } from "./lifetime.ts";
 
 it("aborts unstarted work but waits for every started write, including failures", async () => {
   const lifetime = new WriteLifetime();
-  const first = deferred<string>();
-  const second = deferred<void>();
+  const first = Promise.withResolvers<string>();
+  const second = Promise.withResolvers<void>();
   const result = lifetime.atomic(() => first.promise);
   const failed = lifetime.atomic(() => second.promise).catch((error: unknown) => error);
   const finished = vi.fn();

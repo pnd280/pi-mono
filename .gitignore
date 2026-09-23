@@ -3,5 +3,4 @@ dist/
 coverage/
 *.tsbuildinfo
 .tmp/
-temp/
 .worktrees/

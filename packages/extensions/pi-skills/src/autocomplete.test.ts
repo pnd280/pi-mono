@@ -6,7 +6,7 @@ import {
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { createSkillAutocompleteProvider } from "./autocomplete.ts";
-import { command, deferred } from "./test-fixture.ts";
+import { command } from "./test-fixture.ts";
 
 const commands = [command("skill:review"), command("skill:release"), command("skill:plan")];
 const options = () => ({ signal: new AbortController().signal, force: true });
@@ -139,7 +139,7 @@ it("does not claim a borrowed item reused by a delegated provider", async () => 
 });
 
 it("discards aborted asynchronous results and preserves the caller signal", async () => {
-  const pending = deferred<AutocompleteSuggestions | null>();
+  const pending = Promise.withResolvers<AutocompleteSuggestions | null>();
   const getSuggestions = vi.fn(() => pending.promise);
   const current: AutocompleteProvider = {
     getSuggestions,

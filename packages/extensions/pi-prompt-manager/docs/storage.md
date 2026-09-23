@@ -96,7 +96,7 @@ Unusable text records warn and are ignored; successful mutations may omit them. 
 
 Drafts over normal count, text, or file-size limits allow only recovery deletion, refusing additions even if reformatting would fit. Deletion must remove the selected occurrence, preserve other retained records, and shrink committed size; limits may remain exceeded. Size-increasing pretty-printing prevents deletion.
 
-Draft recovery accepts at most 64 MiB and 5,000 records, each at most 8 MiB in compact JSON. History also reads at most 64 MiB. Repair larger files manually.
+Both collections accept at most 64 MiB and 5,000 records during recovery. Each draft record may use at most 8 MiB in compact JSON. Repair larger files manually.
 
 ## Concurrency and crashes
 

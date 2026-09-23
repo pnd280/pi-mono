@@ -2,10 +2,9 @@ import { stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 import { containsPath, expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
-
-export type SearchKind = "find" | "grep" | "multi";
 
 export const searchInputSchema = z.object({
   pattern: z.string().optional(),
@@ -323,7 +322,7 @@ async function filenameTokens(pattern: string, cwd: string): Promise<string[]> {
 }
 
 async function queryExpressions(
-  kind: SearchKind,
+  kind: FffToolKind,
   input: SearchInput,
   cwd: string,
   scope: SearchScope
@@ -466,7 +465,7 @@ async function collectTargets(
 }
 
 export async function extractScope(
-  kind: SearchKind,
+  kind: FffToolKind,
   input: SearchInput,
   cwd: string,
   signal?: AbortSignal

@@ -4,7 +4,6 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
-import { deferred } from "../test-fixture.ts";
 import { WriteLifetime } from "./lifetime.ts";
 import { PrivateFileTransactions, type PrivateTransactionOptions } from "./transaction.ts";
 
@@ -68,8 +67,8 @@ it("serializes fresh reads and leaves unchanged data intact after a failed updat
 
 it("cancels pre-commit work and queued mutations without creating files", async () => {
   const { scope, transactions, options } = fixture();
-  const entered = deferred<void>();
-  const proceed = deferred<void>();
+  const entered = Promise.withResolvers<void>();
+  const proceed = Promise.withResolvers<void>();
   const first = transactions.run("data", {
     ...options,
     update: async (raw) => {
@@ -92,8 +91,8 @@ it("cancels pre-commit work and queued mutations without creating files", async 
 
 it("drains a started commit and its lock cleanup while refusing queued writes", async () => {
   const { path, scope, transactions, options } = fixture();
-  const entered = deferred<void>();
-  const proceed = deferred<void>();
+  const entered = Promise.withResolvers<void>();
+  const proceed = Promise.withResolvers<void>();
   const first = transactions.run("data", {
     ...options,
     hooks: {

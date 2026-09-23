@@ -19,7 +19,7 @@ export class BrowserController<Item> {
   results: Item[] = [];
   preview = false;
   previewScroll = 0;
-  busy = false;
+  pendingAction: "delete" | "confirm" | "alternate" | undefined;
   closed = false;
   private readonly searchTask: LatestTask;
   private confirmation: TimedConfirmation<Item>;
@@ -68,6 +68,9 @@ export class BrowserController<Item> {
 
   get searching() {
     return this.searchTask.pending;
+  }
+  get busy() {
+    return this.pendingAction !== undefined;
   }
   get armed() {
     return this.confirmation.armed;
@@ -139,19 +142,39 @@ export class BrowserController<Item> {
 
   private async filter(nearby?: number): Promise<void> {
     const state = this.state;
-    await this.searchTask.run(
-      (current) => this.options.search(this.snapshot?.items ?? [], state.query, current),
-      (results) => {
-        this.results = results;
 
-        if (!results.some((item) => this.options.key(item) === state.selected)) {
-          const selected = results[Math.min(nearby ?? 0, results.length - 1)];
-          state.selected = selected === undefined ? undefined : this.options.key(selected);
+    try {
+      await this.searchTask.run(
+        (current) => this.options.search(this.snapshot?.items ?? [], state.query, current),
+        (results) => {
+          this.results = results;
+
+          if (this.snapshot) {
+            this.status = "ready";
+            this.error = "";
+          }
+
+          if (!results.some((item) => this.options.key(item) === state.selected)) {
+            const selected = results[Math.min(nearby ?? 0, results.length - 1)];
+            state.selected = selected === undefined ? undefined : this.options.key(selected);
+          }
+
+          if (!results.length) this.preview = false;
         }
+      );
+    } catch (error) {
+      this.results = [];
+      state.selected = undefined;
+      this.preview = false;
 
-        if (!results.length) this.preview = false;
+      if (this.snapshot) {
+        this.status = "unavailable";
+        this.error = "Could not search items.";
       }
-    );
+
+      this.ports.changed();
+      throw error;
+    }
   }
 
   setQuery(query: string): void {
@@ -200,7 +223,7 @@ export class BrowserController<Item> {
   }
 
   private async delete(target: Item): Promise<void> {
-    this.busy = true;
+    this.pendingAction = "delete";
     const nearby = this.selectedIndex;
     this.ports.changed();
 
@@ -217,7 +240,7 @@ export class BrowserController<Item> {
     } catch (error) {
       this.reportError(error);
     } finally {
-      this.busy = false;
+      this.pendingAction = undefined;
       if (!this.isClosed()) this.ports.changed();
     }
   }
@@ -230,7 +253,8 @@ export class BrowserController<Item> {
     }
   }
 
-  private select(action: BrowserSelectionAction<Item> | undefined, item: Item) {
+  private select(kind: "confirm" | "alternate", item: Item) {
+    const action: BrowserSelectionAction<Item> | undefined = this.section[kind];
     if (!action) return;
 
     try {
@@ -239,14 +263,14 @@ export class BrowserController<Item> {
       if (typeof result === "boolean") {
         if (result) this.close();
       } else {
-        this.busy = true;
+        this.pendingAction = kind;
         void result
           .then((close) => {
             if (!this.isClosed() && close) this.close();
           })
           .catch((error: unknown) => this.reportError(error))
           .finally(() => {
-            this.busy = false;
+            this.pendingAction = undefined;
             if (!this.isClosed()) this.ports.changed();
           });
       }
@@ -304,10 +328,10 @@ export class BrowserController<Item> {
 
     switch (action) {
       case "confirm":
-        this.select(this.section.confirm, target);
+        this.select("confirm", target);
         break;
       case "alternate":
-        this.select(this.section.alternate, target);
+        this.select("alternate", target);
         break;
       case "preview":
         this.preview = true;
