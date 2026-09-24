@@ -352,7 +352,6 @@ importers:
       '@pi-mono/libs':
         specifier: workspace:*
         version: link:../../libs
-    devDependencies:
       zod:
         specifier: 'catalog:'
         version: 4.6.5

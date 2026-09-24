@@ -1,8 +1,4 @@
 import type { TranscriptContext } from "@earendil-works/pi-ai";
-import type { ExtensionRunner } from "@earendil-works/pi-coding-agent";
-import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
-
-import type { DefaultCompaction, NativeSession } from "./compatibility.ts";
 
 // Match the native instruction suffix, never a phrase inside serialized history.
 const prefixInstructions = `# Instructions
@@ -47,71 +43,4 @@ export function focusSplitTurn(
       }
     ]
   };
-}
-
-async function summarizeWithInstructions(
-  session: NativeSession,
-  summarize: DefaultCompaction,
-  args: Parameters<DefaultCompaction>,
-  instructions: string
-) {
-  args[4] = instructions;
-  const hooks = new OwnedHooks();
-  const stream = session.agent.streamFunction;
-  let active = true;
-
-  try {
-    hooks.replace(session.agent, "streamFunction", (model, context, options) =>
-      stream(
-        model,
-        active && options?.signal === args[5] ? focusSplitTurn(context, instructions) : context,
-        options
-      )
-    );
-
-    return await summarize(...args);
-  } finally {
-    active = false;
-    hooks.restore();
-  }
-}
-
-export async function runWithInstructions(session: NativeSession, instructions: string) {
-  const hooks = new OwnedHooks();
-  const runner = session._extensionRunner;
-  const emit = runner.emit.bind(runner);
-  const summarize = session._runDefaultCompaction.bind(session);
-  let active = true;
-  const ownsRequest = (signal: AbortSignal | undefined) =>
-    active && signal !== undefined && signal === session._autoCompactionAbortController?.signal;
-
-  try {
-    const focusedSummary: DefaultCompaction = (...args) => {
-      if (args[7] === "manual" && ownsRequest(args[5])) {
-        return summarizeWithInstructions(session, summarize, args, instructions);
-      }
-
-      return summarize(...args);
-    };
-
-    hooks.replace(session, "_runDefaultCompaction", focusedSummary);
-
-    const focusedEmit: ExtensionRunner["emit"] = (event) => {
-      if (
-        event.type === "session_before_compact" &&
-        event.reason === "manual" &&
-        ownsRequest(event.signal)
-      ) {
-        event = { ...event, customInstructions: instructions };
-      }
-
-      return emit(event);
-    };
-
-    hooks.replace(runner, "emit", focusedEmit);
-    await session._runAutoCompaction("manual", false);
-  } finally {
-    active = false;
-    hooks.restore();
-  }
 }

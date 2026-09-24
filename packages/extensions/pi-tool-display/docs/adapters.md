@@ -35,3 +35,4 @@ The resolver list and `selectAdapter` are host-internal; no public registration 
 - [pi-mcp-adapter](../src/adapters/pi-mcp-adapter/README.md): `piMcpAdapter(toolInfo)`.
 - [pi-todo](../src/adapters/pi-todo/README.md): `piTodoAdapter(toolInfo)`.
 - [pi-selective-read](../src/adapters/pi-selective-read/README.md): `piSelectiveReadAdapter(toolInfo)`.
+- [pi-smart-compact](../src/adapters/pi-smart-compact/README.md): `piSmartCompactAdapter(toolInfo)`.

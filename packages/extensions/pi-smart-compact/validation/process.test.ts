@@ -12,6 +12,24 @@ import { z } from "zod";
 
 const traceSchema = z.object({
   type: z.string(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  reasoning: z.string().optional(),
+  apiKey: z.string().optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+  authEnv: z.string().optional(),
+  baseUrl: z.string().optional(),
+  maxTokens: z.number().optional(),
+  requestPolicy: z
+    .object({
+      timeoutMs: z.number().optional(),
+      websocketConnectTimeoutMs: z.number().optional(),
+      maxRetries: z.number().optional(),
+      maxRetryDelayMs: z.number().optional()
+    })
+    .optional(),
+  sessionModel: z.string().optional(),
+  sessionThinking: z.string().optional(),
   idle: z.boolean().optional(),
   compacting: z.boolean().optional(),
   streaming: z.boolean().optional(),
@@ -198,7 +216,8 @@ function checkOutput(stdout: string, mode: string, scenario: string, attempts: n
 
 function expectedOutcomeStatus(scenario: string) {
   if (scenario === "small") return "skipped";
-  if (scenario === "failure") return "failed";
+  if (["failure", "missing-model", "auth-failure", "unsupported-thinking"].includes(scenario))
+    return "failed";
   if (["cancel", "abort", "escape"].includes(scenario)) return "cancelled";
 
   return undefined;
@@ -220,6 +239,11 @@ function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
     assert.ok(outcome.content.startsWith(`Compaction ${status}`));
     if (scenario === "small") assert.match(outcome.content, /Pi did not start compaction/);
     if (scenario === "failure") assert.match(outcome.content, /Offline summary failure/);
+    if (scenario === "missing-model") assert.match(outcome.content, /model is unavailable/);
+    if (scenario === "auth-failure")
+      assert.match(outcome.content, /Offline summary authentication failed/);
+    if (scenario === "unsupported-thinking")
+      assert.match(outcome.content, /thinkingLevel is unsupported/);
   }
 
   assert.equal(
@@ -245,7 +269,213 @@ function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
   );
 }
 
+function activeThinking(scenario: string, configured: boolean) {
+  return configured && scenario !== "unsupported-thinking" ? "high" : "off";
+}
+
+function checkAcknowledgements(
+  manager: SessionManager,
+  modelOverride: string | undefined,
+  thinkingLevel: string
+) {
+  for (const entry of manager.getBranch()) {
+    if (
+      entry.type !== "message" ||
+      entry.message.role !== "toolResult" ||
+      entry.message.toolName !== "compact"
+    )
+      continue;
+    assert.deepEqual(entry.message.content, [
+      {
+        type: "text",
+        text: "Compaction requested."
+      }
+    ]);
+    assert.deepEqual(entry.message.details, {
+      scheduled: true,
+      ...(modelOverride ? { modelOverride, thinkingLevel } : {})
+    });
+  }
+}
+
+function checkModelRouting(
+  trace: Trace,
+  scenario: string,
+  config: { model?: string; thinkingLevel?: string } | undefined,
+  manager: SessionManager
+) {
+  const nativeThinking = activeThinking(scenario, config !== undefined);
+  const expectedThinking =
+    config?.thinkingLevel ?? (scenario === "no-reasoning" ? "off" : nativeThinking);
+  const idleTimeout = scenario === "no-idle-timeout" ? 2147483647 : 4321;
+
+  for (const entry of trace.filter((event) =>
+    ["provider:main", "provider:summary"].includes(event.type)
+  ))
+    assert.deepEqual(entry.requestPolicy, {
+      timeoutMs: scenario === "provider-timeout" ? 1234 : idleTimeout,
+      websocketConnectTimeoutMs: 2345,
+      maxRetries: 2,
+      maxRetryDelayMs: 3456
+    });
+
+  for (const entry of trace.filter((event) => event.type === "provider:summary")) {
+    const provider = config?.model ? "summary-compaction-fixture" : "native-compaction-fixture";
+    assert.partialDeepStrictEqual(entry, {
+      provider,
+      model: config?.model ? "nested/summary" : "scripted",
+      apiKey: provider,
+      authEnv: provider,
+      baseUrl: `http://${provider}.invalid`,
+      sessionModel: "scripted",
+      sessionThinking: nativeThinking
+    });
+    assert.deepEqual(entry.headers, {
+      "X-Fixture-Provider": provider,
+      "X-Fixture-Hook": "applied"
+    });
+    // Native summary shapes use different budgets, but both must honor the selected model's cap.
+    if (config?.model) assert.equal(entry.maxTokens, 128);
+    assert.equal(entry.reasoning, expectedThinking === "off" ? undefined : expectedThinking);
+  }
+
+  for (const entry of trace.filter((event) => event.type === "provider:main")) {
+    assert.equal(entry.provider, "native-compaction-fixture");
+    assert.equal(entry.model, "scripted");
+    assert.deepEqual(entry.headers, {
+      "X-Fixture-Provider": "native-compaction-fixture",
+      "X-Fixture-Hook": "applied"
+    });
+    assert.equal(entry.reasoning, nativeThinking === "off" ? undefined : nativeThinking);
+  }
+
+  for (const provider of ["native-compaction-fixture", "summary-compaction-fixture"])
+    assert.equal(
+      trace.filter((event) => event.type === "hook:headers" && event.provider === provider).length,
+      trace.filter(
+        (event) =>
+          ["provider:main", "provider:summary"].includes(event.type) && event.provider === provider
+      ).length
+    );
+
+  checkAcknowledgements(manager, config?.model, expectedThinking);
+}
+
+const summaryModel = "summary-compaction-fixture/nested/summary";
+
 it.each([
+  {
+    mode: "json",
+    scenario: "provider-timeout",
+    summaries: 1,
+    compactions: 1,
+    attempts: 1,
+    config: { model: summaryModel }
+  },
+  {
+    mode: "json",
+    scenario: "no-idle-timeout",
+    summaries: 1,
+    compactions: 1,
+    attempts: 1,
+    config: { model: summaryModel }
+  },
+  {
+    mode: "json",
+    scenario: "no-reasoning",
+    summaries: 1,
+    compactions: 1,
+    attempts: 1,
+    config: { model: summaryModel }
+  },
+  {
+    mode: "json",
+    scenario: "success",
+    summaries: 1,
+    compactions: 1,
+    attempts: 1,
+    config: { model: summaryModel }
+  },
+  {
+    mode: "json",
+    scenario: "instructions-history",
+    summaries: 2,
+    compactions: 1,
+    attempts: 1,
+    config: { model: summaryModel, thinkingLevel: "low" }
+  },
+  {
+    mode: "json",
+    scenario: "retry",
+    summaries: 2,
+    compactions: 1,
+    attempts: 1,
+    config: { model: summaryModel, thinkingLevel: "off" }
+  },
+  {
+    mode: "json",
+    scenario: "failure",
+    summaries: 1,
+    compactions: 0,
+    attempts: 1,
+    config: { model: summaryModel }
+  },
+  {
+    mode: "json",
+    scenario: "escape",
+    summaries: 1,
+    compactions: 0,
+    attempts: 1,
+    config: { model: summaryModel }
+  },
+  {
+    mode: "json",
+    scenario: "cancel",
+    summaries: 0,
+    compactions: 0,
+    attempts: 1,
+    config: { model: summaryModel }
+  },
+  {
+    mode: "json",
+    scenario: "custom-summary",
+    summaries: 0,
+    compactions: 1,
+    attempts: 1,
+    config: { model: "missing/model" }
+  },
+  {
+    mode: "json",
+    scenario: "missing-model",
+    summaries: 0,
+    compactions: 0,
+    attempts: 1,
+    config: { model: "missing/model" }
+  },
+  {
+    mode: "json",
+    scenario: "auth-failure",
+    summaries: 0,
+    compactions: 0,
+    attempts: 1,
+    config: { model: summaryModel }
+  },
+  {
+    mode: "json",
+    scenario: "unsupported-thinking",
+    summaries: 0,
+    compactions: 0,
+    attempts: 1,
+    config: { model: summaryModel, thinkingLevel: "low" }
+  },
+  {
+    mode: "json",
+    scenario: "success",
+    summaries: 1,
+    compactions: 1,
+    attempts: 1,
+    config: { thinkingLevel: "off" }
+  },
   { mode: "text", scenario: "success", summaries: 1, compactions: 1, attempts: 1 },
   { mode: "json", scenario: "success", summaries: 1, compactions: 1, attempts: 1 },
   { mode: "json", scenario: "duplicate", summaries: 1, compactions: 1, attempts: 1 },
@@ -262,8 +492,8 @@ it.each([
   { mode: "json", scenario: "custom-summary", summaries: 0, compactions: 1, attempts: 1 },
   { mode: "text", scenario: "empty-instructions", summaries: 1, compactions: 1, attempts: 1 }
 ])(
-  "native compaction in $mode mode: $scenario",
-  async ({ mode, scenario, summaries, compactions, attempts }) => {
+  "native compaction in $mode mode: $scenario ($config)",
+  async ({ mode, scenario, summaries, compactions, attempts, config }) => {
     const directory = await createValidationWorkspace("pi-native-compaction-");
 
     try {
@@ -274,6 +504,7 @@ it.each([
       await writeFile(
         join(directory, "agent", "settings.json"),
         JSON.stringify({
+          "ext.pi-smart-compact": config,
           compaction: {
             enabled: false,
             reserveTokens: 777,
@@ -285,7 +516,18 @@ it.each([
               }
             }
           },
-          retry: { enabled: scenario === "retry", maxRetries: 1, baseDelayMs: 1 }
+          httpIdleTimeoutMs: scenario === "no-idle-timeout" ? 0 : 4321,
+          websocketConnectTimeoutMs: 2345,
+          retry: {
+            enabled: scenario === "retry",
+            maxRetries: 1,
+            baseDelayMs: 1,
+            provider: {
+              timeoutMs: scenario === "provider-timeout" ? 1234 : undefined,
+              maxRetries: 2,
+              maxRetryDelayMs: 3456
+            }
+          }
         })
       );
       const launch = await createPiLaunch({
@@ -308,7 +550,7 @@ it.each([
           "--model",
           "scripted",
           "--thinking",
-          "off",
+          activeThinking(scenario, config !== undefined),
           "--session",
           sessionPath,
           "--print",
@@ -365,6 +607,7 @@ it.each([
       checkInstructionPrompts(trace, scenario);
 
       const manager = SessionManager.open(sessionPath);
+      checkModelRouting(trace, scenario, config, manager);
       const savedCompactions = manager.getBranch().filter((entry) => entry.type === "compaction");
       assert.equal(savedCompactions.length, compactions);
       checkOutcome(manager, trace, scenario);
@@ -401,9 +644,9 @@ it.each([
         assert.equal(ofType("provider:main").length, scenario === "no-request" ? 2 : 3);
       }
 
-      if (["failure", "cancel", "escape"].includes(scenario)) {
+      if (expectedOutcomeStatus(scenario) === "failed" || ["cancel", "escape"].includes(scenario)) {
         assert.equal(ofType("hook:failed").length, 1);
-        assert.equal(ofType("hook:failed")[0]?.aborted, scenario !== "failure");
+        assert.equal(ofType("hook:failed")[0]?.aborted, ["cancel", "escape"].includes(scenario));
         assert.equal(ofType("provider:main").at(-1)?.hasOldPayload, true);
       }
     } finally {

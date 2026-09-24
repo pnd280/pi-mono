@@ -9,6 +9,7 @@
 - Specialize only verified native/extension contracts. Respect exact renderer overrides and project trust; invalid settings preserve original renderers and disable display observations. Preserve custom renderer slots and generic fallbacks without enabling tools.
 - Interpret only published data and validated adapter facts. Never recover omitted output from metadata, infer cancellation from prose, or mutate borrowed results. Literal notice lookalikes remain source.
 - FFF scopes/diagnostics, MCP routing/media/error identity, todo snapshots, and selective-read preview provenance have adapter-specific semantics. Invalid or partial contracts fall back without claiming unrelated tools.
+- Smart-compact cards distinguish requesting compaction from completing it, retain instruction focus without raw parameters by default, and label only valid saved model/thinking selections. Hide only the recognized successful acknowledgement already represented by the heading; arbitrary text, errors, and partial results stay unchanged. Context-window cards summarize supplied token/capacity/percentage facts without calculating missing values or treating unknown usage as zero; expansion restores raw output. Collapsed/expanded rendering and reused rows must not mutate agent-facing content, retain stale facts, or infer selections from current settings.
 
 ### Transcript and rendering
 

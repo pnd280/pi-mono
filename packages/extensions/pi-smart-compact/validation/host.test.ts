@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -44,7 +44,32 @@ function withoutFocus(context: TranscriptContext, focus: string): TranscriptCont
   };
 }
 
-it("continues through native SDK compaction, session replacement, and extension reload", async () => {
+function checkModelOverride(session: AgentSession, modelOverride: string | undefined) {
+  const compactResults = session.sessionManager
+    .getBranch()
+    .flatMap((entry) =>
+      entry.type === "message" &&
+      entry.message.role === "toolResult" &&
+      entry.message.toolName === "compact"
+        ? [entry.message]
+        : []
+    );
+  assert.equal(compactResults.length, 1);
+  const result = compactResults[0];
+  assert.ok(result);
+  assert.deepEqual(result.content, [
+    {
+      type: "text",
+      text: "Compaction requested."
+    }
+  ]);
+  assert.deepEqual(result.details, {
+    scheduled: true,
+    ...(modelOverride ? { modelOverride, thinkingLevel: "off" } : {})
+  });
+}
+
+async function verifyNativeHost(configured: boolean) {
   const directory = await createValidationWorkspace("pi-smart-compact-host-");
   const cwd = join(directory, "work");
   const agentDir = join(directory, "agent");
@@ -62,6 +87,8 @@ it("continues through native SDK compaction, session replacement, and extension 
     { tokens: null, contextWindow: 200000, percent: null },
     undefined
   ];
+  let expectedMainModel = "scripted";
+  let expectedSummaryModel = configured ? "summary" : "scripted";
   const summaries: string[] = [];
   const errors: unknown[] = [];
   const instructions = "Keep HOST_FOCUS_MARKER and unfinished tests.";
@@ -71,10 +98,23 @@ it("continues through native SDK compaction, session replacement, and extension 
   vi.stubEnv("PI_OFFLINE", "1");
 
   try {
-    const faux = fauxProvider({ provider: "smart-compact-fixture", models: [{ id: "scripted" }] });
+    if (configured)
+      await writeFile(
+        join(agentDir, "settings.json"),
+        JSON.stringify({
+          "ext.pi-smart-compact": { model: "smart-compact-fixture/summary", thinkingLevel: "off" }
+        })
+      );
+    const faux = fauxProvider({
+      provider: "smart-compact-fixture",
+      models: [{ id: "scripted" }, { id: "alternate" }, { id: "summary" }]
+    });
     faux.setResponses(
       Array.from({ length: 20 }, () => async (context, options, _state, model) => {
-        if (options?.signal === unrelated.signal) {
+        assert.equal(options?.headers?.["X-Host-Fixture"], "applied");
+
+        if (options.signal === unrelated.signal) {
+          assert.equal(model.id, expectedMainModel);
           unrelatedRequests.push(JSON.stringify(context.messages));
 
           return fauxAssistantMessage("Unrelated summary");
@@ -83,9 +123,13 @@ it("continues through native SDK compaction, session replacement, and extension 
         if (getCurrentTools(context.messages).length === 0) {
           assert.equal(runtime?.session.isCompacting, true);
           assert.equal(runtime.session.isIdle, false);
-          summaries.push(JSON.stringify(context.messages));
+          assert.equal(model.id, expectedSummaryModel);
+          assert.equal(runtime.session.model?.id, expectedMainModel);
+          const summaryPrompt = JSON.stringify(context.messages);
+          assert.ok(!summaryPrompt.includes("smart-compact-fixture/summary:off"));
+          summaries.push(summaryPrompt);
           const probe = await runtime.session.agent.streamFunction(
-            model,
+            faux.getModel(expectedMainModel)!,
             withoutFocus(context, `\n\nAdditional focus: ${instructions}`),
             { ...options, signal: unrelated.signal }
           );
@@ -94,6 +138,10 @@ it("continues through native SDK compaction, session replacement, and extension 
           return fauxAssistantMessage("HOST_CHECKPOINT: finish the task.");
         }
 
+        assert.equal(model.id, expectedMainModel);
+        for (const message of context.messages)
+          if (message.role === "toolResult" && message.toolName === "compact")
+            assert.equal(contentText(message.content), "Compaction requested.");
         mainRequests++;
         const outcomes = context.messages.flatMap((message) => {
           if (message.role !== "user") return [];
@@ -120,6 +168,9 @@ it("continues through native SDK compaction, session replacement, and extension 
 
     const fixture = (pi: ExtensionAPI) => {
       pi.registerProvider(faux.provider);
+      pi.on("before_provider_headers", (event) => {
+        event.headers["X-Host-Fixture"] = "applied";
+      });
       pi.on("tool_result", (event) => {
         if (event.toolName !== "context_window") return;
         inspections++;
@@ -219,6 +270,10 @@ it("continues through native SDK compaction, session replacement, and extension 
       assert.equal(mainRequests, 3);
       assert.equal(runtime.session.isIdle, true);
       assert.equal(runtime.session.isCompacting, false);
+      checkModelOverride(
+        runtime.session,
+        configured && run < 2 ? "smart-compact-fixture/summary" : undefined
+      );
       assert.equal(
         runtime.session.sessionManager.getBranch().filter((entry) => entry.type === "compaction")
           .length,
@@ -235,8 +290,20 @@ it("continues through native SDK compaction, session replacement, and extension 
       );
       await runtime.session.prompt("What was the compaction outcome? Do not call any tools.");
       assert.equal(mainRequests, 4);
-      if (run < 2) await runtime.newSession();
-      if (run === 1) await runtime.session.reload();
+
+      if (run < 2) {
+        await runtime.newSession();
+        expectedMainModel = "alternate";
+        await runtime.session.setModel(faux.getModel("alternate")!);
+        if (!configured) expectedSummaryModel = expectedMainModel;
+      }
+
+      if (run === 1) {
+        // Removing the override takes effect at reload, without keeping a stale model.
+        await writeFile(join(agentDir, "settings.json"), "{}");
+        await runtime.session.reload();
+        expectedSummaryModel = expectedMainModel;
+      }
     }
 
     assert.equal(inspections, usageCases.length);
@@ -257,4 +324,10 @@ it("continues through native SDK compaction, session replacement, and extension 
     Reflect.get(AgentSession.prototype, "_compactBeforeNextAssistantResponse"),
     original
   );
-}, 20000);
+}
+
+it.each([false, true])(
+  "continues through native SDK compaction, replacement, and reload (configured: %s)",
+  verifyNativeHost,
+  20000
+);

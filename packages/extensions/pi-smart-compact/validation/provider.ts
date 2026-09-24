@@ -114,6 +114,11 @@ export default function offlineFixture(pi: ExtensionAPI) {
     return originalPrompt.apply(this, args);
   };
 
+  pi.on("before_provider_headers", (event) => {
+    trace("hook:headers", { provider: event.headers["X-Fixture-Provider"] });
+    event.headers["X-Fixture-Hook"] = "applied";
+    delete event.headers["X-Fixture-Remove"];
+  });
   pi.on("session_before_compact", async (event, ctx) => {
     trace("hook:before", {
       ctxIdle: ctx.isIdle(),
@@ -175,8 +180,27 @@ export default function offlineFixture(pi: ExtensionAPI) {
     unsubscribe?.();
   });
 
-  const stream: ProviderStreams["stream"] = (model, context, options = {}) =>
-    createFixtureStream({
+  const stream: ProviderStreams["streamSimple"] = (model, context, options = {}) => {
+    const requestDetails = {
+      provider: model.provider,
+      model: model.id,
+      reasoning: options.reasoning,
+      apiKey: options.apiKey,
+      headers: options.headers,
+      authEnv: options.env?.PI_COMPACTION_FIXTURE_AUTH,
+      baseUrl: model.baseUrl,
+      maxTokens: options.maxTokens,
+      requestPolicy: {
+        timeoutMs: options.timeoutMs,
+        websocketConnectTimeoutMs: options.websocketConnectTimeoutMs,
+        maxRetries: options.maxRetries,
+        maxRetryDelayMs: options.maxRetryDelayMs
+      },
+      sessionModel: session?.model?.id,
+      sessionThinking: session?.thinkingLevel
+    };
+
+    return createFixtureStream({
       model,
       signal: options.signal,
       async run({ message, events, text }) {
@@ -186,6 +210,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
           const prompt = JSON.stringify(context.messages);
           summaryRequests++;
           trace("provider:summary", {
+            ...requestDetails,
             cacheRetention: options.cacheRetention,
             summaryKind: prompt.includes("# Instructions\\nThe messages above")
               ? "prefix"
@@ -223,6 +248,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
         const serialized = JSON.stringify(context.messages);
         trace("provider:main", {
           request: mainRequests,
+          ...requestDetails,
           hasCheckpoint: serialized.includes("NATIVE_FIXTURE_CHECKPOINT"),
           hasOldPayload: serialized.includes("OLD_FIXTURE_PAYLOAD"),
           compactionOutcomes: context.messages.flatMap((entry) => {
@@ -275,33 +301,52 @@ export default function offlineFixture(pi: ExtensionAPI) {
         return "toolUse";
       }
     });
+  };
 
-  pi.registerProvider(
-    createProvider({
-      id: "native-compaction-fixture",
-      auth: {
-        apiKey: {
-          name: "Offline fixture",
-          resolve: async () => ({ auth: { apiKey: "fixture" }, source: "fixture" })
-        }
-      },
-      models: [
-        {
-          id: "scripted",
-          name: "Offline native compaction fixture",
-          api: "native-compaction-fixture",
-          provider: "native-compaction-fixture",
-          baseUrl: "http://localhost.invalid",
-          reasoning: false,
-          input: ["text"],
-          contextWindow: 200000,
-          maxTokens: 4096,
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
-        }
-      ],
-      api: { stream, streamSimple: stream }
-    })
-  );
+  for (const dedicated of [false, true]) {
+    const provider = dedicated ? "summary-compaction-fixture" : "native-compaction-fixture";
+    pi.registerProvider(
+      createProvider({
+        id: provider,
+        auth: {
+          apiKey: {
+            name: "Offline fixture",
+            resolve: async () => {
+              if (dedicated && scenario === "auth-failure")
+                throw new Error("Offline summary authentication failed");
+
+              return {
+                auth: {
+                  apiKey: provider,
+                  headers: { "X-Fixture-Provider": provider, "X-Fixture-Remove": "remove" },
+                  baseUrl: `http://${provider}.invalid`
+                },
+                env: { PI_COMPACTION_FIXTURE_AUTH: provider },
+                source: "fixture"
+              };
+            }
+          }
+        },
+        models: [
+          {
+            id: dedicated ? "nested/summary" : "scripted",
+            name: "Offline native compaction fixture",
+            api: provider,
+            provider,
+            baseUrl: "http://localhost.invalid",
+            reasoning:
+              scenario !== "unsupported-thinking" && (!dedicated || scenario !== "no-reasoning"),
+            input: ["text"],
+            contextWindow: 200000,
+            maxTokens: dedicated ? 128 : 4096,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+          }
+        ],
+        api: { stream, streamSimple: stream }
+      })
+    );
+  }
+
   pi.registerTool({
     name: "fixture_work",
     label: "Fixture work",

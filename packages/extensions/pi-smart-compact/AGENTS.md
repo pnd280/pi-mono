@@ -5,7 +5,9 @@
 - [src/index.ts](src/index.ts): tool schema and extension lifecycle binding.
 - [src/native.ts](src/native.ts): session-scoped requests and the between-response boundary patch.
 - [src/compatibility.ts](src/compatibility.ts): inspected private contracts and API/CLI fingerprints.
-- [src/instructions.ts](src/instructions.ts): temporary instruction plumbing and native split-turn prompt focus.
+- [src/config.ts](src/config.ts): global and trusted project model/thinking settings.
+- [src/summarize.ts](src/summarize.ts): operation-scoped model, thinking, and instruction overrides.
+- [src/instructions.ts](src/instructions.ts): native split-turn prompt focus.
 - [src/outcome.ts](src/outcome.ts): native outcome observation, skip classification, and status text.
 - [validation/](validation/): offline CLI provider, subprocess scenarios, and SDK lifecycle checks.
 
@@ -14,7 +16,9 @@
 - Reuse Pi's native compaction orchestration. Do not call the aborting manual API, hand-build summaries/entries, or manufacture continuation messages.
 - Preserve complete tool-batch persistence, native hooks/settings/retries, busy state, and ordinary loop continuation. Append status messages only for skipped, cancelled, or failed attempts, before the next response; success uses the native compaction entry and summary. Never use status messages to trigger another turn.
 - Keep private API assumptions in the compatibility boundary. Unknown versions or conflicting patches must fail closed; never learn supported fingerprints from the executing host.
-- Scope requests to their session and instructions to the native operation. Deactivate retained callbacks before restoring owned hooks. Do not overwrite another extension's replacement.
+- Preserve [configuration rules](README.md#configuration): absent settings use native selection; invalid explicit settings must not silently select another model. Never change the conversation model/thinking or forward its credentials to the configured provider. Keep native retention settings and retry callbacks.
+- Keep selected-model/thinking information in result details for `pi-tool-display`, not model-facing acknowledgement text.
+- Scope requests to their session and overrides to the native operation. Deactivate retained callbacks before restoring owned hooks. Do not overwrite another extension's replacement.
 - Match the native split-turn instruction suffix, not phrases inside serialized conversation. Clone provider input rather than mutate retry-shared context.
 - Follow [workspace development](../../../docs/development.md), [architecture](../../../docs/agents/architecture.md), and the [compatibility checklist](docs/pi-compatibility.md).
 

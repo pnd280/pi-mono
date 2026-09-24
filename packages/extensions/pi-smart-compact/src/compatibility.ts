@@ -25,7 +25,7 @@ export type DefaultCompaction = (
 
 export type NativeSession = Pick<
   AgentSession,
-  "agent" | "sessionManager" | "model" | "subscribe"
+  "agent" | "sessionManager" | "settingsManager" | "model" | "subscribe"
 > & {
   _appendCustomMessage(
     message: Extract<ContextSnapshot["messages"][number], { role: "custom" }>

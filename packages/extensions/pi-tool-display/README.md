@@ -23,6 +23,7 @@ Specialized cards override even supplied custom renderers for:
 - [`pi-mcp-adapter`](src/adapters/pi-mcp-adapter/README.md)
 - [`pi-todo`](src/adapters/pi-todo/README.md)
 - [`pi-selective-read`](src/adapters/pi-selective-read/README.md)
+- [`pi-smart-compact`](src/adapters/pi-smart-compact/README.md): compaction request/focus/model cards and readable context-window usage.
 
 Other tools retain custom `renderCall`/`renderResult`; tools with neither, or historical calls without current definitions, use generic cards from retained data.
 

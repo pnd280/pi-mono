@@ -5,6 +5,7 @@ import { genericAdapter } from "../adapters/generic.ts";
 import { nativeAdapter } from "../adapters/native/index.ts";
 import { piMcpAdapter } from "../adapters/pi-mcp-adapter/index.ts";
 import { piSelectiveReadAdapter } from "../adapters/pi-selective-read/index.ts";
+import { piSmartCompactAdapter } from "../adapters/pi-smart-compact/index.ts";
 import { piTodoAdapter } from "../adapters/pi-todo/index.ts";
 import type { ToolDisplayAdapter, ToolDisplayAdapterResolver } from "../contracts.ts";
 import type { DisplaySettings } from "../settings.ts";
@@ -16,7 +17,8 @@ const extensionAdapterResolvers: readonly ToolDisplayAdapterResolver[] = [
   piFffAdapter,
   piMcpAdapter,
   piTodoAdapter,
-  piSelectiveReadAdapter
+  piSelectiveReadAdapter,
+  piSmartCompactAdapter
 ];
 
 export function selectAdapter(

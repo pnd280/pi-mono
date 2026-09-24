@@ -8,6 +8,12 @@ export { piTodoAdapter, todoDisplayAdapter } from "./pi-todo/index.ts";
 
 export { piSelectiveReadAdapter, selectiveReadDisplayAdapter } from "./pi-selective-read/index.ts";
 
+export {
+  piSmartCompactAdapter,
+  smartCompactDisplayAdapter,
+  contextWindowDisplayAdapter
+} from "./pi-smart-compact/index.ts";
+
 export { nativeAdapter } from "./native/index.ts";
 
 export type {

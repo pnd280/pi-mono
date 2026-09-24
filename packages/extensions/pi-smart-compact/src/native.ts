@@ -3,9 +3,11 @@ import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import { assertCompatible, type Prepare } from "./compatibility.ts";
 import { describeOutcome, runRequestedCompaction } from "./outcome.ts";
+import type { CompactionModelOptions } from "./summarize.ts";
 
 type Registration = {
   active: boolean;
+  selection: CompactionModelOptions | undefined;
   pending?: { instructions?: string | undefined; signal?: AbortSignal | undefined } | undefined;
 };
 
@@ -16,7 +18,7 @@ type Patch = {
   registrations: Map<object, Registration>;
 };
 
-const patchKey = Symbol.for("pi-smart-compact.native.v1");
+const patchKey = Symbol.for("pi-smart-compact.native.v2");
 
 type Prototype = {
   _compactBeforeNextAssistantResponse: Prepare;
@@ -27,7 +29,7 @@ function hasBoundary(value: object): value is Prototype {
   return typeof Reflect.get(value, "_compactBeforeNextAssistantResponse") === "function";
 }
 
-export function bindNativeCompaction(manager: object) {
+export function bindNativeCompaction(manager: object, selection?: CompactionModelOptions) {
   const prototype: object = AgentSession.prototype;
   if (!hasBoundary(prototype))
     throw new Error("pi-smart-compact: missing native compaction boundary.");
@@ -51,7 +53,11 @@ export function bindNativeCompaction(manager: object) {
       registration.pending = undefined;
       if (request.signal?.aborted || this._agentRunAbortRequested) return context;
 
-      const outcome = await runRequestedCompaction(this, request.instructions);
+      const outcome = await runRequestedCompaction(
+        this,
+        request.instructions,
+        registration.selection
+      );
 
       // Native compaction already records success and supplies the model's summary.
       if (registration.active && outcome.status !== "completed") {
@@ -80,7 +86,7 @@ export function bindNativeCompaction(manager: object) {
     throw new Error("pi-smart-compact is already bound to this session.");
   }
 
-  const registration: Registration = { active: true };
+  const registration: Registration = { active: true, selection };
   patch.registrations.set(manager, registration);
 
   return {
