@@ -1,0 +1,37 @@
+# Pi compatibility
+
+[pi-smart-compact](../README.md)
+
+## Supported boundary
+
+Pi **0.87.1**, both its API modules and installed bundled CLI. At session binding, [compatibility checks](../src/compatibility.ts) require the version and reviewed fingerprints for four prototype methods (`_compactBeforeNextAssistantResponse`, `_runAutoCompaction`, `_runDefaultCompaction`, `_appendCustomMessage`) and the exported lower-level `compact` implementation. Unknown versions, fingerprints, or conflicting boundary replacements are rejected. The tool surfaces the initialization error if invoked while unavailable.
+
+Fingerprints are implementation guards, not a guarantee of compatibility with every third-party extension. Do not refresh them merely to make a test pass. Review source, prompts, consumers, and lifecycle first, then verify both runtime distributions. Same-version prompt/dependency changes also require review.
+
+## Contracts to verify
+
+- [ ] The public `ctx.getContextUsage()` returns `{ tokens: number | null, contextWindow: number, percent: number | null }` or `undefined`. `context_window` serializes the object unchanged and preserves it in result details; `undefined` produces an unavailable message without fabricated usage. This tool adds no private API dependencies.
+- [ ] The native between-response boundary runs after all tool results are persisted, within the still-active agent run, before the next model request. Its context accepts updated `messages` without changing other fields.
+- [ ] `_runAutoCompaction("manual", false)` accepts and forwards `manual` at runtime without calling `abort()`. Its boolean result signals queued continuation, not success. Ordinary tool follow-up still advances the agent loop.
+- [ ] When Pi emits `compaction_end`, a session-scoped `subscribe()` listener receives it before the native attempt resolves. Its result/error/aborted fields distinguish completed, failed, and cancelled outcomes. A completed result relies on the native compaction entry and summary; it must not append a success notice. The listener is removed on every exit.
+- [ ] A native attempt returning without an event is reported as skipped, with a specific reason only for a missing model or already-compacted leaf. Native preparation can swallow an error without emitting an event, so its absence does not establish that the session was too small. Unexpected exceptions propagate without a status message.
+- [ ] `_appendCustomMessage` persists a custom-message entry, refreshes finalized context, and emits message start/end events synchronously without queueing or continuing the agent. This boundary is after complete tool-batch persistence. Public `sendMessage` with `triggerTurn: false` still defers while streaming and is too late for this response. The status is visible in the next request, transcript, and reopened session; disposed bindings must not append it.
+- [ ] Native preparation, current-model budgets, authentication, hook cancellation/custom summaries, retries, usage/file metadata, entry persistence, and finalized projection rebuilding remain owned by Pi.
+- [ ] `compaction_start`, `compaction_end`, compaction retry events, and before/success/failure hooks accept `manual`. UI consumers still use native `isCompacting` and `abortCompaction()`; no idle transition or final print response occurs mid-compaction.
+- [ ] `_runDefaultCompaction` argument order remains preparation, model, key, headers, instructions, signal, environment, reason. Its default implementation uses `agent.streamFunction` for both history and split-turn summaries, including retries.
+- [ ] Native `session_before_compact` emission uses the session's `_extensionRunner.emit` and `_autoCompactionAbortController.signal`. Scoped overrides preserve return values, receivers, unrelated events, and operations with another signal/reason.
+- [ ] The split-turn prompt ends in the exact instruction block inspected in [instructions.ts](../src/instructions.ts), carried by one text block in the final user message. History prompts already include custom instructions and must not receive them twice. Provider context is cloned for each attempt, so retries never accumulate focus text.
+- [ ] `session_start` supplies the actual session-manager identity. Shutdown, session replacement, and reload dispose old bindings. Settlement clears unconsumed requests. Multiple active sessions share the boundary without sharing requests.
+- [ ] Temporary methods and stream functions remain writable data properties. Owned-hook cleanup deactivates retained callbacks, restores property shape, and respects later replacements.
+
+## Limitations and replacement opportunities
+
+- There is no public native-compaction-with-continuation API. `ctx.compact()` aborts the current run; boundary entries require extension-owned summaries rather than native orchestration. Replace private patches if Pi adds a public API with the same lifecycle guarantees.
+- Passing `manual` is outside `_runAutoCompaction`'s declared automatic-only argument contract. Native failure text may still say `Auto-compaction failed` even though the event reason is `manual`; the outcome message removes that misleading prefix.
+- The initial tool result acknowledges scheduling only; a separate `smart-compaction-result` message records skipped attempts and cancellations or failures reported by Pi. Successful compaction adds no extra message. Unexpected exceptions can stop continuation; whole-run abort prevents it.
+- Focus injection affects only default native summaries. Custom compaction handlers receive the instructions but control their own model requests and output.
+- Fingerprint checks do not inspect session-instance overrides or continuously detect patches installed after binding. Third-party patch/reload combinations are not guaranteed compatible. Cleanup deactivates retained wrappers and leaves later replacements untouched.
+
+## Validation
+
+Run [package checks](../README.md#validation) and inspect the [coverage specification](testing.md). Both the real bundled CLI and API runtime must pass before accepting fingerprints. Manually check interactive progress/Escape behavior and real-provider summary quality after runtime changes; these are not established by the offline tests.
