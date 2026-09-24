@@ -87,7 +87,7 @@ export async function createEmptyChild(ctx: SessionCommandContext): Promise<void
   if (result.cancelled) ctx.ui.notify("Sub-session creation cancelled", "info");
 }
 
-export async function runSessionCommand(args: string, ctx: SessionCommandContext): Promise<void> {
+export async function runSessionOperation(args: string, ctx: SessionCommandContext): Promise<void> {
   switch (args.trim()) {
     case "persist":
       await persistSession(ctx);
@@ -96,7 +96,10 @@ export async function runSessionCommand(args: string, ctx: SessionCommandContext
       await createEmptyChild(ctx);
       break;
     default:
-      ctx.ui.notify("Usage: /sesh persist | /sesh create-empty-child", "error");
+      ctx.ui.notify(
+        "Usage: /sesh persist | /sesh create-empty-child | /sesh auto-name [clear]",
+        "error"
+      );
   }
 }
 
@@ -105,23 +108,36 @@ const subcommands = [
   {
     value: "create-empty-child",
     description: "Start an empty session linked to this saved session"
-  }
+  },
+  { value: "auto-name", description: "Regenerate the session title" }
 ];
+const titleSubcommands = [{ value: "auto-name clear", description: "Clear the session title" }];
 
-export function registerSessionCommand(pi: Pick<ExtensionAPI, "registerCommand">): void {
+export function registerSessionCommand(
+  pi: Pick<ExtensionAPI, "registerCommand">,
+  autoName: (args: string) => Promise<void>
+): void {
   let running = false;
   pi.registerCommand("sesh", {
-    description: "Persist an ephemeral session or create an empty sub-session",
+    description: "Persist sessions, create empty sub-sessions, or generate and clear titles",
     getArgumentCompletions: (prefix) => {
-      const matches = subcommands.filter(
-        ({ value }) => value.startsWith(prefix) && value !== prefix
-      );
+      const choices = prefix.startsWith("auto-name ") ? titleSubcommands : subcommands;
+      const matches = choices.filter(({ value }) => value.startsWith(prefix) && value !== prefix);
 
       return matches.length
         ? matches.map(({ value, description }) => ({ value, label: value, description }))
         : null;
     },
     handler: async (args, ctx) => {
+      const action = args.trim();
+
+      // Naming can supersede or clear pending generation, even during a session operation.
+      if (/^auto-name(?:\s|$)/u.test(action)) {
+        await autoName(action.slice("auto-name".length).trim());
+
+        return;
+      }
+
       if (running) {
         ctx.ui.notify("A session operation is already in progress", "warning");
 
@@ -131,7 +147,7 @@ export function registerSessionCommand(pi: Pick<ExtensionAPI, "registerCommand">
       running = true;
 
       try {
-        await runSessionCommand(args, ctx);
+        await runSessionOperation(action, ctx);
       } finally {
         running = false;
       }

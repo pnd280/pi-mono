@@ -2,7 +2,7 @@
   "name": "pi-session-utils",
   "version": "0.1.0",
   "private": true,
-  "description": "Persist ephemeral Pi sessions and create empty parent-linked sub-sessions",
+  "description": "Persist Pi sessions, create parent-linked sub-sessions, and generate session names",
   "keywords": [
     "pi-package"
   ],
@@ -22,6 +22,7 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*"
   },
   "pi": {

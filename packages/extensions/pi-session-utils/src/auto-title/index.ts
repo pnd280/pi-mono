@@ -4,7 +4,7 @@ import { loadTitleConfig } from "./config.ts";
 import { generateTitle } from "./generate.ts";
 import { SessionTitle } from "./runtime.ts";
 
-export default function piSessionTitle(pi: ExtensionAPI): void {
+export function registerAutoTitle(pi: ExtensionAPI): (args: string) => Promise<void> {
   let title: SessionTitle | undefined;
 
   pi.on("session_start", (_event, ctx) => {
@@ -28,16 +28,8 @@ export default function piSessionTitle(pi: ExtensionAPI): void {
   pi.on("session_before_tree", () => title?.cancel());
   pi.on("session_tree", () => title?.cancel());
   pi.on("session_shutdown", () => title?.dispose());
-  pi.registerCommand("auto-name", {
-    description: "Regenerate the session title, or clear it with /auto-name clear",
-    getArgumentCompletions: (prefix) => {
-      // A complete argument must submit instead of accepting an identical completion first.
-      if (prefix === "clear" || !"clear".startsWith(prefix)) return null;
 
-      return [{ value: "clear", label: "clear", description: "Clear the session title" }];
-    },
-    handler: async (args) => {
-      await title?.command(args);
-    }
-  });
+  return async (args) => {
+    await title?.command(args);
+  };
 }

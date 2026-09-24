@@ -61,6 +61,42 @@ it("saves the active branch with a new header, preserving entries and context", 
   expect(source.getSessionFile()).toBeUndefined();
 });
 
+it.each(["Renamed session", ""])(
+  "preserves the current session-wide name after navigating away from its metadata: %s",
+  (name) => {
+    const source = SessionManager.inMemory(cwd);
+    source.appendSessionInfo("Old title");
+    const selected = source.appendMessage(user("selected"));
+    source.appendMessage(user("abandoned"));
+    source.appendSessionInfo(name);
+    source.branch(selected);
+    const branch = source.getBranch();
+    const entries = source.getEntries();
+
+    const saved = SessionManager.open(saveActiveBranch(cwd, source));
+
+    expect(saved.getSessionName()).toBe(name || undefined);
+    expect(saved.getEntries().slice(0, branch.length)).toEqual(branch);
+    expect(saved.getBranch().at(-1)?.parentId).toBe(selected);
+    expect(userContent(saved)).toEqual(["selected"]);
+    expect(source.getEntries()).toEqual(entries);
+    expect(source.getBranch()).toEqual(branch);
+  }
+);
+
+it("preserves the current name when saving an empty active branch", () => {
+  const source = SessionManager.inMemory(cwd);
+  source.appendSessionInfo("Named session");
+  source.resetLeaf();
+
+  const saved = SessionManager.open(saveActiveBranch(cwd, source));
+
+  expect(saved.getSessionName()).toBe("Named session");
+  expect(saved.getBranch().at(-1)?.parentId).toBeNull();
+  expect(saved.buildSessionContext().messages).toEqual([]);
+  expect(source.getBranch()).toEqual([]);
+});
+
 it("saves immediately while idle and switches to the file-backed branch", async () => {
   const source = SessionManager.inMemory(cwd);
   source.appendMessage(user("before"));

@@ -16,7 +16,7 @@ The pre-commit hook rejects em dashes (U+2014) in staged text; it does not run [
 
 Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts), also discovered from package directories. Lint warnings fail checks.
 
-Each package provides `lint`, `check`, `test`, and `format`. `check` checks formatting, then runs `lint` for linting and types. Tests follow the shared [runner convention](agents/testing.md#runner).
+Each package under `packages/` provides `lint`, `check`, `test`, and `format`. `check` checks formatting, then runs `lint` for linting and types. Tests follow the shared [runner convention](agents/testing.md#runner).
 
 Fix implementation diagnostics without weakening shared checks; explain narrow exceptions.
 
@@ -38,7 +38,7 @@ Workspace commands:
 | Command          | Scope                                  |
 | ---------------- | -------------------------------------- |
 | `vpr check`      | Formatting, linting, and type checking |
-| `vp test run`    | All tests                              |
+| `vpr test`       | All tests in one Vitest invocation     |
 | `vpr lint`       | Linting and type checking              |
 | `vp fmt --check` | Formatting without writes              |
 | `vp fmt`         | Apply formatting                       |
@@ -47,7 +47,7 @@ Use `vpr check` for the repository's `stylish` lint format; the built-in `vp che
 
 ### Test caching
 
-Test scripts are uncached by default. Use `vpr --no-cache '<package-name>#test'` to force execution.
+Package test scripts are uncached by default. Use `vpr --no-cache '<package-name>#test'` to force execution.
 
 To verify caching:
 
@@ -69,7 +69,7 @@ Keep shared development tooling and Pi host packages in root `devDependencies`; 
 
 Use `vp add`, `vp remove`, or `vp update`; include pnpm lockfile changes.
 
-Keep the direct `vite` alias for Vitest's pnpm peer dependency. `vite-plus` supplies `vitest` transitively. On Vite+ updates, align the alias, `vitest` catalog pin, and overrides with `vp toolchain`.
+Keep the direct `vite` alias for Vitest's pnpm peer dependency. `vite-plus` supplies `vitest` transitively; let it select the matching version instead of pinning or overriding Vitest separately. On Vite+ updates, align the `vite` alias and override with `vp toolchain`.
 
 ### Pi extension entry points
 

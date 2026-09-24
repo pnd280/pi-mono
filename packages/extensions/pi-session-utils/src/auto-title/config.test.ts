@@ -9,7 +9,11 @@ import { loadTitleConfig } from "./config.ts";
 
 const directories: string[] = [];
 const globalConfig = { model: "provider/global", thinkingLevel: "off" };
-const globalSettings = JSON.stringify({ "ext.pi-session-title": globalConfig });
+const globalSettings = titleSettings(globalConfig);
+
+function titleSettings(config: unknown): string {
+  return JSON.stringify({ "ext.pi-session-utils": { "auto-title": config } });
+}
 
 afterEach(() => {
   for (const path of directories.splice(0)) rmSync(path, { recursive: true, force: true });
@@ -17,7 +21,7 @@ afterEach(() => {
 });
 
 function settings(global?: string, project?: string) {
-  const root = mkdtempSync(join(tmpdir(), "pi-session-title-config-"));
+  const root = mkdtempSync(join(tmpdir(), "pi-session-utils-auto-title-config-"));
   directories.push(root);
   const agentDir = join(root, "agent");
   const cwd = join(root, "project");
@@ -31,15 +35,16 @@ function settings(global?: string, project?: string) {
   return { agentDir, cwd, globalPath, projectPath };
 }
 
-it("reads only the explicit section without changing global settings", () => {
+it("reads only the explicit auto-title section without changing global settings", () => {
   const source = JSON.stringify({
     theme: "light",
     defaultModel: "other-model",
-    "ext.pi-session-title": { model: " provider/nested/model ", thinkingLevel: "low" }
+    "ext.pi-session-utils": {
+      "auto-title": { model: " provider/nested/model ", thinkingLevel: "low" }
+    }
   });
   const { agentDir, cwd, globalPath } = settings(source);
   vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  vi.stubEnv("PI_SESSION_TITLE_MODEL", "ignored/model");
   expect(loadTitleConfig(cwd)).toEqual({ model: "provider/nested/model", thinkingLevel: "low" });
   expect(readFileSync(globalPath, "utf8")).toBe(source);
 });
@@ -47,9 +52,10 @@ it("reads only the explicit section without changing global settings", () => {
 it.each([
   undefined,
   "{}",
-  JSON.stringify({ "ext.pi-session-title": { model: "provider/id" } }),
-  JSON.stringify({ "ext.pi-session-title": { thinkingLevel: "off" } }),
-  JSON.stringify({ "ext.pi-session-title": { model: "provider/id", thinkingLevel: "automatic" } })
+  JSON.stringify({ "ext.pi-session-utils": {} }),
+  titleSettings({ model: "provider/id" }),
+  titleSettings({ thinkingLevel: "off" }),
+  titleSettings({ model: "provider/id", thinkingLevel: "automatic" })
 ])("disables generation for missing, incomplete, or unsupported settings: %s", (source) => {
   const { agentDir, cwd } = settings(source);
   expect(loadTitleConfig(cwd, { agentDir })).toBeUndefined();
@@ -57,7 +63,7 @@ it.each([
 
 it("rejects oversized settings before unknown top-level fields are discarded", () => {
   const source = JSON.stringify({
-    "ext.pi-session-title": globalConfig,
+    "ext.pi-session-utils": { "auto-title": globalConfig },
     ignored: "x".repeat(1024 * 1024)
   });
   const { agentDir, cwd } = settings(source);
@@ -74,7 +80,7 @@ it.each([
     expected: { model: "provider/global", thinkingLevel: "high" }
   }
 ])("merges trusted project fields over global settings: $project", ({ project, expected }) => {
-  const source = JSON.stringify({ theme: "dark", "ext.pi-session-title": project });
+  const source = titleSettings(project);
   const { agentDir, cwd, globalPath, projectPath } = settings(globalSettings, source);
   expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toEqual(expected);
   expect(readFileSync(globalPath, "utf8")).toBe(globalSettings);
@@ -84,7 +90,7 @@ it.each([
 it("requires explicit trust before project settings can select a model or disable generation", () => {
   const { agentDir, cwd, projectPath } = settings(
     globalSettings,
-    JSON.stringify({ "ext.pi-session-title": { model: "provider/project" } })
+    titleSettings({ model: "provider/project" })
   );
   expect(loadTitleConfig(cwd, { agentDir })).toEqual(globalConfig);
   expect(loadTitleConfig(cwd, { agentDir, projectTrusted: false })).toEqual(globalConfig);
@@ -92,7 +98,7 @@ it("requires explicit trust before project settings can select a model or disabl
   expect(loadTitleConfig(cwd, { agentDir, projectTrusted: false })).toEqual(globalConfig);
 });
 
-it.each([undefined, "{}", JSON.stringify({ "ext.pi-session-title": {} })])(
+it.each([undefined, "{}", JSON.stringify({ "ext.pi-session-utils": {} }), titleSettings({})])(
   "inherits global settings when the trusted project has no overrides: %s",
   (source) => {
     const { agentDir, cwd } = settings(globalSettings, source);
@@ -100,7 +106,7 @@ it.each([undefined, "{}", JSON.stringify({ "ext.pi-session-title": {} })])(
   }
 );
 
-it.each([undefined, "{}", JSON.stringify({ "ext.pi-session-title": { thinkingLevel: "off" } })])(
+it.each([undefined, "{}", titleSettings({ thinkingLevel: "off" })])(
   "allows a complete project configuration without complete global settings: %s",
   (source) => {
     const { agentDir, cwd } = settings(source, globalSettings);
@@ -110,8 +116,8 @@ it.each([undefined, "{}", JSON.stringify({ "ext.pi-session-title": { thinkingLev
 
 it("allows the two required fields to be split across scopes but does not invent missing values", () => {
   const { agentDir, cwd, projectPath } = settings(
-    JSON.stringify({ "ext.pi-session-title": { model: "provider/global" } }),
-    JSON.stringify({ "ext.pi-session-title": { thinkingLevel: "off" } })
+    titleSettings({ model: "provider/global" }),
+    titleSettings({ thinkingLevel: "off" })
   );
   expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toEqual(globalConfig);
   writeFileSync(projectPath, "{}");
@@ -122,10 +128,15 @@ it.each([
   "{malformed",
   "null",
   "[]",
-  JSON.stringify({ "ext.pi-session-title": null }),
-  JSON.stringify({ "ext.pi-session-title": { model: "model-only" } }),
-  JSON.stringify({ "ext.pi-session-title": { thinkingLevel: null } }),
-  JSON.stringify({ "ext.pi-session-title": { auto: true } })
+  JSON.stringify({ "ext.pi-session-utils": null }),
+  JSON.stringify({ "ext.pi-session-utils": [] }),
+  JSON.stringify({ "ext.pi-session-utils": { title: globalConfig } }),
+  JSON.stringify({ "ext.pi-session-utils": { "auto-title": globalConfig, unknown: true } }),
+  titleSettings(null),
+  titleSettings([]),
+  titleSettings({ model: "model-only" }),
+  titleSettings({ thinkingLevel: null }),
+  titleSettings({ auto: true })
 ])("disables generation when either participating settings file is invalid: %s", (source) => {
   const { agentDir, cwd, globalPath, projectPath } = settings(globalSettings, source);
   expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toBeUndefined();
@@ -141,10 +152,7 @@ it("disables generation on project read errors rather than silently using anothe
 });
 
 it("uses only the current directory's project settings, without ancestor discovery", () => {
-  const { agentDir, cwd } = settings(
-    globalSettings,
-    JSON.stringify({ "ext.pi-session-title": { model: "provider/parent" } })
-  );
+  const { agentDir, cwd } = settings(globalSettings, titleSettings({ model: "provider/parent" }));
   const child = join(cwd, "child");
   mkdirSync(child);
   expect(loadTitleConfig(child, { agentDir, projectTrusted: true })).toEqual(globalConfig);

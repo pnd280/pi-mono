@@ -9,7 +9,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import {
   createEmptyChild,
   registerSessionCommand,
-  runSessionCommand,
+  runSessionOperation,
   type SessionCommandContext
 } from "./commands.ts";
 import { saveActiveBranch } from "./persist.ts";
@@ -43,18 +43,28 @@ function context(sessionManager = SessionManager.inMemory(cwd)) {
 
 it("registers only /sesh and completes only its supported subcommands", async () => {
   const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
-  registerSessionCommand({
-    registerCommand: (name, options) => {
-      commands.set(name, options);
-    }
-  });
+  registerSessionCommand(
+    {
+      registerCommand: (name, options) => {
+        commands.set(name, options);
+      }
+    },
+    vi.fn(async () => {})
+  );
   expect([...commands.keys()]).toEqual(["sesh"]);
   const complete = commands.get("sesh")!.getArgumentCompletions!;
   expect((await complete(""))?.map((item) => item.value)).toEqual([
     "persist",
-    "create-empty-child"
+    "create-empty-child",
+    "auto-name"
   ]);
   expect((await complete("create-"))?.map((item) => item.value)).toEqual(["create-empty-child"]);
+  expect((await complete("auto-"))?.map((item) => item.value)).toEqual(["auto-name"]);
+  expect((await complete("auto-name "))?.map((item) => item.value)).toEqual(["auto-name clear"]);
+  expect((await complete("auto-name cl"))?.map((item) => item.value)).toEqual(["auto-name clear"]);
+  expect(await complete("auto-name")).toBeNull();
+  expect(await complete("auto-name clear")).toBeNull();
+  expect(await complete("auto-name unknown")).toBeNull();
   expect(await complete("persist")).toBeNull();
   expect(await complete("create-sub-session")).toBeNull();
 });
@@ -69,7 +79,7 @@ it("rejects unknown subcommands and extra arguments before any session operation
     "create-empty-child extra",
     "create-sub-session"
   ]) {
-    await runSessionCommand(args, ctx);
+    await runSessionOperation(args, ctx);
   }
 
   expect(ctx.waitForIdle).not.toHaveBeenCalled();
@@ -82,7 +92,7 @@ it.each(["persist", "create-empty-child"])(
   async (command) => {
     const ctx = context();
     ctx.isIdle.mockReturnValue(false);
-    await runSessionCommand(command, ctx);
+    await runSessionOperation(command, ctx);
 
     expect(ctx.ui.notify).toHaveBeenCalledExactlyOnceWith(
       expect.stringMatching(/agent is running/i),
@@ -104,7 +114,7 @@ it.each(["persist", "create-empty-child"])(
 it("warns when persist is busy even if the session is already file-backed", async () => {
   const ctx = context(SessionManager.create(cwd));
   ctx.isIdle.mockReturnValue(false);
-  await runSessionCommand("persist", ctx);
+  await runSessionOperation("persist", ctx);
 
   expect(ctx.ui.notify).toHaveBeenCalledExactlyOnceWith(
     expect.stringMatching(/agent is running/i),
@@ -124,7 +134,7 @@ it("includes a shell-safe linked CLI command for a busy persisted parent", async
   const before = readFileSync(parent, "utf8");
   const ctx = context(SessionManager.open(parent));
   ctx.isIdle.mockReturnValue(false);
-  await runSessionCommand("create-empty-child", ctx);
+  await runSessionOperation("create-empty-child", ctx);
 
   expect(ctx.ui.notify).toHaveBeenCalledExactlyOnceWith(
     expect.stringMatching(/agent is running/i),
@@ -149,7 +159,7 @@ it("includes a shell-safe linked CLI command for a busy persisted parent", async
 it("warns without a dangling CLI command when a busy parent's file is not yet written", async () => {
   const ctx = context(SessionManager.create(cwd));
   ctx.isIdle.mockReturnValue(false);
-  await runSessionCommand("create-empty-child", ctx);
+  await runSessionOperation("create-empty-child", ctx);
 
   expect(ctx.ui.notify).toHaveBeenCalledExactlyOnceWith(
     expect.stringContaining("not been saved"),

@@ -199,12 +199,10 @@ async function streamCalls(
   }
 }
 
-export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
-  const cwd = process.cwd();
-  await assertFixtureWorkspace(cwd);
+export function createDisplayFixtureStream(cwd: string): ProviderStreams["stream"] {
   const plans = scenarios(cwd);
 
-  const stream: ProviderStreams["stream"] = (model, context, { signal } = {}) =>
+  return (model, context, { signal } = {}) =>
     createFixtureStream({
       model,
       signal,
@@ -277,6 +275,12 @@ export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
         }
       }
     });
+}
+
+export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
+  const cwd = process.cwd();
+  await assertFixtureWorkspace(cwd);
+  const stream = createDisplayFixtureStream(cwd);
 
   pi.registerProvider(
     createProvider({

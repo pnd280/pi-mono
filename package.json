@@ -8,7 +8,7 @@
     "format:check": "vp fmt --check .",
     "lint": "vp lint --format stylish .",
     "check": "vp fmt --check . && vp run lint",
-    "test": "vp test run"
+    "test": "vp test"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "catalog:",

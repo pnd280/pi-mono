@@ -11,7 +11,11 @@ const configSchema = z.strictObject({
     .regex(/^[^/\s]+\/\S+$/u),
   thinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"])
 });
-const settingsSchema = z.object({ "ext.pi-session-title": configSchema.partial().optional() });
+const settingsSchema = z.object({
+  "ext.pi-session-utils": z
+    .strictObject({ "auto-title": configSchema.partial().optional() })
+    .optional()
+});
 
 export type TitleConfig = z.output<typeof configSchema>;
 
@@ -22,7 +26,7 @@ function readSection(path: string) {
     const raw: unknown = JSON.parse(source);
     const parsed = settingsSchema.safeParse(raw);
 
-    return parsed.success ? (parsed.data["ext.pi-session-title"] ?? {}) : undefined;
+    return parsed.success ? (parsed.data["ext.pi-session-utils"]?.["auto-title"] ?? {}) : undefined;
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return {};
 

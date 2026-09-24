@@ -17,14 +17,16 @@ it.each([
 ])(
   "keeps $mode output clean and exits without waiting for title work: $prompt",
   async ({ mode, prompt, name }) => {
-    const directory = await createValidationWorkspace("pi-session-title-process-");
+    const directory = await createValidationWorkspace("pi-session-utils-auto-title-process-");
     const sessionPath = join(directory, "session.jsonl");
 
     try {
       await writeFile(
         join(directory, "agent", "settings.json"),
         JSON.stringify({
-          "ext.pi-session-title": { model: "title-fixture/title", thinkingLevel: "off" }
+          "ext.pi-session-utils": {
+            "auto-title": { model: "title-fixture/title", thinkingLevel: "off" }
+          }
         })
       );
       const launch = await createPiLaunch({
@@ -39,7 +41,7 @@ it.each([
           "-e",
           fileURLToPath(new URL("../index.ts", import.meta.url)),
           "-e",
-          fileURLToPath(new URL("./provider.ts", import.meta.url)),
+          fileURLToPath(new URL("./auto-title-provider.ts", import.meta.url)),
           "--provider",
           "title-fixture",
           "--model",

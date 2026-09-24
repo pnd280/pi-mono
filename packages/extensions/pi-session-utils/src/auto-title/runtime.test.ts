@@ -147,7 +147,7 @@ it("checks the live title before committing even if its change event has not arr
 it("does not accept removed subcommands or use disposed session callbacks", async () => {
   const { title, session, generate, notify } = fixture();
   await title.command("regenerate");
-  expect(notify).toHaveBeenCalledExactlyOnceWith("Usage: /auto-name [clear]", "warning");
+  expect(notify).toHaveBeenCalledExactlyOnceWith("Usage: /sesh auto-name [clear]", "warning");
   title.dispose();
   await title.command("");
   await title.command("clear");

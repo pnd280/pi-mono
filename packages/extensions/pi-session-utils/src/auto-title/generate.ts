@@ -45,14 +45,14 @@ type GenerationRequest = {
 async function completeTitle({ config, registry, source, signal }: GenerationRequest) {
   if (!config)
     throw new TitleError(
-      "Configure ext.pi-session-title.model and thinkingLevel in global or trusted project settings.json, then /reload."
+      "Configure model and thinkingLevel under ext.pi-session-utils.auto-title in global or trusted project settings.json, then /reload."
     );
   if (!source.trim()) throw new TitleError("No conversation text to name.");
   const slash = config.model.indexOf("/");
   const model = registry.find(config.model.slice(0, slash), config.model.slice(slash + 1));
   if (!model)
     throw new TitleError(
-      "The configured title model is unavailable. Check ext.pi-session-title.model."
+      "The configured title model is unavailable. Check ext.pi-session-utils.auto-title.model."
     );
   if (!getSupportedThinkingLevels(model).includes(config.thinkingLevel))
     throw new TitleError("The configured thinkingLevel is unsupported by the title model.");

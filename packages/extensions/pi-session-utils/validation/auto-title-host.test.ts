@@ -14,12 +14,14 @@ import {
 import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
-import sessionTitle from "../index.ts";
+import sessionUtils from "../index.ts";
 
 const cleanups: (() => Promise<void>)[] = [];
 const settings = JSON.stringify({
   theme: "light",
-  "ext.pi-session-title": { model: "title-fixture/title", thinkingLevel: "off" }
+  "ext.pi-session-utils": {
+    "auto-title": { model: "title-fixture/title", thinkingLevel: "off" }
+  }
 });
 
 afterEach(async () => {
@@ -30,17 +32,19 @@ afterEach(async () => {
 async function host({
   mode = "tui",
   projectTrusted = false,
-  projectSettings
+  projectSettings,
+  globalSettings = settings
 }: {
   mode?: ExtensionContext["mode"];
   projectTrusted?: boolean;
   projectSettings?: string;
+  globalSettings?: string;
 } = {}) {
-  const directory = await createValidationWorkspace("pi-session-title-host-");
+  const directory = await createValidationWorkspace("pi-session-utils-auto-title-host-");
   const cwd = join(directory, "work");
   const agentDir = join(directory, "agent");
   const settingsPath = join(agentDir, "settings.json");
-  await writeFile(settingsPath, settings);
+  await writeFile(settingsPath, globalSettings);
 
   const projectSettingsPath = join(cwd, CONFIG_DIR_NAME, "settings.json");
 
@@ -77,7 +81,7 @@ async function host({
     noThemes: true,
     noContextFiles: true,
     noPromptTemplates: true,
-    extensionFactories: [sessionTitle]
+    extensionFactories: [sessionUtils]
   });
   await resourceLoader.reload();
   expect(resourceLoader.getExtensions().errors).toEqual([]);
@@ -119,7 +123,7 @@ async function host({
 
   const command = async (args = "") => {
     const runner = session.extensionRunner;
-    await runner.getCommand("auto-name")!.handler(args, runner.createCommandContext());
+    await runner.getCommand("sesh")!.handler(`auto-name ${args}`, runner.createCommandContext());
   };
 
   return {
@@ -162,9 +166,86 @@ it.each(["print", "rpc"] as const)(
   }
 );
 
+it("keeps naming outside idle checks and the session-operation lock", async () => {
+  const fixture = await host();
+  const runner = fixture.session.extensionRunner;
+  expect(runner.getCommand("auto-name")).toBeUndefined();
+  const handler = runner.getCommand("sesh")!.handler;
+  const ctx = runner.createCommandContext();
+  const busy = { ...ctx, isIdle: vi.fn(() => false) };
+  fixture.session.sessionManager.appendMessage({ role: "user", content: "Request", timestamp: 0 });
+  const first = Promise.withResolvers<ReturnType<typeof fauxAssistantMessage>>();
+  const second = Promise.withResolvers<ReturnType<typeof fauxAssistantMessage>>();
+  fixture.faux.setResponses([() => first.promise, () => second.promise]);
+  const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
+  const old = handler("auto-name", busy);
+  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce());
+  expect(busy.isIdle).not.toHaveBeenCalled();
+
+  const replacement = Promise.withResolvers<{ cancelled: boolean }>();
+  const switchSession = vi.fn(() => replacement.promise);
+  const operation = handler("persist", { ...ctx, switchSession });
+  expect(switchSession).toHaveBeenCalledOnce();
+  await handler("create-empty-child", ctx);
+  expect(fixture.notify).toHaveBeenLastCalledWith(
+    "A session operation is already in progress",
+    "warning"
+  );
+
+  const latest = handler("auto-name", busy);
+  await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(2));
+  expect(stream.mock.calls[0]?.[2]?.signal?.aborted).toBe(true);
+  await handler("auto-name clear", busy);
+  expect(stream.mock.calls[1]?.[2]?.signal?.aborted).toBe(true);
+  await Promise.all([old, latest]);
+  first.resolve(fauxAssistantMessage("Old title"));
+  second.resolve(fauxAssistantMessage("Late title"));
+  expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
+  expect(busy.isIdle).not.toHaveBeenCalled();
+  // Completing naming must not release a still-pending persistence operation.
+  await handler("persist", ctx);
+  expect(fixture.notify).toHaveBeenLastCalledWith(
+    "A session operation is already in progress",
+    "warning"
+  );
+  replacement.resolve({ cancelled: true });
+  await operation;
+  expect(fixture.errors).toEqual([]);
+});
+
+it.each(["{}", '{"ext.pi-session-utils":{"auto-title":{"model":null}}}'])(
+  "keeps missing or invalid naming configuration inert while clear remains available: %s",
+  async (globalSettings) => {
+    const fixture = await host({ globalSettings });
+    await fixture.session.prompt("Opening request");
+    expect(fixture.titleRequests).toEqual([]);
+    await fixture.command();
+    expect(fixture.notify).toHaveBeenLastCalledWith(
+      expect.stringContaining("ext.pi-session-utils.auto-title"),
+      "warning"
+    );
+    fixture.session.setSessionName("Manual title");
+    await fixture.command("clear");
+    expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
+    expect(fixture.titleRequests).toEqual([]);
+    expect(fixture.errors).toEqual([]);
+  }
+);
+
+it("rejects unknown naming arguments without requests or changing the name", async () => {
+  const fixture = await host();
+  fixture.session.setSessionName("Keep this title");
+  for (const args of ["extra", "clear extra"]) await fixture.command(args);
+  const runner = fixture.session.extensionRunner;
+  await runner.getCommand("sesh")!.handler("auto-names", runner.createCommandContext());
+  expect(fixture.titleRequests).toEqual([]);
+  expect(fixture.session.sessionManager.getSessionName()).toBe("Keep this title");
+  expect(fixture.errors).toEqual([]);
+});
+
 it.each([false, true])("honors Pi's project trust decision: %s", async (projectTrusted) => {
   const projectSettings = JSON.stringify({
-    "ext.pi-session-title": { model: "title-fixture/project-title" }
+    "ext.pi-session-utils": { "auto-title": { model: "title-fixture/project-title" } }
   });
   const fixture = await host({ projectTrusted, projectSettings });
   await fixture.session.prompt("Opening request");
@@ -183,7 +264,7 @@ it("applies project settings edits and removal only after /reload", async () => 
   const fixture = await host({
     projectTrusted: true,
     projectSettings: JSON.stringify({
-      "ext.pi-session-title": { model: "title-fixture/project-title" }
+      "ext.pi-session-utils": { "auto-title": { model: "title-fixture/project-title" } }
     })
   });
   await fixture.session.prompt("Opening request");
@@ -192,7 +273,7 @@ it("applies project settings edits and removal only after /reload", async () => 
   );
   await writeFile(
     fixture.projectSettingsPath,
-    JSON.stringify({ "ext.pi-session-title": { model: "unavailable/title" } })
+    JSON.stringify({ "ext.pi-session-utils": { "auto-title": { model: "unavailable/title" } } })
   );
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);
@@ -293,13 +374,13 @@ it("reads settings only on load, leaves old callbacks inert, and applies fixes o
   await fixture.session.prompt("Opening request");
   await vi.waitFor(() => expect(fixture.titleRequests).toHaveLength(1));
   const oldRunner = fixture.session.extensionRunner;
-  const oldCommand = oldRunner.getCommand("auto-name")!;
+  const oldCommand = oldRunner.getCommand("sesh")!;
   const oldContext = oldRunner.createCommandContext();
   await writeFile(fixture.settingsPath, "{}");
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);
   await fixture.session.reload();
-  await oldCommand.handler("clear", oldContext);
+  await oldCommand.handler("auto-name clear", oldContext);
   expect(fixture.session.sessionManager.getSessionName()).toBe("Offline session title");
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);

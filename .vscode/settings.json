@@ -9,7 +9,7 @@
     ".vite-hooks": true
   },
   "editor.defaultFormatter": "oxc.oxc-vscode",
-  "oxc.path.oxlint": "./node_modules/.bin/oxlint",
-  "oxc.path.oxfmt": "./node_modules/.bin/oxfmt",
+  "oxc.path.oxlint": "./node_modules/.pnpm/node_modules/.bin/oxlint",
+  "oxc.path.oxfmt": "./node_modules/.pnpm/node_modules/.bin/oxfmt",
   "js/ts.experimental.useTsgo": true
 }
