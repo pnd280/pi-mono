@@ -1,29 +1,28 @@
 # Color semantics
 
-[User interface consistency audit](../SKILL.md)
+[Return to the UI consistency audit](../SKILL.md).
 
-Table each surface's semantic roles, theme tokens, emphasis, and state overrides. Compare project conventions, not a universal palette.
+Map each surface's semantic roles, theme tokens, emphasis, and state overrides. Compare project conventions rather than imposing a universal palette.
 
 ## Checks
 
-- Are roles consistent across relevant normal, selected, pending, completed, failed, cancelled, unavailable, collapsed, and expanded states?
-- Is raw ANSI output distinct from generated status/diagnostics?
-- Are roles consistent in applicable light/dark and selected/unselected forms?
-- Does dimming plus strikethrough hinder reading completed content?
-- Do text/glyphs convey important state without color?
+- Compare roles across relevant normal, selected, pending, completed, failed, cancelled, unavailable, collapsed, and expanded states.
+- Distinguish raw ANSI output from generated status and diagnostics.
+- Compare semantic roles in applicable light/dark and selected/unselected forms.
+- Apply [text and accessibility checks](text-and-accessibility.md#checks) for contrast, dimming with strikethrough, and non-color state cues.
 
 ### Semantic roles
 
-| Role                             | Criteria                                                                                                 |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Primary content                  | Subjects, prompts, targets, and results remain readable/prominent.                                       |
-| Heading and accent               | Distinguish headings, verbs, identifiers, and links.                                                     |
-| Selection and focus              | Keep selection/focus apparent without erasing failure, completion, or disabled state.                    |
-| Supporting information           | Use `muted`/`dim` consistently; retain readable outcome/recovery information.                            |
-| Success                          | Different roles, such as neutral cards and completed tasks, may use different colors.                    |
-| Progress and availability        | Define queued, running, pending, unavailable, and inactive; unstarted tasks are not inherently warnings. |
-| Warning, error, and cancellation | Reflect consequences; grouping/expansion must not change cancellation severity.                          |
+| Role                             | Criteria                                                                                                       |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Primary content                  | Keep subjects, prompts, targets, and results readable and prominent.                                           |
+| Heading and accent               | Distinguish headings, verbs, identifiers, and links.                                                           |
+| Selection and focus              | Keep selection/focus apparent while retaining failure, completion, or disabled state.                          |
+| Supporting information           | Use `muted`/`dim` consistently; retain readable outcome and recovery information.                              |
+| Success                          | Allow different colors for distinct roles, such as neutral cards and completed tasks.                          |
+| Progress and availability        | Define queued, running, pending, unavailable, and inactive roles; unstarted tasks are not inherently warnings. |
+| Warning, error, and cancellation | Reflect consequences; preserve cancellation severity across grouping and expansion.                            |
 
 ## Evidence
 
-Check source tokens and appearance in applicable themes. Include role tables and paired renders/screenshots when available. Headless assertions verify tokens, not contrast or terminal colors; never infer verified red, for example, from a semantic token alone.
+Record role tables and source tokens alongside paired renders or screenshots when available. Check appearance in applicable themes. Headless assertions verify tokens, not contrast or terminal colors; a semantic token alone cannot establish a verified color such as red.

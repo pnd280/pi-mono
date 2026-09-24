@@ -1,22 +1,24 @@
 # Public API reuse
 
-[Reusability audit](../SKILL.md)
+[Return to the reusability audit](../SKILL.md).
 
-Compare local behavior/types with supported platform and installed public APIs. Availability or similar names do not prove equivalence.
+Use these checks when local behavior or types overlap platform or dependency APIs. Availability and contract equivalence are separate questions.
 
-## Checks
+## Availability
 
-- Does a supported API already provide the parsing, formatting, validation, path handling, resource management, construction, or UI behavior?
-- Is the API available in the platform and dependency versions actually resolved by affected consumers? Runtime and workspace dependency versions may differ.
-- Is the symbol exported through a public package root or supported subpath? Check entry-point declarations and `package.json` export maps. An internal `export` or a reachable `dist` file in a package without an export map does not establish a supported API.
-- Does a handwritten type represent the same exported contract or deliberately narrow it? Prefer the exported type or an intentional derivation over a separately maintained mirror, including inline parameter shapes.
-- Do inputs, return types, defaults, data ownership, lifecycle, and side effects match? Include injected versus global state, environment overrides, filesystem access, process execution, credentials, and network behavior.
-- Does adoption remove duplication without adding compensating wrappers, policy changes, or dependencies? Adding a dependency is a conditional refactor with a separate cost and scope justification, not a direct substitution.
+- Identify APIs for the candidate's parsing, formatting, validation, path handling, resource management, construction, or UI behavior.
+- Verify availability in the platform and dependency versions resolved by each affected consumer. Runtime and workspace dependency versions can differ.
+- Inspect metadata, entry-point declarations, and `package.json` export maps for the exact specifier and symbol. An internal `export` or reachable `dist` file does not establish a supported public API, even without an export map.
+- Probe uncertain value exports minimally. Inspect or type-check type-only exports rather than looking for them in runtime namespaces.
 
-## Evidence
+Record resolved versions and supported imports. Unsupported replacements are unavailable; retain local code when no public alternative fits. Missing availability evidence leaves a candidate unresolved. Never bypass package boundaries with internal deep imports.
 
-Record resolved versions, exact imports, and symbols; inspect declarations, implementation, and metadata. Probe uncertain value exports minimally; inspect/type-check type-only exports rather than runtime namespaces. Missing availability/contract evidence remains unresolved.
+## Contract fit
 
-Preserve separators, empty values, sanitization, order, Unicode safety, limits, IDs, borrowed arguments, and fresh/shared state. Check constructors and subsequent processing separately. Successful imports prove availability, not equivalence.
+- Compare inputs, outputs, types, defaults, ownership, identity, mutation, lifecycle, cancellation, errors, limits, and side effects against declarations and implementation.
+- Check whether handwritten types mirror an exported contract or intentionally narrow it. Use exported types or intentional derivations for the same contract, including inline parameter shapes.
+- Preserve separators, empty values, sanitization, order, Unicode safety, IDs, borrowed arguments, and fresh versus shared state. Compare constructors separately from subsequent processing.
+- Trace injected versus global state, environment overrides, filesystem access, process execution, credentials, and network behavior.
+- Account for compensating wrappers, changed policy, and new dependencies. A required new dependency makes adoption a conditional refactor with its own cost and scope justification.
 
-Never bypass exports or use internal deep imports to remove helpers. Mark unsupported replacements unavailable; retain local code without public alternatives. Also apply [Pi-specific checks](pi-apis.md).
+Record behavioral differences and evidence for each affected consumer. A successful import proves availability, not equivalence.

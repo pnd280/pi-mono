@@ -1,18 +1,18 @@
 # Destructive actions
 
-[User interface consistency audit](../SKILL.md)
+[Return to the UI consistency audit](../SKILL.md).
 
-Compare deletion, clearing, and combined effects with expectations. Different effects may justify different confirmation.
+Compare deletion, clearing, and combined effects with advertised behavior. Different effects may justify different confirmation.
 
 ## Checks
 
-- Do labels/confirmation identify occurrences, subtrees, filtered results, or entire collections precisely?
-- Are confirmation and direct-command behavior documented/advertised accurately?
-- Do navigation, resize, timeout, repeats, and target replacement invalidate confirmation consistently?
-- Is closing distinguished from cancelling an operation?
-- Are sequential order and partial success explicit?
-- Do tombstone, permanent-removal, and ID-reset descriptions match effects?
+- Identify the exact target in labels and confirmation: occurrences, subtrees, filtered results, or entire collections.
+- Match documentation and hints to confirmation and direct-command behavior.
+- Compare confirmation invalidation on navigation, resize, timeout, repeated input, and target replacement.
+- Distinguish closing a surface from cancelling an operation. Closure alone proves neither cancellation nor rollback.
+- Make sequential order and partial success explicit.
+- Match tombstone, permanent-removal, and ID-reset descriptions to actual effects.
 
 ## Evidence
 
-Use disposable before/after state at commit boundaries, including cancellation/partial failure. Compare effects, confirmation, and feedback. Closure proves neither cancellation nor rollback.
+Use disposable state to compare before and after each commit boundary, including cancellation and partial failure. Pair actual effects with confirmation text and feedback.

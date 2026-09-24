@@ -1,18 +1,18 @@
 # State and counts
 
-[User interface consistency audit](../SKILL.md)
+[Return to the UI consistency audit](../SKILL.md).
 
 Compare the same data across widgets, browsers, cards, and restored history.
 
 ## Checks
 
-- Do totals, completion, filters, deleted items, and positions use consistent definitions?
-- Are filtered positions, full indexes, and stable IDs distinct?
-- Do active, pending, running, completed, and unavailable mean the same thing when compared?
-- Do dependency/hierarchy views avoid implying nonexistent inheritance/blocking?
-- Are requested mutations distinct from confirmed state, including pending/partial results?
-- Do live/history views preserve outcomes and distinguish missing data from zero/success?
+- Apply consistent definitions to totals, completion, filters, deleted items, and positions.
+- Distinguish filtered positions, full indexes, and stable IDs.
+- Compare the meanings of active, pending, running, completed, and unavailable states.
+- Show only actual inheritance and blocking relationships in dependency and hierarchy views.
+- Distinguish requested mutations from confirmed state, including pending and partial results.
+- Preserve outcomes in live and historical views; distinguish missing data from zero or success.
 
 ## Evidence
 
-Use a small shared status/filter/hierarchy/deletion fixture. Calculate expected counts and compare equivalent lifecycle points; separate freshness differences from arithmetic/label errors.
+Use a small shared fixture covering statuses, filters, hierarchy, and deletion. Calculate expected counts and compare equivalent lifecycle points. Separate freshness differences from arithmetic or labeling errors.

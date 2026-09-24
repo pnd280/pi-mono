@@ -1,18 +1,18 @@
 # Feedback
 
-[User interface consistency audit](../SKILL.md)
+[Return to the UI consistency audit](../SKILL.md).
 
-Compare notifications/inline messages for equivalent outcomes, including post-closure completion.
+Compare notifications and inline messages for equivalent outcomes, including completion after a surface closes.
 
 ## Checks
 
-- Do severity, attribution, placement, duration, and next steps fit the outcome?
-- Is the result and required user action clear?
-- Do layers duplicate or contradict success/failure feedback?
-- Are failed writes distinct from committed writes with cleanup warnings?
-- Are cancellation, timeout, unavailability, and failure distinct?
-- Does feedback preserve controls and remain accurate after surface/session expiry?
+- Match severity, attribution, placement, duration, and next steps to the outcome.
+- State the result and any required user action clearly.
+- Trace success/failure feedback across layers to identify duplicates or contradictions; retain intentional persistent diagnostics.
+- Distinguish failed writes from committed writes with cleanup warnings.
+- Distinguish cancellation, timeout, unavailability, and failure.
+- Preserve controls and keep feedback accurate after a surface or session expires.
 
 ## Evidence
 
-Capture complete message sequences, severities, and locations; trace ownership. Use nonprivate fixtures and distinguish intentional persistent diagnostics from duplicates.
+Use nonprivate fixtures to capture complete message sequences, severities, and locations. Trace message ownership and identify where any duplication or contradiction originates.

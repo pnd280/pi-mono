@@ -1,18 +1,18 @@
 # Layout
 
-[User interface consistency audit](../SKILL.md)
+[Return to the UI consistency audit](../SKILL.md).
 
-Compare framing, spacing, and alignment at equivalent sizes/content. Features may need different row budgets.
+Compare equivalent sizes and content. Different features may need different row budgets.
 
 ## Checks
 
-- Are titles, padding, spacing, borders, alignment, and density coherent?
-- Do indentation, nesting, and wrapped continuations express real relationships?
-- Do compact/expanded forms retain item identity, outcome, and diagnostics?
-- Are truncation, hidden content, scroll, and further detail discoverable?
-- Do narrow views preserve controls rather than discard later hints?
-- Are inline/overlay placement, host clipping, and transcript visibility predictable?
+- Compare titles, padding, spacing, borders, alignment, and density against project conventions.
+- Check that indentation, nesting, and wrapped continuations express real relationships.
+- Preserve item identity, outcome, and diagnostics in compact and expanded forms.
+- Make truncation, hidden content, scrolling, and routes to further detail discoverable.
+- Keep controls available in narrow views, including hints later in the reading order.
+- Check inline/overlay placement, host clipping, and transcript visibility for predictable behavior.
 
 ## Evidence
 
-Pair ordinary/constrained renders with long content. Start TUI checks at 80×24 and 40×10 where applicable; include documented thresholds and trigger dimensions. Record viewport, mode, and content; use terminal evidence for host clipping/placement.
+Pair ordinary and constrained renders using long content. Start applicable TUI checks at 80×24 and 40×10; include documented thresholds and dimensions that trigger the candidate. Record viewport, mode, and content. Verify host clipping and placement in a terminal.

@@ -1,22 +1,26 @@
 # Workspace code reuse
 
-[Reusability audit](../SKILL.md)
+[Return to the reusability audit](../SKILL.md).
 
-Compare shared packages and consumers. Reuse fitting contracts; extract duplicates only for actual consumers needing stable common behavior.
+Use these checks for shared-package reuse or extraction across workspace consumers. Follow [workspace ownership and reuse rules](../../../../docs/agents/architecture.md) when choosing the destination.
 
-## Checks
+## Shared contract
 
-- Do shared packages already provide the parsing, validation, formatting, path handling, resource management, or UI behavior?
-- Do repeated constructors, fixtures, adapters, or lifecycle handlers implement the same contract, or merely have similar syntax?
-- Can consumers share behavior while keeping their own policy, data, formatting, and effects local?
-- Would extraction reduce maintenance without flag-heavy abstractions or coupling unrelated consumers? Fewer lines or hypothetical future reuse is not sufficient evidence.
-- Does a wrapper enforce useful validation, normalization, policy, type restrictions, resource ownership, or a supported boundary? A short forwarding body alone does not establish redundancy.
-- Does the proposed owner match the shared contract? Keep pure helpers separate from stateful or I/O code, reusable UI separate from host mounting, and consumer-specific policy local. Shared packages must not depend on individual extensions. Cross-package consumers must use declared entry points.
+- Search shared packages for the parsing, validation, formatting, path handling, resource management, or UI behavior before proposing extraction.
+- Compare repeated constructors, fixtures, adapters, and lifecycle handlers by contract, not syntax. Name the actual consumers that need the shared behavior.
+- Separate common behavior from consumer-owned policy, data, formatting, and effects.
+- Assess maintenance savings against coupling and adaptation cost. Hypothetical future consumers, fewer lines, or a flag-heavy abstraction do not establish value.
+- Inspect wrappers for validation, normalization, policy, type restrictions, resource ownership, or a supported boundary before classifying them as redundant.
 
-## Evidence
+For reuse, record exact modules/exports and contract fit. For extraction, record sources, actual consumers, destination, and the minimal useful contract. Cross-package consumers use declared entry points.
 
-Inspect candidates, shared alternatives, and every consumer. Record required inputs/outputs, empty values, trimming, sanitization, order, truncation, IDs, mutation, and fresh/shared nested objects. Check relevant lifecycle, error, cancellation, disposal, restoration, output bounds, and yielding.
+## Consumer preservation
 
-For reuse, identify exact modules/exports and contract fit without compensating complexity. For extraction, name sources, actual consumers, destination, and minimal useful contract. Preserve explicit policy, import boundaries, and all removed-code usages.
+Inspect every consumer and all usages of code proposed for removal:
 
-Keep distinct policy local, or when coupling/adaptation exceeds duplication cost. Partial substitution need not remove the enclosing helper/module.
+- Compare required inputs/outputs, types, empty values, trimming, sanitization, order, truncation, IDs, mutation, and fresh versus shared nested objects.
+- Check lifecycle, errors, cancellation, disposal, restoration, output bounds, and yielding.
+- For UI contracts, compare layout, selection/scroll ownership, asynchronous preparation, coordinates, and invalidation.
+- Trace ownership and effects through adapters so extraction preserves consumer policy and dependency direction.
+
+Keep distinct policy local, and retain duplication when sharing costs more than it saves. Partial substitution can leave the enclosing helper or module necessary; name the responsibility that remains.
