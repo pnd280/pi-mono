@@ -52,7 +52,11 @@ export async function runRequestedCompaction(
   });
 
   try {
-    if (instructions === undefined && selection === undefined)
+    if (
+      instructions === undefined &&
+      selection?.config.model === undefined &&
+      selection?.config.thinkingLevel === undefined
+    )
       await session._runAutoCompaction("manual", false);
     else await runWithOverrides(session, instructions, selection);
 

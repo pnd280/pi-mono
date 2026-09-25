@@ -6,7 +6,13 @@
 
 1. Consult the affected package's `docs/testing.md`, linked from its README's Validation section. It specifies observable contracts, failure modes, ownership, and exclusions, not test files. Verify claims against public APIs, consumers, documentation, and regression evidence; update it when contracts, risks, or boundaries change.
 2. Read affected behavior and existing tests. Add cases for meaningful behavior or plausible defects retained tests would miss. Assert public results so equivalent internal refactors remain valid.
-3. Establish **red** before a regression fix and **green** after it. During cleanup, preserve distinct regression scenarios; a passing reduced suite alone does not prove removed coverage was redundant.
+3. Establish **red** before a regression fix and **green** after it, using existing tests when they expose the failure. During cleanup, preserve distinct regression scenarios; a passing reduced suite alone does not prove removed coverage was redundant.
+
+## Test quality
+
+- **Tautological tests are harmful.** Do not derive expectations from the result under test or duplicate the implementation's algorithm. Use independently specified results or invariants that can reveal incorrect behavior.
+- **Change-detector tests are harmful.** Do not assert implementation details merely to detect changes. Tests should fail for broken observable contracts, not equivalent internal refactors.
+- **Bug fixes do not automatically warrant new regression tests.** Add or extend a test only when there is a genuine gap in behavior coverage. If existing tests already expose the failure, use them for red/green verification instead of adding a duplicate.
 
 ## Boundaries
 

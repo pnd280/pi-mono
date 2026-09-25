@@ -42,6 +42,10 @@ export default function offlineFixture(pi: ExtensionAPI) {
     AgentSession.prototype,
     "_compactBeforeNextAssistantResponse"
   );
+  const originalPrototypeSummary: unknown = Reflect.get(
+    AgentSession.prototype,
+    "_runDefaultCompaction"
+  );
   const state = () => ({
     idle: session?.isIdle,
     compacting: session?.isCompacting,
@@ -93,6 +97,20 @@ export default function offlineFixture(pi: ExtensionAPI) {
         )
       );
       this.agent.state.messages = this.sessionManager.buildSessionProjection().messages;
+    }
+
+    if (scenario === "manual") {
+      this.sessionManager.appendMessage({
+        role: "user",
+        content: "OLD_FIXTURE_PAYLOAD ".repeat(1500),
+        timestamp: Date.now()
+      });
+      this.sessionManager.appendMessage(fauxAssistantMessage("Previous task completed."));
+      this.sessionManager.appendMessage({
+        role: "user",
+        content: "CURRENT_REQUEST ".repeat(100),
+        timestamp: Date.now()
+      });
     }
 
     unsubscribe ??= this.subscribe((event) => {
@@ -171,13 +189,24 @@ export default function offlineFixture(pi: ExtensionAPI) {
   });
   pi.on("agent_settled", (_event, ctx) => trace("hook:settled", { ctxIdle: ctx.isIdle() }));
   pi.on("session_shutdown", () => {
+    originalDefault = originalPrototypeSummary;
     trace("hook:shutdown", {
       patchRestored:
         Reflect.get(AgentSession.prototype, "_compactBeforeNextAssistantResponse") ===
-        originalPrepare
+          originalPrepare &&
+        Reflect.get(AgentSession.prototype, "_runDefaultCompaction") === originalPrototypeSummary
     });
     AgentSession.prototype.prompt = originalPrompt;
     unsubscribe?.();
+  });
+
+  pi.registerCommand("fixture_manual_compact", {
+    description: "Exercise the native manual compaction entry point offline.",
+    handler: async () => {
+      if (!session) throw new Error("Missing fixture session");
+      await session.compact(instructions);
+      trace("fixture:manual");
+    }
   });
 
   const stream: ProviderStreams["streamSimple"] = (model, context, options = {}) => {

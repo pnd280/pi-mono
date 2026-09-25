@@ -394,7 +394,15 @@ it.each([
     summaries: 1,
     compactions: 1,
     attempts: 1,
-    config: { model: summaryModel }
+    config: { model: summaryModel, applyToManual: true }
+  },
+  {
+    mode: "json",
+    scenario: "success",
+    summaries: 1,
+    compactions: 1,
+    attempts: 1,
+    config: { applyToManual: true }
   },
   {
     mode: "json",
@@ -649,6 +657,93 @@ it.each([
         assert.equal(ofType("hook:failed")[0]?.aborted, ["cancel", "escape"].includes(scenario));
         assert.equal(ofType("provider:main").at(-1)?.hasOldPayload, true);
       }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+  20000
+);
+
+it.each([undefined, false, true])(
+  "bundled CLI manual compaction honors applyToManual: %s",
+  async (applyToManual) => {
+    const directory = await createValidationWorkspace("pi-manual-compact-cli-");
+
+    try {
+      const tracePath = join(directory, "trace.jsonl");
+      const sessionPath = join(directory, "session.jsonl");
+      await writeFile(
+        join(directory, "agent", "settings.json"),
+        JSON.stringify({
+          "ext.pi-smart-compact": { model: summaryModel, thinkingLevel: "low", applyToManual },
+          compaction: { enabled: false, reserveTokens: 512, keepRecentTokens: 256 },
+          retry: { enabled: false }
+        })
+      );
+      const launch = await createPiLaunch({
+        directory,
+        env: { PI_NATIVE_COMPACTION_TRACE: tracePath, PI_NATIVE_COMPACTION_CASE: "manual" },
+        args: [
+          "--no-extensions",
+          "--no-skills",
+          "--no-themes",
+          "--no-prompt-templates",
+          "--no-context-files",
+          "-e",
+          fileURLToPath(new URL("../index.ts", import.meta.url)),
+          "-e",
+          fileURLToPath(new URL("./provider.ts", import.meta.url)),
+          "--provider",
+          "native-compaction-fixture",
+          "--model",
+          "scripted",
+          "--thinking",
+          "high",
+          "--session",
+          sessionPath,
+          "--print",
+          "--mode",
+          "json",
+          "/fixture_manual_compact"
+        ]
+      });
+      const child = promisify(execFile)(launch.command, launch.args, {
+        ...launch.options,
+        timeout: 15000,
+        maxBuffer: 2 * 1024 * 1024
+      });
+      child.child.stdin?.end();
+      const { stderr } = await child;
+      assert.equal(stderr, "");
+      const trace = (await readFile(tracePath, "utf8"))
+        .trim()
+        .split("\n")
+        .map((line) => traceSchema.parse(JSON.parse(line)));
+      const requests = trace.filter((entry) => entry.type === "provider:summary");
+      const provider = applyToManual ? "summary-compaction-fixture" : "native-compaction-fixture";
+      assert.equal(requests.length, 1);
+      assert.partialDeepStrictEqual(requests[0], {
+        provider,
+        model: applyToManual ? "nested/summary" : "scripted",
+        reasoning: applyToManual ? "low" : "high",
+        apiKey: provider,
+        authEnv: provider,
+        baseUrl: `http://${provider}.invalid`,
+        headers: { "X-Fixture-Provider": provider, "X-Fixture-Hook": "applied" },
+        sessionModel: "scripted",
+        sessionThinking: "high"
+      });
+      if (applyToManual) assert.equal(requests[0]?.maxTokens, 128);
+      assert.equal(trace.find((entry) => entry.type === "hook:before")?.reason, "manual");
+      assert.equal(
+        trace.find((entry) => entry.type === "fixture:manual")?.instructionPatchRestored,
+        true
+      );
+      assert.equal(trace.find((entry) => entry.type === "hook:shutdown")?.patchRestored, true);
+      assert.equal(trace.filter((entry) => entry.type === "provider:main").length, 0);
+      const branch = SessionManager.open(sessionPath).getBranch();
+      assert.equal(branch.filter((entry) => entry.type === "compaction").length, 1);
+      assert.ok(!branch.some((entry) => entry.type === "custom_message"));
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

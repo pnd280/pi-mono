@@ -10,7 +10,8 @@ const configSchema = z.strictObject({
     .trim()
     .regex(/^[^/\s]+\/\S+$/u)
     .optional(),
-  thinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"]).optional()
+  thinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"]).optional(),
+  applyToManual: z.boolean().optional()
 });
 const settingsSchema = z.object({ "ext.pi-smart-compact": configSchema.optional() });
 

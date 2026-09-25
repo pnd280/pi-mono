@@ -3,9 +3,9 @@
 ## Code navigation
 
 - [src/index.ts](src/index.ts): tool schema and extension lifecycle binding.
-- [src/native.ts](src/native.ts): session-scoped requests and the between-response boundary patch.
+- [src/native.ts](src/native.ts): session-scoped requests, the between-response boundary patch, and opt-in manual-summary routing.
 - [src/compatibility.ts](src/compatibility.ts): inspected private contracts and API/CLI fingerprints.
-- [src/config.ts](src/config.ts): global and trusted project model/thinking settings.
+- [src/config.ts](src/config.ts): global and trusted project model/thinking settings and manual-compaction opt-in.
 - [src/summarize.ts](src/summarize.ts): operation-scoped model, thinking, and instruction overrides.
 - [src/instructions.ts](src/instructions.ts): native split-turn prompt focus.
 - [src/outcome.ts](src/outcome.ts): native outcome observation, skip classification, and status text.

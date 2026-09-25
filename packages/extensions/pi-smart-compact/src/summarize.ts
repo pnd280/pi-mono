@@ -11,7 +11,7 @@ export type CompactionModelOptions = {
   registry: Pick<ModelRegistry, "find" | "streamSimple">;
 };
 
-async function summarizeWithOverrides(
+export async function summarizeWithOverrides(
   session: NativeSession,
   summarize: DefaultCompaction,
   args: Parameters<DefaultCompaction>,

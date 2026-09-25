@@ -1,9 +1,14 @@
 import { AgentSession } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import { assertCompatible, type Prepare } from "./compatibility.ts";
+import {
+  assertCompatible,
+  type DefaultCompaction,
+  type NativeSession,
+  type Prepare
+} from "./compatibility.ts";
 import { describeOutcome, runRequestedCompaction } from "./outcome.ts";
-import type { CompactionModelOptions } from "./summarize.ts";
+import { summarizeWithOverrides, type CompactionModelOptions } from "./summarize.ts";
 
 type Registration = {
   active: boolean;
@@ -14,36 +19,69 @@ type Registration = {
 type Patch = {
   original: Prepare;
   wrapper: Prepare;
+  originalSummary: DefaultCompaction;
+  summaryWrapper: DefaultCompaction;
   hooks: OwnedHooks;
   registrations: Map<object, Registration>;
 };
 
-const patchKey = Symbol.for("pi-smart-compact.native.v2");
+const patchKey = Symbol.for("pi-smart-compact.native.v3");
 
 type Prototype = {
   _compactBeforeNextAssistantResponse: Prepare;
+  _runDefaultCompaction: DefaultCompaction;
   [patchKey]?: Patch;
 };
 
-function hasBoundary(value: object): value is Prototype {
-  return typeof Reflect.get(value, "_compactBeforeNextAssistantResponse") === "function";
+function hasCompactionMethods(value: object): value is Prototype {
+  return (
+    typeof Reflect.get(value, "_compactBeforeNextAssistantResponse") === "function" &&
+    typeof Reflect.get(value, "_runDefaultCompaction") === "function"
+  );
 }
 
 export function bindNativeCompaction(manager: object, selection?: CompactionModelOptions) {
   const prototype: object = AgentSession.prototype;
-  if (!hasBoundary(prototype))
+  if (!hasCompactionMethods(prototype))
     throw new Error("pi-smart-compact: missing native compaction boundary.");
   let patch = prototype[patchKey];
-  assertCompatible(prototype, patch?.original ?? prototype._compactBeforeNextAssistantResponse);
+  assertCompatible(
+    prototype,
+    patch?.original ?? prototype._compactBeforeNextAssistantResponse,
+    patch?.originalSummary ?? prototype._runDefaultCompaction
+  );
 
-  if (patch && prototype._compactBeforeNextAssistantResponse !== patch.wrapper) {
+  if (
+    patch &&
+    (prototype._compactBeforeNextAssistantResponse !== patch.wrapper ||
+      prototype._runDefaultCompaction !== patch.summaryWrapper)
+  ) {
     throw new Error("pi-smart-compact: another extension replaced the compaction boundary.");
   }
 
   if (!patch) {
     const registrations = new Map<object, Registration>();
     const original = prototype._compactBeforeNextAssistantResponse;
+    const originalSummary = prototype._runDefaultCompaction;
     const hooks = new OwnedHooks();
+
+    const summaryWrapper: DefaultCompaction = function (this: NativeSession, ...args) {
+      const selection = registrations.get(this.sessionManager)?.selection;
+
+      // Manual API calls share reason: "manual" with tool requests. Match their
+      // own controller so automatic and reentrant summaries remain untouched.
+      if (
+        selection?.config.applyToManual &&
+        (selection.config.model !== undefined || selection.config.thinkingLevel !== undefined) &&
+        args[7] === "manual" &&
+        args[5] !== undefined &&
+        args[5] === this._compactionAbortController?.signal
+      ) {
+        return summarizeWithOverrides(this, originalSummary.bind(this), args, undefined, selection);
+      }
+
+      return originalSummary.apply(this, args);
+    };
 
     const wrapper: Prepare = async function (context) {
       const registration = registrations.get(this.sessionManager);
@@ -77,9 +115,16 @@ export function bindNativeCompaction(manager: object, selection?: CompactionMode
       return { ...context, messages: this.sessionManager.buildSessionProjection().messages };
     };
 
-    patch = { original, wrapper, hooks, registrations };
-    hooks.replace(prototype, "_compactBeforeNextAssistantResponse", wrapper);
-    prototype[patchKey] = patch;
+    patch = { original, wrapper, originalSummary, summaryWrapper, hooks, registrations };
+
+    try {
+      hooks.replace(prototype, "_compactBeforeNextAssistantResponse", wrapper);
+      hooks.replace(prototype, "_runDefaultCompaction", summaryWrapper);
+      prototype[patchKey] = patch;
+    } catch (error) {
+      hooks.restore();
+      throw error;
+    }
   }
 
   if (patch.registrations.has(manager)) {
@@ -106,7 +151,8 @@ export function bindNativeCompaction(manager: object, selection?: CompactionMode
 
       if (
         patch.registrations.size === 0 &&
-        prototype._compactBeforeNextAssistantResponse === patch.wrapper
+        prototype._compactBeforeNextAssistantResponse === patch.wrapper &&
+        prototype._runDefaultCompaction === patch.summaryWrapper
       ) {
         // Empty registrations deactivate retained wrappers before restoration.
         patch.hooks.restore();

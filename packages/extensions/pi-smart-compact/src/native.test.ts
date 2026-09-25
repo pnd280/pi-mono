@@ -19,6 +19,7 @@ async function invoke(receiver: object) {
 it("scopes and consumes requests, clears abandoned requests, and restores the boundary", async () => {
   const prototype = AgentSession.prototype;
   const original: unknown = Reflect.get(prototype, boundary);
+  const originalSummary: unknown = Reflect.get(prototype, "_runDefaultCompaction");
   const managerA = {
     buildSessionProjection: () => ({ messages: ["compacted"] }),
     getBranch: () => []
@@ -92,6 +93,7 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
     assert.notEqual(Reflect.get(prototype, boundary), original);
     b.dispose();
     assert.equal(Reflect.get(prototype, boundary), original);
+    assert.equal(Reflect.get(prototype, "_runDefaultCompaction"), originalSummary);
     assert.throws(() => a.request(), /disposed/);
   } finally {
     a.dispose();
@@ -137,7 +139,7 @@ it("does not misdiagnose native preparation errors as a small session", async ()
   }
 });
 
-it.each([boundary, "_appendCustomMessage"])(
+it.each([boundary, "_appendCustomMessage", "_runDefaultCompaction", "compact"])(
   "rejects unknown %s implementations without replacing them",
   (method) => {
     const prototype = AgentSession.prototype;
@@ -156,6 +158,21 @@ it.each([boundary, "_appendCustomMessage"])(
     }
   }
 );
+
+it("rolls back the boundary if the summary router cannot be installed", () => {
+  const prototype = AgentSession.prototype;
+  const original: unknown = Reflect.get(prototype, boundary);
+  const summary = Object.getOwnPropertyDescriptor(prototype, "_runDefaultCompaction");
+  assert.ok(summary);
+  Object.defineProperty(prototype, "_runDefaultCompaction", { ...summary, writable: false });
+
+  try {
+    assert.throws(() => bindNativeCompaction({}), /writable data properties/);
+    assert.equal(Reflect.get(prototype, boundary), original);
+  } finally {
+    Object.defineProperty(prototype, "_runDefaultCompaction", summary);
+  }
+});
 
 it("does not publish an outcome after its session binding is disposed", async () => {
   const manager = { buildSessionProjection: () => context, getBranch: () => [] };
@@ -189,29 +206,32 @@ it("does not publish an outcome after its session binding is disposed", async ()
   }
 });
 
-it("does not overwrite a later wrapper and can restore ownership after it is removed", () => {
-  const prototype = AgentSession.prototype;
-  const original: unknown = Reflect.get(prototype, boundary);
-  const binding = bindNativeCompaction({});
-  const wrapper: unknown = Reflect.get(prototype, boundary);
-  const foreign = async () => context;
-  Reflect.set(prototype, boundary, foreign);
-  let next: ReturnType<typeof bindNativeCompaction> | undefined;
+it.each([boundary, "_runDefaultCompaction"])(
+  "does not overwrite a later %s wrapper and restores ownership after it is removed",
+  (method) => {
+    const prototype = AgentSession.prototype;
+    const original: unknown = Reflect.get(prototype, method);
+    const binding = bindNativeCompaction({});
+    const wrapper: unknown = Reflect.get(prototype, method);
+    const foreign = async () => context;
+    Reflect.set(prototype, method, foreign);
+    let next: ReturnType<typeof bindNativeCompaction> | undefined;
 
-  try {
-    binding.dispose();
-    assert.equal(Reflect.get(prototype, boundary), foreign);
-    assert.throws(() => bindNativeCompaction({}), /another extension replaced/);
-    Reflect.set(prototype, boundary, wrapper);
-    next = bindNativeCompaction({});
-    next.dispose();
-    assert.equal(Reflect.get(prototype, boundary), original);
-  } finally {
-    if (Reflect.get(prototype, boundary) !== original) {
-      Reflect.set(prototype, boundary, wrapper);
-      next?.dispose();
-      // Restore through a fresh binding if an assertion interrupted cleanup.
-      if (Reflect.get(prototype, boundary) !== original) bindNativeCompaction({}).dispose();
+    try {
+      binding.dispose();
+      assert.equal(Reflect.get(prototype, method), foreign);
+      assert.throws(() => bindNativeCompaction({}), /another extension replaced/);
+      Reflect.set(prototype, method, wrapper);
+      next = bindNativeCompaction({});
+      next.dispose();
+      assert.equal(Reflect.get(prototype, method), original);
+    } finally {
+      if (Reflect.get(prototype, method) !== original) {
+        Reflect.set(prototype, method, wrapper);
+        next?.dispose();
+        // Restore through a fresh binding if an assertion interrupted cleanup.
+        if (Reflect.get(prototype, method) !== original) bindNativeCompaction({}).dispose();
+      }
     }
   }
-});
+);
