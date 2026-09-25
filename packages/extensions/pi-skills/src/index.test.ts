@@ -138,15 +138,6 @@ function userTexts(session: Awaited<ReturnType<typeof host>>["session"]): string
     });
 }
 
-it("expands a leading skill literally and registers TUI completion", async () => {
-  const fixture = await host();
-  await fixture.session.prompt("/skill:review then /skill:review");
-  const reference = `[/skill:review](${fixture.getSkillPath()})`;
-  expect(userTexts(fixture.session)).toEqual([`${reference} then ${reference}`]);
-  expect(fixture.addAutocompleteProvider).toHaveBeenCalledTimes(1);
-  expect(fixture.errors).toEqual([]);
-});
-
 it("expands extension messages with templates disabled and skips TUI registration in RPC", async () => {
   const fixture = await host({ mode: "rpc" });
   await fixture.session.sendUserMessage("/skill:review", { expandPromptTemplates: false });
@@ -172,35 +163,36 @@ it("loads JSON formats on session start and reload without native skill injectio
 
 it("keeps expansion enabled with completion disabled and uses reloaded skills", async () => {
   const fixture = await host({ enabled: false });
-  const completion = (enabled: boolean) =>
+  const completion = () =>
     fixture.addAutocompleteProvider.mock.calls.at(-1)![0](
       new CombinedAutocompleteProvider(
         fixture
           .getApi()
           .getCommands()
-          .filter((item) => enabled || item.source !== "skill"),
+          .filter(
+            (item) => fixture.settingsManager.getEnableSkillCommands() || item.source !== "skill"
+          ),
         process.cwd()
       )
     );
   const options = { signal: new AbortController().signal };
-  expect(await completion(false).getSuggestions(["Use /skill:re"], 0, 13, options)).toBeNull();
+  expect(await completion().getSuggestions(["Use /skill:re"], 0, 13, options)).toBeNull();
   await fixture.session.prompt("/skill:review");
   const first = `[/skill:review](${fixture.getSkillPath()})`;
   expect(userTexts(fixture.session)).toEqual([first]);
 
   fixture.settingsManager.setEnableSkillCommands(true);
-  expect(await completion(true).getSuggestions(["Use /skill:re"], 0, 13, options)).toMatchObject({
+  expect(await completion().getSuggestions(["Use /skill:re"], 0, 13, options)).toMatchObject({
     items: [{ value: "skill:review" }]
   });
   await fixture.changeSkill();
   await fixture.session.reload();
-  expect(fixture.addAutocompleteProvider).toHaveBeenCalledTimes(2);
   await fixture.session.prompt("/skill:fresh /skill:review");
   expect(userTexts(fixture.session)).toEqual([
     first,
     `[/skill:fresh](${fixture.getSkillPath()}) /skill:review`
   ]);
-  expect(await completion(true).getSuggestions(["/skill:fr"], 0, 9, options)).toMatchObject({
+  expect(await completion().getSuggestions(["/skill:fr"], 0, 9, options)).toMatchObject({
     items: [{ value: "skill:fresh" }]
   });
   expect(fixture.errors).toEqual([]);

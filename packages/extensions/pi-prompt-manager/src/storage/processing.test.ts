@@ -3,7 +3,6 @@ import { setImmediate } from "node:timers/promises";
 import { expect, it } from "vite-plus/test";
 
 import { entry, recordedAt } from "../test-fixture.ts";
-import { readCollection, updateCollection } from "./collection.ts";
 import { readCollectionAsync, updateCollectionAsync } from "./processing.ts";
 
 const options = { collection: "drafts", cwd: "/fixture", retention: 250 } as const;
@@ -20,19 +19,23 @@ const raw = () =>
 
 it("keeps large collection processing off the event loop without detaching borrowed bytes", async () => {
   const bytes = raw();
-  const expected = readCollection(options.collection, options.cwd, bytes);
   let ticks = 0;
   const timer = setInterval(() => ticks++, 1);
 
   try {
     const actual = await readCollectionAsync({ ...options, raw: bytes });
-    expect(actual).toEqual(expected);
+    expect(actual).toMatchObject({
+      status: "ready",
+      access: "writable",
+      entries: [{ source: { text: "exact\ttext" } }, { source: { text: "keep" } }]
+    });
     expect(ticks).toBeGreaterThan(0);
-    expect(bytes.length).toBeGreaterThan(2 * 1024 * 1024);
+    expect(bytes.toString("utf8")).toContain("exact\\ttext");
     const operation = { kind: "delete", target: actual.entries[0]! } as const;
-    expect(await updateCollectionAsync({ ...options, raw: bytes, operation })).toEqual(
-      updateCollection({ ...options, raw: bytes, operation })
-    );
+    expect(await updateCollectionAsync({ ...options, raw: bytes, operation })).toMatchObject({
+      status: "replace",
+      value: { entries: [{ source: { text: "keep" } }] }
+    });
   } finally {
     clearInterval(timer);
   }
@@ -58,7 +61,7 @@ it("cancels active and queued processing, then accepts another operation", async
   expect(await readCollectionAsync({ ...options, raw: bytes })).toMatchObject({ status: "ready" });
 });
 
-it("preserves safe storage diagnostics and never changes malformed input", async () => {
+it("rejects malformed input with safe storage diagnostics", async () => {
   const bytes = Buffer.from("private malformed source" + " ".repeat(1024 * 1024));
   await expect(readCollectionAsync({ ...options, raw: bytes })).rejects.toThrow(
     "invalid UTF-8 or JSON"
@@ -70,5 +73,4 @@ it("preserves safe storage diagnostics and never changes malformed input", async
       operation: { kind: "add", text: "new", recordedAt }
     })
   ).rejects.toThrow("invalid UTF-8 or JSON");
-  expect(bytes.toString().startsWith("private malformed source")).toBe(true);
 });

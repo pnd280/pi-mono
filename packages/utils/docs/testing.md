@@ -9,8 +9,8 @@
 - FFF classification requires official provenance and recognized names, not a matching tool name alone.
 - Source selections use absolute, 1-based lines and code-point columns with exclusive ends, clip to the supplied window, and preserve raw source. Reject invalid coordinates and unknown fields.
 - Output omission ranges identify generated notices only; joining and slicing preserve source, UTF-16 offsets, and literal notice lookalikes. Reject overlapping ranges.
-- Patch parsing accepts one bounded unified patch, validates hunk counts, and preserves changed-line counts and missing-newline markers.
-- UTF-8 clipping returns complete code points; decoding distinguishes clipped edges from invalid interior bytes.
+- Patch parsing accepts one bounded unified patch, validates counts and ordered, nonoverlapping ranges in both source versions, and preserves changed-line counts and missing-newline markers. Empty hunk ranges use insertion/deletion anchors.
+- UTF-8 clipping returns complete code points; decoding distinguishes clipped edges from invalid interior bytes and reports discarded source bytes without counting replacement-character expansion.
 - Relative ages distinguish future/unknown timestamps and unit boundaries.
 - Search ranks phrases, all literal terms, then Pi-compatible fuzzy matches. Scans preserve matches across chunks and yield checkpoints during expensive work.
 

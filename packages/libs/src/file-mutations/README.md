@@ -6,11 +6,11 @@
 
 [`@pi-mono/libs/file-mutations`](index.ts) observes verified native `edit` and `write` operations through [native-tools](../native-tools/README.md). Consumers share source capture and patches for each call.
 
-Edits reuse native reads/written content; writes add one bounded pre-read inside Pi's mutation queue. No post-write read means `after` excludes subsequent external changes. Canonical paths resolve symlink aliases, including new descendants.
+Edits reuse native reads/written content; writes add one bounded pre-read inside Pi's mutation queue. Observed text accounts for UTF-8 replacement of unpaired surrogates without changing tool arguments. No post-write read means `after` excludes subsequent external changes. Canonical paths resolve symlink aliases, including new descendants.
 
 Only attempted disk writes produce mutations. Successful disk writes retain success despite later Pi cancellation/middleware. Failed writes' `after` is proposed, not confirmed content. `durationMs` excludes source capture and patch generation.
 
-`patch(limits)` accepts `PatchLimits` from `@pi-mono/libs/bounded-diff` and reuses a valid native edit patch or generates a patch through [bounded-diff](../bounded-diff/README.md). Requests with identical limits share a promise. Native patches bypass source and diff-generation limits but must fit the requested patch limit.
+`patch(limits)` accepts `PatchLimits` from `@pi-mono/libs/bounded-diff` and reuses a valid native edit patch when its proposed text survives UTF-8 encoding unchanged, or generates a patch through [bounded-diff](../bounded-diff/README.md). Requests with identical limits share a promise. Native patches bypass source and diff-generation limits but must fit the requested patch limit.
 
 Completion callbacks run outside Pi's mutation queue and settle before the tool returns. Exceptions and rejected callbacks do not affect tool execution or other observers.
 

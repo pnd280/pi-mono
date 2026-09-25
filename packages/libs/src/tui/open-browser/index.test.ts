@@ -13,23 +13,37 @@ it.each([24, 18])(
     const host = createInputHost();
     Object.defineProperty(host.terminal, "rows", { value: rows, configurable: true });
     const abort = new AbortController();
+    const options = browserOptions(items(Array.from({ length: 40 }, (_, i) => `Item ${i}`)));
+    const selected: string[] = [];
+
+    options.sections[1]!.confirm!.run = (item) => {
+      selected.push(item.id);
+
+      return false;
+    };
+
     const opening = openBrowser({
       ui: host.ui,
       signal: abort.signal,
-      browser: browserOptions(items(Array.from({ length: 40 }, (_, i) => `Item ${i}`))),
+      browser: options,
       onInputRoutingUnavailable: vi.fn(),
       onError: vi.fn()
     });
 
     try {
-      await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("(1/40)"));
+      await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Item 0"));
+      host.send("\r");
+      expect(selected).toEqual(["0"]);
       host.transcript.scrollTo(40);
       host.render();
       host.send("\x1b[6~");
-      expect(host.presentation?.render(80).join()).toContain(rows === 24 ? "(6/40)" : "(8/40)");
+      host.send("\r");
+      expect(selected[1]).toBeDefined();
+      expect(selected[1]).not.toBe("0");
       expect(host.transcript.scrollTop).toBe(40);
       host.send("\x1b[5~");
-      expect(host.presentation?.render(80).join()).toContain("(1/40)");
+      host.send("\r");
+      expect(selected[2]).toBe("0");
       abort.abort();
       await opening;
       host.send("\x1b[5~");
@@ -68,6 +82,12 @@ it.each([false, true])(
       await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"));
       if (!inspection) host.send("\x10");
 
+      const firstVisibleDetail = () =>
+        host.presentation
+          ?.render(80)
+          .join("\n")
+          .match(/Detail \d+/)?.[0];
+
       for (const rows of [24, 18, 19, 10, 24]) {
         const previous = host.presentation;
         const oldOverlay = host.tui.hasOverlay();
@@ -78,15 +98,15 @@ it.each([false, true])(
         await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"));
         host.transcript.scrollTo(40);
         host.render();
-        const initial = host.presentation?.render(80);
+        expect(firstVisibleDetail()).toBe("Detail 0");
         host.send("\x1b[6~");
-        const paged = host.presentation?.render(80);
-        expect(paged).not.toEqual(initial);
+        const pagedDetail = firstVisibleDetail();
+        expect(pagedDetail).toMatch(/^Detail [1-9]\d*$/);
         expect(host.transcript.scrollTop).toBe(40);
         host.send("\x1b[6;1:3~");
-        expect(host.presentation?.render(80)).toEqual(paged);
+        expect(firstVisibleDetail()).toBe(pagedDetail);
         host.send("\x1b[5~");
-        expect(host.presentation?.render(80)).toEqual(initial);
+        expect(firstVisibleDetail()).toBe("Detail 0");
         expect(afterClose).not.toHaveBeenCalled();
       }
 

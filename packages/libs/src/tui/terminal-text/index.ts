@@ -99,13 +99,14 @@ export function sliceTerminalText(
     const sequence = escapeSequence(scannedText, match.index);
     const sequenceEnd = Math.min(text.length, sequence.end);
 
-    if (match.index < start && sequenceEnd > start) {
+    if (match.index < start && sequenceEnd >= start) {
       start = sequenceEnd;
       startIsSequenceBoundary = true;
     }
 
-    if (match.index < end && sequenceEnd > end) {
-      end = match.index;
+    if (match.index < end && sequenceEnd >= end) {
+      if (sequenceEnd > end) end = match.index;
+      // A following combining mark must not pull the boundary into a complete escape.
       endIsSequenceBoundary = true;
     }
 

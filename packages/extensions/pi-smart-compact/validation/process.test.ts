@@ -52,7 +52,7 @@ const traceSchema = z.object({
   request: z.number().optional(),
   hasCheckpoint: z.boolean().optional(),
   hasOldPayload: z.boolean().optional(),
-  compactionOutcomes: z.array(z.string()).optional(),
+  userMessages: z.array(z.string()).optional(),
   settings: z
     .object({ enabled: z.boolean(), keepRecentTokens: z.number(), reserveTokens: z.number() })
     .optional(),
@@ -236,7 +236,7 @@ function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
     assert.equal(outcome.display, true);
     assert.partialDeepStrictEqual(outcome.details, { status });
     assert.ok(typeof outcome.content === "string");
-    assert.ok(outcome.content.startsWith(`Compaction ${status}`));
+    if (status === "cancelled") assert.match(outcome.content, /cancelled/i);
     if (scenario === "small") assert.match(outcome.content, /Pi did not start compaction/);
     if (scenario === "failure") assert.match(outcome.content, /Offline summary failure/);
     if (scenario === "missing-model") assert.match(outcome.content, /model is unavailable/);
@@ -254,7 +254,7 @@ function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
 
   for (const request of trace.filter((event) => event.type === "provider:main")) {
     assert.deepEqual(
-      request.compactionOutcomes,
+      request.userMessages?.filter((message) => message === outcome?.content),
       request.request === 3 && outcome ? [outcome.content] : []
     );
   }
@@ -276,22 +276,29 @@ function activeThinking(scenario: string, configured: boolean) {
 function checkAcknowledgements(
   manager: SessionManager,
   modelOverride: string | undefined,
-  thinkingLevel: string
+  thinkingLevel: string,
+  expectedCount: number
 ) {
-  for (const entry of manager.getBranch()) {
-    if (
-      entry.type !== "message" ||
-      entry.message.role !== "toolResult" ||
-      entry.message.toolName !== "compact"
-    )
-      continue;
-    assert.deepEqual(entry.message.content, [
+  const results = manager
+    .getBranch()
+    .flatMap((entry) =>
+      entry.type === "message" &&
+      entry.message.role === "toolResult" &&
+      entry.message.toolName === "compact"
+        ? [entry.message]
+        : []
+    );
+
+  assert.equal(results.length, expectedCount);
+
+  for (const result of results) {
+    assert.deepEqual(result.content, [
       {
         type: "text",
         text: "Compaction requested."
       }
     ]);
-    assert.deepEqual(entry.message.details, {
+    assert.deepEqual(result.details, {
       scheduled: true,
       ...(modelOverride ? { modelOverride, thinkingLevel } : {})
     });
@@ -309,9 +316,7 @@ function checkModelRouting(
     config?.thinkingLevel ?? (scenario === "no-reasoning" ? "off" : nativeThinking);
   const idleTimeout = scenario === "no-idle-timeout" ? 2147483647 : 4321;
 
-  for (const entry of trace.filter((event) =>
-    ["provider:main", "provider:summary"].includes(event.type)
-  ))
+  for (const entry of trace.filter((event) => event.type === "provider:summary")) {
     assert.deepEqual(entry.requestPolicy, {
       timeoutMs: scenario === "provider-timeout" ? 1234 : idleTimeout,
       websocketConnectTimeoutMs: 2345,
@@ -319,7 +324,6 @@ function checkModelRouting(
       maxRetryDelayMs: 3456
     });
 
-  for (const entry of trace.filter((event) => event.type === "provider:summary")) {
     const provider = config?.model ? "summary-compaction-fixture" : "native-compaction-fixture";
     assert.partialDeepStrictEqual(entry, {
       provider,
@@ -358,7 +362,10 @@ function checkModelRouting(
       ).length
     );
 
-  checkAcknowledgements(manager, config?.model, expectedThinking);
+  let expectedAcknowledgements = 1;
+  if (scenario === "no-request") expectedAcknowledgements = 0;
+  if (scenario === "duplicate") expectedAcknowledgements = 2;
+  checkAcknowledgements(manager, config?.model, expectedThinking, expectedAcknowledgements);
 }
 
 const summaryModel = "summary-compaction-fixture/nested/summary";
@@ -387,14 +394,6 @@ it.each([
     compactions: 1,
     attempts: 1,
     config: { model: summaryModel }
-  },
-  {
-    mode: "json",
-    scenario: "success",
-    summaries: 1,
-    compactions: 1,
-    attempts: 1,
-    config: { model: summaryModel, applyToManual: true }
   },
   {
     mode: "json",

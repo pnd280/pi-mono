@@ -119,58 +119,58 @@ async function host(settings: string) {
   return { runtime, faux, state, errors };
 }
 
-it.each(["{}", '{"ext.pi-session-utils":{"auto-title":{"model":null}}}'])(
-  "persists then creates an empty child without valid naming settings: %s",
-  async (settings) => {
-    const { runtime, faux, state, errors } = await host(settings);
-    const stream = vi.spyOn(faux.provider, "streamSimple");
-    runtime.session.sessionManager.appendMessage({
-      role: "user",
-      content: "ephemeral conversation",
-      timestamp: Date.now()
-    });
-    runtime.session.setSessionName("Parent name");
-    await runtime.session.prompt("/sesh auto-name");
-    expect(runtime.session.sessionManager.getSessionName()).toBe("Parent name");
+it("persists then creates an empty child without naming configuration", async () => {
+  const { runtime, faux, state, errors } = await host("{}");
+  const stream = vi.spyOn(faux.provider, "streamSimple");
+  runtime.session.sessionManager.appendMessage({
+    role: "user",
+    content: "ephemeral conversation",
+    timestamp: Date.now()
+  });
+  runtime.session.setSessionName("Parent name");
+  await runtime.session.prompt("/sesh auto-name");
+  expect(runtime.session.sessionManager.getSessionName()).toBe("Parent name");
 
-    await runtime.session.prompt("/sesh create-empty-child");
-    expect(runtime.session.sessionFile).toBeUndefined();
-    await runtime.session.prompt("/sesh persist");
+  await runtime.session.prompt("/sesh persist");
 
-    const path = runtime.session.sessionFile;
-    expect(path).toBeDefined();
-    expect(existsSync(path!)).toBe(true);
-    expect(runtime.session.sessionManager.isPersisted()).toBe(true);
-    expect(runtime.session.sessionManager.getSessionName()).toBe("Parent name");
-    expect(SessionManager.open(path!).buildSessionContext().messages).toEqual(
-      runtime.session.sessionManager.buildSessionContext().messages
-    );
-    runtime.session.sessionManager.appendMessage({
-      role: "user",
-      content: "continued after switching",
-      timestamp: Date.now()
-    });
-    expect(SessionManager.open(path!).getBranch()).toEqual(
-      runtime.session.sessionManager.getBranch()
-    );
+  const path = runtime.session.sessionFile;
+  expect(path).toBeDefined();
+  expect(existsSync(path!)).toBe(true);
+  expect(runtime.session.sessionManager.isPersisted()).toBe(true);
+  expect(runtime.session.sessionManager.getSessionName()).toBe("Parent name");
 
-    const parentEntries = SessionManager.open(path!).getEntries();
-    const parentSession = runtime.session;
-    state.cancelNew = true;
-    await runtime.session.prompt("/sesh create-empty-child");
-    expect(runtime.session).toBe(parentSession);
-    state.cancelNew = false;
-    await runtime.session.prompt("/sesh create-empty-child");
-    expect(runtime.session).not.toBe(parentSession);
-    expect(runtime.session.sessionManager.getHeader()?.parentSession).toBe(path);
-    expect(runtime.session.sessionManager.buildSessionContext().messages).toEqual([]);
-    expect(runtime.session.sessionManager.getSessionName()).toBeUndefined();
-    expect(runtime.session.sessionFile).not.toBe(path);
-    expect(SessionManager.open(path!).getEntries()).toEqual(parentEntries);
-    expect(stream).not.toHaveBeenCalled();
-    expect(errors).toEqual([]);
+  for (const manager of [SessionManager.open(path!), runtime.session.sessionManager]) {
+    expect(manager.buildSessionContext().messages).toEqual([
+      expect.objectContaining({ role: "user", content: "ephemeral conversation" })
+    ]);
   }
-);
+
+  runtime.session.sessionManager.appendMessage({
+    role: "user",
+    content: "continued after switching",
+    timestamp: Date.now()
+  });
+  expect(SessionManager.open(path!).buildSessionContext().messages).toEqual([
+    expect.objectContaining({ role: "user", content: "ephemeral conversation" }),
+    expect.objectContaining({ role: "user", content: "continued after switching" })
+  ]);
+
+  const parentEntries = SessionManager.open(path!).getEntries();
+  const parentSession = runtime.session;
+  state.cancelNew = true;
+  await runtime.session.prompt("/sesh create-empty-child");
+  expect(runtime.session).toBe(parentSession);
+  state.cancelNew = false;
+  await runtime.session.prompt("/sesh create-empty-child");
+  expect(runtime.session).not.toBe(parentSession);
+  expect(runtime.session.sessionManager.getHeader()?.parentSession).toBe(path);
+  expect(runtime.session.sessionManager.buildSessionContext().messages).toEqual([]);
+  expect(runtime.session.sessionManager.getSessionName()).toBeUndefined();
+  expect(runtime.session.sessionFile).not.toBe(path);
+  expect(SessionManager.open(path!).getEntries()).toEqual(parentEntries);
+  expect(stream).not.toHaveBeenCalled();
+  expect(errors).toEqual([]);
+});
 
 it("cancels naming across persistence and child creation, preserving only the parent's existing name", async () => {
   const { runtime, faux, errors } = await host(

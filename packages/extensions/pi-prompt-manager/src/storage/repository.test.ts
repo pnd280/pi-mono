@@ -16,8 +16,16 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, expect, it } from "vite-plus/test";
 
-import { limits, type Snapshot } from "../model.ts";
-import { encode, entry, managerFixture, recordedAt, session, workspace } from "../test-fixture.ts";
+import type { Snapshot } from "../model.ts";
+import {
+  documentedLimits as limits,
+  encode,
+  entry,
+  managerFixture,
+  recordedAt,
+  session,
+  workspace
+} from "../test-fixture.ts";
 import { FileRepository } from "./repository.ts";
 
 let fixture: Awaited<ReturnType<typeof workspace>>;
@@ -254,7 +262,12 @@ it("preserves unrelated mutations from two real processes", async () => {
   try {
     const exits: unknown[][] = await Promise.all([once(left, "exit"), once(right, "exit")]);
     expect(exits.map(([code]) => code)).toEqual([0, 0]);
-    expect((await drafts()).entries).toHaveLength(24);
+    expect((await drafts()).entries.map((item) => item.source.text).sort()).toEqual(
+      [
+        ...Array.from({ length: 12 }, (_, index) => `left-${index}`),
+        ...Array.from({ length: 12 }, (_, index) => `right-${index}`)
+      ].sort()
+    );
   } finally {
     left.kill();
     right.kill();

@@ -52,17 +52,15 @@ it("preserves existing names and allows explicit regeneration", async () => {
   await title.automatic(opening);
   expect(generate).not.toHaveBeenCalled();
   await title.command("");
-  expect(generate).toHaveBeenCalledExactlyOnceWith(
-    "user: Opening request",
-    expect.any(AbortSignal)
-  );
+  expect(generate).toHaveBeenCalledOnce();
   expect(session.getSessionName()).toBe("Generated title");
-  expect(notify).toHaveBeenLastCalledWith("Session title: Generated title", "info");
+  expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("Generated title"), "info");
 });
 
 it("does not retry automatic failure; manual failure preserves the name and hides raw errors", async () => {
   const { title, session, generate, notify } = fixture();
-  generate.mockRejectedValue(new Error("private provider response"));
+  const secret = "private provider response";
+  generate.mockRejectedValue(new Error(secret));
   await title.automatic(opening);
   await title.automatic(opening);
   expect(generate).toHaveBeenCalledOnce();
@@ -70,10 +68,8 @@ it("does not retry automatic failure; manual failure preserves the name and hide
   session.appendSessionInfo("Keep this title");
   await title.command("");
   expect(session.getSessionName()).toBe("Keep this title");
-  expect(notify).toHaveBeenLastCalledWith(
-    "Session title generation failed. Check Pi's provider setup.",
-    "warning"
-  );
+  expect(notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
+  for (const [message] of notify.mock.calls) expect(message).not.toContain(secret);
   generate.mockRejectedValue(new TitleError("Configure the title model."));
   await title.command("");
   expect(notify).toHaveBeenLastCalledWith("Configure the title model.", "warning");
@@ -92,7 +88,7 @@ it("clears without configuration, cancels pending work, and suppresses automatic
   await title.automatic(opening);
   expect(generate).toHaveBeenCalledOnce();
   expect(session.getSessionName()).toBeUndefined();
-  expect(notify).toHaveBeenCalledExactlyOnceWith("Session title cleared.", "info");
+  expect(notify).toHaveBeenCalledExactlyOnceWith(expect.any(String), "info");
 });
 
 it("only commits the latest regeneration", async () => {
@@ -108,7 +104,7 @@ it("only commits the latest regeneration", async () => {
   first.resolve("Obsolete title");
   await old;
   expect(session.getSessionName()).toBe("Current title");
-  expect(notify).not.toHaveBeenCalledWith("Session title: Obsolete title", "info");
+  for (const [message] of notify.mock.calls) expect(message).not.toContain("Obsolete title");
 });
 
 it.each(["rename", "tree", "shutdown"])(
@@ -118,6 +114,8 @@ it.each(["rename", "tree", "shutdown"])(
     const pending = Promise.withResolvers<string>();
     generate.mockReturnValue(pending.promise);
     const result = title.command("");
+    expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
+    const progress = notify.mock.calls.slice();
     if (action === "rename") {
       session.appendSessionInfo("External title");
       title.nameChanged();
@@ -129,7 +127,7 @@ it.each(["rename", "tree", "shutdown"])(
     await title.automatic(opening);
     expect(generate).toHaveBeenCalledOnce();
     expect(session.getSessionName()).toBe(action === "rename" ? "External title" : undefined);
-    expect(notify).toHaveBeenCalledExactlyOnceWith("Generating session title…", "info");
+    expect(notify.mock.calls).toEqual(progress);
   }
 );
 
@@ -144,15 +142,13 @@ it("checks the live title before committing even if its change event has not arr
   expect(session.getSessionName()).toBe("External title");
 });
 
-it("does not accept removed subcommands or use disposed session callbacks", async () => {
-  const { title, session, generate, notify } = fixture();
-  await title.command("regenerate");
-  expect(notify).toHaveBeenCalledExactlyOnceWith("Usage: /sesh auto-name [clear]", "warning");
+it("keeps disposed naming callbacks inert", async () => {
+  const { title, session, generate, notify } = fixture("Retained title");
   title.dispose();
   await title.command("");
   await title.command("clear");
   await title.automatic(opening);
   expect(generate).not.toHaveBeenCalled();
-  expect(session.getSessionName()).toBeUndefined();
-  expect(notify).toHaveBeenCalledOnce();
+  expect(session.getSessionName()).toBe("Retained title");
+  expect(notify).not.toHaveBeenCalled();
 });

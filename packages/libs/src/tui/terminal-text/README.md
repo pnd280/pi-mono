@@ -10,7 +10,7 @@
 
 `compactDisplayText` makes a single-line plain label by replacing CR/LF/tabs with spaces before sanitizing and collapsing repeated spaces. It does not trim or limit length.
 
-`sliceTerminalText(text, start, end, options?)` returns `{ text, leadingSgr }` for a start-inclusive/end-exclusive UTF-16 range, preserving graphemes/recognized sequences, possibly omitting boundary graphemes. `preserveSgr: true` supplies the active SGR prefix for independent styling; otherwise `leadingSgr` is empty.
+`sliceTerminalText(text, start, end, options?)` returns `{ text, leadingSgr }` for a start-inclusive/end-exclusive UTF-16 range, preserving graphemes/recognized sequences, possibly omitting boundary graphemes. Recognized escape boundaries take precedence so a following combining mark cannot split a complete sequence. `preserveSgr: true` supplies the active SGR prefix for independent styling; otherwise `leadingSgr` is empty.
 
 `hasUnsafeTerminalControls` detects DEL and all C0 and C1 controls except tab, LF, and CR. It does not modify the source.
 

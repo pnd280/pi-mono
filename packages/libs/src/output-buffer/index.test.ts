@@ -66,6 +66,22 @@ it("preserves chunk order when a character crosses the line-head budget without 
   expect(buffer.snapshot().text.split("\n")[0]).toBe("xxx界a");
 });
 
+it.each([
+  { chunks: ["a界"], complete: "a界", clipped: "a[6 bytes]ef" },
+  { chunks: ["a", "界"], complete: "a界", clipped: "a[6 bytes]ef" },
+  { chunks: ["😀"], complete: "😀", clipped: "[7 bytes]ef" }
+])(
+  "retains short Unicode lines until the line budget is exceeded: $chunks",
+  ({ chunks, complete, clipped }) => {
+    const buffer = new OutputBuffer({ ...options, maxBytes: 1 });
+    for (const chunk of chunks) buffer.append(Buffer.from(chunk));
+    expect(buffer.snapshot()).toEqual({ text: complete, omissions: [] });
+    buffer.append(Buffer.from("bcdef"));
+    buffer.finish();
+    expect(buffer.snapshot().text).toBe(clipped);
+  }
+);
+
 it("keeps incomplete UTF-8 until finish, retains exact full-byte limits, and validates budgets", () => {
   const buffer = new OutputBuffer(options);
   buffer.append(Buffer.from("12345678"));

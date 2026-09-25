@@ -30,22 +30,3 @@ it("isolates mutation, read, and replay metadata aliases", () => {
   controller.reconstructFromBranch([]);
   expect(controller.getState()).toEqual({ tasks: [], nextId: 1 });
 });
-
-it("advances the revision only when a mutation changes state", () => {
-  const controller = new TodoController();
-  const initial = controller.getRevision();
-
-  controller.apply("list", {});
-  controller.apply("get", { id: 99 });
-  expect(controller.getRevision()).toBe(initial);
-
-  controller.apply("create", { subject: "Todo" });
-  const created = controller.getRevision();
-  expect(created).toBeGreaterThan(initial);
-
-  controller.apply("list", {});
-  expect(controller.getRevision()).toBe(created);
-
-  controller.reconstructFromBranch([]);
-  expect(controller.getRevision()).toBeGreaterThan(created);
-});

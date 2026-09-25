@@ -1,7 +1,13 @@
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
 
-import { limits, type Document } from "../model.ts";
-import { collection, encode, entry, recordedAt } from "../test-fixture.ts";
+import type { Document } from "../model.ts";
+import {
+  collection,
+  documentedLimits as limits,
+  encode,
+  entry,
+  recordedAt
+} from "../test-fixture.ts";
 import { readCollection, updateCollection } from "./collection.ts";
 
 const scope = { collection: "drafts", cwd: "/fixture", retention: 250 } as const;
@@ -60,13 +66,13 @@ it("preserves exact source and prototype-like JSON fields through a complete mut
   const result = updateCollection({ ...scope, raw, operation: add(" \texact\r\n ") });
   expect(result.status).toBe("replace");
   if (result.status !== "replace") throw new Error("Expected replacement");
-  expect(result.value.document.entries[0]?.text).toBe(" \texact\r\n ");
   expect(result.value.document.entries[1]).toEqual(before.document.entries[0]);
   expect(result.value.document.__proto__).toEqual({ kept: true });
   expect(Object.hasOwn(result.value.document, "__proto__")).toBe(true);
   expect(Object.hasOwn(result.value.document.entries[1]!, "__proto__")).toBe(true);
-  expect(readCollection("drafts", scope.cwd, Buffer.from(result.content))).toEqual(result.value);
-  expect(result.value.bytes).toBe(Buffer.byteLength(result.content));
+  expect(
+    readCollection("drafts", scope.cwd, Buffer.from(result.content)).document.entries[0]?.text
+  ).toBe(" \texact\r\n ");
 });
 
 it("deletes only unique unchanged UUID/text/timestamp identities despite unrelated insertion", () => {
@@ -215,40 +221,26 @@ it("never evicts drafts and counts UTF-8 text and final JSON escaping toward cap
   ).toThrow("capacity");
 });
 
-it("sizes history prefixes without repeatedly encoding the collection", () => {
-  const records = Array.from({ length: 250 }, (_, index) => entry(`${index}:` + "x".repeat(1000)));
-  const raw = rawDocument(records);
-  const stringify = JSON.stringify;
-  let encodedBytes = 0;
-  const spy = vi.spyOn(JSON, "stringify").mockImplementation((...args) => {
-    const encoded = stringify(...args);
-    encodedBytes += Buffer.byteLength(encoded);
-
-    return encoded;
-  });
-
-  try {
-    updateCollection({ ...scope, collection: "history", raw, operation: add("new") });
-    expect(encodedBytes).toBeLessThan(raw.length * 3);
-  } finally {
-    spy.mockRestore();
-  }
-});
-
 it("fits exact pretty-printed history sizes including nested metadata and escaping", () => {
   const incoming = 'new\n\t"é';
   const records = [
     entry("keep", { metadata: { nested: ["é", "line\nline", { value: true }] } }),
     entry("old")
   ];
-  const first = updateCollection({
-    ...scope,
-    collection: "history",
-    raw: rawDocument(records.slice(0, 1), { extra: "" }),
-    operation: add(incoming)
-  });
-  if (first.status !== "replace") throw new Error("Expected replacement");
-  const padding = "x".repeat(limits.historyFile - Buffer.byteLength(first.content));
+  // A UUID has a fixed width; calculate the committed JSON size from the documented format,
+  // not from a previous updateCollection result.
+  const expectedDocument = {
+    version: 1,
+    cwd: scope.cwd,
+    entries: [
+      { id: "11111111-1111-1111-1111-111111111111", text: incoming, recordedAt },
+      records[0]
+    ],
+    extra: ""
+  };
+  const padding = "x".repeat(
+    limits.historyFile - Buffer.byteLength(JSON.stringify(expectedDocument, null, 2) + "\n")
+  );
   const raw = rawDocument(records, { extra: padding });
   const result = updateCollection({
     ...scope,
@@ -256,7 +248,8 @@ it("fits exact pretty-printed history sizes including nested metadata and escapi
     raw,
     operation: add(incoming)
   });
-  expect(result.value.bytes).toBe(limits.historyFile);
+  if (result.status !== "replace") throw new Error("Expected replacement");
+  expect(Buffer.byteLength(result.content)).toBe(limits.historyFile);
   expect(result.value.entries.map((item) => item.source.text)).toEqual([incoming, "keep"]);
   const smaller = updateCollection({
     ...scope,

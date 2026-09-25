@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 
-import { decodeUtf8, utf8Prefix, utf8Suffix } from "./utf8.ts";
+import { decodeUtf8Window, utf8Prefix, utf8Suffix } from "./utf8.ts";
 
 it("clips every UTF-8 boundary without introducing replacement characters", () => {
   const text = "a界😀z";
@@ -20,8 +20,14 @@ it("clips every UTF-8 boundary without introducing replacement characters", () =
   ] as const) {
     expect(utf8Prefix(text, limit), `prefix at ${limit} bytes`).toBe(prefix);
     expect(utf8Suffix(text, limit), `suffix at ${limit} bytes`).toBe(suffix);
-    expect(decodeUtf8(bytes.subarray(0, limit), "head")).toBe(prefix);
-    expect(decodeUtf8(bytes.subarray(bytes.length - limit), "tail")).toBe(suffix);
+    expect(decodeUtf8Window(bytes.subarray(0, limit), "head")).toEqual({
+      text: prefix,
+      omittedBytes: limit - Buffer.byteLength(prefix)
+    });
+    expect(decodeUtf8Window(bytes.subarray(bytes.length - limit), "tail")).toEqual({
+      text: suffix,
+      omittedBytes: limit - Buffer.byteLength(suffix)
+    });
   }
 });
 
@@ -35,6 +41,24 @@ it("rejects invalid byte limits instead of violating the requested bound", () =>
 it("retains BOMs and literal replacement characters, and replaces interior invalid bytes", () => {
   const text = "\uFEFFa\uFFFD";
   for (const boundary of [undefined, "head", "tail"] as const)
-    expect(decodeUtf8(Buffer.from(text), boundary)).toBe(text);
-  expect(decodeUtf8(Buffer.from([0x61, 0xff, 0x62]))).toBe("a�b");
+    expect(decodeUtf8Window(Buffer.from(text), boundary)).toEqual({ text, omittedBytes: 0 });
+  expect(decodeUtf8Window(Buffer.from([0x61, 0xff, 0x62]))).toEqual({
+    text: "a�b",
+    omittedBytes: 0
+  });
+});
+
+it("counts clipped source bytes independently of invalid-byte replacement decoding", () => {
+  expect(decodeUtf8Window(Buffer.from([0xff, 0xe7, 0x95]), "head")).toEqual({
+    text: "�",
+    omittedBytes: 2
+  });
+  expect(decodeUtf8Window(Buffer.from([0x95, 0x8c, 0xff]), "tail")).toEqual({
+    text: "�",
+    omittedBytes: 2
+  });
+  expect(decodeUtf8Window(Buffer.from([0xff, 0x80]), "head")).toEqual({
+    text: "��",
+    omittedBytes: 0
+  });
 });

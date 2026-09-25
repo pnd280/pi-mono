@@ -3,7 +3,7 @@ import { setTimeout } from "node:timers/promises";
 import type { AssistantMessageEvent, AssistantMessageEventStream } from "@earendil-works/pi-ai";
 import { expect, it } from "vite-plus/test";
 
-import { createFixtureMessage, createFixtureStream, zeroUsage } from "./index.ts";
+import { createFixtureMessage, createFixtureStream } from "./index.ts";
 
 const model = { api: "fixture", provider: "fixture", id: "offline" };
 
@@ -27,7 +27,14 @@ it("creates independent zero-usage messages with explicit model identity and tim
     model: "offline",
     timestamp: 43,
     content: [],
-    usage: zeroUsage()
+    usage: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
+    }
   });
   expect(first.timestamp).toBe(42);
 });

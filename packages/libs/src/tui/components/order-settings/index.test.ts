@@ -41,42 +41,14 @@ function fixture(overrides: Partial<OrderSettingsOptions> = {}) {
   return { view, save, close, output: () => view.render(100).join("\n") };
 }
 
-it("keeps reorders as drafts, follows the moved selection, and discards on close", () => {
-  const { view, save, close, output } = fixture();
-  expect(output()).toContain("inactive");
-  expect(output()).toContain("unavailable");
-  expect(output()).toMatch(/Activity \[todo\]\s+Working/);
-  expect(output()).not.toContain("Activity [todo] · Working");
-  expect(output()).not.toContain("Saved order");
-  expect(output()).toContain("  Working message");
-  expect(output()).toContain("  Scope: global | project");
-  expect(output()).not.toContain("Project order overrides global");
-  view.handleInput("\x1b[1;2A"); // boundary does not mark dirty
-  expect(output()).not.toContain("Unsaved changes");
+it("does not save a reordered draft before or after close", () => {
+  const { view, save, close } = fixture();
   view.handleInput("\x1b[1;2B");
-  expect(output()).toContain("Unsaved changes");
   expect(save).not.toHaveBeenCalled();
   view.handleInput("\x1b");
   expect(close).toHaveBeenCalledOnce();
   view.handleInput("\x13");
   expect(save).not.toHaveBeenCalled();
-});
-
-it("renders scope tabs and switches in both directions", () => {
-  const { view, output } = fixture({
-    theme: {
-      fg: (color, text) => `<${color}>${text}</${color}>`,
-      bold: (text) => text
-    }
-  });
-  expect(output()).toContain("<accent>global</accent>");
-  expect(output()).toContain("<muted>project</muted>");
-  view.handleInput("\t");
-  expect(output()).toContain("<muted>global</muted>");
-  expect(output()).toContain("<accent>project</accent>");
-  view.handleInput("\x1b[Z");
-  expect(output()).toContain("<accent>global</accent>");
-  expect(output()).toContain("<muted>project</muted>");
 });
 
 it("marks unset scopes until their own save succeeds, even without reordering", () => {

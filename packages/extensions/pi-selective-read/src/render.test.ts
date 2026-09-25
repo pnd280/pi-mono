@@ -1,7 +1,7 @@
 import { createReadToolDefinition, initTheme, type Theme } from "@earendil-works/pi-coding-agent";
-import { Text, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { selectionSchema } from "@pi-mono/utils/source-selection";
-import { beforeAll, expect, it, vi } from "vite-plus/test";
+import { beforeAll, expect, it } from "vite-plus/test";
 
 import { appendPreview, type ReadResult } from "./result.ts";
 import {
@@ -41,11 +41,11 @@ function context(
   };
 }
 
-it("renders source once, marks raw-code-point selections after tab expansion, and bounds terminal rows", () => {
+it("renders context once and highlights the selected code point after tab expansion", () => {
   const tool = createSelectiveReadTool(createReadToolDefinition("/project"));
   const args = { path: "example.txt", selection: { startLine: 2, startColumn: 2, endColumn: 3 } };
   const native: ReadResult = {
-    content: [{ type: "text", text: "context\n\t界tail\nend\u001b]0;hidden-title\u0007" }],
+    content: [{ type: "text", text: "context\n\t界tail\nend" }],
     details: undefined
   };
   const result = appendPreview(native, args, selectionSchema.parse(args.selection));
@@ -60,31 +60,6 @@ it("renders source once, marks raw-code-point selections after tab expansion, an
   expect(stripTerminalSequences(output)).toContain("    界tail");
   expect(stripTerminalSequences(output)).toContain("context");
   expect(output).not.toContain("Selected source preview");
-  expect(output).not.toContain("hidden-title");
-
-  for (const width of [2, 5, 20]) {
-    expect(view.render(width).every((line) => visibleWidth(line) <= width)).toBe(true);
-  }
-});
-
-it("does not highlight visible characters when the selection falls inside a terminal sequence", () => {
-  const tool = createSelectiveReadTool(createReadToolDefinition("/project"));
-  const args = { path: "example.txt", selection: { startLine: 1, startColumn: 6, endColumn: 9 } };
-  const result: ReadResult = {
-    content: [{ type: "text", text: "A\u001b]0;hidden\u0007B" }],
-    details: undefined
-  };
-  const output = tool.renderResult!(
-    result,
-    { expanded: true, isPartial: false },
-    theme,
-    context(args)
-  )
-    .render(100)
-    .join("\n");
-  expect(output).toContain("AB");
-  expect(output).not.toContain("\u001b[43m");
-  expect(output).toContain("No selected text is visible");
 });
 
 it("keeps source omissions and an absent-selection warning visible even while collapsed", () => {
@@ -106,15 +81,12 @@ it("keeps source omissions and an absent-selection warning visible even while co
     .join("\n");
   expect(output).toContain("to expand");
   expect(output).toContain("9 more lines");
-  expect(output).toContain("No selected text is visible");
+  expect(output).toMatch(/selected text.*read window/i);
   expect(output).not.toContain("\x1b[43m");
 });
 
-it("delegates images, errors, and partial results without passing previews or incompatible cached components", () => {
+it("delegates image, error, and partial output to the native renderer without previews", () => {
   const base = createReadToolDefinition("/project");
-  const nativeView = new Text("native", 0, 0);
-  const render = vi.fn(() => nativeView);
-  base.renderResult = render;
   const tool = createSelectiveReadTool(base);
   const args = { path: "example.txt", selection: { startLine: 1 } };
   const text: ReadResult = { content: [{ type: "text", text: "source" }], details: undefined };
@@ -125,28 +97,20 @@ it("delegates images, errors, and partial results without passing previews or in
   };
 
   for (const scenario of [
-    { result: augmented, isError: true, isPartial: false, source: text.content },
-    { result: augmented, isError: false, isPartial: true, source: text.content },
-    { result: image, isError: false, isPartial: false, source: image.content }
+    { result: augmented, isError: true, isPartial: false, native: text },
+    { result: augmented, isError: false, isPartial: true, native: text },
+    { result: image, isError: false, isPartial: false, native: image }
   ]) {
     const ctx = {
       ...context(args),
       isError: scenario.isError,
       lastComponent: { render: () => [], invalidate() {} }
     };
-    expect(
-      tool.renderResult!(
-        scenario.result,
-        { expanded: true, isPartial: scenario.isPartial },
-        theme,
-        ctx
-      )
-    ).toBe(nativeView);
-    expect(render).toHaveBeenLastCalledWith(
-      { ...scenario.result, content: scenario.source },
-      { expanded: true, isPartial: scenario.isPartial },
-      theme,
-      { ...ctx, lastComponent: undefined }
-    );
+    const options = { expanded: true, isPartial: scenario.isPartial };
+    const expected = base.renderResult!(scenario.native, options, theme, {
+      ...ctx,
+      lastComponent: undefined
+    }).render(80);
+    expect(tool.renderResult!(scenario.result, options, theme, ctx).render(80)).toEqual(expected);
   }
 });

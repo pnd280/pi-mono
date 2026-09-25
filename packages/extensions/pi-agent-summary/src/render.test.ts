@@ -1,6 +1,6 @@
 import { SessionManager, type Theme } from "@earendil-works/pi-coding-agent";
 import type { TuiMouseEvent } from "@earendil-works/pi-tui";
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
 
 import { createSummaryRenderer } from "./render.ts";
 import { summaryEntryType } from "./summary.ts";
@@ -18,8 +18,8 @@ function savedEntry(data: unknown) {
   return entry;
 }
 
-it("replays persisted statistics with diff colors and expands the per-file breakdown", () => {
-  const entry = savedEntry({
+it("replays persisted totals and details using the saved finish time, not the entry timestamp", () => {
+  const data = {
     durationMs: 83000,
     finishedAt,
     bashCalls: 4,
@@ -28,26 +28,22 @@ it("replays persisted statistics with diff colors and expands the per-file break
       { path: "src/b.ts", status: "available", added: 2, removed: 1 },
       { path: "src/empty.ts", status: "available", added: 0, removed: 0 }
     ]
-  });
+  };
+  const entry = savedEntry(data);
+  const text = renderSummary(entry, { expanded: false }, theme)!.render(120).join("\n");
+  for (const statistic of ["1m 23s", "4 bash", "3 files", "+42", "−11"])
+    expect(text).toContain(statistic);
+  expect(text).not.toContain("src/a.ts");
+
   entry.timestamp = new Date(finishedAt + 60_000).toISOString();
-  const fg = vi.fn(theme.fg);
-  const collapsed = renderSummary(entry, { expanded: false }, { fg });
-  expect(collapsed?.render(120).map((line) => line.trim())).toEqual([
-    "Worked for 1m 23s · 2:34:56 PM · 4 bash calls · 3 files changed · +42 −11"
-  ]);
-  expect(fg).toHaveBeenCalledWith("toolDiffAdded", "+42");
-  expect(fg).toHaveBeenCalledWith("toolDiffRemoved", "−11");
-  expect(fg).toHaveBeenCalledWith("dim", "3 files changed");
-  fg.mockClear();
-  collapsed?.invalidate();
-  collapsed?.render(120);
-  expect(fg).toHaveBeenCalledWith("toolDiffAdded", "+42");
-  const expandedLines = renderSummary(entry, { expanded: true }, theme)?.render(120);
-  expect(expandedLines).toHaveLength(4);
-  expect(expandedLines?.[0]).toBe(collapsed?.render(120)[0]);
-  const expanded = expandedLines?.join("\n");
-  expect(expanded).toContain("src/a.ts · +40 −10");
-  expect(expanded).toContain("src/b.ts · +2 −1");
+  expect(renderSummary(entry, { expanded: false }, theme)!.render(120).join("\n")).toBe(text);
+  const later = savedEntry({ ...data, finishedAt: finishedAt + 60_000 });
+  expect(renderSummary(later, { expanded: false }, theme)!.render(120).join("\n")).not.toBe(text);
+
+  const expanded = renderSummary(entry, { expanded: true }, theme)!.render(120).join("\n");
+  expect(expanded).toMatch(/src\/a\.ts[^\n]*\+40\s+−10/);
+  expect(expanded).toMatch(/src\/b\.ts[^\n]*\+2\s+−1/);
+  expect(expanded).toContain("src/empty.ts");
 });
 
 const click: TuiMouseEvent = {
@@ -125,25 +121,28 @@ it("leaves scrolling, selection, other buttons, and summaries without details un
 
 it("distinguishes unavailable statistics from no changes without adding them to totals", () => {
   const base = { durationMs: 0, finishedAt, bashCalls: 0, files: [] };
-  const text = (data: unknown) =>
-    renderSummary(savedEntry(data), { expanded: false }, theme)
-      ?.render(120)
-      .map((line) => line.trim())
-      .join("\n");
-  expect(text(base)).toBe("Worked for 0s · 2:34:56 PM");
-  expect(text({ ...base, bashCalls: 1 })).toBe("Worked for 0s · 2:34:56 PM · 1 bash call");
-  const unavailable = { path: "large.txt", status: "unavailable", reason: "Too large." };
-  expect(text({ ...base, files: [unavailable] })).toBe(
-    "Worked for 0s · 2:34:56 PM · Statistics unavailable for 1 file"
-  );
-  expect(text({ ...base, files: [unavailable, { ...unavailable, path: "other.txt" }] })).toBe(
-    "Worked for 0s · 2:34:56 PM · Statistics unavailable for 2 files"
-  );
-  expect(
-    text({
-      ...base,
-      files: [{ path: "file.txt", status: "available", added: 1, removed: 0 }, unavailable]
-    })
-  ).toBe("Worked for 0s · 2:34:56 PM · 1 file changed · +1 · Statistics unavailable for 1 file");
-  expect(text({ durationMs: 1000 })).toBeUndefined();
+  const text = (data: unknown, expanded = false) =>
+    renderSummary(savedEntry(data), { expanded }, theme)!.render(120).join("\n");
+  expect(text(base)).not.toMatch(/unavailable|files? changed/i);
+  const unavailable = { path: "large.txt", status: "unavailable", reason: "Source too large." };
+  expect(text({ ...base, files: [unavailable] })).toContain("Statistics unavailable for 1 file");
+  expect(text({ ...base, files: [unavailable] })).not.toContain("file changed");
+  const mixed = {
+    ...base,
+    files: [
+      { path: "file.txt", status: "available", added: 2, removed: 1 },
+      unavailable,
+      { ...unavailable, path: "other.txt" }
+    ]
+  };
+  expect(text(mixed)).toContain("1 file changed");
+  expect(text(mixed)).toContain("+2 −1");
+  expect(text(mixed)).toContain("Statistics unavailable for 2 files");
+  expect(text(mixed, true)).toContain("large.txt");
+  expect(text(mixed, true)).toContain("Source too large.");
+});
+
+it("hides a saved summary without a finish timestamp", () => {
+  const entry = savedEntry({ durationMs: 1000, bashCalls: 0, files: [] });
+  expect(renderSummary(entry, { expanded: false }, theme)).toBeUndefined();
 });

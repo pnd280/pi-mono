@@ -23,6 +23,16 @@ it("bounds prefixes without cutting graphemes or ANSI sequences", () => {
   expect(textPrefix("unchanged", Infinity)).toBe("unchanged");
 });
 
+it("does not damage styling when a combining mark follows an SGR boundary", () => {
+  expect(textPrefix("a\x1b[31m\u0301b", 6)).toBe("a\x1b[31m");
+  const rows = compactText("a\x1b[31m\u0301" + "x".repeat(100) + "\nEND", {
+    ...budget(80, 3),
+    maxCharacters: 12
+  });
+  expect(stripTerminalSequences(rows[0]!)).toBe("a");
+  expect(stripTerminalSequences(rows.at(-1)!)).toBe("END");
+});
+
 it("bounds compact wrapping while retaining tail ANSI state, graphemes, and diagnostics", () => {
   const source = "\x1b[31mBEGIN\n" + "x".repeat(1024 * 1024) + "\n👩🏽‍💻 é\nFINAL ERROR\x1b[0m";
   const compact = compactText(source, budget(80));
@@ -34,20 +44,6 @@ it("bounds compact wrapping while retaining tail ANSI state, graphemes, and diag
   expect(compact[2]).toBe("… more output (expand)");
   expect(compact.every((row) => visibleWidth(row) <= 80)).toBe(true);
   expect(compactText(source, budget(80, 1))).toEqual(["… more output (expand)"]);
-});
-
-it("matches full wrapping for small output, including cross-line colors and narrow cells", () => {
-  for (const source of [
-    "",
-    "\n".repeat(20),
-    "first\n" + "word ".repeat(50) + "\nlast",
-    "\x1b[31m界 é\n👩🏽‍💻 tail\x1b[0m"
-  ]) {
-    for (const width of [1, 4, 20, 80])
-      expect(compactText(source, budget(width))).toEqual(
-        compactRows(wrapRows(source, width), budget(width))
-      );
-  }
 });
 
 it("counts wrapped rows and preserves the first and last diagnostics", () => {

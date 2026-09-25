@@ -57,7 +57,7 @@ For stream retention or file previews, use [bounded stream output](../libs/src/o
 
 ### Patches
 
-`parsePatch(source, maxBytes)` accepts one unified patch, with or without file headers. Each hunk must contain a change. It returns `undefined` for invalid or oversized patches and throws `RangeError` for an invalid byte limit. Pass the parsed result to the [diff renderer](../libs/src/tui/components/diff-view/README.md).
+`parsePatch(source, maxBytes)` accepts one unified patch, with or without file headers. Each hunk must contain a change, and hunk ranges must be ordered and nonoverlapping in both source versions. It returns `undefined` for invalid or oversized patches and throws `RangeError` for an invalid byte limit. Pass the parsed result to the [diff renderer](../libs/src/tui/components/diff-view/README.md).
 
 ### Text search
 
@@ -67,7 +67,7 @@ Use [cooperative search](../libs/src/text-search/README.md) for event-loop sched
 
 ### UTF-8
 
-`utf8Prefix` and `utf8Suffix` accept nonnegative safe-integer byte limits and throw `RangeError` for invalid limits. They never return partial code points. `decodeUtf8` decodes byte windows while dropping an incomplete code point only at the declared clipped edge.
+`utf8Prefix` and `utf8Suffix` accept nonnegative safe-integer byte limits and throw `RangeError` for invalid limits. They never return partial code points. `decodeUtf8Window` returns `{ text, omittedBytes }`, dropping an incomplete code point only at the declared clipped edge. `omittedBytes` counts discarded source bytes, independently of replacement decoding for invalid interior bytes.
 
 ## Configuration
 

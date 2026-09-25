@@ -10,12 +10,12 @@ import { expect, it } from "vite-plus/test";
 import { z } from "zod";
 
 it.each([
-  { mode: "text", prompt: "Opening request", name: "Offline session title" },
-  { mode: "json", prompt: "Opening request", name: "Offline session title" },
-  { mode: "text", prompt: "stall-title", name: undefined },
-  { mode: "json", prompt: "stall-title", name: undefined }
+  { mode: "text", prompt: "Opening request", name: "Offline session title", state: "completed" },
+  { mode: "json", prompt: "Opening request", name: "Offline session title", state: "completed" },
+  { mode: "text", prompt: "stall-title", name: undefined, state: "pending" },
+  { mode: "json", prompt: "stall-title", name: undefined, state: "pending" }
 ])(
-  "keeps $mode output clean and exits without waiting for title work: $prompt",
+  "keeps $mode output clean and exits with $state naming",
   async ({ mode, prompt, name }) => {
     const directory = await createValidationWorkspace("pi-session-utils-auto-title-process-");
     const sessionPath = join(directory, "session.jsonl");

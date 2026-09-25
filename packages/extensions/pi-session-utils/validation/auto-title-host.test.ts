@@ -152,9 +152,9 @@ it.each(["print", "rpc"] as const)(
     );
     expect(fixture.notify).not.toHaveBeenCalled();
     await fixture.command();
-    expect(fixture.titleRequests[1]?.messages.find(({ role }) => role === "user")?.content).toBe(
-      "user: Opening request\n\nassistant: Fixture reply"
-    );
+    const source = fixture.titleRequests[1]?.messages.find(({ role }) => role === "user")?.content;
+    expect(source).toContain("Opening request");
+    expect(source).toContain("Fixture reply");
     if (mode === "rpc") expect(fixture.notify).toHaveBeenCalled();
     else expect(fixture.notify).not.toHaveBeenCalled();
     await fixture.command("clear");
@@ -172,7 +172,7 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
   expect(runner.getCommand("auto-name")).toBeUndefined();
   const handler = runner.getCommand("sesh")!.handler;
   const ctx = runner.createCommandContext();
-  const busy = { ...ctx, isIdle: vi.fn(() => false) };
+  const busy = { ...ctx, isIdle: () => false };
   fixture.session.sessionManager.appendMessage({ role: "user", content: "Request", timestamp: 0 });
   const first = Promise.withResolvers<ReturnType<typeof fauxAssistantMessage>>();
   const second = Promise.withResolvers<ReturnType<typeof fauxAssistantMessage>>();
@@ -180,17 +180,19 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
   const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
   const old = handler("auto-name", busy);
   await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce());
-  expect(busy.isIdle).not.toHaveBeenCalled();
-
   const replacement = Promise.withResolvers<{ cancelled: boolean }>();
-  const switchSession = vi.fn(() => replacement.promise);
-  const operation = handler("persist", { ...ctx, switchSession });
+  const switchSession = vi.fn<typeof ctx.switchSession>(() => replacement.promise);
+  const operationContext = { ...ctx, switchSession };
+  const operation = handler("persist", operationContext);
   expect(switchSession).toHaveBeenCalledOnce();
-  await handler("create-empty-child", ctx);
-  expect(fixture.notify).toHaveBeenLastCalledWith(
-    "A session operation is already in progress",
-    "warning"
-  );
+  const newSession = vi.fn<typeof ctx.newSession>();
+  await handler("create-empty-child", {
+    ...ctx,
+    sessionManager: SessionManager.open(switchSession.mock.calls[0]![0]),
+    newSession
+  });
+  expect(newSession).not.toHaveBeenCalled();
+  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
 
   const latest = handler("auto-name", busy);
   await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(2));
@@ -201,36 +203,28 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
   first.resolve(fauxAssistantMessage("Old title"));
   second.resolve(fauxAssistantMessage("Late title"));
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
-  expect(busy.isIdle).not.toHaveBeenCalled();
   // Completing naming must not release a still-pending persistence operation.
-  await handler("persist", ctx);
-  expect(fixture.notify).toHaveBeenLastCalledWith(
-    "A session operation is already in progress",
-    "warning"
-  );
+  const blocked = handler("persist", operationContext);
+  expect(switchSession).toHaveBeenCalledOnce();
+  await blocked;
+  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
   replacement.resolve({ cancelled: true });
   await operation;
   expect(fixture.errors).toEqual([]);
 });
 
-it.each(["{}", '{"ext.pi-session-utils":{"auto-title":{"model":null}}}'])(
-  "keeps missing or invalid naming configuration inert while clear remains available: %s",
-  async (globalSettings) => {
-    const fixture = await host({ globalSettings });
-    await fixture.session.prompt("Opening request");
-    expect(fixture.titleRequests).toEqual([]);
-    await fixture.command();
-    expect(fixture.notify).toHaveBeenLastCalledWith(
-      expect.stringContaining("ext.pi-session-utils.auto-title"),
-      "warning"
-    );
-    fixture.session.setSessionName("Manual title");
-    await fixture.command("clear");
-    expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
-    expect(fixture.titleRequests).toEqual([]);
-    expect(fixture.errors).toEqual([]);
-  }
-);
+it("keeps unconfigured naming inert while clear remains available", async () => {
+  const fixture = await host({ globalSettings: "{}" });
+  await fixture.session.prompt("Opening request");
+  expect(fixture.titleRequests).toEqual([]);
+  await fixture.command();
+  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
+  fixture.session.setSessionName("Manual title");
+  await fixture.command("clear");
+  expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
+  expect(fixture.titleRequests).toEqual([]);
+  expect(fixture.errors).toEqual([]);
+});
 
 it("rejects unknown naming arguments without requests or changing the name", async () => {
   const fixture = await host();
@@ -280,10 +274,7 @@ it("applies project settings edits and removal only after /reload", async () => 
   await fixture.session.reload();
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);
-  expect(fixture.notify).toHaveBeenLastCalledWith(
-    expect.stringContaining("unavailable"),
-    "warning"
-  );
+  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
   await rm(fixture.projectSettingsPath);
   await fixture.session.reload();
   await fixture.command();
@@ -307,12 +298,14 @@ it("cancels when native /name changes or clears the title, even back to its orig
   ]);
   const pending = fixture.command();
   await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce());
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "info");
+  const progress = fixture.notify.mock.calls.slice();
   fixture.session.setSessionName("Manual title");
   fixture.session.setSessionName("");
   await pending;
   finish();
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
-  expect(fixture.notify).toHaveBeenCalledExactlyOnceWith("Generating session title…", "info");
+  expect(fixture.notify.mock.calls).toEqual(progress);
   expect(fixture.errors).toEqual([]);
 });
 
@@ -351,21 +344,40 @@ it("cancels before tree navigation can wait for a branch summary", async () => {
   expect(fixture.errors).toEqual([]);
 });
 
-it("retains the consumed automatic attempt across tree navigation and names only the selected branch on demand", async () => {
+it("does not retry a failed automatic attempt after tree navigation and names only the selected branch on demand", async () => {
   const fixture = await host();
+  let failTitle = true;
+  fixture.faux.setResponses(
+    Array.from({ length: 5 }, () => (context, _options, _state, model) => {
+      if (model.id === "active") return fauxAssistantMessage("Fixture reply");
+      fixture.titleRequests.push(context);
+
+      if (failTitle) {
+        failTitle = false;
+
+        return fauxAssistantMessage("", { stopReason: "error", errorMessage: "Fixture failure" });
+      }
+
+      return fauxAssistantMessage("Offline session title");
+    })
+  );
   await fixture.session.prompt("Opening request");
   await vi.waitFor(() => expect(fixture.titleRequests).toHaveLength(1));
   const sm = fixture.session.sessionManager;
+  expect(sm.getSessionName()).toBeUndefined();
   const branchPoint = sm.getLeafId()!;
   await fixture.session.prompt("Abandoned follow-up");
   await fixture.session.navigateTree(branchPoint, { summarize: false });
-  expect(sm.getSessionName()).toBe("Offline session title");
+  // An existing title would mask a wrongly replenished automatic attempt.
+  expect(sm.getSessionName()).toBeUndefined();
   await fixture.session.prompt("Selected follow-up");
   expect(fixture.titleRequests).toHaveLength(1);
+  expect(fixture.notify).not.toHaveBeenCalled();
   await fixture.command();
   const source = fixture.titleRequests[1]?.messages.find(({ role }) => role === "user")?.content;
   expect(source).toContain("Selected follow-up");
   expect(source).not.toContain("Abandoned follow-up");
+  expect(sm.getSessionName()).toBe("Offline session title");
   expect(fixture.errors).toEqual([]);
 });
 
@@ -384,10 +396,7 @@ it("reads settings only on load, leaves old callbacks inert, and applies fixes o
   expect(fixture.session.sessionManager.getSessionName()).toBe("Offline session title");
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);
-  expect(fixture.notify).toHaveBeenLastCalledWith(
-    expect.stringContaining("global or trusted project settings.json"),
-    "warning"
-  );
+  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
   await writeFile(fixture.settingsPath, settings);
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);

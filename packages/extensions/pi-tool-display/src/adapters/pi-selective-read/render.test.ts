@@ -1,5 +1,5 @@
 import { initTheme, type AgentToolResult } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
@@ -10,7 +10,7 @@ beforeAll(() => initTheme("dark", false));
 it("renders selected source once through public cards, hides compact text, and retains diagnostics", () => {
   const theme = {
     fg: (_color: string, text: string) => text,
-    bg: (_color: string, text: string) => `\x1b[43m${text}\x1b[49m`,
+    bg: (_color: string, text: string) => text,
     getBgAnsi: () => "",
     bold: (text: string) => text
   };
@@ -56,16 +56,12 @@ it("renders selected source once through public cards, hides compact text, and r
     expect(plain).toContain("selection 9:2-9:3");
 
     if (expanded) {
-      expect(output).toContain("\x1b[43m界\x1b[49m");
       expect(plain).toContain("context");
-      expect(plain).toContain("9 more lines");
-      for (const width of [12, 40])
-        expect(view.render(width).every((line) => visibleWidth(line) <= width)).toBe(true);
-    } else {
-      expect(plain).not.toContain("context");
-      expect(plain).toContain("9 more lines");
-      expect(output).not.toContain("\x1b[43m");
-    }
+      expect(plain).toContain("界tail");
+      expect(plain.split("界tail")).toHaveLength(2);
+    } else expect(plain).not.toContain("context");
+
+    expect(plain).toContain("9 more lines");
   }
 
   expect(result).toEqual(before);

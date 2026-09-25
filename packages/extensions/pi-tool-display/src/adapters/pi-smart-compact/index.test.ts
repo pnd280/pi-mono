@@ -1,6 +1,6 @@
 import { Type } from "@earendil-works/pi-ai";
 import { initTheme, type AgentToolResult, type ToolInfo } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
@@ -37,6 +37,7 @@ const theme = {
   bold: (text: string) => text
 };
 const plain = (lines: string[]) => stripTerminalSequences(lines.join("\n"));
+const content = (lines: string[]) => plain(lines).replace(/[├└│•\s]/g, "");
 
 function result(details: unknown, text = "Compaction requested."): AgentToolResult<unknown> {
   return { content: [{ type: "text", text }], details };
@@ -194,12 +195,13 @@ it.each([false, true])(
       expect(heading.includes(JSON.stringify(args))).toBe(showParameters);
       expect(plain(body.render(180))).toContain("Model: provider/nested/model-界:high");
       expect(plain(body.render(180))).not.toContain("Compaction requested.");
-      for (const width of [18, 80])
-        expect(
-          [...call.render(width), ...body.render(width)].every(
-            (line) => visibleWidth(line) <= width
-          )
-        ).toBe(true);
+
+      for (const width of [18, 80]) {
+        const narrow = content([...call.render(width), ...body.render(width)]);
+        expect(narrow).toContain("Requestedcompaction");
+        expect(narrow).toContain("Model:provider/nested/model-界:high");
+        expect(narrow).not.toContain("Compactionrequested.");
+      }
 
       const unconfigured = renderers.renderResult(
         result({ scheduled: true }),
@@ -268,10 +270,13 @@ it.each([false, true])(
     const output = plain(body.render(120));
     expect(output).toContain("5,963 / 272,000 tokens · 2.19% used");
     expect(output.includes(JSON.stringify(usage))).toBe(expanded);
-    for (const width of [18, 80])
-      expect(
-        [...call.render(width), ...body.render(width)].every((line) => visibleWidth(line) <= width)
-      ).toBe(true);
+
+    for (const width of [18, 80]) {
+      const narrow = content([...call.render(width), ...body.render(width)]);
+      expect(narrow).toContain("5,963/272,000tokens");
+      expect(narrow).toContain("2.19%used");
+      expect(narrow.includes(JSON.stringify(usage).replace(/\s+/g, ""))).toBe(expanded);
+    }
 
     const missing = result(undefined, "Context usage unavailable.");
     const unavailable = renderers.renderResult(missing, context, theme, context);

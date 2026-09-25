@@ -7,7 +7,7 @@ import {
   type OmissionFormatter,
   type OutputText
 } from "@pi-mono/utils/output-text";
-import { decodeUtf8 } from "@pi-mono/utils/utf8";
+import { decodeUtf8Window } from "@pi-mono/utils/utf8";
 import { z } from "zod";
 
 const limitsSchema = z.object({
@@ -63,16 +63,21 @@ export async function readBoundedOutput(
       before.mtimeMs !== after.mtimeMs
     )
       return { status: "changed" };
+    const prefix = decodeUtf8Window(buffer.subarray(0, head), oversized ? "head" : undefined);
+    const suffix = decodeUtf8Window(buffer.subarray(head), "tail");
     let output: OutputText = oversized
       ? joinOutputText(
           [
-            decodeUtf8(buffer.subarray(0, head), "head"),
-            formatOmission({ count: before.size - size, unit: "bytes" }),
-            decodeUtf8(buffer.subarray(head), "tail")
+            prefix.text,
+            formatOmission({
+              count: before.size - size + prefix.omittedBytes + suffix.omittedBytes,
+              unit: "bytes"
+            }),
+            suffix.text
           ],
           "\n"
         )
-      : { text: decodeUtf8(buffer) };
+      : { text: prefix.text };
     const lines = output.text.split("\n");
     const lineLimited = lines.length > maxLines;
 

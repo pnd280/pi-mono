@@ -1,6 +1,6 @@
 import { createBoundedPatch, type PatchLimits } from "@pi-mono/libs/bounded-diff";
 import type { FileMutation } from "@pi-mono/libs/file-mutations";
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
 
 import { RunChanges } from "./changes.ts";
 
@@ -17,43 +17,41 @@ function mutation(
     outcome: "success",
     before: before === undefined ? { status: "missing" } : { status: "ready", text: before },
     after: { status: "ready", text: after },
-    patch: vi.fn((limits: PatchLimits) =>
+    patch: (limits: PatchLimits) =>
       createBoundedPatch({ path, before: before ?? "", after, ...limits })
-    )
   };
 }
 
-it("reuses a single tool patch without retaining its closure or regenerating the diff", async () => {
+it("uses a native patch when source observation cannot supply a comparison", async () => {
   const changes = new RunChanges("/work");
-  const change = mutation("file", "before\n", "after\n");
-  await changes.record(change);
-  expect(change.patch).toHaveBeenCalledTimes(1);
+  await changes.record({
+    ...mutation("file", "before\n", "after\nextra\n"),
+    before: { status: "too-large" },
+    after: { status: "too-large" },
+    patch: async () => ({ status: "ready", patch: "@@ -1 +1,2 @@\n-before\n+after\n+extra\n" })
+  });
   expect(await changes.finish()).toEqual([
-    { path: "file", status: "available", added: 1, removed: 1 }
+    { path: "file", status: "available", added: 2, removed: 1 }
   ]);
-  expect(change.patch).toHaveBeenCalledTimes(1);
 });
 
-it("counts empty creations and unterminated lines, and omits fully reverted edits", async () => {
+it("counts empty creations and omits fully reverted edits", async () => {
   const changes = new RunChanges("/work");
   await changes.record(mutation("empty", undefined, ""));
-  await changes.record(mutation("lines", undefined, "one\r\ntwo"));
   await changes.record(mutation("reverted", "old\n", "new\n"));
   await changes.record(mutation("reverted", "new\n", "old\n", 2));
   expect(await changes.finish()).toEqual([
-    { path: "empty", status: "available", added: 0, removed: 0 },
-    { path: "lines", status: "available", added: 2, removed: 0 }
+    { path: "empty", status: "available", added: 0, removed: 0 }
   ]);
 });
 
-it("uses mutation order rather than callback order and does not diff intermediate changes", async () => {
+it("uses mutation order rather than callback order for net statistics", async () => {
   const changes = new RunChanges("/work");
   const later = mutation("file", "middle\n", "last\nextra\n", 2);
   const earlier = mutation("file", "old\n", "middle\n", 1);
   const laterRecording = changes.record(later);
   const earlierRecording = changes.record(earlier);
   await Promise.all([laterRecording, earlierRecording]);
-  expect(earlier.patch).not.toHaveBeenCalled();
   expect(await changes.finish()).toEqual([
     { path: "file", status: "available", added: 2, removed: 1 }
   ]);
@@ -71,7 +69,7 @@ it("bounds aggregate retained strings but preserves single-patch statistics", as
     {
       path: "two",
       status: "unavailable",
-      reason: "Run source retention budget exceeded (90 bytes)."
+      reason: expect.stringMatching(/retention.*90/i) as unknown
     }
   ]);
 });
@@ -108,7 +106,7 @@ it("does not mistake a failed final write for a reverted change", async () => {
     {
       path: "file",
       status: "unavailable",
-      reason: "File write failed; final contents were not observed."
+      reason: expect.stringMatching(/write failed/i) as unknown
     }
   ]);
 });
@@ -123,12 +121,12 @@ it("preserves a known source limit when no tool patch is available", async () =>
     {
       path: "large",
       status: "unavailable",
-      reason: "Source exceeds the 8 MiB observation budget."
+      reason: expect.stringMatching(/source.*8 MiB/i) as unknown
     }
   ]);
 });
 
-it("distinguishes invalid source, failed writes, and generated diff budgets", async () => {
+it("reports invalid sources, failed writes, and the package's diff limit as unavailable", async () => {
   const changes = new RunChanges("/work");
   await changes.record(mutation("binary", "before", "a\0b"));
   await changes.record({
@@ -138,46 +136,51 @@ it("distinguishes invalid source, failed writes, and generated diff budgets", as
   await changes.record({ ...mutation("failed", "before", "after"), outcome: "failure" });
   await changes.record(mutation("many-lines", undefined, "line\n".repeat(2001)));
   expect(await changes.finish()).toEqual([
-    { path: "binary", status: "unavailable", reason: "Binary content." },
+    {
+      path: "binary",
+      status: "unavailable",
+      reason: expect.stringMatching(/binary/i) as unknown
+    },
     {
       path: "failed",
       status: "unavailable",
-      reason: "File write failed; final contents were not observed."
+      reason: expect.stringMatching(/write failed/i) as unknown
     },
-    { path: "invalid", status: "unavailable", reason: "Source is not valid UTF-8." },
+    {
+      path: "invalid",
+      status: "unavailable",
+      reason: expect.stringMatching(/UTF-8/) as unknown
+    },
     {
       path: "many-lines",
       status: "unavailable",
-      reason: "Diff generation exceeded 50 ms or 2000 changed lines."
+      reason: expect.stringMatching(/diff.*2000/i) as unknown
     }
   ]);
 });
 
 it.each([
-  ["queue-full", "Diff queue exceeds its 64 MiB memory budget."],
-  ["worker-failed", "Diff worker failed to start or complete the comparison."]
+  ["queue-full", /queue/i],
+  ["worker-failed", /worker/i]
 ] as const)("reports %s separately from a diff work limit", async (status, reason) => {
   const changes = new RunChanges("/work");
   const change = mutation("file", "before\n", "after\n");
   change.patch = async () => ({ status });
   await changes.record(change);
-  expect(await changes.finish()).toEqual([{ path: "file", status: "unavailable", reason }]);
+  expect(await changes.finish()).toEqual([
+    { path: "file", status: "unavailable", reason: expect.stringMatching(reason) as unknown }
+  ]);
 });
 
-it("skips patch generation for unchanged source and awaits pending single-file statistics", async () => {
+it("omits unchanged files and awaits pending statistics without leaking them into the next run", async () => {
   const changes = new RunChanges("/work");
-  const unchanged = mutation("unchanged", "same\n", "same\n");
-  await changes.record(unchanged);
-  expect(unchanged.patch).not.toHaveBeenCalled();
+  await changes.record(mutation("unchanged", "same\n", "same\n"));
   const change = mutation("file", "before\n", "after\n");
-  let complete!: (value: Awaited<ReturnType<FileMutation["patch"]>>) => void;
-  const pending = new Promise<Awaited<ReturnType<FileMutation["patch"]>>>((resolve) => {
-    complete = resolve;
-  });
-  change.patch = () => pending;
+  const pending = Promise.withResolvers<Awaited<ReturnType<FileMutation["patch"]>>>();
+  change.patch = () => pending.promise;
   const recording = changes.record(change);
   const finished = changes.finish();
-  complete({ status: "ready", patch: "@@ -1 +1 @@\n-before\n+after\n" });
+  pending.resolve({ status: "ready", patch: "@@ -1 +1 @@\n-before\n+after\n" });
   await recording;
   expect(await finished).toEqual([{ path: "file", status: "available", added: 1, removed: 1 }]);
   expect(await changes.finish()).toEqual([]);

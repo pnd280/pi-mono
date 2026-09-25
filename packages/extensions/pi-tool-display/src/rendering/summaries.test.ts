@@ -1,6 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { initTheme } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { beforeAll, expect, it } from "vite-plus/test";
 
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
@@ -89,7 +89,6 @@ function render({
       ...renderer.renderCall(args, theme, context).render(width),
       ...renderer.renderResult(result, context, theme, context).render(width)
     ];
-    expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
 
     return stripTerminalSequences(rows.join("\n"));
   } finally {

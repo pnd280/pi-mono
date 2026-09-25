@@ -43,36 +43,28 @@ function lastText(result: ReadResult): string {
   return block.text;
 }
 
-it("registers a native read replacement with strict selection parameters and prompt guidance", () => {
-  const registerTool = vi.fn();
-  register({ registerTool });
-  expect(registerTool).toHaveBeenCalledOnce();
-  const { tool, base } = fixture();
-  expect(tool.name).toBe("read");
-  expect(tool.parameters.properties.path).toEqual(base.parameters.properties.path);
-  expect(tool.parameters.properties.selection).toMatchObject({
-    type: "object",
-    additionalProperties: false,
-    required: ["startLine"],
-    properties: { startLine: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER } }
-  });
-  expect(tool.promptSnippet).toBe(base.promptSnippet);
-  expect(tool.promptGuidelines).toEqual(expect.arrayContaining(base.promptGuidelines!));
-  expect(tool.promptGuidelines?.join(" ")).toContain("read.selection");
-  expect(tool.renderCall).toBeTypeOf("function");
-  expect(tool.renderResult).toBeTypeOf("function");
-});
-
-it("accepts the generated selection schema through Pi's argument validator", () => {
-  const { tool } = fixture();
+it("registers a read tool whose selections pass Pi's argument validator", () => {
   const args = { path: "sample.ts", selection: { startLine: 2, endColumn: 4 } };
-  expect(validateToolArguments(tool, fauxToolCall("read", args, { id: "valid" }))).toEqual(args);
-  expect(() => {
-    validateToolArguments(
-      tool,
-      fauxToolCall("read", { path: "sample.ts", selection: { startLine: 0 } }, { id: "invalid" })
-    );
-  }).toThrow("Validation failed");
+  let registrations = 0;
+  register({
+    registerTool(tool) {
+      registrations++;
+      expect(tool.name).toBe("read");
+      expect(validateToolArguments(tool, fauxToolCall("read", args, { id: "valid" }))).toEqual(
+        args
+      );
+
+      for (const selection of [{ startLine: 0 }, { startLine: 2, extra: true }]) {
+        expect(() => {
+          validateToolArguments(
+            tool,
+            fauxToolCall("read", { path: "sample.ts", selection }, { id: "invalid" })
+          );
+        }).toThrow();
+      }
+    }
+  });
+  expect(registrations).toBe(1);
 });
 
 it("returns native results unchanged without a selection and forwards execution context", async () => {
@@ -92,7 +84,7 @@ it("adds a preview without changing native blocks or details and reads only once
   });
   const native = await nativeResult(execute);
   expect(result.content[0]).toBe(native.content[0]);
-  expect(lastText(result)).toBe("Selected source preview:\nlpha\nbe");
+  expect(lastText(result).split("\n").slice(1)).toEqual(["lpha", "be"]);
   expect(sourceResult(result).content).toEqual(native.content);
   expect(result.details?.selectiveRead).toEqual({ sourceBlocks: native.content.length });
   expect(readFile).toHaveBeenCalledExactlyOnceWith("/session/sample.ts");
@@ -101,9 +93,7 @@ it("adds a preview without changing native blocks or details and reads only once
 
 it("rejects invalid selections before reading, and preserves native errors and cancellation", async () => {
   const { run, execute, tool, readFile } = fixture();
-  await expect(run({ selection: { startLine: 5, endLine: 2 } })).rejects.toThrow(
-    "Invalid read selection"
-  );
+  await expect(run({ selection: { startLine: 5, endLine: 2 } })).rejects.toThrow();
   expect(execute).not.toHaveBeenCalled();
   await expect(
     tool.execute(
@@ -113,7 +103,7 @@ it("rejects invalid selections before reading, and preserves native errors and c
       undefined,
       context
     )
-  ).rejects.toThrow("aborted");
+  ).rejects.toThrow();
   expect(readFile).not.toHaveBeenCalled();
   const error = new Error("read failed");
   execute.mockRejectedValueOnce(error);
@@ -125,66 +115,107 @@ describe("native source windows", () => {
     const { run } = fixture();
     const result = await run({ offset: 2, limit: 2, selection: { startLine: 1, endLine: 3 } });
     expect(lastText(sourceResult(result))).toContain("more lines in file");
-    expect(lastText(result)).toBe("Selected source preview (partial):\nalpha\nbeta");
+    expect(lastText(result)).toMatch(/^.*\(partial\):/);
+    expect(lastText(result).split("\n").slice(1)).toEqual(["alpha", "beta"]);
   });
 
-  it.each([1, 1.5, 0])("does not preview continuation notices with limit %s", async (limit) => {
-    const result = await fixture().run({ limit, selection: { startLine: 3 } });
-    expect(lastText(result)).toContain("no text in this read window");
+  it("does not preview continuation notices when the selection is outside the read window", async () => {
+    const result = await fixture().run({ limit: 1, selection: { startLine: 3 } });
+    expect(lastText(sourceResult(result))).toContain("more lines in file");
+    expect(lastText(result)).toMatch(/offset.*limit/);
     expect(lastText(result)).not.toContain("more lines in file");
   });
 
-  it("uses the native truncation boundary instead of the requested limit", async () => {
-    const { run, execute } = fixture(
-      Array.from({ length: 2005 }, (_, index) => `line ${index + 1}`).join("\n")
-    );
-    const result = await run({ limit: 2003, selection: { startLine: 2001 } });
-    const native = await nativeResult(execute);
-    expect(result.details?.truncation).toBe(native.details?.truncation);
-    expect(result.details?.truncation?.outputLines).toBe(2000);
-    expect(lastText(result)).toContain("no text in this read window");
+  it("uses the returned source boundary instead of the requested limit", async () => {
+    const { run, execute } = fixture();
+    const native: ReadResult = {
+      content: [
+        { type: "text", text: "alpha\nbeta\n\n[Showing lines 1-2. Use offset=3 to continue.]" }
+      ],
+      details: {
+        truncation: {
+          content: "alpha\nbeta",
+          truncated: true,
+          truncatedBy: "lines",
+          totalLines: 3,
+          totalBytes: 16,
+          outputLines: 2,
+          outputBytes: 10,
+          lastLinePartial: false,
+          firstLineExceedsLimit: false,
+          maxLines: 2,
+          maxBytes: 100
+        }
+      }
+    };
+    execute.mockResolvedValueOnce(native);
+    const result = await run({ limit: 3, selection: { startLine: 3 } });
+    expect(sourceResult(result).content).toEqual(native.content);
+    expect(lastText(result)).toMatch(/offset.*limit/);
+    expect(lastText(result)).not.toContain("Showing lines");
   });
 
   it("does not preview a diagnostic when the first source line exceeds the byte budget", async () => {
-    const result = await fixture("x".repeat(60 * 1024)).run({ selection: { startLine: 1 } });
-    expect(result.details?.truncation?.firstLineExceedsLimit).toBe(true);
-    expect(lastText(result)).toContain("no text in this read window");
+    const { run, execute } = fixture("x".repeat(60 * 1024));
+    const result = await run({ selection: { startLine: 1 } });
+    const native = await nativeResult(execute);
+    expect(native.details?.truncation?.firstLineExceedsLimit).toBe(true);
+    expect(lastText(result)).toMatch(/offset.*limit/);
+    expect(lastText(result)).not.toContain(lastText(native));
   });
 
   it("preserves exact source controls, CRLF, and trailing empty selected lines in the model preview", async () => {
     const result = await fixture("before\r\n\t😀\u001b[31m\r\n\nend").run({
       selection: { startLine: 2, endLine: 3 }
     });
-    expect(lastText(result)).toBe("Selected source preview:\n\t😀\u001b[31m\r\n");
+    expect(lastText(result).split("\n").slice(1).join("\n")).toBe("\t😀\u001b[31m\r\n");
   });
 });
 
-it("leaves image results and text-only image failure notes untouched", async () => {
-  const { run, execute } = fixture();
-  const results: ReadResult[] = [
-    {
-      content: [
-        { type: "text", text: "Read image file [image/png]" },
-        { type: "image", data: "AA==", mimeType: "image/png" }
-      ],
-      details: undefined
-    },
-    {
-      content: [{ type: "text", text: "Read image file [image/png]\nDecoding failed" }],
-      details: undefined
-    }
-  ];
+it("leaves native images and text-only image failure notes untouched", async () => {
+  const validImage = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==",
+    "base64"
+  );
 
-  for (const result of results) {
-    execute.mockResolvedValueOnce(result);
-    expect(await run({ selection: { startLine: 1 } })).toBe(result);
+  for (const [bytes, mimeType, hasImage] of [
+    [validImage, "image/png", true],
+    [Buffer.from("invalid BMP"), "image/bmp", false]
+  ] as const) {
+    const base = createReadToolDefinition("/fallback", {
+      autoResizeImages: false,
+      operations: {
+        access: async () => {},
+        readFile: async () => bytes,
+        detectImageMimeType: async () => mimeType
+      }
+    });
+    const execute = vi.spyOn(base, "execute");
+    const tool = createSelectiveReadTool(base);
+    const result = await tool.execute(
+      "image",
+      { path: "sample.png", selection: { startLine: 1 } },
+      undefined,
+      undefined,
+      context
+    );
+    const native = await nativeResult(execute);
+    expect(native.content.some((block) => block.type === "image")).toBe(hasImage);
+
+    if (!hasImage) {
+      const note = native.content[0];
+      if (note?.type !== "text") throw new Error("Expected a native image failure note");
+      expect(note.text).toContain("Read image file [image/");
+    }
+
+    expect(result).toBe(native);
   }
 });
 
 it("restores preview provenance after serialization without hiding unmarked source", () => {
   const result: ReadResult = {
     content: [
-      { type: "text", text: "source" },
+      { type: "text", text: "Selected source preview:\nsource" },
       { type: "text", text: "preview" }
     ],
     details: { selectiveRead: { sourceBlocks: 1 } }

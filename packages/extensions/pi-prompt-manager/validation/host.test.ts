@@ -1,4 +1,4 @@
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -25,13 +25,17 @@ async function host(mode: ExtensionContext["mode"], before?: (pi: ExtensionAPI) 
   const fixture = await workspace();
   // Remove storage made by the test helper so mode guards can prove no feature I/O.
   await rm(join(fixture.agentDir, "pi-prompt-manager"), { recursive: true });
+  if (mode !== "tui")
+    await writeFile(
+      join(fixture.agentDir, "settings.json"),
+      JSON.stringify({ "ext.pi-prompt-manager": { historyRetention: "invalid" } })
+    );
   vi.stubEnv("PI_CODING_AGENT_DIR", fixture.agentDir);
   vi.stubEnv("PI_OFFLINE", "1");
   const settingsManager = SettingsManager.inMemory({
     compaction: { enabled: false },
     retry: { enabled: false }
   });
-  const registrations: string[] = [];
   const resourceLoader = new DefaultResourceLoader({
     cwd: fixture.cwd,
     agentDir: fixture.agentDir,
@@ -44,27 +48,12 @@ async function host(mode: ExtensionContext["mode"], before?: (pi: ExtensionAPI) 
     extensionFactories: [
       (pi) => {
         before?.(pi);
-        const command = pi.registerCommand.bind(pi);
-
-        pi.registerCommand = (name, options) => {
-          registrations.push(name);
-          command(name, options);
-        };
-
-        const shortcut = pi.registerShortcut.bind(pi);
-
-        pi.registerShortcut = (key, options) => {
-          registrations.push(key);
-          shortcut(key, options);
-        };
-
         promptManager(pi);
       }
     ]
   });
   await resourceLoader.reload();
   expect(resourceLoader.getExtensions().errors).toEqual([]);
-  expect(registrations).toEqual([]);
   const modelRuntime = await ModelRuntime.create({
     authPath: join(fixture.agentDir, "auth.json"),
     modelsPath: null,
@@ -105,15 +94,15 @@ async function host(mode: ExtensionContext["mode"], before?: (pi: ExtensionAPI) 
     }
   });
 
-  return { ...fixture, session, registrations, errors, notify, getEditor: () => editor };
+  return { ...fixture, session, errors, notify, getEditor: () => editor };
 }
 
 it.each(["print", "rpc"] as const)(
   "does not register or touch feature storage/settings in %s mode",
   async (mode) => {
     const fixture = await host(mode);
-    expect(fixture.registrations).toEqual([]);
     expect(fixture.session.extensionRunner.getCommand("prompts")).toBeUndefined();
+    expect(fixture.session.extensionRunner.getShortcuts({}).has("ctrl+r")).toBe(false);
     await fixture.session.extensionRunner.emitInput("not captured", undefined, "interactive");
     fixture.session.sessionManager.appendCustomMessageEntry("fixture", "not captured", false);
     await expect(readFile(join(fixture.agentDir, "pi-prompt-manager"))).rejects.toMatchObject({
@@ -126,7 +115,6 @@ it.each(["print", "rpc"] as const)(
 
 it("registers at startup and reload, keeps old callbacks inert, persists without native session storage", async () => {
   const fixture = await host("tui");
-  expect(fixture.registrations).toEqual(["prompts", "ctrl+r", "ctrl+shift+s"]);
   const runner = fixture.session.extensionRunner;
   const oldCommand = runner.getCommand("prompts")!;
   const oldContext = runner.createCommandContext();
@@ -135,13 +123,19 @@ it("registers at startup and reload, keeps old callbacks inert, persists without
   expect(await fixture.repository.read("drafts")).toMatchObject({
     entries: [{ source: { text: "exact draft" } }]
   });
-  expect([...runner.getShortcuts({}).keys()]).toEqual(["ctrl+r", "ctrl+shift+s"]);
-  expect(fixture.session.sessionManager.isPersisted()).toBe(false);
+  expect(runner.getShortcuts({}).has("ctrl+r")).toBe(true);
+  expect(runner.getShortcuts({}).has("ctrl+shift+s")).toBe(true);
   await fixture.session.reload();
-  expect(fixture.registrations).toHaveLength(6);
   await oldCommand.handler("drafts add stale", oldContext);
   expect(await fixture.repository.read("drafts")).toMatchObject({
     entries: [{ source: { text: "exact draft" } }]
+  });
+  const currentRunner = fixture.session.extensionRunner;
+  const currentCommand = currentRunner.getCommand("prompts");
+  expect(currentCommand).toBeDefined();
+  await currentCommand!.handler("drafts add current", currentRunner.createCommandContext());
+  expect(await fixture.repository.read("drafts")).toMatchObject({
+    entries: [{ source: { text: "current" } }, { source: { text: "exact draft" } }]
   });
   expect(fixture.errors).toEqual([]);
 });

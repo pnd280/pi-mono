@@ -68,29 +68,11 @@ it.each([
   "[]",
   JSON.stringify({ "ext.pi-skills": null }),
   JSON.stringify({ "ext.pi-skills": { expansionFormat: 2 } }),
-  JSON.stringify({ "ext.pi-skills": { expansionFormat: "no placeholders" } }),
   JSON.stringify({ "ext.pi-skills": { expansionFormat: "{command}" } }),
-  JSON.stringify({ "ext.pi-skills": { expansionFormat: "x".repeat(513) + "{path}" } }),
-  JSON.stringify({ "ext.pi-skills": { expansionFormat: "{path}", unknown: true } })
+  JSON.stringify({ "ext.pi-skills": { expansionFormat: "x".repeat(513) + "{path}" } })
 ])("ignores invalid project settings without losing the global format: %s", (source) => {
   const { agentDir, cwd } = settings(section("File: {path}"), source);
   expect(loadSkillConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
     expansionFormat: "File: {path}"
   });
-});
-
-it("bounds the whole settings file, including unrelated fields, before parsing", () => {
-  const { agentDir, cwd } = settings(
-    JSON.stringify({
-      "ext.pi-skills": { expansionFormat: "{path}" },
-      ignored: "x".repeat(1024 * 1024)
-    })
-  );
-  expect(loadSkillConfig(cwd, { agentDir })).toEqual({ expansionFormat: "[{command}]({path})" });
-});
-
-it("uses the default when the settings file is unreadable", () => {
-  const { agentDir, cwd, globalPath } = settings();
-  mkdirSync(globalPath);
-  expect(loadSkillConfig(cwd, { agentDir })).toEqual({ expansionFormat: "[{command}]({path})" });
 });

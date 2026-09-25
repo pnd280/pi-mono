@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -36,28 +36,24 @@ function userContent(manager: SessionManager) {
 it("saves the active branch with a new header, preserving entries and context", () => {
   const source = SessionManager.inMemory(cwd);
   const rootId = source.appendMessage(user("original"));
-  source.appendCustomEntry("fixture", { active: true });
   source.appendMessage(user("abandoned"));
   source.branch(rootId);
+  source.appendCustomEntry("fixture", { active: true });
   source.appendMessage(user("selected"));
   source.appendSessionInfo("Saved conversation");
+  const branch = structuredClone(source.getBranch());
+  const entries = structuredClone(source.getEntries());
 
-  const path = saveActiveBranch(cwd, source);
-  const saved = SessionManager.open(path);
-  const lines = readFileSync(path, "utf8").trim().split("\n");
+  const saved = SessionManager.open(saveActiveBranch(cwd, source));
 
   expect(saved.isPersisted()).toBe(true);
   expect(saved.getSessionId()).not.toBe(source.getSessionId());
-  expect(saved.getHeader()?.id).toBe(saved.getSessionId());
   expect(saved.getHeader()?.cwd).toBe(cwd);
-  expect(lines).toHaveLength(source.getBranch().length + 1);
-  expect(saved.getEntries()).toEqual(source.getBranch());
+  expect(saved.getEntries()).toEqual(branch);
   expect(saved.getSessionName()).toBe("Saved conversation");
-  expect(saved.buildSessionContext().messages).toEqual(source.buildSessionContext().messages);
   expect(userContent(saved)).toEqual(["original", "selected"]);
-
-  saved.appendMessage(user("continued"));
-  expect(SessionManager.open(path).getBranch().at(-1)).toEqual(saved.getBranch().at(-1));
+  expect(source.getEntries()).toEqual(entries);
+  expect(source.getBranch()).toEqual(branch);
   expect(source.getSessionFile()).toBeUndefined();
 });
 
@@ -97,50 +93,27 @@ it("preserves the current name when saving an empty active branch", () => {
   expect(source.getBranch()).toEqual([]);
 });
 
-it("saves immediately while idle and switches to the file-backed branch", async () => {
-  const source = SessionManager.inMemory(cwd);
-  source.appendMessage(user("before"));
-  let saved: SessionManager | undefined;
-  const isIdle = vi.fn(() => true);
-  const switchSession = vi.fn(async (path: string) => {
-    saved = SessionManager.open(path);
-    expect(userContent(saved)).toEqual(["before"]);
-
-    return { cancelled: false };
-  });
-  const notify = vi.fn();
+it("leaves already file-backed sessions unchanged", async () => {
+  const original = SessionManager.inMemory(cwd);
+  original.appendMessage(user("already saved"));
+  const path = saveActiveBranch(cwd, original);
+  const source = SessionManager.open(path);
+  const contents = readFileSync(path, "utf8");
+  const files = new Set(readdirSync(source.getSessionDir()));
+  const switchSession = vi.fn(async () => ({ cancelled: false }));
 
   await persistSession({
     cwd,
     sessionManager: source,
-    isIdle,
+    isIdle: () => true,
     switchSession,
-    ui: { notify }
+    ui: { notify: vi.fn() }
   });
 
-  expect(isIdle).toHaveBeenCalledOnce();
-  expect(switchSession).toHaveBeenCalledOnce();
-  expect(saved?.isPersisted()).toBe(true);
-  expect(source.getSessionFile()).toBeUndefined();
-  expect(notify).not.toHaveBeenCalled();
-});
-
-it("leaves already file-backed sessions unchanged", async () => {
-  const isIdle = vi.fn(() => true);
-  const switchSession = vi.fn(async () => ({ cancelled: false }));
-  const notify = vi.fn();
-
-  await persistSession({
-    cwd,
-    sessionManager: SessionManager.create(cwd),
-    isIdle,
-    switchSession,
-    ui: { notify }
-  });
-
-  expect(isIdle).toHaveBeenCalledOnce();
   expect(switchSession).not.toHaveBeenCalled();
-  expect(notify).toHaveBeenCalledOnce();
+  expect(source.getSessionFile()).toBe(path);
+  expect(readFileSync(path, "utf8")).toBe(contents);
+  expect(new Set(readdirSync(source.getSessionDir()))).toEqual(files);
 });
 
 it("removes the new file when the switch is cancelled", async () => {
@@ -165,8 +138,8 @@ it("removes the new file when the switch is cancelled", async () => {
 
   expect(path).toBeDefined();
   expect(existsSync(path!)).toBe(false);
-  expect(source.getBranch()).toHaveLength(1);
-  expect(notify).toHaveBeenCalledWith("Session switch cancelled; no file saved", "info");
+  expect(userContent(source)).toEqual(["keep in memory"]);
+  expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
 });
 
 it("keeps the saved file for recovery when switching fails", async () => {

@@ -1,6 +1,8 @@
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { z } from "zod";
 
+import { sliceTerminalText } from "../terminal-text/index.ts";
+
 const characterLimitSchema = z.int().min(2);
 
 export function wrapRows(text: string, width: number): string[] {
@@ -37,45 +39,9 @@ export function compactRows(rows: readonly string[], options: RowBudgetOptions):
   ];
 }
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-
-/** Input is normalized text with SGR styling only, never raw terminal output. */
-function excerptBoundary(text: string, offset: number, side: "head" | "tail"): number {
-  const escape = text.lastIndexOf("\x1b[", offset);
-
-  if (escape >= 0) {
-    const end = text.indexOf("m", escape) + 1;
-    if (end > offset && escape < offset) offset = side === "head" ? escape : end;
-  }
-
-  const segment = graphemes.segment(text).containing(offset);
-  if (!segment || segment.index === offset) return offset;
-
-  return side === "head" ? segment.index : segment.index + segment.segment.length;
-}
-
 /** Bound normalized text before styling, preserving whole graphemes and SGR. */
 export function textPrefix(text: string, maximum: number): string {
-  return text.length <= maximum ? text : text.slice(0, excerptBoundary(text, maximum, "head"));
-}
-
-function activeSgr(text: string, end: number): string {
-  // Fold SGR through Pi's tracker in bounded batches rather than retain unbounded escapes.
-  const start = Math.max(
-    0,
-    text.lastIndexOf("\x1b[0m", end - 1),
-    text.lastIndexOf("\x1b[m", end - 1)
-  );
-  const canonical = (codes: string) => wrapTextWithAnsi(codes + "\n", 1).at(-1) ?? "";
-  let codes = "";
-
-  // oxlint-disable-next-line no-control-regex
-  for (const match of text.slice(start, end).matchAll(/\x1b\[[0-9;:]*m/g)) {
-    codes += match[0];
-    if (codes.length >= 4096) codes = canonical(codes);
-  }
-
-  return canonical(codes);
+  return sliceTerminalText(text, 0, maximum).text;
 }
 
 export type TextBudgetOptions = {
@@ -98,14 +64,16 @@ export function compactText(text: string, options: TextBudgetOptions): string[] 
   if (maxRows === 1) return [omission];
   const head = Math.ceil((maxRows - 1) / 2),
     tail = Math.floor((maxRows - 1) / 2);
-  const headEnd = excerptBoundary(text, Math.ceil(maxCharacters / 2), "head");
-  const tailStart = excerptBoundary(text, text.length - Math.floor(maxCharacters / 2), "tail");
+  const prefix = textPrefix(text, Math.ceil(maxCharacters / 2));
+  const suffix = tail
+    ? sliceTerminalText(text, text.length - Math.floor(maxCharacters / 2), text.length, {
+        preserveSgr: true
+      })
+    : undefined;
 
   return [
-    ...wrapRows(text.slice(0, headEnd), width).slice(0, head),
+    ...wrapRows(prefix, width).slice(0, head),
     omission,
-    ...(tail
-      ? wrapRows(activeSgr(text, tailStart) + text.slice(tailStart), width).slice(-tail)
-      : [])
+    ...(suffix ? wrapRows(suffix.leadingSgr + suffix.text, width).slice(-tail) : [])
   ];
 }

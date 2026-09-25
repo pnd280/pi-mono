@@ -9,18 +9,34 @@ function assertByteLimit(bytes: number): void {
     throw new RangeError("UTF-8 byte limits must be nonnegative safe integers.");
 }
 
-/** Decode a standalone byte window, dropping only an incomplete edge character.
+/** Decode a standalone byte window, counting bytes dropped at its incomplete edge.
  * Complete BOMs and literal replacement characters are retained. Invalid UTF-8
  * otherwise follows Node's replacement decoding, not strict validation.
  */
-export function decodeUtf8(buffer: Buffer, boundary?: "head" | "tail"): string {
+export function decodeUtf8Window(
+  buffer: Buffer,
+  boundary?: "head" | "tail"
+): { text: string; omittedBytes: number } {
+  if (boundary === "head") {
+    const decoder = new StringDecoder("utf8");
+    const text = decoder.write(buffer);
+    let end = buffer.length;
+
+    // Only end() output identifies a buffered, incomplete suffix. Invalid interior
+    // bytes may expand into replacement characters, so re-encoding text cannot count it.
+    if (decoder.end()) {
+      while (end > 0 && (buffer.readUInt8(end - 1) & 0xc0) === 0x80) end--;
+      end = Math.max(0, end - 1);
+    }
+
+    return { text, omittedBytes: buffer.length - end };
+  }
+
   let start = 0;
   if (boundary === "tail")
     while (start < buffer.length && (buffer.readUInt8(start) & 0xc0) === 0x80) start++;
 
-  return boundary === "head"
-    ? new StringDecoder("utf8").write(buffer)
-    : buffer.subarray(start).toString("utf8");
+  return { text: buffer.subarray(start).toString("utf8"), omittedBytes: start };
 }
 
 export function utf8Prefix(text: string, bytes: number): string {

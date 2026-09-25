@@ -1,4 +1,4 @@
-import type { AutocompleteProvider } from "@earendil-works/pi-tui";
+import type { AutocompleteProvider, Component } from "@earendil-works/pi-tui";
 import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -34,7 +34,7 @@ it("settles session/agent cancellation and host failures with exactly one suppre
   );
   const first = host.show({ ui, signal: undefined }, controller);
   open.mock.calls.at(-1)?.[0].onInputRoutingUnavailable?.();
-  expect(notify).toHaveBeenCalledWith(expect.stringContaining("paging is unavailable"), "warning");
+  expect(notify.mock.lastCall?.[1]).toBe("warning");
   host.shutdown();
   host.shutdown();
   await first;
@@ -60,6 +60,28 @@ it("routes widget actions, usage errors and non-TUI notifications without openin
   controller.apply("create", { subject: "Child", parentId: 1, blockedBy: [1] });
   const widget = new TodoOverlay(controller),
     host = new TodosCustomViewHost(widget);
+  let displayedWidget: Component | undefined;
+  let displayedText = "";
+  widget.setUICtx({
+    setWidget(_key, content) {
+      if (!content) {
+        displayedWidget = undefined;
+        displayedText = "";
+
+        return;
+      }
+
+      displayedWidget = content(
+        { requestRender: () => (displayedText = displayedWidget?.render(80).join("\n") ?? "") },
+        { fg: (_color, text) => text, strikethrough: (text) => text }
+      );
+      displayedText = displayedWidget.render(80).join("\n");
+    },
+    setActivity() {}
+  });
+
+  widget.update();
+
   const notify = vi.fn(),
     writeOutput = vi.fn();
   const ctx = {
@@ -75,18 +97,21 @@ it("routes widget actions, usage errors and non-TUI notifications without openin
   };
   const options = { widgetStateHost: widget, customViewHost: host, writeOutput };
   await runTodosCommand("", ctx, controller, options);
-  expect(notify.mock.calls[0]?.[0]).toContain("#2 Child");
-  expect(notify.mock.calls[0]?.[0]).toContain("Blocked by: #1");
+  expect(notify.mock.calls[0]?.[0]).toContain("Child");
+  expect(notify.mock.calls[0]?.[0]).toContain("#1");
   await runTodosCommand("collapse", ctx, controller, options);
-  expect(notify).toHaveBeenLastCalledWith("/todos requires interactive mode", "error");
+  expect(notify.mock.lastCall?.[1]).toBe("error");
+  expect(displayedText).toContain("Root");
   await runTodosCommand("nope", ctx, controller, options);
-  expect(notify).toHaveBeenLastCalledWith("Usage: /todos [collapse|expand|toggle]", "error");
+  expect(notify.mock.lastCall?.[1]).toBe("error");
+  expect(notify.mock.lastCall?.[0]).toContain("collapse");
   await runTodosCommand("collapse", { ...ctx, mode: "tui" }, controller, options);
-  expect(notify).toHaveBeenLastCalledWith("Todo widget collapsed", "info");
+  expect(displayedText).not.toBe("");
+  expect(displayedText).not.toContain("Root");
   await runTodosCommand("toggle", { ...ctx, mode: "tui" }, controller, options);
-  expect(notify).toHaveBeenLastCalledWith("Todo widget expanded", "info");
+  expect(displayedText).toContain("Root");
   await runTodosCommand("", { ...ctx, hasUI: false }, controller, options);
-  expect(writeOutput).toHaveBeenCalledWith("/todos requires interactive mode");
+  expect(writeOutput.mock.lastCall?.[0]).toContain("interactive");
 });
 
 it("limits forced-Tab interception to /todos arguments and retains synchronous completions", async () => {

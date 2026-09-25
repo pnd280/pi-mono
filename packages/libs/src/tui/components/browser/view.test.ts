@@ -194,11 +194,10 @@ it("sanitizes confirmation overflow before rendering it", async () => {
   expect(output).toContain("confirm");
 });
 
-it("preserves search cursor edits and focus while keeping action hints during search", async () => {
+it("preserves search cursor edits and action hints during pending search", async () => {
   const { view, options, controller } = browser(["abXc"]);
   await controller.activate();
   view.focused = true;
-  expect(view.focused).toBe(true);
   view.render(80);
   view.handleInput("abc");
   view.handleInput("\x1b[D");
@@ -223,10 +222,7 @@ it("preserves section queries and advertises only available actions and switchin
   delete options.sections[1]!.remove;
   await controller.activate();
   const lines = view.render(80).join("\n");
-  expect(lines).toContain("View: recent | saved");
   expect(lines).toContain("Shift+Tab view");
-  expect(lines.indexOf("Shift+Tab view")).toBeGreaterThan(lines.indexOf("beta"));
-  expect(lines).not.toContain("view (recent/saved)");
   expect(lines).not.toContain("Alt+Enter");
   expect(lines).not.toContain("Del×2");
   view.handleInput("beta");

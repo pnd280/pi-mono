@@ -3,8 +3,12 @@ import { z } from "zod";
 
 const byteLimitSchema = z.int().nonnegative();
 const hunkRangeSchema = z
-  .object({ start: z.int(), count: z.int(), end: z.int() })
-  .refine(({ start, count }) => count <= 0 || start !== 0);
+  .object({
+    start: z.int().nonnegative(),
+    count: z.int().nonnegative(),
+    end: z.int().nonnegative()
+  })
+  .refine(({ start, count }) => count === 0 || start !== 0);
 
 export type PatchLine = {
   kind: "added" | "removed" | "context";
@@ -44,6 +48,30 @@ function validHunk(hunk: DiffHunk): boolean {
   );
 }
 
+/** Empty ranges name the line before the insertion/deletion, not its first line. */
+function hunkRange(start: number, count: number): { start: number; end: number } {
+  const first = count === 0 ? start : start - 1;
+
+  return { start: first, end: first + count };
+}
+
+function validHunks(hunks: readonly DiffHunk[]): boolean {
+  let oldEnd = 0,
+    newEnd = 0;
+
+  for (const hunk of hunks) {
+    // Upstream deliberately tolerates mismatched counts; callers must not trust them.
+    if (!validHunk(hunk)) return false;
+    const oldRange = hunkRange(hunk.header.oldStartLine, hunk.header.oldLineCount);
+    const newRange = hunkRange(hunk.header.newStartLine, hunk.header.newLineCount);
+    if (oldRange.start < oldEnd || newRange.start < newEnd) return false;
+    oldEnd = oldRange.end;
+    newEnd = newRange.end;
+  }
+
+  return true;
+}
+
 /**
  * Parse one unified patch, optionally without file headers, within a caller-chosen
  * byte limit. Invalid or oversized patches return undefined; a limit that is not
@@ -68,6 +96,7 @@ export function parsePatch(patch: string, maxBytes: number): ParsedPatch | undef
     const parsed = new DiffParser().parse(source);
     if (
       parsed.isBinary ||
+      !validHunks(parsed.hunks) ||
       (!parsed.hunks.length && !/^--- [^\n]*\n\+\+\+ [^\n]*$/.test(normalized))
     )
       return undefined;
@@ -76,8 +105,6 @@ export function parsePatch(patch: string, maxBytes: number): ParsedPatch | undef
       removed = 0;
 
     for (const hunk of parsed.hunks) {
-      // Upstream deliberately tolerates mismatched counts; callers must not trust them.
-      if (!validHunk(hunk)) return undefined;
       const lines: PatchLine[] = [];
 
       for (const line of hunk.lines.slice(1)) {

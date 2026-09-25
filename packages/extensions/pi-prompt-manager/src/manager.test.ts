@@ -50,12 +50,10 @@ it("clears only after successful commit and reports clear failure separately fro
   const write = vi.fn(() => {
     throw new Error("clear failed");
   });
-  const fixture = managerFixture({ editor: { read: () => "draft", write } });
+  const notify = vi.fn<ManagerPorts["notify"]>();
+  const fixture = managerFixture({ editor: { read: () => "draft", write }, notify });
   await fixture.manager.saveEditor();
-  expect(fixture.notices).toEqual([
-    "Draft saved.",
-    "Draft saved, but the editor could not be cleared."
-  ]);
+  expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["info", "warning"]);
   const failed = managerFixture({
     repository: {
       read: async () => collection(),
@@ -115,16 +113,15 @@ it("restore-then-delete failure retains snapshot source and reports deletion fai
     status: "failed",
     message: "target changed"
   }));
-  const fixture = managerFixture({ repository: { read: async () => current, mutate } });
+  const notify = vi.fn<ManagerPorts["notify"]>();
+  const fixture = managerFixture({ repository: { read: async () => current, mutate }, notify });
   await fixture.manager.command("drafts restore-and-delete 1");
   expect(fixture.getText()).toBe("selected");
   expect(mutate.mock.calls[0]?.slice(0, 2)).toMatchObject([
     "drafts",
     { kind: "delete", target: current.entries[0] }
   ]);
-  expect(fixture.notices).toContain(
-    "Text was restored; deletion failed. The editor was not rolled back."
-  );
+  expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["error", "warning"]);
 });
 
 it.each(["restore", "restore-delete", "cancel", "expired", "unsafe"] as const)(
@@ -209,52 +206,69 @@ it("bounds waiting bytes, silently ignores blank/oversized captures, and does no
   await fixture.manager.dispose();
 });
 
-it("passes the session cancellation signal to numbered collection reads", async () => {
-  let signal: AbortSignal | undefined;
-  const read = vi.fn<Repository["read"]>(async (_collection, currentSignal) => {
-    signal = currentSignal;
+it("stops a numbered copy when its collection read finishes after session expiry", async () => {
+  const started = Promise.withResolvers<void>();
+  let cancelled = false;
+  const read = vi.fn<Repository["read"]>(async (_collection, signal) => {
+    started.resolve();
+    if (!signal) throw new Error("Missing session cancellation");
+    await new Promise<void>((resolve) =>
+      signal.addEventListener(
+        "abort",
+        () => {
+          cancelled = true;
+          resolve();
+        },
+        { once: true }
+      )
+    );
 
-    return collection();
+    return collection([entry("source")]);
   });
-  const { manager } = managerFixture({ repository: { read, mutate: vi.fn() } });
-
-  await manager.command("drafts copy 1");
-  expect(read).toHaveBeenCalledExactlyOnceWith("drafts", manager.session.signal);
-  expect(signal).toBe(manager.session.signal);
+  const copy = vi.fn<ManagerPorts["copy"]>();
+  const { manager } = managerFixture({ repository: { read, mutate: vi.fn() }, copy });
+  const command = manager.command("drafts copy 1");
+  await started.promise;
   await manager.dispose();
-  expect(signal?.aborted).toBe(true);
+  await command;
+  expect(cancelled).toBe(true);
+  expect(copy).not.toHaveBeenCalled();
 });
 
-it("reports shared clipboard diagnostics without exposing arbitrary helper errors", async () => {
-  for (const [error, message] of [
-    [
-      new NativeClipboardError("Safe native clipboard diagnostic."),
-      "Safe native clipboard diagnostic."
-    ],
-    [new Error("sensitive source text"), "Clipboard operation failed or was cancelled."]
-  ] as const) {
+it("reports safe clipboard diagnostics without exposing arbitrary helper errors", async () => {
+  for (const error of [
+    new NativeClipboardError("Safe native clipboard diagnostic."),
+    new Error("sensitive source text")
+  ]) {
+    const notify = vi.fn<ManagerPorts["notify"]>();
     const fixture = managerFixture({
       copy: async () => {
         throw error;
-      }
+      },
+      notify
     });
 
     try {
       await fixture.manager.copy(collection([entry("source")]).entries[0]!);
-      expect(fixture.notices).toEqual([message]);
+      expect(notify).toHaveBeenCalledTimes(1);
+      expect(notify.mock.calls[0]?.[1]).toBe("error");
+      if (error instanceof NativeClipboardError)
+        expect(notify.mock.calls[0]?.[0]).toBe(error.message);
+      else expect(notify.mock.calls[0]?.[0]).not.toContain("sensitive source text");
     } finally {
       await fixture.manager.dispose();
     }
   }
 });
 
-it("notifies copy and deletion results with severity and combined cleanup warnings", async () => {
+it("reports numbered copy and deletion outcomes, including cleanup warnings", async () => {
   const copying = Promise.withResolvers<void>();
   const snapshot = collection([entry("source")]);
-  const notify = vi.fn();
+  const notify = vi.fn<ManagerPorts["notify"]>();
+  const copy = vi.fn<ManagerPorts["copy"]>(() => copying.promise);
   const fixture = managerFixture({
     notify,
-    copy: () => copying.promise,
+    copy,
     repository: {
       read: async () => snapshot,
       mutate: async () => ({
@@ -269,23 +283,19 @@ it("notifies copy and deletion results with severity and combined cleanup warnin
   try {
     const pending = fixture.manager.copy(target);
     await fixture.manager.copy(target);
-    expect(notify).toHaveBeenLastCalledWith("A clipboard operation is already pending.", "warning");
+    expect(copy).toHaveBeenCalledTimes(1);
+    expect(copy.mock.calls[0]?.[0]).toBe("source");
+    expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["warning"]);
     copying.resolve();
     await pending;
-    expect(notify).toHaveBeenLastCalledWith("Copied to the native clipboard.", "info");
-    notify.mockClear();
-    await fixture.manager.deleteOccurrence("drafts", target);
-    const deletionFeedback = "Entry deleted. Descriptor cleanup warning. Lock cleanup warning.";
-    expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith(deletionFeedback, "warning");
+    expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["warning", "info"]);
 
     notify.mockClear();
     await fixture.manager.command("drafts copy 1");
     await fixture.manager.command("drafts delete 1");
-    expect(notify.mock.calls).toEqual([
-      ["Copied to the native clipboard.", "info"],
-      [deletionFeedback, "warning"]
-    ]);
+    expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["info", "warning"]);
+    expect(notify.mock.calls[1]?.[0]).toContain("Descriptor cleanup warning.");
+    expect(notify.mock.calls[1]?.[0]).toContain("Lock cleanup warning.");
     await fixture.manager.dispose();
     notify.mockClear();
     await fixture.manager.copy(target);

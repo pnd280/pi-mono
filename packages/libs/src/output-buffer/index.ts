@@ -29,18 +29,27 @@ class RetainedLine {
   constructor(private readonly options: OutputBufferOptions) {}
   append(text: string): void {
     this.bytes += Buffer.byteLength(text);
-    // Once text spills into the tail, the head must remain a contiguous prefix.
-    // A later narrow character cannot fill space left by a multibyte boundary.
-    const available = this.spilled
-      ? 0
-      : Math.ceil(this.options.lineBytes / 2) - Buffer.byteLength(this.head);
-    const head = available > 0 ? utf8Prefix(text, available) : "";
-    this.spilled ||= head.length < text.length;
-    this.head += head;
-    this.tail = utf8Suffix(
-      this.tail + text.slice(head.length),
-      Math.floor(this.options.lineBytes / 2)
-    );
+
+    if (!this.spilled) {
+      const complete = this.head + text;
+
+      if (this.bytes <= this.options.lineBytes) {
+        this.head = complete;
+
+        return;
+      }
+
+      // Split only oversized lines: a character may fit the full budget but neither half.
+      // Once split, never fill a head boundary gap with later, narrower characters.
+      this.spilled = true;
+      this.head = utf8Prefix(complete, Math.ceil(this.options.lineBytes / 2));
+      this.tail = utf8Suffix(
+        complete.slice(this.head.length),
+        Math.floor(this.options.lineBytes / 2)
+      );
+    } else {
+      this.tail = utf8Suffix(this.tail + text, Math.floor(this.options.lineBytes / 2));
+    }
   }
   text(): OutputText {
     const omitted = this.bytes - Buffer.byteLength(this.head) - Buffer.byteLength(this.tail);

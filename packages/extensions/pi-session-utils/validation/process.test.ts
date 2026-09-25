@@ -151,6 +151,7 @@ it.each(
       run(args.map((arg) => (arg === "PARENT" ? parent : arg)).concat("/fixture-append"))
     ).rejects.toMatchObject({ code: 1 });
     expect(await readFile(parent, "utf8")).toBe(before);
+    expect(await childSessions()).toEqual([]);
   },
   15_000
 );

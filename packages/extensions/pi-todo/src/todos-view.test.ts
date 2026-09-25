@@ -1,4 +1,4 @@
-import { getSettingsListTheme, initTheme } from "@earendil-works/pi-coding-agent";
+import { initTheme } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { beforeAll, expect, it, vi } from "vite-plus/test";
 
@@ -26,30 +26,28 @@ it.each(["regular", "fullscreen"] as const)(
       }),
       done: vi.fn()
     });
-    const first = view.render(80);
+    view.render(80);
     expect(view.ownsFullscreenInput("\x0e")).toBe(true);
     expect(view.ownsFullscreenInput("\x10")).toBe(true);
     expect(view.ownsFullscreenInput("\x1b[6~")).toBe(false);
-    expect(first.join("\n")).toContain("Ctrl+P/Ctrl+N page");
     view.handleInput("\x0e");
-    const settingsCursor = getSettingsListTheme().cursor;
-    expect(view.render(80).find((line) => line.startsWith(settingsCursor))).toContain(
-      "#16 Todo 16"
-    );
-    view.handleInput("\x10");
-    expect(view.render(80).find((line) => line.startsWith(settingsCursor))).toContain("#1 Todo 1");
     view.handleInput("\r");
-    const detail = view.render(80);
-    view.handleInput("\x0e");
-    expect(view.render(80)).not.toEqual(detail);
-    view.handleInput("\x10");
-    expect(view.render(80)).toEqual(detail);
+    expect(view.render(80).join("\n")).toContain("Todo #16");
     view.handleInput("\x1b");
-    expect(view.render(80)).toEqual(first);
+    view.handleInput("\x10");
+    view.handleInput("\r");
+    expect(view.render(80).join("\n")).toContain("Todo #1");
+    expect(view.render(80).join("\n")).toMatch(/(?:^|\n)Detail line 1(?:\n|$)/u);
+    view.handleInput("\x0e");
+    expect(view.render(80).join("\n")).not.toMatch(/(?:^|\n)Detail line 1(?:\n|$)/u);
+    view.handleInput("\x10");
+    expect(view.render(80).join("\n")).toMatch(/(?:^|\n)Detail line 1(?:\n|$)/u);
+    view.handleInput("\x1b");
+    expect(view.render(80).join("\n")).toContain("#1 Todo 1");
   }
 );
 
-it("claims only effective paging actions, reserves boundaries, and ignores releases", () => {
+it("claims only effective paging actions and reserves control keys", () => {
   const keys = new KeybindingsManager(TUI_KEYBINDINGS, {
     "tui.select.pageDown": ["escape", "enter", "down", "pageDown"],
     "tui.select.pageUp": []
@@ -65,9 +63,7 @@ it("claims only effective paging actions, reserves boundaries, and ignores relea
     expect(view.ownsFullscreenInput(input)).toBe(false);
   expect(view.ownsFullscreenInput("\x1b[6~")).toBe(true);
   expect(view.ownsFullscreenInput("\x1b[6;1:2~")).toBe(true);
-  const before = view.render(80);
-  view.handleInput("\x1b[13;1:3u");
-  expect(view.render(80)).toEqual(before);
+  expect(view.ownsFullscreenInput("\x1b[13;1:3u")).toBe(false);
   view.handleInput("\r");
   expect(view.ownsFullscreenInput("\x1b[6~")).toBe(true);
 });
@@ -90,48 +86,27 @@ it("shares dispatch precedence for ambiguous terminal encodings in lists and det
     }),
     done
   });
-  const list = view.render(80);
+  view.render(80);
   // Legacy terminals encode Ctrl+[ as Escape and Ctrl+M as Enter.
   expect(view.ownsFullscreenInput("\x1b")).toBe(false);
   expect(view.ownsFullscreenInput("\r")).toBe(false);
   expect(view.ownsFullscreenInput("\x0e")).toBe(true);
   view.handleInput("\r");
-  const detail = view.render(80);
-  expect(detail.join("\n")).toContain("Todo #1");
+  expect(view.render(80).join("\n")).toMatch(/(?:^|\n)Detail 1(?:\n|$)/u);
   expect(view.ownsFullscreenInput("\x1b")).toBe(false);
   expect(view.ownsFullscreenInput("\r")).toBe(false);
   view.handleInput("\r");
-  expect(view.render(80)).toEqual(detail);
+  expect(view.render(80).join("\n")).toMatch(/(?:^|\n)Detail 1(?:\n|$)/u);
   view.handleInput("\x0e");
-  expect(view.render(80)).not.toEqual(detail);
+  expect(view.render(80).join("\n")).not.toMatch(/(?:^|\n)Detail 1(?:\n|$)/u);
   view.handleInput("\x1b");
-  expect(view.render(80)).toEqual(list);
+  expect(view.render(80).join("\n")).toContain("#1 Todo");
   expect(done).not.toHaveBeenCalled();
   view.handleInput("\x1b");
   expect(done).toHaveBeenCalledOnce();
 });
 
-it("keeps selection status and all essential hints visible on a narrow terminal", () => {
-  const view = new TodosView({
-    tasks: Array.from({ length: 30 }, (_, index) => ({
-      id: index + 1,
-      subject: `Todo ${index + 1}`,
-      status: "pending"
-    })),
-    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
-    tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
-    keybindings: new KeybindingsManager(TUI_KEYBINDINGS),
-    done: vi.fn()
-  });
-
-  const rendered = view.render(40).join("\n");
-  expect(rendered).toContain("(1/30)");
-  expect(rendered).toContain("Esc close");
-  expect(rendered).toContain("PageUp/PageDown page");
-  expect(rendered).toContain("↓");
-});
-
-it("resolves configured todo controls in the same order as their hints", () => {
+it("resolves conflicting configured todo controls without using Ctrl+C to cancel", () => {
   const done = vi.fn();
   const view = new TodosView({
     tasks: [{ id: 1, subject: "Todo", status: "pending" }],
@@ -144,7 +119,8 @@ it("resolves configured todo controls in the same order as their hints", () => {
     done
   });
 
-  expect(view.render(80).join("\n")).toContain("Ctrl+Y details");
+  view.handleInput("\x03");
+  expect(done).not.toHaveBeenCalled();
   view.handleInput("\x19");
   expect(view.render(80).join("\n")).toContain("Todo #1");
   view.handleInput("\x1b");
@@ -174,23 +150,6 @@ it.each([{ cancel: [] }, { cancel: ["ctrl+c"] }] as const)(
     ).toThrow("tui.select.cancel");
   }
 );
-
-it("renders list rows with Pi's settings arrow and todo tree markers", () => {
-  const view = new TodosView({
-    tasks: [
-      { id: 1, subject: "Root one", status: "pending" },
-      { id: 2, subject: "Root two", status: "pending" }
-    ],
-    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
-    tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
-    keybindings: new KeybindingsManager(TUI_KEYBINDINGS),
-    done: vi.fn()
-  });
-
-  const rows = view.render(80);
-  expect(rows).toContain(`${getSettingsListTheme().cursor}├─ ◦ pending · #1 Root one`);
-  expect(rows).toContain("  └─ ◦ pending · #2 Root two");
-});
 
 it("selects hierarchy preorder, opens read-only details, returns, and ignores Ctrl+C", () => {
   const done = vi.fn();

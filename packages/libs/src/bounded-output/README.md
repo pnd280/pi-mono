@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`readBoundedOutput`](index.ts) (`@pi-mono/libs/bounded-output`) previews regular files, retaining oversized head/tail excerpts within byte/line limits. Omission notices can make previews exceed those limits.
+[`readBoundedOutput`](index.ts) (`@pi-mono/libs/bounded-output`) previews regular files, retaining oversized head/tail excerpts within byte/line limits. Omission notices can make previews exceed those limits. Byte-omission counts include incomplete UTF-8 characters dropped at both excerpt boundaries, not just the unread middle.
 
 Reads follow symlinks without permission repair. Size/timestamp checks detect some races, not atomic snapshots. Results distinguish ready, nonregular, changed, and unavailable without raw OS diagnostics. No caching or retries.
 

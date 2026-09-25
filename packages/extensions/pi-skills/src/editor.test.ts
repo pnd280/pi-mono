@@ -61,7 +61,7 @@ it("Tab routes later-line skill completion and accepts a selection at the cursor
   editor.handleInput("\t");
   await vi.waitFor(() => expect(editor.isShowingAutocomplete()).toBe(true));
   editor.handleInput("\t");
-  expect(editor.getText()).toMatch(/^First\n\/skill:(review|release)  rest$/u);
-  expect(editor.getCursor()).toEqual({ line: 1, col: editor.getLines()[1]!.indexOf("  rest") + 1 });
+  editor.handleInput("!");
+  expect(editor.getText()).toMatch(/^First\n\/skill:(review|release) ! rest$/u);
   expect(onSubmit).not.toHaveBeenCalled();
 });

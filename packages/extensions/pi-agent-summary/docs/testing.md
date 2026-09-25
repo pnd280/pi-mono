@@ -13,8 +13,10 @@
 
 ## Coverage boundaries
 
-This package owns run accumulation, summary schema, timing policy, and host subscription. [Libraries](../../../libs/docs/testing.md) own native mutation verification, shared I/O, canonicalization, patch generation, and working-message coordination. Keep a real native `edit`/`write` integration proving subscription and aggregation, not another matrix of shared diff algorithms.
+This package owns run accumulation, summary schema, timing policy, and host subscription. [Libraries](../../../libs/docs/testing.md) own native mutation verification, shared I/O, canonicalization, patch generation, and working-message coordination. Keep a real native `edit`/`write` integration proving subscription and aggregation, including aliases and sources larger than 64 KiB, not another matrix of shared diff algorithms.
+
+Exercise timer cleanup, continuations, and non-TUI behavior through lifecycle events; isolate monotonic-clock jumps at the timer seam. Renderer checks protect retained data, saved finish-time selection, unavailable totals, and expansion interactions. Verify diagnostic categories rather than complete prose.
 
 ## Exclusions
 
-No bash filesystem inference, dependency-owned native operation correctness, locale-specific clock snapshots, or exhaustive color/layout permutations. Assert visible results rather than incidental component structure.
+No bash filesystem inference, dependency-owned native operation correctness, locale-specific clock snapshots, exact summary prose, or rendered-row inventories. Theme colors and wrapping belong to the README's [visual checks](../README.md#validation); do not assert theme callback calls or incidental component structure.

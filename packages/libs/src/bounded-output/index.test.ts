@@ -60,7 +60,7 @@ it("omits split UTF-8 edges without discarding literal replacement characters", 
   expect(result).toMatchObject({
     status: "ready",
     truncated: true,
-    output: { text: "\uFFFD界\n[50 bytes]\n界\uFFFD" }
+    output: { text: "\uFFFD界\n[54 bytes]\n界\uFFFD" }
   });
 });
 

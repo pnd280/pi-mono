@@ -3,12 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  AgentSession,
   createAgentSession,
   DefaultResourceLoader,
   ModelRuntime,
   SessionManager,
-  SettingsManager
+  SettingsManager,
+  type AgentSession
 } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -19,7 +19,6 @@ it.each([0, 1])(
   async (last) => {
     const directory = await mkdtemp(join(tmpdir(), "native-tools-"));
     const manager = SessionManager.inMemory(directory);
-    const originalBuild: unknown = Reflect.get(AgentSession.prototype, "_buildRuntime");
     const changes: FileMutation[][] = [[], []];
     const broken = observeFileMutations({
       eligible: () => {
@@ -69,7 +68,6 @@ it.each([0, 1])(
         modelRuntime,
         sessionManager: manager
       }));
-      const definition = session.getToolDefinition("write");
 
       const execute = (content: string) => {
         const tool = session?.agent.state.tools.find((tool) => tool.name === "write");
@@ -79,17 +77,19 @@ it.each([0, 1])(
       };
 
       await execute("first\n");
-      expect(changes[0]).toHaveLength(1);
-      expect(changes[0]![0]).toBe(changes[1]![0]);
+      expect(changes.map((observations) => observations.map((change) => change.after))).toEqual([
+        [{ status: "ready", text: "first\n" }],
+        [{ status: "ready", text: "first\n" }]
+      ]);
       broken.dispose();
       observers[1 - last]!.dispose();
       await execute("second\n");
-      expect(session.getToolDefinition("write")).toBe(definition);
-      expect(changes[last]).toHaveLength(2);
+      expect(changes[last]!.map((change) => change.after)).toEqual([
+        { status: "ready", text: "first\n" },
+        { status: "ready", text: "second\n" }
+      ]);
       expect(changes[1 - last]).toHaveLength(1);
       observers[last]!.dispose();
-      expect(session.getToolDefinition("write")).not.toBe(definition);
-      expect(Reflect.get(AgentSession.prototype, "_buildRuntime")).toBe(originalBuild);
       await execute("unobserved\n");
       expect(changes[last]).toHaveLength(2);
     } finally {

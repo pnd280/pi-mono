@@ -24,7 +24,7 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
     buildSessionProjection: () => ({ messages: ["compacted"] }),
     getBranch: () => []
   };
-  const managerB = { buildSessionProjection: () => context };
+  const managerB = { buildSessionProjection: () => context, getBranch: () => [] };
   const a = bindNativeCompaction(managerA);
   const b = bindNativeCompaction(managerB);
   let forcedCalls = 0;
@@ -90,7 +90,13 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
     assert.equal(listeners, 0);
     assert.equal(outcomes.length, 1);
     a.dispose();
-    assert.notEqual(Reflect.get(prototype, boundary), original);
+    fail = false;
+    b.request();
+    assert.deepEqual(await invoke({ ...session, sessionManager: managerB }), context);
+    assert.equal(forcedCalls, 3);
+    assert.partialDeepStrictEqual(outcomes.at(-1), {
+      details: { status: "skipped", reason: "Pi did not start compaction." }
+    });
     b.dispose();
     assert.equal(Reflect.get(prototype, boundary), original);
     assert.equal(Reflect.get(prototype, "_runDefaultCompaction"), originalSummary);
@@ -105,10 +111,14 @@ it("does not misdiagnose native preparation errors as a small session", async ()
   const nativeRun: unknown = Reflect.get(AgentSession.prototype, "_runAutoCompaction");
   assert.equal(typeof nativeRun, "function");
   let branchReads = 0;
+  let preparationFailed = false;
   const manager = {
     buildSessionProjection: () => context,
     getBranch() {
-      if (++branchReads === 2) throw new Error("Unreadable session branch");
+      if (++branchReads === 2) {
+        preparationFailed = true;
+        throw new Error("Unreadable session branch");
+      }
 
       return [];
     }
@@ -130,7 +140,7 @@ it("does not misdiagnose native preparation errors as a small session", async ()
   try {
     binding.request();
     assert.deepEqual(await invoke(session), context);
-    assert.equal(branchReads, 2);
+    assert.equal(preparationFailed, true);
     assert.partialDeepStrictEqual(outcomes, [
       { details: { status: "skipped", reason: "Pi did not start compaction." } }
     ]);

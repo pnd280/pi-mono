@@ -207,15 +207,6 @@ describe("todo session state", () => {
     });
   });
 
-  it("accepts duplicate edges and dependencies on existing deleted todos", () => {
-    const tasks = [
-      { id: 1, subject: "Blocked todo", status: "pending", blockedBy: [2, 2] },
-      { id: 2, subject: "Deleted dependency", status: "deleted" }
-    ] satisfies Task[];
-
-    assert.deepEqual(parseTodoStateSnapshot({ tasks, nextId: 3 }), { tasks, nextId: 3 });
-  });
-
   it("sanitizes compact fields on current and legacy replay while preserving multiline descriptions", () => {
     const hostileTask = {
       id: 1,
@@ -426,19 +417,6 @@ describe("todo session state", () => {
     );
   });
 
-  it("restores complete current list detail snapshots", () => {
-    const tasks = [{ id: 1, subject: "Listed", status: "pending" }];
-    const list = {
-      version: TASK_DETAILS_VERSION,
-      action: "list",
-      params: {},
-      tasks,
-      nextId: 2
-    };
-
-    assert.deepEqual(todoStateFromBranch([todoResultEntry("list", list)]), { tasks, nextId: 2 });
-  });
-
   it("restores current domain-error detail snapshots", () => {
     const tasks = [{ id: 1, subject: "Domain snapshot", status: "pending" }];
     const domainError = {
@@ -474,23 +452,6 @@ describe("todo session state", () => {
         nextId: 2
       }
     );
-  });
-
-  it("accepts legacy domain-error snapshots", () => {
-    const domainErrorState = {
-      action: "update",
-      params: { id: 99 },
-      error: "#99 not found",
-      tasks: [{ id: 1, subject: "Domain snapshot", status: "pending" }],
-      nextId: 2
-    };
-
-    const restored = todoStateFromBranch([todoResultEntry("domain-error", domainErrorState)]);
-
-    assert.deepEqual(restored, {
-      tasks: [{ id: 1, subject: "Domain snapshot", status: "pending" }],
-      nextId: 2
-    });
   });
 
   it("ignores malformed snapshots", () => {

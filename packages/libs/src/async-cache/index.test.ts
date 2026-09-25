@@ -16,11 +16,12 @@ it("deduplicates pending work, reports saturation without caching it, and retrie
     onBusy: (key) => `busy:${key}`
   });
   const first = cache.load("a");
-  expect(cache.load("a")).toBe(first);
-  expect(await cache.load("b")).toBe("busy:b");
+  const shared = cache.load("a");
   expect(load).toHaveBeenCalledTimes(1);
+  expect(await cache.load("b")).toBe("busy:b");
   pending.resolve("first");
   expect(await first).toBe("first");
+  expect(await shared).toBe("first");
   await expect(cache.load("b")).rejects.toThrow("failed");
   expect(await cache.load("b")).toBe("retried");
   expect(load).toHaveBeenCalledTimes(3);

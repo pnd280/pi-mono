@@ -45,9 +45,18 @@ it("retains ordered conversation text only from the active branch", () => {
   });
   session.appendCustomMessageEntry("other", "private extension context", true);
   session.appendMessage({ role: "user", content: "Follow-up", timestamp: 3 });
-  expect(conversationSource(session.getBranch())).toBe(
-    "user: Opening request\n\nassistant: Assistant context\n\nuser: Follow-up"
-  );
+  const source = conversationSource(session.getBranch());
+  expect(source).toMatch(/Opening request[\s\S]*Assistant context[\s\S]*Follow-up/u);
+
+  for (const excluded of [
+    "Abandoned branch",
+    "private thinking",
+    "private-path",
+    "private output",
+    "private extension context"
+  ]) {
+    expect(source).not.toContain(excluded);
+  }
 });
 
 it("bounds the opening request from the front and regeneration from the recent end", () => {

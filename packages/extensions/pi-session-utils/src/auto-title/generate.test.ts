@@ -1,15 +1,14 @@
 import {
   fauxAssistantMessage,
   fauxProvider,
-  getCurrentSystemPrompt,
-  getCurrentTools,
   InMemoryCredentialStore,
   type AssistantMessage
 } from "@earendil-works/pi-ai";
 import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { createFixtureStream } from "@pi-mono/libs/validation/provider";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
-import { cleanTitle, generateTitle } from "./generate.ts";
+import { cleanTitle, generateTitle, TitleError, type TitleRegistry } from "./generate.ts";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -30,7 +29,6 @@ async function fixture() {
   await runtime.refresh({ allowNetwork: false, providers: [faux.provider.id] });
   const registry = new ModelRegistry(runtime);
   const model = registry.find(faux.provider.id, "nested/model")!;
-  const find = vi.spyOn(registry, "find");
   const stream = vi.spyOn(faux.provider, "streamSimple");
   const auth = vi.spyOn(faux.provider.auth.apiKey!, "resolve");
   const controller = new AbortController();
@@ -42,27 +40,46 @@ async function fixture() {
   };
   faux.setResponses([fauxAssistantMessage("Fix token expiry")]);
 
-  return { faux, model, find, stream, auth, registry, request, controller };
+  return { faux, model, stream, auth, request, controller };
 }
 
-it("passes the configured model, thinking, resolved auth, and text to Pi's effective provider", async () => {
-  const { request, stream, auth, model } = await fixture();
-  auth.mockResolvedValue({
-    auth: {
-      apiKey: "fixture-key",
-      baseUrl: "https://resolved.example.invalid",
-      headers: { "X-Fixture": "value" }
-    },
-    env: { FIXTURE_REGION: "region" }
-  });
-  expect(await generateTitle(request)).toBe("Fix token expiry");
+it("sends the configured model, text, thinking, and request budgets through Pi's registry", async () => {
+  const model = fauxProvider({
+    provider: "title-fixture",
+    models: [{ id: "nested/model", reasoning: true }]
+  }).getModel();
+  const originalModel = structuredClone(model);
+  const stream = vi.fn<TitleRegistry["streamSimple"]>((requestedModel, _context, options) =>
+    createFixtureStream({
+      model: requestedModel,
+      signal: options?.signal,
+      run: async ({ text }) => {
+        text('"Fix token expiry"');
+
+        return "stop";
+      }
+    })
+  );
+  const registry: TitleRegistry = {
+    find: (provider, id) =>
+      provider === "title-fixture" && id === "nested/model" ? model : undefined,
+    streamSimple: stream
+  };
+  const source = "Fix authentication by checking token expiry";
+  expect(
+    await generateTitle({
+      config: { model: "title-fixture/nested/model", thinkingLevel: "low" },
+      registry,
+      source,
+      signal: new AbortController().signal
+    })
+  ).toBe("Fix token expiry");
   expect(stream).toHaveBeenCalledExactlyOnceWith(
-    { ...model, baseUrl: "https://resolved.example.invalid" },
-    expect.any(Object),
+    expect.objectContaining({ provider: "title-fixture", id: "nested/model" }),
     expect.objectContaining({
-      apiKey: "fixture-key",
-      headers: { "X-Fixture": "value" },
-      env: { FIXTURE_REGION: "region" },
+      messages: [expect.objectContaining({ role: "user", content: source })]
+    }),
+    expect.objectContaining({
       reasoning: "low",
       maxRetries: 0,
       maxTokens: 1024,
@@ -70,15 +87,8 @@ it("passes the configured model, thinking, resolved auth, and text to Pi's effec
       cacheRetention: "none"
     })
   );
-  expect(model.baseUrl).not.toBe("https://resolved.example.invalid");
-  const context = stream.mock.calls[0]![1];
-  expect(
-    context.messages
-      .filter(({ role }) => role !== "system")
-      .map(({ role, content }) => ({ role, content }))
-  ).toEqual([{ role: "user", content: request.source }]);
-  expect(getCurrentSystemPrompt(context.messages)).toContain("Write only a short title");
-  expect(getCurrentTools(context.messages)).toEqual([]);
+  expect(stream.mock.calls[0]![1].tools ?? []).toEqual([]);
+  expect(model).toEqual(originalModel);
 });
 
 it("requests thinking off without inheriting the active model's effort", async () => {
@@ -89,22 +99,22 @@ it("requests thinking off without inheriting the active model's effort", async (
 
 it("refuses incomplete config, unavailable models, and unsupported thinking without a request", async () => {
   const { request, model, stream } = await fixture();
-  await expect(generateTitle({ ...request, config: undefined })).rejects.toThrow(
-    "global or trusted project settings.json"
-  );
+  await expect(generateTitle({ ...request, config: undefined })).rejects.toThrow(TitleError);
   await expect(
     generateTitle({ ...request, config: { ...request.config, model: "missing/model" } })
-  ).rejects.toThrow("unavailable");
+  ).rejects.toThrow(TitleError);
   model.thinkingLevelMap = { low: null };
-  await expect(generateTitle(request)).rejects.toThrow("unsupported");
+  await expect(generateTitle(request)).rejects.toThrow(TitleError);
   expect(stream).not.toHaveBeenCalled();
 });
 
 it("reports authentication failure without exposing the provider's error content", async () => {
   const { request, auth, stream } = await fixture();
-  auth.mockRejectedValue(new Error("private credential detail"));
+  const secret = "private credential detail";
+  const excludesSecret: unknown = expect.not.stringContaining(secret);
+  auth.mockRejectedValue(new Error(secret));
   await expect(generateTitle(request)).rejects.toThrow(
-    "The title model did not return a complete title. Check Pi's provider setup."
+    expect.objectContaining({ message: excludesSecret })
   );
   expect(stream).not.toHaveBeenCalled();
 });
@@ -114,14 +124,14 @@ it.each(["error", "aborted", "length", "toolUse"] as const)(
   async (stopReason) => {
     const { request, faux } = await fixture();
     faux.setResponses([fauxAssistantMessage("Partial title", { stopReason })]);
-    await expect(generateTitle(request)).rejects.toThrow("complete title");
+    await expect(generateTitle(request)).rejects.toThrow(TitleError);
   }
 );
 
-it("does not use thinking or tool calls as a title", async () => {
+it("rejects a thinking-only response rather than exposing reasoning as a title", async () => {
   const { request, faux } = await fixture();
   faux.setResponses([fauxAssistantMessage([{ type: "thinking", thinking: "Hidden reasoning" }])]);
-  await expect(generateTitle(request)).rejects.toThrow("empty session title");
+  await expect(generateTitle(request)).rejects.toThrow(TitleError);
 });
 
 it("sanitizes titles and truncates without splitting graphemes", () => {
@@ -129,8 +139,7 @@ it("sanitizes titles and truncates without splitting graphemes", () => {
     "Fix token expiry"
   );
   expect(cleanTitle("a".repeat(79) + "👩‍💻 trailing")).toBe("a".repeat(79));
-  expect(() => cleanTitle("\u001b[31m\u0000\u001b[0m")).toThrow("empty");
-  expect(() => cleanTitle("a" + "\u0301".repeat(100))).toThrow("empty");
+  expect(() => cleanTitle("\u001b[31m\u0000\u001b[0m")).toThrow(TitleError);
 });
 
 it("times out stalled authentication and never starts transport afterward", async () => {
@@ -145,13 +154,18 @@ it("times out stalled authentication and never starts transport afterward", asyn
         finish = () => resolve({ auth: { apiKey: "late-key" } });
       })
   );
-  const outcome = expect(generateTitle(request)).rejects.toThrow("timed out");
-  await vi.advanceTimersByTimeAsync(15_000);
+  let settled = false;
+  const result = generateTitle(request).finally(() => {
+    settled = true;
+  });
+  const outcome = expect(result).rejects.toThrow(TitleError);
+  await vi.advanceTimersByTimeAsync(14_999);
+  expect(settled).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
   await outcome;
   finish();
   await vi.runAllTimersAsync();
   expect(stream).not.toHaveBeenCalled();
-  expect(vi.getTimerCount()).toBe(0);
 });
 
 it("cancels promptly even when the provider ignores the abort signal", async () => {
@@ -172,14 +186,10 @@ it("cancels promptly even when the provider ignores the abort signal", async () 
   finish(fauxAssistantMessage("Late title"));
 });
 
-it("does no work for an already canceled request and removes deadlines after success", async () => {
-  vi.useFakeTimers();
-  const { request, controller, find } = await fixture();
+it("does not start authentication or transport for an already canceled request", async () => {
+  const { request, controller, auth, stream } = await fixture();
   controller.abort();
   expect(await generateTitle(request)).toBeUndefined();
-  expect(find).not.toHaveBeenCalled();
-  expect(await generateTitle({ ...request, signal: new AbortController().signal })).toBe(
-    "Fix token expiry"
-  );
-  expect(vi.getTimerCount()).toBe(0);
+  expect(auth).not.toHaveBeenCalled();
+  expect(stream).not.toHaveBeenCalled();
 });

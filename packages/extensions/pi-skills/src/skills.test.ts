@@ -15,14 +15,20 @@ it("uses registered names and Markdown paths verbatim without deriving a directo
 
 it("excludes cross-source collisions regardless of description or catalog order", () => {
   const commands = [
-    command("skill:review"),
+    command("skill:review", "skill", "/skills/review.md"),
     command("skill:review", "extension"),
     command("skill:plan", "prompt"),
-    command("skill:plan"),
-    command("skill:clear"),
+    command("skill:plan", "skill", "/skills/plan.md"),
+    command("skill:clear", "skill", "/skills/clear.md"),
     command("clear", "extension")
   ];
   expect(getCompletableSkillNames(commands)).toEqual(new Set(["skill:clear"]));
   expect(getCompletableSkillNames([...commands].reverse())).toEqual(new Set(["skill:clear"]));
-  expect(getSkillPaths(commands).size).toBe(3);
+  expect(getSkillPaths(commands)).toEqual(
+    new Map([
+      ["/skill:review", "/skills/review.md"],
+      ["/skill:plan", "/skills/plan.md"],
+      ["/skill:clear", "/skills/clear.md"]
+    ])
+  );
 });

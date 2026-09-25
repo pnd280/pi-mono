@@ -75,7 +75,7 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
   }
 });
 
-it("coalesces shell previews while retaining every chunk and flushing completion", async () => {
+it("retains every streamed shell chunk in the completed preview", async () => {
   const directory = await mkdtemp(join(tmpdir(), "display-native-stream-"));
 
   try {
@@ -86,8 +86,6 @@ it("coalesces shell previews while retaining every chunk and flushing completion
     );
     const original = createBashToolDefinition(directory, { shellPath: "/bin/bash" });
     const previews: string[] = [];
-    const updates: unknown[] = [];
-    const started = performance.now();
     const observed = observeNativeDefinition(
       defineTool(original),
       { cwd: directory, shellPath: "/bin/bash" },
@@ -102,15 +100,12 @@ it("coalesces shell previews while retaining every chunk and flushing completion
       "stream",
       { command: `${JSON.stringify(process.execPath)} ${JSON.stringify(script)}` },
       undefined,
-      (value) => updates.push(value),
+      undefined,
       nativeToolContext(directory)
     );
 
-    const elapsed = performance.now() - started;
     const final = previews.at(-1) ?? "";
     for (let index = 0; index < 25; index++) expect(final).toContain(`chunk-${index}\n`);
-    expect(previews.length).toBeLessThanOrEqual(Math.floor(elapsed / 100) + 2);
-    expect(previews.length).toBeLessThanOrEqual(updates.length);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

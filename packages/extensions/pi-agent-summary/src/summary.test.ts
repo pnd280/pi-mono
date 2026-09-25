@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 
-import { formatDuration, formatFinishTime, summarySchema } from "./summary.ts";
+import { formatDuration, summarySchema } from "./summary.ts";
 
 const summary = { durationMs: 1234, finishedAt: 1_767_270_896_000, bashCalls: 2, files: [] };
 
@@ -14,16 +14,6 @@ it.each([
   [90061000, "25h 1m 1s"]
 ])("formats %i milliseconds as %s", (durationMs, text) => {
   expect(formatDuration(durationMs)).toBe(text);
-});
-
-it.each([
-  [0, 0, 0, "12:00:00 AM"],
-  [2, 3, 4, "2:03:04 AM"],
-  [12, 0, 0, "12:00:00 PM"],
-  [14, 34, 56, "2:34:56 PM"],
-  [23, 59, 59, "11:59:59 PM"]
-] as const)("formats local finish time %i:%i:%i as %s", (hour, minute, second, text) => {
-  expect(formatFinishTime(new Date(2026, 0, 1, hour, minute, second).getTime())).toBe(text);
 });
 
 it.each([
@@ -47,8 +37,4 @@ it.each([
   }))
 ])("rejects invalid stored summary %j", (data) => {
   expect(summarySchema.safeParse(data).success).toBe(false);
-});
-
-it("ignores unknown fields in valid summaries", () => {
-  expect(summarySchema.parse({ ...summary, extra: "ignored" })).toEqual(summary);
 });

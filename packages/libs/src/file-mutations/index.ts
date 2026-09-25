@@ -112,9 +112,11 @@ export function observeMutationDefinition(
       const performWrite = async (path: string, content: string) => {
         if (original.name === "write") before = await observeTextFile(path, maxBytes);
         const identity = await canonicalPath(path).catch(() => path);
+        // Node replaces unpaired surrogates when writing UTF-8. Observe those bytes,
+        // not a JS string that cannot be read back; a native patch may describe the latter.
         const after: FileObservation =
           Buffer.byteLength(content) <= maxBytes
-            ? { status: "ready", text: content }
+            ? { status: "ready", text: Buffer.from(content, "utf8").toString("utf8") }
             : { status: "too-large" };
         const order = ++sequence;
         sinks.forEach((sink) => safely(() => sink.started?.()));
@@ -196,7 +198,9 @@ export function observeMutationDefinition(
 
       try {
         const result = await definition.execute(id, args, signal, onUpdate, context);
-        nativePatch = patchSchema.safeParse(result.details).data?.patch;
+        const candidate = patchSchema.safeParse(result.details).data?.patch;
+        // A patch containing unpaired surrogates describes pre-encoding text, not disk contents.
+        if (candidate && !/\p{Surrogate}/u.test(candidate)) nativePatch = candidate;
 
         return result;
       } finally {

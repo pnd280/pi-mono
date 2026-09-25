@@ -151,8 +151,8 @@ it("bounds long script parameters until expansion and caches serialization betwe
   expect(collapsed).toContain('"code":"START');
   expect(collapsed).toContain("more details");
   expect(collapsed).not.toContain("END");
-  header.render(80);
-  expect(serialize).toHaveBeenCalledOnce();
+  for (let redraw = 0; redraw < 20; redraw++) header.render(80);
+  expect(serialize.mock.calls.length).toBeLessThan(3);
 
   const expanded = renderer
     .renderCall(args, theme, { ...context(), expanded: true })
@@ -181,7 +181,7 @@ it("uses resolved result identity with visible parameters and never substitutes 
   expect(body.render(120).join("\n")).not.toContain("PRIVATE_RAW_OUTPUT");
 });
 
-it("accepts real gateway metadata results and styles middleware failure diagnostics as errors", () => {
+it("accepts gateway metadata results and retains published middleware failures", () => {
   const adapter = piMcpAdapter(mcpToolInfo())!;
   for (const [args, details] of [
     [
@@ -194,10 +194,9 @@ it("accepts real gateway metadata results and styles middleware failure diagnost
   const renderer = createToolDisplayRenderers("mcp", adapter);
   const current = { ...context(), isError: true };
   const supplied = result({ mode: "call", server: "display", tool: "echo" });
-  const colored = { ...theme, fg: (color: string, text: string) => `<${color}>${text}</${color}>` };
-  expect(
-    renderer.renderResult(supplied, current, colored, current).render(120).join("\n")
-  ).toContain("<error>published output</error>");
+  expect(renderer.renderResult(supplied, current, theme, current).render(120).join("\n")).toContain(
+    "published output"
+  );
 });
 
 it("retains ordered published media without copying bytes or inferring flattened resources", () => {

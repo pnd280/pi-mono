@@ -1,8 +1,7 @@
 import { expect, it } from "vite-plus/test";
 
 import { captureText, historyRows } from "./history.ts";
-import { limits } from "./model.ts";
-import { collection, entry } from "./test-fixture.ts";
+import { collection, documentedLimits as limits, entry } from "./test-fixture.ts";
 
 it("displays only the first occurrence of each trimmed prompt without changing source", () => {
   const current = collection([entry(" A "), entry("B"), entry("A"), entry("a")], "history");

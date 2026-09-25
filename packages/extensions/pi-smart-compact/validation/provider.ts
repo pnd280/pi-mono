@@ -280,12 +280,9 @@ export default function offlineFixture(pi: ExtensionAPI) {
           ...requestDetails,
           hasCheckpoint: serialized.includes("NATIVE_FIXTURE_CHECKPOINT"),
           hasOldPayload: serialized.includes("OLD_FIXTURE_PAYLOAD"),
-          compactionOutcomes: context.messages.flatMap((entry) => {
-            if (entry.role !== "user") return [];
-            const content = contentText(entry.content);
-
-            return content.startsWith("Compaction ") ? [content] : [];
-          }),
+          userMessages: context.messages.flatMap((entry) =>
+            entry.role === "user" ? [contentText(entry.content)] : []
+          ),
           tools: tools.map((tool) => tool.name)
         });
         let calls: string[] = [];

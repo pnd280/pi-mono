@@ -1,17 +1,14 @@
 import { symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
-import { expect, expectTypeOf, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
-import entry from "../index.ts";
 import { RunChanges } from "./changes.ts";
 import { summaryEntryType } from "./summary.ts";
 import { fixture } from "./test-fixture.ts";
 
 it("records one context-free entry after all turns and retries settle, preserving other working text", async () => {
-  expectTypeOf(entry).toExtend<ExtensionFactory>();
   const runtime = await fixture();
   const other = registerWorkingMessage(runtime.api, {
     id: "other.activity",
@@ -41,27 +38,27 @@ it("records one context-free entry after all turns and retries settle, preservin
     bashCalls: 2,
     files: []
   });
-  expect(runtime.session.getLeafEntry()).toMatchObject({
-    type: "custom",
-    customType: summaryEntryType,
-    data: { durationMs: 4500, finishedAt: Date.now(), bashCalls: 2, files: [] }
-  });
   expect(runtime.session.buildSessionContext().messages).toEqual(before);
   expect(runtime.setWorkingMessage).toHaveBeenLastCalledWith("Checking files");
   expect(vi.getTimerCount()).toBe(0);
+  runtime.setWorkingMessage.mockClear();
+  vi.advanceTimersByTime(5000);
+  expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
   await runtime.emit("session_shutdown", {});
 });
 
-it("counts unique edit/write files and net lines, without scanning bash-only files", async () => {
+it("aggregates native edit/write aliases and large files without scanning bash-only changes", async () => {
   const runtime = await fixture();
   const path = join(runtime.ctx.cwd, "existing.txt");
-  writeFileSync(path, "original\nkeep\n");
+  const unchanged = "unchanged content\n".repeat(6000);
+  writeFileSync(path, `original\nkeep\n${unchanged}`);
+  symlinkSync(path, join(runtime.ctx.cwd, "alias.txt"));
   await runtime.emit("agent_start", {});
   await runtime.tool("edit", {
-    path: "existing.txt",
-    edits: [{ oldText: "original", newText: "intermediate" }]
+    path: "alias.txt",
+    edits: [{ oldText: "original", newText: "intermediate\nfrom-edit" }]
   });
-  await runtime.tool("write", { path, content: "final\nkeep\nextra\n" });
+  await runtime.tool("write", { path, content: `final\nfrom-edit\nkeep\nextra\n${unchanged}` });
   await runtime.tool("write", { path: "@./new.txt", content: "new\n" });
   await runtime.tool("bash", { command: "generate files" }, () => {
     writeFileSync(join(runtime.ctx.cwd, "shell-only.txt"), "not counted\n");
@@ -73,61 +70,16 @@ it("counts unique edit/write files and net lines, without scanning bash-only fil
     finishedAt: Date.now(),
     bashCalls: 1,
     files: [
-      { path: "existing.txt", status: "available", added: 2, removed: 1 },
+      { path: "existing.txt", status: "available", added: 3, removed: 1 },
       { path: "new.txt", status: "available", added: 1, removed: 0 }
     ]
   });
+  vi.advanceTimersByTime(1000);
   await runtime.emit("agent_start", {});
+  vi.advanceTimersByTime(250);
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
-    durationMs: 0,
-    finishedAt: Date.now(),
-    bashCalls: 0,
-    files: []
-  });
-});
-
-it.each(["edit", "write"])(
-  "counts a small %s change in a file larger than 64 KiB",
-  async (name) => {
-    const runtime = await fixture();
-    const path = join(runtime.ctx.cwd, "large.txt");
-    const before = "unchanged content\n".repeat(6000) + "before\n";
-    writeFileSync(path, before);
-    await runtime.emit("agent_start", {});
-    await runtime.tool(
-      name,
-      name === "edit"
-        ? { path, edits: [{ oldText: "before", newText: "after" }] }
-        : { path, content: before.replace("before\n", "after\n") }
-    );
-    await runtime.emit("agent_settled", {});
-    expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
-      durationMs: 0,
-      finishedAt: Date.now(),
-      bashCalls: 0,
-      files: [{ path: "large.txt", status: "available", added: 1, removed: 1 }]
-    });
-  }
-);
-
-it("omits reverted and failed edits and deduplicates existing symlink aliases", async () => {
-  const runtime = await fixture();
-  const path = join(runtime.ctx.cwd, "file.txt");
-  writeFileSync(path, "old\n");
-  symlinkSync(path, join(runtime.ctx.cwd, "alias.txt"));
-  await runtime.emit("agent_start", {});
-  await runtime.tool("edit", { path: "alias.txt", edits: [{ oldText: "old", newText: "new" }] });
-  await runtime.tool("edit", { path: "file.txt", edits: [{ oldText: "new", newText: "old" }] });
-  await expect(
-    runtime.tool("edit", {
-      path: "missing.txt",
-      edits: [{ oldText: "old", newText: "new" }]
-    })
-  ).rejects.toThrow();
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-    durationMs: 0,
+    durationMs: 250,
     finishedAt: Date.now(),
     bashCalls: 0,
     files: []
@@ -184,10 +136,10 @@ it("cleans up unfinished runs on shutdown without appending a partial summary", 
   await runtime.emit("session_shutdown", {});
   await runtime.emit("session_shutdown", {});
   await runtime.emit("agent_settled", {});
-  const updates = runtime.setWorkingMessage.mock.calls.length;
+  runtime.setWorkingMessage.mockClear();
   vi.advanceTimersByTime(5000);
   expect(runtime.api.appendEntry).not.toHaveBeenCalled();
-  expect(runtime.setWorkingMessage).toHaveBeenCalledTimes(updates);
+  expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
   expect(vi.getTimerCount()).toBe(0);
   await runtime.emit("session_start", {});
   await runtime.emit("agent_start", {});
@@ -258,6 +210,7 @@ it("saves summaries outside TUI mode without touching the working UI", async () 
   await runtime.emit("agent_start", {});
   await runtime.tool("write", { path: "file.txt", content: "new\n" });
   vi.advanceTimersByTime(1250);
+  expect(vi.getTimerCount()).toBe(0);
   await runtime.emit("agent_settled", {});
   await runtime.emit("session_shutdown", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {

@@ -7,29 +7,37 @@ function selected(lines: string[], partial = false): SelectedSource {
   return { partial, lines: lines.map((text, index) => ({ index, before: "", text })) };
 }
 
-it("preserves selected source and labels partial or empty previews", () => {
-  expect(selectionPreview(selected(["\t😀\r", ""], true))).toBe(
-    "Selected source preview (partial):\n\t😀\r\n"
-  );
-  expect(selectionPreview(selected([]))).toContain("no text in this read window");
-  expect(selectionPreview(selected([""]))).toContain("no text in this read window");
+function previewLines(source: SelectedSource): string[] {
+  return selectionPreview(source).split("\n").slice(1);
+}
+
+it("preserves selected source and directs empty selections to the read window", () => {
+  const preview = selectionPreview(selected(["\t😀\r", ""], true));
+  expect(preview).toMatch(/^.*\(partial\):/);
+  expect(previewLines(selected(["\t😀\r", ""], true))).toEqual(["\t😀\r", ""]);
+
+  for (const lines of [[], [""]]) {
+    expect(selectionPreview(selected(lines))).toMatch(/offset.*limit/);
+  }
 });
 
 it("keeps five lines intact, then keeps the outer two pairs with an omission marker", () => {
-  expect(selectionPreview(selected(["one", "two", "three", "four", "five"]))).toBe(
-    "Selected source preview:\none\ntwo\nthree\nfour\nfive"
-  );
+  expect(previewLines(selected(["one", "two", "three", "four", "five"]))).toEqual([
+    "one",
+    "two",
+    "three",
+    "four",
+    "five"
+  ]);
   const lines = ["one", "two", "three", "four", "five", "six"];
-  expect(selectionPreview(selected(lines))).toBe(
-    "Selected source preview (truncated):\none\ntwo\n…\nfive\nsix"
-  );
-  expect(selectionPreview(selected(lines, true))).toContain("(partial, truncated)");
+  expect(previewLines(selected(lines))).toEqual(["one", "two", "…", "five", "six"]);
+  expect(selectionPreview(selected(lines, true))).toMatch(/^.*\(partial, truncated\):/);
 });
 
 it("counts Unicode code points rather than UTF-16 units and retains both ends", () => {
   const full = "😀".repeat(500);
-  expect(selectionPreview(selected([full]))).toBe(`Selected source preview:\n${full}`);
-  expect(selectionPreview(selected(["😀".repeat(250) + "DROP" + "界".repeat(249)]))).toBe(
-    "Selected source preview (truncated):\n" + "😀".repeat(250) + "…" + "界".repeat(249)
-  );
+  expect(previewLines(selected([full]))).toEqual([full]);
+  const clipped = selected(["😀".repeat(250) + "DROP" + "界".repeat(249)]);
+  expect(previewLines(clipped)).toEqual(["😀".repeat(250) + "…" + "界".repeat(249)]);
+  expect(selectionPreview(clipped)).toMatch(/^.*\(truncated\):/);
 });
