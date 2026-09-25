@@ -42,7 +42,7 @@ Global defaults live in `getAgentDir()/settings.json` (normally `~/.pi/agent/set
 
 A project `order` replaces the global array. An empty array uses sorted ID order. Removing the project `order` field restores inheritance. Unknown IDs remain in the menu as unavailable, so their positions survive temporary contributor removal. Orders support up to 1,000 nonempty IDs of at most 200 characters. Duplicates are removed, keeping the first occurrence.
 
-Settings load at session start and when the menu opens. Invalid settings or failures from the [settings-file reader](../settings-file/README.md#behavior) produce warnings and fall back to the other valid scope or sorted IDs. Order applies at session start or after a successful save, not when the menu opens.
+Settings load at session start and when the menu opens. Invalid settings or failures from the [settings-file reader](../settings-file/README.md#behavior) produce terminal-safe warnings and fall back to the other valid scope or sorted IDs. Diagnostic sanitization does not change settings paths. Order applies at session start or after a successful save, not when the menu opens.
 
 Saves acquire Pi's settings-file lock, merge into the latest JSON, and atomically replace the file. They preserve unrelated fields and existing symlinks, reformat the JSON, and create missing parent directories.
 

@@ -8,7 +8,7 @@
 
 `pairPatchLines` aligns replacements within context-separated change blocks. `renderDiffBody` pairs hunks independently in responsive unified/split layouts with gutters, backgrounds, and bounded inline comparison, using [`displayText`](../../terminal-text/index.ts) before highlighting.
 
-Compact views select changed rows/context and long-line change excerpts; context/structure do not count toward changed-row budgets. Expansion includes all supplied hunks. Patches remain unmodified.
+Compact views select changed rows/context and long-line change excerpts. Context and structural rows, including missing-newline markers, do not count toward changed-row budgets. Expansion includes all supplied hunks. Patches remain unmodified.
 
 ## Caller responsibilities
 

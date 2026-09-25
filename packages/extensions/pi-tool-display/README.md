@@ -59,7 +59,7 @@ Unavailable names are allowed. Overrides neither enable tools, delete metadata, 
 
 Settings load before history reconstruction and on `/reload`. Trusted project fields merge over global settings: explicit `showParameters` replaces, omission inherits; overrides replace by tool name, `auto` resets inherited overrides, and an empty map inherits.
 
-Untrusted settings are ignored. Both sections validate before merging; either invalid section preserves original renderers and disables display observations, even if later overridden. Warnings name the source/key.
+Untrusted settings are ignored. Both sections validate before merging; either invalid section preserves original renderers and disables display observations, even if later overridden. Warnings name the source/key as terminal-safe text without changing settings or paths.
 
 No extension-specific environment variables, CLI flags, watchers, or settings writes.
 

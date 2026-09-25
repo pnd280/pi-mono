@@ -248,6 +248,35 @@ describe("todo session state", () => {
     });
   });
 
+  it.each([1, TASK_DETAILS_VERSION])(
+    "enforces version %s field limits after expanding description tabs",
+    (version) => {
+      const task: Task = {
+        id: 1,
+        subject: "Tab-indented description",
+        description: "\t".repeat(MAX_DESCRIPTION_LENGTH / 2),
+        status: "pending"
+      };
+      const snapshot = { version, tasks: [task], nextId: 2 };
+      const restored = parseTodoStateSnapshot(snapshot);
+      assert.ok(restored);
+      assert.equal(restored.tasks[0]?.description, " ".repeat(MAX_DESCRIPTION_LENGTH));
+
+      const oversized = {
+        ...snapshot,
+        tasks: [{ ...task, description: `${task.description}\t` }]
+      };
+      assert.equal(parseTodoStateSnapshot(oversized), undefined);
+      assert.deepEqual(
+        todoStateFromBranch([
+          todoResultEntry("valid", snapshot),
+          todoResultEntry("expanded-beyond-limit", oversized)
+        ]),
+        restored
+      );
+    }
+  );
+
   it("rejects semantically corrupt todo graphs and colliding next ids", () => {
     const task = (id: number, blockedBy?: number[]): Task => {
       const candidate: Task = { id, subject: `Todo ${id}`, status: "pending" };

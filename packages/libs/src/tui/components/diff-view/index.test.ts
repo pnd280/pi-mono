@@ -351,6 +351,29 @@ it("honors caller-selected compact/context budgets and viewports narrower than l
   expect(() => renderDiffBody(parsed, { ...options, compactRows: 1 })).toThrow(RangeError);
 });
 
+it.each([0, 200])(
+  "keeps changes visible with missing-newline markers and %i extra characters",
+  (length) => {
+    const parsed = parsePatch(
+      `@@ -1 +1 @@\n-old${"a".repeat(length)}\n\\ No newline at end of file\n+new${"b".repeat(length)}\n\\ No newline at end of file\n`
+    )!;
+
+    for (const width of [80, 120]) {
+      const rows = renderDiffBody(parsed, {
+        ...displayOptions,
+        width,
+        compactRows: 2,
+        contextRows: 0
+      });
+      const text = stripTerminalSequences(rows.join("\n"));
+      expect(text).toContain("-old");
+      expect(text).toContain("+new");
+      expect(text).toContain("\\ No newline at end of file");
+      expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
+    }
+  }
+);
+
 it("keeps long lines without inline comparison and displays missing-newline facts", () => {
   const before = "α".repeat(1000),
     after = "β";

@@ -20,12 +20,12 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-function fixture(projectTrusted = true) {
+function fixture(projectTrusted = true, agentName = "agent") {
   const root = mkdtempSync(join(tmpdir(), "working-message-settings-"));
   roots.push(root);
   const store = new WorkingMessageSettings({
     cwd: join(root, "project"),
-    agentDir: join(root, "agent"),
+    agentDir: join(root, agentName),
     projectTrusted
   });
 
@@ -127,6 +127,20 @@ it("ignores untrusted local settings and refuses local writes", () => {
   write("project", { workingMessage: { order: ["b"] } });
   expect(store.load().project).toBeUndefined();
   expect(() => store.save("project", ["a"])).toThrow("Trust");
+});
+
+it("sanitizes diagnostic paths without changing settings destinations", () => {
+  const { store, write } = fixture(true, "agent\x1b[2J\x07");
+  const path = store.paths.global;
+  write("global", { workingMessage: { order: 123 } });
+  expect(store.load().warnings).toEqual([
+    expect.stringContaining("agent/settings.json. Check access")
+  ]);
+  expect(() => store.save("global", ["a"])).toThrow("agent/settings.json. Check access");
+  write("global", {});
+  store.save("global", ["a"]);
+  expect(store.paths.global).toBe(path);
+  expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ workingMessage: { order: ["a"] } });
 });
 
 it("reports malformed settings and lock failures without overwriting the file", () => {

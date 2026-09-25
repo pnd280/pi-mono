@@ -1029,7 +1029,7 @@ function applyDeleteTaskMutation(state: TodoState, params: TaskMutationParams): 
   );
 }
 
-function stateFitsCurrentLimits(state: TodoState): boolean {
+export function stateFitsCurrentLimits(state: TodoState): boolean {
   if (state.tasks.length > MAX_TASKS || !isValidTaskId(state.nextId)) return false;
 
   for (const task of state.tasks) {

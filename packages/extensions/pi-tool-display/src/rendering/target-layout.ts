@@ -55,7 +55,7 @@ export function targetRows(
     used = 0;
   };
 
-  const append = (text: string, color: "dim" | "text") => {
+  const appendLine = (text: string, color: "dim" | "text") => {
     if (!text) return;
     const size = visibleWidth(text);
 
@@ -85,6 +85,20 @@ export function targetRows(
           used += size;
         }
       }
+    }
+  };
+
+  const append = (text: string, color: "dim" | "text") => {
+    for (const [index, line] of text.split("\n").entries()) {
+      if (index > 0) {
+        // Paths can contain literal line breaks. Keep blank lines, but never put
+        // a newline inside a TUI row where it would bypass the caller's gutters.
+        rows.push(row);
+        row = "";
+        used = 0;
+      }
+
+      appendLine(line, color);
     }
   };
 

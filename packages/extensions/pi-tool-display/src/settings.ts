@@ -1,3 +1,4 @@
+import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
 export const SETTINGS_KEY = "ext.pi-tool-display";
@@ -54,7 +55,9 @@ export function loadDisplaySettings(sources: readonly SettingsSource[]): Display
             : [issue.path];
         for (const path of paths)
           warnings.push(
-            `${source.path}: invalid ${[SETTINGS_KEY, ...path].join(".")}; keeping original rendering and disabling display observation.`
+            compactDisplayText(
+              `${source.path}: invalid ${[SETTINGS_KEY, ...path].join(".")}; keeping original rendering and disabling display observation.`
+            )
           );
       }
 

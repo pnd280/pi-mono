@@ -1,6 +1,7 @@
 import { existsSync, unlinkSync } from "node:fs";
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { compactDisplayText, hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
 import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 
 import { saveActiveBranch } from "./persist.ts";
@@ -28,7 +29,7 @@ export async function persistSession(
   const path = saveActiveBranch(ctx.cwd, ctx.sessionManager);
   const result = await ctx.switchSession(path, {
     withSession: async (replacementCtx) => {
-      replacementCtx.ui.notify(`Session saved to ${path}`, "info");
+      replacementCtx.ui.notify(`Session saved to ${compactDisplayText(path)}`, "info");
     }
   });
 
@@ -46,6 +47,10 @@ function busyChildGuidance(parentSession: string | undefined): string {
   if (!existsSync(parentSession)) {
     return "The parent session has not been saved yet. Wait for an assistant response before creating a linked session.";
   }
+
+  // Sanitizing a copyable command would silently point it at a different file.
+  if (hasUnsafeTerminalControls(parentSession) || /[\r\n\t]/.test(parentSession))
+    return "The parent path contains control characters. Once idle, run /sesh create-empty-child.";
 
   return `To create a linked session in another terminal, run:\npi --parent-session ${quotePosixShellArgument(parentSession)}`;
 }

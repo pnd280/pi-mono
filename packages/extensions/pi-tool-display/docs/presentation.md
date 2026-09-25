@@ -6,7 +6,7 @@
 
 Standalone/expanded targets use paths relative to Pi's rendering cwd for descendants, `.` for cwd, and absolute paths otherwise. Resolution is lexical, including home expansion: no filesystem inspection or symlink following. Raw parameters, retained output, generic arguments, and literal scopes/filters stay unchanged.
 
-Targets wrap beneath themselves in normal foreground; ranges/annotations use `dim`. Wrapping prefers path separators and keeps ranges together when they fit. With at least four target columns, wrapping has no row limit; collapsed targets over the [formatting limit](#resource-limits) retain start/end around `…`.
+Targets wrap beneath themselves in normal foreground; ranges/annotations use `dim`. Literal line breaks in paths become separate indented rows. Wrapping prefers path separators and keeps ranges together when they fit. With at least four target columns, wrapping has no row limit; collapsed targets over the [formatting limit](#resource-limits) retain start/end around `…`.
 
 Other collapsed summaries, commands, and narrower targets show up to three detail rows with truncation hints. Long invocations may put the action on its own row. Groups apply these rules per member; diagnostics/images remain visible.
 

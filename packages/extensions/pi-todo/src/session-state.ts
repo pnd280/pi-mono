@@ -14,9 +14,14 @@ import {
   TASK_DETAILS_VERSION
 } from "./constants.ts";
 import { deriveTaskHierarchy } from "./hierarchy.ts";
-import { metadataLimitError, serializedSnapshotFitsLimit } from "./limits.ts";
+import { serializedSnapshotFitsLimit } from "./limits.ts";
 import { jsonMetadataSchema } from "./metadata.ts";
-import { cloneTask, emptyTodoState, hasDependencyCycle } from "./reducer.ts";
+import {
+  cloneTask,
+  emptyTodoState,
+  hasDependencyCycle,
+  stateFitsCurrentLimits
+} from "./reducer.ts";
 import { TASK_STATUSES, type Task, type TodoState } from "./types.ts";
 
 const taskStatusSchema = z.enum(TASK_STATUSES);
@@ -106,14 +111,9 @@ export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefin
       nextId: snapshot.nextId
     };
 
-    if (
-      current &&
-      !state.tasks.every(
-        (task) => task.metadata === undefined || !metadataLimitError(task.metadata)
-      )
-    ) {
-      return undefined;
-    }
+    // Sanitization can expand descriptions (tabs become spaces). Replayed state
+    // must still meet the same limits as newly emitted versioned snapshots.
+    if (current && !stateFitsCurrentLimits(state)) return undefined;
 
     return isSemanticallyValidSnapshot(state) ? state : undefined;
   } catch {

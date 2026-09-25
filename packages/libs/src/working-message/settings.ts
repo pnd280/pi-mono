@@ -15,6 +15,7 @@ import { lockSync } from "proper-lockfile";
 import { z } from "zod";
 
 import { MAX_SETTINGS_FILE_BYTES, readSettingsFile } from "../settings-file/index.ts";
+import { compactDisplayText } from "../tui/terminal-text/index.ts";
 
 const recordSchema = z.record(z.string(), z.unknown());
 const orderSchema = z
@@ -57,7 +58,7 @@ function readSettings(path: string): Record<string, unknown> {
   } catch (error) {
     if (missing(error)) return {};
     throw new Error(
-      `Cannot read settings at ${path}. Check access, JSON syntax, and the 1 MiB file limit.`
+      `Cannot read settings at ${compactDisplayText(path)}. Check access, JSON syntax, and the 1 MiB file limit.`
     );
   }
 }
@@ -92,7 +93,7 @@ export class WorkingMessageSettings {
         return readSection(readSettings(this.paths[scope])).order;
       } catch {
         warnings.push(
-          `Cannot load working-message order from ${this.paths[scope]}. Check access, syntax, and the 1 MiB regular-file limit.`
+          `Cannot load working-message order from ${compactDisplayText(this.paths[scope])}. Check access, syntax, and the 1 MiB regular-file limit.`
         );
 
         return undefined;
@@ -139,7 +140,7 @@ export class WorkingMessageSettings {
       renameSync(temporary, target);
     } catch {
       throw new Error(
-        `Cannot save ${path}. Check access, syntax, the 1 MiB regular-file limit, and whether another process holds its lock.`
+        `Cannot save ${compactDisplayText(path)}. Check access, syntax, the 1 MiB regular-file limit, and whether another process holds its lock.`
       );
     } finally {
       try {

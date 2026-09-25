@@ -107,6 +107,20 @@ it("treats prototype-like renderer names as exact keys and validates their value
   });
 });
 
+it("sanitizes warning paths and unknown keys without changing supplied settings", () => {
+  const sources = [
+    {
+      path: "global\u001b[2J/settings.json",
+      settings: { [SETTINGS_KEY]: { ["\u001b]0;injected\u0007bad"]: true } }
+    }
+  ];
+  const retained = structuredClone(sources);
+  expect(loadDisplaySettings(sources).warnings).toEqual([
+    "global/settings.json: invalid ext.pi-tool-display.bad; keeping original rendering and disabling display observation."
+  ]);
+  expect(sources).toEqual(retained);
+});
+
 it.each([null, [], true, { other: {} }])("rejects invalid sections: %j", (section) => {
   expect(
     loadDisplaySettings([{ path: "settings.json", settings: { [SETTINGS_KEY]: section } }]).valid

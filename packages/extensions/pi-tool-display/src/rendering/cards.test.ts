@@ -3106,6 +3106,22 @@ describe("tool display renderers", () => {
     }
   );
 
+  it("keeps line breaks in file targets inside separate, indented terminal rows", () => {
+    const renderer = createToolDisplayRenderers("read", nativeAdapter("read"));
+
+    for (const lineBreak of ["\n", "\r\n", "\r"]) {
+      const args = { path: `src/first${lineBreak}${lineBreak}last.txt`, offset: 15, limit: 2 };
+
+      for (const expanded of [false, true]) {
+        const rows = renderer.renderCall(args, theme, context({ expanded })).render(80);
+        expect(rows.every((row) => !/[\r\n]/.test(row))).toBe(true);
+        expect(rows.map((row) => row.slice(7))).toEqual(["src/first", "", "last.txt:15-16"]);
+        expect(rows.every((row) => visibleWidth(row) <= 80)).toBe(true);
+        expect(args.path).toBe(`src/first${lineBreak}${lineBreak}last.txt`);
+      }
+    }
+  });
+
   it("bounds pathological compact targets without losing their tail and restores them on expansion", () => {
     const path = `root/${"é".repeat(10000)}/final.txt`;
     const renderer = createToolDisplayRenderers("read", nativeAdapter("read"));

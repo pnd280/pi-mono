@@ -15,7 +15,7 @@ Use Pi's native `/name My session` to set a name manually.
 
 ### Session operations
 
-`persist` and `create-empty-child` require an idle agent and allow only one session operation at a time. Busy calls warn and return without waiting, queuing work, or changing the session. A busy `create-empty-child` suggests a quoted `pi --parent-session` command for another terminal running a POSIX shell with this extension loaded. If the parent file does not exist, it explains how to save it first.
+`persist` and `create-empty-child` require an idle agent and allow only one session operation at a time. Busy calls warn and return without waiting, queuing work, or changing the session. A busy `create-empty-child` suggests a quoted `pi --parent-session` command for another terminal running a POSIX shell with this extension loaded. If the parent file does not exist, it explains how to save it first. Paths containing control characters receive idle-retry guidance instead of a copyable command; sanitizing that command could select a different file.
 
 `persist` copies the current branch's messages and entries, keeps any parent link and the current session name (including a cleared name), and gives the saved session a new ID. Name changes made on another branch are retained without copying that branch's conversation. Already file-backed sessions are unchanged.
 

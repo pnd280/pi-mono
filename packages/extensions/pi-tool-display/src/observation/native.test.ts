@@ -168,10 +168,13 @@ it("reuses the native edit patch even when the file exceeds the observation limi
 
   try {
     const before = Array.from(
-      { length: 900 },
+      { length: Math.ceil(OBSERVATION_BYTES / 80) },
       (_, index) => `line ${index} ${"x".repeat(80)}\n`
     ).join("");
-    const after = before.replace("line 450 ", "changed 450 ");
+    expect(Buffer.byteLength(before)).toBeGreaterThan(OBSERVATION_BYTES);
+    const oldText = `line 450 ${"x".repeat(80)}`;
+    const newText = `changed 450 ${"x".repeat(80)}`;
+    const after = before.replace(oldText, newText);
     await writeFile(join(directory, "file"), before);
     const facts: DisplayFact[] = [];
     const observed = observeNativeDefinition(
@@ -181,7 +184,7 @@ it("reuses the native edit patch even when the file exceeds the observation limi
     );
     const result = await observed.execute(
       "large-edit",
-      { path: "file", edits: [{ oldText: "line 450 ", newText: "changed 450 " }] },
+      { path: "file", edits: [{ oldText, newText }] },
       undefined,
       undefined,
       nativeToolContext(directory)

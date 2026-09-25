@@ -349,10 +349,9 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
   const lineHeight = (line: PatchLine | undefined, cellWidth: number, excerpt: boolean) => {
     if (!line) return 0;
     const contentWidth = Math.max(1, cellWidth - digits - 2);
-    const newline = line.noNewline
-      ? wrapRows("\\ No newline at end of file", Math.max(1, cellWidth)).length
-      : 0;
-    if (excerpt) return 1 + newline;
+    // Missing-newline markers are structural rows, not source changes. Charging
+    // them here could prevent even the first replacement from being selected.
+    if (excerpt) return 1;
     const cached = heights.get(line);
     let height = cached?.width === contentWidth ? cached.height : undefined;
 
@@ -363,7 +362,7 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
       height =
         visibleWidth(source) > contentWidth * (options.compactRows + 4)
           ? options.compactRows + 5
-          : Math.max(1, wrapRows(source, contentWidth).length) + newline;
+          : Math.max(1, wrapRows(source, contentWidth).length);
       heights.set(line, { width: contentWidth, height });
     }
 
