@@ -67,15 +67,23 @@ export function bindNativeCompaction(manager: object, selection?: CompactionMode
 
     const summaryWrapper: DefaultCompaction = function (this: NativeSession, ...args) {
       const selection = registrations.get(this.sessionManager)?.selection;
+      const config = selection?.config;
+      const reason = args[7];
+      const signal = args[5];
 
-      // Manual API calls share reason: "manual" with tool requests. Match their
-      // own controller so automatic and reentrant summaries remain untouched.
+      // Manual API calls share reason: "manual" with tool requests, which route
+      // separately. Match each operation's own controller so tool, reentrant, and
+      // non-opted-in summaries remain untouched.
+      const routed =
+        reason === "manual"
+          ? config?.applyToManual && signal === this._compactionAbortController?.signal
+          : config?.applyToAuto && signal === this._autoCompactionAbortController?.signal;
+
       if (
-        selection?.config.applyToManual &&
-        (selection.config.model !== undefined || selection.config.thinkingLevel !== undefined) &&
-        args[7] === "manual" &&
-        args[5] !== undefined &&
-        args[5] === this._compactionAbortController?.signal
+        selection &&
+        routed &&
+        signal !== undefined &&
+        (selection.config.model !== undefined || selection.config.thinkingLevel !== undefined)
       ) {
         return summarizeWithOverrides(this, originalSummary.bind(this), args, undefined, selection);
       }

@@ -663,9 +663,13 @@ it.each([
   20000
 );
 
-it.each([undefined, false, true])(
-  "bundled CLI manual compaction honors applyToManual: %s",
-  async (applyToManual) => {
+it.each(
+  (["manual", "auto"] as const).flatMap((entry) =>
+    [undefined, false, true].map((enabled) => ({ entry, enabled }))
+  )
+)(
+  "bundled CLI $entry compaction honors its opt-in: $enabled",
+  async ({ entry, enabled }) => {
     const directory = await createValidationWorkspace("pi-manual-compact-cli-");
 
     try {
@@ -674,7 +678,13 @@ it.each([undefined, false, true])(
       await writeFile(
         join(directory, "agent", "settings.json"),
         JSON.stringify({
-          "ext.pi-smart-compact": { model: summaryModel, thinkingLevel: "low", applyToManual },
+          "ext.pi-smart-compact": {
+            model: summaryModel,
+            thinkingLevel: "low",
+            // The other entry point's opt-in must not route this operation.
+            applyToManual: entry === "manual" ? enabled : true,
+            applyToAuto: entry === "auto" ? enabled : true
+          },
           compaction: { enabled: false, reserveTokens: 512, keepRecentTokens: 256 },
           retry: { enabled: false }
         })
@@ -703,7 +713,7 @@ it.each([undefined, false, true])(
           "--print",
           "--mode",
           "json",
-          "/fixture_manual_compact"
+          entry === "manual" ? "/fixture_manual_compact" : "/fixture_auto_compact"
         ]
       });
       const child = promisify(execFile)(launch.command, launch.args, {
@@ -719,12 +729,12 @@ it.each([undefined, false, true])(
         .split("\n")
         .map((line) => traceSchema.parse(JSON.parse(line)));
       const requests = trace.filter((entry) => entry.type === "provider:summary");
-      const provider = applyToManual ? "summary-compaction-fixture" : "native-compaction-fixture";
+      const provider = enabled ? "summary-compaction-fixture" : "native-compaction-fixture";
       assert.equal(requests.length, 1);
       assert.partialDeepStrictEqual(requests[0], {
         provider,
-        model: applyToManual ? "nested/summary" : "scripted",
-        reasoning: applyToManual ? "low" : "high",
+        model: enabled ? "nested/summary" : "scripted",
+        reasoning: enabled ? "low" : "high",
         apiKey: provider,
         authEnv: provider,
         baseUrl: `http://${provider}.invalid`,
@@ -732,10 +742,13 @@ it.each([undefined, false, true])(
         sessionModel: "scripted",
         sessionThinking: "high"
       });
-      if (applyToManual) assert.equal(requests[0]?.maxTokens, 128);
-      assert.equal(trace.find((entry) => entry.type === "hook:before")?.reason, "manual");
+      if (enabled) assert.equal(requests[0]?.maxTokens, 128);
       assert.equal(
-        trace.find((entry) => entry.type === "fixture:manual")?.instructionPatchRestored,
+        trace.find((item) => item.type === "hook:before")?.reason,
+        entry === "manual" ? "manual" : "threshold"
+      );
+      assert.equal(
+        trace.find((entry) => entry.type === "fixture:entry")?.instructionPatchRestored,
         true
       );
       assert.equal(trace.find((entry) => entry.type === "hook:shutdown")?.patchRestored, true);

@@ -10,6 +10,7 @@ import {
   createAgentSessionServices,
   SessionManager,
   SettingsManager,
+  type AgentSessionEvent,
   type AgentSessionRuntime,
   type ExtensionAPI
 } from "@earendil-works/pi-coding-agent";
@@ -24,13 +25,39 @@ const cases: {
   name: string;
   config: CompactConfig;
   error?: RegExp;
+  automaticError?: RegExp;
   summaries: number;
 }[] = [
   { name: "omitted", config: override, summaries: 1 },
   { name: "disabled", config: { ...override, applyToManual: false }, summaries: 1 },
   { name: "enabled", config: { ...override, applyToManual: true }, summaries: 1 },
-  { name: "thinking only", config: { thinkingLevel: "low", applyToManual: true }, summaries: 1 },
-  { name: "native defaults", config: { applyToManual: true }, summaries: 1 },
+  { name: "automatic only", config: { ...override, applyToAuto: true }, summaries: 1 },
+  {
+    name: "automatic disabled",
+    config: { ...override, applyToManual: true, applyToAuto: false },
+    summaries: 1
+  },
+  {
+    name: "both enabled",
+    config: { ...override, applyToManual: true, applyToAuto: true },
+    summaries: 1
+  },
+  {
+    name: "thinking only",
+    config: { thinkingLevel: "low", applyToManual: true, applyToAuto: true },
+    summaries: 1
+  },
+  {
+    name: "native defaults",
+    config: { applyToManual: true, applyToAuto: true },
+    summaries: 1
+  },
+  {
+    name: "automatic missing model",
+    config: { model: "missing/model", applyToAuto: true },
+    automaticError: /model is unavailable/,
+    summaries: 1
+  },
   { name: "retry", config: { ...override, applyToManual: true }, summaries: 2 },
   {
     name: "missing model",
@@ -70,8 +97,8 @@ const cases: {
 ];
 
 it.each(cases)(
-  "manual SDK compaction: $name",
-  async ({ name, config, error, summaries }) => {
+  "SDK manual and automatic compaction: $name",
+  async ({ name, config, error, automaticError, summaries }) => {
     const directory = await createValidationWorkspace("pi-manual-compact-");
     const agentDir = join(directory, "agent");
     const cwd = join(directory, "work");
@@ -79,7 +106,13 @@ it.each(cases)(
     const originalSummary: unknown = Reflect.get(AgentSession.prototype, "_runDefaultCompaction");
     let runtime: AgentSessionRuntime | undefined;
     let restoreStream: (() => void) | undefined;
-    let phase: "manual" | "automatic" | "reloaded" = "manual";
+    let phase: "manual" | "automatic" = "manual";
+    let reloaded = false;
+    let automaticReason: "threshold" | "overflow" = "threshold";
+    const routed = () =>
+      !reloaded &&
+      ((phase === "manual" && config.applyToManual) ||
+        (phase === "automatic" && config.applyToAuto));
     let summaryRequests = 0;
     let unrelatedRequests = 0;
     const unrelated = new AbortController();
@@ -98,7 +131,7 @@ it.each(cases)(
         ]
       });
       faux.setResponses(
-        Array.from({ length: 12 }, () => async (context, options, _state, model) => {
+        Array.from({ length: 16 }, () => async (context, options, _state, model) => {
           assert.ok(runtime);
           assert.equal(options?.headers?.["X-Manual-Fixture"], "applied");
 
@@ -110,7 +143,7 @@ it.each(cases)(
           }
 
           summaryRequests++;
-          const selected = phase === "manual" && config.applyToManual;
+          const selected = routed();
           assert.equal(model.id, selected && config.model ? "summary" : "main");
           assert.equal(options.reasoning, (selected && config.thinkingLevel) || "high");
           if (selected && config.model) assert.equal(options.maxTokens, 128);
@@ -125,7 +158,7 @@ it.each(cases)(
           });
           assert.equal((await probe.result()).stopReason, "stop");
 
-          if (phase === "manual") {
+          if (phase === "manual" && !reloaded) {
             if (name === "abort") runtime.session.abortCompaction();
             if (name === "failure" || (name === "retry" && summaryRequests === 1))
               return fauxAssistantMessage("", {
@@ -144,10 +177,12 @@ it.each(cases)(
           event.headers["X-Manual-Fixture"] = "applied";
         });
         pi.on("session_before_compact", (event) => {
-          assert.equal(event.reason, phase === "automatic" ? "threshold" : "manual");
+          assert.equal(event.reason, phase === "automatic" ? automaticReason : "manual");
+          assert.equal(event.willRetry, phase === "automatic" && automaticReason === "overflow");
           assert.equal(event.customInstructions, phase === "automatic" ? undefined : instructions);
-          if (phase === "manual" && name === "hook cancellation") return { cancel: true };
-          if (phase === "manual" && name === "custom summary")
+          if (!reloaded && phase === "manual" && name === "hook cancellation")
+            return { cancel: true };
+          if (!reloaded && phase === "manual" && name === "custom summary")
             return {
               compaction: {
                 summary: "CUSTOM_CHECKPOINT",
@@ -235,28 +270,77 @@ it.each(cases)(
       }
 
       assert.equal(summaryRequests, summaries);
-      restoreStream?.();
-      restoreStream = undefined;
       assert.equal(session.agent.streamFunction, stream);
       assert.equal(session.isCompacting, false);
       assert.equal(session.isIdle, true);
 
-      // Automatic compaction remains native, including after failed manual attempts.
-      phase = "automatic";
-      seed();
-      const automatic: unknown = Reflect.get(session, "_runAutoCompaction");
-      assert.ok(typeof automatic === "function");
-      await Reflect.apply(automatic, session, ["threshold", false]);
-      assert.equal(summaryRequests, summaries + 1);
-      assert.equal(session.agent.streamFunction, stream);
+      const checkAutomatic = async (expectedError?: RegExp) => {
+        phase = "automatic";
+        const automatic: unknown = Reflect.get(session, "_runAutoCompaction");
+        assert.ok(typeof automatic === "function");
+        const ends: Extract<AgentSessionEvent, { type: "compaction_end" }>[] = [];
+        const unsubscribe = session.subscribe((event) => {
+          if (event.type === "compaction_end") ends.push(event);
+        });
 
-      // Reload removes the manual override without changing the conversation model.
-      phase = "reloaded";
+        try {
+          for (const reason of ["threshold", "overflow"] as const) {
+            automaticReason = reason;
+            seed();
+            const leaf = session.sessionManager.getLeafId();
+            const requestsBefore = summaryRequests;
+            const eventsBefore = ends.length;
+            const willRetry = reason === "overflow";
+            const continuation: unknown = await Reflect.apply(automatic, session, [
+              reason,
+              willRetry
+            ]);
+            assert.equal(continuation, !expectedError && willRetry);
+            assert.equal(ends.length, eventsBefore + 1);
+            const end = ends.at(-1);
+            assert.ok(end);
+            assert.equal(end.reason, reason);
+            assert.equal(end.aborted, false);
+            assert.equal(end.willRetry, !expectedError && willRetry);
+
+            if (expectedError) {
+              assert.match(end.errorMessage ?? "", expectedError);
+              assert.equal(end.result, undefined);
+              assert.equal(session.sessionManager.getLeafId(), leaf);
+              assert.equal(summaryRequests, requestsBefore);
+            } else {
+              assert.equal(end.errorMessage, undefined);
+              assert.equal(end.result?.summary, "MANUAL_CHECKPOINT");
+              assert.partialDeepStrictEqual(session.sessionManager.getBranch().at(-1), {
+                type: "compaction",
+                summary: "MANUAL_CHECKPOINT"
+              });
+              assert.equal(summaryRequests, requestsBefore + 1);
+            }
+
+            assert.equal(session.agent.streamFunction, stream);
+            assert.equal(session.isCompacting, false);
+            assert.equal(session.isIdle, true);
+          }
+        } finally {
+          unsubscribe();
+        }
+      };
+
+      // Automatic compaction follows applyToAuto independently of manual attempts.
+      await checkAutomatic(automaticError);
+      restoreStream?.();
+      restoreStream = undefined;
+
+      // Reload removes both routes without changing the conversation model.
+      reloaded = true;
       await writeFile(settingsPath, "{}");
       await session.reload();
+      phase = "manual";
       seed();
       await session.compact(instructions);
-      assert.equal(summaryRequests, summaries + 2);
+      await checkAutomatic();
+      assert.equal(summaryRequests, summaries + (automaticError ? 0 : 2) + 3);
       assert.equal(unrelatedRequests, summaryRequests);
       assert.equal(session.model?.id, "main");
       assert.equal(session.thinkingLevel, "high");

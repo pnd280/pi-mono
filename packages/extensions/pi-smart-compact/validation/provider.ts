@@ -205,7 +205,17 @@ export default function offlineFixture(pi: ExtensionAPI) {
     handler: async () => {
       if (!session) throw new Error("Missing fixture session");
       await session.compact(instructions);
-      trace("fixture:manual");
+      trace("fixture:entry");
+    }
+  });
+  pi.registerCommand("fixture_auto_compact", {
+    description: "Exercise the native threshold compaction entry point offline.",
+    handler: async () => {
+      if (!session) throw new Error("Missing fixture session");
+      const automatic: unknown = Reflect.get(session, "_runAutoCompaction");
+      if (typeof automatic !== "function") throw new Error("Missing automatic compaction");
+      await Reflect.apply(automatic, session, ["threshold", false]);
+      trace("fixture:entry");
     }
   });
 

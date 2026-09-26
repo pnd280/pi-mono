@@ -1,6 +1,6 @@
 # pi-smart-compact
 
-Adds model-callable `context_window` and `compact` tools to inspect context usage and compact with Pi's native orchestration while continuing the current task. Supports an optional dedicated summary model and additional instructions, including summaries of a long ongoing turn. Requires the inspected Pi **0.87.1** runtime; see [compatibility](docs/pi-compatibility.md).
+Adds model-callable `context_window` and `compact` tools to inspect context usage and compact with Pi's native orchestration while continuing the current task. Supports an optional dedicated summary model and additional instructions, including summaries of a long ongoing turn. The summary model can optionally also serve `/compact` and automatic compaction. Requires the inspected Pi **0.87.1** runtime; see [compatibility](docs/pi-compatibility.md).
 
 ## Usage
 
@@ -22,7 +22,7 @@ If Pi returns without an outcome event, the skip reason may only say `Pi did not
 
 Instructions add focus to Pi's default history and split-turn summary prompts; they do not replace the native format. Existing `session_before_compact` handlers receive the same instructions and may cancel or supply their own summaries. Custom summarizers remain responsible for their output.
 
-Duplicate requests in one tool batch become one compaction attempt and at most one status message. The last executed request's instructions win; omitting instructions clears an earlier focus. If Pi reports cancellation or summarization failure, existing context is preserved and ordinary task continuation remains possible. Aborting the whole agent run prevents continuation; Escape during compaction only cancels compaction. The built-in `/compact` command keeps its native behavior unless summary overrides are explicitly enabled for it below.
+Duplicate requests in one tool batch become one compaction attempt and at most one status message. The last executed request's instructions win; omitting instructions clears an earlier focus. If Pi reports cancellation or summarization failure, existing context is preserved and ordinary task continuation remains possible. Aborting the whole agent run prevents continuation; Escape during compaction only cancels compaction. The built-in `/compact` command and automatic compaction keep their native behavior unless summary overrides are explicitly enabled for them below.
 
 ## Configuration
 
@@ -33,7 +33,8 @@ By default, compaction uses the session's active model and native thinking behav
   "ext.pi-smart-compact": {
     "model": "provider/model-id",
     "thinkingLevel": "off",
-    "applyToManual": true
+    "applyToManual": true,
+    "applyToAuto": true
   }
 }
 ```
@@ -41,6 +42,8 @@ By default, compaction uses the session's active model and native thinking behav
 All fields are optional. `model` must identify a model known to Pi, including any slashes within its ID. Omitting it uses the active model. `thinkingLevel` accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`; explicitly unsupported levels are rejected rather than adjusted. Omitting it preserves native thinking behavior.
 
 `applyToManual` defaults to `false`. Set it to `true` to also apply the configured model and thinking level to the built-in `/compact` command. This includes RPC/SDK manual compaction, which uses the same native entry point. It does not change manual compaction's instructions, cancellation, persistence, or continuation behavior. With no model or thinking override, the flag alone leaves native selection unchanged.
+
+`applyToAuto` defaults to `false`. Set it to `true` to also apply the configured model and thinking level to Pi's automatic compaction, both threshold-triggered and overflow recovery. It does not change when automatic compaction runs, its hooks, retries, persistence, or continuation. With no model or thinking override, the flag alone leaves native selection unchanged. The two flags are independent.
 
 Settings are read from:
 
@@ -51,11 +54,13 @@ Settings are read from:
 
 Only [trusted projects](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#project-trust) override global fields; omitted fields inherit. Apply changes with `/reload`. Remove `model` and `thinkingLevel` from all participating settings to restore native selection. No extension-specific environment variables or settings writes.
 
-Unreadable, malformed, or oversized participating files (over 1 MiB), invalid values, and unknown keys inside `ext.pi-smart-compact` make the tool unavailable until corrected and reloaded; `context_window` remains available. An unavailable model, unsupported thinking level, authentication error, or summary failure preserves context without silently falling back to another model. The tool reports a failed compaction; native `/compact` reports its own error.
+Unreadable, malformed, or oversized participating files (over 1 MiB), invalid values, and unknown keys inside `ext.pi-smart-compact` make the tool unavailable until corrected and reloaded; `context_window` remains available.
 
-The overrides affect the tool's default summaries and, when `applyToManual` is enabled, native manual summaries. Automatic compaction and hook-provided custom summaries remain unchanged. Overrides never switch the conversation model or thinking level. If configuration cannot load, Pi reports an initialization error and native `/compact` remains available without extension overrides.
+An unavailable model, unsupported thinking level, authentication error, or summary failure does not silently fall back to another model. Failed summarization adds no compaction entry. The tool reports a failed compaction; native `/compact` and automatic compaction report their own errors. During overflow recovery, Pi may already have omitted the failed attempt from model context; those edits remain if compaction fails.
 
-Pi retains native retries and the active conversation model's retention/summary budgets, with output capped by the summary model's limit. Choose a summary model that can accept the conversation being summarized.
+The overrides affect the tool's default summaries and, when opted in, native manual (`applyToManual`) and automatic (`applyToAuto`) summaries. Hook-provided custom summaries remain unchanged. Overrides never switch the conversation model or thinking level. If configuration cannot load, Pi reports an initialization error and native manual and automatic compaction remain available without extension overrides.
+
+Pi retains native retries and the active conversation model's retention/summary budgets, with output capped by the summary model's limit. Choose a summary model with enough capacity for Pi's prepared summary requests. Overflow recovery uses the same native preparation and serialization, not the unchanged failed request; a smaller summary model may still run out of context.
 
 Summary requests preserve Pi's provider retry limits, HTTP idle/request timeout, WebSocket connection timeout, and `before_provider_headers` hooks. Header hooks run after the selected provider's authentication resolves, including on summary retries.
 
@@ -67,7 +72,7 @@ An explicit tool request bypasses the automatic token threshold and `compaction.
 
 - Sends conversation history to the active or configured summary model through native summarization requests, with their usual provider usage and cost.
 - Saves native compaction entries and metadata to the current session, plus model-visible status messages for skipped, cancelled, or failed tool-requested attempts. Raw history remains in the session file.
-- Patches private Pi methods in memory, with requests scoped to the session. Model, thinking, and instruction wrappers deactivate when compaction finishes; the shared boundary and manual-summary routing wrappers are released when the final session binding is disposed. Cleanup restores only methods it still owns, leaving later third-party replacements untouched.
+- Patches private Pi methods in memory, with requests scoped to the session. Model, thinking, and instruction wrappers deactivate when compaction finishes; the shared boundary and manual/automatic summary routing wrappers are released when the final session binding is disposed. Cleanup restores only methods it still owns, leaving later third-party replacements untouched.
 - Does not modify installed Pi files, create configuration, send user prompts, or manufacture continuation requests. Outcome messages use Pi's default custom-message rendering.
 
 ## Validation

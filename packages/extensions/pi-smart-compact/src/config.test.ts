@@ -8,7 +8,12 @@ import { afterEach, expect, it, vi } from "vite-plus/test";
 import { loadCompactConfig } from "./config.ts";
 
 const directories: string[] = [];
-const globalConfig = { model: "provider/global", thinkingLevel: "off", applyToManual: true };
+const globalConfig = {
+  model: "provider/global",
+  thinkingLevel: "off",
+  applyToManual: true,
+  applyToAuto: true
+};
 const section = (config: unknown) => JSON.stringify({ "ext.pi-smart-compact": config });
 
 afterEach(() => {
@@ -55,6 +60,7 @@ it.each([
   },
   { project: { thinkingLevel: "high" }, expected: { ...globalConfig, thinkingLevel: "high" } },
   { project: { applyToManual: false }, expected: { ...globalConfig, applyToManual: false } },
+  { project: { applyToAuto: false }, expected: { ...globalConfig, applyToAuto: false } },
   { project: {}, expected: globalConfig }
 ])("merges trusted project fields: $project", ({ project, expected }) => {
   const { cwd, agentDir } = settings(section(globalConfig), section(project));
@@ -98,6 +104,8 @@ it.each([
   section({ applyToManual: "true" }),
   section({ applyToManual: null }),
   section({ applyToManual: 1 }),
+  section({ applyToAuto: "true" }),
+  section({ applyToAuto: null }),
   section({ unknown: true }),
   JSON.stringify({ "ext.pi-smart-compact": globalConfig, ignored: "x".repeat(1024 * 1024) })
 ])("rejects invalid participating files rather than silently falling back: case %#", (source) => {
