@@ -142,6 +142,36 @@ it("bounds every state and separates hints from content, even on tiny views", ()
       }
 });
 
+it("separates feedback from content when space allows", () => {
+  const options = fixture();
+
+  for (const feedback of [
+    settingsSaveFeedback(false),
+    settingsLoadFeedback(["Invalid settings"]),
+    settingsSaveFailure(new Error("Check access."))
+  ])
+    for (const [width, height] of [
+      [80, 22],
+      [40, 14]
+    ] as const) {
+      const lines = renderSettingsMenu({ ...options, width, height, feedback });
+      const message = lines.findIndex((line) => line.includes(feedback!.summary.split("\n")[0]!));
+      expect(message).toBeGreaterThan(0);
+      expect(lines[message - 1]).toBe("");
+      expect(lines.join("\n")).toContain("→ Item 14");
+      expect(lines.length).toBeLessThanOrEqual(height);
+    }
+
+  const tiny = renderSettingsMenu({
+    ...options,
+    height: 5,
+    feedback: settingsSaveFeedback(false)
+  });
+  expect(tiny[1]).toBe("");
+  expect(tiny[2]).toContain("Saved and applied.");
+  expect(tiny).toHaveLength(5);
+});
+
 it("never invents add or move actions for an empty settings collection", () => {
   const output = renderSettingsMenu({
     ...fixture(),

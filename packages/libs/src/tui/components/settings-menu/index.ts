@@ -162,10 +162,13 @@ function smallMenu(options: SettingsMenuOptions): string[] {
   const controls = hints(options, options.hints.slice(0, 2), Math.min(2, height - 2));
   const available = height - 1 - controls.length;
   let context: string[] = [];
-  if (available > 0)
+
+  if (available > 0) {
     context = options.feedback
       ? feedbackLines(options).slice(0, available)
       : [theme.fg("muted", "  Resize for more settings")];
+    if (options.feedback && context.length < available) context.unshift("");
+  }
 
   return [target, ...context, ...controls];
 }
@@ -187,14 +190,17 @@ function frameLayout(options: SettingsMenuOptions, compact: boolean) {
       ];
   let footer = hints(options, options.hints, 3);
   const outcome = feedbackLines(options).slice(0, compact ? 2 : 4);
+  let outcomeGap = outcome.length ? 1 : 0;
   let draft = dirtyLines(options);
   let endRows = 1;
   // Multiple items need room for either two rows or a selected row and its pagination.
   const minimumBody = options.items.length > 1 ? 2 : 1;
   const frameBudget = height - minimumBody;
-  const reserved = () => header.length + footer.length + outcome.length + draft.length + endRows;
+  const reserved = () =>
+    header.length + footer.length + outcome.length + outcomeGap + draft.length + endRows;
 
   // Drop decoration before scope context; preserve selection, pagination, recovery and controls.
+  if (reserved() > frameBudget) outcomeGap = 0;
   if (reserved() > frameBudget) draft = [];
   if (reserved() > frameBudget) endRows = 0;
   if (reserved() > frameBudget && scope.length > 1)
@@ -205,7 +211,14 @@ function frameLayout(options: SettingsMenuOptions, compact: boolean) {
   if (reserved() > frameBudget)
     header = header.slice(0, Math.max(0, frameBudget - (reserved() - header.length)));
 
-  return { header, footer, outcome, draft, endRows, available: Math.max(1, height - reserved()) };
+  return {
+    header,
+    footer,
+    outcome: outcomeGap ? ["", ...outcome] : outcome,
+    draft,
+    endRows,
+    available: Math.max(1, height - reserved())
+  };
 }
 
 function menuList(options: SettingsMenuOptions, compact: boolean, available: number) {
