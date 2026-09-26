@@ -26,7 +26,7 @@ Press **a** in a region's row list to create a row and open it for editing, even
 
 Only Ctrl+S persists changes. While editing global scope, the regions show its draft even if a saved project override exists. After a global save, feedback explains that the project layout applies on close; the global draft stays visible until then. Saving an unchanged unset scope creates an explicit layout. **Reset to defaults** stages the extension's default layout for the selected scope; Ctrl+S saves it.
 
-A failed save shows inline recovery without leaving the draft; Ctrl+S retries. Success feedback clears on edits or scope changes; failures remain until retry or switching scopes. Load warnings appear inline with details when space permits and refresh after saving. There is no separate details view or Save action row.
+A failed save shows inline recovery without leaving the draft; Ctrl+S retries. Success feedback clears after three seconds, on edits, or on scope changes. Warnings and errors do not expire; failures remain until retry or switching scopes. Load warnings appear inline with details when space permits and refresh after saving. There is no separate details view or Save action row.
 
 By default, native above/below widgets each occupy their own row. The footer contains:
 
@@ -36,7 +36,9 @@ tokens • context usage (auto)                  provider/model:thinking
 extension status • extension status …
 ```
 
-Any contribution can move to any region, share rows, and appear in several rows. The above-editor region reserves one leading blank line to separate it from the chat, even when empty. Empty widgets collapse without losing their positions. Bullet separators skip empty contributions but never cross flex or dangle beside continuation padding. Shared rows wrap/reflow automatically; native multiline components remain intact. Vertical clipping protects the editor and indicates omitted content. Arbitrary components have no preferred-size API, so allocation is best effort.
+Any contribution can move to any region, share rows, and appear in several rows. The above-editor region reserves one leading blank line to separate it from the chat, even when empty. Empty widgets collapse without losing their positions. Bullet separators skip empty contributions but never cross flex or dangle beside continuation padding. On ragged multiline output, bullets align just before the following column, not after each preceding line's text.
+
+Shared rows compact surplus plain trailing padding while preserving leading indentation, painted/decorated padding, and full-width singleton output. Native multiline components remain intact. Allocation recovers unused space once and prefers natural-width reflow when squeezing widgets together makes the output taller. Vertical clipping protects the editor and indicates omitted content. Arbitrary components have no preferred-size API, so allocation remains best effort rather than a global height optimizer.
 
 ## Configuration
 

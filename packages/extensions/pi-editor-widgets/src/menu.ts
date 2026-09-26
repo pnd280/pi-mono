@@ -1,5 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, type Component } from "@earendil-works/pi-tui";
+import { ExpiringNotice } from "@pi-mono/libs/expiring-notice";
 import {
   renderSettingsMenu,
   settingsLoadFeedback,
@@ -26,6 +27,7 @@ type Item = SettingsMenuItem & {
 export class WidgetMenu implements Component {
   readonly drafts: WidgetDrafts;
   private feedback: SettingsFeedback | undefined;
+  private readonly success: ExpiringNotice<SettingsFeedback>;
   private warning: SettingsFeedback | undefined;
   private closed = false;
   private readonly selections = new WeakMap<View, { key: string; index: number }>();
@@ -45,6 +47,11 @@ export class WidgetMenu implements Component {
   ) {
     this.drafts = new WidgetDrafts(options.preferences, () => options.coordinator.contributions());
     this.warning = settingsLoadFeedback(options.preferences.warnings);
+    this.success = new ExpiringNotice({
+      durationMs: 3000,
+      changed: () => this.options.requestRender(),
+      report() {}
+    });
     this.showDraft();
   }
 
@@ -208,7 +215,7 @@ export class WidgetMenu implements Component {
     }
 
     if (scope !== this.drafts.scope || (edited && this.feedback?.severity !== "error"))
-      this.feedback = undefined;
+      this.setFeedback(undefined);
     this.showDraft();
     this.options.requestRender();
   }
@@ -263,10 +270,21 @@ export class WidgetMenu implements Component {
     this.currentItems(this.drafts.layout());
   }
 
-  private close(): void {
+  dispose(): void {
     this.closed = true;
+    this.success.dispose();
+  }
+
+  private close(): void {
+    this.dispose();
     this.options.coordinator.showDraft(undefined);
     this.options.close();
+  }
+
+  private setFeedback(feedback: SettingsFeedback | undefined): void {
+    this.success.clear();
+    this.feedback = feedback?.severity === "success" ? undefined : feedback;
+    if (feedback?.severity === "success") this.success.set(feedback);
   }
 
   private save(): void {
@@ -281,14 +299,15 @@ export class WidgetMenu implements Component {
       this.drafts.saved(preferences);
       this.options.apply(preferences);
       this.warning = settingsLoadFeedback(preferences.warnings);
-      this.feedback = settingsSaveFeedback(false, preferences.warnings);
+      const feedback = settingsSaveFeedback(false, preferences.warnings);
       // The saved project override takes effect on close; the global draft stays visible for now.
       if (this.drafts.scope === "global" && preferences.project !== undefined)
-        this.feedback.summary = preferences.warnings.length
+        feedback.summary = preferences.warnings.length
           ? "Saved; project applies on close.\nSettings warning. Check files."
           : "Saved globally; previewing draft.\nProject layout applies on close.";
+      this.setFeedback(feedback);
     } catch (error) {
-      this.feedback = settingsSaveFailure(error);
+      this.setFeedback(settingsSaveFailure(error));
     }
   }
 
@@ -348,7 +367,7 @@ export class WidgetMenu implements Component {
       selected: view.selected,
       emptyLabel: `${view.kind === "rows" ? "No rows" : "Empty row"}. Press a to add.`,
       hints: this.hints(item),
-      feedback: this.feedback ?? this.warning
+      feedback: this.success.value ?? this.feedback ?? this.warning
     });
   }
 

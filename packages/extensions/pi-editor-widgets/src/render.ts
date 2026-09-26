@@ -34,12 +34,37 @@ type Measured = {
   source: Contribution;
   lines: string[];
   natural: number;
+  renders: Map<number, string[]>;
   group: number;
   bullet: boolean;
 };
 
 const content = (line: string) => stripTerminalSequences(line).trim().length > 0;
 const nonempty = (lines: string[]) => lines.some(content);
+const lineWidth = (lines: string[]) =>
+  lines.reduce((max, line) => Math.max(max, visibleWidth(line)), 0);
+
+/** Only compact literal trailing spaces known not to paint or carry terminal metadata. */
+function compactWidth(line: string): number {
+  if (!line.endsWith(" ")) return visibleWidth(line);
+  // SGR resets do not close OSC links or other terminal metadata.
+  // oxlint-disable-next-line no-control-regex -- Inspect ESC without changing terminal output.
+  if (line.replace(/\x1b\[[\d;]*m/gu, "").includes("\x1b")) return visibleWidth(line);
+  const trimmed = line.replace(/ +$/u, "");
+  const reset = trimmed.lastIndexOf("\x1b[0m");
+  const active = trimmed.slice(reset < 0 ? 0 : reset + 4);
+  // Foreground, intensity and italics do not paint spaces. Keep unknown/decorated suffixes intact.
+  const neutral = active.replace(
+    // oxlint-disable-next-line no-control-regex -- Only known non-painting SGR codes are neutral.
+    /\x1b\[(?:1|2|3|22|23|3[0-7]|39|9[0-7]|38;5;\d+|38;2;\d+;\d+;\d+)m/gu,
+    ""
+  );
+
+  return visibleWidth(neutral.includes("\x1b") ? line : trimmed);
+}
+
+const occupiedWidth = (lines: string[]) =>
+  lines.reduce((max, line) => Math.max(max, compactWidth(line)), 0);
 
 function measure(
   row: string[],
@@ -71,7 +96,8 @@ function measure(
       id,
       source,
       lines,
-      natural: lines.reduce((max, line) => Math.max(max, visibleWidth(line)), 1),
+      natural: Math.max(1, occupiedWidth(lines)),
+      renders: new Map([[width, lines]]),
       group,
       bullet
     });
@@ -87,22 +113,22 @@ function gap(left: Measured | undefined, right: Measured): number {
   return left.group === right.group && right.bullet ? 3 : 1;
 }
 
-function reflow(nodes: Measured[], width: number): Measured[][] {
+function reflow(nodes: Measured[], width: number, minimum = 12): Measured[][] {
   const rows: Measured[][] = [];
   let current: Measured[] = [];
   let used = 0;
 
   for (const node of nodes) {
-    const minimum = Math.min(node.natural, 12, width);
+    const size = Math.min(node.natural, minimum, width);
     const spacing = gap(current.at(-1), node);
 
-    if (current.length && used + spacing + minimum > width) {
+    if (current.length && used + spacing + size > width) {
       rows.push(current);
       current = [];
       used = 0;
     }
 
-    used += gap(current.at(-1), node) + minimum;
+    used += gap(current.at(-1), node) + size;
     current.push(node);
   }
 
@@ -111,19 +137,23 @@ function reflow(nodes: Measured[], width: number): Measured[][] {
   return rows;
 }
 
-/** Water-fill once from measured natural widths, without probing component renders in a loop. */
-function allocate(nodes: Measured[], width: number): number[] {
+/** Water-fill from measured demands, without probing component renders in a loop. */
+function allocate(
+  nodes: Measured[],
+  width: number,
+  demands = nodes.map((node) => node.natural)
+): number[] {
   if (nodes.length === 1) return [width];
   let remaining = width - nodes.reduce((sum, node, index) => sum + gap(nodes[index - 1], node), 0);
   const sorted = nodes
-    .map((node, index) => ({ node, index }))
-    .sort((a, b) => a.node.natural - b.node.natural);
+    .map((node, index) => ({ natural: demands[index] ?? node.natural, index }))
+    .sort((a, b) => a.natural - b.natural);
   const widths: number[] = [];
 
-  sorted.forEach(({ node, index }, order) => {
+  sorted.forEach(({ natural, index }, order) => {
     const allocated = Math.max(
       1,
-      Math.min(node.natural, Math.floor(remaining / (nodes.length - order)))
+      Math.min(natural, Math.floor(remaining / (nodes.length - order)))
     );
     widths[index] = allocated;
     remaining -= allocated;
@@ -132,37 +162,95 @@ function allocate(nodes: Measured[], width: number): number[] {
   return widths;
 }
 
-type Box = { node: Measured; width: number; renderWidth: number; lines: string[] };
+type Box = {
+  node: Measured;
+  width: number;
+  allocated: number;
+  renderWidth: number;
+  lines: string[];
+};
 
 function renderBoxes(
   nodes: Measured[],
   width: number,
   single: boolean,
-  widths: RenderWidths
+  widths: RenderWidths,
+  allocations = allocate(nodes, width),
+  recover = true
 ): Box[] {
-  const allocations = allocate(nodes, width);
   let group: number | undefined;
   let bullet = false;
 
-  return nodes.flatMap((node, index) => {
+  const boxes = nodes.flatMap((node, index) => {
     if (group !== node.group) bullet = false;
     group = node.group;
     bullet ||= node.bullet;
     const allocated = allocations[index] ?? width;
-    const lines = allocated === width ? node.lines : draw(node.source, allocated, widths);
+    // Crop surplus padding from the measured snapshot instead of shrinking Text's content area.
+    let renderWidth =
+      allocated >= node.natural && node.natural < lineWidth(node.lines) ? width : allocated;
+
+    if (!recover) {
+      // Donating unused space must not rewrap a responsive Text's retained content.
+      const snapshot = [...node.renders]
+        .reverse()
+        .find(([previous, lines]) => previous >= allocated && occupiedWidth(lines) <= allocated);
+      if (snapshot) renderWidth = snapshot[0];
+    }
+
+    const lines = node.renders.get(renderWidth) ?? draw(node.source, renderWidth, widths);
+    node.renders.set(renderWidth, lines);
     // Only a logical singleton gets the full width. A reflowed single group can still align via flex.
-    const used = single
-      ? allocated
-      : Math.min(
-          allocated,
-          lines.reduce((max, line) => Math.max(max, visibleWidth(line)), 0)
-        );
+    const used = single ? allocated : Math.min(allocated, occupiedWidth(lines));
     if (!nonempty(lines)) return [];
-    const box = { node: { ...node, bullet }, width: used, renderWidth: allocated, lines };
+    const box = { node: { ...node, bullet }, width: used, allocated, renderWidth, lines };
     bullet = false;
 
     return [box];
   });
+
+  if (!recover || single || !boxes.length) return boxes;
+  const survivors = boxes.map((box) => box.node);
+  // Do not cap wrapped content at a ragged line's width: it still needs room to unwrap.
+  const demands = boxes.map((box) =>
+    box.lines.length <= box.node.lines.length
+      ? Math.min(box.node.natural, box.width)
+      : box.node.natural
+  );
+  const recovered = allocate(survivors, width, demands);
+  if (recovered.every((size, index) => size === boxes[index]?.allocated)) return boxes;
+
+  // One recovery only; width-sensitive widgets may disappear again. Never resurrect a dropped node.
+  return renderBoxes(survivors, width, single, widths, recovered, false);
+}
+
+function chooseRows(
+  nodes: Measured[],
+  width: number,
+  single: boolean,
+  widths: RenderWidths
+): Box[][] {
+  const packed = reflow(nodes, width).map((row) => renderBoxes(row, width, single, widths));
+  const natural = reflow(
+    packed.flat().map((box) => box.node),
+    width,
+    width
+  );
+  const height = (rows: { lines: string[] }[][]) =>
+    rows.reduce((sum, row) => sum + Math.max(0, ...row.map((box) => box.lines.length)), 0);
+  if (height(natural) >= height(packed)) return packed;
+
+  // Full-width snapshots provide a shorter layout without another component render.
+  // Cells retain that render width so mouse dispatch can restore the matching native geometry.
+  return natural.map((row) =>
+    row.map((node) => ({
+      node,
+      width: node.natural,
+      allocated: node.natural,
+      renderWidth: width,
+      lines: node.lines
+    }))
+  );
 }
 
 function compose(
@@ -204,7 +292,7 @@ function compose(
 
     positions.forEach(({ box, position, spacing }, index) => {
       const previous = positions[index - 1]?.box;
-      const current = box.lines[y] ?? "";
+      const current = truncateToWidth(box.lines[y] ?? "", box.width, "");
       const bullet =
         previous &&
         previous.node.group === box.node.group &&
@@ -216,7 +304,7 @@ function compose(
         bullet && spacing === 3
           ? " ".repeat(Math.max(0, padding - 3)) + separator
           : " ".repeat(padding);
-      // End each cell's style and hyperlink without trimming meaningful padding or blank lines.
+      // End each cell's style and hyperlink; only known surplus padding was cropped above.
       line += current + "\x1b[0m\x1b]8;;\x07";
     });
 
@@ -239,13 +327,12 @@ export function renderRows(
   for (const row of rows) {
     const nodes = measure(row, sources, width, widths);
 
-    for (const physical of reflow(nodes, width)) {
-      const boxes = renderBoxes(
-        physical,
-        width,
-        nodes.length === 1 && !row.includes("flex"),
-        widths
-      );
+    for (const boxes of chooseRows(
+      nodes,
+      width,
+      nodes.length === 1 && !row.includes("flex"),
+      widths
+    )) {
       const rendered = compose(boxes, width, row[0] === "flex", row.includes("flex"), separator);
       const offset = result.lines.length;
       result.cells.push(...rendered.cells.map((cell) => ({ ...cell, y: cell.y + offset })));

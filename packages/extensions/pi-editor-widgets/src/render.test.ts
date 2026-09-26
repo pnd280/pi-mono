@@ -1,4 +1,5 @@
 import {
+  Container,
   stripTerminalSequences,
   Text,
   visibleWidth,
@@ -79,7 +80,7 @@ it("preserves multiline content and only separates visible contributions", () =>
   expect(separated[0]).toMatch(/(?:A|last)\s+•\s+B/);
 });
 
-it("shrinks shared components at allocated widths with at most two renders each", () => {
+it("bounds shared renders while preserving wrapped content and borders", () => {
   const left = vi.fn((width: number) => new Text("left content wraps around", 1, 0).render(width));
   const right = vi.fn((width: number) => ["+".repeat(width), "|bordered|", "+".repeat(width)]);
   const result = renderRows(
@@ -90,9 +91,11 @@ it("shrinks shared components at allocated widths with at most two renders each"
     ]),
     27
   );
-  expect(left.mock.calls).toEqual([[27], [12]]);
-  expect(right.mock.calls).toEqual([[27], [12]]);
-  expect(result.lines.length).toBeGreaterThanOrEqual(3);
+  for (const render of [left, right]) expect(render.mock.calls.length).toBeLessThanOrEqual(3);
+  const lines = plain(result.lines);
+  for (const value of ["left", "content", "wraps", "around", "|bordered|"])
+    expect(lines.join("\n")).toContain(value);
+  expect(lines.filter((line) => line.includes("+"))).toHaveLength(2);
   expect(result.lines.every((line) => visibleWidth(line) <= 27)).toBe(true);
 });
 
@@ -115,6 +118,149 @@ it.each([0, 1, 2, 3, 5, 10, 20, 40])(
     expect(row).toEqual(["a", "separator", "b", "flex", "c"]);
   }
 );
+
+it("compacts native Text padding without rerendering it at a width that wraps its content", () => {
+  const native = (value: string): Contribution => {
+    const component = new Container();
+    component.addChild(new Text(value, 1, 0));
+
+    return { component };
+  };
+
+  const result = renderRows(
+    [["a", "separator", "b", "separator", "c"]],
+    new Map([
+      ["a", native("\x1b[31mtodo: 3\x1b[39m")],
+      ["b", native("build ok")],
+      ["c", native("lsp")]
+    ]),
+    80
+  );
+  expect(plain(result.lines)).toEqual([" todo: 3 •  build ok •  lsp"]);
+  expect(result.cells.map(({ x, width }) => ({ x, width }))).toEqual([
+    { x: 0, width: 8 },
+    { x: 11, width: 9 },
+    { x: 23, width: 4 }
+  ]);
+});
+
+it.each(["\x1b[44m", "\x1b[7m", "\x1b[4m", "\x1b]8;;https://example.com\x07\x1b[0m"])(
+  "preserves painted or decorated padding (%s) in shared cells",
+  (style) => {
+    const result = renderRows(
+      [["a", "separator", "b"]],
+      new Map([
+        ["a", source((width) => [style + "A".padEnd(width)])],
+        ["b", text("B")]
+      ]),
+      20
+    );
+    expect(plain(result.lines)).toEqual(["A                • B"]);
+    expect(result.cells[0]?.width).toBe(16);
+    expect(result.lines[0]).toContain(style);
+  }
+);
+
+it.each([
+  { width: 30, values: ["a".repeat(30), "b".repeat(30)], height: 2 },
+  { width: 30, values: ["a".repeat(20), "b".repeat(20), "c".repeat(6)], height: 2 },
+  {
+    width: 52,
+    values: ["a", "b", "c", "d"].map((c) => Array(3).fill(c.repeat(6)).join(" ")),
+    height: 2
+  }
+])(
+  "uses a shorter natural-width reflow at $width columns for $values.length widgets",
+  ({ width, values, height }) => {
+    const renders = values.map((value) => vi.fn((w: number) => wrapTextWithAnsi(value, w)));
+    const result = renderRows(
+      [values.map((_, i) => String(i))],
+      new Map(renders.map((render, i) => [String(i), source(render)])),
+      width
+    );
+    expect(result.lines).toHaveLength(height);
+    for (const value of values) expect(plain(result.lines).join("\n")).toContain(value);
+    expect(result.lines.every((line) => visibleWidth(line) <= width)).toBe(true);
+    for (const render of renders) expect(render.mock.calls.length).toBeLessThanOrEqual(3);
+  }
+);
+
+it("returns a disappearing widget's allocation to its neighbours without resurrecting it", () => {
+  const shy = vi.fn((width: number) => (width >= 30 ? ["wide-only-content-xxxxxxxxxxx"] : []));
+  const a = vi.fn((width: number) => wrapTextWithAnsi("a ".repeat(20).trim(), width));
+  const b = vi.fn((width: number) => wrapTextWithAnsi("b ".repeat(20).trim(), width));
+  const result = renderRows(
+    [["a", "separator", "shy", "separator", "b"]],
+    new Map([
+      ["a", source(a)],
+      ["shy", source(shy)],
+      ["b", source(b)]
+    ]),
+    60
+  );
+  expect(result.lines).toHaveLength(2);
+  expect(result.cells).toHaveLength(2);
+  expect(result.cells.every((cell) => cell.renderWidth >= 28)).toBe(true);
+  expect(plain(result.lines).join("\n")).not.toContain("wide-only");
+  for (const render of [a, b, shy]) expect(render.mock.calls.length).toBeLessThanOrEqual(3);
+});
+
+it.each([false, true])(
+  "redistributes unused space without rewrapping responsive content (padded: %s)",
+  (padded) => {
+    const responsive = vi.fn((width: number) => {
+      const value = width >= 40 ? "wide content".repeat(3) : "hi";
+
+      return padded ? new Text(value, 1, 0).render(width) : [value];
+    });
+    const neighbour = vi.fn((width: number) => wrapTextWithAnsi("b".repeat(30), width));
+    const result = renderRows(
+      [["a", "separator", "b"]],
+      new Map([
+        ["a", source(responsive)],
+        ["b", source(neighbour)]
+      ]),
+      40
+    );
+    expect(plain(result.lines)).toEqual([(padded ? " hi" : "hi") + " • " + "b".repeat(30)]);
+    expect(responsive.mock.calls.length).toBeLessThanOrEqual(3);
+    expect(neighbour.mock.calls.length).toBeLessThanOrEqual(3);
+  }
+);
+
+it("bounds recovery even when another widget disappears at the recovered width", () => {
+  const a = vi.fn((width: number) => (width === 42 ? ["a".repeat(30)] : []));
+  const b = vi.fn((width: number) => {
+    if (width >= 30) return ["b".repeat(30)];
+
+    return width >= 15 ? [] : ["B", "B"];
+  });
+  const c = vi.fn((width: number) => wrapTextWithAnsi("c".repeat(30), width));
+  const result = renderRows(
+    [["a", "separator", "b", "separator", "c"]],
+    new Map([
+      ["a", source(a)],
+      ["b", source(b)],
+      ["c", source(c)]
+    ]),
+    42
+  );
+  expect(result.cells).toHaveLength(1);
+  expect(plain(result.lines).join("").trim()).toBe("c".repeat(30));
+  for (const render of [a, b, c]) expect(render.mock.calls.length).toBeLessThanOrEqual(3);
+});
+
+it("keeps ragged multiline separators next to the following column", () => {
+  const result = renderRows(
+    [["a", "separator", "b"]],
+    new Map([
+      ["a", source(() => ["long line here", "x"])],
+      ["b", source(() => ["B1", "B2"])]
+    ]),
+    40
+  );
+  expect(plain(result.lines)).toEqual(["long line here • B1", "x              • B2"]);
+});
 
 it("stacks at narrow widths in sequence and supports one-sided flex", () => {
   const sources = new Map([

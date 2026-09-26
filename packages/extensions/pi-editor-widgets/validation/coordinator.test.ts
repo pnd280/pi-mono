@@ -1,4 +1,4 @@
-import { Container, Text, stripTerminalSequences } from "@earendil-works/pi-tui";
+import { Container, Text, stripTerminalSequences, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -86,6 +86,87 @@ it.each(["regular", "fullscreen"] as const)(
     }
   }
 );
+
+it.each(["regular", "fullscreen"] as const)(
+  "compacts native string-array widgets in shared rows in %s mode",
+  async (mode) => {
+    const fixture = await hostFixture([], mode);
+    const { host, ui } = fixture;
+    ui.setWidget("first", ["first"]);
+    ui.setWidget("second", ["second"]);
+    const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+
+    try {
+      const layout = defaultLayout();
+      layout.hidden = layout.footer.flat().filter((id) => id.startsWith("builtin:"));
+      layout.footer = [["widget:first", "separator", "widget:second"]];
+      coordinator.apply(layout);
+      for (const width of [80, 20])
+        expect(plain(host.footerContainer.render(width))).toBe(" first •  second");
+      expect(
+        host.footerContainer
+          .render(5)
+          .map((line) => stripTerminalSequences(line).trim())
+          .join("")
+      ).toBe("firstsecond");
+    } finally {
+      coordinator.dispose();
+      await fixture.dispose();
+    }
+  }
+);
+
+it("restores nested mouse geometry after choosing measured snapshots over taller shared output", async () => {
+  const fixture = await hostFixture();
+  const { host, ui } = fixture;
+  let renderedWidth = 0;
+  const mouse = vi.fn(() => ({ handled: true }));
+  const component = new Container();
+  component.addChild({
+    render(width) {
+      renderedWidth = width;
+
+      return wrapTextWithAnsi("a".repeat(30), width);
+    },
+    invalidate() {},
+    handleMouse: mouse
+  });
+  ui.setWidget("left", () => component);
+  ui.setWidget("right", () => ({
+    render: (width) => wrapTextWithAnsi("b".repeat(30), width),
+    invalidate() {}
+  }));
+  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+
+  try {
+    const layout = defaultLayout();
+    layout.hidden = layout.footer.flat().filter((id) => id.startsWith("builtin:"));
+    layout.footer = [["widget:left", "widget:right"]];
+    coordinator.apply(layout);
+    expect(plain(host.footerContainer.render(30))).toBe("a".repeat(30) + "\n" + "b".repeat(30));
+    expect(renderedWidth).toBeLessThan(30);
+    host.footerContainer.handleMouse({
+      type: "press",
+      button: "left",
+      x: 1,
+      y: 0,
+      screenX: 1,
+      screenY: 0,
+      width: 30,
+      height: 2,
+      shift: false,
+      alt: false,
+      ctrl: false
+    });
+    expect(renderedWidth).toBe(30);
+    expect(mouse).toHaveBeenCalledWith(
+      expect.objectContaining({ x: 1, y: 0, width: 30, height: 1 })
+    );
+  } finally {
+    coordinator.dispose();
+    await fixture.dispose();
+  }
+});
 
 it("discovers before/after startup registrations through real extension binding", async () => {
   const fixture = await hostFixture([
@@ -299,14 +380,15 @@ it("keeps nested mouse targets at the copy's render width even when flex shrinks
   });
   component.addChild({ render: () => ["END"], invalidate() {}, handleMouse: bottom });
   ui.setWidget("nested", () => component);
-  ui.setStatus("left", "LEFT");
+  // Keep the shared row equally tall at either width so this copy still renders narrowly.
+  ui.setWidget("left", () => ({ render: () => ["LEFT", "LEFT", "LEFT"], invalidate() {} }));
   const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
 
   try {
     const layout = defaultLayout();
     layout.hidden = layout.footer.flat().filter((id) => id.startsWith("builtin:"));
     layout.aboveEditor = [["flex", "widget:nested"]];
-    layout.footer = [["status:left", "separator", "widget:nested"]];
+    layout.footer = [["widget:left", "separator", "widget:nested"]];
     coordinator.apply(layout);
     const above = host.widgetContainerAbove.render(40).map(stripTerminalSequences);
     expect(above).toEqual([

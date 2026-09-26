@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, rmdirSync } from "node:fs";
 
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import { WidgetCoordinator } from "../src/coordinator.ts";
 import { defaultLayout } from "../src/layout.ts";
@@ -23,6 +23,7 @@ function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>) {
   });
   const coordinator = new WidgetCoordinator(fixture.host, () => fixture.ui.theme, vi.fn());
   const close = vi.fn();
+  const requestRender = vi.fn();
   const apply = vi.fn((preferences: Preferences) =>
     coordinator.apply(preferences.project ?? preferences.global)
   );
@@ -32,12 +33,14 @@ function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>) {
     coordinator,
     theme: () => fixture.ui.theme,
     rows: () => fixture.terminal.rows,
-    requestRender: vi.fn(),
+    requestRender,
     close,
     apply
   });
 
-  return { settings, coordinator, close, apply, menu };
+  onTestFinished(() => menu.dispose());
+
+  return { settings, coordinator, close, apply, menu, requestRender };
 }
 
 it("saves the displayed inherited layout even when an unset scope has not been edited", async () => {
@@ -305,6 +308,83 @@ it("removes one visible copy without promising to hide the remaining copy", asyn
     await fixture.dispose();
   }
 });
+
+it("expires save success after three seconds, restarting the deadline on another save", async () => {
+  const fixture = await hostFixture();
+  const { coordinator, menu, requestRender } = menuFor(fixture);
+  vi.useFakeTimers();
+
+  try {
+    menu.handleInput("\x13");
+    expect(plain(menu.render(80))).toContain("Saved and applied.");
+    vi.advanceTimersByTime(2000);
+    menu.handleInput("\x13");
+    vi.advanceTimersByTime(1000);
+    expect(plain(menu.render(80))).toContain("Saved and applied.");
+    requestRender.mockClear();
+    vi.advanceTimersByTime(2000);
+    expect(plain(menu.render(80))).not.toContain("Saved and applied.");
+    expect(requestRender).toHaveBeenCalled();
+    expect(menu.drafts.dirty).toBe(false);
+  } finally {
+    menu.handleInput("\x03");
+    vi.useRealTimers();
+    coordinator.dispose();
+    await fixture.dispose();
+  }
+});
+
+it("keeps save errors and warnings visible after an earlier success would expire", async () => {
+  const fixture = await hostFixture();
+  const { coordinator, settings, menu } = menuFor(fixture);
+  vi.useFakeTimers();
+
+  try {
+    menu.handleInput("\x13");
+    mkdirSync(`${settings.paths.global}.lock`);
+    menu.handleInput("\x13");
+    vi.advanceTimersByTime(3000);
+    expect(plain(menu.render(100))).toContain("Save failed. Draft retained.");
+    rmdirSync(`${settings.paths.global}.lock`);
+    menu.handleInput("\x13");
+    const load = vi.spyOn(settings, "load").mockReturnValueOnce({
+      ...settings.load(),
+      warnings: ["Project settings cannot be read."]
+    });
+    menu.handleInput("\x13");
+    load.mockRestore();
+    vi.advanceTimersByTime(3000);
+    expect(plain(menu.render(100))).toContain("Settings warning. Check files.");
+  } finally {
+    menu.handleInput("\x03");
+    vi.useRealTimers();
+    coordinator.dispose();
+    await fixture.dispose();
+  }
+});
+
+it.each(["close", "dispose"])(
+  "does not redraw an expired save confirmation after %s",
+  async (action) => {
+    const fixture = await hostFixture();
+    const { coordinator, menu, requestRender } = menuFor(fixture);
+    vi.useFakeTimers();
+
+    try {
+      menu.handleInput("\x13");
+      if (action === "close") menu.handleInput("\x03");
+      else menu.dispose();
+      requestRender.mockClear();
+      vi.advanceTimersByTime(3000);
+      expect(requestRender).not.toHaveBeenCalled();
+    } finally {
+      menu.dispose();
+      vi.useRealTimers();
+      coordinator.dispose();
+      await fixture.dispose();
+    }
+  }
+);
 
 it("clears saved feedback on edits and scope changes while retaining independent drafts", async () => {
   const fixture = await hostFixture();
