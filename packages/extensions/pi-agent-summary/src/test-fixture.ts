@@ -59,6 +59,7 @@ export async function fixture(mode: SummaryContext["mode"] = "tui") {
     cwd: directory,
     mode,
     sessionManager: session,
+    model: undefined,
     isIdle: () => true,
     isProjectTrusted: () => false,
     ui: { setWorkingMessage, notify: vi.fn() }
@@ -67,6 +68,7 @@ export async function fixture(mode: SummaryContext["mode"] = "tui") {
     events: createEventBus(),
     registerCommand: vi.fn(),
     registerEntryRenderer: vi.fn(),
+    getThinkingLevel: vi.fn(() => "off" as const),
     appendEntry: vi.fn((customType: string, data: unknown) =>
       session.appendCustomEntry(customType, data)
     ),

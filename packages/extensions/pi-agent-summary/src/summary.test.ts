@@ -16,6 +16,19 @@ it.each([
   expect(formatDuration(durationMs)).toBe(text);
 });
 
+it.each(["off", "minimal", "low", "medium", "high", "xhigh", "max"])(
+  "accepts saved thinking level %s while ignoring unknown fields",
+  (thinkingLevel) => {
+    expect(
+      summarySchema.parse({
+        ...summary,
+        model: { id: "test-model", thinkingLevel, provider: "test-provider" },
+        unknown: true
+      })
+    ).toEqual({ ...summary, model: { id: "test-model", thinkingLevel } });
+  }
+);
+
 it.each([
   undefined,
   null,
@@ -31,6 +44,9 @@ it.each([
     files: [{ path: "file", status: "available", added: -1, removed: 0 }]
   },
   { ...summary, files: [{ path: "file", status: "unavailable" }] },
+  { ...summary, model: { id: "", thinkingLevel: "medium" } },
+  { ...summary, model: { id: "claude-opus-5-5", thinkingLevel: "extreme" } },
+  { ...summary, model: { id: "claude-opus-5-5" } },
   ...[undefined, null, "1000", -1, 1.5, NaN, Infinity, 8_640_000_000_000_001].map((finishedAt) => ({
     ...summary,
     finishedAt

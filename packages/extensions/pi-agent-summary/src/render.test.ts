@@ -142,6 +142,21 @@ it("distinguishes unavailable statistics from no changes without adding them to 
   expect(text(mixed, true)).toContain("Source too large.");
 });
 
+it("leads with the saved model and thinking level, omitting it for summaries without a model", () => {
+  const base = { durationMs: 83000, finishedAt, bashCalls: 0, files: [] };
+  const text = (data: unknown) =>
+    renderSummary(savedEntry(data), { expanded: false }, theme)!.render(120).join("\n");
+  const withModel = text({
+    ...base,
+    model: { id: "claude-opus-5-5", thinkingLevel: "medium" }
+  });
+  expect(withModel).toMatch(/^\s*claude-opus-5-5:medium \S+ 1m 23s \(/);
+  expect(text({ ...base, model: { id: "gpt-5-mini", thinkingLevel: "off" } })).toContain(
+    "gpt-5-mini:off"
+  );
+  expect(text(base)).toMatch(/^\s*1m 23s \(/);
+});
+
 it("hides a saved summary without a finish timestamp", () => {
   const entry = savedEntry({ durationMs: 1000, bashCalls: 0, files: [] });
   expect(renderSummary(entry, { expanded: false }, theme)).toBeUndefined();

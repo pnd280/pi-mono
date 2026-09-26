@@ -1,6 +1,7 @@
 import { symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { fauxProvider } from "@earendil-works/pi-ai";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -45,6 +46,68 @@ it("records one context-free entry after all turns and retries settle, preservin
   vi.advanceTimersByTime(5000);
   expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
   await runtime.emit("session_shutdown", {});
+});
+
+it("records the model and thinking level selected when the run began, without the provider", async () => {
+  const runtime = await fixture();
+  const faux = fauxProvider({
+    provider: "anthropic",
+    models: [
+      { id: "claude-opus-5-5", reasoning: true },
+      { id: "other-model", reasoning: true }
+    ]
+  });
+  runtime.ctx.model = faux.getModel("claude-opus-5-5");
+  vi.mocked(runtime.api.getThinkingLevel).mockReturnValue("medium");
+  await runtime.emit("agent_start", {});
+  runtime.ctx.model = faux.getModel("other-model");
+  vi.mocked(runtime.api.getThinkingLevel).mockReturnValue("high");
+  await runtime.emit("agent_start", {});
+  await runtime.emit("agent_settled", {});
+  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+    durationMs: 0,
+    finishedAt: Date.now(),
+    model: { id: "claude-opus-5-5", thinkingLevel: "medium" },
+    bashCalls: 0,
+    files: []
+  });
+
+  runtime.ctx.model = undefined;
+  await runtime.emit("agent_start", {});
+  await runtime.emit("agent_settled", {});
+  expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
+    durationMs: 0,
+    finishedAt: Date.now(),
+    bashCalls: 0,
+    files: []
+  });
+});
+
+it("leaves an initially missing model absent until the next run", async () => {
+  const runtime = await fixture();
+  await runtime.emit("agent_start", {});
+  runtime.ctx.model = fauxProvider({
+    models: [{ id: "later-model", reasoning: true }]
+  }).getModel("later-model");
+  vi.mocked(runtime.api.getThinkingLevel).mockReturnValue("high");
+  await runtime.emit("agent_start", {});
+  await runtime.emit("agent_settled", {});
+  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+    durationMs: 0,
+    finishedAt: Date.now(),
+    bashCalls: 0,
+    files: []
+  });
+
+  await runtime.emit("agent_start", {});
+  await runtime.emit("agent_settled", {});
+  expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
+    durationMs: 0,
+    finishedAt: Date.now(),
+    model: { id: "later-model", thinkingLevel: "high" },
+    bashCalls: 0,
+    files: []
+  });
 });
 
 it("aggregates native edit/write aliases and large files without scanning bash-only changes", async () => {

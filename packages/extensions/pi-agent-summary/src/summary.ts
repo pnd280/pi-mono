@@ -1,3 +1,4 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 export const summaryEntryType = "pi-agent-summary.summary";
@@ -17,11 +18,26 @@ const fileChangeSchema = z.discriminatedUnion("status", [
   })
 ]);
 
+type ThinkingLevel = ReturnType<ExtensionAPI["getThinkingLevel"]>;
+
+// The mapped type rejects both missing and unknown host thinking levels.
+const thinkingLevels = {
+  off: "off",
+  minimal: "minimal",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "xhigh",
+  max: "max"
+} as const satisfies { [Level in ThinkingLevel]: Level };
+
 // Ignore unknown fields, but never render invalid statistics from session JSON.
 export const summarySchema = z.object({
   durationMs: countSchema,
   finishedAt: countSchema.max(8_640_000_000_000_000),
   bashCalls: countSchema,
+  // Absent in summaries saved before model capture and in runs without a selected model.
+  model: z.object({ id: z.string().min(1), thinkingLevel: z.enum(thinkingLevels) }).optional(),
   files: z.array(fileChangeSchema)
 });
 

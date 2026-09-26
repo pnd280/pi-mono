@@ -1,6 +1,6 @@
 import type { CustomEntry, EntryRenderOptions, Theme } from "@earendil-works/pi-coding-agent";
 import { MouseRegion, Text, type Component } from "@earendil-works/pi-tui";
-import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { formatDuration, formatFinishTime, summarySchema, type RunSummary } from "./summary.ts";
 
@@ -17,12 +17,17 @@ function lineCounts(added: number, removed: number, theme: SummaryTheme): string
 function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme): string {
   const separator = theme.fg("dim", " · ");
   const available = summary.files.filter((file) => file.status === "available");
-  const parts = [
+  const parts: string[] = [];
+  if (summary.model)
+    parts.push(
+      theme.fg("dim", compactDisplayText(`${summary.model.id}:${summary.model.thinkingLevel}`))
+    );
+  parts.push(
     theme.fg(
       "dim",
-      `Worked for ${formatDuration(summary.durationMs)} · ${formatFinishTime(summary.finishedAt)}`
+      `${formatDuration(summary.durationMs)} (${formatFinishTime(summary.finishedAt)})`
     )
-  ];
+  );
   if (summary.bashCalls)
     parts.push(
       theme.fg("dim", `${summary.bashCalls} bash ${summary.bashCalls === 1 ? "call" : "calls"}`)
@@ -49,11 +54,11 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
 
   if (expanded) {
     for (const file of summary.files) {
-      const path = theme.fg("dim", displayText(file.path).replace(/\s+/g, " "));
+      const path = theme.fg("dim", compactDisplayText(file.path));
       const detail =
         file.status === "available"
           ? lineCounts(file.added, file.removed, theme)
-          : theme.fg("dim", displayText(file.reason).replace(/\s+/g, " "));
+          : theme.fg("dim", compactDisplayText(file.reason));
       lines.push(`  ${path}${detail ? separator + detail : ""}`);
     }
   }

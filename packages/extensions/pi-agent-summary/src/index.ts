@@ -8,11 +8,11 @@ import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/lib
 
 import { RunChanges } from "./changes.ts";
 import { createSummaryRenderer } from "./render.ts";
-import { summaryEntryType } from "./summary.ts";
+import { summaryEntryType, type RunSummary } from "./summary.ts";
 import { AgentTimer } from "./timer.ts";
 
 export type SummaryContext = WorkingMessageContext &
-  Pick<ExtensionContext, "isIdle" | "sessionManager">;
+  Pick<ExtensionContext, "isIdle" | "sessionManager" | "model">;
 
 export type SummaryEvents = {
   session_start: unknown;
@@ -24,7 +24,7 @@ export type SummaryEvents = {
 
 export type SummaryExtensionAPI = Pick<
   ExtensionAPI,
-  "events" | "registerCommand" | "appendEntry" | "registerEntryRenderer"
+  "events" | "registerCommand" | "appendEntry" | "registerEntryRenderer" | "getThinkingLevel"
 > & {
   on<E extends keyof SummaryEvents>(
     event: E,
@@ -39,7 +39,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     contributor: "pi-agent-summary"
   });
   const timer = new AgentTimer((text) => workingMessage.setText(text));
-  let run: { changes: RunChanges; bashCalls: Set<string> } | undefined;
+  let run: { changes: RunChanges; bashCalls: Set<string>; model: RunSummary["model"] } | undefined;
   let manager: SummaryContext["sessionManager"] | undefined;
   let generation = 0;
   const connect = () =>
@@ -78,7 +78,12 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     bind(ctx);
   });
   pi.on("agent_start", (_event, ctx) => {
-    run ??= { changes: new RunChanges(ctx.cwd), bashCalls: new Set() };
+    // Continuations keep the model and thinking level selected when the run began.
+    run ??= {
+      changes: new RunChanges(ctx.cwd),
+      bashCalls: new Set(),
+      model: ctx.model && { id: ctx.model.id, thinkingLevel: pi.getThinkingLevel() }
+    };
     if (manager !== ctx.sessionManager) bind(ctx);
     timer.start(ctx.mode === "tui");
   });
@@ -100,6 +105,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     pi.appendEntry(summaryEntryType, {
       ...duration,
       finishedAt,
+      ...(finished.model && { model: finished.model }),
       bashCalls: finished.bashCalls.size,
       files
     });

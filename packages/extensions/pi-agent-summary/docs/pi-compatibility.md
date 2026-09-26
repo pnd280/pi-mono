@@ -5,6 +5,7 @@
 ## Contracts to verify
 
 - [ ] [Lifecycle](../src/index.ts): first `agent_start` through `agent_settled`, including retries, queued follow-ups, cancellation, and timer cleanup; count agent bash calls only.
+- [ ] [Run metadata](../src/index.ts): `ctx.model` and `pi.getThinkingLevel()` capture the first-start selection; later starts do not replace or backfill it. The [stored schema](../src/summary.ts) accepts all host thinking levels and summaries without model metadata.
 - [ ] [Mutation statistics](../src/changes.ts): verified native operations, ordering, path deduplication, net/reverted changes, and unavailable versus zero statistics.
 - [ ] [Persistence/rendering](../src/index.ts): `appendEntry` stays outside model context; replay, expansion/mouse behavior, and non-TUI execution preserve metadata without contents or patches.
 
