@@ -79,7 +79,6 @@ type SettingsMenuOptions = {
   emptyLabel: string;
   hints: readonly string[];
   feedback?: SettingsFeedback | undefined;
-  preview?(): string[] | undefined;
 };
 
 type Frame = Pick<SettingsMenuOptions, "width" | "height" | "theme">;
@@ -102,11 +101,11 @@ function hints(frame: Frame, values: readonly string[], maxRows: number): string
   return rows.length ? ["", ...rows] : [];
 }
 
-function border(frame: Frame, prefix = "", hidden = 0): string {
+function border(frame: Frame, prefix = ""): string {
   return renderOverflowBorder(frame.width, {
     color: (value) => frame.theme.fg("border", value),
     direction: "↓",
-    hidden,
+    hidden: 0,
     prefix
   });
 }
@@ -190,18 +189,21 @@ function frameLayout(options: SettingsMenuOptions, compact: boolean) {
   const outcome = feedbackLines(options).slice(0, compact ? 2 : 4);
   let draft = dirtyLines(options);
   let endRows = 1;
+  // Multiple items need room for either two rows or a selected row and its pagination.
+  const minimumBody = options.items.length > 1 ? 2 : 1;
+  const frameBudget = height - minimumBody;
   const reserved = () => header.length + footer.length + outcome.length + draft.length + endRows;
 
-  // Remove secondary context, never the selected row, to make room for feedback and controls.
-  if (reserved() >= height) draft = [];
-  if (reserved() >= height && scope.length > 1)
+  // Drop decoration before scope context; preserve selection, pagination, recovery and controls.
+  if (reserved() > frameBudget) draft = [];
+  if (reserved() > frameBudget) endRows = 0;
+  if (reserved() > frameBudget && scope.length > 1)
     header = [border(options, title), ...scopeLines(options, true)];
-  if (reserved() >= height) endRows = 0;
 
-  while (reserved() >= height && footer.length > 2) footer = footer.slice(0, -1);
+  while (reserved() > frameBudget && footer.length > 2) footer = footer.slice(0, -1);
 
-  if (reserved() >= height)
-    header = header.slice(0, Math.max(0, height - (reserved() - header.length) - 1));
+  if (reserved() > frameBudget)
+    header = header.slice(0, Math.max(0, frameBudget - (reserved() - header.length)));
 
   return { header, footer, outcome, draft, endRows, available: Math.max(1, height - reserved()) };
 }
@@ -209,11 +211,12 @@ function frameLayout(options: SettingsMenuOptions, compact: boolean) {
 function menuList(options: SettingsMenuOptions, compact: boolean, available: number) {
   const { theme, items, selected, width } = options;
   const gaps = compact ? 0 : items.slice(1).filter((item) => item.gapBefore).length;
+  const paginationRows = items.length > Math.min(8, available - gaps) ? 1 : 0;
 
   return renderWindowedList({
     items,
     selectedIndex: selected,
-    maxRows: Math.max(1, Math.min(8, available - gaps)),
+    maxRows: Math.max(1, Math.min(8, available - gaps - paginationRows)),
     width,
     theme: {
       selectedPrefix: (value) => theme.fg("accent", value),
@@ -255,24 +258,7 @@ function feedbackDetails(options: SettingsMenuOptions, budget: number): string[]
   return result;
 }
 
-function previewLines(options: SettingsMenuOptions, budget: number): string[] {
-  if (!options.preview || budget < 3) return [];
-  const content = options.preview();
-  if (!content) return [];
-  const { theme } = options;
-  const lines = content.length ? content : [theme.fg("muted", "No visible output")];
-  const count = Math.min(3, budget - 1);
-  const clipped = lines.length > count;
-  const visible = lines.slice(0, clipped ? count - 1 : count);
-
-  return [
-    "",
-    ...visible.map((line) => `  ${line}`),
-    ...(clipped ? [theme.fg("muted", `  … ${lines.length - visible.length} more lines`)] : [])
-  ];
-}
-
-/** Shared presentation only. Consumers own drafts, input, persistence and optional passive previews. */
+/** Shared presentation only. Consumers own drafts, input, and persistence. */
 export function renderSettingsMenu(input: SettingsMenuOptions): string[] {
   const width = Math.max(0, Math.floor(input.width));
   const height = Math.max(0, Math.floor(input.height));
@@ -293,24 +279,17 @@ export function renderSettingsMenu(input: SettingsMenuOptions): string[] {
         0,
         frame.available
       );
+  if (items.length > list.count) body.push(theme.fg("dim", `  (${selected + 1}/${items.length})`));
   const spare = frame.available - body.length;
   const details = compact ? [] : feedbackDetails(options, spare);
-  const preview = compact ? [] : previewLines(options, spare - details.length);
-  const overflow = items.length > list.count;
-  const end = border(
-    options,
-    overflow ? ` ${selected + 1}/${items.length} ` : "",
-    overflow ? items.length - list.start - list.count : 0
-  );
 
   return [
     ...frame.header,
     ...body,
-    ...preview,
     ...frame.draft,
     ...frame.outcome,
     ...details,
     ...frame.footer,
-    ...(frame.endRows ? [end] : [])
+    ...(frame.endRows ? [border(options)] : [])
   ].map(crop);
 }

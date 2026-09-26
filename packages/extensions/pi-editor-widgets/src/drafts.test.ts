@@ -11,7 +11,7 @@ function drafts() {
   return new WidgetDrafts({ global, project: undefined, warnings: [] }, () => []);
 }
 
-it("deletes to hide, transfers by delete/re-add, and excludes visible widgets from the direct picker", () => {
+it("deletes to hide, transfers by delete/re-add, and offers visible widgets as copies", () => {
   const state = drafts();
   state.push({ kind: "contents", region: "aboveEditor", row: 0, selected: 0 });
   state.remove();
@@ -25,14 +25,46 @@ it("deletes to hide, transfers by delete/re-add, and excludes visible widgets fr
     "flex",
     "status:hidden",
     "widget:unavailable",
-    "widget:a"
+    "widget:a",
+    "widget:b",
+    "widget:c",
+    "builtin:cwd",
+    "builtin:git-branch",
+    "builtin:session-title",
+    "builtin:tokens",
+    "builtin:context",
+    "builtin:model"
   ]);
   state.add("widget:a");
   expect(state.layout().belowEditor).toEqual([["widget:a"]]);
   expect(state.layout().hidden).not.toContain("widget:a");
   state.push({ kind: "picker", region: "belowEditor", row: 0, selected: 0 });
-  state.add("widget:b");
+  state.add("widget:a");
   expect(state.layout().belowEditor).toEqual([["widget:a"]]);
+  expect(layoutSchema.safeParse(state.layout()).success).toBe(true);
+});
+
+it("duplicates visible widgets and hides only after removing the last copy", () => {
+  const state = drafts();
+  state.push({ kind: "rows", region: "belowEditor", selected: 0 });
+  state.addRow("belowEditor");
+  state.push({ kind: "picker", region: "belowEditor", row: 0, selected: 0 });
+  state.add("widget:b");
+  state.push({ kind: "picker", region: "belowEditor", row: 0, selected: 0 });
+  state.add("builtin:model");
+  expect(state.layout().belowEditor).toEqual([["widget:b", "builtin:model"]]);
+  expect(state.layout().aboveEditor[0]).toContain("widget:b");
+  expect(layoutSchema.safeParse(state.layout()).success).toBe(true);
+  expect(state.view.kind).toBe("rows");
+  state.view.selected = 0;
+  state.remove();
+  expect(state.layout().belowEditor).toEqual([]);
+  expect(state.layout().hidden).not.toContain("widget:b");
+  expect(state.layout().hidden).not.toContain("builtin:model");
+  state.back();
+  state.push({ kind: "contents", region: "aboveEditor", row: 0, selected: 2 });
+  state.remove();
+  expect(state.layout().hidden).toContain("widget:b");
   expect(layoutSchema.safeParse(state.layout()).success).toBe(true);
 });
 

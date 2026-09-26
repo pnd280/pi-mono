@@ -1,5 +1,5 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
 
 import {
   renderSettingsMenu,
@@ -54,6 +54,57 @@ it("keeps scope, target, position and fixed controls visible at 40x10", () => {
   expect(output).toContain("Esc close");
   expect(output).toContain("Shift+↑/↓ move");
   expect(lines.length).toBeLessThanOrEqual(8);
+});
+
+it("puts pagination directly below overflowing lists, never on the frame border", () => {
+  for (const [width, height] of [
+    [80, 22],
+    [40, 8]
+  ] as const)
+    for (const selected of [0, 14, 29])
+      for (const feedback of [undefined, settingsSaveFailure(new Error("Check access."))]) {
+        const lines = renderSettingsMenu({ ...fixture(), width, height, selected, feedback });
+        const lastItem = lines.map((line) => line.includes("Item ")).lastIndexOf(true);
+        expect(lastItem).toBeGreaterThanOrEqual(0);
+        expect(lines[lastItem + 1]).toBe(`  (${selected + 1}/30)`);
+        expect(lines.some((line) => line.includes(`→ Item ${selected}`))).toBe(true);
+        expect(lines.filter((line) => line.includes("/30"))).toHaveLength(1);
+        expect(lines.join("\n")).not.toMatch(/[↑↓] \d+ more/u);
+        if (width === 80) expect(lines.at(-1)).toMatch(/^─+$/u);
+        expect(lines.length).toBeLessThanOrEqual(height);
+      }
+});
+
+it.each([0, 1, 8])("omits pagination when all %i items fit", (count) => {
+  const options = fixture();
+  const lines = renderSettingsMenu({
+    ...options,
+    items: options.items.slice(0, count),
+    selected: 0
+  });
+  expect(lines.filter((line) => line.includes("Item "))).toHaveLength(count);
+  expect(lines.join("\n")).not.toMatch(/\d+\/\d+|[↑↓] \d+ more/u);
+  expect(lines.at(-1)).toMatch(/^─+$/u);
+});
+
+it("budgets item gaps and pagination without hiding selection or controls", () => {
+  const options = fixture();
+
+  for (const height of [18, 22]) {
+    const lines = renderSettingsMenu({
+      ...options,
+      height,
+      items: options.items.map((item, index) => ({ ...item, gapBefore: index === 14 }))
+    });
+    const lastItem = lines.map((line) => line.includes("Item ")).lastIndexOf(true);
+    expect(lines[lastItem + 1]).toBe("  (15/30)");
+    const selected = lines.findIndex((line) => line.includes("→ Item 14"));
+    expect(selected).toBeGreaterThan(0);
+    expect(lines[selected - 1]).toBe("");
+    expect(lines.join("\n")).toContain("Ctrl+S save");
+    expect(lines.join("\n")).toContain("Esc close");
+    expect(lines.length).toBeLessThanOrEqual(height);
+  }
 });
 
 it("prioritizes save failure and recovery over metadata without hiding the selected target", () => {
@@ -119,15 +170,11 @@ it("sanitizes labels, scope paths and diagnostics without rewriting caller data"
   expect({ ...options, theme: undefined }).toEqual(before);
 });
 
-it("does not evaluate passive previews unless there is room and reports warning outcomes accurately", () => {
-  const preview = vi.fn(() => ["PASSIVE PREVIEW"]);
-  renderSettingsMenu({ ...fixture(), width: 40, height: 8, preview });
-  expect(preview).not.toHaveBeenCalled();
+it("reports warning outcomes accurately", () => {
   const feedback = settingsSaveFeedback(true, ["Project settings cannot be read."]);
   expect(feedback.severity).toBe("warning");
-  const output = renderSettingsMenu({ ...fixture(), height: 30, feedback, preview }).join("\n");
+  const output = renderSettingsMenu({ ...fixture(), height: 30, feedback }).join("\n");
   expect(output).toContain("Saved; project override active.");
   expect(output).toContain("Settings warning.");
   expect(output).toContain("Project settings cannot be read.");
-  expect(output).toContain("PASSIVE PREVIEW");
 });

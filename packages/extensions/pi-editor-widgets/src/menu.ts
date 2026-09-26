@@ -15,10 +15,11 @@ import { isWidget, regions, type Layout } from "./layout.ts";
 import { itemLabel, regionLabel, rowSummary, viewTitle } from "./menu-view.ts";
 import type { Preferences, Scope, WidgetSettings } from "./settings.ts";
 
+const minimumHeight = 10;
+
 type Item = SettingsMenuItem & {
   run?(): void;
   editable?: boolean;
-  identity?: string;
   action?: string;
 };
 
@@ -44,6 +45,14 @@ export class WidgetMenu implements Component {
   ) {
     this.drafts = new WidgetDrafts(options.preferences, () => options.coordinator.contributions());
     this.warning = settingsLoadFeedback(options.preferences.warnings);
+    this.showDraft();
+  }
+
+  /** The live regions are the preview; closing restores the saved layout. */
+  private showDraft(): void {
+    // Input can close the menu, which has already restored the saved layout.
+    if (this.closed) return;
+    this.options.coordinator.showDraft(this.drafts.source());
   }
 
   private contribution(id: string): Item {
@@ -57,7 +66,7 @@ export class WidgetMenu implements Component {
       if (!this.options.coordinator.available(id)) description += " · unavailable";
     }
 
-    return { key: id, label: itemLabel(id), description, identity: id };
+    return { key: id, label: itemLabel(id), description };
   }
 
   private rootItems(layout: Layout): Item[] {
@@ -107,14 +116,13 @@ export class WidgetMenu implements Component {
         };
       });
 
-    return this.drafts.picker().map((id) => ({
-      ...this.contribution(id),
-      ...(id === "flex" && row.includes("flex")
-        ? { disabled: true, description: "Already in row" }
-        : {}),
-      action: "add",
-      run: () => this.drafts.add(id)
-    }));
+    return this.drafts.picker().map((id) => {
+      const item = this.contribution(id);
+      if (id !== "separator" && row.includes(id))
+        return { ...item, disabled: true, description: "Already in row" };
+
+      return { ...item, action: "add", run: () => this.drafts.add(id) };
+    });
   }
 
   private reconcileRows(layout: Layout): void {
@@ -126,9 +134,23 @@ export class WidgetMenu implements Component {
 
       if (anchor && anchor.length > 0) {
         // Unset layouts follow native placement. A moved row must not retarget a nested edit.
-        const row = layout[view.region].findIndex((items) =>
-          anchor.some((id) => items.includes(id))
-        );
+        // Duplicated widgets can share rows, so prefer the closest row with the greatest overlap.
+        let row = -1;
+        let best = 0;
+
+        for (const [candidate, items] of layout[view.region].entries()) {
+          const overlap = anchor.filter((id) => items.includes(id)).length;
+
+          if (
+            overlap > best ||
+            (overlap === best &&
+              overlap > 0 &&
+              Math.abs(candidate - view.row) < Math.abs(row - view.row))
+          ) {
+            row = candidate;
+            best = overlap;
+          }
+        }
 
         if (row < 0) {
           views.splice(index);
@@ -187,6 +209,7 @@ export class WidgetMenu implements Component {
 
     if (scope !== this.drafts.scope || (edited && this.feedback?.severity !== "error"))
       this.feedback = undefined;
+    this.showDraft();
     this.options.requestRender();
   }
 
@@ -242,6 +265,7 @@ export class WidgetMenu implements Component {
 
   private close(): void {
     this.closed = true;
+    this.options.coordinator.showDraft(undefined);
     this.options.close();
   }
 
@@ -257,10 +281,12 @@ export class WidgetMenu implements Component {
       this.drafts.saved(preferences);
       this.options.apply(preferences);
       this.warning = settingsLoadFeedback(preferences.warnings);
-      this.feedback = settingsSaveFeedback(
-        this.drafts.scope === "global" && preferences.project !== undefined,
-        preferences.warnings
-      );
+      this.feedback = settingsSaveFeedback(false, preferences.warnings);
+      // The saved project override takes effect on close; the global draft stays visible for now.
+      if (this.drafts.scope === "global" && preferences.project !== undefined)
+        this.feedback.summary = preferences.warnings.length
+          ? "Saved; project applies on close.\nSettings warning. Check files."
+          : "Saved globally; previewing draft.\nProject layout applies on close.";
     } catch (error) {
       this.feedback = settingsSaveFailure(error);
     }
@@ -268,7 +294,6 @@ export class WidgetMenu implements Component {
 
   private hints(item: Item | undefined): string[] {
     const view = this.drafts.view;
-    const remove = item?.identity && isWidget(item.identity) ? "hide" : "remove";
 
     return [
       "Ctrl+S save",
@@ -278,28 +303,20 @@ export class WidgetMenu implements Component {
       ...(item?.action && !item.disabled ? [`Enter ${item.action}`] : []),
       ...(view.kind === "rows" || view.kind === "contents" ? ["a add"] : []),
       ...(item?.editable
-        ? ["Shift+↑/↓ move", view.kind === "rows" ? "Del remove row" : `Del ${remove}`]
+        ? ["Shift+↑/↓ move", view.kind === "rows" ? "Del remove row" : "Del remove"]
         : [])
     ];
   }
 
-  private preview(layout: Layout, width: number): string[] | undefined {
-    const view = this.drafts.view;
-    if (view.kind === "root") return undefined;
-    const index = view.kind === "rows" ? view.selected : view.row;
-    const row = layout[view.region][index];
-    if (!row) return undefined;
-    const focused: Layout = { aboveEditor: [], belowEditor: [], footer: [], hidden: [] };
-    focused[view.region] = [row];
-
-    return row.length
-      ? this.options.coordinator.preview(focused, width)[view.region]
-      : [this.options.theme().fg("dim", "Empty row. Add an item.")];
-  }
-
   render(width: number): string[] {
     if (width < 1) return [];
-    const height = Math.max(1, this.options.rows() - 2);
+    const rows = this.options.rows() - 2;
+    // Leave the live draft regions visible; below the 10-row frame minimum, they clip instead.
+    const height = Math.max(
+      1,
+      Math.min(rows, minimumHeight),
+      rows - this.options.coordinator.regionHeight(width)
+    );
     const theme = this.options.theme();
     const layout = this.drafts.layout();
     const items = this.currentItems(layout);
@@ -331,8 +348,7 @@ export class WidgetMenu implements Component {
       selected: view.selected,
       emptyLabel: `${view.kind === "rows" ? "No rows" : "Empty row"}. Press a to add.`,
       hints: this.hints(item),
-      feedback: this.feedback ?? this.warning,
-      preview: () => this.preview(layout, Math.max(1, width - 4))
+      feedback: this.feedback ?? this.warning
     });
   }
 

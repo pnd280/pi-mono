@@ -98,6 +98,8 @@ export default function editorWidgets(pi: ExtensionAPI): void {
         });
       } finally {
         menuOpen = false;
+        // Discard the live draft; a successful save has already been applied.
+        current.showDraft(undefined);
       }
     }
   });

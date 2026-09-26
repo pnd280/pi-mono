@@ -6,12 +6,11 @@ import {
   type TuiMouseEventResult
 } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
-import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { builtinText } from "./builtins.ts";
 import type { WidgetHost } from "./host.ts";
 import { regions, resolveLayout, type Layout, type Placement, type Region } from "./layout.ts";
-import { clip, renderRows, type Contribution, type Rendered } from "./render.ts";
+import { clip, renderRows, type Contribution, type Rendered, type RenderWidths } from "./render.ts";
 
 type Registered = Contribution & Placement & { available: boolean };
 
@@ -26,8 +25,15 @@ export class WidgetCoordinator {
   private renderer: WidgetHost["renderer"] | undefined;
   private readonly registry = new Map<string, Registered>();
   private readonly components: Record<Region, Component>;
-  private cache: { width: number; height: number; rendered: Record<Region, Rendered> } | undefined;
+  /** Unclipped regions from one render pass; `widths` backs mouse geometry for duplicates. */
+  private measured:
+    | { width: number; rendered: Record<Region, Rendered>; widths: RenderWidths }
+    | undefined;
+  private cache:
+    | { width: number; height: number; rendered: Record<Region, Rendered>; widths: RenderWidths }
+    | undefined;
   private saved: Layout | undefined;
+  private draft: Layout | undefined;
   private active = true;
   private readonly nativeFooter: WidgetHost["setExtensionFooter"];
   private unsubscribe: (() => void) | undefined;
@@ -93,6 +99,21 @@ export class WidgetCoordinator {
     this.host.ui.requestRender();
   }
 
+  /** Render an unsaved menu draft in the live regions; `undefined` restores the saved layout. */
+  showDraft(layout: Layout | undefined): void {
+    if (JSON.stringify(layout) === JSON.stringify(this.draft)) return;
+    this.draft = layout === undefined ? undefined : structuredClone(layout);
+    this.host.ui.requestRender();
+  }
+
+  /** Unclipped height of all regions, without measuring the editor area it is sized against. */
+  regionHeight(width: number): number {
+    if (!this.active || width < 1) return 0;
+    const { rendered } = this.measure(width);
+
+    return regions.reduce((sum, region) => sum + rendered[region].lines.length, 0);
+  }
+
   contributions(): Placement[] {
     this.sync();
 
@@ -102,26 +123,6 @@ export class WidgetCoordinator {
   available(id: string): boolean {
     // Menu layout discovery refreshes the registry once before formatting its labels.
     return this.registry.get(id)?.available ?? false;
-  }
-
-  preview(layout: Layout, width: number): Record<Region, string[]> {
-    this.sync();
-    // Never render live native instances for the draft: even render() can update mouse geometry.
-    const snapshots = new Map<string, Contribution>();
-
-    for (const [id, source] of this.registry) {
-      if (!source.available) continue;
-      const lines = source.snapshot ?? [`[${compactDisplayText(id)}: preview after placement]`];
-      snapshots.set(id, { component: { render: () => lines, invalidate() {} } });
-    }
-
-    const separator = this.theme().fg("dim", " • ");
-
-    return {
-      aboveEditor: renderRows(layout.aboveEditor, snapshots, width, separator).lines,
-      belowEditor: renderRows(layout.belowEditor, snapshots, width, separator).lines,
-      footer: renderRows(layout.footer, snapshots, width, separator).lines
-    };
   }
 
   private sync(): void {
@@ -135,16 +136,7 @@ export class WidgetCoordinator {
 
       for (const [key, component] of widgets) {
         const id = `widget:${key}`;
-        const previous = this.registry.get(id);
-        this.registry.set(id, {
-          id,
-          region,
-          component,
-          available: true,
-          ...(previous?.component === component && previous.snapshot
-            ? { snapshot: previous.snapshot }
-            : {})
-        });
+        this.registry.set(id, { id, region, component, available: true });
       }
     }
 
@@ -164,11 +156,8 @@ export class WidgetCoordinator {
       );
 
     // Remember unavailable identities, not disposed native components or their render state.
-    for (const source of this.registry.values()) {
-      if (source.available) continue;
-      source.component = textComponent("");
-      delete source.snapshot;
-    }
+    for (const source of this.registry.values())
+      if (!source.available) source.component = textComponent("");
   }
 
   private setText(id: string, value: string): void {
@@ -176,7 +165,6 @@ export class WidgetCoordinator {
       id,
       region: "footer",
       component: textComponent(value),
-      snapshot: [value],
       available: true
     });
   }
@@ -186,13 +174,18 @@ export class WidgetCoordinator {
     if (this.renderer === this.host.renderer) return;
     this.rendererHooks.restore();
     this.renderer = this.host.renderer;
-    this.cache = undefined;
+    this.invalidateCache();
     const renderer = this.renderer;
     const request = renderer.requestRender.bind(renderer);
     this.rendererHooks.replace(renderer, "requestRender", (...args) => {
-      if (this.active) this.cache = undefined;
+      if (this.active) this.invalidateCache();
       request(...args);
     });
+  }
+
+  private invalidateCache(): void {
+    this.cache = undefined;
+    this.measured = undefined;
   }
 
   private mount(): void {
@@ -213,15 +206,9 @@ export class WidgetCoordinator {
       };
     const height = this.host.ui.terminal.rows;
     if (this.cache?.width === width && this.cache.height === height) return this.cache.rendered;
-    this.sync();
-    const layout = resolveLayout(this.saved, [...this.registry.values()]);
-    const sources = new Map([...this.registry].filter(([, source]) => source.available));
-    const separator = this.theme().fg("dim", " • ");
-    const rendered = {
-      aboveEditor: renderRows(layout.aboveEditor, sources, width, separator),
-      belowEditor: renderRows(layout.belowEditor, sources, width, separator),
-      footer: renderRows(layout.footer, sources, width, separator)
-    };
+    const measured = this.measure(width);
+    const rendered = { ...measured.rendered };
+    // The /widgets menu sizes itself from regionHeight(), served by the measurement above.
     const editorHeight = Math.max(3, this.host.editorContainer.render(width).length);
     const otherHeight =
       this.host.statusContainer.render(width).length +
@@ -239,16 +226,36 @@ export class WidgetCoordinator {
       rendered[region] = clip(rendered[region], budget, width);
       remaining -= budget;
     });
-    this.cache = { width, height, rendered };
+    this.cache = { width, height, rendered, widths: measured.widths };
 
     return rendered;
+  }
+
+  private measure(width: number): NonNullable<WidgetCoordinator["measured"]> {
+    if (this.measured?.width === width) return this.measured;
+    this.sync();
+    const layout = resolveLayout(this.draft ?? this.saved, [...this.registry.values()]);
+    const sources = new Map([...this.registry].filter(([, source]) => source.available));
+    const separator = this.theme().fg("dim", " • ");
+    const widths: RenderWidths = new Map();
+    this.measured = {
+      width,
+      widths,
+      rendered: {
+        aboveEditor: renderRows(layout.aboveEditor, sources, width, separator, widths),
+        belowEditor: renderRows(layout.belowEditor, sources, width, separator, widths),
+        footer: renderRows(layout.footer, sources, width, separator, widths)
+      }
+    };
+
+    return this.measured;
   }
 
   private regionComponent(region: Region): Component {
     return {
       render: (width) => (this.active ? this.render(width)[region].lines : []),
       invalidate: () => {
-        this.cache = undefined;
+        this.invalidateCache();
         for (const source of this.registry.values())
           if (source.available && source.id.startsWith("widget:")) source.component.invalidate();
       },
@@ -264,11 +271,20 @@ export class WidgetCoordinator {
         event.x >= x && event.x < x + width && event.y >= y && event.y < y + height
     );
     if (!cell) return undefined;
+    const widths = this.cache?.widths;
+
+    // A duplicated component keeps geometry from its last render; restore this placement's width.
+    if (widths && widths.get(cell.component) !== cell.renderWidth) {
+      cell.component.render(cell.renderWidth);
+      widths.set(cell.component, cell.renderWidth);
+    }
+
     const result = cell.component.handleMouse?.({
       ...event,
       x: event.x - cell.x,
       y: event.y - cell.y,
-      width: cell.width,
+      // Native containers use this width to validate their child mouse layout.
+      width: cell.renderWidth,
       height: cell.height
     });
     if (!result || "target" in result || (!result.handled && !result.capture && !result.focus))
@@ -282,7 +298,7 @@ export class WidgetCoordinator {
         component: cell.component,
         originX: event.screenX - event.x + cell.x,
         originY: event.screenY - event.y + cell.y,
-        width: cell.width,
+        width: cell.renderWidth,
         height: cell.height
       }
     };
@@ -315,7 +331,7 @@ export class WidgetCoordinator {
     }
 
     this.registry.clear();
-    this.cache = undefined;
+    this.invalidateCache();
     this.host.ui.requestRender();
   }
 }

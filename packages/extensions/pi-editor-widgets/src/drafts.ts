@@ -1,6 +1,7 @@
 import {
   defaultLayout,
   isWidget,
+  regions,
   resolveLayout,
   type Layout,
   type Placement,
@@ -14,6 +15,18 @@ export type View =
   | { kind: "contents" | "picker"; region: Region; row: number; selected: number };
 
 type Draft = { value: Layout | undefined; saved: Layout | undefined; views: View[] };
+
+function placedIds(layout: Layout): string[] {
+  return [...new Set(regions.flatMap((region) => layout[region].flat().filter(isWidget)))];
+}
+
+/** Removing one copy of a duplicated contribution leaves its other placements visible. */
+function hideUnplaced(layout: Layout, ids: readonly string[]): void {
+  const placed = new Set(placedIds(layout));
+
+  for (const id of new Set(ids))
+    if (!placed.has(id) && !layout.hidden.includes(id)) layout.hidden.push(id);
+}
 
 export class WidgetDrafts {
   readonly drafts: Record<Scope, Draft>;
@@ -44,10 +57,15 @@ export class WidgetDrafts {
     return JSON.stringify(this.current.value) !== JSON.stringify(this.current.saved);
   }
 
-  layout(): Layout {
+  /** The displayed draft before discovery; unset project drafts inherit the saved global layout. */
+  source(): Layout {
     const inherited = this.scope === "project" ? this.persisted.global : undefined;
 
-    return resolveLayout(this.current.value ?? inherited, this.contributions());
+    return this.current.value ?? inherited ?? defaultLayout();
+  }
+
+  layout(): Layout {
+    return resolveLayout(this.source(), this.contributions());
   }
 
   push(view: View): void {
@@ -78,11 +96,11 @@ export class WidgetDrafts {
     if (view.kind === "rows") {
       const removed = layout[view.region].splice(view.selected, 1)[0];
       if (!removed) return;
-      layout.hidden.push(...removed.filter(isWidget));
+      hideUnplaced(layout, removed.filter(isWidget));
     } else if (view.kind === "contents") {
       const removed = layout[view.region][view.row]?.splice(view.selected, 1)[0];
       if (removed === undefined) return;
-      if (isWidget(removed)) layout.hidden.push(removed);
+      if (isWidget(removed)) hideUnplaced(layout, [removed]);
     } else return;
     this.current.value = layout;
   }
@@ -109,10 +127,11 @@ export class WidgetDrafts {
     if (changed) this.current.value = layout;
   }
 
+  /** Hidden contributions first, then visible ones that can be duplicated into another row. */
   picker(): string[] {
     const layout = this.layout();
 
-    return ["separator", "flex", ...layout.hidden];
+    return ["separator", "flex", ...layout.hidden, ...placedIds(layout)];
   }
 
   add(id: string): void {
@@ -120,8 +139,8 @@ export class WidgetDrafts {
     if (view.kind !== "picker") return;
     const layout = this.layout();
     const row = layout[view.region][view.row];
-    if (!row || (id === "flex" && row.includes("flex"))) return;
-    if (isWidget(id) && !layout.hidden.includes(id)) return;
+    if (!row || (id !== "separator" && row.includes(id))) return;
+    if (isWidget(id) && !layout.hidden.includes(id) && !placedIds(layout).includes(id)) return;
     row.push(id);
     layout.hidden = layout.hidden.filter((hidden) => hidden !== id);
     this.current.value = layout;

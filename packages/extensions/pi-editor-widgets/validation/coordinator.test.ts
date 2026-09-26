@@ -1,4 +1,4 @@
-import { Text, stripTerminalSequences } from "@earendil-works/pi-tui";
+import { Container, Text, stripTerminalSequences } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -105,7 +105,6 @@ it("moves/hides intact native instances without taking over replacement, removal
     expect(footer).toHaveLength(2);
     for (const content of ["ONE", "TWO", "STATUS"]) expect(plain(footer)).toContain(content);
     expect(host.extensionWidgetsAbove.get("native")).toBe(component);
-    coordinator.preview(layout, 25);
     expect(factory).toHaveBeenCalledTimes(1);
     expect(disposal).not.toHaveBeenCalled();
     layout.footer = [];
@@ -129,7 +128,7 @@ it("moves/hides intact native instances without taking over replacement, removal
   }
 });
 
-it("preserves invalidation and native mouse targets, and does not render native instances for previews", async () => {
+it("preserves invalidation and native mouse targets", async () => {
   const fixture = await hostFixture();
   const { host, ui } = fixture;
   const render = vi.fn((width: number) => new Text("clickable", 0, 0).render(width));
@@ -156,8 +155,6 @@ it("preserves invalidation and native mouse targets, and does not render native 
     const column = plain(host.widgetContainerAbove.render(80)).indexOf("clickable");
     expect(column).toBeGreaterThanOrEqual(0);
     const calls = render.mock.calls.length;
-    coordinator.preview(layout, 20);
-    expect(render).toHaveBeenCalledTimes(calls);
     const result = host.widgetContainerAbove.handleMouse({
       type: "press",
       button: "left",
@@ -183,20 +180,147 @@ it("preserves invalidation and native mouse targets, and does not render native 
   }
 });
 
-it("sanitizes unseen-widget preview labels without rendering another live copy", async () => {
+it("renders duplicated placements from one native instance and restores clicked geometry", async () => {
   const fixture = await hostFixture();
-  const key = "control\x1b[2J";
-  const render = vi.fn(() => ["LIVE"]);
-  fixture.ui.setWidget(key, () => ({ render, invalidate() {} }));
-  const coordinator = new WidgetCoordinator(fixture.host, () => fixture.ui.theme, vi.fn());
+  const { host, ui } = fixture;
+  const factory = vi.fn();
+  let rendered = 0;
+  const widths: number[] = [];
+  const component = {
+    render: (width: number) => {
+      rendered = width;
+
+      return ["DUP"];
+    },
+    invalidate() {},
+    handleMouse: vi.fn(() => {
+      widths.push(rendered);
+
+      return { handled: true };
+    })
+  };
+  ui.setWidget(
+    "dup",
+    factory.mockImplementation(() => component)
+  );
+  ui.setStatus("left", "LEFT");
+  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
 
   try {
     const layout = defaultLayout();
-    layout.aboveEditor = [[`widget:${key}`]];
-    const preview = coordinator.preview(layout, 80).aboveEditor;
-    expect(render).not.toHaveBeenCalled();
-    expect(preview.join("")).not.toContain("\x1b[2J");
-    expect(plain(preview)).toContain("widget:control: preview after placement");
+    layout.aboveEditor = [["widget:dup"]];
+    layout.footer = [["status:left", "separator", "widget:dup"], ["status:left"]];
+    layout.hidden = defaultLayout()
+      .footer.flat()
+      .filter((id) => id.startsWith("builtin:"));
+    coordinator.apply(layout);
+    expect(plain(host.widgetContainerAbove.render(40))).toBe("DUP");
+    expect(plain(host.footerContainer.render(40))).toBe("LEFT \u2022 DUP\nLEFT");
+    expect(factory).toHaveBeenCalledTimes(1);
+    expect(rendered).toBe(3);
+    const event = {
+      type: "press" as const,
+      button: "left" as const,
+      x: 1,
+      y: 0,
+      screenX: 1,
+      screenY: 0,
+      width: 40,
+      height: 1,
+      shift: false,
+      alt: false,
+      ctrl: false
+    };
+    host.widgetContainerAbove.handleMouse(event);
+    host.footerContainer.handleMouse({ ...event, x: 8 });
+    expect(widths).toEqual([40, 3]);
+  } finally {
+    coordinator.dispose();
+    await fixture.dispose();
+  }
+});
+
+it("keeps nested mouse targets at the copy's render width even when flex shrinks its hit area", async () => {
+  const fixture = await hostFixture();
+  const { host, ui } = fixture;
+  const top = vi.fn(() => ({ handled: true }));
+  const bottom = vi.fn(() => ({ handled: true }));
+  const component = new Container();
+  component.addChild({
+    render: (width) => (width < 10 ? ["TOP", "WRP"] : ["TOP"]),
+    invalidate() {},
+    handleMouse: top
+  });
+  component.addChild({ render: () => ["END"], invalidate() {}, handleMouse: bottom });
+  ui.setWidget("nested", () => component);
+  ui.setStatus("left", "LEFT");
+  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+
+  try {
+    const layout = defaultLayout();
+    layout.hidden = layout.footer.flat().filter((id) => id.startsWith("builtin:"));
+    layout.aboveEditor = [["flex", "widget:nested"]];
+    layout.footer = [["status:left", "separator", "widget:nested"]];
+    coordinator.apply(layout);
+    const above = host.widgetContainerAbove.render(40).map(stripTerminalSequences);
+    expect(above).toEqual([
+      "                                     TOP",
+      "                                     END"
+    ]);
+    host.footerContainer.render(40);
+    const event = {
+      type: "press" as const,
+      button: "left" as const,
+      x: 38,
+      y: 1,
+      screenX: 38,
+      screenY: 1,
+      width: 40,
+      height: 2,
+      shift: false,
+      alt: false,
+      ctrl: false
+    };
+    host.widgetContainerAbove.handleMouse(event);
+    expect(top).not.toHaveBeenCalled();
+    expect(bottom).toHaveBeenLastCalledWith(expect.objectContaining({ x: 1, y: 0, width: 40 }));
+    host.footerContainer.handleMouse({ ...event, x: 8, y: 2, height: 3 });
+    expect(bottom).toHaveBeenLastCalledWith(expect.objectContaining({ x: 1, y: 0, width: 3 }));
+  } finally {
+    coordinator.dispose();
+    await fixture.dispose();
+  }
+});
+
+it("renders a menu draft in place of the saved layout until it is cleared", async () => {
+  const fixture = await hostFixture();
+  const { host, ui } = fixture;
+  const factory = vi.fn(() => ({ render: () => ["ONE", "TWO"], invalidate() {} }));
+  ui.setWidget("draft", factory);
+  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+
+  try {
+    const saved = defaultLayout();
+    saved.hidden = defaultLayout()
+      .footer.flat()
+      .filter((id) => id.startsWith("builtin:"));
+    saved.footer = [];
+    coordinator.apply(saved);
+    expect(plain(host.widgetContainerAbove.render(80))).toBe("ONE\nTWO");
+    expect(coordinator.regionHeight(80)).toBe(2);
+    const draft = structuredClone(saved);
+    draft.aboveEditor = [];
+    draft.belowEditor = [["widget:draft"]];
+    draft.footer = [["widget:draft"]];
+    coordinator.showDraft(draft);
+    expect(plain(host.widgetContainerAbove.render(80))).toBe("");
+    expect(plain(host.widgetContainerBelow.render(80))).toBe("ONE\nTWO");
+    expect(plain(host.footerContainer.render(80))).toBe("ONE\nTWO");
+    expect(coordinator.regionHeight(80)).toBe(4);
+    coordinator.showDraft(undefined);
+    expect(plain(host.widgetContainerAbove.render(80))).toBe("ONE\nTWO");
+    expect(plain(host.widgetContainerBelow.render(80))).toBe("");
+    expect(factory).toHaveBeenCalledOnce();
   } finally {
     coordinator.dispose();
     await fixture.dispose();

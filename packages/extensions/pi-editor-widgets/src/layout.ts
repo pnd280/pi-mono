@@ -20,20 +20,23 @@ export const layoutSchema = z
   })
   .strict()
   .superRefine((layout, ctx) => {
-    const seen = new Set<string>();
-    const ids = [...layout.hidden];
+    // Rows may repeat a contribution elsewhere; hidden means placed nowhere.
+    const placed = new Set<string>();
 
     for (const region of regions)
       for (const row of layout[region]) {
         if (row.filter((item) => item === "flex").length > 1)
           ctx.addIssue({ code: "custom", message: "A row may contain only one flex separator." });
-        ids.push(...row.filter(isWidget));
+        const ids = row.filter(isWidget);
+        if (new Set(ids).size !== ids.length)
+          ctx.addIssue({ code: "custom", message: "A row may contain each widget ID only once." });
+        for (const id of ids) placed.add(id);
       }
 
-    for (const id of ids) {
-      if (seen.has(id)) ctx.addIssue({ code: "custom", message: "Widget IDs must be unique." });
-      seen.add(id);
-    }
+    if (new Set(layout.hidden).size !== layout.hidden.length)
+      ctx.addIssue({ code: "custom", message: "Hidden widget IDs must be unique." });
+    if (layout.hidden.some((id) => placed.has(id)))
+      ctx.addIssue({ code: "custom", message: "Hidden widget IDs cannot also be placed." });
   });
 
 export type Layout = z.output<typeof layoutSchema>;

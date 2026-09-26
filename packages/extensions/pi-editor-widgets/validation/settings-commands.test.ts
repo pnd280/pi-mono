@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -49,7 +49,7 @@ it("/widgets accepts no arguments and saves the global draft selected in the men
     expect(plain(menu.render(100))).toContain(`Settings: ${globalPath}`);
     expect(plain(menu.render(80))).toContain("Scope: global (not set) | project");
     menu.handleInput?.("\x13");
-    expect(plain(menu.render(80))).toContain("Project override remains active.");
+    expect(plain(menu.render(80))).toContain("Project layout applies on close.");
     expect(plain(menu.render(80))).not.toContain("global (not set)");
     const saved: unknown = JSON.parse(readFileSync(globalPath, "utf8"));
     expect(saved).toMatchObject({ "ext.pi-editor-widgets": { layout: { aboveEditor: [] } } });
@@ -62,6 +62,54 @@ it("/widgets accepts no arguments and saves the global draft selected in the men
     await opening;
   }
 });
+
+it.each(["regular", "fullscreen"] as const)(
+  "restores the live layout when a mounted %s menu is cancelled by the host",
+  async (mode) => {
+    const fixture = await hostFixture([editorWidgets], mode);
+    const abort = new AbortController();
+    let opening: Promise<void> | undefined;
+
+    try {
+      await fixture.bind();
+      fixture.ui.setWidget("live", () => ({ render: () => ["LIVE WIDGET"], invalidate() {} }));
+      const runner = fixture.session.extensionRunner;
+      const editor = fixture.host.editorContainer.children[0];
+      opening = runner.getCommand("widgets")?.handler("", {
+        ...runner.createCommandContext(),
+        signal: abort.signal
+      });
+      await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor));
+      const menu = fixture.host.editorContainer.children[0]!;
+      menu.handleInput?.("\r");
+      menu.handleInput?.("\r");
+      menu.handleInput?.("\x1b[3~");
+
+      for (const [width, height] of [
+        [80, 24],
+        [40, 10]
+      ] as const) {
+        fixture.terminal.columns = width;
+        fixture.terminal.rows = height;
+        fixture.host.ui.requestRender();
+        const lines = fixture.host.renderer.render(width);
+        expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
+        expect(plain(lines)).toContain("Empty row");
+        expect(plain(lines)).not.toContain("LIVE WIDGET");
+      }
+
+      abort.abort();
+      await opening;
+      expect(fixture.host.editorContainer.children[0]).toBe(editor);
+      expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("LIVE WIDGET");
+      expect(() => readFileSync(`${fixture.agentDir}/settings.json`)).toThrow();
+    } finally {
+      abort.abort();
+      await opening;
+      await fixture.dispose();
+    }
+  }
+);
 
 it("/widgets exposes load warnings and distinguishes a successful save with another invalid scope", async () => {
   const fixture = await hostFixture([editorWidgets]);

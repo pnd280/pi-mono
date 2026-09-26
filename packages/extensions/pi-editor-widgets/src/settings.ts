@@ -38,7 +38,7 @@ export class WidgetSettings {
         return sectionSchema.parse(record[key] === undefined ? {} : record[key]).layout;
       } catch {
         warnings.push(
-          `pi-editor-widgets: invalid or unreadable settings at ${compactDisplayText(this.paths[scope])}. Check JSON, unique widget IDs, one flex per row, and the 1 MiB limit. Falling back to the next scope.`
+          `pi-editor-widgets: invalid or unreadable settings at ${compactDisplayText(this.paths[scope])}. Check JSON, per-row and hidden ID uniqueness, hidden/placed overlap, one flex per row, and the 1 MiB limit. Falling back to the next scope.`
         );
 
         return undefined;

@@ -5,11 +5,29 @@ import {
   type Component
 } from "@earendil-works/pi-tui";
 
-export type Contribution = { component: Component; snapshot?: string[] };
+export type Contribution = { component: Component };
 
-export type Cell = { component: Component; x: number; y: number; width: number; height: number };
+/** `renderWidth` is the width passed to `render()`; `width` is the occupied mouse geometry. */
+export type Cell = {
+  component: Component;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  renderWidth: number;
+};
 
 export type Rendered = { lines: string[]; cells: Cell[] };
+
+/** Last width each component rendered at. Duplicated placements share one live instance. */
+export type RenderWidths = Map<Component, number>;
+
+function draw(source: Contribution, width: number, widths: RenderWidths): string[] {
+  const lines = source.component.render(width).map((line) => truncateToWidth(line, width));
+  widths.set(source.component, width);
+
+  return lines;
+}
 
 type Measured = {
   id: string;
@@ -26,7 +44,8 @@ const nonempty = (lines: string[]) => lines.some(content);
 function measure(
   row: string[],
   sources: ReadonlyMap<string, Contribution>,
-  width: number
+  width: number,
+  widths: RenderWidths
 ): Measured[] {
   const nodes: Measured[] = [];
   let group = 0;
@@ -46,8 +65,7 @@ function measure(
 
     const source = sources.get(id);
     if (!source) continue;
-    const lines = source.component.render(width).map((line) => truncateToWidth(line, width));
-    source.snapshot = [...lines];
+    const lines = draw(source, width, widths);
     if (!nonempty(lines)) continue;
     nodes.push({
       id,
@@ -114,10 +132,15 @@ function allocate(nodes: Measured[], width: number): number[] {
   return widths;
 }
 
-type Box = { node: Measured; width: number; lines: string[] };
+type Box = { node: Measured; width: number; renderWidth: number; lines: string[] };
 
-function renderBoxes(nodes: Measured[], width: number, single: boolean): Box[] {
-  const widths = allocate(nodes, width);
+function renderBoxes(
+  nodes: Measured[],
+  width: number,
+  single: boolean,
+  widths: RenderWidths
+): Box[] {
+  const allocations = allocate(nodes, width);
   let group: number | undefined;
   let bullet = false;
 
@@ -125,12 +148,8 @@ function renderBoxes(nodes: Measured[], width: number, single: boolean): Box[] {
     if (group !== node.group) bullet = false;
     group = node.group;
     bullet ||= node.bullet;
-    const allocated = widths[index] ?? width;
-    const lines =
-      allocated === width
-        ? node.lines
-        : node.source.component.render(allocated).map((line) => truncateToWidth(line, allocated));
-    node.source.snapshot = [...lines];
+    const allocated = allocations[index] ?? width;
+    const lines = allocated === width ? node.lines : draw(node.source, allocated, widths);
     // Only a logical singleton gets the full width. A reflowed single group can still align via flex.
     const used = single
       ? allocated
@@ -139,7 +158,7 @@ function renderBoxes(nodes: Measured[], width: number, single: boolean): Box[] {
           lines.reduce((max, line) => Math.max(max, visibleWidth(line)), 0)
         );
     if (!nonempty(lines)) return [];
-    const box = { node: { ...node, bullet }, width: used, lines };
+    const box = { node: { ...node, bullet }, width: used, renderWidth: allocated, lines };
     bullet = false;
 
     return [box];
@@ -173,7 +192,8 @@ function compose(
       x,
       y: 0,
       width: box.width,
-      height: box.lines.length
+      height: box.lines.length,
+      renderWidth: box.renderWidth
     });
     x += box.width;
 
@@ -210,16 +230,22 @@ export function renderRows(
   rows: string[][],
   sources: ReadonlyMap<string, Contribution>,
   width: number,
-  separator: string
+  separator: string,
+  widths: RenderWidths = new Map()
 ): Rendered {
   const result: Rendered = { lines: [], cells: [] };
   if (width < 1) return result;
 
   for (const row of rows) {
-    const nodes = measure(row, sources, width);
+    const nodes = measure(row, sources, width, widths);
 
     for (const physical of reflow(nodes, width)) {
-      const boxes = renderBoxes(physical, width, nodes.length === 1 && !row.includes("flex"));
+      const boxes = renderBoxes(
+        physical,
+        width,
+        nodes.length === 1 && !row.includes("flex"),
+        widths
+      );
       const rendered = compose(boxes, width, row[0] === "flex", row.includes("flex"), separator);
       const offset = result.lines.length;
       result.cells.push(...rendered.cells.map((cell) => ({ ...cell, y: cell.y + offset })));

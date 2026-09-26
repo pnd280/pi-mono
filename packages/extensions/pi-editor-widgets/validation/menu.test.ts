@@ -83,7 +83,7 @@ it("keeps unset markers until save and identifies edits in either scope", async 
   }
 });
 
-it("navigates, hides, previews and discards without changing native presentation or settings", async () => {
+it("navigates, previews live and discards without persisting the draft", async () => {
   const fixture = await hostFixture();
   fixture.ui.setWidget("one", ["NATIVE"]);
   const { settings, coordinator, close, menu, apply } = menuFor(fixture);
@@ -94,7 +94,7 @@ it("navigates, hides, previews and discards without changing native presentation
     menu.handleInput(enter); // Row 1 -> Contents
     menu.handleInput(remove);
     expect(menu.drafts.layout().hidden).toContain("widget:one");
-    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("NATIVE");
+    expect(plain(fixture.host.widgetContainerAbove.render(80))).not.toContain("NATIVE");
     menu.handleInput("a");
     menu.handleInput(down);
     menu.handleInput(down);
@@ -107,6 +107,7 @@ it("navigates, hides, previews and discards without changing native presentation
     menu.handleInput(escape);
     expect(close).toHaveBeenCalledOnce();
     expect(apply).not.toHaveBeenCalled();
+    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("NATIVE");
     expect(() => readFileSync(settings.paths.global)).toThrow();
   } finally {
     coordinator.dispose();
@@ -237,8 +238,9 @@ it("saves scopes independently and explains when a project override still wins",
     menu.handleInput(enter);
     menu.handleInput(remove);
     menu.handleInput("\x13");
-    expect(plain(menu.render(120))).toContain("Project override remains active.");
-    expect(plain(fixture.host.widgetContainerBelow.render(80))).toContain("NATIVE");
+    expect(plain(menu.render(120))).toContain("Project layout applies on close.");
+    // Live regions show the selected scope's draft, not the effective project override.
+    expect(plain(fixture.host.widgetContainerBelow.render(80))).not.toContain("NATIVE");
     expect(settings.load().project).toEqual(project);
     menu.handleInput("\t");
     expect(menu.drafts.current.value).toEqual(defaultLayout());
@@ -273,8 +275,31 @@ it("keeps essential controls readable at 40x10 and advertises only applicable ac
     menu.handleInput(enter);
     const contents = plain(menu.render(40));
     expect(contents).toContain("Esc back");
-    expect(contents).toContain("Del hide");
+    expect(contents).toContain("Del remove");
     expect(contents).toContain("a add");
+  } finally {
+    coordinator.dispose();
+    await fixture.dispose();
+  }
+});
+
+it("removes one visible copy without promising to hide the remaining copy", async () => {
+  const fixture = await hostFixture();
+  fixture.ui.setWidget("copy", ["COPY"]);
+  const { coordinator, menu } = menuFor(fixture);
+
+  try {
+    const layout = defaultLayout();
+    layout.aboveEditor = [["widget:copy"], ["widget:copy"]];
+    menu.drafts.current.value = layout;
+    menu.drafts.push({ kind: "contents", region: "aboveEditor", row: 1, selected: 0 });
+    const output = plain(menu.render(80));
+    expect(output).toContain("Del remove");
+    expect(output).not.toContain("Del hide");
+    menu.handleInput(remove);
+    expect(menu.drafts.layout().aboveEditor).toEqual([["widget:copy"], []]);
+    expect(menu.drafts.layout().hidden).not.toContain("widget:copy");
+    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("COPY");
   } finally {
     coordinator.dispose();
     await fixture.dispose();
@@ -345,31 +370,43 @@ it("adds rows with a after new registrations and from an empty region without an
   }
 });
 
-it("previews the focused footer row without rendering native components again", async () => {
+it("previews drafts live in the actual regions and restores the saved layout on close", async () => {
   const fixture = await hostFixture();
-  fixture.ui.setWidget(
-    "above",
-    Array.from({ length: 8 }, () => "UNRELATED ABOVE OUTPUT")
-  );
-  const render = vi.fn(() => ["FOCUSED FOOTER OUTPUT"]);
-  fixture.ui.setWidget("target", () => ({ render, invalidate() {} }));
-  const { coordinator, menu } = menuFor(fixture);
+  const factory = vi.fn(() => ({ render: () => ["LIVE WIDGET"], invalidate() {} }));
+  fixture.ui.setWidget("moving", factory);
+  const { coordinator, close, menu, settings } = menuFor(fixture);
+  const above = () => plain(fixture.host.widgetContainerAbove.render(80));
+  const footer = () => plain(fixture.host.footerContainer.render(80));
 
   try {
-    const layout = defaultLayout();
-    layout.aboveEditor = [["widget:above"]];
-    layout.footer.push(["widget:target"]);
-    coordinator.apply(layout);
-    fixture.host.footerContainer.render(80);
-    const calls = render.mock.calls.length;
-    menu.drafts.current.value = layout;
-    menu.drafts.push({ kind: "rows", region: "footer", selected: 2 });
-    menu.drafts.push({ kind: "contents", region: "footer", row: 2, selected: 0 });
-    const text = plain(menu.render(80));
-    expect(text).toContain("Row 3");
-    expect(text).toContain("FOCUSED FOOTER OUTPUT");
-    expect(text).not.toContain("UNRELATED ABOVE OUTPUT");
-    expect(render).toHaveBeenCalledTimes(calls);
+    fixture.terminal.rows = 30;
+    expect(above()).toBe("LIVE WIDGET");
+    menu.handleInput(enter); // Above editor -> rows
+    menu.handleInput(enter); // Row 1 -> contents
+    menu.handleInput(remove);
+    expect(above()).toBe("");
+    menu.handleInput(escape);
+    menu.handleInput(escape);
+    menu.handleInput(down);
+    menu.handleInput(down);
+    menu.handleInput(enter); // Footer -> rows
+    menu.handleInput("a"); // New row -> contents
+    menu.handleInput("a"); // Picker: separator, flex, then the hidden widget
+    menu.handleInput(down);
+    menu.handleInput(down);
+    menu.handleInput(enter);
+    expect(footer()).toContain("LIVE WIDGET");
+    expect(above()).toBe("");
+    // No second copy inside the menu: it shrinks to leave the live regions visible.
+    const text = menu.render(80);
+    expect(plain(text)).not.toContain("LIVE WIDGET");
+    expect(text.length).toBeLessThanOrEqual(28 - coordinator.regionHeight(80));
+    expect(factory).toHaveBeenCalledOnce();
+    for (let index = 0; index < 3; index++) menu.handleInput(escape);
+    expect(close).toHaveBeenCalledOnce();
+    expect(above()).toBe("LIVE WIDGET");
+    expect(footer()).not.toContain("LIVE WIDGET");
+    expect(() => readFileSync(settings.paths.global)).toThrow();
   } finally {
     coordinator.dispose();
     await fixture.dispose();
@@ -388,8 +425,14 @@ it("indicates a clipped picker collection and unavailable widgets", async () => 
     menu.drafts.view.selected = 14;
     fixture.terminal.rows = 24;
     const text = plain(menu.render(80));
-    expect(text).toContain("15/32");
+    // separator, flex, 30 hidden widgets, then 6 visible built-ins offered as copies.
+    expect(text).toContain("15/38");
     expect(text).toContain("unavailable");
+    menu.drafts.view.selected = 37;
+    const visible = plain(menu.render(80));
+    // Row 1 holds cwd/git/title; row 2's built-ins can be copied into it.
+    expect(visible).toMatch(/Working directory\s+Already in row/u);
+    expect(visible).toContain("Model and thinking");
   } finally {
     coordinator.dispose();
     await fixture.dispose();
