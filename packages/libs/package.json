@@ -7,6 +7,7 @@
     "./working-message": "./src/working-message/index.ts",
     "./settings-file": "./src/settings-file/index.ts",
     "./tui/components/order-settings": "./src/tui/components/order-settings/index.ts",
+    "./tui/components/settings-menu": "./src/tui/components/settings-menu/index.ts",
     "./native-clipboard": "./src/native-clipboard/index.ts",
     "./git-ignore": "./src/git-ignore/index.ts",
     "./output-buffer": "./src/output-buffer/index.ts",
@@ -36,6 +37,7 @@
     "./tui/components/windowed-list": "./src/tui/components/windowed-list/index.ts",
     "./text-search": "./src/text-search/index.ts",
     "./owned-hooks": "./src/owned-hooks/index.ts",
+    "./validation/interactive-host": "./src/validation/interactive-host/index.ts",
     "./validation/pi-process": "./src/validation/pi-process/index.ts",
     "./validation/terminal-launcher": "./src/validation/terminal-launcher/index.ts",
     "./validation/provider": "./src/validation/provider/index.ts"

@@ -9,7 +9,7 @@
 - Private files enforce ownership, reject unsafe links/types before permission/ACL repair, and bound reads. Directory aliases share storage scopes without permitting child paths to escape them.
 - Transactions lock before reading current bytes, serialize cooperating writers, and commit by atomic rename. Cancellation prevents unstarted writes but lets started writes and cleanup finish. Post-commit warnings must not become failed writes or retries; locks are never stolen.
 - Clipboard helpers receive exact UTF-8 through stdin, use platform-native selection/fallback, and respect cancellation/deadlines without shell interpretation or OSC 52 fallback.
-- Settings reads are bounded and preserve caller-owned error policy. File observations distinguish complete, missing, changed, invalid, and nonregular sources without repairing permissions.
+- Settings reads are bounded and preserve caller-owned error policy. JSON-record updates use a fresh read under Pi's lock, preserve all unrelated own JSON keys, settings symlinks, and existing mode bits even when masked by the writer's umask, reject malformed files and oversized serialized output, and release locks/temporary files on mutator rejection. File observations distinguish complete, missing, changed, invalid, and nonregular sources without repairing permissions.
 - Stream/file output retention preserves order, byte/line bounds, UTF-8 edges, and generated-omission provenance. Short Unicode lines remain complete until their line budget is exceeded; file omission counts include bytes discarded at incomplete character boundaries.
 - Bounded diffs run off the main thread. Queue wait does not consume request-time budgets. Active and waiting inputs share an accounting budget; unrelated option fields are not retained. Queue overload, work limits, and worker failures remain distinct. Completed and failed work releases capacity; rejected requests retain no inputs. Waiting and future requests remain usable.
 - Git inspection uses real repository rules, worktrees, tracked exceptions, literal names, and symlink boundaries; cancellation and deadline remain distinct from missing/ignored targets.
@@ -18,14 +18,14 @@
 ### Lifetimes and shared state
 
 - Latest tasks, async caches, timed confirmations, and deferred notices reject stale work after replacement or disposal. Caches share loads and bound storage; falsy values are cache hits, while rejected/busy loads remain retryable.
-- Working-message contributors compose independently. Old handles cannot clear replacements, session transitions clear contributions, and saved ordering respects project trust and unrelated settings.
+- Working-message contributors compose independently. Old handles cannot clear replacements, session transitions clear contributions, and saved ordering respects project trust and unrelated settings. Library-owned command integration verifies argument rejection, default and in-menu scopes, saved ordering, inline warnings, and editor restoration against the installed interactive host without loading a workspace extension.
 - Offline fixtures isolate homes, credentials, mutable directories, and launch flags; scripted providers terminate on errors and cancellation rather than hanging consumers.
 
 ### Reusable TUI
 
 - Browsers preserve selection and per-section search/preview state, distinguish loading/empty/error states, confirm the same deletion target within its deadline, and suppress asynchronous effects after closure.
 - Host mounting keeps one logical view through resize, closes exactly once, and restores the captured editor before consumer effects. Fullscreen input ownership respects focus, overlays, listener order, and transcript search without capturing unrelated keys.
-- Lists, trees, footers, previews, and order editors keep essential selection/actions visible within supplied dimensions. Order edits remain drafts until saved; inherited and explicitly empty orders differ.
+- Lists, trees, footers, previews, and settings editors keep essential selection/actions visible within supplied dimensions. The shared settings frame preserves target, save/exit controls, and recovery at 40×10; the active scope uses the accent color, while unset/dirty markers remain textual. Load warnings, failed saves, and saved-but-overridden outcomes stay distinct. Order edits remain drafts until saved; inherited and explicitly empty orders differ, selection stops at boundaries, and consumer-configured inheritance follows actual scope precedence.
 - Terminal sanitization, grapheme-safe slicing, highlighting, wrapping, and diff layouts preserve source meaning without emitting terminal commands. Distinguish byte, code-point, and terminal-cell bounds; limits must not hide the edit or mislabel literal text as an omission. Recognized escape boundaries take precedence over grapheme segmentation so a following combining mark cannot split a complete escape. Theme-dependent output refreshes on invalidation.
 - Search/layout preparation yields and discards cancelled work while matching whole-input results across chunk boundaries.
 

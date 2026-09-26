@@ -8,7 +8,7 @@
 - [ ] [TUI](../src/tui/README.md): public exports, layout/keybindings, images, invalidation, responsive remounts, editor restoration, and disposal.
 - [ ] [Fullscreen routing](../src/tui/responsive-custom-ui/README.md#host-compatibility): an ordered `inputListeners` Set with callable entries, plus `getFocusedComponent()` and `getVisibleOverlayFocusRestore()` through the stable TUI proxy. Verify deferred installation, renderer rebinding, focus handoff, and listener-preserving teardown. Unsupported routing must report once per opening without closing the view.
 - [ ] [Working message](../src/working-message/README.md): event-bus ownership, stale handles, defaults, trusted settings precedence, locking, and preservation of unrelated fields.
-- [ ] [Offline fixtures](../README.md#offline-validation): actual provider message/stream contracts, authentication isolation, installed-CLI loading, and launcher flags.
+- [ ] [Offline fixtures](../README.md#offline-validation): actual provider message/stream contracts, authentication isolation, installed-CLI loading, and launcher flags. The [interactive host fixture](../src/validation/interactive-host/README.md) also relies on private containers, UI-context creation, renderer mounting, and `createChatViewport`.
 
 ## Limitations and replacement opportunities
 

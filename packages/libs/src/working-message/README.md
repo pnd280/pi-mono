@@ -14,19 +14,23 @@
 
 ### Settings menu
 
-`/working-message` requires interactive TUI mode. It opens the project scope when an override exists, otherwise the global scope. `/working-message global` and `/working-message project` select a scope explicitly. Project scope requires a trusted project.
+`/working-message` takes no arguments and requires interactive TUI mode. It opens the project scope when an override exists, otherwise the global scope. Switch scopes inside the menu with Tab; project scope requires a trusted project.
 
-Tabs show `(not set)` without valid saved order; explicit empty orders count as set. Only successful scope saves clear the marker. Unset drafts inherit the other saved scope or sorted IDs. Saving the source refreshes unedited inherited drafts; inheritance neither writes settings nor changes precedence.
+The selected save scope uses the accent color. `*` marks unsaved edits; `(not set)` means no valid saved order, including after editing. Explicit empty orders count as set. Only successful scope saves clear the unset marker, even when the order is unchanged.
+
+An unset project draft inherits the saved global order; an unset global draft uses sorted IDs, never the project override. Saving global refreshes unedited inherited project drafts. Inheritance neither writes settings nor changes precedence.
 
 | Key                    | Action                                                 |
 | ---------------------- | ------------------------------------------------------ |
-| Up or Down             | Select a component                                     |
+| Up or Down             | Select a component, stopping at boundaries             |
 | Shift+Up or Shift+Down | Move the selected component                            |
 | Tab or Shift+Tab       | Switch between global and project drafts               |
 | Ctrl+S                 | Save the displayed scope and apply the effective order |
 | Escape or Ctrl+C       | Close and discard all remaining unsaved drafts         |
 
-Only saved drafts affect the message; failures retain drafts and the open menu. Global saves preserve project precedence; project saves create overrides even unchanged. The menu never enables/disables components.
+These are fixed menu keys, independent of Pi's configurable browser bindings. Native transcript paging remains with Pi. Only saved drafts affect the message; failures retain drafts and selection with inline recovery, and Ctrl+S retries. Global saves preserve project precedence; project saves create overrides even unchanged. Success clears on edits or scope changes. Load warnings remain visible until settings reload successfully. The menu never enables/disables components.
+
+Both settings editors use the [shared settings frame](../tui/components/settings-menu/README.md). At 40×10, selection, save/exit controls, and recovery take priority over paths and secondary context; resize smaller terminals for the full view.
 
 ### Persistence
 
@@ -46,7 +50,7 @@ Settings load at session start and when the menu opens. Invalid settings or fail
 
 Saves acquire Pi's settings-file lock, merge into the latest JSON, and atomically replace the file. They preserve unrelated fields and existing symlinks, reformat the JSON, and create missing parent directories.
 
-Saves fail without replacing the destination if existing settings cannot be read or validated, a symlink is dangling, or the formatted result exceeds the reader's size limit. Registrations alone do not write files. There are no network requests.
+An explicit save can replace an invalid `order` in an otherwise valid `workingMessage` object while preserving its other fields. Saves fail without replacing the destination if the file or section is malformed, the file cannot be read, a symlink is dangling, or the formatted result exceeds the reader's size limit. Registrations alone do not write files. There are no network requests.
 
 ## Caller responsibilities
 
@@ -74,4 +78,4 @@ export default function activityExtension(pi: ExtensionAPI) {
 
 ## Validation
 
-Use the [library checks](../../README.md#validation). Tests cover [composition and handle ownership](coordinator.test.ts), [shared registration and runtime cleanup](index.test.ts), and [settings persistence](settings.test.ts). Draft and input tests belong to the [order-settings component](../tui/components/order-settings/README.md#validation). Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) for real Pi checks in regular and fullscreen modes.
+Use the [library checks](../../README.md#validation). Tests cover [composition and handle ownership](coordinator.test.ts), [shared registration and runtime cleanup](index.test.ts), [settings persistence](settings.test.ts), and [command integration](command.test.ts). Command tests use the [shared interactive host fixture](../validation/interactive-host/README.md) with only working-message contributors; no widget extension is loaded. Draft and input tests belong to the [order-settings component](../tui/components/order-settings/README.md#validation). Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) for real Pi checks in regular and fullscreen modes.

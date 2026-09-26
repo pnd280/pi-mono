@@ -7,7 +7,7 @@ Shared extension APIs and [TUI infrastructure](src/tui/README.md). Use [utils](.
 | Library                                                | Responsibility                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | [working-message](src/working-message/README.md)       | Shared working-message contributions and saved ordering                   |
-| [settings-file](src/settings-file/README.md)           | Bounded settings reads without consumer-specific validation or fallback   |
+| [settings-file](src/settings-file/README.md)           | Bounded settings reads and locked atomic JSON-record updates              |
 | [native-clipboard](src/native-clipboard/README.md)     | Exact UTF-8 clipboard writes through local helpers                        |
 | [private-files](src/private-files/README.md)           | Permission and ACL enforcement, directory scopes, locks, atomic writes    |
 | [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |
@@ -31,6 +31,7 @@ Validation-only entry points:
 
 | Library                                                                    | Responsibility                                                  |
 | -------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [validation/interactive-host](src/validation/interactive-host/README.md)   | Installed interactive host for isolated in-process tests        |
 | [validation/pi-process](src/validation/pi-process/README.md)               | Private workspace directories and isolated launch configuration |
 | [validation/provider](src/validation/provider/README.md)                   | Scripted assistant messages and event streams                   |
 | [validation/terminal-launcher](src/validation/terminal-launcher/README.md) | Interactive fixture launches and exit status                    |

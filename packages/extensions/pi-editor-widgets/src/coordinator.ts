@@ -1,0 +1,321 @@
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import {
+  wrapTextWithAnsi,
+  type Component,
+  type TuiMouseEvent,
+  type TuiMouseEventResult
+} from "@earendil-works/pi-tui";
+import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
+import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+
+import { builtinText } from "./builtins.ts";
+import type { WidgetHost } from "./host.ts";
+import { regions, resolveLayout, type Layout, type Placement, type Region } from "./layout.ts";
+import { clip, renderRows, type Contribution, type Rendered } from "./render.ts";
+
+type Registered = Contribution & Placement & { available: boolean };
+
+const textComponent = (text: string): Component => ({
+  render: (width) => wrapTextWithAnsi(text, width),
+  invalidate() {}
+});
+
+export class WidgetCoordinator {
+  private readonly hooks = new OwnedHooks();
+  private readonly rendererHooks = new OwnedHooks();
+  private renderer: WidgetHost["renderer"] | undefined;
+  private readonly registry = new Map<string, Registered>();
+  private readonly components: Record<Region, Component>;
+  private cache: { width: number; height: number; rendered: Record<Region, Rendered> } | undefined;
+  private saved: Layout | undefined;
+  private active = true;
+  private readonly nativeFooter: WidgetHost["setExtensionFooter"];
+  private unsubscribe: (() => void) | undefined;
+
+  constructor(
+    private readonly host: WidgetHost,
+    private readonly theme: () => Theme,
+    private readonly warn: (message: string) => void
+  ) {
+    if (host.customFooter)
+      throw new Error(
+        "pi-editor-widgets: footer conflict. Disable the other footer extension and /reload; native widgets and statuses remain supported."
+      );
+    this.nativeFooter = host.setExtensionFooter;
+    this.components = {
+      aboveEditor: this.regionComponent("aboveEditor"),
+      belowEditor: this.regionComponent("belowEditor"),
+      footer: this.regionComponent("footer")
+    };
+    const switchMode = host.switchTuiMode.bind(host);
+    const renderWidgets = host.renderWidgets.bind(host);
+
+    try {
+      this.bindRenderer();
+      this.hooks.replace(host, "switchTuiMode", (...args) => {
+        try {
+          return switchMode(...args);
+        } finally {
+          if (this.active) this.bindRenderer();
+        }
+      });
+      this.hooks.replace(host, "renderWidgets", () => {
+        if (!this.active) return renderWidgets();
+        this.mount();
+        host.ui.requestRender();
+      });
+      this.hooks.replace(host, "setExtensionFooter", (factory) => {
+        if (this.active) {
+          if (factory)
+            this.warn(
+              "pi-editor-widgets: footer conflict. Coordinator released; disable the competing footer extension and /reload."
+            );
+          this.dispose();
+        }
+
+        this.nativeFooter.call(host, factory);
+      });
+      this.nativeFooter.call(host, () => this.components.footer);
+      this.unsubscribe = host.footerDataProvider.onBranchChange(() => host.ui.requestRender());
+      this.mount();
+    } catch (error) {
+      this.dispose();
+      throw error;
+    }
+  }
+
+  get enabled(): boolean {
+    return this.active;
+  }
+
+  apply(layout: Layout | undefined): void {
+    this.saved = layout === undefined ? undefined : structuredClone(layout);
+    this.host.ui.requestRender();
+  }
+
+  contributions(): Placement[] {
+    this.sync();
+
+    return [...this.registry.values()].map(({ id, region }) => ({ id, region }));
+  }
+
+  available(id: string): boolean {
+    // Menu layout discovery refreshes the registry once before formatting its labels.
+    return this.registry.get(id)?.available ?? false;
+  }
+
+  preview(layout: Layout, width: number): Record<Region, string[]> {
+    this.sync();
+    // Never render live native instances for the draft: even render() can update mouse geometry.
+    const snapshots = new Map<string, Contribution>();
+
+    for (const [id, source] of this.registry) {
+      if (!source.available) continue;
+      const lines = source.snapshot ?? [`[${compactDisplayText(id)}: preview after placement]`];
+      snapshots.set(id, { component: { render: () => lines, invalidate() {} } });
+    }
+
+    const separator = this.theme().fg("dim", " • ");
+
+    return {
+      aboveEditor: renderRows(layout.aboveEditor, snapshots, width, separator).lines,
+      belowEditor: renderRows(layout.belowEditor, snapshots, width, separator).lines,
+      footer: renderRows(layout.footer, snapshots, width, separator).lines
+    };
+  }
+
+  private sync(): void {
+    for (const source of this.registry.values()) source.available = false;
+
+    for (const region of ["aboveEditor", "belowEditor"] as const) {
+      const widgets =
+        region === "aboveEditor"
+          ? this.host.extensionWidgetsAbove
+          : this.host.extensionWidgetsBelow;
+
+      for (const [key, component] of widgets) {
+        const id = `widget:${key}`;
+        const previous = this.registry.get(id);
+        this.registry.set(id, {
+          id,
+          region,
+          component,
+          available: true,
+          ...(previous?.component === component && previous.snapshot
+            ? { snapshot: previous.snapshot }
+            : {})
+        });
+      }
+    }
+
+    for (const [id, value] of builtinText(
+      this.host.session,
+      this.host.footerDataProvider,
+      this.theme()
+    ))
+      this.setText(id, value);
+    for (const [key, value] of this.host.footerDataProvider.getExtensionStatuses())
+      this.setText(
+        `status:${key}`,
+        value
+          .replace(/[\r\n\t]/g, " ")
+          .replace(/ +/g, " ")
+          .trim()
+      );
+
+    // Remember unavailable identities, not disposed native components or their render state.
+    for (const source of this.registry.values()) {
+      if (source.available) continue;
+      source.component = textComponent("");
+      delete source.snapshot;
+    }
+  }
+
+  private setText(id: string, value: string): void {
+    this.registry.set(id, {
+      id,
+      region: "footer",
+      component: textComponent(value),
+      snapshot: [value],
+      available: true
+    });
+  }
+
+  private bindRenderer(): void {
+    // host.ui is Pi's forwarding proxy: defining a property there does NOT wrap its methods.
+    if (this.renderer === this.host.renderer) return;
+    this.rendererHooks.restore();
+    this.renderer = this.host.renderer;
+    this.cache = undefined;
+    const renderer = this.renderer;
+    const request = renderer.requestRender.bind(renderer);
+    this.rendererHooks.replace(renderer, "requestRender", (...args) => {
+      if (this.active) this.cache = undefined;
+      request(...args);
+    });
+  }
+
+  private mount(): void {
+    for (const region of ["aboveEditor", "belowEditor"] as const) {
+      const container =
+        region === "aboveEditor" ? this.host.widgetContainerAbove : this.host.widgetContainerBelow;
+      container.clear();
+      container.addChild(this.components[region]);
+    }
+  }
+
+  private render(width: number): Record<Region, Rendered> {
+    if (width < 1)
+      return {
+        aboveEditor: { lines: [], cells: [] },
+        belowEditor: { lines: [], cells: [] },
+        footer: { lines: [], cells: [] }
+      };
+    const height = this.host.ui.terminal.rows;
+    if (this.cache?.width === width && this.cache.height === height) return this.cache.rendered;
+    this.sync();
+    const layout = resolveLayout(this.saved, [...this.registry.values()]);
+    const sources = new Map([...this.registry].filter(([, source]) => source.available));
+    const separator = this.theme().fg("dim", " • ");
+    const rendered = {
+      aboveEditor: renderRows(layout.aboveEditor, sources, width, separator),
+      belowEditor: renderRows(layout.belowEditor, sources, width, separator),
+      footer: renderRows(layout.footer, sources, width, separator)
+    };
+    const editorHeight = Math.max(3, this.host.editorContainer.render(width).length);
+    const otherHeight =
+      this.host.statusContainer.render(width).length +
+      this.host.pendingMessagesContainer.render(width).length;
+    let remaining = Math.max(0, height - editorHeight - otherHeight - 1);
+    const ordered = [...regions].sort(
+      (a, b) => rendered[a].lines.length - rendered[b].lines.length
+    );
+
+    ordered.forEach((region, index) => {
+      const budget = Math.min(
+        rendered[region].lines.length,
+        Math.floor(remaining / (ordered.length - index))
+      );
+      rendered[region] = clip(rendered[region], budget, width);
+      remaining -= budget;
+    });
+    this.cache = { width, height, rendered };
+
+    return rendered;
+  }
+
+  private regionComponent(region: Region): Component {
+    return {
+      render: (width) => (this.active ? this.render(width)[region].lines : []),
+      invalidate: () => {
+        this.cache = undefined;
+        for (const source of this.registry.values())
+          if (source.available && source.id.startsWith("widget:")) source.component.invalidate();
+      },
+      handleMouse: (event) => this.mouse(region, event)
+    };
+  }
+
+  private mouse(region: Region, event: TuiMouseEvent): TuiMouseEventResult | undefined {
+    if (!this.active) return undefined;
+    const cells = this.cache?.rendered[region].cells ?? [];
+    const cell = cells.find(
+      ({ x, y, width, height }) =>
+        event.x >= x && event.x < x + width && event.y >= y && event.y < y + height
+    );
+    if (!cell) return undefined;
+    const result = cell.component.handleMouse?.({
+      ...event,
+      x: event.x - cell.x,
+      y: event.y - cell.y,
+      width: cell.width,
+      height: cell.height
+    });
+    if (!result || "target" in result || (!result.handled && !result.capture && !result.focus))
+      return result;
+    // Pi 0.87.1's container dispatch contract retains the native target for drag capture and focus.
+    const forwarded = {
+      ...result,
+      handled: true,
+      ...(result.focus ? { focusTarget: cell.component } : {}),
+      target: {
+        component: cell.component,
+        originX: event.screenX - event.x + cell.x,
+        originY: event.screenY - event.y + cell.y,
+        width: cell.width,
+        height: cell.height
+      }
+    };
+
+    return forwarded;
+  }
+
+  dispose(): void {
+    if (!this.active) return;
+    this.active = false;
+    this.unsubscribe?.();
+    this.hooks.restore();
+    this.rendererHooks.restore();
+    if (this.host.customFooter === this.components.footer)
+      this.nativeFooter.call(this.host, undefined);
+
+    // Do not dispose borrowed contributions. Native maps still own replacement/removal/shutdown.
+    for (const region of ["aboveEditor", "belowEditor"] as const) {
+      const container =
+        region === "aboveEditor" ? this.host.widgetContainerAbove : this.host.widgetContainerBelow;
+
+      if (container.children.includes(this.components[region])) {
+        container.clear();
+        const widgets =
+          region === "aboveEditor"
+            ? this.host.extensionWidgetsAbove
+            : this.host.extensionWidgetsBelow;
+        for (const component of widgets.values()) container.addChild(component);
+      }
+    }
+
+    this.registry.clear();
+    this.cache = undefined;
+    this.host.ui.requestRender();
+  }
+}

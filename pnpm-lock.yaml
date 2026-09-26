@@ -257,6 +257,21 @@ importers:
         specifier: 'catalog:'
         version: 4.6.5
 
+  packages/extensions/pi-editor-widgets:
+    dependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: '*'
+        version: 0.87.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
+      '@earendil-works/pi-tui':
+        specifier: '*'
+        version: 0.87.1
+      '@pi-mono/libs':
+        specifier: workspace:*
+        version: link:../../libs
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
+
   packages/extensions/pi-fff-guard:
     dependencies:
       '@pi-mono/libs':

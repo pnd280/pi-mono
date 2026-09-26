@@ -1,10 +1,11 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { expect, it, vi } from "vite-plus/test";
 
+import { settingsSaveFeedback } from "../settings-menu/index.ts";
 import { OrderSettingsView, type OrderSettingsOptions } from "./index.ts";
 
 function fixture(overrides: Partial<OrderSettingsOptions> = {}) {
-  const save = vi.fn(() => "Saved and applied.");
+  const save = vi.fn(() => settingsSaveFeedback(false));
   const close = vi.fn();
   const options = {
     title: "Working message",
@@ -41,6 +42,32 @@ function fixture(overrides: Partial<OrderSettingsOptions> = {}) {
   return { view, save, close, output: () => view.render(100).join("\n") };
 }
 
+it("keeps the selected target, failed save and retry controls visible at 40x10", () => {
+  const { view, save } = fixture({ rows: () => 10 });
+  view.handleInput("\x1b[1;2B");
+  save.mockImplementationOnce(() => {
+    throw new Error("Check access, JSON, size and locks.");
+  });
+  view.handleInput("\x13");
+  const lines = view.render(40);
+  const output = lines.join("\n");
+  expect(output).toContain("Activity [todo]");
+  expect(output).toContain("Save failed. Draft retained.");
+  expect(output).toContain("Ctrl+S save");
+  expect(output).toContain("Esc close");
+  expect(lines.length).toBeLessThanOrEqual(8);
+  expect(lines.every((line) => visibleWidth(line) <= 40)).toBe(true);
+});
+
+it("stops selection at boundaries and does not hide save feedback on a no-op move", () => {
+  const { view, output } = fixture();
+  view.handleInput("\x1b[A");
+  expect(output()).toContain("→ Activity [todo]");
+  view.handleInput("\x13");
+  view.handleInput("\x1b[1;2A");
+  expect(output()).toContain("Saved and applied.");
+});
+
 it("does not save a reordered draft before or after close", () => {
   const { view, save, close } = fixture();
   view.handleInput("\x1b[1;2B");
@@ -68,14 +95,14 @@ it("marks unset scopes until their own save succeeds, even without reordering", 
   view.handleInput("\x1b[B"); // Keep the selected item when the inherited order changes.
   view.handleInput("\t");
   view.handleInput("\x1b[1;2B");
-  expect(output()).toContain("global (not set)");
+  expect(output()).toContain("global* (not set)");
   expect(output()).toContain("Unsaved changes");
   save.mockImplementationOnce(() => {
     throw new Error("Cannot save: locked");
   });
   view.handleInput("\x13");
   expect(output()).toContain("Cannot save: locked");
-  expect(output()).toContain("global (not set)");
+  expect(output()).toContain("global* (not set)");
   view.handleInput("\t");
   expect(output().indexOf("Activity [todo]")).toBeLessThan(output().indexOf("Status [other]"));
   view.handleInput("\t");
@@ -130,7 +157,7 @@ it("preserves an unset scope's edits when its inherited order changes", () => {
   view.handleInput("\x1b[1;2B"); // Global draft: missing, b, a.
   view.handleInput("\x13");
   view.handleInput("\t");
-  expect(output()).toContain("project (not set)");
+  expect(output()).toContain("project* (not set)");
   expect(output()).toContain("Unsaved changes");
   expect(output()).toContain("→ Activity [todo]");
   view.handleInput("\x13");
@@ -210,8 +237,8 @@ it("saves only the selected scope and retains drafts and error state on failed s
   view.handleInput("\x1b[1;2B");
   view.handleInput("\t");
   expect(output()).toContain("  Working message");
-  expect(output()).toContain("  Scope: global | project");
-  expect(output()).toContain("Settings file  /project/.pi/settings.json");
+  expect(output()).toContain("Scope: global* | project");
+  expect(output()).toContain("Settings: /project/.pi/settings.json");
   expect(output()).toContain("Unsaved draft in other scope");
   view.handleInput("\x1b[1;2B");
   save.mockImplementationOnce(() => {
@@ -257,7 +284,7 @@ it("bounds rows and widths, scrolls to selection, and refreshes text without los
     items: [],
     rows: () => 24
   });
-  many.view.handleInput("\x1b[A");
+  for (let index = 0; index < 29; index++) many.view.handleInput("\x1b[B");
   expect(many.output()).toContain("entry-29");
   expect(many.view.render(80).length).toBeLessThanOrEqual(22);
 
@@ -272,10 +299,9 @@ it("bounds rows and widths, scrolls to selection, and refreshes text without los
   const compactLines = compact.view.render(40);
   const compactOutput = compactLines.join("\n");
   expect(compactOutput).toContain("  Working message");
-  expect(compactLines[2]?.trim()).toBe("");
-  expect(compactOutput).toContain("  Scope: global | project");
+  expect(compactOutput).toContain("Scope: global | project");
   expect(compactOutput).toContain("Activity [todo]");
   expect(compactOutput).not.toContain("Working message · global");
-  expect(compactOutput).not.toContain("Settings file");
+  expect(compactOutput).not.toContain("Settings:");
   expect(compact.view.render(40).length).toBeLessThanOrEqual(8);
 });

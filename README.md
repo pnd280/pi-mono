@@ -30,6 +30,7 @@ Repeat `-e` for additional extensions. To persist the selection, use Pi's [local
 - [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): private prompt history and saved drafts, scoped to the working directory.
 - [pi-skills](packages/extensions/pi-skills/README.md): skill file references instead of injected content, with native completion anywhere in the prompt.
 - [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks with progress widget and task browser.
+- [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md): arrange native widgets, statuses, and footer information through `/widgets`.
 - [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): live elapsed runtime, bash-call counts, and file-change summaries kept outside model context.
 - [pi-session-utils](packages/extensions/pi-session-utils/README.md): persist ephemeral sessions, create empty parent-linked sub-sessions, and optionally generate session names with `/sesh`; use `--parent-session` to start a linked child from the CLI.
 - [pi-smart-compact](packages/extensions/pi-smart-compact/README.md): model-callable native compaction with focused summaries and task continuation.

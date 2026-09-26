@@ -107,7 +107,7 @@ it("keeps the working-message ordering menu opted out through shared mounting", 
         theme,
         rows: () => tui.terminal.rows,
         requestRender: () => tui.requestRender(),
-        save: () => "Saved",
+        save: () => ({ severity: "success", summary: "Saved and applied." }),
         close
       })
   });

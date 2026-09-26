@@ -68,13 +68,13 @@ it("merges saves with fresh settings without touching unrelated fields or the ot
   store.load();
   write("global", {
     theme: "light",
-    workingMessage: { order: ["unavailable", "a"], future: true },
+    workingMessage: { ["__proto__"]: "kept", order: ["unavailable", "a"], future: true },
     nested: { preserved: 2 }
   });
   store.save("global", ["a", "unavailable"]);
   expect(JSON.parse(readFileSync(store.paths.global, "utf8"))).toEqual({
     theme: "light",
-    workingMessage: { order: ["a", "unavailable"], future: true },
+    workingMessage: { ["__proto__"]: "kept", order: ["a", "unavailable"], future: true },
     nested: { preserved: 2 }
   });
   const before = readFileSync(store.paths.global, "utf8");
@@ -89,7 +89,7 @@ it("refuses oversized settings without overwriting unrelated fields", () => {
   const before = readFileSync(store.paths.global);
 
   expect(store.load()).toMatchObject({ global: undefined, warnings: [expect.any(String)] });
-  expect(() => store.save("global", ["b"])).toThrow("Cannot save");
+  expect(() => store.save("global", ["b"])).toThrow("Check access");
   expect(readFileSync(store.paths.global)).toEqual(before);
 });
 
@@ -99,7 +99,7 @@ it("does not save settings that would exceed the readable size after formatting"
   const before = readFileSync(store.paths.global);
   expect(before.byteLength).toBeLessThanOrEqual(1024 * 1024);
 
-  expect(() => store.save("global", ["a"])).toThrow("Cannot save");
+  expect(() => store.save("global", ["a"])).toThrow("Check access");
   expect(readFileSync(store.paths.global)).toEqual(before);
 });
 
@@ -117,7 +117,7 @@ it("preserves settings symlinks and refuses to replace a dangling link", () => {
     workingMessage: { order: ["a"] }
   });
   rmSync(target);
-  expect(() => store.save("global", ["b"])).toThrow("Cannot save");
+  expect(() => store.save("global", ["b"])).toThrow("Check access");
   expect(lstatSync(store.paths.global).isSymbolicLink()).toBe(true);
 });
 
@@ -136,22 +136,39 @@ it("sanitizes diagnostic paths without changing settings destinations", () => {
   expect(store.load().warnings).toEqual([
     expect.stringContaining("agent/settings.json. Check access")
   ]);
-  expect(() => store.save("global", ["a"])).toThrow("agent/settings.json. Check access");
+  write("global", { workingMessage: null });
+  expect(() => store.save("global", ["a"])).toThrow("File: " + path.replace("\x1b[2J\x07", ""));
   write("global", {});
   store.save("global", ["a"]);
   expect(store.paths.global).toBe(path);
   expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ workingMessage: { order: ["a"] } });
 });
 
-it("reports malformed settings and lock failures without overwriting the file", () => {
+it("replaces an invalid owned order while preserving unrelated fields", () => {
+  const { store, write } = fixture();
+  write("project", { theme: "dark", workingMessage: { order: 123, future: true } });
+  expect(store.load().warnings).toHaveLength(1);
+  store.save("project", ["b"]);
+  expect(JSON.parse(readFileSync(store.paths.project, "utf8"))).toEqual({
+    theme: "dark",
+    workingMessage: { order: ["b"], future: true }
+  });
+  expect(store.load().warnings).toEqual([]);
+});
+
+it.each([null, [], "invalid"])("rejects a malformed section without repairing it", (section) => {
+  const { store, write } = fixture();
+  write("project", { workingMessage: section });
+  const before = readFileSync(store.paths.project, "utf8");
+  expect(store.load().warnings).toHaveLength(1);
+  expect(() => store.save("project", ["b"])).toThrow("Check access");
+  expect(readFileSync(store.paths.project, "utf8")).toBe(before);
+});
+
+it("reports malformed files and lock failures without overwriting the file", () => {
   const { store, write } = fixture();
   write("global", { workingMessage: { order: ["a"] } });
-  write("project", { workingMessage: { order: 123 } });
-  expect(store.load()).toMatchObject({ global: ["a"], project: undefined });
-  expect(store.load().warnings).toHaveLength(1);
-  const before = readFileSync(store.paths.project, "utf8");
-  expect(() => store.save("project", ["b"])).toThrow("Cannot save");
-  expect(readFileSync(store.paths.project, "utf8")).toBe(before);
+  write("project", {});
   const unlock = lockSync(store.paths.global, { realpath: false });
 
   try {
@@ -162,6 +179,6 @@ it("reports malformed settings and lock failures without overwriting the file", 
   }
 
   writeFileSync(store.paths.project, "{broken");
-  expect(() => store.save("project", ["b"])).toThrow("Cannot save");
+  expect(() => store.save("project", ["b"])).toThrow("Check access");
   expect(readFileSync(store.paths.project, "utf8")).toBe("{broken");
 });

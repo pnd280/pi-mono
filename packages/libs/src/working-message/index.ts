@@ -9,6 +9,7 @@ import {
   OrderSettingsView,
   type OrderSettingsScope
 } from "../tui/components/order-settings/index.ts";
+import { settingsSaveFeedback } from "../tui/components/settings-menu/index.ts";
 import { openResponsiveCustomUI } from "../tui/responsive-custom-ui/index.ts";
 import {
   WorkingMessageCoordinator,
@@ -84,28 +85,16 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
     settings = undefined;
   });
   pi.registerCommand("working-message", {
-    description: "Inspect and reorder working-message components (global or project)",
-    getArgumentCompletions: (prefix) =>
-      ["global", "project"]
-        .filter((value) => value.startsWith(prefix))
-        .map((value) => ({ value, label: value })),
+    description: "Inspect and reorder working-message components",
     handler: async (args, ctx) => {
-      const scope = args.trim();
-
       if (ctx.mode !== "tui") {
         ctx.ui.notify("/working-message requires interactive TUI mode.", "error");
 
         return;
       }
 
-      if (scope && scope !== "global" && scope !== "project") {
-        ctx.ui.notify("Usage: /working-message [global|project]", "error");
-
-        return;
-      }
-
-      if (scope === "project" && !projectTrusted) {
-        ctx.ui.notify("Trust this project before editing project settings.", "error");
+      if (args.trim()) {
+        ctx.ui.notify("Usage: /working-message", "error");
 
         return;
       }
@@ -120,8 +109,7 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
           label: "global",
           destination: store.paths.global,
           isSet: preferences.global !== undefined,
-          order: completeOrder(preferences.global ?? [], ids),
-          ...(projectTrusted ? { inheritFrom: "project" } : {})
+          order: completeOrder(preferences.global ?? [], ids)
         }
       ];
       if (projectTrusted)
@@ -154,7 +142,8 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
               title: "Working message",
               items: items(),
               scopes,
-              initialScope: scope || (preferences.project ? "project" : "global"),
+              initialScope: preferences.project ? "project" : "global",
+              warnings: preferences.warnings,
               theme,
               rows: () => tui.terminal.rows,
               requestRender: () => tui.requestRender(),
@@ -167,9 +156,10 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
                 const saved = store.load();
                 coordinator.setOrder(saved.project ?? saved.global ?? []);
 
-                return destination === "global" && saved.project
-                  ? "Saved globally; the project override remains active."
-                  : "Saved and applied.";
+                return settingsSaveFeedback(
+                  destination === "global" && saved.project !== undefined,
+                  saved.warnings
+                );
               }
             });
             stopUpdates = coordinator.subscribe(() => view.updateItems(items()));

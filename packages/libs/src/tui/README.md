@@ -12,6 +12,7 @@ Import TUI APIs through `@pi-mono/libs/tui/*`.
 | [Browser host](open-browser/README.md)                   | Mount a browser and apply effects after final closure                    |
 | [Responsive custom UI](responsive-custom-ui/README.md)   | Preserve a logical component across inline and overlay remounts          |
 | [Order settings](components/order-settings/README.md)    | Independent ordering drafts with save and cancel controls                |
+| [Settings menu](components/settings-menu/README.md)      | Shared scoped settings frame, dirty state, feedback, and controls        |
 | [Windowed list](components/windowed-list/README.md)      | Visible item window with caller-controlled selection                     |
 | [Text preview](components/text-preview/README.md)        | Cached preview viewport and overflow borders                             |
 | [Hint footer](components/hint-footer/README.md)          | Width-aware hints and feedback                                           |
