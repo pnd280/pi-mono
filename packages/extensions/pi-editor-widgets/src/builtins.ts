@@ -3,7 +3,8 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import type {
   AgentSession,
   ReadonlyFooterDataProvider,
-  Theme
+  Theme,
+  ThemeColor
 } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
@@ -58,21 +59,45 @@ function tokens(session: AgentSession): string {
   return parts.join(" ");
 }
 
-function context(session: AgentSession, theme: Theme): string {
+/** A token threshold splits usage into thirds; otherwise percentages of the window apply. */
+function contextColor(
+  tokens: number | null | undefined,
+  percent: number | null | undefined,
+  threshold: number | undefined
+): ThemeColor {
+  if (threshold !== undefined) {
+    if (tokens == null) return "dim";
+    if (tokens >= threshold) return "error";
+    if (tokens >= (threshold * 2) / 3) return "warning";
+    if (tokens >= threshold / 3) return "success";
+
+    return "dim";
+  }
+
+  if (percent != null && percent > 90) return "error";
+  if (percent != null && percent > 70) return "warning";
+
+  return "dim";
+}
+
+function context(session: AgentSession, theme: Theme, threshold: number | undefined): string {
   const usage = session.getContextUsage();
+  const tokens = usage?.tokens;
   const percent = usage?.percent;
   const window = usage?.contextWindow ?? session.model?.contextWindow;
-  const text = `${percent == null ? "?" : `${percent.toFixed(1)}%`}/${window === undefined ? "?" : formatTokens(window)}${session.autoCompactionEnabled ? " (auto)" : ""}`;
-  if (percent != null && percent > 90) return theme.fg("error", text);
-  if (percent != null && percent > 70) return theme.fg("warning", text);
+  const used = tokens == null ? "?" : formatTokens(tokens);
+  const total = window === undefined ? "?" : formatTokens(window);
+  const share = percent == null ? "" : ` (${percent.toFixed(1)}%)`;
+  const auto = session.autoCompactionEnabled ? " (auto)" : "";
 
-  return theme.fg("dim", text);
+  return theme.fg(contextColor(tokens, percent, threshold), `${used}/${total}${share}${auto}`);
 }
 
 export function builtinText(
   session: AgentSession,
   footer: ReadonlyFooterDataProvider,
-  theme: Theme
+  theme: Theme,
+  contextThreshold?: number
 ): Map<string, string> {
   const model = session.model;
   let modelText = "no-model";
@@ -87,7 +112,7 @@ export function builtinText(
       theme.fg("dim", compactDisplayText(session.sessionManager.getSessionName() ?? ""))
     ],
     ["builtin:tokens", theme.fg("dim", tokens(session))],
-    ["builtin:context", context(session, theme)],
+    ["builtin:context", context(session, theme, contextThreshold)],
     ["builtin:model", theme.fg("dim", compactDisplayText(modelText))]
   ]);
 }

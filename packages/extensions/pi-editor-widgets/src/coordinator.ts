@@ -38,6 +38,7 @@ export class WidgetCoordinator {
     | undefined;
   private saved: Layout | undefined;
   private draft: Layout | undefined;
+  private contextThreshold: number | undefined;
   private active = true;
   private readonly nativeFooter: WidgetHost["setExtensionFooter"];
   private unsubscribe: (() => void) | undefined;
@@ -101,8 +102,9 @@ export class WidgetCoordinator {
     return this.active;
   }
 
-  apply(layout: Layout | undefined): void {
+  apply(layout: Layout | undefined, contextThreshold?: number): void {
     this.saved = layout === undefined ? undefined : structuredClone(layout);
+    this.contextThreshold = contextThreshold;
     this.host.ui.requestRender();
   }
 
@@ -152,7 +154,8 @@ export class WidgetCoordinator {
     for (const [id, value] of builtinText(
       this.host.session,
       this.host.footerDataProvider,
-      this.theme()
+      this.theme(),
+      this.contextThreshold
     ))
       this.setText(id, value);
     for (const [key, value] of this.host.footerDataProvider.getExtensionStatuses())

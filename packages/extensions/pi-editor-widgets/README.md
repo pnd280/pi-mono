@@ -32,7 +32,7 @@ By default, native above/below widgets each occupy their own row. The footer con
 
 ```text
 cwd • git branch • session title
-tokens • context usage (auto)                  provider/model:thinking
+tokens • used/window (percent) (auto)          provider/model:thinking
 extension status • extension status …
 ```
 
@@ -42,7 +42,7 @@ Shared rows compact surplus plain trailing padding while preserving leading inde
 
 ## Configuration
 
-Use the literal `ext.pi-editor-widgets` key in `getAgentDir()/settings.json` (normally `~/.pi/agent/settings.json`, respecting `PI_CODING_AGENT_DIR`) or the current directory's trusted `.pi/settings.json`. No ancestor search.
+Use the literal `ext.pi-editor-widgets` key in `getAgentDir()/settings.json` (normally `~/.pi/agent/settings.json`, respecting `PI_CODING_AGENT_DIR`) or the current directory's trusted `.pi/settings.json`. No ancestor search. Preferences load on session start/reload and refresh when `/widgets` opens; no save is needed.
 
 ```json
 {
@@ -55,14 +55,30 @@ Use the literal `ext.pi-editor-widgets` key in `getAgentDir()/settings.json` (no
         ["builtin:tokens", "separator", "builtin:context", "flex", "builtin:model"]
       ],
       "hidden": ["builtin:session-title"]
-    }
+    },
+    "contextThreshold": 150000
   }
 }
 ```
 
 A project layout replaces the **entire** global layout; otherwise global settings or extension defaults apply. Empty regions do not hide unlisted or future registrations. New native widgets use their requested region; new statuses join a trailing footer row. Intentional suppression requires a hidden ID.
 
-IDs are `widget:<native-key>`, `status:<native-key>`, and the six built-ins shown above. An ID may appear in several rows, at most once per row; hidden IDs must be unique and must not also be placed. Each row allows at most one `flex`. Unknown IDs are retained. Invalid layouts warn and fall back as a unit. Settings use the workspace's 1 MiB file limit; there are no size, priority, style, or overflow options. Preferences load on session start/reload and refresh when the menu opens.
+IDs are `widget:<native-key>`, `status:<native-key>`, and the six built-ins shown above. An ID may appear in several rows, at most once per row; hidden IDs must be unique and must not also be placed. Each row allows at most one `flex`. Unknown IDs are retained. Invalid layouts warn and fall back as a unit. Settings use the workspace's 1 MiB file limit; there are no per-widget size, priority, style, or overflow options.
+
+### Context usage
+
+The context built-in shows used tokens, the context window, and the percentage, for example `95k/200k (47.5%)`. Unknown usage, such as right after compaction, shows `?/200k` without a percentage and stays dim. `(auto)` indicates that automatic compaction is enabled.
+
+Without `contextThreshold`, the color is dim up to 70% of the window, warning above 70%, and error above 90%. Set `contextThreshold` to a positive integer token count to use these bands instead:
+
+| Used tokens                            | Theme color |
+| -------------------------------------- | ----------- |
+| Below one third of the threshold       | `dim`       |
+| From one third to below two thirds     | `success`   |
+| From two thirds to below the threshold | `warning`   |
+| At or above the threshold              | `error`     |
+
+The threshold resolves independently of the layout: a trusted project value overrides the global one. An invalid value warns and falls back to the next scope, then to percentage-based colors if neither scope provides a valid threshold. `/widgets` saves preserve this setting; edit it only in `settings.json`.
 
 ## Side effects
 

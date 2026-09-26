@@ -25,7 +25,7 @@ function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>) {
   const close = vi.fn();
   const requestRender = vi.fn();
   const apply = vi.fn((preferences: Preferences) =>
-    coordinator.apply(preferences.project ?? preferences.global)
+    coordinator.apply(preferences.project ?? preferences.global, preferences.contextThreshold)
   );
   const menu = new WidgetMenu({
     settings,

@@ -91,13 +91,19 @@ it("reports context usage, keeps post-compaction context unknown and uses runtim
     session.agent.state.model = model;
     session.setAutoCompactionEnabled(false);
 
-    for (const input of [750, 950]) {
+    for (const [input, text] of [
+      [750, "750/1.0k (75.0%)"],
+      [950, "950/1.0k (95.0%)"]
+    ] as const) {
       const message = createFixtureMessage(model, input);
       message.usage = { ...zeroUsage(), input, totalTokens: input };
       session.sessionManager.appendMessage(message);
-      expect(stripTerminalSequences(read() ?? "")).toBe(`${(input / 10).toFixed(1)}%/1.0k`);
+      expect(stripTerminalSequences(read() ?? "")).toBe(text);
     }
 
+    session.setAutoCompactionEnabled(true);
+    expect(stripTerminalSequences(read() ?? "")).toBe("950/1.0k (95.0%) (auto)");
+    session.setAutoCompactionEnabled(false);
     session.sessionManager.appendCompaction("summary", null, 950);
     expect(stripTerminalSequences(read() ?? "")).toBe("?/1.0k");
     session.setAutoCompactionEnabled(true);
@@ -110,6 +116,61 @@ it("reports context usage, keeps post-compaction context unknown and uses runtim
       )
     ).toBe("no-model");
     noModel.mockRestore();
+
+    session.agent.state.model = { ...model, contextWindow: 200000 };
+    const recovered = createFixtureMessage(model, 1000);
+    recovered.usage = { ...zeroUsage(), input: 95000, totalTokens: 95000 };
+    session.sessionManager.appendMessage(recovered);
+    expect(stripTerminalSequences(read() ?? "")).toBe("95k/200k (47.5%) (auto)");
+  } finally {
+    await fixture.dispose();
+  }
+});
+
+it("colours context usage by window percentage, or by thirds of a configured token threshold", async () => {
+  const fixture = await hostFixture();
+  const { session, host, ui } = fixture;
+  const read = (threshold?: number) =>
+    builtinText(session, host.footerDataProvider, ui.theme, threshold).get("builtin:context");
+
+  const setUsage = (input: number) => {
+    const message = createFixtureMessage(model, input);
+    message.usage = { ...zeroUsage(), input, totalTokens: input };
+    session.sessionManager.appendMessage(message);
+  };
+
+  try {
+    session.agent.state.model = model;
+    session.setAutoCompactionEnabled(false);
+
+    expect(read(300)).toBe(ui.theme.fg("dim", "0/1.0k (0.0%)"));
+
+    for (const [input, color, text] of [
+      [700, "dim", "700/1.0k (70.0%)"],
+      [701, "warning", "701/1.0k (70.1%)"],
+      [900, "warning", "900/1.0k (90.0%)"],
+      [901, "error", "901/1.0k (90.1%)"]
+    ] as const) {
+      setUsage(input);
+      expect(read()).toBe(ui.theme.fg(color, text));
+    }
+
+    // Threshold 300 splits at 100 / 200 / 300, each cut point starting the next band.
+    for (const [input, color, text] of [
+      [99, "dim", "99/1.0k (9.9%)"],
+      [100, "success", "100/1.0k (10.0%)"],
+      [199, "success", "199/1.0k (19.9%)"],
+      [200, "warning", "200/1.0k (20.0%)"],
+      [299, "warning", "299/1.0k (29.9%)"],
+      [300, "error", "300/1.0k (30.0%)"],
+      [950, "error", "950/1.0k (95.0%)"]
+    ] as const) {
+      setUsage(input);
+      expect(read(300)).toBe(ui.theme.fg(color, text));
+    }
+
+    session.sessionManager.appendCompaction("summary", null, 950);
+    expect(read(300)).toBe(ui.theme.fg("dim", "?/1.0k"));
   } finally {
     await fixture.dispose();
   }

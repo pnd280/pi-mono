@@ -12,11 +12,17 @@ import { z } from "zod";
 import { layoutSchema, type Layout } from "./layout.ts";
 
 const key = "ext.pi-editor-widgets";
-const sectionSchema = z.object({ layout: layoutSchema.optional() }).passthrough();
+const thresholdSchema = z.number().int().positive();
 
 export type Scope = "global" | "project";
 
-export type Preferences = Record<Scope, Layout | undefined> & { warnings: string[] };
+export type Preferences = Record<Scope, Layout | undefined> & {
+  /** Context token budget resolved per field: project value, then global. */
+  contextThreshold?: number;
+  warnings: string[];
+};
+
+type ScopePreferences = { layout?: Layout | undefined; contextThreshold?: number | undefined };
 
 export class WidgetSettings {
   readonly paths: Record<Scope, string>;
@@ -31,23 +37,52 @@ export class WidgetSettings {
   load(): Preferences {
     const warnings: string[] = [];
 
-    const loadScope = (scope: Scope): Layout | undefined => {
+    const loadScope = (scope: Scope): ScopePreferences => {
+      const path = compactDisplayText(this.paths[scope]);
+      const invalid = () =>
+        warnings.push(
+          `pi-editor-widgets: invalid or unreadable settings at ${path}. Check JSON, per-row and hidden ID uniqueness, hidden/placed overlap, one flex per row, and the 1 MiB limit. Falling back to the next scope.`
+        );
+      let section: unknown;
+
       try {
         const record = readSettingsRecord(this.paths[scope]);
-
-        return sectionSchema.parse(record[key] === undefined ? {} : record[key]).layout;
+        section = record[key] === undefined ? {} : record[key];
       } catch {
+        invalid();
+
+        return {};
+      }
+
+      if (!isSettingsRecord(section)) {
+        invalid();
+
+        return {};
+      }
+
+      // Preferences fall back independently: an invalid threshold keeps a valid layout.
+      const layout = layoutSchema.optional().safeParse(section.layout);
+      if (!layout.success) invalid();
+      const threshold = thresholdSchema.optional().safeParse(section.contextThreshold);
+      if (!threshold.success)
         warnings.push(
-          `pi-editor-widgets: invalid or unreadable settings at ${compactDisplayText(this.paths[scope])}. Check JSON, per-row and hidden ID uniqueness, hidden/placed overlap, one flex per row, and the 1 MiB limit. Falling back to the next scope.`
+          `pi-editor-widgets: contextThreshold at ${path} must be a positive integer. Falling back to the next scope.`
         );
 
-        return undefined;
-      }
+      return {
+        layout: layout.success ? layout.data : undefined,
+        contextThreshold: threshold.success ? threshold.data : undefined
+      };
     };
 
+    const global = loadScope("global");
+    const project = this.options.projectTrusted ? loadScope("project") : {};
+    const contextThreshold = project.contextThreshold ?? global.contextThreshold;
+
     return {
-      global: loadScope("global"),
-      project: this.options.projectTrusted ? loadScope("project") : undefined,
+      global: global.layout,
+      project: project.layout,
+      ...(contextThreshold === undefined ? {} : { contextThreshold }),
       warnings
     };
   }

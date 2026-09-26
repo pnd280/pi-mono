@@ -47,6 +47,57 @@ it("uses whole-layout scope replacement, restores inheritance separately from de
   });
 });
 
+it("resolves contextThreshold per field, independently of the layout, and keeps it on save", () => {
+  const layout = defaultLayout();
+  write(settings.paths.global, { "ext.pi-editor-widgets": { contextThreshold: 150000 } });
+  write(settings.paths.project, { "ext.pi-editor-widgets": { layout } });
+  expect(settings.load()).toEqual({
+    global: undefined,
+    project: layout,
+    contextThreshold: 150000,
+    warnings: []
+  });
+  write(settings.paths.project, { "ext.pi-editor-widgets": { layout, contextThreshold: 90000 } });
+  expect(settings.load().contextThreshold).toBe(90000);
+  settings.save("project", layout);
+  expect(JSON.parse(readFileSync(settings.paths.project, "utf8"))).toEqual({
+    "ext.pi-editor-widgets": { layout, contextThreshold: 90000 }
+  });
+  settings.save("project", undefined);
+  expect(JSON.parse(readFileSync(settings.paths.project, "utf8"))).toEqual({
+    "ext.pi-editor-widgets": { contextThreshold: 90000 }
+  });
+  const untrusted = new WidgetSettings({ ...settings.options, projectTrusted: false });
+  expect(untrusted.load().contextThreshold).toBe(150000);
+});
+
+it.each([0, -1, 1.5, "150000", null])(
+  "warns about invalid contextThreshold %j and falls back without dropping the layout",
+  (contextThreshold) => {
+    const layout = defaultLayout();
+    write(settings.paths.global, { "ext.pi-editor-widgets": { contextThreshold: 150000 } });
+    write(settings.paths.project, { "ext.pi-editor-widgets": { layout, contextThreshold } });
+    const loaded = settings.load();
+    expect(loaded.project).toEqual(layout);
+    expect(loaded.contextThreshold).toBe(150000);
+    expect(loaded.warnings).toEqual([expect.stringContaining("contextThreshold")]);
+  }
+);
+
+it("falls back to window percentages when neither scope has a valid threshold", () => {
+  const layout = defaultLayout();
+  write(settings.paths.global, { "ext.pi-editor-widgets": { layout, contextThreshold: 0 } });
+  write(settings.paths.project, { "ext.pi-editor-widgets": { contextThreshold: null } });
+  expect(settings.load()).toEqual({
+    global: layout,
+    project: undefined,
+    warnings: [
+      expect.stringContaining("contextThreshold"),
+      expect.stringContaining("contextThreshold")
+    ]
+  });
+});
+
 it("ignores untrusted project files and ancestors, and refuses project writes", () => {
   const untrusted = new WidgetSettings({ ...settings.options, projectTrusted: false });
   write(settings.paths.project, { "ext.pi-editor-widgets": { layout: defaultLayout() } });
@@ -59,16 +110,20 @@ it("ignores untrusted project files and ancestors, and refuses project writes", 
   expect(settings.load().project).toBeUndefined();
 });
 
-it("warns and falls back for invalid layouts, retaining unknown IDs in valid layouts", () => {
+it("falls back for invalid layouts, retaining unknown IDs and an independently valid threshold", () => {
   const global = defaultLayout();
   global.hidden = ["widget:not-installed"];
   settings.save("global", global);
   write(settings.paths.project, {
-    "ext.pi-editor-widgets": { layout: { ...global, hidden: ["builtin:cwd"] } }
+    "ext.pi-editor-widgets": {
+      layout: { ...global, hidden: ["builtin:cwd"] },
+      contextThreshold: 90000
+    }
   });
   const loaded = settings.load();
   expect(loaded.global).toEqual(global);
   expect(loaded.project).toBeUndefined();
+  expect(loaded.contextThreshold).toBe(90000);
   expect(loaded.warnings).toHaveLength(1);
   settings.save("project", defaultLayout());
   expect(settings.load().project).toEqual(defaultLayout());

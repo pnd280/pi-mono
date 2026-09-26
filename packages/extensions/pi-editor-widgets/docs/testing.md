@@ -19,6 +19,10 @@ Run `vpr 'pi-editor-widgets#check'` and `vpr 'pi-editor-widgets#test'` from the 
 | Trust, scope precedence, invalid files, unrelated fields and lock contention                             | [Settings](../src/settings.test.ts)                  |
 | Hiding, adding, copies, transfers, independent scopes, inherited navigation and reorder boundaries       | [Drafts](../src/drafts.test.ts)                      |
 
+Context coverage must distinguish zero usage, unavailable usage after compaction, and recovered usage from a later response. Check used/window token formatting, the percentage and runtime auto-compaction indicator, default percentage color boundaries, and each configured token-threshold band.
+
+Settings must resolve the threshold independently from the layout, ignore untrusted project values, recover invalid fields through the next scope, and preserve the threshold on layout saves. Opening `/widgets` must apply external threshold edits or removal without requiring a save or writing settings.
+
 Shared-row coverage must include Pi's native string-array widgets (`Container`/`Text`), not only unpadded text factories. Protect compact padding without losing content, painted/decorated/linked padding, shorter natural-width reflow even when row-group counts are equal, one bounded redistribution after empty or underfilled output, and nested mouse dispatch after reusing a full-width snapshot. Disappearing widgets must not be resurrected by recovery or fallback. Retain separator alignment on ragged lines, singleton padding and blank lines, flex alignment, and ANSI/wide-character width bounds. Rendering permits at most three calls per placement, not an unbounded search for optimal widths.
 
 Shared frame sizing, feedback, scope markers, sanitization, and controls are covered by [settings-menu tests](../../../libs/src/tui/components/settings-menu/index.test.ts), rather than repeated per consumer. Widget tests protect domain navigation, live draft previews, and integration with the shared frame.
@@ -39,5 +43,6 @@ Use workspace Pi with this extension and a native widget contributor such as `pi
 4. Hold a settings lock or use malformed JSON; failed saves must retain edits, keep the selected target and recovery visible, and allow Ctrl+S retry. Load/save warnings must not appear as unconditional success or duplicate notifications. Success clears after three seconds, actual edits, or scope changes; warnings and errors do not expire. Fixing and reopening clears load warnings.
 5. Exercise `/reload`, new/resumed sessions, and renderer switching. Verify cleanup, registration updates, editor availability, and native mouse interactions.
 6. Check both load orders with a separate custom-footer extension. Verify the conflict diagnostic, then disable the competing footer and reload to reacquire ownership.
+7. Using a session with known context usage, compare the [context color bands](../README.md#context-usage) in dark and light themes. Change or remove `contextThreshold` in settings, reopen `/widgets`, and close without saving. The new color must apply immediately and remain after closing, without rewriting settings.
 
 Automated renderer checks do not establish physical-terminal interaction behavior.

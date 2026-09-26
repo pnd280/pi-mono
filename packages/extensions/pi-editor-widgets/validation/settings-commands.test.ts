@@ -63,6 +63,53 @@ it("/widgets accepts no arguments and saves the global draft selected in the men
   }
 });
 
+it("/widgets refreshes the context threshold without saving and restores percentage colors when removed", async () => {
+  const fixture = await hostFixture([editorWidgets]);
+  const { session, host, ui } = fixture;
+  const path = join(fixture.agentDir, "settings.json");
+  mkdirSync(fixture.agentDir, { recursive: true });
+  writeFileSync(path, JSON.stringify({ "ext.pi-editor-widgets": { contextThreshold: 1500 } }));
+  const usage = vi.spyOn(session, "getContextUsage").mockReturnValue({
+    tokens: 750,
+    contextWindow: 1000,
+    percent: 75
+  });
+  let opening: Promise<void> | undefined;
+
+  try {
+    session.setAutoCompactionEnabled(false);
+    await fixture.bind();
+    const footer = () => host.customFooter?.render(80).join("\n");
+    expect(footer()).toContain(ui.theme.fg("success", "750/1.0k (75.0%)"));
+    const runner = session.extensionRunner;
+    const ctx = runner.createCommandContext();
+    const notify = vi.spyOn(ctx.ui, "notify");
+    const editor = host.editorContainer.children[0];
+
+    for (const [contextThreshold, color] of [
+      [300, "error"],
+      [undefined, "warning"]
+    ] as const) {
+      const source = JSON.stringify({ "ext.pi-editor-widgets": { contextThreshold } });
+      writeFileSync(path, source);
+      opening = runner.getCommand("widgets")?.handler("", ctx);
+      await vi.waitFor(() => expect(host.editorContainer.children[0]).not.toBe(editor));
+      expect(footer()).toContain(ui.theme.fg(color, "750/1.0k (75.0%)"));
+      host.editorContainer.children[0]?.handleInput?.("\x03");
+      await opening;
+      expect(footer()).toContain(ui.theme.fg(color, "750/1.0k (75.0%)"));
+      expect(readFileSync(path, "utf8")).toBe(source);
+    }
+
+    expect(notify).not.toHaveBeenCalled();
+  } finally {
+    host.editorContainer.children[0]?.handleInput?.("\x03");
+    await opening;
+    usage.mockRestore();
+    await fixture.dispose();
+  }
+});
+
 it.each(["regular", "fullscreen"] as const)(
   "restores the live layout when a mounted %s menu is cancelled by the host",
   async (mode) => {
