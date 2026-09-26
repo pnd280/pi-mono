@@ -25,6 +25,6 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "@earendil-works/pi-tui": "*"
+    "@earendil-works/pi-tui": "catalog:pi-host"
   }
 }

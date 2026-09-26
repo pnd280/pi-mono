@@ -65,9 +65,9 @@ To verify caching:
 
 ### Dependencies
 
-Keep shared development tooling and Pi host packages in root `devDependencies`; declare package-specific dependencies locally. Use `workspace:*` for local packages and `catalog:` for shared versions in [pnpm-workspace.yaml](../pnpm-workspace.yaml).
+Keep shared development tooling and Pi host packages in root `devDependencies`; declare package-specific dependencies locally. Use `workspace:*` for local packages and `catalog:` for all external dependency versions in [pnpm-workspace.yaml](../pnpm-workspace.yaml). Pi `peerDependencies` use `catalog:pi-host`, preserving the host-supplied `*` ranges separately from the root's development versions.
 
-Use `vp add`, `vp remove`, or `vp update`; include pnpm lockfile changes.
+Use `vp add --save-catalog`, `vp remove`, or `vp update`; include pnpm lockfile changes.
 
 Keep the direct `vite` alias for Vitest's pnpm peer dependency. `vite-plus` supplies `vitest` transitively; let it select the matching version instead of pinning or overriding Vitest separately. On Vite+ updates, align the `vite` alias and override with `vp toolchain`.
 

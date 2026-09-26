@@ -17,8 +17,8 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*"
+    "@earendil-works/pi-coding-agent": "catalog:pi-host",
+    "@earendil-works/pi-tui": "catalog:pi-host"
   },
   "pi": {
     "extensions": [

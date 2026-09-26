@@ -10,18 +10,22 @@
     "check": "vp fmt --check . && vp run lint",
     "test": "vp test"
   },
+  "dependencies": {
+    "proper-lockfile": "catalog:"
+  },
   "devDependencies": {
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
     "@earendil-works/pi-tui": "catalog:",
     "@stylistic/eslint-plugin": "catalog:",
     "@types/node": "catalog:",
-    "@types/proper-lockfile": "4.1.4",
+    "@types/proper-lockfile": "catalog:",
     "eslint-import-resolver-typescript": "catalog:",
     "eslint-plugin-boundaries": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plus": "1.0.0-rc.0"
+    "vite-plus": "catalog:",
+    "zod": "catalog:"
   },
-  "packageManager": "pnpm@12.5.1"
+  "packageManager": "pnpm@12.6.0"
 }

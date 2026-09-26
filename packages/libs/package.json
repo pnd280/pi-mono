@@ -52,13 +52,13 @@
   "dependencies": {
     "@git-diff-view/core": "catalog:",
     "@pi-mono/utils": "workspace:*",
-    "diff": "9.0.0",
-    "proper-lockfile": "4.1.2",
+    "diff": "catalog:",
+    "proper-lockfile": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*"
+    "@earendil-works/pi-ai": "catalog:pi-host",
+    "@earendil-works/pi-coding-agent": "catalog:pi-host",
+    "@earendil-works/pi-tui": "catalog:pi-host"
   }
 }
