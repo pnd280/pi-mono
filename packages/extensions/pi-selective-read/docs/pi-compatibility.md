@@ -5,6 +5,7 @@
 ## Contracts to verify
 
 - [ ] [Native delegation](../src/tool.ts): factory/schema, prompt metadata, execution arguments, cancellation, images, and original content/details; never reread files.
+- [ ] [Schema compatibility](testing.md#contracts): serialized parameters omit runtime metadata and unsupported integer bounds; execution still validates positive safe integers before file access.
 - [ ] [Results](../src/result.ts): independent read window and code-point selection, bounded preview, truncation/continuation notices excluded from source, and preview provenance accepted only for the exact all-text result shape with one trailing preview block.
 - [ ] [Rendering](../src/render.ts) and the [display adapter](../../pi-tool-display/src/adapters/pi-selective-read/README.md): preserve context and highlight selections without duplicating previews.
 
@@ -15,4 +16,4 @@
 
 ## Validation
 
-Use [package and appearance checks](../README.md#validation); also check `pi-tool-display` when changing shared arguments/results or renderer integration.
+Use [package and appearance checks](../README.md#validation); also check `pi-tool-display`, including its installed-CLI test, when changing tool schemas, shared arguments/results, or renderer integration.

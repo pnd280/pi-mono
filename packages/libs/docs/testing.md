@@ -4,6 +4,12 @@
 
 ## Contracts
 
+### Model-facing schemas
+
+- Project Zod input types into composable TypeBox schemas without exposing runtime metadata or integer bounds unsupported by providers. Preserve structural constraints, descriptions, optionality, nullable values, and declared string/array limits. Require a description wherever explicit integer bounds are omitted.
+- Keep original runtime schemas and metadata unchanged. Apply the profile to nested schemas supplied through metadata too. Reject unsupported keywords with their schema paths and reject recursive schemas rather than silently broadening them; do not mistake literal property names or `const`/`enum` values for schema keywords.
+- Consumer integration must still reject invalid domain inputs before side effects. Local schema checks do not replace live provider acceptance checks.
+
 ### Files, processes, and observation
 
 - Private files enforce ownership, reject unsafe links/types before permission/ACL repair, and bound reads. Directory aliases share storage scopes without permitting child paths to escape them.

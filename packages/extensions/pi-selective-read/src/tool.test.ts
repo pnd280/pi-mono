@@ -54,7 +54,7 @@ it("registers a read tool whose selections pass Pi's argument validator", () => 
         args
       );
 
-      for (const selection of [{ startLine: 0 }, { startLine: 2, extra: true }]) {
+      for (const selection of [{}, { startLine: 1.5 }, { startLine: 2, extra: true }]) {
         expect(() => {
           validateToolArguments(
             tool,
@@ -65,6 +65,31 @@ it("registers a read tool whose selections pass Pi's argument validator", () => 
     }
   });
   expect(registrations).toBe(1);
+});
+
+it("keeps runtime metadata and unsupported integer bounds out of the serialized tool schema", () => {
+  const { tool } = fixture();
+  const serialized = JSON.stringify(tool.parameters);
+  for (const keyword of ["~standard", "minimum", "maximum"])
+    expect(serialized).not.toContain(`"${keyword}"`);
+  const description: unknown = expect.any(String);
+  expect(JSON.parse(serialized)).toMatchObject({
+    type: "object",
+    required: ["path"],
+    properties: {
+      selection: {
+        type: "object",
+        required: ["startLine"],
+        additionalProperties: false,
+        properties: {
+          startLine: { type: "integer", description },
+          startColumn: { type: "integer", description },
+          endLine: { type: "integer", description },
+          endColumn: { type: "integer", description }
+        }
+      }
+    }
+  });
 });
 
 it("returns native results unchanged without a selection and forwards execution context", async () => {
@@ -93,8 +118,14 @@ it("adds a preview without changing native blocks or details and reads only once
 
 it("rejects invalid selections before reading, and preserves native errors and cancellation", async () => {
   const { run, execute, tool, readFile } = fixture();
-  await expect(run({ selection: { startLine: 5, endLine: 2 } })).rejects.toThrow();
+  for (const selection of [
+    { startLine: 0 },
+    { startLine: 1, endColumn: Number.MAX_SAFE_INTEGER + 1 },
+    { startLine: 5, endLine: 2 }
+  ])
+    await expect(run({ selection })).rejects.toThrow("Invalid read selection");
   expect(execute).not.toHaveBeenCalled();
+  expect(readFile).not.toHaveBeenCalled();
   await expect(
     tool.execute(
       "cancel",

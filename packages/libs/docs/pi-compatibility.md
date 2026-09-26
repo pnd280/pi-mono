@@ -4,6 +4,7 @@
 
 ## Contracts to verify
 
+- [ ] [Tool schemas](../src/tool-schema/README.md): Zod input projection, hidden-metadata exclusion after TypeBox composition, integer-bound removal, Pi argument validation, and supported-provider acceptance of the documented profile.
 - [ ] [Native tools](../src/native-tools/README.md) and [mutations](../src/file-mutations/README.md): API/CLI construction, provenance, middleware, queue ordering, borrowed data, shared capture, and conditional teardown.
 - [ ] [TUI](../src/tui/README.md): public exports, layout/keybindings, images, invalidation, responsive remounts, editor restoration, and disposal.
 - [ ] [Fullscreen routing](../src/tui/responsive-custom-ui/README.md#host-compatibility): an ordered `inputListeners` Set with callable entries, plus `getFocusedComponent()` and `getVisibleOverlayFocusRestore()` through the stable TUI proxy. Verify deferred installation, renderer rebinding, focus handoff, and listener-preserving teardown. Unsupported routing must report once per opening without closing the view.

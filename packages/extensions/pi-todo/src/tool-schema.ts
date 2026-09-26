@@ -1,4 +1,5 @@
-import { StringEnum, Type, type Static } from "@earendil-works/pi-ai";
+import { toToolSchema } from "@pi-mono/libs/tool-schema";
+import { z } from "zod";
 
 import {
   MAX_IN_PROGRESS_LABEL_LENGTH,
@@ -9,81 +10,66 @@ import {
 } from "./constants.ts";
 import { TASK_ACTIONS, TASK_STATUSES } from "./types.ts";
 
-export const TodoParamsSchema = Type.Object(
-  {
-    action: StringEnum(TASK_ACTIONS),
-    subject: Type.Optional(
-      Type.String({
-        description: "Todo subject line (required for create)",
-        maxLength: MAX_SUBJECT_LENGTH
-      })
-    ),
-    description: Type.Optional(
-      Type.String({ description: "Long-form todo description", maxLength: MAX_DESCRIPTION_LENGTH })
-    ),
-    inProgressLabel: Type.Optional(
-      Type.String({
-        description:
-          "Present-continuous activity label shown while status is in_progress (e.g. 'writing tests')",
-        maxLength: MAX_IN_PROGRESS_LABEL_LENGTH
-      })
-    ),
-    status: Type.Optional(
-      StringEnum(TASK_STATUSES, {
-        description: "Target status (update) or list filter (list)"
-      })
-    ),
-    parentId: Type.Optional(
-      Type.Unsafe<number | null>({
-        type: ["integer", "null"],
-        minimum: 1,
-        maximum: Number.MAX_SAFE_INTEGER,
-        description:
-          "Parent todo ID. On create, omit or use null for a root, or provide a live parent ID. On update, omit to keep the parent, provide an ID to reparent, or use null to detach."
-      })
-    ),
-    blockedBy: Type.Optional(
-      Type.Array(Type.Number(), {
-        description: "Initial blockedBy IDs (create only)",
-        maxItems: MAX_DEPENDENCIES
-      })
-    ),
-    addBlockedBy: Type.Optional(
-      Type.Array(Type.Number(), {
-        description: "Todo IDs to add to blockedBy (update only, additive merge)",
-        maxItems: MAX_DEPENDENCIES
-      })
-    ),
-    removeBlockedBy: Type.Optional(
-      Type.Array(Type.Number(), {
-        description: "Todo IDs to remove from blockedBy (update only, additive merge)",
-        maxItems: MAX_DEPENDENCIES
-      })
-    ),
-    owner: Type.Optional(
-      Type.String({
-        description: "Agent/owner assigned to this todo",
-        maxLength: MAX_OWNER_LENGTH
-      })
-    ),
-    metadata: Type.Optional(
-      Type.Record(Type.String(), Type.Unknown(), {
-        description: "Arbitrary metadata; pass null value for a key to delete that key on update"
-      })
-    ),
-    id: Type.Optional(
-      Type.Number({
-        description: "Todo ID (required for update, get, delete)"
-      })
-    ),
-    includeDeleted: Type.Optional(
-      Type.Boolean({
-        description:
-          "If true, list action returns deleted (tombstoned) todos as well. Default: false."
-      })
-    )
-  },
-  { additionalProperties: false }
+export const TodoParamsSchema = toToolSchema(
+  z.strictObject({
+    action: z.enum(TASK_ACTIONS),
+    subject: z
+      .string()
+      .max(MAX_SUBJECT_LENGTH)
+      .optional()
+      .describe("Todo subject line (required for create)"),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .optional()
+      .describe("Long-form todo description"),
+    inProgressLabel: z
+      .string()
+      .max(MAX_IN_PROGRESS_LABEL_LENGTH)
+      .optional()
+      .describe(
+        "Present-continuous activity label shown while status is in_progress (e.g. 'writing tests')"
+      ),
+    status: z
+      .enum(TASK_STATUSES)
+      .optional()
+      .describe("Target status (update) or list filter (list)"),
+    parentId: z
+      .int()
+      .min(1)
+      .nullable()
+      .optional()
+      .describe(
+        "Parent todo ID (positive safe integer). On create, omit or use null for a root, or provide a live parent ID. On update, omit to keep the parent, provide an ID to reparent, or use null to detach."
+      ),
+    blockedBy: z
+      .array(z.number())
+      .max(MAX_DEPENDENCIES)
+      .optional()
+      .describe("Initial blockedBy IDs (create only)"),
+    addBlockedBy: z
+      .array(z.number())
+      .max(MAX_DEPENDENCIES)
+      .optional()
+      .describe("Todo IDs to add to blockedBy (update only, additive merge)"),
+    removeBlockedBy: z
+      .array(z.number())
+      .max(MAX_DEPENDENCIES)
+      .optional()
+      .describe("Todo IDs to remove from blockedBy (update only, additive merge)"),
+    owner: z
+      .string()
+      .max(MAX_OWNER_LENGTH)
+      .optional()
+      .describe("Agent/owner assigned to this todo"),
+    metadata: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .describe("Arbitrary metadata; pass null value for a key to delete that key on update"),
+    id: z.number().optional().describe("Todo ID (required for update, get, delete)"),
+    includeDeleted: z
+      .boolean()
+      .optional()
+      .describe("If true, list action returns deleted (tombstoned) todos as well. Default: false.")
+  })
 );
-
-export type TodoParams = Static<typeof TodoParamsSchema>;

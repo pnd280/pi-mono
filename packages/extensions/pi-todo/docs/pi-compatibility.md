@@ -5,6 +5,7 @@
 ## Contracts to verify
 
 - [ ] [Activation](../src/runtime.ts) and [tool](../src/tool.ts): interactive TTY eligibility, model-facing schema, atomic mutations, and fully replayable result details; no custom tool renderers.
+- [ ] [Tool-schema projection](../../../libs/src/tool-schema/README.md): serialized parameters preserve optional/nullable parent IDs and field limits without exposing runtime metadata or unsupported integer bounds; out-of-range parent IDs remain nonmutating domain errors.
 - [ ] [Session state](../src/session-state.ts): branch/compaction reconstruction, malformed/error result handling, and bounded snapshots.
 - [ ] [UI integration](../src/index.ts): widget/overlay lifecycle, remapped navigation, session cleanup, and independently owned working-message contributions.
 - [ ] [Fullscreen paging](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): `/todos` stays non-overlay at every size; list/detail paging leaves the transcript fixed only while focused. Unsupported routing warns once per opening without closing the view; arrow navigation and widget restoration still work.

@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./tool-schema": "./src/tool-schema/index.ts",
     "./working-message": "./src/working-message/index.ts",
     "./settings-file": "./src/settings-file/index.ts",
     "./tui/components/order-settings": "./src/tui/components/order-settings/index.ts",

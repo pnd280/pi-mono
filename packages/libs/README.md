@@ -6,6 +6,7 @@ Shared extension APIs and [TUI infrastructure](src/tui/README.md). Use [utils](.
 
 | Library                                                | Responsibility                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| [tool-schema](src/tool-schema/README.md)               | Zod input projection into a limited Pi tool-schema profile                |
 | [working-message](src/working-message/README.md)       | Shared working-message contributions and saved ordering                   |
 | [settings-file](src/settings-file/README.md)           | Bounded settings reads and locked atomic JSON-record updates              |
 | [native-clipboard](src/native-clipboard/README.md)     | Exact UTF-8 clipboard writes through local helpers                        |

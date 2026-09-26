@@ -127,6 +127,8 @@ Use Zod for configuration, persisted JSON, external structured data, and option 
 - Limit original record sizes, including unknown fields.
 - Hide raw validation errors that could expose stored content.
 
+For Zod-based model-facing parameters, use [`toToolSchema`](../packages/libs/src/tool-schema/README.md) from `@pi-mono/libs/tool-schema`, not direct Zod-to-TypeBox conversion or local keyword stripping. Its explicit profile omits runtime metadata and unsupported integer bounds while rejecting unhandled keywords. State omitted constraints in descriptions (explicit integer bounds require one) and enforce full validation before side effects. Test serialized schemas and runtime rejection separately; valid arguments do not prove provider acceptance.
+
 Schemas are unnecessary for control-flow narrowing, host capability checks, or state-dependent filesystem/lifecycle invariants.
 
 ## Pi APIs

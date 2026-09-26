@@ -7,7 +7,7 @@ Follow [display conventions](conventions.md). Resolvers automatically select ver
 ## Add an adapter
 
 1. Create `src/adapters/<extension-package>/index.ts` using the registering extension's full package name, including its scope. For example, use `src/adapters/@ff-labs/pi-fff/index.ts`.
-2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts); verify provenance and required parameter schema, not names alone. Return `undefined` for unsupported definitions.
+2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts); verify provenance and the [required structural contract](#recognize-tool-contracts), not names alone. Return `undefined` for unsupported definitions.
 3. Colocate [Zod schemas](../../../../docs/development.md#runtime-validation), presentation, and tests. Use `supports(args, result)` to reject uninterpretable CLI input; before results exist, `exploration` must reject unparseable partial arguments.
 4. Document compatibility, contracts, display behavior, limitations, and extension-specific validation in the adapter's `README.md`.
 5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).
@@ -15,6 +15,12 @@ Follow [display conventions](conventions.md). Resolvers automatically select ver
 To expose an adapter factory to tool authors, export it from [`src/adapters/index.ts`](../src/adapters/index.ts).
 
 Adapters must not enable/execute tools, access files, persist data, mutate borrowed arguments/results, or change model context. Native observation and unavailable-history notices need separate [host provenance checks](../README.md#observation-and-saved-history).
+
+## Recognize tool contracts
+
+Match verified provenance plus the parameter structure the renderer needs: types, required fields, and object strictness where relevant. Do not fingerprint complete schemas or require numeric bounds, descriptions, or other details that provider-facing projection can omit or rewrite. For example, removing `minimum` from an integer coordinate must not disable its display adapter. Validate actual argument values and result shapes separately before specialized rendering.
+
+Build schema fixtures through the same projection as the registered tool, and retain integration coverage that loads the actual extension. Treat projection changes as changes to schema-inspecting consumers too: run their adapter and installed-CLI checks, not just the producing tool's tests.
 
 ## Automatic selection
 

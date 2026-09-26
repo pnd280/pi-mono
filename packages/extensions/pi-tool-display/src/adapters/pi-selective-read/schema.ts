@@ -21,7 +21,8 @@ export const argsSchema = z.strictObject({
   selection: optionalArgument(selectionArgumentSchema)
 });
 
-const coordinate = z.object({ type: z.literal("integer"), minimum: z.literal(1) });
+// Projected tool schemas omit integer bounds; argsSchema still validates coordinates.
+const coordinate = z.object({ type: z.literal("integer") });
 
 /** The current extension adds one optional selection to Pi's native read parameters. */
 export const parametersSchema = z.object({

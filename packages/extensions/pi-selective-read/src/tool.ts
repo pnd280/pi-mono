@@ -1,7 +1,7 @@
 import { Type, type Static } from "@earendil-works/pi-ai";
 import { createReadToolDefinition, type ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { toToolSchema } from "@pi-mono/libs/tool-schema";
 import { selectionInputSchema, selectionSchema } from "@pi-mono/utils/source-selection";
-import { z } from "zod";
 
 import { createReadRenderers } from "./render.ts";
 import { appendPreview, type SelectiveReadDetails } from "./result.ts";
@@ -9,11 +9,9 @@ import { appendPreview, type SelectiveReadDetails } from "./result.ts";
 const parameters = Type.Object({
   ...createReadToolDefinition(process.cwd()).parameters.properties,
   selection: Type.Optional(
-    Type.Unsafe<z.input<typeof selectionInputSchema>>(
-      z.toJSONSchema(
-        selectionInputSchema.describe(
-          "Source span for highlighting and a bounded orientation preview. Does not change the read window; use offset and limit for context."
-        )
+    toToolSchema(
+      selectionInputSchema.describe(
+        "Source span for highlighting and a bounded orientation preview. Coordinates must be positive safe integers. Does not change the read window; use offset and limit for context."
       )
     )
   )
@@ -43,7 +41,7 @@ export function createSelectiveReadTool(
       const parsed = input === undefined ? undefined : selectionSchema.safeParse(input);
       if (parsed && !parsed.success)
         throw new Error(
-          "Invalid read selection: use positive integer coordinates with the end after the start."
+          "Invalid read selection: use positive safe integer coordinates with the end after the start."
         );
       const result = await base.execute(id, window, signal, onUpdate, ctx);
 
