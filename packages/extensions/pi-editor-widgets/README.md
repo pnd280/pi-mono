@@ -36,7 +36,7 @@ tokens • context usage (auto)                  provider/model:thinking
 extension status • extension status …
 ```
 
-Any contribution can move to any region, share rows, and appear in several rows. Empty widgets collapse without losing their positions. Bullet separators skip empty contributions but never cross flex or dangle beside continuation padding. Shared rows wrap/reflow automatically; native multiline components remain intact. Vertical clipping protects the editor and indicates omitted content. Arbitrary components have no preferred-size API, so allocation is best effort.
+Any contribution can move to any region, share rows, and appear in several rows. The above-editor region reserves one leading blank line to separate it from the chat, even when empty. Empty widgets collapse without losing their positions. Bullet separators skip empty contributions but never cross flex or dangle beside continuation padding. Shared rows wrap/reflow automatically; native multiline components remain intact. Vertical clipping protects the editor and indicates omitted content. Arbitrary components have no preferred-size API, so allocation is best effort.
 
 ## Configuration
 

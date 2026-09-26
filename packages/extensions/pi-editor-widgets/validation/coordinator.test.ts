@@ -33,15 +33,53 @@ it.each(["aboveEditor", "belowEditor", "footer"] as const)(
         footer: host.footerContainer
       }[region];
       const initial = container.render(30);
-      expect(initial).toHaveLength(2);
+      expect(initial).toHaveLength(region === "aboveEditor" ? 3 : 2);
       for (const content of ["ONE", "TWO", "RIGHT"]) expect(plain(initial)).toContain(content);
       expanded = false;
       host.ui.requestRender();
-      expect(plain(container.render(30))).toBe("RIGHT");
+      expect(plain(container.render(30))).toBe(region === "aboveEditor" ? "\nRIGHT" : "RIGHT");
       expanded = true;
       host.ui.requestRender();
       expect(plain(container.render(30))).toBe(plain(initial));
       expect(layout[region]).toEqual([["widget:mixed", "separator", "status:mixed"]]);
+    } finally {
+      coordinator.dispose();
+      await fixture.dispose();
+    }
+  }
+);
+
+it.each(["regular", "fullscreen"] as const)(
+  "reserves one blank line above populated and empty widgets in %s mode",
+  async (mode) => {
+    const fixture = await hostFixture([], mode);
+    const { host, ui } = fixture;
+    const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+
+    try {
+      const layout = defaultLayout();
+      layout.hidden = layout.footer.flat().filter((id) => id.startsWith("builtin:"));
+      layout.footer = [];
+      coordinator.apply(layout);
+      expect(host.widgetContainerAbove.render(80)).toEqual([""]);
+      expect(coordinator.regionHeight(80)).toBe(1);
+      let lines = ["WIDGET"];
+      ui.setWidget("spacing", () => ({ render: () => lines, invalidate() {} }));
+      expect(host.widgetContainerAbove.render(80).map(stripTerminalSequences)).toEqual([
+        "",
+        "WIDGET"
+      ]);
+      expect(coordinator.regionHeight(80)).toBe(2);
+      lines = [];
+      host.ui.requestRender();
+      expect(host.widgetContainerAbove.render(80)).toEqual([""]);
+      expect(coordinator.regionHeight(80)).toBe(1);
+      ui.setWidget("spacing", undefined);
+      expect(host.widgetContainerAbove.render(80)).toEqual([""]);
+      expect(host.widgetContainerBelow.render(80)).toEqual([]);
+      expect(host.footerContainer.render(80)).toEqual([]);
+      coordinator.dispose();
+      expect(host.widgetContainerAbove.render(80)).toEqual([""]);
     } finally {
       coordinator.dispose();
       await fixture.dispose();
@@ -152,24 +190,32 @@ it("preserves invalidation and native mouse targets", async () => {
       "builtin:model"
     ];
     coordinator.apply(layout);
-    const column = plain(host.widgetContainerAbove.render(80)).indexOf("clickable");
+    const lines = host.widgetContainerAbove.render(80).map(stripTerminalSequences);
+    const column = (lines[1] ?? "").indexOf("clickable");
     expect(column).toBeGreaterThanOrEqual(0);
     const calls = render.mock.calls.length;
-    const result = host.widgetContainerAbove.handleMouse({
-      type: "press",
-      button: "left",
+    const event = {
+      type: "press" as const,
+      button: "left" as const,
       x: column + 1,
-      y: 0,
+      y: 1,
       screenX: column + 1,
-      screenY: 4,
+      screenY: 5,
       width: 80,
-      height: 1,
+      height: 2,
       shift: false,
       alt: false,
       ctrl: false
-    });
+    };
+    host.widgetContainerAbove.handleMouse({ ...event, y: 0, screenY: 4 });
+    expect(mouse).not.toHaveBeenCalled();
+    const result = host.widgetContainerAbove.handleMouse(event);
     expect(mouse).toHaveBeenCalledWith(expect.objectContaining({ x: 1, y: 0 }));
-    expect(result).toMatchObject({ capture: true, focusTarget: component, target: { component } });
+    expect(result).toMatchObject({
+      capture: true,
+      focusTarget: component,
+      target: { component, originY: 5 }
+    });
     host.widgetContainerAbove.invalidate();
     expect(invalidate).toHaveBeenCalled();
     host.widgetContainerAbove.render(40);
@@ -214,7 +260,7 @@ it("renders duplicated placements from one native instance and restores clicked 
       .footer.flat()
       .filter((id) => id.startsWith("builtin:"));
     coordinator.apply(layout);
-    expect(plain(host.widgetContainerAbove.render(40))).toBe("DUP");
+    expect(plain(host.widgetContainerAbove.render(40))).toBe("\nDUP");
     expect(plain(host.footerContainer.render(40))).toBe("LEFT \u2022 DUP\nLEFT");
     expect(factory).toHaveBeenCalledTimes(1);
     expect(rendered).toBe(3);
@@ -231,7 +277,7 @@ it("renders duplicated placements from one native instance and restores clicked 
       alt: false,
       ctrl: false
     };
-    host.widgetContainerAbove.handleMouse(event);
+    host.widgetContainerAbove.handleMouse({ ...event, y: 1, screenY: 1, height: 2 });
     host.footerContainer.handleMouse({ ...event, x: 8 });
     expect(widths).toEqual([40, 3]);
   } finally {
@@ -264,6 +310,7 @@ it("keeps nested mouse targets at the copy's render width even when flex shrinks
     coordinator.apply(layout);
     const above = host.widgetContainerAbove.render(40).map(stripTerminalSequences);
     expect(above).toEqual([
+      "",
       "                                     TOP",
       "                                     END"
     ]);
@@ -272,11 +319,11 @@ it("keeps nested mouse targets at the copy's render width even when flex shrinks
       type: "press" as const,
       button: "left" as const,
       x: 38,
-      y: 1,
+      y: 2,
       screenX: 38,
-      screenY: 1,
+      screenY: 2,
       width: 40,
-      height: 2,
+      height: 3,
       shift: false,
       alt: false,
       ctrl: false
@@ -306,8 +353,8 @@ it("renders a menu draft in place of the saved layout until it is cleared", asyn
       .filter((id) => id.startsWith("builtin:"));
     saved.footer = [];
     coordinator.apply(saved);
-    expect(plain(host.widgetContainerAbove.render(80))).toBe("ONE\nTWO");
-    expect(coordinator.regionHeight(80)).toBe(2);
+    expect(plain(host.widgetContainerAbove.render(80))).toBe("\nONE\nTWO");
+    expect(coordinator.regionHeight(80)).toBe(3);
     const draft = structuredClone(saved);
     draft.aboveEditor = [];
     draft.belowEditor = [["widget:draft"]];
@@ -316,9 +363,9 @@ it("renders a menu draft in place of the saved layout until it is cleared", asyn
     expect(plain(host.widgetContainerAbove.render(80))).toBe("");
     expect(plain(host.widgetContainerBelow.render(80))).toBe("ONE\nTWO");
     expect(plain(host.footerContainer.render(80))).toBe("ONE\nTWO");
-    expect(coordinator.regionHeight(80)).toBe(4);
+    expect(coordinator.regionHeight(80)).toBe(5);
     coordinator.showDraft(undefined);
-    expect(plain(host.widgetContainerAbove.render(80))).toBe("ONE\nTWO");
+    expect(plain(host.widgetContainerAbove.render(80))).toBe("\nONE\nTWO");
     expect(plain(host.widgetContainerBelow.render(80))).toBe("");
     expect(factory).toHaveBeenCalledOnce();
   } finally {
@@ -383,6 +430,7 @@ it("bounds all three regions together under vertical pressure and preserves plac
       ...host.footerContainer.render(20)
     ];
     expect(lines.length).toBeLessThanOrEqual(20);
+    expect(lines[0]).toBe("");
     expect(plain(lines)).toContain("widgets clipped");
     expect(host.extensionWidgetsAbove.get("a")).toBe(long);
     expect(host.extensionWidgetsBelow.get("b")).toBe(long);

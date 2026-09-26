@@ -1,5 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
+  Container,
+  Spacer,
   wrapTextWithAnsi,
   type Component,
   type TuiMouseEvent,
@@ -13,6 +15,8 @@ import { regions, resolveLayout, type Layout, type Placement, type Region } from
 import { clip, renderRows, type Contribution, type Rendered, type RenderWidths } from "./render.ts";
 
 type Registered = Contribution & Placement & { available: boolean };
+
+const aboveEditorSpacing = 1;
 
 const textComponent = (text: string): Component => ({
   render: (width) => wrapTextWithAnsi(text, width),
@@ -48,8 +52,11 @@ export class WidgetCoordinator {
         "pi-editor-widgets: footer conflict. Disable the other footer extension and /reload; native widgets and statuses remain supported."
       );
     this.nativeFooter = host.setExtensionFooter;
+    const aboveEditor = new Container();
+    aboveEditor.addChild(new Spacer(aboveEditorSpacing));
+    aboveEditor.addChild(this.regionComponent("aboveEditor"));
     this.components = {
-      aboveEditor: this.regionComponent("aboveEditor"),
+      aboveEditor,
       belowEditor: this.regionComponent("belowEditor"),
       footer: this.regionComponent("footer")
     };
@@ -106,12 +113,14 @@ export class WidgetCoordinator {
     this.host.ui.requestRender();
   }
 
-  /** Unclipped height of all regions, without measuring the editor area it is sized against. */
+  /** Unclipped region height including spacing, without measuring the editor it is sized against. */
   regionHeight(width: number): number {
     if (!this.active || width < 1) return 0;
     const { rendered } = this.measure(width);
 
-    return regions.reduce((sum, region) => sum + rendered[region].lines.length, 0);
+    return (
+      aboveEditorSpacing + regions.reduce((sum, region) => sum + rendered[region].lines.length, 0)
+    );
   }
 
   contributions(): Placement[] {
@@ -213,7 +222,7 @@ export class WidgetCoordinator {
     const otherHeight =
       this.host.statusContainer.render(width).length +
       this.host.pendingMessagesContainer.render(width).length;
-    let remaining = Math.max(0, height - editorHeight - otherHeight - 1);
+    let remaining = Math.max(0, height - editorHeight - otherHeight - aboveEditorSpacing - 1);
     const ordered = [...regions].sort(
       (a, b) => rendered[a].lines.length - rendered[b].lines.length
     );
@@ -315,20 +324,12 @@ export class WidgetCoordinator {
     if (this.host.customFooter === this.components.footer)
       this.nativeFooter.call(this.host, undefined);
 
-    // Do not dispose borrowed contributions. Native maps still own replacement/removal/shutdown.
-    for (const region of ["aboveEditor", "belowEditor"] as const) {
-      const container =
-        region === "aboveEditor" ? this.host.widgetContainerAbove : this.host.widgetContainerBelow;
-
-      if (container.children.includes(this.components[region])) {
-        container.clear();
-        const widgets =
-          region === "aboveEditor"
-            ? this.host.extensionWidgetsAbove
-            : this.host.extensionWidgetsBelow;
-        for (const component of widgets.values()) container.addChild(component);
-      }
-    }
+    // Native rendering remounts borrowed contributions and its spacing without disposing them.
+    if (
+      this.host.widgetContainerAbove.children.includes(this.components.aboveEditor) ||
+      this.host.widgetContainerBelow.children.includes(this.components.belowEditor)
+    )
+      this.host.renderWidgets();
 
     this.registry.clear();
     this.invalidateCache();

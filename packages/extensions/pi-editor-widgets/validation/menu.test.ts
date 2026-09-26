@@ -380,7 +380,7 @@ it("previews drafts live in the actual regions and restores the saved layout on 
 
   try {
     fixture.terminal.rows = 30;
-    expect(above()).toBe("LIVE WIDGET");
+    expect(above()).toBe("\nLIVE WIDGET");
     menu.handleInput(enter); // Above editor -> rows
     menu.handleInput(enter); // Row 1 -> contents
     menu.handleInput(remove);
@@ -404,7 +404,7 @@ it("previews drafts live in the actual regions and restores the saved layout on 
     expect(factory).toHaveBeenCalledOnce();
     for (let index = 0; index < 3; index++) menu.handleInput(escape);
     expect(close).toHaveBeenCalledOnce();
-    expect(above()).toBe("LIVE WIDGET");
+    expect(above()).toBe("\nLIVE WIDGET");
     expect(footer()).not.toContain("LIVE WIDGET");
     expect(() => readFileSync(settings.paths.global)).toThrow();
   } finally {
