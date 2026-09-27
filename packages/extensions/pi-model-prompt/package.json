@@ -1,0 +1,31 @@
+{
+  "name": "pi-model-prompt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Model-specific APPEND_SYSTEM.md variants for Pi",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "workspace:*",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "catalog:pi-host"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

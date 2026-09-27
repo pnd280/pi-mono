@@ -34,6 +34,7 @@ Repeat `-e` for additional extensions. To persist the selection, use Pi's [local
 - [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): live elapsed runtime, bash-call counts, and file-change summaries kept outside model context.
 - [pi-session-utils](packages/extensions/pi-session-utils/README.md): persist ephemeral sessions, create empty parent-linked sub-sessions, and optionally generate session names with `/sesh`; use `--parent-session` to start a linked child from the CLI.
 - [pi-smart-compact](packages/extensions/pi-smart-compact/README.md): model-callable native compaction with focused summaries and task continuation.
+- [pi-model-prompt](packages/extensions/pi-model-prompt/README.md): model-specific `APPEND_SYSTEM.md` variants selected by regex rules.
 
 ## Development
 
