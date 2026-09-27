@@ -1,5 +1,6 @@
 import type { CustomEntry, EntryRenderOptions, Theme } from "@earendil-works/pi-coding-agent";
-import { MouseRegion, Text, type Component } from "@earendil-works/pi-tui";
+import { MouseRegion, Text, truncateToWidth, type Component } from "@earendil-works/pi-tui";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { formatDuration, formatFinishTime, summarySchema, type RunSummary } from "./summary.ts";
@@ -17,22 +18,31 @@ function lineCounts(added: number, removed: number, theme: SummaryTheme): string
 function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme): string {
   const separator = theme.fg("dim", " · ");
   const available = summary.files.filter((file) => file.status === "available");
-  const parts: string[] = [];
-  if (summary.model)
-    parts.push(
-      theme.fg(
-        "dim",
-        compactDisplayText(
-          `${summary.model.provider}/${summary.model.id}:${summary.model.thinkingLevel}`
-        )
-      )
+  const metadata: string[] = [];
+  let throughput: string | undefined;
+
+  if (summary.throughput) {
+    const { outputTokens, durationMs } = summary.throughput;
+    throughput = `${((outputTokens / durationMs) * 1000).toFixed(1)} tok/s`;
+  }
+
+  if (summary.model) {
+    const model = compactDisplayText(
+      `${summary.model.provider}/${summary.model.id}:${summary.model.thinkingLevel}`
     );
-  parts.push(
+    metadata.push(theme.fg("dim", `${model}${throughput ? ` (${throughput})` : ""}`));
+  }
+
+  metadata.push(
     theme.fg(
       "dim",
       `${formatDuration(summary.durationMs)} (${formatFinishTime(summary.finishedAt)})`
     )
   );
+
+  if (!summary.model && throughput) metadata.push(theme.fg("dim", throughput));
+
+  const parts: string[] = [];
   if (summary.bashCalls)
     parts.push(
       theme.fg(
@@ -58,7 +68,8 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
         `Statistics unavailable for ${unavailable} ${unavailable === 1 ? "file" : "files"}`
       )
     );
-  const lines = [parts.join(separator)];
+  const lines = [metadata.join(separator)];
+  if (parts.length) lines.push(parts.join(separator));
 
   if (expanded) {
     for (const file of summary.files) {
@@ -67,7 +78,7 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
         file.status === "available"
           ? lineCounts(file.added, file.removed, theme)
           : theme.fg("dim", compactDisplayText(file.reason));
-      lines.push(`  ${path}${detail ? separator + detail : ""}`);
+      lines.push(`${path}${detail ? separator + detail : ""}`);
     }
   }
 
@@ -95,8 +106,17 @@ export function createSummaryRenderer() {
     return new MouseRegion(
       {
         // Rebuild styles on every render so theme changes do not retain old colors.
-        render: (width) =>
-          new Text(summaryText(parsed.data, expansion.expanded, theme), 1, 0).render(width),
+        render: (width) => {
+          if (width < 1) return [];
+
+          return new Text(summaryText(parsed.data, expansion.expanded, theme), 0, 0)
+            .render(Math.max(1, width - 2))
+            .map((line, index) => {
+              const prefix = index === 0 ? `${theme.fg("dim", TUI_GLYPHS.bullet)} ` : "  ";
+
+              return truncateToWidth(prefix + line, width, "");
+            });
+        },
         invalidate() {}
       },
       (event) => {

@@ -6,11 +6,13 @@
 
 - [ ] [Lifecycle](../src/index.ts): first `agent_start` through `agent_settled`, including retries, queued follow-ups, cancellation, and timer cleanup; count agent bash calls only.
 - [ ] [Run metadata](../src/index.ts): `ctx.model.provider`, `ctx.model.id`, and `pi.getThinkingLevel()` capture the first-start selection; later starts do not replace or backfill it. The [stored schema](../src/summary.ts) accepts all host thinking levels and absent model metadata, but rejects model metadata without a provider.
+- [ ] [Output throughput](../src/throughput.ts): public assistant `message_start`/`message_end` events delimit response streams; completed `message.usage.output` includes reasoning once. Verify cancelled/error usage, non-assistant exclusion, continuation aggregation, and non-TUI reporting.
 - [ ] [Mutation statistics](../src/changes.ts): verified native operations, ordering, path deduplication, net/reverted changes, and unavailable versus zero statistics.
 - [ ] [Persistence/rendering](../src/index.ts): `appendEntry` stays outside model context; replay, expansion/mouse behavior, and non-TUI execution preserve metadata without contents or patches.
 
 ## Limitations and replacement opportunities
 
+- [Output throughput](../README.md#output-throughput) is client-observed and depends on provider stream-start timing and reported usage. Prefer a public provider timing/throughput API if Pi adds one; do not estimate token counts from stream chunks.
 - [Observation excludes bash changes, overrides, and custom tools](../README.md#file-changes). Revisit public mutation/run-summary APIs with trustworthy outcomes and ordering; retain bounded retention and context-free persistence. Shared observation changes belong in libs.
 
 ## Validation

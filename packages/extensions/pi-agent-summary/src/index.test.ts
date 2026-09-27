@@ -1,7 +1,7 @@
 import { symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { fauxProvider } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxProvider, type AssistantMessage } from "@earendil-works/pi-ai";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -47,6 +47,119 @@ it("records one context-free entry after all turns and retries settle, preservin
   expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
   await runtime.emit("session_shutdown", {});
 });
+
+function assistantMessage(
+  output: number,
+  stopReason: AssistantMessage["stopReason"]
+): AssistantMessage {
+  return {
+    ...fauxAssistantMessage([], { stopReason }),
+    usage: {
+      input: 1000,
+      output,
+      reasoning: output / 2,
+      cacheRead: 500,
+      cacheWrite: 0,
+      totalTokens: 1500 + output,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
+    }
+  };
+}
+
+it.each([
+  ["tui", "stop"],
+  ["rpc", "aborted"],
+  ["json", "error"],
+  ["print", "stop"]
+] as const)(
+  "saves throughput across continuations in %s mode ending with %s",
+  async (mode, stopReason) => {
+    const runtime = await fixture(mode);
+    const start = () =>
+      runtime.emit("message_start", {
+        type: "message_start",
+        message: assistantMessage(0, "pending")
+      });
+    const end = (output: number, reason: AssistantMessage["stopReason"]) =>
+      runtime.emit("message_end", {
+        type: "message_end",
+        message: assistantMessage(output, reason)
+      });
+    await start();
+    vi.advanceTimersByTime(1000);
+    await end(500, "stop");
+    await runtime.emit("agent_start", {});
+    await start();
+    vi.advanceTimersByTime(250);
+    const toolResult = {
+      role: "toolResult" as const,
+      toolCallId: "nested",
+      toolName: "nested",
+      content: [],
+      isError: false,
+      usage: assistantMessage(500, "stop").usage,
+      timestamp: Date.now()
+    };
+    await runtime.emit("message_start", { type: "message_start", message: toolResult });
+    await runtime.emit("message_end", { type: "message_end", message: toolResult });
+    vi.advanceTimersByTime(750);
+    await end(80, "toolUse");
+    await runtime.emit("agent_end", {});
+    vi.advanceTimersByTime(10_000);
+    await runtime.emit("agent_start", {});
+    await start();
+    vi.advanceTimersByTime(3000);
+    await end(40, stopReason);
+    await start();
+    vi.advanceTimersByTime(5000);
+    await runtime.emit("agent_settled", {});
+    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+      durationMs: 19_000,
+      finishedAt: Date.now(),
+      throughput: { outputTokens: 120, durationMs: 4000 },
+      bashCalls: 0,
+      files: []
+    });
+    expect(runtime.session.buildSessionContext().messages).toEqual([]);
+    expect(vi.getTimerCount()).toBe(0);
+    if (mode !== "tui") expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
+
+    await runtime.emit("agent_start", {});
+    await end(40, "stop");
+    await runtime.emit("agent_settled", {});
+    expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
+      durationMs: 0,
+      finishedAt: Date.now(),
+      bashCalls: 0,
+      files: []
+    });
+  }
+);
+
+it.each(["session_start", "session_shutdown"] as const)(
+  "discards throughput on %s",
+  async (event) => {
+    const runtime = await fixture();
+    await runtime.emit("agent_start", {});
+    const start = { type: "message_start" as const, message: assistantMessage(0, "pending") };
+    const end = { type: "message_end" as const, message: assistantMessage(50, "stop") };
+    await runtime.emit("message_start", start);
+    vi.advanceTimersByTime(1000);
+    await runtime.emit("message_end", end);
+    await runtime.emit("message_start", start);
+    vi.advanceTimersByTime(1000);
+    await runtime.emit(event, {});
+    await runtime.emit("agent_start", {});
+    await runtime.emit("message_end", end);
+    await runtime.emit("agent_settled", {});
+    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+      durationMs: 0,
+      finishedAt: Date.now(),
+      bashCalls: 0,
+      files: []
+    });
+  }
+);
 
 it("records the provider, model, and thinking level selected when the run began", async () => {
   const runtime = await fixture();

@@ -36,6 +36,12 @@ export const summarySchema = z.object({
   durationMs: countSchema,
   finishedAt: countSchema.max(8_640_000_000_000_000),
   bashCalls: countSchema,
+  throughput: z
+    .object({
+      outputTokens: countSchema.positive(),
+      durationMs: z.number().positive()
+    })
+    .optional(),
   // Absent in summaries saved before model capture and in runs without a selected model.
   model: z
     .object({

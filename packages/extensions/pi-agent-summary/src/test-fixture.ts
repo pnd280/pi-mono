@@ -49,6 +49,8 @@ export async function fixture(mode: SummaryContext["mode"] = "tui") {
     session_shutdown: [],
     agent_start: [],
     agent_settled: [],
+    message_start: [],
+    message_end: [],
     tool_execution_start: [],
     turn_end: [],
     agent_end: [],

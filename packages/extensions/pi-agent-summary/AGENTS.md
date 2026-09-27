@@ -4,6 +4,7 @@
 
 - [src/index.ts](src/index.ts): Pi lifecycle and tool-event adapter, working-message registration, and custom entry persistence.
 - [src/timer.ts](src/timer.ts): monotonic elapsed time and interval cleanup.
+- [src/throughput.ts](src/throughput.ts): output-token and assistant streaming-time accumulation.
 - [src/changes.ts](src/changes.ts): bounded source retention and net line counts.
 - [src/summary.ts](src/summary.ts): stored summary schema and duration formatting.
 - [src/render.ts](src/render.ts): compact and expanded summaries with theme diff colors.
@@ -12,6 +13,7 @@
 
 - Use `appendEntry`, never `sendMessage`, so summaries stay outside model context.
 - Time from the first `agent_start` to `agent_settled`, not `turn_end` or retryable `agent_end`.
+- Measure output throughput over assistant `message_start`/`message_end` intervals, not total run time. Sum reported output tokens and measured stream time; reasoning is already included in output.
 - Publish live text through the shared [working-message coordinator](../../libs/src/working-message/README.md).
 - Subscribe to shared [file-mutations](../../libs/src/file-mutations/README.md) for verified native `edit` and `write` operations. Do not reread targets, scan repositories, or infer file changes from bash commands.
 - Reuse observed patches for single mutations and [bounded-diff](../../libs/src/bounded-diff/README.md) for net comparisons. Never persist contents or patches; distinguish unavailable statistics from zero changes.

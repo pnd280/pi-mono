@@ -32,6 +32,12 @@ it.each(["off", "minimal", "low", "medium", "high", "xhigh", "max"])(
   }
 );
 
+it("accepts optional throughput with sub-millisecond precision", () => {
+  expect(summarySchema.parse(summary)).toEqual(summary);
+  const data = { ...summary, throughput: { outputTokens: 10, durationMs: 0.5 } };
+  expect(summarySchema.parse(data)).toEqual(data);
+});
+
 it.each([
   undefined,
   null,
@@ -42,6 +48,17 @@ it.each([
   { ...summary, durationMs: 1.5 },
   { durationMs: 1000, bashCalls: 1, files: [] },
   { ...summary, bashCalls: -1 },
+  ...[
+    null,
+    {},
+    { outputTokens: 10 },
+    { durationMs: 1000 },
+    ...[0, -1, 1.5, NaN, Infinity, "10"].map((outputTokens) => ({
+      outputTokens,
+      durationMs: 1000
+    })),
+    ...[0, -1, NaN, Infinity, "1000"].map((durationMs) => ({ outputTokens: 10, durationMs }))
+  ].map((throughput) => ({ ...summary, throughput })),
   {
     ...summary,
     files: [{ path: "file", status: "available", added: -1, removed: 0 }]

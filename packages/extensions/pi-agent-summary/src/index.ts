@@ -1,6 +1,8 @@
 import type {
   ExtensionAPI,
   ExtensionContext,
+  MessageEndEvent,
+  MessageStartEvent,
   ToolExecutionStartEvent
 } from "@earendil-works/pi-coding-agent";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
@@ -9,6 +11,7 @@ import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/lib
 import { RunChanges } from "./changes.ts";
 import { createSummaryRenderer } from "./render.ts";
 import { summaryEntryType, type RunSummary } from "./summary.ts";
+import { RunThroughput } from "./throughput.ts";
 import { AgentTimer } from "./timer.ts";
 
 export type SummaryContext = WorkingMessageContext &
@@ -19,6 +22,8 @@ export type SummaryEvents = {
   session_shutdown: unknown;
   agent_start: unknown;
   agent_settled: unknown;
+  message_start: MessageStartEvent;
+  message_end: MessageEndEvent;
   tool_execution_start: Pick<ToolExecutionStartEvent, "type" | "toolName" | "toolCallId" | "args">;
 };
 
@@ -39,7 +44,14 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     contributor: "pi-agent-summary"
   });
   const timer = new AgentTimer((text) => workingMessage.setText(text));
-  let run: { changes: RunChanges; bashCalls: Set<string>; model: RunSummary["model"] } | undefined;
+  let run:
+    | {
+        changes: RunChanges;
+        bashCalls: Set<string>;
+        model: RunSummary["model"];
+        throughput: RunThroughput;
+      }
+    | undefined;
   let manager: SummaryContext["sessionManager"] | undefined;
   let generation = 0;
   const connect = () =>
@@ -82,6 +94,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     run ??= {
       changes: new RunChanges(ctx.cwd),
       bashCalls: new Set(),
+      throughput: new RunThroughput(),
       model: ctx.model && {
         provider: ctx.model.provider,
         id: ctx.model.id,
@@ -90,6 +103,12 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     };
     if (manager !== ctx.sessionManager) bind(ctx);
     timer.start(ctx.mode === "tui");
+  });
+  pi.on("message_start", (event) => {
+    if (event.message.role === "assistant") run?.throughput.start();
+  });
+  pi.on("message_end", (event) => {
+    if (event.message.role === "assistant") run?.throughput.end(event.message.usage.output);
   });
   pi.on("tool_execution_start", (event) => {
     if (event.toolName === "bash") run?.bashCalls.add(event.toolCallId);
@@ -102,6 +121,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     run = undefined;
     const duration = timer.finish();
     if (!duration) return;
+    const throughput = finished.throughput.finish();
     const startedGeneration = generation;
     const files = await finished.changes.finish();
     // A session switch or reload can occur while the net comparison runs off-thread.
@@ -110,6 +130,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
       ...duration,
       finishedAt,
       ...(finished.model && { model: finished.model }),
+      ...(throughput && { throughput }),
       bashCalls: finished.bashCalls.size,
       files
     });

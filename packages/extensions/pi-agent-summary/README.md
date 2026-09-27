@@ -7,12 +7,15 @@ Shows elapsed runtime in Pi's working message and saves run summaries outside mo
 When Pi settles, the transcript shows:
 
 ```text
-anthropic/claude-opus-5-5:medium · 1m 23s (2:34:56 PM) · ran 4 commands · edited 3 files · +42 −11
+• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s (2:34:56 PM)
+  ran 4 commands · edited 3 files · +42 −11
 ```
 
-The model provider, model ID, and thinking level are captured when the run begins. Changes during the run do not update the summary. Summaries without model metadata, including runs with no selected model, omit the prefix. Summaries with model metadata but no provider are hidden.
+The model provider, model ID, and thinking level are captured when the run begins. Changes during the run do not update the summary. Summaries without model metadata, including runs with no selected model, omit the model prefix. Summaries with model metadata but no provider are hidden.
 
-Finish times use your local timezone. Statistics appear on the same line when there are bash calls or observed files, including files whose statistics are unavailable. Narrow terminals wrap the line as needed.
+The first line starts with `•` and shows the model, available throughput, duration, and finish time in your local timezone. Its marker aligns with assistant and tool markers when [`pi-tool-display`](../pi-tool-display/README.md) is loaded.
+
+Command and file statistics appear on a second line indented two columns to align with the metadata, including notices for files whose statistics are unavailable. The second line is omitted when there are no tool statistics. Narrow terminals wrap each line as needed, keeping continuation lines aligned with the metadata.
 
 Left-click a summary in fullscreen TUI to toggle its per-file statistics independently. Pi's tool-output shortcut (default Ctrl+O) toggles all summaries in either TUI mode.
 
@@ -21,6 +24,16 @@ A run includes model turns, tool calls, automatic/compaction retries, queued fol
 Saved summaries render on resume when the extension is loaded. Invalid summaries, including entries without a finish timestamp, are hidden.
 
 RPC, JSON, and print modes save the same statistics without a UI timer. Shutdown/reload discards unfinished runs.
+
+### Output throughput
+
+Throughput appears in parentheses next to the model, or as a separate statistic when model metadata is absent.
+
+`tok/s` is total reported output tokens divided by the combined assistant streaming time, rounded to one decimal place. Each response is timed monotonically from `message_start` to `message_end`; tool execution, retry delays, and other gaps between responses are excluded. This is a time-weighted run average, not an average of individual response rates.
+
+Output tokens include provider-reported reasoning tokens, counted once. Input/cache tokens and nested tool usage are excluded. Cancelled and failed responses contribute when they report positive output usage and have positive elapsed time. Unfinished responses, zero-duration responses, and responses without positive output usage are excluded from both totals. Runs without a usable measurement omit `tok/s`.
+
+This is approximate client-observed throughput, not provider-side generation speed. Providers differ in when they emit stream-start events and how they report usage, so request startup latency may not be included. Saved summaries retain the measured token and time totals for replay.
 
 ### Tool statistics
 
@@ -50,7 +63,7 @@ No extension-specific options or environment variables. The shared [coordinator]
 
 ## Side effects
 
-Appends one `pi-agent-summary.summary` entry per settled run with duration, finish timestamp, model provider, ID, and thinking level when available, bash count, and per-file statistics or unavailability reasons. Entries never enter model context or trigger turns.
+Appends one `pi-agent-summary.summary` entry per settled run with duration, finish timestamp, model provider, ID, and thinking level when available, output-throughput totals when measurable, bash count, and per-file statistics or unavailability reasons. Entries never enter model context or trigger turns.
 
 Observation adds a bounded read before native `write`, reuses native `edit` reads, and never reads after writing. Observations are [shared](../../libs/src/file-mutations/README.md) with `pi-tool-display` without duplicate reads. Contents and patches stay in memory. No directory scans, extra target writes, Git commands, or network requests.
 
@@ -69,8 +82,8 @@ vpr 'pi-agent-summary#test'
 
 Visual checks:
 
-1. Load with `pi-todo`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity, then a compact summary with the provider, model, and thinking level, duration, local finish time, and diff-colored statistics. Resize to a narrow terminal and confirm the summary wraps without losing statistics.
+1. Load with `pi-todo` and `pi-tool-display`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity, then a summary starting with `•` aligned with assistant and tool markers, the provider, model, and thinking level followed by output `tok/s` in parentheses, duration, and local finish time. Check that command counts and diff-colored file statistics appear on the second line. Resize to a narrow terminal and confirm the summary wraps without losing statistics.
 2. In fullscreen, click summaries independently; verify dragging selects text and the wheel scrolls.
 3. Check Ctrl+O toggles all summaries in regular and fullscreen modes.
 4. Abort another run; expect one summary and a stopped timer.
-5. Resume the session; confirm saved summaries retain their captured provider, model, thinking level, and finish time.
+5. Resume the session; confirm saved summaries retain their captured provider, model, thinking level, finish time, and output throughput.
