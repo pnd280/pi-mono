@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { thinkingLevelSchema } from "./config.ts";
 
-export const summaryModelEntryType = "smart-compaction-model";
+export const summaryModelEntryType = "pi-smart-compact.model";
 
 // Ignore unknown stored fields; malformed known fields must not reach the renderer.
 const summaryModelSchema = z.object({

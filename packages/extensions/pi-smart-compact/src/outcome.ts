@@ -3,6 +3,8 @@ import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { NativeSession } from "./compatibility.ts";
 import { runWithOverrides, type CompactionModelOptions } from "./summarize.ts";
 
+export const compactionResultType = "pi-smart-compact.result";
+
 export type CompactionOutcome =
   | { status: "completed" }
   | { status: "skipped"; reason: string }

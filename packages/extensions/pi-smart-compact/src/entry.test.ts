@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { it } from "vite-plus/test";
 
-import { renderSummaryModel } from "./entry.ts";
+import { renderSummaryModel, summaryModelEntryType } from "./entry.ts";
 
 const theme: Pick<Theme, "fg"> = { fg: (_color, text) => text };
 const entry = {
@@ -11,7 +11,7 @@ const entry = {
   id: "entry",
   parentId: null,
   timestamp: new Date(0).toISOString(),
-  customType: "smart-compaction-model"
+  customType: summaryModelEntryType
 };
 
 it("renders the summary model", () => {

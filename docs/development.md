@@ -135,4 +135,6 @@ Schemas are unnecessary for control-flow narrowing, host capability checks, or s
 
 Implement Pi changes through workspace extensions, preferring public APIs. Runtime monkey-patches may work around API limits. Never suggest or edit Pi core or upstream package files, including installed dependencies.
 
+Namespace persisted custom entry and custom message `customType` identifiers as `<extension-package>.<entry-name>`, for example `pi-agent-summary.summary`. Define each identifier in its owning module and reuse it for writes, reads, and renderer registration. These identifiers are distinct from Pi-generated session record `id` values.
+
 Find installed documentation and examples in [Pi API references](pi-docs.md).

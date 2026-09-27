@@ -10,6 +10,9 @@ import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validat
 import { it } from "vite-plus/test";
 import { z } from "zod";
 
+import { summaryModelEntryType } from "../src/entry.ts";
+import { compactionResultType } from "../src/outcome.ts";
+
 const traceSchema = z.object({
   type: z.string(),
   provider: z.string().optional(),
@@ -194,7 +197,7 @@ function checkOutput(stdout: string, mode: string, scenario: string, attempts: n
   for (const type of ["message_start", "message_end"]) {
     assert.equal(
       events.filter(
-        (event) => event.type === type && event.message?.customType === "smart-compaction-result"
+        (event) => event.type === type && event.message?.customType === compactionResultType
       ).length,
       hasOutcomeNotice ? 1 : 0
     );
@@ -202,8 +205,7 @@ function checkOutput(stdout: string, mode: string, scenario: string, attempts: n
 
   if (!hasOutcomeNotice) return;
   const outcomeEndIndex = events.findIndex(
-    (event) =>
-      event.type === "message_end" && event.message?.customType === "smart-compaction-result"
+    (event) => event.type === "message_end" && event.message?.customType === compactionResultType
   );
   const responses = events
     .slice(outcomeEndIndex + 1)
@@ -227,12 +229,13 @@ function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
   const outcomes = manager
     .getBranch()
     .filter((entry) => entry.type === "custom_message")
-    .filter((entry) => entry.customType === "smart-compaction-result");
+    .filter((entry) => entry.customType === compactionResultType);
   const status = expectedOutcomeStatus(scenario);
   assert.equal(outcomes.length, status === undefined ? 0 : 1);
   const outcome = outcomes[0];
 
   if (outcome) {
+    assert.equal(outcome.customType, "pi-smart-compact.result");
     assert.equal(outcome.display, true);
     assert.partialDeepStrictEqual(outcome.details, { status });
     assert.ok(typeof outcome.content === "string");
@@ -384,7 +387,7 @@ function checkSummaryModelEntries(
   };
   const branch = manager.getBranch();
   const recorded = branch.filter(
-    (entry) => entry.type === "custom" && entry.customType === "smart-compaction-model"
+    (entry) => entry.type === "custom" && entry.customType === summaryModelEntryType
   );
   const compactions = branch.filter((entry) => entry.type === "compaction" && !entry.fromHook);
   assert.equal(recorded.length, compactions.length);
@@ -392,14 +395,16 @@ function checkSummaryModelEntries(
   for (const compaction of compactions) {
     const previous = branch[branch.indexOf(compaction) - 1];
     assert.ok(previous?.type === "custom");
-    assert.equal(previous.customType, "smart-compaction-model");
+    assert.equal(previous.customType, "pi-smart-compact.model");
     assert.deepEqual(previous.data, expected);
   }
 
   assert.ok(
     !manager
       .buildSessionProjection()
-      .messages.some((message) => JSON.stringify(message).includes("smart-compaction-model"))
+      .messages.some(
+        (message) => message.role === "custom" && message.customType === summaryModelEntryType
+      )
   );
 }
 

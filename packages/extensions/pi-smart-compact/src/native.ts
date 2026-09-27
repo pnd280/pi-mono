@@ -8,7 +8,7 @@ import {
   type Prepare
 } from "./compatibility.ts";
 import type { SummaryModelEntry } from "./entry.ts";
-import { describeOutcome, runRequestedCompaction } from "./outcome.ts";
+import { compactionResultType, describeOutcome, runRequestedCompaction } from "./outcome.ts";
 import { summarizeWithOverrides, type CompactionModelOptions } from "./summarize.ts";
 
 type Registration = {
@@ -203,7 +203,7 @@ export function bindNativeCompaction(
         // reports the outcome without queueing or requesting another turn.
         this._appendCustomMessage({
           role: "custom",
-          customType: "smart-compaction-result",
+          customType: compactionResultType,
           content: describeOutcome(outcome),
           display: true,
           details: outcome,

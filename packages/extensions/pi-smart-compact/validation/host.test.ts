@@ -27,6 +27,7 @@ import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 import { it, vi } from "vite-plus/test";
 
 import smartCompact from "../index.ts";
+import { compactionResultType } from "../src/outcome.ts";
 
 function withoutFocus(context: TranscriptContext, focus: string): TranscriptContext {
   return {
@@ -283,8 +284,7 @@ async function verifyNativeHost(configured: boolean) {
         runtime.session.sessionManager
           .getBranch()
           .filter(
-            (entry) =>
-              entry.type === "custom_message" && entry.customType === "smart-compaction-result"
+            (entry) => entry.type === "custom_message" && entry.customType === compactionResultType
           ).length,
         0
       );

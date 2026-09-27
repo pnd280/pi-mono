@@ -19,6 +19,7 @@ import { it, vi } from "vite-plus/test";
 
 import smartCompact from "../index.ts";
 import type { CompactConfig } from "../src/config.ts";
+import { summaryModelEntryType } from "../src/entry.ts";
 
 const override = { model: "manual-fixture/summary", thinkingLevel: "low" } as const;
 const cases: {
@@ -203,8 +204,7 @@ it.each(cases)(
               !runtime.session.sessionManager
                 .getBranch()
                 .some(
-                  (entry) =>
-                    entry.type === "custom" && entry.customType === "smart-compaction-model"
+                  (entry) => entry.type === "custom" && entry.customType === summaryModelEntryType
                 )
             );
           }
@@ -325,7 +325,7 @@ it.each(cases)(
         const branch = session.sessionManager.getBranch();
         assert.partialDeepStrictEqual(branch.at(-2), {
           type: "custom",
-          customType: "smart-compaction-model",
+          customType: "pi-smart-compact.model",
           data: {
             model: routed() && config.model ? config.model : "manual-fixture/main",
             thinkingLevel: (routed() && config.thinkingLevel) || "high",
@@ -385,7 +385,7 @@ it.each(cases)(
               });
               assert.partialDeepStrictEqual(session.sessionManager.getBranch().at(-2), {
                 type: "custom",
-                customType: "smart-compaction-model",
+                customType: "pi-smart-compact.model",
                 data: {
                   model: routed() && config.model ? config.model : "manual-fixture/main",
                   thinkingLevel: (routed() && config.thinkingLevel) || "high",
@@ -423,7 +423,7 @@ it.each(cases)(
       const branch = session.sessionManager.getBranch();
       assert.equal(
         branch.filter(
-          (entry) => entry.type === "custom" && entry.customType === "smart-compaction-model"
+          (entry) => entry.type === "custom" && entry.customType === summaryModelEntryType
         ).length,
         branch.filter((entry) => entry.type === "compaction" && !entry.fromHook).length
       );
