@@ -4,13 +4,23 @@ import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { readSettingsFile } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
 
+export const thinkingLevelSchema = z.enum([
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max"
+]);
+
 const configSchema = z.strictObject({
   model: z
     .string()
     .trim()
     .regex(/^[^/\s]+\/\S+$/u)
     .optional(),
-  thinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"]).optional(),
+  thinkingLevel: thinkingLevelSchema.optional(),
   applyToManual: z.boolean().optional(),
   applyToAuto: z.boolean().optional()
 });

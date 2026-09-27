@@ -18,11 +18,13 @@ compact({ instructions: "Preserve decisions, modified files, and remaining tests
 
 Pi finishes and saves the entire tool batch, then attempts compaction before the next model response. Success uses Pi's native compaction entry and summary, without an extra success message. Skipped attempts and cancellations or failures reported by Pi save a visible `smart-compaction-result` status. Skips include a reason; failures include an error. The model sees that status before continuing, and it remains in session history without requesting an extra turn. Print mode waits for the task's final response.
 
+Each successful default summary, whether from the `compact` tool, `/compact`, or automatic compaction, also saves a `smart-compaction-model` session entry immediately before the native compaction entry. It records the summary model as `provider/model-id`, the thinking level used for generation, and the trigger (`tool`, `manual`, `threshold`, or `overflow`), independently of later session-setting changes. Interactive mode renders it as a dim `Compacted with provider/model-id:level (trigger)` line. The entry is excluded from model context. Hook-supplied summaries, unrelated summary calls, summarization failures, and attempts cancelled before persistence record no entry.
+
 If Pi returns without an outcome event, the skip reason may only say `Pi did not start compaction.` Unexpected exceptions propagate without a status message and can stop continuation.
 
 Instructions add focus to Pi's default history and split-turn summary prompts; they do not replace the native format. Existing `session_before_compact` handlers receive the same instructions and may cancel or supply their own summaries. Custom summarizers remain responsible for their output.
 
-Duplicate requests in one tool batch become one compaction attempt and at most one status message. The last executed request's instructions win; omitting instructions clears an earlier focus. If Pi reports cancellation or summarization failure, existing context is preserved and ordinary task continuation remains possible. Aborting the whole agent run prevents continuation; Escape during compaction only cancels compaction. The built-in `/compact` command and automatic compaction keep their native behavior unless summary overrides are explicitly enabled for them below.
+Duplicate requests in one tool batch become one compaction attempt and at most one status message. The last executed request's instructions win; omitting instructions clears an earlier focus. If Pi reports cancellation or summarization failure, existing context is preserved and ordinary task continuation remains possible. Aborting the whole agent run prevents continuation; Escape during compaction only cancels compaction. Apart from the summary-model entry, the built-in `/compact` command and automatic compaction keep their native behavior unless summary overrides are explicitly enabled for them below.
 
 ## Configuration
 
@@ -71,9 +73,9 @@ An explicit tool request bypasses the automatic token threshold and `compaction.
 ## Side effects
 
 - Sends conversation history to the active or configured summary model through native summarization requests, with their usual provider usage and cost.
-- Saves native compaction entries and metadata to the current session, plus model-visible status messages for skipped, cancelled, or failed tool-requested attempts. Raw history remains in the session file.
-- Patches private Pi methods in memory, with requests scoped to the session. Model, thinking, and instruction wrappers deactivate when compaction finishes; the shared boundary and manual/automatic summary routing wrappers are released when the final session binding is disposed. Cleanup restores only methods it still owns, leaving later third-party replacements untouched.
-- Does not modify installed Pi files, create configuration, send user prompts, or manufacture continuation requests. Outcome messages use Pi's default custom-message rendering.
+- Saves native compaction entries and metadata to the current session, plus context-free `smart-compaction-model` entries for default summaries and model-visible status messages for skipped, cancelled, or failed tool-requested attempts. Raw history remains in the session file.
+- Patches private Pi methods in memory, with requests scoped to the session. A temporary `SessionManager.appendCompaction` wrapper inserts summary-model metadata after Pi's final abort check and is released on persistence, cancellation, completion, or disposal. Model, thinking, and instruction wrappers deactivate when compaction finishes; shared boundary and summary routing wrappers are released when the final session binding is disposed. Cleanup restores only methods it still owns, leaving later third-party replacements untouched.
+- Does not modify installed Pi files, create configuration, send user prompts, or manufacture continuation requests. Outcome messages use Pi's default custom-message rendering; summary-model entries register their own entry renderer.
 
 ## Validation
 

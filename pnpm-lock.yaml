@@ -405,6 +405,9 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: catalog:pi-host
         version: 0.87.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
+      '@earendil-works/pi-tui':
+        specifier: catalog:pi-host
+        version: 0.87.1
       '@pi-mono/libs':
         specifier: workspace:*
         version: link:../../libs

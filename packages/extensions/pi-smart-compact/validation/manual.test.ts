@@ -53,6 +53,15 @@ const cases: {
     summaries: 1
   },
   { name: "retry", config: { ...override, applyToManual: true }, summaries: 2 },
+  { name: "thinking changed", config: {}, summaries: 1 },
+  { name: "unrelated summary", config: {}, summaries: 1 },
+  { name: "late abort", config: {}, error: /cancelled|aborted/i, summaries: 1 },
+  {
+    name: "late abort with retained append",
+    config: {},
+    error: /cancelled|aborted/i,
+    summaries: 1
+  },
   {
     name: "missing model",
     config: { model: "missing/model", applyToManual: true },
@@ -153,6 +162,7 @@ it.each(cases)(
           assert.equal((await probe.result()).stopReason, "stop");
 
           if (phase === "manual" && !reloaded) {
+            if (name === "thinking changed") runtime.session.setThinkingLevel("low");
             if (name === "abort") runtime.session.abortCompaction();
             if (name === "failure" || (name === "retry" && summaryRequests === 1))
               return fauxAssistantMessage("", {
@@ -170,10 +180,35 @@ it.each(cases)(
         pi.on("before_provider_headers", (event) => {
           event.headers["X-Manual-Fixture"] = "applied";
         });
-        pi.on("session_before_compact", (event) => {
+        pi.on("session_before_compact", async (event) => {
           assert.equal(event.reason, phase === "automatic" ? automaticReason : "manual");
           assert.equal(event.willRetry, phase === "automatic" && automaticReason === "overflow");
           assert.equal(event.customInstructions, phase === "automatic" ? undefined : instructions);
+
+          if (!reloaded && phase === "manual" && name === "unrelated summary") {
+            assert.ok(runtime);
+            const summarize: unknown = Reflect.get(runtime.session, "_runDefaultCompaction");
+            assert.ok(typeof summarize === "function");
+            await Reflect.apply(summarize, runtime.session, [
+              event.preparation,
+              faux.getModel(),
+              undefined,
+              undefined,
+              instructions,
+              unrelated.signal,
+              undefined,
+              "manual"
+            ]);
+            assert.ok(
+              !runtime.session.sessionManager
+                .getBranch()
+                .some(
+                  (entry) =>
+                    entry.type === "custom" && entry.customType === "smart-compaction-model"
+                )
+            );
+          }
+
           if (!reloaded && phase === "manual" && name === "hook cancellation")
             return { cancel: true };
           if (!reloaded && phase === "manual" && name === "custom summary")
@@ -227,6 +262,7 @@ it.each(cases)(
       });
       const session = runtime.session;
       const stream = session.agent.streamFunction;
+      let expectedAppend: unknown = Reflect.get(session.sessionManager, "appendCompaction");
 
       if (name === "native defaults") {
         const descriptor = Object.getOwnPropertyDescriptor(session.agent, "streamFunction");
@@ -252,8 +288,30 @@ it.each(cases)(
       seed();
       const before = session.sessionManager.getLeafId();
 
+      if (name.startsWith("late abort")) {
+        const summarize: unknown = Reflect.get(session, "_runDefaultCompaction");
+        assert.ok(typeof summarize === "function");
+        // Abort after generation resolves but before Pi performs its final abort check.
+        Reflect.set(session, "_runDefaultCompaction", async (...args: unknown[]) => {
+          const result: unknown = await Reflect.apply(summarize, session, args);
+
+          if (name === "late abort with retained append") {
+            const append = session.sessionManager.appendCompaction.bind(session.sessionManager);
+            const replacement = (...saved: Parameters<SessionManager["appendCompaction"]>) =>
+              append(...saved);
+            Reflect.set(session.sessionManager, "appendCompaction", replacement);
+            expectedAppend = replacement;
+          }
+
+          session.abortCompaction();
+
+          return result;
+        });
+      }
+
       if (error) {
         await assert.rejects(session.compact(instructions), error);
+        if (name.startsWith("late abort")) Reflect.deleteProperty(session, "_runDefaultCompaction");
         assert.equal(session.sessionManager.getLeafId(), before);
       } else {
         const result = await session.compact(instructions);
@@ -263,7 +321,23 @@ it.each(cases)(
         );
       }
 
+      if (!error && name !== "custom summary") {
+        const branch = session.sessionManager.getBranch();
+        assert.partialDeepStrictEqual(branch.at(-2), {
+          type: "custom",
+          customType: "smart-compaction-model",
+          data: {
+            model: routed() && config.model ? config.model : "manual-fixture/main",
+            thinkingLevel: (routed() && config.thinkingLevel) || "high",
+            trigger: "manual"
+          }
+        });
+        assert.equal(branch.at(-1)?.type, "compaction");
+      }
+
+      if (name === "thinking changed") session.setThinkingLevel("high");
       assert.equal(summaryRequests, summaries);
+      assert.equal(Reflect.get(session.sessionManager, "appendCompaction"), expectedAppend);
       assert.equal(session.agent.streamFunction, stream);
       assert.equal(session.isCompacting, false);
       assert.equal(session.isIdle, true);
@@ -309,9 +383,19 @@ it.each(cases)(
                 type: "compaction",
                 summary: "MANUAL_CHECKPOINT"
               });
+              assert.partialDeepStrictEqual(session.sessionManager.getBranch().at(-2), {
+                type: "custom",
+                customType: "smart-compaction-model",
+                data: {
+                  model: routed() && config.model ? config.model : "manual-fixture/main",
+                  thinkingLevel: (routed() && config.thinkingLevel) || "high",
+                  trigger: reason
+                }
+              });
               assert.equal(summaryRequests, requestsBefore + 1);
             }
 
+            assert.equal(Reflect.get(session.sessionManager, "appendCompaction"), expectedAppend);
             assert.equal(session.agent.streamFunction, stream);
             assert.equal(session.isCompacting, false);
             assert.equal(session.isIdle, true);
@@ -335,7 +419,14 @@ it.each(cases)(
       await session.compact(instructions);
       await checkAutomatic();
       assert.equal(summaryRequests, summaries + (automaticError ? 0 : 2) + 3);
-      assert.equal(unrelatedRequests, summaryRequests);
+      assert.equal(unrelatedRequests, summaryRequests + (name === "unrelated summary" ? 1 : 0));
+      const branch = session.sessionManager.getBranch();
+      assert.equal(
+        branch.filter(
+          (entry) => entry.type === "custom" && entry.customType === "smart-compaction-model"
+        ).length,
+        branch.filter((entry) => entry.type === "compaction" && !entry.fromHook).length
+      );
       assert.equal(session.model?.id, "main");
       assert.equal(session.thinkingLevel, "high");
       assert.ok(

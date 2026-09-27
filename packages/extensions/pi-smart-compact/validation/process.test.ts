@@ -366,6 +366,41 @@ function checkModelRouting(
   if (scenario === "no-request") expectedAcknowledgements = 0;
   if (scenario === "duplicate") expectedAcknowledgements = 2;
   checkAcknowledgements(manager, config?.model, expectedThinking, expectedAcknowledgements);
+
+  return expectedThinking;
+}
+
+/** Each default summary records its model in a context-free entry just before the compaction. */
+function checkSummaryModelEntries(
+  manager: SessionManager,
+  config: { model?: string } | undefined,
+  thinkingLevel: string,
+  trigger: string
+) {
+  const expected = {
+    model: config?.model ?? "native-compaction-fixture/scripted",
+    thinkingLevel,
+    trigger
+  };
+  const branch = manager.getBranch();
+  const recorded = branch.filter(
+    (entry) => entry.type === "custom" && entry.customType === "smart-compaction-model"
+  );
+  const compactions = branch.filter((entry) => entry.type === "compaction" && !entry.fromHook);
+  assert.equal(recorded.length, compactions.length);
+
+  for (const compaction of compactions) {
+    const previous = branch[branch.indexOf(compaction) - 1];
+    assert.ok(previous?.type === "custom");
+    assert.equal(previous.customType, "smart-compaction-model");
+    assert.deepEqual(previous.data, expected);
+  }
+
+  assert.ok(
+    !manager
+      .buildSessionProjection()
+      .messages.some((message) => JSON.stringify(message).includes("smart-compaction-model"))
+  );
 }
 
 const summaryModel = "summary-compaction-fixture/nested/summary";
@@ -614,7 +649,8 @@ it.each([
       checkInstructionPrompts(trace, scenario);
 
       const manager = SessionManager.open(sessionPath);
-      checkModelRouting(trace, scenario, config, manager);
+      const thinkingLevel = checkModelRouting(trace, scenario, config, manager);
+      checkSummaryModelEntries(manager, config, thinkingLevel, "tool");
       const savedCompactions = manager.getBranch().filter((entry) => entry.type === "compaction");
       assert.equal(savedCompactions.length, compactions);
       checkOutcome(manager, trace, scenario);
@@ -753,6 +789,12 @@ it.each(
       const branch = SessionManager.open(sessionPath).getBranch();
       assert.equal(branch.filter((entry) => entry.type === "compaction").length, 1);
       assert.ok(!branch.some((entry) => entry.type === "custom_message"));
+      checkSummaryModelEntries(
+        SessionManager.open(sessionPath),
+        enabled ? { model: summaryModel } : undefined,
+        enabled ? "low" : "high",
+        entry === "manual" ? "manual" : "threshold"
+      );
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

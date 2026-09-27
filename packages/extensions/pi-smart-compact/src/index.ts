@@ -2,9 +2,11 @@ import { Type } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { loadCompactConfig, type CompactConfig } from "./config.ts";
+import { renderSummaryModel, summaryModelEntryType, type SummaryModelEntry } from "./entry.ts";
 import { bindNativeCompaction } from "./native.ts";
 
 export default function smartCompact(pi: ExtensionAPI) {
+  pi.registerEntryRenderer(summaryModelEntryType, renderSummaryModel);
   pi.registerTool({
     name: "context_window",
     label: "Context window",
@@ -36,7 +38,8 @@ export default function smartCompact(pi: ExtensionAPI) {
       config = loadCompactConfig(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
       binding = bindNativeCompaction(
         ctx.sessionManager,
-        Object.keys(config).length ? { config, registry: ctx.modelRegistry } : undefined
+        Object.keys(config).length ? { config, registry: ctx.modelRegistry } : undefined,
+        (entry) => pi.appendEntry<SummaryModelEntry>(summaryModelEntryType, entry)
       );
     } catch (error) {
       unavailable =
