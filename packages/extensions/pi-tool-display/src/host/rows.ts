@@ -1,14 +1,23 @@
 import { AssistantMessageComponent, ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
-import { Container, type Component } from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 
 import type { DisplayCall, TranscriptView } from "../contracts.ts";
 import type { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { record } from "../values.ts";
+import { assistantBoundaryKind, bindAssistantPresentation } from "./assistant.ts";
 import type { Host } from "./compatibility.ts";
-import { bindThinkingVisibility } from "./thinking.ts";
+
+/** Pi 0.87.1 renders a margin row, its self-rendered rows (selfRenderHeight), then images. */
+function selfRenderedRows(row: ToolExecutionComponent, rows: string[]): string[] {
+  const height = record(row).selfRenderHeight;
+  if (typeof height !== "number") return rows;
+
+  return height > 0 ? rows.slice(0, height + 1) : [];
+}
 
 /** Pi 0.87.1 prepends a margin row and subtracts it in handleMouse. Join compact
  * members without moving native image components or replacing Pi's mouse routing.
+ * Collapsed summary runs hide member rows entirely and never render images.
  */
 function joinGroupedRow(
   row: ToolExecutionComponent,
@@ -22,16 +31,73 @@ function joinGroupedRow(
   // oxlint-disable-next-line typescript/unbound-method
   const previousMouse = row.handleMouse;
   let removedMargin = false;
+  let hidden = false;
+  let movedFooter: { from: number; to: number } | undefined;
 
   const render: typeof row.render = function (this: ToolExecutionComponent, width) {
+    movedFooter = undefined;
     const rows = previousRender.call(this, width);
-    const group = active() && !call.expanded ? coordinator.group(call) : undefined;
-    removedMargin = !!group && group.members[0] !== call && rows[0] === "";
+    const role = active() ? coordinator.summaryRole(call) : undefined;
+    hidden = role?.kind === "hidden";
 
-    return removedMargin ? rows.slice(1) : rows;
+    if (hidden) {
+      removedMargin = false;
+
+      return [];
+    }
+
+    const visible = role ? selfRenderedRows(this, rows) : rows;
+    const group = active() && !role && !call.expanded ? coordinator.group(call) : undefined;
+    removedMargin = !!group && group.members[0] !== call && visible[0] === "";
+
+    const joined = removedMargin ? visible.slice(1) : visible;
+    const height = record(this).selfRenderHeight;
+
+    // Pi appends images after both renderer slots. Move the last member's footer
+    // and its leading padding below those rows, leaving native images untouched.
+    if (
+      width > 0 &&
+      active() &&
+      coordinator.run(call)?.members.at(-1) === call &&
+      coordinator.collapsible(call) &&
+      typeof height === "number" &&
+      height > 0
+    ) {
+      const from = height - Number(removedMargin);
+      const footer = joined[from];
+
+      if (footer !== undefined && from < joined.length - 1) {
+        movedFooter = { from, to: joined.length - 1 };
+
+        return [...joined.slice(0, from - 1), ...joined.slice(from + 1), "", footer];
+      }
+    }
+
+    return joined;
   };
 
   const handleMouse: typeof row.handleMouse = function (this: ToolExecutionComponent, event) {
+    if (hidden && active()) return undefined;
+
+    if (active() && movedFooter && event.y >= movedFooter.from - 1) {
+      if (
+        (event.y === movedFooter.to || event.y === movedFooter.to - 1) &&
+        event.type === "click" &&
+        event.button === "left" &&
+        coordinator.collapsible(call)
+      ) {
+        return previousMouse.call(this, {
+          ...event,
+          y: movedFooter.from + event.y - movedFooter.to + Number(removedMargin),
+          height: event.height + Number(removedMargin)
+        });
+      }
+
+      // Image rows are outside Pi's self-rendered mouse region. In particular,
+      // their new first row must not hit the footer's former slot coordinates.
+      return undefined;
+    }
+
     return previousMouse.call(
       this,
       removedMargin && active() ? { ...event, y: event.y + 1, height: event.height + 1 } : event
@@ -43,6 +109,8 @@ function joinGroupedRow(
 
   return () => {
     removedMargin = false;
+    hidden = false;
+    movedFooter = undefined;
     if (row.render === render) row.render = previousRender;
     if (row.handleMouse === handleMouse) row.handleMouse = previousMouse;
   };
@@ -67,7 +135,12 @@ export class TranscriptRows {
   constructor(
     private host: Pick<Host, "ui" | "chatContainer" | "toolOutputExpanded">,
     private coordinator: TranscriptCoordinator,
-    private options: { active: () => boolean; hideCompletedThinking: boolean }
+    private options: {
+      active: () => boolean;
+      styleAssistant: boolean;
+      /** Without mode hooks, Pi's global expansion toggles collapsed mode and verbose. */
+      syncMode?: () => void;
+    }
   ) {
     this.unindexedCalls = coordinator.calls.values();
   }
@@ -168,18 +241,16 @@ export class TranscriptRows {
     // Final-message middleware can remove previously visible streaming content.
     if (!(component instanceof AssistantMessageComponent)) return;
 
-    if (this.options.hideCompletedThinking && !this.assistants.has(component)) {
+    if (this.options.styleAssistant && !this.assistants.has(component)) {
       this.assistants.add(component);
-      const dispose = bindThinkingVisibility(component, () => {
+      const dispose = bindAssistantPresentation(component, () => {
         if (this.options.active()) this.assistantBoundary(component);
       });
       if (dispose) this.disposers.push(dispose);
     }
 
-    const visible = component.children.some(
-      (child) => child instanceof Container && child.children.length > 0
-    );
-    this.coordinator.setBoundary(component, visible ? this.precedingCall(component) : undefined);
+    const kind = assistantBoundaryKind(component);
+    this.coordinator.setBoundary(component, kind ? this.precedingCall(component) : undefined, kind);
   }
   bind(): void {
     // A host event may reconstruct the transcript before its original handler returns.
@@ -198,7 +269,10 @@ export class TranscriptRows {
       const previous = child.setExpanded;
 
       const setExpanded = (expanded: boolean) => {
-        if (this.options.active()) coordinator.expand(call, expanded);
+        if (this.options.active()) {
+          this.options.syncMode?.();
+          coordinator.expand(call, expanded);
+        }
         // Later wrappers can retain this callback after disposal or reconstruction.
         else previous.call(child, expanded);
       };
@@ -214,7 +288,8 @@ export class TranscriptRows {
       });
       previous.call(
         child,
-        coordinator.group(call)?.expanded ?? this.host.toolOutputExpanded ?? false
+        coordinator.group(call)?.expanded ??
+          (coordinator.mode === "verbose" || (this.host.toolOutputExpanded ?? false))
       );
       this.disposers.push(() => {
         detach();

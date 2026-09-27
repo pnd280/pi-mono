@@ -8,6 +8,7 @@ import type {
   ToolDisplayAdapter
 } from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
+import { pathSummaryItem } from "../../summary/items.ts";
 import { nativeAdapter } from "../native/index.ts";
 import { nativeResultParts } from "../native/result-presentation.ts";
 import { argsSchema, parametersSchema, resultSchema } from "./schema.ts";
@@ -41,6 +42,12 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-selective-read:read",
   supports,
   invocation,
+  summaryItems(args, { cwd }) {
+    const path = argsSchema.safeParse(args).data?.path;
+
+    // One read item per requested file; selections of one file count once.
+    return path === undefined ? undefined : [pathSummaryItem("read", path, cwd)];
+  },
   exploration(args, result) {
     const input = argsSchema.safeParse(args);
     if (!input.success || (result && !supports(args, result))) return undefined;

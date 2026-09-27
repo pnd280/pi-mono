@@ -167,6 +167,8 @@ export function piMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
     supports: (args, result) => supportsResult(kind, args, result),
     invocation: (args, result) => invocation(kind, tool.name, args, result),
     mcp: (_args, result) => mcpCallFacts(result),
+    // Every MCP call counts once, including repeated identical requests.
+    summaryItems: () => [{ category: "mcp" }],
     outcome: mcpResultOutcome,
     summary: mcpScriptSummary,
     notices: mcpNotices

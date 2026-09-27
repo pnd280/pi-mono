@@ -667,3 +667,291 @@ it("keeps historical missing results still and separates identical call IDs by s
   expect(c.byId("orphan")).toBeUndefined();
   c.dispose();
 });
+
+function summaryFixture(mode: "summary" | "compact" = "summary") {
+  const coordinator = new TranscriptCoordinator("runs", {
+    mode,
+    animationClock: { start: () => () => {} }
+  });
+  let index = 0;
+  const handles = new Map<string, ReturnType<typeof rowHandle>>();
+
+  const add = (name: string, args: unknown, origin: "live" | "historical" = "historical") => {
+    const call = coordinator.add(
+      { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
+      name,
+      args,
+      nativeAdapter(name) ?? genericAdapter,
+      origin
+    );
+    const handle = rowHandle();
+    coordinator.attach(call, handle);
+    handles.set(call.key, handle);
+
+    return call;
+  };
+
+  const invalidations = (call: DisplayCall) => handles.get(call.key)?.invalidate.mock.calls.length;
+  const clear = () => handles.forEach((handle) => handle.invalidate.mockClear());
+  const roles = () =>
+    [...coordinator.calls.values()].map((call) => coordinator.summaryRole(call)?.kind ?? "card");
+
+  return { coordinator, add, invalidations, clear, roles };
+}
+
+it("partitions runs only at visible boundaries, including groups and other tools", () => {
+  const { coordinator, add, roles } = summaryFixture();
+
+  try {
+    const first = add("read", { path: "a.ts" });
+    const second = add("read", { path: "b.ts" });
+    const shell = add("bash", { command: "true" });
+    const custom = add("custom", {});
+    expect(coordinator.run(first)?.members).toEqual([first, second, shell, custom]);
+    expect(coordinator.group(first)?.members).toEqual([first, second]);
+    expect(roles()).toEqual(["leader", "hidden", "hidden", "hidden"]);
+
+    // Visible assistant text splits runs; final middleware can withdraw it again.
+    const owner = {};
+    coordinator.setBoundary(owner, second);
+    expect(coordinator.run(first)?.members).toEqual([first, second]);
+    expect(coordinator.run(shell)?.members).toEqual([shell, custom]);
+    expect(roles()).toEqual(["leader", "hidden", "leader", "hidden"]);
+    coordinator.setBoundary(owner, undefined);
+    expect(coordinator.run(custom)?.members).toEqual([first, second, shell, custom]);
+
+    // Unowned tools and notices separate the next call from the current run.
+    coordinator.boundary();
+    const next = add("read", { path: "c.ts" });
+    expect(coordinator.run(next)?.members).toEqual([next]);
+    coordinator.boundary(first);
+    expect(coordinator.run(first)?.members).toEqual([first]);
+    expect(coordinator.run(second)?.members).toEqual([second, shell, custom]);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("keeps thinking boundaries out of run settlement and preserves opened state", () => {
+  const { coordinator, add, roles } = summaryFixture();
+
+  try {
+    const owner = {};
+    const first = add("read", { path: "a.ts" }, "live");
+    coordinator.result(first, result(), "success");
+    coordinator.setBoundary(owner, first, "group");
+    expect(roles()).toEqual(["card"]);
+    const second = add("read", { path: "b.ts" }, "live");
+    coordinator.result(second, result(), "success");
+    expect(coordinator.group(first)).toBeUndefined();
+    expect(coordinator.group(second)).toBeUndefined();
+    expect(coordinator.run(first)?.members).toEqual([first, second]);
+    expect(roles()).toEqual(["card", "card"]);
+
+    coordinator.setBoundary(owner);
+    expect(coordinator.group(first)?.members).toEqual([first, second]);
+    expect(roles()).toEqual(["card", "card"]);
+    coordinator.setBoundary(owner, first, "group");
+    coordinator.settle();
+    expect(roles()).toEqual(["leader", "hidden"]);
+    coordinator.setBoundary(owner);
+    expect(roles()).toEqual(["leader", "hidden"]);
+
+    coordinator.openRun(second);
+
+    for (const after of [first, undefined, first]) {
+      coordinator.setBoundary(owner, after, "group");
+      expect(roles()).toEqual(["card", "card"]);
+      expect(coordinator.collapsible(first)).toBe(true);
+      expect(coordinator.collapsible(second)).toBe(true);
+    }
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("tracks run and group boundaries independently when owners change kind or withdraw", () => {
+  const { coordinator, add, roles } = summaryFixture();
+
+  try {
+    const first = add("read", { path: "a.ts" }, "live");
+    const second = add("read", { path: "b.ts" }, "live");
+    coordinator.result(first, result(), "success");
+    coordinator.result(second, result(), "success");
+    const thinking = {};
+    const other = {};
+    coordinator.setBoundary(thinking, first, "group");
+    coordinator.setBoundary(other, first, "group");
+    expect(coordinator.group(first)).toBeUndefined();
+    expect(roles()).toEqual(["card", "card"]);
+
+    // Prose can arrive in the same assistant component after thinking.
+    coordinator.setBoundary(thinking, first, "run");
+    expect(roles()).toEqual(["leader", "card"]);
+    coordinator.setBoundary(other, first, "run");
+    coordinator.setBoundary(thinking, first, "group");
+    expect(roles()).toEqual(["leader", "card"]);
+    coordinator.setBoundary(other);
+    expect(roles()).toEqual(["card", "card"]);
+    expect(coordinator.group(first)).toBeUndefined();
+    expect(coordinator.run(first)?.members).toEqual([first, second]);
+
+    // A permanent notice must end a run even at an existing thinking separator.
+    coordinator.boundary(first);
+    expect(roles()).toEqual(["leader", "card"]);
+    coordinator.setBoundary(thinking);
+    expect(roles()).toEqual(["leader", "card"]);
+    expect(coordinator.group(first)).toBeUndefined();
+    coordinator.boundary();
+    expect(roles()).toEqual(["leader", "leader"]);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("renders ordinary cards outside summary mode and in opened runs until the mode changes", () => {
+  const { coordinator, add, invalidations, clear, roles } = summaryFixture("compact");
+
+  try {
+    const first = add("read", { path: "a.ts" });
+    const second = add("bash", { command: "true" });
+    expect(roles()).toEqual(["card", "card"]);
+    clear();
+    coordinator.setMode("summary");
+    expect(roles()).toEqual(["leader", "hidden"]);
+    expect([invalidations(first), invalidations(second)]).toEqual([1, 1]);
+
+    clear();
+    coordinator.openRun(second);
+    expect(coordinator.run(first)?.opened).toBe(true);
+    expect(roles()).toEqual(["card", "card"]);
+    expect([invalidations(first), invalidations(second)]).toEqual([1, 1]);
+    coordinator.setMode("verbose");
+    coordinator.setMode("summary");
+    expect(coordinator.run(first)?.opened).toBe(false);
+    expect(roles()).toEqual(["leader", "hidden"]);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("invalidates the summary leader for member changes, not for later runs", () => {
+  const { coordinator, add, invalidations, clear } = summaryFixture();
+
+  try {
+    const leader = add("read", { path: "a.ts" });
+    const member = add("bash", { command: "true" });
+    clear();
+    coordinator.setSavedPath(member, "/tmp/output");
+    expect([invalidations(leader), invalidations(member)]).toEqual([1, 1]);
+
+    clear();
+    coordinator.boundary();
+    const next = add("read", { path: "b.ts" });
+    expect(invalidations(leader)).toBe(0);
+    expect(invalidations(next)).toBe(0);
+
+    // Compact mode does not re-render first members for unrelated changes.
+    coordinator.setMode("compact");
+    clear();
+    coordinator.setSavedPath(member, "/tmp/other");
+    expect(invalidations(leader)).toBe(0);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("collapses a live run only after it ends at a boundary or agent end", () => {
+  const { coordinator, add, invalidations, clear, roles } = summaryFixture();
+
+  try {
+    const first = add("read", { path: "a.ts" }, "live");
+    const second = add("bash", { command: "true" }, "live");
+    expect(roles()).toEqual(["card", "card"]);
+    coordinator.result(first, result(), "success");
+    coordinator.result(second, result(), "success");
+    // Finished calls stay cards: the next turn's calls may still join the run.
+    expect(roles()).toEqual(["card", "card"]);
+    const third = add("read", { path: "b.ts" }, "live");
+    expect(coordinator.run(third)?.members).toEqual([first, second, third]);
+
+    // A visible boundary does not end a run while a member is live.
+    coordinator.setBoundary({}, third);
+    expect(roles()).toEqual(["card", "card", "card"]);
+    clear();
+    coordinator.result(third, result(), "success");
+    expect(roles()).toEqual(["leader", "hidden", "hidden"]);
+    expect([invalidations(first), invalidations(second), invalidations(third)]).toEqual([1, 1, 1]);
+
+    // Agent end ends the final run and settles its unfinished calls.
+    const unfinished = add("bash", { command: "sleep 9" }, "live");
+    expect(roles().at(-1)).toBe("card");
+    coordinator.settle();
+    expect(unfinished.lifecycle).toBe("unavailable");
+    expect(roles().at(-1)).toBe("leader");
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("keeps a run the user opened while live as cards once it ends", () => {
+  const { coordinator, add, invalidations, clear, roles } = summaryFixture();
+
+  try {
+    const first = add("read", { path: "a.ts" }, "live");
+    const second = add("bash", { command: "true" }, "live");
+    clear();
+    coordinator.openRun(first);
+    expect(coordinator.run(first)?.opened).toBe(true);
+    // Opening a live run changes nothing visible yet.
+    expect([invalidations(first), invalidations(second)]).toEqual([0, 0]);
+
+    coordinator.result(first, result(), "success");
+    expect(coordinator.collapsible(first)).toBe(false);
+    coordinator.result(second, result(), "success");
+    clear();
+    coordinator.settle();
+    expect(roles()).toEqual(["card", "card"]);
+    // Ending adds collapse controls to both ends of the run.
+    expect([invalidations(first), invalidations(second)]).toEqual([1, 1]);
+    expect([coordinator.collapsible(first), coordinator.collapsible(second)]).toEqual([true, true]);
+    coordinator.closeRun(second);
+    expect(roles()).toEqual(["leader", "hidden"]);
+    expect(coordinator.collapsible(first)).toBe(false);
+
+    coordinator.openRun(first);
+    coordinator.setMode("compact");
+    expect(coordinator.collapsible(first)).toBe(false);
+    coordinator.setMode("summary");
+    expect(roles()).toEqual(["leader", "hidden"]);
+
+    // Outside summary mode, clicks never mark a run.
+    coordinator.boundary();
+    const later = add("read", { path: "b.ts" }, "live");
+    coordinator.setMode("compact");
+    coordinator.openRun(later);
+    expect(coordinator.run(later)?.opened).toBe(false);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("renders summary mode as cards while summaries are unavailable", () => {
+  const { coordinator, add, invalidations, clear, roles } = summaryFixture();
+
+  try {
+    const first = add("read", { path: "a.ts" });
+    const second = add("bash", { command: "true" });
+    coordinator.openRun(first);
+    clear();
+    coordinator.setSummaries(false);
+    expect(roles()).toEqual(["card", "card"]);
+    expect([invalidations(first), invalidations(second)]).toEqual([1, 1]);
+    coordinator.openRun(first);
+    coordinator.setSummaries(true);
+    // Availability changes close opened runs like mode changes.
+    expect(roles()).toEqual(["leader", "hidden"]);
+  } finally {
+    coordinator.dispose();
+  }
+});

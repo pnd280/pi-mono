@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { fauxToolCall } from "@earendil-works/pi-ai";
+import { fauxToolCall, type AssistantMessageEvent } from "@earendil-works/pi-ai";
 import {
   createAgentSession,
   createReadToolDefinition,
@@ -34,7 +34,7 @@ import { expect, it, vi } from "vite-plus/test";
 import toolDisplay from "../index.ts";
 import { assistantMessage, messageToolCall, renderingTui } from "../test-fixture.ts";
 import { METADATA_TYPE } from "../transcript/metadata.ts";
-import { interactivePrototype, type Host } from "./compatibility.ts";
+import { interactivePrototype, modeHooksCompatible, type Host } from "./compatibility.ts";
 import { installHostIntegration } from "./install.ts";
 
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
@@ -83,7 +83,7 @@ function readRow(session: AgentSession, completed = true): ToolExecutionComponen
   return row;
 }
 
-function interactiveHost(session: AgentSession) {
+function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscreen") {
   const runtime = {
     session,
     setBeforeSessionInvalidate() {},
@@ -108,7 +108,7 @@ function interactiveHost(session: AgentSession) {
     hideThinkingBlock: boolean;
     updateThinkingBlockVisibility(): void;
   };
-  boundary.ui = renderingTui();
+  boundary.ui = renderingTui(tuiMode);
   boundary.isInitialized = true;
 
   return boundary;
@@ -174,12 +174,20 @@ async function withSession(
   ];
   let session: AgentSession | undefined;
 
+  // Card contracts use compact mode unless a test selects another collapsed mode.
+  const display: Record<string, unknown> = {
+    "ext.pi-tool-display":
+      displayConfiguration !== null && typeof displayConfiguration === "object"
+        ? { collapsedMode: "compact", ...displayConfiguration }
+        : (displayConfiguration ?? { collapsedMode: "compact" })
+  };
+
   try {
     const settingsManager = SettingsManager.inMemory({
       shellPath: "/bin/bash",
       shellCommandPrefix: "export TOOL_DISPLAY_TEST=preserved",
       images: { autoResize: false },
-      ...(displayConfiguration === undefined ? {} : { "ext.pi-tool-display": displayConfiguration })
+      ...display
     });
     const resourceLoader = new DefaultResourceLoader({
       cwd: directory,
@@ -1355,6 +1363,154 @@ it.each(["thinking", "tool"])(
   }
 );
 
+it.each(["regular", "fullscreen"] as const)(
+  "marks streamed and replayed assistant prose in %s mode without marking user messages",
+  async (mode) => {
+    await withSession(async ({ session }) => {
+      const tui = interactiveHost(session, mode);
+      const user = {
+        role: "user" as const,
+        content: [{ type: "text" as const, text: "User prose" }],
+        timestamp: 1
+      };
+      const message = {
+        ...assistantMessage([{ type: "text", text: "Assistant prose" }], 2),
+        stopReason: "stop" as const
+      };
+      const render = () =>
+        tui.chatContainer.render(80).map((row) => stripTerminalSequences(row).trimEnd());
+
+      try {
+        tui.renderSessionItems([user]);
+        await tui.handleEvent({ type: "message_start", message: { ...message, content: [] } });
+        expect(render().some((row) => row.startsWith("•"))).toBe(false);
+        await tui.handleEvent({
+          type: "message_update",
+          message,
+          assistantMessageEvent: {
+            type: "text_delta",
+            contentIndex: 0,
+            delta: "Assistant prose",
+            partial: message
+          }
+        });
+        expect(render().filter((row) => row.startsWith("•"))).toEqual(["• Assistant prose"]);
+        await tui.handleEvent({ type: "message_end", message });
+        const live = render();
+        expect(live.filter((row) => row.startsWith("•"))).toEqual(["• Assistant prose"]);
+        expect(live.join("\n")).toContain("User prose");
+        tui.chatContainer.clear();
+        tui.renderSessionItems([user, message]);
+        expect(render()).toEqual(live);
+        tui.hideThinkingBlock = true;
+        tui.updateThinkingBlockVisibility();
+        expect(render()).toEqual(live);
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
+
+it.each(["regular", "fullscreen"] as const)(
+  "hides ended thinking blocks during the rest of a streamed message in %s mode",
+  async (mode) => {
+    await withSession(async ({ session }) => {
+      const tui = interactiveHost(session, mode);
+      const first = { type: "thinking" as const, thinking: "First thought" };
+      const prose = { type: "text" as const, text: "Answer still streaming" };
+      const second = { type: "thinking" as const, thinking: "Second thought" };
+      const third = { type: "thinking" as const, thinking: "Third thought" };
+      const message = assistantMessage([first]);
+      const update = (event: Extract<AssistantMessageEvent, { contentIndex: number }>) =>
+        tui.handleEvent({
+          type: "message_update",
+          message: event.partial,
+          assistantMessageEvent: event
+        });
+      const placeholders = () => transcriptText(tui).match(/Thinking\.\.\./g) ?? [];
+
+      try {
+        tui.hideThinkingBlock = true;
+        tui.renderSessionItems([]);
+        await tui.handleEvent({ type: "message_start", message: { ...message, content: [] } });
+        await update({
+          type: "thinking_delta",
+          contentIndex: 0,
+          delta: first.thinking,
+          partial: message
+        });
+        expect(placeholders()).toHaveLength(1);
+        await update({
+          type: "thinking_end",
+          contentIndex: 0,
+          content: first.thinking,
+          partial: message
+        });
+        expect(placeholders()).toHaveLength(0);
+
+        // Neither global toggles nor invalidation may revive the ended placeholder.
+        tui.hideThinkingBlock = false;
+        tui.updateThinkingBlockVisibility();
+        expect(transcriptText(tui)).toContain(first.thinking);
+        tui.hideThinkingBlock = true;
+        tui.updateThinkingBlockVisibility();
+        tui.chatContainer.invalidate();
+        expect(placeholders()).toHaveLength(0);
+
+        const answer = { ...message, content: [first, prose] };
+        await update({ type: "text_delta", contentIndex: 1, delta: prose.text, partial: answer });
+        expect(transcriptText(tui)).toContain(`• ${prose.text}`);
+        expect(placeholders()).toHaveLength(0);
+
+        // Shared partials can already contain later thinking blocks. Ending one
+        // must not hide another, including within Pi's consecutive thinking run.
+        const buffered = { ...message, content: [first, prose, second, third] };
+        const retained = structuredClone(buffered);
+        await update({
+          type: "thinking_delta",
+          contentIndex: 2,
+          delta: second.thinking,
+          partial: buffered
+        });
+        expect(placeholders()).toHaveLength(1);
+        await update({
+          type: "thinking_end",
+          contentIndex: 2,
+          content: second.thinking,
+          partial: buffered
+        });
+        expect(placeholders()).toHaveLength(1);
+        await update({
+          type: "thinking_end",
+          contentIndex: 3,
+          content: third.thinking,
+          partial: buffered
+        });
+        expect(placeholders()).toHaveLength(0);
+        expect(buffered).toEqual(retained);
+
+        const toolCall = fauxToolCall("read", { path: "a.ts" }, { id: "after-thinking" });
+        const final = { ...buffered, content: [...buffered.content, toolCall] };
+        await update({ type: "toolcall_end", contentIndex: 4, toolCall, partial: final });
+        expect(placeholders()).toHaveLength(0);
+        await tui.handleEvent({ type: "message_end", message: final });
+        expect(placeholders()).toHaveLength(0);
+
+        // Completion indices belong to one assistant row, never the next message.
+        const next = assistantMessage([first], 2);
+        await tui.handleEvent({ type: "message_start", message: next });
+        expect(placeholders()).toHaveLength(1);
+        await tui.handleEvent({ type: "message_end", message: { ...next, stopReason: "aborted" } });
+        expect(placeholders()).toHaveLength(0);
+        expect(transcriptText(tui)).toContain("Operation aborted");
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
+
 it("suppresses completed collapsed thinking without losing text, diagnostics, or toggle boundaries", async () => {
   await withSession(async ({ session }) => {
     const tui = interactiveHost(session);
@@ -1401,7 +1557,7 @@ it("suppresses completed collapsed thinking without losing text, diagnostics, or
         errorMessage: "Keep this error"
       };
       component.updateContent(diagnostic, false);
-      expect(render()).toContain("Keep this explanation");
+      expect(render()).toContain("• Keep this explanation");
       expect(render()).toContain("Keep this error");
       expect(messages).toEqual(retained);
     } finally {
@@ -2210,5 +2366,484 @@ it("replaces repeated installations and preserves later wrappers during repeated
     secondDispose?.();
     thirdDispose?.();
     host.getRegisteredToolDefinition = original;
+  }
+});
+
+function summaryHistory(session: AgentSession) {
+  const message = assistantMessage([
+    fauxToolCall("read", { path: "a.ts" }, { id: "mode-r1" }),
+    fauxToolCall("read", { path: "b.ts" }, { id: "mode-r2" }),
+    fauxToolCall("bash", { command: "npm test" }, { id: "mode-b1" })
+  ]);
+  const results = [
+    ["mode-r1", "read", "retained a"],
+    ["mode-r2", "read", "retained b"],
+    ["mode-b1", "bash", "npm ERR! missing script"]
+  ].map(([toolCallId, toolName, text]) => ({
+    role: "toolResult" as const,
+    toolCallId: toolCallId!,
+    toolName: toolName!,
+    content: [{ type: "text" as const, text: text! }],
+    isError: toolName === "bash",
+    timestamp: 2
+  }));
+  session.sessionManager.appendMessage(message);
+  results.forEach((result) => session.sessionManager.appendMessage(result));
+
+  return [message, ...results];
+}
+
+function transcriptText(tui: ReturnType<typeof interactiveHost>): string {
+  return tui.chatContainer.render(100).map(stripTerminalSequences).join("\n");
+}
+
+it("verifies the inspected Pi expansion methods before hooking mode cycling", () => {
+  expect(modeHooksCompatible(interactivePrototype())).toBe(true);
+});
+
+it("cycles summary, compact, and verbose with Ctrl+O and names the mode in the status", async () => {
+  await withSession(
+    async ({ session }) => {
+      const tui = interactiveHost(session);
+
+      try {
+        await session.bindExtensions({ mode: "tui" });
+        tui.renderSessionItems(summaryHistory(session));
+        expect(transcriptText(tui)).toContain("Read 2 files · ran 1 command (1 failed)");
+        expect(transcriptText(tui)).not.toContain("npm ERR! missing script");
+        expect(transcriptText(tui)).not.toContain("Explored");
+
+        const cycle = (expected: string) => {
+          tui.toggleToolOutputExpansion?.();
+          expect(transcriptText(tui).trimEnd().split("\n").at(-1)?.trim()).toBe(
+            `Tool output: ${expected}`
+          );
+        };
+
+        cycle("compact");
+        expect(tui.toolOutputExpanded).toBe(false);
+        expect(transcriptText(tui)).toContain("• Explored .");
+        expect(transcriptText(tui)).not.toContain("retained a");
+        cycle("verbose");
+        expect(tui.toolOutputExpanded).toBe(true);
+        expect(transcriptText(tui)).toContain("retained a");
+        cycle("summary");
+        expect(tui.toolOutputExpanded).toBe(false);
+        expect(transcriptText(tui)).not.toContain("retained a");
+        expect(transcriptText(tui)).toContain("Read 2 files · ran 1 command (1 failed)");
+        // Repeated status messages replace one line instead of accumulating.
+        expect(transcriptText(tui).match(/Tool output:/g)).toHaveLength(1);
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    },
+    { collapsedMode: "summary" }
+  );
+});
+
+it.each(["summary", "compact"] as const)(
+  "maps extension expansion requests to verbose and the %s collapsed mode",
+  async (collapsedMode) => {
+    await withSession(
+      async ({ session }) => {
+        const tui = interactiveHost(session);
+
+        try {
+          await session.bindExtensions({ mode: "tui" });
+          tui.renderSessionItems(summaryHistory(session));
+          const status = () => transcriptText(tui).match(/Tool output: \w+/g) ?? [];
+          tui.setToolsExpanded?.(false);
+          expect(status()).toEqual([]);
+          tui.setToolsExpanded?.(true);
+          expect(tui.toolOutputExpanded).toBe(true);
+          expect(status()).toEqual(["Tool output: verbose"]);
+          tui.setToolsExpanded?.(false);
+          expect(tui.toolOutputExpanded).toBe(false);
+          expect(status()).toEqual([`Tool output: ${collapsedMode}`]);
+
+          if (collapsedMode === "compact") {
+            tui.toggleToolOutputExpansion?.();
+            expect(status()).toEqual(["Tool output: verbose"]);
+            tui.toggleToolOutputExpansion?.();
+            expect(status()).toEqual(["Tool output: summary"]);
+          }
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
+      },
+      { collapsedMode }
+    );
+  }
+);
+
+it("starts verbose with Pi's verbose startup option", async () => {
+  await withSession(
+    async ({ session }) => {
+      const tui = interactiveHost(session);
+      // Pi's --verbose option is private construction state.
+      Reflect.set(
+        tui,
+        "options",
+        Object.assign({}, Reflect.get(tui, "options"), { verbose: true })
+      );
+
+      try {
+        await session.bindExtensions({ mode: "tui" });
+        tui.renderSessionItems(summaryHistory(session));
+        expect(tui.toolOutputExpanded).toBe(true);
+        expect(transcriptText(tui)).toContain("retained a");
+        tui.toggleToolOutputExpansion?.();
+        expect(transcriptText(tui)).toContain("Read 2 files · ran 1 command (1 failed)");
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    },
+    { collapsedMode: "summary" }
+  );
+});
+
+it("keeps summary rendering and toggles verbose when Pi's expansion methods differ", async () => {
+  const prototype = interactivePrototype();
+  const originalToggle = prototype.toggleToolOutputExpansion;
+
+  // A different method body disables mode hooks; Pi's own toggle keeps working.
+  prototype.toggleToolOutputExpansion = function (this: Host) {
+    originalToggle?.call(this);
+  };
+
+  try {
+    await withSession(
+      async ({ session }) => {
+        const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
+        const uiContext = { notify } satisfies Pick<ExtensionContext["ui"], "notify">;
+        await session.bindExtensions({
+          mode: "tui",
+          // This binding only reports warnings; no dialogs or editor are used.
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          uiContext: uiContext as unknown as ExtensionContext["ui"]
+        });
+        const tui = interactiveHost(session);
+
+        try {
+          tui.renderSessionItems(summaryHistory(session));
+          expect(notify).toHaveBeenCalledWith(
+            "pi-tool-display: mode cycling unavailable; Ctrl+O toggles summary ↔ verbose.",
+            "warning"
+          );
+          expect(transcriptText(tui)).toContain("Read 2 files · ran 1 command (1 failed)");
+          tui.toggleToolOutputExpansion?.();
+          expect(transcriptText(tui)).toContain("retained a");
+          expect(transcriptText(tui)).toContain("Tool output: expanded");
+          tui.toggleToolOutputExpansion?.();
+          expect(transcriptText(tui)).toContain("Read 2 files · ran 1 command (1 failed)");
+          expect(transcriptText(tui)).not.toContain("retained a");
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
+      },
+      { collapsedMode: "summary" }
+    );
+  } finally {
+    Reflect.set(prototype, "toggleToolOutputExpansion", originalToggle);
+  }
+});
+
+it("restores expansion methods on disposal and preserves later wrappers", () => {
+  const prototype = interactivePrototype();
+  const toggle = prototype.toggleToolOutputExpansion;
+  const setExpanded = prototype.setToolsExpanded;
+  const dispose = installHostIntegration();
+  expect(prototype.toggleToolOutputExpansion).not.toBe(toggle);
+  const hooked = prototype.setToolsExpanded;
+
+  const later = function (this: Host, expanded: boolean) {
+    hooked?.call(this, expanded);
+  };
+
+  prototype.setToolsExpanded = later;
+  dispose?.();
+  expect(prototype.toggleToolOutputExpansion).toBe(toggle);
+  expect(prototype.setToolsExpanded).toBe(later);
+  Reflect.set(prototype, "setToolsExpanded", setExpanded);
+});
+
+it.each([true, false])(
+  "keeps thinking-only turns from settling a run (hidden: %s)",
+  async (hidden) => {
+    await withSession(
+      async ({ session }) => {
+        const tui = interactiveHost(session);
+        const history: unknown[] = [];
+        const thought = { type: "thinking" as const, thinking: "Considering the next file" };
+        const first = assistantMessage(
+          [fauxToolCall("read", { path: "a.ts" }, { id: "thinking-read-a" })],
+          1
+        );
+        const next = assistantMessage(
+          [thought, fauxToolCall("read", { path: "b.ts" }, { id: "thinking-read-b" })],
+          2
+        );
+
+        const finishCall = async (message: typeof first, contentIndex: number) => {
+          const call = messageToolCall(message, contentIndex);
+          await tui.handleEvent({
+            type: "message_update",
+            message,
+            assistantMessageEvent: {
+              type: "toolcall_end",
+              contentIndex,
+              toolCall: call,
+              partial: message
+            }
+          });
+          await tui.handleEvent({ type: "message_end", message });
+          const result = {
+            role: "toolResult" as const,
+            toolCallId: call.id,
+            toolName: call.name,
+            content: [{ type: "text" as const, text: "retained file" }],
+            isError: false,
+            timestamp: message.timestamp
+          };
+          await tui.handleEvent({
+            type: "tool_execution_end",
+            toolCallId: call.id,
+            toolName: call.name,
+            result,
+            isError: false
+          });
+          history.push(message, result);
+        };
+
+        try {
+          await session.bindExtensions({ mode: "tui" });
+          tui.hideThinkingBlock = hidden;
+          tui.renderSessionItems([]);
+          await tui.handleEvent({ type: "message_start", message: { ...first, content: [] } });
+          await finishCall(first, 0);
+          expect(transcriptText(tui)).toContain("Read a.ts");
+
+          await tui.handleEvent({ type: "message_start", message: { ...next, content: [] } });
+          const partial = { ...next, content: [thought] };
+          await tui.handleEvent({
+            type: "message_update",
+            message: partial,
+            assistantMessageEvent: {
+              type: "thinking_delta",
+              contentIndex: 0,
+              delta: thought.thinking,
+              partial
+            }
+          });
+          const thinking = transcriptText(tui);
+          expect(thinking).toContain(hidden ? "Thinking..." : thought.thinking);
+          expect(thinking).toContain("Read a.ts");
+          expect(thinking).not.toContain("Read 1 file");
+          await tui.handleEvent({
+            type: "message_update",
+            message: partial,
+            assistantMessageEvent: {
+              type: "thinking_end",
+              contentIndex: 0,
+              content: thought.thinking,
+              partial
+            }
+          });
+          expect(transcriptText(tui)).not.toContain("Thinking...");
+          expect(transcriptText(tui).includes(thought.thinking)).toBe(!hidden);
+          expect(transcriptText(tui)).toContain("Read a.ts");
+          expect(transcriptText(tui)).not.toContain("Read 1 file");
+
+          await finishCall(next, 1);
+          expect(transcriptText(tui)).toContain(hidden ? "Explored" : thought.thinking);
+          expect(transcriptText(tui)).not.toMatch(/Read [12] files?/);
+
+          // Both the global toggle and native per-block click only change layout.
+          tui.hideThinkingBlock = false;
+          tui.updateThinkingBlockVisibility();
+          const assistant = tui.chatContainer.children
+            .filter((child) => child instanceof AssistantMessageComponent)
+            .at(-1)!;
+          const click = {
+            type: "click" as const,
+            button: "left" as const,
+            x: 2,
+            y: 1,
+            screenX: 2,
+            screenY: 1,
+            width: 100,
+            height: assistant.render(100).length,
+            shift: false,
+            alt: false,
+            ctrl: false
+          };
+          expect(assistant.handleMouse(click)).toMatchObject({ handled: true });
+          expect(transcriptText(tui)).not.toContain(thought.thinking);
+          expect(transcriptText(tui)).toContain("Explored");
+          expect(transcriptText(tui)).not.toMatch(/Read [12] files?/);
+
+          await tui.handleEvent({ type: "agent_end", messages: [], willRetry: false });
+
+          for (const replay of [false, true]) {
+            if (replay) {
+              tui.chatContainer.clear();
+              tui.renderSessionItems(history);
+            }
+
+            for (const hide of [false, true, false]) {
+              tui.hideThinkingBlock = hide;
+              tui.updateThinkingBlockVisibility();
+              const ended = transcriptText(tui);
+              expect(ended).toContain("Read 2 files");
+              expect(ended).not.toContain("Read 1 file");
+              expect(ended).not.toContain("Explored");
+              expect(ended.includes(thought.thinking)).toBe(!hide);
+            }
+          }
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
+      },
+      { collapsedMode: "summary" }
+    );
+  }
+);
+
+it.each(["prose", "error", "length"] as const)(
+  "keeps a live run compact through thinking until assistant %s ends it",
+  async (boundary) => {
+    await withSession(
+      async ({ session }) => {
+        const tui = interactiveHost(session);
+
+        try {
+          await session.bindExtensions({ mode: "tui" });
+          tui.renderSessionItems([]);
+          const message = assistantMessage([
+            fauxToolCall("read", { path: "a.ts" }, { id: "live-read" }),
+            fauxToolCall("bash", { command: "npm test" }, { id: "live-shell" })
+          ]);
+          await tui.handleEvent({ type: "message_start", message: { ...message, content: [] } });
+
+          for (const [contentIndex, call] of message.content.entries())
+            if (call.type === "toolCall")
+              await tui.handleEvent({
+                type: "message_update",
+                message,
+                assistantMessageEvent: {
+                  type: "toolcall_end",
+                  contentIndex,
+                  toolCall: call,
+                  partial: message
+                }
+              });
+
+          await tui.handleEvent({ type: "message_end", message });
+          const text = (value: string) => ({
+            content: [{ type: "text" as const, text: value }],
+            details: undefined
+          });
+
+          for (const [id, name, output] of [
+            ["live-read", "read", "a"],
+            ["live-shell", "bash", "done"]
+          ] as const) {
+            await tui.handleEvent({
+              type: "tool_execution_start",
+              toolCallId: id,
+              toolName: name,
+              args: {}
+            });
+            await tui.handleEvent({
+              type: "tool_execution_end",
+              toolCallId: id,
+              toolName: name,
+              result: text(output),
+              isError: false
+            });
+          }
+
+          // Finished calls stay compact while the next turn could still extend the run.
+          const finished = transcriptText(tui);
+          expect(finished).toContain("Ran npm test");
+          expect(finished).not.toContain("Read 1 file");
+
+          const thought = { type: "thinking" as const, thinking: "Reviewing the results" };
+          const partial = assistantMessage([thought], 3);
+          await tui.handleEvent({ type: "message_start", message: { ...partial, content: [] } });
+          await tui.handleEvent({
+            type: "message_update",
+            message: partial,
+            assistantMessageEvent: {
+              type: "thinking_delta",
+              contentIndex: 0,
+              delta: thought.thinking,
+              partial
+            }
+          });
+          expect(transcriptText(tui)).toContain("Ran npm test");
+          expect(transcriptText(tui)).not.toContain("Read 1 file");
+          const reply = {
+            ...partial,
+            content:
+              boundary === "prose"
+                ? [thought, { type: "text" as const, text: "All done" }]
+                : [thought],
+            stopReason: boundary === "prose" ? ("stop" as const) : boundary,
+            ...(boundary === "error" ? { errorMessage: "Response failed" } : {})
+          };
+          await tui.handleEvent({ type: "message_end", message: reply });
+          const ended = transcriptText(tui);
+          expect(ended).toContain("Read 1 file · ran 1 command");
+          expect(ended).not.toContain("Ran npm test");
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
+      },
+      { collapsedMode: "summary" }
+    );
+  }
+);
+
+it("renders summary mode as compact outside fullscreen and follows TUI mode switches", async () => {
+  const prototype = interactivePrototype();
+  const originalSwitch = prototype.switchTuiMode;
+
+  // Pi's switch replaces the renderer; the fixture only needs the new mode.
+  prototype.switchTuiMode = function (this: Host, mode: unknown) {
+    this.ui = renderingTui(mode === "fullscreen" ? "fullscreen" : "regular");
+
+    return true;
+  };
+
+  try {
+    await withSession(
+      async ({ session }) => {
+        const tui = interactiveHost(session, "regular");
+
+        try {
+          await session.bindExtensions({ mode: "tui" });
+          tui.renderSessionItems(summaryHistory(session));
+          const status = () => transcriptText(tui).match(/Tool output: \w+/g) ?? [];
+          expect(transcriptText(tui)).toContain("• Explored .");
+          expect(transcriptText(tui)).not.toContain("Read 2 files");
+          // The cycle skips the step that would look identical.
+          tui.toggleToolOutputExpansion?.();
+          expect(status()).toEqual(["Tool output: verbose"]);
+          tui.toggleToolOutputExpansion?.();
+          expect(status()).toEqual(["Tool output: compact"]);
+
+          tui.switchTuiMode?.("fullscreen");
+          expect(transcriptText(tui)).toContain("Read 2 files · ran 1 command (1 failed)");
+          tui.switchTuiMode?.("regular");
+          expect(transcriptText(tui)).toContain("• Explored .");
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
+      },
+      { collapsedMode: "summary" }
+    );
+  } finally {
+    Reflect.set(prototype, "switchTuiMode", originalSwitch);
   }
 });

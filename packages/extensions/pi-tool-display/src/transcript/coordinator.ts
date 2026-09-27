@@ -12,13 +12,17 @@ import {
   type DisplayCall,
   type DisplayFact,
   type DisplayGroup,
+  type DisplayMode,
+  type DisplayRun,
   type ExplorationScope,
   type Lifecycle,
   type Outcome,
   type SavedOutput,
+  type SummaryRole,
   type TranscriptView
 } from "../contracts.ts";
 import { resolveInvocationPath } from "../invocation.ts";
+import { buildRunSummary } from "../summary/model.ts";
 
 export interface RowHandle {
   invalidate(): void;
@@ -100,6 +104,21 @@ type MutableGroup = {
   title: string | undefined;
 };
 
+type Boundary = {
+  key: string;
+  /** Both separate groups; only run boundaries partition and end runs. */
+  kind: "group" | "run";
+};
+
+type MutableRun = {
+  members: MutableCall[];
+  opened: boolean;
+  /** The agent ended after this run's last member. */
+  closed: boolean;
+  /** Cached: no member is live and nothing more can join the run. */
+  ended: boolean;
+};
+
 /** Ordered transcript state; renderers only read this model. No session or terminal dependency. */
 export class TranscriptCoordinator implements TranscriptView {
   private state = new Map<string, MutableCall>();
@@ -115,9 +134,10 @@ export class TranscriptCoordinator implements TranscriptView {
   private invalidationDepth = 0;
   private pendingInvalidations = new Set<MutableCall>();
   private regroupPending = false;
-  private boundaries = new Map<object, string>();
+  private boundaries = new Map<object, Boundary>();
   private groups = new Map<string, MutableGroup>();
-  private boundaryCounts = new Map<string, number>();
+  private runs = new Map<string, MutableRun>();
+  private boundaryCounts = new Map<string, { group: number; run: number }>();
   private latestById = new Map<string, MutableCall>();
   private liveIdentities = new Map<string, MutableCall>();
   private activeCalls = new Set<MutableCall>();
@@ -125,16 +145,25 @@ export class TranscriptCoordinator implements TranscriptView {
   private stopAnimation: (() => void) | undefined;
   private disposed = false;
   phase = 0;
+  mode: DisplayMode;
+  /** Whether summary mode collapses runs; otherwise it renders like compact. */
+  summaries: boolean;
   constructor(
     readonly runtime: string,
     private options: {
       cwd?: string;
+      /** Defaults to compact; the host selects the configured startup mode. */
+      mode?: DisplayMode;
+      /** Defaults to true; the host enables summaries only in fullscreen. */
+      summaries?: boolean;
       animationClock?: AnimationClock;
       /** State consequences must not depend on whether a Pi row is attached. */
       onExpansion?(call: DisplayCall): void;
     } = {}
   ) {
     this.cwd = options.cwd ?? process.cwd();
+    this.mode = options.mode ?? "compact";
+    this.summaries = options.summaries ?? true;
   }
   add(
     reference: CallReference,
@@ -195,6 +224,7 @@ export class TranscriptCoordinator implements TranscriptView {
       this.appendGroup(call, previous, grouping);
     }
 
+    this.appendRun(call, previous);
     if (isLive(call)) this.activeCalls.add(call);
     this.schedule();
 
@@ -233,34 +263,54 @@ export class TranscriptCoordinator implements TranscriptView {
     const key = after?.key ?? this.sequence.at(-1);
     if (this.disposed || !key || !this.state.has(key) || this.separators.has(key)) return;
     const separated = this.separated(key);
+    const runSeparated = this.separated(key, "run");
     this.separators.add(key);
+
     if (after && !separated) this.regroupBoundaries([key]);
+    if (after && !runSeparated) this.repartitionRuns([key]);
+
+    const run = this.runs.get(key);
+    if (run) this.refreshEnded(run);
   }
-  /** Visible components can withdraw their own boundary without removing other separators. */
-  setBoundary(owner: object, after?: DisplayCall): void {
+  /** Thinking can separate visible groups without partitioning or ending a run.
+   * Each component can change or withdraw only its own boundary.
+   */
+  setBoundary(owner: object, after?: DisplayCall, kind: Boundary["kind"] = "run"): void {
     const key = after?.key;
-    if (this.disposed || (key && !this.calls.has(key)) || this.boundaries.get(owner) === key)
-      return;
     const previous = this.boundaries.get(owner);
+    if (
+      this.disposed ||
+      (key && !this.calls.has(key)) ||
+      (previous?.key === key && (!key || previous?.kind === kind))
+    )
+      return;
     const affected = new Map(
-      [previous, key].filter((key) => key !== undefined).map((key) => [key, this.separated(key)])
+      [previous?.key, key]
+        .filter((key) => key !== undefined)
+        .map((key) => [key, { group: this.separated(key), run: this.separated(key, "run") }])
     );
 
-    if (previous) {
-      const count = this.boundaryCounts.get(previous) ?? 0;
-      if (count > 1) this.boundaryCounts.set(previous, count - 1);
-      else this.boundaryCounts.delete(previous);
-    }
+    const count = (boundary: Boundary, delta: number) => {
+      const counts = this.boundaryCounts.get(boundary.key) ?? { group: 0, run: 0 };
+      counts.group += delta;
+      if (boundary.kind === "run") counts.run += delta;
+      if (counts.group) this.boundaryCounts.set(boundary.key, counts);
+      else this.boundaryCounts.delete(boundary.key);
+    };
+
+    if (previous) count(previous, -1);
 
     if (key) {
-      this.boundaries.set(owner, key);
-      this.boundaryCounts.set(key, (this.boundaryCounts.get(key) ?? 0) + 1);
+      const boundary = { key, kind };
+      this.boundaries.set(owner, boundary);
+      count(boundary, 1);
     } else this.boundaries.delete(owner);
-    this.regroupBoundaries(
+    const changed = (kind: Boundary["kind"]) =>
       [...affected]
-        .filter(([key, separated]) => separated !== this.separated(key))
-        .map(([key]) => key)
-    );
+        .filter(([key, before]) => before[kind] !== this.separated(key, kind))
+        .map(([key]) => key);
+    this.regroupBoundaries(changed("group"));
+    this.repartitionRuns(changed("run"));
   }
   byId(id: string): DisplayCall | undefined {
     return this.latestById.get(id);
@@ -269,6 +319,72 @@ export class TranscriptCoordinator implements TranscriptView {
     const group = this.groups.get(call.key);
 
     return group && group.members.length > 1 ? group : undefined;
+  }
+  run(call: DisplayCall): DisplayRun | undefined {
+    return this.runs.get(call.key);
+  }
+  /** Only ended runs collapse; live runs render compact cards. */
+  summaryRole(call: DisplayCall): SummaryRole | undefined {
+    const run = this.runs.get(call.key);
+    if (!run || !this.summarized(run)) return undefined;
+
+    return { kind: run.members[0] === call ? "leader" : "hidden", run };
+  }
+  /** Mode changes reset opened runs and re-render every row once. */
+  setMode(mode: DisplayMode): void {
+    if (this.disposed || this.mode === mode) return;
+    this.mode = mode;
+    this.rerender();
+  }
+  setSummaries(enabled: boolean): void {
+    if (this.disposed || this.summaries === enabled) return;
+    this.summaries = enabled;
+    if (this.mode === "summary") this.rerender();
+  }
+  /** Close opened runs and re-render every row once. */
+  private rerender(): void {
+    for (const run of new Set(this.runs.values())) run.opened = false;
+    this.invalidationDepth++;
+
+    try {
+      for (const call of this.state.values()) this.invalidate(call);
+    } finally {
+      this.invalidationDepth--;
+      if (!this.invalidationDepth) this.flushInvalidations();
+    }
+  }
+  /**
+   * Keep a run's compact cards until the next mode change. Opens a summarized run;
+   * a run the user interacted with before it ended stays open when it ends.
+   */
+  openRun(view: DisplayCall): void {
+    const call = this.mutable(view);
+    const run = call && this.runs.get(call.key);
+    if (!run || run.opened || this.mode !== "summary" || !this.summaries) return;
+    const summarized = this.summarized(run);
+    run.opened = true;
+    if (summarized) for (const member of run.members) this.invalidate(member);
+  }
+  /** An opened run with a summary to return to, from either end of its cards. */
+  collapsible(call: DisplayCall): boolean {
+    const run = this.runs.get(call.key);
+
+    return (
+      !!run &&
+      run.opened &&
+      run.ended &&
+      this.mode === "summary" &&
+      this.summaries &&
+      buildRunSummary(run.members, this.cwd).segments.length > 0
+    );
+  }
+  /** Return an opened run to its summary line. */
+  closeRun(view: DisplayCall): void {
+    const call = this.mutable(view);
+    const run = call && this.runs.get(call.key);
+    if (!run || !this.collapsible(view)) return;
+    run.opened = false;
+    for (const member of run.members) this.invalidate(member);
   }
   update(view: DisplayCall, lifecycle: Lifecycle): void {
     const call = this.mutable(view);
@@ -337,11 +453,18 @@ export class TranscriptCoordinator implements TranscriptView {
       this.changed(call);
     }
   }
+  /** The agent ended: unfinished calls become unavailable and the final run ends. */
   settle(): void {
+    const last = this.sequence.at(-1);
+    const run = last === undefined ? undefined : this.runs.get(last);
+    if (run) run.closed = true;
+
     for (const call of this.activeCalls) {
       call.lifecycle = "unavailable";
       this.changed(call);
     }
+
+    if (run) this.refreshEnded(run);
   }
   attach(call: DisplayCall, row: RowHandle): () => void {
     if (!this.mutable(call)) return () => {};
@@ -376,13 +499,143 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   private changed(call: MutableCall): void {
     if (this.disposed) return;
+    // Ending a run can invalidate the changed call again; render it once.
+    this.invalidationDepth++;
 
-    this.invalidate(call);
-    const first = this.groups.get(call.key)?.members[0];
-    if (first && first !== call && !first.expanded) this.invalidate(first);
-    if (isLive(call)) this.activeCalls.add(call);
-    else this.activeCalls.delete(call);
+    try {
+      this.invalidate(call);
+      const first = this.groups.get(call.key)?.members[0];
+      if (first && first !== call && !first.expanded) this.invalidate(first);
+      if (isLive(call)) this.activeCalls.add(call);
+      else this.activeCalls.delete(call);
+      const run = this.runs.get(call.key);
+
+      if (run) {
+        this.refreshEnded(run);
+        this.invalidateLeader(run, call);
+      }
+    } finally {
+      this.invalidationDepth--;
+      if (!this.invalidationDepth) this.flushInvalidations();
+    }
+
     this.schedule();
+  }
+  private summarized(run: MutableRun): boolean {
+    return this.mode === "summary" && this.summaries && run.ended && !run.opened;
+  }
+  /** A member change alters its run's summary line, rendered by the leader. */
+  private invalidateLeader(run: MutableRun | undefined, except?: MutableCall): void {
+    const leader = run?.members[0];
+    if (run && leader && leader !== except && this.summarized(run)) this.invalidate(leader);
+  }
+  private newRun(): MutableRun {
+    return { members: [], opened: false, closed: false, ended: false };
+  }
+  private appendRun(call: MutableCall, previous: string | undefined): void {
+    const before = previous === undefined ? undefined : this.runs.get(previous);
+    const run =
+      before && previous !== undefined && !this.separated(previous, "run") ? before : undefined;
+    const current = run ?? this.newRun();
+    current.members.push(call);
+    current.closed = false;
+    this.runs.set(call.key, current);
+    this.refreshEnded(current);
+  }
+  /**
+   * A run ends once no member is live and nothing more can join it: a run boundary
+   * follows it, the agent ended, or it is history. Thinking is only a group boundary.
+   */
+  private refreshEnded(run: MutableRun): void {
+    const last = run.members.at(-1);
+    const ended =
+      !!last &&
+      !run.members.some(isLive) &&
+      (run.closed || this.separated(last.key, "run") || last.origin === "historical");
+    if (ended === run.ended) return;
+    const summarized = this.summarized(run);
+    run.ended = ended;
+
+    if (summarized !== this.summarized(run))
+      for (const member of run.members) this.invalidate(member);
+    // Both ends of an opened run gain or lose collapse controls.
+    else if (run.opened) {
+      const first = run.members[0];
+      if (first) this.invalidate(first);
+      if (last && last !== first) this.invalidate(last);
+    }
+  }
+  /** Rebuild runs around changed run boundaries, never thinking visibility changes. */
+  private repartitionRuns(keys: readonly string[]): void {
+    if (this.disposed) return;
+    const ranges: [number, number][] = [];
+
+    for (const key of keys) {
+      const run = this.runs.get(key);
+      const next = this.sequence[this.position(key) + 1];
+      const following = next === undefined ? undefined : this.runs.get(next);
+      const first = run?.members[0];
+      const last = following?.members.at(-1) ?? run?.members.at(-1);
+      if (!first || !last) continue;
+      ranges.push([this.position(first.key), this.position(last.key)]);
+    }
+
+    ranges.sort((left, right) => left[0] - right[0]);
+    const merged: [number, number][] = [];
+
+    for (const range of ranges) {
+      const current = merged.at(-1);
+      if (current && range[0] <= current[1] + 1) current[1] = Math.max(current[1], range[1]);
+      else merged.push([...range]);
+    }
+
+    for (const [start, end] of merged) this.rebuildRuns(start, end);
+  }
+  private rebuildRuns(start: number, end: number): void {
+    const calls = this.sequence.slice(start, end + 1).map((key) => {
+      const call = this.state.get(key);
+      if (!call) throw new Error("Transcript call state is unavailable.");
+
+      return call;
+    });
+    const previous = new Map(calls.map((call) => [call.key, this.runs.get(call.key)]));
+    const partition: MutableCall[][] = [];
+    let members: MutableCall[] = [];
+
+    for (const call of calls) {
+      members.push(call);
+
+      if (this.separated(call.key, "run")) {
+        partition.push(members);
+        members = [];
+      }
+    }
+
+    if (members.length) partition.push(members);
+
+    for (const members of partition) {
+      const first = members[0];
+      const old = first ? previous.get(first.key) : undefined;
+      const run =
+        old?.members.length === members.length &&
+        old.members.every((member, index) => member === members[index])
+          ? old
+          : this.newRun();
+
+      if (run !== old) {
+        run.members = members;
+        run.opened = !!old?.opened;
+        const last = members.at(-1);
+        run.closed = !!(last && previous.get(last.key)?.closed);
+      }
+
+      for (const member of members) this.runs.set(member.key, run);
+      this.refreshEnded(run);
+    }
+
+    if (this.mode !== "summary" || !this.summaries) return;
+    for (const call of calls)
+      if (this.runs.get(call.key) !== previous.get(call.key)) this.invalidate(call);
   }
   private invalidate(call: MutableCall): void {
     if (this.invalidationDepth) {
@@ -406,8 +659,8 @@ export class TranscriptCoordinator implements TranscriptView {
 
     for (const call of pending) this.invalidate(call);
   }
-  private separated(key: string): boolean {
-    return this.separators.has(key) || this.boundaryCounts.has(key);
+  private separated(key: string, kind: Boundary["kind"] = "group"): boolean {
+    return this.separators.has(key) || (this.boundaryCounts.get(key)?.[kind] ?? 0) > 0;
   }
   private position(key: string): number {
     const position = this.positions.get(key);
@@ -572,7 +825,7 @@ export class TranscriptCoordinator implements TranscriptView {
       if (group && !sameGroupKey({ scope: group.scope, title: group.title }, grouping)) finish();
       group ??= this.newGroup(call, grouping);
       group.members.push(call);
-      if (this.separators.has(call.key) || this.boundaryCounts.has(call.key)) finish();
+      if (this.separated(call.key)) finish();
     }
 
     finish();
@@ -592,8 +845,14 @@ export class TranscriptCoordinator implements TranscriptView {
       this.stopAnimation = (this.options.animationClock ?? clock).start(() => {
         this.phase = 1 - this.phase;
         const affected = new Set<DisplayCall>();
-        for (const call of this.activeCalls)
-          affected.add(!call.expanded ? (this.groups.get(call.key)?.members[0] ?? call) : call);
+
+        for (const call of this.activeCalls) {
+          // Collapsed groups animate their heading; live calls never belong to a summary.
+          const first = !call.expanded ? this.groups.get(call.key)?.members[0] : undefined;
+
+          affected.add(first ?? call);
+        }
+
         // A phase change only affects heading markers. Invalidating Pi's row also
         // rebuilds both renderer slots and discards unchanged body preparation.
         for (const call of affected)
@@ -612,6 +871,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.rows.clear();
     this.state.clear();
     this.groups.clear();
+    this.runs.clear();
     this.separators.clear();
     this.regroupPending = false;
     this.pendingInvalidations.clear();

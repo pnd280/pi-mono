@@ -19,6 +19,16 @@ import { assertFixtureWorkspace } from "./workspace.ts";
 
 type PlannedCall = { name: string; args: JsonObject };
 
+/** Summary turns: optional prose starts a new run; turns without prose extend it. */
+const SUMMARY_TURNS: readonly { calls: number; text?: string }[] = [
+  { calls: 3, text: "Summary fixture: prose before the first run." },
+  { calls: 1 },
+  { calls: 1 },
+  { calls: 1 },
+  { calls: 2, text: "Prose before the second run." },
+  { calls: 1, text: "Prose before a long-running tail." }
+];
+
 /** Only these fixed plans execute; prompts never become shell commands or file paths. */
 function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
   const path = (name: string) => join(cwd, name);
@@ -33,7 +43,31 @@ function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
     }
   });
 
+  // Fails until the edit below marks the summary final, then the same command passes.
+  const summaryCheck = shell(
+    `const fs = require("node:fs"); const file = ${JSON.stringify(path("summary.txt"))}; if (!fs.existsSync(file) || !fs.readFileSync(file, "utf8").includes("final")) { console.error("summary check failed: summary.txt is not final"); process.exitCode = 1; }`
+  );
+
   return new Map([
+    [
+      "summary",
+      [
+        read("a/alpha.txt"),
+        read("a/beta.txt"),
+        summaryCheck,
+        { name: "write", args: { path: path("summary.txt"), content: "status: draft\n" } },
+        {
+          name: "edit",
+          args: { path: path("summary.txt"), edits: [{ oldText: "draft", newText: "final" }] }
+        },
+        summaryCheck,
+        read("a/alpha.txt"),
+        { name: "ls", args: { path: path("a") } },
+        shell(
+          "let n = 0; const timer = setInterval(() => { console.log(`tail output ${++n}`); if (n === 16) clearInterval(timer); }, 500);"
+        )
+      ]
+    ],
     [
       "explore",
       [
@@ -199,6 +233,39 @@ async function streamCalls(
   }
 }
 
+/** Staged prompts continue from the number of completed calls in the transcript. */
+function pendingCalls(
+  prompt: string,
+  plan: readonly PlannedCall[],
+  completed: number,
+  appendText: (text: string) => void
+): readonly PlannedCall[] {
+  if (prompt === "thinking") return plan.slice(completed, completed + 1);
+
+  if (prompt === "summary") {
+    let start = 0;
+    const turn = SUMMARY_TURNS.find((candidate) => {
+      if (start === completed) return true;
+      start += candidate.calls;
+
+      return false;
+    });
+    if (turn?.text) appendText(turn.text);
+
+    return turn ? plan.slice(completed, completed + turn.calls) : [];
+  }
+
+  if (prompt === "buffered") {
+    let batchSize = 1;
+    if (completed === 0) batchSize = 3;
+    else if (completed === 4) batchSize = 2;
+
+    return plan.slice(completed, completed + batchSize);
+  }
+
+  return completed > 0 ? [] : plan;
+}
+
 export function createDisplayFixtureStream(cwd: string): ProviderStreams["stream"] {
   const plans = scenarios(cwd);
 
@@ -235,15 +302,7 @@ export function createDisplayFixtureStream(cwd: string): ProviderStreams["stream
           return "stop";
         }
 
-        let pending = completed > 0 ? [] : plan;
-        if (prompt === "thinking") pending = plan.slice(completed, completed + 1);
-
-        if (prompt === "buffered") {
-          let batchSize = 1;
-          if (completed === 0) batchSize = 3;
-          else if (completed === 4) batchSize = 2;
-          pending = plan.slice(completed, completed + batchSize);
-        }
+        const pending = pendingCalls(prompt, plan, completed, appendText);
 
         if (pending.length > 0) {
           if (prompt === "thinking" || prompt === "buffered") {

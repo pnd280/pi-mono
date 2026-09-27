@@ -117,12 +117,39 @@ export type DisplayGroup = {
   readonly title?: string | undefined;
 };
 
+/** Transcript-wide presentation: summary lines, compact cards, or expanded cards. */
+export type DisplayMode = "summary" | "compact" | "verbose";
+
+/** Maximal sequence of owned calls without a visible boundary between them. */
+export type DisplayRun = {
+  readonly members: readonly DisplayCall[];
+  /** Opened runs render their compact cards in summary mode until the mode changes. */
+  readonly opened: boolean;
+};
+
+/**
+ * Row role in a collapsed summary run, which has ended. The leader renders the summary
+ * line; every other member renders no rows.
+ */
+export type SummaryRole = { readonly kind: "leader" | "hidden"; readonly run: DisplayRun };
+
 /** Rendering reads state and submits expansion intents without owning transcript updates. */
 export interface TranscriptView {
   readonly calls: ReadonlyMap<string, DisplayCall>;
   readonly phase: number;
+  readonly mode: DisplayMode;
   group(call: DisplayCall): DisplayGroup | undefined;
+  run(call: DisplayCall): DisplayRun | undefined;
+  /**
+   * Undefined outside summary mode, when summaries are unavailable, and for opened or
+   * unended runs: render the ordinary card.
+   */
+  summaryRole(call: DisplayCall): SummaryRole | undefined;
   expand(call: DisplayCall, expanded: boolean): void;
+  openRun(call: DisplayCall): void;
+  /** True for members of an opened run with a nonempty summary to return to. */
+  collapsible(call: DisplayCall): boolean;
+  closeRun(call: DisplayCall): void;
 }
 
 export type ResultTextPart = {
@@ -169,6 +196,33 @@ export type McpFacts = {
     | { type: "media"; mimeType: string; contentIndex?: number }
     | { type: "resource"; uri: string; text?: string }
   )[];
+};
+
+/** Internal summary contract; not part of the public renderer API yet. */
+export type SummaryItemContext = {
+  result: BorrowedToolResult | undefined;
+  change: ChangeFact | undefined;
+  /** Pi's cwd for resolving path identities; never read files. */
+  cwd: string;
+};
+
+export type SummaryItem = {
+  /** Built-in category ID or one declared in `summaryCategories`. */
+  category: string;
+  /**
+   * Dedupe key within the category, such as a resolved file or directory path; the
+   * latest outcome counts. Omission counts every call.
+   */
+  identity?: string;
+};
+
+export type SummaryCategory = {
+  id: string;
+  /**
+   * `{n}` is replaced by the count: "read {n} file" / "read {n} files". A leading word
+   * before the first placeholder is the verb and renders as an action.
+   */
+  count: { one: string; other: string };
 };
 
 /** Callbacks receive borrowed arguments and results; never mutate or persist them. */
@@ -254,6 +308,14 @@ export type ToolDisplayAdapter = {
   imageCaptionMimeType?(text: string): string | undefined;
   /** Supply typed MCP facts, or undefined when unavailable; never infer lost protocol types. */
   mcp?(args: unknown, result?: BorrowedToolResult): McpFacts | undefined;
+  /**
+   * Internal: summary-mode items for this call. Handle partial arguments; undefined
+   * uses the family's category and counts the call once. An empty list omits the call
+   * from summary lines.
+   */
+  summaryItems?(args: unknown, context: SummaryItemContext): readonly SummaryItem[] | undefined;
+  /** Internal: categories this adapter introduces; built-in IDs cannot be redefined. */
+  summaryCategories?: readonly SummaryCategory[];
 };
 
 /** Return a contract only after validating the registered tool's ownership and schema. */

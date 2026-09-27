@@ -1,16 +1,26 @@
 # pi-tool-display
 
-Borderless Pi TUI tool cards with exploration groups, live shell previews, and [file diffs](docs/presentation.md#diff-viewer), using the active theme/highlighter.
+Borderless Pi TUI tool cards with one-line run summaries, exploration groups, live shell previews, and [file diffs](docs/presentation.md#diff-viewer), using the active theme/highlighter.
 
 ## Usage
+
+Tool output has three modes. Pi's expansion key (default **Ctrl+O**) cycles **summary** → **compact** → **verbose** → **summary**, and the status line names the mode (`Tool output: summary`):
+
+- **Summary** (default): each run of tool calls between non-thinking visible messages becomes [one summary line](docs/presentation.md#summary-mode), such as `Read 4 files · edited 2 files · ran 3 commands (1 failed)`. A run collapses only once it ends; until then it shows compact cards. Summaries require Pi's fullscreen mode; in regular mode, summary renders as compact and **Ctrl+O** toggles compact and verbose. Clicks on a summary line open that run to compact cards until the next mode change; clicking a card before its run ends keeps the run open. Opened runs have a blank row inside each plain horizontal rule. Click either rule or its inner padding to restore the summary line.
+- **Compact**: the cards and groups described below.
+- **Verbose**: every card expanded, with Pi's startup header and loaded resources. Pi's `--verbose` starts here.
 
 Adjacent read/search/list calls with matching directory scopes or literal filters form [exploration groups](docs/presentation.md#groups); adjacent `todo` calls form **Todos** groups. Single calls use cards. Source order is preserved, with notices, images, and diagnostics beneath each call.
 
 Compact cards show [result summaries](docs/presentation.md#results) or bounded previews, shell status beside output, collapsed successful-read text, and edit/write diffs. Diagnostics and images stay visible.
 
-Pi expansion (default **Ctrl+O**) reveals individual cards and available output. Fullscreen group clicks toggle all members; regular-mode mouse input belongs to the terminal.
+Verbose mode reveals individual cards and available output. Fullscreen group clicks toggle all members; regular-mode mouse input belongs to the terminal.
 
-Collapsed thinking (default **Ctrl+T**) hides completed placeholders, allowing matching calls to group across them. Revealing thinking restores boundaries; live indicators and assistant text stay visible.
+Summary mode hides tool output behind counts: transcript search cannot find it, images are counted but not displayed, and failures appear only as counts until the run is opened. Switching modes does not preserve the scroll position.
+
+Assistant prose blocks use `•` with a hanging indent, matching tool headings. Markdown formatting stays native; user messages, thinking, and diagnostics do not gain markers.
+
+Collapsed thinking (default **Ctrl+T**) hides placeholders as their thinking blocks finish, without waiting for the assistant message to end, allowing matching calls to group across them. Revealing thinking restores group boundaries, but thinking never splits or settles a tool run. Live indicators and assistant text stay visible.
 
 MCP/generic cards always show arguments, bounded when collapsed. Other specialized cards hide parameter blocks by default even when expanded, but retain command/path/search summaries.
 
@@ -36,6 +46,7 @@ Set literal `ext.pi-tool-display` in global `~/.pi/agent/settings.json` (or `$PI
 ```json
 {
   "ext.pi-tool-display": {
+    "collapsedMode": "summary",
     "showParameters": false,
     "rendererOverrides": {
       "search_docs": "generic",
@@ -44,6 +55,8 @@ Set literal `ext.pi-tool-display` in global `~/.pi/agent/settings.json` (or `$PI
   }
 }
 ```
+
+`collapsedMode` selects the startup mode, `summary` (default) or `compact`; collapsing from verbose, including extension `setToolsExpanded(false)` requests, returns to it. Cycling never writes settings; the current mode persists across `/reload` and session switches.
 
 `showParameters` defaults to `false`; `true` shows optional details, with structured blocks still requiring expansion. MCP/generic cards always show arguments. Custom renderers, execution, and saved arguments are unaffected.
 
@@ -57,7 +70,7 @@ Set literal `ext.pi-tool-display` in global `~/.pi/agent/settings.json` (or `$PI
 
 Unavailable names are allowed. Overrides neither enable tools, delete metadata, nor disable other extensions' observations.
 
-Settings load before history reconstruction and on `/reload`. Trusted project fields merge over global settings: explicit `showParameters` replaces, omission inherits; overrides replace by tool name, `auto` resets inherited overrides, and an empty map inherits.
+Settings load before history reconstruction and on `/reload`. Trusted project fields merge over global settings: explicit `collapsedMode` and `showParameters` replace, omission inherits; overrides replace by tool name, `auto` resets inherited overrides, and an empty map inherits.
 
 Untrusted settings are ignored. Both sections validate before merging; either invalid section preserves original renderers and disables display observations, even if later overridden. Warnings name the source/key as terminal-safe text without changing settings or paths.
 
@@ -85,9 +98,11 @@ Expanding completed shell cards reads bounded previews from Pi's temporary outpu
 
 Native observation is verified against Pi 0.87.1 via API and installed CLI. Unverified required hooks disable observation with a warning; saved data can still render.
 
-Hiding completed thinking requires Pi 0.87.1's verified assistant component; unavailable/already-wrapped contracts retain Pi's original presentation.
+Prose markers and hiding completed thinking require Pi 0.87.1's verified assistant component; unavailable/already-wrapped contracts retain Pi's original presentation.
 
-No tool registration, active-tool changes, or added keybindings. Custom cards do not apply to HTML exports.
+Mode cycling requires Pi 0.87.1's verified expansion methods. Otherwise a warning reports that Ctrl+O toggles only the collapsed mode and verbose.
+
+No tool registration, active-tool changes, or added keybindings; the mode cycle reuses Pi's expansion action. Custom cards do not apply to HTML exports.
 
 ## Validation
 

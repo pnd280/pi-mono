@@ -31,10 +31,13 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function context(prompt: string): TranscriptContext {
+function context(
+  prompt: string,
+  tools: readonly string[] = ["read", "ls", "grep", "bash"]
+): TranscriptContext {
   return normalizeContext({
     messages: [{ role: "user", content: prompt, timestamp: 1 }],
-    tools: ["read", "ls", "grep", "bash"].map((name) => ({
+    tools: tools.map((name) => ({
       name,
       description: "Available fixture tool",
       parameters: Type.Object({})
@@ -177,4 +180,27 @@ it("skips unavailable FFF tools explicitly without executing a partial plan", as
   expect(contentText(message.content)).toBe(
     "Skipped fixture fff: unavailable tools ffgrep, fffind."
   );
+});
+
+it("stages summary runs with prose only before new runs", async () => {
+  const transcript = context("summary", ["read", "ls", "bash", "write", "edit"]);
+  const turns: { names: string[]; text: string }[] = [];
+
+  for (let index = 0; index < 6; index++) {
+    const { message, calls } = await turn(transcript);
+    expect(message.stopReason).toBe("toolUse");
+    turns.push({ names: calls.map(({ name }) => name), text: contentText(message.content) });
+  }
+
+  expect(turns).toEqual([
+    { names: ["read", "read", "bash"], text: "Summary fixture: prose before the first run." },
+    { names: ["write"], text: "" },
+    { names: ["edit"], text: "" },
+    { names: ["bash"], text: "" },
+    { names: ["read", "ls"], text: "Prose before the second run." },
+    { names: ["bash"], text: "Prose before a long-running tail." }
+  ]);
+  const finished = await turn(transcript);
+  expect(finished.calls).toEqual([]);
+  expect(contentText(finished.message.content)).toContain("Fixture finished: summary.");
 });

@@ -22,6 +22,15 @@ Match verified provenance plus the parameter structure the renderer needs: types
 
 Build schema fixtures through the same projection as the registered tool, and retain integration coverage that loads the actual extension. Treat projection changes as changes to schema-inspecting consumers too: run their adapter and installed-CLI checks, not just the producing tool's tests.
 
+## Summary items
+
+[Summary mode](presentation.md#summary-mode) uses two internal adapter fields. They are not part of the [renderer API](renderers.md) yet and may change without notice.
+
+- `summaryItems(args, { result, change, cwd })` returns the items a call contributes to its run's summary line. Each item names a `category` and an optional `identity` that deduplicates it within the category, such as a lexically resolved file or directory path; items without one count every call. Return `[]` to omit the call from summary lines, as todo calls do, or `undefined` for partial or invalid arguments; the call then counts once in its family's category (`write` by its change fact, `invocation` per tool name).
+- `summaryCategories` declares new categories with `count` wording for one and several items (both use `{n}`). A leading word before the first placeholder renders as the verb. Built-in categories cannot be redefined.
+
+Built-in categories are listed under [summary counting](presentation.md#counting).
+
 ## Automatic selection
 
 The host selects rendering in this order:

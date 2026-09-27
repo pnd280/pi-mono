@@ -4,6 +4,7 @@ import type {
   CallReference,
   DisplayCall,
   DisplayFact,
+  DisplayMode,
   Outcome,
   SavedOutput,
   ToolDisplayAdapter
@@ -41,6 +42,8 @@ type DisplaySessionOptions = {
   settings: DisplaySettings;
   selectAdapter(name: string): ToolDisplayAdapter | undefined;
   expanded(): boolean;
+  /** Initial transcript mode; the host owns later transitions. */
+  mode?: DisplayMode;
   append?: ExtensionAPI["appendEntry"] | undefined;
   readSavedOutput?: (path: string) => Promise<SavedOutput>;
 };
@@ -72,6 +75,7 @@ export class DisplaySession {
     this.settings = options.settings;
     this.coordinator = new TranscriptCoordinator(options.runtime, {
       cwd: options.cwd,
+      ...(options.mode ? { mode: options.mode } : {}),
       onExpansion: (call) => this.loadSavedOutput(call)
     });
     this.history = new DisplayHistory(options.history);
@@ -134,9 +138,10 @@ export class DisplaySession {
     if (typeof path === "string") this.coordinator.setSavedPath(call, path);
     this.loadSavedOutput(call);
   }
+  /** Pi started the call; native observation may already have reported it executing. */
   queued(id: string): void {
     const call = this.coordinator.byId(id);
-    if (call) this.coordinator.update(call, "queued");
+    if (call && call.lifecycle !== "executing") this.coordinator.update(call, "queued");
   }
   result(id: string, result: AgentToolResult<unknown>, outcome: Outcome, partial = false): void {
     if (this.disposed) return;

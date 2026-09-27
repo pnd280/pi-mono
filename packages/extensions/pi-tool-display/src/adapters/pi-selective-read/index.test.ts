@@ -283,3 +283,14 @@ it("retains native image, partial, error, and cancellation presentation without 
     { kind: "output", text: "diagnostic" }
   ]);
 });
+
+it("counts selective reads as one read item per requested file", () => {
+  const context = { result: undefined, change: undefined, cwd: "/work" };
+  const item = { category: "read", identity: "path\0/work/src/a.ts" };
+  expect(
+    adapter.summaryItems?.({ path: "src/a.ts", selection: { startLine: 2 } }, context)
+  ).toMatchObject([item]);
+  expect(adapter.summaryItems?.({ path: "./src/a.ts" }, context)).toMatchObject([item]);
+  expect(adapter.summaryItems?.({ path: "" }, context)).toBeUndefined();
+  expect(adapter.summaryItems?.({ path: "a.ts", unknown: true }, context)).toBeUndefined();
+});

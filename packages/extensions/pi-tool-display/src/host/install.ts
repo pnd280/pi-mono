@@ -7,12 +7,20 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
+import type { DisplayMode } from "../contracts.ts";
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
 import type { ToolDisplayRenderers } from "../rendering/types.ts";
 import type { DisplaySettings } from "../settings.ts";
 import { DisplaySession } from "../transcript/session.ts";
 import { record } from "../values.ts";
-import { hostHook, interactivePrototype, type Host } from "./compatibility.ts";
+import { trackThinkingCompletion } from "./assistant.ts";
+import {
+  hostHook,
+  hostMode,
+  interactivePrototype,
+  modeHooksCompatible,
+  type Host
+} from "./compatibility.ts";
 import { displaySettings } from "./configuration.ts";
 import { executionOutcome, hostToolResult, TranscriptMessages } from "./messages.ts";
 import { NativeRegistry } from "./native-registry.ts";
@@ -25,6 +33,26 @@ type Binding = {
   messages: TranscriptMessages;
   rows: TranscriptRows;
 };
+
+const nextMode: Record<DisplayMode, DisplayMode> = {
+  summary: "compact",
+  compact: "verbose",
+  verbose: "summary"
+};
+
+/** Summaries collapse only in fullscreen, where no transcript row is already in scrollback. */
+function fullscreen(host: Host): boolean {
+  return host.ui?.mode === "fullscreen";
+}
+
+/** Regular mode renders summary as compact, so its cycle skips the identical step. */
+function cycle(mode: DisplayMode, host: Host): DisplayMode {
+  return mode !== "verbose" && !fullscreen(host) ? "verbose" : nextMode[mode];
+}
+
+function shownMode(mode: DisplayMode, host: Host): DisplayMode {
+  return mode === "summary" && !fullscreen(host) ? "compact" : mode;
+}
 
 function updatedContentIndex(event: AgentSessionEvent): number | undefined {
   if (event.type !== "message_update") return undefined;
@@ -46,6 +74,10 @@ export function installHostIntegration(
   const bindings = new Set<Binding>();
   const hosts = new WeakMap<Host, Binding>();
   const sessions = new WeakMap<AgentSession, Binding>();
+  const originalToggle = prototype.toggleToolOutputExpansion;
+  const originalSetExpanded = prototype.setToolsExpanded;
+  const modeHooks = modeHooksCompatible(prototype);
+  let modeWarning = false;
   let active = true;
 
   const warning = (text: string) => {
@@ -88,7 +120,14 @@ export function installHostIntegration(
     if (binding) return binding;
     const configuration = displaySettings(host.session);
     configuration.warnings.forEach(warning);
+
+    if (!modeHooks && configuration.valid && !modeWarning) {
+      modeWarning = true;
+      warning(`mode cycling unavailable; Ctrl+O toggles ${configuration.collapsedMode} ↔ verbose.`);
+    }
+
     const display = new DisplaySession({
+      mode: initialMode(host, configuration),
       runtime: randomUUID(),
       cwd: host.session.sessionManager.getCwd(),
       history: host.session.sessionManager,
@@ -97,13 +136,22 @@ export function installHostIntegration(
       expanded: () => host.toolOutputExpanded ?? false,
       append
     });
+    display.coordinator.setSummaries(fullscreen(host));
     const current: Binding = {
       host,
       display,
       messages: new TranscriptMessages(),
       rows: new TranscriptRows(host, display.coordinator, {
         active: () => active && hosts.get(host) === current,
-        hideCompletedThinking: configuration.valid
+        styleAssistant: configuration.valid,
+        ...(modeHooks
+          ? {}
+          : {
+              syncMode: () =>
+                display.coordinator.setMode(
+                  host.toolOutputExpanded ? "verbose" : configuration.collapsedMode
+                )
+            })
       })
     };
     hosts.set(host, current);
@@ -116,6 +164,43 @@ export function installHostIntegration(
     );
 
     return current;
+  }
+
+  /** Pi's --verbose expands startup output; it starts tool output in verbose mode too. */
+  function initialMode(host: Host, configuration: DisplaySettings): DisplayMode {
+    const collapsed = configuration.collapsedMode;
+    if (host.toolOutputExpanded) return "verbose";
+    if (!modeHooks || !configuration.valid) return collapsed;
+    const stored = host[hostMode];
+    if (stored === "summary" || stored === "compact") return stored;
+
+    if (stored === undefined && host.getStartupExpansionState?.call(host)) {
+      // Keep Pi's own state consistent so later rows and toggles agree.
+      host.toolOutputExpanded = true;
+
+      return "verbose";
+    }
+
+    return collapsed;
+  }
+
+  /** Pi's header and resources expand only when crossing the verbose boundary. */
+  function transition(host: Host, binding: Binding, mode: DisplayMode): void {
+    const coordinator = binding.display.coordinator;
+    const current = coordinator.mode;
+    if (current === mode || !originalSetExpanded) return;
+
+    if (mode === "verbose") {
+      coordinator.setMode(mode);
+      originalSetExpanded.call(host, true);
+    } else if (current === "verbose") {
+      originalSetExpanded.call(host, false);
+      coordinator.setMode(mode);
+    } else coordinator.setMode(mode);
+
+    host[hostMode] = mode;
+    // Replaces Pi's expanded/collapsed status on the same line.
+    host.showStatus?.(`Tool output: ${shownMode(mode, host)}`);
   }
 
   const lookup: Host["getRegisteredToolDefinition"] = function (this: Host, name) {
@@ -195,6 +280,35 @@ export function installHostIntegration(
       });
     }
 
+    if (modeHooks && originalToggle && originalSetExpanded) {
+      hooks.replace(prototype, "toggleToolOutputExpansion", function (this: Host) {
+        const binding = active ? hosts.get(this) : undefined;
+        // Invalid settings keep original rendering, where summary and compact are identical.
+        if (!binding?.display.settings.valid) return originalToggle.call(this);
+        transition(this, binding, cycle(binding.display.coordinator.mode, this));
+      });
+      hooks.replace(prototype, "setToolsExpanded", function (this: Host, expanded: boolean) {
+        const binding = active ? hosts.get(this) : undefined;
+        if (!binding?.display.settings.valid) return originalSetExpanded.call(this, expanded);
+        const mode = binding.display.coordinator.mode;
+        if (expanded) transition(this, binding, "verbose");
+        // Collapsing applies only to verbose; summary and compact are both collapsed.
+        else if (mode === "verbose")
+          transition(this, binding, binding.display.settings.collapsedMode);
+      });
+    }
+
+    // Pi switches renderers from /settings and back to regular before printing on exit.
+    const switchMode = prototype.switchTuiMode;
+    if (typeof switchMode === "function")
+      hooks.replace(prototype, "switchTuiMode", function (this: Host, ...args: unknown[]) {
+        const result = switchMode.apply(this, args);
+        const binding = active ? hosts.get(this) : undefined;
+        binding?.display.coordinator.setSummaries(fullscreen(this));
+
+        return result;
+      });
+
     const thinkingVisibility = prototype.updateThinkingBlockVisibility;
     if (typeof thinkingVisibility === "function")
       hooks.replace(prototype, "updateThinkingBlockVisibility", function (this: Host) {
@@ -246,6 +360,8 @@ export function installHostIntegration(
 
         if (binding) {
           const display = binding.display;
+          if (event.type === "message_update")
+            trackThinkingCompletion(this.streamingComponent, event.assistantMessageEvent);
 
           if (
             event.type === "message_start" ||

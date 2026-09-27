@@ -349,3 +349,10 @@ it("exposes bounded-output references and script failures without dumping detail
   });
   expect(JSON.stringify(adapter.notices?.(supplied, true))).not.toContain("PRIVATE_METADATA");
 });
+
+it("counts every MCP call once in the MCP summary category", () => {
+  const adapter = piMcpAdapter(mcpToolInfo("mcp"))!;
+  const context = { result: undefined, change: undefined, cwd: "/work" };
+  expect(adapter.summaryItems?.({ tool: "search" }, context)).toEqual([{ category: "mcp" }]);
+  expect(adapter.summaryItems?.(undefined, context)).toEqual([{ category: "mcp" }]);
+});

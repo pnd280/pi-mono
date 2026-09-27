@@ -2,7 +2,13 @@
 
 [pi-tool-display](../README.md) · [Renderer integration](renderers.md)
 
+## Assistant prose
+
+Each visible assistant text block starts with `•`, with continuation rows indented two columns. This replaces Pi's outer prose padding in every output mode, during streaming and replay. Markdown, code blocks, links, and registered transformers remain native; source messages are unchanged. User messages, thinking, and generated diagnostics retain their existing presentation.
+
 ## Card layout
+
+Cards and group headings use `•`; live headings alternate with `◦`. Summary lines have no leading marker.
 
 Standalone/expanded targets use paths relative to Pi's rendering cwd for descendants, `.` for cwd, and absolute paths otherwise. Resolution is lexical, including home expansion: no filesystem inspection or symlink following. Raw parameters, retained output, generic arguments, and literal scopes/filters stay unchanged.
 
@@ -34,7 +40,7 @@ Directory headings use `Exploring`/`Explored <path>`; filter headings use `Filte
 
 Collapsed directory members retain ranges and use paths relative to the group, absolute outside it. FFF members show patterns or `files`, not repeated filters. Expanded/standalone cards follow [target rules](#card-layout) and retain filters. Known queued/executing members show `queued`/`running` in `dim`; argument streaming does not imply execution.
 
-Visible assistant content/diagnostics, cache-miss notices, compaction summaries/notices, custom entries, and non-exploration tools separate groups; hidden content does not. Assistant content precedes its message's tools as a boundary even when arriving later.
+Visible assistant content/diagnostics, cache-miss notices, compaction summaries/notices, custom entries, and non-exploration tools separate groups; hidden content does not. Groups apply in compact and verbose modes; [summary mode](#summary-mode) counts their members within runs. Assistant content precedes its message's tools as a boundary even when arriving later.
 
 Notices, images, and failure diagnostics stay beneath their call:
 
@@ -47,15 +53,54 @@ Notices, images, and failure diagnostics stay beneath their call:
 
 Standalone/expanded searches separate pattern and scope with an em dash (U+2014): Searched renderers &#x2014; src/.
 
+## Summary mode
+
+[Summary mode](../README.md#usage) replaces each ended run with one line in its first call's Pi row. A run is a maximal sequence of this extension's calls between assistant prose/diagnostics, visible notices/custom entries, or calls using original renderers. Thinking separates visible [exploration groups](#groups), but never splits or settles a run. Single calls form runs, and exploration groups are counted within their run. Todo calls stay in their run but are omitted from the line: they do not affect counts, and a run of only todo calls shows no line. Compact and verbose modes keep groups and cards unchanged.
+
+A run collapses only after it ends: no member is streaming, queued, or executing, and nothing more can join it because a non-thinking boundary follows it or the agent ended. History is always ended. Until then, the run renders its usual compact cards, so a line only ever describes finished calls. Clicking any card of a run before it ends keeps the run open when it ends, as if its line had been clicked.
+
+Summaries collapse only in Pi's fullscreen mode, where collapsing never rewrites rows already in terminal scrollback. In regular mode, summary renders as compact, and the mode cycle toggles compact and verbose. Switching Pi's TUI mode re-renders the transcript accordingly.
+
+```text
+  Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file
+```
+
+### Counting
+
+Files and directories count once per category by their lexically resolved path; every other call counts once, so a command run twice counts twice. A file read and then edited counts in both items. Writes that observably created a file count as created; modifications and writes without a recorded change count as edited.
+
+Only the latest outcome per file or directory counts: a later successful edit clears an earlier failed one. Items with unresolved calls append `(n failed)` or `(n cancelled)` in `error` and unknown historical outcomes `(n unavailable)` in `muted`.
+
+| Category | Wording                    |
+| -------- | -------------------------- |
+| Created  | `created N files`          |
+| Edited   | `edited N files`           |
+| Shell    | `ran N commands`           |
+| MCP      | `N MCP calls`              |
+| Other    | `<tool> ×N`, per tool name |
+| Search   | `N searches`               |
+| List     | `listed N dirs`            |
+| Read     | `read N files`             |
+
+Items appear in the order of their category's first call; failures never reorder them. The first item starts with a capital letter unless it begins with a tool name, which keeps its case.
+
+### Line layout
+
+The line has no leading marker. Every row is indented two columns, with wrapping only between items and no row limit; an item wider than the line is truncated. Items use card colors: a leading verb is an action in `accent`, bold for the first item; counts use `text`; remaining words use `muted`; separators use `dim`. Failed and cancelled counts use `error`; unavailable counts use `muted`. The line never shows error text; open the run to read it.
+
+Images and diagnostics are counted, not rendered.
+
+Left clicks on a summary line open the run to compact cards, where group and card clicks work as usual. An opened run that has ended has plain full-width `dim` horizontal rules above its first card and below its last card, including any images. One blank row separates the content from each rule; the rules have no label or triangle marker. Clicking either rule or its inner padding restores the summary line without toggling a card. Single-card runs have both controls too. Runs whose line would be empty, such as todo-only runs, show no collapse controls. Any mode change, including a TUI mode switch, closes opened runs. Transcript search cannot find hidden output.
+
 ## Thinking
 
-Collapsed thinking (default **Ctrl+T**) hides completed placeholders, including history. Revealing restores rows/group boundaries. Live indicators, assistant text, and diagnostics remain; recorded messages never change.
+Collapsed thinking (default **Ctrl+T**) hides a placeholder when all blocks in its consecutive thinking run emit `thinking_end`, even while the assistant message continues streaming text or tool calls. Active thinking stays visible. Message completion also hides any remaining collapsed placeholders, including history. Revealing restores rows/group boundaries without changing run membership, settlement, or the user's opened-run state. A tools → thinking → more tools sequence stays compact until a non-thinking boundary or agent end, regardless of thinking visibility. Live indicators, assistant text, and diagnostics remain; recorded messages never change.
 
 ## Outcomes
 
 Pending covers argument streaming, queueing, and execution, not proof of execution or applied changes. Adapter outcomes require completed results. Failed/cancelled/unknown-history headings retain actions: `Write failed`, `Edit cancelled`, `Read outcome unavailable`.
 
-Groups count failures, cancellations, and unavailable outcomes, not pending calls. Members name their outcomes; counts stay beside the group action/custom title. Scopes wrap beneath when necessary.
+Groups count failures, cancellations, and unavailable outcomes, not pending calls. [Summary lines](#counting) count only the latest outcome per identity. Members name their outcomes; counts stay beside the group action/custom title. Scopes wrap beneath when necessary.
 
 The CLI records cancellation for unsuccessful execution results arriving after live abort. Earlier failures and successful results retain their outcomes. Cancellation outranks failure; success/unavailable metadata overrides neither.
 

@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 import type { ToolFamily } from "../../contracts.ts";
-import type { ToolDisplayAdapter } from "../../contracts.ts";
+import type { SummaryItem, SummaryItemContext, ToolDisplayAdapter } from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
+import { writeCategory } from "../../summary/categories.ts";
+import { pathSummaryItem } from "../../summary/items.ts";
 import {
   nativeResultParts,
   nativeResultNotices,
@@ -33,9 +35,29 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
   const family = Object.hasOwn(nativeFamilies, name) ? nativeFamilies[name] : undefined;
   if (!family) return undefined;
 
+  // Commands and searches count every call via the family fallback; files and
+  // directories count once by path.
+  const summaryItems = (args: unknown, context: SummaryItemContext): SummaryItem[] | undefined => {
+    if (family === "shell" || family === "search") return undefined;
+
+    if (family === "list") {
+      const list = directoryArgsSchema.safeParse(args);
+
+      return list.success
+        ? [pathSummaryItem(family, list.data.path || ".", context.cwd)]
+        : undefined;
+    }
+
+    const path = readArgsSchema.safeParse(args).data;
+    const category = family === "write" ? writeCategory(context.change) : family;
+
+    return path === undefined ? undefined : [pathSummaryItem(category, path, context.cwd)];
+  };
+
   return {
     id: `pi:${name}`,
     family,
+    summaryItems,
     savedOutput: family === "shell",
     patch: family === "edit",
     summary(_result, { operation }) {

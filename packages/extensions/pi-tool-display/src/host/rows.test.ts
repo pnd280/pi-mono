@@ -1,8 +1,15 @@
 import { initTheme, ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
+import {
+  getCapabilities,
+  setCapabilityOverrides,
+  stripTerminalSequences,
+  type Component
+} from "@earendil-works/pi-tui";
 import { expect, it, vi } from "vite-plus/test";
 
 import { genericAdapter } from "../adapters/generic.ts";
+import { nativeAdapter } from "../adapters/native/index.ts";
+import { createToolDisplayRenderers } from "../rendering/cards.ts";
 import { renderingTui } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { TranscriptRows } from "./rows.ts";
@@ -21,7 +28,7 @@ it("does not revisit bound transcript rows on events without new components", ()
   const host = { chatContainer: { children }, ui: renderingTui() };
   const rows = new TranscriptRows(host, coordinator, {
     active: () => true,
-    hideCompletedThinking: true
+    styleAssistant: true
   });
 
   const append = (index: number) => {
@@ -83,7 +90,7 @@ it("claims matching IDs without rescanning the transcript for each call", () => 
   });
   const rows = new TranscriptRows({}, coordinator, {
     active: () => true,
-    hideCompletedThinking: true
+    styleAssistant: true
   });
   const add = (index: number, name: string) =>
     coordinator.add(
@@ -131,6 +138,148 @@ it("claims matching IDs without rescanning the transcript for each call", () => 
   } finally {
     rows.dispose();
     scan.mockRestore();
+    coordinator.dispose();
+  }
+});
+
+it("hides collapsed summary members and drops images until a click opens the run", () => {
+  initTheme("dark", false);
+  const images = getCapabilities().images;
+  setCapabilityOverrides({ images: "kitty" });
+  const coordinator = new TranscriptCoordinator("summary-rows", {
+    cwd: "/tmp",
+    mode: "summary",
+    animationClock: { start: () => () => {} }
+  });
+  const children: Component[] = [];
+  const host = { chatContainer: { children }, ui: renderingTui() };
+  const rows = new TranscriptRows(host, coordinator, {
+    active: () => true,
+    styleAssistant: true
+  });
+
+  const append = (index: number, name: string, args: unknown, origin: "live" | "historical") => {
+    const adapter = nativeAdapter(name)!;
+    const call = coordinator.add(
+      { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) },
+      name,
+      args,
+      adapter,
+      origin
+    );
+    const definition = createToolDisplayRenderers(name, adapter, {
+      binding: { call, coordinator }
+    });
+    rows.retainDefinition(definition, call);
+    const child = new ToolExecutionComponent(
+      name,
+      String(index),
+      args,
+      { showImages: true },
+      definition,
+      host.ui,
+      "/tmp"
+    );
+    children.push(child);
+
+    return { call, child };
+  };
+
+  try {
+    const image = {
+      content: [
+        { type: "text" as const, text: "Read image file [image/png]" },
+        { type: "image" as const, data: "iVBORw0KGgo=", mimeType: "image/png" }
+      ],
+      details: undefined
+    };
+    const leader = append(0, "read", { path: "image.png" }, "historical");
+    coordinator.result(leader.call, image, "success");
+    leader.child.updateResult({ ...image, isError: false });
+    const hidden = append(1, "read", { path: "b.ts" }, "historical");
+    const shell = append(2, "bash", { command: "sleep 1" }, "historical");
+    rows.bind();
+
+    const render = (child: ToolExecutionComponent) =>
+      child.render(80).map((row) => stripTerminalSequences(row));
+
+    expect(render(leader.child)).toEqual([
+      "",
+      "  Read 2 files (1 unavailable) · ran 1 command (1 unavailable)"
+    ]);
+    expect(render(hidden.child)).toEqual([]);
+    expect(render(shell.child)).toEqual([]);
+    expect(
+      hidden.child.handleMouse({
+        type: "click",
+        button: "left",
+        x: 0,
+        y: 0,
+        screenX: 0,
+        screenY: 0,
+        width: 80,
+        height: 0,
+        shift: false,
+        alt: false,
+        ctrl: false
+      })
+    ).toBeUndefined();
+
+    leader.child.handleMouse({
+      type: "click",
+      button: "left",
+      x: 2,
+      y: 1,
+      screenX: 2,
+      screenY: 1,
+      width: 80,
+      height: 2,
+      shift: false,
+      alt: false,
+      ctrl: false
+    });
+    expect(coordinator.run(leader.call)?.opened).toBe(true);
+    // Opened runs restore compact cards, image rows, and group joins beneath the
+    // leader's collapse row.
+    expect(render(leader.child).slice(0, 5)).toEqual([
+      "",
+      "─".repeat(80),
+      "",
+      "• Explored . · 1 outcome unavailable",
+      "  ├ Read image.png"
+    ]);
+    expect(render(leader.child).length).toBeGreaterThan(5);
+    expect(render(hidden.child)).toEqual(["  └ Read outcome unavailable b.ts"]);
+    expect(render(shell.child)).toEqual([
+      "",
+      "• Run outcome unavailable sleep 1",
+      "",
+      "─".repeat(80)
+    ]);
+    // Even a historical tail with no result slot has a working bottom control.
+    shell.child.handleMouse({
+      type: "click",
+      button: "left",
+      x: 2,
+      y: 3,
+      screenX: 2,
+      screenY: 3,
+      width: 80,
+      height: 4,
+      shift: false,
+      alt: false,
+      ctrl: false
+    });
+    expect(coordinator.run(shell.call)?.opened).toBe(false);
+    expect(render(shell.child)).toEqual([]);
+    coordinator.openRun(leader.call);
+
+    rows.dispose();
+    // Restored rows render Pi's own layout, including its margin.
+    expect(render(hidden.child)).toEqual(["", "  └ Read outcome unavailable b.ts"]);
+  } finally {
+    setCapabilityOverrides({ images });
+    rows.dispose();
     coordinator.dispose();
   }
 });

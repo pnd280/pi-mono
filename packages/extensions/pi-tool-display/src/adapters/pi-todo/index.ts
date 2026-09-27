@@ -227,6 +227,8 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
     return action === undefined ? undefined : titledVerbs(action);
   },
   invocation,
+  // Todo bookkeeping is not work worth summarizing, including invalid calls.
+  summaryItems: () => [],
   exploration(args, result) {
     const parsed = parseArgs(args);
     if (!parsed) return undefined;

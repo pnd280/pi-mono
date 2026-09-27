@@ -14,7 +14,8 @@ it("recognizes native construction through the installed pi executable, not just
   try {
     const executable = await resolvePiExecutable();
     const integration = fileURLToPath(new URL("./install.ts", import.meta.url));
-    const thinking = fileURLToPath(new URL("./thinking.ts", import.meta.url));
+    const assistant = fileURLToPath(new URL("./assistant.ts", import.meta.url));
+    const compatibility = fileURLToPath(new URL("./compatibility.ts", import.meta.url));
     const selectiveAdapter = fileURLToPath(
       new URL("../adapters/pi-selective-read/index.ts", import.meta.url)
     );
@@ -30,7 +31,8 @@ it("recognizes native construction through the installed pi executable, not just
       `
       import { AgentSession, AssistantMessageComponent, initTheme } from "@earendil-works/pi-coding-agent";
       import { installHostIntegration } from ${JSON.stringify(integration)};
-      import { bindThinkingVisibility } from ${JSON.stringify(thinking)};
+      import { assistantBoundaryKind, bindAssistantPresentation, trackThinkingCompletion } from ${JSON.stringify(assistant)};
+      import { interactivePrototype, modeHooksCompatible } from ${JSON.stringify(compatibility)};
       import { createBoundedPatch } from ${JSON.stringify(boundedDiff)};
       import { piSelectiveReadAdapter } from ${JSON.stringify(selectiveAdapter)};
       const original = Reflect.get(AgentSession.prototype, "_buildRuntime");
@@ -41,18 +43,31 @@ it("recognizes native construction through the installed pi executable, not just
       export default function (pi) {
         pi.registerCommand("verify-display", { handler: async () => {
           initTheme("dark", false);
-          const component = new AssistantMessageComponent({ content: [{ type: "thinking", thinking: "retained thought" }], stopReason: "stop" }, true);
-          const release = bindThinkingVisibility(component, () => {});
-          const suppressed = component.render(80).length === 0;
+          const thought = { content: [{ type: "thinking", thinking: "retained thought" }], stopReason: "stop" };
+          const component = new AssistantMessageComponent(undefined, true);
+          const release = bindAssistantPresentation(component, () => {});
+          component.updateContent(thought, true);
+          const thinkingLive = component.render(80).join(" ").includes("Thinking...");
+          trackThinkingCompletion(component, { type: "thinking_end", contentIndex: 0, content: "retained thought", partial: thought });
+          component.updateContent(thought, true);
+          const suppressed = component.render(80).length === 0 && assistantBoundaryKind(component) === undefined;
           component.setHideThinkingBlock(false);
           const revealed = component.render(80).join(" ").includes("retained thought");
+          const thinkingBoundary = assistantBoundaryKind(component);
           component.setHideThinkingBlock(true);
           release?.();
           const thinkingRestored = component.render(80).join(" ").includes("Thinking...");
+          const prose = new AssistantMessageComponent({ content: [{ type: "text", text: "Retained prose" }], stopReason: "stop" });
+          const releaseProse = bindAssistantPresentation(prose, () => {});
+          const proseMarked = prose.render(80).join(" ").includes("•");
+          const proseBoundary = assistantBoundaryKind(prose);
+          releaseProse?.();
+          const proseRestored = !prose.render(80).join(" ").includes("•") && prose.render(80).join(" ").includes("Retained prose");
           const selectiveReadRecognized = piSelectiveReadAdapter(pi.getAllTools().find(tool => tool.name === "read"))?.id === "pi-selective-read:read";
           const patch = await createBoundedPatch({ path: "file", before: "before\\n", after: "after\\n", maxSourceBytes: 1024, maxPatchBytes: 1024, maxEditLength: 2000, timeoutMs: 1000, contextLines: 4 });
           const generatedPatch = patch.status === "ready";
-          process.stdout.write(JSON.stringify({ recognized, restored, suppressed, revealed, thinkingRestored, selectiveReadRecognized, generatedPatch }) + "\\n");
+          const modeHooks = modeHooksCompatible(interactivePrototype());
+          process.stdout.write(JSON.stringify({ recognized, restored, thinkingLive, suppressed, revealed, thinkingBoundary, thinkingRestored, proseMarked, proseBoundary, proseRestored, selectiveReadRecognized, generatedPatch, modeHooks }) + "\\n");
         } });
       }
     `
@@ -90,11 +105,17 @@ it("recognizes native construction through the installed pi executable, not just
       JSON.stringify({
         recognized: true,
         restored: true,
+        thinkingLive: true,
         suppressed: true,
         revealed: true,
+        thinkingBoundary: "group",
         thinkingRestored: true,
+        proseMarked: true,
+        proseBoundary: "run",
+        proseRestored: true,
         selectiveReadRecognized: true,
-        generatedPatch: true
+        generatedPatch: true,
+        modeHooks: true
       })
     );
   } finally {

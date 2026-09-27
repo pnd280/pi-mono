@@ -15,17 +15,23 @@ const rendererOverridesSchema = z
     z.map(z.string().min(1), rendererModeSchema)
   )
   .transform((entries) => Object.fromEntries(entries));
+const collapsedModeSchema = z.enum(["summary", "compact"]);
 const settingsSchema = z.strictObject({
   showParameters: z.boolean().optional(),
+  collapsedMode: collapsedModeSchema.optional(),
   rendererOverrides: rendererOverridesSchema.optional()
 });
 const sourceSchema = z.object({ [SETTINGS_KEY]: z.unknown().optional() });
 
 export type RendererMode = z.infer<typeof rendererModeSchema>;
 
+/** Startup and collapse target of the Ctrl+O cycle; verbose is never a setting. */
+export type CollapsedMode = z.infer<typeof collapsedModeSchema>;
+
 export interface DisplaySettings {
   valid: boolean;
   showParameters: boolean;
+  collapsedMode: CollapsedMode;
   rendererOverrides: Readonly<Record<string, RendererMode>>;
   warnings: string[];
 }
@@ -41,6 +47,7 @@ export function loadDisplaySettings(sources: readonly SettingsSource[]): Display
   Object.setPrototypeOf(rendererOverrides, null);
   const warnings: string[] = [];
   let showParameters = false;
+  let collapsedMode: CollapsedMode = "summary";
 
   for (const source of sources) {
     const section = sourceSchema.safeParse(source.settings).data?.[SETTINGS_KEY];
@@ -65,12 +72,14 @@ export function loadDisplaySettings(sources: readonly SettingsSource[]): Display
     }
 
     if (parsed.data.showParameters !== undefined) showParameters = parsed.data.showParameters;
+    if (parsed.data.collapsedMode !== undefined) collapsedMode = parsed.data.collapsedMode;
     Object.assign(rendererOverrides, parsed.data.rendererOverrides);
   }
 
   return {
     valid: warnings.length === 0,
     showParameters: warnings.length ? false : showParameters,
+    collapsedMode: warnings.length ? "summary" : collapsedMode,
     rendererOverrides: warnings.length ? {} : rendererOverrides,
     warnings
   };

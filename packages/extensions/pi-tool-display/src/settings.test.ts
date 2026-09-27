@@ -45,6 +45,35 @@ it("defaults parameters to hidden and merges explicit visibility independently o
     ]);
   }
 });
+it("defaults the collapsed mode to summary and lets trusted project values replace global ones", () => {
+  const mode = (collapsedMode: unknown, path = "global/settings.json") => ({
+    path,
+    settings: { [SETTINGS_KEY]: { collapsedMode } }
+  });
+  const global = mode("compact");
+  expect(loadDisplaySettings([])).toMatchObject({ valid: true, collapsedMode: "summary" });
+  expect(loadDisplaySettings([global])).toMatchObject({ valid: true, collapsedMode: "compact" });
+  expect(loadDisplaySettings([global, mode("summary", "project/settings.json")])).toMatchObject({
+    valid: true,
+    collapsedMode: "summary"
+  });
+  // Omission inherits instead of resetting to the default.
+  expect(
+    loadDisplaySettings([global, source({ read: "auto" }, "project/settings.json")])
+  ).toMatchObject({ valid: true, collapsedMode: "compact" });
+
+  for (const invalid of ["verbose", "expanded", true, null]) {
+    const settings = loadDisplaySettings([mode(invalid), mode("compact", "project/settings.json")]);
+    expect(settings).toMatchObject({
+      valid: false,
+      collapsedMode: "summary",
+      rendererOverrides: {}
+    });
+    expect(settings.warnings).toEqual([
+      expect.stringContaining("global/settings.json: invalid ext.pi-tool-display.collapsedMode")
+    ]);
+  }
+});
 it.each([false, [], null, "generic", { read: false }, { read: "special" }, { "": "auto" }])(
   "rejects invalid override maps as a whole: %j",
   (value) => {
@@ -76,6 +105,7 @@ it.each(['{"toString":"generic"}', '[{"toString":null}]'])(
     expect(settings).toEqual({
       valid: false,
       showParameters: false,
+      collapsedMode: "summary",
       rendererOverrides: {},
       warnings: [
         "global/settings.json: invalid ext.pi-tool-display.rendererOverrides.read; keeping original rendering and disabling display observation."

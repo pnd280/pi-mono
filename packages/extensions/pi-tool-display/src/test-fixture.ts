@@ -5,9 +5,12 @@ import { SessionManager, type ExtensionContext } from "@earendil-works/pi-coding
 import type { TUI } from "@earendil-works/pi-tui";
 import { createFixtureMessage } from "@pi-mono/libs/validation/provider";
 
-export function renderingTui(): TUI {
+export function renderingTui(mode: TUI["mode"] = "fullscreen"): TUI {
   const terminal = { setProgress() {} } satisfies Pick<TUI["terminal"], "setProgress">;
-  const tui = { requestRender() {}, terminal } satisfies Pick<TUI, "requestRender"> & {
+  const tui = { requestRender() {}, terminal, mode } satisfies Pick<
+    TUI,
+    "requestRender" | "mode"
+  > & {
     terminal: typeof terminal;
   };
 
