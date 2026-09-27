@@ -48,26 +48,25 @@ it("records one context-free entry after all turns and retries settle, preservin
   await runtime.emit("session_shutdown", {});
 });
 
-it("records the model and thinking level selected when the run began, without the provider", async () => {
+it("records the provider, model, and thinking level selected when the run began", async () => {
   const runtime = await fixture();
-  const faux = fauxProvider({
+  runtime.ctx.model = fauxProvider({
     provider: "anthropic",
-    models: [
-      { id: "claude-opus-5-5", reasoning: true },
-      { id: "other-model", reasoning: true }
-    ]
-  });
-  runtime.ctx.model = faux.getModel("claude-opus-5-5");
+    models: [{ id: "claude-opus-5-5", reasoning: true }]
+  }).getModel("claude-opus-5-5");
   vi.mocked(runtime.api.getThinkingLevel).mockReturnValue("medium");
   await runtime.emit("agent_start", {});
-  runtime.ctx.model = faux.getModel("other-model");
+  runtime.ctx.model = fauxProvider({
+    provider: "other-provider",
+    models: [{ id: "other-model", reasoning: true }]
+  }).getModel("other-model");
   vi.mocked(runtime.api.getThinkingLevel).mockReturnValue("high");
   await runtime.emit("agent_start", {});
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 0,
     finishedAt: Date.now(),
-    model: { id: "claude-opus-5-5", thinkingLevel: "medium" },
+    model: { provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "medium" },
     bashCalls: 0,
     files: []
   });
@@ -87,6 +86,7 @@ it("leaves an initially missing model absent until the next run", async () => {
   const runtime = await fixture();
   await runtime.emit("agent_start", {});
   runtime.ctx.model = fauxProvider({
+    provider: "later-provider",
     models: [{ id: "later-model", reasoning: true }]
   }).getModel("later-model");
   vi.mocked(runtime.api.getThinkingLevel).mockReturnValue("high");
@@ -104,7 +104,7 @@ it("leaves an initially missing model absent until the next run", async () => {
   expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
     durationMs: 0,
     finishedAt: Date.now(),
-    model: { id: "later-model", thinkingLevel: "high" },
+    model: { provider: "later-provider", id: "later-model", thinkingLevel: "high" },
     bashCalls: 0,
     files: []
   });

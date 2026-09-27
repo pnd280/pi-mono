@@ -21,4 +21,4 @@
 
 Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
 
-Use [package validation](README.md#validation). Cover run boundaries, repeated starts, cleanup, context-free replay, and non-TUI execution. Protect bash-call counting, path deduplication, net edits, reverted changes, unavailable observations, and theme-colored summary rendering.
+Use [package validation](README.md#validation). Cover run boundaries, repeated starts, cleanup, context-free replay, and non-TUI execution. Protect command counting, path deduplication, net edits, reverted changes, unavailable observations, and theme-colored summary rendering.

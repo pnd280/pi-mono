@@ -37,7 +37,13 @@ export const summarySchema = z.object({
   finishedAt: countSchema.max(8_640_000_000_000_000),
   bashCalls: countSchema,
   // Absent in summaries saved before model capture and in runs without a selected model.
-  model: z.object({ id: z.string().min(1), thinkingLevel: z.enum(thinkingLevels) }).optional(),
+  model: z
+    .object({
+      provider: z.string().min(1),
+      id: z.string().min(1),
+      thinkingLevel: z.enum(thinkingLevels)
+    })
+    .optional(),
   files: z.array(fileChangeSchema)
 });
 

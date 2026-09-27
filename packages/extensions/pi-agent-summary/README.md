@@ -7,10 +7,10 @@ Shows elapsed runtime in Pi's working message and saves run summaries outside mo
 When Pi settles, the transcript shows:
 
 ```text
-claude-opus-5-5:medium · 1m 23s (2:34:56 PM) · 4 bash calls · 3 files changed · +42 −11
+anthropic/claude-opus-5-5:medium · 1m 23s (2:34:56 PM) · ran 4 commands · edited 3 files · +42 −11
 ```
 
-The model ID (without its provider) and thinking level are captured when the run begins. Changes during the run do not update the summary. This prefix is omitted if no model was selected or the summary was saved before model capture.
+The model provider, model ID, and thinking level are captured when the run begins. Changes during the run do not update the summary. Summaries without model metadata, including runs with no selected model, omit the prefix. Summaries with model metadata but no provider are hidden.
 
 Finish times use your local timezone. Statistics appear on the same line when there are bash calls or observed files, including files whose statistics are unavailable. Narrow terminals wrap the line as needed.
 
@@ -26,7 +26,7 @@ RPC, JSON, and print modes save the same statistics without a UI timer. Shutdown
 
 #### Bash calls
 
-Each agent `bash` call counts once, including failed, cancelled, or blocked calls. Script commands do not count separately; manual `!` and `!!` commands are excluded.
+`ran N commands` counts each agent `bash` call once, including failed, cancelled, or blocked calls. Script commands do not count separately; manual `!` and `!!` commands are excluded.
 
 #### File changes
 
@@ -50,7 +50,7 @@ No extension-specific options or environment variables. The shared [coordinator]
 
 ## Side effects
 
-Appends one `pi-agent-summary.summary` entry per settled run with duration, finish timestamp, model ID and thinking level when available, bash count, and per-file statistics or unavailability reasons. Entries never enter model context or trigger turns.
+Appends one `pi-agent-summary.summary` entry per settled run with duration, finish timestamp, model provider, ID, and thinking level when available, bash count, and per-file statistics or unavailability reasons. Entries never enter model context or trigger turns.
 
 Observation adds a bounded read before native `write`, reuses native `edit` reads, and never reads after writing. Observations are [shared](../../libs/src/file-mutations/README.md) with `pi-tool-display` without duplicate reads. Contents and patches stay in memory. No directory scans, extra target writes, Git commands, or network requests.
 
@@ -69,8 +69,8 @@ vpr 'pi-agent-summary#test'
 
 Visual checks:
 
-1. Load with `pi-todo`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity, then a compact summary with the model and thinking level, duration, local finish time, and diff-colored statistics. Resize to a narrow terminal and confirm the summary wraps without losing statistics.
+1. Load with `pi-todo`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity, then a compact summary with the provider, model, and thinking level, duration, local finish time, and diff-colored statistics. Resize to a narrow terminal and confirm the summary wraps without losing statistics.
 2. In fullscreen, click summaries independently; verify dragging selects text and the wheel scrolls.
 3. Check Ctrl+O toggles all summaries in regular and fullscreen modes.
 4. Abort another run; expect one summary and a stopped timer.
-5. Resume the session; confirm saved summaries retain their captured model, thinking level, and finish time.
+5. Resume the session; confirm saved summaries retain their captured provider, model, thinking level, and finish time.

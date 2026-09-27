@@ -31,7 +31,7 @@ it("replays persisted totals and details using the saved finish time, not the en
   };
   const entry = savedEntry(data);
   const text = renderSummary(entry, { expanded: false }, theme)!.render(120).join("\n");
-  for (const statistic of ["1m 23s", "4 bash", "3 files", "+42", "−11"])
+  for (const statistic of ["1m 23s", "ran 4 commands", "edited 3 files", "+42", "−11"])
     expect(text).toContain(statistic);
   expect(text).not.toContain("src/a.ts");
 
@@ -123,10 +123,10 @@ it("distinguishes unavailable statistics from no changes without adding them to 
   const base = { durationMs: 0, finishedAt, bashCalls: 0, files: [] };
   const text = (data: unknown, expanded = false) =>
     renderSummary(savedEntry(data), { expanded }, theme)!.render(120).join("\n");
-  expect(text(base)).not.toMatch(/unavailable|files? changed/i);
+  expect(text(base)).not.toMatch(/unavailable|edited/i);
   const unavailable = { path: "large.txt", status: "unavailable", reason: "Source too large." };
   expect(text({ ...base, files: [unavailable] })).toContain("Statistics unavailable for 1 file");
-  expect(text({ ...base, files: [unavailable] })).not.toContain("file changed");
+  expect(text({ ...base, files: [unavailable] })).not.toContain("edited");
   const mixed = {
     ...base,
     files: [
@@ -135,25 +135,25 @@ it("distinguishes unavailable statistics from no changes without adding them to 
       { ...unavailable, path: "other.txt" }
     ]
   };
-  expect(text(mixed)).toContain("1 file changed");
+  expect(text(mixed)).toContain("edited 1 file");
   expect(text(mixed)).toContain("+2 −1");
   expect(text(mixed)).toContain("Statistics unavailable for 2 files");
   expect(text(mixed, true)).toContain("large.txt");
   expect(text(mixed, true)).toContain("Source too large.");
 });
 
-it("leads with the saved model and thinking level, omitting it for summaries without a model", () => {
+it("leads with the saved provider, model, and thinking level, omitting it for summaries without a model", () => {
   const base = { durationMs: 83000, finishedAt, bashCalls: 0, files: [] };
   const text = (data: unknown) =>
     renderSummary(savedEntry(data), { expanded: false }, theme)!.render(120).join("\n");
   const withModel = text({
     ...base,
-    model: { id: "claude-opus-5-5", thinkingLevel: "medium" }
+    model: { provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "medium" }
   });
-  expect(withModel).toMatch(/^\s*claude-opus-5-5:medium \S+ 1m 23s \(/);
-  expect(text({ ...base, model: { id: "gpt-5-mini", thinkingLevel: "off" } })).toContain(
-    "gpt-5-mini:off"
-  );
+  expect(withModel).toMatch(/^\s*anthropic\/claude-opus-5-5:medium \S+ 1m 23s \(/);
+  expect(
+    text({ ...base, model: { provider: "openai", id: "gpt-5-mini", thinkingLevel: "off" } })
+  ).toContain("openai/gpt-5-mini:off");
   expect(text(base)).toMatch(/^\s*1m 23s \(/);
 });
 

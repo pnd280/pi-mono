@@ -82,7 +82,11 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     run ??= {
       changes: new RunChanges(ctx.cwd),
       bashCalls: new Set(),
-      model: ctx.model && { id: ctx.model.id, thinkingLevel: pi.getThinkingLevel() }
+      model: ctx.model && {
+        provider: ctx.model.provider,
+        id: ctx.model.id,
+        thinkingLevel: pi.getThinkingLevel()
+      }
     };
     if (manager !== ctx.sessionManager) bind(ctx);
     timer.start(ctx.mode === "tui");

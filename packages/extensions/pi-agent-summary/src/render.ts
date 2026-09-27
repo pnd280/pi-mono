@@ -20,7 +20,12 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
   const parts: string[] = [];
   if (summary.model)
     parts.push(
-      theme.fg("dim", compactDisplayText(`${summary.model.id}:${summary.model.thinkingLevel}`))
+      theme.fg(
+        "dim",
+        compactDisplayText(
+          `${summary.model.provider}/${summary.model.id}:${summary.model.thinkingLevel}`
+        )
+      )
     );
   parts.push(
     theme.fg(
@@ -30,11 +35,14 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
   );
   if (summary.bashCalls)
     parts.push(
-      theme.fg("dim", `${summary.bashCalls} bash ${summary.bashCalls === 1 ? "call" : "calls"}`)
+      theme.fg(
+        "dim",
+        `ran ${summary.bashCalls} ${summary.bashCalls === 1 ? "command" : "commands"}`
+      )
     );
   if (available.length)
     parts.push(
-      theme.fg("dim", `${available.length} ${available.length === 1 ? "file" : "files"} changed`)
+      theme.fg("dim", `edited ${available.length} ${available.length === 1 ? "file" : "files"}`)
     );
   const counts = lineCounts(
     available.reduce((total, file) => total + file.added, 0),
