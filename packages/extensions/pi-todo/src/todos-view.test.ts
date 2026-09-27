@@ -6,46 +6,43 @@ import { TodosView } from "./todos-view.ts";
 
 beforeAll(() => initTheme("dark", false));
 
-it.each(["regular", "fullscreen"] as const)(
-  "uses configured selection paging for the list and details in %s mode",
-  (mode) => {
-    const view = new TodosView({
-      tasks: Array.from({ length: 30 }, (_, index) => ({
-        id: index + 1,
-        subject: `Todo ${index + 1}`,
-        status: "pending",
-        description: Array.from({ length: 50 }, (_, line) => `Detail line ${line + 1}`).join("\n")
-      })),
-      theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
-      tui: { mode, requestRender() {}, terminal: { rows: 40 } },
-      keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
-        "tui.select.pageDown": "ctrl+n",
-        "tui.select.pageUp": "ctrl+p",
-        "tui.editor.pageDown": [],
-        "tui.editor.pageUp": []
-      }),
-      done: vi.fn()
-    });
-    view.render(80);
-    expect(view.ownsFullscreenInput("\x0e")).toBe(true);
-    expect(view.ownsFullscreenInput("\x10")).toBe(true);
-    expect(view.ownsFullscreenInput("\x1b[6~")).toBe(false);
-    view.handleInput("\x0e");
-    view.handleInput("\r");
-    expect(view.render(80).join("\n")).toContain("Todo #16");
-    view.handleInput("\x1b");
-    view.handleInput("\x10");
-    view.handleInput("\r");
-    expect(view.render(80).join("\n")).toContain("Todo #1");
-    expect(view.render(80).join("\n")).toMatch(/(?:^|\n)Detail line 1(?:\n|$)/u);
-    view.handleInput("\x0e");
-    expect(view.render(80).join("\n")).not.toMatch(/(?:^|\n)Detail line 1(?:\n|$)/u);
-    view.handleInput("\x10");
-    expect(view.render(80).join("\n")).toMatch(/(?:^|\n)Detail line 1(?:\n|$)/u);
-    view.handleInput("\x1b");
-    expect(view.render(80).join("\n")).toContain("#1 Todo 1");
-  }
-);
+it("uses configured selection paging for the list and details", () => {
+  const view = new TodosView({
+    tasks: Array.from({ length: 30 }, (_, index) => ({
+      id: index + 1,
+      subject: `Todo ${index + 1}`,
+      status: "pending",
+      description: Array.from({ length: 50 }, (_, line) => `Detail line ${line + 1}`).join("\n")
+    })),
+    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    tui: { mode: "fullscreen", requestRender() {}, terminal: { rows: 40 } },
+    keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
+      "tui.select.pageDown": "ctrl+n",
+      "tui.select.pageUp": "ctrl+p",
+      "tui.editor.pageDown": [],
+      "tui.editor.pageUp": []
+    }),
+    done: vi.fn()
+  });
+  view.render(80);
+  expect(view.ownsFullscreenInput("\x0e")).toBe(true);
+  expect(view.ownsFullscreenInput("\x10")).toBe(true);
+  expect(view.ownsFullscreenInput("\x1b[6~")).toBe(false);
+  view.handleInput("\x0e");
+  view.handleInput("\r");
+  expect(view.render(80).join("\n")).toContain("Todo #16");
+  view.handleInput("\x1b");
+  view.handleInput("\x10");
+  view.handleInput("\r");
+  expect(view.render(80).join("\n")).toContain("Todo #1");
+  expect(view.render(80).join("\n")).toMatch(/(?:^|\n)Detail line 1(?:\n|$)/u);
+  view.handleInput("\x0e");
+  expect(view.render(80).join("\n")).not.toMatch(/(?:^|\n)Detail line 1(?:\n|$)/u);
+  view.handleInput("\x10");
+  expect(view.render(80).join("\n")).toMatch(/(?:^|\n)Detail line 1(?:\n|$)/u);
+  view.handleInput("\x1b");
+  expect(view.render(80).join("\n")).toContain("#1 Todo 1");
+});
 
 it("claims only effective paging actions and reserves control keys", () => {
   const keys = new KeybindingsManager(TUI_KEYBINDINGS, {

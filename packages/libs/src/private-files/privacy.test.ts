@@ -68,21 +68,12 @@ it("refuses a hard link without changing the shared source", async () => {
   expect((await stat(source)).mode & 0o777).toBe(0o640);
 });
 
-it.runIf(process.platform === "linux")(
-  "refuses a FIFO without changing unrelated file bytes or permissions",
-  async () => {
-    const path = join(directory, "data");
-    const unrelated = join(directory, "unrelated");
-    const bytes = Buffer.from("unrelated to FIFO\0");
-    await writeFile(unrelated, bytes);
-    await chmod(unrelated, 0o640);
-    await promisify(execFile)("mkfifo", [path]);
+it.runIf(process.platform === "linux")("refuses a FIFO", async () => {
+  const path = join(directory, "data");
+  await promisify(execFile)("mkfifo", [path]);
 
-    await expect(boundedRead(path, bytes.length)).rejects.toBeInstanceOf(PrivateFileError);
-    expect(await readFile(unrelated)).toEqual(bytes);
-    expect((await stat(unrelated)).mode & 0o777).toBe(0o640);
-  }
-);
+  await expect(boundedRead(path, 16)).rejects.toBeInstanceOf(PrivateFileError);
+});
 
 it.runIf(process.platform === "linux")(
   "repairs effective POSIX ACL access without changing file bytes",

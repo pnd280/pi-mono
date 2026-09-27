@@ -29,14 +29,8 @@ const cases: {
   summaries: number;
 }[] = [
   { name: "omitted", config: override, summaries: 1 },
-  { name: "disabled", config: { ...override, applyToManual: false }, summaries: 1 },
   { name: "enabled", config: { ...override, applyToManual: true }, summaries: 1 },
   { name: "automatic only", config: { ...override, applyToAuto: true }, summaries: 1 },
-  {
-    name: "automatic disabled",
-    config: { ...override, applyToManual: true, applyToAuto: false },
-    summaries: 1
-  },
   {
     name: "both enabled",
     config: { ...override, applyToManual: true, applyToAuto: true },

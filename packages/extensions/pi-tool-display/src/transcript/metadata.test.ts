@@ -170,7 +170,7 @@ it("bounds the original record, including unknown fields, and rejects unsafe cal
       exitCode: null
     }
   };
-  expect(parseDisplayRecord(record)).toBe(record);
+  expect(parseDisplayRecord(record)).toEqual(record);
   expect(parseDisplayRecord({ ...record, extra: "x".repeat(160 * 1024) })).toBeUndefined();
   expect(
     parseDisplayRecord({

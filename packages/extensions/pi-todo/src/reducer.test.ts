@@ -382,6 +382,10 @@ describe("todo reducer", () => {
       nextId: MAX_TASKS + 1
     };
     const characterBoundedText = mutate(characterBoundedState, "list", {}).content[0]?.text ?? "";
+    assert.equal(
+      characterBoundedText.split("\n")[0],
+      `[pending] #1 ${"s".repeat(MAX_SUBJECT_LENGTH)}`
+    );
     assert.ok(characterBoundedText.length <= MAX_LIST_CHARACTERS);
     assert.match(characterBoundedText, /more todos omitted/u);
   });

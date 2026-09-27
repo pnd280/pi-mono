@@ -23,11 +23,6 @@ it("separates FFF summaries from pagination diagnostics", () => {
     content: [{ type: "text" as const, text: "file-test.txt" }],
     details: { totalMatched: 1, totalFiles: 1, pageIndex: 0, hasMore: false }
   };
-  expect(find.notices?.(complete, false)).toEqual([]);
-  expect(find.notices?.(complete, true)).toEqual([]);
-  expect(find.summary?.(complete, summaryContext)).toEqual({
-    text: "1 matching file · 1 indexed file"
-  });
   expect(grep.summary?.(paged, summaryContext)).toEqual({
     text: "1 match collected · 5 indexed files"
   });

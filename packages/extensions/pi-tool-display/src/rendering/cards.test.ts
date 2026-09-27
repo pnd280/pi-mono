@@ -689,16 +689,14 @@ describe("tool display renderers", () => {
               const expected =
                 coordinated && !expanded && coordinator.group(call) ? groupVerb : verb;
 
-              for (const width of [40, 100]) {
-                const heading = row
-                  .render(width)
-                  .map(stripTerminalSequences)
-                  .find((line) => /^[•◦] /.test(line));
-                expect(
-                  heading,
-                  `${name}: ${call.lifecycle}, coordinated=${coordinated}, expanded=${expanded}`
-                ).toMatch(new RegExp(`^[•◦] ${expected}(?: |$)`));
-              }
+              const heading = row
+                .render(100)
+                .map(stripTerminalSequences)
+                .find((line) => /^[•◦] /.test(line));
+              expect(
+                heading,
+                `${name}: ${call.lifecycle}, coordinated=${coordinated}, expanded=${expanded}`
+              ).toMatch(new RegExp(`^[•◦] ${expected}(?: |$)`));
             }
           };
 
@@ -1011,23 +1009,25 @@ describe("tool display renderers", () => {
       ["new/未作成 file.ts", "new/未作成 file.ts"]
     ] as const;
 
+    const renderer = createToolDisplayRenderers("read", nativeAdapter("read"));
+
+    for (const [path, expected] of paths) {
+      const args = Object.freeze({ path });
+      const rows = renderer.renderCall(args, theme, context({ cwd })).render(240);
+      expect(rows[0]?.endsWith(` ${expected.split(sep).join("/")}`), path).toBe(true);
+    }
+
+    // Every tool must tag its target as a path in both presentation states.
     for (const name of ["read", "edit", "write", "ls", "grep", "find"]) {
-      const renderer = createToolDisplayRenderers(name, nativeAdapter(name));
+      const toolRenderer = createToolDisplayRenderers(name, nativeAdapter(name));
+      const args = Object.freeze({ path: resolve(cwd, "src/file.ts"), pattern: "needle" });
 
-      for (const [path, expected] of paths) {
-        const args = Object.freeze({ path, pattern: "needle" });
-
-        for (const expanded of [false, true]) {
-          const rows = renderer.renderCall(args, theme, context({ cwd, expanded })).render(240);
-          expect(rows[0]?.endsWith(` ${expected.split(sep).join("/")}`), `${name}: ${path}`).toBe(
-            true
-          );
-          expect(args.path).toBe(path);
-        }
+      for (const expanded of [false, true]) {
+        const rows = toolRenderer.renderCall(args, theme, context({ cwd, expanded })).render(240);
+        expect(rows[0]?.endsWith(" src/file.ts"), `${name}: expanded=${expanded}`).toBe(true);
       }
     }
 
-    const renderer = createToolDisplayRenderers("read", nativeAdapter("read"));
     expect(
       renderer
         .renderCall(

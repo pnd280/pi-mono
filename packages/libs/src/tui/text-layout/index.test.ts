@@ -145,7 +145,7 @@ it("returns no partial layout when cancelled initially or after a later event-lo
       return active;
     });
     expect(lines).toEqual([]);
-    expect(checks).toBe(2);
+    expect(active).toBe(false);
   }
 });
 

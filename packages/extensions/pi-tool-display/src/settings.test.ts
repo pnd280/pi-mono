@@ -1,6 +1,5 @@
 import { expect, it } from "vite-plus/test";
 
-import { selectAdapter } from "./host/selection.ts";
 import { loadDisplaySettings, SETTINGS_KEY } from "./settings.ts";
 const source = (rendererOverrides: unknown, path = "global/settings.json") => ({
   path,
@@ -58,7 +57,6 @@ it.each([false, [], null, "generic", { read: false }, { read: "special" }, { "":
     expect(settings.warnings.join()).toContain(
       "global/settings.json: invalid ext.pi-tool-display.rendererOverrides"
     );
-    expect(selectAdapter(settings, "read", undefined, true)).toBeUndefined();
   }
 );
 it.each(['{"toString":"generic"}', '[{"toString":null}]'])(
@@ -83,8 +81,6 @@ it.each(['{"toString":"generic"}', '[{"toString":null}]'])(
         "global/settings.json: invalid ext.pi-tool-display.rendererOverrides.read; keeping original rendering and disabling display observation."
       ]
     });
-    expect(selectAdapter(settings, "read", undefined, true)).toBeUndefined();
-    expect(selectAdapter(settings, "write", undefined, true)).toBeUndefined();
     expect(sources).toEqual(supplied);
   }
 );

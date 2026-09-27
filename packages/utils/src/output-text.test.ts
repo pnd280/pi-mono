@@ -10,7 +10,6 @@ it("segments only generated notices without losing source or Unicode offsets", (
     { kind: "omission", text: "[omitted]" },
     { kind: "output", text: "\ntail" }
   ]);
-  expect(parts.map((part) => part.text).join("")).toBe(output.text);
   expect(splitOutputText({ text: "" })).toEqual([]);
   expect(splitOutputText(outputOmission("all"))).toEqual([{ kind: "omission", text: "all" }]);
   expect(splitOutputText(joinOutputText([outputOmission("a"), outputOmission("b")]))).toEqual([

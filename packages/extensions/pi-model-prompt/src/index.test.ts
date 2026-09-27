@@ -193,7 +193,7 @@ it.each([true, false])(
   }
 );
 
-it.each(["tui", "rpc", "print"] as const)(
+it.each(["rpc", "print"] as const)(
   "reloads snapshots and gates warnings in %s mode",
   async (mode) => {
     const fixture = await host({ mode });

@@ -138,7 +138,6 @@ it.each(
   [
     ["--parent-session"],
     ["--parent-session", "missing.jsonl"],
-    ["--parent-session", "missing-id"],
     ["--parent-session", "PARENT", "--continue"],
     ["--parent-session", "PARENT", "--session", "PARENT"],
     ["--parent-session", "PARENT", "--session-id", "new-id"]

@@ -62,11 +62,15 @@ it("preserves exact source and prototype-like JSON fields through a complete mut
   const raw = Buffer.from(
     '{"version":1,"cwd":"/fixture","__proto__":{"kept":true},"entries":[{"id":"11111111-1111-1111-1111-111111111111","text":"  keep\\n","__proto__":{"raw":true},"constructor":"metadata"}]}'
   );
-  const before = readCollection("drafts", scope.cwd, raw);
   const result = updateCollection({ ...scope, raw, operation: add(" \texact\r\n ") });
   expect(result.status).toBe("replace");
   if (result.status !== "replace") throw new Error("Expected replacement");
-  expect(result.value.document.entries[1]).toEqual(before.document.entries[0]);
+  expect(result.value.document.entries[1]).toEqual({
+    id: "11111111-1111-1111-1111-111111111111",
+    text: "  keep\n",
+    ["__proto__"]: { raw: true },
+    constructor: "metadata"
+  });
   expect(result.value.document.__proto__).toEqual({ kept: true });
   expect(Object.hasOwn(result.value.document, "__proto__")).toBe(true);
   expect(Object.hasOwn(result.value.document.entries[1]!, "__proto__")).toBe(true);

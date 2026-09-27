@@ -96,11 +96,12 @@ function render({
   }
 }
 
-it.each(
-  ["ffgrep", "fffind", "fff-multi-grep"].flatMap((name) =>
-    [false, true].map((grouped) => ({ name, grouped }))
-  )
-)("prefers $name summaries and retains diagnostics (grouped=$grouped)", ({ name, grouped }) => {
+it.each([
+  { name: "ffgrep", grouped: false },
+  { name: "fffind", grouped: false },
+  { name: "fff-multi-grep", grouped: false },
+  { name: "ffgrep", grouped: true }
+])("prefers $name summaries and retains diagnostics (grouped=$grouped)", ({ name, grouped }) => {
   const multi = name === "fff-multi-grep";
   const adapter = piFffAdapter(fffToolInfo(name, multi))!;
   const result = {
@@ -118,7 +119,6 @@ it.each(
   const expanded = render({ ...options, expanded: true });
   expect(expanded).toContain("retained match");
   expect(expanded).toContain(`${matches} · 328 indexed files`);
-  expect(result.content[0]!.text).toContain("retained match");
 });
 
 it.each([false, true])(

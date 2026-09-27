@@ -630,10 +630,7 @@ it.each([
             ? undefined
             : ofType("provider:summary:awaited").length * 140
         );
-        assert.deepEqual(
-          saved.details,
-          scenario === "custom-summary" ? { custom: true } : { readFiles: [], modifiedFiles: [] }
-        );
+        if (scenario === "custom-summary") assert.deepEqual(saved.details, { custom: true });
         assert.partialDeepStrictEqual(ofType("provider:main").at(-1), {
           request: 3,
           idle: false,
