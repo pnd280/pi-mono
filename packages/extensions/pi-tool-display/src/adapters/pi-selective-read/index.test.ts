@@ -70,6 +70,8 @@ it("requires selective-read ownership, the read name, and the current parameter 
 });
 
 it.each([
+  [{ startLine: "1" }, {}],
+  [{ selection: null, extra: null }, {}],
   [{ selection: null }, {}],
   [{ offset: null }, {}],
   [{ limit: null }, {}],
@@ -84,7 +86,7 @@ it.each([
     },
     { selection: { startLine: 2 } }
   ]
-])("treats optional null arguments as omitted without mutating them: %j", (raw, normalized) => {
+])("normalizes display arguments without mutating retained input: %j", (raw, normalized) => {
   const args = { path: "a.ts", ...raw };
   const expected = { path: "a.ts", ...normalized };
   const before = structuredClone(args);
@@ -113,7 +115,6 @@ it("rejects invalid coordinates and result boundaries instead of claiming unrela
     { path: null },
     { path: "a.ts", limit: "3" },
     { path: "a.ts", selection: false },
-    { path: "a.ts", selection: null, extra: null },
     { ...valid, selection: { startLine: null } },
     { ...valid, selection: { startLine: 1, extra: null } },
     { ...valid, selection: { startLine: 0 } },
@@ -292,5 +293,7 @@ it("counts selective reads as one read item per requested file", () => {
   ).toMatchObject([item]);
   expect(adapter.summaryItems?.({ path: "./src/a.ts" }, context)).toMatchObject([item]);
   expect(adapter.summaryItems?.({ path: "" }, context)).toBeUndefined();
-  expect(adapter.summaryItems?.({ path: "a.ts", unknown: true }, context)).toBeUndefined();
+  expect(adapter.summaryItems?.({ path: "src/a.ts", startLine: "1" }, context)).toMatchObject([
+    item
+  ]);
 });

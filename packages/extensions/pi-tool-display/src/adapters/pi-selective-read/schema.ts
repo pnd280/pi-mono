@@ -14,7 +14,8 @@ const selectionArgumentSchema = selectionInputSchema
   })
   .pipe(selectionSchema);
 
-export const argsSchema = z.strictObject({
+// Read execution ignores unknown top-level fields; keep selection validation strict.
+export const argsSchema = z.object({
   path: z.string().min(1),
   offset: optionalArgument(z.number()),
   limit: optionalArgument(z.number()),

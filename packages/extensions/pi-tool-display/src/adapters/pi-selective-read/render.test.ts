@@ -3,19 +3,68 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
+import { createToolDisplayRenderers as createTranscriptRenderers } from "../../rendering/cards.ts";
+import { TranscriptCoordinator } from "../../transcript/coordinator.ts";
 import { selectiveReadDisplayAdapter } from "./index.ts";
+
+const theme = {
+  fg: (_color: string, text: string) => text,
+  bg: (_color: string, text: string) => text,
+  getBgAnsi: () => "",
+  bold: (text: string) => text
+};
 
 beforeAll(() => initTheme("dark", false));
 
+it.each([
+  [{ path: "example.txt", startLine: "1" }, "Read example.txt"],
+  [{ path: "example.txt", limit: "3" }, "Called read("],
+  [{ path: "example.txt", selection: { startLine: 1, extra: null } }, "Called read("]
+])("specializes interpretable retained read arguments: %j", (args, heading) => {
+  const coordinator = new TranscriptCoordinator("read-arguments", { cwd: "/project" });
+  const before = structuredClone(args);
+
+  try {
+    const call = coordinator.add(
+      { messageTimestamp: 1, contentIndex: 0, toolCallId: "read" },
+      "read",
+      args,
+      selectiveReadDisplayAdapter,
+      "historical"
+    );
+    const result: AgentToolResult<unknown> = {
+      content: [{ type: "text", text: "source" }],
+      details: undefined
+    };
+    coordinator.result(call, result, "success");
+    const context = {
+      args,
+      state: {},
+      toolCallId: "read",
+      cwd: "/project",
+      lastComponent: undefined,
+      executionStarted: true,
+      argsComplete: true,
+      isPartial: false,
+      expanded: false,
+      showImages: false,
+      isError: false,
+      invalidate() {}
+    };
+    const renderers = createTranscriptRenderers("read", selectiveReadDisplayAdapter, {
+      binding: { call, coordinator }
+    });
+    expect(renderers.renderCall(args, theme, context).render(120).join("\n")).toContain(heading);
+    expect(args).toEqual(before);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
 it("renders selected source once through public cards, hides compact text, and retains diagnostics", () => {
-  const theme = {
-    fg: (_color: string, text: string) => text,
-    bg: (_color: string, text: string) => text,
-    getBgAnsi: () => "",
-    bold: (text: string) => text
-  };
   const args = {
     path: "example.txt",
+    startLine: "1",
     offset: 8,
     limit: 2,
     selection: { startLine: 9, startColumn: 2, endColumn: 3 }
