@@ -19,30 +19,15 @@ export type Cell = {
 
 export type Rendered = { lines: string[]; cells: Cell[] };
 
-/** Last width each component rendered at. Duplicated placements share one live instance. */
-export type RenderWidths = Map<Component, number>;
-
-function draw(source: Contribution, width: number, widths: RenderWidths): string[] {
-  const lines = source.component.render(width).map((line) => truncateToWidth(line, width));
-  widths.set(source.component, width);
-
-  return lines;
-}
-
-type Measured = {
-  id: string;
-  source: Contribution;
+type Item = {
+  component: Component;
   lines: string[];
-  natural: number;
-  renders: Map<number, string[]>;
+  width: number;
   group: number;
   bullet: boolean;
 };
 
 const content = (line: string) => stripTerminalSequences(line).trim().length > 0;
-const nonempty = (lines: string[]) => lines.some(content);
-const lineWidth = (lines: string[]) =>
-  lines.reduce((max, line) => Math.max(max, visibleWidth(line)), 0);
 
 /** Only compact literal trailing spaces known not to paint or carry terminal metadata. */
 function compactWidth(line: string): number {
@@ -63,16 +48,8 @@ function compactWidth(line: string): number {
   return visibleWidth(neutral.includes("\x1b") ? line : trimmed);
 }
 
-const occupiedWidth = (lines: string[]) =>
-  lines.reduce((max, line) => Math.max(max, compactWidth(line)), 0);
-
-function measure(
-  row: string[],
-  sources: ReadonlyMap<string, Contribution>,
-  width: number,
-  widths: RenderWidths
-): Measured[] {
-  const nodes: Measured[] = [];
+function measure(row: string[], sources: ReadonlyMap<string, Contribution>, width: number): Item[] {
+  const items: Item[] = [];
   let group = 0;
   let bullet = false;
 
@@ -90,46 +67,46 @@ function measure(
 
     const source = sources.get(id);
     if (!source) continue;
-    const lines = draw(source, width, widths);
-    if (!nonempty(lines)) continue;
-    nodes.push({
-      id,
-      source,
+    const lines = source.component.render(width).map((line) => truncateToWidth(line, width));
+    if (!lines.some(content)) continue;
+    items.push({
+      component: source.component,
       lines,
-      natural: Math.max(1, occupiedWidth(lines)),
-      renders: new Map([[width, lines]]),
+      width: lines.reduce((max, line) => Math.max(max, compactWidth(line)), 1),
       group,
       bullet
     });
     bullet = false;
   }
 
-  return nodes;
+  // Preserve full-width singleton padding; shared items retain only their occupied width.
+  const singleton = items.length === 1 ? items[0] : undefined;
+  if (singleton && !row.includes("flex")) singleton.width = width;
+
+  return items;
 }
 
-function gap(left: Measured | undefined, right: Measured): number {
+function gap(left: Item | undefined, right: Item): number {
   if (!left) return 0;
 
   return left.group === right.group && right.bullet ? 3 : 1;
 }
 
-function reflow(nodes: Measured[], width: number, minimum = 12): Measured[][] {
-  const rows: Measured[][] = [];
-  let current: Measured[] = [];
+/** Wrap whole items in order, without shrinking or rerendering them to make room. */
+function wrap(items: Item[], width: number): Item[][] {
+  const rows: Item[][] = [];
+  let current: Item[] = [];
   let used = 0;
 
-  for (const node of nodes) {
-    const size = Math.min(node.natural, minimum, width);
-    const spacing = gap(current.at(-1), node);
-
-    if (current.length && used + spacing + size > width) {
+  for (const item of items) {
+    if (current.length && used + gap(current.at(-1), item) + item.width > width) {
       rows.push(current);
       current = [];
       used = 0;
     }
 
-    used += gap(current.at(-1), node) + size;
-    current.push(node);
+    used += gap(current.at(-1), item) + item.width;
+    current.push(item);
   }
 
   if (current.length) rows.push(current);
@@ -137,166 +114,43 @@ function reflow(nodes: Measured[], width: number, minimum = 12): Measured[][] {
   return rows;
 }
 
-/** Water-fill from measured demands, without probing component renders in a loop. */
-function allocate(
-  nodes: Measured[],
-  width: number,
-  demands = nodes.map((node) => node.natural)
-): number[] {
-  if (nodes.length === 1) return [width];
-  let remaining = width - nodes.reduce((sum, node, index) => sum + gap(nodes[index - 1], node), 0);
-  const sorted = nodes
-    .map((node, index) => ({ natural: demands[index] ?? node.natural, index }))
-    .sort((a, b) => a.natural - b.natural);
-  const widths: number[] = [];
-
-  sorted.forEach(({ natural, index }, order) => {
-    const allocated = Math.max(
-      1,
-      Math.min(natural, Math.floor(remaining / (nodes.length - order)))
-    );
-    widths[index] = allocated;
-    remaining -= allocated;
-  });
-
-  return widths;
-}
-
-type Box = {
-  node: Measured;
-  width: number;
-  allocated: number;
-  renderWidth: number;
-  lines: string[];
-};
-
-function renderBoxes(
-  nodes: Measured[],
-  width: number,
-  single: boolean,
-  widths: RenderWidths,
-  allocations = allocate(nodes, width),
-  recover = true
-): Box[] {
-  let group: number | undefined;
-  let bullet = false;
-
-  const boxes = nodes.flatMap((node, index) => {
-    if (group !== node.group) bullet = false;
-    group = node.group;
-    bullet ||= node.bullet;
-    const allocated = allocations[index] ?? width;
-    // Crop surplus padding from the measured snapshot instead of shrinking Text's content area.
-    let renderWidth =
-      allocated >= node.natural && node.natural < lineWidth(node.lines) ? width : allocated;
-
-    if (!recover) {
-      // Donating unused space must not rewrap a responsive Text's retained content.
-      const snapshot = [...node.renders]
-        .reverse()
-        .find(([previous, lines]) => previous >= allocated && occupiedWidth(lines) <= allocated);
-      if (snapshot) renderWidth = snapshot[0];
-    }
-
-    const lines = node.renders.get(renderWidth) ?? draw(node.source, renderWidth, widths);
-    node.renders.set(renderWidth, lines);
-    // Only a logical singleton gets the full width. A reflowed single group can still align via flex.
-    const used = single ? allocated : Math.min(allocated, occupiedWidth(lines));
-    if (!nonempty(lines)) return [];
-    const box = { node: { ...node, bullet }, width: used, allocated, renderWidth, lines };
-    bullet = false;
-
-    return [box];
-  });
-
-  if (!recover || single || !boxes.length) return boxes;
-  const survivors = boxes.map((box) => box.node);
-  // Do not cap wrapped content at a ragged line's width: it still needs room to unwrap.
-  const demands = boxes.map((box) =>
-    box.lines.length <= box.node.lines.length
-      ? Math.min(box.node.natural, box.width)
-      : box.node.natural
-  );
-  const recovered = allocate(survivors, width, demands);
-  if (recovered.every((size, index) => size === boxes[index]?.allocated)) return boxes;
-
-  // One recovery only; width-sensitive widgets may disappear again. Never resurrect a dropped node.
-  return renderBoxes(survivors, width, single, widths, recovered, false);
-}
-
-function chooseRows(
-  nodes: Measured[],
-  width: number,
-  single: boolean,
-  widths: RenderWidths
-): Box[][] {
-  const packed = reflow(nodes, width).map((row) => renderBoxes(row, width, single, widths));
-  const natural = reflow(
-    packed.flat().map((box) => box.node),
-    width,
-    width
-  );
-  const height = (rows: { lines: string[] }[][]) =>
-    rows.reduce((sum, row) => sum + Math.max(0, ...row.map((box) => box.lines.length)), 0);
-  if (height(natural) >= height(packed)) return packed;
-
-  // Full-width snapshots provide a shorter layout without another component render.
-  // Cells retain that render width so mouse dispatch can restore the matching native geometry.
-  return natural.map((row) =>
-    row.map((node) => ({
-      node,
-      width: node.natural,
-      allocated: node.natural,
-      renderWidth: width,
-      lines: node.lines
-    }))
-  );
-}
-
-function compose(
-  boxes: Box[],
-  width: number,
-  leadingFlex: boolean,
-  hasFlex: boolean,
-  separator: string
-): Rendered {
-  const height = Math.max(0, ...boxes.map((box) => box.lines.length));
-  const needed = boxes.reduce(
-    (sum, box, index) => sum + box.width + gap(boxes[index - 1]?.node, box.node),
+function compose(items: Item[], width: number, hasFlex: boolean, separator: string): Rendered {
+  const height = Math.max(0, ...items.map((item) => item.lines.length));
+  const needed = items.reduce(
+    (sum, item, index) => sum + item.width + gap(items[index - 1], item),
     0
   );
   const spare = hasFlex ? Math.max(0, width - needed) : 0;
-  const rightOnly = leadingFlex || boxes[0]?.node.group === 1;
-  let x = rightOnly ? spare : 0;
+  let x = items[0]?.group === 1 ? spare : 0;
   const cells: Cell[] = [];
-  const positions = boxes.map((box, index) => {
-    const previous = boxes[index - 1];
-    const spacing = gap(previous?.node, box.node);
-    if (previous && previous.node.group !== box.node.group) x += spare;
+  const positions = items.map((item, index) => {
+    const previous = items[index - 1];
+    const spacing = gap(previous, item);
+    if (previous && previous.group !== item.group) x += spare;
     x += spacing;
     const position = x;
     cells.push({
-      component: box.node.source.component,
+      component: item.component,
       x,
       y: 0,
-      width: box.width,
-      height: box.lines.length,
-      renderWidth: box.renderWidth
+      width: item.width,
+      height: item.lines.length,
+      renderWidth: width
     });
-    x += box.width;
+    x += item.width;
 
-    return { box, position, spacing };
+    return { item, position, spacing };
   });
   const lines = Array.from({ length: height }, (_, y) => {
     let line = "";
 
-    positions.forEach(({ box, position, spacing }, index) => {
-      const previous = positions[index - 1]?.box;
-      const current = truncateToWidth(box.lines[y] ?? "", box.width, "");
+    positions.forEach(({ item, position, spacing }, index) => {
+      const previous = items[index - 1];
+      const current = truncateToWidth(item.lines[y] ?? "", item.width, "");
       const bullet =
         previous &&
-        previous.node.group === box.node.group &&
-        box.node.bullet &&
+        previous.group === item.group &&
+        item.bullet &&
         content(previous.lines[y] ?? "") &&
         content(current);
       const padding = Math.max(0, position - visibleWidth(line));
@@ -318,22 +172,14 @@ export function renderRows(
   rows: string[][],
   sources: ReadonlyMap<string, Contribution>,
   width: number,
-  separator: string,
-  widths: RenderWidths = new Map()
+  separator: string
 ): Rendered {
   const result: Rendered = { lines: [], cells: [] };
   if (width < 1) return result;
 
   for (const row of rows) {
-    const nodes = measure(row, sources, width, widths);
-
-    for (const boxes of chooseRows(
-      nodes,
-      width,
-      nodes.length === 1 && !row.includes("flex"),
-      widths
-    )) {
-      const rendered = compose(boxes, width, row[0] === "flex", row.includes("flex"), separator);
+    for (const items of wrap(measure(row, sources, width), width)) {
+      const rendered = compose(items, width, row.includes("flex"), separator);
       const offset = result.lines.length;
       result.cells.push(...rendered.cells.map((cell) => ({ ...cell, y: cell.y + offset })));
       result.lines.push(...rendered.lines);

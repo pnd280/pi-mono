@@ -38,7 +38,9 @@ extension status • extension status …
 
 Any contribution can move to any region, share rows, and appear in several rows. The above-editor region reserves one leading blank line to separate it from the chat, even when empty. Empty widgets collapse without losing their positions. Bullet separators skip empty contributions but never cross flex or dangle beside continuation padding. On ragged multiline output, bullets align just before the following column, not after each preceding line's text.
 
-Shared rows compact surplus plain trailing padding while preserving leading indentation, painted/decorated padding, and full-width singleton output. Native multiline components remain intact. Allocation recovers unused space once and prefers natural-width reflow when squeezing widgets together makes the output taller. Vertical clipping protects the editor and indicates omitted content. Arbitrary components have no preferred-size API, so allocation remains best effort rather than a global height optimizer.
+Rows flow left to right and wrap whole contributions onto the next line when they do not fit. Widgets are never squeezed to fit beside their neighbours, even if wrapping makes the layout taller. Each placement renders once at the available terminal width per layout measurement; widgets control wrapping within their own output. Wrapped rows start below the tallest widget on the preceding row; `flex` uses remaining space to right-align the following group on each row.
+
+Shared rows compact surplus plain trailing padding while preserving leading indentation, painted/decorated padding, and full-width singleton output. Native multiline components remain intact. Vertical clipping protects the editor and indicates omitted content.
 
 ## Configuration
 
@@ -84,7 +86,7 @@ The threshold resolves independently of the layout: a trusted project value over
 
 This extension owns the entire footer while active. A competing `setFooter()` owner produces a conflict diagnostic; resolve it and `/reload`. Arbitrary custom footers are not merged. Native widgets and statuses remain supported without contributor changes.
 
-Narrow runtime hooks borrow Pi's registries and component instances. Moving, duplicating, or hiding never creates or disposes a registered instance; Pi owns replacement, removal, and shutdown. Copies share that instance. Mouse dispatch restores the clicked copy's render width when needed, independently of its occupied hit area. Drag capture has [geometry limitations](docs/pi-compatibility.md#limitations-and-replacement-opportunities). Cleanup releases only owned hooks and UI, leaving later owners untouched.
+Narrow runtime hooks borrow Pi's registries and component instances. Moving, duplicating, or hiding never creates or disposes a registered instance; Pi owns replacement, removal, and shutdown. Copies share that instance and render at the same terminal width. Mouse dispatch uses that render width independently of the copy's occupied hit area. Drag capture has [geometry limitations](docs/pi-compatibility.md#limitations-and-replacement-opportunities). Cleanup releases only owned hooks and UI, leaving later owners untouched.
 
 Only Ctrl+S writes settings, using [locked atomic updates](../../libs/src/settings-file/README.md#behavior) that preserve unrelated fields and settings symlinks. Unreadable or malformed files/sections are not overwritten; an explicit save can replace an invalid layout inside a valid section while preserving other fields. No added network requests, polling services, or transcript entries. Hidden contributors retain their own side effects.
 

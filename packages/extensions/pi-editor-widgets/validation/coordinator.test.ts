@@ -116,57 +116,55 @@ it.each(["regular", "fullscreen"] as const)(
   }
 );
 
-it("restores nested mouse geometry after choosing measured snapshots over taller shared output", async () => {
-  const fixture = await hostFixture();
-  const { host, ui } = fixture;
-  let renderedWidth = 0;
-  const mouse = vi.fn(() => ({ handled: true }));
-  const component = new Container();
-  component.addChild({
-    render(width) {
-      renderedWidth = width;
-
-      return wrapTextWithAnsi("a".repeat(30), width);
-    },
-    invalidate() {},
-    handleMouse: mouse
-  });
-  ui.setWidget("left", () => component);
-  ui.setWidget("right", () => ({
-    render: (width) => wrapTextWithAnsi("b".repeat(30), width),
-    invalidate() {}
-  }));
-  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
-
-  try {
-    const layout = defaultLayout();
-    layout.hidden = layout.footer.flat().filter((id) => id.startsWith("builtin:"));
-    layout.footer = [["widget:left", "widget:right"]];
-    coordinator.apply(layout);
-    expect(plain(host.footerContainer.render(30))).toBe("a".repeat(30) + "\n" + "b".repeat(30));
-    expect(renderedWidth).toBeLessThan(30);
-    host.footerContainer.handleMouse({
-      type: "press",
-      button: "left",
-      x: 1,
-      y: 0,
-      screenX: 1,
-      screenY: 0,
-      width: 30,
-      height: 2,
-      shift: false,
-      alt: false,
-      ctrl: false
+it.each([20, 30])(
+  "keeps native mouse geometry after wrapping %i-column widgets",
+  async (length) => {
+    const fixture = await hostFixture();
+    const { host, ui } = fixture;
+    const mouse = vi.fn(() => ({ handled: true }));
+    const component = new Container();
+    component.addChild({
+      render: (width) => wrapTextWithAnsi("a".repeat(length), width),
+      invalidate() {},
+      handleMouse: mouse
     });
-    expect(renderedWidth).toBe(30);
-    expect(mouse).toHaveBeenCalledWith(
-      expect.objectContaining({ x: 1, y: 0, width: 30, height: 1 })
-    );
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
+    ui.setWidget("left", () => component);
+    ui.setWidget("right", () => ({
+      render: (width) => wrapTextWithAnsi("b".repeat(length), width),
+      invalidate() {}
+    }));
+    const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+
+    try {
+      const layout = defaultLayout();
+      layout.hidden = layout.footer.flat().filter((id) => id.startsWith("builtin:"));
+      layout.footer = [["widget:right", "widget:left"]];
+      coordinator.apply(layout);
+      expect(plain(host.footerContainer.render(30))).toBe(
+        "b".repeat(length) + "\n" + "a".repeat(length)
+      );
+      host.footerContainer.handleMouse({
+        type: "press",
+        button: "left",
+        x: 1,
+        y: 1,
+        screenX: 1,
+        screenY: 1,
+        width: 30,
+        height: 2,
+        shift: false,
+        alt: false,
+        ctrl: false
+      });
+      expect(mouse).toHaveBeenCalledWith(
+        expect.objectContaining({ x: 1, y: 0, width: 30, height: 1 })
+      );
+    } finally {
+      coordinator.dispose();
+      await fixture.dispose();
+    }
   }
-});
+);
 
 it("discovers before/after startup registrations through real extension binding", async () => {
   const fixture = await hostFixture([
@@ -307,18 +305,18 @@ it("preserves invalidation and native mouse targets", async () => {
   }
 });
 
-it("renders duplicated placements from one native instance and restores clicked geometry", async () => {
+it("renders duplicated placements from one native instance with the same render width", async () => {
   const fixture = await hostFixture();
   const { host, ui } = fixture;
   const factory = vi.fn();
   let rendered = 0;
   const widths: number[] = [];
   const component = {
-    render: (width: number) => {
+    render: vi.fn((width: number) => {
       rendered = width;
 
       return ["DUP"];
-    },
+    }),
     invalidate() {},
     handleMouse: vi.fn(() => {
       widths.push(rendered);
@@ -344,7 +342,7 @@ it("renders duplicated placements from one native instance and restores clicked 
     expect(plain(host.widgetContainerAbove.render(40))).toBe("\nDUP");
     expect(plain(host.footerContainer.render(40))).toBe("LEFT \u2022 DUP\nLEFT");
     expect(factory).toHaveBeenCalledTimes(1);
-    expect(rendered).toBe(3);
+    expect(component.render.mock.calls).toEqual([[40], [40]]);
     const event = {
       type: "press" as const,
       button: "left" as const,
@@ -360,7 +358,8 @@ it("renders duplicated placements from one native instance and restores clicked 
     };
     host.widgetContainerAbove.handleMouse({ ...event, y: 1, screenY: 1, height: 2 });
     host.footerContainer.handleMouse({ ...event, x: 8 });
-    expect(widths).toEqual([40, 3]);
+    expect(widths).toEqual([40, 40]);
+    expect(component.render.mock.calls).toEqual([[40], [40]]);
   } finally {
     coordinator.dispose();
     await fixture.dispose();
@@ -380,7 +379,6 @@ it("keeps nested mouse targets at the copy's render width even when flex shrinks
   });
   component.addChild({ render: () => ["END"], invalidate() {}, handleMouse: bottom });
   ui.setWidget("nested", () => component);
-  // Keep the shared row equally tall at either width so this copy still renders narrowly.
   ui.setWidget("left", () => ({ render: () => ["LEFT", "LEFT", "LEFT"], invalidate() {} }));
   const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
 
@@ -413,8 +411,9 @@ it("keeps nested mouse targets at the copy's render width even when flex shrinks
     host.widgetContainerAbove.handleMouse(event);
     expect(top).not.toHaveBeenCalled();
     expect(bottom).toHaveBeenLastCalledWith(expect.objectContaining({ x: 1, y: 0, width: 40 }));
-    host.footerContainer.handleMouse({ ...event, x: 8, y: 2, height: 3 });
-    expect(bottom).toHaveBeenLastCalledWith(expect.objectContaining({ x: 1, y: 0, width: 3 }));
+    host.footerContainer.handleMouse({ ...event, x: 8, y: 1 });
+    expect(bottom).toHaveBeenCalledTimes(2);
+    expect(bottom).toHaveBeenLastCalledWith(expect.objectContaining({ x: 1, y: 0, width: 40 }));
   } finally {
     coordinator.dispose();
     await fixture.dispose();

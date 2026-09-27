@@ -12,7 +12,7 @@ import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 import { builtinText } from "./builtins.ts";
 import type { WidgetHost } from "./host.ts";
 import { regions, resolveLayout, type Layout, type Placement, type Region } from "./layout.ts";
-import { clip, renderRows, type Contribution, type Rendered, type RenderWidths } from "./render.ts";
+import { clip, renderRows, type Contribution, type Rendered } from "./render.ts";
 
 type Registered = Contribution & Placement & { available: boolean };
 
@@ -29,13 +29,9 @@ export class WidgetCoordinator {
   private renderer: WidgetHost["renderer"] | undefined;
   private readonly registry = new Map<string, Registered>();
   private readonly components: Record<Region, Component>;
-  /** Unclipped regions from one render pass; `widths` backs mouse geometry for duplicates. */
-  private measured:
-    | { width: number; rendered: Record<Region, Rendered>; widths: RenderWidths }
-    | undefined;
-  private cache:
-    | { width: number; height: number; rendered: Record<Region, Rendered>; widths: RenderWidths }
-    | undefined;
+  /** Unclipped regions from one render pass. */
+  private measured: { width: number; rendered: Record<Region, Rendered> } | undefined;
+  private cache: { width: number; height: number; rendered: Record<Region, Rendered> } | undefined;
   private saved: Layout | undefined;
   private draft: Layout | undefined;
   private contextThreshold: number | undefined;
@@ -238,7 +234,7 @@ export class WidgetCoordinator {
       rendered[region] = clip(rendered[region], budget, width);
       remaining -= budget;
     });
-    this.cache = { width, height, rendered, widths: measured.widths };
+    this.cache = { width, height, rendered };
 
     return rendered;
   }
@@ -249,14 +245,12 @@ export class WidgetCoordinator {
     const layout = resolveLayout(this.draft ?? this.saved, [...this.registry.values()]);
     const sources = new Map([...this.registry].filter(([, source]) => source.available));
     const separator = this.theme().fg("dim", " • ");
-    const widths: RenderWidths = new Map();
     this.measured = {
       width,
-      widths,
       rendered: {
-        aboveEditor: renderRows(layout.aboveEditor, sources, width, separator, widths),
-        belowEditor: renderRows(layout.belowEditor, sources, width, separator, widths),
-        footer: renderRows(layout.footer, sources, width, separator, widths)
+        aboveEditor: renderRows(layout.aboveEditor, sources, width, separator),
+        belowEditor: renderRows(layout.belowEditor, sources, width, separator),
+        footer: renderRows(layout.footer, sources, width, separator)
       }
     };
 
@@ -283,14 +277,6 @@ export class WidgetCoordinator {
         event.x >= x && event.x < x + width && event.y >= y && event.y < y + height
     );
     if (!cell) return undefined;
-    const widths = this.cache?.widths;
-
-    // A duplicated component keeps geometry from its last render; restore this placement's width.
-    if (widths && widths.get(cell.component) !== cell.renderWidth) {
-      cell.component.render(cell.renderWidth);
-      widths.set(cell.component, cell.renderWidth);
-    }
-
     const result = cell.component.handleMouse?.({
       ...event,
       x: event.x - cell.x,
