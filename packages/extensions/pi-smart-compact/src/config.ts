@@ -1,7 +1,9 @@
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readSettingsRecord } from "@pi-mono/libs/settings-file";
+import { readSettingsFile, readSettingsRecord } from "@pi-mono/libs/settings-file";
+import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 export const thinkingLevelSchema = z.enum([
@@ -22,16 +24,27 @@ const configSchema = z.strictObject({
     .optional(),
   thinkingLevel: thinkingLevelSchema.optional(),
   applyToManual: z.boolean().optional(),
-  applyToAuto: z.boolean().optional()
+  applyToAuto: z.boolean().optional(),
+  instructionsFile: z.string().trim().min(1).optional()
 });
 const settingsSchema = z.object({ "ext.pi-smart-compact": configSchema.optional() });
 
-export type CompactConfig = z.output<typeof configSchema>;
+export type CompactConfig = z.output<typeof configSchema> & { instructions?: string };
 
 function readSection(path: string): CompactConfig {
   try {
     const parsed = settingsSchema.safeParse(readSettingsRecord(path));
-    if (parsed.success) return parsed.data["ext.pi-smart-compact"] ?? {};
+
+    if (parsed.success) {
+      const config = parsed.data["ext.pi-smart-compact"] ?? {};
+      if (config.instructionsFile !== undefined)
+        config.instructionsFile = resolve(
+          dirname(path),
+          expandHomePath(config.instructionsFile, homedir())
+        );
+
+      return config;
+    }
   } catch {
     // Report only the redacted settings error below.
   }
@@ -52,5 +65,17 @@ export function loadCompactConfig(
   const global = readSection(join(agentDir, "settings.json"));
   const project = projectTrusted ? readSection(join(cwd, CONFIG_DIR_NAME, "settings.json")) : {};
 
-  return { ...global, ...project };
+  const config = { ...global, ...project };
+  if (config.instructionsFile === undefined) return config;
+
+  try {
+    const instructions = readSettingsFile(config.instructionsFile);
+    if (instructions !== undefined) return { ...config, instructions: instructions.trim() };
+  } catch {
+    // Do not expose file contents or silently ignore a configured focus.
+  }
+
+  throw new Error(
+    "pi-smart-compact: invalid or unreadable instructions file (expected a UTF-8 text file up to 1 MiB). Check ext.pi-smart-compact.instructionsFile, then /reload."
+  );
 }

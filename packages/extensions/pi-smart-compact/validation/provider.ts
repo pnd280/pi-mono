@@ -99,18 +99,23 @@ export default function offlineFixture(pi: ExtensionAPI) {
       this.agent.state.messages = this.sessionManager.buildSessionProjection().messages;
     }
 
-    if (scenario === "manual") {
+    if (scenario === "manual" || scenario === "manual-split") {
       this.sessionManager.appendMessage({
         role: "user",
         content: "OLD_FIXTURE_PAYLOAD ".repeat(1500),
         timestamp: Date.now()
       });
-      this.sessionManager.appendMessage(fauxAssistantMessage("Previous task completed."));
-      this.sessionManager.appendMessage({
-        role: "user",
-        content: "CURRENT_REQUEST ".repeat(100),
-        timestamp: Date.now()
-      });
+      this.sessionManager.appendMessage(
+        fauxAssistantMessage(
+          scenario === "manual-split" ? "RECENT_PROGRESS ".repeat(100) : "Previous task completed."
+        )
+      );
+      if (scenario !== "manual-split")
+        this.sessionManager.appendMessage({
+          role: "user",
+          content: "CURRENT_REQUEST ".repeat(100),
+          timestamp: Date.now()
+        });
     }
 
     unsubscribe ??= this.subscribe((event) => {
@@ -246,16 +251,19 @@ export default function offlineFixture(pi: ExtensionAPI) {
         const tools = getCurrentTools(context.messages);
 
         if (tools.length === 0) {
-          const prompt = JSON.stringify(context.messages);
+          const prompt = context.messages
+            .filter((entry) => entry.role === "user")
+            .map((entry) => contentText(entry.content))
+            .join("\n");
           summaryRequests++;
           trace("provider:summary", {
             ...requestDetails,
             cacheRetention: options.cacheRetention,
-            summaryKind: prompt.includes("# Instructions\\nThe messages above")
+            summaryKind: prompt.includes("# Instructions\nThe messages above")
               ? "prefix"
               : "history",
-            hasAdditionalFocus: prompt.includes(`Additional focus: ${instructions}`),
-            additionalFocusCount: prompt.split(`Additional focus: ${instructions}`).length - 1
+            additionalFocusCount: prompt.split("Additional focus:").length - 1,
+            focus: /\n\nAdditional focus: ([\s\S]*)$/u.exec(prompt)?.[1]
           });
           if (scenario === "failure") throw new Error("Offline summary failure");
           if (scenario === "retry" && summaryRequests === 1) throw new Error("terminated");

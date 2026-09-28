@@ -36,10 +36,17 @@ export type NativeSession = Pick<
   _extensionRunner: ExtensionRunner;
   _runDefaultCompaction: DefaultCompaction;
   // The inspected runtime forwards manual unchanged, despite its narrower declaration.
-  _runAutoCompaction(reason: "manual", willRetry: false): Promise<boolean>;
+  _runAutoCompaction(
+    reason: SessionBeforeCompactEvent["reason"],
+    willRetry: boolean
+  ): Promise<boolean>;
 };
 
 export type Prepare = (this: NativeSession, context: ContextSnapshot) => Promise<ContextSnapshot>;
+
+export type AutoCompaction = NativeSession["_runAutoCompaction"];
+
+export type ManualCompaction = AgentSession["compact"];
 
 // Reviewed Pi 0.87.1 API modules and installed bundled CLI, respectively. Never
 // learn fingerprints from the running host: an unknown implementation must fail closed.
@@ -67,15 +74,17 @@ const fingerprints = [
 export function assertCompatible(
   prototype: object,
   prepare: unknown,
-  summarize: unknown
+  summarize: unknown,
+  automatic: unknown,
+  manual: unknown
 ): asserts prepare is Prepare {
   const actual: Record<string, unknown> = {
     _compactBeforeNextAssistantResponse: prepare,
-    _runAutoCompaction: Reflect.get(prototype, "_runAutoCompaction"),
+    _runAutoCompaction: automatic,
     _runDefaultCompaction: summarize,
     _appendCustomMessage: Reflect.get(prototype, "_appendCustomMessage"),
     compact,
-    manualCompact: Reflect.get(prototype, "compact")
+    manualCompact: manual
   };
   const inspected = fingerprints.some((expected) =>
     Object.entries(expected).every(([key, hash]) => {

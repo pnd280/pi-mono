@@ -17,6 +17,13 @@ Create a concise checkpoint of the user's request and the progress shown above. 
 
 Only summarize information explicitly present above. Do not infer or recreate later messages.`;
 
+/** Keep per-call focus last without dropping it when no file focus is configured. */
+export function combineInstructions(additional: string | undefined, requested: string | undefined) {
+  if (!additional) return requested;
+
+  return requested ? `${additional}\n\n${requested}` : additional;
+}
+
 export function focusSplitTurn(
   context: TranscriptContext,
   instructions: string

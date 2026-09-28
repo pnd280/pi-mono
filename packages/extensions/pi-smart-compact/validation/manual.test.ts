@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
+import { contentText, fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
 import {
   AgentSession,
   createAgentSessionFromServices,
@@ -53,7 +53,27 @@ const cases: {
     automaticError: /model is unavailable/,
     summaries: 1
   },
-  { name: "retry", config: { ...override, applyToManual: true }, summaries: 2 },
+  { name: "instruction file", config: { instructionsFile: "focus.txt" }, summaries: 1 },
+  {
+    name: "instruction file without model opt-ins",
+    config: {
+      ...override,
+      instructionsFile: "focus.txt",
+      applyToManual: false,
+      applyToAuto: false
+    },
+    summaries: 1
+  },
+  {
+    name: "instruction file with model opt-ins",
+    config: { ...override, instructionsFile: "focus.txt", applyToManual: true, applyToAuto: true },
+    summaries: 1
+  },
+  {
+    name: "retry",
+    config: { ...override, applyToManual: true, instructionsFile: "focus.txt" },
+    summaries: 2
+  },
   { name: "thinking changed", config: {}, summaries: 1 },
   { name: "unrelated summary", config: {}, summaries: 1 },
   { name: "late abort", config: {}, error: /cancelled|aborted/i, summaries: 1 },
@@ -89,13 +109,13 @@ const cases: {
   },
   {
     name: "hook cancellation",
-    config: { model: "missing/model", applyToManual: true },
+    config: { model: "missing/model", applyToManual: true, instructionsFile: "focus.txt" },
     error: /cancelled/,
     summaries: 0
   },
   {
     name: "custom summary",
-    config: { model: "missing/model", applyToManual: true },
+    config: { model: "missing/model", applyToManual: true, instructionsFile: "focus.txt" },
     summaries: 0
   }
 ];
@@ -122,11 +142,22 @@ it.each(cases)(
     const unrelated = new AbortController();
     const errors: unknown[] = [];
     const instructions = "Preserve MANUAL_FOCUS_MARKER.";
+
+    const expectedFocus = () => {
+      if (!reloaded && config.instructionsFile)
+        return phase === "manual"
+          ? "Preserve FILE_FOCUS_MARKER.\n\nPreserve MANUAL_FOCUS_MARKER."
+          : "Preserve FILE_FOCUS_MARKER.";
+
+      return phase === "manual" ? instructions : undefined;
+    };
+
     vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
     vi.stubEnv("PI_OFFLINE", "1");
 
     try {
       await writeFile(settingsPath, JSON.stringify({ "ext.pi-smart-compact": config }));
+      await writeFile(join(agentDir, "focus.txt"), "Preserve FILE_FOCUS_MARKER.\n");
       const faux = fauxProvider({
         provider: "manual-fixture",
         models: [
@@ -154,8 +185,13 @@ it.each(cases)(
           assert.equal(runtime.session.model?.id, "main");
           assert.equal(runtime.session.thinkingLevel, "high");
           assert.equal(runtime.session.isCompacting, true);
-          if (phase !== "automatic")
-            assert.ok(JSON.stringify(context.messages).includes(instructions));
+          const prompt = context.messages
+            .filter((message) => message.role === "user")
+            .map((message) => contentText(message.content))
+            .join("\n");
+          const focus = expectedFocus();
+          if (focus) assert.ok(prompt.endsWith(`Additional focus: ${focus}`));
+          else assert.ok(!prompt.includes("Additional focus:"));
           const probe = await runtime.session.agent.streamFunction(faux.getModel(), context, {
             ...options,
             signal: unrelated.signal
@@ -184,7 +220,7 @@ it.each(cases)(
         pi.on("session_before_compact", async (event) => {
           assert.equal(event.reason, phase === "automatic" ? automaticReason : "manual");
           assert.equal(event.willRetry, phase === "automatic" && automaticReason === "overflow");
-          assert.equal(event.customInstructions, phase === "automatic" ? undefined : instructions);
+          assert.equal(event.customInstructions, expectedFocus());
 
           if (!reloaded && phase === "manual" && name === "unrelated summary") {
             assert.ok(runtime);

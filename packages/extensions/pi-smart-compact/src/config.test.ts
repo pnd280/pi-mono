@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { join, relative } from "node:path";
 
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, it, vi } from "vite-plus/test";
@@ -118,6 +118,10 @@ it.each([
   section({ applyToManual: 1 }),
   section({ applyToAuto: "true" }),
   section({ applyToAuto: null }),
+  section({ instructionsFile: null }),
+  section({ instructionsFile: 1 }),
+  section({ instructionsFile: "" }),
+  section({ instructionsFile: "   " }),
   section({ unknown: true }),
   JSON.stringify({ "ext.pi-smart-compact": globalConfig, ignored: "x".repeat(1024 * 1024) })
 ])("rejects invalid participating files rather than silently falling back: case %#", (source) => {
@@ -129,6 +133,52 @@ it.each([
   writeFileSync(projectPath, section(globalConfig));
   expect(() => loadCompactConfig(cwd, { agentDir, projectTrusted: true })).toThrow(
     /invalid or unreadable/
+  );
+});
+
+it("resolves instruction files relative to their settings scope and reads only the winning path", () => {
+  const { cwd, agentDir, projectPath } = settings(
+    section({ instructionsFile: "focus.txt" }),
+    section({ thinkingLevel: "off" })
+  );
+  writeFileSync(join(agentDir, "focus.txt"), "\uFEFF  Keep global references.\n");
+  writeFileSync(join(cwd, CONFIG_DIR_NAME, "focus.txt"), "Keep project references.");
+  expect(loadCompactConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
+    instructionsFile: join(agentDir, "focus.txt"),
+    instructions: "Keep global references.",
+    thinkingLevel: "off"
+  });
+  writeFileSync(projectPath, section({ instructionsFile: "focus.txt" }));
+  expect(loadCompactConfig(cwd, { agentDir })).toMatchObject({
+    instructions: "Keep global references."
+  });
+  rmSync(join(agentDir, "focus.txt"));
+  expect(loadCompactConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
+    instructionsFile: join(cwd, CONFIG_DIR_NAME, "focus.txt"),
+    instructions: "Keep project references."
+  });
+});
+
+it.each(["absolute", "home"])("supports %s instruction paths and reloads file content", (kind) => {
+  const { cwd, agentDir, globalPath } = settings();
+  const path = join(agentDir, "focus.txt");
+  const instructionsFile = kind === "home" ? `~/${relative(homedir(), path)}` : path;
+  writeFileSync(globalPath, section({ instructionsFile }));
+  writeFileSync(path, "Keep first focus.");
+  expect(loadCompactConfig(cwd, { agentDir }).instructions).toBe("Keep first focus.");
+  writeFileSync(path, "Keep revised focus.");
+  expect(loadCompactConfig(cwd, { agentDir }).instructions).toBe("Keep revised focus.");
+  writeFileSync(path, "  \n");
+  expect(loadCompactConfig(cwd, { agentDir }).instructions).toBe("");
+});
+
+it.each(["missing", "directory", "oversized"])("rejects a %s instructions file", (kind) => {
+  const { cwd, agentDir } = settings(section({ instructionsFile: "focus.txt" }));
+  const path = join(agentDir, "focus.txt");
+  if (kind === "directory") mkdirSync(path);
+  if (kind === "oversized") writeFileSync(path, "x".repeat(1024 * 1024 + 1));
+  expect(() => loadCompactConfig(cwd, { agentDir })).toThrow(
+    /invalid or unreadable instructions file/
   );
 });
 

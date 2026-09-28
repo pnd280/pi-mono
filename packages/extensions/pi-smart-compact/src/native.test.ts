@@ -185,40 +185,50 @@ it("does not let a diagnostic branch read bypass native preparation error handli
   }
 });
 
-it.each([boundary, "_appendCustomMessage", "_runDefaultCompaction", "compact"])(
-  "rejects unknown %s implementations without replacing them",
+it.each([
+  boundary,
+  "_appendCustomMessage",
+  "_runDefaultCompaction",
+  "_runAutoCompaction",
+  "compact"
+])("rejects unknown %s implementations without replacing them", (method) => {
+  const prototype = AgentSession.prototype;
+  const original: unknown = Reflect.get(prototype, method);
+  const unknown = async () => context;
+  Reflect.set(prototype, method, unknown);
+
+  try {
+    assert.throws(
+      () => bindNativeCompaction({}),
+      /unsupported version or conflicting runtime patch/
+    );
+    assert.equal(Reflect.get(prototype, method), unknown);
+  } finally {
+    Reflect.set(prototype, method, original);
+  }
+});
+
+it.each(["_runDefaultCompaction", "_runAutoCompaction", "compact"])(
+  "rolls back if %s cannot be patched",
   (method) => {
     const prototype = AgentSession.prototype;
-    const original: unknown = Reflect.get(prototype, method);
-    const unknown = async () => context;
-    Reflect.set(prototype, method, unknown);
+    const patched = [boundary, "_runDefaultCompaction", "_runAutoCompaction", "compact"];
+    const originals = patched.map((name): unknown => Reflect.get(prototype, name));
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, method);
+    assert.ok(descriptor);
+    Object.defineProperty(prototype, method, { ...descriptor, writable: false });
 
     try {
-      assert.throws(
-        () => bindNativeCompaction({}),
-        /unsupported version or conflicting runtime patch/
+      assert.throws(() => bindNativeCompaction({}), /writable data properties/);
+      assert.deepEqual(
+        patched.map((name): unknown => Reflect.get(prototype, name)),
+        originals
       );
-      assert.equal(Reflect.get(prototype, method), unknown);
     } finally {
-      Reflect.set(prototype, method, original);
+      Object.defineProperty(prototype, method, descriptor);
     }
   }
 );
-
-it("rolls back the boundary if the summary router cannot be installed", () => {
-  const prototype = AgentSession.prototype;
-  const original: unknown = Reflect.get(prototype, boundary);
-  const summary = Object.getOwnPropertyDescriptor(prototype, "_runDefaultCompaction");
-  assert.ok(summary);
-  Object.defineProperty(prototype, "_runDefaultCompaction", { ...summary, writable: false });
-
-  try {
-    assert.throws(() => bindNativeCompaction({}), /writable data properties/);
-    assert.equal(Reflect.get(prototype, boundary), original);
-  } finally {
-    Object.defineProperty(prototype, "_runDefaultCompaction", summary);
-  }
-});
 
 it("does not publish an outcome after its session binding is disposed", async () => {
   const manager = { buildSessionProjection: () => context, getBranch: () => [] };
@@ -252,7 +262,7 @@ it("does not publish an outcome after its session binding is disposed", async ()
   }
 });
 
-it.each([boundary, "_runDefaultCompaction"])(
+it.each([boundary, "_runDefaultCompaction", "_runAutoCompaction", "compact"])(
   "does not overwrite a later %s wrapper and restores ownership after it is removed",
   (method) => {
     const prototype = AgentSession.prototype;

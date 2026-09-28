@@ -3,13 +3,20 @@ import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import {
   assertCompatible,
+  type AutoCompaction,
   type DefaultCompaction,
+  type ManualCompaction,
   type NativeSession,
   type Prepare
 } from "./compatibility.ts";
 import type { SummaryModelEntry } from "./entry.ts";
+import { combineInstructions } from "./instructions.ts";
 import { compactionResultType, describeOutcome, runRequestedCompaction } from "./outcome.ts";
-import { summarizeWithOverrides, type CompactionModelOptions } from "./summarize.ts";
+import {
+  summarizeWithOverrides,
+  withCompactionInstructions,
+  type CompactionModelOptions
+} from "./summarize.ts";
 
 type Registration = {
   active: boolean;
@@ -24,22 +31,30 @@ type Patch = {
   wrapper: Prepare;
   originalSummary: DefaultCompaction;
   summaryWrapper: DefaultCompaction;
+  originalAuto: AutoCompaction;
+  autoWrapper: AutoCompaction;
+  originalManual: ManualCompaction;
+  manualWrapper: ManualCompaction;
   hooks: OwnedHooks;
   registrations: Map<object, Registration>;
 };
 
-const patchKey = Symbol.for("pi-smart-compact.native.v3");
+const patchKey = Symbol.for("pi-smart-compact.native.v4");
 
 type Prototype = {
   _compactBeforeNextAssistantResponse: Prepare;
   _runDefaultCompaction: DefaultCompaction;
+  _runAutoCompaction: AutoCompaction;
+  compact: ManualCompaction;
   [patchKey]?: Patch;
 };
 
 function hasCompactionMethods(value: object): value is Prototype {
   return (
     typeof Reflect.get(value, "_compactBeforeNextAssistantResponse") === "function" &&
-    typeof Reflect.get(value, "_runDefaultCompaction") === "function"
+    typeof Reflect.get(value, "_runDefaultCompaction") === "function" &&
+    typeof Reflect.get(value, "_runAutoCompaction") === "function" &&
+    typeof Reflect.get(value, "compact") === "function"
   );
 }
 
@@ -60,11 +75,10 @@ function classifySummary(
       trigger = reason === "manual" ? "tool" : reason;
   }
 
-  // Tool overrides are already applied by runWithOverrides; unrelated signals never route.
+  // Tool requests always opt into model overrides; unrelated signals never route.
   const routed =
-    trigger !== undefined &&
-    trigger !== "tool" &&
-    (trigger === "manual" ? config?.applyToManual : config?.applyToAuto);
+    trigger === "tool" ||
+    (trigger !== undefined && (trigger === "manual" ? config?.applyToManual : config?.applyToAuto));
 
   return { trigger, routed };
 }
@@ -134,13 +148,17 @@ export function bindNativeCompaction(
   assertCompatible(
     prototype,
     patch?.original ?? prototype._compactBeforeNextAssistantResponse,
-    patch?.originalSummary ?? prototype._runDefaultCompaction
+    patch?.originalSummary ?? prototype._runDefaultCompaction,
+    patch?.originalAuto ?? prototype._runAutoCompaction,
+    patch?.originalManual ?? prototype.compact
   );
 
   if (
     patch &&
     (prototype._compactBeforeNextAssistantResponse !== patch.wrapper ||
-      prototype._runDefaultCompaction !== patch.summaryWrapper)
+      prototype._runDefaultCompaction !== patch.summaryWrapper ||
+      prototype._runAutoCompaction !== patch.autoWrapper ||
+      prototype.compact !== patch.manualWrapper)
   ) {
     throw new Error("pi-smart-compact: another extension replaced the compaction boundary.");
   }
@@ -149,28 +167,44 @@ export function bindNativeCompaction(
     const registrations = new Map<object, Registration>();
     const original = prototype._compactBeforeNextAssistantResponse;
     const originalSummary = prototype._runDefaultCompaction;
+    const originalAuto = prototype._runAutoCompaction;
+    // oxlint-disable-next-line typescript/unbound-method
+    const originalManual = prototype.compact;
     const hooks = new OwnedHooks();
+
+    const manualWrapper: ManualCompaction = function (this: NativeSession, instructions) {
+      const additional = registrations.get(this.sessionManager)?.selection?.config.instructions;
+
+      return originalManual.call(this, combineInstructions(additional, instructions));
+    };
+
+    const autoWrapper: AutoCompaction = function (this: NativeSession, reason, willRetry) {
+      // Tool focus was already composed at its between-response boundary.
+      const additional = registrations.get(this.sessionManager)?.selection?.config.instructions;
+      const run = () => originalAuto.call(this, reason, willRetry);
+
+      return reason !== "manual" && additional
+        ? withCompactionInstructions(this, additional, reason, run)
+        : run();
+    };
 
     const summaryWrapper: DefaultCompaction = async function (this: NativeSession, ...args) {
       const registration = registrations.get(this.sessionManager);
       const selection = registration?.selection;
       const config = selection?.config;
       const { trigger, routed } = classifySummary(this, args, config);
-      const configured = config?.model !== undefined || config?.thinkingLevel !== undefined;
       // Pi snapshots thinking before generation; a user may change it while awaiting the summary.
-      const thinkingLevel =
-        (routed || trigger === "tool" ? config?.thinkingLevel : undefined) ?? this.thinkingLevel;
+      const thinkingLevel = (routed ? config?.thinkingLevel : undefined) ?? this.thinkingLevel;
 
-      const result =
-        selection && configured && routed
-          ? await summarizeWithOverrides(
-              this,
-              originalSummary.bind(this),
-              args,
-              undefined,
-              selection
-            )
-          : await originalSummary.apply(this, args);
+      const instructions =
+        trigger === "tool" || (trigger !== undefined && config?.instructions) ? args[4] : undefined;
+      const result = await summarizeWithOverrides(
+        this,
+        originalSummary.bind(this),
+        args,
+        instructions,
+        routed ? selection : undefined
+      );
 
       if (registration?.active && trigger !== undefined && args[5])
         recordSummaryBeforeCompaction(this, registration, result, args[5], {
@@ -192,8 +226,7 @@ export function bindNativeCompaction(
 
       const outcome = await runRequestedCompaction(
         this,
-        request.instructions,
-        registration.selection
+        combineInstructions(registration.selection?.config.instructions, request.instructions)
       );
 
       // Native compaction already records success and supplies the model's summary.
@@ -214,11 +247,24 @@ export function bindNativeCompaction(
       return { ...context, messages: this.sessionManager.buildSessionProjection().messages };
     };
 
-    patch = { original, wrapper, originalSummary, summaryWrapper, hooks, registrations };
+    patch = {
+      original,
+      wrapper,
+      originalSummary,
+      summaryWrapper,
+      originalAuto,
+      autoWrapper,
+      originalManual,
+      manualWrapper,
+      hooks,
+      registrations
+    };
 
     try {
       hooks.replace(prototype, "_compactBeforeNextAssistantResponse", wrapper);
       hooks.replace(prototype, "_runDefaultCompaction", summaryWrapper);
+      hooks.replace(prototype, "_runAutoCompaction", autoWrapper);
+      hooks.replace(prototype, "compact", manualWrapper);
       prototype[patchKey] = patch;
     } catch (error) {
       hooks.restore();
@@ -252,7 +298,9 @@ export function bindNativeCompaction(
       if (
         patch.registrations.size === 0 &&
         prototype._compactBeforeNextAssistantResponse === patch.wrapper &&
-        prototype._runDefaultCompaction === patch.summaryWrapper
+        prototype._runDefaultCompaction === patch.summaryWrapper &&
+        prototype._runAutoCompaction === patch.autoWrapper &&
+        prototype.compact === patch.manualWrapper
       ) {
         // Empty registrations deactivate retained wrappers before restoration.
         patch.hooks.restore();

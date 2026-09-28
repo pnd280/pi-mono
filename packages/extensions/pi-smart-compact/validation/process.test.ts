@@ -10,6 +10,7 @@ import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validat
 import { it } from "vite-plus/test";
 import { z } from "zod";
 
+import type { CompactConfig } from "../src/config.ts";
 import { summaryModelEntryType } from "../src/entry.ts";
 import { compactionResultType } from "../src/outcome.ts";
 
@@ -48,8 +49,8 @@ const traceSchema = z.object({
   historyMessages: z.number().optional(),
   prefixMessages: z.number().optional(),
   summaryKind: z.enum(["history", "prefix"]).optional(),
-  hasAdditionalFocus: z.boolean().optional(),
   additionalFocusCount: z.number().optional(),
+  focus: z.string().optional(),
   cacheRetention: z.string().optional(),
   instructionPatchRestored: z.boolean().optional(),
   request: z.number().optional(),
@@ -131,9 +132,36 @@ function suppliedInstructions(scenario: string) {
   return "Preserve NATIVE_FOCUS_MARKER and the remaining tests.";
 }
 
-function checkInstructionPrompts(trace: Trace, scenario: string) {
+function expectedInstructions(requested: string | undefined, fileFocus: boolean) {
+  if (!fileFocus) return requested;
+
+  return requested ? `Preserve FILE_FOCUS_MARKER.\n\n${requested}` : "Preserve FILE_FOCUS_MARKER.";
+}
+
+function checkEntryFocus(
+  trace: Trace,
+  entry: "manual" | "auto",
+  fileFocus: boolean,
+  split: boolean
+) {
+  const requested = entry === "manual" ? suppliedInstructions("manual") : undefined;
+  const expectedFocus = expectedInstructions(requested, fileFocus);
+  const request = trace.find((item) => item.type === "provider:summary");
+  assert.equal(request?.focus, expectedFocus);
+  assert.equal(request?.summaryKind, split ? "prefix" : "history");
+  assert.equal(
+    trace.find((item) => item.type === "hook:before")?.customInstructions,
+    expectedFocus
+  );
+}
+
+function checkInstructionPrompts(trace: Trace, scenario: string, fileFocus = false) {
+  const expectedFocus =
+    expectedInstructions(suppliedInstructions(scenario), fileFocus) || undefined;
+
   for (const entry of trace.filter((item) => item.type === "provider:summary")) {
-    assert.equal(entry.additionalFocusCount, suppliedInstructions(scenario) ? 1 : 0);
+    assert.equal(entry.focus, expectedFocus);
+    assert.equal(entry.additionalFocusCount, expectedFocus ? 1 : 0);
     assert.equal(entry.cacheRetention, "none");
   }
 
@@ -146,7 +174,7 @@ function checkInstructionPrompts(trace: Trace, scenario: string) {
     .filter((entry) => entry.type === "provider:summary")
     .map((entry) => ({
       kind: entry.summaryKind,
-      focused: entry.hasAdditionalFocus
+      focused: entry.focus === expectedFocus
     }));
   const expected = [];
   if (scenario !== "instructions-split") expected.push({ kind: "history", focused: true });
@@ -223,6 +251,15 @@ function expectedOutcomeStatus(scenario: string) {
   if (["cancel", "abort", "escape"].includes(scenario)) return "cancelled";
 
   return undefined;
+}
+
+function checkFailure(trace: Trace, scenario: string) {
+  if (expectedOutcomeStatus(scenario) !== "failed" && !["cancel", "escape"].includes(scenario))
+    return;
+  const failed = trace.filter((event) => event.type === "hook:failed");
+  assert.equal(failed.length, 1);
+  assert.equal(failed[0]?.aborted, ["cancel", "escape"].includes(scenario));
+  assert.equal(trace.filter((event) => event.type === "provider:main").at(-1)?.hasOldPayload, true);
 }
 
 function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
@@ -311,7 +348,7 @@ function checkAcknowledgements(
 function checkModelRouting(
   trace: Trace,
   scenario: string,
-  config: { model?: string; thinkingLevel?: string } | undefined,
+  config: CompactConfig | undefined,
   manager: SessionManager
 ) {
   const nativeThinking = activeThinking(scenario, config !== undefined);
@@ -376,7 +413,7 @@ function checkModelRouting(
 /** Each default summary records its model in a context-free entry just before the compaction. */
 function checkSummaryModelEntries(
   manager: SessionManager,
-  config: { model?: string } | undefined,
+  config: CompactConfig | undefined,
   thinkingLevel: string,
   trigger: string
 ) {
@@ -410,7 +447,14 @@ function checkSummaryModelEntries(
 
 const summaryModel = "summary-compaction-fixture/nested/summary";
 
-it.each([
+const toolCases: {
+  mode: string;
+  scenario: string;
+  summaries: number;
+  compactions: number;
+  attempts: number;
+  config?: CompactConfig;
+}[] = [
   {
     mode: "json",
     scenario: "provider-timeout",
@@ -537,8 +581,28 @@ it.each([
   { mode: "text", scenario: "instructions-boundary", summaries: 1, compactions: 1, attempts: 1 },
   { mode: "json", scenario: "retry", summaries: 2, compactions: 1, attempts: 1 },
   { mode: "json", scenario: "custom-summary", summaries: 0, compactions: 1, attempts: 1 },
-  { mode: "text", scenario: "empty-instructions", summaries: 1, compactions: 1, attempts: 1 }
-])(
+  { mode: "text", scenario: "empty-instructions", summaries: 1, compactions: 1, attempts: 1 },
+  ...[
+    { scenario: "success", summaries: 1 },
+    { scenario: "empty-instructions", summaries: 1 },
+    { scenario: "duplicate", summaries: 1 },
+    { scenario: "instructions-split", summaries: 1 },
+    { scenario: "instructions-history", summaries: 2 },
+    { scenario: "instructions-boundary", summaries: 1 },
+    { scenario: "retry", summaries: 2 },
+    { scenario: "cancel", summaries: 0 },
+    { scenario: "custom-summary", summaries: 0 }
+  ].map(({ scenario, summaries }) => ({
+    mode: "json",
+    scenario,
+    summaries,
+    compactions: scenario === "cancel" ? 0 : 1,
+    attempts: 1,
+    config: { instructionsFile: "focus.txt" }
+  }))
+];
+
+it.each(toolCases)(
   "native compaction in $mode mode: $scenario ($config)",
   async ({ mode, scenario, summaries, compactions, attempts, config }) => {
     const directory = await createValidationWorkspace("pi-native-compaction-");
@@ -547,7 +611,10 @@ it.each([
       const tracePath = join(directory, "trace.jsonl");
       const sessionPath = join(directory, "session.jsonl");
       const keepRecentTokens = retentionBudget(scenario);
-      const instructions = suppliedInstructions(scenario);
+      const requested = suppliedInstructions(scenario);
+      const fileFocus = config?.instructionsFile !== undefined;
+      const instructions = expectedInstructions(requested, fileFocus);
+      await writeFile(join(directory, "agent", "focus.txt"), "Preserve FILE_FOCUS_MARKER.\n");
       await writeFile(
         join(directory, "agent", "settings.json"),
         JSON.stringify({
@@ -651,7 +718,7 @@ it.each([
         );
       }
 
-      checkInstructionPrompts(trace, scenario);
+      checkInstructionPrompts(trace, scenario, fileFocus);
 
       const manager = SessionManager.open(sessionPath);
       const thinkingLevel = checkModelRouting(trace, scenario, config, manager);
@@ -689,11 +756,7 @@ it.each([
         assert.equal(ofType("provider:main").length, scenario === "no-request" ? 2 : 3);
       }
 
-      if (expectedOutcomeStatus(scenario) === "failed" || ["cancel", "escape"].includes(scenario)) {
-        assert.equal(ofType("hook:failed").length, 1);
-        assert.equal(ofType("hook:failed")[0]?.aborted, ["cancel", "escape"].includes(scenario));
-        assert.equal(ofType("provider:main").at(-1)?.hasOldPayload, true);
-      }
+      checkFailure(trace, scenario);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
@@ -702,23 +765,32 @@ it.each([
 );
 
 it.each(
-  (["manual", "auto"] as const).flatMap((entry) =>
-    [undefined, false, true].map((enabled) => ({ entry, enabled }))
-  )
+  (["manual", "auto"] as const).flatMap((entry) => [
+    ...[undefined, false, true].map((enabled) => ({
+      entry,
+      enabled,
+      fileFocus: false,
+      split: false
+    })),
+    ...[false, true].map((split) => ({ entry, enabled: false, fileFocus: true, split })),
+    { entry, enabled: true, fileFocus: true, split: true }
+  ])
 )(
-  "bundled CLI $entry compaction honors its opt-in: $enabled",
-  async ({ entry, enabled }) => {
+  "bundled CLI $entry compaction (opt-in: $enabled, file focus: $fileFocus, split: $split)",
+  async ({ entry, enabled, fileFocus, split }) => {
     const directory = await createValidationWorkspace("pi-manual-compact-cli-");
 
     try {
       const tracePath = join(directory, "trace.jsonl");
       const sessionPath = join(directory, "session.jsonl");
+      await writeFile(join(directory, "agent", "focus.txt"), "Preserve FILE_FOCUS_MARKER.\n");
       await writeFile(
         join(directory, "agent", "settings.json"),
         JSON.stringify({
           "ext.pi-smart-compact": {
             model: summaryModel,
             thinkingLevel: "low",
+            instructionsFile: fileFocus ? "focus.txt" : undefined,
             // The other entry point's opt-in must not route this operation.
             applyToManual: entry === "manual" ? enabled : true,
             applyToAuto: entry === "auto" ? enabled : true
@@ -729,7 +801,10 @@ it.each(
       );
       const launch = await createPiLaunch({
         directory,
-        env: { PI_NATIVE_COMPACTION_TRACE: tracePath, PI_NATIVE_COMPACTION_CASE: "manual" },
+        env: {
+          PI_NATIVE_COMPACTION_TRACE: tracePath,
+          PI_NATIVE_COMPACTION_CASE: split ? "manual-split" : "manual"
+        },
         args: [
           "--no-extensions",
           "--no-skills",
@@ -781,6 +856,7 @@ it.each(
         sessionThinking: "high"
       });
       if (enabled) assert.equal(requests[0]?.maxTokens, 128);
+      checkEntryFocus(trace, entry, fileFocus, split);
       assert.equal(
         trace.find((item) => item.type === "hook:before")?.reason,
         entry === "manual" ? "manual" : "threshold"

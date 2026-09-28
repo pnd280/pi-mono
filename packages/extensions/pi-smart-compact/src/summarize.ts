@@ -2,7 +2,7 @@ import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import type { ExtensionRunner, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import type { DefaultCompaction, NativeSession } from "./compatibility.ts";
+import type { AutoCompaction, DefaultCompaction, NativeSession } from "./compatibility.ts";
 import type { CompactConfig } from "./config.ts";
 import { focusSplitTurn } from "./instructions.ts";
 
@@ -21,6 +21,8 @@ export async function summarizeWithOverrides(
   if (instructions !== undefined) args[4] = instructions;
   const reference = selection?.config.model;
   const thinkingLevel = selection?.config.thinkingLevel;
+  if (!instructions && reference === undefined && thinkingLevel === undefined)
+    return summarize(...args);
 
   if (selection && reference !== undefined) {
     const slash = reference.indexOf("/");
@@ -89,11 +91,14 @@ export async function summarizeWithOverrides(
   }
 }
 
-export async function runWithOverrides(
+/** Supply focus to native automatic orchestration, including tool-requested attempts. */
+export async function withCompactionInstructions(
   session: NativeSession,
-  instructions?: string,
-  selection?: CompactionModelOptions
+  instructions: string | undefined,
+  reason: Parameters<AutoCompaction>[0],
+  run: () => Promise<boolean>
 ) {
+  if (instructions === undefined) return run();
   const hooks = new OwnedHooks();
   const runner = session._extensionRunner;
   const emit = runner.emit.bind(runner);
@@ -104,32 +109,28 @@ export async function runWithOverrides(
 
   try {
     const configuredSummary: DefaultCompaction = (...args) => {
-      if (args[7] === "manual" && ownsRequest(args[5])) {
-        return summarizeWithOverrides(session, summarize, args, instructions, selection);
-      }
+      if (args[7] === reason && ownsRequest(args[5])) args[4] = instructions;
 
       return summarize(...args);
     };
 
     hooks.replace(session, "_runDefaultCompaction", configuredSummary);
 
-    if (instructions !== undefined) {
-      const focusedEmit: ExtensionRunner["emit"] = (event) => {
-        if (
-          event.type === "session_before_compact" &&
-          event.reason === "manual" &&
-          ownsRequest(event.signal)
-        ) {
-          event = { ...event, customInstructions: instructions };
-        }
+    const focusedEmit: ExtensionRunner["emit"] = (event) => {
+      if (
+        event.type === "session_before_compact" &&
+        event.reason === reason &&
+        ownsRequest(event.signal)
+      ) {
+        event = { ...event, customInstructions: instructions };
+      }
 
-        return emit(event);
-      };
+      return emit(event);
+    };
 
-      hooks.replace(runner, "emit", focusedEmit);
-    }
+    hooks.replace(runner, "emit", focusedEmit);
 
-    await session._runAutoCompaction("manual", false);
+    return await run();
   } finally {
     active = false;
     hooks.restore();

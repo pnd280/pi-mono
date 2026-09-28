@@ -1,7 +1,7 @@
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 import type { NativeSession } from "./compatibility.ts";
-import { runWithOverrides, type CompactionModelOptions } from "./summarize.ts";
+import { withCompactionInstructions } from "./summarize.ts";
 
 export const compactionResultType = "pi-smart-compact.result";
 
@@ -38,8 +38,7 @@ export function describeOutcome(
 
 export async function runRequestedCompaction(
   session: NativeSession,
-  instructions?: string,
-  selection?: CompactionModelOptions
+  instructions?: string
 ): Promise<CompactionOutcome> {
   let outcome: CompactionOutcome | undefined;
   // Native preparation can return early or swallow an error without emitting an
@@ -61,13 +60,9 @@ export async function runRequestedCompaction(
   });
 
   try {
-    if (
-      instructions === undefined &&
-      selection?.config.model === undefined &&
-      selection?.config.thinkingLevel === undefined
-    )
-      await session._runAutoCompaction("manual", false);
-    else await runWithOverrides(session, instructions, selection);
+    await withCompactionInstructions(session, instructions, "manual", () =>
+      session._runAutoCompaction("manual", false)
+    );
 
     return outcome ?? { status: "skipped", reason: skippedReason };
   } finally {
