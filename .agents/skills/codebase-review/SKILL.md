@@ -2,6 +2,8 @@
 name: codebase-review
 description: Review and revise the entire codebase by dividing it into manageable, contract-focused chunks and applying code-review to each, with coverage tracking and cross-cutting reconciliation.
 disable-model-invocation: true
+metadata:
+  opencode/autoinvoke: false
 ---
 
 # Codebase review

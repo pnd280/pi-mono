@@ -2,6 +2,8 @@
 name: audit-coding-style
 description: Audit and normalize coding patterns while preserving behavior and intentional differences.
 disable-model-invocation: true
+metadata:
+  opencode/autoinvoke: false
 ---
 
 # Coding style audit

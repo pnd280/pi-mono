@@ -2,6 +2,8 @@
 name: audit-reusability
 description: Find verified API substitutions and shared contracts that reduce maintenance.
 disable-model-invocation: true
+metadata:
+  opencode/autoinvoke: false
 ---
 
 # Reusability audit

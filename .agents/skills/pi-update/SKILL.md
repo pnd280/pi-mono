@@ -2,6 +2,8 @@
 name: pi-update
 description: Audit or migrate workspace compatibility with a target Pi release.
 disable-model-invocation: true
+metadata:
+  opencode/autoinvoke: false
 ---
 
 # Update Pi compatibility

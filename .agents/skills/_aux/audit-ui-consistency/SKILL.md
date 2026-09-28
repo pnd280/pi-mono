@@ -2,6 +2,8 @@
 name: audit-ui-consistency
 description: Audit user-facing surfaces for consistent meaning, presentation, and behavior.
 disable-model-invocation: true
+metadata:
+  opencode/autoinvoke: false
 ---
 
 # User interface consistency audit

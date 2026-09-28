@@ -2,6 +2,8 @@
 name: audit-tests
 description: Audit test coverage and maintenance cost; clean up only when requested.
 disable-model-invocation: true
+metadata:
+  opencode/autoinvoke: false
 ---
 
 # Test audit
