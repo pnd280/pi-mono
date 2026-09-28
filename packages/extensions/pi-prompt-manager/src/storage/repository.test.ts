@@ -245,14 +245,26 @@ it("expires queued work but lets started atomic writes and owned lock cleanup fi
 });
 
 function worker(label: string, count: number) {
-  return fork(
+  const child = fork(
     new URL("../../validation/storage-worker.ts", import.meta.url),
     [fixture.cwd, fixture.agentDir, label, String(count)],
     {
       execArgv: ["--experimental-transform-types", "--disable-warning=ExperimentalWarning"],
-      stdio: ["ignore", "pipe", "pipe", "ipc"]
+      stdio: ["ignore", "ignore", "pipe", "ipc"]
     }
   );
+  let stderr = "";
+  child.stderr?.setEncoding("utf8");
+  child.stderr?.on("data", (chunk: string) => {
+    stderr += chunk;
+  });
+  const completion = once(child, "close").then(([code, signal]: unknown[]) => ({
+    code,
+    signal,
+    stderr
+  }));
+
+  return { child, completion };
 }
 
 it("preserves unrelated mutations from two real processes", async () => {
@@ -260,8 +272,11 @@ it("preserves unrelated mutations from two real processes", async () => {
   const right = worker("right", 12);
 
   try {
-    const exits: unknown[][] = await Promise.all([once(left, "exit"), once(right, "exit")]);
-    expect(exits.map(([code]) => code)).toEqual([0, 0]);
+    const exits = await Promise.all([left.completion, right.completion]);
+    expect(
+      exits.map(({ code }) => code),
+      JSON.stringify(exits, null, 2)
+    ).toEqual([0, 0]);
     expect((await drafts()).entries.map((item) => item.source.text).sort()).toEqual(
       [
         ...Array.from({ length: 12 }, (_, index) => `left-${index}`),
@@ -269,8 +284,8 @@ it("preserves unrelated mutations from two real processes", async () => {
       ].sort()
     );
   } finally {
-    left.kill();
-    right.kill();
+    left.child.kill();
+    right.child.kill();
   }
 }, 15000);
 

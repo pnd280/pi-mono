@@ -64,6 +64,14 @@ it("refuses a hard link without changing the shared source", async () => {
   await link(source, path);
 
   await expect(boundedRead(path, bytes.length)).rejects.toBeInstanceOf(PrivateFileError);
+  const handle = await open(path, "r");
+
+  try {
+    await expect(checkHandle(handle)).rejects.toBeInstanceOf(PrivateFileError);
+  } finally {
+    await handle.close();
+  }
+
   expect(await readFile(source)).toEqual(bytes);
   expect((await stat(source)).mode & 0o777).toBe(0o640);
 });

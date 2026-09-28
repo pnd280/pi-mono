@@ -13,7 +13,9 @@ export async function checkHandle(handle: FileHandle, directory = false): Promis
 
   if (process.getuid === undefined || stat.uid !== process.getuid())
     throw new PrivateFileError("Storage ownership is not private to the current user.");
-  if (directory ? !stat.isDirectory() : !stat.isFile() || stat.nlink !== 1)
+  // An open descriptor may be unlinked by lock release or atomic replacement.
+  // It is still private; only multiple links expose another path to the same file.
+  if (directory ? !stat.isDirectory() : !stat.isFile() || stat.nlink > 1)
     throw new PrivateFileError(
       "Storage must use owned directories and regular, non-hard-linked files."
     );

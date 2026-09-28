@@ -6,7 +6,7 @@
 
 [`@pi-mono/libs/private-files`](index.ts) enforces permissions and ACLs, resolves directory scopes, coordinates writers through file locks, and atomically replaces files.
 
-Directories use `0700`, files `0600`; reads may repair permissions/ACLs. Checks reject foreign ownership and final-path symlinks; files also reject hard links and nonregular types.
+Directories use `0700`, files `0600`; reads may repair permissions/ACLs. Checks reject foreign ownership and final-path symlinks; files also reject hard links and nonregular types. Already-open regular-file descriptors remain valid if another process unlinks them during lock release or atomic replacement.
 
 ## Caller responsibilities
 

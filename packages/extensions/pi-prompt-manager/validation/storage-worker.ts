@@ -22,7 +22,10 @@ for (let index = 0; index < count; index++) {
     { signal: new AbortController().signal, atomic: (write) => write() }
   );
 
-  if (result.status !== "committed") throw new Error("Worker mutation failed.");
+  if (result.status !== "committed")
+    throw new Error(
+      `Worker ${label} mutation ${index} failed: ${result.status === "failed" ? result.message : result.status}`
+    );
 }
 
 process.disconnect?.();
