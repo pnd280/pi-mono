@@ -1,4 +1,8 @@
-import { initTheme, ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
+import {
+  AssistantMessageComponent,
+  initTheme,
+  ToolExecutionComponent
+} from "@earendil-works/pi-coding-agent";
 import {
   getCapabilities,
   setCapabilityOverrides,
@@ -10,7 +14,7 @@ import { expect, it, vi } from "vite-plus/test";
 import { genericAdapter } from "../adapters/generic.ts";
 import { nativeAdapter } from "../adapters/native/index.ts";
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
-import { renderingTui } from "../test-fixture.ts";
+import { assistantMessage, renderingTui } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { TranscriptRows } from "./rows.ts";
 
@@ -66,6 +70,32 @@ it("does not revisit bound transcript rows on events without new components", ()
     child.setExpanded(true);
     expect(call.expanded).toBe(true);
     expect(visits).toBeLessThan(410);
+  } finally {
+    rows.dispose();
+    coordinator.dispose();
+  }
+});
+
+it("ignores late assistant components after binding deactivation", () => {
+  initTheme("dark", false);
+  const coordinator = new TranscriptCoordinator("inactive-rows");
+  let active = true;
+  const rows = new TranscriptRows({}, coordinator, {
+    active: () => active,
+    styleAssistant: true
+  });
+  const component = new AssistantMessageComponent(
+    assistantMessage([{ type: "text", text: "Native assistant prose" }])
+  );
+
+  try {
+    active = false;
+    rows.dispose();
+    rows.assistantBoundary(component);
+    component.invalidate();
+    const rendered = component.render(80).map(stripTerminalSequences).join("\n");
+    expect(rendered).toContain("Native assistant prose");
+    expect(rendered).not.toContain("•");
   } finally {
     rows.dispose();
     coordinator.dispose();
@@ -275,6 +305,11 @@ it("hides collapsed summary members and drops images until a click opens the run
     coordinator.openRun(leader.call);
 
     rows.dispose();
+    expect(
+      ["render", "handleMouse", "setExpanded"].filter((method) =>
+        Object.hasOwn(hidden.child, method)
+      )
+    ).toEqual([]);
     // Restored rows render Pi's own layout, including its margin.
     expect(render(hidden.child)).toEqual(["", "  └ Read outcome unavailable b.ts"]);
   } finally {

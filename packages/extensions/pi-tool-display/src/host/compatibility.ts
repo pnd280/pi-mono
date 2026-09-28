@@ -37,6 +37,7 @@ export interface Host {
   toggleToolOutputExpansion?: (this: Host) => void;
   setToolsExpanded?: (this: Host, expanded: boolean) => void;
   showStatus?: (this: Host, message: string) => void;
+  showExtensionNotify?: (this: Host, message: string, type?: "info" | "warning" | "error") => void;
   switchTuiMode?: (this: Host, ...args: unknown[]) => boolean;
 }
 

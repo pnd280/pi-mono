@@ -7,9 +7,9 @@ import type {
   ResultTextPart,
   ToolDisplayAdapter
 } from "../../contracts.ts";
-import { invocationParts } from "../../invocation.ts";
 import { pathSummaryItem } from "../../summary/items.ts";
 import { nativeAdapter } from "../native/index.ts";
+import { nativeInvocationParts, normalizeNativePathSpaces } from "../native/invocation.ts";
 import { nativeResultParts } from "../native/result-presentation.ts";
 import { argsSchema, parametersSchema, resultSchema } from "./schema.ts";
 
@@ -29,7 +29,7 @@ function supports(args: unknown, result: BorrowedToolResult): boolean {
 
 function invocation(args: unknown): InvocationPart[] {
   const input = argsSchema.safeParse(args).data;
-  const parts = invocationParts("read", input ?? args, "read");
+  const parts = nativeInvocationParts("read", input ?? args, "read");
   const selection = input?.selection;
   if (selection)
     parts.push({ kind: "annotation", text: ` · selection ${selectionLabel(selection)}` });
@@ -46,13 +46,20 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
     const path = argsSchema.safeParse(args).data?.path;
 
     // One read item per requested file; selections of one file count once.
-    return path === undefined ? undefined : [pathSummaryItem("read", path, cwd)];
+    return path === undefined
+      ? undefined
+      : [pathSummaryItem("read", normalizeNativePathSpaces(path), cwd)];
   },
   exploration(args, result) {
     const input = argsSchema.safeParse(args);
     if (!input.success || (result && !supports(args, result))) return undefined;
 
-    return [{ parts: invocation(args), scope: { kind: "file", value: input.data.path } }];
+    return [
+      {
+        parts: invocation(args),
+        scope: { kind: "file", value: normalizeNativePathSpaces(input.data.path) }
+      }
+    ];
   },
   notices(result, expanded) {
     const parsed = resultSchema.safeParse(result);
@@ -60,34 +67,8 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
 
     const source =
       count === undefined ? result : { ...result, content: result.content.slice(0, count) };
-    const notices = native.notices?.(source, expanded) ?? [];
 
-    if (!expanded && parsed.success) {
-      for (const [contentIndex, block] of source.content.entries()) {
-        if (block.type !== "text") continue;
-        const parts = nativeResultParts(
-          "read",
-          block.text,
-          {},
-          {
-            result: source,
-            contentIndex,
-            expanded: false,
-            isError: false,
-            isPartial: false,
-            isCancelled: false
-          }
-        );
-        for (const part of parts)
-          if (
-            part.kind === "warning" &&
-            !notices.some((notice) => "text" in notice && notice.text === part.text)
-          )
-            notices.push({ kind: "warning", text: part.text });
-      }
-    }
-
-    return notices;
+    return native.notices?.(source, expanded) ?? [];
   },
   textParts(text, args, context): ResultTextPart[] {
     const input = argsSchema.safeParse(args).data;

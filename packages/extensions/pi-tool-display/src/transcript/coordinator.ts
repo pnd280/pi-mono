@@ -412,12 +412,12 @@ export class TranscriptCoordinator implements TranscriptView {
     this.changed(call);
   }
   fact(view: DisplayCall, fact: DisplayFact): void {
+    if (fact.kind === "saved-output") return this.setSavedPath(view, fact.path);
     const call = this.mutable(view);
     if (!call) return;
     if (fact.kind === "operation") call.operation = { ...fact };
     if (fact.kind === "cancellation") call.cancellation = { ...fact };
     if (fact.kind === "change") call.change = { ...fact };
-    if (fact.kind === "saved-output") call.savedPath = fact.path;
     this.changed(call);
   }
   preview(view: DisplayCall, output: OutputText): void {
@@ -436,12 +436,14 @@ export class TranscriptCoordinator implements TranscriptView {
     const call = this.mutable(view);
     if (!call || call.savedPath === path) return;
     call.savedPath = path;
+    delete call.savedOutput;
     this.changed(call);
   }
-  setSavedOutput(view: DisplayCall, output: SavedOutput): void {
+  setSavedOutput(view: DisplayCall, output: SavedOutput | undefined): void {
     const call = this.mutable(view);
-    if (!call) return;
-    call.savedOutput = { ...output };
+    if (!call || call.savedOutput === output) return;
+    if (output) call.savedOutput = { ...output };
+    else delete call.savedOutput;
     this.changed(call);
   }
   evictSavedOutput(path: string): void {
@@ -449,8 +451,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
     for (const call of this.state.values()) {
       if (call.savedOutput?.path !== path) continue;
-      delete call.savedOutput;
-      this.changed(call);
+      this.setSavedOutput(call, undefined);
     }
   }
   /** The agent ended: unfinished calls become unavailable and the final run ends. */
@@ -624,7 +625,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
       if (run !== old) {
         run.members = members;
-        run.opened = !!old?.opened;
+        run.opened = members.some((member) => previous.get(member.key)?.opened);
         const last = members.at(-1);
         run.closed = !!(last && previous.get(last.key)?.closed);
       }

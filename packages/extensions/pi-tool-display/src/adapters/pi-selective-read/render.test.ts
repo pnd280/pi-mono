@@ -80,6 +80,11 @@ it("renders selected source once through public cards, hides compact text, and r
     details: { selectiveRead: { sourceBlocks: 1 } }
   };
   const before = structuredClone(result);
+  const selectedTheme = {
+    ...theme,
+    bg: (color: string, text: string) =>
+      color === "searchMatchBg" ? `\x1b[43m${text}\x1b[49m` : text
+  };
 
   for (const expanded of [false, true]) {
     const context = {
@@ -97,8 +102,8 @@ it("renders selected source once through public cards, hides compact text, and r
       invalidate() {}
     };
     const renderers = createToolDisplayRenderers("read", selectiveReadDisplayAdapter);
-    const call = renderers.renderCall(args, theme, context);
-    const view = renderers.renderResult(result, context, theme, context);
+    const call = renderers.renderCall(args, selectedTheme, context);
+    const view = renderers.renderResult(result, context, selectedTheme, context);
     const output = [...call.render(100), ...view.render(100)].join("\n");
     const plain = stripTerminalSequences(output);
     expect(plain).not.toContain("Selected source preview:");
@@ -108,7 +113,12 @@ it("renders selected source once through public cards, hides compact text, and r
       expect(plain).toContain("context");
       expect(plain).toContain("界tail");
       expect(plain.split("界tail")).toHaveLength(2);
-    } else expect(plain).not.toContain("context");
+      expect(output).toContain("    \x1b[43m界\x1b[49mtail");
+      expect(output.split("\x1b[43m")).toHaveLength(2);
+    } else {
+      expect(plain).not.toContain("context");
+      expect(output).not.toContain("\x1b[43m");
+    }
 
     expect(plain).toContain("9 more lines");
   }

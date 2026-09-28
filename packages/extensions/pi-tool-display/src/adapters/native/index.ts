@@ -2,21 +2,23 @@ import { z } from "zod";
 
 import type { ToolFamily } from "../../contracts.ts";
 import type { SummaryItem, SummaryItemContext, ToolDisplayAdapter } from "../../contracts.ts";
-import { invocationParts } from "../../invocation.ts";
 import { writeCategory } from "../../summary/categories.ts";
 import { pathSummaryItem } from "../../summary/items.ts";
+import { nativeInvocationParts, normalizeNativePathSpaces } from "./invocation.ts";
 import {
   nativeResultParts,
   nativeResultNotices,
-  nativeReadImageNotices,
+  nativeReadNotices,
   nativeImageCaption
 } from "./result-presentation.ts";
 
 const readArgsSchema = z
   .object({ path: z.unknown().optional(), file_path: z.unknown().optional() })
   .transform((args) => args.path ?? args.file_path)
-  .pipe(z.string().min(1));
-const directoryArgsSchema = z.object({ path: z.string().optional() });
+  .pipe(z.string().min(1).transform(normalizeNativePathSpaces));
+const directoryArgsSchema = z.object({
+  path: z.string().transform(normalizeNativePathSpaces).optional()
+});
 const searchArgsSchema = directoryArgsSchema.extend({ pattern: z.string() });
 
 const nativeFamilies: Readonly<Record<string, ToolFamily>> = {
@@ -57,6 +59,7 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
   return {
     id: `pi:${name}`,
     family,
+    invocation: (args) => nativeInvocationParts(name, args, family),
     summaryItems,
     savedOutput: family === "shell",
     patch: family === "edit",
@@ -76,7 +79,7 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
     },
     notices: (result, expanded) => [
       ...nativeResultNotices(result.details),
-      ...(name === "read" && !expanded ? nativeReadImageNotices(result.content) : [])
+      ...(name === "read" && !expanded ? nativeReadNotices(result) : [])
     ],
     textParts: (text, args, context) => nativeResultParts(name, text, args, context),
     ...(family === "read"
@@ -93,7 +96,7 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
 
             return [
               {
-                parts: invocationParts(name, args, family),
+                parts: nativeInvocationParts(name, args, family),
                 scope:
                   path !== undefined
                     ? { kind: "file", value: path }

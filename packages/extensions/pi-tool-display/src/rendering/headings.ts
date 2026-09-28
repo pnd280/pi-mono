@@ -3,7 +3,7 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { highlightCodeBounded } from "@pi-mono/libs/tui/components/code-highlight";
 import { renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
-import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { textPrefix, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import {
@@ -252,7 +252,7 @@ function explorationVerbs(p: PreparedCard): HeadingVerbs {
   const source = p.headingVerbs ?? verbs[p.adapter.family];
 
   const plain = (verb: string) => {
-    const text = displayText(verb);
+    const text = compactDisplayText(verb);
     const separator = text.lastIndexOf(" · ");
 
     return separator < 0 ? text : text.slice(separator + 3);
@@ -300,10 +300,9 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
       const badge = summary ? `${p.theme.fg("dim", " · ")}${summary}` : "";
 
       rows.push(
-        truncateToWidth(
-          `${p.theme.fg(titleColor, marker)} ${p.theme.fg(titleColor, p.theme.bold(displayText(group.title)))}${badge}`,
-          p.width,
-          ""
+        ...wrapRows(
+          `${p.theme.fg(titleColor, marker)} ${p.theme.fg(titleColor, p.theme.bold(compactDisplayText(group.title)))}${badge}`,
+          p.width
         )
       );
     } else {
@@ -386,18 +385,18 @@ function status(p: PreparedCard): {
   const tone = pending ? "pending" : actionTone(false, p.outcome);
   if (pending)
     return {
-      verb: displayText(actionVerbs.pending),
+      verb: compactDisplayText(actionVerbs.pending),
       actionColor: actionColor(tone),
       pending
     };
   const terminal = terminalStatus(p.outcome);
   if (terminal)
     return {
-      verb: `${displayText(actionVerbs.action)} ${terminal.suffix}`,
+      verb: `${compactDisplayText(actionVerbs.action)} ${terminal.suffix}`,
       actionColor: actionColor(tone),
       pending
     };
-  let verb = displayText(actionVerbs.complete);
+  let verb = compactDisplayText(actionVerbs.complete);
   if (
     p.adapter.family === "write" &&
     p.call?.change?.change === "creation" &&

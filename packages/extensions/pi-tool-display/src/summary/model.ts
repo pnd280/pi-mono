@@ -66,6 +66,7 @@ export function buildRunSummary(members: readonly DisplayCall[], cwd: string): R
   const categories = new Map<string, Map<string, Outcome>>();
 
   for (const call of members) {
+    if (call.adapter.omitFromSummary) continue;
     const adapter = resolveResultAdapter(call.adapter, call.args, call.result);
     const supplied = items(call, adapter, cwd);
     if (!supplied.length) continue;

@@ -24,7 +24,7 @@ Missing or empty result details are supported. Nonempty details objects must con
 
 Adjacent calls [group](../../../../docs/presentation.md#groups) by exact literal `path` or multi-search `constraints`, defaulting to `.` when empty/omitted. `src/**` and `./src/**` differ; filters never merge with native directories.
 
-Explicit empty patterns remain valid: `ffgrep` displays `""`, and `fffind` uses `Listing <filter>` or `Listed <filter>`, defaulting to `.`. Missing patterns show `(pattern missing)` and do not qualify for grouping.
+Explicit empty patterns remain valid: `ffgrep` displays `""`, and `fffind` uses `Listing <filter>` or `Listed <filter>`, defaulting to `.`. A missing `pattern` shows `(pattern missing)` before a result exists; once a result arrives, automatic integration uses a generic card. Missing patterns do not qualify for grouping.
 
 Completed successful calls with nonnegative integer counts show result summaries instead of match excerpts in compact cards, both inside and outside groups:
 
@@ -48,7 +48,7 @@ The [terminal fixture](../../../../docs/validation.md#terminal-launcher) uses no
      --fff-mode tools-only --tools read,ls,grep,ffgrep,fffind
    ```
 
-2. Enter `fff`. If any required tools are unavailable, the scenario reports a skip and issues no calls. Otherwise, wait for `Fixture finished: fff` and check the groups:
+2. Press **Ctrl+O** for compact mode, then enter `fff`. If any required tools are unavailable, the scenario reports a skip and issues no calls. Otherwise, wait for `Fixture finished: fff` and check the groups:
    - Two filter groups (`a/**` and `./a/**`), each with two searches and one empty-pattern listing.
    - A standalone `a/` FFF search.
    - A native directory group with a list and a read.

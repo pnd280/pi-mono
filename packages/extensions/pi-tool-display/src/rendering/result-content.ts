@@ -142,7 +142,7 @@ function changeRows(
   if (!rendered.rendered && p.call?.change?.availability === "unavailable")
     rows.push(...message(p.call.change.reason ?? "Change information unavailable.", p, "warning"));
 
-  return { rows, hasPatch: candidates.length > 0 };
+  return { rows, hasPatch: rendered.rendered };
 }
 
 function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {

@@ -34,7 +34,8 @@ import { expect, it, vi } from "vite-plus/test";
 import toolDisplay from "../index.ts";
 import { assistantMessage, messageToolCall, renderingTui } from "../test-fixture.ts";
 import { METADATA_TYPE } from "../transcript/metadata.ts";
-import { interactivePrototype, modeHooksCompatible, type Host } from "./compatibility.ts";
+import { hostHook, interactivePrototype, type Host } from "./compatibility.ts";
+import { displaySettings } from "./configuration.ts";
 import { installHostIntegration } from "./install.ts";
 
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
@@ -107,6 +108,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
     handleEvent(event: AgentSessionEvent): Promise<void>;
     hideThinkingBlock: boolean;
     updateThinkingBlockVisibility(): void;
+    toggleThinkingBlockVisibility(): void;
   };
   boundary.ui = renderingTui(tuiMode);
   boundary.isInitialized = true;
@@ -352,7 +354,12 @@ it("applies parameter visibility to standalone and reconstructed host rows throu
         };
 
         reconstruct();
-        await session.bindExtensions({ mode: "tui" });
+        await session.bindExtensions({
+          mode: "tui",
+          onError: (error) => {
+            throw new Error(error.error);
+          }
+        });
         await session.reload({ beforeSessionStart: reconstruct });
         assertNoRegistration();
       } finally {
@@ -360,6 +367,68 @@ it("applies parameter visibility to standalone and reconstructed host rows throu
       }
     },
     { showParameters: true }
+  );
+});
+
+it("selects project display settings only while trusted, including invalid project sections", async () => {
+  await withSession(
+    async ({ session }) => {
+      const manager = session.settingsManager;
+      // Keep source values available independently of trust to exercise this adapter's gate.
+      const project = {
+        ...manager.getProjectSettings(),
+        "ext.pi-tool-display": {
+          collapsedMode: "summary",
+          showParameters: true,
+          rendererOverrides: { read: "auto" }
+        }
+      };
+      const projectRead = vi.spyOn(manager, "getProjectSettings").mockReturnValue(project);
+      const global = {
+        valid: true,
+        collapsedMode: "compact",
+        showParameters: false,
+        rendererOverrides: { read: "original", bash: "generic" },
+        warnings: []
+      };
+
+      try {
+        manager.setProjectTrusted(false);
+        expect(displaySettings(session)).toEqual(global);
+        expect(projectRead).not.toHaveBeenCalled();
+        manager.setProjectTrusted(true);
+        expect(displaySettings(session)).toEqual({
+          valid: true,
+          collapsedMode: "summary",
+          showParameters: true,
+          rendererOverrides: { read: "auto", bash: "generic" },
+          warnings: []
+        });
+        const invalidProject = {
+          ...project,
+          "ext.pi-tool-display": { showParameters: "invalid" }
+        };
+        projectRead.mockReturnValue(invalidProject);
+        expect(displaySettings(session)).toEqual({
+          valid: false,
+          collapsedMode: "summary",
+          showParameters: false,
+          rendererOverrides: {},
+          warnings: [
+            expect.stringContaining(
+              `${join(session.sessionManager.getCwd(), ".pi", "settings.json")}: invalid ext.pi-tool-display.showParameters`
+            )
+          ]
+        });
+        projectRead.mockClear();
+        manager.setProjectTrusted(false);
+        expect(displaySettings(session)).toEqual(global);
+        expect(projectRead).not.toHaveBeenCalled();
+      } finally {
+        projectRead.mockRestore();
+      }
+    },
+    { rendererOverrides: { read: "original", bash: "generic" } }
   );
 });
 
@@ -821,6 +890,55 @@ it.each(["removal", "reconstruction"])(
               expect(text(row)).not.toContain("retained body");
         sibling.setExpanded(false);
         expect(text(sibling)).not.toContain("retained body");
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    });
+  }
+);
+
+it.each(["removal", "reconstruction"])(
+  "keeps pending host events inert after %s",
+  async (transition) => {
+    await withSession(async ({ session }) => {
+      const tui = interactiveHost(session);
+
+      try {
+        tui.renderSessionItems([]);
+        const pending = tui.handleEvent({
+          type: "message_start",
+          message: assistantMessage([{ type: "text", text: "Outgoing assistant" }])
+        });
+        const outgoing = tui.streamingComponent!;
+        let replacement: Promise<void> | undefined;
+        let incoming: AssistantMessageComponent | undefined;
+
+        if (transition === "removal") interactivePrototype()[hostHook]!();
+        else {
+          tui.chatContainer.clear();
+          tui.renderSessionItems([]);
+          replacement = tui.handleEvent({
+            type: "message_start",
+            message: assistantMessage([{ type: "text", text: "Incoming assistant" }], 2)
+          });
+          incoming = tui.streamingComponent;
+        }
+
+        await pending;
+        await replacement;
+        const rendered = (row: AssistantMessageComponent) =>
+          row.render(80).map(stripTerminalSequences).join("\n");
+
+        if (incoming) {
+          expect(rendered(incoming)).toContain("• Incoming assistant");
+          interactivePrototype()[hostHook]!();
+          incoming.invalidate();
+          expect(rendered(incoming)).not.toContain("•");
+        }
+
+        outgoing.invalidate();
+        expect(rendered(outgoing)).toContain("Outgoing assistant");
+        expect(rendered(outgoing)).not.toContain("•");
       } finally {
         tui.footerDataProvider.dispose();
       }
@@ -2095,18 +2213,25 @@ it.each([
   { mode: "live", hook: "maybeShowThinkingDropNotice" },
   { mode: "live", hook: "addCacheMissNotice" },
   { mode: "live", hook: "addCacheWarmingUsage" },
+  { mode: "live", hook: "showExtensionNotify" },
   { mode: "replay", hook: "maybeShowThinkingDropNotice" }
 ] as const)(
   "separates $mode groups only when $hook inserts a component",
   async ({ mode, hook }) => {
     const prototype = interactivePrototype();
     const notice = new Text("fixture notice", 0, 0);
+    const returned = {};
     // Pi owns notice eligibility. Exercise our wrapper with insertion and no-op results.
-    const insert = vi.spyOn(prototype, hook).mockImplementation(function (this: Host, value) {
+    const insert = vi.spyOn(prototype, hook).mockImplementation(function (
+      this: Host,
+      value: unknown
+    ) {
       const children = this.chatContainer?.children;
-      if (value !== notice || !children) return;
+      if (value !== "insert" || !children) return returned;
       const firstRow = children.findIndex((child) => child instanceof ToolExecutionComponent);
       children.splice(firstRow + 1, 0, notice);
+
+      return returned;
     });
 
     try {
@@ -2164,16 +2289,16 @@ it.each([
           );
           if (mode === "live") await renderLive(history[0]!);
           insert.mockClear();
-          prototype[hook]!.call(tui, undefined);
-          expect(insert).toHaveBeenCalledExactlyOnceWith(undefined);
+          expect(prototype[hook]!.call(tui, "skip")).toBe(returned);
+          expect(insert).toHaveBeenCalledExactlyOnceWith("skip");
           expect(insert.mock.contexts[0]).toBe(tui);
           if (mode === "live") await renderLive(history[1]!);
           expect(groups()).toHaveLength(1);
           expect(tui.chatContainer.children).not.toContain(notice);
 
           insert.mockClear();
-          prototype[hook]!.call(tui, notice);
-          expect(insert).toHaveBeenCalledExactlyOnceWith(notice);
+          expect(prototype[hook]!.call(tui, "insert")).toBe(returned);
+          expect(insert).toHaveBeenCalledExactlyOnceWith("insert");
           expect(insert.mock.contexts[0]).toBe(tui);
           if (mode === "live") await renderLive(history[2]!);
           expect(tui.chatContainer.children.filter((child) => child === notice)).toHaveLength(1);
@@ -2191,6 +2316,59 @@ it.each([
     } finally {
       insert.mockRestore();
     }
+  }
+);
+
+it.each(["info", "warning", "error"] as const)(
+  "separates summaries and expansion at public %s notifications",
+  async (kind) => {
+    await withSession(
+      async ({ session }) => {
+        const tui = interactiveHost(session);
+        const appendRead = (id: string, timestamp: number) =>
+          tui.renderSessionItems([
+            assistantMessage([fauxToolCall("read", { path: `${id}.ts` }, { id })], timestamp),
+            {
+              role: "toolResult",
+              toolCallId: id,
+              toolName: "read",
+              content: [{ type: "text", text: `body ${id}` }],
+              isError: false,
+              timestamp
+            }
+          ]);
+
+        try {
+          appendRead("a", 1);
+          tui.toggleThinkingBlockVisibility();
+          appendRead("b", 2);
+          expect(transcriptText(tui)).toContain("Read 2 files");
+          tui.showExtensionNotify!("Public notification", kind);
+          appendRead("c", 3);
+          const transcript = transcriptText(tui);
+          expect(transcript.match(/Read 2 files/g)).toHaveLength(1);
+          expect(transcript.match(/Read 1 file/g)).toHaveLength(1);
+          expect(transcript.match(/Public notification/g)).toHaveLength(1);
+          if (kind !== "info")
+            expect(transcript).toContain(
+              `${kind === "warning" ? "Warning" : "Error"}: Public notification`
+            );
+          tui.toggleToolOutputExpansion!();
+          const [first, second, third] = tui.chatContainer.children.filter(
+            (child) => child instanceof ToolExecutionComponent
+          );
+          expect(text(first!)).toContain("Explored");
+          expect(text(third!)).not.toContain("Explored");
+          first!.setExpanded(true);
+          expect(text(first!)).toContain("body a");
+          expect(text(second!)).toContain("body b");
+          expect(text(third!)).not.toContain("body c");
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
+      },
+      { collapsedMode: "summary" }
+    );
   }
 );
 
@@ -2397,10 +2575,6 @@ function transcriptText(tui: ReturnType<typeof interactiveHost>): string {
   return tui.chatContainer.render(100).map(stripTerminalSequences).join("\n");
 }
 
-it("verifies the inspected Pi expansion methods before hooking mode cycling", () => {
-  expect(modeHooksCompatible(interactivePrototype())).toBe(true);
-});
-
 it("cycles summary, compact, and verbose with Ctrl+O and names the mode in the status", async () => {
   await withSession(
     async ({ session }) => {
@@ -2442,15 +2616,21 @@ it("cycles summary, compact, and verbose with Ctrl+O and names the mode in the s
 });
 
 it.each(["summary", "compact"] as const)(
-  "maps extension expansion requests to verbose and the %s collapsed mode",
+  "maps expansion requests to %s and retains changed modes through reconstruction and reload",
   async (collapsedMode) => {
     await withSession(
       async ({ session }) => {
         const tui = interactiveHost(session);
 
         try {
-          await session.bindExtensions({ mode: "tui" });
+          await session.bindExtensions({
+            mode: "tui",
+            onError: (error) => {
+              throw new Error(error.error);
+            }
+          });
           tui.renderSessionItems(summaryHistory(session));
+          const configuration = session.settingsManager.getGlobalSettings();
           const status = () => transcriptText(tui).match(/Tool output: \w+/g) ?? [];
           tui.setToolsExpanded?.(false);
           expect(status()).toEqual([]);
@@ -2466,7 +2646,33 @@ it.each(["summary", "compact"] as const)(
             expect(status()).toEqual(["Tool output: verbose"]);
             tui.toggleToolOutputExpansion?.();
             expect(status()).toEqual(["Tool output: summary"]);
-          }
+          } else tui.toggleToolOutputExpansion?.();
+
+          const changedMode = collapsedMode === "compact" ? "summary" : "compact";
+
+          const assertMode = () => {
+            const rendered = transcriptText(tui);
+            expect(tui.toolOutputExpanded).toBe(false);
+            expect(rendered).toContain(
+              changedMode === "summary" ? "Read 2 files · ran 1 command (1 failed)" : "• Explored ."
+            );
+            expect(rendered).not.toContain(
+              changedMode === "summary" ? "• Explored ." : "Read 2 files · ran 1 command (1 failed)"
+            );
+            expect(rendered).not.toContain("retained a");
+          };
+
+          const reconstruct = () => {
+            tui.chatContainer.clear();
+            tui.renderSessionEntries(session.sessionManager.buildContextEntries());
+            assertMode();
+          };
+
+          assertMode();
+          reconstruct();
+          await session.reload({ beforeSessionStart: reconstruct });
+          assertMode();
+          expect(session.settingsManager.getGlobalSettings()).toEqual(configuration);
         } finally {
           tui.footerDataProvider.dispose();
         }
@@ -2553,18 +2759,23 @@ it("restores expansion methods on disposal and preserves later wrappers", () => 
   const toggle = prototype.toggleToolOutputExpansion;
   const setExpanded = prototype.setToolsExpanded;
   const dispose = installHostIntegration();
-  expect(prototype.toggleToolOutputExpansion).not.toBe(toggle);
-  const hooked = prototype.setToolsExpanded;
 
-  const later = function (this: Host, expanded: boolean) {
-    hooked?.call(this, expanded);
-  };
+  try {
+    expect(prototype.toggleToolOutputExpansion).not.toBe(toggle);
+    const hooked = prototype.setToolsExpanded;
 
-  prototype.setToolsExpanded = later;
-  dispose?.();
-  expect(prototype.toggleToolOutputExpansion).toBe(toggle);
-  expect(prototype.setToolsExpanded).toBe(later);
-  Reflect.set(prototype, "setToolsExpanded", setExpanded);
+    const later = function (this: Host, expanded: boolean) {
+      hooked?.call(this, expanded);
+    };
+
+    prototype.setToolsExpanded = later;
+    dispose?.();
+    expect(prototype.toggleToolOutputExpansion).toBe(toggle);
+    expect(prototype.setToolsExpanded).toBe(later);
+  } finally {
+    dispose?.();
+    Reflect.set(prototype, "setToolsExpanded", setExpanded);
+  }
 });
 
 it.each([true, false])(

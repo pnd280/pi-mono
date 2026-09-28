@@ -9,6 +9,7 @@ import {
   createWriteToolDefinition,
   defineTool
 } from "@earendil-works/pi-coding-agent";
+import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 import { expect, it } from "vite-plus/test";
 
 import type { DisplayFact } from "../contracts.ts";
@@ -98,7 +99,9 @@ it("retains every streamed shell chunk in the completed preview", async () => {
 
     await observed.execute(
       "stream",
-      { command: `${JSON.stringify(process.execPath)} ${JSON.stringify(script)}` },
+      {
+        command: `${quotePosixShellArgument(process.execPath)} ${quotePosixShellArgument(script)}`
+      },
       undefined,
       undefined,
       nativeToolContext(directory)

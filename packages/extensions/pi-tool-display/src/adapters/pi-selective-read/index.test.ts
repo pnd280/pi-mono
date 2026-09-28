@@ -219,6 +219,11 @@ it("suppresses only the recorded preview block, preserving borrowed source and l
     adapter.textParts?.("Selected source preview:\nsource", args, context(unmarked))[0]?.text
   ).toContain("Selected source preview:");
   expect(value).toEqual(result(source, source));
+
+  const notice = "[2 more lines in file. Use offset=2 to continue.]";
+  const lookalike = result(`prefix\n\n${notice}\nsuffix`, `Selected source preview:\n\n${notice}`);
+  // Selecting embedded source can put a native-looking trailer at the preview's end.
+  expect(adapter.notices?.(lookalike, false)).toEqual([]);
 });
 
 it("maps code-point columns onto raw source without selecting continuation diagnostics", () => {
@@ -287,13 +292,15 @@ it("retains native image, partial, error, and cancellation presentation without 
 
 it("counts selective reads as one read item per requested file", () => {
   const context = { result: undefined, change: undefined, cwd: "/work" };
-  const item = { category: "read", identity: "path\0/work/src/a.ts" };
-  expect(
-    adapter.summaryItems?.({ path: "src/a.ts", selection: { startLine: 2 } }, context)
-  ).toMatchObject([item]);
-  expect(adapter.summaryItems?.({ path: "./src/a.ts" }, context)).toMatchObject([item]);
+  const items = adapter.summaryItems?.({ path: "src/a.ts", selection: { startLine: 2 } }, context);
+  expect(items).toMatchObject([{ category: "read" }]);
+  expect(items?.[0]?.identity).toBeTypeOf("string");
+  expect(nativeAdapter("read")?.summaryItems?.({ path: "/work/src/a.ts" }, context)).toEqual(items);
+  expect(adapter.summaryItems?.({ path: "./src/a.ts" }, context)).toEqual(items);
   expect(adapter.summaryItems?.({ path: "" }, context)).toBeUndefined();
-  expect(adapter.summaryItems?.({ path: "src/a.ts", startLine: "1" }, context)).toMatchObject([
-    item
-  ]);
+  expect(adapter.summaryItems?.({ path: "src/a.ts", startLine: "1" }, context)).toEqual(items);
+  const other = adapter.summaryItems?.({ path: "src/b.ts" }, context);
+  expect(other).toMatchObject([{ category: "read" }]);
+  expect(other?.[0]?.identity).toBeTypeOf("string");
+  expect(other).not.toEqual(items);
 });

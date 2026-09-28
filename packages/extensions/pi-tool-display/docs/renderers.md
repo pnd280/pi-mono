@@ -13,7 +13,9 @@ pi.registerTool({
 });
 ```
 
-Rendering defaults to generic, even for `read`, `bash`, or `server.search`; specialization needs an [explicit contract](#explicit-contracts). The factory changes only renderer fields: no execution, observation, file reads, persistence, or native provenance. Grouping is CLI-only with no public API. Pi handles [images](validation.md#platform-limitations) and expansion.
+Rendering defaults to generic, even for `read`, `bash`, or `server.search`; specialization needs an [explicit contract](#explicit-contracts).
+
+The factory works without the automatic extension or its private Pi hooks. It supplies only renderer fields: no execution, observation, file reads, persistence, or native provenance. Grouping and run summaries are CLI-only with no public API. Pi handles [images](validation.md#platform-limitations) and expansion.
 
 See [tool card presentation](presentation.md) for layout, diff behavior, and display limits.
 
@@ -67,7 +69,7 @@ Standalone adapters must handle incompatible input themselves. Only the automati
 - `directory`: a concrete directory, resolved lexically against the session working directory.
 - `filter`: an opaque expression, compared exactly without path resolution, trimming, or case folding.
 
-Items must resolve to one directory or identical filters; files can group with their parent directory. Missing, invalid, or mismatched scopes and `undefined`/empty results stay standalone. Never derive scopes from summaries or treat arbitrary filters as directories.
+Items must resolve to one directory or identical filters; files can group with their parent directory. Missing, invalid, or mismatched scopes, or returning `undefined`/`[]`, leave the call standalone. Never derive scopes from summaries or treat arbitrary filters as directories.
 
 For non-file groups such as `pi-todo`, return one stable literal `filter` and set [`groupTitle`](../src/contracts.ts). The title replaces the scope heading; member summaries/notices stay visible. Adjacent calls group only when both the normalized scope and title match, so titled and untitled groups never merge.
 
@@ -75,7 +77,7 @@ Group headings omit call and operation counts. Each call remains a separate memb
 
 ### Action wording
 
-`headingVerbs(args)` returns an object such as `{ action: "Check", pending: "Checking", complete: "Checked" }`. Omitting the callback or returning `undefined` uses family defaults. Failure, cancellation, and unavailable headings append the outcome to `action`, as in `Check failed`. Verbs and `groupTitle` are rendered as plain terminal text, like other adapter-supplied text.
+`headingVerbs(args)` returns an object such as `{ action: "Check", pending: "Checking", complete: "Checked" }`. Omitting the callback or returning `undefined` uses family defaults. Failure, cancellation, and unavailable headings append the outcome to `action`, as in `Check failed`. Verbs and `groupTitle` are plain single-line labels: terminal controls are removed and line breaks/tabs become spaces before layout wrapping.
 
 ### Result summaries
 

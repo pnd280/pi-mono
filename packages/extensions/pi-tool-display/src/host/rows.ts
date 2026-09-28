@@ -1,5 +1,6 @@
 import { AssistantMessageComponent, ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
+import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import type { DisplayCall, TranscriptView } from "../contracts.ts";
 import type { TranscriptCoordinator } from "../transcript/coordinator.ts";
@@ -25,7 +26,8 @@ function joinGroupedRow(
   coordinator: TranscriptView,
   active: () => boolean
 ): () => void {
-  // Preserve unbound method identity for conditional restoration; calls rebind this.
+  const hooks = new OwnedHooks();
+  // Retain Pi's unbound methods and rebind their original receiver when delegating.
   // oxlint-disable-next-line typescript/unbound-method
   const previousRender = row.render;
   // oxlint-disable-next-line typescript/unbound-method
@@ -104,15 +106,15 @@ function joinGroupedRow(
     );
   };
 
-  row.render = render;
-  row.handleMouse = handleMouse;
+  // Owned hooks unwind in reverse order: restore rendering before mouse routing.
+  hooks.replace(row, "handleMouse", handleMouse);
+  hooks.replace(row, "render", render);
 
   return () => {
     removedMargin = false;
     hidden = false;
     movedFooter = undefined;
-    if (row.render === render) row.render = previousRender;
-    if (row.handleMouse === handleMouse) row.handleMouse = previousMouse;
+    hooks.restore();
   };
 }
 
@@ -237,6 +239,7 @@ export class TranscriptRows {
     if (call) this.coordinator.boundary(call);
   }
   assistantBoundary(component: Component | undefined): void {
+    if (!this.options.active()) return;
     // Pi keeps rendered text/thinking and generated errors in a child Container.
     // Final-message middleware can remove previously visible streaming content.
     if (!(component instanceof AssistantMessageComponent)) return;
@@ -264,7 +267,7 @@ export class TranscriptRows {
       if (!call) continue;
       this.bound.add(child);
       this.disposers.push(joinGroupedRow(child, call, coordinator, this.options.active));
-      // Preserve identity for restoration and explicitly rebind the original receiver.
+      // Retain Pi's expansion callback and explicitly rebind its original receiver.
       // oxlint-disable-next-line typescript/unbound-method
       const previous = child.setExpanded;
 
@@ -277,7 +280,8 @@ export class TranscriptRows {
         else previous.call(child, expanded);
       };
 
-      child.setExpanded = setExpanded;
+      const hooks = new OwnedHooks();
+      hooks.replace(child, "setExpanded", setExpanded);
       const detach = coordinator.attach(call, {
         invalidate: () => {
           child.invalidate();
@@ -293,7 +297,7 @@ export class TranscriptRows {
       );
       this.disposers.push(() => {
         detach();
-        if (child.setExpanded === setExpanded) child.setExpanded = previous;
+        hooks.restore();
       });
     }
   }

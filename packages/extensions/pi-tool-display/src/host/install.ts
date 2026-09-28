@@ -247,6 +247,20 @@ export function installHostIntegration(
     }
   };
 
+  function observeInsertion<Args extends unknown[], Result>(
+    insert: (this: Host, ...args: Args) => Result
+  ) {
+    return function (this: Host, ...args: Args): Result {
+      const binding = active ? hosts.get(this) : undefined;
+      if (!binding) return insert.apply(this, args);
+      binding.rows.prepareInsertion();
+      const result = insert.apply(this, args);
+      binding.rows.finishInsertion();
+
+      return result;
+    };
+  }
+
   const dispose = () => {
     if (!active) return;
     active = false;
@@ -269,16 +283,13 @@ export function installHostIntegration(
     ] as const) {
       const insert = prototype[key];
       if (typeof insert !== "function") continue;
-      hooks.replace(prototype, key, function (this: Host, value: unknown) {
-        const binding = active ? hosts.get(this) : undefined;
-        if (!binding) return insert.call(this, value);
-        binding.rows.prepareInsertion();
-        const result = insert.call(this, value);
-        binding.rows.finishInsertion();
-
-        return result;
-      });
+      hooks.replace(prototype, key, observeInsertion(insert));
     }
+
+    // Pi also uses showStatus for thinking toggles, which must not split runs.
+    const notify = prototype.showExtensionNotify;
+    if (typeof notify === "function")
+      hooks.replace(prototype, "showExtensionNotify", observeInsertion(notify));
 
     if (modeHooks && originalToggle && originalSetExpanded) {
       hooks.replace(prototype, "toggleToolOutputExpansion", function (this: Host) {
@@ -356,7 +367,7 @@ export function installHostIntegration(
         return result;
       });
       hooks.replace(prototype, "handleEvent", async function (this: Host, event) {
-        const binding = active ? ensure(this) : undefined;
+        const binding = ensure(this);
 
         if (binding) {
           const display = binding.display;
@@ -396,9 +407,10 @@ export function installHostIntegration(
         await handle.call(this, event);
         // Success reconstructs the binding before appending the summary; failed
         // compactions append notices to the original binding instead.
-        if (event.type === "compaction_end") hosts.get(this)?.rows.finishInsertion();
+        const current = active ? hosts.get(this) : undefined;
+        if (event.type === "compaction_end") current?.rows.finishInsertion();
 
-        if (binding) {
+        if (binding && current === binding) {
           binding.rows.assistantBoundary(this.streamingComponent ?? streaming);
           binding.rows.bind();
         }

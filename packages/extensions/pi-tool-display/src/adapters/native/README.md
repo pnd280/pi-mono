@@ -12,6 +12,8 @@
 
 Successful edits use `details.patch` in unified format. Numbered `details.diff` is not interpreted. Write arguments alone do not establish creation, previous contents, or a successful change.
 
+Concrete targets use Pi's Unicode-space normalization before lexical resolution for headings, exploration scopes, and summary identities. Arguments remain unchanged; search patterns and globs remain literal. Selective-read shares this native path policy; custom adapters and FFF filters do not inherit it.
+
 ## Display
 
 See the shared [exploration-group rules](../../../docs/presentation.md#groups), [target formatting](../../../docs/presentation.md#card-layout), and [result presentation](../../../docs/presentation.md#results).
@@ -20,11 +22,13 @@ Observed shells show recorded status/duration beside compact and expanded output
 
 Native captions suppress duplicate fallback descriptions without mutating results. Unsupported-model and conversion/resizing omission warnings remain in compact cards/groups and appear once in expanded bodies. Patch/live/saved previews retain fallbacks when Pi image display is unavailable or disabled.
 
+Recognized read continuation and byte-limit fallback instructions remain visible in compact cards/groups. Expansion restores them once in the retained text.
+
 The native `(no output)` placeholder uses `dim`. Nonzero-exit and timeout diagnostic bodies and failure markers use `error`. Process output preceding a native failure footer retains its own styling.
 
 ### Text-envelope provenance
 
-In retained shell results, process output that matches a native placeholder or truncation trailer receives the same styling. The text alone cannot identify its source.
+In retained native results, literal text identical to a complete native placeholder or trailer cannot be distinguished from the generated envelope. Read recovery notices use the same exact trailer recognition as expanded bodies; similar phrases embedded in source remain source. Shell placeholder/truncation lookalikes receive the same styling. None of these text matches establishes an operation outcome.
 
 Live and saved-output previews [distinguish generated omissions from process text](../../../docs/presentation.md#notices-and-colors).
 

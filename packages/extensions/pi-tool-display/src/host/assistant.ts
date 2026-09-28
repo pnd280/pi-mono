@@ -9,6 +9,7 @@ import {
   truncateToWidth,
   type Component
 } from "@earendil-works/pi-tui";
+import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import { record } from "../values.ts";
@@ -153,6 +154,7 @@ export function bindAssistantPresentation(
   // oxlint-disable-next-line typescript/unbound-method
   const previous = component.updateContent;
   if (!inspectedSource(previous, updateHashes)) return undefined;
+  const hooks = new OwnedHooks();
   let active = true;
   presented.set(component, new Set());
 
@@ -164,14 +166,14 @@ export function bindAssistantPresentation(
     changed();
   };
 
-  component.updateContent = update;
+  hooks.replace(component, "updateContent", update);
   suppressCompletedThinking(component);
   markProse(component);
 
   return () => {
     active = false;
     presented.delete(component);
-    if (component.updateContent === update) component.updateContent = previous;
+    hooks.restore();
     component.invalidate();
   };
 }

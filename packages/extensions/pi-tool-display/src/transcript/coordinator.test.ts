@@ -732,6 +732,34 @@ it("partitions runs only at visible boundaries, including groups and other tools
   }
 });
 
+it("preserves an opened later run when assistant boundaries withdraw", () => {
+  const { coordinator, add, roles } = summaryFixture();
+
+  try {
+    const first = add("read", { path: "a.ts" }, "live");
+    coordinator.result(first, result(), "success");
+    const owner = {};
+    coordinator.setBoundary(owner, first);
+    const second = add("read", { path: "b.ts" }, "live");
+    coordinator.openRun(second);
+    coordinator.setBoundary(owner);
+    expect(coordinator.run(second)?.opened).toBe(true);
+    coordinator.result(second, result(), "success");
+    coordinator.settle();
+    expect(roles()).toEqual(["card", "card"]);
+
+    coordinator.setBoundary(owner, first);
+    coordinator.closeRun(first);
+    expect(roles()).toEqual(["leader", "card"]);
+    coordinator.setBoundary(owner);
+    expect(roles()).toEqual(["card", "card"]);
+    coordinator.closeRun(second);
+    expect(roles()).toEqual(["leader", "hidden"]);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
 it("keeps thinking boundaries out of run settlement and preserves opened state", () => {
   const { coordinator, add, roles } = summaryFixture();
 

@@ -80,7 +80,7 @@ Install `pi-mcp-adapter` separately for `mcp`; it is not a workspace dependency.
    ```
 
 4. Enter `mcp` and wait for `Fixture finished: mcp`. Check collapsed and expanded cards against the expectations below, then run `/reload`.
-5. Exit, then repeat the command with `fullscreen` instead of `regular` to check replay. Keep the `--reuse`, `-e`, and `--tools` arguments.
+5. Exit, then repeat the command with `fullscreen` instead of `regular` to check replay. Keep the `--reuse`, `-e`, and `--tools` arguments. Press **Ctrl+O** for compact cards.
 
 - Resolved echo calls show `display.echo` or `direct.echo`. Connection and description headings retain their action and target.
 - Images and resources stay beneath their call. Returned errors remain visible, and large output retains a saved-output reference without reading that file.

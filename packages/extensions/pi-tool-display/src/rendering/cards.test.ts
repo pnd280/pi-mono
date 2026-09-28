@@ -3,6 +3,7 @@ import { resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
+  createReadTool,
   initTheme,
   ToolExecutionComponent,
   type AgentToolResult
@@ -10,7 +11,8 @@ import {
 import {
   getCapabilities,
   setCapabilityOverrides,
-  stripTerminalSequences
+  stripTerminalSequences,
+  visibleWidth
 } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers as createPublicRenderers } from "pi-tool-display/renderers";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
@@ -20,6 +22,7 @@ import {
   genericAdapter,
   nativeAdapter,
   piFffAdapter,
+  selectiveReadDisplayAdapter,
   todoDisplayAdapter,
   type McpFacts,
   type ToolDisplayAdapter
@@ -340,6 +343,38 @@ describe("tool display renderers", () => {
     expect(preparations).toBeLessThan(7);
   });
 
+  it("refreshes both retained slots after theme invalidation", () => {
+    let foreground = "\x1b[31m";
+    const changingTheme = {
+      ...theme,
+      fg: (_color: string, text: string) => `${foreground}${text}\x1b[39m`
+    };
+    const renderer = createPublicRenderers("custom");
+    const current = context({ args: { query: "needle" } });
+    const header = renderer.renderCall(current.args, changingTheme, current);
+    const output = renderer.renderResult(
+      result("retained result"),
+      current,
+      changingTheme,
+      current
+    );
+    const render = () => [header.render(100).join("\n"), output.render(100).join("\n")];
+    const initial = render();
+    expect(stripTerminalSequences(initial[0]!)).toContain('Called custom({"query":"needle"})');
+    expect(stripTerminalSequences(initial[1]!)).toContain("retained result");
+    for (const slot of initial) expect(slot).toContain("\x1b[31m");
+
+    foreground = "\x1b[32m";
+    header.invalidate();
+    const refreshed = render();
+    expect(refreshed.map(stripTerminalSequences)).toEqual(initial.map(stripTerminalSequences));
+
+    for (const slot of refreshed) {
+      expect(slot).toContain("\x1b[32m");
+      expect(slot).not.toContain("\x1b[31m");
+    }
+  });
+
   it("does not prepare hidden read or grouped text, or bodies for short headings", () => {
     let preparations = 0;
     const adapter = {
@@ -525,6 +560,42 @@ describe("tool display renderers", () => {
     }
   });
 
+  it("retains every titled-group outcome badge at narrow widths", () => {
+    const coordinator = new TranscriptCoordinator("todo-outcome-width");
+
+    try {
+      const calls = (["failure", "cancelled", "unavailable"] as const).map((outcome, index) => {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: index, toolCallId: String(index) },
+          "todo",
+          { action: "get", id: index + 1 },
+          todoDisplayAdapter,
+          "historical"
+        );
+        if (outcome !== "unavailable") coordinator.result(call, result("diagnostic"), outcome);
+
+        return call;
+      });
+      const call = calls[0]!;
+      const view = createToolDisplayRenderers(call.name, call.adapter, {
+        binding: { call, coordinator }
+      }).renderCall(call.args, theme, context());
+
+      for (const width of [40, 80]) {
+        const rows = view.render(width).map(stripTerminalSequences);
+        const heading = rows.slice(
+          0,
+          rows.findIndex((row) => row.includes("├"))
+        );
+        expect(heading.join(" ")).toContain("Todos · 1 failed, 1 cancelled, 1 outcome unavailable");
+        expect(rows.every((row) => visibleWidth(row) <= width)).toBe(true);
+        expect(rows.join("\n")).toContain("Show failed #1");
+      }
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
   it.each([{}, { action: "unknown" }, { action: "list", status: 42 }])(
     "falls back to a named generic card for invalid todo arguments %j",
     (args) => {
@@ -624,23 +695,7 @@ describe("tool display renderers", () => {
     "keeps %s action headings through preparation, queueing, execution, completion, and replay",
     (name, action, active, complete, args) => {
       const adapter = name.startsWith("ff")
-        ? piFffAdapter({
-            name,
-            description: "FFF search",
-            parameters: {
-              type: "object",
-              properties:
-                name === "fff-multi-grep"
-                  ? { patterns: { type: "array" } }
-                  : { pattern: { type: "string" } }
-            },
-            sourceInfo: {
-              source: "npm:@ff-labs/pi-fff@0.10.6",
-              path: "/fff/src/index.ts",
-              scope: "user",
-              origin: "package"
-            }
-          })!
+        ? piFffAdapter(fffToolInfo(name, name === "fff-multi-grep"))!
         : (nativeAdapter(name) ?? genericAdapter);
 
       // Replayed completion must not depend on a preceding call, execution event, or component.
@@ -1006,6 +1061,9 @@ describe("tool display renderers", () => {
       ["~", homedir()],
       [`@${resolve(cwd, "src/file.ts")}`, "src/file.ts"],
       [pathToFileURL(resolve(cwd, "src/file name.ts")).href, "src/file name.ts"],
+      ["src/file\u00a0name.ts", "src/file name.ts"],
+      ["src/file\u2007name.ts", "src/file name.ts"],
+      ["src/file\u202fname.ts", "src/file name.ts"],
       ["new/未作成 file.ts", "new/未作成 file.ts"]
     ] as const;
 
@@ -1020,11 +1078,14 @@ describe("tool display renderers", () => {
     // Every tool must tag its target as a path in both presentation states.
     for (const name of ["read", "edit", "write", "ls", "grep", "find"]) {
       const toolRenderer = createToolDisplayRenderers(name, nativeAdapter(name));
-      const args = Object.freeze({ path: resolve(cwd, "src/file.ts"), pattern: "needle" });
+      const args = Object.freeze({
+        path: resolve(cwd, "src/file\u00a0name.ts"),
+        pattern: "needle"
+      });
 
       for (const expanded of [false, true]) {
         const rows = toolRenderer.renderCall(args, theme, context({ cwd, expanded })).render(240);
-        expect(rows[0]?.endsWith(" src/file.ts"), `${name}: expanded=${expanded}`).toBe(true);
+        expect(rows[0]?.endsWith(" src/file name.ts"), `${name}: expanded=${expanded}`).toBe(true);
       }
     }
 
@@ -1142,6 +1203,89 @@ describe("tool display renderers", () => {
       coordinator.dispose();
     }
   });
+  it("groups native Unicode-space targets without normalizing custom paths or FFF filters", () => {
+    const cwd = "/workspace/project";
+    const coordinator = new TranscriptCoordinator("native-space-paths", { cwd });
+    let index = 0;
+
+    const add = (name: string, args: unknown, adapter: ToolDisplayAdapter) => {
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
+        name,
+        args,
+        adapter,
+        "historical"
+      );
+      coordinator.result(call, result("retained"), "success");
+
+      return call;
+    };
+
+    const nativeArgs = Object.freeze({ path: "src\u00a0dir/first\u2007file.ts" });
+    const selectedArgs = Object.freeze({
+      path: "src\u202fdir/second\u00a0file.ts",
+      selection: Object.freeze({ startLine: 2 })
+    });
+
+    try {
+      const calls = [
+        add("read", nativeArgs, nativeAdapter("read")!),
+        add("read", selectedArgs, selectiveReadDisplayAdapter),
+        add("ls", { path: "src dir" }, nativeAdapter("ls")!),
+        add(
+          "grep",
+          { path: "src\u2007dir", pattern: "literal\u00a0pattern" },
+          nativeAdapter("grep")!
+        )
+      ];
+      const first = calls[0]!;
+      expect(coordinator.group(first)?.members).toEqual(calls);
+      const heading = (call: (typeof calls)[number]) =>
+        createToolDisplayRenderers(call.name, call.adapter, { binding: { call, coordinator } })
+          .renderCall(call.args, theme, context({ cwd, expanded: call.expanded }))
+          .render(160)
+          .join("\n");
+      expect(heading(first)).toContain("Explored src dir");
+      expect(heading(first)).toContain("Read first file.ts");
+      expect(heading(calls[1]!)).toContain("Read second file.ts · selection 2");
+      expect(heading(calls[3]!)).toContain("literal\u00a0pattern");
+      coordinator.expand(first, true);
+      expect(heading(first)).toContain("Read src dir/first file.ts");
+      expect(heading(calls[1]!)).toContain("Read src dir/second file.ts · selection 2");
+      coordinator.expand(first, false);
+
+      const literalPath = "src\u00a0dir/custom\u00a0file.ts";
+      const custom = add(
+        "custom",
+        {},
+        {
+          id: "custom:literal-path",
+          family: "read",
+          invocation: () => [{ kind: "path", text: literalPath }],
+          exploration: () => [
+            {
+              parts: [{ kind: "path", text: literalPath }],
+              scope: { kind: "file", value: literalPath }
+            }
+          ]
+        }
+      );
+      expect(coordinator.group(custom)).toBeUndefined();
+      expect(heading(custom)).toContain(literalPath);
+
+      const fff = piFffAdapter(fffToolInfo("ffgrep"))!;
+      const filtered = add("ffgrep", { pattern: "needle", path: "src\u00a0dir/**" }, fff);
+      const otherFilter = add("ffgrep", { pattern: "needle", path: "src dir/**" }, fff);
+      expect(coordinator.group(filtered)).toBeUndefined();
+      expect(coordinator.group(otherFilter)).toBeUndefined();
+      expect(heading(filtered)).toContain("src\u00a0dir/**");
+      expect(nativeArgs.path).toBe("src\u00a0dir/first\u2007file.ts");
+      expect(selectedArgs.path).toBe("src\u202fdir/second\u00a0file.ts");
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
   it.each(["bash", "powershell"])(
     "retains internal blank output without a false truncation notice for %s",
     (name) => {
@@ -1489,17 +1633,7 @@ describe("tool display renderers", () => {
   });
 
   it("uses the current adapter's parameter policy after late registration and generic fallback", () => {
-    const adapter = piFffAdapter({
-      name: "fffind",
-      description: "FFF find",
-      parameters: { type: "object", properties: { pattern: { type: "string" } } },
-      sourceInfo: {
-        source: "npm:@ff-labs/pi-fff@0.10.6",
-        path: "/fff/src/index.ts",
-        scope: "user",
-        origin: "package"
-      }
-    })!;
+    const adapter = piFffAdapter(fffToolInfo("fffind"))!;
     const coordinator = new TranscriptCoordinator("parameter-policy");
 
     try {
@@ -1589,24 +1723,87 @@ describe("tool display renderers", () => {
       coordinator.dispose();
     }
   });
+
+  it("retains native read recovery guidance without promoting source lookalikes", async () => {
+    const cases = [
+      {
+        source: "one\ntwo\nthree",
+        args: { path: "a.txt", limit: 1 },
+        notice: "[2 more lines in file. Use offset=2 to continue.]"
+      },
+      {
+        source: "x".repeat(51 * 1024),
+        args: { path: "a.txt" },
+        notice:
+          "[Line 1 is 51.0KB, exceeds 50.0KB limit. Use bash: sed -n '1p' a.txt | head -c 51200]"
+      },
+      {
+        source: "Example:\n[2 more lines in file. Use offset=2 to continue.]\nEnd of example.",
+        args: { path: "a.txt" },
+        notice: undefined
+      }
+    ];
+
+    for (const fixture of cases) {
+      const native = createReadTool("/tmp", {
+        operations: {
+          access: async () => {},
+          readFile: async () => Buffer.from(fixture.source)
+        }
+      });
+      const supplied = await native.execute("read", fixture.args);
+      const before = structuredClone(supplied);
+      const coordinator = new TranscriptCoordinator("read-recovery", { cwd: "/tmp" });
+
+      try {
+        const adapter = nativeAdapter("read")!;
+        const first = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 0, toolCallId: "first" },
+          "read",
+          fixture.args,
+          adapter,
+          "historical"
+        );
+        const sibling = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 1, toolCallId: "sibling" },
+          "read",
+          { path: "b.txt" },
+          adapter,
+          "historical"
+        );
+        coordinator.result(first, supplied, "success");
+        coordinator.result(sibling, result("sibling source"), "success");
+
+        for (const grouped of [false, true]) {
+          const renderer = createToolDisplayRenderers(
+            "read",
+            adapter,
+            grouped ? { binding: { call: first, coordinator } } : {}
+          );
+
+          for (const expanded of [false, true]) {
+            coordinator.expand(first, expanded);
+            const current = context({ args: fixture.args, expanded });
+            const call = renderer.renderCall(fixture.args, theme, current);
+            const body = renderer.renderResult(supplied, current, theme, current);
+            const text = [...call.render(160), ...body.render(160)].join("\n");
+            if (fixture.notice) expect(text.split(fixture.notice)).toHaveLength(2);
+            else if (expanded) expect(text).toContain("End of example.");
+            else expect(text).not.toContain("Use offset=");
+          }
+        }
+
+        expect(supplied).toEqual(before);
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  });
   it("keeps failed read and FFF diagnostics visible across standalone scope runs", () => {
     const coordinator = new TranscriptCoordinator("group-failures");
 
     try {
-      const adapters = [
-        nativeAdapter("read")!,
-        piFffAdapter({
-          name: "ffgrep",
-          description: "FFF search",
-          parameters: { type: "object", properties: { pattern: { type: "string" } } },
-          sourceInfo: {
-            source: "npm:@ff-labs/pi-fff@0.10.6",
-            path: "/fff/src/index.ts",
-            scope: "user",
-            origin: "package"
-          }
-        })!
-      ];
+      const adapters = [nativeAdapter("read")!, piFffAdapter(fffToolInfo("ffgrep"))!];
       const first = coordinator.add(
         { messageTimestamp: 1, contentIndex: 0, toolCallId: "success" },
         "read",
@@ -1668,17 +1865,7 @@ describe("tool display renderers", () => {
   it.each([false, true])(
     "shows FFF pagination in standalone and grouped cards (expanded=%s)",
     (expanded) => {
-      const adapter = piFffAdapter({
-        name: "fffind",
-        description: "FFF find",
-        parameters: { type: "object", properties: { pattern: { type: "string" } } },
-        sourceInfo: {
-          source: "npm:@ff-labs/pi-fff@0.10.6",
-          path: "/fff/src/index.ts",
-          scope: "user",
-          origin: "package"
-        }
-      })!;
+      const adapter = piFffAdapter(fffToolInfo("fffind"))!;
       const args = { pattern: "renderers", path: "src/" };
       const notice = '[32 more matches available. cursor="3" to continue]';
       const supplied = {
@@ -1762,17 +1949,7 @@ describe("tool display renderers", () => {
     const coordinator = new TranscriptCoordinator("notice-ownership");
 
     try {
-      const search = piFffAdapter({
-        name: "fffind",
-        description: "FFF find",
-        parameters: { type: "object", properties: { pattern: { type: "string" } } },
-        sourceInfo: {
-          source: "npm:@ff-labs/pi-fff@0.10.6",
-          path: "/fff/src/index.ts",
-          scope: "user",
-          origin: "package"
-        }
-      })!;
+      const search = piFffAdapter(fffToolInfo("fffind"))!;
       const calls = [
         ["fffind", { pattern: "a", path: "src/" }, search],
         ["fffind", { pattern: "renderers", path: "src/" }, search],
@@ -1991,6 +2168,16 @@ describe("tool display renderers", () => {
         );
         coordinator.result(call, supplied, "success");
 
+        const sibling = coordinator.add(
+          { messageTimestamp: 1, contentIndex: 1, toolCallId: "sibling" },
+          "read",
+          { path: "other.txt" },
+          adapter,
+          "historical"
+        );
+        coordinator.result(sibling, result("sibling source"), "success");
+        expect(coordinator.group(call)?.members).toEqual([call, sibling]);
+
         for (const grouped of [false, true]) {
           const renderer = createToolDisplayRenderers(
             "read",
@@ -2025,12 +2212,16 @@ describe("tool display renderers", () => {
     const first = context({ isPartial: true });
     const pending = renderer.renderResult(result("partial-only"), first, theme, first);
     expect(pending.render(80).join("\n")).toContain("partial-only");
-    const sibling = body("bash", result("sibling output"), context({ toolCallId: "call-2" }));
-    const final = context({ lastComponent: pending });
+    const other = context({ toolCallId: "call-2" });
+    const sibling = renderer.renderResult(result("sibling output"), other, theme, other);
+    expect(sibling.render(80).join("\n")).toContain("sibling output");
+    expect(pending.render(80).join("\n")).toContain("partial-only");
+    const final = { ...first, isPartial: false, lastComponent: pending };
     const complete = renderer.renderResult(result("authoritative final"), final, theme, final);
     expect(complete.render(80).join("\n")).toContain("authoritative final");
     expect(complete.render(80).join("\n")).not.toContain("partial-only");
     expect(sibling.render(80).join("\n")).toContain("sibling output");
+    expect(sibling.render(80).join("\n")).not.toContain("authoritative final");
   });
 
   it("expands all retained output and reflows without altering model-visible data", () => {
@@ -2076,44 +2267,89 @@ describe("tool display renderers", () => {
       for (const patch of ["@@ -1 +1 @@\n-old\n+new\n", "invalid", ""]) {
         const supplied = { ...result("Successfully edited file.ts"), details: { patch } };
         coordinator.result(call, supplied, "success");
-        const current = context({ args: call.args });
-        const text = stripTerminalSequences(
-          renderer.renderResult(supplied, current, theme, current).render(80).join("\n")
-        );
-        expect(text.includes("diff computation budget")).toBe(!patch.startsWith("@@"));
-        if (patch.startsWith("@@")) expect(text).toContain("+new");
+
+        for (const expanded of [false, true]) {
+          coordinator.expand(call, expanded);
+          const current = context({ args: call.args, expanded });
+          const text = stripTerminalSequences(
+            renderer.renderResult(supplied, current, theme, current).render(120).join("\n")
+          );
+          expect(text.includes("diff computation budget")).toBe(!patch.startsWith("@@"));
+          expect(text.includes("Successfully edited file.ts")).toBe(!patch.startsWith("@@"));
+          if (patch.startsWith("@@")) expect(text).toContain("+new");
+        }
       }
 
-      coordinator.fact(call, {
-        kind: "change",
-        availability: "available",
-        patch: "@@ -1 +1 @@\n-observed-before\n+observed-after\n"
-      });
       const replaced = { ...result("Middleware result"), details: { patch: "invalid" } };
       coordinator.result(call, replaced, "success");
-      const current = context({ args: call.args });
-      const replacementText = stripTerminalSequences(
-        renderer.renderResult(replaced, current, theme, current).render(80).join("\n")
-      );
-      expect(replacementText).toContain("+observed-after");
-      expect(replacementText).not.toContain("Patch display unavailable");
+
+      for (const patch of [
+        "@@ -1 +1 @@\n-observed-before\n+observed-after\n",
+        "invalid observed"
+      ]) {
+        coordinator.fact(call, { kind: "change", availability: "available", patch });
+
+        for (const expanded of [false, true]) {
+          coordinator.expand(call, expanded);
+          const current = context({ args: call.args, expanded });
+          const replacementText = stripTerminalSequences(
+            renderer.renderResult(replaced, current, theme, current).render(120).join("\n")
+          );
+          const usable = patch.startsWith("@@");
+          expect(replacementText.includes("+observed-after")).toBe(usable);
+          expect(replacementText.includes("Middleware result")).toBe(!usable);
+          expect(replacementText.includes("Patch display unavailable")).toBe(!usable);
+        }
+      }
+
+      expect(replaced).toEqual({ ...result("Middleware result"), details: { patch: "invalid" } });
     } finally {
       coordinator.dispose();
     }
   });
 
-  it("applies the patch limit before terminal normalization", () => {
-    const patch = `@@ -1 +1 @@\n-${"\x1b[31m".repeat(30_000)}before\n+after\n`;
-    const rendered = body(
-      "edit",
-      { ...result("Successfully edited file.ts"), details: { patch } },
-      context({ args: { path: "file.ts" } })
-    )
+  it("bounds compact patch changes and context, restoring omitted source on expansion", () => {
+    const removed = Array.from({ length: 15 }, (_, index) => `-OLD_${index}`).join("\n");
+    const added = Array.from({ length: 15 }, (_, index) => `+NEW_${index}`).join("\n");
+    const patch =
+      `@@ -1,22 +1,22 @@\n leading 1\n leading 2\n leading 3\n${removed}\n${added}\n` +
+      " trailing 1\n trailing 2\n trailing 3\n-LATER_OLD\n+LATER_NEW\n";
+    const supplied = { ...result("Successfully edited file.txt"), details: { patch } };
+    const current = context({ args: { path: "file.txt" } });
+    const rows = body("edit", supplied, current).render(80).map(stripTerminalSequences);
+    const compact = rows.join("\n");
+    expect(rows.filter((row) => /[+-](?:OLD|NEW)_\d+/.test(row))).toHaveLength(30);
+    for (const text of ["-OLD_0", "+NEW_14", "leading 2", "leading 3", "trailing 1", "trailing 2"])
+      expect(compact).toContain(text);
+    for (const text of ["leading 1", "trailing 3", "LATER_"]) expect(compact).not.toContain(text);
+    expect(compact).toContain("hunk excerpt");
+
+    const expanded = body("edit", supplied, { ...current, expanded: true })
       .render(80)
       .map(stripTerminalSequences)
       .join("\n");
+    for (const text of ["leading 1", "trailing 3", "-LATER_OLD", "+LATER_NEW"])
+      expect(expanded).toContain(text);
+    expect(expanded).not.toContain("hunk excerpt");
+    expect(supplied.details.patch).toBe(patch);
+  });
 
-    expect(rendered).toContain("Patch display unavailable: invalid or oversized patch.");
+  it("applies the patch limit before terminal normalization", () => {
+    const patch = `@@ -1 +1 @@\n-${"\x1b[31m".repeat(30_000)}before\n+after\n`;
+
+    for (const expanded of [false, true]) {
+      const rendered = body(
+        "edit",
+        { ...result("Successfully edited file.ts"), details: { patch } },
+        context({ args: { path: "file.ts" }, expanded })
+      )
+        .render(80)
+        .map(stripTerminalSequences)
+        .join("\n");
+
+      expect(rendered).toContain("Patch display unavailable: invalid or oversized patch.");
+      expect(rendered).toContain("Successfully edited file.ts");
+    }
   });
 
   it.each([
@@ -2263,7 +2499,7 @@ describe("tool display renderers", () => {
   });
 
   it("treats adapter-provided heading text as plain terminal text", () => {
-    const control = "\x1b]52;c;YQ==\x07";
+    const control = "\x1b]52;c;YQ==\x07\r\n• forged";
     const adapter: ToolDisplayAdapter = {
       id: "custom:plain-headings",
       family: "invocation",
@@ -2286,6 +2522,8 @@ describe("tool display renderers", () => {
       .join("\n");
     expect(standalone).toContain("Checked");
     expect(standalone).not.toContain("\x1b");
+    expect(standalone).not.toMatch(/[\r\n]/);
+    expect(standalone).toContain("Checked • forged");
 
     const coordinator = new TranscriptCoordinator("plain-headings");
 
@@ -2304,12 +2542,13 @@ describe("tool display renderers", () => {
         adapter,
         "historical"
       );
-      const grouped = createToolDisplayRenderers("custom", adapter, {
+      const rows = createToolDisplayRenderers("custom", adapter, {
         binding: { call: first, coordinator }
       })
         .renderCall({}, theme, context())
-        .render(80)
-        .join("\n");
+        .render(80);
+      expect(rows.every((row) => !/[\r\n]/.test(row))).toBe(true);
+      const grouped = rows.join("\n");
       expect(grouped).toContain("Tasks");
       expect(grouped).toContain("Check");
       expect(grouped).not.toContain("\x1b");

@@ -16,7 +16,7 @@ Compact cards show [result summaries](docs/presentation.md#results) or bounded p
 
 Verbose mode reveals individual cards and available output. Fullscreen group clicks toggle all members; regular-mode mouse input belongs to the terminal.
 
-Summary mode hides tool output behind counts: transcript search cannot find it, images are counted but not displayed, and failures appear only as counts until the run is opened. Switching modes does not preserve the scroll position.
+Summary mode hides tool output behind counts: transcript search cannot find it, image-bearing calls contribute counts without displaying images, and failures appear only as counts until the run is opened. Switching modes does not preserve the scroll position.
 
 Assistant prose blocks use `•` with a hanging indent, matching tool headings. Markdown formatting stays native; user messages, thinking, and diagnostics do not gain markers.
 
@@ -56,7 +56,9 @@ Set literal `ext.pi-tool-display` in global `~/.pi/agent/settings.json` (or `$PI
 }
 ```
 
-`collapsedMode` selects the startup mode, `summary` (default) or `compact`; collapsing from verbose, including extension `setToolsExpanded(false)` requests, returns to it. Cycling never writes settings; the current mode persists across `/reload` and session switches.
+`collapsedMode` selects the startup mode, `summary` (default) or `compact`, and the target when an extension calls `setToolsExpanded(false)` from verbose. **Ctrl+O** follows the [mode cycle](#usage) regardless of this setting; a collapse request while already in summary or compact leaves the mode unchanged.
+
+Mode changes stay in memory for the current Pi host across transcript reconstruction, `/reload`, and session switches. They never write settings or session history; a new Pi process uses the startup setting (or `--verbose`).
 
 `showParameters` defaults to `false`; `true` shows optional details, with structured blocks still requiring expansion. MCP/generic cards always show arguments. Custom renderers, execution, and saved arguments are unaffected.
 
@@ -72,7 +74,7 @@ Unavailable names are allowed. Overrides neither enable tools, delete metadata, 
 
 Settings load before history reconstruction and on `/reload`. Trusted project fields merge over global settings: explicit `collapsedMode` and `showParameters` replace, omission inherits; overrides replace by tool name, `auto` resets inherited overrides, and an empty map inherits.
 
-Untrusted settings are ignored. Both sections validate before merging; either invalid section preserves original renderers and disables display observations, even if later overridden. Warnings name the source/key as terminal-safe text without changing settings or paths.
+Untrusted project settings are ignored before validation. Applicable sections validate before merging; either invalid section preserves original renderers and disables display observations, even if later overridden. Warnings name the source/key as terminal-safe text without changing settings or paths.
 
 No extension-specific environment variables, CLI flags, watchers, or settings writes.
 
@@ -82,13 +84,13 @@ No extension-specific environment variables, CLI flags, watchers, or settings wr
 
 In TUI sessions, verified native `bash`, `powershell`, `edit`, and `write` observations collect shell previews, timing, outcomes, and pre-write contents. [File observations](../../libs/src/file-mutations/README.md) are shared with `pi-agent-summary` without duplicate reads. External writers may race; display failures never change tool outcomes.
 
-Session history stores operation/cancellation facts, bounded patches, and saved-output references outside model context. Live shell previews stay in memory. **Deleted/context lines from overwritten files may persist in history.** Native edit patches are saved before result middleware can replace them.
+Session history stores operation/cancellation facts, bounded patches, and saved-output references in `pi-tool-display.facts` custom entries outside model context. Live shell previews stay in memory. **Deleted/context lines from overwritten files may persist in history.** Native edit patches are saved before result middleware can replace them.
 
 Display observation excludes SDK overrides, custom tools, and manual `!`/`!!` commands. Other extensions may still observe files in print, JSON, or RPC modes.
 
 Recorded cancellations survive middleware, replay, and renderer changes in generic/specialized cards. [Detection](docs/presentation.md#outcomes) needs recorded or structured evidence, never output text alone, including older/print histories.
 
-History reconstructs without rerunning tools or animating incomplete calls. Unrecorded durations, exact exit codes, and pre-write contents remain unavailable.
+History replays facts only for matching calls on the selected ancestry, without rerunning tools or animating incomplete calls. Unrecorded durations, exact exit codes, and pre-write contents remain unavailable.
 
 Expanding completed shell cards reads bounded previews from Pi's temporary output files. Failed calls retain published results beside previews; unavailable files retain output with a notice. See [loading/retry behavior](docs/presentation.md#saved-output-previews). No durable output archive or network requests.
 

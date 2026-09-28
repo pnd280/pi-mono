@@ -118,6 +118,31 @@ it("counts every command call but only the latest outcome per file", () => {
   }
 });
 
+it.each([
+  ["read", nativeAdapter("read")!, "read"],
+  ["read", selectiveReadDisplayAdapter, "read"],
+  ["edit", nativeAdapter("edit")!, "edit"],
+  ["write", nativeAdapter("write")!, "edit"],
+  ["ls", nativeAdapter("ls")!, "list"]
+] as const)(
+  "deduplicates %s paths by native Unicode-space identity (%#)",
+  (name, adapter, category) => {
+    const { coordinator, add, finish, summary } = transcript();
+    const args = Object.freeze({ path: "src\u00a0dir/a\u2007b.ts" });
+
+    try {
+      finish(add(name, args, { adapter }), "failure", "first attempt failed");
+      finish(add(name, { path: "src dir/a b.ts" }, { adapter }));
+      expect(shape(summary())).toEqual([`${category}:1`]);
+      finish(add(name, { path: "src\u202fdir/a b.ts" }, { adapter }), "cancelled");
+      expect(shape(summary())).toEqual([`${category}:1 cancelled=1`]);
+      expect(args.path).toBe("src\u00a0dir/a\u2007b.ts");
+    } finally {
+      coordinator.dispose();
+    }
+  }
+);
+
 it("distinguishes cancelled and unavailable items", () => {
   const { coordinator, add, finish, summary } = transcript();
 
@@ -185,12 +210,20 @@ it("falls back when adapters reject partial arguments or throw", () => {
   }
 });
 
-it("omits calls with empty items from counts", () => {
+it("omits owner-excluded calls, including invalid todo calls, and supported empty items", () => {
   const { coordinator, add, finish, summary } = transcript();
   const todo = (args: unknown) => add("todo", args, { adapter: todoDisplayAdapter });
 
   try {
     finish(todo({ action: "create", subject: "Plan" }));
+    finish(todo({}), "failure", "Invalid todo arguments");
+    finish(
+      add(
+        "bookkeeping",
+        {},
+        { adapter: { id: "owner:empty", family: "invocation", summaryItems: () => [] } }
+      )
+    );
     expect(summary()).toEqual({ segments: [] });
 
     finish(add("read", { path: "a.ts" }));
@@ -200,3 +233,24 @@ it("omits calls with empty items from counts", () => {
     coordinator.dispose();
   }
 });
+
+it.each([{ items: [] }, { items: [{ category: "read", identity: "untrusted-file" }] }])(
+  "keeps generic summary fallback without interpreting unsupported items $items",
+  ({ items }) => {
+    const { coordinator, add, finish, summary } = transcript();
+    const adapter: ToolDisplayAdapter = {
+      id: "owner:unsupported",
+      family: "read",
+      supports: () => false,
+      summaryItems: () => items,
+      outcome: () => "success"
+    };
+
+    try {
+      finish(add("custom", {}, { adapter }), "failure", "Unsupported result");
+      expect(shape(summary())).toEqual(["other:custom:1 failed=1"]);
+    } finally {
+      coordinator.dispose();
+    }
+  }
+);

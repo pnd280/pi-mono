@@ -29,6 +29,8 @@ Expansion adds full result text with terminal-safe rendering. API labels such as
 
 Adjacent `todo` calls form a collapsed `Todos` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
 
+Calls using this adapter are omitted from [run summary lines](../../../docs/presentation.md#summary-mode), including incompatible calls using generic fallback. They contribute no counts; a todo-only run shows no line.
+
 ## Validation
 
 Run the [focused validation commands](../../../../../../docs/development.md#focused-validation) with package name `pi-tool-display`.

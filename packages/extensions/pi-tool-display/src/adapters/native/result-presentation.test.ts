@@ -3,7 +3,7 @@ import { expect, it } from "vite-plus/test";
 import {
   nativeResultParts,
   nativeResultNotices,
-  nativeReadImageNotices
+  nativeReadNotices
 } from "./result-presentation.ts";
 
 it("reports backend omissions and saved-output references", () => {
@@ -38,7 +38,9 @@ it("requires a native image envelope before promoting image warnings", () => {
     `Read image file [image/png] literal prose\n${note}`,
     `Read image file [image/png]\n${note} literal prose`
   ]) {
-    expect(nativeReadImageNotices([{ type: "text", text }, image])).toEqual([]);
+    expect(
+      nativeReadNotices({ content: [{ type: "text", text }, image], details: undefined })
+    ).toEqual([]);
   }
 
   for (const text of [
@@ -47,9 +49,11 @@ it("requires a native image envelope before promoting image warnings", () => {
     `Read image file [image/png]\nliteral prose\n${omitted}`,
     `Read image file [image/png]\n${omitted}\n${note}\n`
   ])
-    expect(nativeReadImageNotices([{ type: "text", text }])).toEqual([]);
+    expect(nativeReadNotices({ content: [{ type: "text", text }], details: undefined })).toEqual(
+      []
+    );
   const text = `Read image file [image/bmp]\n${omitted}\n${note}`;
-  expect(nativeReadImageNotices([{ type: "text", text }])).toEqual([
+  expect(nativeReadNotices({ content: [{ type: "text", text }], details: undefined })).toEqual([
     { kind: "warning", text: omitted },
     { kind: "warning", text: note }
   ]);

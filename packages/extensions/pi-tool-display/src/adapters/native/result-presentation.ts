@@ -49,16 +49,28 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
   return notes.filter((note) => note === nonVisionImageNote || imageOmissionNotes.has(note));
 }
 
-/** Read bodies collapse independently of their image/model limitations. */
-export function nativeReadImageNotices(content: BorrowedToolResult["content"]): DisplayNotice[] {
-  const hasImages = content.some((block) => block.type === "image");
+/** Compact reads retain diagnostics from the same native envelopes as expanded text. */
+export function nativeReadNotices(result: BorrowedToolResult): DisplayNotice[] {
+  const hasImages = result.content.some((block) => block.type === "image");
 
-  return content.flatMap((block) =>
+  return result.content.flatMap((block, contentIndex) =>
     block.type === "text"
-      ? nativeImageWarnings(block.text, hasImages).map((text) => ({
-          kind: "warning" as const,
-          text
-        }))
+      ? nativeResultParts(
+          "read",
+          block.text,
+          {},
+          {
+            result,
+            contentIndex,
+            expanded: false,
+            isError: false,
+            isPartial: false,
+            isCancelled: false,
+            hasImages
+          }
+        )
+          .filter((part) => part.kind === "warning")
+          .map((part) => ({ kind: "warning" as const, text: part.text }))
       : []
   );
 }

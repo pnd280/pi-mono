@@ -36,6 +36,8 @@ async function readOutput(path: string): Promise<SavedOutput> {
 
 /** Session-scoped preview policy. Renderers never initiate reads. */
 export class SavedOutputLoader extends AsyncCache<string, SavedOutput> {
+  private evicted = new WeakSet<SavedOutput>();
+
   constructor(
     loadFile: (path: string) => Promise<SavedOutput> = readOutput,
     onEvict: (path: string) => void = () => {}
@@ -44,12 +46,20 @@ export class SavedOutputLoader extends AsyncCache<string, SavedOutput> {
       capacity: SAVED_OUTPUT_CACHE_ENTRIES,
       maxPending: SAVED_OUTPUT_CACHE_ENTRIES,
       load: loadFile,
-      onEvict,
+      onEvict: (path, output) => {
+        this.evicted.add(output);
+        onEvict(path);
+      },
       onBusy: (path) => ({
         path,
         notice: "Saved-output loading limit reached; expand again to retry.",
         retryable: true
       })
     });
+  }
+
+  /** A cache hit may be evicted before its caller's publication microtask runs. */
+  wasEvicted(output: SavedOutput): boolean {
+    return this.evicted.has(output);
   }
 }

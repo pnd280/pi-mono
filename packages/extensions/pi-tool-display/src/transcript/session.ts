@@ -124,10 +124,12 @@ export class DisplaySession {
       call.lifecycle !== "complete"
     )
       return;
+    this.coordinator.setSavedOutput(call, undefined);
     void this.output
       .load(path)
       .then((output) => {
-        if (this.disposed || !output || call.savedPath !== path) return;
+        if (this.disposed || !output || call.savedPath !== path || this.output.wasEvicted(output))
+          return;
         this.coordinator.setSavedOutput(call, output);
       })
       .catch(() => {});
@@ -147,10 +149,12 @@ export class DisplaySession {
     if (this.disposed) return;
     const call = this.coordinator.byId(id);
     if (!call) return;
-    if (!partial && outcome === "cancelled" && call.origin === "live" && !call.cancellation)
-      this.observe(call, { kind: "cancellation", availability: "available" });
-    this.coordinator.result(call, result, outcome, partial);
-    this.retainPath(call, result);
+    this.coordinator.batch(() => {
+      if (!partial && outcome === "cancelled" && call.origin === "live" && !call.cancellation)
+        this.observe(call, { kind: "cancellation", availability: "available" });
+      this.coordinator.result(call, result, outcome, partial);
+      this.retainPath(call, result);
+    });
   }
   message(
     input: TranscriptMessage | undefined,

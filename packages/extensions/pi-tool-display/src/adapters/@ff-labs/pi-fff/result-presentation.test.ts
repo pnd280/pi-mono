@@ -33,6 +33,20 @@ it("distinguishes FFF metadata and diagnostics from matching source text", () =>
   expect(fffResultParts("No matches found", "grep", complete)).toEqual([
     { kind: "annotation", text: "No matches found" }
   ]);
+
+  for (const diagnostic of [
+    '[Query "needle" produced only weak scattered fuzzy matches. Output capped at 5/100.]',
+    "[0 exact matches. Maybe you meant this?]\nexample.ts\n 1: match"
+  ]) {
+    expect(
+      fffResultParts(diagnostic, "find", complete)
+        .map((part) => part.text)
+        .join("")
+    ).toBe(diagnostic);
+    expect(
+      fffTextNotices({ content: [{ type: "text", text: diagnostic }], details: undefined }, "find")
+    ).not.toEqual([]);
+  }
 });
 it.each([
   ["find", '[32 more matches available. cursor="3" to continue]'],
@@ -126,22 +140,5 @@ it.each(["unclosed group", "regex parse error:\n    (\n    ^\nerror: unclosed gr
         .map((part) => part.text)
         .join("")
     ).toBe(supplied.content[0]!.text);
-
-    for (const diagnostic of [
-      '[Query "needle" produced only weak scattered fuzzy matches. Output capped at 5/100.]',
-      "[0 exact matches. Maybe you meant this?]\nexample.ts\n 1: match"
-    ]) {
-      expect(
-        fffResultParts(diagnostic, "find", complete)
-          .map((part) => part.text)
-          .join("")
-      ).toBe(diagnostic);
-      expect(
-        fffTextNotices(
-          { content: [{ type: "text", text: diagnostic }], details: undefined },
-          "find"
-        )
-      ).not.toEqual([]);
-    }
   }
 );

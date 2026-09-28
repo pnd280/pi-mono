@@ -25,7 +25,7 @@ const sourceSchema = z.object({ [SETTINGS_KEY]: z.unknown().optional() });
 
 export type RendererMode = z.infer<typeof rendererModeSchema>;
 
-/** Startup and collapse target of the Ctrl+O cycle; verbose is never a setting. */
+/** Startup mode and programmatic collapse target; verbose is never a setting. */
 export type CollapsedMode = z.infer<typeof collapsedModeSchema>;
 
 export interface DisplaySettings {

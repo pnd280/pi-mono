@@ -308,6 +308,8 @@ export type ToolDisplayAdapter = {
   imageCaptionMimeType?(text: string): string | undefined;
   /** Supply typed MCP facts, or undefined when unavailable; never infer lost protocol types. */
   mcp?(args: unknown, result?: BorrowedToolResult): McpFacts | undefined;
+  /** Internal: omit this owner's calls from run summaries, even when their cards fall back. */
+  omitFromSummary?: boolean;
   /**
    * Internal: summary-mode items for this call. Handle partial arguments; undefined
    * uses the family's category and counts the call once. An empty list omits the call

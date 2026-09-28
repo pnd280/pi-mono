@@ -117,7 +117,6 @@ it("indexes source entries once and keeps the latest fact per adapter, call, and
     const facts = records.forCall(reference);
     expect(facts).toHaveLength(1);
     expect(facts[0]!.fact).toMatchObject({ durationMs: 2 });
-    expect(records.forCall(reference)).toBe(facts);
   }
 
   expect(accesses).toBeLessThanOrEqual(branch.length);

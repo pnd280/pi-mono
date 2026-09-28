@@ -10,12 +10,12 @@ Creates disposable files, settings, temporary output, and session history.
 Prints their directory and retains it after exit for replay.
 Use --reuse with that directory to reopen it without resetting files.
 Additional arguments are passed to the installed Pi executable.
-Prompts: explore, scopes, native-mixed, normalization, exceptions, filenames, thinking, buffered,
+Prompts: summary, explore, scopes, native-mixed, normalization, exceptions, filenames, thinking, buffered,
          fff, diff, output, cancel, images, public, mcp (requires MCP fixture setup)`,
   createWorkspace: createFixtureWorkspace,
   launch: fixtureLaunch,
   describe: (directory) => [
     `Fixture directory: ${directory}`,
-    "Prompts: explore, scopes, native-mixed, normalization, exceptions, filenames, thinking, buffered, fff, diff, output, cancel, images, public, mcp"
+    "Prompts: summary, explore, scopes, native-mixed, normalization, exceptions, filenames, thinking, buffered, fff, diff, output, cancel, images, public, mcp"
   ]
 });

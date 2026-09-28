@@ -24,9 +24,10 @@ Build schema fixtures through the same projection as the registered tool, and re
 
 ## Summary items
 
-[Summary mode](presentation.md#summary-mode) uses two internal adapter fields. They are not part of the [renderer API](renderers.md) yet and may change without notice.
+[Summary mode](presentation.md#summary-mode) uses internal adapter fields. They are not part of the [renderer API](renderers.md) yet and may change without notice.
 
-- `summaryItems(args, { result, change, cwd })` returns the items a call contributes to its run's summary line. Each item names a `category` and an optional `identity` that deduplicates it within the category, such as a lexically resolved file or directory path; items without one count every call. Return `[]` to omit the call from summary lines, as todo calls do, or `undefined` for partial or invalid arguments; the call then counts once in its family's category (`write` by its change fact, `invocation` per tool name).
+- `omitFromSummary: true` excludes the owner's calls even when incompatible arguments/results require generic cards, as for todo bookkeeping. This static policy never interprets unsupported result facts.
+- `summaryItems(args, { result, change, cwd })` returns the items a supported call contributes to its run's summary line. Each item names a `category` and an optional `identity`, such as a lexically resolved file or directory path. Identities deduplicate within the category using the latest outcome; items without one count every call. Return `[]` to omit that call or `undefined` to count it once in its family's category (`write` by its change fact, `invocation` per tool name). Generic fallback does not use this callback or adapter result facts.
 - `summaryCategories` declares new categories with `count` wording for one and several items (both use `{n}`). A leading word before the first placeholder renders as the verb. Built-in categories cannot be redefined.
 
 Built-in categories are listed under [summary counting](presentation.md#counting).
