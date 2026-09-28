@@ -71,7 +71,7 @@ Existing implementation requests need no repeat approval. Preserve raw data cont
 
 ### 5. Verify and report
 
-Follow [required verification](../../../docs/agents/verification.md): check changed document formatting and links; for code changes, run relevant formatting, lint, types, behavior, and consumer checks. Review the diff for correctness and scope.
+Follow [required verification](../../../../docs/agents/verification.md): check changed document formatting and links; for code changes, run relevant formatting, lint, types, behavior, and consumer checks. Review the diff for correctness and scope.
 
 Report findings or changes, scope, priorities, important keep-as-is cases, exact checks/results, and remaining uncertainty. Distinguish verified outcomes from proposed checks and unfinished work.
 

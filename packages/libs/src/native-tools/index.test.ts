@@ -8,11 +8,17 @@ import {
   ModelRuntime,
   SessionManager,
   SettingsManager,
-  type AgentSession
+  type AgentSession,
+  type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
-import { observeFileMutations, type FileMutation } from "../file-mutations/index.ts";
+import {
+  observeFileMutations,
+  type FileMutation,
+  type MutationObserver
+} from "../file-mutations/index.ts";
+import { observeNativeTools } from "./index.ts";
 
 it.each([0, 1])(
   "shares a single mutation wrapper and restores it after subscriber %s is removed last",
@@ -37,6 +43,33 @@ it.each([0, 1])(
         })
       })
     );
+    const repeatedChanges: FileMutation[] = [];
+    const repeatedObserver: MutationObserver = {
+      eligible: (candidate: AgentSession) => candidate.sessionManager === manager,
+      begin: () => ({
+        maxSourceBytes: 1024,
+        completed: (value) => {
+          repeatedChanges.push(value);
+        }
+      })
+    };
+    const firstRepeated = observeFileMutations(repeatedObserver);
+    const secondRepeated = observeFileMutations(repeatedObserver);
+    const readCalls: string[] = [];
+    const readObserver = {
+      names: ["read"],
+      eligible: (candidate: AgentSession) => candidate.sessionManager === manager,
+      wrap: (_session: AgentSession, original: ToolDefinition) => ({
+        ...original,
+        execute(...args: Parameters<typeof original.execute>) {
+          readCalls.push("observed");
+
+          return original.execute(...args);
+        }
+      })
+    };
+    const firstRead = observeNativeTools(readObserver);
+    const secondRead = observeNativeTools(readObserver);
     let session: AgentSession | undefined;
     vi.stubEnv("PI_OFFLINE", "1");
 
@@ -77,23 +110,58 @@ it.each([0, 1])(
       };
 
       await execute("first\n");
+      expect(repeatedChanges).toHaveLength(2);
+
+      const read = () => {
+        const tool = session?.agent.state.tools.find((tool) => tool.name === "read");
+        if (!tool) throw new Error("Missing read");
+
+        return tool.execute("read", { path: "file" });
+      };
+
+      const retainedRead = session.agent.state.tools.find((tool) => tool.name === "read");
+      if (!retainedRead) throw new Error("Missing read");
+
+      await read();
+      expect(readCalls).toHaveLength(1);
+      firstRead.dispose();
+      await retainedRead.execute("old-read", { path: "file" });
+      expect(readCalls).toHaveLength(1);
+      await read();
+      expect(readCalls).toHaveLength(2);
+      firstRepeated.dispose();
+      await execute("repeated\n");
+      expect(repeatedChanges).toHaveLength(3);
       expect(changes.map((observations) => observations.map((change) => change.after))).toEqual([
-        [{ status: "ready", text: "first\n" }],
-        [{ status: "ready", text: "first\n" }]
+        [
+          { status: "ready", text: "first\n" },
+          { status: "ready", text: "repeated\n" }
+        ],
+        [
+          { status: "ready", text: "first\n" },
+          { status: "ready", text: "repeated\n" }
+        ]
       ]);
       broken.dispose();
       observers[1 - last]!.dispose();
       await execute("second\n");
       expect(changes[last]!.map((change) => change.after)).toEqual([
         { status: "ready", text: "first\n" },
+        { status: "ready", text: "repeated\n" },
         { status: "ready", text: "second\n" }
       ]);
-      expect(changes[1 - last]).toHaveLength(1);
+      expect(changes[1 - last]).toHaveLength(2);
+      secondRepeated.dispose();
       observers[last]!.dispose();
+      secondRead.dispose();
       await execute("unobserved\n");
-      expect(changes[last]).toHaveLength(2);
+      expect(changes[last]).toHaveLength(3);
     } finally {
       broken.dispose();
+      firstRepeated.dispose();
+      secondRepeated.dispose();
+      firstRead.dispose();
+      secondRead.dispose();
       observers.forEach((observer) => observer.dispose());
       session?.dispose();
       vi.unstubAllEnvs();

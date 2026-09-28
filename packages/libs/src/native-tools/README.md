@@ -9,6 +9,7 @@
 Observers wrap verified definitions before Pi attaches middleware. The registry preserves schemas, prompt metadata, settings, and active tool selection.
 
 Disposal restores unchanged replacements, preserves later wrappers, and makes retained wrappers use the original tool. The last subscriber releases shared hooks.
+Each subscription has its own lifetime, even if the same observer object is subscribed more than once.
 
 ## Caller responsibilities
 

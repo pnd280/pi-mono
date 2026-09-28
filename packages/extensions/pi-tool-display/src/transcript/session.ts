@@ -99,7 +99,11 @@ export class DisplaySession {
     const call = this.coordinator.byId(id);
     if (this.disposed || !call || call.origin !== "live" || call.adapter.id !== adapter)
       return undefined;
-    const source = this.history.messageEntry(call.reference.messageTimestamp);
+    const source = this.history.messageEntry(
+      call.reference.messageTimestamp,
+      call.reference.contentIndex,
+      call.reference.toolCallId
+    );
     if (source) this.coordinator.setReferenceEntry(call, source);
 
     return {
@@ -177,11 +181,9 @@ export class DisplaySession {
       return;
     }
 
-    const source = this.history.messageEntry(input.timestamp);
-
     coordinator.batch(() => {
       for (const content of input.calls) {
-        const position = `${input.timestamp}:${content.index}`;
+        const position = JSON.stringify([input.timestamp, content.index, content.id]);
         const selected =
           retainedAdapter(coordinator, content, input.timestamp, origin) ??
           this.options.selectAdapter(content.name);
@@ -192,6 +194,7 @@ export class DisplaySession {
           continue;
         }
 
+        const source = this.history.messageEntry(input.timestamp, content.index, content.id);
         const reference: CallReference = {
           messageTimestamp: input.timestamp,
           contentIndex: content.index,

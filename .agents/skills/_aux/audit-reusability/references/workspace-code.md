@@ -2,7 +2,7 @@
 
 [Return to the reusability audit](../SKILL.md).
 
-Use these checks for shared-package reuse or extraction across workspace consumers. Follow [workspace ownership and reuse rules](../../../../docs/agents/architecture.md) when choosing the destination.
+Use these checks for shared-package reuse or extraction across workspace consumers. Follow [workspace ownership and reuse rules](../../../../../docs/agents/architecture.md) when choosing the destination.
 
 ## Shared contract
 

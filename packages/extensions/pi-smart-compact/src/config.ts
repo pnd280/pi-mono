@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readSettingsFile } from "@pi-mono/libs/settings-file";
+import { readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
 
 export const thinkingLevelSchema = z.enum([
@@ -30,15 +30,10 @@ export type CompactConfig = z.output<typeof configSchema>;
 
 function readSection(path: string): CompactConfig {
   try {
-    const source = readSettingsFile(path);
-
-    if (source !== undefined) {
-      const raw: unknown = JSON.parse(source);
-      const parsed = settingsSchema.safeParse(raw);
-      if (parsed.success) return parsed.data["ext.pi-smart-compact"] ?? {};
-    }
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return {};
+    const parsed = settingsSchema.safeParse(readSettingsRecord(path));
+    if (parsed.success) return parsed.data["ext.pi-smart-compact"] ?? {};
+  } catch {
+    // Report only the redacted settings error below.
   }
 
   throw new Error(

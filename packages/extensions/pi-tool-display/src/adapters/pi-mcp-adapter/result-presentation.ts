@@ -70,11 +70,14 @@ function outputNotices(value: unknown): DisplayNotice[] {
   return notices;
 }
 
-export function mcpScriptSummary(result: BorrowedToolResult): ResultSummary | undefined {
+export function mcpScriptSummary(
+  result: BorrowedToolResult,
+  { outcome }: { outcome: Outcome }
+): ResultSummary | undefined {
   const details = scriptSummarySchema.safeParse(result.details).data;
   if (!details) return undefined;
   const count = details.calls.length;
-  const succeeded = count > 0 && details.calls.every((call) => call.ok);
+  const succeeded = outcome === "success" && count > 0 && details.calls.every((call) => call.ok);
 
   return {
     text: `${count} MCP ${count === 1 ? "operation" : "operations"}${succeeded ? " succeeded" : ""}`,

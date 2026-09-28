@@ -112,6 +112,21 @@ it("keeps tool names in their original case", () => {
   ]);
 });
 
+it("normalizes adapter-declared count labels before putting them in a summary row", () => {
+  const category = {
+    id: "custom",
+    count: {
+      one: "\x1b]52;c;YQ==\x07read {n} file\ncontinued",
+      other: "read {n} files"
+    }
+  };
+  const rendered = lines([
+    { category, count: 1, counts: { failed: 0, cancelled: 0, unavailable: 0 } }
+  ]);
+
+  expect(rendered).toEqual(["  Read 1 file continued"]);
+});
+
 it("colors problem counts without adding an outcome marker", () => {
   const success = lines([segment("read", 1)], {
     theme: tagged

@@ -29,6 +29,7 @@ import {
   Text,
   type TUI
 } from "@earendil-works/pi-tui";
+import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { expect, it, vi } from "vite-plus/test";
 
 import toolDisplay from "../index.ts";
@@ -1231,6 +1232,67 @@ it("preserves later in-place native wrappers when removing observation", async (
         false
       );
     } finally {
+      tui.footerDataProvider.dispose();
+    }
+  });
+});
+
+it("leaves another mutation subscriber active after display shutdown", async () => {
+  await withSession(async ({ session }) => {
+    const tui = interactiveHost(session);
+    const changes: string[] = [];
+    const subscriber = observeFileMutations({
+      eligible: (candidate) => candidate.sessionManager === session.sessionManager,
+      begin: () => ({
+        maxSourceBytes: 1024,
+        completed: (mutation) => {
+          if (mutation.after.status === "ready") changes.push(mutation.after.text);
+        }
+      })
+    });
+
+    try {
+      tui.renderSessionItems([]);
+      subscriber.bind(session.sessionManager);
+
+      const write = () => {
+        const tool = session.agent.state.tools.find((value) => value.name === "write");
+        if (!tool) throw new Error("Missing native write");
+
+        return tool;
+      };
+
+      const args = { path: "shared.txt", content: "display and summary" };
+      const call = fauxToolCall("write", args, { id: "shared-write" });
+      const message = assistantMessage([call]);
+      await tui.handleEvent({ type: "message_start", message });
+      await tui.handleEvent({
+        type: "message_update",
+        message,
+        assistantMessageEvent: {
+          type: "toolcall_end",
+          contentIndex: 0,
+          toolCall: call,
+          partial: message
+        }
+      });
+      await tui.handleEvent({ type: "message_end", message });
+      await write().execute(call.id, args);
+      expect(changes).toEqual([args.content]);
+      expect(
+        session.sessionManager
+          .getEntries()
+          .some((entry) => entry.type === "custom" && entry.customType === METADATA_TYPE)
+      ).toBe(true);
+
+      await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+      await write().execute("after-display", { ...args, content: "summary remains" });
+      expect(changes).toEqual([args.content, "summary remains"]);
+      subscriber.dispose();
+      await write().execute("after-both", { ...args, content: "no observers" });
+      expect(changes).toHaveLength(2);
+    } finally {
+      subscriber.dispose();
       tui.footerDataProvider.dispose();
     }
   });

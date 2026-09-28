@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { readSettingsFile } from "@pi-mono/libs/settings-file";
 import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
 import { z } from "zod";
 
@@ -74,7 +74,9 @@ function resolveShortcuts(settings: Settings, warnings: string[]) {
 /** The caller must establish TUI mode before calling this global-only reader. */
 export async function loadSettings(agentDir: string) {
   try {
-    const content = await readFile(join(agentDir, "settings.json"), "utf8");
+    const content = readSettingsFile(join(agentDir, "settings.json"));
+    if (content === undefined) throw new Error("Invalid settings file.");
+    if (content === "") return parseSettings(undefined);
     const raw: unknown = JSON.parse(content.startsWith("\uFEFF") ? content.slice(1) : content);
     const parsed = globalSettingsSchema.safeParse(raw);
 

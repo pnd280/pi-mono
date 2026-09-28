@@ -26,19 +26,19 @@ Read applicable repository instructions and [workspace development guidance](../
 
 Execute these phases sequentially. Resolve relative skill links from this file and expand `~` to the user's home directory. The scope and implementation authorization above take precedence over child skills' default scope, review-only mode, and confirmation steps.
 
-1. [UI consistency](../audit-ui-consistency/SKILL.md)
+1. [UI consistency](../_aux/audit-ui-consistency/SKILL.md)
    Audit and apply justified UI consistency fixes. Establish intended user-facing contracts and preserve intentional differences. If no UI surfaces are relevant, record why this phase is not applicable.
 
-2. [Reusability](../audit-reusability/SKILL.md)
+2. [Reusability](../_aux/audit-reusability/SKILL.md)
    Audit and apply verified substitutions and justified shared extractions. Preserve consumer policy and ownership; do not introduce abstractions merely because code looks similar.
 
 3. [TypeScript review](~/.pi/agent/skills/_router/typescript-review/SKILL.md)
    Review runtime correctness and type contracts together using both companions named by the skill. Reconcile findings by root cause and apply evidence-backed fixes. If no TypeScript is relevant, record why this phase is not applicable.
 
-4. [Coding style](../audit-coding-style/SKILL.md)
+4. [Coding style](../_aux/audit-coding-style/SKILL.md)
    Audit and normalize the resulting implementation using established conventions. Preserve behavior and avoid cosmetic churn without maintenance benefit.
 
-5. [Tests](../audit-tests/SKILL.md)
+5. [Tests](../_aux/audit-tests/SKILL.md)
    Audit and apply test cleanup against the resulting production structure. Preserve distinct regression protection and require evidence for removals. Address meaningful coverage gaps introduced or exposed by this work.
 
 6. [Documentation](~/.pi/agent/skills/audit-docs/SKILL.md)

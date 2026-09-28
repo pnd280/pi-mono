@@ -25,4 +25,4 @@ for (let index = 0; index < count; index++) {
   if (result.status !== "committed") throw new Error("Worker mutation failed.");
 }
 
-process.disconnect();
+process.disconnect?.();

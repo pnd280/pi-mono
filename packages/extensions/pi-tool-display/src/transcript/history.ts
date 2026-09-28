@@ -5,24 +5,26 @@ import { DisplayRecordIndex } from "./metadata.ts";
 
 export type HistorySource = Pick<SessionManager, "getBranch" | "getLeafId" | "getEntry">;
 
-/** Index only the selected ancestry; divergent branches must drop old timestamp associations. */
+/** Index only the selected ancestry; divergent branches must drop old call associations. */
 export class DisplayHistory {
   private metadata: DisplayRecordIndex;
-  private messageEntries: Map<number, string>;
+  private messageEntries: Map<number, Map<string, string>>;
   private indexedLeaf: string | null;
   constructor(private source: HistorySource) {
     const branch = source.getBranch();
     this.metadata = new DisplayRecordIndex(branch);
-    this.messageEntries = new Map(
-      branch.flatMap((entry) =>
-        entry.type === "message" && entry.message.role === "assistant"
-          ? [[entry.message.timestamp, entry.id] as const]
-          : []
-      )
-    );
+    this.messageEntries = new Map();
+    for (const entry of branch) this.indexMessage(entry);
     this.indexedLeaf = source.getLeafId();
   }
-  messageEntry(timestamp: number): string | undefined {
+  private indexMessage(entry: ReturnType<HistorySource["getEntry"]>): void {
+    if (!entry || entry.type !== "message" || entry.message.role !== "assistant") return;
+    const entries = this.messageEntries.get(entry.message.timestamp) ?? new Map<string, string>();
+    for (const [index, content] of entry.message.content.entries())
+      if (content.type === "toolCall") entries.set(JSON.stringify([index, content.id]), entry.id);
+    this.messageEntries.set(entry.message.timestamp, entries);
+  }
+  messageEntry(timestamp: number, contentIndex: number, toolCallId: string): string | undefined {
     const manager = this.source;
     const leaf = manager.getLeafId();
 
@@ -38,15 +40,13 @@ export class DisplayHistory {
       }
 
       // Usually only the newly appended entries are visited. A divergent ancestry
-      // must drop stale timestamp associations even before the host reconstructs.
+      // must drop stale call associations even before the host reconstructs.
       if (id !== this.indexedLeaf) this.messageEntries.clear();
-      for (const entry of added.reverse())
-        if (entry.type === "message" && entry.message.role === "assistant")
-          this.messageEntries.set(entry.message.timestamp, entry.id);
+      for (const entry of added.reverse()) this.indexMessage(entry);
       this.indexedLeaf = leaf;
     }
 
-    return this.messageEntries.get(timestamp);
+    return this.messageEntries.get(timestamp)?.get(JSON.stringify([contentIndex, toolCallId]));
   }
   facts(call: DisplayCall): readonly DisplayFact[] {
     const records = this.metadata.forCall(call.reference);

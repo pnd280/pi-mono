@@ -64,6 +64,8 @@ Set literal `ext.pi-prompt-manager` in global `~/.pi/agent/settings.json`, or `$
 
 Fields validate independently with warnings for invalid/unknown values. Pi may warn about built-in conflicts, including Ctrl+R session renaming.
 
+Settings files must be complete regular files no larger than 1 MiB; otherwise prompt-manager uses defaults and warns.
+
 Apply changes with `/reload`; settings are never rewritten. Lower retention prunes History only on the next committed capture.
 
 ## Side effects

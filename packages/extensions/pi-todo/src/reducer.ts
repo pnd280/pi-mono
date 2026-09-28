@@ -1108,7 +1108,10 @@ function sanitizedParams(
     const value = params[key];
 
     if (key !== offendingParam && value !== undefined && paramFitsEmissionLimit(key, value)) {
-      Object.assign(sanitized, { [key]: value });
+      let independentValue = value;
+      if (key === "metadata") independentValue = structuredClone(value);
+      else if (Array.isArray(value)) independentValue = [...value];
+      Object.assign(sanitized, { [key]: independentValue });
     }
   }
 

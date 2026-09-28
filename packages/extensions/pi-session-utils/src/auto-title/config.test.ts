@@ -49,6 +49,18 @@ it("reads only the explicit auto-title section without changing global settings"
   expect(readFileSync(globalPath, "utf8")).toBe(source);
 });
 
+it("accepts Pi-compatible BOM-prefixed global and trusted project settings", () => {
+  const { cwd, agentDir } = settings(
+    `\uFEFF${globalSettings}`,
+    `\uFEFF${titleSettings({ model: "provider/project" })}`
+  );
+  expect(loadTitleConfig(cwd, { agentDir })).toEqual(globalConfig);
+  expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
+    model: "provider/project",
+    thinkingLevel: "off"
+  });
+});
+
 it.each([
   undefined,
   "{}",

@@ -37,6 +37,7 @@ Completed scripts summarize validated `details.calls` records. Tool calls, tool 
 - Failed or unfinished operations keep an output preview beside the total, with separate warning counts. An operation with `ok: false` and `error: "incomplete"` counts as unfinished rather than failed.
 - Scripts with no recorded operations show `0 MCP operations` and keep an output preview.
 - Malformed operation records use an output preview without a summary.
+- Failed or cancelled scripts retain their operation count and diagnostic output even if their recorded nested operations succeeded.
 
 Direct resource URIs and references to omitted raw MCP results appear on expansion. Output truncation, saved-output references, and script operation failures remain visible when collapsed. Failures use `error` for markers, status notices, and diagnostic bodies. Cancellation diagnostics use `warning`.
 

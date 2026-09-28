@@ -56,12 +56,12 @@ Record one finding per cause with title, priority, category, classification, loc
 
 Implement authorized substitutions or extractions without repeat approval. Leave conditional redesigns outside that authorization as decisions. Preserve identifiers, ownership, and consumer policy; remove superseded code, update all consumers and inaccurate documentation, and add compatibility aliases only if requested.
 
-Test shared contracts at their owner and consumer policy at integration boundaries. Follow [testing guidance](../../../docs/agents/testing.md) when adding regressions for plausible gaps, including red/green evidence; rely on existing dependency coverage for unchanged dependency behavior.
+Test shared contracts at their owner and consumer policy at integration boundaries. Follow [testing guidance](../../../../docs/agents/testing.md) when adding regressions for plausible gaps, including red/green evidence; rely on existing dependency coverage for unchanged dependency behavior.
 
 **Complete when:** every authorized change and affected consumer is updated and required checks pass. Report blocked changes as incomplete.
 
 ### 5. Verify and report
 
-Follow [required verification](../../../docs/agents/verification.md) for changed files and review the diff for correctness and scope.
+Follow [required verification](../../../../docs/agents/verification.md) for changed files and review the diff for correctness and scope.
 
 **Complete when:** the report includes prioritized findings or changes, scope/exclusions, important keep-local decisions, dependency versions, exact checks/results, and remaining uncertainty. Unreviewed areas and unverified contracts remain visible rather than implied complete.

@@ -87,7 +87,7 @@ Use validated metadata or recorded facts. Distinguish collected/total matches an
 
 Summaries precede output. Nonempty compact summaries replace successful text unless `preserveOutput: true`, as for shell status. Failure/cancellation output, notices, and images remain; expansion restores retained text.
 
-Missing, empty, or whitespace-only summaries use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
+Missing summaries, including those that display as blank after terminal-control sanitization, use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
 
 Use `notices` for diagnostics and references that must remain visible when a summary replaces output. Notice severity controls styling, not visibility. Compact groups retain `info` notices.
 

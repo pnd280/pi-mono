@@ -32,8 +32,9 @@ export function readSettingsRecord(path: string): Record<string, unknown> {
     const source = readSettingsFile(path);
     if (source === undefined)
       throw new Error("Settings must be a complete regular file up to 1 MiB.");
+    if (source === "") return {};
 
-    const record: unknown = JSON.parse(source);
+    const record: unknown = JSON.parse(source.startsWith("\uFEFF") ? source.slice(1) : source);
     if (!isSettingsRecord(record)) throw new Error("Settings must be a JSON object.");
 
     return record;
@@ -70,7 +71,22 @@ export function updateSettingsRecord(
     release = lockSync(path, { realpath: false });
     const target = writeTarget(path);
     const record = readSettingsRecord(path);
-    update(record);
+    // A void callback type also accepts async functions. Never commit a
+    // record before its mutation finishes.
+    const outcome: unknown = update(record);
+
+    if (
+      outcome !== null &&
+      (typeof outcome === "object" || typeof outcome === "function") &&
+      "then" in outcome &&
+      typeof outcome.then === "function"
+    ) {
+      // The rejected mutation is no longer ours to await, but its rejection
+      // must not surface as an unhandled promise after releasing the lock.
+      void Promise.resolve(outcome).catch(() => {});
+      throw new TypeError("Settings mutations must be synchronous.");
+    }
+
     const content = `${JSON.stringify(record, null, 2)}\n`;
     if (Buffer.byteLength(content) > MAX_SETTINGS_FILE_BYTES)
       throw new Error("Settings exceed 1 MiB.");

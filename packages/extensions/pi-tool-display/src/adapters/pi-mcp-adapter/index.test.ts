@@ -329,6 +329,28 @@ it("summarizes only validated script operations and preserves output without suc
     expect(summary(details)).toBeUndefined();
 });
 
+it("retains the diagnostic when a script fails after successful nested operations", () => {
+  const adapter = piMcpAdapter(mcpToolInfo("mcpScript"))!;
+  const supplied = result({
+    mode: "script",
+    error: "script_error",
+    calls: [{ operation: "call", ok: true }]
+  });
+  expect(
+    adapter.summary?.(supplied, {
+      args: { code: "throw new Error('failed')" },
+      outcome: "failure",
+      operation: undefined,
+      expanded: false
+    })
+  ).toEqual({ text: "1 MCP operation", preserveOutput: true });
+  const renderer = createToolDisplayRenderers("mcpScript", adapter);
+  const current = { ...context(), args: { code: "throw new Error('failed')" } };
+  const output = renderer.renderResult(supplied, current, theme, current).render(100).join("\n");
+  expect(output).toContain("published output");
+  expect(output).not.toContain("operation succeeded");
+});
+
 it("exposes bounded-output references and script failures without dumping details", () => {
   const adapter = piMcpAdapter(mcpToolInfo("mcpScript"))!;
   const supplied = result({

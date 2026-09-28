@@ -214,14 +214,15 @@ export function observeMutationDefinition(
 
 const sharedKey = Symbol.for("pi-mono.file-mutations");
 class SharedMutations {
-  private observers = new Set<MutationObserver>();
+  private observers = new Set<{ observer: MutationObserver }>();
   private native = observeNativeTools({
     names: ["edit", "write"],
     eligible: (session, name) =>
-      [...this.observers].some((observer) => safely(() => observer.eligible(session, name))),
+      [...this.observers].some(({ observer }) => safely(() => observer.eligible(session, name))),
     wrap: (session, original, settings) =>
       observeMutationDefinition(original, settings.cwd, (id) =>
-        [...this.observers].flatMap((observer) => {
+        [...this.observers].flatMap((subscription) => {
+          const { observer } = subscription;
           const sink = safely(() =>
             observer.eligible(session, original.name)
               ? observer.begin(session, original.name, id)
@@ -234,10 +235,10 @@ class SharedMutations {
             {
               maxSourceBytes: sink.maxSourceBytes,
               started: () => {
-                if (this.observers.has(observer)) sink.started?.();
+                if (this.observers.has(subscription)) sink.started?.();
               },
               completed: (mutation: FileMutation) => {
-                if (this.observers.has(observer)) return sink.completed(mutation);
+                if (this.observers.has(subscription)) return sink.completed(mutation);
               }
             }
           ];
@@ -245,7 +246,8 @@ class SharedMutations {
       )
   });
   subscribe(observer: MutationObserver) {
-    this.observers.add(observer);
+    const subscription = { observer };
+    this.observers.add(subscription);
     let active = true;
 
     return {
@@ -253,7 +255,7 @@ class SharedMutations {
       dispose: () => {
         if (!active) return;
         active = false;
-        this.observers.delete(observer);
+        this.observers.delete(subscription);
         if (this.observers.size) return;
         this.native.dispose();
         const prototype: object & { [sharedKey]?: SharedMutations } = AgentSession.prototype;

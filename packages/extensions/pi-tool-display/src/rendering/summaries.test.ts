@@ -353,6 +353,7 @@ it.each([false, true])(
 it("treats empty summaries as absent and never suppresses failure output", () => {
   for (const [summary, failed] of [
     [" ", false],
+    ["\x1b[31m", false],
     ["Result summary", true]
   ] as const) {
     const text = render({

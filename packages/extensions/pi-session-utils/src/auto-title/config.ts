@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readSettingsFile } from "@pi-mono/libs/settings-file";
+import { readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
 
 const configSchema = z.strictObject({
@@ -21,15 +21,10 @@ export type TitleConfig = z.output<typeof configSchema>;
 
 function readSection(path: string) {
   try {
-    const source = readSettingsFile(path);
-    if (source === undefined) return undefined;
-    const raw: unknown = JSON.parse(source);
-    const parsed = settingsSchema.safeParse(raw);
+    const parsed = settingsSchema.safeParse(readSettingsRecord(path));
 
     return parsed.success ? (parsed.data["ext.pi-session-utils"]?.["auto-title"] ?? {}) : undefined;
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return {};
-
+  } catch {
     return undefined;
   }
 }

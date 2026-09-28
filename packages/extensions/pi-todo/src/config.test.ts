@@ -7,6 +7,31 @@ import { expect, it } from "vite-plus/test";
 
 import { loadTodoConfig } from "./config.ts";
 
+it("reads Pi-compatible BOM-prefixed global and trusted project settings", () => {
+  const root = mkdtempSync(join(tmpdir(), "pi-todo-settings-bom-"));
+  const agentDir = join(root, "agent");
+  const projectPath = join(root, CONFIG_DIR_NAME, "settings.json");
+  mkdirSync(agentDir);
+  mkdirSync(join(root, CONFIG_DIR_NAME));
+
+  try {
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      `\uFEFF${JSON.stringify({ "ext.pi-todo": { collapseWidgetByDefault: true } })}`
+    );
+    writeFileSync(
+      projectPath,
+      `\uFEFF${JSON.stringify({ "ext.pi-todo": { collapseWidgetByDefault: false } })}`
+    );
+    expect(loadTodoConfig(root, { agentDir })).toEqual({ collapseWidgetByDefault: true });
+    expect(loadTodoConfig(root, { agentDir, projectTrusted: true })).toEqual({
+      collapseWidgetByDefault: false
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 it("ignores oversized project settings instead of overriding valid global settings", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-todo-settings-limit-"));
   const agentDir = join(root, "agent");

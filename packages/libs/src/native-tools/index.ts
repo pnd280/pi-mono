@@ -27,7 +27,7 @@ type Replacement = {
   original: ToolDefinition;
   replacement: ToolDefinition;
   fields: ToolDefinition;
-  observer: NativeToolObserver;
+  subscriber: { observer: NativeToolObserver };
 };
 
 type Construction = {
@@ -41,7 +41,7 @@ const registryKey = Symbol.for("pi-mono.native-tools");
 /** One provenance/restore boundary shared across independently loaded extensions. */
 class NativeTools {
   private hooks = new OwnedHooks();
-  private observers = new Set<NativeToolObserver>();
+  private observers = new Set<{ observer: NativeToolObserver }>();
   private sessions = new WeakMap<AgentSession, Construction>();
   private sessionRefs = new Set<WeakRef<AgentSession>>();
   private building = new WeakMap<AgentSession, NativeSettings>();
@@ -73,7 +73,7 @@ class NativeTools {
       if (registry.active) registry.safely(() => registry.refresh(this));
       const result = refresh.call(this, options);
       if (registry.active)
-        for (const observer of registry.observers)
+        for (const { observer } of registry.observers)
           registry.safely(() => observer.refreshed?.(this));
 
       return result;
@@ -86,7 +86,7 @@ class NativeTools {
     try {
       return action();
     } catch {
-      for (const observer of this.observers)
+      for (const { observer } of this.observers)
         try {
           observer.warning?.("Native observation unavailable; keeping original execution.");
         } catch {
@@ -98,7 +98,8 @@ class NativeTools {
   }
 
   subscribe(observer: NativeToolObserver) {
-    this.observers.add(observer);
+    const subscriber = { observer };
+    this.observers.add(subscriber);
     if (!this.installedRefresh)
       this.safely(() =>
         observer.warning?.("Native construction contract unavailable; keeping original execution.")
@@ -116,7 +117,7 @@ class NativeTools {
       dispose: () => {
         if (!subscribed) return;
         subscribed = false;
-        this.observers.delete(observer);
+        this.observers.delete(subscriber);
         for (const session of this.knownSessions()) this.bind(session);
         if (this.observers.size) return;
         this.active = false;
@@ -195,13 +196,14 @@ class NativeTools {
     for (const [name, original] of construction.definitions) {
       const previous = construction.replacements.get(name);
       const current = internal._baseToolDefinitions.get(name);
-      const observer = customNames.has(name)
+      const subscriber = customNames.has(name)
         ? undefined
         : [...this.observers].find(
-            (candidate) =>
-              candidate.names.includes(name) && this.safely(() => candidate.eligible(session, name))
+            ({ observer }) =>
+              observer.names.includes(name) && this.safely(() => observer.eligible(session, name))
           );
-      if (previous && current === previous.replacement && observer === previous.observer) continue;
+      if (previous && current === previous.replacement && subscriber === previous.subscriber)
+        continue;
 
       if (
         previous &&
@@ -214,20 +216,20 @@ class NativeTools {
 
       construction.replacements.delete(name);
       if (
-        !observer ||
+        !subscriber ||
         internal._baseToolDefinitions.get(name) !== original.definition ||
         !unchangedDefinition(original.definition, original.fields)
       )
         continue;
       const observed = this.safely(() =>
-        observer.wrap(session, original.definition, construction.settings)
+        subscriber.observer.wrap(session, original.definition, construction.settings)
       );
       if (!observed) continue;
       const registry = this;
       const replacement: ToolDefinition = {
         ...observed,
         execute(...args) {
-          return registry.active && registry.observers.has(observer)
+          return registry.active && registry.observers.has(subscriber)
             ? observed.execute(...args)
             : original.definition.execute(...args);
         }
@@ -236,7 +238,7 @@ class NativeTools {
         original: original.definition,
         replacement,
         fields: { ...replacement },
-        observer
+        subscriber
       });
       internal._baseToolDefinitions.set(name, replacement);
       changed = true;

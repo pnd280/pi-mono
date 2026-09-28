@@ -80,6 +80,68 @@ it("keeps streamed calls current without reselecting adapters on every update", 
   }
 });
 
+it("replays facts for separate assistant calls sharing a timestamp", () => {
+  const history = SessionManager.inMemory();
+  for (const id of ["first", "second"])
+    history.appendMessage(assistantMessage([fauxToolCall("bash", {}, { id })], 17));
+  const append = vi.fn(history.appendCustomEntry.bind(history));
+  const live = fixture({ history, append });
+  const message = (id: string) => ({
+    kind: "assistant" as const,
+    timestamp: 17,
+    calls: [{ index: 0, id, name: "bash", args: {} }]
+  });
+
+  try {
+    live.message(message("first"), "live");
+    live.beginObservation("first", "pi:bash")!.fact({
+      kind: "operation",
+      availability: "available",
+      durationMs: 12,
+      outcome: "success"
+    });
+    expect(append).toHaveBeenCalledOnce();
+  } finally {
+    live.dispose();
+  }
+
+  const replay = fixture({ history });
+
+  try {
+    replay.message(message("first"), "historical");
+    expect(replay.coordinator.byId("first")?.operation?.durationMs).toBe(12);
+  } finally {
+    replay.dispose();
+  }
+});
+
+it("keeps distinct unowned tool boundaries when messages share a timestamp and position", () => {
+  const session = fixture({
+    selectAdapter: (name) => (name === "bash" ? nativeAdapter(name) : undefined)
+  });
+  const add = (id: string, name: string) =>
+    session.message(
+      {
+        kind: "assistant",
+        timestamp: 17,
+        calls: [{ index: 0, id, name, args: {} }]
+      },
+      "historical"
+    );
+
+  try {
+    add("first", "bash");
+    add("other-1", "unowned");
+    add("second", "bash");
+    add("other-2", "unowned");
+    add("third", "bash");
+    const calls = ["first", "second", "third"].map((id) => session.coordinator.byId(id)!);
+    expect(new Set(calls.map((call) => session.coordinator.run(call))).size).toBe(3);
+  } finally {
+    session.dispose();
+  }
+});
+
 function files() {
   const pending = new Map<string, (output: SavedOutput) => void>();
   const read = vi.fn(

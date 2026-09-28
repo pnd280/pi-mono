@@ -55,7 +55,7 @@ function prepareCard(base: Omit<Projection, "mcp" | "outcome" | "summary">): Pre
       expanded: base.expanded
     });
 
-    return value?.text.trim() ? value : undefined;
+    return value && displayText(value.text).trim() ? value : undefined;
   });
   const body = lazy(() =>
     base.result ? buildResultBody(base.result, prepared) : { items: [], annotations: [] }

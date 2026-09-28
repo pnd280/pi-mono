@@ -27,6 +27,26 @@ const fixture = () => {
   return { directory, path: join(directory, "settings.json") };
 };
 
+it("reads Pi-compatible BOM-prefixed settings and preserves other keys on update", () => {
+  const { path } = fixture();
+  writeFileSync(path, '\uFEFF{"theme":"dark","ext.test":{"enabled":true}}');
+  expect(readSettingsRecord(path)).toEqual({ theme: "dark", "ext.test": { enabled: true } });
+  updateSettingsRecord(path, (record) => {
+    record.theme = "light";
+  });
+  expect(readSettingsRecord(path)).toEqual({ theme: "light", "ext.test": { enabled: true } });
+});
+
+it("treats an empty settings file as Pi's absent settings and permits an update", () => {
+  const { path } = fixture();
+  writeFileSync(path, "");
+  expect(readSettingsRecord(path)).toEqual({});
+  updateSettingsRecord(path, (record) => {
+    record.theme = "light";
+  });
+  expect(readSettingsRecord(path)).toEqual({ theme: "light" });
+});
+
 it("leaves files untouched on mutator rejection and releases the lock for a later update", () => {
   const { directory, path } = fixture();
   const original = '{"theme":"dark","future":{"kept":1}}\n';
@@ -44,6 +64,33 @@ it("leaves files untouched on mutator rejection and releases the lock for a late
   });
   expect(readSettingsRecord(path)).toEqual({ theme: "light", future: { kept: 1 } });
   expect(readdirSync(directory)).toEqual(["settings.json"]);
+});
+
+it("rejects asynchronous mutations instead of committing before they finish", async () => {
+  const { directory, path } = fixture();
+  writeFileSync(path, '{"theme":"dark"}\n');
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+
+  try {
+    expect(() =>
+      updateSettingsRecord(path, async (record) => {
+        await pending;
+        record.theme = "light";
+      })
+    ).toThrow("synchronous");
+    expect(readFileSync(path, "utf8")).toBe('{"theme":"dark"}\n');
+    expect(readdirSync(directory)).toEqual(["settings.json"]);
+    updateSettingsRecord(path, (record) => {
+      record.theme = "safe";
+    });
+    expect(readSettingsRecord(path)).toEqual({ theme: "safe" });
+  } finally {
+    finish();
+    await pending;
+  }
 });
 
 it("preserves unrelated JSON keys, including names inherited by ordinary objects", () => {

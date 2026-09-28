@@ -14,7 +14,7 @@ Evaluate distinct failure modes, ownership, and maintenance cost. Default to aud
 
 ### 1. Map suites to contracts
 
-Inspect staged, unstaged, and untracked work to preserve unrelated changes. Read applicable package instructions and the [workspace testing guide](../../../docs/agents/testing.md). Consult each affected package's `docs/testing.md` through its README's Validation section; verify its claims against public APIs, consumers, documentation, and regression evidence.
+Inspect staged, unstaged, and untracked work to preserve unrelated changes. Read applicable package instructions and the [workspace testing guide](../../../../docs/agents/testing.md). Consult each affected package's `docs/testing.md` through its README's Validation section; verify its claims against public APIs, consumers, documentation, and regression evidence.
 
 Map suites and fixtures to observable contracts and their local, shared-library, or dependency owners. Include consumer wiring risks and dependency versions where ownership depends on them. Distinguish runner-discovered cases, parameterized rows, and distinct contracts.
 
@@ -46,7 +46,7 @@ Before editing, establish missing specifications for every affected package and 
 
 ### 4. Verify and report
 
-Follow [required verification](../../../docs/agents/verification.md) for changed files. Group audit findings by cause and cleanup decisions by package.
+Follow [required verification](../../../../docs/agents/verification.md) for changed files. Group audit findings by cause and cleanup decisions by package.
 
 - Report priorities, important keep decisions, scope limits, exact checks/results, baseline failures, and unresolved risks. Distinguish observed results from source-based conclusions.
 - For cleanup, include comparable before/after counts, skips, packages with no tests, protected behaviors, and deleted scaffolding. Separate removed scenarios from relocated or strengthened coverage; claim runtime improvements only when measured.
@@ -57,7 +57,7 @@ Follow [required verification](../../../docs/agents/verification.md) for changed
 
 ### Test quality
 
-Apply the shared [test-quality principles](../../../docs/agents/testing.md#test-quality) to candidate assertions:
+Apply the shared [test-quality principles](../../../../docs/agents/testing.md#test-quality) to candidate assertions:
 
 - **Tautological tests:** replace self-derived expectations or copied implementation algorithms with independently specified results or invariants before counting them as protection.
 - **Change-detector tests:** replace assertions that merely detect internal changes with observable contract checks that survive equivalent refactors.

@@ -10,7 +10,7 @@
 - Collections preserve unknown recovery fields and exact source. Refuse additions to corrupt, oversized, or read-only collections rather than treating corruption as empty storage. Delete only unique entries whose UUID, text, and timestamp remain unchanged. Capacity checks account for original bytes and final JSON escaping.
 - Aliases of the same real cwd share storage; distinct directories do not. Update the latest locked contents across instances/processes. Translate shared storage failures and post-commit warnings without exposing prompt text or retrying a committed mutation.
 - Save expanded editor text and clear only after commit if still unchanged and not explicitly restored. Restore safe source without submission after final browser closure, never during a remount; failed deletion leaves restored text intact.
-- Copy exact source with session cancellation and safe diagnostics. Commands reject invalid syntax before effects; settings validate independently and resolve shortcut collisions predictably.
+- Copy exact source with session cancellation and safe diagnostics. Commands reject invalid syntax before effects; global settings reads are bounded, settings validate independently and resolve shortcut collisions predictably.
 - Search prepares complete sanitized text without changing copy/restore source or draft numbering; stale preparation stops. Large collection work stays responsive and cancellable.
 
 ## Coverage boundaries

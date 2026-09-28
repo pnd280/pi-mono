@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readSettingsFile } from "@pi-mono/libs/settings-file";
+import { readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
 
 const sectionSchema = z.object({
@@ -13,11 +13,7 @@ export type TodoConfig = { [Key in keyof z.output<typeof sectionSchema>]-?: bool
 
 function readSection(path: string): z.output<typeof sectionSchema> {
   try {
-    const source = readSettingsFile(path);
-    if (source === undefined) return {};
-    const raw: unknown = JSON.parse(source);
-
-    return settingsSchema.safeParse(raw).data?.["ext.pi-todo"] ?? {};
+    return settingsSchema.safeParse(readSettingsRecord(path)).data?.["ext.pi-todo"] ?? {};
   } catch {
     return {};
   }

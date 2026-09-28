@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readSettingsFile } from "@pi-mono/libs/settings-file";
+import { readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
 
 import { defaultExpansionFormat } from "./tokens.ts";
@@ -15,11 +15,7 @@ type SkillSettings = z.output<typeof sectionSchema>;
 
 function readSection(path: string): SkillSettings {
   try {
-    const source = readSettingsFile(path);
-    if (source === undefined) return {};
-    const raw: unknown = JSON.parse(source);
-
-    return settingsSchema.safeParse(raw).data?.["ext.pi-skills"] ?? {};
+    return settingsSchema.safeParse(readSettingsRecord(path)).data?.["ext.pi-skills"] ?? {};
   } catch {
     return {};
   }

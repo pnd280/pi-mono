@@ -149,6 +149,42 @@ it("does not misdiagnose native preparation errors as a small session", async ()
   }
 });
 
+it("does not let a diagnostic branch read bypass native preparation error handling", async () => {
+  const nativeRun: unknown = Reflect.get(AgentSession.prototype, "_runAutoCompaction");
+  assert.equal(typeof nativeRun, "function");
+  const manager = {
+    buildSessionProjection: () => context,
+    getBranch() {
+      throw new Error("Unreadable session branch");
+    }
+  };
+  const binding = bindNativeCompaction(manager);
+  const outcomes: unknown[] = [];
+
+  try {
+    binding.request();
+    assert.deepEqual(
+      await invoke({
+        sessionManager: manager,
+        model: { contextWindow: 0 },
+        settingsManager: { getCompactionSettings: () => ({ enabled: false }) },
+        subscribe: () => () => {},
+        _runAutoCompaction: nativeRun,
+        _resolveIdleWaitIfIdle() {},
+        _appendCustomMessage(message: unknown) {
+          outcomes.push(message);
+        }
+      }),
+      context
+    );
+    assert.partialDeepStrictEqual(outcomes, [
+      { details: { status: "skipped", reason: "Pi did not start compaction." } }
+    ]);
+  } finally {
+    binding.dispose();
+  }
+});
+
 it.each([boundary, "_appendCustomMessage", "_runDefaultCompaction", "compact"])(
   "rejects unknown %s implementations without replacing them",
   (method) => {

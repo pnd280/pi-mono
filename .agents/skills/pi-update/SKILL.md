@@ -25,7 +25,7 @@ Accept a target version. Audit and planning requests are read-only; migration re
 
 ### 2. Classify release changes
 
-Review in both directions: map release changes to package contracts, and revisit every package's limitations and replacement opportunities against target APIs. Package checklists are minimum coverage; historical evidence is not target-version proof. Apply the [compatibility checks](references/compatibility-checks.md) for each affected area. For replacement candidates, also apply the [Pi API reuse checks](../audit-reusability/references/pi-apis.md).
+Review in both directions: map release changes to package contracts, and revisit every package's limitations and replacement opportunities against target APIs. Package checklists are minimum coverage; historical evidence is not target-version proof. Apply the [compatibility checks](references/compatibility-checks.md) for each affected area. For replacement candidates, also apply the [Pi API reuse checks](../_aux/audit-reusability/references/pi-apis.md).
 
 For every package, record affected paths and consumers, old and target contracts, versioned evidence, and performed or proposed checks. Classify each result:
 

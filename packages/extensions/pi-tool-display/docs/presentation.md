@@ -87,6 +87,7 @@ Only the latest outcome per file or directory counts: a later successful edit cl
 | Read     | `read N files`             |
 
 Items appear in the order of their category's first call; failures never reorder them. The first item starts with a capital letter unless it begins with a tool name, which keeps its case.
+Adapter-declared count labels are normalized to single-line terminal-safe text before rendering; category identities and counts are unchanged.
 
 ### Line layout
 

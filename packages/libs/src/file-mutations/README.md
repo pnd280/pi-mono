@@ -13,6 +13,7 @@ Only attempted disk writes produce mutations. Successful disk writes retain succ
 `patch(limits)` accepts `PatchLimits` from `@pi-mono/libs/bounded-diff` and reuses a valid native edit patch when its proposed text survives UTF-8 encoding unchanged, or generates a patch through [bounded-diff](../bounded-diff/README.md). Requests with identical limits share a promise. Native patches bypass source and diff-generation limits but must fit the requested patch limit.
 
 Completion callbacks run outside Pi's mutation queue and settle before the tool returns. Exceptions and rejected callbacks do not affect tool execution or other observers.
+Repeated subscriptions of the same observer are independent; disposing one stops only its callbacks.
 
 ## Caller responsibilities
 

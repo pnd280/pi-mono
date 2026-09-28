@@ -53,6 +53,18 @@ it("reads normalized model and optional thinking without modifying settings", ()
   expect(readFileSync(globalPath, "utf8")).toBe(source);
 });
 
+it("accepts Pi-compatible BOM-prefixed global and trusted project settings", () => {
+  const { cwd, agentDir } = settings(
+    `\uFEFF${section(globalConfig)}`,
+    `\uFEFF${section({ model: "provider/project" })}`
+  );
+  expect(loadCompactConfig(cwd, { agentDir })).toEqual(globalConfig);
+  expect(loadCompactConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
+    ...globalConfig,
+    model: "provider/project"
+  });
+});
+
 it.each([
   {
     project: { model: "provider/project" },

@@ -224,6 +224,26 @@ describe("todo reducer", () => {
       assert.deepEqual(params.metadata.values, ["replacement"]);
   });
 
+  it("keeps result parameters independent of caller-owned arrays and metadata", () => {
+    const state = mutate(emptyTodoState(), "create", { subject: "Dependency" }).state;
+    const blockedBy = [1];
+    const metadata = { nested: { phase: "original" } };
+    const params = { subject: "Task", blockedBy, metadata };
+    const result = mutate(state, "create", params);
+
+    assert.equal(result.details.error, undefined);
+    blockedBy.push(99);
+    metadata.nested.phase = "changed";
+
+    assert.deepEqual(result.details.params, {
+      subject: "Task",
+      blockedBy: [1],
+      metadata: { nested: { phase: "original" } }
+    });
+    assert.deepEqual(result.details.tasks.at(-1)?.blockedBy, [1]);
+    assert.deepEqual(result.details.tasks.at(-1)?.metadata, { nested: { phase: "original" } });
+  });
+
   it("preserves source-compatible validation errors with complete state snapshots", () => {
     let state = emptyTodoState();
 

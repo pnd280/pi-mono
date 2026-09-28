@@ -45,9 +45,16 @@ export async function runRequestedCompaction(
   // Native preparation can return early or swallow an error without emitting an
   // event. Its boolean signals queued continuation, not success or a skip reason.
   let skippedReason = "Pi did not start compaction.";
+
   if (!session.model) skippedReason = "No model selected.";
-  else if (session.sessionManager.getBranch().at(-1)?.type === "compaction")
-    skippedReason = "Already compacted.";
+  else {
+    try {
+      if (session.sessionManager.getBranch().at(-1)?.type === "compaction")
+        skippedReason = "Already compacted.";
+    } catch {
+      // This read only improves a skip diagnostic; Pi owns preparation and its error handling.
+    }
+  }
 
   const unsubscribe = session.subscribe((event) => {
     if (event.type === "compaction_end" && event.reason === "manual") outcome = fromEvent(event);

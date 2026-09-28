@@ -54,6 +54,32 @@ it("uses scope-first precedence for trusted projects", async () => {
   expect(resolveAppendReplacement(files, "project base", "b")).toBeUndefined();
 });
 
+it("uses a project variant when only the agent has a base file", async () => {
+  const { projectDir, agentDir } = await fixture({
+    project: { "APPEND_SYSTEM.a.md": "project a" },
+    agent: { "APPEND_SYSTEM.md": "agent base", "APPEND_SYSTEM.a.md": "agent a" }
+  });
+  const files = loadAppendFiles({ projectDir, agentDir, variants: ["a"] });
+
+  expect(files.base).toBe("agent base");
+  expect(files.warnings).toEqual([]);
+  expect(resolveAppendReplacement(files, "agent base", "a")).toBe("project a");
+});
+
+it("falls back to the project base rather than an agent variant after a bad project variant", async () => {
+  const { projectDir, agentDir } = await fixture({
+    project: { "APPEND_SYSTEM.md": "project base" },
+    agent: { "APPEND_SYSTEM.md": "agent base", "APPEND_SYSTEM.a.md": "agent a" }
+  });
+  const variantPath = join(projectDir, "APPEND_SYSTEM.a.md");
+  await mkdir(variantPath);
+  const files = loadAppendFiles({ projectDir, agentDir, variants: ["a"] });
+
+  expect(files.base).toBe("project base");
+  expect(files.warnings).toEqual([`${variantPath} could not be read; falling back`]);
+  expect(resolveAppendReplacement(files, "project base", "a")).toBeUndefined();
+});
+
 it("ignores project files for untrusted projects", async () => {
   const { agentDir } = await fixture({
     project: { "APPEND_SYSTEM.md": "project base", "APPEND_SYSTEM.a.md": "project a" },
