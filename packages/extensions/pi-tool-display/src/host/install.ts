@@ -7,7 +7,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import type { DisplayMode } from "../contracts.ts";
+import type { DisplayMode, ToolDisplayAdapter } from "../contracts.ts";
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
 import type { ToolDisplayRenderers } from "../rendering/types.ts";
 import type { DisplaySettings } from "../settings.ts";
@@ -19,6 +19,7 @@ import {
   hostMode,
   interactivePrototype,
   modeHooksCompatible,
+  rowContractCompatible,
   type Host
 } from "./compatibility.ts";
 import { displaySettings } from "./configuration.ts";
@@ -40,18 +41,20 @@ const nextMode: Record<DisplayMode, DisplayMode> = {
   verbose: "summary"
 };
 
-/** Summaries collapse only in fullscreen, where no transcript row is already in scrollback. */
-function fullscreen(host: Host): boolean {
-  return host.ui?.mode === "fullscreen";
+/** Summaries collapse only in fullscreen, where no transcript row is already in
+ * scrollback, and only when row chrome can draw summary lines.
+ */
+function summaries(host: Host, rowChrome: boolean): boolean {
+  return rowChrome && host.ui?.mode === "fullscreen";
 }
 
-/** Regular mode renders summary as compact, so its cycle skips the identical step. */
-function cycle(mode: DisplayMode, host: Host): DisplayMode {
-  return mode !== "verbose" && !fullscreen(host) ? "verbose" : nextMode[mode];
+/** Without summaries, summary renders as compact, so the cycle skips the identical step. */
+function cycle(mode: DisplayMode, summarized: boolean): DisplayMode {
+  return mode !== "verbose" && !summarized ? "verbose" : nextMode[mode];
 }
 
-function shownMode(mode: DisplayMode, host: Host): DisplayMode {
-  return mode === "summary" && !fullscreen(host) ? "compact" : mode;
+function shownMode(mode: DisplayMode, summarized: boolean): DisplayMode {
+  return mode === "summary" && !summarized ? "compact" : mode;
 }
 
 function updatedContentIndex(event: AgentSessionEvent): number | undefined {
@@ -77,7 +80,9 @@ export function installHostIntegration(
   const originalToggle = prototype.toggleToolOutputExpansion;
   const originalSetExpanded = prototype.setToolsExpanded;
   const modeHooks = modeHooksCompatible(prototype);
+  const rowChrome = rowContractCompatible();
   let modeWarning = false;
+  let rowWarning = false;
   let active = true;
 
   const warning = (text: string) => {
@@ -86,6 +91,16 @@ export function installHostIntegration(
     } catch {
       /* UI may already be disposed. */
     }
+  };
+
+  const failedAdapters = new Set<string>();
+
+  // One warning per adapter: a broken adapter must not look like a declined contract.
+  const adapterFailure = (failed: ToolDisplayAdapter) => {
+    if (failedAdapters.has(failed.id)) return;
+
+    failedAdapters.add(failed.id);
+    warning(`display adapter ${failed.id} failed; its calls render generically.`);
   };
 
   const native = new NativeRegistry((session) => sessions.get(session)?.display, warning);
@@ -126,6 +141,11 @@ export function installHostIntegration(
       warning(`mode cycling unavailable; Ctrl+O toggles ${configuration.collapsedMode} ↔ verbose.`);
     }
 
+    if (!rowChrome && !rowWarning) {
+      rowWarning = true;
+      warning("row contract unavailable; summaries disabled.");
+    }
+
     const display = new DisplaySession({
       mode: initialMode(host, configuration),
       runtime: randomUUID(),
@@ -133,10 +153,11 @@ export function installHostIntegration(
       history: host.session.sessionManager,
       settings: configuration,
       selectAdapter: (name) => adapter(host.session, name, configuration),
+      onAdapterFailure: adapterFailure,
       expanded: () => host.toolOutputExpanded ?? false,
       append
     });
-    display.coordinator.setSummaries(fullscreen(host));
+    display.coordinator.setSummaries(summaries(host, rowChrome));
     const current: Binding = {
       host,
       display,
@@ -144,6 +165,7 @@ export function installHostIntegration(
       rows: new TranscriptRows(host, display.coordinator, {
         active: () => active && hosts.get(host) === current,
         styleAssistant: configuration.valid,
+        chrome: rowChrome,
         ...(modeHooks
           ? {}
           : {
@@ -200,7 +222,7 @@ export function installHostIntegration(
 
     host[hostMode] = mode;
     // Replaces Pi's expanded/collapsed status on the same line.
-    host.showStatus?.(`Tool output: ${shownMode(mode, host)}`);
+    host.showStatus?.(`Tool output: ${shownMode(mode, summaries(host, rowChrome))}`);
   }
 
   const lookup: Host["getRegisteredToolDefinition"] = function (this: Host, name) {
@@ -221,6 +243,7 @@ export function installHostIntegration(
         const call = binding?.rows.claimCall(name, id);
         renderers = createToolDisplayRenderers(name, selected, {
           showParameters: configuration.showParameters,
+          onAdapterFailure: adapterFailure,
           ...(call && binding
             ? { binding: { call, coordinator: binding.display.coordinator } }
             : {})
@@ -233,9 +256,13 @@ export function installHostIntegration(
       const slots: ToolDisplayRenderers = {
         renderShell: "self",
         renderCall(args, theme, context) {
+          binding?.rows.useTheme(theme);
+
           return resolveRenderers(context.toolCallId).renderCall(args, theme, context);
         },
         renderResult(result, options, theme, context) {
+          binding?.rows.useTheme(theme);
+
           return resolveRenderers(context.toolCallId).renderResult(result, options, theme, context);
         }
       };
@@ -296,7 +323,11 @@ export function installHostIntegration(
         const binding = active ? hosts.get(this) : undefined;
         // Invalid settings keep original rendering, where summary and compact are identical.
         if (!binding?.display.settings.valid) return originalToggle.call(this);
-        transition(this, binding, cycle(binding.display.coordinator.mode, this));
+        transition(
+          this,
+          binding,
+          cycle(binding.display.coordinator.mode, summaries(this, rowChrome))
+        );
       });
       hooks.replace(prototype, "setToolsExpanded", function (this: Host, expanded: boolean) {
         const binding = active ? hosts.get(this) : undefined;
@@ -315,7 +346,7 @@ export function installHostIntegration(
       hooks.replace(prototype, "switchTuiMode", function (this: Host, ...args: unknown[]) {
         const result = switchMode.apply(this, args);
         const binding = active ? hosts.get(this) : undefined;
-        binding?.display.coordinator.setSummaries(fullscreen(this));
+        binding?.display.coordinator.setSummaries(summaries(this, rowChrome));
 
         return result;
       });

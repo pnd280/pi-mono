@@ -3,9 +3,10 @@
 ## Code navigation
 
 - **Pi lifecycle:** [host/install.ts](src/host/install.ts) handles integration and teardown. [host/compatibility.ts](src/host/compatibility.ts) records inspected TUI contracts. [native-registry.ts](src/host/native-registry.ts) selects display observations through [native-tools](../../libs/src/native-tools/README.md) and [file-mutations](../../libs/src/file-mutations/README.md).
+- **Call interpretation:** [interpretation.ts](src/interpretation.ts) derives each call's effective display adapter, pending state, outcome, and grouping and summary identities. The coordinator caches it per call with the session cwd; cards, summaries, and grouping read it instead of calling adapters directly. Terms: [CONTEXT.md](CONTEXT.md).
 - **Transcript:** [coordinator.ts](src/transcript/coordinator.ts) owns call-state changes. [session.ts](src/transcript/session.ts) coordinates live events, history reconstruction, and saved-output eligibility. [history.ts](src/transcript/history.ts) and [metadata.ts](src/transcript/metadata.ts) handle reconstruction and persisted facts.
 - **Assistant presentation:** [assistant.ts](src/host/assistant.ts) verifies Pi's assistant layout, marks prose, and hides completed collapsed thinking during streaming and replay.
-- **Observation and rows:** [native.ts](src/observation/native.ts) observes verified operations. [output-policy.ts](src/observation/output-policy.ts) chooses live retention budgets, and [saved-output.ts](src/observation/saved-output.ts) sets preview and cache policy. [host/rows.ts](src/host/rows.ts) integrates Pi invalidation, expansion, and mouse routing.
+- **Observation and rows:** [native.ts](src/observation/native.ts) observes verified operations. [output-policy.ts](src/observation/output-policy.ts) chooses live retention budgets, and [saved-output.ts](src/observation/saved-output.ts) sets preview and cache policy. [host/rows.ts](src/host/rows.ts) integrates Pi invalidation and expansion. [host/row-layout.ts](src/host/row-layout.ts) owns row chrome and its click targets; cards render content only.
 - **Summary mode:** [summary/](src/summary/) derives run summaries from calls (categories, items, and the pure model); [summary-line.ts](src/rendering/summary-line.ts) renders them. The coordinator owns runs and the display mode; [host/install.ts](src/host/install.ts) owns mode transitions.
 - **Rendering:** start at [cards.ts](src/rendering/cards.ts) for preparation across Pi slots, [format.ts](src/rendering/format.ts) for shared text and tree rendering, or [result-content.ts](src/rendering/result-content.ts) for result bodies and diff rendering. [diff.ts](src/diff.ts) requests shared patches and enforces retention limits. See the [standalone API](docs/renderers.md) for tool-author integration.
 - **Offline launchers:** [validation/workspace.ts](validation/workspace.ts) supplies fixture data, provider loading, flags, and reuse checks.
@@ -26,7 +27,7 @@ Use Pi's expansion, mouse routing, image handling, theme, highlighter, and width
 - Keep result interpretation in its adapter under the [provenance limits](docs/adapters.md#built-in-adapters).
 - Apply colors during rendering and keep omission ranges transient.
 - Keep grouped calls and their notices in their corresponding Pi rows. When compact cards hide successful body text, retain diagnostics and image-bearing rows. Summary mode may hide images and diagnostics behind counts.
-- Change compact and summary margins and mouse-coordinate adjustment together.
+- Change row chrome only in `layoutRow`, whose targets drive both rendering and click routing.
 
 See [observation and saved history](README.md#observation-and-saved-history) for exclusions, side effects, and limits.
 

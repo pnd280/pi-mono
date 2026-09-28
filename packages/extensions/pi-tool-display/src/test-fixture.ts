@@ -5,6 +5,14 @@ import { SessionManager, type ExtensionContext } from "@earendil-works/pi-coding
 import type { TUI } from "@earendil-works/pi-tui";
 import { createFixtureMessage } from "@pi-mono/libs/validation/provider";
 
+/** Unstyled theme: rendered rows equal their visible text. */
+export const plainTheme = {
+  fg: (_color: string, text: string) => text,
+  bg: (_color: string, text: string) => text,
+  getBgAnsi: (_color: string) => "",
+  bold: (text: string) => text
+};
+
 export function renderingTui(mode: TUI["mode"] = "fullscreen"): TUI {
   const terminal = { setProgress() {} } satisfies Pick<TUI["terminal"], "setProgress">;
   const tui = { requestRender() {}, terminal, mode } satisfies Pick<

@@ -18,6 +18,7 @@ import type {
   ToolDisplayAdapter,
   TranscriptView
 } from "../contracts.ts";
+import type { AdapterFailureHandler, CallInterpretation } from "../interpretation.ts";
 
 export type DisplayTheme = Pick<Theme, "fg" | "bg" | "getBgAnsi" | "bold">;
 
@@ -49,7 +50,11 @@ export interface ToolDisplayRendererOptions {
   showParameters?: boolean;
 }
 
-export type CardRendererOptions = ToolDisplayRendererOptions & { binding?: DisplayBinding };
+export type CardRendererOptions = ToolDisplayRendererOptions & {
+  binding?: DisplayBinding;
+  /** Reports adapter callbacks that threw while rendering; the row continues generically. */
+  onAdapterFailure?: AdapterFailureHandler;
+};
 
 export type Projection = Readonly<{
   name: string;
@@ -65,6 +70,8 @@ export type Projection = Readonly<{
   mcp: McpFacts | undefined;
   outcome: Outcome;
   summary: ResultSummary | undefined;
+  /** Interprets group members consistently with the transcript. */
+  interpret: (call: DisplayCall) => CallInterpretation;
 }>;
 
 /** Lazily prepared, row-owned data. Layout consumers cannot invalidate or replace it. */

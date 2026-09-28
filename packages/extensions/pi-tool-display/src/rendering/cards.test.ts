@@ -27,6 +27,7 @@ import {
   type McpFacts,
   type ToolDisplayAdapter
 } from "../adapters/index.ts";
+import { buildRunSummary } from "../summary/model.ts";
 import { renderingTui } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { createToolDisplayRenderers } from "./cards.ts";
@@ -502,6 +503,83 @@ describe("tool display renderers", () => {
       coordinator.dispose();
     }
   });
+
+  it("renders a row generically after any adapter callback throws and reports the adapter", () => {
+    const failing = (callback: "summary" | "outcome"): ToolDisplayAdapter => ({
+      id: `failing-${callback}`,
+      family: "invocation",
+      summary: () => ({ text: "adapter summary" }),
+      [callback]: () => {
+        throw new Error(callback);
+      }
+    });
+
+    for (const callback of ["summary", "outcome"] as const) {
+      const failures: string[] = [];
+      const renderer = createToolDisplayRenderers("lookup", failing(callback), {
+        onAdapterFailure: (adapter) => failures.push(adapter.id)
+      });
+      const current = context({ args: { query: "needle" } });
+      const body = renderer.renderResult(result("retained output"), current, theme, current);
+      const rows = () => body.render(120).join("\n");
+
+      expect(rows()).not.toContain("adapter summary");
+      expect(rows()).toContain("retained output");
+      expect(failures).toEqual([`failing-${callback}`]);
+    }
+  });
+
+  it.each([false, true])(
+    "removes failed presentation from groups and preserves owner summary omission (%s)",
+    (omitFromSummary) => {
+      const failures: string[] = [];
+      const coordinator = new TranscriptCoordinator("presentation-fallback", {
+        onAdapterFailure: (adapter) => failures.push(adapter.id)
+      });
+      const adapter: ToolDisplayAdapter = {
+        ...nativeAdapter("read")!,
+        id: "failing-presentation",
+        omitFromSummary,
+        summary: () => {
+          throw new Error("summary");
+        }
+      };
+
+      try {
+        const calls = ["a.ts", "b.ts"].map((path, index) => {
+          const call = coordinator.add(
+            { messageTimestamp: 1, contentIndex: index, toolCallId: String(index) },
+            "read",
+            { path },
+            adapter,
+            "historical"
+          );
+          coordinator.result(call, result("retained output"), "success");
+
+          return call;
+        });
+        const first = calls[0]!;
+        expect(coordinator.group(first)?.members).toHaveLength(2);
+        const renderer = createToolDisplayRenderers("read", adapter, {
+          binding: { call: first, coordinator }
+        });
+        const current = context({ args: first.args });
+        const card = renderer.renderCall(first.args, theme, current);
+        expect(card.render(80).join("\n")).toContain('read({"path":"a.ts"})');
+        expect(coordinator.group(first)).toBeUndefined();
+        expect(first.adapter).toBe(adapter);
+        const summary = buildRunSummary(calls, (call) => coordinator.interpretation(call));
+        expect(summary.segments.map(({ category }) => category.id)).toEqual(
+          omitFromSummary ? [] : ["other:read", "read"]
+        );
+        coordinator.fact(first, { kind: "cancellation", availability: "available" });
+        expect(card.render(80).join("\n")).toContain("cancelled");
+        expect(failures).toEqual([adapter.id]);
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  );
 
   it("groups adjacent todo calls under one Todos heading", () => {
     const coordinator = new TranscriptCoordinator("todo-groups");
@@ -2655,221 +2733,6 @@ describe("tool display renderers", () => {
         expect(visible).toContain("…");
         expect(visible.length).toBeLessThan(16_500);
       }
-    }
-  });
-});
-
-describe("summary mode rows", () => {
-  function summaryRows(mode: "summary" | "compact" = "summary") {
-    const coordinator = new TranscriptCoordinator("summary-cards", {
-      cwd: "/tmp",
-      mode,
-      animationClock: { start: () => () => {} }
-    });
-    const rows = new Map<string, ToolExecutionComponent>();
-    let index = 0;
-
-    const add = (
-      name: string,
-      args: unknown,
-      origin: "live" | "historical" = "historical",
-      adapter = nativeAdapter(name) ?? genericAdapter
-    ) => {
-      const call = coordinator.add(
-        { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
-        name,
-        args,
-        adapter,
-        origin
-      );
-      const row = new ToolExecutionComponent(
-        name,
-        call.reference.toolCallId,
-        args,
-        { showImages: true },
-        createToolDisplayRenderers(name, adapter, { binding: { call, coordinator } }),
-        renderingTui(),
-        "/tmp"
-      );
-      coordinator.attach(call, {
-        invalidate: () => row.invalidate(),
-        requestRender: () => {},
-        setExpanded: (expanded) => row.setExpanded(expanded)
-      });
-      rows.set(call.key, row);
-
-      return call;
-    };
-
-    const finish = (
-      call: ReturnType<typeof add>,
-      value = result("retained output"),
-      outcome: "success" | "failure" = "success"
-    ) => {
-      coordinator.result(call, value, outcome);
-      rows.get(call.key)?.updateResult({ ...value, isError: outcome === "failure" });
-    };
-
-    const text = () =>
-      [...rows.values()].map((row) => row.render(80).map(stripTerminalSequences).join("\n"));
-
-    return { coordinator, rows, add, finish, text };
-  }
-
-  it("renders nothing for a run of omitted todo calls", () => {
-    const { coordinator, add, finish, text } = summaryRows();
-
-    try {
-      const first = add(
-        "todo",
-        { action: "create", subject: "Plan" },
-        "historical",
-        todoDisplayAdapter
-      );
-      finish(first);
-      finish(add("todo", { action: "update", id: 1 }, "historical", todoDisplayAdapter));
-      expect(text()).toEqual(["", ""]);
-      // Collapsing would show nothing, so an opened run offers no collapse row.
-      coordinator.openRun(first);
-      expect(text().every((row) => !/^─+$/m.test(row))).toBe(true);
-    } finally {
-      coordinator.dispose();
-    }
-  });
-
-  it("renders one summary line in the leader row and nothing for other members", () => {
-    const { coordinator, add, finish, text } = summaryRows();
-
-    try {
-      finish(add("read", { path: "a.ts" }));
-      finish(add("read", { path: "b.ts" }));
-      finish(add("bash", { command: "npm test" }), result("npm ERR! failed\nmore"), "failure");
-      expect(text()).toEqual(["\n  Read 2 files · ran 1 command (1 failed)", "", ""]);
-      coordinator.setMode("compact");
-      expect(text()[0]).toContain("Explored");
-      expect(text()[2]).toContain("Run failed npm test");
-    } finally {
-      coordinator.dispose();
-    }
-  });
-
-  it("renders a live run as its usual compact cards until the run ends", () => {
-    const { coordinator, rows, add, finish, text } = summaryRows();
-
-    try {
-      const read = add("read", { path: "a.ts" }, "live");
-      const shell = add("bash", { command: "npm test" }, "live");
-      coordinator.update(shell, "executing");
-      const partial = result(Array.from({ length: 20 }, (_, line) => `line ${line}`).join("\n"));
-      coordinator.result(shell, partial, "success", true);
-      rows.get(shell.key)?.updateResult({ ...partial, isError: false }, true);
-      const running = text();
-      coordinator.setMode("compact");
-      expect(running).toEqual(text());
-      coordinator.setMode("summary");
-
-      finish(read);
-      finish(shell);
-      expect(text()[1]).toContain("Ran npm test");
-      coordinator.settle();
-      expect(text()).toEqual(["\n  Read 1 file · ran 1 command", ""]);
-    } finally {
-      coordinator.dispose();
-    }
-  });
-
-  it("opens a run to compact cards on a leader click until the mode changes", () => {
-    const { coordinator, rows, add, finish, text } = summaryRows();
-
-    try {
-      const first = add("read", { path: "a.ts" });
-      finish(first);
-      const last = add("bash", { command: "true" });
-      finish(last);
-      const click = {
-        type: "click" as const,
-        button: "left" as const,
-        x: 2,
-        y: 1,
-        screenX: 2,
-        screenY: 1,
-        width: 80,
-        height: 2,
-        shift: false,
-        alt: false,
-        ctrl: false
-      };
-      expect(text()).toEqual(["\n  Read 1 file · ran 1 command", ""]);
-      rows.get(first.key)?.handleMouse(click);
-      expect(coordinator.run(first)?.opened).toBe(true);
-      const collapse = "─".repeat(80);
-      expect(text()).toEqual([
-        `\n${collapse}\n\n• Read a.ts`,
-        `\n• Ran true\n  └ retained output\n\n${collapse}`
-      ]);
-      const firstRow = rows.get(first.key)!;
-      firstRow.handleMouse({ ...click, y: 2, height: firstRow.render(80).length });
-      expect(first.expanded).toBe(false);
-      expect(coordinator.run(first)?.opened).toBe(false);
-      expect(text()).toEqual(["\n  Read 1 file · ran 1 command", ""]);
-      firstRow.handleMouse(click);
-      text();
-      // Either control closes the same run without toggling a tool card.
-      firstRow.handleMouse(click);
-      expect(text()).toEqual(["\n  Read 1 file · ran 1 command", ""]);
-      rows.get(first.key)?.handleMouse(click);
-      const lastRow = rows.get(last.key)!;
-      const height = lastRow.render(80).length;
-      lastRow.handleMouse({ ...click, y: height - 2, height });
-      expect(last.expanded).toBe(false);
-      expect(coordinator.run(last)?.opened).toBe(false);
-      expect(text()).toEqual(["\n  Read 1 file · ran 1 command", ""]);
-      firstRow.handleMouse(click);
-      text();
-      lastRow.handleMouse({ ...click, button: "right", y: height - 1, height });
-      expect(coordinator.run(last)?.opened).toBe(true);
-      lastRow.handleMouse({ ...click, y: height - 1, height });
-      expect(text()).toEqual(["\n  Read 1 file · ran 1 command", ""]);
-      rows.get(first.key)?.handleMouse(click);
-      coordinator.setMode("compact");
-      expect(text()[0]).not.toContain(collapse);
-      coordinator.setMode("summary");
-      expect(text()[1]).toBe("");
-
-      // A click on a live run's card keeps that run open once it ends.
-      coordinator.boundary();
-      const live = add("bash", { command: "npm test" }, "live");
-      // Pi routes clicks only to rendered rows.
-      expect(text()[2]).toContain("Running npm test");
-      rows.get(live.key)?.handleMouse(click);
-      expect(text()[2]).not.toContain(collapse);
-      finish(live);
-      coordinator.settle();
-      expect(text()[2]).toBe(`\n${collapse}\n\n• Ran npm test\n  └ retained output\n\n${collapse}`);
-    } finally {
-      coordinator.dispose();
-    }
-  });
-
-  it("counts image results without rendering image text in summary mode", () => {
-    const { coordinator, add, finish, text } = summaryRows();
-    const images = getCapabilities().images;
-
-    try {
-      setCapabilityOverrides({ images: null });
-      finish(add("read", { path: "image.png" }), {
-        content: [
-          { type: "text", text: "Read image file [image/png]" },
-          { type: "image", data: "private-image-bytes", mimeType: "image/png" }
-        ],
-        details: undefined
-      });
-      expect(text()).toEqual(["\n  Read 1 file"]);
-      coordinator.setMode("compact");
-      expect(text()[0]).toContain("image/png");
-    } finally {
-      setCapabilityOverrides({ images });
-      coordinator.dispose();
     }
   });
 });

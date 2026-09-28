@@ -14,7 +14,7 @@ import { expect, it, vi } from "vite-plus/test";
 import { genericAdapter } from "../adapters/generic.ts";
 import { nativeAdapter } from "../adapters/native/index.ts";
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
-import { assistantMessage, renderingTui } from "../test-fixture.ts";
+import { assistantMessage, plainTheme, renderingTui } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { TranscriptRows } from "./rows.ts";
 
@@ -32,7 +32,8 @@ it("does not revisit bound transcript rows on events without new components", ()
   const host = { chatContainer: { children }, ui: renderingTui() };
   const rows = new TranscriptRows(host, coordinator, {
     active: () => true,
-    styleAssistant: true
+    styleAssistant: true,
+    chrome: true
   });
 
   const append = (index: number) => {
@@ -82,7 +83,8 @@ it("ignores late assistant components after binding deactivation", () => {
   let active = true;
   const rows = new TranscriptRows({}, coordinator, {
     active: () => active,
-    styleAssistant: true
+    styleAssistant: true,
+    chrome: true
   });
   const component = new AssistantMessageComponent(
     assistantMessage([{ type: "text", text: "Native assistant prose" }])
@@ -120,7 +122,8 @@ it("claims matching IDs without rescanning the transcript for each call", () => 
   });
   const rows = new TranscriptRows({}, coordinator, {
     active: () => true,
-    styleAssistant: true
+    styleAssistant: true,
+    chrome: true
   });
   const add = (index: number, name: string) =>
     coordinator.add(
@@ -185,8 +188,10 @@ it("hides collapsed summary members and drops images until a click opens the run
   const host = { chatContainer: { children }, ui: renderingTui() };
   const rows = new TranscriptRows(host, coordinator, {
     active: () => true,
-    styleAssistant: true
+    styleAssistant: true,
+    chrome: true
   });
+  rows.useTheme(plainTheme);
 
   const append = (index: number, name: string, args: unknown, origin: "live" | "historical") => {
     const adapter = nativeAdapter(name)!;
@@ -302,11 +307,11 @@ it("hides collapsed summary members and drops images until a click opens the run
     });
     expect(coordinator.run(shell.call)?.opened).toBe(false);
     expect(render(shell.child)).toEqual([]);
-    coordinator.openRun(leader.call);
+    coordinator.activate(leader.call, "card");
 
     rows.dispose();
     expect(
-      ["render", "handleMouse", "setExpanded"].filter((method) =>
+      ["render", "handleMouse", "invalidate", "setExpanded"].filter((method) =>
         Object.hasOwn(hidden.child, method)
       )
     ).toEqual([]);

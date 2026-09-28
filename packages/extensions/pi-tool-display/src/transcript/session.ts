@@ -9,6 +9,7 @@ import type {
   SavedOutput,
   ToolDisplayAdapter
 } from "../contracts.ts";
+import type { AdapterFailureHandler } from "../interpretation.ts";
 import type { ObservationSink } from "../observation/native.ts";
 import { SavedOutputLoader } from "../observation/saved-output.ts";
 import type { DisplaySettings } from "../settings.ts";
@@ -46,6 +47,7 @@ type DisplaySessionOptions = {
   mode?: DisplayMode;
   append?: ExtensionAPI["appendEntry"] | undefined;
   readSavedOutput?: (path: string) => Promise<SavedOutput>;
+  onAdapterFailure?: AdapterFailureHandler;
 };
 
 function retainedAdapter(
@@ -76,7 +78,8 @@ export class DisplaySession {
     this.coordinator = new TranscriptCoordinator(options.runtime, {
       cwd: options.cwd,
       ...(options.mode ? { mode: options.mode } : {}),
-      onExpansion: (call) => this.loadSavedOutput(call)
+      onExpansion: (call) => this.loadSavedOutput(call),
+      ...(options.onAdapterFailure ? { onAdapterFailure: options.onAdapterFailure } : {})
     });
     this.history = new DisplayHistory(options.history);
     this.output = new SavedOutputLoader(options.readSavedOutput, (path) =>

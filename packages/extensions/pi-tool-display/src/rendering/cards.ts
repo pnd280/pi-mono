@@ -1,24 +1,17 @@
-import {
-  getCapabilities,
-  MouseRegion,
-  truncateToWidth,
-  type Component
-} from "@earendil-works/pi-tui";
+import { getCapabilities, truncateToWidth, type Component } from "@earendil-works/pi-tui";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
-import { genericAdapter, resolveResultAdapter } from "../adapters/generic.ts";
+import { genericAdapter } from "../adapters/generic.ts";
 import {
   isLive,
   type BorrowedToolResult,
-  type SummaryRole,
+  type DisplayCall,
   type ToolDisplayAdapter
 } from "../contracts.ts";
-import { buildRunSummary } from "../summary/model.ts";
+import { interpret, reportAdapterFailure, type CallInterpretation } from "../interpretation.ts";
 import { heading } from "./headings.ts";
-import { displayOutcome } from "./outcome.ts";
 import { buildGroupRows, buildResultBody } from "./result-content.ts";
 import { resultRows } from "./results.ts";
-import { renderCollapseRow, renderRunSummary } from "./summary-line.ts";
 import type {
   CardRendererOptions,
   ToolDisplayRenderers,
@@ -36,19 +29,24 @@ function lazy<T>(prepare: () => T): () => T {
   return () => (cached ??= { value: prepare() }).value;
 }
 
-function prepareCard(base: Omit<Projection, "mcp" | "outcome" | "summary">): PreparedCard {
-  const mcp = lazy(() => base.adapter.mcp?.(base.context.args, base.result));
-  const outcome = lazy(() => displayOutcome({ ...base, mcp: mcp() }));
+function prepareCard(
+  interpretation: CallInterpretation,
+  base: Omit<Projection, "adapter" | "mcp" | "outcome" | "summary">
+): PreparedCard {
+  const mcp = () => interpretation.mcp;
+  const outcome = () => interpretation.outcome;
   const context = lazy(() => ({
     ...base.context,
+    isPartial: interpretation.pending,
     isError: outcome() === "failure" || outcome() === "cancelled"
   }));
-  const invocation = lazy(() => base.adapter.invocation?.(base.context.args, base.result));
-  const exploration = lazy(() => base.adapter.exploration?.(base.context.args, base.result) ?? []);
-  const headingVerbs = lazy(() => base.adapter.headingVerbs?.(base.context.args));
+  const adapter = interpretation.adapter;
+  const invocation = lazy(() => adapter.invocation?.(base.context.args, base.result));
+  const exploration = () => interpretation.exploration;
+  const headingVerbs = lazy(() => adapter.headingVerbs?.(base.context.args));
   const summary = lazy(() => {
-    if (!base.result || base.context.isPartial || outcome() === "unavailable") return undefined;
-    const value = base.adapter.summary?.(base.result, {
+    if (!base.result || interpretation.pending || outcome() === "unavailable") return undefined;
+    const value = adapter.summary?.(base.result, {
       args: base.context.args,
       outcome: outcome(),
       operation: base.call?.operation,
@@ -65,6 +63,7 @@ function prepareCard(base: Omit<Projection, "mcp" | "outcome" | "summary">): Pre
   const groupRows = lazy(() =>
     buildGroupRows({
       ...base,
+      adapter,
       width: base.width - 2,
       get context() {
         return context();
@@ -82,6 +81,7 @@ function prepareCard(base: Omit<Projection, "mcp" | "outcome" | "summary">): Pre
   );
   const prepared: PreparedCard = {
     ...base,
+    adapter,
     get context() {
       return context();
     },
@@ -117,27 +117,12 @@ function prepareCard(base: Omit<Projection, "mcp" | "outcome" | "summary">): Pre
   return prepared;
 }
 
-/** Only the leader renders; images are never rendered in summary mode. */
-function summaryRows(role: SummaryRole, card: PreparedCard): string[] {
-  if (role.kind === "hidden") return [];
-
-  return renderRunSummary(buildRunSummary(role.run.members, card.context.cwd), {
-    width: card.width,
-    theme: card.theme
-  });
-}
-
-function hasAnimatedHeading(card: PreparedCard, role: SummaryRole | undefined): boolean {
-  // Summarized runs have ended; nothing in them animates.
-  if (role) return false;
+function hasAnimatedHeading(card: PreparedCard): boolean {
   if (card.group && !card.expanded)
     return card.group.members[0] === card.call && card.group.members.some(isLive);
 
   return card.call ? isLive(card.call) : card.context.isPartial;
 }
-
-/** Which ends of an opened, ended run carry this card's collapse controls. */
-type CollapsePosition = "first" | "last" | "both";
 
 type PreparedRow = {
   width: number;
@@ -145,8 +130,6 @@ type PreparedRow = {
   headingPhase: number | undefined;
   animated: boolean;
   expanded: boolean;
-  /** Summary role, collapse-control position, or neither. */
-  role: SummaryRole["kind"] | CollapsePosition | undefined;
   adapter: ToolDisplayAdapter;
   images: ReturnType<typeof getCapabilities>["images"];
   card: PreparedCard;
@@ -161,6 +144,8 @@ class CardRow {
   private callArgs: { value: unknown } | undefined;
   private result: BorrowedToolResult | undefined;
   private prepared: PreparedRow | undefined;
+  /** Standalone failure state; bound calls delegate fallback to the coordinator. */
+  private fallback = false;
 
   constructor(
     private name: string,
@@ -197,64 +182,31 @@ class CardRow {
       : this.context.expanded;
   }
 
-  private collapsePosition(): CollapsePosition | undefined {
-    const { binding } = this.options;
-    const run = binding && binding.coordinator.run(binding.call);
-    if (!run) return;
-    const first = run.members[0] === binding.call;
-    const last = run.members.at(-1) === binding.call;
-    if ((!first && !last) || !binding.coordinator.collapsible(binding.call)) return;
-
-    if (first && last) return "both";
-
-    return first ? "first" : "last";
-  }
-
-  private get footerSlot(): Slot {
-    // Pi does not create a result slot for historical calls with no retained result.
-    return this.result === undefined ? "call" : "result";
-  }
-
-  collapseAt(slot: Slot, y: number, height: number): boolean {
-    const position = this.collapsePosition();
-
-    return (
-      ((position === "first" || position === "both") && slot === "call" && (y === 0 || y === 1)) ||
-      ((position === "last" || position === "both") &&
-        slot === this.footerSlot &&
-        height >= 2 &&
-        (y === height - 1 || y === height - 2))
-    );
-  }
-
-  private preparedFor(width: number, summary: SummaryRole | undefined): PreparedRow {
+  private preparedFor(width: number): PreparedRow {
     const call = this.options.binding?.call;
-    const adapter = call?.adapter ?? this.adapter;
+    const adapter = this.fallback ? genericAdapter : (call?.adapter ?? this.adapter);
     const expanded = this.expanded;
     const revision = call?.revision;
     const images = getCapabilities().images;
-    const role = summary?.kind ?? this.collapsePosition();
     const current = this.prepared;
 
     if (
       current?.width === width &&
       current.revision === revision &&
       current.expanded === expanded &&
-      current.role === role &&
       current.adapter === adapter &&
       current.images === images
     )
       return current;
 
-    // Summary cards are compact and standalone, never group members.
-    const card = this.prepare({ width, expanded: summary ? false : expanded }, !summary);
+    const interpretation = this.interpretation();
+    const card = this.prepare(interpretation, { width, expanded });
     this.prepared = {
       width,
       revision,
       headingPhase: undefined,
-      animated: hasAnimatedHeading(card, summary),
+      animated: hasAnimatedHeading(card),
       expanded,
-      role,
       adapter,
       images,
       card,
@@ -264,11 +216,31 @@ class CardRow {
     return this.prepared;
   }
 
+  /** A throwing adapter callback renders the row with the generic adapter instead. */
   render(slot: Slot, width: number): string[] {
+    try {
+      return this.renderSlot(slot, width);
+    } catch (error) {
+      const adapter = this.prepared?.card.adapter;
+      if (this.fallback || !adapter || adapter === genericAdapter) throw error;
+      const { binding, onAdapterFailure } = this.options;
+
+      if (binding) binding.coordinator.failAdapter(binding.call, adapter, error);
+      else {
+        this.fallback = true;
+        reportAdapterFailure(onAdapterFailure, adapter, error);
+      }
+
+      this.invalidate();
+
+      return this.renderSlot(slot, width);
+    }
+  }
+
+  private renderSlot(slot: Slot, width: number): string[] {
     if (width < 1) return [];
     const { binding } = this.options;
-    const summary = binding ? binding.coordinator.summaryRole(binding.call) : undefined;
-    const current = this.preparedFor(width, summary);
+    const current = this.preparedFor(width);
 
     // Pi renders every row on an animation redraw. Only a live heading depends on
     // the clock; its body and every completed card keep their prepared data.
@@ -281,57 +253,60 @@ class CardRow {
 
     if (current.rows[slot]) return current.rows[slot];
     const card = current.card;
-    let rows: string[];
 
-    if (summary) rows = slot === "call" ? summaryRows(summary, card) : [];
-    else {
-      rows = slot === "call" ? heading(card, phase) : resultRows(card);
-      const first = current.role === "first" || current.role === "both";
-      const last = current.role === "last" || current.role === "both";
-      if (first && slot === "call")
-        rows = [renderCollapseRow({ width, theme: card.theme }), "", ...rows];
-      if (last && slot === this.footerSlot)
-        rows = [...rows, "", renderCollapseRow({ width, theme: card.theme })];
-    }
+    const rows = slot === "call" ? heading(card, phase) : resultRows(card);
 
     return (current.rows[slot] = rows.map((row) => truncateToWidth(row, width, "")));
   }
 
-  private prepare(view: Pick<Projection, "width" | "expanded">, grouped = true): PreparedCard {
+  private interpretation(): CallInterpretation {
+    const { binding, onAdapterFailure } = this.options;
+    if (binding) return binding.coordinator.interpretation(binding.call);
+
+    // Standalone renders have no transcript identities; Pi's context cwd only displays paths.
+    return interpret(
+      {
+        name: this.name,
+        adapter: this.fallback ? genericAdapter : this.adapter,
+        args: this.context.args,
+        result: this.result,
+        pending: this.context.isPartial,
+        failed: this.context.isError
+      },
+      this.context.cwd,
+      onAdapterFailure
+    );
+  }
+
+  private prepare(
+    interpretation: CallInterpretation,
+    view: Pick<Projection, "width" | "expanded">
+  ): PreparedCard {
     const { binding } = this.options;
     const call = binding?.call;
-    const selected = call
-      ? resolveResultAdapter(call.adapter, call.args, call.result)
-      : this.adapter;
+    const selected = interpretation.adapter;
+    const interpretCall = (member: DisplayCall) =>
+      binding
+        ? binding.coordinator.interpretation(member)
+        : interpret({ call: member }, this.context.cwd);
 
-    return prepareCard({
+    return prepareCard(interpretation, {
       ...view,
       name: this.name,
-      adapter: selected,
       showParameters:
         selected.alwaysShowParameters === true || this.options.showParameters === true,
       // Pi can retain streamed args and the pre-message_end error flag.
-      context: call
-        ? {
-            ...this.context,
-            args: call.args,
-            isPartial: call.lifecycle !== "complete" && call.lifecycle !== "unavailable",
-            isError:
-              call.lifecycle === "complete"
-                ? call.outcome === "failure" || call.outcome === "cancelled"
-                : this.context.isError
-          }
-        : this.context,
+      context: call ? { ...this.context, args: call.args } : this.context,
       theme: this.theme,
       call,
       result: call?.result ?? this.result,
-      group: binding && grouped ? binding.coordinator.group(binding.call) : undefined
+      group: binding ? binding.coordinator.group(binding.call) : undefined,
+      interpret: interpretCall
     });
   }
 }
 
 class CardSlot implements Component {
-  private height = 0;
   constructor(
     private row: CardRow,
     private slot: Slot
@@ -343,14 +318,7 @@ class CardSlot implements Component {
   }
 
   render(width: number): string[] {
-    const rows = this.row.render(this.slot, width);
-    this.height = rows.length;
-
-    return rows;
-  }
-
-  collapseAt(y: number): boolean {
-    return this.row.collapseAt(this.slot, y, this.height);
+    return this.row.render(this.slot, width);
   }
 
   invalidate(): void {
@@ -391,29 +359,7 @@ export function createToolDisplayRenderers(
       return context.lastComponent;
     }
 
-    const content = new CardSlot(row, slot);
-
-    return binding
-      ? new MouseRegion(content, (event) => {
-          if (event.type !== "click" || event.button !== "left") return undefined;
-
-          if (content.collapseAt(event.y)) {
-            binding.coordinator.closeRun(binding.call);
-
-            return { handled: true };
-          }
-
-          const summarized = !!binding.coordinator.summaryRole(binding.call);
-          // Any click on a card also keeps its unended run open once it ends.
-          binding.coordinator.openRun(binding.call);
-          if (summarized) return { handled: true };
-
-          if (!binding.coordinator.group(binding.call)) return undefined;
-          binding.coordinator.expand(binding.call, !binding.call.expanded);
-
-          return { handled: true };
-        })
-      : content;
+    return new CardSlot(row, slot);
   };
 
   return {

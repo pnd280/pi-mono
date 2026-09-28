@@ -1,9 +1,7 @@
-import { dirname } from "node:path";
-
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import type { OutputText } from "@pi-mono/utils/output-text";
 
-import { resolveResultAdapter } from "../adapters/generic.ts";
+import { genericAdapter } from "../adapters/generic.ts";
 import type { ToolDisplayAdapter } from "../contracts.ts";
 import {
   callKey,
@@ -21,7 +19,15 @@ import {
   type SummaryRole,
   type TranscriptView
 } from "../contracts.ts";
-import { resolveInvocationPath } from "../invocation.ts";
+import {
+  interpret,
+  reportAdapterFailure,
+  sameGroupKey,
+  sameScope,
+  type AdapterFailureHandler,
+  type CallInterpretation,
+  type GroupKey
+} from "../interpretation.ts";
 import { buildRunSummary } from "../summary/model.ts";
 
 export interface RowHandle {
@@ -42,58 +48,6 @@ const clock: AnimationClock = {
     return () => clearInterval(timer);
   }
 };
-
-function normalizedScope(
-  scope: ExplorationScope | undefined,
-  cwd: string
-): ExplorationScope | undefined {
-  if (!scope) return undefined;
-  if (scope.kind === "filter") return { ...scope };
-  const path = resolveInvocationPath(scope.value, cwd);
-
-  return path === undefined
-    ? undefined
-    : {
-        kind: "directory",
-        value: scope.kind === "file" ? dirname(path) : path
-      };
-}
-
-function sameScope(
-  left: ExplorationScope | undefined,
-  right: ExplorationScope | undefined
-): boolean {
-  return left?.kind === right?.kind && left?.value === right?.value;
-}
-
-type ExplorationGroupKey = {
-  scope: ExplorationScope;
-  title: string | undefined;
-};
-
-function sameGroupKey(
-  left: ExplorationGroupKey | undefined,
-  right: ExplorationGroupKey | undefined
-): boolean {
-  if (!left || !right) return left === right;
-
-  return left.title === right.title && sameScope(left.scope, right.scope);
-}
-
-function exploration(call: DisplayCall, cwd: string): ExplorationGroupKey | undefined {
-  const adapter = resolveResultAdapter(call.adapter, call.args, call.result);
-  const items = adapter.exploration?.(call.args, call.result);
-  const first = items?.[0];
-  const scope = normalizedScope(first?.scope, cwd);
-  if (
-    !first ||
-    !scope ||
-    !items.every((item) => sameScope(scope, normalizedScope(item.scope, cwd)))
-  )
-    return undefined;
-
-  return { scope, title: adapter.groupTitle };
-}
 
 type MutableCall = { -readonly [Key in keyof DisplayCall]: DisplayCall[Key] };
 
@@ -127,7 +81,7 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   private sequence: string[] = [];
   private positions = new Map<string, number>();
-  private explorable = new Map<string, ExplorationGroupKey>();
+  private explorable = new Map<string, GroupKey>();
   private cwd: string;
   private separators = new Set<string>();
   private groupingDepth = 0;
@@ -142,6 +96,11 @@ export class TranscriptCoordinator implements TranscriptView {
   private liveIdentities = new Map<string, MutableCall>();
   private activeCalls = new Set<MutableCall>();
   private rows = new Map<string, Set<RowHandle>>();
+  private interpretations = new WeakMap<
+    DisplayCall,
+    { inputs: readonly unknown[]; value: CallInterpretation }
+  >();
+  private failedAdapters = new WeakMap<DisplayCall, ToolDisplayAdapter>();
   private stopAnimation: (() => void) | undefined;
   private disposed = false;
   phase = 0;
@@ -159,6 +118,7 @@ export class TranscriptCoordinator implements TranscriptView {
       animationClock?: AnimationClock;
       /** State consequences must not depend on whether a Pi row is attached. */
       onExpansion?(call: DisplayCall): void;
+      onAdapterFailure?: AdapterFailureHandler;
     } = {}
   ) {
     this.cwd = options.cwd ?? process.cwd();
@@ -190,7 +150,6 @@ export class TranscriptCoordinator implements TranscriptView {
       if (Object.is(existing.args, args)) return existing;
 
       existing.args = args;
-      this.refreshGrouping(existing);
       this.changed(existing);
 
       return existing;
@@ -217,7 +176,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
     // Append is the common path, including history reconstruction. Only the old
     // heading and final connector can change; unrelated row caches stay valid.
-    const grouping = exploration(call, this.cwd);
+    const grouping = this.interpretation(call).group;
 
     if (grouping) {
       this.explorable.set(key, grouping);
@@ -234,7 +193,6 @@ export class TranscriptCoordinator implements TranscriptView {
     const call = this.mutable(view);
     if (!call || call.adapter.id === adapter.id) return;
     call.adapter = adapter;
-    this.refreshGrouping(call);
     this.changed(call);
   }
   /** Reconcile groups and invalidate each affected row once after synchronous updates.
@@ -312,6 +270,42 @@ export class TranscriptCoordinator implements TranscriptView {
     this.regroupBoundaries(changed("group"));
     this.repartitionRuns(changed("run"));
   }
+  /** Cached until an interpreted input changes; identities use the session cwd. */
+  interpretation(call: DisplayCall): CallInterpretation {
+    const inputs = [
+      call.adapter,
+      call.args,
+      call.result,
+      call.lifecycle,
+      call.outcome,
+      call.cancellation,
+      call.operation,
+      call.change
+    ];
+    const cached = this.interpretations.get(call);
+    if (cached?.inputs.every((input, index) => Object.is(input, inputs[index])))
+      return cached.value;
+    const value = interpret(
+      {
+        call,
+        ...(this.failedAdapters.get(call) === call.adapter ? { adapter: genericAdapter } : {})
+      },
+      this.cwd,
+      this.options.onAdapterFailure
+    );
+    this.interpretations.set(call, { inputs, value });
+
+    return value;
+  }
+  /** A presentation failure changes every display consumer, not just one renderer slot. */
+  failAdapter(view: DisplayCall, adapter: ToolDisplayAdapter, error: unknown): void {
+    const call = this.mutable(view);
+    if (!call || call.adapter !== adapter || this.failedAdapters.get(call) === adapter) return;
+    this.failedAdapters.set(call, adapter);
+    this.interpretations.delete(call);
+    this.changed(call);
+    reportAdapterFailure(this.options.onAdapterFailure, adapter, error);
+  }
   byId(id: string): DisplayCall | undefined {
     return this.latestById.get(id);
   }
@@ -354,13 +348,35 @@ export class TranscriptCoordinator implements TranscriptView {
     }
   }
   /**
+   * Apply a click on a call's row. A collapse control closes its run. A card click
+   * opens its run: a summarized run is handled; otherwise a grouped card toggles
+   * its group. Returns false when the host should handle the click itself.
+   */
+  activate(view: DisplayCall, target: "card" | "collapse"): boolean {
+    const call = this.mutable(view);
+    const run = call && this.runs.get(call.key);
+    if (!call || !run) return false;
+
+    if (target === "collapse") {
+      this.closeRun(run);
+
+      return true;
+    }
+
+    const summarized = this.summarized(run);
+    this.openRun(run);
+    if (summarized) return true;
+    if (!this.group(call)) return false;
+    this.expand(call, !call.expanded);
+
+    return true;
+  }
+  /**
    * Keep a run's compact cards until the next mode change. Opens a summarized run;
    * a run the user interacted with before it ended stays open when it ends.
    */
-  openRun(view: DisplayCall): void {
-    const call = this.mutable(view);
-    const run = call && this.runs.get(call.key);
-    if (!run || run.opened || this.mode !== "summary" || !this.summaries) return;
+  private openRun(run: MutableRun): void {
+    if (run.opened || this.mode !== "summary" || !this.summaries) return;
     const summarized = this.summarized(run);
     run.opened = true;
     if (summarized) for (const member of run.members) this.invalidate(member);
@@ -369,20 +385,21 @@ export class TranscriptCoordinator implements TranscriptView {
   collapsible(call: DisplayCall): boolean {
     const run = this.runs.get(call.key);
 
+    return this.closable(run);
+  }
+  private closable(run: MutableRun | undefined): boolean {
     return (
       !!run &&
       run.opened &&
       run.ended &&
       this.mode === "summary" &&
       this.summaries &&
-      buildRunSummary(run.members, this.cwd).segments.length > 0
+      buildRunSummary(run.members, (member) => this.interpretation(member)).segments.length > 0
     );
   }
   /** Return an opened run to its summary line. */
-  closeRun(view: DisplayCall): void {
-    const call = this.mutable(view);
-    const run = call && this.runs.get(call.key);
-    if (!run || !this.collapsible(view)) return;
+  private closeRun(run: MutableRun): void {
+    if (!this.closable(run)) return;
     run.opened = false;
     for (const member of run.members) this.invalidate(member);
   }
@@ -401,6 +418,8 @@ export class TranscriptCoordinator implements TranscriptView {
     const call = this.mutable(view);
     if (!call || (partial && !isLive(call))) return;
     call.result = result;
+    // Results are borrowed: a producer can update and republish the same object.
+    this.interpretations.delete(call);
 
     if (!partial) {
       call.lifecycle = "complete";
@@ -408,7 +427,6 @@ export class TranscriptCoordinator implements TranscriptView {
       call.liveOutput = undefined;
     }
 
-    this.refreshGrouping(call);
     this.changed(call);
   }
   fact(view: DisplayCall, fact: DisplayFact): void {
@@ -504,6 +522,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.invalidationDepth++;
 
     try {
+      this.refreshGrouping(call);
       this.invalidate(call);
       const first = this.groups.get(call.key)?.members[0];
       if (first && first !== call && !first.expanded) this.invalidate(first);
@@ -674,7 +693,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
     return [this.position(members?.[0]?.key ?? key), this.position(members?.at(-1)?.key ?? key)];
   }
-  private newGroup(call: MutableCall, grouping: ExplorationGroupKey): MutableGroup {
+  private newGroup(call: MutableCall, grouping: GroupKey): MutableGroup {
     return {
       members: [],
       expanded: call.expanded,
@@ -688,11 +707,7 @@ export class TranscriptCoordinator implements TranscriptView {
 
     return !!first && !!second && sameGroupKey(first, second);
   }
-  private appendGroup(
-    call: MutableCall,
-    previous: string | undefined,
-    grouping: ExplorationGroupKey
-  ): void {
+  private appendGroup(call: MutableCall, previous: string | undefined, grouping: GroupKey): void {
     const group =
       previous && !this.separated(previous) && this.sharesGroup(previous, call.key)
         ? this.groups.get(previous)
@@ -713,7 +728,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.options.onExpansion?.(call);
   }
   private refreshGrouping(call: MutableCall): void {
-    const grouping = exploration(call, this.cwd);
+    const grouping = this.interpretation(call).group;
     const previousGrouping = this.explorable.get(call.key);
     if (sameGroupKey(grouping, previousGrouping)) return;
     if (grouping) this.explorable.set(call.key, grouping);

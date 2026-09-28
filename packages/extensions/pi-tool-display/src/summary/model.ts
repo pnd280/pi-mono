@@ -1,13 +1,6 @@
-import { resolveResultAdapter } from "../adapters/generic.ts";
-import type {
-  DisplayCall,
-  Outcome,
-  SummaryCategory,
-  SummaryItem,
-  ToolDisplayAdapter
-} from "../contracts.ts";
-import { callOutcome } from "../rendering/outcome.ts";
-import { builtinCategories, fallbackItems, resolveCategory } from "./categories.ts";
+import type { DisplayCall, Outcome, SummaryCategory } from "../contracts.ts";
+import type { CallInterpretation } from "../interpretation.ts";
+import { builtinCategories, resolveCategory } from "./categories.ts";
 
 export type SummaryCounts = {
   readonly failed: number;
@@ -28,27 +21,6 @@ export type RunSummary = {
   readonly segments: readonly SummarySegment[];
 };
 
-function items(
-  call: DisplayCall,
-  adapter: ToolDisplayAdapter,
-  cwd: string
-): readonly SummaryItem[] {
-  let supplied: readonly SummaryItem[] | undefined;
-
-  try {
-    supplied = adapter.summaryItems?.(call.args, {
-      result: call.result,
-      change: call.change,
-      cwd
-    });
-  } catch {
-    supplied = undefined;
-  }
-
-  // An empty list omits the call; undefined falls back to the family's category.
-  return supplied ?? fallbackItems(adapter.family, call.name, call.change);
-}
-
 function counts(states: readonly Outcome[]): SummaryCounts {
   const count = (state: Outcome) => states.filter((value) => value === state).length;
 
@@ -59,23 +31,26 @@ function counts(states: readonly Outcome[]): SummaryCounts {
   };
 }
 
-/** Pure: derive a run's summary from borrowed call state without touching files. */
-export function buildRunSummary(members: readonly DisplayCall[], cwd: string): RunSummary {
+/** Pure: derive a run's summary from interpreted call state without touching files. */
+export function buildRunSummary(
+  members: readonly DisplayCall[],
+  interpretation: (call: DisplayCall) => CallInterpretation
+): RunSummary {
   const declared = new Map<string, SummaryCategory>();
   // Latest state per entry key, per category; Map order is first appearance.
   const categories = new Map<string, Map<string, Outcome>>();
 
   for (const call of members) {
-    if (call.adapter.omitFromSummary) continue;
-    const adapter = resolveResultAdapter(call.adapter, call.args, call.result);
-    const supplied = items(call, adapter, cwd);
+    const interpreted = interpretation(call);
+    // An empty list omits the call; adapters without items use their family's category.
+    const supplied = interpreted.summaryItems;
     if (!supplied.length) continue;
 
-    for (const category of adapter.summaryCategories ?? [])
+    for (const category of interpreted.summaryCategories)
       if (!builtinCategories.has(category.id) && !declared.has(category.id))
         declared.set(category.id, category);
 
-    const state = callOutcome(call);
+    const state = interpreted.outcome;
 
     supplied.forEach((item, position) => {
       const entries = categories.get(item.category) ?? new Map<string, Outcome>();

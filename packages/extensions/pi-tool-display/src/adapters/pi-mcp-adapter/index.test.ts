@@ -4,7 +4,6 @@ import { expect, it, vi } from "vite-plus/test";
 import { selectAdapter } from "../../host/selection.ts";
 import { createToolDisplayRenderers } from "../../rendering/api.ts";
 import { loadDisplaySettings } from "../../settings.ts";
-import { resolveResultAdapter } from "../generic.ts";
 import { piMcpAdapter } from "./index.ts";
 import { mcpToolInfo } from "./test-fixture.ts";
 
@@ -190,7 +189,7 @@ it("accepts gateway metadata results and retains published middleware failures",
     ],
     [{ connect: "display" }, { mode: "list", server: "display", tools: ["display_echo"] }]
   ])
-    expect(resolveResultAdapter(adapter, args, result(details))).toBe(adapter);
+    expect(adapter.supports?.(args, result(details))).not.toBe(false);
   const renderer = createToolDisplayRenderers("mcp", adapter);
   const current = { ...context(), isError: true };
   const supplied = result({ mode: "call", server: "display", tool: "echo" });
@@ -281,15 +280,11 @@ it("falls back for missing or malformed retained contracts without adding observ
     { mode: "future" },
     { error: true }
   ])
-    expect(resolveResultAdapter(adapter, { tool: "search" }, result(details)).id).toBe("generic");
+    expect(adapter.supports?.({ tool: "search" }, result(details))).toBe(false);
   expect(
-    resolveResultAdapter(
-      adapter,
-      { tool: "search" },
-      result({ mode: "call", server: "docs", tool: "search" })
-    )
-  ).toBe(adapter);
-  expect(resolveResultAdapter(adapter, { tool: 5 }, result({ mode: "call" })).id).toBe("generic");
+    adapter.supports?.({ tool: "search" }, result({ mode: "call", server: "docs", tool: "search" }))
+  ).not.toBe(false);
+  expect(adapter.supports?.({ tool: 5 }, result({ mode: "call" }))).toBe(false);
   expect(adapter.savedOutput).toBeUndefined();
   expect(adapter.patch).toBeUndefined();
   expect("exploration" in adapter).toBe(false);

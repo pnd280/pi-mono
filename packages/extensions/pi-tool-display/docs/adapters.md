@@ -14,6 +14,8 @@ Follow [display conventions](conventions.md). Resolvers automatically select ver
 
 To expose an adapter factory to tool authors, export it from [`src/adapters/index.ts`](../src/adapters/index.ts).
 
+Callbacks should return `undefined` or reject through `supports` rather than throw. Interpretation resolves metadata together so a throwing callback cannot mix specialized identities with generic outcomes. A presentation failure keeps that call generic across later updates; it leaves exploration groups and uses generic summary counts, while preserving `omitFromSummary`. The host warns once per adapter ID.
+
 Adapters must not enable/execute tools, access files, persist data, mutate borrowed arguments/results, or change model context. Native observation and unavailable-history notices need separate [host provenance checks](../README.md#observation-and-saved-history).
 
 ## Recognize tool contracts

@@ -2,6 +2,8 @@ import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent"
 import type { CodeSelectionRange } from "@pi-mono/libs/tui/components/code-highlight";
 import type { OutputText } from "@pi-mono/utils/output-text";
 
+import type { CallInterpretation } from "./interpretation.ts";
+
 export type ToolFamily = "read" | "search" | "list" | "shell" | "edit" | "write" | "invocation";
 
 export type CallReference = {
@@ -140,16 +142,13 @@ export interface TranscriptView {
   readonly mode: DisplayMode;
   group(call: DisplayCall): DisplayGroup | undefined;
   run(call: DisplayCall): DisplayRun | undefined;
-  /**
-   * Undefined outside summary mode, when summaries are unavailable, and for opened or
-   * unended runs: render the ordinary card.
-   */
-  summaryRole(call: DisplayCall): SummaryRole | undefined;
+  /** Shared by grouping, summaries, and cards so every consumer agrees. */
+  interpretation(call: DisplayCall): CallInterpretation;
+  /** Fall back for this call after a presentation callback throws. */
+  failAdapter(call: DisplayCall, adapter: ToolDisplayAdapter, error: unknown): void;
   expand(call: DisplayCall, expanded: boolean): void;
-  openRun(call: DisplayCall): void;
-  /** True for members of an opened run with a nonempty summary to return to. */
-  collapsible(call: DisplayCall): boolean;
-  closeRun(call: DisplayCall): void;
+  /** Apply a row click; false leaves the click to the host. */
+  activate(call: DisplayCall, target: "card" | "collapse"): boolean;
 }
 
 export type ResultTextPart = {

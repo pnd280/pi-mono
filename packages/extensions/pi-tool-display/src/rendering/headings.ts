@@ -18,7 +18,6 @@ import {
 import { invocationParts, invocationPartText, serializeParameters } from "../invocation.ts";
 import { expansionHint, codeHighlightLimits, tree, styleParameters } from "./format.ts";
 import { bodyWidth } from "./layout.ts";
-import { callOutcome } from "./outcome.ts";
 import { targetRows } from "./target-layout.ts";
 import type { PreparedCard } from "./types.ts";
 
@@ -196,19 +195,19 @@ function actionColor(tone: ActionTone): HeadingColor {
   }
 }
 
-function callActionTone(call: DisplayCall): ActionTone {
+function callActionTone(call: DisplayCall, p: PreparedCard): ActionTone {
   if (isLive(call)) return "pending";
 
-  return actionTone(false, callOutcome(call));
+  return actionTone(false, p.interpret(call).outcome);
 }
 
-function groupActionColor(group: DisplayGroup): HeadingColor {
+function groupActionColor(group: DisplayGroup, p: PreparedCard): HeadingColor {
   const first = group.members[0];
   if (!first) return "accent";
 
-  const tone = callActionTone(first);
+  const tone = callActionTone(first, p);
 
-  return group.members.every((call) => callActionTone(call) === tone)
+  return group.members.every((call) => callActionTone(call, p) === tone)
     ? actionColor(tone)
     : "accent";
 }
@@ -282,7 +281,9 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
   const rows: string[] = [];
 
   if (first) {
-    const outcomes = group.members.filter((call) => !isLive(call)).map(callOutcome);
+    const outcomes = group.members
+      .filter((call) => !isLive(call))
+      .map((call) => p.interpret(call).outcome);
     const failed = outcomes.filter((outcome) => outcome === "failure").length;
     const cancelled = outcomes.filter((outcome) => outcome === "cancelled").length;
     const unavailable = outcomes.filter((outcome) => outcome === "unavailable").length;
@@ -293,7 +294,7 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
     ]
       .filter(Boolean)
       .join(p.theme.fg("dim", ", "));
-    const titleColor = groupActionColor(group);
+    const titleColor = groupActionColor(group, p);
 
     if (group.title !== undefined) {
       // Adapter-defined groups use a title instead of exposing their literal scope.

@@ -32,7 +32,7 @@ it("recognizes native construction through the installed pi executable, not just
       import { AgentSession, AssistantMessageComponent, initTheme } from "@earendil-works/pi-coding-agent";
       import { installHostIntegration } from ${JSON.stringify(integration)};
       import { assistantBoundaryKind, bindAssistantPresentation, trackThinkingCompletion } from ${JSON.stringify(assistant)};
-      import { interactivePrototype, modeHooksCompatible } from ${JSON.stringify(compatibility)};
+      import { interactivePrototype, modeHooksCompatible, rowContractCompatible } from ${JSON.stringify(compatibility)};
       import { createBoundedPatch } from ${JSON.stringify(boundedDiff)};
       import { piSelectiveReadAdapter } from ${JSON.stringify(selectiveAdapter)};
       const original = Reflect.get(AgentSession.prototype, "_buildRuntime");
@@ -67,7 +67,8 @@ it("recognizes native construction through the installed pi executable, not just
           const patch = await createBoundedPatch({ path: "file", before: "before\\n", after: "after\\n", maxSourceBytes: 1024, maxPatchBytes: 1024, maxEditLength: 2000, timeoutMs: 1000, contextLines: 4 });
           const generatedPatch = patch.status === "ready";
           const modeHooks = modeHooksCompatible(interactivePrototype());
-          process.stdout.write(JSON.stringify({ recognized, restored, thinkingLive, suppressed, revealed, thinkingBoundary, thinkingRestored, proseMarked, proseBoundary, proseRestored, selectiveReadRecognized, generatedPatch, modeHooks }) + "\\n");
+          const rowContract = rowContractCompatible();
+          process.stdout.write(JSON.stringify({ recognized, restored, thinkingLive, suppressed, revealed, thinkingBoundary, thinkingRestored, proseMarked, proseBoundary, proseRestored, selectiveReadRecognized, generatedPatch, modeHooks, rowContract }) + "\\n");
         } });
       }
     `
@@ -115,7 +116,8 @@ it("recognizes native construction through the installed pi executable, not just
         proseRestored: true,
         selectiveReadRecognized: true,
         generatedPatch: true,
-        modeHooks: true
+        modeHooks: true,
+        rowContract: true
       })
     );
   } finally {

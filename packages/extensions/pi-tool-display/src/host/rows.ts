@@ -2,121 +2,13 @@ import { AssistantMessageComponent, ToolExecutionComponent } from "@earendil-wor
 import type { Component } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import type { DisplayCall, TranscriptView } from "../contracts.ts";
+import type { DisplayCall } from "../contracts.ts";
+import type { DisplayTheme } from "../rendering/types.ts";
 import type { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { record } from "../values.ts";
 import { assistantBoundaryKind, bindAssistantPresentation } from "./assistant.ts";
 import type { Host } from "./compatibility.ts";
-
-/** Pi 0.87.1 renders a margin row, its self-rendered rows (selfRenderHeight), then images. */
-function selfRenderedRows(row: ToolExecutionComponent, rows: string[]): string[] {
-  const height = record(row).selfRenderHeight;
-  if (typeof height !== "number") return rows;
-
-  return height > 0 ? rows.slice(0, height + 1) : [];
-}
-
-/** Pi 0.87.1 prepends a margin row and subtracts it in handleMouse. Join compact
- * members without moving native image components or replacing Pi's mouse routing.
- * Collapsed summary runs hide member rows entirely and never render images.
- */
-function joinGroupedRow(
-  row: ToolExecutionComponent,
-  call: DisplayCall,
-  coordinator: TranscriptView,
-  active: () => boolean
-): () => void {
-  const hooks = new OwnedHooks();
-  // Retain Pi's unbound methods and rebind their original receiver when delegating.
-  // oxlint-disable-next-line typescript/unbound-method
-  const previousRender = row.render;
-  // oxlint-disable-next-line typescript/unbound-method
-  const previousMouse = row.handleMouse;
-  let removedMargin = false;
-  let hidden = false;
-  let movedFooter: { from: number; to: number } | undefined;
-
-  const render: typeof row.render = function (this: ToolExecutionComponent, width) {
-    movedFooter = undefined;
-    const rows = previousRender.call(this, width);
-    const role = active() ? coordinator.summaryRole(call) : undefined;
-    hidden = role?.kind === "hidden";
-
-    if (hidden) {
-      removedMargin = false;
-
-      return [];
-    }
-
-    const visible = role ? selfRenderedRows(this, rows) : rows;
-    const group = active() && !role && !call.expanded ? coordinator.group(call) : undefined;
-    removedMargin = !!group && group.members[0] !== call && visible[0] === "";
-
-    const joined = removedMargin ? visible.slice(1) : visible;
-    const height = record(this).selfRenderHeight;
-
-    // Pi appends images after both renderer slots. Move the last member's footer
-    // and its leading padding below those rows, leaving native images untouched.
-    if (
-      width > 0 &&
-      active() &&
-      coordinator.run(call)?.members.at(-1) === call &&
-      coordinator.collapsible(call) &&
-      typeof height === "number" &&
-      height > 0
-    ) {
-      const from = height - Number(removedMargin);
-      const footer = joined[from];
-
-      if (footer !== undefined && from < joined.length - 1) {
-        movedFooter = { from, to: joined.length - 1 };
-
-        return [...joined.slice(0, from - 1), ...joined.slice(from + 1), "", footer];
-      }
-    }
-
-    return joined;
-  };
-
-  const handleMouse: typeof row.handleMouse = function (this: ToolExecutionComponent, event) {
-    if (hidden && active()) return undefined;
-
-    if (active() && movedFooter && event.y >= movedFooter.from - 1) {
-      if (
-        (event.y === movedFooter.to || event.y === movedFooter.to - 1) &&
-        event.type === "click" &&
-        event.button === "left" &&
-        coordinator.collapsible(call)
-      ) {
-        return previousMouse.call(this, {
-          ...event,
-          y: movedFooter.from + event.y - movedFooter.to + Number(removedMargin),
-          height: event.height + Number(removedMargin)
-        });
-      }
-
-      // Image rows are outside Pi's self-rendered mouse region. In particular,
-      // their new first row must not hit the footer's former slot coordinates.
-      return undefined;
-    }
-
-    return previousMouse.call(
-      this,
-      removedMargin && active() ? { ...event, y: event.y + 1, height: event.height + 1 } : event
-    );
-  };
-
-  // Owned hooks unwind in reverse order: restore rendering before mouse routing.
-  hooks.replace(row, "handleMouse", handleMouse);
-  hooks.replace(row, "render", render);
-
-  return () => {
-    removedMargin = false;
-    hidden = false;
-    movedFooter = undefined;
-    hooks.restore();
-  };
-}
+import { bindRowChrome } from "./row-layout.ts";
 
 /** Pi row ownership, visible separators, and input routing for one transcript binding. */
 export class TranscriptRows {
@@ -134,12 +26,15 @@ export class TranscriptRows {
   private components = new Set<Component>();
   private predecessors = new WeakMap<Component, DisplayCall>();
   private pendingRows = new Set<ToolExecutionComponent>();
+  private theme: DisplayTheme | undefined;
   constructor(
     private host: Pick<Host, "ui" | "chatContainer" | "toolOutputExpanded">,
     private coordinator: TranscriptCoordinator,
     private options: {
       active: () => boolean;
       styleAssistant: boolean;
+      /** Pi's row contract is recognized; otherwise rows keep Pi's own chrome. */
+      chrome: boolean;
       /** Without mode hooks, Pi's global expansion toggles collapsed mode and verbose. */
       syncMode?: () => void;
     }
@@ -171,6 +66,10 @@ export class TranscriptRows {
   }
   retainDefinition(definition: object, call: DisplayCall): void {
     this.calls.set(definition, call);
+  }
+  /** Pi passes its theme only to renderers; row chrome reuses the latest one. */
+  useTheme(theme: DisplayTheme): void {
+    this.theme = theme;
   }
   private rowCall(row: ToolExecutionComponent): DisplayCall | undefined {
     const definition = record(row).toolDefinition;
@@ -266,7 +165,13 @@ export class TranscriptRows {
       const call = this.rowCall(child);
       if (!call) continue;
       this.bound.add(child);
-      this.disposers.push(joinGroupedRow(child, call, coordinator, this.options.active));
+      if (this.options.chrome)
+        this.disposers.push(
+          bindRowChrome(child, call, coordinator, {
+            active: this.options.active,
+            theme: () => this.theme
+          })
+        );
       // Retain Pi's expansion callback and explicitly rebind its original receiver.
       // oxlint-disable-next-line typescript/unbound-method
       const previous = child.setExpanded;

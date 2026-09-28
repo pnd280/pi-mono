@@ -102,6 +102,8 @@ Native observation is verified against Pi 0.87.1 via API and installed CLI. Unve
 
 Prose markers and hiding completed thinking require Pi 0.87.1's verified assistant component; unavailable/already-wrapped contracts retain Pi's original presentation.
 
+Joined row spacing and summaries require Pi 0.87.1's verified tool-row contract. Otherwise the host warns once, keeps Pi's spacing, and renders summary mode as compact.
+
 Mode cycling requires Pi 0.87.1's verified expansion methods. Otherwise a warning reports that Ctrl+O toggles only the collapsed mode and verbose.
 
 No tool registration, active-tool changes, or added keybindings; the mode cycle reuses Pi's expansion action. Custom cards do not apply to HTML exports.

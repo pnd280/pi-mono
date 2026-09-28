@@ -741,7 +741,7 @@ it("preserves an opened later run when assistant boundaries withdraw", () => {
     const owner = {};
     coordinator.setBoundary(owner, first);
     const second = add("read", { path: "b.ts" }, "live");
-    coordinator.openRun(second);
+    coordinator.activate(second, "card");
     coordinator.setBoundary(owner);
     expect(coordinator.run(second)?.opened).toBe(true);
     coordinator.result(second, result(), "success");
@@ -749,11 +749,11 @@ it("preserves an opened later run when assistant boundaries withdraw", () => {
     expect(roles()).toEqual(["card", "card"]);
 
     coordinator.setBoundary(owner, first);
-    coordinator.closeRun(first);
+    coordinator.activate(first, "collapse");
     expect(roles()).toEqual(["leader", "card"]);
     coordinator.setBoundary(owner);
     expect(roles()).toEqual(["card", "card"]);
-    coordinator.closeRun(second);
+    coordinator.activate(second, "collapse");
     expect(roles()).toEqual(["leader", "hidden"]);
   } finally {
     coordinator.dispose();
@@ -785,7 +785,7 @@ it("keeps thinking boundaries out of run settlement and preserves opened state",
     coordinator.setBoundary(owner);
     expect(roles()).toEqual(["leader", "hidden"]);
 
-    coordinator.openRun(second);
+    coordinator.activate(second, "card");
 
     for (const after of [first, undefined, first]) {
       coordinator.setBoundary(owner, after, "group");
@@ -850,7 +850,7 @@ it("renders ordinary cards outside summary mode and in opened runs until the mod
     expect([invalidations(first), invalidations(second)]).toEqual([1, 1]);
 
     clear();
-    coordinator.openRun(second);
+    coordinator.activate(second, "card");
     expect(coordinator.run(first)?.opened).toBe(true);
     expect(roles()).toEqual(["card", "card"]);
     expect([invalidations(first), invalidations(second)]).toEqual([1, 1]);
@@ -929,7 +929,7 @@ it("keeps a run the user opened while live as cards once it ends", () => {
     const first = add("read", { path: "a.ts" }, "live");
     const second = add("bash", { command: "true" }, "live");
     clear();
-    coordinator.openRun(first);
+    coordinator.activate(first, "card");
     expect(coordinator.run(first)?.opened).toBe(true);
     // Opening a live run changes nothing visible yet.
     expect([invalidations(first), invalidations(second)]).toEqual([0, 0]);
@@ -943,11 +943,11 @@ it("keeps a run the user opened while live as cards once it ends", () => {
     // Ending adds collapse controls to both ends of the run.
     expect([invalidations(first), invalidations(second)]).toEqual([1, 1]);
     expect([coordinator.collapsible(first), coordinator.collapsible(second)]).toEqual([true, true]);
-    coordinator.closeRun(second);
+    coordinator.activate(second, "collapse");
     expect(roles()).toEqual(["leader", "hidden"]);
     expect(coordinator.collapsible(first)).toBe(false);
 
-    coordinator.openRun(first);
+    coordinator.activate(first, "card");
     coordinator.setMode("compact");
     expect(coordinator.collapsible(first)).toBe(false);
     coordinator.setMode("summary");
@@ -957,7 +957,7 @@ it("keeps a run the user opened while live as cards once it ends", () => {
     coordinator.boundary();
     const later = add("read", { path: "b.ts" }, "live");
     coordinator.setMode("compact");
-    coordinator.openRun(later);
+    coordinator.activate(later, "card");
     expect(coordinator.run(later)?.opened).toBe(false);
   } finally {
     coordinator.dispose();
@@ -970,12 +970,12 @@ it("renders summary mode as cards while summaries are unavailable", () => {
   try {
     const first = add("read", { path: "a.ts" });
     const second = add("bash", { command: "true" });
-    coordinator.openRun(first);
+    coordinator.activate(first, "card");
     clear();
     coordinator.setSummaries(false);
     expect(roles()).toEqual(["card", "card"]);
     expect([invalidations(first), invalidations(second)]).toEqual([1, 1]);
-    coordinator.openRun(first);
+    coordinator.activate(first, "card");
     coordinator.setSummaries(true);
     // Availability changes close opened runs like mode changes.
     expect(roles()).toEqual(["leader", "hidden"]);

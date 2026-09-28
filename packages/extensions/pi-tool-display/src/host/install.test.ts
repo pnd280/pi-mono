@@ -2816,6 +2816,53 @@ it("keeps summary rendering and toggles verbose when Pi's expansion methods diff
   }
 });
 
+it("keeps Pi's row chrome and disables summaries when Pi's row contract differs", async () => {
+  const row = ToolExecutionComponent.prototype;
+  // oxlint-disable-next-line typescript/unbound-method
+  const handleMouse = row.handleMouse;
+
+  // A different method body disables row chrome; groups keep Pi's margin rows.
+  row.handleMouse = function (this: ToolExecutionComponent, event) {
+    return handleMouse.call(this, event);
+  };
+
+  try {
+    await withSession(
+      async ({ session }) => {
+        const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
+        const uiContext = { notify } satisfies Pick<ExtensionContext["ui"], "notify">;
+        await session.bindExtensions({
+          mode: "tui",
+          // This binding only reports warnings; no dialogs or editor are used.
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          uiContext: uiContext as unknown as ExtensionContext["ui"]
+        });
+        const tui = interactiveHost(session);
+
+        try {
+          tui.renderSessionItems(summaryHistory(session));
+          expect(notify).toHaveBeenCalledWith(
+            "pi-tool-display: row contract unavailable; summaries disabled.",
+            "warning"
+          );
+          const rows = tui.chatContainer.children.filter(
+            (child) => child instanceof ToolExecutionComponent
+          );
+          expect(rows.every((child) => !Object.hasOwn(child, "render"))).toBe(true);
+          expect(transcriptText(tui)).not.toContain("Read 2 files");
+          expect(transcriptText(tui)).toContain("Explored");
+          expect(transcriptText(tui)).toContain("Run failed");
+        } finally {
+          tui.footerDataProvider.dispose();
+        }
+      },
+      { collapsedMode: "summary" }
+    );
+  } finally {
+    Reflect.set(row, "handleMouse", handleMouse);
+  }
+});
+
 it("restores expansion methods on disposal and preserves later wrappers", () => {
   const prototype = interactivePrototype();
   const toggle = prototype.toggleToolOutputExpansion;

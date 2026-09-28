@@ -39,7 +39,8 @@ function transcript() {
     coordinator,
     add,
     finish,
-    summary: () => buildRunSummary([...coordinator.calls.values()], cwd)
+    summary: () =>
+      buildRunSummary([...coordinator.calls.values()], (call) => coordinator.interpretation(call))
   };
 }
 
@@ -204,7 +205,8 @@ it("falls back when adapters reject partial arguments or throw", () => {
     finish(add("bash", { command: 1 }));
     finish(add("read", { path: "a.ts" }, { adapter: throwing }));
 
-    expect(shape(summary())).toEqual(["edit:1", "shell:1", "read:1"]);
+    // A throwing adapter is replaced by the generic adapter, not trusted for its family.
+    expect(shape(summary())).toEqual(["edit:1", "shell:1", "other:read:1"]);
   } finally {
     coordinator.dispose();
   }

@@ -9,7 +9,7 @@ import { expect, it } from "vite-plus/test";
 
 import { nativeAdapter } from "../adapters/native/index.ts";
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
-import { renderingTui } from "../test-fixture.ts";
+import { plainTheme, renderingTui } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { TranscriptRows } from "./rows.ts";
 
@@ -32,8 +32,10 @@ it.each([
     const host = { chatContainer: { children }, ui: renderingTui() };
     const rows = new TranscriptRows(host, coordinator, {
       active: () => true,
-      styleAssistant: true
+      styleAssistant: true,
+      chrome: true
     });
+    rows.useTheme(plainTheme);
 
     try {
       for (let index = 0; index < count; index++) {
@@ -81,7 +83,7 @@ it.each([
       coordinator.expand(last, expanded);
 
       for (const width of [24, 80]) {
-        coordinator.openRun(last);
+        coordinator.activate(last, "card");
         const rendered = children.map((child) => child.render(width));
         const tailRows = rendered.at(-1)!;
         const footer = tailRows.length - 1;
@@ -122,7 +124,8 @@ it.each([
           [tail, footer - 1],
           [tail, footer]
         ] as const) {
-          coordinator.openRun(last);
+          // Reopen from the summary line; a click on an opened card toggles its group.
+          if (!coordinator.run(last)?.opened) coordinator.activate(last, "card");
           for (const member of children) member.render(width);
           const event = { ...click, y, height: child.render(width).length };
           child.handleMouse({ ...event, button: "right" });

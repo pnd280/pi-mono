@@ -2,9 +2,9 @@ import { createHash } from "node:crypto";
 
 import {
   InteractiveMode,
+  ToolExecutionComponent,
   type AgentSession,
   type AssistantMessageComponent,
-  type ToolExecutionComponent,
   type AgentSessionEvent
 } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
@@ -70,6 +70,30 @@ export function modeHooksCompatible(host: Host): boolean {
     typeof host.showStatus === "function" &&
     inspectedSource(host.toggleToolOutputExpansion, modeHookHashes.toggleToolOutputExpansion) &&
     inspectedSource(host.setToolsExpanded, modeHookHashes.setToolsExpanded)
+  );
+}
+
+// Pi 0.87.1: a self-rendered row renders a margin row, selfRenderHeight renderer
+// rows, then image rows, and handleMouse subtracts that margin before routing to
+// the renderer slots. Row chrome rewrites both; recheck on Pi upgrades.
+const rowContractHashes = {
+  render: new Set([
+    "8f415eac22749a2d13fff5a14223fb98790006d6dd52c0a18769ddaa00d96b3b",
+    "7ad4ecd93bf47d5d3b1fd169b40b7b161af8d73ffe11fdd833e2748d55373f6e"
+  ]),
+  handleMouse: new Set([
+    "c91f82035b9efa126ac0050289ec872423f918c5f28e11aeeb65bfdac31fcd79",
+    "100c51e29d2341d59c859248c6e9ff6693c1755447b7ed66cada19da6de6b1ce"
+  ])
+};
+
+/** True only when row rendering and mouse routing match inspected Pi sources. */
+export function rowContractCompatible(
+  prototype: object = ToolExecutionComponent.prototype
+): boolean {
+  return (
+    inspectedSource(Reflect.get(prototype, "render"), rowContractHashes.render) &&
+    inspectedSource(Reflect.get(prototype, "handleMouse"), rowContractHashes.handleMouse)
   );
 }
 
