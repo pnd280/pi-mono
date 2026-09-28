@@ -5,7 +5,11 @@ import { expect, it } from "vite-plus/test";
 import { createSummaryRenderer } from "./render.ts";
 import { summaryEntryType } from "./summary.ts";
 
-const theme: Pick<Theme, "fg"> = { fg: (_color, text) => text };
+const theme: Pick<Theme, "fg" | "bold" | "italic"> = {
+  fg: (_color, text) => text,
+  bold: (text) => text,
+  italic: (text) => text
+};
 const renderSummary = createSummaryRenderer();
 const finishedAt = new Date(2026, 0, 1, 14, 34, 56).getTime();
 
@@ -35,19 +39,23 @@ it("replays persisted totals and details using the saved finish time, not the en
   const text = rows.join("\n");
   expect(rows[0]).toMatch(/^• 1m 23s /);
   expect(rows[0]).toContain("33.3 tok/s");
-  expect(rows[0]).not.toMatch(/ran|edited/);
-  expect(rows[1]).toMatch(/^ {2}ran 4 commands /);
-  expect(rows[1]).toContain("edited 3 files");
-  expect(rows[1]).toContain("+42 −11");
-
+  expect(rows[0]).toContain("ran 4 commands");
+  expect(rows[0]).toContain("edited 3 files");
+  expect(rows[0]).toContain("+42 −11");
+  expect(text).not.toContain("\n");
+  expect(text).not.toMatch(/\d{1,2}:\d{2}:\d{2}/);
   expect(text).not.toContain("src/a.ts");
 
-  entry.timestamp = new Date(finishedAt + 60_000).toISOString();
-  expect(renderSummary(entry, { expanded: false }, theme)!.render(120).join("\n")).toBe(text);
-  const later = savedEntry({ ...data, finishedAt: finishedAt + 60_000 });
-  expect(renderSummary(later, { expanded: false }, theme)!.render(120).join("\n")).not.toBe(text);
-
   const expanded = renderSummary(entry, { expanded: true }, theme)!.render(120).join("\n");
+  entry.timestamp = new Date(finishedAt + 60_000).toISOString();
+  expect(renderSummary(entry, { expanded: true }, theme)!.render(120).join("\n")).toBe(expanded);
+  const later = savedEntry({ ...data, finishedAt: finishedAt + 60_000 });
+  expect(renderSummary(later, { expanded: false }, theme)!.render(120).join("\n")).toBe(text);
+  expect(renderSummary(later, { expanded: true }, theme)!.render(120).join("\n")).not.toBe(
+    expanded
+  );
+
+  expect(expanded).toMatch(/1m 23s \(\d{1,2}:\d{2}:\d{2} [AP]M\)/);
   expect(expanded).toContain("33.3 tok/s");
   expect(expanded).toMatch(/^ {2}src\/a\.ts[^\n]*\+40\s+−10/m);
   expect(expanded).toMatch(/^ {2}src\/b\.ts[^\n]*\+2\s+−1/m);
@@ -107,7 +115,9 @@ it.each([false, true])("toggles only the clicked summary from expanded=%s", (exp
   const other = renderSummary(summaryWithFile(), { expanded }, theme)!;
   const initial = component.render(120);
   expect(component.handleMouse?.(click)).toEqual({ handled: true });
-  expect(component.render(120).join("\n").includes("src/a.ts")).toBe(!expanded);
+  const toggled = component.render(120).join("\n");
+  expect(toggled.includes("src/a.ts")).toBe(!expanded);
+  expect(/\d{1,2}:\d{2}:\d{2}/.test(toggled)).toBe(!expanded);
   expect(other.render(120)).toEqual(initial);
   expect(component.handleMouse?.(click)).toEqual({ handled: true });
   expect(component.render(120)).toEqual(initial);
@@ -129,7 +139,7 @@ it("retains click expansion through renderer rebuilds and follows global expansi
   );
 });
 
-it("leaves scrolling, selection, other buttons, and summaries without details unhandled", () => {
+it("leaves scrolling, selection, and other buttons unhandled", () => {
   const component = renderSummary(summaryWithFile(), { expanded: false }, theme)!;
   const initial = component.render(120);
 
@@ -142,14 +152,20 @@ it("leaves scrolling, selection, other buttons, and summaries without details un
   }
 
   expect(component.render(120)).toEqual(initial);
+});
 
+it("toggles the finish time even without file details", () => {
   const empty = renderSummary(
     savedEntry({ durationMs: 12000, finishedAt, bashCalls: 1, files: [] }),
     { expanded: false },
     theme
   )!;
-  empty.render(120);
-  expect(empty.handleMouse?.(click)).toBeUndefined();
+  const initial = empty.render(120);
+  expect(initial.join("\n")).not.toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  expect(empty.handleMouse?.(click)).toEqual({ handled: true });
+  expect(empty.render(120).join("\n")).toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  expect(empty.handleMouse?.(click)).toEqual({ handled: true });
+  expect(empty.render(120)).toEqual(initial);
 });
 
 it("distinguishes unavailable statistics from no changes without adding them to totals", () => {
@@ -158,8 +174,8 @@ it("distinguishes unavailable statistics from no changes without adding them to 
     renderSummary(savedEntry(data), { expanded }, theme)!.render(120).join("\n");
   expect(text(base)).not.toMatch(/unavailable|edited|tok\/s/i);
   const unavailable = { path: "large.txt", status: "unavailable", reason: "Source too large." };
-  expect(text({ ...base, files: [unavailable] })).toMatch(
-    /\n {2}Statistics unavailable for 1 file/
+  expect(text({ ...base, files: [unavailable] }).trimEnd()).toBe(
+    "• 0s · Statistics unavailable for 1 file"
   );
   expect(text({ ...base, files: [unavailable] })).not.toContain("edited");
   const mixed = {
@@ -170,7 +186,8 @@ it("distinguishes unavailable statistics from no changes without adding them to 
       { ...unavailable, path: "other.txt" }
     ]
   };
-  expect(text(mixed)).toMatch(/\n {2}edited 1 file/);
+  expect(text(mixed)).toMatch(/^• 0s · edited 1 file/);
+  expect(text(mixed)).not.toContain("\n");
   expect(text(mixed)).toContain("+2 −1");
   expect(text(mixed)).toContain("Statistics unavailable for 2 files");
   expect(text(mixed, true)).toContain("large.txt");
@@ -183,7 +200,7 @@ it("leads with the saved provider, model, and thinking level, omitting it for su
     renderSummary(savedEntry(data), { expanded }, theme)!.render(120).join("\n");
   const model = { provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "medium" };
   const withModel = text({ ...base, model });
-  expect(withModel).toMatch(/^• anthropic\/claude-opus-5-5:medium \S+ 1m 23s \(/);
+  expect(withModel.trimEnd()).toMatch(/^• anthropic\/claude-opus-5-5:medium \S+ 1m 23s$/);
 
   for (const expanded of [false, true]) {
     const withThroughput = text(
@@ -191,16 +208,18 @@ it("leads with the saved provider, model, and thinking level, omitting it for su
       expanded
     );
     expect(withThroughput).toMatch(
-      /^• anthropic\/claude-opus-5-5:medium \(33\.3 tok\/s\) \S+ 1m 23s \(/
+      /^• anthropic\/claude-opus-5-5:medium \(33\.3 tok\/s\) \S+ 1m 23s /
     );
-    expect(withThroughput).toMatch(/\n {2}ran 1 command/);
+    expect(/\d{1,2}:\d{2}:\d{2}/.test(withThroughput)).toBe(expanded);
+    expect(withThroughput).toContain("ran 1 command");
+    expect(withThroughput).not.toContain("\n");
     expect(withThroughput.match(/tok\/s/g)).toHaveLength(1);
   }
 
   expect(
     text({ ...base, model: { provider: "openai", id: "gpt-5-mini", thinkingLevel: "off" } })
   ).toContain("openai/gpt-5-mini:off");
-  expect(text(base)).toMatch(/^• 1m 23s \(/);
+  expect(text(base).trimEnd()).toBe("• 1m 23s");
   expect(text(base)).not.toContain("\n");
 });
 

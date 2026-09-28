@@ -5,7 +5,7 @@ import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { formatDuration, formatFinishTime, summarySchema, type RunSummary } from "./summary.ts";
 
-type SummaryTheme = Pick<Theme, "fg">;
+type SummaryTheme = Pick<Theme, "fg" | "bold" | "italic">;
 
 function lineCounts(added: number, removed: number, theme: SummaryTheme): string {
   const parts: string[] = [];
@@ -18,41 +18,43 @@ function lineCounts(added: number, removed: number, theme: SummaryTheme): string
 function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme): string {
   const separator = theme.fg("dim", " · ");
   const available = summary.files.filter((file) => file.status === "available");
-  const metadata: string[] = [];
+  const parts: string[] = [];
   let throughput: string | undefined;
 
   if (summary.throughput) {
     const { outputTokens, durationMs } = summary.throughput;
-    throughput = `${((outputTokens / durationMs) * 1000).toFixed(1)} tok/s`;
+    throughput = `${theme.bold(((outputTokens / durationMs) * 1000).toFixed(1))} tok/s`;
   }
 
   if (summary.model) {
     const model = compactDisplayText(
       `${summary.model.provider}/${summary.model.id}:${summary.model.thinkingLevel}`
     );
-    metadata.push(theme.fg("dim", `${model}${throughput ? ` (${throughput})` : ""}`));
+    parts.push(theme.fg("dim", `${model}${throughput ? ` (${throughput})` : ""}`));
   }
 
-  metadata.push(
+  parts.push(
     theme.fg(
       "dim",
-      `${formatDuration(summary.durationMs)} (${formatFinishTime(summary.finishedAt)})`
+      `${formatDuration(summary.durationMs)}${expanded ? ` (${formatFinishTime(summary.finishedAt)})` : ""}`
     )
   );
 
-  if (!summary.model && throughput) metadata.push(theme.fg("dim", throughput));
+  if (!summary.model && throughput) parts.push(theme.fg("dim", throughput));
 
-  const parts: string[] = [];
   if (summary.bashCalls)
     parts.push(
       theme.fg(
         "dim",
-        `ran ${summary.bashCalls} ${summary.bashCalls === 1 ? "command" : "commands"}`
+        `ran ${theme.bold(String(summary.bashCalls))} ${summary.bashCalls === 1 ? "command" : "commands"}`
       )
     );
   if (available.length)
     parts.push(
-      theme.fg("dim", `edited ${available.length} ${available.length === 1 ? "file" : "files"}`)
+      theme.fg(
+        "dim",
+        `edited ${theme.bold(String(available.length))} ${available.length === 1 ? "file" : "files"}`
+      )
     );
   const counts = lineCounts(
     available.reduce((total, file) => total + file.added, 0),
@@ -68,8 +70,7 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
         `Statistics unavailable for ${unavailable} ${unavailable === 1 ? "file" : "files"}`
       )
     );
-  const lines = [metadata.join(separator)];
-  if (parts.length) lines.push(parts.join(separator));
+  const lines = [theme.italic(parts.join(separator))];
 
   if (expanded) {
     for (const file of summary.files) {
@@ -112,7 +113,8 @@ export function createSummaryRenderer() {
           return new Text(summaryText(parsed.data, expansion.expanded, theme), 0, 0)
             .render(Math.max(1, width - 2))
             .map((line, index) => {
-              const prefix = index === 0 ? `${theme.fg("dim", TUI_GLYPHS.bullet)} ` : "  ";
+              const prefix =
+                index === 0 ? `${theme.italic(theme.fg("dim", TUI_GLYPHS.bullet))} ` : "  ";
 
               return truncateToWidth(prefix + line, width, "");
             });
@@ -120,8 +122,7 @@ export function createSummaryRenderer() {
         invalidate() {}
       },
       (event) => {
-        if (event.type !== "click" || event.button !== "left" || parsed.data.files.length === 0)
-          return;
+        if (event.type !== "click" || event.button !== "left") return;
         expansion.expanded = !expansion.expanded;
 
         return { handled: true };

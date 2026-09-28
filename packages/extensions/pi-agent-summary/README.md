@@ -7,17 +7,14 @@ Shows elapsed runtime in Pi's working message and saves run summaries outside mo
 When Pi settles, the transcript shows:
 
 ```text
-• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s (2:34:56 PM)
-  ran 4 commands · edited 3 files · +42 −11
+• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · edited 3 files · +42 −11
 ```
 
 The model provider, model ID, and thinking level are captured when the run begins. Changes during the run do not update the summary. Summaries without model metadata, including runs with no selected model, omit the model prefix. Summaries with model metadata but no provider are hidden.
 
-The first line starts with `•` and shows the model, available throughput, duration, and finish time in your local timezone. Its marker aligns with assistant and tool markers when [`pi-tool-display`](../pi-tool-display/README.md) is loaded.
+The summary starts with `•` and shows the model, available throughput, duration, and command and file statistics on one line, including notices for files whose statistics are unavailable. The summary line is italic, with bold numbers for throughput, command count, and edited-file count. Its marker aligns with assistant and tool markers when [`pi-tool-display`](../pi-tool-display/README.md) is loaded. Narrow terminals wrap as needed, indenting continuation lines two columns to align with the metadata.
 
-Command and file statistics appear on a second line indented two columns to align with the metadata, including notices for files whose statistics are unavailable. The second line is omitted when there are no tool statistics. Narrow terminals wrap each line as needed, keeping continuation lines aligned with the metadata.
-
-Left-click a summary in fullscreen TUI to toggle its per-file statistics independently. Pi's tool-output shortcut (default Ctrl+O) toggles all summaries in either TUI mode.
+Expanded (verbose) summaries also show the exact finish time in your local timezone after the duration, with per-file statistics on subsequent indented lines. Left-click a summary in fullscreen TUI to toggle these details independently, even when there are no file changes. Pi's tool-output shortcut (default Ctrl+O) toggles all summaries in either TUI mode.
 
 A run includes model turns, tool calls, automatic/compaction retries, queued follow-ups, and time waiting for user input. Cancellation and errors also produce summaries; summaries do not indicate success.
 
@@ -82,8 +79,8 @@ vpr 'pi-agent-summary#test'
 
 Visual checks:
 
-1. Load with `pi-todo` and `pi-tool-display`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity, then a summary starting with `•` aligned with assistant and tool markers, the provider, model, and thinking level followed by output `tok/s` in parentheses, duration, and local finish time. Check that command counts and diff-colored file statistics appear on the second line. Resize to a narrow terminal and confirm the summary wraps without losing statistics.
-2. In fullscreen, click summaries independently; verify dragging selects text and the wheel scrolls.
-3. Check Ctrl+O toggles all summaries in regular and fullscreen modes.
+1. Load with `pi-todo` and `pi-tool-display`; run a prompt using `bash`, `edit`, and `write`. Check elapsed time alongside task activity, then a summary starting with `•` aligned with assistant and tool markers, the provider, model, and thinking level followed by output `tok/s` in parentheses, duration, command counts, and diff-colored file statistics on one line. Confirm the summary line is italic with bold throughput, command-count, and edited-file-count numbers, and the exact finish time is hidden when collapsed. Resize to a narrow terminal and confirm the summary wraps without losing statistics.
+2. In fullscreen, click summaries independently, including one without file changes; confirm expansion reveals the local finish time and any per-file details. Verify dragging selects text and the wheel scrolls.
+3. Check Ctrl+O toggles all summaries in regular and fullscreen modes; throughput stays visible in both views.
 4. Abort another run; expect one summary and a stopped timer.
 5. Resume the session; confirm saved summaries retain their captured provider, model, thinking level, finish time, and output throughput.
