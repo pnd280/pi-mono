@@ -11,7 +11,7 @@ Use these checks when local behavior or types overlap platform or dependency API
 - Inspect metadata, entry-point declarations, and `package.json` export maps for the exact specifier and symbol. An internal `export` or reachable `dist` file does not establish a supported public API, even without an export map.
 - Probe uncertain value exports minimally. Inspect or type-check type-only exports rather than looking for them in runtime namespaces.
 
-Record resolved versions and supported imports. Unsupported replacements are unavailable; retain local code when no public alternative fits. Missing availability evidence leaves a candidate unresolved. Never bypass package boundaries with internal deep imports.
+Record resolved versions and supported imports. Retain local code when no public alternative fits; missing availability evidence leaves a candidate unresolved. Never bypass package boundaries with internal deep imports.
 
 ## Contract fit
 

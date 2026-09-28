@@ -8,9 +8,9 @@ metadata:
 
 # Coding style audit
 
-Make equivalent code follow evidence-backed conventions. Style includes implementation patterns, not just formatter output.
+Make equivalent code follow evidence-backed conventions, including implementation patterns beyond formatter output.
 
-Invocation authorizes an audit and behavior-preserving refactors. An explicit audit-only or planning-only request produces findings without edits. Paths or categories narrow the scope; otherwise, cover the entire repository, including unchanged code. Contract changes, dependency upgrades, new enforcement policy, and architectural changes require separate authorization.
+Invocation authorizes an audit and behavior-preserving refactors. Audit-only or planning-only requests produce findings without edits. Paths or categories narrow the scope; otherwise, include unchanged code across the repository. Contract changes, dependency upgrades, new enforcement policy, and architectural changes require separate authorization.
 
 ## Workflow
 

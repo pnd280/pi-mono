@@ -28,7 +28,7 @@ An unset project draft inherits the saved global order; an unset global draft us
 | Ctrl+S                 | Save the displayed scope and apply the effective order |
 | Escape or Ctrl+C       | Close and discard all remaining unsaved drafts         |
 
-These are fixed menu keys, independent of Pi's configurable browser bindings. Native transcript paging remains with Pi. Only saved drafts affect the message; failures retain drafts and selection with inline recovery, and Ctrl+S retries. Global saves preserve project precedence; project saves create overrides even unchanged. Success clears on edits or scope changes. Load warnings remain visible until settings reload successfully. The menu never enables/disables components.
+Menu keys are fixed, independent of Pi's configurable browser bindings; Pi retains native transcript paging. Only saved drafts affect the message. Failures retain drafts and selection with inline recovery; Ctrl+S retries. Global saves preserve project precedence; project saves create overrides even when unchanged. Success clears on edits or scope changes; load warnings remain until settings reload succeeds. The menu never enables or disables components.
 
 Both settings editors use the [shared settings frame](../tui/components/settings-menu/README.md). At 40×10, selection, save/exit controls, and recovery take priority over paths and secondary context; resize smaller terminals for the full view.
 

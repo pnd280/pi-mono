@@ -23,7 +23,7 @@ Configured actions take precedence in this order: copy, cancel, confirm, up, dow
 
 `ownsFullscreenInput(data)` reserves paging for the view even during loading, pending actions, or undersized layout. It uses the precedence above: disabled paging bindings, keys assigned to higher-priority actions, and release events are not claimed. The [browser host](../../open-browser/README.md) provides priority routing; the component installs no listeners.
 
-Hints show first usable bindings or `unavailable`, omitting absent actions, item actions without a ready selection, ineligible removal, and fully overridden fixed controls. During pending removal or selection actions, the footer retains the close key and names the pending operation. Configured keys stay reserved even for absent actions. Search keeps existing selection hints while results are being prepared; item actions wait for search completion.
+Hints show first usable bindings or `unavailable`. They omit absent actions, item actions without a ready selection, ineligible removal, and fully overridden fixed controls. During pending removal or selection actions, the footer retains the close key and names the operation. Configured keys stay reserved even for absent actions. During search preparation, selection hints remain but item actions wait for completion.
 
 Ctrl+C never cancels. Construction requires a cancel binding other than Ctrl+C that is not also bound to copy.
 

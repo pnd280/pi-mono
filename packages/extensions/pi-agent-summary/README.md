@@ -10,9 +10,9 @@ When Pi settles, the transcript shows:
 • anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · edited 3 files · +42 −11
 ```
 
-The model provider, model ID, and thinking level are captured when the run begins. Changes during the run do not update the summary. Summaries without model metadata, including runs with no selected model, omit the model prefix. Summaries with model metadata but no provider are hidden.
+The run captures the model provider, ID, and thinking level at its start; later changes do not update the summary. Summaries without model metadata omit the model prefix, including runs with no selected model. Summaries with model metadata but no provider are hidden.
 
-The summary starts with `•` and shows the model, available throughput, duration, and command and file statistics on one line, including notices for files whose statistics are unavailable. The summary line is italic, with bold numbers for throughput, command count, and edited-file count. Its marker aligns with assistant and tool markers when [`pi-tool-display`](../pi-tool-display/README.md) is loaded. Narrow terminals wrap as needed, indenting continuation lines two columns to align with the metadata.
+The italic summary starts with `•` and shows the model, available throughput, duration, command and file statistics, and notices for unavailable file statistics on one line. Throughput, command-count, and edited-file-count numbers are bold. Its marker aligns with assistant and tool markers when [`pi-tool-display`](../pi-tool-display/README.md) is loaded. Narrow terminals wrap continuation lines with a two-column indent aligned to the metadata.
 
 Expanded (verbose) summaries also show the exact finish time in your local timezone after the duration, with per-file statistics on subsequent indented lines. Left-click a summary in fullscreen TUI to toggle these details independently, even when there are no file changes. Pi's tool-output shortcut (default Ctrl+O) toggles all summaries in either TUI mode.
 
@@ -30,7 +30,7 @@ Throughput appears in parentheses next to the model, or as a separate statistic 
 
 Output tokens include provider-reported reasoning tokens, counted once. Input/cache tokens and nested tool usage are excluded. Cancelled and failed responses contribute when they report positive output usage and have positive elapsed time. Unfinished responses, zero-duration responses, and responses without positive output usage are excluded from both totals. Runs without a usable measurement omit `tok/s`.
 
-This is approximate client-observed throughput, not provider-side generation speed. Providers differ in when they emit stream-start events and how they report usage, so request startup latency may not be included. Saved summaries retain the measured token and time totals for replay.
+This is approximate client-observed throughput, not provider-side generation speed. Provider stream-start timing and usage reporting vary, so request startup latency may be excluded. Saved summaries retain the measured token and time totals for replay.
 
 ### Tool statistics
 
@@ -50,7 +50,7 @@ Bash-only changes, SDK overrides, custom tools, and unverified definitions are e
 
 Snapshots require valid UTF-8, at most 8 MiB each. Per-run retained original/final text is limited to 16 MiB measured as UTF-16.
 
-Generated diffs are limited to 2,000 total added/removed lines, 50 ms from worker dispatch to returned patch, 128 KiB per patch, and [shared worker limits](../../libs/src/bounded-diff/README.md#behavior). For a single edit, a native patch within 128 KiB can supply statistics despite source, retention, or generation limits.
+Generated diffs are limited to 2,000 total added/removed lines, 50 ms from worker dispatch to returned patch, 128 KiB per patch, and [shared worker limits](../../libs/src/bounded-diff/README.md#behavior). A single native edit patch within 128 KiB can supply statistics despite source, retention, or generation limits.
 
 Binary/unreadable files, unstable snapshots, failed final writes, and exceeded limits can make statistics unavailable. Both compact and expanded views show `Statistics unavailable for N files`; expanded views explain each reason. Change totals include only files with available statistics.
 

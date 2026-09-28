@@ -17,4 +17,4 @@ This package owns token/configuration policy and provider composition. Keep focu
 
 ## Exclusions
 
-No skill-file discovery/content loading, native undo/persistence/queue implementation, or fuzzy-scoring matrix. Those are delegated to Pi. Avoid repeating host tests across modes or token positions when the extension follows the same path; token edge cases belong in the pure suite.
+Do not test skill-file discovery/content loading, native undo/persistence/queue implementation, or a fuzzy-scoring matrix; Pi owns those. Avoid repeating host tests across modes or token positions when the extension follows the same path; token edge cases belong in the pure suite.

@@ -10,7 +10,7 @@ The frame shares headings, scope tabs, save destinations, list styling, overflow
 
 Overflowing lists show a dim `(selected/total)` row directly below the last visible item, before draft state, feedback, or controls. Settings-frame borders never carry list pagination; border overflow labels are reserved for prose previews. Lists that fit show no counter. Constrained layouts drop the bottom border before scope context to retain the selected item and its counter.
 
-Feedback has a blank line above it when space allows; constrained layouts drop that gap before sacrificing selection, recovery, or controls. The keybinding hints region always has a blank line above it, including in compact layouts. That separator is part of the reserved control budget, not optional spacing.
+Feedback has a blank line above it when space allows; constrained layouts drop that gap before sacrificing selection, recovery, or controls. Keybinding hints always have a blank line above them, even in compact layouts; that separator is part of the reserved control budget.
 
 At 40×10, selection, save/exit controls, and inline recovery take priority over paths and secondary draft context. Below that size, the target takes priority; resize if controls or recovery no longer fit. Lists never wrap or change selection during rendering.
 

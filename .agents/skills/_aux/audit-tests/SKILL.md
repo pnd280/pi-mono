@@ -8,7 +8,7 @@ metadata:
 
 # Test audit
 
-Evaluate distinct failure modes, ownership, and maintenance cost. Default to audit-only; edit tests only when cleanup is requested. Use the supplied paths, changes, or category as scope; otherwise, review workspace tests excluding dependencies and generated files.
+Evaluate distinct failure modes, ownership, and maintenance cost. Audit only unless cleanup is requested. Scope to supplied paths, changes, or category; otherwise, review workspace tests excluding dependencies and generated files.
 
 ## Workflow
 

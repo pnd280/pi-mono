@@ -37,7 +37,7 @@ Complete [workspace setup](../../../../README.md#setup). The offline fixture req
    | `images`        | A native image read between text reads.                                                                                                                                                                                                                                                                                            |
    | `public`        | A `display_fixture_read` card using the standalone renderer factory.                                                                                                                                                                                                                                                               |
 
-4. Wait for `Fixture finished: <prompt>` before inspecting, except skips and `cancel`. Some calls fail intentionally.
+4. Except for skips and `cancel`, wait for `Fixture finished: <prompt>` before inspecting. Some calls fail intentionally.
 5. Exit with **Ctrl+D** in an empty editor; repeat fullscreen with a fresh workspace:
 
    ```sh

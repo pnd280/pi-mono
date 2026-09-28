@@ -8,7 +8,7 @@ metadata:
 
 # Reusability audit
 
-Prefer existing implementations over new abstractions; keep deliberate consumer policy local. This is an audit unless implementation is also requested. Paths, staged changes, or a category narrow the scope; otherwise, review the workspace excluding dependencies and generated files.
+Prefer existing implementations over new abstractions; keep deliberate consumer policy local. Audit only unless implementation is requested. Paths, staged changes, or a category narrow the scope; otherwise, review the workspace excluding dependencies and generated files.
 
 ## Workflow
 

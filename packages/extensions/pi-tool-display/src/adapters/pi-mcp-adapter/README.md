@@ -29,7 +29,7 @@ Gateway summaries show action/target. All MCP cards show arguments regardless of
 
 Validated metadata supplies resolved `server.tool`; otherwise retain requested identity. Never decode namespace names: normalization can lose information.
 
-MCP calls remain individual cards, outside exploration groups. Calls other than scripts use output previews.
+MCP calls remain individual cards outside exploration groups. Nonscript calls use output previews.
 
 Completed scripts summarize validated `details.calls` records. Tool calls, tool searches, and tool descriptions each count as operations:
 

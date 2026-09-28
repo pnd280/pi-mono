@@ -11,7 +11,7 @@
 
 ## Limitations and replacement opportunities
 
-- Keep native autocomplete composition rather than installing a second matcher or file discovery. Pi currently expands only prompts beginning exactly `/skill:` and offers no input-handler option to disable that expansion. Recheck that default leading Markdown links stay literal and custom command-first formats remain guarded on Pi upgrades.
+- Keep native autocomplete composition rather than adding another matcher or file discovery. Pi currently expands only prompts beginning exactly `/skill:` and offers no input-handler option to disable that expansion. Recheck that default leading Markdown links stay literal and custom command-first formats remain guarded on Pi upgrades.
 
 ## Validation
 

@@ -4,15 +4,15 @@
 
 ## Coverage
 
-1. Consult the affected package's `docs/testing.md`, linked from its README's Validation section. It specifies observable contracts, failure modes, ownership, and exclusions, not test files. Verify claims against public APIs, consumers, documentation, and regression evidence; update it when contracts, risks, or boundaries change.
-2. Read affected behavior and existing tests. Add cases for meaningful behavior or plausible defects retained tests would miss. Assert public results so equivalent internal refactors remain valid.
-3. Establish **red** before a regression fix and **green** after it, using existing tests when they expose the failure. During cleanup, preserve distinct regression scenarios; a passing reduced suite alone does not prove removed coverage was redundant.
+1. Read the affected package's `docs/testing.md`, linked from its README's Validation section. It specifies observable contracts, failure modes, ownership, and exclusions, not test files. Verify claims against public APIs, consumers, documentation, and regression evidence. Update it when contracts, risks, or boundaries change.
+2. Read affected behavior and existing tests. Add cases for meaningful behavior or plausible defects retained tests would miss. Assert public results that tolerate equivalent internal refactors.
+3. Establish **red** before a regression fix and **green** after it, using existing tests that expose the failure. Preserve distinct regression scenarios during cleanup. A passing reduced suite does not prove removed coverage was redundant.
 
 ## Test quality
 
-- **Tautological tests are harmful.** Do not derive expectations from the result under test or duplicate the implementation's algorithm. Use independently specified results or invariants that can reveal incorrect behavior.
-- **Change-detector tests are harmful.** Do not assert implementation details merely to detect changes. Tests should fail for broken observable contracts, not equivalent internal refactors.
-- **Bug fixes do not automatically warrant new regression tests.** Add or extend a test only when there is a genuine gap in behavior coverage. If existing tests already expose the failure, use them for red/green verification instead of adding a duplicate.
+- **Tautological tests are harmful.** Use independently specified results or invariants that can reveal incorrect behavior, not expectations derived from the result or a duplicate of the implementation's algorithm.
+- **Change-detector tests are harmful.** Assert observable contracts, not implementation details that change during equivalent internal refactors.
+- **Bug fixes do not automatically warrant new regression tests.** Add or extend tests only for genuine behavior coverage gaps. Use existing tests that expose the failure for red/green verification rather than adding duplicates.
 
 ## Boundaries
 
@@ -25,7 +25,7 @@ Test contracts at their owning layer. Consumers cover local policy and integrati
 
 ## Filesystem fixtures
 
-Create mutable filesystem fixtures with `mkdtemp` or `mkdtempSync` under `tmpdir()` from `node:os`, not workspace `.tmp/`. Remove each fixture directory during teardown. Generated fixtures inside the workspace can become Vite+ cache inputs and cause misses.
+Create mutable filesystem fixtures with `mkdtemp` or `mkdtempSync` under `tmpdir()` from `node:os`, not workspace `.tmp/`. Remove them during teardown. Workspace fixtures can become Vite+ cache inputs and cause misses.
 
 ## Runner
 

@@ -28,7 +28,7 @@ Pass the filename in `path`, coordinates in `selection`, and an independent read
 
 Coordinates must be positive safe integers, and the end must follow the start. Columns beyond a line's length are clipped.
 
-`selection` appends a preview without changing original content: at most five lines and 500 code points per line, with `…` for omissions. It reports truncation and selections outside the window. Use original read content for exact edits.
+`selection` appends a preview without changing original content: at most five lines and 500 code points per line, with `…` for omissions. The preview reports truncation and selections outside the window. Use the original read content for exact edits.
 
 Expand a successful text read to highlight the selection in context without repeating the preview. Continuation notices stay visible and unselected. Pi's image handling and truncation limits remain.
 
@@ -44,7 +44,7 @@ Replaces built-in `read` and adds source-reference prompt guidance. Previews ent
 
 Do not load another `read` replacement alongside this extension.
 
-With `pi-tool-display` in automatic mode, its [selective-read adapter](../pi-tool-display/src/adapters/pi-selective-read/README.md) groups compatible reads and preserves selection highlighting without repeating the preview. In [pi-tool-display settings](../pi-tool-display/README.md#configuration), set `rendererOverrides.read` to `original` to retain this extension's ungrouped rendering. `generic` neither highlights selections nor hides the appended preview.
+In automatic mode, the [pi-tool-display selective-read adapter](../pi-tool-display/src/adapters/pi-selective-read/README.md) groups compatible reads and highlights selections without repeating the preview. Set `rendererOverrides.read` to `original` in [pi-tool-display settings](../pi-tool-display/README.md#configuration) for this extension's ungrouped rendering. `generic` neither highlights selections nor hides the appended preview.
 
 ## Validation
 

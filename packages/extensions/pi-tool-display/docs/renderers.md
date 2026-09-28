@@ -55,7 +55,7 @@ Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`
 | Enable CLI preview loading from `details.fullOutputPath`                                               | `savedOutput`                                      |
 | Supply typed MCP content                                                                               | [`mcp`](#mcp-facts)                                |
 
-Validate borrowed arguments/results without mutation or inferring facts from ordinary output. `alwaysShowParameters: true` overrides `showParameters`. Parts with `kind: "parameters"` skip `text` access when hidden, even after expansion; use a getter to avoid hidden serialization.
+Validate borrowed arguments/results without mutation or inferring facts from ordinary output. `alwaysShowParameters: true` overrides `showParameters`. Hidden parts with `kind: "parameters"` skip `text` access even after expansion; use a getter to avoid hidden serialization.
 
 For an invocation containing only a concrete target, return a `path` part optionally followed by a `range` part such as `:15-16`. The renderer [wraps the path](presentation.md#card-layout) and keeps the range together when it fits the available width. Use `value` or `pattern` for literal expressions, which receive no path normalization.
 
@@ -77,7 +77,7 @@ Group headings omit call and operation counts. Each call remains a separate memb
 
 ### Action wording
 
-`headingVerbs(args)` returns an object such as `{ action: "Check", pending: "Checking", complete: "Checked" }`. Omitting the callback or returning `undefined` uses family defaults. Failure, cancellation, and unavailable headings append the outcome to `action`, as in `Check failed`. Verbs and `groupTitle` are plain single-line labels: terminal controls are removed and line breaks/tabs become spaces before layout wrapping.
+`headingVerbs(args)` returns, for example, `{ action: "Check", pending: "Checking", complete: "Checked" }`. Omitting the callback or returning `undefined` uses family defaults. Failure, cancellation, and unavailable headings append the outcome to `action`, as in `Check failed`. Verbs and `groupTitle` are plain single-line labels: terminal controls are removed and line breaks/tabs become spaces before wrapping.
 
 ### Result summaries
 

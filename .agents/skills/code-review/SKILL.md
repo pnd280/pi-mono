@@ -8,7 +8,7 @@ metadata:
 
 # Code review
 
-Audit and revise code using all six skills below, in order. Invocation authorizes both auditing and applying evidence-backed, in-scope changes, including test cleanup. Explicit audit-only instructions take precedence.
+Audit and revise code using all six skills below, in order. Invocation authorizes evidence-backed, in-scope changes, including test cleanup. Explicit audit-only instructions take precedence.
 
 ## Scope
 

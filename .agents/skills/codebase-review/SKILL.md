@@ -8,7 +8,7 @@ metadata:
 
 # Codebase review
 
-Use [code review](../code-review/SKILL.md) as the review workflow for each chunk. Read it before starting; its phases, implementation authorization, safeguards, and verification requirements apply. Explicit audit-only instructions take precedence. This skill defines how to divide and complete repository-wide work, not a separate set of review criteria.
+Use [code review](../code-review/SKILL.md) for each chunk. Read it first; its phases, implementation authorization, safeguards, and verification requirements apply. Explicit audit-only instructions take precedence. This skill divides repository-wide work; it does not add review criteria.
 
 ## Map the codebase
 

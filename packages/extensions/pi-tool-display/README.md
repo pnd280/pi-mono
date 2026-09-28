@@ -4,9 +4,9 @@ Borderless Pi TUI tool cards with one-line run summaries, exploration groups, li
 
 ## Usage
 
-Tool output has three modes. Pi's expansion key (default **Ctrl+O**) cycles **summary** → **compact** → **verbose** → **summary**, and the status line names the mode (`Tool output: summary`):
+Pi's expansion key (default **Ctrl+O**) cycles tool output through **summary** → **compact** → **verbose** → **summary**. The status line names the mode (`Tool output: summary`):
 
-- **Summary** (default): each run of tool calls between non-thinking visible messages becomes [one summary line](docs/presentation.md#summary-mode), such as `Read 4 files · edited 2 files · ran 3 commands (1 failed)`. A run collapses only once it ends; until then it shows compact cards. Summaries require Pi's fullscreen mode; in regular mode, summary renders as compact and **Ctrl+O** toggles compact and verbose. Clicks on a summary line open that run to compact cards until the next mode change; clicking a card before its run ends keeps the run open. Opened runs have a blank row inside each plain horizontal rule. Click either rule or its inner padding to restore the summary line.
+- **Summary** (default): each tool-call run between non-thinking visible messages becomes [one summary line](docs/presentation.md#summary-mode), such as `Read 4 files · edited 2 files · ran 3 commands (1 failed)`. Until a run ends, it shows compact cards. Summaries require Pi's fullscreen mode; in regular mode, summary renders as compact and **Ctrl+O** toggles compact and verbose. Click a summary line to open its run as compact cards until the next mode change; clicking a card before the run ends also keeps it open. Opened runs have a blank row inside each plain horizontal rule. Click either rule or its inner padding to restore the line.
 - **Compact**: the cards and groups described below.
 - **Verbose**: every card expanded, with Pi's startup header and loaded resources. Pi's `--verbose` starts here.
 
@@ -14,9 +14,9 @@ Adjacent read/search/list calls with matching directory scopes or literal filter
 
 Compact cards show [result summaries](docs/presentation.md#results) or bounded previews, shell status beside output, collapsed successful-read text, and edit/write diffs. Diagnostics and images stay visible.
 
-Verbose mode reveals individual cards and available output. Fullscreen group clicks toggle all members; regular-mode mouse input belongs to the terminal.
+In fullscreen mode, group clicks toggle all members; in regular mode, the terminal owns mouse input.
 
-Summary mode hides tool output behind counts: transcript search cannot find it, image-bearing calls contribute counts without displaying images, and failures appear only as counts until the run is opened. Switching modes does not preserve the scroll position.
+Summary mode hides output from transcript search; images and failure details appear only when the run opens, though their calls count in its line. Switching modes does not preserve scroll position.
 
 Assistant prose blocks use `•` with a hanging indent, matching tool headings. Markdown formatting stays native; user messages, thinking, and diagnostics do not gain markers.
 
@@ -56,9 +56,9 @@ Set literal `ext.pi-tool-display` in global `~/.pi/agent/settings.json` (or `$PI
 }
 ```
 
-`collapsedMode` selects the startup mode, `summary` (default) or `compact`, and the target when an extension calls `setToolsExpanded(false)` from verbose. **Ctrl+O** follows the [mode cycle](#usage) regardless of this setting; a collapse request while already in summary or compact leaves the mode unchanged.
+`collapsedMode` selects the startup mode (`summary` by default or `compact`) and the target when an extension calls `setToolsExpanded(false)` from verbose. **Ctrl+O** follows the [mode cycle](#usage) regardless of this setting. A collapse request in summary or compact leaves the mode unchanged.
 
-Mode changes stay in memory for the current Pi host across transcript reconstruction, `/reload`, and session switches. They never write settings or session history; a new Pi process uses the startup setting (or `--verbose`).
+The current Pi host retains mode changes across transcript reconstruction, `/reload`, and session switches without writing settings or history. A new process uses the startup setting (or `--verbose`).
 
 `showParameters` defaults to `false`; `true` shows optional details, with structured blocks still requiring expansion. MCP/generic cards always show arguments. Custom renderers, execution, and saved arguments are unaffected.
 

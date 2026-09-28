@@ -50,7 +50,7 @@ Set the literal `ext.pi-skills` key in Pi's global `~/.pi/agent/settings.json` (
 }
 ```
 
-`expansionFormat` defaults to `"[{command}]({path})"`. `{command}` is the full `/skill:<name>` token and `{path}` is the registered skill file path. `{path}` is required; `{command}` may be omitted. Placeholders may repeat, and other text (including spaces) is literal. For example, `"{command} ({path})"` produces the command followed by its path; when used at the start of a prompt, the extension adds a leading space to keep it literal.
+`expansionFormat` defaults to `"[{command}]({path})"`. `{command}` is the full `/skill:<name>` token; `{path}` is the registered skill file path and is required. `{command}` is optional, placeholders may repeat, and other text (including spaces) is literal. For example, `"{command} ({path})"` produces the command followed by its path; at the start of a prompt, the extension adds a leading space to keep it literal.
 
 Formats are limited to 512 characters; invalid sections are ignored. Settings files over 1 MiB are ignored, including unrelated fields. A trusted project's format overrides the global format. Settings load on session start and `/reload`; no UI or extension-specific environment variable is provided.
 

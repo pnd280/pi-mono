@@ -19,7 +19,7 @@ vpr 'pi-prompt-manager#validate:terminal' fullscreen
 
 Work only in the printed `Fixture:` directory. Storage/provider are isolated and offline; copy writes `clipboard.txt`, not the native clipboard. Collections persist with `--no-session`; the directory remains for reuse/inspection. Remove it only after all fixture sessions exit.
 
-New fixtures contain 40 entries in each collection, with long previews. Submit `pages` for a scrollable transcript. Reused fixtures retain their existing collections.
+New fixtures have 40 entries per collection and long previews. Submit `pages` for a scrollable transcript. Reused fixtures keep their collections.
 
 ### Scenarios
 

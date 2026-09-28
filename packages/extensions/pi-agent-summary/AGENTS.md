@@ -13,9 +13,9 @@
 
 - Use `appendEntry`, never `sendMessage`, so summaries stay outside model context.
 - Time from the first `agent_start` to `agent_settled`, not `turn_end` or retryable `agent_end`.
-- Measure output throughput over assistant `message_start`/`message_end` intervals, not total run time. Sum reported output tokens and measured stream time; reasoning is already included in output.
+- Measure output throughput over assistant `message_start`/`message_end` intervals, not total run time. Sum reported output tokens and stream time; output already includes reasoning.
 - Publish live text through the shared [working-message coordinator](../../libs/src/working-message/README.md).
-- Subscribe to shared [file-mutations](../../libs/src/file-mutations/README.md) for verified native `edit` and `write` operations. Do not reread targets, scan repositories, or infer file changes from bash commands.
+- Subscribe to shared [file-mutations](../../libs/src/file-mutations/README.md) for verified native `edit` and `write` operations. Do not reread targets, scan repositories, or infer changes from bash commands.
 - Reuse observed patches for single mutations and [bounded-diff](../../libs/src/bounded-diff/README.md) for net comparisons. Never persist contents or patches; distinguish unavailable statistics from zero changes.
 - Use monotonic timing; never run intervals during extension loading or after shutdown.
 

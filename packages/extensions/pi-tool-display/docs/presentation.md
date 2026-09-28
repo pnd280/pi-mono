@@ -10,7 +10,7 @@ Each visible assistant text block starts with `•`, with continuation rows inde
 
 Cards and group headings use `•`; live headings alternate with `◦`. Summary lines have no leading marker.
 
-Standalone/expanded targets use paths relative to Pi's rendering cwd for descendants, `.` for cwd, and absolute paths otherwise. Resolution is lexical, including home expansion: no filesystem inspection or symlink following. Native and selective-read targets first apply Pi's Unicode-space normalization, consistently across headings, grouping, and summary identities. Custom paths do not receive this native normalization. Raw parameters, retained output, generic arguments, and literal scopes/filters stay unchanged.
+Standalone/expanded targets show descendants relative to Pi's rendering cwd, cwd as `.`, and other paths as absolute. Resolution is lexical, including home expansion, without filesystem inspection or symlink following. Native and selective-read targets first apply Pi's Unicode-space normalization across headings, grouping, and summary identities; custom paths do not. Raw parameters, retained output, generic arguments, and literal scopes/filters stay unchanged.
 
 Targets wrap beneath themselves in normal foreground; ranges/annotations use `dim`. Literal line breaks in paths become separate indented rows. Wrapping prefers path separators and keeps ranges together when they fit. With at least four target columns, wrapping has no row limit; collapsed targets over the [formatting limit](#resource-limits) retain start/end around `…`.
 
@@ -40,7 +40,7 @@ Directory headings use `Exploring`/`Explored <path>`; filter headings use `Filte
 
 Collapsed directory members retain ranges and use paths relative to the group, absolute outside it. FFF members show patterns or `files`, not repeated filters. Expanded/standalone cards follow [target rules](#card-layout) and retain filters. Known queued/executing members show `queued`/`running` in `dim`; argument streaming does not imply execution.
 
-Visible assistant content/diagnostics, cache-miss notices, compaction summaries/notices, custom entries, and non-exploration tools separate groups; hidden content does not. Groups apply in compact and verbose modes; [summary mode](#summary-mode) counts their members within runs. Assistant content precedes its message's tools as a boundary even when arriving later.
+Visible assistant content/diagnostics, cache-miss notices, compaction summaries/notices, custom entries, and non-exploration tools separate groups; hidden content does not. Groups appear in compact and verbose modes; [summary mode](#summary-mode) counts their members within runs. Assistant content is a boundary before its message's tools even if it arrives later.
 
 Public extension notifications (`ctx.ui.notify`) separate groups and runs only when Pi inserts visible components, for all notification severities. No-op notifications and Pi's thinking-toggle status messages create no boundary.
 
@@ -61,9 +61,9 @@ Standalone/expanded searches separate pattern and scope with an em dash (U+2014)
 
 Todo calls stay in their run but are omitted from the line, including incompatible calls using generic fallback: they do not affect counts, and a run of only todo calls shows no line.
 
-A run collapses only after it ends: no member is streaming, queued, or executing, and nothing more can join it because a non-thinking boundary follows it or the agent ended. History is always ended. Until then, the run renders its usual compact cards, so a line only ever describes finished calls. Clicking any card of a run before it ends keeps the run open when it ends, as if its line had been clicked.
+A run collapses only when no member is streaming, queued, or executing and a non-thinking boundary or agent end prevents more calls from joining. History is always ended. Until then, the run shows compact cards, so its line describes only finished calls. Clicking a card before its run ends keeps the run open afterward, as if its line had been clicked.
 
-Summaries collapse only in Pi's fullscreen mode, where collapsing never rewrites rows already in terminal scrollback. In regular mode, summary renders as compact, and the mode cycle toggles compact and verbose. Switching Pi's TUI mode re-renders the transcript accordingly.
+Summaries collapse only in Pi's fullscreen mode, without rewriting rows already in terminal scrollback. In regular mode, summary renders as compact, and the mode cycle toggles compact and verbose. Switching Pi's TUI mode re-renders the transcript.
 
 ```text
   Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file
@@ -86,12 +86,11 @@ Only the latest outcome per file or directory counts: a later successful edit cl
 | List     | `listed N dirs`            |
 | Read     | `read N files`             |
 
-Items appear in the order of their category's first call; failures never reorder them. The first item starts with a capital letter unless it begins with a tool name, which keeps its case.
-Adapter-declared count labels are normalized to single-line terminal-safe text before rendering; category identities and counts are unchanged.
+Items appear in the order of their category's first call; failures never reorder them. The first item starts with a capital letter unless it begins with a tool name, which keeps its case. Adapter-declared count labels become single-line terminal-safe text without changing category identities or counts.
 
 ### Line layout
 
-The line has no leading marker. Every row is indented two columns, with wrapping only between items and no row limit; an item wider than the line is truncated. Items use card colors: a leading verb is an action in `accent`, bold for the first item; counts use `text`; remaining words use `muted`; separators use `dim`. Failed and cancelled counts use `error`; unavailable counts use `muted`. The line never shows error text; open the run to read it.
+The line has no leading marker. Each row has a two-column indent; wrapping occurs only between items, with no row limit. Items wider than the line truncate. Card colors apply: a leading verb uses `accent` (bold for the first item), counts use `text`, other words use `muted`, and separators use `dim`. Failed and cancelled counts use `error`; unavailable counts use `muted`. Error text appears only in opened runs.
 
 Image-bearing calls and failed/cancelled calls contribute to counts; their images and diagnostic text remain hidden.
 

@@ -9,7 +9,7 @@
 
 ## Constraints
 
-Change prompts only through `systemPromptOptions`; never return a forced `systemPrompt`. Mirror Pi's `APPEND_SYSTEM.md` discovery and byte-order-mark handling so the replacement guard compares equal text. Read files and settings only on session start, not per run. Keep settings global. Keep the `rules` layout extensible: new per-model fields resolve independently.
+Change prompts only through `systemPromptOptions`, never a forced `systemPrompt`. Mirror Pi's `APPEND_SYSTEM.md` discovery and byte-order-mark handling so the replacement guard compares equal text. Read files and settings only on session start, not per run. Keep settings global and the `rules` layout extensible: new per-model fields resolve independently.
 
 ## Validation
 

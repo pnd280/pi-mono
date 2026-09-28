@@ -16,7 +16,7 @@ The pre-commit hook rejects em dashes (U+2014) in staged text; it does not run [
 
 Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts), also discovered from package directories. Lint warnings fail checks.
 
-Each package under `packages/` provides `lint`, `check`, `test`, and `format`. `check` checks formatting, then runs `lint` for linting and types. Tests follow the shared [runner convention](agents/testing.md#runner).
+Each package under `packages/` provides `lint`, `check`, `test`, and `format`. `check` verifies formatting, then runs `lint` for linting and types. Tests follow the [runner convention](agents/testing.md#runner).
 
 Fix implementation diagnostics without weakening shared checks; explain narrow exceptions.
 
@@ -31,7 +31,7 @@ vpr '<package-name>#check'
 vpr '<package-name>#test'
 ```
 
-For individual checks, use `vpr '<package-name>#format' --check` or `vpr '<package-name>#lint'`. Select packages by pattern, dependency, or dependent with `vpr --filter <pattern> <task>`.
+Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<package-name>#lint'`. Select packages by pattern, dependency, or dependent with `vpr --filter <pattern> <task>`.
 
 Workspace commands:
 
@@ -69,7 +69,7 @@ Keep shared development tooling and Pi host packages in root `devDependencies`; 
 
 Use `vp add --save-catalog`, `vp remove`, or `vp update`; include pnpm lockfile changes.
 
-Keep the direct `vite` alias for Vitest's pnpm peer dependency. `vite-plus` supplies `vitest` transitively; let it select the matching version instead of pinning or overriding Vitest separately. On Vite+ updates, align the `vite` alias and override with `vp toolchain`.
+Keep the direct `vite` alias for Vitest's pnpm peer dependency. Let `vite-plus` select its transitive `vitest` version rather than pinning or overriding Vitest. On Vite+ updates, align the `vite` alias and override with `vp toolchain`.
 
 ### Pi extension entry points
 
@@ -85,13 +85,13 @@ Set `pi.extensions` to `["./index.ts"]`; include the wrapper in `tsconfig.json` 
 
 ## Documentation
 
-Update inaccurate guidance and add information readers need to use or maintain the project. Omit self-explanatory code/configuration details. Keep entry documents task-focused, essential prerequisites and constraints inline, and details in canonical references.
+Correct inaccurate guidance and document what readers need to use or maintain the project. Omit self-explanatory code and configuration details. Keep entry documents task-focused, essential prerequisites and constraints inline, and details in canonical references.
 
 Use one H1, sentence-case headings, consecutive heading levels, numbered procedures, bullets for unordered items, tables for lookup/comparison, and language-tagged fences.
 
 ### Package READMEs
 
-Every package needs a short `README.md` opening with its purpose and when to use it, followed by these H2 sections:
+Each package needs a short `README.md` stating its purpose and when to use it, followed by these H2 sections:
 
 | Section       | Content                                                                                                              |
 | ------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -104,13 +104,13 @@ Add sections such as `Compatibility` as needed.
 
 ### Package instructions
 
-Every package needs an `AGENTS.md` with `Code navigation`, `Constraints`, and `Validation` sections. Separate source locations from package-wide rules; link to the README and shared conventions rather than duplicate them.
+Each package needs an `AGENTS.md` with `Code navigation`, `Constraints`, and `Validation` sections. Separate source locations from package-wide rules; link to the README and shared conventions rather than duplicate them.
 
-Every package also needs a `docs/pi-compatibility.md` checklist covering Pi contracts to verify, limitations and replacement opportunities, and validation.
+Each package also needs a `docs/pi-compatibility.md` checklist of Pi contracts to verify, limitations and replacement opportunities, and validation.
 
 ### Guides and references
 
-Give each guide one primary task/topic and a link to its package or workspace entry document. Keep short, cohesive topics together. Component references use `Behavior`, `Caller responsibilities`, optional `Usage`, and a separate `Validation` section.
+Give each guide one primary task or topic and a link to its package or workspace entry document. Keep short, cohesive topics together. Component references use `Behavior`, `Caller responsibilities`, optional `Usage`, and a separate `Validation` section.
 
 Update incoming fragment links when renaming or removing headings.
 

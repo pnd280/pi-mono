@@ -1,6 +1,6 @@
 # pi-model-prompt
 
-Selects a model-specific `APPEND_SYSTEM.md` variant for each agent run. Use it when different models need different appended instructions. Uses Pi **0.87.1**'s public `before_agent_start` prompt sections.
+Selects a model-specific `APPEND_SYSTEM.md` variant for each run when models need different appended instructions. Uses Pi **0.87.1**'s public `before_agent_start` prompt sections.
 
 ## Usage
 
@@ -53,7 +53,7 @@ The `rules` array accepts at most 100 entries. Invalid rules, including those wi
 
 Settings and files load on session start and `/reload`, like Pi's own `APPEND_SYSTEM.md`. Edits take effect after `/reload`.
 
-Warnings appear once per load, only when a UI is available, for invalid settings, variants with no file at any level, and unreadable files. Unreadable or non-regular variant files fall back to the next file in precedence; an unreadable base file disables replacement. Variant changes are otherwise silent.
+When a UI is available, warnings appear once per load for invalid settings, variants with no file at any level, and unreadable files. Unreadable or non-regular variants fall back to the next file in precedence; an unreadable base file disables replacement. Variant changes are otherwise silent.
 
 ## Side effects
 

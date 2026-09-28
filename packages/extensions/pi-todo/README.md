@@ -1,6 +1,6 @@
 # pi-todo
 
-Session-backed todos for multi-step work, with an above-editor widget and read-only `/todos` browser. Active only in regular/fullscreen interactive TTY sessions, never print, JSON, RPC, or informational CLI calls.
+Session-backed todos for multi-step work, with an above-editor widget and read-only `/todos` browser. Active only in interactive TTY sessions in regular or fullscreen mode, never print, JSON, RPC, or informational CLI calls.
 
 ## Usage
 
@@ -8,9 +8,9 @@ Session-backed todos for multi-step work, with an above-editor widget and read-o
 
 The `todo` tool supports `create`, `update`, `list`, `get`, `delete`, and `clear`. Todos start `pending`. On update, `parentId: null` moves a subtree to the root. Parent status and dependencies do not control children. Dependency cycles are forbidden.
 
-Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Todos with live descendants cannot be deleted but can be reparented. `clear` removes everything and resets IDs. Completed todos cannot return to `pending` or `in_progress`.
+Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Todos with live descendants can be reparented but not deleted. `clear` removes everything and resets IDs. Completed todos cannot return to `pending` or `in_progress`.
 
-`list` limits output to 200 todo lines and 32,768 UTF-16 code units, but always includes the first todo line even if oversized. A truncation notice reports omitted todos; result details retain the full snapshot.
+`list` limits output to 200 todo lines and 32,768 UTF-16 code units, but includes the first todo line even if oversized. A truncation notice reports omitted todos; result details retain the full snapshot.
 
 | Item                              | Limit               |
 | --------------------------------- | ------------------- |
