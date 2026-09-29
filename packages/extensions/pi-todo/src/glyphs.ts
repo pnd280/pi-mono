@@ -25,8 +25,6 @@ export const TODO_TREE_GLYPH = {
 
 export const TODO_DEPENDENCY_GLYPH = "⊣";
 
-export const TODO_FEEDBACK_GLYPH = { empty: "○", success: "✓", error: "✗" };
-
 export function statusGlyph(status: TaskStatus, theme: Pick<Theme, "fg">): string {
   return theme.fg(TASK_STATUS_COLOR[status], TUI_GLYPHS.taskStatus[status]);
 }

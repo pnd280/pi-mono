@@ -36,7 +36,6 @@ Repeat `-e` for additional extensions. To persist the selection, use Pi's [packa
 - [pi-selective-read](packages/extensions/pi-selective-read/README.md): source-span highlighting in read context.
 - [pi-model-prompt](packages/extensions/pi-model-prompt/README.md): model-specific append prompts.
 - [pi-skills](packages/extensions/pi-skills/README.md): skill file references and inline completion.
-- [pi-miscs](packages/extensions/pi-miscs/README.md): small extensions.
 
 ## Development
 

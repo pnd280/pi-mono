@@ -45,24 +45,12 @@ it.each([undefined, "{}", section({}), JSON.stringify({ defaultModel: "unrelated
   }
 );
 
-it("reads normalized model and optional thinking without modifying settings", () => {
-  const source = section({ model: " provider/nested/model " });
+it("reads BOM-prefixed settings and normalizes models without modifying settings", () => {
+  const source = `\uFEFF${section({ model: " provider/nested/model " })}`;
   const { cwd, agentDir, globalPath } = settings(source);
   vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
   expect(loadCompactConfig(cwd)).toEqual({ model: "provider/nested/model" });
   expect(readFileSync(globalPath, "utf8")).toBe(source);
-});
-
-it("accepts Pi-compatible BOM-prefixed global and trusted project settings", () => {
-  const { cwd, agentDir } = settings(
-    `\uFEFF${section(globalConfig)}`,
-    `\uFEFF${section({ model: "provider/project" })}`
-  );
-  expect(loadCompactConfig(cwd, { agentDir })).toEqual(globalConfig);
-  expect(loadCompactConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
-    ...globalConfig,
-    model: "provider/project"
-  });
 });
 
 it.each([
@@ -75,7 +63,7 @@ it.each([
   { project: { applyToAuto: false }, expected: { ...globalConfig, applyToAuto: false } },
   { project: {}, expected: globalConfig }
 ])("merges trusted project fields: $project", ({ project, expected }) => {
-  const { cwd, agentDir } = settings(section(globalConfig), section(project));
+  const { cwd, agentDir } = settings(section(globalConfig), `\uFEFF${section(project)}`);
   expect(loadCompactConfig(cwd, { agentDir, projectTrusted: true })).toEqual(expected);
 });
 

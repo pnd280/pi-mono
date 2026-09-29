@@ -176,46 +176,43 @@ it("omits absent focus and empty parameter punctuation", () => {
   }
 });
 
-it.each([false])(
-  "renders request status, focus, and model without generic calls (expanded: %s)",
-  (expanded) => {
-    const args = { instructions: "Preserve unfinished tests." };
-    const supplied = result(selection);
-    const before = structuredClone({ args, supplied });
+it("renders compact request status, focus, and model without generic calls", () => {
+  const args = { instructions: "Preserve unfinished tests." };
+  const supplied = result(selection);
+  const before = structuredClone({ args, supplied });
 
-    for (const showParameters of [false, true]) {
-      const context = renderContext(args, expanded);
-      const renderers = createToolDisplayRenderers("compact", compact, { showParameters });
-      const call = renderers.renderCall(args, theme, { ...context, isPartial: true });
-      expect(plain(call.render(180))).toContain("Requesting compaction");
-      const body = renderers.renderResult(supplied, context, theme, context);
-      const heading = plain(call.render(180));
-      expect(heading).toContain("Requested compaction \u2014 Preserve unfinished tests.");
-      expect(heading).not.toContain("Called compact");
-      expect(heading.includes(JSON.stringify(args))).toBe(showParameters);
-      expect(plain(body.render(180))).toContain("Model: provider/nested/model-界:high");
-      expect(plain(body.render(180))).not.toContain("Compaction requested.");
+  for (const showParameters of [false, true]) {
+    const context = renderContext(args, false);
+    const renderers = createToolDisplayRenderers("compact", compact, { showParameters });
+    const call = renderers.renderCall(args, theme, { ...context, isPartial: true });
+    expect(plain(call.render(180))).toContain("Requesting compaction");
+    const body = renderers.renderResult(supplied, context, theme, context);
+    const heading = plain(call.render(180));
+    expect(heading).toContain("Requested compaction \u2014 Preserve unfinished tests.");
+    expect(heading).not.toContain("Called compact");
+    expect(heading.includes(JSON.stringify(args))).toBe(showParameters);
+    expect(plain(body.render(180))).toContain("Model: provider/nested/model-界:high");
+    expect(plain(body.render(180))).not.toContain("Compaction requested.");
 
-      for (const width of [18, 80]) {
-        const narrow = content([...call.render(width), ...body.render(width)]);
-        expect(narrow).toContain("Requestedcompaction");
-        expect(narrow).toContain("Model:provider/nested/model-界:high");
-        expect(narrow).not.toContain("Compactionrequested.");
-      }
-
-      const unconfigured = renderers.renderResult(
-        result({ scheduled: true }),
-        context,
-        theme,
-        context
-      );
-      expect(plain(unconfigured.render(180)).trim()).toBe("");
-      expect(plain(call.render(180))).toContain("Requested compaction");
+    for (const width of [18, 80]) {
+      const narrow = content([...call.render(width), ...body.render(width)]);
+      expect(narrow).toContain("Requestedcompaction");
+      expect(narrow).toContain("Model:provider/nested/model-界:high");
+      expect(narrow).not.toContain("Compactionrequested.");
     }
 
-    expect({ args, supplied }).toEqual(before);
+    const unconfigured = renderers.renderResult(
+      result({ scheduled: true }),
+      context,
+      theme,
+      context
+    );
+    expect(plain(unconfigured.render(180)).trim()).toBe("");
+    expect(plain(call.render(180))).toContain("Requested compaction");
   }
-);
+
+  expect({ args, supplied }).toEqual(before);
+});
 
 it("formats supplied context facts without estimating unknown values or clamping overflow", () => {
   const summarize = (details: unknown, outcome: Outcome = "success") =>

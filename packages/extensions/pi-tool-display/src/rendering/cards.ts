@@ -33,22 +33,20 @@ function prepareCard(
   interpretation: CallInterpretation,
   base: Omit<Projection, "adapter" | "mcp" | "outcome" | "summary">
 ): PreparedCard {
-  const mcp = () => interpretation.mcp;
-  const outcome = () => interpretation.outcome;
   const context = lazy(() => ({
     ...base.context,
     isPartial: interpretation.pending,
-    isError: outcome() === "failure" || outcome() === "cancelled"
+    isError: interpretation.outcome === "failure" || interpretation.outcome === "cancelled"
   }));
   const adapter = interpretation.adapter;
   const invocation = lazy(() => adapter.invocation?.(base.context.args, base.result));
-  const exploration = () => interpretation.exploration;
   const headingVerbs = lazy(() => adapter.headingVerbs?.(base.context.args));
   const summary = lazy(() => {
-    if (!base.result || interpretation.pending || outcome() === "unavailable") return undefined;
+    if (!base.result || interpretation.pending || interpretation.outcome === "unavailable")
+      return undefined;
     const value = adapter.summary?.(base.result, {
       args: base.context.args,
-      outcome: outcome(),
+      outcome: interpretation.outcome,
       operation: base.call?.operation,
       expanded: base.expanded
     });
@@ -69,10 +67,10 @@ function prepareCard(
         return context();
       },
       get outcome() {
-        return outcome();
+        return interpretation.outcome;
       },
       get mcp() {
-        return mcp();
+        return interpretation.mcp;
       },
       get summary() {
         return summary();
@@ -86,10 +84,10 @@ function prepareCard(
       return context();
     },
     get outcome() {
-      return outcome();
+      return interpretation.outcome;
     },
     get mcp() {
-      return mcp();
+      return interpretation.mcp;
     },
     get summary() {
       return summary();
@@ -98,7 +96,7 @@ function prepareCard(
       return invocation();
     },
     get exploration() {
-      return exploration();
+      return interpretation.exploration;
     },
     get headingVerbs() {
       return headingVerbs();

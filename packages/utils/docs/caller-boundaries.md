@@ -2,8 +2,6 @@
 
 [@pi-mono/utils](../README.md)
 
-Read the relevant section when integrating a helper; exported source and colocated tests define exact inputs and results. The [manifest](../package.json) lists supported imports.
-
 ## Search scopes
 
 [`search-scopes`](../src/search-scopes.ts) derives static prefixes without enumerating files. Callers own existing-path detection, filesystem checks, exclusions, intersections, and blocking policy. [`fff-tools`](../src/fff-tools.ts) classifies provenance and names only, not tool schemas or policy.

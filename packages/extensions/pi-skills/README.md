@@ -54,11 +54,4 @@ Only prompt text changes. Pi persists transformed prompts through its normal ses
 
 ## Validation
 
-From the repository root:
-
-```sh
-vpr 'pi-skills#check'
-vpr 'pi-skills#test'
-```
-
-For completion, format, or host integration changes, run the [isolated terminal procedure](docs/testing.md#terminal-checks). See [coverage boundaries](docs/testing.md#coverage-boundaries) for package versus host responsibilities.
+Use the [workspace checks](../../../docs/development.md#focused-validation). For completion, format, or host integration changes, run the [isolated terminal procedure](docs/testing.md#terminal-checks). See [coverage boundaries](docs/testing.md#coverage-boundaries) for package versus host responsibilities.

@@ -20,21 +20,12 @@ A file access starts at its parent; a directory access includes that directory. 
 
 For supported tool inputs, Bash inference limits, and direct-read precedence, see [input discovery](docs/design.md#input-discovery). For compaction, branching, and reload behavior, see [session lifetime](docs/design.md#session-lifetime).
 
-## Configuration
-
-Native Pi context-file configuration remains untouched.
-
 ## Side effects
 
 Reads filesystem metadata and applicable instruction files; appends metadata entries and visible notices to Pi's session. No source-file writes or network requests. Discovery failures do not fail tool calls.
 
 ## Validation
 
-[Coverage specification](docs/testing.md) · [Pi compatibility](docs/pi-compatibility.md).
-
-```sh
-vpr 'pi-nested-instructions#check'
-vpr 'pi-nested-instructions#test'
-```
+[Workspace checks](../../../docs/development.md#focused-validation) · [Coverage specification](docs/testing.md) · [Pi compatibility](docs/pi-compatibility.md).
 
 If changing notice presentation, check the [pi-tool-display adapter](../pi-tool-display/src/adapters/pi-nested-instructions/README.md#validation).

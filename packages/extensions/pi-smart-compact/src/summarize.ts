@@ -18,7 +18,6 @@ export async function summarizeWithOverrides(
   instructions: string | undefined,
   selection: CompactionModelOptions | undefined
 ) {
-  if (instructions !== undefined) args[4] = instructions;
   const reference = selection?.config.model;
   const thinkingLevel = selection?.config.thinkingLevel;
   if (!instructions && reference === undefined && thinkingLevel === undefined)

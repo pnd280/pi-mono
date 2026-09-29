@@ -4,12 +4,8 @@
 
 ## Behavior
 
-[`ExpiringNotice`](index.ts) manages replaceable timed feedback. `reportOnce()` defers reporting to a microtask to avoid component-tree changes during rendering; clearing, replacing, or disposing suppresses queued reports.
+[`ExpiringNotice`](index.ts) manages replaceable timed feedback. Clearing or replacing a notice cancels its expiry; disposal also prevents later updates.
 
 ## Caller responsibilities
 
-Supply notice text/value, duration, redraw, and reporting. Detect overflow yourself and call `reportOnce()`; `dispose()` on closure.
-
-## Validation
-
-Use the [package validation commands](../../README.md#validation).
+Supply a notice value, duration, and redraw callback; `dispose()` on closure.

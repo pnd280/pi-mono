@@ -14,7 +14,7 @@ import { loadTodoConfig } from "./config.ts";
 import { TodoController } from "./controller.ts";
 import { shouldActivate } from "./runtime.ts";
 import { TodoOverlay, type TodoOverlayUI } from "./todo-overlay.ts";
-import { registerTodoTool } from "./tool.ts";
+import { createTodoTool } from "./tool.ts";
 
 export type TodoLifecycleContext = Pick<ExtensionContext, "cwd" | "isProjectTrusted" | "mode"> & {
   ui: Omit<TodoOverlayUI, "setActivity"> &
@@ -34,13 +34,10 @@ type TodoEventHandlers = {
   ) => void;
 };
 
-export type TodoExtensionAPI = Pick<ExtensionAPI, "registerCommand" | "events"> &
-  Parameters<typeof registerTodoTool>[0] & {
-    on<Event extends keyof TodoEventHandlers>(
-      event: Event,
-      handler: TodoEventHandlers[Event]
-    ): void;
-  };
+export type TodoExtensionAPI = Pick<ExtensionAPI, "registerCommand" | "events"> & {
+  registerTool(definition: ReturnType<typeof createTodoTool>): void;
+  on<Event extends keyof TodoEventHandlers>(event: Event, handler: TodoEventHandlers[Event]): void;
+};
 
 export default function piTodo(pi: TodoExtensionAPI): void {
   if (
@@ -60,7 +57,7 @@ export default function piTodo(pi: TodoExtensionAPI): void {
   const controller = new TodoController();
   const widget = new TodoOverlay(controller);
   const views = new TodosCustomViewHost(widget);
-  registerTodoTool(pi, controller);
+  pi.registerTool(createTodoTool(controller));
   registerTodosCommand(pi, controller, views, widget);
   pi.on("session_start", (_event, ctx) => {
     const config = loadTodoConfig(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });

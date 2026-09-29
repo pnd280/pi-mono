@@ -47,54 +47,51 @@ function fixture() {
   return { coordinator, add, start, stop, onExpansion, tick: () => tick() };
 }
 
-it.each(["live"] as const)(
-  "forms contiguous scope runs for %s calls without merging a return to an earlier scope",
-  (origin) => {
-    const cwd = resolve("/workspace/project");
-    const c = new TranscriptCoordinator("scopes", { cwd });
-    let index = 0;
-    const add = (name: string, args: unknown) =>
-      c.add(
-        { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
-        name,
-        args,
-        nativeAdapter(name)!,
-        origin
-      );
+it("forms contiguous scope runs for live calls without merging a return to an earlier scope", () => {
+  const cwd = resolve("/workspace/project");
+  const c = new TranscriptCoordinator("scopes", { cwd });
+  let index = 0;
+  const add = (name: string, args: unknown) =>
+    c.add(
+      { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
+      name,
+      args,
+      nativeAdapter(name)!,
+      "live"
+    );
 
-    try {
-      const first = add("ls", { path: "src/rendering/" });
-      const second = add("grep", { pattern: "heading", path: "./src/rendering/../rendering" });
-      const third = add("read", {
-        path: resolve(cwd, "src/rendering/headings.ts"),
-        offset: 1,
-        limit: 80
-      });
-      const repeated = add("read", { path: "src/rendering/headings.ts", offset: 81 });
-      const other = add("read", { path: "src/transcript/coordinator.ts" });
-      const returned = add("read", { path: "src/rendering/cards.ts" });
-      const sibling = add("read", { path: "src/rendering/results.ts" });
-      expect(c.group(first)?.members).toEqual([first, second, third, repeated]);
-      expect(c.group(other)).toBeUndefined();
-      expect(c.group(returned)?.members).toEqual([returned, sibling]);
-      c.expand(first, true);
-      expect([...c.calls.values()].map((call) => call.expanded)).toEqual([
-        true,
-        true,
-        true,
-        true,
-        false,
-        false,
-        false
-      ]);
-      c.setBoundary({}, second);
-      expect(c.group(first)?.members).toEqual([first, second]);
-      expect(c.group(third)?.members).toEqual([third, repeated]);
-    } finally {
-      c.dispose();
-    }
+  try {
+    const first = add("ls", { path: "src/rendering/" });
+    const second = add("grep", { pattern: "heading", path: "./src/rendering/../rendering" });
+    const third = add("read", {
+      path: resolve(cwd, "src/rendering/headings.ts"),
+      offset: 1,
+      limit: 80
+    });
+    const repeated = add("read", { path: "src/rendering/headings.ts", offset: 81 });
+    const other = add("read", { path: "src/transcript/coordinator.ts" });
+    const returned = add("read", { path: "src/rendering/cards.ts" });
+    const sibling = add("read", { path: "src/rendering/results.ts" });
+    expect(c.group(first)?.members).toEqual([first, second, third, repeated]);
+    expect(c.group(other)).toBeUndefined();
+    expect(c.group(returned)?.members).toEqual([returned, sibling]);
+    c.expand(first, true);
+    expect([...c.calls.values()].map((call) => call.expanded)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]);
+    c.setBoundary({}, second);
+    expect(c.group(first)?.members).toEqual([first, second]);
+    expect(c.group(third)?.members).toEqual([third, repeated]);
+  } finally {
+    c.dispose();
   }
-);
+});
 
 it("normalizes home and native path spellings without interpreting literal filters as directories", () => {
   const c = new TranscriptCoordinator("literal-scopes");

@@ -70,8 +70,7 @@ it("uses the latest persisted document across repository instances and realpath 
     agentDir: fixture.agentDir,
     retention: 1
   });
-  expect((await isolated.read("history")).status).toBe("ready");
-  expect(await isolated.read("history")).toMatchObject({ entries: [] });
+  expect(await isolated.read("history")).toMatchObject({ status: "ready", entries: [] });
   await expect(
     FileRepository.create({
       cwd: join(fixture.directory, "missing"),

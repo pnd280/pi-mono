@@ -76,7 +76,7 @@ To enable naming, set `auto-title` inside the literal top-level `ext.pi-session-
 | Global  | `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when set. |
 | Project | `<cwd>/.pi/settings.json`; no ancestor search.                                 |
 
-Only [trusted projects](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#project-trust) override global naming fields; omitted fields inherit. Both fields are required after merging. No defaults, extension-specific environment variables, or active-model fallback.
+Only [trusted projects](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#understand-project-trust) override global naming fields; omitted fields inherit. Both fields are required after merging. No defaults, extension-specific environment variables, or active-model fallback.
 
 Unreadable, malformed, or oversized settings files (over 1 MiB), invalid values, or unknown keys in `ext.pi-session-utils` or `auto-title` disable naming, not persistence or child creation. `/sesh auto-name` reports errors that automatic naming suppresses; clearing remains available.
 
@@ -94,9 +94,4 @@ Configured naming sends [selected conversation text](#automatic-session-names) t
 
 ## Validation
 
-```sh
-vpr 'pi-session-utils#check'
-vpr 'pi-session-utils#test'
-```
-
-See [testing boundaries](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md). Fixture providers require no credentials or paid requests.
+Follow the [workspace checks](../../../docs/development.md#focused-validation), [testing boundaries](docs/testing.md), and [Pi compatibility](docs/pi-compatibility.md). Fixture providers require no credentials or paid requests.

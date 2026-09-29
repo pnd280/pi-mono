@@ -49,10 +49,6 @@ export class PromptManager {
 
   constructor(readonly ports: ManagerPorts) {}
 
-  get active() {
-    return !this.lifetime.signal.aborted;
-  }
-
   private isActive() {
     return !this.lifetime.signal.aborted;
   }

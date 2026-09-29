@@ -1,6 +1,6 @@
 # [pi-editor-widgets](README.md) development
 
-For host upgrades start at [src/host.ts](src/host.ts) and [src/coordinator.ts](src/coordinator.ts); for layout and persistence start at [src/layout.ts](src/layout.ts) and [src/settings.ts](src/settings.ts). Menu policy lives in [src/drafts.ts](src/drafts.ts) and [src/menu.ts](src/menu.ts). See the [compatibility boundary](docs/pi-compatibility.md) before changing host hooks.
+Read the [compatibility boundary](docs/pi-compatibility.md) before changing host hooks.
 
 ## Constraints
 

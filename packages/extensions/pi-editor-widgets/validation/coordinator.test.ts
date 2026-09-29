@@ -123,7 +123,8 @@ it.each(["regular", "fullscreen"] as const)(
   }
 );
 
-it.each([20])("keeps native mouse geometry after wrapping %i-column widgets", async (length) => {
+it("keeps native mouse geometry after wrapping 20-column widgets", async () => {
+  const length = 20;
   const fixture = await hostFixture();
   const { host, ui } = fixture;
   const mouse = vi.fn(() => ({ handled: true }));

@@ -21,7 +21,7 @@ For a selected variant, the first existing file wins:
 | 3        | `<agent-dir>/APPEND_SYSTEM.<variant>.md` |
 | 4        | `<agent-dir>/APPEND_SYSTEM.md`           |
 
-Project files count only in [trusted](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#project-trust) projects. A project's own base file therefore outranks personal agent-level variants.
+Project files count only in [trusted](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#understand-project-trust) projects. A project's own base file therefore outranks personal agent-level variants.
 
 ### Explicit append text
 
@@ -60,12 +60,5 @@ UI warnings report invalid settings, missing variants, and unreadable files on l
 Only the append section of the system prompt changes. Pi records changes in the session transcript; prompt-cache reuse depends on the provider's support for mid-conversation prompt changes. The extension writes no files and makes no network requests.
 
 ## Validation
-
-From the repository root:
-
-```sh
-vpr 'pi-model-prompt#check'
-vpr 'pi-model-prompt#test'
-```
 
 Tests run offline; the Unix FIFO regression requires `mkfifo`. See [testing boundaries](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md) for SDK directory overrides and upgrades.

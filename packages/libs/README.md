@@ -14,7 +14,7 @@ Shared extension APIs and [TUI infrastructure](src/tui/README.md). Use [utils](.
 | [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |
 | [text-search](src/text-search/README.md)               | Cooperative normalization and search                                      |
 | [latest-task](src/latest-task/README.md)               | Result commits and pending state for the latest task                      |
-| [expiring-notice](src/expiring-notice/README.md)       | Notice expiry and deferred overflow reporting                             |
+| [expiring-notice](src/expiring-notice/README.md)       | Replaceable notice expiry                                                 |
 | [timed-confirmation](src/timed-confirmation/README.md) | Target comparison and confirmation deadline                               |
 | [async-cache](src/async-cache/README.md)               | Same-key load sharing and bounded LRU storage                             |
 | [owned-hooks](src/owned-hooks/README.md)               | Property replacement and conditional restoration                          |

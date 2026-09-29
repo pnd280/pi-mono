@@ -4,17 +4,12 @@ import { ExpiringNotice } from "./index.ts";
 
 afterEach(() => vi.useRealTimers());
 
-it("replaces and expires notices, reporting overflow only once outside the render stack", async () => {
+it("replaces and expires notices", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const changed = vi.fn();
-  const report = vi.fn();
-  const notice = new ExpiringNotice({ durationMs: 100, changed, report });
+  const notice = new ExpiringNotice({ durationMs: 100, changed });
   notice.set("first");
-  notice.reportOnce();
-  notice.reportOnce();
-  expect(report).not.toHaveBeenCalled();
-  await Promise.resolve();
-  expect(report).toHaveBeenCalledExactlyOnceWith("first");
+  expect(notice.value).toBe("first");
   await vi.advanceTimersByTimeAsync(80);
   notice.set("second");
   await vi.advanceTimersByTimeAsync(30);
@@ -25,21 +20,14 @@ it("replaces and expires notices, reporting overflow only once outside the rende
   notice.dispose();
 });
 
-it("suppresses replaced or disposed deferred reports and late expiry callbacks", async () => {
+it("suppresses late updates and expiry callbacks after disposal", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const changed = vi.fn();
-  const report = vi.fn();
-  const notice = new ExpiringNotice({ durationMs: 100, changed, report });
-  notice.set("old");
-  notice.reportOnce();
-  notice.set("new");
-  await Promise.resolve();
-  expect(report).not.toHaveBeenCalled();
-  notice.reportOnce();
+  const notice = new ExpiringNotice({ durationMs: 100, changed });
+  notice.set("current");
   notice.dispose();
   notice.set("late");
   await vi.advanceTimersByTimeAsync(100);
-  expect(report).not.toHaveBeenCalled();
-  expect(changed).toHaveBeenCalledTimes(2);
+  expect(changed).toHaveBeenCalledTimes(1);
   expect(notice.value).toBeUndefined();
 });

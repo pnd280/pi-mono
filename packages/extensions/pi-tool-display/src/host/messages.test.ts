@@ -19,10 +19,10 @@ const message = {
   ]
 };
 
-it.each([1])("discovers buffered calls in source order on an update at index %s", (index) => {
+it("discovers buffered calls in source order on an update at index 1", () => {
   const messages = new TranscriptMessages();
   messages.read({ ...message, content: [] });
-  expect(messages.read(message, index)).toMatchObject({
+  expect(messages.read(message, 1)).toMatchObject({
     kind: "assistant",
     calls: [
       { index: 1, id: "first" },

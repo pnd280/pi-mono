@@ -34,11 +34,6 @@ export type TodoOverlayUI = {
   setActivity(text?: string): void;
 };
 
-export type TodoWidgetStateControl = {
-  setCollapsed(collapsed: boolean): boolean;
-  toggleCollapsed(): boolean;
-};
-
 export type BuildTodoWidgetLinesOptions = {
   collapsed?: boolean;
 };
@@ -53,7 +48,6 @@ export class TodoOverlay {
   private registrationEpoch = 0;
   private todos: readonly Task[] = [];
   private todosRevision = -1;
-  private dataVersion = 0;
   private readonly suppressions = new Set<symbol>();
 
   constructor(private readonly controller: Pick<TodoController, "getTodos" | "getRevision">) {}
@@ -97,19 +91,13 @@ export class TodoOverlay {
     }
 
     if (!this.widgetRegistered) {
-      const registrationGeneration = this.generation;
       const registrationEpoch = ++this.registrationEpoch;
       // Pi constructs widget factories synchronously inside setWidget().
       this.widgetRegistered = true;
       this.uiCtx.setWidget(
         WIDGET_KEY,
         (tui, theme) => {
-          if (
-            this.live &&
-            this.widgetRegistered &&
-            registrationGeneration === this.generation &&
-            registrationEpoch === this.registrationEpoch
-          ) {
+          if (this.live && this.widgetRegistered && registrationEpoch === this.registrationEpoch) {
             this.tui = tui;
           }
 
@@ -117,7 +105,7 @@ export class TodoOverlay {
 
           return {
             render: (width: number) => {
-              const key = `${this.dataVersion}|${this.collapsed}|${width}`;
+              const key = `${this.todosRevision}|${this.collapsed}|${width}`;
 
               if (cache?.key !== key) {
                 cache = {
@@ -148,14 +136,11 @@ export class TodoOverlay {
   suppress(): WidgetSuppression {
     const token = Symbol("todo-widget-suppression");
     const generation = this.generation;
-    let released = false;
     this.suppressions.add(token);
     this.clearRegisteredWidget();
 
     return {
       release: () => {
-        if (released) return;
-        released = true;
         if (generation !== this.generation || !this.suppressions.delete(token)) return;
         if (this.suppressions.size === 0 && this.live) this.update();
       }
@@ -185,7 +170,6 @@ export class TodoOverlay {
     if (revision !== this.todosRevision) {
       this.todos = this.controller.getTodos();
       this.todosRevision = revision;
-      this.dataVersion += 1;
     }
 
     return this.todos;
@@ -230,7 +214,8 @@ export function buildTodoWidgetLines(
   if (all.length === 0) return [];
   if (!Number.isFinite(width) || width <= 0) return [""];
 
-  const truncate = createWidgetTruncator(width);
+  const safeWidth = Math.max(1, Math.floor(width));
+  const truncate = (line: string) => truncateToWidth(line, safeWidth);
   const completedCount = all.filter((entry) => entry.task.status === "completed").length;
   const totalVisible = all.length;
   let overallStatus: TaskStatus = all.some((entry) => entry.task.status === "pending")
@@ -286,7 +271,6 @@ function selectOverflowEntries(
   entries: readonly TaskHierarchyEntry[],
   budget: number
 ): readonly TaskHierarchyEntry[] {
-  const entryById = new Map(entries.map((entry) => [entry.task.id, entry]));
   const selectedIds = new Set<number>();
   const unfinished = [
     ...entries.filter((entry) => entry.task.status === "in_progress"),
@@ -306,12 +290,12 @@ function selectOverflowEntries(
       if (selectedIds.size >= budget) break;
 
       if (!selectedIds.has(entry.task.id)) {
-        addCompletePath(entry, entryById, selectedIds, budget);
+        addCompletePath(entry, selectedIds, budget);
       }
     }
   } else {
     for (const entry of unfinished) {
-      addCompletePath(entry, entryById, selectedIds, budget);
+      addCompletePath(entry, selectedIds, budget);
     }
   }
 
@@ -320,12 +304,11 @@ function selectOverflowEntries(
 
 function addCompletePath(
   entry: TaskHierarchyEntry,
-  entryById: ReadonlyMap<number, TaskHierarchyEntry>,
   selectedIds: Set<number>,
   budget: number
 ): void {
   const path = [...entry.ancestorIds, entry.task.id];
-  const missing = path.filter((taskId) => entryById.has(taskId) && !selectedIds.has(taskId));
+  const missing = path.filter((taskId) => !selectedIds.has(taskId));
   if (selectedIds.size + missing.length > budget) return;
   for (const taskId of missing) selectedIds.add(taskId);
 }
@@ -347,10 +330,4 @@ function renderWidgetEntry(input: {
   return truncate(
     `${indentation}${theme.fg("dim", branch)} ${formatTaskLine(entry.task, theme, { showId: showIds })}`
   );
-}
-
-function createWidgetTruncator(width: number): (line: string) => string {
-  const safeWidth = Math.max(1, Math.floor(width));
-
-  return (line) => truncateToWidth(line, safeWidth);
 }

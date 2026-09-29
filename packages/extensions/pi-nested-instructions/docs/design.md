@@ -36,4 +36,4 @@ Refresh on startup, resume, and `/reload` uses only scopes still represented by 
 
 ## Shared scope extraction
 
-The pure brace expansion, fixed-glob-prefix, filename-filter, and FFF path normalization helpers were extracted from `pi-fff-guard` to `@pi-mono/utils/search-scopes`. The guard retains its missing-path, intersection, exclusion, and Git policies. Nested discovery deliberately does not import another extension or adopt its blocking policy.
+[Shared scope helpers](../../../utils/README.md#search-scopes) own brace expansion, fixed glob prefixes, filename filters, and FFF path normalization. Nested discovery does not adopt `pi-fff-guard`'s blocking, missing-path, intersection, exclusion, or Git policies.

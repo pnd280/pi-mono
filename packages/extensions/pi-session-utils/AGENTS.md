@@ -1,7 +1,5 @@
 # [pi-session-utils](README.md) development
 
-For session commands and snapshots use [src/commands.ts](src/commands.ts) and [src/persist.ts](src/persist.ts); for CLI parent handling use [src/parent.ts](src/parent.ts) and [src/startup.ts](src/startup.ts). Naming is isolated under [src/auto-title/](src/auto-title/). Host assumptions are tracked in [compatibility](docs/pi-compatibility.md).
-
 ## Constraints
 
 - Keep naming separate from session-operation locking and idle checks. For a busy child command, suggest a shell-quoted CLI invocation only if the current parent file exists and the path is safe to copy.

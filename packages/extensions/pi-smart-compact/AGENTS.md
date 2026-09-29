@@ -12,7 +12,6 @@ For native routing use [src/native.ts](src/native.ts); for host fingerprints use
 - Scope requests and metadata to their session and native operation. Append metadata only after Pi's final abort check; do not overwrite another extension's replacement.
 - Apply configured file focus to every compaction route independently of model and thinking opt-ins. Compose it once before per-call focus, expose the same text to hooks, and preserve native default prompts. At startup or reload, read only the selected instruction file and resolve relative paths in their original settings scope.
 - Match the native split-turn instruction suffix, not phrases inside serialized conversation. Clone provider input rather than mutate retry-shared context.
-- Follow the [compatibility checklist](docs/pi-compatibility.md) for Pi upgrades.
 
 ## Validation
 

@@ -15,7 +15,3 @@ Use one instance per stream; append new chunks, never replacement snapshots. End
 Preserve the notice ranges in `OutputText` to distinguish notices from identical process output. Sanitize each complete snapshot for terminal display.
 
 Tool display's [output policy](../../../extensions/pi-tool-display/src/observation/output-policy.ts) supplies stream limits and omission messages. For regular-file previews, use [bounded file output](../bounded-output/README.md).
-
-## Validation
-
-Use the [package validation commands](../../README.md#validation).

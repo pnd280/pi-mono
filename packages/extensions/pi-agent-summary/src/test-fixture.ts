@@ -139,5 +139,5 @@ export async function fixture(mode: SummaryContext["mode"] = "tui") {
     }
   };
 
-  return { api, ctx, session, agentSession, setWorkingMessage, emit, tool };
+  return { api, ctx, session, setWorkingMessage, emit, tool };
 }

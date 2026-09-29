@@ -16,17 +16,13 @@ function transcript() {
   const coordinator = new TranscriptCoordinator("summary-model", { cwd });
   let index = 0;
 
-  const add = (
-    name: string,
-    args: unknown,
-    options: { adapter?: ToolDisplayAdapter; origin?: "live" | "historical" } = {}
-  ) =>
+  const add = (name: string, args: unknown, options: { adapter?: ToolDisplayAdapter } = {}) =>
     coordinator.add(
       { messageTimestamp: 1, contentIndex: index, toolCallId: String(index++) },
       name,
       args,
       options.adapter ?? nativeAdapter(name) ?? genericAdapter,
-      options.origin ?? "historical"
+      "historical"
     );
 
   const finish = (call: DisplayCall, outcome: Outcome = "success", text = "ok") => {
@@ -255,23 +251,20 @@ it("omits owner-excluded calls, including invalid todo calls, and supported empt
   }
 });
 
-it.each([{ items: [{ category: "read", identity: "untrusted-file" }] }])(
-  "keeps generic summary fallback without interpreting unsupported items $items",
-  ({ items }) => {
-    const { coordinator, add, finish, summary } = transcript();
-    const adapter: ToolDisplayAdapter = {
-      id: "owner:unsupported",
-      family: "read",
-      supports: () => false,
-      summaryItems: () => items,
-      outcome: () => "success"
-    };
+it("keeps generic summary fallback without interpreting unsupported items", () => {
+  const { coordinator, add, finish, summary } = transcript();
+  const adapter: ToolDisplayAdapter = {
+    id: "owner:unsupported",
+    family: "read",
+    supports: () => false,
+    summaryItems: () => [{ category: "read", identity: "untrusted-file" }],
+    outcome: () => "success"
+  };
 
-    try {
-      finish(add("custom", {}, { adapter }), "failure", "Unsupported result");
-      expect(shape(summary())).toEqual(["other:custom:1 failed=1"]);
-    } finally {
-      coordinator.dispose();
-    }
+  try {
+    finish(add("custom", {}, { adapter }), "failure", "Unsupported result");
+    expect(shape(summary())).toEqual(["other:custom:1 failed=1"]);
+  } finally {
+    coordinator.dispose();
   }
-);
+});

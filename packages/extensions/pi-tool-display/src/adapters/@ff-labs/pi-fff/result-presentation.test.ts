@@ -93,51 +93,47 @@ it.each([
     expect(supplied.content[0]!.text).toBe(text);
   }
 );
-it.each(['foo"]\n\n[bar'])(
-  "retains weak-match warnings for multiline find queries: %j",
-  (query) => {
-    const warning = `[Query "${query}" produced only weak scattered fuzzy matches. Output capped at 1/10.]`;
-    const text = `src/example.ts\n\n${warning}`;
-    const supplied = { content: [{ type: "text" as const, text }], details: undefined };
-    expect(fffTextNotices(supplied, "find")).toEqual([{ kind: "warning", text: warning }]);
+it("retains weak-match warnings for multiline find queries", () => {
+  const query = 'foo"]\n\n[bar';
+  const warning = `[Query "${query}" produced only weak scattered fuzzy matches. Output capped at 1/10.]`;
+  const text = `src/example.ts\n\n${warning}`;
+  const supplied = { content: [{ type: "text" as const, text }], details: undefined };
+  expect(fffTextNotices(supplied, "find")).toEqual([{ kind: "warning", text: warning }]);
+  expect(
+    fffResultParts(text, "find", complete)
+      .map((part) => part.text)
+      .join("")
+  ).toBe(text);
+
+  for (const literal of [
+    `src/example.ts\n 1: ${warning}`,
+    `${text}\nnext-file.ts`,
+    '[Query "foo\nbar" is literal output]'
+  ]) {
     expect(
-      fffResultParts(text, "find", complete)
+      fffResultParts(literal, "find", complete).filter((part) => part.kind === "warning")
+    ).toEqual([]);
+    expect(
+      fffResultParts(literal, "find", complete)
         .map((part) => part.text)
         .join("")
-    ).toBe(text);
-
-    for (const literal of [
-      `src/example.ts\n 1: ${warning}`,
-      `${text}\nnext-file.ts`,
-      '[Query "foo\nbar" is literal output]'
-    ]) {
-      expect(
-        fffResultParts(literal, "find", complete).filter((part) => part.kind === "warning")
-      ).toEqual([]);
-      expect(
-        fffResultParts(literal, "find", complete)
-          .map((part) => part.text)
-          .join("")
-      ).toBe(literal);
-    }
-
-    expect(supplied.content[0]!.text).toBe(text);
+    ).toBe(literal);
   }
-);
 
-it.each(["regex parse error:\n    (\n    ^\nerror: unclosed group"])(
-  "retains FFF fallback diagnostics with their combined pagination instruction: %s",
-  (error) => {
-    const combined = `[Invalid regex: ${error}, used literal match. Continue with cursor="fff_c1"]`;
-    const supplied = {
-      content: [{ type: "text" as const, text: `example.ts\n 1: match\n\n${combined}` }],
-      details: undefined
-    };
-    expect(fffTextNotices(supplied, "grep")).toEqual([{ kind: "warning", text: combined }]);
-    expect(
-      fffResultParts(supplied.content[0]!.text, "grep", complete)
-        .map((part) => part.text)
-        .join("")
-    ).toBe(supplied.content[0]!.text);
-  }
-);
+  expect(supplied.content[0]!.text).toBe(text);
+});
+
+it("retains FFF fallback diagnostics with their combined pagination instruction", () => {
+  const error = "regex parse error:\n    (\n    ^\nerror: unclosed group";
+  const combined = `[Invalid regex: ${error}, used literal match. Continue with cursor="fff_c1"]`;
+  const supplied = {
+    content: [{ type: "text" as const, text: `example.ts\n 1: match\n\n${combined}` }],
+    details: undefined
+  };
+  expect(fffTextNotices(supplied, "grep")).toEqual([{ kind: "warning", text: combined }]);
+  expect(
+    fffResultParts(supplied.content[0]!.text, "grep", complete)
+      .map((part) => part.text)
+      .join("")
+  ).toBe(supplied.content[0]!.text);
+});

@@ -23,7 +23,7 @@
 
 ### Lifetimes and shared state
 
-- Latest tasks, async caches, timed confirmations, and deferred notices reject stale work after replacement or disposal. Caches share loads and bound storage; falsy values are cache hits, while rejected/busy loads remain retryable.
+- Latest tasks, async caches, timed confirmations, and expiring notices reject stale work after replacement or disposal. Caches share loads and bound storage; falsy values are cache hits, while rejected/busy loads remain retryable.
 - Working-message contributors compose independently. Old handles cannot clear replacements, session transitions clear contributions, and saved ordering respects project trust and unrelated settings. Library-owned command integration verifies argument rejection, default and in-menu scopes, saved ordering, inline warnings, and editor restoration against the installed interactive host without loading a workspace extension.
 - Offline fixtures isolate homes, credentials, mutable directories, and launch flags; scripted providers terminate on errors and cancellation rather than hanging consumers.
 

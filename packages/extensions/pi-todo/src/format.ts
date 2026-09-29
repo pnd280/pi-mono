@@ -1,7 +1,7 @@
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import { MSG_NO_TODOS } from "./constants.ts";
-import { TASK_STATUS_TEXT, TODO_FEEDBACK_GLYPH } from "./glyphs.ts";
+import { TASK_STATUS_TEXT } from "./glyphs.ts";
 import { deriveTaskHierarchy, type TaskHierarchyEntry } from "./hierarchy.ts";
 import { presentCompactTaskText } from "./text.ts";
 import type { Task } from "./types.ts";
@@ -37,7 +37,7 @@ export function formatTodosSummary(tasks: readonly Task[]): string {
 
   if (summary.pending > 0) header.push(`${summary.pending} pending`);
 
-  return header.join(` ${"·"} `);
+  return header.join(" · ");
 }
 
 export function formatTodosCommandOutput(tasks: readonly Task[]): string {
@@ -49,7 +49,7 @@ export function formatTodosCommandOutput(tasks: readonly Task[]): string {
 }
 
 export function formatEmptyTodosMessage(): string {
-  return `${TODO_FEEDBACK_GLYPH.empty} ${MSG_NO_TODOS}`;
+  return `○ ${MSG_NO_TODOS}`;
 }
 
 function renderCommandTask(entry: TaskHierarchyEntry): string {
@@ -65,5 +65,5 @@ function renderCommandTask(entry: TaskHierarchyEntry): string {
       : "";
   const indentation = "  ".repeat(entry.depth);
 
-  return `${indentation}${TUI_GLYPHS.taskStatus[task.status]} ${TASK_STATUS_TEXT[task.status]} ${"·"} #${task.id} ${subject}${inProgressLabel}${blockedBy}`;
+  return `${indentation}${TUI_GLYPHS.taskStatus[task.status]} ${TASK_STATUS_TEXT[task.status]} · #${task.id} ${subject}${inProgressLabel}${blockedBy}`;
 }

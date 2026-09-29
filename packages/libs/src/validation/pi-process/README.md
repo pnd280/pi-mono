@@ -17,7 +17,3 @@ Create fixture contents under `createValidationWorkspace`'s `work`, `home`, `age
 Wait for fixture processes to exit before removing the workspace.
 
 The [prompt-manager](../../../../extensions/pi-prompt-manager/validation/workspace.ts) and [tool-display](../../../../extensions/pi-tool-display/validation/workspace.ts) fixtures prepare launches. Use the [terminal launcher](../terminal-launcher/README.md) for interactive validation.
-
-## Validation
-
-Use the [package validation commands](../../../README.md#validation).

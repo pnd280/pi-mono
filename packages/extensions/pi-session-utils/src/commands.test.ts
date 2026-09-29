@@ -39,7 +39,6 @@ function context(sessionManager = SessionManager.inMemory(cwd)) {
     cwd,
     sessionManager,
     isIdle: vi.fn(() => true),
-    waitForIdle: vi.fn(async () => {}),
     switchSession: vi.fn(async () => ({ cancelled: false })),
     newSession: vi.fn<SessionCommandContext["newSession"]>(),
     ui: { notify: vi.fn<SessionCommandContext["ui"]["notify"]>() }
@@ -85,7 +84,6 @@ it("rejects unknown subcommands and extra arguments before any session operation
     await runSessionOperation(args, ctx);
   }
 
-  expect(ctx.waitForIdle).not.toHaveBeenCalled();
   expect(ctx.newSession).not.toHaveBeenCalled();
   expect(ctx.switchSession).not.toHaveBeenCalled();
 });
@@ -98,7 +96,6 @@ it.each(["persist", "create-empty-child"])(
     await runSessionOperation(command, ctx);
 
     expect(ctx.ui.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-    expect(ctx.waitForIdle).not.toHaveBeenCalled();
     expect(ctx.newSession).not.toHaveBeenCalled();
     expect(ctx.switchSession).not.toHaveBeenCalled();
     expect(existsSync(join(directory, "agent", "sessions"))).toBe(false);
@@ -117,7 +114,6 @@ it("warns when persist is busy even if the session is already file-backed", asyn
   await runSessionOperation("persist", ctx);
 
   expect(ctx.ui.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  expect(ctx.waitForIdle).not.toHaveBeenCalled();
   expect(ctx.switchSession).not.toHaveBeenCalled();
 });
 
@@ -144,7 +140,6 @@ it("includes a shell-safe linked CLI command for a busy persisted parent", async
     { cwd: directory, encoding: "utf8", env: { PATH: process.env.PATH } }
   );
   expect(argumentsOutput).toBe(`--parent-session\0${parent}\0`);
-  expect(ctx.waitForIdle).not.toHaveBeenCalled();
   expect(ctx.newSession).not.toHaveBeenCalled();
   expect(ctx.switchSession).not.toHaveBeenCalled();
   expect(readFileSync(parent, "utf8")).toBe(before);
@@ -201,7 +196,6 @@ it("warns without a dangling CLI command when a busy parent's file is not yet wr
   const [message] = ctx.ui.notify.mock.calls[0]!;
   expect(message).not.toContain("--parent-session");
   expect(existsSync(ctx.sessionManager.getSessionFile()!)).toBe(false);
-  expect(ctx.waitForIdle).not.toHaveBeenCalled();
   expect(ctx.newSession).not.toHaveBeenCalled();
 });
 

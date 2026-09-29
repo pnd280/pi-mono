@@ -1,7 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, type Component } from "@earendil-works/pi-tui";
 
-import { compactDisplayText } from "../../terminal-text/index.ts";
 import {
   renderSettingsMenu,
   settingsLoadFeedback,
@@ -71,16 +70,7 @@ export class OrderSettingsView implements Component {
   }
 
   updateItems(items: readonly OrderSettingsItem[]): void {
-    this.items = new Map(
-      items.map((item) => [
-        item.id,
-        {
-          ...item,
-          label: compactDisplayText(item.label),
-          description: compactDisplayText(item.description)
-        }
-      ])
-    );
+    this.items = new Map(items.map((item) => [item.id, { ...item }]));
 
     for (const draft of this.drafts) {
       const newIds = items

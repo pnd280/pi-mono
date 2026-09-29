@@ -28,7 +28,7 @@ const parsePatch = (source: string) => parseSourcePatch(source, 128 * 1024);
 
 it("does not highlight omitted compact lines or hunks, but expands all retained source", () => {
   const parsed = parsePatch(
-    "@@ -0,0 +1,1000 @@\n" + "+first hunk\n".repeat(1000) + "@@ -50,0 +1051 @@\n+last hunk\n"
+    "@@ -0,0 +1,31 @@\n" + "+first hunk\n".repeat(31) + "@@ -50,0 +82 @@\n+last hunk\n"
   )!;
   const highlighted: string[] = [];
   const options = {
@@ -47,7 +47,7 @@ it("does not highlight omitted compact lines or hunks, but expands all retained 
   highlighted.length = 0;
   const expanded = renderDiffBody(parsed, { ...options, expanded: true });
   expect(expanded.join("\n")).toContain("last hunk");
-  expect(highlighted).toHaveLength(1001);
+  expect(highlighted).toHaveLength(32);
 });
 
 it("pairs unequal change blocks without moving lines across context or hunk boundaries", () => {

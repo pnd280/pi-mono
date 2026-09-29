@@ -45,7 +45,6 @@ it("records one context-free entry after all turns and retries settle, preservin
   runtime.setWorkingMessage.mockClear();
   vi.advanceTimersByTime(5000);
   expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
-  await runtime.emit("session_shutdown", {});
 });
 
 function assistantMessage(
@@ -299,7 +298,6 @@ it("waits if another extension has already started a run during settlement", asy
     bashCalls: 0,
     files: []
   });
-  await runtime.emit("session_shutdown", {});
 });
 
 it("cleans up unfinished runs on shutdown without appending a partial summary", async () => {
@@ -360,20 +358,17 @@ it.each(["session_shutdown", "session_start"] as const)(
   async (event) => {
     const runtime = await fixture();
     await runtime.emit("agent_start", {});
-    let complete!: (value: Awaited<ReturnType<RunChanges["finish"]>>) => void;
-    const pending = new Promise<Awaited<ReturnType<RunChanges["finish"]>>>((resolve) => {
-      complete = resolve;
-    });
-    const finish = vi.spyOn(RunChanges.prototype, "finish").mockReturnValueOnce(pending);
+    const pending = Promise.withResolvers<Awaited<ReturnType<RunChanges["finish"]>>>();
+    const finish = vi.spyOn(RunChanges.prototype, "finish").mockReturnValueOnce(pending.promise);
     const settlement = runtime.emit("agent_settled", {});
 
     try {
       await runtime.emit(event, {});
-      complete([{ path: "file", status: "available", added: 1, removed: 0 }]);
+      pending.resolve([{ path: "file", status: "available", added: 1, removed: 0 }]);
       await settlement;
       expect(runtime.api.appendEntry).not.toHaveBeenCalled();
     } finally {
-      complete([]);
+      pending.resolve([]);
       await settlement;
       finish.mockRestore();
     }

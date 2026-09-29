@@ -17,4 +17,4 @@
 
 ## Validation
 
-Use [package checks](../README.md#validation). The host suite exercises the installed Pi runtime offline.
+Use [workspace checks](../../../../docs/development.md#focused-validation). The host suite exercises the installed Pi runtime offline.

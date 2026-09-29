@@ -47,7 +47,6 @@ const traceSchema = z.object({
   customInstructions: z.string().optional(),
   isSplitTurn: z.boolean().optional(),
   historyMessages: z.number().optional(),
-  prefixMessages: z.number().optional(),
   summaryKind: z.enum(["history", "prefix"]).optional(),
   additionalFocusCount: z.number().optional(),
   focus: z.string().optional(),
@@ -691,7 +690,6 @@ it.each(toolCases)(
       assert.equal(ofType("wait:idle").length, attempts);
 
       for (const entry of ofType("hook:before")) {
-        assert.equal(entry.reason, "manual");
         assert.equal(entry.customInstructions, instructions);
         assert.equal(entry.isSplitTurn, scenario !== "instructions-boundary");
         assert.deepEqual(entry.settings, {

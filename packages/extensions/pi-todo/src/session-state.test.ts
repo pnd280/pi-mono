@@ -19,25 +19,16 @@ import { emptyTodoState } from "./reducer.ts";
 import { parseTodoStateSnapshot, todoStateFromBranch } from "./session-state.ts";
 import type { Task, TaskDetails } from "./types.ts";
 
-function toolResultEntry<Details>(id: string, toolName: string, details: Details, isError = false) {
+function todoResultEntry<Details>(details: Details, isError = false) {
   return {
-    type: "message" as const,
-    id,
-    parentId: null,
-    timestamp: "2026-07-02T00:00:00.000Z",
+    type: "message",
     message: {
-      role: "toolResult" as const,
-      toolName,
-      toolCallId: id,
-      content: [{ type: "text" as const, text: "ok" }],
+      role: "toolResult",
+      toolName: "todo",
       details,
       isError
     }
   };
-}
-
-function todoResultEntry<Details>(id: string, details: Details, isError = false) {
-  return toolResultEntry(id, "todo", details, isError);
 }
 
 describe("todo session state", () => {
@@ -56,10 +47,9 @@ describe("todo session state", () => {
     };
 
     const restored = todoStateFromBranch([
-      todoResultEntry("1", first),
-      todoResultEntry("ignored", { tasks: "not an array", nextId: 4 }),
-      toolResultEntry("other-tool", "bash", first),
-      todoResultEntry("2", latest)
+      todoResultEntry(first),
+      todoResultEntry(latest),
+      { type: "message", message: { role: "toolResult", toolName: "bash", details: first } }
     ]);
 
     assert.deepEqual(restored, emptyTodoState());
@@ -186,10 +176,7 @@ describe("todo session state", () => {
       { id: 2, subject: "Valid child", status: "pending", parentId: 1 }
     ]);
     assert.deepEqual(
-      todoStateFromBranch([
-        todoResultEntry("valid", valid),
-        todoResultEntry("invalid", invalidForests.at(-1))
-      ]),
+      todoStateFromBranch([todoResultEntry(valid), todoResultEntry(invalidForests.at(-1))]),
       { tasks: valid.tasks, nextId: valid.nextId }
     );
   });
@@ -246,10 +233,7 @@ describe("todo session state", () => {
       };
       assert.equal(parseTodoStateSnapshot(oversized), undefined);
       assert.deepEqual(
-        todoStateFromBranch([
-          todoResultEntry("valid", snapshot),
-          todoResultEntry("expanded-beyond-limit", oversized)
-        ]),
+        todoStateFromBranch([todoResultEntry(snapshot), todoResultEntry(oversized)]),
         restored
       );
     }
@@ -415,7 +399,7 @@ describe("todo session state", () => {
       nextId: 2
     };
 
-    assert.deepEqual(todoStateFromBranch([todoResultEntry("domain-error", domainError)]), {
+    assert.deepEqual(todoStateFromBranch([todoResultEntry(domainError)]), {
       tasks,
       nextId: 2
     });
@@ -429,9 +413,9 @@ describe("todo session state", () => {
 
     assert.deepEqual(
       todoStateFromBranch([
-        todoResultEntry("valid", valid),
-        todoResultEntry("host-error", { tasks: [], nextId: 1 }, true),
-        todoResultEntry("malformed", { tasks: "bad", nextId: 1 }),
+        todoResultEntry(valid),
+        todoResultEntry({ tasks: [], nextId: 1 }, true),
+        todoResultEntry({ tasks: "bad", nextId: 1 }),
         { type: "message" as const, message: null }
       ]),
       {

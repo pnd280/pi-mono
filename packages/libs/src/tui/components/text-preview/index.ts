@@ -9,7 +9,7 @@ export class ScrollableTextPreview implements Component {
   private height = 1;
   private offset = 0;
   private disposed = false;
-  private layout: { text: string; width: number; lines: string[] | undefined } | undefined;
+  private layout: { width: number; lines: string[] | undefined } | undefined;
 
   constructor(private readonly options: { changed(): void; current(): boolean }) {}
 
@@ -45,7 +45,7 @@ export class ScrollableTextPreview implements Component {
     if (this.disposed || !this.options.current()) return [];
     width = Math.max(0, Math.floor(width));
     if (!width || !this.height) return [];
-    if (this.layout?.text !== this.text || this.layout.width !== width) this.prepare(width);
+    if (this.layout?.width !== width) this.prepare(width);
     const lines = this.layout?.lines;
     if (lines === undefined) return [];
     this.offset = Math.min(this.offset, Math.max(0, lines.length - this.height));
@@ -56,10 +56,10 @@ export class ScrollableTextPreview implements Component {
   }
 
   private prepare(width: number): void {
-    const layout = { text: this.text, width, lines: undefined as string[] | undefined };
+    const layout = { width, lines: undefined as string[] | undefined };
     this.layout = layout;
     const current = () => !this.disposed && this.options.current() && this.layout === layout;
-    void layoutPreview(layout.text, width, current).then((lines) => {
+    void layoutPreview(this.text, width, current).then((lines) => {
       if (!current()) return;
       layout.lines = lines;
       this.options.changed();

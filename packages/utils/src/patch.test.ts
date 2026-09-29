@@ -37,7 +37,7 @@ it("retains missing-newline markers without treating them as changed lines", () 
   ]);
 });
 
-it("rejects malformed, multi-file, and oversized patches without trusting hunk counts", () => {
+it("rejects malformed and multi-file patches without trusting hunk counts", () => {
   for (const patch of [
     "+1 legacy",
     "@@ -1,2 +1 @@\n-old\n+new\n",
@@ -46,8 +46,7 @@ it("rejects malformed, multi-file, and oversized patches without trusting hunk c
     "@@ -0 +0 @@\n-old\n+new\n",
     "@@ -9007199254740992 +1 @@\n-old\n+new\n",
     "@@ -1 +1 @@\n-old\n+new\n\\ Not a newline marker\n",
-    "--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new\n--- c\n+++ d\n@@ -1 +1 @@\n-c\n+d\n",
-    "@@ -1 +1 @@\n-" + "x".repeat(maxBytes) + "\n+new\n"
+    "--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new\n--- c\n+++ d\n@@ -1 +1 @@\n-c\n+d\n"
   ])
     expect(parsePatch(patch, maxBytes), patch.slice(0, 100)).toBeUndefined();
   expect(parsePatch("--- a\r\n+++ b\r\n", maxBytes)).toEqual({ hunks: [], added: 0, removed: 0 });

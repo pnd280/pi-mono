@@ -219,7 +219,7 @@ function processValueSizeFrame<Value>(current: Value, context: SerializationSize
   context.stack.push({
     kind: "object",
     value: container,
-    keys: ownEnumerableKeys(container),
+    keys: Object.keys(container).values(),
     emitted: false
   });
 
@@ -299,8 +299,4 @@ function ownEnumerableProperty<Value extends object>(value: Value, key: string):
   if ("value" in descriptor) return { found: true, value: descriptor.value };
 
   return { found: true, value: descriptor.get?.call(value) };
-}
-
-function* ownEnumerableKeys<Value extends object>(value: Value): Generator<string> {
-  yield* Object.keys(value);
 }

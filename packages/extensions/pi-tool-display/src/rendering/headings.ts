@@ -168,9 +168,7 @@ function terminalStatus(outcome: Outcome): { suffix: string; color: HeadingColor
   }
 }
 
-function actionTone(pending: boolean, outcome: Outcome): ActionTone {
-  if (pending) return "pending";
-
+function actionTone(outcome: Outcome): ActionTone {
   switch (outcome) {
     case "failure":
     case "cancelled":
@@ -198,7 +196,7 @@ function actionColor(tone: ActionTone): HeadingColor {
 function callActionTone(call: DisplayCall, p: PreparedCard): ActionTone {
   if (isLive(call)) return "pending";
 
-  return actionTone(false, p.interpret(call).outcome);
+  return actionTone(p.interpret(call).outcome);
 }
 
 function groupActionColor(group: DisplayGroup, p: PreparedCard): HeadingColor {
@@ -367,23 +365,14 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
   return rows;
 }
 
-function phase(p: PreparedCard): string {
-  if (p.call) return p.call.lifecycle;
-  if (!p.context.isPartial) return "complete";
-  if (!p.context.argsComplete) return "preparing";
-
-  return p.context.executionStarted ? "executing" : "queued";
-}
-
 function status(p: PreparedCard): {
   verb: string;
   actionColor: HeadingColor;
   pending: boolean;
 } {
-  const current = phase(p);
-  const pending = ["preparing", "queued", "executing"].includes(current);
+  const pending = p.context.isPartial;
   const actionVerbs = p.headingVerbs ?? verbs[p.adapter.family];
-  const tone = pending ? "pending" : actionTone(false, p.outcome);
+  const tone = pending ? "pending" : actionTone(p.outcome);
   if (pending)
     return {
       verb: compactDisplayText(actionVerbs.pending),

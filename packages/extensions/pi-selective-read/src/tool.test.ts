@@ -20,7 +20,6 @@ function fixture(source = "before\nalpha\nbeta\nafter\n") {
   const tool = createSelectiveReadTool(base);
 
   return {
-    base,
     execute,
     tool,
     readFile,

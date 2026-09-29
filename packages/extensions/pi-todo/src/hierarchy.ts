@@ -167,41 +167,18 @@ export function orderedDirectChildren(hierarchy: TaskHierarchy, parentId: number
   return hierarchy.childrenByParentId.get(parentId) ?? [];
 }
 
-export function subtreeTaskIds(hierarchy: TaskHierarchy, taskId: number): ReadonlySet<number> {
-  const ids = new Set<number>();
-  if (!hierarchy.tasksById.has(taskId)) return ids;
-
-  const stack = [taskId];
-
-  while (stack.length > 0) {
-    const currentId = stack.pop();
-    if (currentId === undefined || ids.has(currentId)) continue;
-    ids.add(currentId);
-    const children = hierarchy.childrenByParentId.get(currentId) ?? [];
-    for (const child of children) stack.push(child.id);
-  }
-
-  return ids;
-}
-
 /** Returns the subtree height with the requested todo as level 1. */
 export function subtreeHeight(hierarchy: TaskHierarchy, taskId: number): number {
-  if (!hierarchy.tasksById.has(taskId)) return 0;
+  const depth = hierarchy.depthById.get(taskId);
+  if (depth === undefined) return 0;
 
-  let maximumDepth = 0;
-  const visited = new Set<number>();
-  const stack = [{ taskId, depth: 1 }];
+  let height = 1;
 
-  while (stack.length > 0) {
-    const frame = stack.pop();
-    if (!frame || visited.has(frame.taskId)) continue;
-    visited.add(frame.taskId);
-    maximumDepth = Math.max(maximumDepth, frame.depth);
-    const children = hierarchy.childrenByParentId.get(frame.taskId) ?? [];
-    for (const child of children) stack.push({ taskId: child.id, depth: frame.depth + 1 });
+  for (const entry of hierarchy.entries) {
+    if (entry.ancestorIds.includes(taskId)) height = Math.max(height, entry.depth - depth + 1);
   }
 
-  return maximumDepth;
+  return height;
 }
 
 function isTaskId(value: number): boolean {

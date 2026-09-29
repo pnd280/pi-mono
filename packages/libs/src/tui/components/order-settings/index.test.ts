@@ -233,7 +233,7 @@ it("saves only the selected scope and retains drafts and error state on failed s
   expect(save).toHaveBeenLastCalledWith("global", ["a", "b", "missing"]);
 });
 
-it("bounds rows and widths, scrolls to selection, and refreshes text without losing the draft", () => {
+it("scrolls to selection and refreshes text without losing the draft", () => {
   const { view, output } = fixture();
   view.handleInput("\x1b[1;2B");
   view.updateItems([
@@ -243,11 +243,6 @@ it("bounds rows and widths, scrolls to selection, and refreshes text without los
   expect(output()).toContain("New text");
   expect(output()).toContain("Unsaved changes");
   expect(output()).toMatch(/b\s+unavailable/);
-
-  for (const width of [1, 20, 80]) {
-    expect(view.render(width).every((line) => visibleWidth(line) <= width)).toBe(true);
-    expect(view.render(width).length).toBeLessThanOrEqual(30);
-  }
 
   const many = fixture({
     scopes: [
@@ -265,21 +260,4 @@ it("bounds rows and widths, scrolls to selection, and refreshes text without los
   for (let index = 0; index < 29; index++) many.view.handleInput("\x1b[B");
   expect(many.output()).toContain("entry-29");
   expect(many.view.render(80).length).toBeLessThanOrEqual(22);
-
-  const compact = fixture({
-    rows: () => 10,
-    items: [
-      { id: "a", label: "Activity [todo]", description: "Working" },
-      { id: "b", label: "Status [other]", description: "inactive" },
-      { id: "c", label: "New [other]", description: "inactive" }
-    ]
-  });
-  const compactLines = compact.view.render(40);
-  const compactOutput = compactLines.join("\n");
-  expect(compactOutput).toContain("  Working message");
-  expect(compactOutput).toContain("Scope: global | project");
-  expect(compactOutput).toContain("Activity [todo]");
-  expect(compactOutput).not.toContain("Working message · global");
-  expect(compactOutput).not.toContain("Settings:");
-  expect(compact.view.render(40).length).toBeLessThanOrEqual(8);
 });

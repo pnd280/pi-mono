@@ -1358,52 +1358,48 @@ it("leaves another mutation subscriber active after display shutdown", async () 
   });
 });
 
-it.each([true])(
-  "retries saved output after replaying more files than the concurrency limit (expand all: %s)",
-  async (expandAll) => {
-    await withSession(async ({ session }) => {
-      const tui = interactiveHost(session);
+it("retries saved output after expanding more replayed files than the concurrency limit", async () => {
+  await withSession(async ({ session }) => {
+    const tui = interactiveHost(session);
 
-      try {
-        const calls = Array.from({ length: 9 }, (_, index) =>
-          fauxToolCall("bash", { command: `echo ${index}` }, { id: `saved-${index}` })
-        );
-        const results = await Promise.all(
-          calls.map(async (call, index) => {
-            const path = join(session.sessionManager.getCwd(), `output-${index}`);
-            await writeFile(path, `complete saved output ${index}`);
+    try {
+      const calls = Array.from({ length: 9 }, (_, index) =>
+        fauxToolCall("bash", { command: `echo ${index}` }, { id: `saved-${index}` })
+      );
+      const results = await Promise.all(
+        calls.map(async (call, index) => {
+          const path = join(session.sessionManager.getCwd(), `output-${index}`);
+          await writeFile(path, `complete saved output ${index}`);
 
-            return {
-              role: "toolResult" as const,
-              toolCallId: call.id,
-              toolName: "bash",
-              content: [{ type: "text" as const, text: `retained ${index}` }],
-              details: { fullOutputPath: path },
-              isError: false,
-              timestamp: 2
-            };
-          })
-        );
-        tui.renderSessionItems([assistantMessage(calls), ...results]);
-        const rows = tui.chatContainer.children.filter(
-          (child) => child instanceof ToolExecutionComponent
-        );
-        if (expandAll) rows.forEach((row) => row.setExpanded(true));
-        else rows[0]!.setExpanded(true);
-        await vi.waitFor(() => expect(text(rows[0]!)).toContain("complete saved output 0"), {
-          interval: 5
-        });
-        rows[8]!.setExpanded(false);
-        rows[8]!.setExpanded(true);
-        await vi.waitFor(() => expect(text(rows[8]!)).toContain("complete saved output 8"), {
-          interval: 5
-        });
-      } finally {
-        tui.footerDataProvider.dispose();
-      }
-    });
-  }
-);
+          return {
+            role: "toolResult" as const,
+            toolCallId: call.id,
+            toolName: "bash",
+            content: [{ type: "text" as const, text: `retained ${index}` }],
+            details: { fullOutputPath: path },
+            isError: false,
+            timestamp: 2
+          };
+        })
+      );
+      tui.renderSessionItems([assistantMessage(calls), ...results]);
+      const rows = tui.chatContainer.children.filter(
+        (child) => child instanceof ToolExecutionComponent
+      );
+      rows.forEach((row) => row.setExpanded(true));
+      await vi.waitFor(() => expect(text(rows[0]!)).toContain("complete saved output 0"), {
+        interval: 5
+      });
+      rows[8]!.setExpanded(false);
+      rows[8]!.setExpanded(true);
+      await vi.waitFor(() => expect(text(rows[8]!)).toContain("complete saved output 8"), {
+        interval: 5
+      });
+    } finally {
+      tui.footerDataProvider.dispose();
+    }
+  });
+});
 
 it.each(["visible", "suppressed"])(
   "keeps entry grouping consistent during live execution and replay: %s",
@@ -1602,54 +1598,51 @@ it.each(["thinking", "tool"])(
   }
 );
 
-it.each(["regular"] as const)(
-  "marks streamed and replayed assistant prose in %s mode without marking user messages",
-  async (mode) => {
-    await withSession(async ({ session }) => {
-      const tui = interactiveHost(session, mode);
-      const user = {
-        role: "user" as const,
-        content: [{ type: "text" as const, text: "User prose" }],
-        timestamp: 1
-      };
-      const message = {
-        ...assistantMessage([{ type: "text", text: "Assistant prose" }], 2),
-        stopReason: "stop" as const
-      };
-      const render = () =>
-        tui.chatContainer.render(80).map((row) => stripTerminalSequences(row).trimEnd());
+it("marks streamed and replayed assistant prose in regular mode without marking user messages", async () => {
+  await withSession(async ({ session }) => {
+    const tui = interactiveHost(session, "regular");
+    const user = {
+      role: "user" as const,
+      content: [{ type: "text" as const, text: "User prose" }],
+      timestamp: 1
+    };
+    const message = {
+      ...assistantMessage([{ type: "text", text: "Assistant prose" }], 2),
+      stopReason: "stop" as const
+    };
+    const render = () =>
+      tui.chatContainer.render(80).map((row) => stripTerminalSequences(row).trimEnd());
 
-      try {
-        tui.renderSessionItems([user]);
-        await tui.handleEvent({ type: "message_start", message: { ...message, content: [] } });
-        expect(render().some((row) => row.startsWith("•"))).toBe(false);
-        await tui.handleEvent({
-          type: "message_update",
-          message,
-          assistantMessageEvent: {
-            type: "text_delta",
-            contentIndex: 0,
-            delta: "Assistant prose",
-            partial: message
-          }
-        });
-        expect(render().filter((row) => row.startsWith("•"))).toEqual(["• Assistant prose"]);
-        await tui.handleEvent({ type: "message_end", message });
-        const live = render();
-        expect(live.filter((row) => row.startsWith("•"))).toEqual(["• Assistant prose"]);
-        expect(live.join("\n")).toContain("User prose");
-        tui.chatContainer.clear();
-        tui.renderSessionItems([user, message]);
-        expect(render()).toEqual(live);
-        tui.hideThinkingBlock = true;
-        tui.updateThinkingBlockVisibility();
-        expect(render()).toEqual(live);
-      } finally {
-        tui.footerDataProvider.dispose();
-      }
-    });
-  }
-);
+    try {
+      tui.renderSessionItems([user]);
+      await tui.handleEvent({ type: "message_start", message: { ...message, content: [] } });
+      expect(render().some((row) => row.startsWith("•"))).toBe(false);
+      await tui.handleEvent({
+        type: "message_update",
+        message,
+        assistantMessageEvent: {
+          type: "text_delta",
+          contentIndex: 0,
+          delta: "Assistant prose",
+          partial: message
+        }
+      });
+      expect(render().filter((row) => row.startsWith("•"))).toEqual(["• Assistant prose"]);
+      await tui.handleEvent({ type: "message_end", message });
+      const live = render();
+      expect(live.filter((row) => row.startsWith("•"))).toEqual(["• Assistant prose"]);
+      expect(live.join("\n")).toContain("User prose");
+      tui.chatContainer.clear();
+      tui.renderSessionItems([user, message]);
+      expect(render()).toEqual(live);
+      tui.hideThinkingBlock = true;
+      tui.updateThinkingBlockVisibility();
+      expect(render()).toEqual(live);
+    } finally {
+      tui.footerDataProvider.dispose();
+    }
+  });
+});
 
 it.each(["regular", "fullscreen"] as const)(
   "hides ended thinking blocks during the rest of a streamed message in %s mode",
@@ -2435,55 +2428,52 @@ it.each(["maybeShowThinkingDropNotice", "addCacheMissNotice", "addCacheWarmingUs
   }
 );
 
-it.each(["warning"] as const)(
-  "separates summaries and expansion at public %s notifications",
-  async (kind) => {
-    await withSession(
-      async ({ session }) => {
-        const tui = interactiveHost(session);
-        const appendRead = (id: string, timestamp: number) =>
-          tui.renderSessionItems([
-            assistantMessage([fauxToolCall("read", { path: `${id}.ts` }, { id })], timestamp),
-            {
-              role: "toolResult",
-              toolCallId: id,
-              toolName: "read",
-              content: [{ type: "text", text: `body ${id}` }],
-              isError: false,
-              timestamp
-            }
-          ]);
+it("separates summaries and expansion at public warning notifications", async () => {
+  await withSession(
+    async ({ session }) => {
+      const tui = interactiveHost(session);
+      const appendRead = (id: string, timestamp: number) =>
+        tui.renderSessionItems([
+          assistantMessage([fauxToolCall("read", { path: `${id}.ts` }, { id })], timestamp),
+          {
+            role: "toolResult",
+            toolCallId: id,
+            toolName: "read",
+            content: [{ type: "text", text: `body ${id}` }],
+            isError: false,
+            timestamp
+          }
+        ]);
 
-        try {
-          appendRead("a", 1);
-          tui.toggleThinkingBlockVisibility();
-          appendRead("b", 2);
-          expect(transcriptText(tui)).toContain("Read 2 files");
-          tui.showExtensionNotify!("Public notification", kind);
-          appendRead("c", 3);
-          const transcript = transcriptText(tui);
-          expect(transcript.match(/Read 2 files/g)).toHaveLength(1);
-          expect(transcript.match(/Read 1 file/g)).toHaveLength(1);
-          expect(transcript.match(/Public notification/g)).toHaveLength(1);
-          expect(transcript).toContain("Warning: Public notification");
-          tui.toggleToolOutputExpansion!();
-          const [first, second, third] = tui.chatContainer.children.filter(
-            (child) => child instanceof ToolExecutionComponent
-          );
-          expect(text(first!)).toContain("Explored");
-          expect(text(third!)).not.toContain("Explored");
-          first!.setExpanded(true);
-          expect(text(first!)).toContain("body a");
-          expect(text(second!)).toContain("body b");
-          expect(text(third!)).not.toContain("body c");
-        } finally {
-          tui.footerDataProvider.dispose();
-        }
-      },
-      { collapsedMode: "summary" }
-    );
-  }
-);
+      try {
+        appendRead("a", 1);
+        tui.toggleThinkingBlockVisibility();
+        appendRead("b", 2);
+        expect(transcriptText(tui)).toContain("Read 2 files");
+        tui.showExtensionNotify!("Public notification", "warning");
+        appendRead("c", 3);
+        const transcript = transcriptText(tui);
+        expect(transcript.match(/Read 2 files/g)).toHaveLength(1);
+        expect(transcript.match(/Read 1 file/g)).toHaveLength(1);
+        expect(transcript.match(/Public notification/g)).toHaveLength(1);
+        expect(transcript).toContain("Warning: Public notification");
+        tui.toggleToolOutputExpansion!();
+        const [first, second, third] = tui.chatContainer.children.filter(
+          (child) => child instanceof ToolExecutionComponent
+        );
+        expect(text(first!)).toContain("Explored");
+        expect(text(third!)).not.toContain("Explored");
+        first!.setExpanded(true);
+        expect(text(first!)).toContain("body a");
+        expect(text(second!)).toContain("body b");
+        expect(text(third!)).not.toContain("body c");
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    },
+    { collapsedMode: "summary" }
+  );
+});
 
 it("removes the hook outside TUI mode, including reload", async () => {
   const original = host.getRegisteredToolDefinition;

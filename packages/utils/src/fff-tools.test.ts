@@ -1,16 +1,13 @@
 import { expect, it } from "vite-plus/test";
 
 import { fffAdapter } from "./fff-tools.ts";
-it.each(["npm:@ff-labs/pi-fff@0.10.6"])(
-  "recognizes official package source %s and only declared names",
-  (source) => {
-    const sourceInfo = { source, path: "/index.ts" };
-    expect(fffAdapter({ name: "fffind", sourceInfo })).toBe("find");
-    expect(fffAdapter({ name: "grep", sourceInfo })).toBe("grep");
-    expect(fffAdapter({ name: "fff-multi-grep", sourceInfo })).toBe("multi");
-    expect(fffAdapter({ name: "fff-future", sourceInfo })).toBeUndefined();
-  }
-);
+it("recognizes official package provenance and only declared names", () => {
+  const sourceInfo = { source: "npm:@ff-labs/pi-fff@0.10.6", path: "/index.ts" };
+  expect(fffAdapter({ name: "fffind", sourceInfo })).toBe("find");
+  expect(fffAdapter({ name: "grep", sourceInfo })).toBe("grep");
+  expect(fffAdapter({ name: "fff-multi-grep", sourceInfo })).toBe("multi");
+  expect(fffAdapter({ name: "fff-future", sourceInfo })).toBeUndefined();
+});
 it("recognizes installed local provenance while rejecting lookalikes and SDK labels", () => {
   expect(
     fffAdapter({

@@ -9,9 +9,7 @@ const MAX_RULES = 100;
 const MAX_PATTERN_LENGTH = 512;
 
 /** Variant names become part of a file name, so path separators and dot segments are excluded. */
-const variantNameSchema = z
-  .string()
-  .regex(/^[\w-]{1,64}$/u, "must be 1-64 letters, digits, underscores, or hyphens");
+const variantNameSchema = z.string().regex(/^[\w-]{1,64}$/u);
 
 const ruleSchema = z.strictObject({
   match: z.string().min(1).max(MAX_PATTERN_LENGTH),

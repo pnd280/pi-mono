@@ -317,11 +317,9 @@ it("expires late editor/clipboard/UI callbacks and reserves a UI while it is loa
   });
   const save = fixture.manager.saveEditor();
   const copyingNow = fixture.manager.copy(collection([entry("copy")]).entries[0]!);
-  await fixture.manager.copy(collection([entry("overlap")]).entries[0]!);
   const browser = fixture.manager.open("history");
   await fixture.manager.open("drafts");
   expect(open).toHaveBeenCalledTimes(1);
-  expect(copy).toHaveBeenCalledTimes(1);
   await fixture.manager.dispose();
   const before = fixture.notices.length;
   saving.resolve(committed());

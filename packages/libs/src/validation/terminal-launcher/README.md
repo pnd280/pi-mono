@@ -15,7 +15,3 @@ Supply help text, fixture creation, directory descriptions, and a `launch` callb
 Select offline providers and resource flags in the consumer. [Pi launch preparation](../pi-process/README.md) supplies isolated directories and environment settings but does not restrict filesystem access or tool execution.
 
 Own scenarios; wait for processes to exit before directory removal. See [prompt-manager](../../../../extensions/pi-prompt-manager/validation/workspace.ts) and [tool-display](../../../../extensions/pi-tool-display/validation/workspace.ts) launch configurations.
-
-## Validation
-
-Use the [package validation commands](../../../README.md#validation).

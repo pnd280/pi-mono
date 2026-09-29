@@ -2,10 +2,6 @@
 
 [pi-tool-display](../README.md)
 
-## Automated checks
-
-Use [focused checks and prerequisites](../../../../docs/development.md#focused-validation) for `pi-tool-display`.
-
 ## Terminal launcher
 
 Complete [workspace setup](../../../../README.md#setup). The offline fixture requires a Unix Bash backend.

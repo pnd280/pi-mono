@@ -11,7 +11,3 @@ Validation-only [`@pi-mono/libs/validation/provider`](index.ts) builds scripted 
 Supply the fixture model, register the offline provider, and define scenarios, delays, and tool calls in the consumer. Pass the stream signal to scenario waits and I/O for cooperative cancellation.
 
 The [prompt-manager](../../../../extensions/pi-prompt-manager/validation/workspace.ts) and [tool-display](../../../../extensions/pi-tool-display/validation/workspace.ts) fixtures select their own offline providers and Pi resource flags.
-
-## Validation
-
-Use the [package validation commands](../../../README.md#validation).

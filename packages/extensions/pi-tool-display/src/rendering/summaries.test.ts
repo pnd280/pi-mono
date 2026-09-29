@@ -118,23 +118,20 @@ it.each([
   expect(expanded).toContain(`${matches} · 328 indexed files`);
 });
 
-it.each([true])(
-  "falls back to retained output when FFF counts are absent (grouped=%s)",
-  (grouped) => {
-    const text = Array.from({ length: 20 }, (_, i) => `match ${i}`).join("\n");
-    const compact = render({
-      name: "ffgrep",
-      adapter: piFffAdapter(fffToolInfo("ffgrep")),
-      args: { pattern: "token" },
-      result: { content: [{ type: "text", text }], details: {} },
-      grouped
-    });
-    expect(compact).toContain("match 0");
-    expect(compact).toContain("match 19");
-    expect(compact).toContain("more rows");
-    expect(compact).not.toContain("indexed files");
-  }
-);
+it("falls back to retained output when grouped FFF counts are absent", () => {
+  const text = Array.from({ length: 20 }, (_, i) => `match ${i}`).join("\n");
+  const compact = render({
+    name: "ffgrep",
+    adapter: piFffAdapter(fffToolInfo("ffgrep")),
+    args: { pattern: "token" },
+    result: { content: [{ type: "text", text }], details: {} },
+    grouped: true
+  });
+  expect(compact).toContain("match 0");
+  expect(compact).toContain("match 19");
+  expect(compact).toContain("more rows");
+  expect(compact).not.toContain("indexed files");
+});
 
 it.each(["failure", "partial"])(
   "does not replace %s FFF output with a completed summary",
@@ -156,32 +153,29 @@ it.each(["failure", "partial"])(
   }
 );
 
-it.each([true])(
-  "keeps confirmed Tasks state and progress in compact cards (grouped=%s)",
-  (grouped) => {
-    const options = {
-      name: "todo",
-      adapter: todoDisplayAdapter,
-      args: { action: "update", id: 4, status: "completed" },
-      result: {
-        content: [{ type: "text" as const, text: "full task result" }],
-        details: {
-          tasks: [
-            { id: 4, subject: "Review", status: "completed" },
-            { id: 5, subject: "Ship", status: "pending" }
-          ]
-        }
-      },
-      grouped
-    };
-    const compact = render(options);
-    expect(compact).toContain("#4 completed · 1/2 completed · 1 pending");
-    expect(compact).not.toContain("full task result");
-    expect(render({ ...options, expanded: true })).toContain("full task result");
-  }
-);
+it("keeps confirmed Tasks state and progress in compact groups", () => {
+  const options = {
+    name: "todo",
+    adapter: todoDisplayAdapter,
+    args: { action: "update", id: 4, status: "completed" },
+    result: {
+      content: [{ type: "text" as const, text: "full task result" }],
+      details: {
+        tasks: [
+          { id: 4, subject: "Review", status: "completed" },
+          { id: 5, subject: "Ship", status: "pending" }
+        ]
+      }
+    },
+    grouped: true
+  };
+  const compact = render(options);
+  expect(compact).toContain("#4 completed · 1/2 completed · 1 pending");
+  expect(compact).not.toContain("full task result");
+  expect(render({ ...options, expanded: true })).toContain("full task result");
+});
 
-it.each([true])("preserves literal todo source in result bodies (failed=%s)", (failed) => {
+it("preserves literal todo source in failed result bodies", () => {
   const source =
     "#1 [in_progress] Explain owner: and [pending]\n  description: Keep blockedBy: and [in_progress] literal.\n  owner: description: example";
   const result = { content: [{ type: "text" as const, text: source }], details: undefined };
@@ -191,7 +185,7 @@ it.each([true])("preserves literal todo source in result bodies (failed=%s)", (f
     args: { action: "get", id: 1 },
     result,
     expanded: true,
-    failed,
+    failed: true,
     width: 120
   });
   for (const line of source.split("\n")) expect(output).toContain(line);
@@ -298,33 +292,30 @@ it("keeps MCP unfinished operations, truncation, and saved-output references vis
   expect(text).toContain("Saved output: /tmp/output.txt");
 });
 
-it.each([true])(
-  "keeps summaries, informational notices, and images at narrow widths (grouped=%s)",
-  (grouped) => {
-    const text = render({
-      name: "ffgrep",
-      adapter: {
-        ...piFffAdapter(fffToolInfo("ffgrep"))!,
-        notices: () => [{ kind: "info", text: "Extra information" }]
-      },
-      args: { pattern: "token" },
-      result: {
-        content: [
-          { type: "text", text: "hidden output" },
-          { type: "image", mimeType: "image/png", data: "" }
-        ],
-        details: { totalMatched: 9, totalFiles: 328 }
-      },
-      grouped,
-      width: 32
-    });
-    expect(text).toContain("9 matches collected");
-    expect(text).not.toContain("indexed files");
-    expect(text).toContain("Extra information");
-    expect(text).toContain("[Image: image/png]");
-    expect(text).not.toContain("hidden output");
-  }
-);
+it("keeps summaries, informational notices, and images in narrow groups", () => {
+  const text = render({
+    name: "ffgrep",
+    adapter: {
+      ...piFffAdapter(fffToolInfo("ffgrep"))!,
+      notices: () => [{ kind: "info", text: "Extra information" }]
+    },
+    args: { pattern: "token" },
+    result: {
+      content: [
+        { type: "text", text: "hidden output" },
+        { type: "image", mimeType: "image/png", data: "" }
+      ],
+      details: { totalMatched: 9, totalFiles: 328 }
+    },
+    grouped: true,
+    width: 32
+  });
+  expect(text).toContain("9 matches collected");
+  expect(text).not.toContain("indexed files");
+  expect(text).toContain("Extra information");
+  expect(text).toContain("[Image: image/png]");
+  expect(text).not.toContain("hidden output");
+});
 
 it("treats empty summaries as absent and never suppresses failure output", () => {
   for (const [summary, failed] of [

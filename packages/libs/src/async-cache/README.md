@@ -13,7 +13,3 @@ Disposal does not abort underlying I/O or invoke `onEvict`.
 Supply a loader and positive safe-integer cache/pending limits. Keep `onBusy`/`onEvict` nonthrowing. Own retries, diagnostics, and I/O cleanup; `dispose()` on closure.
 
 See tool display's [saved-output loader](../../../extensions/pi-tool-display/src/observation/saved-output.ts) for a consumer.
-
-## Validation
-
-Use the [package validation commands](../../README.md#validation).

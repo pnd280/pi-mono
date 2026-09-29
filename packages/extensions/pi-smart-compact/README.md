@@ -57,7 +57,7 @@ Settings are read from:
 | Global  | `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when set. |
 | Project | `<cwd>/.pi/settings.json`; no ancestor search.                                 |
 
-Only [trusted projects](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#project-trust) override global fields; omitted fields inherit. Apply changes with `/reload`. Remove `model` and `thinkingLevel` from participating settings to restore native selection. No extension-specific environment variables or settings writes.
+Only [trusted projects](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#understand-project-trust) override global fields; omitted fields inherit. Apply changes with `/reload`. Remove `model` and `thinkingLevel` from participating settings to restore native selection. No extension-specific environment variables or settings writes.
 
 Unreadable, malformed, or oversized settings files (over 1 MiB), invalid values, unknown keys inside `ext.pi-smart-compact`, or an unreadable/missing selected instruction file make `compact` unavailable until corrected and reloaded. `context_window` and native compaction remain available.
 
@@ -77,11 +77,6 @@ An explicit tool request bypasses the automatic token threshold and `compaction.
 
 ## Validation
 
-From the workspace root:
-
-```sh
-vpr 'pi-smart-compact#check'
-vpr 'pi-smart-compact#test'
-```
+Use the [workspace validation commands](../../../docs/development.md#focused-validation).
 
 See the [testing specification](docs/testing.md) for automated coverage and exclusions. Before changing supported fingerprints, follow the [compatibility checklist](docs/pi-compatibility.md), including manual checks of interactive progress, Escape behavior, and real-provider summary quality.

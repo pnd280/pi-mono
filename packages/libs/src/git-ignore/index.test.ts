@@ -24,7 +24,7 @@ it("separates caller cancellation from a caller-supplied deadline", async () => 
 });
 
 it("retains inspection failures for consumer diagnostics and rejects invalid prerequisites", async () => {
-  const cause = new Error("Git failed\nwith details");
+  const cause = Object.assign(new Error("spawn git ENOENT\nwith details"), { code: "ENOENT" });
 
   const git: GitCommand = async () => {
     throw cause;
@@ -155,7 +155,7 @@ describe("Git authority", () => {
     expect((await detect("node_modules/linked/missing.ts")).status).toBe("missing");
   });
 
-  it("distinguishes non-repositories, missing paths, process errors, and malformed records", async () => {
+  it("distinguishes non-repositories, missing paths, and malformed records", async () => {
     const outside = join(external.root, "outside");
     await rm(join(external.root, ".git"), { recursive: true, force: true });
     expect(
@@ -164,21 +164,6 @@ describe("Git authority", () => {
     expect(
       (await inspectGitIgnore({ path: outside, cwd: external.root, timeoutMs: 2000 })).status
     ).toBe("missing");
-
-    const missing: GitCommand = async () => {
-      throw new Error("spawn git ENOENT");
-    };
-
-    expect(
-      (
-        await inspectGitIgnore({
-          path: directory.root,
-          cwd: directory.root,
-          timeoutMs: 2000,
-          git: missing
-        })
-      ).status
-    ).toBe("unavailable");
 
     for (const stdout of [
       "bad",

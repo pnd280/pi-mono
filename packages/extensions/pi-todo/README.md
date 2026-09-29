@@ -46,6 +46,4 @@ Todo text is stripped of terminal controls for the widget, browser, and working 
 
 ## Validation
 
-Run `vpr 'pi-todo#check'` and `vpr 'pi-todo#test'` from the workspace root. See the [workspace workflow](../../../docs/development.md#focused-validation).
-
 For paging, widget, or working-message changes, use the [offline terminal checks](docs/validation.md) in regular and fullscreen modes. [Coverage boundaries](docs/testing.md) distinguish package from shared-library tests.

@@ -20,10 +20,6 @@ Inspection has a two-second deadline and scope limits. Inspection failures allow
 
 Wrappers must dispatch children through Pi hooks; direct `execute()` bypasses detection. Slash commands and `@` autocomplete are not intercepted.
 
-## Configuration
-
-No extension-specific configuration.
-
 ## Side effects
 
 No persistent state, network requests, or project writes. Git inspection uses subprocesses; the guard does not run replacement searches or terminate turns.

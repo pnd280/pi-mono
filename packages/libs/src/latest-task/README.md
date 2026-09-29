@@ -11,7 +11,3 @@ Cancellation and disposal invalidate the current task without aborting its under
 ## Caller responsibilities
 
 Supply work, commit, and `changed` callbacks; handle current-task errors. Pass `current` to cooperative operations such as [text search](../text-search/README.md). `cancel()` obsolete results and `dispose()` on closure; abort I/O separately.
-
-## Validation
-
-Use the [package validation commands](../../README.md#validation).

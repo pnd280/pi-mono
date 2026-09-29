@@ -10,9 +10,6 @@
     "check": "vp fmt --check . && vp run lint",
     "test": "vp test"
   },
-  "dependencies": {
-    "proper-lockfile": "catalog:"
-  },
   "devDependencies": {
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",

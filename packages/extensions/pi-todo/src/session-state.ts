@@ -22,7 +22,7 @@ import {
   hasDependencyCycle,
   stateFitsCurrentLimits
 } from "./reducer.ts";
-import { TASK_STATUSES, type Task, type TodoState } from "./types.ts";
+import { TASK_STATUSES, type TodoState } from "./types.ts";
 
 const taskStatusSchema = z.enum(TASK_STATUSES);
 const taskIdSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -144,21 +144,17 @@ function detailsVersion<Value>(value: Value): 1 | 2 | undefined | "unknown" {
 }
 
 function isSemanticallyValidSnapshot(state: TodoState): boolean {
-  const tasksById = new Map<number, Task>();
-
-  for (const task of state.tasks) {
-    if (tasksById.has(task.id)) return false;
-    tasksById.set(task.id, task);
-  }
+  const hierarchy = deriveTaskHierarchy(state.tasks);
+  if (!hierarchy) return false;
 
   const highestTaskId = state.tasks.reduce((highest, task) => Math.max(highest, task.id), 0);
   if (state.nextId <= highestTaskId) return false;
 
   for (const task of state.tasks) {
     for (const dependency of task.blockedBy ?? []) {
-      if (dependency === task.id || !tasksById.has(dependency)) return false;
+      if (dependency === task.id || !hierarchy.tasksById.has(dependency)) return false;
     }
   }
 
-  return deriveTaskHierarchy(state.tasks) !== undefined && !hasDependencyCycle(state.tasks);
+  return !hasDependencyCycle(state.tasks);
 }

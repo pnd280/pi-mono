@@ -15,7 +15,3 @@ Authorize paths before reading; supply omission messages and safe-integer byte/l
 Choose retries, diagnostics, and cache lifetime. Tool display's [saved-output loader](../../../extensions/pi-tool-display/src/observation/saved-output.ts) combines this reader with an [asynchronous cache](../async-cache/README.md).
 
 Use [file observation](../file-observation/README.md) when complete source is required, [bounded stream output](../output-buffer/README.md) for incoming chunks, or [private files](../private-files/README.md) for storage with permission enforcement.
-
-## Validation
-
-Use the [package validation commands and prerequisites](../../README.md#validation).

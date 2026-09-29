@@ -9,7 +9,3 @@
 ## Caller responsibilities
 
 Supply duration, clock, expiry callback, and local action/messages. Cancel on selection, collection, or mount changes; `dispose()` on closure.
-
-## Validation
-
-Use the [package validation commands](../../README.md#validation).

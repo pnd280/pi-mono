@@ -32,10 +32,6 @@ Coordinates must be positive safe integers, and the end must follow the start.
 
 Expand a successful text read to highlight the selection in context. Pi's image handling and truncation limits remain.
 
-## Configuration
-
-No extension-specific configuration.
-
 ## Side effects
 
 Replaces built-in `read` and adds source-reference prompt guidance. Previews enter tool results and session history. No file writes, network requests, or other persistent state.
@@ -48,6 +44,6 @@ In automatic mode, the [pi-tool-display selective-read adapter](../pi-tool-displ
 
 ## Validation
 
-[Coverage specification](docs/testing.md) · [Pi compatibility](docs/pi-compatibility.md). Use the [focused validation commands](../../../docs/development.md#focused-validation) with package name `pi-selective-read`.
+[Coverage specification](docs/testing.md) · [Pi compatibility](docs/pi-compatibility.md).
 
 For appearance changes, inspect collapsed and expanded reads in Pi with a multiline selection, tabs, wide characters, a narrow terminal, and both light and dark themes. Check that context stays visible and the preview is not duplicated.

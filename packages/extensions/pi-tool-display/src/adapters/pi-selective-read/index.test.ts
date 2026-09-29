@@ -69,22 +69,17 @@ it("requires selective-read ownership, the read name, and the current parameter 
     expect(piSelectiveReadAdapter(unsupported)).toBeUndefined();
 });
 
-it.each([
-  [
-    {
-      offset: null,
-      limit: null,
-      selection: { startLine: 2, startColumn: null, endLine: null, endColumn: null }
-    },
-    { selection: { startLine: 2 } }
-  ]
-])("normalizes display arguments without mutating retained input: %j", (raw, normalized) => {
-  const args = { path: "a.ts", ...raw };
-  const expected = { path: "a.ts", ...normalized };
+it("normalizes display arguments without mutating retained input", () => {
+  const args = {
+    path: "a.ts",
+    offset: null,
+    limit: null,
+    selection: { startLine: 2, startColumn: null, endLine: null, endColumn: null }
+  };
+  const expected = { path: "a.ts", selection: { startLine: 2 } };
   const before = structuredClone(args);
   const text = "first\nsecond\nthird";
-  const hasSelection = "selection" in normalized;
-  const value = result(text, hasSelection ? "preview" : undefined);
+  const value = result(text, "preview");
 
   expect(adapter.supports?.(args, value)).toBe(true);
   expect(adapter.invocation?.(args)).toEqual(adapter.invocation?.(expected));
@@ -92,7 +87,6 @@ it.each([
   expect(adapter.textParts?.(text, args, context(value))).toEqual(
     adapter.textParts?.(text, expected, context(value))
   );
-  if (!hasSelection) expect(adapter.supports?.(args, result(text, "preview"))).toBe(false);
   expect(args).toEqual(before);
 });
 

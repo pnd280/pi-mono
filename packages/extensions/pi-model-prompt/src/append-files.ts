@@ -3,10 +3,6 @@ import { join } from "node:path";
 
 const BASE_FILE = "APPEND_SYSTEM.md";
 
-export function variantFileName(variant: string): string {
-  return `APPEND_SYSTEM.${variant}.md`;
-}
-
 export interface AppendFiles {
   /**
    * Text Pi loads from its own `APPEND_SYSTEM.md` discovery (`""` when no file exists), or
@@ -16,11 +12,6 @@ export interface AppendFiles {
   /** Replacement text for variants whose file outranks the base file. */
   variants: ReadonlyMap<string, string>;
   warnings: string[];
-}
-
-interface Candidate {
-  path: string;
-  variant: boolean;
 }
 
 function readPrompt(path: string): string {
@@ -69,13 +60,14 @@ export function loadAppendFiles({
   const loaded = new Map<string, string>();
 
   for (const variant of variants) {
-    const candidates: Candidate[] = dirs.flatMap((dir) => [
-      { path: join(dir, variantFileName(variant)), variant: true },
+    const fileName = `APPEND_SYSTEM.${variant}.md`;
+    const candidates = dirs.flatMap((dir) => [
+      { path: join(dir, fileName), variant: true },
       { path: join(dir, BASE_FILE), variant: false }
     ]);
 
     if (!candidates.some((candidate) => candidate.variant && existsSync(candidate.path))) {
-      warnings.push(`no ${variantFileName(variant)} found; using ${BASE_FILE}`);
+      warnings.push(`no ${fileName} found; using ${BASE_FILE}`);
       continue;
     }
 

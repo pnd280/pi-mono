@@ -89,7 +89,7 @@ async function host(responses: FauxResponseFactory[], before: ExtensionFactory[]
     }
   });
 
-  return { fs, session, errors, faux };
+  return { fs, session, errors };
 }
 
 it("does not interrupt sibling tools and delivers only unseen instructions before the next request", async () => {

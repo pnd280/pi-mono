@@ -13,7 +13,3 @@
 Verify host compatibility before replacement. Existing own properties must be writable data properties.
 
 Deactivate retained callbacks before calling `restore()`. Tool display's [installer](../../../extensions/pi-tool-display/src/host/install.ts) and [native registry](../../../extensions/pi-tool-display/src/host/native-registry.ts) manage this teardown order.
-
-## Validation
-
-Use the [package validation commands](../../README.md#validation).

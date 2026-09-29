@@ -26,4 +26,4 @@ Only Ctrl+S writes layout settings, preserving unrelated fields and settings sym
 
 ## Validation
 
-Run `vpr 'pi-editor-widgets#check'` and `vpr 'pi-editor-widgets#test'` from the workspace root. For interaction changes, use the [terminal checks](docs/testing.md#terminal-checks); for Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+Use [focused checks](../../../docs/development.md#focused-validation) for `pi-editor-widgets`. For interaction changes, use the [terminal checks](docs/testing.md#terminal-checks); for Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).

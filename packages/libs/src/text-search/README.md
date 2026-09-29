@@ -18,4 +18,4 @@ Choose which text to search and keep exact source separate from terminal-safe di
 
 ## Validation
 
-Use the [package validation commands](../../README.md#validation). For changes to cooperative search or item preparation, also use prompt manager's [interaction measurement and responsiveness check](../../../extensions/pi-prompt-manager/docs/validation.md#interaction-measurement).
+For changes to cooperative search or item preparation, use prompt manager's [interaction measurement and responsiveness check](../../../extensions/pi-prompt-manager/docs/validation.md#interaction-measurement).

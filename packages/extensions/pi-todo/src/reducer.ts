@@ -1,5 +1,4 @@
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
-import { z } from "zod";
 
 import {
   MAX_IN_PROGRESS_LABEL_LENGTH,
@@ -18,7 +17,6 @@ import {
   deriveTaskHierarchy,
   orderedDirectChildren,
   subtreeHeight,
-  subtreeTaskIds,
   type TaskHierarchyEntry
 } from "./hierarchy.ts";
 import {
@@ -70,16 +68,6 @@ const VALID_TRANSITIONS = {
   completed: new Set<TaskStatus>(["deleted"]),
   deleted: new Set<TaskStatus>()
 } satisfies Record<TaskStatus, ReadonlySet<TaskStatus>>;
-
-const stringValueSchema = z.string();
-const numericValueSchema = z.union([
-  z.number(),
-  z.nan(),
-  z.literal(Number.POSITIVE_INFINITY),
-  z.literal(Number.NEGATIVE_INFINITY)
-]);
-const booleanValueSchema = z.boolean();
-const functionValueSchema = z.function();
 
 export function emptyTodoState(): TodoState {
   return { tasks: [], nextId: 1 };
@@ -794,7 +782,11 @@ function validateUpdatedParent(
       };
     }
 
-    if (subtreeTaskIds(hierarchy, current.id).has(parentId)) {
+    if (
+      hierarchy.entries.some(
+        (entry) => entry.task.id === parentId && entry.ancestorIds.includes(current.id)
+      )
+    ) {
       return {
         ok: false,
         result: errorResult(state, "update", params, "parentId would create a cycle")
@@ -824,10 +816,8 @@ function validateUpdatedParent(
 function liveDescendantDeletionError(tasks: readonly Task[], taskId: number): string | undefined {
   const hierarchy = deriveTaskHierarchy(tasks);
   if (!hierarchy) return "todo hierarchy is invalid";
-  const descendants = subtreeTaskIds(hierarchy, taskId);
   const liveDescendant = hierarchy.entries.find(
-    (entry) =>
-      entry.task.id !== taskId && descendants.has(entry.task.id) && entry.task.status !== "deleted"
+    (entry) => entry.ancestorIds.includes(taskId) && entry.task.status !== "deleted"
   );
 
   return liveDescendant
@@ -1120,52 +1110,37 @@ function sanitizedParams(
 
 function paramFitsEmissionLimit<Value>(key: KnownTaskMutationParam, value: Value): boolean {
   switch (key) {
-    case "subject": {
-      const parsed = stringValueSchema.safeParse(value);
-
-      return parsed.success && parsed.data.length <= MAX_SUBJECT_LENGTH;
-    }
-
-    case "description": {
-      const parsed = stringValueSchema.safeParse(value);
-
-      return parsed.success && parsed.data.length <= MAX_DESCRIPTION_LENGTH;
-    }
-
-    case "inProgressLabel": {
-      const parsed = stringValueSchema.safeParse(value);
-
-      return parsed.success && parsed.data.length <= MAX_IN_PROGRESS_LABEL_LENGTH;
-    }
-
-    case "owner": {
-      const parsed = stringValueSchema.safeParse(value);
-
-      return parsed.success && parsed.data.length <= MAX_OWNER_LENGTH;
-    }
-
+    case "subject":
+      return typeof value === "string" && value.length <= MAX_SUBJECT_LENGTH;
+    case "description":
+      return typeof value === "string" && value.length <= MAX_DESCRIPTION_LENGTH;
+    case "inProgressLabel":
+      return typeof value === "string" && value.length <= MAX_IN_PROGRESS_LABEL_LENGTH;
+    case "owner":
+      return typeof value === "string" && value.length <= MAX_OWNER_LENGTH;
     case "blockedBy":
     case "addBlockedBy":
     case "removeBlockedBy":
       return Array.isArray(value) && value.length <= MAX_DEPENDENCIES;
     case "metadata":
-      return isMetadataObject(value) && metadataLimitError(value) === undefined;
+      return metadataFitsEmissionLimit(value);
     case "status":
-      return stringValueSchema.safeParse(value).success;
+      return typeof value === "string";
     case "id":
-      return numericValueSchema.safeParse(value).success;
+      return typeof value === "number";
     case "parentId":
-      return value === null || numericValueSchema.safeParse(value).success;
+      return value === null || typeof value === "number";
     case "includeDeleted":
-      return booleanValueSchema.safeParse(value).success;
+      return typeof value === "boolean";
   }
 }
 
-function isMetadataObject<Value>(value: Value): value is Value & object {
+function metadataFitsEmissionLimit(value: unknown): boolean {
   return (
+    typeof value === "object" &&
+    value !== null &&
     !Array.isArray(value) &&
-    !functionValueSchema.safeParse(value).success &&
-    Object(value) === value
+    metadataLimitError(value) === undefined
   );
 }
 

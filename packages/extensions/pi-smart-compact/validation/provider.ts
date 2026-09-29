@@ -124,7 +124,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
         event.type === "compaction_start" ||
         event.type === "compaction_end" ||
         (event.type === "summarization_retry_attempt_start" && event.source === "compaction");
-      trace(`public:${event.type}`, compaction ? { event, reason: event.reason } : {});
+      trace(`public:${event.type}`, compaction ? { reason: event.reason } : {});
 
       if (event.type === "compaction_start") {
         void this.waitForIdle().then(() => {
@@ -146,11 +146,9 @@ export default function offlineFixture(pi: ExtensionAPI) {
     trace("hook:before", {
       ctxIdle: ctx.isIdle(),
       reason: event.reason,
-      willRetry: event.willRetry,
       customInstructions: event.customInstructions,
       isSplitTurn: event.preparation.isSplitTurn,
       historyMessages: event.preparation.messagesToSummarize.length,
-      prefixMessages: event.preparation.turnPrefixMessages.length,
       settings: event.preparation.settings,
       branch: event.branchEntries.map((entry) =>
         entry.type === "message"
@@ -300,8 +298,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
           hasOldPayload: serialized.includes("OLD_FIXTURE_PAYLOAD"),
           userMessages: context.messages.flatMap((entry) =>
             entry.role === "user" ? [contentText(entry.content)] : []
-          ),
-          tools: tools.map((tool) => tool.name)
+          )
         });
         let calls: string[] = [];
 
@@ -399,7 +396,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
     async execute() {
       workCalls++;
       await delay(15);
-      trace("fixture:work", { workCalls });
 
       return {
         content: [

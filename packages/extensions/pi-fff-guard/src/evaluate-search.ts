@@ -15,16 +15,8 @@ type SearchRequest = {
   signal?: AbortSignal | undefined;
 };
 
-// Only scope-affecting arguments belong to ignored-path inspection.
-const scopeInputSchema = searchInputSchema.pick({
-  pattern: true,
-  path: true,
-  constraints: true,
-  exclude: true
-});
-
 function parseSearchInput(input: unknown) {
-  const parsed = scopeInputSchema.safeParse(input);
+  const parsed = searchInputSchema.safeParse(input);
   if (parsed.success) return parsed.data;
   const key = parsed.error.issues[0]?.path[0];
   if (key === "exclude") throw new Error("Invalid FFF exclude: expected a string or string array");

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 import { it } from "vite-plus/test";
 
-import { compactionStatusKey, compactionStatusText, updateCompactionStatus } from "./status.ts";
+import { compactionStatusKey, updateCompactionStatus } from "./status.ts";
 
 function fixture(types: string[], hasUI = true) {
   const calls: [string, string | undefined][] = [];
@@ -29,11 +29,6 @@ function fixture(types: string[], hasUI = true) {
     }
   };
 }
-
-it("hides the status until a compaction succeeded", () => {
-  assert.equal(compactionStatusText(0), undefined);
-  assert.equal(compactionStatusText(3), "compacted 3×");
-});
 
 it("counts only compaction entries on the branch", () => {
   const { calls, ctx } = fixture([

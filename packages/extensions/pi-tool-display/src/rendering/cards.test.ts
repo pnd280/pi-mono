@@ -691,53 +691,51 @@ describe("tool display renderers", () => {
     }
   });
 
-  it.each([{ action: "list", status: 42 }])(
-    "falls back to a named generic card for invalid todo arguments %j",
-    (args) => {
-      const coordinator = new TranscriptCoordinator("invalid-todo");
+  it("falls back to a named generic card for invalid todo arguments", () => {
+    const args = { action: "list", status: 42 };
+    const coordinator = new TranscriptCoordinator("invalid-todo");
 
-      try {
-        const call = coordinator.add(
-          { messageTimestamp: 1, contentIndex: 0, toolCallId: "invalid" },
-          "todo",
-          args,
-          todoDisplayAdapter,
-          "historical"
-        );
-        coordinator.add(
-          { messageTimestamp: 1, contentIndex: 1, toolCallId: "valid" },
-          "todo",
-          { action: "list" },
-          todoDisplayAdapter,
-          "historical"
-        );
-        const retained = result("Invalid todo arguments");
-        coordinator.result(call, retained, "failure");
-        const renderer = createToolDisplayRenderers("todo", todoDisplayAdapter, {
-          binding: { call, coordinator },
-          showParameters: false
-        });
+    try {
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "invalid" },
+        "todo",
+        args,
+        todoDisplayAdapter,
+        "historical"
+      );
+      coordinator.add(
+        { messageTimestamp: 1, contentIndex: 1, toolCallId: "valid" },
+        "todo",
+        { action: "list" },
+        todoDisplayAdapter,
+        "historical"
+      );
+      const retained = result("Invalid todo arguments");
+      coordinator.result(call, retained, "failure");
+      const renderer = createToolDisplayRenderers("todo", todoDisplayAdapter, {
+        binding: { call, coordinator },
+        showParameters: false
+      });
 
-        for (const expanded of [false, true]) {
-          coordinator.expand(call, expanded);
-          const current = context({ args, expanded });
-          expect(renderer.renderCall(args, theme, current).render(120)).toEqual([
-            `${expanded ? "▾" : "•"} Call failed todo(${JSON.stringify(args)})`
-          ]);
-          expect(
-            renderer.renderResult(retained, current, theme, current).render(120).join("\n")
-          ).toContain("Invalid todo arguments");
-        }
-
-        expect(coordinator.group(call)).toBeUndefined();
-        expect(call.adapter).toBe(todoDisplayAdapter);
-        expect(call.args).toBe(args);
-        expect(call.result).toBe(retained);
-      } finally {
-        coordinator.dispose();
+      for (const expanded of [false, true]) {
+        coordinator.expand(call, expanded);
+        const current = context({ args, expanded });
+        expect(renderer.renderCall(args, theme, current).render(120)).toEqual([
+          `${expanded ? "▾" : "•"} Call failed todo(${JSON.stringify(args)})`
+        ]);
+        expect(
+          renderer.renderResult(retained, current, theme, current).render(120).join("\n")
+        ).toContain("Invalid todo arguments");
       }
+
+      expect(coordinator.group(call)).toBeUndefined();
+      expect(call.adapter).toBe(todoDisplayAdapter);
+      expect(call.args).toBe(args);
+      expect(call.result).toBe(retained);
+    } finally {
+      coordinator.dispose();
     }
-  );
+  });
 
   it.each([
     ["edit", "Edit", "Editing", "Edited", { path: "example.ts", edits: [] }],
@@ -842,28 +840,20 @@ describe("tool display renderers", () => {
     }
   );
 
-  it.each(["failure"] as const)(
-    "keeps custom action identity and ignores partial %s metadata",
-    (outcome) => {
-      const renderer = createPublicRenderers("health", {
-        id: "owner:health",
-        family: "invocation",
-        headingVerbs: () => ({ action: "Check", pending: "Checking", complete: "Checked" }),
-        outcome: () => outcome
-      });
-      const current = context({ isPartial: true });
-      const header = renderer.renderCall({}, theme, current);
-      renderer.renderResult(result("diagnostic"), current, theme, current);
-      expect(header.render(100)[0]).toBe("• Checking health");
-      renderer.renderResult(result("diagnostic"), { ...current, isPartial: false }, theme, current);
-      const status = {
-        failure: "failed",
-        cancelled: "cancelled",
-        unavailable: "outcome unavailable"
-      }[outcome];
-      expect(header.render(100)[0]).toBe(`• Check ${status} health`);
-    }
-  );
+  it("keeps custom action identity and ignores partial failure metadata", () => {
+    const renderer = createPublicRenderers("health", {
+      id: "owner:health",
+      family: "invocation",
+      headingVerbs: () => ({ action: "Check", pending: "Checking", complete: "Checked" }),
+      outcome: () => "failure"
+    });
+    const current = context({ isPartial: true });
+    const header = renderer.renderCall({}, theme, current);
+    renderer.renderResult(result("diagnostic"), current, theme, current);
+    expect(header.render(100)[0]).toBe("• Checking health");
+    renderer.renderResult(result("diagnostic"), { ...current, isPartial: false }, theme, current);
+    expect(header.render(100)[0]).toBe("• Check failed health");
+  });
 
   it("identifies each failed or cancelled member without repeating native cancellation boilerplate", () => {
     const coordinator = new TranscriptCoordinator("group-outcomes", { cwd: "/tmp" });
@@ -1129,42 +1119,39 @@ describe("tool display renderers", () => {
     ).toContain(resolve(cwd, "src/file.ts"));
   });
 
-  it.each(["failure"] as const)(
-    "keeps %s outcomes on the scope heading without call or operation counts",
-    (outcome) => {
-      const coordinator = new TranscriptCoordinator("heading-counts", { cwd: "/tmp" });
-      const path = ".tmp/pi-tool-display-scope-runs-20260917-154954-1015792/a";
+  it("keeps failure outcomes on the scope heading without call or operation counts", () => {
+    const coordinator = new TranscriptCoordinator("heading-counts", { cwd: "/tmp" });
+    const path = ".tmp/pi-tool-display-scope-runs-20260917-154954-1015792/a";
 
-      try {
-        const calls = ["grep", "ls"].map((name, index) => {
-          const call = coordinator.add(
-            { messageTimestamp: 1, contentIndex: index, toolCallId: name },
-            name,
-            { path, pattern: "alpha" },
-            nativeAdapter(name)!,
-            "historical"
-          );
-          coordinator.result(call, result("diagnostic"), outcome);
+    try {
+      const calls = ["grep", "ls"].map((name, index) => {
+        const call = coordinator.add(
+          { messageTimestamp: 1, contentIndex: index, toolCallId: name },
+          name,
+          { path, pattern: "alpha" },
+          nativeAdapter(name)!,
+          "historical"
+        );
+        coordinator.result(call, result("diagnostic"), "failure");
 
-          return call;
-        });
-        const call = calls[0]!;
-        const card = createToolDisplayRenderers(call.name, call.adapter, {
-          binding: { call, coordinator }
-        }).renderCall(call.args, theme, context());
+        return call;
+      });
+      const call = calls[0]!;
+      const card = createToolDisplayRenderers(call.name, call.adapter, {
+        binding: { call, coordinator }
+      }).renderCall(call.args, theme, context());
 
-        for (const width of [48, 110]) {
-          const heading = card.render(width).join("\n");
-          expect(heading).toContain("Explored");
-          expect(heading).toContain("Search failed alpha");
-          expect(heading).toContain("2 failed");
-          expect(heading).not.toMatch(/\d+ (calls?|reads?|search(?:es)?|lists?)\b/);
-        }
-      } finally {
-        coordinator.dispose();
+      for (const width of [48, 110]) {
+        const heading = card.render(width).join("\n");
+        expect(heading).toContain("Explored");
+        expect(heading).toContain("Search failed alpha");
+        expect(heading).toContain("2 failed");
+        expect(heading).not.toMatch(/\d+ (calls?|reads?|search(?:es)?|lists?)\b/);
       }
+    } finally {
+      coordinator.dispose();
     }
-  );
+  });
 
   it("uses scope-relative grouped paths and restores full paths on expansion", () => {
     const cwd = resolve("/workspace/project");
@@ -1301,27 +1288,24 @@ describe("tool display renderers", () => {
     }
   });
 
-  it.each(["bash"])(
-    "retains internal blank output without a false truncation notice for %s",
-    (name) => {
-      const text = "one\n\nthree\nfour\nfive\n\n";
-      const supplied = result(text);
+  it("retains internal blank shell output without a false truncation notice", () => {
+    const text = "one\n\nthree\nfour\nfive\n\n";
+    const supplied = result(text);
 
-      for (const expanded of [false, true]) {
-        const current = context({ expanded });
-        const rendered = createToolDisplayRenderers(name, nativeAdapter(name))
-          .renderResult(supplied, current, theme, current)
-          .render(120)
-          .map((row) => stripTerminalSequences(row).trim())
-          .join("\n");
-        expect(rendered).toContain("one\n\nthree");
-        expect(rendered).toContain("five");
-        expect(rendered).not.toContain("more rows");
-      }
-
-      expect(supplied).toEqual(result(text));
+    for (const expanded of [false, true]) {
+      const current = context({ expanded });
+      const rendered = createToolDisplayRenderers("bash", nativeAdapter("bash"))
+        .renderResult(supplied, current, theme, current)
+        .render(120)
+        .map((row) => stripTerminalSequences(row).trim())
+        .join("\n");
+      expect(rendered).toContain("one\n\nthree");
+      expect(rendered).toContain("five");
+      expect(rendered).not.toContain("more rows");
     }
-  );
+
+    expect(supplied).toEqual(result(text));
+  });
   it.each(["patch", "live preview", "saved output"])(
     "preserves image fallback when %s replaces retained text",
     (replacement) => {
@@ -2065,57 +2049,54 @@ describe("tool display renderers", () => {
     }
   });
 
-  it.each(["edit"])(
-    "keeps a failed %s patch and related diagnostics in one result item",
-    (name) => {
-      const coordinator = new TranscriptCoordinator("change-tree");
+  it("keeps a failed edit patch and related diagnostics in one result item", () => {
+    const coordinator = new TranscriptCoordinator("change-tree");
 
-      try {
-        const adapter = nativeAdapter(name)!;
-        const call = coordinator.add(
-          { messageTimestamp: 1, contentIndex: 0, toolCallId: "failed" },
-          name,
-          { path: "a.txt" },
-          adapter,
-          "historical"
-        );
-        coordinator.fact(call, {
-          kind: "change",
-          availability: "available",
-          patch: "@@ -1 +1 @@\n-before\n+after\n"
-        });
-        coordinator.fact(call, {
-          kind: "operation",
-          availability: "available",
-          outcome: "failure",
-          durationMs: 12
-        });
-        const supplied = result("Permission denied");
-        coordinator.result(call, supplied, "failure");
-        const renderer = createToolDisplayRenderers(name, adapter, {
-          binding: { call, coordinator }
-        });
+    try {
+      const adapter = nativeAdapter("edit")!;
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "failed" },
+        "edit",
+        { path: "a.txt" },
+        adapter,
+        "historical"
+      );
+      coordinator.fact(call, {
+        kind: "change",
+        availability: "available",
+        patch: "@@ -1 +1 @@\n-before\n+after\n"
+      });
+      coordinator.fact(call, {
+        kind: "operation",
+        availability: "available",
+        outcome: "failure",
+        durationMs: 12
+      });
+      const supplied = result("Permission denied");
+      coordinator.result(call, supplied, "failure");
+      const renderer = createToolDisplayRenderers("edit", adapter, {
+        binding: { call, coordinator }
+      });
 
-        for (const expanded of [false, true]) {
-          coordinator.expand(call, expanded);
-          const current = context({ args: call.args, isError: true, expanded });
-          const text = renderer
-            .renderResult(supplied, current, theme, current)
-            .render(100)
-            .map(stripTerminalSequences)
-            .join("\n");
-          expect(text).toContain("+1 -1");
-          expect(text).toContain("-before");
-          expect(text).toContain("+after");
-          expect(text.indexOf("Proposed change")).toBeLessThan(text.indexOf("-before"));
-          expect(text).toContain("Failed to apply change");
-          expect(text).toContain("Permission denied");
-        }
-      } finally {
-        coordinator.dispose();
+      for (const expanded of [false, true]) {
+        coordinator.expand(call, expanded);
+        const current = context({ args: call.args, isError: true, expanded });
+        const text = renderer
+          .renderResult(supplied, current, theme, current)
+          .render(100)
+          .map(stripTerminalSequences)
+          .join("\n");
+        expect(text).toContain("+1 -1");
+        expect(text).toContain("-before");
+        expect(text).toContain("+after");
+        expect(text.indexOf("Proposed change")).toBeLessThan(text.indexOf("-before"));
+        expect(text).toContain("Failed to apply change");
+        expect(text).toContain("Permission denied");
       }
+    } finally {
+      coordinator.dispose();
     }
-  );
+  });
 
   it("avoids redundant native image descriptions without removing generic text or native warnings", () => {
     const supplied = {
@@ -2142,78 +2123,63 @@ describe("tool display renderers", () => {
   });
 
   it.each([
-    {
-      warning: "[Image omitted: could not be converted to a supported inline image format.]",
-      image: false
-    },
-    {
-      warning: "[Image omitted: could not be resized below the inline image size limit.]",
-      image: false
-    }
-  ])(
-    "retains native image warning $warning in compact and expanded reads",
-    ({ warning, image }) => {
-      const supplied: AgentToolResult<unknown> = {
-        content: [
-          { type: "text", text: `Read image file [image/png]\n${warning}` },
-          ...(image
-            ? [{ type: "image" as const, mimeType: "image/png", data: "private-image-bytes" }]
-            : [])
-        ],
-        details: undefined
-      };
-      const original = structuredClone(supplied);
-      const coordinator = new TranscriptCoordinator("image-warning");
+    "[Image omitted: could not be converted to a supported inline image format.]",
+    "[Image omitted: could not be resized below the inline image size limit.]"
+  ])("retains native image warning %s in compact and expanded reads", (warning) => {
+    const supplied: AgentToolResult<unknown> = {
+      content: [{ type: "text", text: `Read image file [image/png]\n${warning}` }],
+      details: undefined
+    };
+    const original = structuredClone(supplied);
+    const coordinator = new TranscriptCoordinator("image-warning");
 
-      try {
-        const adapter = nativeAdapter("read")!;
-        const call = coordinator.add(
-          { messageTimestamp: 1, contentIndex: 0, toolCallId: "image-warning" },
+    try {
+      const adapter = nativeAdapter("read")!;
+      const call = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 0, toolCallId: "image-warning" },
+        "read",
+        { path: "image.png" },
+        adapter,
+        "historical"
+      );
+      coordinator.result(call, supplied, "success");
+
+      const sibling = coordinator.add(
+        { messageTimestamp: 1, contentIndex: 1, toolCallId: "sibling" },
+        "read",
+        { path: "other.txt" },
+        adapter,
+        "historical"
+      );
+      coordinator.result(sibling, result("sibling source"), "success");
+      expect(coordinator.group(call)?.members).toEqual([call, sibling]);
+
+      for (const grouped of [false, true]) {
+        const renderer = createToolDisplayRenderers(
           "read",
-          { path: "image.png" },
           adapter,
-          "historical"
+          grouped ? { binding: { call, coordinator } } : {}
         );
-        coordinator.result(call, supplied, "success");
 
-        const sibling = coordinator.add(
-          { messageTimestamp: 1, contentIndex: 1, toolCallId: "sibling" },
-          "read",
-          { path: "other.txt" },
-          adapter,
-          "historical"
-        );
-        coordinator.result(sibling, result("sibling source"), "success");
-        expect(coordinator.group(call)?.members).toEqual([call, sibling]);
-
-        for (const grouped of [false, true]) {
-          const renderer = createToolDisplayRenderers(
-            "read",
-            adapter,
-            grouped ? { binding: { call, coordinator } } : {}
-          );
-
-          for (const expanded of [false, true]) {
-            coordinator.expand(call, expanded);
-            const current = context({ args: call.args, expanded, showImages: false });
-            const rows = [
-              ...renderer.renderCall(call.args, theme, current).render(180),
-              ...renderer.renderResult(supplied, current, theme, current).render(180)
-            ]
-              .map(stripTerminalSequences)
-              .join("\n");
-            expect(rows.split(warning)).toHaveLength(2);
-            expect(rows).not.toContain("private-image-bytes");
-            expect(rows).not.toContain("failed");
-          }
+        for (const expanded of [false, true]) {
+          coordinator.expand(call, expanded);
+          const current = context({ args: call.args, expanded, showImages: false });
+          const rows = [
+            ...renderer.renderCall(call.args, theme, current).render(180),
+            ...renderer.renderResult(supplied, current, theme, current).render(180)
+          ]
+            .map(stripTerminalSequences)
+            .join("\n");
+          expect(rows.split(warning)).toHaveLength(2);
+          expect(rows).not.toContain("failed");
         }
-
-        expect(supplied).toEqual(original);
-      } finally {
-        coordinator.dispose();
       }
+
+      expect(supplied).toEqual(original);
+    } finally {
+      coordinator.dispose();
     }
-  );
+  });
 
   it("replaces streamed previews with the final payload and isolates overlapping calls", () => {
     const renderer = createToolDisplayRenderers("bash", nativeAdapter("bash"));

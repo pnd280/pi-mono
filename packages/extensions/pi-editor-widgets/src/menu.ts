@@ -49,8 +49,7 @@ export class WidgetMenu implements Component {
     this.warning = settingsLoadFeedback(options.preferences.warnings);
     this.success = new ExpiringNotice({
       durationMs: 3000,
-      changed: () => this.options.requestRender(),
-      report() {}
+      changed: () => this.options.requestRender()
     });
     this.showDraft();
   }

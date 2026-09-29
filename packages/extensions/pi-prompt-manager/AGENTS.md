@@ -1,12 +1,5 @@
 # [pi-prompt-manager](README.md) development
 
-## Code navigation
-
-- **Lifecycle and operations:** [src/index.ts](src/index.ts) connects Pi events to [manager.ts](src/manager.ts).
-- **Collection and I/O:** [src/storage/](src/storage/) owns recovery, processing, and private-file transactions; [src/model.ts](src/model.ts) defines limits.
-- **Interaction:** [src/browser/](src/browser/), [src/commands.ts](src/commands.ts), and [src/host/editor.ts](src/host/editor.ts).
-- **Offline fixtures:** [validation/](validation/); use the [terminal procedure](docs/validation.md#terminal-launcher).
-
 ## Constraints
 
 Activate and access settings/storage only after TUI session startup. Before filesystem changes, read the shared [mutation protocol](../../libs/src/private-files/README.md#mutation-protocol).

@@ -40,11 +40,4 @@ Completion/shutdown clears only the elapsed-time contribution. Saving `/working-
 
 ## Validation
 
-Run from the workspace root:
-
-```sh
-vpr 'pi-agent-summary#check'
-vpr 'pi-agent-summary#test'
-```
-
 For TUI changes, load with `pi-todo` and `pi-tool-display`, run `bash`, `edit`, and `write`, and check the live timer, expanded statistics, click/Ctrl+O toggles, and narrow wrapping. Abort and resume to check cleanup and saved summaries. See [testing boundaries](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md).

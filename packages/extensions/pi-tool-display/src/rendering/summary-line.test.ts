@@ -54,28 +54,26 @@ it("lists supplied items in order with singular and plural counts", () => {
   ]);
 });
 
-it.each([40])(
-  "indents every line by two spaces and wraps only between items at %i columns",
-  (width) => {
-    const rendered = lines(mixed, { width });
-    const items = [
-      "Read 4 files",
-      "2 searches",
-      "edited 2 files",
-      "ran 2 commands",
-      "created 1 file"
-    ];
+it("indents every line by two spaces and wraps only between items", () => {
+  const width = 40;
+  const rendered = lines(mixed, { width });
+  const items = [
+    "Read 4 files",
+    "2 searches",
+    "edited 2 files",
+    "ran 2 commands",
+    "created 1 file"
+  ];
 
-    for (const row of rendered) expect(visibleWidth(row)).toBeLessThanOrEqual(width);
-    expect(rendered[0]?.startsWith("  Read ")).toBe(true);
-    for (const row of rendered) expect(row).toMatch(/^ {2}[^•\s]/);
-    const text = rendered
-      .map((row) => row.slice(2).replaceAll(/ ?\([^)]*\)/g, ""))
-      .filter(Boolean)
-      .join(" · ");
-    expect(text.split(" · ")).toEqual(items);
-  }
-);
+  for (const row of rendered) expect(visibleWidth(row)).toBeLessThanOrEqual(width);
+  expect(rendered[0]?.startsWith("  Read ")).toBe(true);
+  for (const row of rendered) expect(row).toMatch(/^ {2}[^•\s]/);
+  const text = rendered
+    .map((row) => row.slice(2).replaceAll(/ ?\([^)]*\)/g, ""))
+    .filter(Boolean)
+    .join(" · ");
+  expect(text.split(" · ")).toEqual(items);
+});
 
 it("reserves two columns for indentation without exceeding narrow widths", () => {
   const read = [segment("read", 1)];

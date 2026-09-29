@@ -11,13 +11,6 @@ import { TASK_ACTIONS, type TaskDetails } from "./types.ts";
 
 const inputSchema = mutationParamsSchema.extend({ action: z.enum(TASK_ACTIONS) });
 
-export function registerTodoTool(
-  pi: { registerTool(definition: ReturnType<typeof createTodoTool>): void },
-  controller: TodoController
-): void {
-  pi.registerTool(createTodoTool(controller));
-}
-
 export function createTodoTool(controller: TodoController) {
   return {
     name: "todo",

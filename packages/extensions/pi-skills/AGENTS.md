@@ -1,11 +1,5 @@
 # [pi-skills](README.md) development
 
-## Code navigation
-
-- **Host integration:** [src/index.ts](src/index.ts) registers input expansion and TUI completion.
-- **Policy and completion:** [src/tokens.ts](src/tokens.ts), [src/skills.ts](src/skills.ts), [src/config.ts](src/config.ts), and [src/autocomplete.ts](src/autocomplete.ts).
-- **Host fixtures:** [src/editor.test.ts](src/editor.test.ts), [src/index.test.ts](src/index.test.ts), and [validation/](validation/).
-
 ## Constraints
 
 Use Pi's public extension and autocomplete APIs.

@@ -19,17 +19,9 @@ import {
   MAX_TASKS,
   TASK_DETAILS_VERSION
 } from "./constants.ts";
-import { applyTaskMutation, emptyTodoState } from "./reducer.ts";
+import { applyTaskMutation as mutate, emptyTodoState } from "./reducer.ts";
 import { parseTodoStateSnapshot } from "./session-state.ts";
 import type { Task, TaskMutationParams, TodoState } from "./types.ts";
-
-function mutate(
-  state: TodoState,
-  action: Parameters<typeof applyTaskMutation>[1],
-  params: TaskMutationParams
-) {
-  return applyTaskMutation(state, action, params);
-}
 
 describe("todo reducer", () => {
   it("creates, lists, gets, updates, deletes, and clears todos", () => {

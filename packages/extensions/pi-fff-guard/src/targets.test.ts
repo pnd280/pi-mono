@@ -6,7 +6,6 @@ import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { evaluateSearch } from "./evaluate-search.ts";
-import type { SearchInput } from "./targets.ts";
 import { fixture } from "./test-fixture.ts";
 
 let directory: Awaited<ReturnType<typeof fixture>>;
@@ -23,7 +22,7 @@ const toolNames: Record<FffToolKind, string> = {
   multi: "fff-multi-grep"
 };
 
-const decision = (kind: FffToolKind, input: SearchInput) =>
+const decision = (kind: FffToolKind, input: Record<string, unknown>) =>
   evaluateSearch({
     kind,
     toolName: toolNames[kind],
@@ -31,14 +30,14 @@ const decision = (kind: FffToolKind, input: SearchInput) =>
     cwd: directory.root
   });
 
-async function expectIgnored(kind: FffToolKind, input: SearchInput) {
+async function expectIgnored(kind: FffToolKind, input: Record<string, unknown>) {
   const result = await decision(kind, input);
   expect(result.kind).toBe("block");
   if (result.kind !== "block") throw new Error("Expected an ignored-path block.");
   expect(result.reason).toContain("Git-ignored");
 }
 
-async function expectAllowed(kind: FffToolKind, input: SearchInput) {
+async function expectAllowed(kind: FffToolKind, input: Record<string, unknown>) {
   expect(await decision(kind, input)).toStrictEqual({ kind: "allow" });
 }
 
@@ -82,7 +81,7 @@ describe("FFF search scopes", () => {
       ["grep", { path: "src/**/*.missing" }],
       ["multi", { patterns: ["node_modules/"] }],
       ["multi", { constraints: "*.ts !node_modules/ !missing/" }]
-    ] satisfies Array<[FffToolKind, SearchInput]>) {
+    ] satisfies Array<[FffToolKind, Record<string, unknown>]>) {
       await expectAllowed(kind, input);
     }
   });

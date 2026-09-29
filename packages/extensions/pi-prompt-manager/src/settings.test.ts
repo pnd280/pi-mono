@@ -31,59 +31,40 @@ it("validates fields independently, floors/clamps finite numbers without coercio
   expect(result.warnings).toHaveLength(2);
 });
 
-it("reads settings with the UTF-8 BOM accepted by Pi", async () => {
+it.each([
+  {
+    name: "reads settings with the UTF-8 BOM accepted by Pi",
+    content: `\uFEFF${JSON.stringify({ "ext.pi-prompt-manager": { historyRetention: 12 } })}`,
+    historyRetention: 12,
+    warnings: []
+  },
+  {
+    name: "treats an empty global settings file as Pi's absent settings",
+    content: "",
+    historyRetention: 250,
+    warnings: []
+  },
+  {
+    name: "rejects oversized global settings instead of reading them without a bound",
+    content: JSON.stringify({
+      "ext.pi-prompt-manager": { historyRetention: 12 },
+      padding: "x".repeat(1024 * 1024)
+    }),
+    historyRetention: 250,
+    warnings: ["Global settings could not be read; using prompt-manager defaults."]
+  }
+])("$name", async ({ content, historyRetention, warnings }) => {
   const agentDir = await mkdtemp(join(tmpdir(), "pi-prompt-settings-"));
 
   try {
-    await writeFile(
-      join(agentDir, "settings.json"),
-      `\uFEFF${JSON.stringify({ "ext.pi-prompt-manager": { historyRetention: 12 } })}`
-    );
+    await writeFile(join(agentDir, "settings.json"), content);
     expect(await loadSettings(agentDir)).toEqual({
       settings: {
-        historyRetention: 12,
+        historyRetention,
         shortcuts: { history: ["ctrl+r"], saveDraft: ["ctrl+shift+s"] }
       },
-      warnings: []
+      warnings
     });
-  } finally {
-    await rm(agentDir, { recursive: true, force: true });
-  }
-});
-
-it("treats an empty global settings file as Pi's absent settings", async () => {
-  const agentDir = await mkdtemp(join(tmpdir(), "pi-prompt-settings-"));
-
-  try {
-    await writeFile(join(agentDir, "settings.json"), "");
-    expect(await loadSettings(agentDir)).toEqual({
-      settings: {
-        historyRetention: 250,
-        shortcuts: { history: ["ctrl+r"], saveDraft: ["ctrl+shift+s"] }
-      },
-      warnings: []
-    });
-  } finally {
-    await rm(agentDir, { recursive: true, force: true });
-  }
-});
-
-it("rejects oversized global settings instead of reading them without a bound", async () => {
-  const agentDir = await mkdtemp(join(tmpdir(), "pi-prompt-settings-"));
-
-  try {
-    await writeFile(
-      join(agentDir, "settings.json"),
-      JSON.stringify({
-        "ext.pi-prompt-manager": { historyRetention: 12 },
-        padding: "x".repeat(1024 * 1024)
-      })
-    );
-    const result = await loadSettings(agentDir);
-    expect(result.settings.historyRetention).toBe(250);
-    expect(result.warnings).toContain(
-      "Global settings could not be read; using prompt-manager defaults."
-    );
   } finally {
     await rm(agentDir, { recursive: true, force: true });
   }

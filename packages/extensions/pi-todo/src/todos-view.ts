@@ -42,7 +42,6 @@ type TodoBinding = { action: TodoAction; key: KeyId };
 
 type ViewLayout = {
   rows: number;
-  hints: boolean;
   title: boolean;
   borders: boolean;
   summary: boolean;
@@ -140,7 +139,7 @@ export class TodosView implements Component {
       capacity = nextCapacity;
     }
 
-    return { rows, hints, title, borders, summary, capacity, footer };
+    return { rows, title, borders, summary, capacity, footer };
   }
 
   render(width: number): string[] {

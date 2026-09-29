@@ -12,19 +12,13 @@ Directories use `0700`, files `0600`; reads may repair permissions/ACLs. Checks 
 
 Define record schemas and storage policy in the consumer. Translate raw OS exceptions before displaying them because they can expose paths. Only the library's [PrivateFileError diagnostics](errors.ts) use fixed messages.
 
-Use trusted private parents on local Linux, macOS, or WSL storage with POSIX owner checks and enforced permissions. Network filesystems and cross-machine coordination are unsupported. Before storing records, read the applicable [filesystem, scope, and transaction guidance](transactions.md).
-
 ### Filesystem assumptions
 
-If callers manage parent directories or follow symlinks, read the [filesystem assumptions](transactions.md#filesystem-assumptions).
-
-### Serialized transactions
-
-If multiple writers update a record, use the [serialized transaction guidance](transactions.md#serialized-transactions). Never retry a committed write solely because cleanup failed.
+Use trusted private parents on local Linux, macOS, or WSL storage with POSIX owner checks and enforced permissions. Network filesystems and cross-machine coordination are unsupported. Follow the [filesystem and scope requirements](transactions.md#filesystem-assumptions) before storing records.
 
 ### Mutation protocol
 
-If using lower-level storage APIs instead of `PrivateFileTransactions`, follow the [mutation protocol](transactions.md#mutation-protocol).
+Use [serialized transactions](transactions.md#serialized-transactions) or the [lower-level mutation protocol](transactions.md#mutation-protocol). Never retry a committed write solely because cleanup failed.
 
 ## Validation
 

@@ -64,7 +64,7 @@ export async function workspace() {
 export function managerFixture(overrides: Partial<ManagerPorts> = {}) {
   let text = "draft";
   const notices: string[] = [];
-  const ports: ManagerPorts = {
+  const manager = new PromptManager({
     repository: {
       read: async () => collection(),
       mutate: async () => ({ status: "committed", snapshot: collection(), warnings: [] })
@@ -82,12 +82,10 @@ export function managerFixture(overrides: Partial<ManagerPorts> = {}) {
     open: async () => {},
     now: () => new Date(recordedAt),
     ...overrides
-  };
-  const manager = new PromptManager(ports);
+  });
 
   return {
     manager,
-    ports,
     notices,
     getText: () => text,
     setText: (next: string) => {

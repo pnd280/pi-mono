@@ -3,7 +3,6 @@ import type {
   ExtensionContext,
   ExtensionUIContext
 } from "@earendil-works/pi-coding-agent";
-import { z } from "zod";
 
 import {
   OrderSettingsView,
@@ -33,10 +32,6 @@ export type WorkingMessageAPI = Pick<ExtensionAPI, "events" | "registerCommand">
 };
 
 const discoveryChannel = "pi-mono:working-message:coordinator";
-const discoveryRequestSchema = z.function({
-  input: [z.instanceof(WorkingMessageCoordinator)],
-  output: z.void()
-});
 
 /** Call during the extension factory. All participants on Pi's event bus share one owner. */
 export function registerWorkingMessage(
@@ -63,8 +58,7 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
   const unsubscribe = pi.events.on(discoveryChannel, (request: unknown) => {
     // This private channel carries callbacks created by registerWorkingMessage,
     // including callbacks from a separately loaded copy of this module.
-    const parsed = discoveryRequestSchema.safeParse(request);
-    if (parsed.success) parsed.data(coordinator);
+    if (typeof request === "function") Reflect.apply(request, undefined, [coordinator]);
   });
 
   pi.on("session_start", (_event, ctx) => {

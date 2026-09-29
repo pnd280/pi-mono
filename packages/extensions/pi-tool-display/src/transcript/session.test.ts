@@ -568,15 +568,7 @@ it.each(["fff", "mcp"] as const)(
 
 it("makes retained observation callbacks inert after session disposal, including persistence", () => {
   const append = vi.fn();
-  const session = new DisplaySession({
-    runtime: "session",
-    cwd: "/tmp",
-    history: { getBranch: () => [], getLeafId: () => null, getEntry: () => undefined },
-    settings: loadDisplaySettings([]),
-    selectAdapter: nativeAdapter,
-    expanded: () => false,
-    append
-  });
+  const session = fixture({ append });
 
   try {
     session.message(

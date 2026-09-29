@@ -6,7 +6,7 @@ import {
   type BashOperations,
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
-import { observeMutationDefinition, type MutationSink } from "@pi-mono/libs/file-mutations";
+import type { MutationSink } from "@pi-mono/libs/file-mutations";
 import type { NativeSettings } from "@pi-mono/libs/native-tools";
 import { OutputBuffer } from "@pi-mono/libs/output-buffer";
 import type { OutputText } from "@pi-mono/utils/output-text";
@@ -125,13 +125,6 @@ export function observeNativeDefinition(
   settings: NativeSettings,
   begin: (id: string) => ObservationSink | undefined
 ): ToolDefinition {
-  if (original.name === "edit" || original.name === "write")
-    return observeMutationDefinition(original, settings.cwd, (id) => {
-      const observer = begin(id);
-
-      return observer ? [displayMutationSink(observer, original.name)] : [];
-    });
-
   return {
     ...original,
     async execute(id, args, signal, onUpdate, context) {

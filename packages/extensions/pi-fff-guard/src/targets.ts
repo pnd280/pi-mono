@@ -14,19 +14,15 @@ import {
 } from "@pi-mono/utils/search-scopes";
 import { z } from "zod";
 
+// Only scope-affecting arguments belong to ignored-path inspection.
 export const searchInputSchema = z.object({
   pattern: z.string().optional(),
-  patterns: z.array(z.string()).optional(),
   path: z.string().optional(),
   exclude: z.union([z.string(), z.array(z.string())]).optional(),
-  constraints: z.string().optional(),
-  caseSensitive: z.boolean().optional(),
-  context: z.number().optional(),
-  cursor: z.string().optional(),
-  limit: z.number().optional()
+  constraints: z.string().optional()
 });
 
-export type SearchInput = z.infer<typeof searchInputSchema>;
+type SearchInput = z.infer<typeof searchInputSchema>;
 
 interface ScopeFilter {
   root: string;
@@ -54,11 +50,11 @@ interface ScopeExpression {
   directoryOnly: boolean;
 }
 
-export function resolvePath(value: string, cwd: string): string {
+function resolvePath(value: string, cwd: string): string {
   return path.resolve(cwd, expandHomePath(value, homedir()));
 }
 
-export async function existingTarget(
+async function existingTarget(
   expression: string,
   cwd: string,
   directoryOnly = expression.endsWith("/")

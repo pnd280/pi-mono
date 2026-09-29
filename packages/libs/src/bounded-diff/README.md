@@ -19,7 +19,3 @@ Supply path, before/after source, source/patch byte limits, edit-distance limit,
 The library does not read files. Use [file observation](../file-observation/README.md) to load complete UTF-8 source from disk.
 
 Classify the change and translate result statuses into diagnostics in the consumer. Patch parsing belongs to [`@pi-mono/utils/patch`](../../../utils/src/patch.ts), and rendering belongs to the [diff view](../tui/components/diff-view/README.md).
-
-## Validation
-
-Use the [package validation commands](../../README.md#validation).

@@ -55,7 +55,7 @@ Items must resolve to one directory or identical filters; files can group with t
 
 For non-file groups such as `pi-todo`, return one stable literal `filter` and set [`groupTitle`](../src/contracts.ts). The title replaces the scope heading; member summaries/notices stay visible. Adjacent calls group only when both the normalized scope and title match, so titled and untitled groups never merge.
 
-Group headings omit call and operation counts. Each call remains a separate member, including repeated reads. See [exploration groups](presentation.md#groups) for boundaries and expansion behavior.
+See [exploration groups](presentation.md#groups) for headings, boundaries, and expansion behavior.
 
 ### Action wording
 

@@ -8,7 +8,7 @@ Pi provides the agent runtime, tool execution, sessions, and terminal UI. This w
 
 | Area                                              | Responsibility                                                                                                             |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| [`packages/extensions/`](../README.md#extensions) | Feature packages with their own Pi integration and domain policy. `pi-miscs` bundles small extensions.                     |
+| [`packages/extensions/`](../README.md#extensions) | Feature packages with their own Pi integration and domain policy.                                                          |
 | [`packages/libs/`](../packages/libs/README.md)    | Shared stateful services, I/O, lifecycle coordination, and [TUI components and hosts](../packages/libs/src/tui/README.md). |
 | [`packages/utils/`](../packages/utils/README.md)  | Pure parsing, formatting, and transformation helpers.                                                                      |
 

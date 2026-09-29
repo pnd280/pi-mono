@@ -28,7 +28,6 @@ export function focusSplitTurn(
   context: TranscriptContext,
   instructions: string
 ): TranscriptContext {
-  if (!instructions) return context;
   const last = context.messages.at(-1);
   if (last?.role !== "user" || typeof last.content === "string" || last.content.length !== 1)
     return context;

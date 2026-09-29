@@ -6,6 +6,12 @@ import { TodosView } from "./todos-view.ts";
 
 beforeAll(() => initTheme("dark", false));
 
+const theme = {
+  fg: (_color: string, text: string) => text,
+  bold: (text: string) => text,
+  strikethrough: (text: string) => text
+};
+
 it("uses configured selection paging for the list and details", () => {
   const view = new TodosView({
     tasks: Array.from({ length: 30 }, (_, index) => ({
@@ -14,7 +20,7 @@ it("uses configured selection paging for the list and details", () => {
       status: "pending",
       description: Array.from({ length: 50 }, (_, line) => `Detail line ${line + 1}`).join("\n")
     })),
-    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    theme,
     tui: { mode: "fullscreen", requestRender() {}, terminal: { rows: 40 } },
     keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
       "tui.select.pageDown": "ctrl+n",
@@ -51,7 +57,7 @@ it("claims only effective paging actions and reserves control keys", () => {
   });
   const view = new TodosView({
     tasks: [{ id: 1, subject: "Todo", status: "pending" }],
-    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    theme,
     tui: { mode: "fullscreen", requestRender() {}, terminal: { rows: 24 } },
     keybindings: keys,
     done: vi.fn()
@@ -76,7 +82,7 @@ it("shares dispatch precedence for ambiguous terminal encodings in lists and det
         description: Array.from({ length: 50 }, (_, line) => `Detail ${line + 1}`).join("\n")
       }
     ],
-    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    theme,
     tui: { mode: "fullscreen", requestRender() {}, terminal: { rows: 24 } },
     keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
       "tui.select.pageDown": ["ctrl+[", "ctrl+m", "ctrl+n"]
@@ -107,7 +113,7 @@ it("resolves conflicting configured todo controls without using Ctrl+C to cancel
   const done = vi.fn();
   const view = new TodosView({
     tasks: [{ id: 1, subject: "Todo", status: "pending" }],
-    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    theme,
     tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
     keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
       "tui.select.cancel": ["ctrl+c", "escape"],
@@ -133,11 +139,7 @@ it.each([{ cancel: [] }, { cancel: ["ctrl+c"] }] as const)(
       () =>
         new TodosView({
           tasks: [],
-          theme: {
-            fg: (_color, text) => text,
-            bold: (text) => text,
-            strikethrough: (text) => text
-          },
+          theme,
           tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
           keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
             "tui.select.cancel": [...cancel]
@@ -156,7 +158,7 @@ it("selects hierarchy preorder, opens read-only details, returns, and ignores Ct
       { id: 2, subject: "Other", status: "pending" },
       { id: 3, subject: "Child", status: "completed", parentId: 1, description: "Detail text" }
     ],
-    theme: { fg: (_color, text) => text, bold: (text) => text, strikethrough: (text) => text },
+    theme,
     tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
     keybindings: new KeybindingsManager(TUI_KEYBINDINGS),
     done
