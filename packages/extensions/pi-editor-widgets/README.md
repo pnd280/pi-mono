@@ -28,13 +28,15 @@ Only Ctrl+S persists changes. A global draft previews even if a project override
 
 A failed save leaves the draft open with an inline error; Ctrl+S retries. Load warnings also appear inline.
 
-By default, native above/below widgets each occupy their own row. The footer contains:
+By default, native above/below widgets each occupy their own row. In regular mode, the footer contains:
 
 ```text
 cwd • git branch • session title
 tokens • used/window (percent) (auto)          provider/model:thinking
 extension status • extension status …
 ```
+
+Fullscreen starts with compact [token](#token-usage) and [context](#context-usage) displays. Click either widget or run `/widgets tokens` or `/widgets context` to toggle its details.
 
 Any contribution can move to any region, share rows, and appear in several rows. Above-editor content reserves a blank line from chat. Empty widgets collapse without losing their positions.
 
@@ -65,9 +67,29 @@ A project layout replaces the **entire** global layout; otherwise global setting
 
 IDs are `widget:<native-key>`, `status:<native-key>`, and the six built-ins shown above. An ID may appear in several rows, at most once per row; hidden IDs must be unique and must not also be placed. Each row allows at most one `flex`. Unknown IDs are retained. Invalid layouts warn and fall back as a unit. Settings use the workspace's 1 MiB file limit; there are no per-widget size, priority, style, or overflow options.
 
+### Token usage
+
+In **fullscreen mode only**, click the token built-in or run `/widgets tokens` to toggle its display:
+
+- **Compact** (fullscreen default): `↑510 ↓51`, showing only input/output tokens.
+- **Verbose**: `↑510 ↓51 R5.5k W250 CH99.0% $6.375`, also showing cache read/write totals, latest-prompt cache-hit percentage, cost, and the subscription marker when applicable.
+
+Zero-valued token counters are omitted. If input and output are both zero, the compact widget is empty; use `/widgets tokens` to reveal any cache or cost details.
+
+Regular mode keeps the full display, with no toggle. All token copies switch together, independently of context usage. The selection survives layout edits and switching out of fullscreen and back, but resets to compact on session start or `/reload`; toggling never writes settings.
+
 ### Context usage
 
-The context built-in shows used tokens, window size, and percentage. Unknown usage (for example after compaction) displays `?` for used tokens and omits the percentage; `(auto)` means automatic compaction is enabled.
+Regular mode shows `75k/200k (37.5%) (auto)` and cannot be toggled. It omits the automatic compaction threshold.
+
+In **fullscreen mode only**, click the context built-in or run `/widgets context` to toggle its display:
+
+- **Compact** (fullscreen default): `75k/200k (auto)`, without percentage usage.
+- **Verbose**: `75k/200k (37.5%) (auto ~150k)`, including the automatic compaction threshold: context window minus Pi's effective `compaction.reserveTokens`, including per-model overrides.
+
+All fullscreen copies switch together. The selection survives layout edits and switching out of fullscreen and back, but resets to compact on session start or `/reload`; toggling never writes settings. Regular mode remains unchanged regardless of the fullscreen selection.
+
+Unknown usage (for example after compaction) displays `?` for used tokens and omits the percentage. The `(auto)` marker appears only when automatic compaction is enabled. Verbose mode omits the threshold if the context window is unknown and shows `(auto ~?)` if Pi rejects the compaction settings.
 
 Without `contextThreshold`, the color is dim up to 70% of the window, warning above 70%, and error above 90%. Set `contextThreshold` to a positive integer token count to use these bands instead:
 
@@ -78,7 +100,7 @@ Without `contextThreshold`, the color is dim up to 70% of the window, warning ab
 | From two thirds to below the threshold | `warning`   |
 | At or above the threshold              | `error`     |
 
-The threshold resolves independently of the layout: a trusted project value overrides the global one. An invalid value warns and falls back to the next scope, then to percentage-based colors if neither scope provides a valid threshold. `/widgets` saves preserve this setting; edit it only in `settings.json`.
+This color threshold does not change Pi's automatic compaction threshold. It resolves independently of the layout: a trusted project value overrides the global one. An invalid value warns and falls back to the next scope, then to percentage-based colors if neither scope provides a valid threshold. `/widgets` saves preserve this setting; edit it only in `settings.json`.
 
 ## Side effects
 

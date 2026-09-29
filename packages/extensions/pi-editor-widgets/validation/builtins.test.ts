@@ -27,101 +27,205 @@ const usage = () => ({
   cost: { ...zeroUsage().cost, total: 1.25 }
 });
 
-it("uses native totals across assistant, tool, usage, compaction and branch entries but latest-prompt cache hit", async () => {
-  const fixture = await hostFixture();
-  const { session, host, ui } = fixture;
-  const manager = session.sessionManager;
-
-  try {
-    session.agent.state.model = model;
-    const first = { ...createFixtureMessage(model, 1), usage: usage() };
-    const firstId = manager.appendMessage(first);
-    manager.appendMessage({
-      role: "toolResult",
-      toolCallId: "call",
-      toolName: "fixture",
-      content: [],
-      isError: false,
-      timestamp: 2,
-      usage: usage()
-    });
-    manager.appendUsage("other", model.provider, model.id, usage());
-    manager.appendCompaction("summary", firstId, 1000, undefined, false, usage());
-    manager.branchWithSummary(firstId, "branch", undefined, false, usage());
-    const latest = createFixtureMessage(model, 3);
-    latest.usage = {
-      ...zeroUsage(),
-      input: 10,
-      output: 1,
-      cacheRead: 990,
-      totalTokens: 1001,
-      cost: { ...zeroUsage().cost, total: 0.125 }
-    };
-    manager.appendMessage(latest);
-    const value =
-      builtinText(session, host.footerDataProvider, ui.theme).get("builtin:tokens") ?? "";
-    expect(stripTerminalSequences(value)).toBe("↑510 ↓51 R5.5k W250 CH99.0% $6.375");
-    session.agent.state.model = { ...model, provider: "kimi-coding" };
-    expect(
+it.each(["regular", "compact", "verbose"] as const)(
+  "uses native totals and latest-prompt cache hit in %s display",
+  async (display) => {
+    const fixture = await hostFixture();
+    const { session, host, ui } = fixture;
+    const manager = session.sessionManager;
+    const read = () =>
       stripTerminalSequences(
-        builtinText(session, host.footerDataProvider, ui.theme).get("builtin:tokens") ?? ""
-      )
-    ).toMatch(/\$6\.375 \(sub\)$/);
-    const subscription = vi
-      .spyOn(session.modelRuntime, "isUsingSubscription")
-      .mockReturnValue(true);
-    session.agent.state.model = model;
-    expect(
-      stripTerminalSequences(
-        builtinText(session, host.footerDataProvider, ui.theme).get("builtin:tokens") ?? ""
-      )
-    ).toMatch(/\(sub\)$/);
-    subscription.mockRestore();
-  } finally {
-    await fixture.dispose();
-  }
-});
+        builtinText(session, host.footerDataProvider, ui.theme, { tokensDisplay: display }).get(
+          "builtin:tokens"
+        ) ?? ""
+      );
 
-it("reports context usage, keeps post-compaction context unknown and uses runtime auto state", async () => {
-  const fixture = await hostFixture();
-  const { session, host, ui } = fixture;
-  const read = () => builtinText(session, host.footerDataProvider, ui.theme).get("builtin:context");
-
-  try {
-    session.agent.state.model = model;
-    session.setAutoCompactionEnabled(false);
-
-    for (const [input, text] of [
-      [750, "750/1.0k (75.0%)"],
-      [950, "950/1.0k (95.0%)"]
-    ] as const) {
-      const message = createFixtureMessage(model, input);
-      message.usage = { ...zeroUsage(), input, totalTokens: input };
-      session.sessionManager.appendMessage(message);
-      expect(stripTerminalSequences(read() ?? "")).toBe(text);
+    try {
+      session.agent.state.model = model;
+      const first = { ...createFixtureMessage(model, 1), usage: usage() };
+      const firstId = manager.appendMessage(first);
+      manager.appendMessage({
+        role: "toolResult",
+        toolCallId: "call",
+        toolName: "fixture",
+        content: [],
+        isError: false,
+        timestamp: 2,
+        usage: usage()
+      });
+      manager.appendUsage("other", model.provider, model.id, usage());
+      manager.appendCompaction("summary", firstId, 1000, undefined, false, usage());
+      manager.branchWithSummary(firstId, "branch", undefined, false, usage());
+      const latest = createFixtureMessage(model, 3);
+      latest.usage = {
+        ...zeroUsage(),
+        input: 10,
+        output: 1,
+        cacheRead: 990,
+        totalTokens: 1001,
+        cost: { ...zeroUsage().cost, total: 0.125 }
+      };
+      manager.appendMessage(latest);
+      expect(read()).toBe(
+        display === "compact" ? "↑510 ↓51" : "↑510 ↓51 R5.5k W250 CH99.0% $6.375"
+      );
+      session.agent.state.model = { ...model, provider: "kimi-coding" };
+      expect(read()).toBe(
+        display === "compact" ? "↑510 ↓51" : "↑510 ↓51 R5.5k W250 CH99.0% $6.375 (sub)"
+      );
+      const subscription = vi
+        .spyOn(session.modelRuntime, "isUsingSubscription")
+        .mockReturnValue(true);
+      session.agent.state.model = model;
+      expect(read()).toBe(
+        display === "compact" ? "↑510 ↓51" : "↑510 ↓51 R5.5k W250 CH99.0% $6.375 (sub)"
+      );
+      subscription.mockRestore();
+    } finally {
+      await fixture.dispose();
     }
+  }
+);
 
-    session.setAutoCompactionEnabled(true);
-    expect(stripTerminalSequences(read() ?? "")).toBe("950/1.0k (95.0%) (auto)");
-    session.setAutoCompactionEnabled(false);
-    session.sessionManager.appendCompaction("summary", null, 950);
-    expect(stripTerminalSequences(read() ?? "")).toBe("?/1.0k");
-    session.setAutoCompactionEnabled(true);
-    expect(stripTerminalSequences(read() ?? "")).toBe("?/1.0k (auto)");
-    const noModel = vi.spyOn(session, "model", "get").mockReturnValue(undefined);
-    expect(stripTerminalSequences(read() ?? "")).toBe("?/? (auto)");
-    expect(
+it.each([
+  [0, 0, ""],
+  [100, 0, "↑100"],
+  [0, 10, "↓10"]
+] as const)(
+  "omits zero counters and all other token details for compact input=%i output=%i",
+  async (input, output, expected) => {
+    const fixture = await hostFixture();
+    const { session, host, ui } = fixture;
+    const read = (display: "compact" | "verbose") =>
       stripTerminalSequences(
-        builtinText(session, host.footerDataProvider, ui.theme).get("builtin:model") ?? ""
-      )
-    ).toBe("no-model");
-    noModel.mockRestore();
+        builtinText(session, host.footerDataProvider, ui.theme, { tokensDisplay: display }).get(
+          "builtin:tokens"
+        ) ?? ""
+      );
 
+    try {
+      expect(read("compact")).toBe("");
+      session.agent.state.model = { ...model, provider: "kimi-coding" };
+      const message = createFixtureMessage(model, 1);
+      message.usage = { ...usage(), input, output, totalTokens: input + output + 950 };
+      session.sessionManager.appendMessage(message);
+      expect(read("compact")).toBe(expected);
+      const verbose = read("verbose");
+      expect(verbose).toContain("R900 W50 CH");
+      expect(verbose).toContain("$1.250 (sub)");
+      expect(
+        stripTerminalSequences(
+          builtinText(session, host.footerDataProvider, ui.theme).get("builtin:tokens") ?? ""
+        )
+      ).toBe(verbose);
+    } finally {
+      await fixture.dispose();
+    }
+  }
+);
+
+it.each(["regular", "compact", "verbose"] as const)(
+  "reports known and unknown context usage in %s display",
+  async (display) => {
+    const fixture = await hostFixture();
+    const { session, host, ui } = fixture;
+    const read = () =>
+      builtinText(session, host.footerDataProvider, ui.theme, { contextDisplay: display }).get(
+        "builtin:context"
+      );
+    const reserve = vi
+      .spyOn(session.settingsManager, "getCompactionReserveTokens")
+      .mockReturnValue(200);
+
+    try {
+      session.agent.state.model = model;
+      session.setAutoCompactionEnabled(false);
+      expect(stripTerminalSequences(read() ?? "")).toBe(
+        display === "compact" ? "0/1.0k" : "0/1.0k (0.0%)"
+      );
+
+      for (const [input, text] of [
+        [750, display === "compact" ? "750/1.0k" : "750/1.0k (75.0%)"],
+        [950, display === "compact" ? "950/1.0k" : "950/1.0k (95.0%)"]
+      ] as const) {
+        const message = createFixtureMessage(model, input);
+        message.usage = { ...zeroUsage(), input, totalTokens: input };
+        session.sessionManager.appendMessage(message);
+        expect(stripTerminalSequences(read() ?? "")).toBe(text);
+      }
+
+      session.setAutoCompactionEnabled(true);
+      expect(stripTerminalSequences(read() ?? "")).toBe(
+        {
+          regular: "950/1.0k (95.0%) (auto)",
+          compact: "950/1.0k (auto)",
+          verbose: "950/1.0k (95.0%) (auto ~800)"
+        }[display]
+      );
+      session.setAutoCompactionEnabled(false);
+      session.sessionManager.appendCompaction("summary", null, 950);
+      expect(stripTerminalSequences(read() ?? "")).toBe("?/1.0k");
+      session.setAutoCompactionEnabled(true);
+      expect(stripTerminalSequences(read() ?? "")).toBe(
+        display === "verbose" ? "?/1.0k (auto ~800)" : "?/1.0k (auto)"
+      );
+      const noModel = vi.spyOn(session, "model", "get").mockReturnValue(undefined);
+      expect(stripTerminalSequences(read() ?? "")).toBe("?/? (auto)");
+      expect(
+        stripTerminalSequences(
+          builtinText(session, host.footerDataProvider, ui.theme).get("builtin:model") ?? ""
+        )
+      ).toBe("no-model");
+      noModel.mockRestore();
+
+      session.agent.state.model = { ...model, contextWindow: 200000 };
+      const recovered = createFixtureMessage(model, 1000);
+      recovered.usage = { ...zeroUsage(), input: 95000, totalTokens: 95000 };
+      session.sessionManager.appendMessage(recovered);
+      expect(stripTerminalSequences(read() ?? "")).toBe(
+        {
+          regular: "95k/200k (47.5%) (auto)",
+          compact: "95k/200k (auto)",
+          verbose: "95k/200k (47.5%) (auto ~200k)"
+        }[display]
+      );
+    } finally {
+      reserve.mockRestore();
+      await fixture.dispose();
+    }
+  }
+);
+
+it("uses the active model's effective compaction reserve independently of the color threshold", async () => {
+  const fixture = await hostFixture();
+  const { session, host, ui } = fixture;
+  const read = (verbose = true) =>
+    stripTerminalSequences(
+      builtinText(session, host.footerDataProvider, ui.theme, {
+        contextThreshold: 90000,
+        contextDisplay: verbose ? "verbose" : "compact"
+      }).get("builtin:context") ?? ""
+    );
+
+  try {
     session.agent.state.model = { ...model, contextWindow: 200000 };
-    const recovered = createFixtureMessage(model, 1000);
-    recovered.usage = { ...zeroUsage(), input: 95000, totalTokens: 95000 };
-    session.sessionManager.appendMessage(recovered);
-    expect(stripTerminalSequences(read() ?? "")).toBe("95k/200k (47.5%) (auto)");
+    session.settingsManager.applyOverrides({
+      compaction: {
+        enabled: true,
+        reserveTokens: 16384,
+        modelOverrides: { "fixture/reasoning": { reserveTokens: 50000 } }
+      }
+    });
+    expect(read(false)).toBe("0/200k (auto)");
+    expect(read()).toBe("0/200k (0.0%) (auto ~150k)");
+    session.agent.state.model = { ...model, id: "other", contextWindow: 200000 };
+    expect(read()).toBe("0/200k (0.0%) (auto ~184k)");
+    session.settingsManager.applyOverrides({ compaction: { reserveTokens: 30000 } });
+    expect(read()).toBe("0/200k (0.0%) (auto ~170k)");
+    session.settingsManager.applyOverrides({ compaction: { reserveTokens: -1 } });
+    expect(read()).toBe("0/200k (0.0%) (auto ~?)");
+    session.setAutoCompactionEnabled(false);
+    expect(read()).toBe("0/200k (0.0%)");
   } finally {
     await fixture.dispose();
   }
@@ -131,7 +235,9 @@ it("colours context usage by window percentage, or by thirds of a configured tok
   const fixture = await hostFixture();
   const { session, host, ui } = fixture;
   const read = (threshold?: number) =>
-    builtinText(session, host.footerDataProvider, ui.theme, threshold).get("builtin:context");
+    builtinText(session, host.footerDataProvider, ui.theme, { contextThreshold: threshold }).get(
+      "builtin:context"
+    );
 
   const setUsage = (input: number) => {
     const message = createFixtureMessage(model, input);

@@ -1,6 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
   Container,
+  MouseRegion,
   Spacer,
   wrapTextWithAnsi,
   type Component,
@@ -35,6 +36,7 @@ export class WidgetCoordinator {
   private saved: Layout | undefined;
   private draft: Layout | undefined;
   private contextThreshold: number | undefined;
+  private readonly verbose = { context: false, tokens: false };
   private active = true;
   private readonly nativeFooter: WidgetHost["setExtensionFooter"];
   private unsubscribe: (() => void) | undefined;
@@ -104,6 +106,14 @@ export class WidgetCoordinator {
     this.host.ui.requestRender();
   }
 
+  toggleUsage(widget: "context" | "tokens"): boolean {
+    if (!this.active || this.host.renderer.mode !== "fullscreen") return false;
+    this.verbose[widget] = !this.verbose[widget];
+    this.host.ui.requestRender();
+
+    return true;
+  }
+
   /** Render an unsaved menu draft in the live regions; `undefined` restores the saved layout. */
   showDraft(layout: Layout | undefined): void {
     if (JSON.stringify(layout) === JSON.stringify(this.draft)) return;
@@ -147,11 +157,19 @@ export class WidgetCoordinator {
       }
     }
 
+    const fullscreen = this.host.renderer.mode === "fullscreen";
+    const contextDisplay = this.verbose.context ? "verbose" : "compact";
+    const tokensDisplay = this.verbose.tokens ? "verbose" : "compact";
+
     for (const [id, value] of builtinText(
       this.host.session,
       this.host.footerDataProvider,
       this.theme(),
-      this.contextThreshold
+      {
+        contextThreshold: this.contextThreshold,
+        contextDisplay: fullscreen ? contextDisplay : "regular",
+        tokensDisplay: fullscreen ? tokensDisplay : "regular"
+      }
     ))
       this.setText(id, value);
     for (const [key, value] of this.host.footerDataProvider.getExtensionStatuses())
@@ -169,12 +187,26 @@ export class WidgetCoordinator {
   }
 
   private setText(id: string, value: string): void {
-    this.registry.set(id, {
-      id,
-      region: "footer",
-      component: textComponent(value),
-      available: true
-    });
+    let component = textComponent(value);
+
+    if (
+      (id === "builtin:context" || id === "builtin:tokens") &&
+      this.host.renderer.mode === "fullscreen"
+    ) {
+      const widget = id === "builtin:context" ? "context" : "tokens";
+      component = new MouseRegion(component, (event) => {
+        if (!this.active || this.host.renderer.mode !== "fullscreen" || event.button !== "left")
+          return undefined;
+        // Claim the press so Pi delivers a click instead of starting text selection.
+        if (event.type === "press") return { handled: true, render: false };
+        if (event.type !== "click") return undefined;
+        this.toggleUsage(widget);
+
+        return { handled: true };
+      });
+    }
+
+    this.registry.set(id, { id, region: "footer", component, available: true });
   }
 
   private bindRenderer(): void {

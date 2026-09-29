@@ -10,7 +10,97 @@ import { defaultLayout } from "../src/layout.ts";
 
 const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
 
-it("/widgets accepts no arguments and saves the global draft selected in the menu, not the project override", async () => {
+it.each(
+  (["regular", "fullscreen"] as const).flatMap((mode) =>
+    (["context", "tokens"] as const).map((widget) => [mode, widget] as const)
+  )
+)("starting in %s, toggles %s only in fullscreen without persistence", async (mode, widget) => {
+  const fixture = await hostFixture([editorWidgets], mode);
+  const { session, host } = fixture;
+  const usage = vi.spyOn(session, "getContextUsage").mockReturnValue({
+    tokens: 75000,
+    contextWindow: 200000,
+    percent: 37.5
+  });
+  const stats = vi.spyOn(session, "getSessionStats").mockReturnValue({
+    ...session.getSessionStats(),
+    tokens: { input: 100, output: 10, cacheRead: 900, cacheWrite: 50, total: 1060 },
+    cost: 1.25
+  });
+  const text = {
+    context: {
+      compact: "75k/200k (auto)",
+      verbose: "75k/200k (37.5%) (auto ~150k)",
+      regular: "75k/200k (37.5%) (auto)"
+    },
+    tokens: {
+      compact: "↑100 ↓10",
+      verbose: "↑100 ↓10 R900 W50 $1.250",
+      regular: "↑100 ↓10 R900 W50 $1.250"
+    }
+  }[widget];
+  const path = join(fixture.agentDir, "settings.json");
+  mkdirSync(fixture.agentDir, { recursive: true });
+  const source = JSON.stringify({ "ext.pi-editor-widgets": { contextThreshold: 150000 } });
+  writeFileSync(path, source);
+  session.settingsManager.applyOverrides({ compaction: { enabled: true, reserveTokens: 50000 } });
+
+  try {
+    await fixture.bind();
+    const runner = session.extensionRunner;
+    const ctx = runner.createCommandContext();
+    const editor = host.editorContainer.children[0];
+    const notify = vi.spyOn(ctx.ui, "notify");
+    const footer = () => plain(host.footerContainer.render(100));
+
+    const assertCompact = () => {
+      expect(footer()).toContain(text.compact);
+      expect(footer()).not.toContain(text.verbose);
+    };
+
+    if (mode === "regular") {
+      expect(footer()).toContain(text.regular);
+      await runner.getCommand("widgets")?.handler(widget, ctx);
+      expect(footer()).toContain(text.regular);
+      expect(notify).toHaveBeenLastCalledWith(
+        `/widgets ${widget} requires fullscreen TUI mode.`,
+        "error"
+      );
+      host.switchTuiMode("fullscreen", false, false);
+    }
+
+    assertCompact();
+    await runner.getCommand("widgets")?.handler(` ${widget} `, ctx);
+    expect(footer()).toContain(text.verbose);
+    // The other metric keeps its independent compact selection.
+    if (widget === "tokens") expect(footer()).toContain("75k/200k (auto)");
+    else expect(footer()).not.toContain("R900");
+    expect(host.editorContainer.children[0]).toBe(editor);
+    host.switchTuiMode("regular", false, false);
+    expect(footer()).toContain(text.regular);
+    await runner.getCommand("widgets")?.handler(widget, ctx);
+    expect(footer()).toContain(text.regular);
+    expect(notify).toHaveBeenLastCalledWith(
+      `/widgets ${widget} requires fullscreen TUI mode.`,
+      "error"
+    );
+    host.switchTuiMode("fullscreen", false, false);
+    expect(footer()).toContain(text.verbose);
+    await runner.getCommand("widgets")?.handler(widget, ctx);
+    assertCompact();
+    await runner.getCommand("widgets")?.handler(widget, ctx);
+    host.resetExtensionUI();
+    await session.reload();
+    assertCompact();
+    expect(readFileSync(path, "utf8")).toBe(source);
+  } finally {
+    stats.mockRestore();
+    usage.mockRestore();
+    await fixture.dispose();
+  }
+});
+
+it("/widgets rejects unknown arguments and saves the global draft selected in the menu, not the project override", async () => {
   const fixture = await hostFixture([editorWidgets]);
   const globalPath = join(fixture.agentDir, "settings.json");
   mkdirSync(fixture.agentDir, { recursive: true });
@@ -35,7 +125,7 @@ it("/widgets accepts no arguments and saves the global draft selected in the men
 
     for (const args of ["global", "project", "invalid"]) {
       await command?.handler(args, ctx);
-      expect(notify).toHaveBeenLastCalledWith("Usage: /widgets", "error");
+      expect(notify).toHaveBeenLastCalledWith("Usage: /widgets [context|tokens]", "error");
       expect(fixture.host.editorContainer.children[0]).toBe(editor);
     }
 

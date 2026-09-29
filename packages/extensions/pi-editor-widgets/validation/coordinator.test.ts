@@ -1,4 +1,10 @@
-import { Container, Text, stripTerminalSequences, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import {
+  Container,
+  Text,
+  stripTerminalSequences,
+  wrapTextWithAnsi,
+  type TuiMouseEvent
+} from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -163,6 +169,197 @@ it.each([20])("keeps native mouse geometry after wrapping %i-column widgets", as
     await fixture.dispose();
   }
 });
+
+it.each(
+  (["aboveEditor", "belowEditor", "footer"] as const).flatMap((region) =>
+    (["context", "tokens"] as const).map((widget) => [region, widget] as const)
+  )
+)("clicking %s toggles every %s copy without focus or persistence", async (region, widget) => {
+  const fixture = await hostFixture([], "fullscreen");
+  const { host, ui, session } = fixture;
+  const usage = vi.spyOn(session, "getContextUsage").mockReturnValue({
+    tokens: 75000,
+    contextWindow: 200000,
+    percent: 37.5
+  });
+  const stats = vi.spyOn(session, "getSessionStats").mockReturnValue({
+    ...session.getSessionStats(),
+    tokens: { input: 100, output: 10, cacheRead: 900, cacheWrite: 50, total: 1060 },
+    cost: 1.25
+  });
+  const text = {
+    context: {
+      compact: "75k/200k (auto)",
+      verbose: "75k/200k (37.5%) (auto ~150k)",
+      regular: "75k/200k (37.5%) (auto)"
+    },
+    tokens: {
+      compact: "↑100 ↓10",
+      verbose: "↑100 ↓10 R900 W50 $1.250",
+      regular: "↑100 ↓10 R900 W50 $1.250"
+    }
+  }[widget];
+  const id = `builtin:${widget}`;
+  session.settingsManager.applyOverrides({ compaction: { enabled: true, reserveTokens: 50000 } });
+  ui.setStatus("left", "LEFT");
+  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+
+  try {
+    const layout = defaultLayout();
+    layout.hidden = layout.footer
+      .flat()
+      .filter((candidate) => candidate.startsWith("builtin:") && candidate !== id);
+    layout.aboveEditor = [["status:left", "separator", id]];
+    layout.belowEditor = [["status:left", "separator", id]];
+    layout.footer = [["status:left", "separator", id]];
+    coordinator.apply(layout, 150000);
+    const containers = {
+      aboveEditor: host.widgetContainerAbove,
+      belowEditor: host.widgetContainerBelow,
+      footer: host.footerContainer
+    };
+    const container = containers[region];
+
+    const assertCopies = (text: string) => {
+      for (const copy of Object.values(containers))
+        expect(copy.render(80).join("\n")).toContain(
+          ui.theme.fg(widget === "context" ? "success" : "dim", text)
+        );
+    };
+
+    assertCopies(text.compact);
+    const lines = container.render(80).map(stripTerminalSequences);
+    const y = lines.findIndex((line) => line.includes(text.compact));
+    const x = lines[y]!.indexOf(text.compact);
+    const event: TuiMouseEvent = {
+      type: "press",
+      button: "left",
+      x,
+      y,
+      screenX: x,
+      screenY: y,
+      width: 80,
+      height: lines.length,
+      shift: false,
+      alt: false,
+      ctrl: false
+    };
+    const entries = session.sessionManager.getEntries();
+    const settings = session.settingsManager.getGlobalSettings();
+    for (const ignored of [
+      { type: "wheel", wheelDelta: 1 },
+      { type: "click", button: "right" },
+      { type: "click", x: 79 },
+      { type: "drag" }
+    ] satisfies Partial<TuiMouseEvent>[])
+      expect(container.handleMouse({ ...event, ...ignored })).toBeUndefined();
+    const press = container.handleMouse(event);
+    expect(press).toMatchObject({ handled: true });
+    expect(press?.focus).not.toBe(true);
+    assertCopies(text.compact);
+    container.handleMouse({ ...event, type: "release" });
+    const requestRender = vi.spyOn(host.renderer, "requestRender");
+    const click = container.handleMouse({ ...event, type: "click" });
+    expect(click).toMatchObject({ handled: true });
+    expect(click?.focus).not.toBe(true);
+    expect(requestRender).toHaveBeenCalled();
+    requestRender.mockRestore();
+    assertCopies(text.verbose);
+    coordinator.showDraft(layout);
+    assertCopies(text.verbose);
+    coordinator.showDraft(undefined);
+    coordinator.apply(layout, 150000);
+    assertCopies(text.verbose);
+    container.handleMouse({ ...event, type: "click" });
+    assertCopies(text.compact);
+    host.switchTuiMode("regular", false, false);
+    assertCopies(text.regular);
+    expect(container.handleMouse(event)).toBeUndefined();
+    expect(container.handleMouse({ ...event, type: "click" })).toBeUndefined();
+    expect(coordinator.toggleUsage(widget)).toBe(false);
+    assertCopies(text.regular);
+    host.switchTuiMode("fullscreen", false, false);
+    assertCopies(text.compact);
+    expect(session.sessionManager.getEntries()).toEqual(entries);
+    expect(session.settingsManager.getGlobalSettings()).toEqual(settings);
+  } finally {
+    stats.mockRestore();
+    usage.mockRestore();
+    coordinator.dispose();
+    await fixture.dispose();
+  }
+});
+
+it.each([
+  ["context", "75k/200k (auto)", "75k/200k (37.5%) (auto ~150k)"],
+  ["tokens", "↑100 ↓10", "↑100 ↓10 R900 W50 $1.250"]
+] as const)(
+  "routes native press/release to a wrapped %s widget across redraws",
+  async (widget, compact, verbose) => {
+    const fixture = await hostFixture([], "fullscreen");
+    const { host, ui, session, terminal } = fixture;
+    terminal.columns = 40;
+    terminal.rows = 10;
+    const usage = vi.spyOn(session, "getContextUsage").mockReturnValue({
+      tokens: 75000,
+      contextWindow: 200000,
+      percent: 37.5
+    });
+    const stats = vi.spyOn(session, "getSessionStats").mockReturnValue({
+      ...session.getSessionStats(),
+      tokens: { input: 100, output: 10, cacheRead: 900, cacheWrite: 50, total: 1060 },
+      cost: 1.25
+    });
+    session.settingsManager.applyOverrides({ compaction: { enabled: true, reserveTokens: 50000 } });
+    const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+    const start = vi.spyOn(host.renderer.terminal, "start");
+
+    try {
+      const id = `builtin:${widget}`;
+      const layout = defaultLayout();
+      layout.hidden = layout.footer
+        .flat()
+        .filter((candidate) => candidate.startsWith("builtin:") && candidate !== id);
+      layout.footer = [["status:left", "separator", id]];
+      coordinator.apply(layout);
+      ui.setStatus("left", "L".repeat(32));
+      host.renderer.setFocus(host.editorContainer.children[0]!);
+      host.renderer.start();
+      const input = start.mock.calls[0]![0];
+      const footer = () =>
+        host.footerContainer.render(terminal.columns).map(stripTerminalSequences);
+
+      const assertDisplay = (text: string) => {
+        host.renderer.renderNow();
+        expect(footer()).toEqual(["L".repeat(32), text]);
+      };
+
+      // The final footer row is docked to the bottom of the native fullscreen layout.
+      const press = `\x1b[<0;1;${terminal.rows}M`;
+      const release = `\x1b[<0;1;${terminal.rows}m`;
+      assertDisplay(compact);
+      input(press);
+      assertDisplay(compact);
+      // Native dispatch must retain the pressed target when a new frame replaces its component.
+      host.ui.requestRender();
+      assertDisplay(compact);
+      input(release);
+      assertDisplay(verbose);
+      input("x");
+      expect(ui.getEditorText()).toBe("x");
+      input(press);
+      input(release);
+      assertDisplay(compact);
+    } finally {
+      start.mockRestore();
+      stats.mockRestore();
+      usage.mockRestore();
+      host.renderer.stop();
+      coordinator.dispose();
+      await fixture.dispose();
+    }
+  }
+);
 
 it("discovers before/after startup registrations through real extension binding", async () => {
   const fixture = await hostFixture([

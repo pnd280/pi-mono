@@ -26,13 +26,22 @@ export function formatCwd(cwd: string, home = process.env.HOME || process.env.US
   return compactDisplayText(inside ? `~${path ? sep + path : ""}` : cwd);
 }
 
-function tokens(session: AgentSession): string {
+type UsageDisplay = "regular" | "compact" | "verbose";
+
+function tokens(session: AgentSession, display: UsageDisplay): string {
   const { tokens: usage, cost } = session.getSessionStats();
   const parts: string[] = [];
 
   for (const [key, prefix] of [
     ["input", "↑"],
-    ["output", "↓"],
+    ["output", "↓"]
+  ] as const) {
+    if (usage[key]) parts.push(`${prefix}${formatTokens(usage[key])}`);
+  }
+
+  if (display === "compact") return parts.join(" ");
+
+  for (const [key, prefix] of [
     ["cacheRead", "R"],
     ["cacheWrite", "W"]
   ] as const) {
@@ -80,15 +89,33 @@ function contextColor(
   return "dim";
 }
 
-function context(session: AgentSession, theme: Theme, threshold: number | undefined): string {
+function context(
+  session: AgentSession,
+  theme: Theme,
+  threshold: number | undefined,
+  display: UsageDisplay
+): string {
   const usage = session.getContextUsage();
   const tokens = usage?.tokens;
   const percent = usage?.percent;
   const window = usage?.contextWindow ?? session.model?.contextWindow;
   const used = tokens == null ? "?" : formatTokens(tokens);
   const total = window === undefined ? "?" : formatTokens(window);
-  const share = percent == null ? "" : ` (${percent.toFixed(1)}%)`;
-  const auto = session.autoCompactionEnabled ? " (auto)" : "";
+  const share = display === "compact" || percent == null ? "" : ` (${percent.toFixed(1)}%)`;
+  let auto = session.autoCompactionEnabled ? " (auto)" : "";
+
+  if (auto && display === "verbose" && window !== undefined) {
+    let trigger = "?";
+
+    try {
+      const reserve = session.settingsManager.getCompactionReserveTokens(session.model);
+      trigger = formatTokens(window - reserve);
+    } catch {
+      // Invalid native compaction settings must not break the widget render loop.
+    }
+
+    auto = ` (auto ~${trigger})`;
+  }
 
   return theme.fg(contextColor(tokens, percent, threshold), `${used}/${total}${share}${auto}`);
 }
@@ -97,7 +124,15 @@ export function builtinText(
   session: AgentSession,
   footer: ReadonlyFooterDataProvider,
   theme: Theme,
-  contextThreshold?: number
+  {
+    contextThreshold,
+    contextDisplay = "regular",
+    tokensDisplay = "regular"
+  }: {
+    contextThreshold?: number | undefined;
+    contextDisplay?: UsageDisplay;
+    tokensDisplay?: UsageDisplay;
+  } = {}
 ): Map<string, string> {
   const model = session.model;
   let modelText = "no-model";
@@ -111,8 +146,8 @@ export function builtinText(
       "builtin:session-title",
       theme.fg("dim", compactDisplayText(session.sessionManager.getSessionName() ?? ""))
     ],
-    ["builtin:tokens", theme.fg("dim", tokens(session))],
-    ["builtin:context", context(session, theme, contextThreshold)],
+    ["builtin:tokens", theme.fg("dim", tokens(session, tokensDisplay))],
+    ["builtin:context", context(session, theme, contextThreshold, contextDisplay)],
     ["builtin:model", theme.fg("dim", compactDisplayText(modelText))]
   ]);
 }
