@@ -4,6 +4,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadCompactConfig, type CompactConfig } from "./config.ts";
 import { renderSummaryModel, summaryModelEntryType, type SummaryModelEntry } from "./entry.ts";
 import { bindNativeCompaction } from "./native.ts";
+import { compactionStatusKey, updateCompactionStatus } from "./status.ts";
 
 export default function smartCompact(pi: ExtensionAPI) {
   pi.registerEntryRenderer(summaryModelEntryType, renderSummaryModel);
@@ -33,6 +34,7 @@ export default function smartCompact(pi: ExtensionAPI) {
     binding?.dispose();
     binding = undefined;
     config = {};
+    updateCompactionStatus(ctx);
 
     try {
       config = loadCompactConfig(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
@@ -47,11 +49,20 @@ export default function smartCompact(pi: ExtensionAPI) {
       throw error;
     }
   });
-  pi.on("agent_settled", () => binding?.clear());
-  pi.on("session_shutdown", () => {
+  // session_compact fires only after a compaction entry is persisted, so failures never count.
+  pi.on("session_compact", (_event, ctx) => updateCompactionStatus(ctx));
+  pi.on("session_tree", (_event, ctx) => updateCompactionStatus(ctx));
+  // Boundary-proposed compactions persist without session_compact, after their handlers finish.
+  pi.on("turn_start", (_event, ctx) => updateCompactionStatus(ctx));
+  pi.on("agent_settled", (_event, ctx) => {
+    binding?.clear();
+    updateCompactionStatus(ctx);
+  });
+  pi.on("session_shutdown", (_event, ctx) => {
     binding?.dispose();
     binding = undefined;
     config = {};
+    ctx.ui.setStatus(compactionStatusKey, undefined);
   });
   pi.registerTool({
     name: "compact",

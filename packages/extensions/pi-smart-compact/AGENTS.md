@@ -8,6 +8,7 @@
 - [src/config.ts](src/config.ts): global and trusted project settings, scope-relative instruction files, and startup/reload loading.
 - [src/summarize.ts](src/summarize.ts): operation-scoped model, thinking, and instruction overrides.
 - [src/instructions.ts](src/instructions.ts): native split-turn prompt focus.
+- [src/status.ts](src/status.ts): footer count of successful compactions on the active branch.
 - [src/entry.ts](src/entry.ts): context-free summary-model entry data and rendering.
 - [src/outcome.ts](src/outcome.ts): native outcome observation, skip classification, and status text.
 - [validation/](validation/): offline CLI provider, subprocess scenarios, and SDK lifecycle checks.
