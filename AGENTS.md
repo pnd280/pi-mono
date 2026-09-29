@@ -9,9 +9,9 @@
 
 ## Task references
 
-| Task                                                                                                  | Guidance                                                                                                   |
-| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Change behavior or refactor                                                                           | [Code organization and reuse](docs/agents/architecture.md), [workspace architecture](docs/architecture.md) |
-| Choose coverage, edit tests, or review tests                                                          | [Testing](docs/agents/testing.md)                                                                          |
-| Validate changes, edit TypeScript or tooling, configure packages, update dependencies, or use Pi APIs | [Development](docs/development.md)                                                                         |
-| Install the workspace or resolve prerequisites                                                        | [Setup](README.md#setup)                                                                                   |
+| Task                                                                                                  | Guidance                                                   |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Change behavior or refactor                                                                           | [Code organization and reuse](docs/agents/architecture.md) |
+| Choose coverage, edit tests, or review tests                                                          | [Testing](docs/agents/testing.md)                          |
+| Validate changes, edit TypeScript or tooling, configure packages, update dependencies, or use Pi APIs | [Development](docs/development.md)                         |
+| Install the workspace or resolve prerequisites                                                        | [Setup](README.md#setup)                                   |

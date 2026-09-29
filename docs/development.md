@@ -14,9 +14,7 @@ The pre-commit hook rejects em dashes (U+2014) in staged text; it does not run [
 
 ## Code and tooling
 
-Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts), also discovered from package directories. Lint warnings fail checks.
-
-Each package under `packages/` provides `lint`, `check`, `test`, and `format`. `check` verifies formatting, then runs `lint` for linting and types. Tests follow the [runner convention](agents/testing.md#runner).
+Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts). Lint warnings fail checks. Tests follow the [runner convention](agents/testing.md#runner).
 
 Fix implementation diagnostics without weakening shared checks; explain narrow exceptions.
 
@@ -31,7 +29,7 @@ vpr '<package-name>#check'
 vpr '<package-name>#test'
 ```
 
-Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<package-name>#lint'`. Select packages by pattern, dependency, or dependent with `vpr --filter <pattern> <task>`.
+Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<package-name>#lint'`.
 
 Workspace commands:
 
@@ -47,29 +45,21 @@ Use `vpr check` for the repository's `stylish` lint format; the built-in `vp che
 
 ### Test caching
 
-Package test scripts are uncached by default. Use `vpr --no-cache '<package-name>#test'` to force execution.
-
-To verify caching:
-
-1. Run `vpr -r --cache test` twice without changing inputs.
-2. Inspect cache hits and misses with `vp run --last-details`. For fixture-related misses, see [filesystem fixtures](agents/testing.md#filesystem-fixtures).
+Package tests are uncached by default. If investigating cache misses, run `vpr -r --cache test` twice and inspect `vp run --last-details`. Mutable workspace fixtures can invalidate cache inputs; see [filesystem fixtures](agents/testing.md#filesystem-fixtures).
 
 ## Packages and dependencies
 
 ### Package structure
 
-- Set a unique name, `"private": true`, and `"type": "module"` in `package.json`. Use `@pi-mono/<package-name>` for internal packages and extension names such as `pi-fff-guard` for extensions.
-- Put TypeScript in `src/` and offline launchers/providers in package-local `validation/`. Runtime code must not import validation code. Discover validation tests in root and package suites.
-- Extend [tsconfig.base.json](../tsconfig.base.json) in each package's `tsconfig.json`, including source, tests, and validation fixtures.
-- Declare supported entry points in `exports`. Use declared package names and subpaths across packages; keep relative imports within a package.
+Keep runtime code independent of package-local `validation/` fixtures. Across packages, import declared package names and subpaths rather than relative paths. See the boundary rules in [vite.config.ts](../vite.config.ts).
 
 ### Dependencies
 
-Keep shared development tooling and Pi host packages in root `devDependencies`; declare package-specific dependencies locally. Use `workspace:*` for local packages and `catalog:` for all external dependency versions in [pnpm-workspace.yaml](../pnpm-workspace.yaml). Pi `peerDependencies` use `catalog:pi-host`, preserving the host-supplied `*` ranges separately from the root's development versions.
+Keep shared development tooling and Pi host packages in root `devDependencies`; declare package-specific dependencies locally. Use `workspace:*` for local packages and `catalog:` for external versions in [pnpm-workspace.yaml](../pnpm-workspace.yaml). Pi `peerDependencies` use `catalog:pi-host` to retain host-supplied versions independently of development versions.
 
 Use `vp add --save-catalog`, `vp remove`, or `vp update`; include pnpm lockfile changes.
 
-Keep the direct `vite` alias for Vitest's pnpm peer dependency. Let `vite-plus` select its transitive `vitest` version rather than pinning or overriding Vitest. On Vite+ updates, align the `vite` alias and override with `vp toolchain`.
+When updating Vite+, keep the direct `vite` alias and override aligned with `vp toolchain` for Vitest's pnpm peer dependency; let Vite+ select its transitive Vitest version.
 
 ### Pi extension entry points
 
@@ -85,32 +75,21 @@ Set `pi.extensions` to `["./index.ts"]`; include the wrapper in `tsconfig.json` 
 
 ## Documentation
 
-Correct inaccurate guidance and document what readers need to use or maintain the project. Omit self-explanatory code and configuration details. Keep entry documents task-focused, essential prerequisites and constraints inline, and details in canonical references.
+Correct inaccurate guidance and document what readers need to use or maintain the project. Keep entry documents short: purpose, practical setup, and constraints needed by all readers belong inline. Put substantial task-specific guidance behind a link that says when to follow it. Prefer source links over prose repeating implementation or configuration; retain non-obvious rationale and observable limits.
 
 Use one H1, sentence-case headings, consecutive heading levels, numbered procedures, bullets for unordered items, tables for lookup/comparison, and language-tagged fences.
 
 ### Package READMEs
 
-Each package needs a short `README.md` stating its purpose and when to use it, followed by these H2 sections:
-
-| Section       | Content                                                                                                              |
-| ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Usage         | Package instructions and necessary examples; no generic extension-loading commands.                                  |
-| Configuration | Options, environment variables, and defaults. State when absent.                                                     |
-| Side effects  | Observable writes, persistent state changes, network requests, or explicitly none.                                   |
-| Validation    | [Focused commands](#focused-validation) with the package name, or runnable package commands; required manual checks. |
-
-Add sections such as `Compatibility` as needed.
+Each package README states its purpose and when to use it. Include `Usage` for actual package steps, `Configuration` for choices not obvious from source, `Side effects` for important writes or requests, and `Validation` for package-specific checks or manual prerequisites, only when there is substantive content. Do not repeat generic extension-loading commands or workspace checks in every package.
 
 ### Package instructions
 
-Each package needs an `AGENTS.md` with `Code navigation`, `Constraints`, and `Validation` sections. Separate source locations from package-wide rules; link to the README and shared conventions rather than duplicate them.
-
-Each package also needs a `docs/pi-compatibility.md` checklist of Pi contracts to verify, limitations and replacement opportunities, and validation.
+Use a package `AGENTS.md` for non-obvious boundaries and conditional pointers to specialized guidance, not a mandatory inventory of source files or a repeat of the README. Maintain a Pi compatibility checklist when the package relies on Pi contracts that need rechecking on upgrade; do not require an empty checklist for packages without such contracts.
 
 ### Guides and references
 
-Give each guide one primary task or topic and a link to its package or workspace entry document. Keep short, cohesive topics together. Component references use `Behavior`, `Caller responsibilities`, optional `Usage`, and a separate `Validation` section.
+Give each guide one primary task or topic and a link to its package or workspace entry document. Keep short, cohesive topics together; use headings only for content that benefits from separation.
 
 Update incoming fragment links when renaming or removing headings.
 

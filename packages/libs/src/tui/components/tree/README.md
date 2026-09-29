@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`@pi-mono/libs/tui/components/tree`](index.ts) adds connectors to already measured rows.
+[`renderTree`](index.ts) adds connectors to already measured rows.
 
 `renderTree` omits empty items before assigning branches, aligns continuations, and clips connectors/content to width. `followingSibling` continues connectors into later components' fragments.
 
@@ -15,7 +15,3 @@
 Callers choose item order, grouping, and visibility. They normalize and wrap content before creating `TreeItem` rows, reserving `indent + 2` columns for connectors. The [budgeted tree example](../../text-budget/README.md#usage) combines text compaction with connectors.
 
 Notices and metadata that belong to an item remain in that item's rows. Callers also decide whether later fragments or children exist.
-
-## Validation
-
-Use the [package validation commands](../../../../README.md#validation).

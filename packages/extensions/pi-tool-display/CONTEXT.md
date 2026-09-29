@@ -2,6 +2,12 @@
 
 Presents Pi tool calls in the transcript as cards, exploration groups, and run summaries without changing tool execution or saved results.
 
+## Design boundaries
+
+The transcript owns call state and boundaries; adapters interpret verified tool contracts; rendering consumes that interpretation. This separation keeps presentation failures from changing tool behavior or silently turning output prose into operation facts. Native observations are opt-in facts for live TUI calls, not a substitute for Pi's published results. Saved history records only bounded evidence, so replay may say an outcome is unavailable rather than reconstructing one from text or the current filesystem.
+
+Groups are adjacent calls sharing a scope; runs span owned calls until a visible non-thinking boundary. Thinking may split groups without ending a run. Preserve this distinction when adding message types or adapting Pi rows. See [presentation](docs/presentation.md#summary-mode) for user-visible behavior and [compatibility](docs/pi-compatibility.md) for host assumptions.
+
 ## Language
 
 **Display adapter**:

@@ -2,7 +2,7 @@
 
 [Shared TUI](../../README.md#usage)
 
-`OrderSettingsView` edits item order independently for each scope, such as global and project settings. Import it from `@pi-mono/libs/tui/components/order-settings`.
+[`OrderSettingsView`](index.ts) edits item order independently for each scope, such as global and project settings.
 
 ## Behavior
 
@@ -19,8 +19,6 @@ Unset scopes inherit only saved, set `inheritFrom` sources. Source saves update 
 ## Caller responsibilities
 
 Supply at least one scope, unique scope/item IDs, duplicate-free initial orders, and each scope's destination, `order`, and `isSet`. Persisted orders, even empty, use `isSet: true`. Optional `inheritFrom` names another scope; local `order` is fallback for unset/unspecified sources.
-
-Provide the current theme and terminal row count through `theme` and `rows`, plus `requestRender` and `close` callbacks.
 
 Persist and apply the order in the `save` callback. Return `SettingsFeedback`, normally from `settingsSaveFeedback`, or throw an `Error` whose first line explains recovery and whose remaining lines give details. Optional `warnings` supplies initial load diagnostics. Configure `inheritFrom` according to actual precedence; global/project consumers must never inherit project overrides into global drafts. Call `updateItems` when items change.
 

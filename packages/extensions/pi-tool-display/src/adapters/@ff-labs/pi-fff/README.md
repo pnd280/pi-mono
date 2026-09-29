@@ -4,13 +4,7 @@
 
 ## Compatibility and selection
 
-`piFffAdapter(toolInfo)` verifies official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff) 0.10.6 provenance/schemas for:
-
-| Tool             | FFF override | Summary arguments         |
-| ---------------- | ------------ | ------------------------- |
-| `fffind`         | `find`       | `pattern`, `path`         |
-| `ffgrep`         | `grep`       | `pattern`, `path`         |
-| `fff-multi-grep` | `multi_grep` | `patterns`, `constraints` |
+`piFffAdapter(toolInfo)` verifies official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff) 0.10.6 provenance/schemas for its `fffind`, `ffgrep`, and `fff-multi-grep` tools and overridden `find`, `grep`, and `multi_grep` names. See [name classification](../../../../../../utils/src/fff-tools.ts) and the [resolver](index.ts) for current contracts.
 
 See [automatic selection](../../../../docs/adapters.md#automatic-selection) for renderer overrides and fallback policy.
 

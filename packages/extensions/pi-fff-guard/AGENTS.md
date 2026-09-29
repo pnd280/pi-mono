@@ -2,10 +2,8 @@
 
 ## Code navigation
 
-- **Tool interception and diagnostics:** [src/index.ts](src/index.ts) and [src/interception.test.ts](src/interception.test.ts). Package provenance and tool-name classification are shared in [fff-tools.ts](../../utils/src/fff-tools.ts).
-- **Inspection policy:** [src/evaluate-search.ts](src/evaluate-search.ts) and [src/evaluate-search.test.ts](src/evaluate-search.test.ts): allow/block decisions and diagnostics.
-- **Search scopes and missing paths:** [src/targets.ts](src/targets.ts). Pure brace expansion, fixed prefixes, and FFF path normalization are shared in [search-scopes.ts](../../utils/src/search-scopes.ts).
-- **Git protocol and symbolic links:** shared [Git ignore inspection](../../libs/src/git-ignore/README.md), with real-repository and worktree coverage in the [shared Git suite](../../libs/src/git-ignore/index.test.ts). [src/git-ignore.test.ts](src/git-ignore.test.ts) covers consumer fixture isolation.
+- [src/index.ts](src/index.ts): interception; official FFF provenance is shared in [utils](../../utils/src/fff-tools.ts).
+- [src/evaluate-search.ts](src/evaluate-search.ts) and [src/targets.ts](src/targets.ts): decisions and search scopes; [scope parsing](../../utils/README.md#search-scopes) and [Git ignore inspection](../../libs/src/git-ignore/README.md) are shared.
 
 ## Constraints
 
@@ -15,6 +13,4 @@ Treat explicit paths as data. Keep diagnostics to retry-tool hints, without repl
 
 ## Validation
 
-Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
-
-Use [package validation](README.md#validation). Do not make paid model requests for validation.
+Use [package validation](README.md#validation). For Pi/FFF upgrades or retirement, use the [compatibility checklist](docs/pi-compatibility.md).

@@ -1,17 +1,13 @@
 # [pi-miscs](README.md) development
 
-## Code navigation
-
-- [src/index.ts](src/index.ts): explicit registration of the bundled extensions; [index.ts](index.ts) is the Pi entry point.
-- `src/<name>.ts`: one small extension per file; colocate tests as `<name>.test.ts`.
+Register each new factory explicitly in [src/index.ts](src/index.ts); keep its behavior and tests together in `src/`.
 
 ## Constraints
 
 - Keep each extension independent; the entry point only composes factories in explicit order. Await asynchronous factories.
 - Do not scan directories or import tests automatically. Adding a source file must not register it implicitly.
 - Move larger features to a dedicated extension package rather than growing a second framework here.
-- Follow shared [development conventions](../../../docs/development.md) and [reuse guidance](../../../docs/agents/architecture.md).
 
 ## Validation
 
-Use [package validation](README.md#validation), the [coverage specification](docs/testing.md), and the [Pi compatibility checklist](docs/pi-compatibility.md). Keep validation offline.
+Run [package validation](README.md#validation). When adding behavior, consult [coverage boundaries](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md); keep validation offline.

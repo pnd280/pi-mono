@@ -12,7 +12,7 @@ Intercepts official FFF search tools and its native-tool overrides only when Pi 
 
 Ignored targets are blocked with a retry hint; missing explicit targets return `No such file or directory` before ignore checks. A bare filename such as `path: "main.ts"` is a recursive filter, not an explicit target that must exist locally.
 
-See [search scopes](docs/search-scopes.md) for normalization, globs, exclusions, repositories, and symlinks.
+For rooted globs, exclusions, repositories, and symlinks, see [search scopes](docs/search-scopes.md).
 
 ### Limits
 
@@ -22,7 +22,7 @@ Wrappers must dispatch children through Pi hooks; direct `execute()` bypasses de
 
 ## Configuration
 
-No options or extension-specific environment variables.
+No extension-specific configuration.
 
 ## Side effects
 
@@ -30,16 +30,8 @@ No persistent state, network requests, or project writes. Git inspection uses su
 
 ## Validation
 
-[Coverage specification](docs/testing.md).
-
-Use [focused checks](../../../docs/development.md#focused-validation) for `pi-fff-guard`.
+[Coverage specification](docs/testing.md) · [Pi compatibility](docs/pi-compatibility.md). Use [focused checks](../../../docs/development.md#focused-validation) for `pi-fff-guard`.
 
 ## Retirement
 
-After a released FFF version implements [FFF #714](https://github.com/dmtrKovalenko/fff/issues/714):
-
-1. Disable the guard.
-2. Check ignored-file, ignored-directory, and linked-dependency searches for every tool in use.
-3. If they pass, check missing explicit paths before retiring the guard; retain separate path validation if needed.
-
-The guard does not check FFF versions at runtime.
+After a released FFF version fixes [FFF #714](https://github.com/dmtrKovalenko/fff/issues/714), follow the [retirement checks](docs/pi-compatibility.md#retirement-checks) before removing the guard. It does not check FFF versions at runtime.

@@ -77,16 +77,7 @@ Files and directories count once per category by their lexically resolved path, 
 
 Only the latest outcome per file or directory counts: a later successful edit clears an earlier failed one. Items with unresolved calls append `(n failed)` or `(n cancelled)` in `error` and unknown historical outcomes `(n unavailable)` in `muted`.
 
-| Category | Wording                    |
-| -------- | -------------------------- |
-| Created  | `created N files`          |
-| Edited   | `edited N files`           |
-| Shell    | `ran N commands`           |
-| MCP      | `N MCP calls`              |
-| Other    | `<tool> ×N`, per tool name |
-| Search   | `N searches`               |
-| List     | `listed N dirs`            |
-| Read     | `read N files`             |
+The built-in categories cover creations, edits, shell commands, MCP calls, searches, listings, reads, and unmatched tool names. See [summary wording](../src/summary/categories.ts) for the current labels.
 
 [Instruction notices](../src/adapters/pi-nested-instructions/README.md#display) count once per persisted file path and action, or directory for removals. Their counts remain separate from tool outcomes and file-read counts.
 
@@ -116,17 +107,7 @@ Confirmed cancellation lets compact native cards omit exact known cancellation m
 
 ## Notices and colors
 
-| Content                                                                                   | Color                                                                                          |
-| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Successful summaries, information, expansion hints                                        | `dim`                                                                                          |
-| Unknown historical observations                                                           | `muted`                                                                                        |
-| Cancellation diagnostics, unavailable patches/previews, omissions, actionable diagnostics | `warning`                                                                                      |
-| Standalone action/marker                                                                  | `accent` neutral/success, `warning` pending, `error` failure/cancellation, `muted` unavailable |
-| Group action/marker                                                                       | Shared member action color, or `accent` if mixed                                               |
-| Member labels                                                                             | Outcome-specific                                                                               |
-| Diagnostic bodies/error notices                                                           | `error`                                                                                        |
-
-Severity changes styling, never visibility; compact groups retain informational notices. Live/saved previews distinguish generated omissions from identical process text, which keeps ordinary styling. Generic output is not searched for extension phrases. See [adapter provenance limits](adapters.md#built-in-adapters).
+Severity changes styling, never visibility; compact groups retain informational notices. Failures and diagnostic bodies use error styling, cancellations and actionable limitations use warning, and unavailable historical facts use muted styling. Live/saved previews distinguish generated omissions from identical process text, which keeps ordinary styling. Generic output is not searched for extension phrases. See [adapter provenance limits](adapters.md#built-in-adapters).
 
 ## Diff viewer
 
@@ -146,17 +127,6 @@ A changed saved-output path or cache eviction discards the old preview. Late rea
 
 ## Resource limits
 
-Limits affect display, not execution or Pi's saved arguments/results. Live/saved budgets bound retained output; omission notices add bytes/rows.
+Limits affect display, not execution or Pi's saved arguments/results. Collapsed previews retain the head and tail; expansion restores only what Pi retained or what the bounded observation captured. Oversized highlighting falls back to readable unstyled text, and patch generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behavior). Exceeded limits make patches unavailable, not edits/writes unsuccessful. Persisted fact size includes unknown fields, so an oversized record is not replayable.
 
-| Resource           | Limit                                                                                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Collapsed headings | 16,384 normalized UTF-16 units per invocation, group scope, or exploration item before styling/wrapping.                                              |
-| Collapsed results  | 16,384 source UTF-16 units per block/preview, split equally between start/end before normalization/styling; carried ANSI state is extra.              |
-| Highlighting       | 512 KiB per text; code also stops above 10,000 lines or 4,096 bytes per line. Unstyled text remains readable.                                         |
-| Live shell output  | Full through 1 MiB; then first/last 50 completed lines plus partial line, at most 10,280 source bytes per line.                                       |
-| Saved previews     | Read 256 KiB total, split start/end for oversized files; retain 4,000 lines before omission notice. Eight cached previews and eight concurrent reads. |
-| Patch generation   | 8 MiB UTF-8 per snapshot, 50 ms worker dispatch-to-return, 2,000 changed-line edit distance. Native edit patches bypass these limits.                 |
-| Retained patches   | 128 KiB of raw UTF-8 before terminal normalization.                                                                                                   |
-| Persisted facts    | 160 KiB of serialized JSON per fact record, including its patch and any unknown fields.                                                               |
-
-Generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behavior); exceeded limits make patches unavailable. [Automatic integration](../README.md#observation-and-saved-history) collects output/generates patches; the [standalone factory](renderers.md) only formats supplied data.
+For current budgets see [target layout](../src/rendering/target-layout.ts), [preview formatting](../src/rendering/format.ts), [shell observation](../src/observation/), [saved previews](../src/transcript/session.ts), [patch limits](../src/diff.ts), and [record validation](../src/transcript/metadata.ts). [Automatic integration](../README.md#observation-and-saved-history) collects output/generates patches; the [standalone factory](renderers.md) only formats supplied data.

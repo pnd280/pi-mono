@@ -15,4 +15,4 @@
 - [Packages](../node_modules/@earendil-works/pi-coding-agent/docs/packages.md)
 - [Environment variables](../node_modules/@earendil-works/pi-coding-agent/docs/environment-variables.md)
 
-Before implementing Pi changes, read relevant documents fully, inspect examples, and follow related Markdown links. Resolve installed-documentation paths relative to the document, not the workspace root.
+When changing a Pi integration, consult the relevant installed API contract and examples. Resolve links inside installed documentation relative to that document, not the workspace root.

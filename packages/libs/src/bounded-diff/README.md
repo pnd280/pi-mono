@@ -8,14 +8,7 @@
 
 One shared off-main-thread worker serializes requests. Request timeouts exclude queue wait; startup has a separate deadline. An idle worker does not keep the process alive.
 
-Shared resource limits apply across consumers:
-
-| Resource               | Limit                                                                                                       |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Active and queued work | 64 MiB accounting budget: UTF-16 source/path strings plus a 1 KiB bookkeeping allowance per request.        |
-| Worker JavaScript heap | 64 MiB for the old generation and 16 MiB for the young generation. These do not bound total process memory. |
-
-Results distinguish oversized source/patches, binary input, exhausted budgets, full queue, and worker failure. The accounting budget is not a process-memory bound.
+Active and waiting inputs share a bounded accounting budget, not a process-memory bound. Results distinguish oversized source/patches, binary input, exhausted budgets, full queue, and worker failure. See the [processor](processor.ts) and [worker](worker.ts) for resource limits.
 
 ## Caller responsibilities
 

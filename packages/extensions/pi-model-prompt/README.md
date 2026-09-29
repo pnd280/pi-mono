@@ -61,13 +61,11 @@ Only the append section of the system prompt changes. Pi records changes in the 
 
 ## Validation
 
-[Coverage specification](docs/testing.md). For Pi upgrades and SDK directory overrides, see [compatibility](docs/pi-compatibility.md).
-
-Tests run offline. On Unix, the FIFO regression requires `mkfifo`.
-
 From the repository root:
 
 ```sh
 vpr 'pi-model-prompt#check'
 vpr 'pi-model-prompt#test'
 ```
+
+Tests run offline; the Unix FIFO regression requires `mkfifo`. See [testing boundaries](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md) for SDK directory overrides and upgrades.

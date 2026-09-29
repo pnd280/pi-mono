@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`highlightCodeBounded`](index.ts), exported from `@pi-mono/libs/tui/components/code-highlight`, limits Pi syntax highlighting by total bytes, line count, and bytes per line.
+[`highlightCodeBounded`](index.ts) limits Pi syntax highlighting by total bytes, line count, and bytes per line.
 
 Explicit language overrides path detection. Missing language or exceeded input limits returns unchanged text; generated ANSI does not count toward limits.
 
@@ -15,7 +15,7 @@ Explicit language overrides path detection. Missing language or exceeded input l
 - Pass display-safe text to `highlightCodeBounded`. It does not sanitize terminal controls.
 - Pass unsanitized source to `highlightCodeSelection`. Supply ordered, nonoverlapping ranges with a zero-based `line` index and UTF-16 offsets within that line. `start` is inclusive and `end` is exclusive.
 - Make `mark` preserve text and restore the caller's background after selection styling.
-- Choose the language and limits before rendering. Limits must be nonnegative safe integers. Invalid limits throw `RangeError`.
+- Choose the language and limits before rendering; see the [validated options](bounded.ts).
 - Retain original source separately for exact copying or restoration.
 
 ## Validation

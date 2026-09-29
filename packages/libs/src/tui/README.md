@@ -4,7 +4,7 @@
 
 ## Usage
 
-Import TUI APIs through `@pi-mono/libs/tui/*`.
+Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [package exports](../../package.json)). Keep domain policy and I/O in consumers; shared components own presentation and interaction, not persistence.
 
 | Module                                                   | Responsibility                                                           |
 | -------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -24,14 +24,6 @@ Import TUI APIs through `@pi-mono/libs/tui/*`.
 | [Terminal text](terminal-text/README.md)                 | Display sanitization and unsafe-control detection                        |
 | [Glyphs](glyphs/README.md)                               | Shared activity markers and tree connector glyphs                        |
 | [Keybindings](keybindings/README.md)                     | Shortcut validation and canonicalization                                 |
-
-## Configuration
-
-No configuration files. Callers supply data, formatting, actions, Pi theme/keybindings, and domain policy/effects; components own layout/interaction.
-
-## Side effects
-
-No component filesystem, clipboard, process, or network I/O. Search/previews may schedule async work; host adapters mount Pi UI and dispose on closure/cancellation.
 
 ## Validation
 

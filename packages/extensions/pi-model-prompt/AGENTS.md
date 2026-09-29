@@ -1,11 +1,6 @@
 # [pi-model-prompt](README.md) development
 
-## Code navigation
-
-- [src/index.ts](src/index.ts): session-start loading, warnings, and the `before_agent_start` adapter.
-- [src/config.ts](src/config.ts): global settings schema, regex rules, and per-field first-match selection.
-- [src/append-files.ts](src/append-files.ts): base discovery mirroring Pi, scope-first variant precedence, and the replacement guard.
-- [src/index.test.ts](src/index.test.ts): offline host integration for model switches, CLI append text, and `/reload`.
+For rules change [src/config.ts](src/config.ts); for file precedence or explicit-text protection change [src/append-files.ts](src/append-files.ts). [src/index.ts](src/index.ts) owns the Pi event boundary.
 
 ## Constraints
 
@@ -13,6 +8,4 @@ Change prompts only through `systemPromptOptions`, never a forced `systemPrompt`
 
 ## Validation
 
-Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
-
-Use [package validation](README.md#validation) and shared [verification](../../../docs/agents/verification.md). Do not make paid model requests for validation.
+For Pi upgrades follow [compatibility](docs/pi-compatibility.md). Run [package validation](README.md#validation) offline; [testing](docs/testing.md) defines the coverage boundary.

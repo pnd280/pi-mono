@@ -94,11 +94,9 @@ Configured naming sends [selected conversation text](#automatic-session-names) t
 
 ## Validation
 
-[Coverage specification](docs/testing.md).
-
 ```sh
 vpr 'pi-session-utils#check'
 vpr 'pi-session-utils#test'
 ```
 
-See the [coverage specification](docs/testing.md) and [Pi compatibility checklist](docs/pi-compatibility.md). Fixture providers require no credentials or paid requests.
+See [testing boundaries](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md). Fixture providers require no credentials or paid requests.

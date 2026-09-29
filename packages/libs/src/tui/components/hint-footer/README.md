@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`renderHintFooter`](index.ts), exported from `@pi-mono/libs/tui/components/hint-footer`, fits hints to the visible terminal width, up to `maxRows`.
+[`renderHintFooter`](index.ts) fits hints to the visible terminal width, up to `maxRows`.
 
 Messages replace hints without changing height. Overflow sets `messageOverflow` and replaces the final row with `overflowText`; nonempty messages also overflow at zero rows.
 

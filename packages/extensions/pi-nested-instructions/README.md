@@ -4,7 +4,7 @@ Discover nested instruction files when the model accesses their scope. This exte
 
 ## Usage
 
-Use the supported tools normally. After each tool batch, newly discovered instructions appear as notices, broad to narrow, for the next model request. The triggering calls are not interrupted.
+Use native `read`, `ls`, `grep`, `find`, or `bash`, or official FFF search tools normally. After each tool batch, newly discovered instructions appear as notices, broad to narrow, for the next model request. The triggering calls are not interrupted.
 
 Load [pi-tool-display](../pi-tool-display/README.md) for compact, expandable notice cards; otherwise Pi displays full messages. Display consumers can use the `pi-nested-instructions/notices` export.
 
@@ -16,29 +16,13 @@ Discovery stays strictly below the session's working directory. Each addressed d
 4. `CLAUDE.md`
 5. `CLAUDE.MD`
 
-A file access starts at its parent; a directory access includes that directory. Scope follows the requested lexical path, not symlink-target ancestors. Direct external paths are ignored.
+A file access starts at its parent; a directory access includes that directory. Scope follows the requested lexical path, not symlink-target ancestors. Direct external paths are ignored. Exact instruction-file read attempts are recorded as metadata rather than injecting a second copy, even if the tool fails.
 
-### Direct instruction reads
-
-An attempted content read of an exact instruction-file path records **metadata only**, not a second copy of the file. Failed and blocked attempts count; results are not inspected.
-
-Markers are per file: reading `AGENTS.md` does not suppress a preferred `AGENTS.override.md`. Listing a filename is not a content read. Direct reads in a batch take precedence over automatic discovery.
-
-### Inputs and adapters
-
-Discovery infers scope from native `read`, `ls`, `grep`, `find`, and `bash` inputs and official FFF `fffind`, `ffgrep`, and `fff-multi-grep` (including their native overrides). Search content patterns, exclusions, fuzzy filenames, and cursor-only searches do not provide scope. Only rooted pattern prefixes and finite brace alternatives contribute directories; glob matches are never enumerated. A wildcard never counts as an exact instruction-file read.
-
-Bash inference recognizes literal paths in `cd`, `ls`, `cat`, `head`, `tail`, `sed`, `awk`, `grep`, `rg`, `find`, and `fd`. Unknown options, dynamic shell expressions, scripts, and ambiguous cwd changes are not interpreted; filename-only modes do not count as content reads. It never executes commands. See [scope extraction](src/scopes.ts) and [Bash inference](src/bash.ts) for supported operands and options.
-
-### Session lifetime
-
-If compaction, branch navigation, or context edits remove a notice or its originating read call from model-visible context, a later qualifying call can discover the file again. Metadata-only markers do not add instruction content.
-
-Ordinary accesses retain snapshots. Startup/resume and `/reload` recheck only still-visible scopes and announce changes or removals; compacted-away scopes are not eagerly restored.
+For supported tool inputs, Bash inference limits, and direct-read precedence, see [input discovery](docs/design.md#input-discovery). For compaction, branching, and reload behavior, see [session lifetime](docs/design.md#session-lifetime).
 
 ## Configuration
 
-No commands, settings, or extension-specific environment variables. Native Pi context-file configuration remains untouched.
+Native Pi context-file configuration remains untouched.
 
 ## Side effects
 
@@ -46,11 +30,11 @@ Reads filesystem metadata and applicable instruction files; appends metadata ent
 
 ## Validation
 
-[Coverage specification](docs/testing.md) · [Pi compatibility](docs/pi-compatibility.md) · [Design and sources](docs/design.md).
+[Coverage specification](docs/testing.md) · [Pi compatibility](docs/pi-compatibility.md).
 
 ```sh
 vpr 'pi-nested-instructions#check'
 vpr 'pi-nested-instructions#test'
 ```
 
-Notice rendering checks belong to the [pi-tool-display adapter](../pi-tool-display/src/adapters/pi-nested-instructions/README.md#validation).
+If changing notice presentation, check the [pi-tool-display adapter](../pi-tool-display/src/adapters/pi-nested-instructions/README.md#validation).

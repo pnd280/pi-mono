@@ -10,7 +10,15 @@
 ## Limitations and replacement opportunities
 
 - [Direct `execute()` bypasses hooks](../README.md#limits). Revisit public nested-tool dispatch/interception APIs and actual FFF wrapper behavior.
-- [FFF retirement criteria](../README.md#retirement): upstream ignored-path support could remove the guard; verify missing-path handling separately. This depends on the installed FFF release, not Pi alone.
+- Upstream ignored-path support could remove the guard; follow the [retirement checks](#retirement-checks) against the installed FFF release, not Pi alone.
+
+## Retirement checks
+
+After a released FFF version implements [FFF #714](https://github.com/dmtrKovalenko/fff/issues/714):
+
+1. Disable the guard.
+2. Check ignored-file, ignored-directory, and linked-dependency searches for every tool in use.
+3. If they pass, check missing explicit paths before retiring the guard; retain separate path validation if needed.
 
 ## Validation
 

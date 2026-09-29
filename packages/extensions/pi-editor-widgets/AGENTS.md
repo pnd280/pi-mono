@@ -1,15 +1,6 @@
 # [pi-editor-widgets](README.md) development
 
-## Code navigation
-
-- [src/index.ts](src/index.ts): TUI lifecycle, preferences, and `/widgets` mounting.
-- [src/host.ts](src/host.ts): capability-checked installed-host discovery.
-- [src/coordinator.ts](src/coordinator.ts): borrowed registries, region adapters, and footer ownership.
-- [src/render.ts](src/render.ts): row layout and mouse geometry.
-- [src/builtins.ts](src/builtins.ts): native session metrics and footer data.
-- [src/layout.ts](src/layout.ts), [src/settings.ts](src/settings.ts): layout validation/defaults and trusted whole-layout persistence.
-- [src/drafts.ts](src/drafts.ts), [src/menu.ts](src/menu.ts), [src/menu-view.ts](src/menu-view.ts): scoped drafts, actions, and menu presentation.
-- [Shared interactive host fixture](../../libs/src/validation/interactive-host/README.md): installed Pi host with isolated settings and an offline terminal. Widget command and integration scenarios stay in this package.
+For host upgrades start at [src/host.ts](src/host.ts) and [src/coordinator.ts](src/coordinator.ts); for layout and persistence start at [src/layout.ts](src/layout.ts) and [src/settings.ts](src/settings.ts). Menu policy lives in [src/drafts.ts](src/drafts.ts) and [src/menu.ts](src/menu.ts). See the [compatibility boundary](docs/pi-compatibility.md) before changing host hooks.
 
 ## Constraints
 
@@ -24,4 +15,4 @@
 
 ## Validation
 
-Use [package validation](README.md#validation). Extend [behavioral coverage](docs/testing.md) for affected contracts. Reverify the [private host boundary](docs/pi-compatibility.md) on Pi upgrades; simulated registries alone cannot establish compatibility.
+Use [package validation](README.md#validation) and [behavioral coverage](docs/testing.md). Pi upgrades need the [private host checklist](docs/pi-compatibility.md) and installed-host fixtures, not simulated registries alone.

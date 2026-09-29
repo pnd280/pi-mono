@@ -1,13 +1,6 @@
 # pi-smart-compact development
 
-## Code navigation
-
-- [src/index.ts](src/index.ts): tool schema and extension lifecycle binding.
-- [src/native.ts](src/native.ts): session-scoped native compaction hooks and routing.
-- [src/compatibility.ts](src/compatibility.ts): inspected private contracts and API/CLI fingerprints.
-- [src/config.ts](src/config.ts), [src/summarize.ts](src/summarize.ts), [src/instructions.ts](src/instructions.ts): settings, scoped overrides, and split-turn focus.
-- [src/status.ts](src/status.ts), [src/entry.ts](src/entry.ts), [src/outcome.ts](src/outcome.ts): footer status, summary-model entries, and outcomes.
-- [validation/](validation/): offline CLI provider, subprocess scenarios, and SDK lifecycle checks.
+For native routing use [src/native.ts](src/native.ts); for host fingerprints use [src/compatibility.ts](src/compatibility.ts) and the [upgrade checklist](docs/pi-compatibility.md). Settings and request routing live in [src/config.ts](src/config.ts) and [src/summarize.ts](src/summarize.ts).
 
 ## Constraints
 
@@ -23,4 +16,4 @@
 
 ## Validation
 
-Use [package validation](README.md#validation), the [testing specification](docs/testing.md), and [workspace verification](../../../docs/agents/verification.md). Provider fixtures remain offline.
+Run [package validation](README.md#validation) with offline provider fixtures; [testing](docs/testing.md) and [compatibility](docs/pi-compatibility.md) cover distinct behavior and host boundaries.

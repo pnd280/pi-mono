@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`openResponsiveCustomUI`](index.ts) (`@pi-mono/libs/tui/responsive-custom-ui`) preserves one component across inline/overlay remounts, calling optional `dispose()` only at final closure.
+[`openResponsiveCustomUI`](index.ts) preserves one component across inline/overlay remounts, calling optional `dispose()` only at final closure.
 
 ### Fullscreen input ownership
 
@@ -28,7 +28,7 @@ Public terminal listeners append after Pi's fullscreen transcript listener and c
 
 ## Caller responsibilities
 
-Supply a UI object with `custom`, a component factory, a cancellation signal, and sizing policy. Use `onTransition` to cancel context-dependent actions such as [timed confirmation](../../timed-confirmation/README.md) on remount.
+Supply the [host options](index.ts). Use `onTransition` to cancel context-dependent actions such as [timed confirmation](../../timed-confirmation/README.md) on remount.
 
 Ownership opt-in requires `onInputRoutingUnavailable()`. Supply a consumer-specific warning and fallback controls. Derive ownership from the same injected keybindings and action precedence as input dispatch; do not register listeners or mutate host input state in components.
 

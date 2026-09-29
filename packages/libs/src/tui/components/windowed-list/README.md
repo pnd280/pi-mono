@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`renderWindowedList`](index.ts), exported from `@pi-mono/libs/tui/components/windowed-list`, uses Pi's `SelectList` to render a window centered on the selected item where possible.
+[`renderWindowedList`](index.ts) uses Pi's `SelectList` to render a window centered on the selected item where possible.
 
 Display selection clamps without mutating caller state. `format` receives only visible items and must preserve count/order; custom Pi column options are allowed. The native list sees only the window, so no full-collection counter is generated.
 

@@ -14,14 +14,6 @@ To add an extension:
 
 Adding a file alone does not enable it. All registered extensions load together; there are no per-extension toggles.
 
-## Configuration
-
-None. No settings or environment variables are read.
-
-## Side effects
-
-None while the bundle is empty. It performs no writes, persistent state changes, or network requests.
-
 ## Validation
 
 From the repository root:
@@ -31,4 +23,4 @@ vpr 'pi-miscs#check'
 vpr 'pi-miscs#test'
 ```
 
-The package is intentionally test-free until it contains behavior: **no tests ran** is the expected test result. Remove `--passWithNoTests` when adding the first tests. See [coverage boundaries](docs/testing.md) and the [Pi compatibility checklist](docs/pi-compatibility.md).
+The empty bundle reads no settings, performs no I/O, and is intentionally test-free: **no tests ran** is expected. When adding behavior, see [testing boundaries](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md).

@@ -2,29 +2,28 @@
 
 [Workspace overview](../README.md)
 
-Follow [code organization and reuse](agents/architecture.md) for placement and extraction. [vite.config.ts](../vite.config.ts) enforces import boundaries.
+Pi provides the agent runtime, tool execution, sessions, and terminal UI. This workspace adds extensions that register tools, commands, event handlers, and presentation behavior in that host.
 
-## Shared packages
+## Package layers
 
-| Package                                       | Responsibility                     | Code navigation                                                                                |
-| --------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [@pi-mono/libs](../packages/libs/README.md)   | Shared APIs and TUI infrastructure | [Libraries](../packages/libs/README.md#usage), [TUI](../packages/libs/src/tui/README.md#usage) |
-| [@pi-mono/utils](../packages/utils/README.md) | Pure helpers                       | [Helpers](../packages/utils/README.md#usage)                                                   |
+| Area                                              | Responsibility                                                                                                             |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| [`packages/extensions/`](../README.md#extensions) | Feature packages with their own Pi integration and domain policy. `pi-miscs` bundles small extensions.                     |
+| [`packages/libs/`](../packages/libs/README.md)    | Shared stateful services, I/O, lifecycle coordination, and [TUI components and hosts](../packages/libs/src/tui/README.md). |
+| [`packages/utils/`](../packages/utils/README.md)  | Pure parsing, formatting, and transformation helpers.                                                                      |
 
-## Extensions
+Extensions use libs and utils; libs can use utils. Neither shared package depends on extensions, and utils does not depend on libs. Package exports define supported import paths; [boundary checks](../vite.config.ts) enforce these dependency directions.
 
-| Package                                                                           | Responsibility                                   | Code navigation                                                                            |
-| --------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| [pi-tool-display](../packages/extensions/pi-tool-display/README.md)               | Tool cards and exploration groups                | [Code navigation](../packages/extensions/pi-tool-display/AGENTS.md#code-navigation)        |
-| [pi-todo](../packages/extensions/pi-todo/README.md)                               | Session-backed tasks, widget, and browser        | [Code navigation](../packages/extensions/pi-todo/AGENTS.md#code-navigation)                |
-| [pi-smart-compact](../packages/extensions/pi-smart-compact/README.md)             | Native compaction with task continuation         | [Code navigation](../packages/extensions/pi-smart-compact/AGENTS.md#code-navigation)       |
-| [pi-prompt-manager](../packages/extensions/pi-prompt-manager/README.md)           | Directory-scoped history and saved drafts        | [Code navigation](../packages/extensions/pi-prompt-manager/AGENTS.md#code-navigation)      |
-| [pi-editor-widgets](../packages/extensions/pi-editor-widgets/README.md)           | Native widget, status, and footer layouts        | [Code navigation](../packages/extensions/pi-editor-widgets/AGENTS.md#code-navigation)      |
-| [pi-nested-instructions](../packages/extensions/pi-nested-instructions/README.md) | Input-based nested instructions and read markers | [Code navigation](../packages/extensions/pi-nested-instructions/AGENTS.md#code-navigation) |
-| [pi-session-utils](../packages/extensions/pi-session-utils/README.md)             | Session persistence, parent links, and naming    | [Code navigation](../packages/extensions/pi-session-utils/AGENTS.md#code-navigation)       |
-| [pi-agent-summary](../packages/extensions/pi-agent-summary/README.md)             | Agent runtime, bash calls, and file changes      | [Code navigation](../packages/extensions/pi-agent-summary/AGENTS.md#code-navigation)       |
-| [pi-fff-guard](../packages/extensions/pi-fff-guard/README.md)                     | Block missing or Git-ignored FFF targets         | [Code navigation](../packages/extensions/pi-fff-guard/AGENTS.md#code-navigation)           |
-| [pi-selective-read](../packages/extensions/pi-selective-read/README.md)           | Source-span highlighting and read previews       | [Code navigation](../packages/extensions/pi-selective-read/AGENTS.md#code-navigation)      |
-| [pi-model-prompt](../packages/extensions/pi-model-prompt/README.md)               | Model-specific append prompt variants            | [Code navigation](../packages/extensions/pi-model-prompt/AGENTS.md#code-navigation)        |
-| [pi-skills](../packages/extensions/pi-skills/README.md)                           | Literal skill references and inline completion   | [Code navigation](../packages/extensions/pi-skills/AGENTS.md#code-navigation)              |
-| [pi-miscs](../packages/extensions/pi-miscs/README.md)                             | Small, typically single-file extensions          | [Code navigation](../packages/extensions/pi-miscs/AGENTS.md#code-navigation)               |
+## Runtime integration
+
+Pi loads an extension through its manifest's `pi.extensions` entry. The package-root `index.ts` forwards to the factory in `src/index.ts`; [tool display's entry point](../packages/extensions/pi-tool-display/src/index.ts) is one example. Lifecycle handlers connect package behavior to the active session and release owned resources on shutdown.
+
+Features compose through focused contracts and shared services:
+
+- **Instruction content and presentation:** `pi-nested-instructions` publishes a [notice contract](../packages/extensions/pi-nested-instructions/src/notices.ts); `pi-tool-display` renders those messages. Discovery and transcript presentation have separate owners.
+- **File observations:** tool display and agent summary consume shared [file-mutation observations](../packages/libs/src/file-mutations/README.md), allowing both to use native edit/write facts without separate file reads.
+- **Activity display:** todo activity and agent-summary timing publish through the [working-message coordinator](../packages/libs/src/working-message/README.md), which combines contributions to one host UI surface.
+
+Reusable TUI components own layout and interaction; extensions supply data, domain policy, and action effects. Host mounting lives separately from components under `libs/src/tui/`.
+
+For a feature's behavior and configuration, start with its [package README](../README.md#extensions). For Pi integration contracts, use the [installed API references](pi-docs.md); for development commands, see [development](development.md).

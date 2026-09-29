@@ -28,13 +28,13 @@ Pass the filename in `path`, coordinates in `selection`, and an independent read
 
 Coordinates must be positive safe integers, and the end must follow the start.
 
-`selection` appends a preview without changing original content: at most five lines and 500 code points per line, with `…` for omissions. Use the original read content for exact edits; the preview may be partial or outside the read window.
+`selection` appends a preview without changing original content: at most five lines and 500 code points per line, with `…` for omissions. Use the original read content for exact edits; the preview may be partial when the selection extends beyond the read window.
 
 Expand a successful text read to highlight the selection in context. Pi's image handling and truncation limits remain.
 
 ## Configuration
 
-No options or extension-specific environment variables.
+No extension-specific configuration.
 
 ## Side effects
 
@@ -48,8 +48,6 @@ In automatic mode, the [pi-tool-display selective-read adapter](../pi-tool-displ
 
 ## Validation
 
-[Coverage specification](docs/testing.md).
-
-Use the [focused validation commands](../../../docs/development.md#focused-validation) with package name `pi-selective-read`.
+[Coverage specification](docs/testing.md) · [Pi compatibility](docs/pi-compatibility.md). Use the [focused validation commands](../../../docs/development.md#focused-validation) with package name `pi-selective-read`.
 
 For appearance changes, inspect collapsed and expanded reads in Pi with a multiline selection, tabs, wide characters, a narrow terminal, and both light and dark themes. Check that context stays visible and the preview is not duplicated.

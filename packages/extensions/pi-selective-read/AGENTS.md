@@ -2,9 +2,8 @@
 
 ## Code navigation
 
-- [src/tool.ts](src/tool.ts): native read delegation and parameters; [src/index.ts](src/index.ts): registration.
-- [src/selection.ts](src/selection.ts) limits preview size. Shared [source-selection helpers](../../utils/README.md#source-selections) validate coordinates and slice source.
-- [src/result.ts](src/result.ts): source/notice separation and preview provenance; [src/render.ts](src/render.ts): contextual rendering.
+- [src/tool.ts](src/tool.ts): native read delegation and parameters; [src/result.ts](src/result.ts): preview provenance and source/notice separation.
+- [src/selection.ts](src/selection.ts) and [src/render.ts](src/render.ts): preview and contextual rendering. Shared [source-selection helpers](../../utils/README.md#source-selections) own coordinate validation and slicing.
 
 ## Constraints
 
@@ -14,6 +13,4 @@ Keep source coordinates independent of terminal width; sanitize only display tex
 
 ## Validation
 
-Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
-
-Use [package validation](README.md#validation) and [coverage boundaries](docs/testing.md). Do not re-test Pi's filesystem implementation.
+Use [package validation](README.md#validation) and [coverage boundaries](docs/testing.md). For Pi upgrades, use the [compatibility checklist](docs/pi-compatibility.md).

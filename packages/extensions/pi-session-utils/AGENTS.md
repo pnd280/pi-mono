@@ -1,16 +1,6 @@
 # [pi-session-utils](README.md) development
 
-## Code navigation
-
-- [src/index.ts](src/index.ts): extension command and flag registration.
-- [src/commands.ts](src/commands.ts): `/sesh` dispatch and session-switch lifecycle.
-- [src/persist.ts](src/persist.ts): copies the active branch to a new session file while retaining its parent.
-- [src/parent.ts](src/parent.ts): bounded read-only parent-header validation and exact-ID lookup.
-- [src/startup.ts](src/startup.ts): startup flag validation and isolated Pi host hook.
-- [src/auto-title/index.ts](src/auto-title/index.ts): naming event adapter and command callback.
-- [src/auto-title/config.ts](src/auto-title/config.ts): global and trusted project naming settings.
-- [src/auto-title/source.ts](src/auto-title/source.ts), [generate.ts](src/auto-title/generate.ts), and [runtime.ts](src/auto-title/runtime.ts): naming source, requests, and cancellation.
-- [validation/](validation/): offline Pi runtime and installed-process checks with fixture providers.
+For session commands and snapshots use [src/commands.ts](src/commands.ts) and [src/persist.ts](src/persist.ts); for CLI parent handling use [src/parent.ts](src/parent.ts) and [src/startup.ts](src/startup.ts). Naming is isolated under [src/auto-title/](src/auto-title/). Host assumptions are tracked in [compatibility](docs/pi-compatibility.md).
 
 ## Constraints
 
@@ -26,4 +16,4 @@
 
 ## Validation
 
-Use [package validation](README.md#validation), [coverage specification](docs/testing.md), [Pi compatibility checklist](docs/pi-compatibility.md), and [workspace verification](../../../docs/agents/verification.md). Keep model tests offline with explicit fixture models.
+Run [package validation](README.md#validation) using offline fixture models. For changed host assumptions use [compatibility](docs/pi-compatibility.md); for contract boundaries use [testing](docs/testing.md).

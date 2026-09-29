@@ -3,10 +3,9 @@
 ## Code navigation
 
 - **Lifecycle and operations:** [src/index.ts](src/index.ts) connects Pi events to [manager.ts](src/manager.ts).
-- **Collection processing:** [collection.ts](src/storage/collection.ts), [processing.ts](src/storage/processing.ts), and [model.ts](src/model.ts) own recovery, worker processing, and limits.
-- **Storage I/O:** [repository.ts](src/storage/repository.ts) runs private-file transactions, and [directory.ts](src/storage/directory.ts) resolves paths.
-- **Interaction:** [history.ts](src/history.ts), [commands.ts](src/commands.ts), [settings.ts](src/settings.ts), [browser/open.ts](src/browser/open.ts), [search.ts](src/search.ts), and [host/editor.ts](src/host/editor.ts).
-- **Offline fixtures:** [validation/workspace.ts](validation/workspace.ts) supplies storage, clipboard input capture, provider loading, and CLI flags.
+- **Collection and I/O:** [src/storage/](src/storage/) owns recovery, processing, and private-file transactions; [src/model.ts](src/model.ts) defines limits.
+- **Interaction:** [src/browser/](src/browser/), [src/commands.ts](src/commands.ts), and [src/host/editor.ts](src/host/editor.ts).
+- **Offline fixtures:** [validation/](validation/); use the [terminal procedure](docs/validation.md#terminal-launcher).
 
 ## Constraints
 
@@ -22,4 +21,4 @@ Keep recovery manual; never evict drafts for additions. Delete only when UUID, t
 
 Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
 
-Use [package validation](README.md#validation) and [workspace verification](../../../docs/agents/verification.md). Keep automated TUI tests in [shared TUI](../../libs/src/tui/README.md#validation); check [API](validation/host.test.ts) and [installed-CLI](validation/bundle.test.ts) fixtures for host integration, and [platform checks](docs/validation.md) for interaction, clipboard, or privacy changes.
+Use [package validation](README.md#validation) and [workspace verification](../../../docs/agents/verification.md). For host integration, check [API](validation/host.test.ts) and [installed-CLI](validation/bundle.test.ts) fixtures; for clipboard, interaction, or privacy changes, use [conditional checks](docs/validation.md). Shared TUI behavior belongs in [libs TUI](../../libs/src/tui/README.md#validation).

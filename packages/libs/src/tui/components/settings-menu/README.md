@@ -2,11 +2,11 @@
 
 [Shared TUI](../../README.md#usage)
 
-`renderSettingsMenu` provides the common frame for scoped settings editors. Import it and its feedback helpers from `@pi-mono/libs/tui/components/settings-menu`.
+[`renderSettingsMenu`](index.ts) provides the common frame for scoped settings editors.
 
 ## Behavior
 
-The frame shares scoped settings presentation between `/widgets` and `/working-message`. `*` marks an edited draft; `(not set)` refers to persisted state, not whether the draft has been edited.
+`*` marks an edited draft; `(not set)` refers to persisted state, not whether the draft has been edited.
 
 Overflowing lists show `(selected/total)` below the last visible item rather than in the border; border overflow labels are reserved for prose previews.
 

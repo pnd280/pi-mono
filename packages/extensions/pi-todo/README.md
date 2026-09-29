@@ -4,25 +4,11 @@ Session-backed todos for multi-step work, with an above-editor widget and read-o
 
 ## Usage
 
-### Todos
-
 The `todo` tool supports `create`, `update`, `list`, `get`, `delete`, and `clear`. Todos start `pending`. On update, `parentId: null` moves a subtree to the root. Parent status and dependencies do not control children; dependency cycles are forbidden.
 
 Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Todos with live descendants can be reparented but not deleted. `clear` removes everything and resets IDs. Completed todos cannot return to `pending` or `in_progress`.
 
-`list` bounds displayed output to 200 todo lines and 32,768 UTF-16 code units (always showing the first line); result details retain the full snapshot.
-
-| Item                              | Limit               |
-| --------------------------------- | ------------------- |
-| Todos, including tombstones       | 1,000               |
-| Hierarchy depth                   | 8 levels            |
-| Dependencies                      | 100 per todo        |
-| Subject, in-progress label, owner | 200 characters each |
-| Description                       | 4,000 characters    |
-| Metadata                          | 16 KiB, 8 levels    |
-| Stored todo state                 | 512 KiB             |
-
-### Todo browser and widget
+`list` truncates displayed output, but result details retain the full snapshot. Input and state [limits](src/constants.ts) also apply to replayed session results.
 
 `/todos` opens a snapshot of the hierarchy; reopen to see later changes. Use the configured up/down keys to navigate, confirm (Enter by default) to inspect details, and cancel (Escape by default) to return or close. Paging moves the list selection or scrolls details.
 
@@ -32,13 +18,11 @@ In fullscreen mode `/todos` is non-overlay and paging does not scroll the transc
 
 `/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session.
 
-When collapsed, the widget contributes in-progress todo activity to the working message. Expanding it clears that contribution.
-
-`/working-message` opens the [shared ordering menu](../../libs/src/working-message/README.md#settings-menu) for contributions from participating extensions. Changes apply only when saved with Ctrl+S.
+When collapsed, the widget contributes in-progress todo activity to the working message. Expanding it clears that contribution. `/working-message` opens the [shared ordering menu](../../libs/src/working-message/README.md#settings-menu); changes apply only when saved with Ctrl+S.
 
 ## Configuration
 
-Set the literal `ext.pi-todo` key in Pi's global settings file or the current directory's [trusted](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#project-trust) `.pi/settings.json`. The global file is `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when that variable is set:
+Set the literal `ext.pi-todo` key in Pi's global settings file or the current directory's [trusted](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#understand-project-trust) `.pi/settings.json`. The global file is `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when that variable is set:
 
 ```json
 {
@@ -62,8 +46,6 @@ Todo text is stripped of terminal controls for the widget, browser, and working 
 
 ## Validation
 
-[Coverage specification](docs/testing.md).
-
 Run `vpr 'pi-todo#check'` and `vpr 'pi-todo#test'` from the workspace root. See the [workspace workflow](../../../docs/development.md#focused-validation).
 
-For paging, widget, or working-message changes, use the [offline terminal checks](docs/validation.md) in regular and fullscreen modes.
+For paging, widget, or working-message changes, use the [offline terminal checks](docs/validation.md) in regular and fullscreen modes. [Coverage boundaries](docs/testing.md) distinguish package from shared-library tests.

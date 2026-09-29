@@ -54,9 +54,4 @@ The resolver list and `selectAdapter` are host-internal; no public registration 
 
 ## Built-in adapters
 
-- [Pi-native tools](../src/adapters/native/README.md): `nativeAdapter(name)`.
-- [@ff-labs/pi-fff](../src/adapters/@ff-labs/pi-fff/README.md): `piFffAdapter(toolInfo)`.
-- [pi-mcp-adapter](../src/adapters/pi-mcp-adapter/README.md): `piMcpAdapter(toolInfo)`.
-- [pi-todo](../src/adapters/pi-todo/README.md): `piTodoAdapter(toolInfo)`.
-- [pi-selective-read](../src/adapters/pi-selective-read/README.md): `piSelectiveReadAdapter(toolInfo)`.
-- [pi-smart-compact](../src/adapters/pi-smart-compact/README.md): `piSmartCompactAdapter(toolInfo)`.
+See the [native contract](../src/adapters/native/README.md) or the extension-specific contracts for [FFF](../src/adapters/@ff-labs/pi-fff/README.md), [MCP](../src/adapters/pi-mcp-adapter/README.md), [todo](../src/adapters/pi-todo/README.md), [selective read](../src/adapters/pi-selective-read/README.md), and [smart compact](../src/adapters/pi-smart-compact/README.md). The [resolver list](../src/host/selection.ts) is authoritative for automatic tool selection; [nested-instruction messages](../src/adapters/pi-nested-instructions/README.md) use a separate registration path.

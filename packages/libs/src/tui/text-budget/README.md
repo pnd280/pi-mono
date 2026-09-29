@@ -4,14 +4,14 @@
 
 ## Behavior
 
-[`@pi-mono/libs/tui/text-budget`](index.ts) wraps text synchronously and produces bounded excerpts.
+[`text-budget`](index.ts) wraps text synchronously and produces bounded excerpts.
 
 - `wrapRows` wraps ANSI-styled text and clamps wide graphemes that cannot fit.
 - `compactRows` retains head and tail rows, reserving one budgeted row for the caller's omission notice.
 - `textPrefix` clips a UTF-16 prefix without cutting a grapheme or SGR sequence.
 - `compactText` limits text passed to wrapping, preserving head/tail excerpts and SGR state.
 
-For `compactText`, `maxCharacters` must be a safe integer ≥2 UTF-16 units, otherwise `RangeError`. `notice` receives omitted-row counts after full wrapping, or `undefined` when character clipping skips measurement.
+`notice` receives omitted-row counts after full wrapping, or `undefined` when character clipping skips measurement. See [budget options](index.ts) for limits.
 
 ## Caller responsibilities
 
@@ -37,7 +37,3 @@ const rows = compactText(displaySafeText, {
 });
 const tree = renderTree([{ rows }], { width: 80, indent: 2 });
 ```
-
-## Validation
-
-Use the [package validation commands](../../../README.md#validation).

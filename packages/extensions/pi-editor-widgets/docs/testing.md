@@ -4,19 +4,7 @@
 
 ## Automated coverage
 
-Run `vpr 'pi-editor-widgets#check'` and `vpr 'pi-editor-widgets#test'` from the workspace root. Settings-write changes also require `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`.
-
-| Coverage                                                                                                  | Tests                                               |
-| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Native registration/disposal ownership, copied mouse targets, invalidation, clipping and footer conflicts | [Coordinator](../validation/coordinator.test.ts)    |
-| Reloads, session changes, renderer switches, resize, inactive non-TUI modes                               | [Lifecycle](../validation/lifecycle.test.ts)        |
-| Native usage, context, runtime compaction, model, session and branch data                                 | [Built-ins](../validation/builtins.test.ts)         |
-| Scoped save/retry, draft retention, live previews and identity-preserving navigation                      | [Menu](../validation/menu.test.ts)                  |
-| Arguments, scopes, warnings, mounted resize/cancellation and editor/layout restoration                    | [Commands](../validation/settings-commands.test.ts) |
-| Shared rows, ANSI/wide text, multiline output, separators, flex, whole-widget wrapping and clipping       | [Rendering](../src/render.test.ts)                  |
-| Default discovery, hidden/unknown IDs, cross-row copies, in-row duplicate and flex rejection              | [Layout](../src/layout.test.ts)                     |
-| Trust, scope precedence, invalid files, unrelated fields and lock contention                              | [Settings](../src/settings.test.ts)                 |
-| Hiding, adding, copies, transfers, independent scopes, inherited navigation and reorder boundaries        | [Drafts](../src/drafts.test.ts)                     |
+Run [package validation](../README.md#validation). Settings-write changes also require `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`. Installed-host integration in [validation/](../validation/) protects ownership, lifecycle, native metrics, menu and commands; pure layout, rendering, settings, and draft policies are tested beside their source. The shared [interactive host fixture](../../../libs/src/validation/interactive-host/README.md) provides installed Pi registration, both renderers, and offline isolated settings. It does not send model requests.
 
 Token coverage must use native totals across assistant, tool, usage, compaction and branch entries, and latest-prompt cache-hit percentages. Fullscreen compact mode must show only nonzero input/output counters, omitting cache read/write totals, cache-hit percentages, cost and subscription markers. Cover empty usage, cache-only usage, input-only and output-only counts. Verbose and regular displays must retain the original full details.
 
@@ -36,7 +24,7 @@ Successful save feedback expires after three seconds and requests a redraw; anot
 
 The above-editor region must retain exactly one leading blank line when populated or empty in both renderers, including after release to native rendering; height budgets include it, and mouse events on it must not reach widgets. Removing a copy must leave other placements visible and nested edits on the intended row. Mouse dispatch must retain the clicked copy's render width even when flex leaves a narrower hit area. Mounted menus must restore the saved layout on host cancellation as well as explicit closure, in both renderers.
 
-The [shared interactive host fixture](../../../libs/src/validation/interactive-host/README.md) uses installed Pi registration implementations, `AgentSession`, both renderers, the stable UI proxy, and the native fullscreen dock. This package owns widget scenarios. Temporary settings and offline model runtime are isolated. Tests do not send model requests or add extension-owned transcript entries. Session boundary tests emit native shutdown/start around an in-memory session reset; they do not drive an interactive session picker.
+Session boundary tests emit native shutdown/start around an in-memory reset; they do not drive the interactive session picker. Tests do not establish physical-terminal behavior or visual quality.
 
 ## Terminal checks
 
@@ -48,7 +36,7 @@ Use workspace Pi with this extension and a native widget contributor such as `pi
 4. Hold a settings lock or use malformed JSON; failed saves must retain edits, keep the selected target and recovery visible, and allow Ctrl+S retry. Load/save warnings must not appear as unconditional success or duplicate notifications. Success clears after three seconds, actual edits, or scope changes; warnings and errors do not expire. Fixing and reopening clears load warnings.
 5. Exercise `/reload`, new/resumed sessions, and renderer switching. Verify cleanup, registration updates, editor availability, and native mouse interactions.
 6. Check both load orders with a separate custom-footer extension. Verify the conflict diagnostic, then disable the competing footer and reload to reacquire ownership.
-7. Using a session with known context usage, compare the [context color bands](../README.md#context-usage) in dark and light themes. In fullscreen, click the context widget and use `/widgets context`: compact must hide the percentage, while verbose shows it and the automatic compaction threshold. Switch to regular mode: the original percentage and `(auto)` display must remain, and `/widgets context` must be rejected. Switching back must restore the fullscreen selection. Try copies in all regions and wrapped rows; toggling must update every copy without taking editor focus. Verify the threshold against Pi's effective model reserve, and check unknown usage after compaction. Change or remove `contextThreshold` in settings, reopen `/widgets`, and close without saving. The new color must apply immediately and remain after closing, without rewriting settings or changing the display mode.
+7. Using a session with known context usage, compare the [context color settings](settings.md#context-colors) in dark and light themes. In fullscreen, click the context widget and use `/widgets context`: compact must hide the percentage, while verbose shows it and the automatic compaction threshold. Switch to regular mode: the original percentage and `(auto)` display must remain, and `/widgets context` must be rejected. Switching back must restore the fullscreen selection. Try copies in all regions and wrapped rows; toggling must update every copy without taking editor focus. Verify the threshold against Pi's effective model reserve, and check unknown usage after compaction. Change or remove `contextThreshold` in settings, reopen `/widgets`, and close without saving. The new color must apply immediately and remain after closing, without rewriting settings or changing the display mode.
 8. With known token usage, click the token widget or run `/widgets tokens` in fullscreen. Compact must show only input/output counts; verbose must restore cache read/write totals, cache-hit percentage, cost and subscription markers when applicable. Copies must switch together without changing the context widget's mode or editor focus. Regular mode must retain the full display and reject `/widgets tokens`; switching back must restore the fullscreen selection.
 
 Automated renderer checks do not establish physical-terminal interaction behavior.

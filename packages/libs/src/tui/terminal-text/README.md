@@ -4,9 +4,7 @@
 
 ## Behavior
 
-[`@pi-mono/libs/tui/terminal-text`](index.ts) exports `displayText`, `compactDisplayText`, `styledOutput`, `sliceTerminalText`, and `hasUnsafeTerminalControls`.
-
-`displayText` makes plain terminal-safe text; `styledOutput` retains only SGR styling. Both normalize line endings and tabs.
+Use [`displayText`](index.ts) for untrusted plain text and `styledOutput` to retain only SGR styling. Both normalize line endings and tabs.
 
 `compactDisplayText` makes a single-line plain label without trimming or limiting length.
 
@@ -21,7 +19,3 @@ Keep exact source separate. Slice/sanitize complete snapshots, not chunks: seque
 `sliceTerminalText` does not sanitize its result. Before displaying a slice, use `displayText(slice.text)` for plain text or `styledOutput(slice.leadingSgr + slice.text)` to retain SGR styling.
 
 Choose refusal messages and editor policy. Sanitizing display text does not make the original safe to restore into an editor.
-
-## Validation
-
-Use the [package checks](../../../README.md#validation).

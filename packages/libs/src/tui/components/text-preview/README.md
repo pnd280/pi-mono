@@ -4,13 +4,13 @@
 
 ## Behavior
 
-[`@pi-mono/libs/tui/components/text-preview`](index.ts) exports `ScrollableTextPreview` and `renderOverflowBorder`.
+[`ScrollableTextPreview`](index.ts) caches a text viewport; `renderOverflowBorder` draws caller-owned overflow labels.
 
-`ScrollableTextPreview` caches text/width layout and calls `changed` when current work completes. Read `loading`, `scroll`, and `overflow` to render placeholders and overflow controls. Text changes reset scroll; stale/disposed work cannot publish.
+The preview calls `changed` when current work completes. Text changes reset scroll; stale/disposed work cannot publish.
 
 ## Caller responsibilities
 
-Supply terminal-safe text, for example from [`displayText`](../../terminal-text/index.ts), and retain exact source separately. Handle navigation keys and other view actions. Choose the scroll position, available height, margins, timestamps, and loading messages.
+Supply terminal-safe text, for example from [`displayText`](../../terminal-text/index.ts), and retain exact source separately. Handle navigation keys, viewport dimensions, and loading presentation.
 
 Use one instance per logical view; `current` becomes false and `dispose()` runs only at final closure, never [responsive remounts](../../responsive-custom-ui/README.md).
 

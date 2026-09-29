@@ -2,13 +2,9 @@
 
 ## Code navigation
 
-- [src/index.ts](src/index.ts): input hook and TUI autocomplete registration.
-- [src/skills.ts](src/skills.ts): registered paths and command-name collisions.
-- [src/config.ts](src/config.ts): global and trusted-project JSON settings for expansion format.
-- [src/tokens.ts](src/tokens.ts): configurable exact token expansion and token bounds at the cursor.
-- [src/autocomplete.ts](src/autocomplete.ts): inline suggestions and completion insertion.
-- [src/editor.test.ts](src/editor.test.ts): real-editor interactions. [src/index.test.ts](src/index.test.ts): offline host input and lifecycle integration.
-- [validation/](validation/): terminal fixtures and input capture, using [shared offline launch preparation](../../libs/src/validation/pi-process/README.md).
+- **Host integration:** [src/index.ts](src/index.ts) registers input expansion and TUI completion.
+- **Policy and completion:** [src/tokens.ts](src/tokens.ts), [src/skills.ts](src/skills.ts), [src/config.ts](src/config.ts), and [src/autocomplete.ts](src/autocomplete.ts).
+- **Host fixtures:** [src/editor.test.ts](src/editor.test.ts), [src/index.test.ts](src/index.test.ts), and [validation/](validation/).
 
 ## Constraints
 
@@ -22,4 +18,4 @@ Compose with existing providers. Identify this extension's completion items by o
 
 Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
 
-Use the [package checks and terminal procedure](README.md#validation). Retain real-editor coverage for Tab routing and Enter acceptance; provider-only checks cannot establish these interactions.
+Use [package checks](README.md#validation) and [terminal checks](docs/testing.md#terminal-checks). Retain real-editor coverage for Tab routing and Enter acceptance; provider-only checks cannot establish these interactions.

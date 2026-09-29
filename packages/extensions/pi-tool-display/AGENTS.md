@@ -2,35 +2,21 @@
 
 ## Code navigation
 
-- **Pi lifecycle:** [host/install.ts](src/host/install.ts) handles integration and teardown. [host/compatibility.ts](src/host/compatibility.ts) records inspected TUI contracts. [native-registry.ts](src/host/native-registry.ts) selects display observations through [native-tools](../../libs/src/native-tools/README.md) and [file-mutations](../../libs/src/file-mutations/README.md).
-- **Call interpretation:** [interpretation.ts](src/interpretation.ts) owns adapter, outcome, and grouping identity; [CONTEXT.md](CONTEXT.md) defines terms.
-- **Transcript:** [coordinator.ts](src/transcript/coordinator.ts) owns call-state changes. [session.ts](src/transcript/session.ts) coordinates live events, history reconstruction, and saved-output eligibility. [history.ts](src/transcript/history.ts) and [metadata.ts](src/transcript/metadata.ts) handle reconstruction and persisted facts.
-- **Assistant presentation:** [assistant.ts](src/host/assistant.ts) verifies Pi's assistant layout, marks prose, and hides completed collapsed thinking during streaming and replay.
-- **Observation and rows:** [observation/](src/observation/) owns native facts and preview budgets; [host/rows.ts](src/host/rows.ts) owns Pi row integration and [host/row-layout.ts](src/host/row-layout.ts) owns chrome and click targets.
-- **Summary mode:** [summary/](src/summary/) derives run summaries; [summary-line.ts](src/rendering/summary-line.ts) renders them. The coordinator owns runs; [host/install.ts](src/host/install.ts) owns mode transitions.
-- **Rendering:** start at [cards.ts](src/rendering/cards.ts) for preparation across Pi slots, [format.ts](src/rendering/format.ts) for shared text and tree rendering, or [result-content.ts](src/rendering/result-content.ts) for result bodies and diff rendering. [diff.ts](src/diff.ts) requests shared patches and enforces retention limits. See the [standalone API](docs/renderers.md) for tool-author integration.
-- **Session messages:** [adapters/pi-nested-instructions/](src/adapters/pi-nested-instructions/README.md) owns notice rendering and summary contributions; [index.ts](src/index.ts) registers it through Pi's public message-renderer API. The producer's `pi-nested-instructions/notices` export owns the persisted contract.
-- **Offline launchers:** [validation/workspace.ts](validation/workspace.ts) supplies fixture data, provider loading, flags, and reuse checks.
+- **Host integration:** [host/install.ts](src/host/install.ts), [host/compatibility.ts](src/host/compatibility.ts), [host/native-registry.ts](src/host/native-registry.ts), and [host/row-layout.ts](src/host/row-layout.ts). For Pi upgrades start with the [compatibility checklist](docs/pi-compatibility.md).
+- **Transcript and interpretation:** [interpretation.ts](src/interpretation.ts), [transcript/coordinator.ts](src/transcript/coordinator.ts), and [transcript/session.ts](src/transcript/session.ts); [CONTEXT.md](CONTEXT.md) names the concepts.
+- **Presentation:** [rendering/cards.ts](src/rendering/cards.ts), [summary/](src/summary/), [host/assistant.ts](src/host/assistant.ts), and the [standalone API](docs/renderers.md).
+- **Adapter and fixture work:** [adapter guidance](docs/adapters.md), [validation/workspace.ts](validation/workspace.ts), and [terminal scenarios](docs/validation.md).
 
 ## Constraints
 
-Keep private Pi access under `host/`; trace callback deactivation and native-definition restoration before changing hooks. Display lookup and renderers must not access files, execute tools, or persist data.
+Keep private Pi access under `host/`. Observe only verified native definitions in participating TUI sessions when specialized rendering is selected; preserve middleware, settings, active tools, results, mutation ordering, and other [native-tool](../../libs/src/native-tools/README.md) / [file-mutation](../../libs/src/file-mutations/README.md) consumers. Never register tools for presentation or recreate unknown closures. Restore only owned hooks/definitions, preserving later wrappers; disposed callbacks and pending events must not reattach old hooks.
 
-- Native observation must preserve middleware, schemas, prompts, settings, active tool selection, operation results, and mutation ordering.
-- Request observations only for definitions verified by shared [native-tools](../../libs/src/native-tools/README.md), in participating TUI sessions with specialized rendering selected. Do not disable other consumers when display observation stops.
-- Never register tools for presentation or recreate unknown SDK or custom closures.
-- Undo only this extension's hook and definition replacements. Preserve later wrappers and make disposed callbacks inert. Pending host events must not reattach old row/assistant hooks after disposal or transcript rebinding.
+Treat Pi arguments/results as borrowed and read-only. Adapter interpretation requires [verified provenance](docs/adapters.md#recognize-tool-contracts), not output-text guesses. Display lookup/renderers must not read files, execute tools, or persist data. Persist bounded facts and patches, not result bodies, images, or styled text. Replay must not reobserve files, rerun tools, or animate unknown results.
 
-Treat Pi arguments/results as borrowed and read-only; derive operation facts separately from structured observations. Never restore omitted output from adapter metadata. Persist bounded facts and patches, not result bodies, images, or styled text. Reconstruct from retained data without reobserving files, rerunning tools, or animating missing results.
-
-- Keep result interpretation in its adapter under the [provenance limits](docs/adapters.md#built-in-adapters).
-- Keep grouped calls and their notices in their corresponding Pi rows. When compact cards hide successful body text, retain diagnostics and image-bearing rows. Summary mode may hide images and diagnostics behind counts.
-- Change row chrome only in `layoutRow`, whose targets drive both rendering and click routing.
+Keep grouped calls/notices in their Pi rows; compact diagnostics and images stay visible. Change row chrome only in `layoutRow`, which owns both rendering and click targets.
 
 See [observation and saved history](README.md#observation-and-saved-history) for exclusions, side effects, and limits.
 
 ## Validation
 
-Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
-
-Use [package validation](README.md#validation) and [terminal checks](docs/validation.md) for integration or interaction changes. Before accepting Pi upgrade fingerprints, reinspect construction, registry wrapping, reconstruction, expansion, and thinking layout. Check [API](src/host/install.test.ts) and [installed-CLI](src/host/install-cli.test.ts) fixtures.
+Use [package validation](README.md#validation) and [terminal checks](docs/validation.md) for interaction changes. Before accepting Pi upgrade fingerprints, follow the [compatibility checklist](docs/pi-compatibility.md) in both [API](src/host/install.test.ts) and [installed-CLI](src/host/install-cli.test.ts) fixtures.
