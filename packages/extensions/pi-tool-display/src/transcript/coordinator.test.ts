@@ -922,6 +922,67 @@ it("collapses a live run only after it ends at a boundary or agent end", () => {
   }
 });
 
+it("refreshes notice summaries and keeps them with their anchors across run boundaries", () => {
+  const { coordinator, add, invalidations, clear } = summaryFixture();
+  const notice = {
+    category: { id: "instructions", count: { one: "loaded {n} file", other: "loaded {n} files" } },
+    identity: "/work/src/AGENTS.md"
+  };
+
+  try {
+    const first = add("read", { path: "a.ts" });
+    const anchor = add("bookkeeping", {});
+    coordinator.setAdapter(anchor, { ...genericAdapter, id: "omitted", omitFromSummary: true });
+    const boundary = {};
+    coordinator.setBoundary(boundary, first);
+    expect(coordinator.summary(anchor).segments).toEqual([]);
+    coordinator.activate(anchor, "card");
+    expect(coordinator.collapsible(anchor)).toBe(false);
+    clear();
+    coordinator.addSummaryNotice(anchor, notice);
+    expect(invalidations(anchor)).toBeGreaterThan(0);
+    expect(invalidations(first)).toBe(0);
+    expect(coordinator.collapsible(anchor)).toBe(true);
+    expect(coordinator.summary(anchor).segments).toMatchObject([
+      { category: notice.category, count: 1, counts: { failed: 0, cancelled: 0, unavailable: 0 } }
+    ]);
+    coordinator.activate(anchor, "collapse");
+    expect(coordinator.summaryRole(anchor)?.kind).toBe("leader");
+
+    coordinator.setBoundary(boundary);
+    clear();
+    coordinator.addSummaryNotice(anchor, { ...notice, identity: "/work/lib/AGENTS.md" });
+    expect(invalidations(first)).toBeGreaterThan(0);
+    expect(coordinator.summary(first).segments.map(({ count }) => count)).toEqual([1, 2]);
+    coordinator.setBoundary(boundary, first);
+    expect(coordinator.summary(first).segments.map(({ count }) => count)).toEqual([1]);
+    expect(coordinator.summary(anchor).segments.map(({ count }) => count)).toEqual([2]);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("keeps a live run open from a notice without expanding its anchor's group", () => {
+  const { coordinator, add, roles } = summaryFixture();
+
+  try {
+    const first = add("read", { path: "a.ts" }, "live");
+    const second = add("read", { path: "b.ts" }, "live");
+    expect(coordinator.activate(second, "notice")).toBe(false);
+    expect(coordinator.run(first)?.opened).toBe(true);
+    expect(coordinator.group(second)?.expanded).toBe(false);
+    coordinator.result(first, result(), "success");
+    coordinator.result(second, result(), "success");
+    coordinator.settle();
+    expect(roles()).toEqual(["card", "card"]);
+    expect(coordinator.collapsible(second)).toBe(true);
+    coordinator.activate(second, "collapse");
+    expect(roles()).toEqual(["leader", "hidden"]);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
 it("keeps a run the user opened while live as cards once it ends", () => {
   const { coordinator, add, invalidations, clear, roles } = summaryFixture();
 

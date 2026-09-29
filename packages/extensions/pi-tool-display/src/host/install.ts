@@ -161,7 +161,7 @@ export function installHostIntegration(
     const current: Binding = {
       host,
       display,
-      messages: new TranscriptMessages(),
+      messages: new TranscriptMessages(configuration.valid && rowChrome),
       rows: new TranscriptRows(host, display.coordinator, {
         active: () => active && hosts.get(host) === current,
         styleAssistant: configuration.valid,
@@ -370,7 +370,7 @@ export function installHostIntegration(
         if (!assistant) binding?.rows.prepareInsertion();
         const result = addMessage.call(this, value, options);
         if (assistant) binding?.rows.assistantBoundary(this.chatContainer?.children.at(-1));
-        else binding?.rows.finishInsertion();
+        else binding?.rows.finishInsertion(value);
 
         return result;
       });

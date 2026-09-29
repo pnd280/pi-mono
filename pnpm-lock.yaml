@@ -325,6 +325,18 @@ importers:
         specifier: 'catalog:'
         version: 4.6.5
 
+  packages/extensions/pi-nested-instructions:
+    dependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: catalog:pi-host
+        version: 0.87.1(supports-color@7.2.0)(ws@8.22.0)(zod@4.6.5)
+      '@pi-mono/utils':
+        specifier: workspace:*
+        version: link:../../utils
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
+
   packages/extensions/pi-prompt-manager:
     dependencies:
       '@earendil-works/pi-coding-agent':
@@ -435,6 +447,9 @@ importers:
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
+      pi-nested-instructions:
+        specifier: workspace:*
+        version: link:../pi-nested-instructions
       zod:
         specifier: 'catalog:'
         version: 4.6.5

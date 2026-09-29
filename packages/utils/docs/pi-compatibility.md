@@ -4,7 +4,7 @@
 
 ## Contracts to verify
 
-- [ ] Trace [indirect consumers](../AGENTS.md#code-navigation): FFF provenance, source coordinates, omission ranges, patches, and UTF-8 boundaries must still match target tool and result contracts.
+- [ ] Trace [direct and indirect consumers](../AGENTS.md#code-navigation): FFF provenance and scope normalization, source coordinates, omission ranges, patches, and UTF-8 boundaries must still match target tool and result contracts.
 - [ ] Keep helpers pure; do not introduce Pi runtime state, I/O, scheduling, or consumer policy.
 
 ## Limitations and replacement opportunities

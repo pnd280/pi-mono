@@ -7,6 +7,7 @@ Pure workspace helpers; callers supply clocks, state, and policy. See the [manif
 | Task                                     | Entry point                                                  |
 | ---------------------------------------- | ------------------------------------------------------------ |
 | Classify FFF provenance and names        | [`@pi-mono/utils/fff-tools`](src/fff-tools.ts)               |
+| Infer static search-pattern prefixes     | [`@pi-mono/utils/search-scopes`](src/search-scopes.ts)       |
 | Compare lexical paths                    | [`@pi-mono/utils/paths`](src/paths.ts)                       |
 | Quote POSIX-shell arguments              | [`@pi-mono/utils/shell`](src/shell.ts)                       |
 | Validate and slice source selections     | [`@pi-mono/utils/source-selection`](src/source-selection.ts) |
@@ -21,6 +22,12 @@ For terminal text sanitization and shortcut normalization, use [terminal text](.
 ### FFF tools
 
 Classifies package provenance and names only; callers validate schemas and choose display/blocking policy.
+
+### Search scopes
+
+`alternatives` expands finite comma-separated braces, bounded to 64 alternatives and eight passes. It does not expand ranges or enumerate files. `globRoot` returns only the fixed directory prefix before the first wildcard; `hasGlob` recognizes the shared search syntax.
+
+`isFilenameFilter` identifies FFF's recursive bare-filename filters. `normalizeFffPath` preserves them after local anchor normalization and identifies extensionless directory constraints. `filenameQueryTokens` retains an existing explicit path as one term; callers supply the existence result. Callers own filesystem checks, exclusions, intersections, and instruction/blocking policy.
 
 ### Paths
 

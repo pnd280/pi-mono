@@ -1,8 +1,11 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { noticeType } from "pi-nested-instructions/notices";
 
+import { createNoticeRenderer } from "./adapters/pi-nested-instructions/index.ts";
 import { installHostIntegration } from "./host/install.ts";
 
 export default function toolDisplay(pi: ExtensionAPI): void {
+  pi.registerMessageRenderer(noticeType, createNoticeRenderer());
   const warnings: string[] = [];
   let notify: ((message: string) => void) | undefined;
   const dispose = installHostIntegration(

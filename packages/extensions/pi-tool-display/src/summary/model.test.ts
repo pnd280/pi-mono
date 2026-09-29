@@ -6,7 +6,7 @@ import {
   selectiveReadDisplayAdapter,
   todoDisplayAdapter
 } from "../adapters/index.ts";
-import type { DisplayCall, Outcome, ToolDisplayAdapter } from "../contracts.ts";
+import type { DisplayCall, Outcome, SummaryNotice, ToolDisplayAdapter } from "../contracts.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { buildRunSummary, type RunSummary } from "./model.ts";
 
@@ -39,8 +39,12 @@ function transcript() {
     coordinator,
     add,
     finish,
-    summary: () =>
-      buildRunSummary([...coordinator.calls.values()], (call) => coordinator.interpretation(call))
+    summary: (notices?: (call: DisplayCall) => readonly SummaryNotice[]) =>
+      buildRunSummary(
+        [...coordinator.calls.values()],
+        (call) => coordinator.interpretation(call),
+        notices
+      )
   };
 }
 
@@ -72,6 +76,37 @@ it("orders categories by first call and counts files once per category", () => {
     finish(add("ls", { path: "./src/" }));
 
     expect(shape(summary())).toEqual(["read:2", "search:2", "edit:1", "list:1"]);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("counts notices in source order separately from calls, deduplicating by category and identity", () => {
+  const { coordinator, add, finish, summary } = transcript();
+  const loaded: SummaryNotice = {
+    category: { id: "loaded", count: { one: "loaded {n} file", other: "loaded {n} files" } },
+    identity: "/work/project/src/AGENTS.md"
+  };
+  const updated: SummaryNotice = {
+    category: { id: "updated", count: { one: "updated {n} file", other: "updated {n} files" } },
+    identity: loaded.identity
+  };
+
+  try {
+    const read = finish(add("read", { path: "src/AGENTS.md" }), "failure");
+    const shell = finish(add("bash", { command: "true" }));
+    const todo = finish(add("todo", {}, { adapter: todoDisplayAdapter }));
+    const notices = new Map([
+      [read, [loaded]],
+      [shell, [loaded, { ...loaded, identity: "/work/project/lib/AGENTS.md" }]],
+      [todo, [updated]]
+    ]);
+    expect(shape(summary((call) => notices.get(call) ?? []))).toEqual([
+      "read:1 failed=1",
+      "loaded:2",
+      "shell:1",
+      "updated:1"
+    ]);
   } finally {
     coordinator.dispose();
   }

@@ -1,0 +1,142 @@
+import path from "node:path";
+
+import type { ExtensionContext, SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
+import { absolutePathSchema } from "@pi-mono/utils/paths";
+import { z } from "zod";
+
+import { digest, noticeSchema, noticeType, type Notice } from "./notices.ts";
+
+export const readType = "pi-nested-instructions.read";
+
+const stampSchema = z.string().max(256).nullable();
+
+const readSchema = z.strictObject({
+  version: z.literal(1),
+  path: absolutePathSchema.max(65536),
+  toolCallId: z.string().max(1024),
+  callEntryId: z.string().max(1024),
+  callDigest: z.string().length(64),
+  stamp: stampSchema
+});
+
+type ReadMarker = z.infer<typeof readSchema>;
+
+export type SessionView = Pick<
+  ExtensionContext["sessionManager"],
+  "buildSessionProjection" | "getBranch"
+>;
+
+/** What the canonical session projection still shows the model about nested instructions. */
+export interface Ledger {
+  /** Records a direct-read attempt, or returns undefined when its call is not projected. */
+  markRead(
+    toolCallId: string,
+    file: string,
+    stamp: string | undefined
+  ): SessionBoundaryDraft | undefined;
+  /** A visible direct read exists, whatever the file's current revision. */
+  wasRead(file: string): boolean;
+  /** A visible direct read exists for exactly this filesystem revision. */
+  readUnchanged(file: string, stamp: string): boolean;
+  /** A visible notice currently supplies this directory's instructions. */
+  announced(directory: string): boolean;
+  /** Instructions for this directory reached the model by notice or direct read. */
+  delivered(directory: string): boolean;
+  /** The visible notice already carries this instruction file and content. */
+  current(directory: string, file: string, content: string): boolean;
+  /** Directories with visible notices or direct reads. */
+  directories(): string[];
+}
+
+/** Raw markers are useful only while their originating call is in the projection. */
+export function ledger(session: SessionView): Ledger {
+  const projection = session.buildSessionProjection();
+  const visible = new Map(
+    projection.entries.map((entry) => [entry.sourceEntry.id, entry.messages])
+  );
+  const reads = new Map<string, ReadMarker>();
+  const scopes = new Map<string, Notice>();
+  const calls = new Map<string, { entryId: string; digest: string }>();
+  const visibleCalls = new Map<string, string>();
+
+  for (const entry of projection.entries) {
+    for (const message of entry.messages) {
+      if (message.role !== "assistant") continue;
+
+      for (const part of message.content) {
+        if (part.type !== "toolCall") continue;
+        const callDigest = digest(JSON.stringify(part));
+        calls.set(part.id, { entryId: entry.sourceEntry.id, digest: callDigest });
+        visibleCalls.set(JSON.stringify([entry.sourceEntry.id, part.id]), callDigest);
+      }
+    }
+  }
+
+  for (const entry of session.getBranch()) {
+    if (entry.type === "custom" && entry.customType === readType) {
+      const parsed = readSchema.safeParse(entry.data);
+      if (!parsed.success) continue;
+      const marker = parsed.data;
+      if (
+        visibleCalls.get(JSON.stringify([marker.callEntryId, marker.toolCallId])) ===
+        marker.callDigest
+      )
+        reads.set(marker.path, marker);
+    } else if (entry.type === "custom_message" && entry.customType === noticeType) {
+      const parsed = noticeSchema.safeParse(entry.details);
+      if (!parsed.success) continue;
+      const notice = parsed.data;
+      // A context replacement retains details, but no longer contains these instructions.
+      if (
+        !visible
+          .get(entry.id)
+          ?.some(
+            (message) =>
+              message.role === "custom" &&
+              typeof message.content === "string" &&
+              digest(message.content) === notice.messageDigest
+          )
+      )
+        continue;
+      scopes.set(notice.directory, notice);
+
+      if (notice.action !== "loaded") {
+        for (const file of reads.keys())
+          if (path.dirname(file) === notice.directory) reads.delete(file);
+      }
+    }
+  }
+
+  return {
+    markRead(toolCallId, file, stamp) {
+      const origin = calls.get(toolCallId);
+      if (!origin) return undefined;
+      const marker: ReadMarker = {
+        version: 1,
+        path: file,
+        toolCallId,
+        callEntryId: origin.entryId,
+        callDigest: origin.digest,
+        stamp: stamp ?? null
+      };
+      reads.set(file, marker);
+
+      return { type: "custom", customType: readType, data: marker };
+    },
+    wasRead: (file) => reads.has(file),
+    readUnchanged: (file, stamp) => reads.get(file)?.stamp === stamp,
+    announced: (directory) => Boolean(scopes.get(directory)?.path),
+    delivered(directory) {
+      return (
+        Boolean(scopes.get(directory)?.path) ||
+        [...reads.keys()].some((file) => path.dirname(file) === directory)
+      );
+    },
+    current(directory, file, content) {
+      const previous = scopes.get(directory);
+
+      return previous?.path === file && previous.fileDigest === digest(content);
+    },
+    directories: () => [...scopes.keys(), ...[...reads.keys()].map((file) => path.dirname(file))]
+  };
+}

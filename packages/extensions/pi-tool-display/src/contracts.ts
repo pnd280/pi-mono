@@ -122,7 +122,9 @@ export type DisplayGroup = {
 /** Transcript-wide presentation: summary lines, compact cards, or expanded cards. */
 export type DisplayMode = "summary" | "compact" | "verbose";
 
-/** Maximal sequence of owned calls without a visible boundary between them. */
+/** Maximal sequence of owned calls without a run boundary between them.
+ * Owned notice rows accompany calls and can contribute their own summary items.
+ */
 export type DisplayRun = {
   readonly members: readonly DisplayCall[];
   /** Opened runs render their compact cards in summary mode until the mode changes. */
@@ -148,7 +150,7 @@ export interface TranscriptView {
   failAdapter(call: DisplayCall, adapter: ToolDisplayAdapter, error: unknown): void;
   expand(call: DisplayCall, expanded: boolean): void;
   /** Apply a row click; false leaves the click to the host. */
-  activate(call: DisplayCall, target: "card" | "collapse"): boolean;
+  activate(call: DisplayCall, target: "card" | "notice" | "collapse"): boolean;
 }
 
 export type ResultTextPart = {
@@ -222,6 +224,13 @@ export type SummaryCategory = {
    * before the first placeholder is the verb and renders as an action.
    */
   count: { one: string; other: string };
+};
+
+/** A validated session notice, counted separately from tool outcomes. */
+export type SummaryNotice = {
+  readonly category: SummaryCategory;
+  /** Dedupe within this notice category using its persisted path or directory. */
+  readonly identity: string;
 };
 
 /** Callbacks receive borrowed arguments and results; never mutate or persist them. */

@@ -3,7 +3,15 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
-import { containsPath, expandHomePath, relativeDisplayPath } from "@pi-mono/utils/paths";
+import { containsPath, expandHomePath } from "@pi-mono/utils/paths";
+import {
+  alternatives,
+  filenameQueryTokens,
+  globRoot,
+  hasGlob,
+  isFilenameFilter,
+  normalizeFffPath
+} from "@pi-mono/utils/search-scopes";
 import { z } from "zod";
 
 export const searchInputSchema = z.object({
@@ -48,71 +56,6 @@ interface ScopeExpression {
 
 export function resolvePath(value: string, cwd: string): string {
   return path.resolve(cwd, expandHomePath(value, homedir()));
-}
-
-export function hasGlob(value: string): boolean {
-  return /[*?[{]/.test(value);
-}
-
-function hasFilenameExtension(expression: string): boolean {
-  const lastSegment = expression.split("/").at(-1) ?? "";
-
-  return /\.[a-zA-Z][a-zA-Z0-9]{0,9}$/.test(lastSegment);
-}
-
-function isFilenameFilter(expression: string): boolean {
-  return !expression.includes("/") && hasFilenameExtension(expression);
-}
-
-function normalizePathField(expression: string, cwd: string) {
-  // FFF normalizes path/exclude fields before parsing. Workspace-local absolute
-  // paths and ./ prefixes cannot make a bare filename filter concrete.
-  const value =
-    path.isAbsolute(expression) && containsPath(cwd, expression)
-      ? relativeDisplayPath(expression, cwd)
-      : expression;
-  const normalized = value.replace(/^\.\//, "");
-
-  return {
-    value: isFilenameFilter(normalized) ? normalized : expression,
-    // FFF appends a slash to extensionless non-glob path fields. A regular
-    // file with that name is therefore not a viable search root.
-    directoryOnly: normalized !== "." && !hasGlob(normalized) && !hasFilenameExtension(normalized)
-  };
-}
-
-/** Finite brace alternatives only. Bound expansion, never enumerate the filesystem. */
-export function alternatives(value: string): string[] {
-  let expanded = [value];
-
-  for (let depth = 0; depth < 8; depth++) {
-    const next = expanded.flatMap((entry) => {
-      const match = /\{([^{}]+)\}/.exec(entry);
-      if (!match?.[1]?.includes(",")) return [entry];
-
-      return match[1]
-        .split(",")
-        .map(
-          (part) => entry.slice(0, match.index) + part + entry.slice(match.index + match[0].length)
-        );
-    });
-    if (next.length > 64) throw new Error("too many scope alternatives");
-    if (next.join("\0") === expanded.join("\0")) return next;
-    expanded = next;
-  }
-
-  throw new Error("scope alternatives are too deeply nested");
-}
-
-function globRoot(expression: string): { prefix: string; filter: string } | undefined {
-  const parts = expression.split("/");
-  const boundary = parts.findIndex(hasGlob);
-  if (boundary <= 0) return undefined;
-
-  return {
-    prefix: parts.slice(0, boundary).join("/") || "/",
-    filter: parts.slice(boundary).join("/")
-  };
 }
 
 export async function existingTarget(
@@ -182,7 +125,7 @@ function exclusionTokens(exclude: SearchInput["exclude"], cwd: string): string[]
   return list
     .flatMap((entry) => entry.split(/[,\s]+/))
     .filter(Boolean)
-    .map((entry) => normalizePathField(entry.replace(/^!/, ""), cwd))
+    .map((entry) => normalizeFffPath(entry.replace(/^!/, ""), cwd))
     .map(({ value, directoryOnly }) =>
       directoryOnly && !value.endsWith("/") ? `${value}/` : value
     )
@@ -314,11 +257,9 @@ async function excluded(target: Target, excludes: string[], cwd: string): Promis
 }
 
 async function filenameTokens(pattern: string, cwd: string): Promise<string[]> {
-  // Do not split a literal explicit path on spaces or commas. Bare fuzzy words
-  // remain fuzzy even when a file with that exact name happens to exist.
-  if (pattern.includes("/") && (await fileInfo(resolvePath(pattern, cwd)))) return [pattern];
+  const existing = pattern.includes("/") && Boolean(await fileInfo(resolvePath(pattern, cwd)));
 
-  return pattern.split(/\s+/).filter(Boolean);
+  return filenameQueryTokens(pattern, existing);
 }
 
 async function queryExpressions(
@@ -330,7 +271,7 @@ async function queryExpressions(
   const expressions: ScopeExpression[] = [];
 
   if (kind !== "multi" && input.path?.trim()) {
-    const normalized = normalizePathField(input.path.trim(), cwd);
+    const normalized = normalizeFffPath(input.path.trim(), cwd);
 
     expressions.push({ ...normalized, validatePath: true });
   }

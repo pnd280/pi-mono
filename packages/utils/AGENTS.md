@@ -4,6 +4,8 @@
 
 [Helpers](README.md#usage)
 
+Direct FFF consumers: [FFF guard](../extensions/pi-fff-guard/AGENTS.md) and [nested instructions](../extensions/pi-nested-instructions/AGENTS.md) share provenance classification and search-scope normalization.
+
 Indirect consumers:
 
 - Search: [cooperative search](../libs/src/text-search/README.md), then [prompt occurrence preparation](../extensions/pi-prompt-manager/src/search.ts) and [browser search](../libs/src/tui/components/browser/controller.ts).

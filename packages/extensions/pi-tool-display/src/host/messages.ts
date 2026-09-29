@@ -1,4 +1,5 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
+import { noticeType } from "pi-nested-instructions/notices";
 
 import type { Outcome } from "../contracts.ts";
 import { stringField } from "../terminal-text.ts";
@@ -20,6 +21,12 @@ export function executionOutcome(isError: boolean, signal?: AbortSignal): Outcom
   if (!isError) return "success";
 
   return signal?.aborted ? "cancelled" : "failure";
+}
+
+export function isInstructionNotice(input: unknown): boolean {
+  const value = record(input);
+
+  return value.role === "custom" && value.customType === noticeType && value.display === true;
 }
 
 type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
@@ -51,11 +58,15 @@ export class TranscriptMessages {
   private timestamp: number | undefined;
   private indexedContent = 0;
 
+  constructor(private readonly ownNotices = false) {}
+
   read(input: unknown, updatedContentIndex?: number): TranscriptMessage | undefined {
     const value = record(input);
     // System updates are invisible; Pi decides whether usage/custom entries insert rows.
     if (value.role === "system" || value.type === "usage" || value.type === "custom") return;
     if (value.role === "custom" && value.display === false) return;
+    // Actual inserted notice rows supply a group boundary, not a run boundary.
+    if (this.ownNotices && isInstructionNotice(input)) return;
     if (value.role === "toolResult")
       return {
         kind: "result",

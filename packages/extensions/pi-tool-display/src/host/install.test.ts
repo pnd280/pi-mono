@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,6 +7,7 @@ import {
   createAgentSession,
   createReadToolDefinition,
   createSyntheticSourceInfo,
+  CustomMessageComponent,
   DefaultResourceLoader,
   initTheme,
   InteractiveMode,
@@ -30,6 +31,8 @@ import {
   type TUI
 } from "@earendil-works/pi-tui";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
+import nestedInstructions from "pi-nested-instructions";
+import { noticeEntry, noticeType } from "pi-nested-instructions/notices";
 import { expect, it, vi } from "vite-plus/test";
 
 import toolDisplay from "../index.ts";
@@ -317,6 +320,63 @@ it("preserves live and restored cards and native registries through initializati
     expect(host.getRegisteredToolDefinition).toBe(originalLookup);
     expect(text(readRow(session))).not.toContain("• Read example.txt");
     expect(session.getActiveToolNames()).toEqual(activeNames);
+  });
+});
+
+it("owns nested-instruction notice rendering through replay, reload, and display removal", async () => {
+  await withSession(async ({ session, extensionFactories }) => {
+    await session.bindExtensions({ mode: "tui" });
+    const cwd = session.sessionManager.getCwd();
+    const directory = join(cwd, "pkg");
+    const file = join(directory, "AGENTS.md");
+    await mkdir(directory);
+    await writeFile(file, "Retained instructions");
+    const entry = noticeEntry(
+      directory,
+      { path: file, stamp: "fixture", content: "Retained instructions" },
+      "loaded",
+      cwd
+    );
+    session.sessionManager.appendCustomMessageEntry(
+      entry.customType,
+      entry.content,
+      entry.display,
+      entry.details
+    );
+
+    const row = () => {
+      const saved = session.sessionManager
+        .getBranch()
+        .find((item) => item.type === "custom_message" && item.customType === noticeType);
+      if (!saved || saved.type !== "custom_message") throw new Error("Expected saved notice");
+      expect(saved.content).toEqual(entry.content);
+      expect(saved.details).toEqual(entry.details);
+
+      return new CustomMessageComponent(
+        { ...saved, role: "custom", timestamp: 0 },
+        session.extensionRunner.getMessageRenderer(noticeType)
+      );
+    };
+
+    const contents = (component: CustomMessageComponent) =>
+      component.render(80).map(stripTerminalSequences).join("\n");
+    const compact = row();
+    expect(contents(compact)).toContain("• Loaded pkg/AGENTS.md");
+    expect(contents(compact)).not.toContain("Retained instructions");
+    compact.setExpanded(true);
+    expect(contents(compact)).toContain("Retained instructions");
+    expect(contents(compact)).not.toContain("nested instructions from");
+
+    // Loading discovery before display must not compete for the renderer.
+    extensionFactories.unshift(nestedInstructions);
+    await session.reload();
+    expect(contents(row())).toContain("• Loaded pkg/AGENTS.md");
+
+    extensionFactories.splice(1);
+    await session.reload();
+    expect(session.extensionRunner.getMessageRenderer(noticeType)).toBeUndefined();
+    expect(contents(row())).toContain("Retained instructions");
+    expect(contents(row())).not.toContain("• Loaded pkg/AGENTS.md");
   });
 });
 
@@ -2636,6 +2696,183 @@ function summaryHistory(session: AgentSession) {
 function transcriptText(tui: ReturnType<typeof interactiveHost>): string {
   return tui.chatContainer.render(100).map(stripTerminalSequences).join("\n");
 }
+
+it("keeps instruction notices inside live and replayed runs, including trailing collapse controls", async () => {
+  await withSession(
+    async ({ session }) => {
+      const tui = interactiveHost(session);
+      const history: unknown[] = [];
+      let timestamp = 0;
+
+      const notice = async (name: string, appended = false) => {
+        const cwd = session.sessionManager.getCwd();
+        const message = {
+          role: "custom" as const,
+          timestamp: ++timestamp,
+          ...noticeEntry(
+            join(cwd, name),
+            { path: join(cwd, name, "AGENTS.md"), stamp: name, content: `Rules for ${name}` },
+            "loaded",
+            cwd
+          )
+        };
+        history.push(message);
+
+        if (appended) {
+          const id = session.sessionManager.appendCustomMessageEntry(
+            message.customType,
+            message.content,
+            message.display,
+            message.details
+          );
+          await tui.handleEvent({
+            type: "entry_appended",
+            entry: session.sessionManager.getEntry(id)!
+          });
+        } else await tui.handleEvent({ type: "message_start", message });
+      };
+
+      const read = async (path: string) => {
+        const message = assistantMessage(
+          [fauxToolCall("read", { path }, { id: path })],
+          ++timestamp
+        );
+        await tui.handleEvent({ type: "message_start", message: { ...message, content: [] } });
+        await tui.handleEvent({
+          type: "message_update",
+          message,
+          assistantMessageEvent: {
+            type: "toolcall_end",
+            contentIndex: 0,
+            toolCall: messageToolCall(message, 0),
+            partial: message
+          }
+        });
+        await tui.handleEvent({ type: "message_end", message });
+        const result = {
+          role: "toolResult" as const,
+          toolCallId: path,
+          toolName: "read",
+          content: [{ type: "text" as const, text: `Contents of ${path}` }],
+          isError: false,
+          timestamp: ++timestamp
+        };
+        history.push(message, result);
+        await tui.handleEvent({
+          type: "tool_execution_end",
+          toolCallId: path,
+          toolName: "read",
+          result,
+          isError: false
+        });
+      };
+
+      const click = (row: ToolExecutionComponent | CustomMessageComponent, y: number) => {
+        const height = row.render(100).length;
+        expect(
+          row.handleMouse({
+            type: "click",
+            button: "left",
+            x: 2,
+            y,
+            screenX: 2,
+            screenY: y,
+            width: 100,
+            height,
+            shift: false,
+            alt: false,
+            ctrl: false
+          })
+        ).toMatchObject({ handled: true });
+      };
+
+      try {
+        await session.bindExtensions({ mode: "tui" });
+        tui.renderSessionItems([]);
+        await notice("orphan");
+        await read("a.ts");
+        await notice("middle");
+        expect(transcriptText(tui)).toContain("Read a.ts");
+        expect(transcriptText(tui)).not.toContain("Read 1 file");
+        await read("b.ts");
+        await notice("tail-one");
+        await notice("tail-two", true);
+        const boundary = {
+          role: "custom" as const,
+          customType: "other",
+          content: "Other boundary",
+          display: true,
+          timestamp: ++timestamp
+        };
+        history.push(boundary);
+        await tui.handleEvent({ type: "message_start", message: boundary });
+        await notice("outside");
+        await read("c.ts");
+        await tui.handleEvent({ type: "agent_end", messages: [], willRetry: false });
+
+        for (const replay of [false, true]) {
+          if (replay) {
+            tui.chatContainer.clear();
+            tui.renderSessionItems(history);
+          }
+
+          const collapsed = transcriptText(tui);
+          expect(collapsed).toContain("Read 2 files · loaded 3 instruction files");
+          expect(collapsed).toMatch(/^ {2}Read 1 file$/m);
+          expect(collapsed).toContain("Loaded orphan/AGENTS.md");
+          expect(collapsed).toContain("Loaded outside/AGENTS.md");
+          expect(collapsed).not.toContain("Loaded middle/AGENTS.md");
+          expect(collapsed).not.toContain("Loaded tail-");
+          const leader = tui.chatContainer.children.find(
+            (row) => row instanceof ToolExecutionComponent
+          )!;
+          click(leader, 1);
+          const opened = transcriptText(tui).split("Other boundary")[0]!;
+          const ordered = [
+            "Read a.ts",
+            "Loaded middle/AGENTS.md",
+            "Read b.ts",
+            "Loaded tail-one/AGENTS.md",
+            "Loaded tail-two/AGENTS.md"
+          ];
+          let position = -1;
+
+          for (const label of ordered) {
+            expect(opened.indexOf(label)).toBeGreaterThan(position);
+            position = opened.indexOf(label);
+          }
+
+          expect(opened).not.toContain("Explored");
+          expect(opened.match(/─{100}/g)).toHaveLength(2);
+          expect(opened.lastIndexOf("─".repeat(100))).toBeGreaterThan(position);
+          const notices = tui.chatContainer.children.filter(
+            (row) => row instanceof CustomMessageComponent
+          );
+          const middle = notices.find((row) => row.render(100).join("").includes("middle/"))!;
+          click(middle, 1);
+          expect(transcriptText(tui)).toContain("Rules for middle");
+          expect(transcriptText(tui)).not.toContain("Contents of a.ts");
+          const tail = notices.find((row) => row.render(100).join("").includes("tail-two/"))!;
+          click(tail, tail.render(100).length - 1);
+          expect(transcriptText(tui)).toContain("Read 2 files · loaded 3 instruction files");
+          expect(middle.render(100)).toEqual([]);
+          expect(tail.render(100)).toEqual([]);
+          click(leader, 1);
+          expect(transcriptText(tui)).toContain("Rules for middle");
+          tui.toggleToolOutputExpansion?.(); // compact
+          expect(transcriptText(tui)).not.toContain("─".repeat(100));
+          tui.toggleToolOutputExpansion?.(); // verbose
+          expect(transcriptText(tui)).toContain("Rules for tail-two");
+          tui.toggleToolOutputExpansion?.(); // summary
+          expect(middle.render(100)).toEqual([]);
+        }
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    },
+    { collapsedMode: "summary" }
+  );
+});
 
 it("cycles summary, compact, and verbose with Ctrl+O and names the mode in the status", async () => {
   await withSession(

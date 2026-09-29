@@ -2,6 +2,8 @@
 
 [pi-fff-guard](../README.md)
 
+The pure prefix and normalization helpers are shared with [nested instructions](../../pi-nested-instructions/README.md) through [utils](../../../utils/README.md#search-scopes). The guard retains its own missing-path, intersection, exclusion, and Git policies.
+
 ## Paths and filters
 
 The guard checks explicit `path` values and multi-grep constraints for missing or ignored targets, including broken links. [Exclusions differ](#globs-and-exclusions). Relative paths use session cwd; `~/` expands home.

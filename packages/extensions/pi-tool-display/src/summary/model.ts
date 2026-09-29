@@ -1,4 +1,4 @@
-import type { DisplayCall, Outcome, SummaryCategory } from "../contracts.ts";
+import type { DisplayCall, Outcome, SummaryCategory, SummaryNotice } from "../contracts.ts";
 import type { CallInterpretation } from "../interpretation.ts";
 import { builtinCategories, resolveCategory } from "./categories.ts";
 
@@ -17,7 +17,7 @@ export type SummarySegment = {
 };
 
 export type RunSummary = {
-  /** Categories in the order of their first call. */
+  /** Categories in the order of their first call or notice. */
   readonly segments: readonly SummarySegment[];
 };
 
@@ -31,35 +31,44 @@ function counts(states: readonly Outcome[]): SummaryCounts {
   };
 }
 
-/** Pure: derive a run's summary from interpreted call state without touching files. */
+/** Pure: derive a run's summary from calls and their following notices without touching files. */
 export function buildRunSummary(
   members: readonly DisplayCall[],
-  interpretation: (call: DisplayCall) => CallInterpretation
+  interpretation: (call: DisplayCall) => CallInterpretation,
+  notices: (call: DisplayCall) => readonly SummaryNotice[] = () => []
 ): RunSummary {
   const declared = new Map<string, SummaryCategory>();
   // Latest state per entry key, per category; Map order is first appearance.
   const categories = new Map<string, Map<string, Outcome>>();
 
+  const declare = (category: SummaryCategory) => {
+    if (!builtinCategories.has(category.id) && !declared.has(category.id))
+      declared.set(category.id, category);
+  };
+
+  const add = (category: string, key: string, outcome: Outcome) => {
+    const entries = categories.get(category) ?? new Map<string, Outcome>();
+    categories.set(category, entries);
+    // Only the latest outcome per identity counts: a later success clears a failure.
+    entries.set(key, outcome);
+  };
+
   for (const call of members) {
     const interpreted = interpretation(call);
-    // An empty list omits the call; adapters without items use their family's category.
+    // An empty list omits the call, but not its notices.
     const supplied = interpreted.summaryItems;
-    if (!supplied.length) continue;
-
-    for (const category of interpreted.summaryCategories)
-      if (!builtinCategories.has(category.id) && !declared.has(category.id))
-        declared.set(category.id, category);
-
-    const state = interpreted.outcome;
+    if (supplied.length) interpreted.summaryCategories.forEach(declare);
 
     supplied.forEach((item, position) => {
-      const entries = categories.get(item.category) ?? new Map<string, Outcome>();
-      categories.set(item.category, entries);
       const key =
         item.identity === undefined ? `call\0${call.key}\0${position}` : `id\0${item.identity}`;
-      // Only the latest outcome per identity counts: a later success clears a failure.
-      entries.set(key, state);
+      add(item.category, key, interpreted.outcome);
     });
+
+    for (const notice of notices(call)) {
+      declare(notice.category);
+      add(notice.category.id, `notice\0${notice.identity}`, "success");
+    }
   }
 
   return {

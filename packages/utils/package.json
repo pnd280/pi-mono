@@ -7,6 +7,7 @@
     "./relative-time": "./src/relative-time.ts",
     "./text-search": "./src/text-search.ts",
     "./fff-tools": "./src/fff-tools.ts",
+    "./search-scopes": "./src/search-scopes.ts",
     "./paths": "./src/paths.ts",
     "./shell": "./src/shell.ts",
     "./source-selection": "./src/source-selection.ts",

@@ -12,7 +12,7 @@
 
 ## Coverage boundaries
 
-This package owns scope extraction, allow/block policy, late registration, and notification delivery. [Utils](../../../utils/docs/testing.md) own FFF provenance classification; [libraries](../../../libs/docs/testing.md) own Git rule precedence, worktrees, NUL protocols, and symlink traversal. Use disposable repositories to check their integration without repeating the shared Git matrix.
+This package owns scope intersection/exclusion and missing-target policy, allow/block decisions, late registration, and notification delivery. [Utils](../../../utils/docs/testing.md) own FFF provenance, finite braces, fixed prefixes, and path normalization; [libraries](../../../libs/docs/testing.md) own Git rule precedence, worktrees, NUL protocols, and symlink traversal. Use disposable repositories to check their integration without repeating the shared Git matrix.
 
 ## Exclusions
 

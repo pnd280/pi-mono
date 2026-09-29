@@ -18,6 +18,12 @@ Callbacks should return `undefined` or reject through `supports` rather than thr
 
 Adapters must not enable/execute tools, access files, persist data, mutate borrowed arguments/results, or change model context. Native observation and unavailable-history notices need separate [host provenance checks](../README.md#observation-and-saved-history).
 
+## Session-message adapters
+
+Session messages use Pi's public `registerMessageRenderer` API from this extension's entry point, not the tool resolver list. Keep presentation under `src/adapters/<extension-package>/` and import the persisted identifier and decoder from the producing package's public contract. Do not load its extension factory for rendering.
+
+The [pi-nested-instructions adapter](../src/adapters/pi-nested-instructions/README.md) owns instruction-notice cards and derives summary categories and identities from validated notice details. The host attaches their rows and summary contributions to the preceding call while retaining exploration-group boundaries. Tool renderer overrides and tool-adapter callbacks do not apply to these messages.
+
 ## Recognize tool contracts
 
 Match verified provenance and the parameter structure the renderer needs: types, required fields, and object strictness where relevant. Do not fingerprint complete schemas or require numeric bounds, descriptions, or other details that provider-facing projection can omit or rewrite. Removing `minimum` from an integer coordinate, for example, must not disable its display adapter. Validate argument values and result shapes separately before specialized rendering.

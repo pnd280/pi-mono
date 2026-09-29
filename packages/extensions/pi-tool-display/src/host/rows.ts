@@ -1,13 +1,19 @@
-import { AssistantMessageComponent, ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
+import {
+  AssistantMessageComponent,
+  CustomMessageComponent,
+  ToolExecutionComponent
+} from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import type { DisplayCall } from "../contracts.ts";
+import { noticeSummary } from "../adapters/pi-nested-instructions/index.ts";
+import type { DisplayCall, SummaryNotice } from "../contracts.ts";
 import type { DisplayTheme } from "../rendering/types.ts";
 import type { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { record } from "../values.ts";
 import { assistantBoundaryKind, bindAssistantPresentation } from "./assistant.ts";
 import type { Host } from "./compatibility.ts";
+import { isInstructionNotice } from "./messages.ts";
 import { bindRowChrome } from "./row-layout.ts";
 
 /** Pi row ownership, visible separators, and input routing for one transcript binding. */
@@ -15,6 +21,8 @@ export class TranscriptRows {
   private disposers: (() => void)[] = [];
   private bound = new WeakSet<ToolExecutionComponent>();
   private assistants = new WeakSet<AssistantMessageComponent>();
+  private notices = new WeakSet<CustomMessageComponent>();
+  private trailingNotices = new Map<DisplayCall, CustomMessageComponent>();
   private pendingCalls = new Map<string, { calls: DisplayCall[]; next: number }>();
   private unindexedCalls: MapIterator<DisplayCall>;
   private indexedCalls = 0;
@@ -124,8 +132,65 @@ export class TranscriptRows {
   prepareInsertion(): void {
     this.indexChildren();
   }
-  finishInsertion(): void {
-    for (const component of this.indexChildren()) this.boundaryBefore(component);
+  finishInsertion(message?: unknown): void {
+    const instructionNotice = isInstructionNotice(message);
+    const summary = instructionNotice ? noticeSummary(record(message).details) : undefined;
+
+    for (const component of this.indexChildren()) {
+      if (
+        instructionNotice &&
+        this.options.chrome &&
+        this.options.styleAssistant &&
+        component instanceof CustomMessageComponent &&
+        this.bindNotice(component, summary)
+      )
+        continue;
+      this.boundaryBefore(component);
+    }
+  }
+  /** A notice joins the preceding owned run, never crossing a visible run boundary.
+   * Inspect actual rows: reconstruction may already have indexed later messages.
+   */
+  private bindNotice(row: CustomMessageComponent, summary: SummaryNotice | undefined): boolean {
+    const children = this.host.chatContainer?.children ?? [];
+    let call: DisplayCall | undefined;
+
+    for (let index = children.indexOf(row) - 1; index >= 0; index--) {
+      const previous = children[index];
+      if (previous instanceof CustomMessageComponent && this.notices.has(previous)) continue;
+      if (
+        previous instanceof AssistantMessageComponent &&
+        assistantBoundaryKind(previous) !== "run"
+      )
+        continue;
+      if (previous instanceof ToolExecutionComponent) call = this.rowCall(previous);
+      break;
+    }
+
+    if (!call) return false;
+    this.notices.add(row);
+    this.trailingNotices.set(call, row);
+    this.coordinator.setBoundary(row, call, "group");
+    if (summary) this.coordinator.addSummaryNotice(call, summary);
+    const anchor = call;
+    this.disposers.push(
+      bindRowChrome(row, anchor, this.coordinator, {
+        active: this.options.active,
+        theme: () => this.theme,
+        tail: () => this.trailingNotices.get(anchor) === row
+      }),
+      this.coordinator.attach(anchor, {
+        invalidate: () => {
+          row.invalidate();
+          this.host.ui?.requestRender();
+        },
+        requestRender: () => this.host.ui?.requestRender(),
+        // Pi owns notice expansion; expanding a tool group must not toggle notices.
+        setExpanded: () => {}
+      })
+    );
+
+    return true;
   }
   private precedingCall(component: Component): DisplayCall | undefined {
     if (!this.options.active()) return;
@@ -169,7 +234,8 @@ export class TranscriptRows {
         this.disposers.push(
           bindRowChrome(child, call, coordinator, {
             active: this.options.active,
-            theme: () => this.theme
+            theme: () => this.theme,
+            tail: () => !this.trailingNotices.has(call)
           })
         );
       // Retain Pi's expansion callback and explicitly rebind its original receiver.
@@ -210,6 +276,7 @@ export class TranscriptRows {
     this.disposers.splice(0).forEach((dispose) => dispose());
     this.pendingCalls.clear();
     this.pendingRows.clear();
+    this.trailingNotices.clear();
     this.components.clear();
     this.children = undefined;
     this.lastChild = undefined;

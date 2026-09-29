@@ -27,6 +27,7 @@ Repeat `-e` for additional extensions. To persist the selection, use Pi's [local
 - [pi-tool-display](packages/extensions/pi-tool-display/README.md): compact, borderless tool activity with expandable output and file diffs.
 - [pi-fff-guard](packages/extensions/pi-fff-guard/README.md): block FFF searches targeting Git-ignored or missing explicit paths.
 - [pi-selective-read](packages/extensions/pi-selective-read/README.md): highlight source spans within surrounding read context.
+- [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md): discover nested instructions from tool inputs without duplicating direct reads.
 - [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): private prompt history and saved drafts, scoped to the working directory.
 - [pi-skills](packages/extensions/pi-skills/README.md): skill file references instead of injected content, with native completion anywhere in the prompt.
 - [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks with progress widget and task browser.

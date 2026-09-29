@@ -6,7 +6,7 @@ Borderless Pi TUI tool cards with one-line run summaries, exploration groups, li
 
 Pi's expansion key (default **Ctrl+O**) cycles tool output through **summary** → **compact** → **verbose** → **summary**. The status line names the mode (`Tool output: summary`):
 
-- **Summary** (default): each tool-call run between non-thinking visible messages becomes [one summary line](docs/presentation.md#summary-mode), such as `Read 4 files · edited 2 files · ran 3 commands (1 failed)`. Until a run ends, it shows compact cards. Summaries require Pi's fullscreen mode; in regular mode, summary renders as compact and **Ctrl+O** toggles compact and verbose. Click a summary line to open its run as compact cards until the next mode change; clicking a card before the run ends also keeps it open. Opened runs have a blank row inside each plain horizontal rule. Click either rule or its inner padding to restore the line.
+- **Summary** (default): each tool-call run becomes [one summary line](docs/presentation.md#summary-mode), such as `Read 4 files · edited 2 files · ran 3 commands (1 failed)`. Until a run ends, it shows compact cards. Summaries require Pi's fullscreen mode; in regular mode, summary renders as compact and **Ctrl+O** toggles compact and verbose. Click a summary line to open its run as compact cards until the next mode change; clicking a card before the run ends also keeps it open. Opened runs have a blank row inside each plain horizontal rule. Click either rule or its inner padding to restore the line.
 - **Compact**: the cards and groups described below.
 - **Verbose**: every card expanded, with Pi's startup header and loaded resources. Pi's `--verbose` starts here.
 
@@ -36,6 +36,8 @@ Specialized cards override even supplied custom renderers for:
 - [`pi-smart-compact`](src/adapters/pi-smart-compact/README.md): compaction request/focus/model cards and readable context-window usage.
 
 Other tools retain custom `renderCall`/`renderResult`; tools with neither, or historical calls without current definitions, use generic cards from retained data.
+
+The dedicated [pi-nested-instructions message adapter](src/adapters/pi-nested-instructions/README.md) renders loaded, updated, and removed instruction notices as compact status/path cards with expandable Markdown. It also renders saved notices when discovery is not loaded. Notices join the preceding tool run when present: they hide with its summary and return in place when it opens. They separate exploration groups and contribute [instruction counts](src/adapters/pi-nested-instructions/README.md#display), such as `loaded 2 instruction files`, to the summary.
 
 Use the [renderer API](docs/renderers.md) for tool-author/SDK integration and [adapter development](docs/adapters.md) for automatic selection.
 

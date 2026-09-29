@@ -7,6 +7,7 @@
 - Paths are lexical and absolute where required; sibling prefixes are not descendants. Home expansion uses the supplied home, not ambient state.
 - POSIX-shell argument quoting preserves empty strings, whitespace, Unicode, apostrophes, and shell metacharacters as literal arguments. Callers supply NUL-free text and choose the shell.
 - FFF classification requires official provenance and recognized names, not a matching tool name alone.
+- Search-scope helpers expand bounded finite brace alternatives without filesystem enumeration, retain only fixed glob prefixes, and preserve recursive FFF filename filters after anchor normalization. Consumers own missing-target, exclusion, and discovery policy.
 - Source selections use absolute, 1-based lines and code-point columns with exclusive ends, clip to the supplied window, and preserve raw source. Reject invalid coordinates and unknown fields.
 - Output omission ranges identify generated notices only; joining and slicing preserve source, UTF-16 offsets, and literal notice lookalikes. Reject overlapping ranges.
 - Patch parsing accepts one bounded unified patch, validates counts and ordered, nonoverlapping ranges in both source versions, and preserves changed-line counts and missing-newline markers. Empty hunk ranges use insertion/deletion anchors.

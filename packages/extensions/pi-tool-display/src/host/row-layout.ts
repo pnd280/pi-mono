@@ -1,11 +1,13 @@
-import type { ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
+import {
+  CustomMessageComponent,
+  type ToolExecutionComponent
+} from "@earendil-works/pi-coding-agent";
 import type { TuiMouseEvent } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import type { DisplayCall } from "../contracts.ts";
 import { renderCollapseRow, renderRunSummary } from "../rendering/summary-line.ts";
 import type { DisplayTheme } from "../rendering/types.ts";
-import { buildRunSummary } from "../summary/model.ts";
 import type { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { record } from "../values.ts";
 
@@ -79,8 +81,10 @@ export function layoutRow(
   return layout;
 }
 
+type DisplayRow = ToolExecutionComponent | CustomMessageComponent;
+
 /** A click the row itself consumed, targeted at the row. */
-function handled(component: ToolExecutionComponent, event: TuiMouseEvent) {
+function handled(component: DisplayRow, event: TuiMouseEvent) {
   return {
     handled: true as const,
     target: {
@@ -99,16 +103,18 @@ function rowChrome(
   coordinator: TranscriptCoordinator,
   width: number,
   theme: DisplayTheme | undefined,
-  summaryLine: () => readonly string[]
+  summaryLine: () => readonly string[],
+  notice: boolean,
+  tail: boolean
 ): RowChrome {
   const role = coordinator.summaryRole(call);
-  if (role?.kind === "hidden") return { kind: "hidden" };
+  if (role && (notice || role.kind === "hidden")) return { kind: "hidden" };
   if (role) return { kind: "summary", line: summaryLine() };
 
-  const group = call.expanded ? undefined : coordinator.group(call);
+  const group = notice || call.expanded ? undefined : coordinator.group(call);
   const run = coordinator.run(call);
-  const top = run?.members[0] === call;
-  const bottom = run?.members.at(-1) === call;
+  const top = !notice && run?.members[0] === call;
+  const bottom = tail && run?.members.at(-1) === call;
   const collapsible = (top || bottom) && theme !== undefined && coordinator.collapsible(call);
 
   return {
@@ -124,12 +130,18 @@ function rowChrome(
  * reach Pi's own row handlers at their original coordinates.
  */
 export function bindRowChrome(
-  row: ToolExecutionComponent,
+  row: DisplayRow,
   call: DisplayCall,
   coordinator: TranscriptCoordinator,
-  options: { active: () => boolean; theme: () => DisplayTheme | undefined }
+  options: {
+    active: () => boolean;
+    theme: () => DisplayTheme | undefined;
+    /** Only the last notice after a call (or the call without notices) owns its footer. */
+    tail?: () => boolean;
+  }
 ): () => void {
   const hooks = new OwnedHooks();
+  const notice = row instanceof CustomMessageComponent;
   // Retain Pi's unbound methods and rebind their original receiver when delegating.
   // oxlint-disable-next-line typescript/unbound-method
   const previousRender = row.render;
@@ -146,8 +158,7 @@ export function bindRowChrome(
     if (!theme) return [];
 
     if (summary?.revision !== call.revision || summary.width !== width) {
-      const members = coordinator.run(call)?.members ?? [call];
-      const model = buildRunSummary(members, (member) => coordinator.interpretation(member));
+      const model = coordinator.summary(call);
       summary = {
         revision: call.revision,
         width,
@@ -158,7 +169,7 @@ export function bindRowChrome(
     return summary.line;
   };
 
-  const render: typeof row.render = function (this: ToolExecutionComponent, width) {
+  const render: typeof row.render = function (this: DisplayRow, width) {
     if (!options.active() || width < 1) {
       targets = [];
 
@@ -166,18 +177,27 @@ export function bindRowChrome(
     }
 
     const theme = options.theme();
-    const chrome = rowChrome(call, coordinator, width, theme, () => summaryLine(width, theme));
+    const chrome = rowChrome(
+      call,
+      coordinator,
+      width,
+      theme,
+      () => summaryLine(width, theme),
+      notice,
+      options.tail?.() ?? true
+    );
     // Summary chrome replaces the entire row. Do not prepare hidden cards or images.
     // For visible cards, Pi updates selfRenderHeight while rendering.
     const rows = chrome.kind === "card" ? previousRender.call(this, width) : [];
-    const height = record(this).selfRenderHeight;
+    // CustomMessageComponent is a one-row Spacer followed by our notice renderer.
+    const height = notice ? Math.max(0, rows.length - 1) : record(this).selfRenderHeight;
     const layout = layoutRow(rows, typeof height === "number" ? height : 0, chrome);
     targets = layout.targets;
 
     return layout.rows;
   };
 
-  const handleMouse: typeof row.handleMouse = function (this: ToolExecutionComponent, event) {
+  const handleMouse: typeof row.handleMouse = function (this: DisplayRow, event) {
     if (!options.active()) return previousMouse.call(this, event);
     const target = targets[event.y];
     if (!target) return undefined;
@@ -185,14 +205,15 @@ export function bindRowChrome(
 
     if (target.kind === "collapse")
       return click && coordinator.activate(call, "collapse") ? handled(this, event) : undefined;
-    if (click && coordinator.activate(call, "card")) return handled(this, event);
+    if (click && coordinator.activate(call, notice ? "notice" : "card"))
+      return handled(this, event);
     // Pi subtracts its margin row before routing to the renderer slots.
     const local: TuiMouseEvent = { ...event, y: target.y + 1 };
 
     return previousMouse.call(this, local);
   };
 
-  const invalidate: typeof row.invalidate = function (this: ToolExecutionComponent) {
+  const invalidate: typeof row.invalidate = function (this: DisplayRow) {
     summary = undefined;
     previousInvalidate.call(this);
   };

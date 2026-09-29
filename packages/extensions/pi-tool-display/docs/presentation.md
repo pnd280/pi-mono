@@ -57,9 +57,11 @@ Standalone/expanded searches separate pattern and scope with an em dash (U+2014)
 
 ## Summary mode
 
-[Summary mode](../README.md#usage) replaces each ended run with one line in its first call's Pi row. A run is a maximal sequence of this extension's calls between visible non-thinking messages, notices/custom entries, or calls using original renderers. Thinking separates visible [exploration groups](#groups), but never splits or settles a run. Single calls form runs, and exploration groups are counted within their run. Compact and verbose modes keep groups and cards unchanged.
+[Summary mode](../README.md#usage) replaces each ended run with one line in its first call's Pi row. A run is a maximal sequence of this extension's calls between unowned visible non-thinking messages, notices/custom entries, or calls using original renderers. Thinking separates visible [exploration groups](#groups), but never splits or settles a run. Single calls form runs, and exploration groups are counted within their run. Compact and verbose modes keep groups and cards unchanged.
 
-Todo calls stay in their run but are omitted from the line, including incompatible calls using generic fallback: they do not affect counts, and a run of only todo calls shows no line.
+[Nested-instruction notices](../src/adapters/pi-nested-instructions/README.md) join the preceding run without splitting or settling it, but remain group boundaries. They contribute separate loaded/updated/removed instruction counts and hide with the run; opening restores them in their original positions. Notices without a preceding owned run stay standalone.
+
+Todo calls stay in their run but are omitted from the line, including incompatible calls using generic fallback: they do not affect counts, and a run of only todo calls without counted notices shows no line.
 
 A run collapses only when no member is streaming, queued, or executing and a non-thinking boundary or agent end prevents more calls from joining. History is always ended. Until then, the run shows compact cards, so its line describes only finished calls. Clicking a card before its run ends keeps the run open afterward, as if its line had been clicked.
 
@@ -86,7 +88,9 @@ Only the latest outcome per file or directory counts: a later successful edit cl
 | List     | `listed N dirs`            |
 | Read     | `read N files`             |
 
-Items appear in the order of their category's first call; failures never reorder them. The first item starts with a capital letter unless it begins with a tool name, which keeps its case. Adapter-declared count labels become single-line terminal-safe text without changing category identities or counts.
+[Instruction notices](../src/adapters/pi-nested-instructions/README.md#display) count once per persisted file path and action, or directory for removals. Their counts remain separate from tool outcomes and file-read counts.
+
+Items appear in the order of their category's first call or notice; failures never reorder them. The first item starts with a capital letter unless it begins with a tool name, which keeps its case. Adapter-declared count labels become single-line terminal-safe text without changing category identities or counts.
 
 ### Line layout
 
@@ -94,7 +98,7 @@ The line has no leading marker. Each row has a two-column indent; wrapping occur
 
 Image-bearing calls and failed/cancelled calls contribute to counts; their images and diagnostic text remain hidden.
 
-Left clicks on a summary line open the run to compact cards, where group and card clicks work as usual. An opened run that has ended has plain full-width `dim` horizontal rules above its first card and below its last card, including any images. One blank row separates the content from each rule; the rules have no label or triangle marker. Clicking either rule or its inner padding restores the summary line without toggling a card. Single-card runs have both controls too. Runs whose line would be empty, such as todo-only runs, show no collapse controls. Any mode change, including a TUI mode switch, closes opened runs. Transcript search cannot find hidden output.
+Left clicks on a summary line open the run to compact cards, where group and card clicks work as usual. An opened run that has ended has plain full-width `dim` horizontal rules above its first card and below its last card or trailing instruction notice, including any images. One blank row separates the content from each rule; the rules have no label or triangle marker. Clicking either rule or its inner padding restores the summary line without toggling a card. Single-card runs have both controls too. Runs whose line would be empty, such as todo-only runs without counted notices, show no collapse controls. Any mode change, including a TUI mode switch, closes opened runs. Transcript search cannot find hidden output.
 
 ## Thinking
 

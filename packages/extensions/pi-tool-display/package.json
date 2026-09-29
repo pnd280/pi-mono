@@ -22,6 +22,7 @@
   "dependencies": {
     "@pi-mono/libs": "workspace:*",
     "@pi-mono/utils": "workspace:*",
+    "pi-nested-instructions": "workspace:*",
     "zod": "catalog:"
   },
   "pi": {

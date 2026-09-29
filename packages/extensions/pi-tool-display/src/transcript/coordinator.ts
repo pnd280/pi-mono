@@ -16,6 +16,7 @@ import {
   type Lifecycle,
   type Outcome,
   type SavedOutput,
+  type SummaryNotice,
   type SummaryRole,
   type TranscriptView
 } from "../contracts.ts";
@@ -28,7 +29,7 @@ import {
   type CallInterpretation,
   type GroupKey
 } from "../interpretation.ts";
-import { buildRunSummary } from "../summary/model.ts";
+import { buildRunSummary, type RunSummary } from "../summary/model.ts";
 
 export interface RowHandle {
   invalidate(): void;
@@ -91,6 +92,7 @@ export class TranscriptCoordinator implements TranscriptView {
   private boundaries = new Map<object, Boundary>();
   private groups = new Map<string, MutableGroup>();
   private runs = new Map<string, MutableRun>();
+  private notices = new Map<string, SummaryNotice[]>();
   private boundaryCounts = new Map<string, { group: number; run: number }>();
   private latestById = new Map<string, MutableCall>();
   private liveIdentities = new Map<string, MutableCall>();
@@ -317,6 +319,23 @@ export class TranscriptCoordinator implements TranscriptView {
   run(call: DisplayCall): DisplayRun | undefined {
     return this.runs.get(call.key);
   }
+  /** Notices stay attached to their preceding call when run boundaries change. */
+  addSummaryNotice(after: DisplayCall, notice: SummaryNotice): void {
+    const call = this.mutable(after);
+    if (!call) return;
+    const notices = this.notices.get(call.key) ?? [];
+    notices.push(notice);
+    this.notices.set(call.key, notices);
+    // Refresh the cached line and any newly available collapse controls.
+    for (const member of this.runs.get(call.key)?.members ?? [call]) this.invalidate(member);
+  }
+  summary(call: DisplayCall): RunSummary {
+    return buildRunSummary(
+      this.runs.get(call.key)?.members ?? [call],
+      (member) => this.interpretation(member),
+      (member) => this.notices.get(member.key) ?? []
+    );
+  }
   /** Only ended runs collapse; live runs render compact cards. */
   summaryRole(call: DisplayCall): SummaryRole | undefined {
     const run = this.runs.get(call.key);
@@ -350,9 +369,10 @@ export class TranscriptCoordinator implements TranscriptView {
   /**
    * Apply a click on a call's row. A collapse control closes its run. A card click
    * opens its run: a summarized run is handled; otherwise a grouped card toggles
-   * its group. Returns false when the host should handle the click itself.
+   * its group. Notice clicks keep the run open without toggling the anchor's group.
+   * Returns false when the host should handle the click itself.
    */
-  activate(view: DisplayCall, target: "card" | "collapse"): boolean {
+  activate(view: DisplayCall, target: "card" | "notice" | "collapse"): boolean {
     const call = this.mutable(view);
     const run = call && this.runs.get(call.key);
     if (!call || !run) return false;
@@ -366,7 +386,7 @@ export class TranscriptCoordinator implements TranscriptView {
     const summarized = this.summarized(run);
     this.openRun(run);
     if (summarized) return true;
-    if (!this.group(call)) return false;
+    if (target === "notice" || !this.group(call)) return false;
     this.expand(call, !call.expanded);
 
     return true;
@@ -388,13 +408,16 @@ export class TranscriptCoordinator implements TranscriptView {
     return this.closable(run);
   }
   private closable(run: MutableRun | undefined): boolean {
+    const first = run?.members[0];
+
     return (
       !!run &&
+      !!first &&
       run.opened &&
       run.ended &&
       this.mode === "summary" &&
       this.summaries &&
-      buildRunSummary(run.members, (member) => this.interpretation(member)).segments.length > 0
+      this.summary(first).segments.length > 0
     );
   }
   /** Return an opened run to its summary line. */
@@ -888,6 +911,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.state.clear();
     this.groups.clear();
     this.runs.clear();
+    this.notices.clear();
     this.separators.clear();
     this.regroupPending = false;
     this.pendingInvalidations.clear();
