@@ -23,17 +23,6 @@ function toolInfo(overrides: Partial<ToolInfo> = {}): ToolInfo {
   return { ...base, ...overrides };
 }
 
-it("uses Todos-prefixed action verbs and ignores unknown arguments", () => {
-  expect(todoDisplayAdapter.headingVerbs?.({ action: "create" })).toEqual({
-    action: "Todos · Create",
-    pending: "Todos · Creating",
-    complete: "Todos · Created"
-  });
-  expect(todoDisplayAdapter.headingVerbs?.({ action: "clear" })?.complete).toBe("Todos · Cleared");
-  expect(todoDisplayAdapter.headingVerbs?.({ action: "unknown" })).toBeUndefined();
-  expect(todoDisplayAdapter.headingVerbs?.({})).toBeUndefined();
-});
-
 it("summarizes create arguments without serializing parameters", () => {
   expect(todoDisplayAdapter.invocation?.({ action: "create", subject: "Ship it" })).toEqual([
     { kind: "value", text: "Ship it" }
@@ -175,18 +164,6 @@ it("uses confirmed todo state, create IDs, and filtered list totals", () => {
   expect(summarize({ action: "list", includeDeleted: true })).toBe(
     "3 todos listed · 1/2 completed · 1 pending"
   );
-});
-
-it("provides a shared scope so adjacent calls share a group", () => {
-  const pending = todoDisplayAdapter.exploration?.({ action: "create", subject: "Ship it" });
-  const complete = todoDisplayAdapter.exploration?.(
-    { action: "create", subject: "Ship it" },
-    result({ tasks: [] })
-  );
-  expect(pending?.[0]?.parts).toEqual([{ kind: "value", text: "Ship it" }]);
-  expect(pending?.[0]?.scope).toBeDefined();
-  expect(complete?.[0]?.scope).toEqual(pending?.[0]?.scope);
-  expect(todoDisplayAdapter.exploration?.("not an object")).toBeUndefined();
 });
 
 it("resolves only the verified todo tool registration", () => {

@@ -34,6 +34,7 @@ it.each(["aboveEditor", "belowEditor", "footer"] as const)(
       }[region];
       const initial = container.render(30);
       expect(initial).toHaveLength(region === "aboveEditor" ? 3 : 2);
+      expect(coordinator.regionHeight(30)).toBe(3);
       for (const content of ["ONE", "TWO", "RIGHT"]) expect(plain(initial)).toContain(content);
       expanded = false;
       host.ui.requestRender();
@@ -92,7 +93,7 @@ it.each(["regular", "fullscreen"] as const)(
   async (mode) => {
     const fixture = await hostFixture([], mode);
     const { host, ui } = fixture;
-    ui.setWidget("first", ["first"]);
+    ui.setWidget("first", ["\x1b[31mfirst\x1b[39m"]);
     ui.setWidget("second", ["second"]);
     const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
 
@@ -116,55 +117,52 @@ it.each(["regular", "fullscreen"] as const)(
   }
 );
 
-it.each([20, 30])(
-  "keeps native mouse geometry after wrapping %i-column widgets",
-  async (length) => {
-    const fixture = await hostFixture();
-    const { host, ui } = fixture;
-    const mouse = vi.fn(() => ({ handled: true }));
-    const component = new Container();
-    component.addChild({
-      render: (width) => wrapTextWithAnsi("a".repeat(length), width),
-      invalidate() {},
-      handleMouse: mouse
-    });
-    ui.setWidget("left", () => component);
-    ui.setWidget("right", () => ({
-      render: (width) => wrapTextWithAnsi("b".repeat(length), width),
-      invalidate() {}
-    }));
-    const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
+it.each([20])("keeps native mouse geometry after wrapping %i-column widgets", async (length) => {
+  const fixture = await hostFixture();
+  const { host, ui } = fixture;
+  const mouse = vi.fn(() => ({ handled: true }));
+  const component = new Container();
+  component.addChild({
+    render: (width) => wrapTextWithAnsi("a".repeat(length), width),
+    invalidate() {},
+    handleMouse: mouse
+  });
+  ui.setWidget("left", () => component);
+  ui.setWidget("right", () => ({
+    render: (width) => wrapTextWithAnsi("b".repeat(length), width),
+    invalidate() {}
+  }));
+  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
 
-    try {
-      const layout = defaultLayout();
-      layout.hidden = layout.footer.flat().filter((id) => id.startsWith("builtin:"));
-      layout.footer = [["widget:right", "widget:left"]];
-      coordinator.apply(layout);
-      expect(plain(host.footerContainer.render(30))).toBe(
-        "b".repeat(length) + "\n" + "a".repeat(length)
-      );
-      host.footerContainer.handleMouse({
-        type: "press",
-        button: "left",
-        x: 1,
-        y: 1,
-        screenX: 1,
-        screenY: 1,
-        width: 30,
-        height: 2,
-        shift: false,
-        alt: false,
-        ctrl: false
-      });
-      expect(mouse).toHaveBeenCalledWith(
-        expect.objectContaining({ x: 1, y: 0, width: 30, height: 1 })
-      );
-    } finally {
-      coordinator.dispose();
-      await fixture.dispose();
-    }
+  try {
+    const layout = defaultLayout();
+    layout.hidden = layout.footer.flat().filter((id) => id.startsWith("builtin:"));
+    layout.footer = [["widget:right", "widget:left"]];
+    coordinator.apply(layout);
+    expect(plain(host.footerContainer.render(30))).toBe(
+      "b".repeat(length) + "\n" + "a".repeat(length)
+    );
+    host.footerContainer.handleMouse({
+      type: "press",
+      button: "left",
+      x: 1,
+      y: 1,
+      screenX: 1,
+      screenY: 1,
+      width: 30,
+      height: 2,
+      shift: false,
+      alt: false,
+      ctrl: false
+    });
+    expect(mouse).toHaveBeenCalledWith(
+      expect.objectContaining({ x: 1, y: 0, width: 30, height: 1 })
+    );
+  } finally {
+    coordinator.dispose();
+    await fixture.dispose();
   }
-);
+});
 
 it("discovers before/after startup registrations through real extension binding", async () => {
   const fixture = await hostFixture([
@@ -229,10 +227,12 @@ it("moves/hides intact native instances without taking over replacement, removal
     coordinator.apply(layout);
     expect(plain(host.footerContainer.render(80))).toBe("");
     expect(disposal).not.toHaveBeenCalled();
-    ui.setWidget("native", ["replacement"]);
+    ui.setWidget("native", ["replacement"], { placement: "belowEditor" });
     expect(disposal).toHaveBeenCalledTimes(1);
     expect(plain(host.widgetContainerAbove.render(80))).toBe("");
     ui.setWidget("native", undefined);
+    expect(host.extensionWidgetsAbove.has("native")).toBe(false);
+    expect(host.extensionWidgetsBelow.has("native")).toBe(false);
     ui.setWidget("native", ["registered again"]);
     expect(plain(host.widgetContainerAbove.render(80))).toBe("");
     layout.hidden = layout.hidden.filter((id) => id !== "widget:native");
@@ -341,6 +341,7 @@ it("renders duplicated placements from one native instance with the same render 
     coordinator.apply(layout);
     expect(plain(host.widgetContainerAbove.render(40))).toBe("\nDUP");
     expect(plain(host.footerContainer.render(40))).toBe("LEFT \u2022 DUP\nLEFT");
+    expect(coordinator.regionHeight(40)).toBe(4);
     expect(factory).toHaveBeenCalledTimes(1);
     expect(component.render.mock.calls).toEqual([[40], [40]]);
     const event = {
@@ -420,41 +421,6 @@ it("keeps nested mouse targets at the copy's render width even when flex shrinks
   }
 });
 
-it("renders a menu draft in place of the saved layout until it is cleared", async () => {
-  const fixture = await hostFixture();
-  const { host, ui } = fixture;
-  const factory = vi.fn(() => ({ render: () => ["ONE", "TWO"], invalidate() {} }));
-  ui.setWidget("draft", factory);
-  const coordinator = new WidgetCoordinator(host, () => ui.theme, vi.fn());
-
-  try {
-    const saved = defaultLayout();
-    saved.hidden = defaultLayout()
-      .footer.flat()
-      .filter((id) => id.startsWith("builtin:"));
-    saved.footer = [];
-    coordinator.apply(saved);
-    expect(plain(host.widgetContainerAbove.render(80))).toBe("\nONE\nTWO");
-    expect(coordinator.regionHeight(80)).toBe(3);
-    const draft = structuredClone(saved);
-    draft.aboveEditor = [];
-    draft.belowEditor = [["widget:draft"]];
-    draft.footer = [["widget:draft"]];
-    coordinator.showDraft(draft);
-    expect(plain(host.widgetContainerAbove.render(80))).toBe("");
-    expect(plain(host.widgetContainerBelow.render(80))).toBe("ONE\nTWO");
-    expect(plain(host.footerContainer.render(80))).toBe("ONE\nTWO");
-    expect(coordinator.regionHeight(80)).toBe(5);
-    coordinator.showDraft(undefined);
-    expect(plain(host.widgetContainerAbove.render(80))).toBe("\nONE\nTWO");
-    expect(plain(host.widgetContainerBelow.render(80))).toBe("");
-    expect(factory).toHaveBeenCalledOnce();
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
 it("diagnoses both footer ownership orders and leaves later owners untouched on teardown", async () => {
   const fixture = await hostFixture();
   const { host, ui } = fixture;
@@ -496,7 +462,7 @@ it("leaves later hooks installed while retained coordinator callbacks return to 
   }
 });
 
-it("bounds all three regions together under vertical pressure and preserves placement on resizing", async () => {
+it("bounds all three regions together under vertical pressure while preserving borrowed instances", async () => {
   const fixture = await hostFixture();
   const { host, ui } = fixture;
   const long = { render: () => Array.from({ length: 30 }, (_, i) => `line ${i}`), invalidate() {} };

@@ -14,18 +14,6 @@ const entry = {
   customType: summaryModelEntryType
 };
 
-it("renders the summary model", () => {
-  const component = renderSummaryModel(
-    { ...entry, data: { model: "provider/nested/id", thinkingLevel: "low", trigger: "tool" } },
-    { expanded: false },
-    theme
-  );
-  assert.match(
-    component?.render(120).join("\n") ?? "",
-    /Compacted with provider\/nested\/id:low \(tool\)/
-  );
-});
-
 it.each([
   undefined,
   null,

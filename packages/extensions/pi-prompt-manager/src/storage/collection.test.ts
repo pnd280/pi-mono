@@ -275,7 +275,7 @@ it("retains history prefixes, suppresses only consecutive equality, and does not
   const current = readCollection("history", scope.cwd, raw);
   expect(current.entries.map((item) => item.source.text)).toEqual(["A", "B", "A"]);
 
-  for (const text of [" A ", " ", "é".repeat(limits.historyText / 2 + 1)]) {
+  for (const text of [" A ", " \n\t ", "é".repeat(limits.historyText / 2 + 1)]) {
     const result = updateCollection({
       ...scope,
       collection: "history",
@@ -301,7 +301,7 @@ it("retains history prefixes, suppresses only consecutive equality, and does not
       entry("newer", { metadata: "x".repeat(limits.historyFile) }),
       entry("older")
     ]),
-    operation: add(" incoming ")
+    operation: add(" \nincoming\t ")
   });
   expect(large.value.entries.map((item) => item.source.text)).toEqual(["incoming"]);
   expect(large.value.bytes).toBeLessThan(limits.historyFile);

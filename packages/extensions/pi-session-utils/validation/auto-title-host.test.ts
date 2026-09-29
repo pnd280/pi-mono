@@ -220,7 +220,9 @@ it("keeps unconfigured naming inert while clear remains available", async () => 
   await fixture.command();
   expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
   fixture.session.setSessionName("Manual title");
+  fixture.notify.mockClear();
   await fixture.command("clear");
+  expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(expect.any(String), "info");
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(fixture.titleRequests).toEqual([]);
   expect(fixture.errors).toEqual([]);

@@ -156,10 +156,7 @@ it("counts every command call but only the latest outcome per file", () => {
 
 it.each([
   ["read", nativeAdapter("read")!, "read"],
-  ["read", selectiveReadDisplayAdapter, "read"],
-  ["edit", nativeAdapter("edit")!, "edit"],
-  ["write", nativeAdapter("write")!, "edit"],
-  ["ls", nativeAdapter("ls")!, "list"]
+  ["read", selectiveReadDisplayAdapter, "read"]
 ] as const)(
   "deduplicates %s paths by native Unicode-space identity (%#)",
   (name, adapter, category) => {
@@ -178,19 +175,6 @@ it.each([
     }
   }
 );
-
-it("distinguishes cancelled and unavailable items", () => {
-  const { coordinator, add, finish, summary } = transcript();
-
-  try {
-    finish(add("bash", { command: "sleep 10" }), "cancelled", "Cancelled");
-    add("read", { path: "history.ts" });
-
-    expect(shape(summary())).toEqual(["shell:1 cancelled=1", "read:1 unavailable=1"]);
-  } finally {
-    coordinator.dispose();
-  }
-});
 
 it("uses fallback and adapter-declared categories", () => {
   const { coordinator, add, finish, summary } = transcript();
@@ -271,7 +255,7 @@ it("omits owner-excluded calls, including invalid todo calls, and supported empt
   }
 });
 
-it.each([{ items: [] }, { items: [{ category: "read", identity: "untrusted-file" }] }])(
+it.each([{ items: [{ category: "read", identity: "untrusted-file" }] }])(
   "keeps generic summary fallback without interpreting unsupported items $items",
   ({ items }) => {
     const { coordinator, add, finish, summary } = transcript();

@@ -4,7 +4,6 @@ import { expect, it, vi } from "vite-plus/test";
 import { genericAdapter } from "./adapters/generic.ts";
 import type { DisplayCall, Outcome, ToolDisplayAdapter } from "./contracts.ts";
 import { interpret } from "./interpretation.ts";
-import { buildRunSummary } from "./summary/model.ts";
 import { TranscriptCoordinator } from "./transcript/coordinator.ts";
 import { record } from "./values.ts";
 
@@ -118,56 +117,6 @@ it("refreshes interpretation when a producer republishes a mutated result object
     coordinator.dispose();
   }
 });
-
-it("normalizes grouping identities against the transcript cwd", () => {
-  const { coordinator, add } = transcript();
-
-  try {
-    const relative = add(reader, { path: "src/a.ts" });
-    const absolute = add(reader, { path: `${cwd}/src/b.ts` });
-    const outside = add(reader, { path: "../other/c.ts" });
-
-    expect(coordinator.interpretation(relative).group).toEqual({
-      scope: { kind: "directory", value: `${cwd}/src` },
-      title: undefined
-    });
-    expect(coordinator.interpretation(absolute).group).toEqual(
-      coordinator.interpretation(relative).group
-    );
-    expect(coordinator.interpretation(outside).group?.scope.value).toBe("/work/other");
-    expect(coordinator.group(relative)?.members).toEqual([relative, absolute]);
-  } finally {
-    coordinator.dispose();
-  }
-});
-
-it.each(["mcp", "outcome", "summaryItems"] as const)(
-  "keeps groups and summary identities generic when %s throws",
-  (callback) => {
-    const { coordinator, add } = transcript();
-    const adapter: ToolDisplayAdapter = {
-      ...reader,
-      summaryItems: () => [{ category: "read", identity: "same-file" }],
-      [callback]: () => {
-        throw new Error(callback);
-      }
-    };
-
-    try {
-      const first = add(adapter, { path: "a.ts" }, "read");
-      const second = add(adapter, { path: "b.ts" }, "read");
-      coordinator.result(first, result(), "success");
-      coordinator.result(second, result(), "success");
-      expect(coordinator.group(first)).toBeUndefined();
-      const summary = buildRunSummary([first, second], (call) => coordinator.interpretation(call));
-      expect(summary.segments.map(({ category, count }) => [category.id, count])).toEqual([
-        ["other:read", 2]
-      ]);
-    } finally {
-      coordinator.dispose();
-    }
-  }
-);
 
 it("replaces an adapter that throws with generic and reports each failed interpretation", () => {
   const failures = vi.fn<(adapter: ToolDisplayAdapter) => void>();

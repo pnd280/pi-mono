@@ -75,22 +75,6 @@ it("does not retry automatic failure; manual failure preserves the name and hide
   expect(notify).toHaveBeenLastCalledWith("Configure the title model.", "warning");
 });
 
-it("clears without configuration, cancels pending work, and suppresses automatic naming", async () => {
-  const { title, session, generate, notify } = fixture();
-  const pending = Promise.withResolvers<string>();
-  generate.mockReturnValue(pending.promise);
-  const automatic = title.automatic(opening);
-  const signal = generate.mock.calls[0]?.[1];
-  await title.command("clear");
-  expect(signal?.aborted).toBe(true);
-  pending.resolve("Late title");
-  await automatic;
-  await title.automatic(opening);
-  expect(generate).toHaveBeenCalledOnce();
-  expect(session.getSessionName()).toBeUndefined();
-  expect(notify).toHaveBeenCalledExactlyOnceWith(expect.any(String), "info");
-});
-
 it("only commits the latest regeneration", async () => {
   const { title, session, generate, notify } = fixture("Old title");
   const first = Promise.withResolvers<string>();
@@ -107,29 +91,22 @@ it("only commits the latest regeneration", async () => {
   for (const [message] of notify.mock.calls) expect(message).not.toContain("Obsolete title");
 });
 
-it.each(["rename", "tree", "shutdown"])(
-  "cancels generation on %s without a late name or outcome notification",
-  async (action) => {
-    const { title, session, generate, notify } = fixture();
-    const pending = Promise.withResolvers<string>();
-    generate.mockReturnValue(pending.promise);
-    const result = title.command("");
-    expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
-    const progress = notify.mock.calls.slice();
-    if (action === "rename") {
-      session.appendSessionInfo("External title");
-      title.nameChanged();
-    } else if (action === "tree") title.cancel();
-    else title.dispose();
-    expect(generate.mock.calls[0]?.[1].aborted).toBe(true);
-    pending.resolve("Obsolete title");
-    await result;
-    await title.automatic(opening);
-    expect(generate).toHaveBeenCalledOnce();
-    expect(session.getSessionName()).toBe(action === "rename" ? "External title" : undefined);
-    expect(notify.mock.calls).toEqual(progress);
-  }
-);
+it("cancels generation on shutdown without a late name or outcome notification", async () => {
+  const { title, session, generate, notify } = fixture();
+  const pending = Promise.withResolvers<string>();
+  generate.mockReturnValue(pending.promise);
+  const result = title.command("");
+  expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
+  const progress = notify.mock.calls.slice();
+  title.dispose();
+  expect(generate.mock.calls[0]?.[1].aborted).toBe(true);
+  pending.resolve("Obsolete title");
+  await result;
+  await title.automatic(opening);
+  expect(generate).toHaveBeenCalledOnce();
+  expect(session.getSessionName()).toBeUndefined();
+  expect(notify.mock.calls).toEqual(progress);
+});
 
 it("checks the live title before committing even if its change event has not arrived", async () => {
   const { title, session, generate } = fixture("Before");

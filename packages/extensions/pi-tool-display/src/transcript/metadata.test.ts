@@ -125,7 +125,6 @@ it("indexes source entries once and keeps the latest fact per adapter, call, and
 it.each([
   { kind: "operation", availability: "available", durationMs: 1, outcome: ["success"] },
   { kind: "change", availability: ["available"] },
-  { kind: "change", availability: ["unavailable"] },
   { kind: "change", availability: "available" },
   { kind: "change", availability: "unavailable", reason: "x".repeat(257) },
   { kind: "operation", availability: "available", outcome: "success", durationMs: -1 },

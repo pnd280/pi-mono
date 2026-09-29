@@ -53,7 +53,11 @@ it("rejects out-of-range parent IDs without mutating state after schema projecti
 
 it("returns complete snapshots for successful calls and domain errors", async () => {
   const tool = createTodoTool(new TodoController());
-  const created = await tool.execute("1", { action: "create", subject: "Root" });
+  const created = await tool.execute("1", {
+    action: "create",
+    subject: "Root",
+    metadata: { phase: "scout" }
+  });
   const child = await tool.execute("2", { action: "create", subject: "Child", parentId: 1 });
   expect(child.details.tasks[1]?.parentId).toBe(1);
   const failed = await tool.execute("3", { action: "delete", id: 1 });
@@ -71,9 +75,14 @@ it("returns complete snapshots for successful calls and domain errors", async ()
   const withMetadata = await tool.execute("metadata", {
     action: "update",
     id: 1,
-    metadata: { ["__proto__"]: "literal" }
+    metadata: { ["__proto__"]: { source: "model" }, phase: "implementation" }
   });
-  expect(
-    Object.getOwnPropertyDescriptor(withMetadata.details.tasks[0]?.metadata, "__proto__")?.value
-  ).toBe("literal");
+  expect(withMetadata.details.error).toBeUndefined();
+  const metadata = withMetadata.details.tasks[0]!.metadata!;
+  expect(metadata).toEqual({ ["__proto__"]: { source: "model" }, phase: "implementation" });
+  expect(Object.hasOwn(metadata, "__proto__")).toBe(true);
+  expect(Object.getOwnPropertyDescriptor(metadata, "__proto__")?.value).toEqual({
+    source: "model"
+  });
+  expect(Object.getPrototypeOf(metadata)).toBe(Object.prototype);
 });

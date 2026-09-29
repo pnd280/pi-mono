@@ -150,27 +150,7 @@ describe("todo reducer", () => {
     }
   });
 
-  it("preserves literal __proto__ metadata keys during updates", () => {
-    const state = mutate(emptyTodoState(), "create", {
-      subject: "Keep literal metadata keys",
-      metadata: { phase: "scout" }
-    }).state;
-    const updateMetadata = {
-      ["__proto__"]: { source: "model" },
-      phase: "implementation"
-    };
-
-    const updated = mutate(state, "update", { id: 1, metadata: updateMetadata });
-    const metadata = updated.state.tasks[0]?.metadata;
-
-    assert.ok(metadata);
-    assert.deepEqual(metadata, updateMetadata);
-    assert.equal(Object.hasOwn(metadata, "__proto__"), true);
-    assert.equal(Object.getPrototypeOf(metadata), Object.prototype);
-  });
-
   it.each<["update" | "delete", TaskMutationParams]>([
-    ["update", { id: 2, subject: "Renamed" }],
     ["update", { id: 2, parentId: 3 }],
     ["update", { id: 2, metadata: { values: ["replacement"], remove: null } }],
     ["update", { id: 2, metadata: { values: null, remove: null } }],
@@ -762,7 +742,7 @@ describe("todo reducer", () => {
   it("projects hierarchy-first lists, filtered paths, and immediate detail context", () => {
     let state = emptyTodoState();
     state = mutate(state, "create", { subject: "Root" }).state;
-    state = mutate(state, "create", { subject: "First child", parentId: 1 }).state;
+    state = mutate(state, "create", { subject: "First child", parentId: 1, blockedBy: [1] }).state;
     state = mutate(state, "update", { id: 2, status: "in_progress" }).state;
     state = mutate(state, "create", { subject: "Second child", parentId: 1 }).state;
     state = mutate(state, "create", { subject: "Grandchild", parentId: 2 }).state;
@@ -780,18 +760,12 @@ describe("todo reducer", () => {
       mutate(state, "list", { includeDeleted: true }).content[0]?.text ?? "",
       /deleted.*#3 Second child/u
     );
-    assert.match(mutate(state, "get", { id: 1 }).content[0]?.text ?? "", /children: #2/u);
+    const rootDetails = mutate(state, "get", { id: 1 }).content[0]?.text ?? "";
+    assert.match(rootDetails, /children: #2/u);
+    assert.match(rootDetails, /(?:^|\n)  blocks: #2(?:\n|$)/u);
     const childDetails = mutate(state, "get", { id: 2 }).content[0]?.text ?? "";
     assert.match(childDetails, /parent: #1/u);
     assert.match(childDetails, /children: #4/u);
-  });
-
-  it("reports reverse blocks in todo details", () => {
-    let state = emptyTodoState();
-    state = mutate(state, "create", { subject: "First" }).state;
-    state = mutate(state, "create", { subject: "Second", blockedBy: [1] }).state;
-
-    const got = mutate(state, "get", { id: 1 });
-    assert.match(got.content[0]?.text ?? "", /blocks: #2/u);
+    assert.doesNotMatch(childDetails, /(?:^|\n)  blocks:/u);
   });
 });

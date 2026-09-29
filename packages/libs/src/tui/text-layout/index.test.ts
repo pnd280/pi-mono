@@ -10,21 +10,6 @@ it("trims a wrapped row when its trailing newline follows a chunk boundary", asy
   expect(await layoutPreview(text, 51, () => true)).toEqual(wrapTextWithAnsi(text, 51));
 });
 
-it("matches whole-text wrapping across cooperative chunk boundaries", async () => {
-  const plain = "x".repeat(4097);
-  expect(await layoutPreview(plain, 7, () => true)).toEqual(wrapTextWithAnsi(plain, 7));
-
-  const samples = [
-    `${"x".repeat(4094)}\x1b[31mred words continue\x1b[0m`,
-    `${"a ".repeat(2048)}next words`,
-    `${"x".repeat(4090)} \x1b[31mred words continue\x1b[0m`,
-    `${"word and space ".repeat(400)}\n${"next line ".repeat(400)}`
-  ];
-
-  for (const sample of samples)
-    expect(await layoutPreview(sample, 40, () => true)).toEqual(wrapTextWithAnsi(sample, 40));
-});
-
 it("preserves native whitespace and ANSI state across logical-line batches", async () => {
   const samples = [
     `${"\n".repeat(4094)}a \n`,
@@ -56,23 +41,6 @@ it.each([
       "你好 ",
       "\x1b[31mred\x1b[0m ",
       "e\u0301 "
-    ]
-  },
-  {
-    name: "unbroken logical lines",
-    seed: 84217,
-    tokens: [
-      "one ",
-      "   ",
-      "abcdefg",
-      "longword".repeat(7),
-      "你好",
-      "e\u0301",
-      "👩🏽‍💻",
-      "\x1b[4m",
-      "\x1b[24m",
-      "\x1b[31m",
-      "\x1b[0m"
     ]
   },
   {

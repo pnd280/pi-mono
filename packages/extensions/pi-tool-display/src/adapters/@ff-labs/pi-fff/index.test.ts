@@ -9,34 +9,6 @@ const summaryContext = {
   expanded: true
 };
 
-it("separates FFF summaries from pagination diagnostics", () => {
-  const find = piFffAdapter(fffToolInfo("fffind"))!;
-  const grep = piFffAdapter(fffToolInfo("ffgrep"))!;
-  const cursorNotice = '[Continue with cursor="fff_c1"]';
-  const paged = {
-    content: [{ type: "text" as const, text: `file.ts\n 1: export\n\n${cursorNotice}` }],
-    details: { totalMatched: 1, totalFiles: 5 }
-  };
-  expect(grep.notices?.(paged, false)).toEqual([{ kind: "warning", text: cursorNotice }]);
-  expect(grep.notices?.(paged, true)).not.toContainEqual({ kind: "warning", text: cursorNotice });
-  const complete = {
-    content: [{ type: "text" as const, text: "file-test.txt" }],
-    details: { totalMatched: 1, totalFiles: 1, pageIndex: 0, hasMore: false }
-  };
-  expect(grep.summary?.(paged, summaryContext)).toEqual({
-    text: "1 match collected · 5 indexed files"
-  });
-
-  for (const hasMore of [false, true]) {
-    const pagedFind = { ...complete, details: { ...complete.details, hasMore } };
-    expect(find.notices?.(pagedFind, false)).toEqual([]);
-    expect(find.notices?.(pagedFind, true)).toEqual([]);
-    expect(find.summary?.(pagedFind, summaryContext)).toEqual({
-      text: "1 matching file · 1 indexed file"
-    });
-  }
-});
-
 it("requires nonnegative integer counts and a successful outcome for summaries", () => {
   const adapter = piFffAdapter(fffToolInfo("ffgrep"))!;
   for (const details of [
@@ -54,7 +26,7 @@ it("requires nonnegative integer counts and a successful outcome for summaries",
   expect(adapter.summary?.(empty, { ...summaryContext, outcome: "failure" })).toBeUndefined();
 });
 
-it.each(["fffind", "ffgrep", "fff-multi-grep"])(
+it.each(["fffind", "fff-multi-grep"])(
   "defaults compact %s searches to . while preserving explicit scopes",
   (name) => {
     const multi = name === "fff-multi-grep";

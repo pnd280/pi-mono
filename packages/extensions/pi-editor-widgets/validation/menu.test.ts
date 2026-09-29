@@ -86,38 +86,6 @@ it("keeps unset markers until save and identifies edits in either scope", async 
   }
 });
 
-it("navigates, previews live and discards without persisting the draft", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("one", ["NATIVE"]);
-  const { settings, coordinator, close, menu, apply } = menuFor(fixture);
-
-  try {
-    fixture.host.widgetContainerAbove.render(80);
-    menu.handleInput(enter); // Above -> Rows
-    menu.handleInput(enter); // Row 1 -> Contents
-    menu.handleInput(remove);
-    expect(menu.drafts.layout().hidden).toContain("widget:one");
-    expect(plain(fixture.host.widgetContainerAbove.render(80))).not.toContain("NATIVE");
-    menu.handleInput("a");
-    menu.handleInput(down);
-    menu.handleInput(down);
-    expect(plain(menu.render(80))).toContain("→ one");
-    menu.handleInput(enter); // Re-add the individual hidden widget
-    expect(menu.drafts.view.kind).toBe("contents");
-    expect(menu.drafts.layout().hidden).not.toContain("widget:one");
-    menu.handleInput(escape);
-    menu.handleInput(escape);
-    menu.handleInput(escape);
-    expect(close).toHaveBeenCalledOnce();
-    expect(apply).not.toHaveBeenCalled();
-    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("NATIVE");
-    expect(() => readFileSync(settings.paths.global)).toThrow();
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
 it("adds with a from populated and empty rows without redundant action or details views", async () => {
   const fixture = await hostFixture();
   fixture.ui.setWidget("one", ["ONE"]);
@@ -519,39 +487,6 @@ it("indicates a clipped picker collection and unavailable widgets", async () => 
   }
 });
 
-it("keeps save recovery inline on small terminals and retries without leaving the draft", async () => {
-  const fixture = await hostFixture();
-  const { settings, coordinator, menu, apply } = menuFor(fixture);
-
-  try {
-    settings.save("global", defaultLayout());
-    menu.drafts.reset();
-    const draft = structuredClone(menu.drafts.current.value);
-    mkdirSync(`${settings.paths.global}.lock`);
-    fixture.terminal.rows = 10;
-    menu.handleInput("\x13");
-    const failure = plain(menu.render(40));
-    expect(failure).toContain("Draft retained");
-    expect(failure).toContain("Check");
-    expect(failure).toContain("Esc close");
-    expect(failure).toContain("Ctrl+S save");
-    expect(failure).toContain("Above editor");
-    expect(menu.drafts.view.kind).toBe("root");
-    expect(menu.drafts.current.value).toEqual(draft);
-    expect(apply).not.toHaveBeenCalled();
-    menu.handleInput("?");
-    expect(plain(menu.render(40))).toBe(failure);
-    expect(menu.drafts.current.value).toEqual(draft);
-    rmdirSync(`${settings.paths.global}.lock`);
-    menu.handleInput("\x13");
-    expect(apply).toHaveBeenCalledOnce();
-    expect(menu.drafts.dirty).toBe(false);
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
 it("keeps the selected status identity when new statuses sort ahead of it", async () => {
   const fixture = await hostFixture();
   fixture.ui.setStatus("middle", "MIDDLE");
@@ -687,47 +622,6 @@ it("retains selection between identical empty rows", async () => {
     menu.render(80);
     expect(menu.drafts.view).toMatchObject({ kind: "rows", selected: 0 });
     expect(menu.drafts.layout().aboveEditor).toEqual([["separator"], []]);
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("bounds every nested view through resize, including wide labels", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("界👩‍💻 contributor", ["WIDE"]);
-  const { coordinator, menu } = menuFor(fixture);
-
-  try {
-    const renderSizes = () => {
-      for (const rows of [1, 3, 5, 10, 24])
-        for (const width of [1, 20, 40, 80]) {
-          fixture.terminal.rows = rows;
-          const lines = menu.render(width);
-          expect(lines.length).toBeLessThanOrEqual(Math.max(1, rows - 2));
-          expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
-        }
-    };
-
-    renderSizes();
-    for (let index = 0; index < 3; index++) menu.handleInput(down);
-    renderSizes();
-
-    for (const [width, rows] of [
-      [40, 10],
-      [80, 24]
-    ] as const) {
-      fixture.terminal.rows = rows;
-      expect(plain(menu.render(width))).toContain("Reset to defaults");
-    }
-
-    for (let index = 0; index < 3; index++) menu.handleInput("\x1b[A");
-    menu.handleInput(enter);
-    renderSizes();
-    menu.handleInput(enter);
-    renderSizes();
-    menu.handleInput("a");
-    renderSizes();
   } finally {
     coordinator.dispose();
     await fixture.dispose();

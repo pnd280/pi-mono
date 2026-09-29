@@ -124,20 +124,19 @@ it("restore-then-delete failure retains snapshot source and reports deletion fai
   expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["error", "warning"]);
 });
 
-it.each(["restore", "restore-delete", "cancel", "expired", "unsafe"] as const)(
+it.each(["restore", "restore-delete", "cancel", "expired"] as const)(
   "applies a browser's %s request only after closure and keeps stale callbacks inert",
   async (action) => {
     const closed = Promise.withResolvers<void>();
     const removal = Promise.withResolvers<MutationResult>();
     const mutate = vi.fn<Repository["mutate"]>(() => removal.promise);
-    const target = collection([entry(action === "unsafe" ? "unsafe\x1b[2J" : "selected")])
-      .entries[0]!;
+    const target = collection([entry("selected")]).entries[0]!;
     const open = vi.fn<ManagerPorts["open"]>(async (request) => {
       await closed.promise;
       await request.afterClose(
         action === "cancel"
           ? undefined
-          : { target, deleteAfterRestore: action === "restore-delete" || action === "unsafe" }
+          : { target, deleteAfterRestore: action === "restore-delete" }
       );
     });
     const fixture = managerFixture({

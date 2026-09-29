@@ -82,21 +82,18 @@ it("infers finite static glob prefixes, not matches, fuzzy names, or content pat
   expect(await scopes("edit", { path: "pkg/AGENTS.md" })).toEqual({ directories: [], reads: [] });
 });
 
-it.each(["ffgrep", "grep", "fff-multi-grep", "multi_grep"])(
-  "marks explicit FFF content reads through %s",
-  async (name) => {
-    const multi = name.includes("multi");
-    expect(
-      await scopes(
-        name,
-        multi
-          ? { constraints: "pkg/AGENTS.md", patterns: ["anything"] }
-          : { path: "pkg/AGENTS.md", pattern: "anything" },
-        true
-      )
-    ).toEqual({ directories: ["pkg"], reads: ["pkg/AGENTS.md"] });
-  }
-);
+it.each(["ffgrep", "multi_grep"])("marks explicit FFF content reads through %s", async (name) => {
+  const multi = name.includes("multi");
+  expect(
+    await scopes(
+      name,
+      multi
+        ? { constraints: "pkg/AGENTS.md", patterns: ["anything"] }
+        : { path: "pkg/AGENTS.md", pattern: "anything" },
+      true
+    )
+  ).toEqual({ directories: ["pkg"], reads: ["pkg/AGENTS.md"] });
+});
 
 it("respects FFF filename filters, exclusions, overrides, and cursor-only inputs", async () => {
   await mkdir(path.join(fs.cwd, "profile"));

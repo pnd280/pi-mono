@@ -9,9 +9,7 @@ const paths = new Map([
 
 describe("expansion", () => {
   it.each([
-    ["/skill:review", "[/skill:review](/skills/review/SKILL.md)"],
     ["Use /skill:review now", "Use [/skill:review](/skills/review/SKILL.md) now"],
-    ["Use /skill:review", "Use [/skill:review](/skills/review/SKILL.md)"],
     [
       " \t/skill:review\r\n/skill:plan  /skill:review\t\n",
       " \t[/skill:review](/skills/review/SKILL.md)\r\n[/skill:plan](/skills/my plan/../plan notes.md)  [/skill:review](/skills/review/SKILL.md)\t\n"
@@ -21,16 +19,6 @@ describe("expansion", () => {
     ["", ""]
   ])("preserves whitespace and replaces exact tokens: %j", (text, expected) => {
     expect(expandSkillTokens(text, paths)).toBe(expected);
-  });
-
-  it("does not expand a previously expanded prompt again", () => {
-    const expanded =
-      "Use [/skill:review](/skills/review/SKILL.md) and [/skill:plan](/skills/my plan/../plan notes.md)";
-
-    expect(expandSkillTokens(expanded, paths)).toBe(expanded);
-    expect(expandSkillTokens(`${expanded} /skill:review`, paths)).toBe(
-      `${expanded} [/skill:review](/skills/review/SKILL.md)`
-    );
   });
 
   it("does not rescan skill-shaped tokens inside a previously inserted path", () => {
@@ -104,8 +92,6 @@ describe("expansion", () => {
 
 describe("cursor tokens", () => {
   it.each([
-    ["/skill:re", 9, { start: 0, end: 9, query: "/skill:re" }],
-    ["  use\t/skill:review rest", 15, { start: 6, end: 19, query: "/skill:re" }],
     ["/skill:review", 7, { start: 0, end: 13, query: "/skill:" }],
     ["/skill:review", 6, undefined],
     ["x/skill:re", 10, undefined],

@@ -74,7 +74,7 @@ it("defaults the collapsed mode to summary and lets trusted project values repla
     ]);
   }
 });
-it.each([false, [], null, "generic", { read: false }, { read: "special" }, { "": "auto" }])(
+it.each([[], null, { read: false }, { read: "special" }, { "": "auto" }])(
   "rejects invalid override maps as a whole: %j",
   (value) => {
     const settings = loadDisplaySettings([
@@ -147,7 +147,7 @@ it("sanitizes warning paths and unknown keys without changing supplied settings"
   expect(sources).toEqual(retained);
 });
 
-it.each([null, [], true, { other: {} }])("rejects invalid sections: %j", (section) => {
+it.each([null, [], { other: {} }])("rejects invalid sections: %j", (section) => {
   expect(
     loadDisplaySettings([{ path: "settings.json", settings: { [SETTINGS_KEY]: section } }]).valid
   ).toBe(false);

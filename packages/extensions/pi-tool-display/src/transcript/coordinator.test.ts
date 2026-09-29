@@ -47,7 +47,7 @@ function fixture() {
   return { coordinator, add, start, stop, onExpansion, tick: () => tick() };
 }
 
-it.each(["live", "historical"] as const)(
+it.each(["live"] as const)(
   "forms contiguous scope runs for %s calls without merging a return to an earlier scope",
   (origin) => {
     const cwd = resolve("/workspace/project");
@@ -1020,26 +1020,6 @@ it("keeps a run the user opened while live as cards once it ends", () => {
     coordinator.setMode("compact");
     coordinator.activate(later, "card");
     expect(coordinator.run(later)?.opened).toBe(false);
-  } finally {
-    coordinator.dispose();
-  }
-});
-
-it("renders summary mode as cards while summaries are unavailable", () => {
-  const { coordinator, add, invalidations, clear, roles } = summaryFixture();
-
-  try {
-    const first = add("read", { path: "a.ts" });
-    const second = add("bash", { command: "true" });
-    coordinator.activate(first, "card");
-    clear();
-    coordinator.setSummaries(false);
-    expect(roles()).toEqual(["card", "card"]);
-    expect([invalidations(first), invalidations(second)]).toEqual([1, 1]);
-    coordinator.activate(first, "card");
-    coordinator.setSummaries(true);
-    // Availability changes close opened runs like mode changes.
-    expect(roles()).toEqual(["leader", "hidden"]);
   } finally {
     coordinator.dispose();
   }

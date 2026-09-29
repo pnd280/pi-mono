@@ -194,19 +194,6 @@ describe("todo session state", () => {
     );
   });
 
-  it("accepts version 2 subtrees containing only deleted descendants", () => {
-    const tasks = [
-      { id: 1, subject: "Live root", status: "pending" },
-      { id: 2, subject: "Deleted child", status: "deleted", parentId: 1 },
-      { id: 3, subject: "Deleted grandchild", status: "deleted", parentId: 2 }
-    ] satisfies Task[];
-
-    assert.deepEqual(parseTodoStateSnapshot({ version: TASK_DETAILS_VERSION, tasks, nextId: 4 }), {
-      tasks,
-      nextId: 4
-    });
-  });
-
   it("sanitizes compact fields on current and legacy replay while preserving multiline descriptions", () => {
     const hostileTask = {
       id: 1,

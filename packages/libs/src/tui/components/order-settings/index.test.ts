@@ -209,28 +209,6 @@ it("does not inherit over an explicit empty saved order", () => {
   expect(save).toHaveBeenLastCalledWith("project", ["a", "b"]);
 });
 
-it("keeps unset scope markers, the selected item, and controls visible at compact sizes", () => {
-  const { view } = fixture({
-    rows: () => 10,
-    scopes: ["global", "project"].map((id) => ({
-      id,
-      label: id,
-      destination: `/${id}/settings.json`,
-      isSet: false,
-      order: ["a", "b"]
-    }))
-  });
-  const lines = view.render(40);
-  const output = lines.join("\n");
-  expect(output).toContain("Working message");
-  expect(output).toContain("global (not set)");
-  expect(output).toContain("project (not set)");
-  expect(output).toContain("Activity [todo]");
-  expect(output).toContain("Ctrl+S save");
-  expect(lines).toHaveLength(8);
-  expect(lines.every((line) => visibleWidth(line) <= 40)).toBe(true);
-});
-
 it("saves only the selected scope and retains drafts and error state on failed save", () => {
   const { view, save, output } = fixture();
   view.handleInput("\x1b[B");

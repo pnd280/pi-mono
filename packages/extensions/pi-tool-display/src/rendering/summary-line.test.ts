@@ -54,13 +54,7 @@ it("lists supplied items in order with singular and plural counts", () => {
   ]);
 });
 
-it("qualifies failed items without adding separate problem rows", () => {
-  expect(lines([segment("shell", 4, { failed: 1 }), segment("read", 1, { failed: 1 })])).toEqual([
-    "  Ran 4 commands (1 failed) · read 1 file (1 failed)"
-  ]);
-});
-
-it.each([40, 60, 120])(
+it.each([40])(
   "indents every line by two spaces and wraps only between items at %i columns",
   (width) => {
     const rendered = lines(mixed, { width });

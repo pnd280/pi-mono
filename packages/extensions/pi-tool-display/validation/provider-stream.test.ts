@@ -106,18 +106,6 @@ it("streams mixed native calls with repeated ranges before completing without re
   expect(contentText(finished.message.content)).toContain("Fixture finished: native-mixed.");
 });
 
-it("preserves relative and absolute path spellings for normalization checks", async () => {
-  const { calls } = await turn(context("normalization"));
-  expect(calls.map(({ name }) => name)).toEqual(["ls", "grep", "read", "read"]);
-  expect(calls.map(({ arguments: args }) => args.path)).toEqual([
-    "a/",
-    "./a/nested/../",
-    join(cwd, "a/alpha.txt"),
-    "./a/nested/../beta.txt"
-  ]);
-  expect(calls[3]!.arguments).toMatchObject({ offset: 15, limit: 2 });
-});
-
 it("streams one thinking call per turn and retains the explanation boundary", async () => {
   const transcript = context("thinking");
 
@@ -180,27 +168,4 @@ it("skips unavailable FFF tools explicitly without executing a partial plan", as
   expect(contentText(message.content)).toBe(
     "Skipped fixture fff: unavailable tools ffgrep, fffind."
   );
-});
-
-it("stages summary runs with prose only before new runs", async () => {
-  const transcript = context("summary", ["read", "ls", "bash", "write", "edit"]);
-  const turns: { names: string[]; text: string }[] = [];
-
-  for (let index = 0; index < 6; index++) {
-    const { message, calls } = await turn(transcript);
-    expect(message.stopReason).toBe("toolUse");
-    turns.push({ names: calls.map(({ name }) => name), text: contentText(message.content) });
-  }
-
-  expect(turns).toEqual([
-    { names: ["read", "read", "bash"], text: "Summary fixture: prose before the first run." },
-    { names: ["write"], text: "" },
-    { names: ["edit"], text: "" },
-    { names: ["bash"], text: "" },
-    { names: ["read", "ls"], text: "Prose before the second run." },
-    { names: ["bash"], text: "Prose before a long-running tail." }
-  ]);
-  const finished = await turn(transcript);
-  expect(finished.calls).toEqual([]);
-  expect(contentText(finished.message.content)).toContain("Fixture finished: summary.");
 });

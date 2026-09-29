@@ -6,18 +6,17 @@
 
 Run `vpr 'pi-editor-widgets#check'` and `vpr 'pi-editor-widgets#test'` from the workspace root. Settings-write changes also require `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`.
 
-| Coverage                                                                                                 | Tests                                                |
-| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Native registration, replacement/removal, runtime compaction state, footer ownership                     | [Host contract](../validation/host-contract.test.ts) |
-| Borrowed instances, copied/nested mouse targets, invalidation, live drafts, clipping, conflicts          | [Coordinator](../validation/coordinator.test.ts)     |
-| Reloads, session changes, renderer switches, resize, inactive non-TUI modes                              | [Lifecycle](../validation/lifecycle.test.ts)         |
-| Native usage, context, runtime state, model, session and branch data                                     | [Built-ins](../validation/builtins.test.ts)          |
-| Scoped save/retry, draft retention, live previews, selection, navigation and resizing                    | [Menu](../validation/menu.test.ts)                   |
-| Command arguments, scopes, warnings, mounted rendering and draft/editor restoration on host cancellation | [Commands](../validation/settings-commands.test.ts)  |
-| Shared rows, ANSI/wide text, multiline output, separators, flex, whole-widget wrapping and clipping      | [Rendering](../src/render.test.ts)                   |
-| Default discovery, hidden/unknown IDs, cross-row copies, in-row duplicate and flex rejection             | [Layout](../src/layout.test.ts)                      |
-| Trust, scope precedence, invalid files, unrelated fields and lock contention                             | [Settings](../src/settings.test.ts)                  |
-| Hiding, adding, copies, transfers, independent scopes, inherited navigation and reorder boundaries       | [Drafts](../src/drafts.test.ts)                      |
+| Coverage                                                                                                  | Tests                                               |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Native registration/disposal ownership, copied mouse targets, invalidation, clipping and footer conflicts | [Coordinator](../validation/coordinator.test.ts)    |
+| Reloads, session changes, renderer switches, resize, inactive non-TUI modes                               | [Lifecycle](../validation/lifecycle.test.ts)        |
+| Native usage, context, runtime compaction, model, session and branch data                                 | [Built-ins](../validation/builtins.test.ts)         |
+| Scoped save/retry, draft retention, live previews and identity-preserving navigation                      | [Menu](../validation/menu.test.ts)                  |
+| Arguments, scopes, warnings, mounted resize/cancellation and editor/layout restoration                    | [Commands](../validation/settings-commands.test.ts) |
+| Shared rows, ANSI/wide text, multiline output, separators, flex, whole-widget wrapping and clipping       | [Rendering](../src/render.test.ts)                  |
+| Default discovery, hidden/unknown IDs, cross-row copies, in-row duplicate and flex rejection              | [Layout](../src/layout.test.ts)                     |
+| Trust, scope precedence, invalid files, unrelated fields and lock contention                              | [Settings](../src/settings.test.ts)                 |
+| Hiding, adding, copies, transfers, independent scopes, inherited navigation and reorder boundaries        | [Drafts](../src/drafts.test.ts)                     |
 
 Context coverage must distinguish zero usage, unavailable usage after compaction, and recovered usage from a later response. Check used/window token formatting, the percentage and runtime auto-compaction indicator, default percentage color boundaries, and each configured token-threshold band.
 

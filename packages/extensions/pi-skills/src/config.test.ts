@@ -44,21 +44,10 @@ it("defaults to Markdown links and reads only the extension section in global se
   expect(readFileSync(globalPath, "utf8")).toBe(source);
 });
 
-it("accepts Pi-compatible BOM-prefixed global and trusted project settings", () => {
-  const { agentDir, cwd } = settings(
-    `\uFEFF${section("Global {path}")}`,
-    `\uFEFF${section("Project {path}")}`
-  );
-  expect(loadSkillConfig(cwd, { agentDir })).toEqual({ expansionFormat: "Global {path}" });
-  expect(loadSkillConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
-    expansionFormat: "Project {path}"
-  });
-});
-
 it("uses trusted cwd settings over global settings, not untrusted or ancestor settings", () => {
   const { agentDir, cwd } = settings(
-    section(" {command} ({path})"),
-    section("Read {path} for {command}")
+    `\uFEFF${section(" {command} ({path})")}`,
+    `\uFEFF${section("Read {path} for {command}")}`
   );
   expect(loadSkillConfig(cwd, { agentDir })).toEqual({
     expansionFormat: " {command} ({path})"
@@ -76,7 +65,6 @@ it("uses trusted cwd settings over global settings, not untrusted or ancestor se
 it.each([
   "{malformed",
   "null",
-  "[]",
   JSON.stringify({ "ext.pi-skills": null }),
   JSON.stringify({ "ext.pi-skills": { expansionFormat: 2 } }),
   JSON.stringify({ "ext.pi-skills": { expansionFormat: "{command}" } }),

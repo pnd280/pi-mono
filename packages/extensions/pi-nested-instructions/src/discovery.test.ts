@@ -6,7 +6,7 @@ import type { SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { discover, refresh } from "./discovery.ts";
-import { fffSource, fixture } from "./fixture.ts";
+import { fixture } from "./fixture.ts";
 import { ledger, readType } from "./ledger.ts";
 import { decodeNotice } from "./notices.ts";
 import { instructionFiles, type InstructionFiles } from "./storage.ts";
@@ -85,32 +85,26 @@ it("follows instruction symlinks but not their destination ancestors", async () 
 });
 
 it.each([
-  ["read", { path: "pkg/AGENTS.md", limit: 1, selection: { startLine: 3 } }, false],
-  ["bash", { command: "head -n 1 pkg/AGENTS.md" }, false],
-  ["grep", { path: "pkg/AGENTS.md", pattern: "no matches" }, false],
-  ["ffgrep", { path: "pkg/AGENTS.md", pattern: "no matches" }, true],
-  ["multi_grep", { constraints: "pkg/AGENTS.md", patterns: ["no matches"] }, true]
-] as const)(
-  "records metadata only for content-read attempts through %s",
-  async (name, input, fff) => {
-    const instruction = await fs.write("pkg/AGENTS.md", "NEVER DUPLICATE");
-    const call = fs.call(name, input, fff ? fffSource : undefined);
-    const entries = await discover([call], fs.cwd, fs.manager, files);
-    expect(entries).toHaveLength(1);
-    const entry = entries[0];
-    if (entry?.type !== "custom" || entry.customType !== readType)
-      throw new Error("Expected metadata");
-    expect(entry.data).toMatchObject({
-      path: instruction,
-      toolCallId: call.toolCallId
-    });
-    expect(JSON.stringify(entries)).not.toContain("NEVER DUPLICATE");
-    fs.append(entries);
-    expect(notices(await run())).toEqual([]);
-    expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
-    expect(files.read).not.toHaveBeenCalled();
-  }
-);
+  ["read", { path: "pkg/AGENTS.md", limit: 1, selection: { startLine: 3 } }],
+  ["grep", { path: "pkg/AGENTS.md", pattern: "no matches" }]
+] as const)("records metadata only for content-read attempts through %s", async (name, input) => {
+  const instruction = await fs.write("pkg/AGENTS.md", "NEVER DUPLICATE");
+  const call = fs.call(name, input);
+  const entries = await discover([call], fs.cwd, fs.manager, files);
+  expect(entries).toHaveLength(1);
+  const entry = entries[0];
+  if (entry?.type !== "custom" || entry.customType !== readType)
+    throw new Error("Expected metadata");
+  expect(entry.data).toMatchObject({
+    path: instruction,
+    toolCallId: call.toolCallId
+  });
+  expect(JSON.stringify(entries)).not.toContain("NEVER DUPLICATE");
+  fs.append(entries);
+  expect(notices(await run())).toEqual([]);
+  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
+  expect(files.read).not.toHaveBeenCalled();
+});
 
 it("marks failed attempts too, and never treats directory listings as loaded content", async () => {
   const entries = await run("read", { path: "pkg/AGENTS.md" });

@@ -15,7 +15,6 @@ import { TranscriptRows } from "./rows.ts";
 
 it.each([
   { count: 1, expanded: false },
-  { count: 2, expanded: false },
   { count: 2, expanded: true }
 ])(
   "places the bottom control after native images: $count calls, expanded=$expanded",

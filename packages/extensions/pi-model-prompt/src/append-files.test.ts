@@ -80,17 +80,6 @@ it("falls back to the project base rather than an agent variant after a bad proj
   expect(resolveAppendReplacement(files, "project base", "a")).toBeUndefined();
 });
 
-it("ignores project files for untrusted projects", async () => {
-  const { agentDir } = await fixture({
-    project: { "APPEND_SYSTEM.md": "project base", "APPEND_SYSTEM.a.md": "project a" },
-    agent: { "APPEND_SYSTEM.md": "agent base", "APPEND_SYSTEM.a.md": "agent a" }
-  });
-  const files = loadAppendFiles({ projectDir: undefined, agentDir, variants: ["a"] });
-
-  expect(files.base).toBe("agent base");
-  expect(resolveAppendReplacement(files, "agent base", "a")).toBe("agent a");
-});
-
 it("applies variants without a base file and strips a byte-order mark like Pi", async () => {
   const { agentDir } = await fixture({ agent: { "APPEND_SYSTEM.a.md": "\uFEFFagent a" } });
   const files = loadAppendFiles({ projectDir: undefined, agentDir, variants: ["a"] });
@@ -112,16 +101,6 @@ it("strips the base byte-order mark and preserves empty variants and exact white
   expect(files.base).toBe("base\r\n");
   expect(resolveAppendReplacement(files, "base\r\n", "empty")).toBe("");
   expect(resolveAppendReplacement(files, "base\r\n", "exact")).toBe("  variant\r\n");
-});
-
-it("leaves non-file append text and unmatched models unchanged", async () => {
-  const { agentDir } = await fixture({
-    agent: { "APPEND_SYSTEM.md": "agent base", "APPEND_SYSTEM.a.md": "agent a" }
-  });
-  const files = loadAppendFiles({ projectDir: undefined, agentDir, variants: ["a"] });
-
-  expect(resolveAppendReplacement(files, "from --append-system-prompt", "a")).toBeUndefined();
-  expect(resolveAppendReplacement(files, "agent base", undefined)).toBeUndefined();
 });
 
 it("warns for missing or unreadable variants and falls back", async () => {

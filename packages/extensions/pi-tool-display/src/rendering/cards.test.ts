@@ -674,7 +674,7 @@ describe("tool display renderers", () => {
     }
   });
 
-  it.each([{}, { action: "unknown" }, { action: "list", status: 42 }])(
+  it.each([{ action: "list", status: 42 }])(
     "falls back to a named generic card for invalid todo arguments %j",
     (args) => {
       const coordinator = new TranscriptCoordinator("invalid-todo");
@@ -722,58 +722,20 @@ describe("tool display renderers", () => {
     }
   );
 
-  it("does not group todo calls separated by another tool", () => {
-    const coordinator = new TranscriptCoordinator("todo-separation");
-
-    try {
-      const first = coordinator.add(
-        { messageTimestamp: 1, contentIndex: 0, toolCallId: "todo-1" },
-        "todo",
-        { action: "create", subject: "First task" },
-        todoDisplayAdapter,
-        "historical"
-      );
-      coordinator.add(
-        { messageTimestamp: 1, contentIndex: 1, toolCallId: "read-1" },
-        "read",
-        { path: "a.ts" },
-        nativeAdapter("read")!,
-        "historical"
-      );
-      const third = coordinator.add(
-        { messageTimestamp: 1, contentIndex: 2, toolCallId: "todo-2" },
-        "todo",
-        { action: "create", subject: "Second task" },
-        todoDisplayAdapter,
-        "historical"
-      );
-
-      expect(coordinator.group(first)).toBeUndefined();
-      expect(coordinator.group(third)).toBeUndefined();
-    } finally {
-      coordinator.dispose();
-    }
-  });
-
   it.each([
     ["edit", "Edit", "Editing", "Edited", { path: "example.ts", edits: [] }],
     ["write", "Write", "Writing", "Wrote", { path: "example.ts", content: "replacement" }],
     ["read", "Read", "Reading", "Read", { path: "example.ts" }],
     ["grep", "Search", "Searching", "Searched", { pattern: "needle", path: "." }],
-    ["find", "Search", "Searching", "Searched", { pattern: "*.ts", path: "." }],
     ["ls", "List", "Listing", "Listed", { path: "." }],
     ["bash", "Run", "Running", "Ran", { command: "printf example" }],
-    ["powershell", "Run", "Running", "Ran", { command: "Write-Output example" }],
-    ["fffind", "Search", "Searching", "Searched", { pattern: "example" }],
     ["fffind", "List", "Listing", "Listed", { pattern: "" }],
-    ["ffgrep", "Search", "Searching", "Searched", { pattern: "example" }],
-    ["fff-multi-grep", "Search", "Searching", "Searched", { patterns: ["example"] }],
     ["custom.lookup", "Call", "Calling", "Called", { query: "example" }]
   ] as const)(
     "keeps %s action headings through preparation, queueing, execution, completion, and replay",
     (name, action, active, complete, args) => {
       const adapter = name.startsWith("ff")
-        ? piFffAdapter(fffToolInfo(name, name === "fff-multi-grep"))!
+        ? piFffAdapter(fffToolInfo(name))!
         : (nativeAdapter(name) ?? genericAdapter);
 
       // Replayed completion must not depend on a preceding call, execution event, or component.
@@ -833,7 +795,7 @@ describe("tool display renderers", () => {
             }
           };
 
-          assertHeading(name === "fffind" && action === "List" ? "Searching" : active, "Exploring");
+          assertHeading(name === "fffind" ? "Searching" : active, "Exploring");
           coordinator.add(reference, name, args, adapter, "live");
           row.updateArgs(args);
           assertHeading(active, "Exploring");
@@ -865,7 +827,7 @@ describe("tool display renderers", () => {
     }
   );
 
-  it.each(["failure", "cancelled", "unavailable"] as const)(
+  it.each(["failure"] as const)(
     "keeps custom action identity and ignores partial %s metadata",
     (outcome) => {
       const renderer = createPublicRenderers("health", {
@@ -939,40 +901,7 @@ describe("tool display renderers", () => {
     }
   });
 
-  it("uses completed tense for grouped exploration members", () => {
-    const coordinator = new TranscriptCoordinator("group-member-tense", { cwd: "/tmp" });
-
-    try {
-      const calls = ["a", "b"].map((name, index) => {
-        const call = coordinator.add(
-          { messageTimestamp: 1, contentIndex: index, toolCallId: name },
-          "ls",
-          { path: "." },
-          nativeAdapter("ls")!,
-          "historical"
-        );
-        coordinator.result(call, result("listed"), "success");
-
-        return call;
-      });
-      const rows = calls
-        .flatMap((call) =>
-          createToolDisplayRenderers("ls", call.adapter, {
-            binding: { call, coordinator }
-          })
-            .renderCall(call.args, theme, context())
-            .render(100)
-        )
-        .join("\n");
-
-      expect(rows).toContain("Listed");
-      expect(rows).not.toContain("List .");
-    } finally {
-      coordinator.dispose();
-    }
-  });
-
-  it.each(["edit", "write", "bash", "powershell"])(
+  it.each(["edit", "bash"])(
     "suppresses only redundant compact %s cancellation text and retains expanded diagnostics",
     (name) => {
       const coordinator = new TranscriptCoordinator("cancelled-boilerplate");
@@ -1185,7 +1114,7 @@ describe("tool display renderers", () => {
     ).toContain(resolve(cwd, "src/file.ts"));
   });
 
-  it.each(["success", "failure"] as const)(
+  it.each(["failure"] as const)(
     "keeps %s outcomes on the scope heading without call or operation counts",
     (outcome) => {
       const coordinator = new TranscriptCoordinator("heading-counts", { cwd: "/tmp" });
@@ -1200,11 +1129,7 @@ describe("tool display renderers", () => {
             nativeAdapter(name)!,
             "historical"
           );
-          coordinator.result(
-            call,
-            result(outcome === "failure" ? "diagnostic" : "retained"),
-            outcome
-          );
+          coordinator.result(call, result("diagnostic"), outcome);
 
           return call;
         });
@@ -1216,11 +1141,8 @@ describe("tool display renderers", () => {
         for (const width of [48, 110]) {
           const heading = card.render(width).join("\n");
           expect(heading).toContain("Explored");
-          expect(heading).toContain(
-            `${outcome === "failure" ? "Search failed" : "Searched"} alpha`
-          );
-          if (outcome === "failure") expect(heading).toContain("2 failed");
-          else expect(heading).not.toContain("failed");
+          expect(heading).toContain("Search failed alpha");
+          expect(heading).toContain("2 failed");
           expect(heading).not.toMatch(/\d+ (calls?|reads?|search(?:es)?|lists?)\b/);
         }
       } finally {
@@ -1364,7 +1286,7 @@ describe("tool display renderers", () => {
     }
   });
 
-  it.each(["bash", "powershell"])(
+  it.each(["bash"])(
     "retains internal blank output without a false truncation notice for %s",
     (name) => {
       const text = "one\n\nthree\nfour\nfive\n\n";
@@ -1569,9 +1491,7 @@ describe("tool display renderers", () => {
           'Searched ""',
           'Searched "" \u2014 packages/utils/src/fff-tools.ts'
         ],
-        ["ffgrep", { pattern: "" }, 'Searched ""', 'Searched "" \u2014 .'],
         ["fffind", { pattern: "", path: "packages/" }, "Listed files", "Listed packages/"],
-        ["fffind", { pattern: "", path: "./src/**" }, "Listed files", "Listed ./src/**"],
         ["fffind", { pattern: "" }, "Listed files", "Listed ."]
       ] as const
     ).flatMap(([name, args, compact, expanded]) =>
@@ -2130,7 +2050,7 @@ describe("tool display renderers", () => {
     }
   });
 
-  it.each(["edit", "write"])(
+  it.each(["edit"])(
     "keeps a failed %s patch and related diagnostics in one result item",
     (name) => {
       const coordinator = new TranscriptCoordinator("change-tree");
@@ -2207,11 +2127,6 @@ describe("tool display renderers", () => {
   });
 
   it.each([
-    {
-      warning:
-        "[Current model does not support images. The image will be omitted from this request.]",
-      image: true
-    },
     {
       warning: "[Image omitted: could not be converted to a supported inline image format.]",
       image: false

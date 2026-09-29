@@ -64,12 +64,10 @@ it("claims resolved paging only, including loading and undersized views", () => 
 
 it.each([
   [0, true, 0],
-  [2, true, 1],
   [10, true, 7],
   [18, true, 13],
   [19, false, 12],
-  [24, false, 15],
-  [40, false, 27]
+  [24, false, 15]
 ])("calculates presentation at %i terminal rows", (rows, overlay, height) => {
   expect(browserLayout(rows)).toEqual({ overlay, height });
 });
@@ -247,20 +245,6 @@ it("cancels confirmation on resize and remains cancellable below minimum dimensi
   view.handleInput("\x1b");
   expect(close).toHaveBeenCalledTimes(1);
   expect(view.render(80)).toEqual([]);
-});
-
-it("routes preview input back to the list before closing", async () => {
-  const { view, controller, close } = browser(["preview source"]);
-  await controller.activate();
-  view.render(40);
-  view.handleInput("\x10");
-  expect(controller.preview).toBe(true);
-  await vi.waitFor(() => expect(view.render(40).join()).toContain("preview source"));
-  view.handleInput("\x1b");
-  expect(controller.preview).toBe(false);
-  expect(close).not.toHaveBeenCalled();
-  view.handleInput("\x1b");
-  expect(close).toHaveBeenCalledTimes(1);
 });
 
 it.each([

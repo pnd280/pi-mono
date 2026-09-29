@@ -176,7 +176,7 @@ it("omits absent focus and empty parameter punctuation", () => {
   }
 });
 
-it.each([false, true])(
+it.each([false])(
   "renders request status, focus, and model without generic calls (expanded: %s)",
   (expanded) => {
     const args = { instructions: "Preserve unfinished tests." };

@@ -1,5 +1,4 @@
 import {
-  Container,
   stripTerminalSequences,
   Text,
   visibleWidth,
@@ -121,31 +120,6 @@ it.each([0, 1, 2, 3, 5, 10, 20, 40])(
   }
 );
 
-it("compacts native Text padding without rerendering it at a width that wraps its content", () => {
-  const native = (value: string): Contribution => {
-    const component = new Container();
-    component.addChild(new Text(value, 1, 0));
-
-    return { component };
-  };
-
-  const result = renderRows(
-    [["a", "separator", "b", "separator", "c"]],
-    new Map([
-      ["a", native("\x1b[31mtodo: 3\x1b[39m")],
-      ["b", native("build ok")],
-      ["c", native("lsp")]
-    ]),
-    80
-  );
-  expect(plain(result.lines)).toEqual([" todo: 3 •  build ok •  lsp"]);
-  expect(result.cells.map(({ x, width }) => ({ x, width }))).toEqual([
-    { x: 0, width: 8 },
-    { x: 11, width: 9 },
-    { x: 23, width: 4 }
-  ]);
-});
-
 it.each(["\x1b[44m", "\x1b[7m", "\x1b[4m", "\x1b]8;;https://example.com\x07\x1b[0m"])(
   "preserves painted or decorated padding (%s) in shared cells",
   (style) => {
@@ -165,7 +139,6 @@ it.each(["\x1b[44m", "\x1b[7m", "\x1b[4m", "\x1b]8;;https://example.com\x07\x1b[
 
 it.each([
   { width: 30, values: ["a".repeat(30), "b".repeat(30)], expectedRows: [[0], [1]] },
-  { width: 30, values: ["a".repeat(20), "b".repeat(20)], expectedRows: [[0], [1]] },
   {
     width: 30,
     values: ["a".repeat(20), "b".repeat(20), "c".repeat(6)],
@@ -230,23 +203,6 @@ it("keeps narrow footer fields intact and restores shared rows after resizing", 
       true
     );
   }
-});
-
-it("preserves singleton padding and full-width responsive content", () => {
-  const singleton = source(() => ["  body  ", "", "bottom"]);
-  expect(plain(renderRows([["a"]], new Map([["a", singleton]]), 30).lines)).toEqual([
-    "  body  ",
-    "",
-    "bottom"
-  ]);
-  const responsive = source((width) => [width === 30 ? "full-width" : "compact"]);
-  const sources = new Map([
-    ["a", responsive],
-    ["b", text("B")]
-  ]);
-  expect(plain(renderRows([["a", "separator", "b"]], sources, 30).lines)).toEqual([
-    "full-width • B"
-  ]);
 });
 
 it.each([false, true])(

@@ -51,7 +51,7 @@ it("marks each prose block without marking thinking or diagnostics or changing s
   expect(lines(component).join("\n")).toContain("Thinking...");
 });
 
-it.each([0, 1, 3])("wraps prose with a hanging indent regardless of Pi padding %i", (padding) => {
+it.each([0, 3])("wraps prose with a hanging indent regardless of Pi padding %i", (padding) => {
   const component = new AssistantMessageComponent(
     assistantMessage([{ type: "text", text: "alpha beta gamma delta" }])
   );

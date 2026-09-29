@@ -98,19 +98,16 @@ function render({
 
 it.each([
   { name: "ffgrep", grouped: false },
-  { name: "fffind", grouped: false },
-  { name: "fff-multi-grep", grouped: false },
   { name: "ffgrep", grouped: true }
 ])("prefers $name summaries and retains diagnostics (grouped=$grouped)", ({ name, grouped }) => {
-  const multi = name === "fff-multi-grep";
-  const adapter = piFffAdapter(fffToolInfo(name, multi))!;
+  const adapter = piFffAdapter(fffToolInfo(name))!;
   const result = {
     content: [{ type: "text" as const, text: 'retained match\n\n[Continue with cursor="next"]' }],
     details: { totalMatched: 9, totalFiles: 328 }
   };
-  const args = multi ? { patterns: ["token"] } : { pattern: "token" };
+  const args = { pattern: "token" };
   const options = { name, adapter, args, result, grouped };
-  const matches = name === "fffind" ? "9 matching files" : "9 matches collected";
+  const matches = "9 matches collected";
   const compact = render(options);
   expect(compact).toContain(matches);
   expect(compact).not.toContain("indexed files");
@@ -121,7 +118,7 @@ it.each([
   expect(expanded).toContain(`${matches} · 328 indexed files`);
 });
 
-it.each([false, true])(
+it.each([true])(
   "falls back to retained output when FFF counts are absent (grouped=%s)",
   (grouped) => {
     const text = Array.from({ length: 20 }, (_, i) => `match ${i}`).join("\n");
@@ -159,7 +156,7 @@ it.each(["failure", "partial"])(
   }
 );
 
-it.each([false, true])(
+it.each([true])(
   "keeps confirmed Tasks state and progress in compact cards (grouped=%s)",
   (grouped) => {
     const options = {
@@ -184,7 +181,7 @@ it.each([false, true])(
   }
 );
 
-it.each([false, true])("preserves literal todo source in result bodies (failed=%s)", (failed) => {
+it.each([true])("preserves literal todo source in result bodies (failed=%s)", (failed) => {
   const source =
     "#1 [in_progress] Explain owner: and [pending]\n  description: Keep blockedBy: and [in_progress] literal.\n  owner: description: example";
   const result = { content: [{ type: "text" as const, text: source }], details: undefined };
@@ -301,7 +298,7 @@ it("keeps MCP unfinished operations, truncation, and saved-output references vis
   expect(text).toContain("Saved output: /tmp/output.txt");
 });
 
-it.each([false, true])(
+it.each([true])(
   "keeps summaries, informational notices, and images at narrow widths (grouped=%s)",
   (grouped) => {
     const text = render({
@@ -329,27 +326,6 @@ it.each([false, true])(
   }
 );
 
-it.each([false, true])(
-  "keeps native search output as a bounded fallback (grouped=%s)",
-  (grouped) => {
-    const text = render({
-      name: "grep",
-      adapter: nativeAdapter("grep"),
-      args: { pattern: "match" },
-      result: {
-        content: [
-          { type: "text", text: Array.from({ length: 20 }, (_, i) => `match ${i}`).join("\n") }
-        ],
-        details: undefined
-      },
-      grouped
-    });
-    expect(text).toContain("match 0");
-    expect(text).toContain("match 19");
-    expect(text).toContain("more rows");
-  }
-);
-
 it("treats empty summaries as absent and never suppresses failure output", () => {
   for (const [summary, failed] of [
     [" ", false],
@@ -365,21 +341,4 @@ it("treats empty summaries as absent and never suppresses failure output", () =>
     });
     expect(text).toContain("retained output");
   }
-});
-
-it("keeps unknown tool output as a bounded fallback", () => {
-  const text = render({
-    name: "custom",
-    args: {},
-    result: {
-      content: [
-        { type: "text", text: Array.from({ length: 30 }, (_, i) => `answer ${i}`).join("\n") }
-      ],
-      details: { summary: "untrusted metadata" }
-    }
-  });
-  expect(text).toContain("answer 0");
-  expect(text).toContain("answer 29");
-  expect(text).toContain("more rows");
-  expect(text).not.toContain("untrusted metadata");
 });

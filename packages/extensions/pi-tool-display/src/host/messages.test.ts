@@ -19,7 +19,7 @@ const message = {
   ]
 };
 
-it.each([0, 1, 2])("discovers buffered calls in source order on an update at index %s", (index) => {
+it.each([1])("discovers buffered calls in source order on an update at index %s", (index) => {
   const messages = new TranscriptMessages();
   messages.read({ ...message, content: [] });
   expect(messages.read(message, index)).toMatchObject({

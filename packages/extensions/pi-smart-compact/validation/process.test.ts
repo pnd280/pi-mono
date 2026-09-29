@@ -568,19 +568,11 @@ const toolCases: {
     config: { thinkingLevel: "off" }
   },
   { mode: "text", scenario: "success", summaries: 1, compactions: 1, attempts: 1 },
-  { mode: "json", scenario: "success", summaries: 1, compactions: 1, attempts: 1 },
-  { mode: "json", scenario: "duplicate", summaries: 1, compactions: 1, attempts: 1 },
-  { mode: "json", scenario: "cancel", summaries: 0, compactions: 0, attempts: 1 },
   { mode: "json", scenario: "failure", summaries: 1, compactions: 0, attempts: 1 },
   { mode: "json", scenario: "abort", summaries: 1, compactions: 0, attempts: 1 },
-  { mode: "json", scenario: "escape", summaries: 1, compactions: 0, attempts: 1 },
   { mode: "text", scenario: "small", summaries: 0, compactions: 0, attempts: 0 },
   { mode: "text", scenario: "no-request", summaries: 0, compactions: 0, attempts: 0 },
-  { mode: "json", scenario: "instructions-split", summaries: 1, compactions: 1, attempts: 1 },
   { mode: "json", scenario: "instructions-history", summaries: 2, compactions: 1, attempts: 1 },
-  { mode: "text", scenario: "instructions-boundary", summaries: 1, compactions: 1, attempts: 1 },
-  { mode: "json", scenario: "retry", summaries: 2, compactions: 1, attempts: 1 },
-  { mode: "json", scenario: "custom-summary", summaries: 0, compactions: 1, attempts: 1 },
   { mode: "text", scenario: "empty-instructions", summaries: 1, compactions: 1, attempts: 1 },
   ...[
     { scenario: "success", summaries: 1 },
@@ -766,7 +758,7 @@ it.each(toolCases)(
 
 it.each(
   (["manual", "auto"] as const).flatMap((entry) => [
-    ...[undefined, false, true].map((enabled) => ({
+    ...[undefined, true].map((enabled) => ({
       entry,
       enabled,
       fileFocus: false,

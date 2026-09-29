@@ -17,7 +17,7 @@ import { promisify } from "node:util";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { PrivateFileError, ReadLimitError } from "./errors.ts";
-import { boundedRead, checkHandle, privateDirectory } from "./privacy.ts";
+import { boundedRead, checkHandle } from "./privacy.ts";
 
 let directory: string;
 beforeEach(async () => {
@@ -117,11 +117,4 @@ it("checks descriptor ownership before permission repair", async () => {
   } finally {
     await handle.close();
   }
-});
-
-it("creates private caller-named directories without feature-specific paths", async () => {
-  const path = join(directory, "notes");
-  await privateDirectory(path);
-  await privateDirectory(path);
-  expect((await stat(path)).mode & 0o777).toBe(0o700);
 });

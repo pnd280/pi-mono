@@ -85,6 +85,7 @@ it.each([0, 1, 8])("omits pagination when all %i items fit", (count) => {
   expect(lines.filter((line) => line.includes("Item "))).toHaveLength(count);
   expect(lines.join("\n")).not.toMatch(/\d+\/\d+|[↑↓] \d+ more/u);
   expect(lines.at(-1)).toMatch(/^─+$/u);
+  if (count === 0) expect(lines.join("\n")).toContain(options.emptyLabel);
 });
 
 it("budgets item gaps and pagination without hiding selection or controls", () => {
@@ -170,17 +171,6 @@ it("separates feedback from content when space allows", () => {
   expect(tiny[1]).toBe("");
   expect(tiny[2]).toContain("Saved and applied.");
   expect(tiny).toHaveLength(5);
-});
-
-it("never invents add or move actions for an empty settings collection", () => {
-  const output = renderSettingsMenu({
-    ...fixture(),
-    items: [],
-    hints: ["Ctrl+S save", "Esc close", "Tab scope"]
-  }).join("\n");
-  expect(output).toContain("No registered components.");
-  expect(output).not.toContain("a add");
-  expect(output).not.toContain("move");
 });
 
 it("sanitizes labels, scope paths and diagnostics without rewriting caller data", () => {

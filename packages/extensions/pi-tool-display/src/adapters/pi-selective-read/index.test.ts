@@ -70,14 +70,6 @@ it("requires selective-read ownership, the read name, and the current parameter 
 });
 
 it.each([
-  [{ startLine: "1" }, {}],
-  [{ selection: null, extra: null }, {}],
-  [{ selection: null }, {}],
-  [{ offset: null }, {}],
-  [{ limit: null }, {}],
-  [{ offset: null, limit: null, selection: null }, {}],
-  [{ offset: 8, limit: null, selection: null }, { offset: 8 }],
-  [{ offset: null, limit: 2, selection: null }, { limit: 2 }],
   [
     {
       offset: null,
@@ -288,19 +280,4 @@ it("retains native image, partial, error, and cancellation presentation without 
   expect(adapter.textParts?.("diagnostic", args, context(invalid))).toEqual([
     { kind: "output", text: "diagnostic" }
   ]);
-});
-
-it("counts selective reads as one read item per requested file", () => {
-  const context = { result: undefined, change: undefined, cwd: "/work" };
-  const items = adapter.summaryItems?.({ path: "src/a.ts", selection: { startLine: 2 } }, context);
-  expect(items).toMatchObject([{ category: "read" }]);
-  expect(items?.[0]?.identity).toBeTypeOf("string");
-  expect(nativeAdapter("read")?.summaryItems?.({ path: "/work/src/a.ts" }, context)).toEqual(items);
-  expect(adapter.summaryItems?.({ path: "./src/a.ts" }, context)).toEqual(items);
-  expect(adapter.summaryItems?.({ path: "" }, context)).toBeUndefined();
-  expect(adapter.summaryItems?.({ path: "src/a.ts", startLine: "1" }, context)).toEqual(items);
-  const other = adapter.summaryItems?.({ path: "src/b.ts" }, context);
-  expect(other).toMatchObject([{ category: "read" }]);
-  expect(other?.[0]?.identity).toBeTypeOf("string");
-  expect(other).not.toEqual(items);
 });

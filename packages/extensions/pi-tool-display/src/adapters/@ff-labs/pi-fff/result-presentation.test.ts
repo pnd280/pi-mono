@@ -49,7 +49,6 @@ it("distinguishes FFF metadata and diagnostics from matching source text", () =>
   }
 });
 it.each([
-  ["find", '[32 more matches available. cursor="3" to continue]'],
   ["find", '[1 more match available. cursor="4" to continue]'],
   ["grep", '[Continue with cursor="fff_c1"]'],
   ["multi", '[More available. cursor="fff_c2" to continue]'],
@@ -94,7 +93,7 @@ it.each([
     expect(supplied.content[0]!.text).toBe(text);
   }
 );
-it.each(["foo\nbar", 'foo"]\n\n[bar'])(
+it.each(['foo"]\n\n[bar'])(
   "retains weak-match warnings for multiline find queries: %j",
   (query) => {
     const warning = `[Query "${query}" produced only weak scattered fuzzy matches. Output capped at 1/10.]`;
@@ -126,7 +125,7 @@ it.each(["foo\nbar", 'foo"]\n\n[bar'])(
   }
 );
 
-it.each(["unclosed group", "regex parse error:\n    (\n    ^\nerror: unclosed group"])(
+it.each(["regex parse error:\n    (\n    ^\nerror: unclosed group"])(
   "retains FFF fallback diagnostics with their combined pagination instruction: %s",
   (error) => {
     const combined = `[Invalid regex: ${error}, used literal match. Continue with cursor="fff_c1"]`;

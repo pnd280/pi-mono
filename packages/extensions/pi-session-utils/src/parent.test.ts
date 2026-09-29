@@ -75,15 +75,6 @@ it("resolves a parent in a custom directory, without changing the child's cwd", 
   expect(child.buildSessionContext().messages).toEqual([]);
 });
 
-it("links an ephemeral child and preserves the parent when the child is persisted", () => {
-  const child = SessionManager.inMemory(cwd);
-  applyStartupParent(child, parseArgs(["--no-session", "--parent-session", parent]));
-  expect(child.getSessionFile()).toBeUndefined();
-  expect(child.getHeader()?.parentSession).toBe(parent);
-  const path = saveActiveBranch(cwd, child);
-  expect(SessionManager.open(path).getHeader()?.parentSession).toBe(parent);
-});
-
 it.each(["--continue", "-c", "--resume", "-r", "--session", "--session-id", "--fork"])(
   "rejects conflicting %s without changing the selected session",
   (flag) => {

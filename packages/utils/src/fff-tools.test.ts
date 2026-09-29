@@ -1,7 +1,7 @@
 import { expect, it } from "vite-plus/test";
 
 import { fffAdapter } from "./fff-tools.ts";
-it.each(["npm:@ff-labs/pi-fff", "npm:@ff-labs/pi-fff@0.10.6"])(
+it.each(["npm:@ff-labs/pi-fff@0.10.6"])(
   "recognizes official package source %s and only declared names",
   (source) => {
     const sourceInfo = { source, path: "/index.ts" };

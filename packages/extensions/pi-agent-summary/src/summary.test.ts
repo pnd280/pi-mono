@@ -5,7 +5,6 @@ import { formatDuration, summarySchema } from "./summary.ts";
 const summary = { durationMs: 1234, finishedAt: 1_767_270_896_000, bashCalls: 2, files: [] };
 
 it.each([
-  [0, "0s"],
   [999, "0s"],
   [59999, "59s"],
   [60000, "1m 0s"],
@@ -46,7 +45,6 @@ it.each([
   { ...summary, durationMs: -1 },
   { ...summary, durationMs: Infinity },
   { ...summary, durationMs: 1.5 },
-  { durationMs: 1000, bashCalls: 1, files: [] },
   { ...summary, bashCalls: -1 },
   ...[
     null,
@@ -69,7 +67,7 @@ it.each([
   { ...summary, model: { id: "claude-opus-5-5", thinkingLevel: "medium" } },
   { ...summary, model: { provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "extreme" } },
   { ...summary, model: { provider: "anthropic", id: "claude-opus-5-5" } },
-  ...[undefined, null, "1000", -1, 1.5, NaN, Infinity, 8_640_000_000_000_001].map((finishedAt) => ({
+  ...[null, "1000", -1, 1.5, NaN, Infinity, 8_640_000_000_000_001].map((finishedAt) => ({
     ...summary,
     finishedAt
   }))

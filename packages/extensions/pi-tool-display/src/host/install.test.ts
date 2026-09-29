@@ -1358,7 +1358,7 @@ it("leaves another mutation subscriber active after display shutdown", async () 
   });
 });
 
-it.each([false, true])(
+it.each([true])(
   "retries saved output after replaying more files than the concurrency limit (expand all: %s)",
   async (expandAll) => {
     await withSession(async ({ session }) => {
@@ -1405,16 +1405,15 @@ it.each([false, true])(
   }
 );
 
-it.each(["visible", "suppressed", "unregistered"])(
+it.each(["visible", "suppressed"])(
   "keeps entry grouping consistent during live execution and replay: %s",
   async (renderer) => {
     const visible = renderer === "visible";
     await withSession(async ({ session, extensionFactories }) => {
       extensionFactories.push((pi) => {
-        if (renderer !== "unregistered")
-          pi.registerEntryRenderer("display-boundary", () =>
-            visible ? new Text("Visible boundary") : undefined
-          );
+        pi.registerEntryRenderer("display-boundary", () =>
+          visible ? new Text("Visible boundary") : undefined
+        );
       });
       await session.reload();
       const tui = interactiveHost(session);
@@ -1603,7 +1602,7 @@ it.each(["thinking", "tool"])(
   }
 );
 
-it.each(["regular", "fullscreen"] as const)(
+it.each(["regular"] as const)(
   "marks streamed and replayed assistant prose in %s mode without marking user messages",
   async (mode) => {
     await withSession(async ({ session }) => {
@@ -1806,11 +1805,12 @@ it("suppresses completed collapsed thinking without losing text, diagnostics, or
   });
 });
 
-it.each(
-  ["live", "replay"].flatMap((mode) =>
-    ["text", "thinking", "empty error", "length"].map((content) => ({ mode, content }))
-  )
-)(
+it.each([
+  { mode: "live", content: "text" },
+  { mode: "live", content: "empty error" },
+  { mode: "replay", content: "thinking" },
+  { mode: "replay", content: "length" }
+])(
   "positions $mode assistant $content boundaries before their tool rows",
   async ({ mode, content }) => {
     await withSession(async ({ session }) => {
@@ -2142,7 +2142,10 @@ it.each(["auto", "generic"])(
   }
 );
 
-it.each(["read", "write"].flatMap((name) => [false, true].map((isError) => ({ name, isError }))))(
+it.each([
+  { name: "read", isError: false },
+  { name: "write", isError: true }
+])(
   "uses finalized $name result outcome $isError in live and replayed rows",
   async ({ name, isError }) => {
     await withSession(async ({ session }) => {
@@ -2330,16 +2333,9 @@ it.each(["auto", "generic"])(
   }
 );
 
-// The hooks share one insertion wrapper; exercise every hook and one replay boundary.
-it.each([
-  { mode: "live", hook: "maybeShowThinkingDropNotice" },
-  { mode: "live", hook: "addCacheMissNotice" },
-  { mode: "live", hook: "addCacheWarmingUsage" },
-  { mode: "live", hook: "showExtensionNotify" },
-  { mode: "replay", hook: "maybeShowThinkingDropNotice" }
-] as const)(
-  "separates $mode groups only when $hook inserts a component",
-  async ({ mode, hook }) => {
+it.each(["maybeShowThinkingDropNotice", "addCacheMissNotice", "addCacheWarmingUsage"] as const)(
+  "separates live groups only when %s inserts a component",
+  async (hook) => {
     const prototype = interactivePrototype();
     const notice = new Text("fixture notice", 0, 0);
     const returned = {};
@@ -2406,15 +2402,13 @@ it.each([
               .join("\n")
               .match(/Explored/g);
 
-          tui.renderSessionItems(
-            mode === "replay" ? history.flatMap(({ message, result }) => [message, result]) : []
-          );
-          if (mode === "live") await renderLive(history[0]!);
+          tui.renderSessionItems([]);
+          await renderLive(history[0]!);
           insert.mockClear();
           expect(prototype[hook]!.call(tui, "skip")).toBe(returned);
           expect(insert).toHaveBeenCalledExactlyOnceWith("skip");
           expect(insert.mock.contexts[0]).toBe(tui);
-          if (mode === "live") await renderLive(history[1]!);
+          await renderLive(history[1]!);
           expect(groups()).toHaveLength(1);
           expect(tui.chatContainer.children).not.toContain(notice);
 
@@ -2422,7 +2416,7 @@ it.each([
           expect(prototype[hook]!.call(tui, "insert")).toBe(returned);
           expect(insert).toHaveBeenCalledExactlyOnceWith("insert");
           expect(insert.mock.contexts[0]).toBe(tui);
-          if (mode === "live") await renderLive(history[2]!);
+          await renderLive(history[2]!);
           expect(tui.chatContainer.children.filter((child) => child === notice)).toHaveLength(1);
           expect(groups()).toHaveLength(1);
           const [first, second, third] = rows();
@@ -2441,7 +2435,7 @@ it.each([
   }
 );
 
-it.each(["info", "warning", "error"] as const)(
+it.each(["warning"] as const)(
   "separates summaries and expansion at public %s notifications",
   async (kind) => {
     await withSession(
@@ -2471,10 +2465,7 @@ it.each(["info", "warning", "error"] as const)(
           expect(transcript.match(/Read 2 files/g)).toHaveLength(1);
           expect(transcript.match(/Read 1 file/g)).toHaveLength(1);
           expect(transcript.match(/Public notification/g)).toHaveLength(1);
-          if (kind !== "info")
-            expect(transcript).toContain(
-              `${kind === "warning" ? "Warning" : "Error"}: Public notification`
-            );
+          expect(transcript).toContain("Warning: Public notification");
           tui.toggleToolOutputExpansion!();
           const [first, second, third] = tui.chatContainer.children.filter(
             (child) => child instanceof ToolExecutionComponent

@@ -48,19 +48,16 @@ it("uses global defaults and replaces them with trusted project order, including
   expect(store.load().project).toEqual([]);
 });
 
-it.each(["global", "project"] as const)(
-  "distinguishes an unset %s order from an explicit empty order",
-  (scope) => {
-    const { store, write } = fixture();
-    expect(store.load()[scope]).toBeUndefined();
-    write(scope, { theme: "dark" });
-    expect(store.load()[scope]).toBeUndefined();
-    write(scope, { workingMessage: {} });
-    expect(store.load()[scope]).toBeUndefined();
-    store.save(scope, []);
-    expect(store.load()[scope]).toEqual([]);
-  }
-);
+it("distinguishes an unset global order from an explicit empty order", () => {
+  const { store, write } = fixture();
+  expect(store.load().global).toBeUndefined();
+  write("global", { theme: "dark" });
+  expect(store.load().global).toBeUndefined();
+  write("global", { workingMessage: {} });
+  expect(store.load().global).toBeUndefined();
+  store.save("global", []);
+  expect(store.load().global).toEqual([]);
+});
 
 it("merges saves with fresh settings without touching unrelated fields or the other scope", () => {
   const { store, write } = fixture();

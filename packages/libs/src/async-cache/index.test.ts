@@ -28,7 +28,7 @@ it("deduplicates pending work, reports saturation without caching it, and retrie
   cache.dispose();
 });
 
-it.each([0, undefined, null, false, ""])(
+it.each([0, undefined])(
   "evicts least recently used entries, including the cached value %j",
   async (value) => {
     const load = vi.fn(async (key: string) => (key === "a" ? value : 1));

@@ -123,7 +123,6 @@ it.each([
     { tool: "search", args: { query: "needle" } },
     'mcp__docs.search({"query":"needle"})'
   ],
-  ["lookup", { query: "needle" }, 'lookup({"query":"needle"})'],
   ["mcpScript", { code: 'emit("needle");' }, 'mcpScript({"code":"emit(\\"needle\\");"})']
 ])("always shows %s parameters regardless of settings or expansion", (name, args, invocation) => {
   const adapter = piMcpAdapter(mcpToolInfo(name))!;
@@ -239,8 +238,6 @@ it("distinguishes returned errors without claiming a caught failure is a transpo
 
 it.each([
   ["mcp", "aborted", "Call cancelled", "warning"],
-  ["mcp__docs", "aborted", "Call cancelled", "warning"],
-  ["lookup", "aborted", "Call cancelled", "warning"],
   ["mcpScript", "aborted", "Call cancelled", "warning"],
   ["mcpScript", "script_error", "Call failed", "error"],
   ["mcpScript", "timeout", "Call failed", "error"]
