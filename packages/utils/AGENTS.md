@@ -4,13 +4,9 @@
 
 [Helpers](README.md#usage)
 
-Direct FFF consumers: [FFF guard](../extensions/pi-fff-guard/AGENTS.md) and [nested instructions](../extensions/pi-nested-instructions/AGENTS.md) share provenance classification and search-scope normalization.
+FFF consumers: [FFF guard](../extensions/pi-fff-guard/AGENTS.md) and [nested instructions](../extensions/pi-nested-instructions/AGENTS.md).
 
-Indirect consumers:
-
-- Search: [cooperative search](../libs/src/text-search/README.md), then [prompt occurrence preparation](../extensions/pi-prompt-manager/src/search.ts) and [browser search](../libs/src/tui/components/browser/controller.ts).
-- Patch types: [shared diff rendering](../libs/src/tui/components/diff-view/README.md), then [display result content](../extensions/pi-tool-display/src/rendering/result-content.ts).
-- Output text and UTF-8: [bounded stream output](../libs/src/output-buffer/README.md) and [bounded file output](../libs/src/bounded-output/README.md), then [display preview loading](../extensions/pi-tool-display/src/observation/saved-output.ts).
+Shared library consumers: [cooperative search](../libs/src/text-search/index.ts), [diff rendering](../libs/src/tui/components/diff-view/README.md), [bounded stream output](../libs/src/output-buffer/index.ts), and [bounded file output](../libs/src/bounded-output/index.ts).
 
 ## Constraints
 

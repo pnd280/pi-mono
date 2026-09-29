@@ -9,10 +9,10 @@
 
 ## Constraints
 
-Change prompts only through `systemPromptOptions`, never a forced `systemPrompt`. Mirror Pi's `APPEND_SYSTEM.md` discovery and byte-order-mark handling so the replacement guard compares equal text. Read files and settings only on session start, not per run. Keep settings global and the `rules` layout extensible: new per-model fields resolve independently.
+Change prompts only through `systemPromptOptions`, never a forced `systemPrompt`. Mirror Pi's `APPEND_SYSTEM.md` discovery and byte-order-mark handling so the replacement guard compares equal text. Read files and settings only on session start. Keep settings global and new per-model fields independently selectable.
 
 ## Validation
 
 Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
 
-Use [package validation](README.md#validation) and shared [verification](../../../docs/agents/verification.md) and [testing](../../../docs/agents/testing.md) guidance. Do not make paid model requests for validation.
+Use [package validation](README.md#validation) and shared [verification](../../../docs/agents/verification.md). Do not make paid model requests for validation.

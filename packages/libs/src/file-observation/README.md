@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`observeTextFile`](index.ts) (`@pi-mono/libs/file-observation`) reads complete UTF-8, preserving BOMs and rejecting invalid, nonregular, or oversized input. Reads follow symlinks without permission repair; size/timestamp checks detect some races, not atomic snapshots.
+[`observeTextFile`](index.ts) (`@pi-mono/libs/file-observation`) reads complete UTF-8, preserving BOMs and rejecting invalid, nonregular, or oversized input. It follows symlinks without permission repair; size/timestamp checks are not atomic snapshots.
 
 ## Caller responsibilities
 

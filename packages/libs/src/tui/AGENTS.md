@@ -2,16 +2,12 @@
 
 ## Code navigation
 
-[Components and helpers](README.md#usage) · [Browser contract](components/browser/README.md) · [Host mounting](open-browser/README.md)
+[Component and helper index](README.md#usage) · [Browser contracts](components/browser/types.ts) · [Host mounting](open-browser/index.ts) · [Priority input adapter](responsive-custom-ui/fullscreen-input.ts)
 
 ## Constraints
 
-Colocate implementation, tests, and contracts; keep domain policy in extensions.
-
-Components own reusable interaction, dimensions, focus, and layout; callers control low-level renderers. Use consumer callbacks for loading, persistence, clipboard, and editor effects. Never import host mounting, extensions, or filesystem/process/network APIs.
-
-Use Pi wrapping and borders. Prepare full text outside render/input loops to bound redraws; keep theme colors out of cached layout. Preserve one browser across host remounts; dispose only at final closure.
+Keep domain policy and I/O in consumers; reusable components receive effect callbacks rather than importing extensions or host mounting. Prepare full text outside render/input loops and keep theme colors out of cached layout. Preserve logical views across host remounts; dispose only on final closure.
 
 ## Validation
 
-Use [package validation](../../README.md#validation). Keep browser interaction and dimension tests in `components/browser/`, host closure and editor snapshot ordering tests in `open-browser/`, and generic presentation lifetime tests in `responsive-custom-ui/`.
+Use [package validation](../../README.md#validation) and [workspace verification](../../../../docs/agents/verification.md). Browser interaction tests belong in `components/browser/`, editor snapshot ordering in `open-browser/`, and host presentation lifetime in `responsive-custom-ui/`.

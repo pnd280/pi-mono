@@ -14,29 +14,29 @@ Extensions load TypeScript directly; no build is needed.
 
 ## Load an extension
 
-After setup, launch workspace Pi with an extension directory:
+Launch workspace Pi with an extension directory:
 
 ```sh
 vp exec pi -e ./packages/extensions/pi-tool-display
 ```
 
-Repeat `-e` for additional extensions. To persist the selection, use Pi's [local package configuration](node_modules/@earendil-works/pi-coding-agent/docs/packages.md#choose-a-source).
+Repeat `-e` for additional extensions. To persist the selection, use Pi's [package installation](node_modules/@earendil-works/pi-coding-agent/docs/packages.md#install-and-manage-packages).
 
 ## Extensions
 
-- [pi-tool-display](packages/extensions/pi-tool-display/README.md): compact, borderless tool activity with expandable output and file diffs.
-- [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks with progress widget and task browser.
-- [pi-smart-compact](packages/extensions/pi-smart-compact/README.md): model-callable native compaction with focused summaries and task continuation.
-- [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): private prompt history and saved drafts, scoped to the working directory.
-- [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md): arrange native widgets, statuses, and footer information through `/widgets`.
-- [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md): discover nested instructions from tool inputs without duplicating direct reads.
-- [pi-session-utils](packages/extensions/pi-session-utils/README.md): `/sesh` persists ephemeral sessions, creates empty parent-linked sub-sessions, and optionally generates names. `--parent-session` starts a linked child from the CLI.
-- [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): live elapsed runtime, bash-call counts, and file-change summaries kept outside model context.
-- [pi-fff-guard](packages/extensions/pi-fff-guard/README.md): block FFF searches targeting Git-ignored or missing explicit paths.
-- [pi-selective-read](packages/extensions/pi-selective-read/README.md): highlight source spans within surrounding read context.
-- [pi-model-prompt](packages/extensions/pi-model-prompt/README.md): model-specific `APPEND_SYSTEM.md` variants selected by regex rules.
-- [pi-skills](packages/extensions/pi-skills/README.md): skill file references instead of injected content, with native completion anywhere in the prompt.
-- [pi-miscs](packages/extensions/pi-miscs/README.md): shared package for small, typically single-file extensions; currently empty.
+- [pi-tool-display](packages/extensions/pi-tool-display/README.md): compact tool activity, expandable output, and file diffs.
+- [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks, progress widget, and task browser.
+- [pi-smart-compact](packages/extensions/pi-smart-compact/README.md): native compaction with task continuation.
+- [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): directory-scoped prompt history and saved drafts.
+- [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md): widget, status, and footer layouts.
+- [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md): nested instruction discovery from tool inputs.
+- [pi-session-utils](packages/extensions/pi-session-utils/README.md): session persistence, parent-linked sub-sessions, and naming.
+- [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): runtime, bash-call, and file-change summaries outside model context.
+- [pi-fff-guard](packages/extensions/pi-fff-guard/README.md): guard FFF searches against ignored or missing paths.
+- [pi-selective-read](packages/extensions/pi-selective-read/README.md): source-span highlighting in read context.
+- [pi-model-prompt](packages/extensions/pi-model-prompt/README.md): model-specific append prompts.
+- [pi-skills](packages/extensions/pi-skills/README.md): skill file references and inline completion.
+- [pi-miscs](packages/extensions/pi-miscs/README.md): small extensions.
 
 ## Development
 

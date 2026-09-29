@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`TimedConfirmation`](index.ts) (`@pi-mono/libs/timed-confirmation`): `confirm(target)` succeeds only for two `===` targets before the deadline.
+[`TimedConfirmation`](index.ts) confirms two identical (`===`) targets before a deadline.
 
 ## Caller responsibilities
 

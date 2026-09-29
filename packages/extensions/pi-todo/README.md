@@ -6,11 +6,11 @@ Session-backed todos for multi-step work, with an above-editor widget and read-o
 
 ### Todos
 
-The `todo` tool supports `create`, `update`, `list`, `get`, `delete`, and `clear`. Todos start `pending`. On update, `parentId: null` moves a subtree to the root. Parent status and dependencies do not control children. Dependency cycles are forbidden.
+The `todo` tool supports `create`, `update`, `list`, `get`, `delete`, and `clear`. Todos start `pending`. On update, `parentId: null` moves a subtree to the root. Parent status and dependencies do not control children; dependency cycles are forbidden.
 
 Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Todos with live descendants can be reparented but not deleted. `clear` removes everything and resets IDs. Completed todos cannot return to `pending` or `in_progress`.
 
-`list` limits output to 200 todo lines and 32,768 UTF-16 code units, but includes the first todo line even if oversized. A truncation notice reports omitted todos; result details retain the full snapshot.
+`list` bounds displayed output to 200 todo lines and 32,768 UTF-16 code units (always showing the first line); result details retain the full snapshot.
 
 | Item                              | Limit               |
 | --------------------------------- | ------------------- |
@@ -28,11 +28,11 @@ Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Todo
 
 Ctrl+C never cancels the browser. Opening requires a `tui.select.cancel` binding other than Ctrl+C; if none exists, fix Pi's keybindings and `/reload`.
 
-In fullscreen mode `/todos` stays non-overlay at every terminal size. While focused, its paging actions use [shared input routing](../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership), leaving the transcript fixed even at scroll boundaries. If routing is unavailable, a warning appears once per opening; use arrow navigation.
+In fullscreen mode `/todos` is non-overlay and paging does not scroll the transcript. If [input routing](../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership) is unavailable, use arrow navigation.
 
 `/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session.
 
-When collapsed, `pi-todo.activity` contributes the first in-progress todo's label or subject to the working message, with `(+N more)` for additional in-progress todos. Expanding the widget or leaving no todos in progress clears only that contribution.
+When collapsed, the widget contributes in-progress todo activity to the working message. Expanding it clears that contribution.
 
 `/working-message` opens the [shared ordering menu](../../libs/src/working-message/README.md#settings-menu) for contributions from participating extensions. Changes apply only when saved with Ctrl+S.
 
@@ -56,7 +56,7 @@ Working-message ordering uses the separate [`workingMessage.order` setting](../.
 
 Todo state is stored only in tool-result details as full snapshots in Pi sessions. Branch changes and compaction replay the latest valid result, skipping malformed snapshots and host errors. Version 2 retains hierarchy; version 1 and bounded unversioned snapshots replay flat.
 
-Unversioned snapshots accept up to 10,000 todos and 8 MiB of state. Versioned and unversioned snapshots allow an additional 64 KiB for result parameters and errors, without increasing todo capacity. Oversized unversioned state remains readable but cannot be extended beyond current limits.
+Legacy unversioned snapshots remain readable under their larger replay limits, but oversized ones cannot be extended beyond current limits.
 
 Todo text is stripped of terminal controls for the widget, browser, and working message. `/working-message` saves order to the displayed global/trusted project `settings.json`, preserving unrelated settings. The `todo` tool and `/todos` command write no separate files. No network requests.
 

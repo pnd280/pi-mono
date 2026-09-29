@@ -13,7 +13,7 @@
 ## Limitations and replacement opportunities
 
 - [Output throughput](../README.md#output-throughput) is client-observed and depends on provider stream-start timing and reported usage. Prefer a public provider timing/throughput API if Pi adds one; do not estimate token counts from stream chunks.
-- [Observation excludes bash changes, overrides, and custom tools](../README.md#file-changes). Revisit public mutation/run-summary APIs with trustworthy outcomes and ordering; retain bounded retention and context-free persistence. Shared observation changes belong in libs.
+- [Observation excludes bash changes, overrides, and custom tools](../README.md#tool-statistics). Revisit public mutation/run-summary APIs with trustworthy outcomes and ordering; retain bounded retention and context-free persistence. Shared observation changes belong in libs.
 
 ## Validation
 

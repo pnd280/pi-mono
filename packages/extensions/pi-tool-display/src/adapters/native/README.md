@@ -18,13 +18,13 @@ Concrete targets use Pi's Unicode-space normalization before lexical resolution 
 
 See the shared [exploration-group rules](../../../docs/presentation.md#groups), [target formatting](../../../docs/presentation.md#card-layout), and [result presentation](../../../docs/presentation.md#results).
 
-Observed shells show recorded status/duration beside compact and expanded output, e.g. `Exit 0 · 12ms`. Missing codes stay unknown; ordinary text never establishes status. Unrecorded history has no status/timing summary.
+Observed shells show recorded status/duration; missing codes stay unknown. Output text alone never establishes status.
 
-Native captions suppress duplicate fallback descriptions without mutating results. Unsupported-model and conversion/resizing omission warnings remain in compact cards/groups and appear once in expanded bodies. Patch/live/saved previews retain fallbacks when Pi image display is unavailable or disabled.
+Image omission warnings and fallbacks remain available when Pi cannot display images.
 
 Recognized read continuation and byte-limit fallback instructions remain visible in compact cards/groups. Expansion restores them once in the retained text.
 
-The native `(no output)` placeholder uses `dim`. Nonzero-exit and timeout diagnostic bodies and failure markers use `error`. Process output preceding a native failure footer retains its own styling.
+Diagnostic bodies and failure markers use error styling without recoloring preceding process output.
 
 ### Text-envelope provenance
 

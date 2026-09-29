@@ -4,9 +4,7 @@
 
 ## Behavior
 
-[`@pi-mono/libs/expiring-notice`](index.ts) exports `ExpiringNotice` for replaceable timed feedback.
-
-`reportOnce()` reports at most once per notice in a microtask, avoiding component-tree changes during rendering. Clearing, replacing, or disposing suppresses queued reports.
+[`ExpiringNotice`](index.ts) manages replaceable timed feedback. `reportOnce()` defers reporting to a microtask to avoid component-tree changes during rendering; clearing, replacing, or disposing suppresses queued reports.
 
 ## Caller responsibilities
 

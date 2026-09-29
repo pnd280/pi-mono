@@ -4,11 +4,11 @@
 
 ## Behavior
 
-`readSettingsFile(path)` accepts regular files up to 1 MiB (`MAX_SETTINGS_FILE_BYTES`), following symlinks and decoding their contents as UTF-8. It returns `undefined` for non-files, oversized files, or a read byte count different from the initial file size. I/O errors, including a missing file, throw. It does not parse JSON or apply defaults.
+[`readSettingsFile`](read.ts) reads bounded UTF-8 from regular files without parsing or defaulting; missing files and I/O errors throw. [`readSettingsRecord`](transaction.ts) parses a JSON object (including Pi's leading BOM); missing or empty files yield `{}`, while malformed or unreadable records throw.
 
-`readSettingsRecord(path)` additionally parses a JSON object, accepting Pi's leading UTF-8 byte-order mark. A missing or empty file returns `{}`; malformed, unreadable, non-object, oversized, or non-regular inputs throw. It does not apply extension-specific defaults. `isSettingsRecord(value)` validates a record without replacing it, so saves can preserve every unrelated own key in a settings section.
+`isSettingsRecord` validates without replacing the object, allowing saves to preserve unrelated own keys.
 
-`updateSettingsRecord(path, update)` holds Pi's `proper-lockfile` lock (`realpath: false`) around a fresh read, synchronous mutation, and atomic rename. It rejects async mutators before writing, preserves unrelated fields unless the mutator changes them, follows existing settings symlinks without replacing them, rejects dangling symlinks, and preserves existing mode bits. New files use mode `0600` subject to platform semantics; serialized output is limited to 1 MiB. Rejected mutations leave the original file untouched; temporary files and locks are released on exit. The helper may create parent directories but never repairs malformed JSON implicitly.
+[`updateSettingsRecord`](transaction.ts) locks around a fresh read, synchronous mutation, and atomic replacement. It follows existing settings symlinks without replacing them, preserves unrelated fields and existing mode bits, and refuses malformed JSON or dangling links rather than repairing them. It can create parent directories; new files use mode `0600` subject to platform semantics. Reads and serialized writes are limited to 1 MiB.
 
 These record helpers are shared by [working-message ordering](../working-message/README.md#persistence) and [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration).
 
@@ -18,4 +18,4 @@ Validate the parsed settings section and decide whether to ignore invalid files 
 
 ## Validation
 
-Run `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'` from the repository root, then check affected consumers. [Reader tests](index.test.ts) cover bounded file access; [transaction tests](transaction.test.ts), [working-message settings tests](../working-message/settings.test.ts), and [widget settings tests](../../../extensions/pi-editor-widgets/src/settings.test.ts) cover locks, rejected writes, file modes, symlinks, scope validation, and unrelated fields.
+Use [package validation](../../README.md#validation) and check affected consumers. [Reader tests](index.test.ts), [transaction tests](transaction.test.ts), [working-message settings tests](../working-message/settings.test.ts), and [widget settings tests](../../../extensions/pi-editor-widgets/src/settings.test.ts) own the edge cases.

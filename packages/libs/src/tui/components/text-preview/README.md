@@ -6,7 +6,7 @@
 
 [`@pi-mono/libs/tui/components/text-preview`](index.ts) exports `ScrollableTextPreview` and `renderOverflowBorder`.
 
-`ScrollableTextPreview` caches text/width layout, exposes loading, and calls `changed` on completion; stale/disposed work cannot publish. Rendering slices the viewport, clamps scroll, and reports hidden rows through `overflow`. Text changes reset scroll; color-free layout needs no reflow on `invalidate()`.
+`ScrollableTextPreview` caches text/width layout and calls `changed` when current work completes. Read `loading`, `scroll`, and `overflow` to render placeholders and overflow controls. Text changes reset scroll; stale/disposed work cannot publish.
 
 ## Caller responsibilities
 

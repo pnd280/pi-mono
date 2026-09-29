@@ -16,9 +16,7 @@
 
 `/working-message` takes no arguments and requires interactive TUI mode. It opens the project scope when an override exists, otherwise the global scope. Switch scopes inside the menu with Tab; project scope requires a trusted project.
 
-The selected save scope uses the accent color. `*` marks unsaved edits; `(not set)` means no valid saved order, including after editing. Explicit empty orders count as set. Only successful scope saves clear the unset marker, even when the order is unchanged.
-
-An unset project draft inherits the saved global order; an unset global draft uses sorted IDs, never the project override. Saving global refreshes unedited inherited project drafts. Inheritance neither writes settings nor changes precedence.
+An unset project draft inherits saved global ordering; an unset global draft sorts IDs. Inheritance does not write settings. An explicit empty order is set and uses sorted ID order.
 
 | Key                    | Action                                                 |
 | ---------------------- | ------------------------------------------------------ |
@@ -28,13 +26,13 @@ An unset project draft inherits the saved global order; an unset global draft us
 | Ctrl+S                 | Save the displayed scope and apply the effective order |
 | Escape or Ctrl+C       | Close and discard all remaining unsaved drafts         |
 
-Menu keys are fixed, independent of Pi's configurable browser bindings; Pi retains native transcript paging. Only saved drafts affect the message. Failures retain drafts and selection with inline recovery; Ctrl+S retries. Global saves preserve project precedence; project saves create overrides even when unchanged. Success clears on edits or scope changes; load warnings remain until settings reload succeeds. The menu never enables or disables components.
+Menu keys are fixed, independent of Pi's browser bindings. Only saved drafts affect the message; failed saves retain drafts for retry. Global saves preserve project precedence. The menu never enables or disables components.
 
-Both settings editors use the [shared settings frame](../tui/components/settings-menu/README.md). At 40×10, selection, save/exit controls, and recovery take priority over paths and secondary context; resize smaller terminals for the full view.
+The menu uses the [shared settings frame](../tui/components/settings-menu/README.md); resize terminals smaller than 40×10 for the full view.
 
 ### Persistence
 
-Global defaults live in `getAgentDir()/settings.json` (normally `~/.pi/agent/settings.json`, honoring `PI_CODING_AGENT_DIR`). Trusted project overrides live in `<cwd>/.pi/settings.json`, using Pi's configured directory name.
+Global ordering lives in `getAgentDir()/settings.json` (honoring `PI_CODING_AGENT_DIR`); trusted project overrides live in `<cwd>/.pi/settings.json`, using Pi's configured directory name.
 
 ```json
 {
@@ -44,17 +42,15 @@ Global defaults live in `getAgentDir()/settings.json` (normally `~/.pi/agent/set
 }
 ```
 
-A project `order` replaces the global array. An empty array uses sorted ID order. Removing the project `order` field restores inheritance. Unknown IDs remain in the menu as unavailable, so their positions survive temporary contributor removal. Orders support up to 1,000 nonempty IDs of at most 200 characters. Duplicates are removed, keeping the first occurrence.
+A project `order` replaces the global array; removing it restores inheritance. Unknown IDs retain their positions through temporary contributor removal. See the [settings schema](settings.ts) for order limits.
 
-Settings load at session start and when the menu opens. Invalid settings or failures from the [settings-file reader](../settings-file/README.md#behavior) produce terminal-safe warnings and fall back to the other valid scope or sorted IDs. Diagnostic sanitization does not change settings paths. Order applies at session start or after a successful save, not when the menu opens.
+Settings load at session start and when the menu opens. Invalid settings or read failures produce terminal-safe warnings and fall back to the other valid scope or sorted IDs. Opening the menu does not apply an order.
 
-Saves acquire Pi's settings-file lock, merge into the latest JSON, and atomically replace the file. They preserve unrelated fields and existing symlinks, reformat the JSON, and create missing parent directories.
-
-An explicit save can replace an invalid `order` in an otherwise valid `workingMessage` object while preserving its other fields. Saves fail without replacing the destination if the file or section is malformed, the file cannot be read, a symlink is dangling, or the formatted result exceeds the reader's size limit. Registrations alone do not write files. There are no network requests.
+Saves use [locked atomic settings updates](../settings-file/README.md#behavior), preserving unrelated fields and existing symlinks. An explicit save can replace an invalid `order` in an otherwise valid section, but never repairs a malformed file or section. Registrations alone do not write files; there are no network requests.
 
 ## Caller responsibilities
 
-Register once during the extension factory, before installing handlers that publish text. Use a globally unique, stable ID such as `extension-name.component-name`. IDs must match `^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$` and contain at most 200 characters. Labels and contributor names must be nonempty after trimming and contain at most 200 characters. Invalid or duplicate registrations throw.
+Register once during the extension factory, before installing handlers that publish text. Use a globally unique, stable ID such as `extension-name.component-name`; consult the [component schema](coordinator.ts) for character and length limits.
 
 Keep handles runtime-local. Session start clears text; republish restored state in `session_start` and update on state changes. `setText()`/`setText("")` clears only that component; `dispose()` unregisters it. Stale/disposed handles cannot mutate replacements. Clear text for temporary inactivity to retain settings visibility.
 
@@ -78,4 +74,4 @@ export default function activityExtension(pi: ExtensionAPI) {
 
 ## Validation
 
-Use the [library checks](../../README.md#validation). Tests cover [composition and handle ownership](coordinator.test.ts), [shared registration and runtime cleanup](index.test.ts), [settings persistence](settings.test.ts), and [command integration](command.test.ts). Command tests use the [shared interactive host fixture](../validation/interactive-host/README.md) with only working-message contributors; no widget extension is loaded. Draft and input tests belong to the [order-settings component](../tui/components/order-settings/README.md#validation). Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) for real Pi checks in regular and fullscreen modes.
+Use [library checks](../../README.md#validation). [Composition](coordinator.test.ts), [registration](index.test.ts), [settings](settings.test.ts), and [command](command.test.ts) tests cover the library; draft/input tests belong to [order-settings](../tui/components/order-settings/README.md#validation). Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) for real Pi checks in regular and fullscreen modes.

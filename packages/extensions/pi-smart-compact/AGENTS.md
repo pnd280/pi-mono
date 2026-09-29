@@ -3,28 +3,24 @@
 ## Code navigation
 
 - [src/index.ts](src/index.ts): tool schema and extension lifecycle binding.
-- [src/native.ts](src/native.ts): session-scoped requests, entry-point and boundary patches, shared focus, summary-model persistence, and opt-in manual and automatic model routing.
+- [src/native.ts](src/native.ts): session-scoped native compaction hooks and routing.
 - [src/compatibility.ts](src/compatibility.ts): inspected private contracts and API/CLI fingerprints.
-- [src/config.ts](src/config.ts): global and trusted project settings, scope-relative instruction files, and startup/reload loading.
-- [src/summarize.ts](src/summarize.ts): operation-scoped model, thinking, and instruction overrides.
-- [src/instructions.ts](src/instructions.ts): native split-turn prompt focus.
-- [src/status.ts](src/status.ts): footer count of successful compactions on the active branch.
-- [src/entry.ts](src/entry.ts): context-free summary-model entry data and rendering.
-- [src/outcome.ts](src/outcome.ts): native outcome observation, skip classification, and status text.
+- [src/config.ts](src/config.ts), [src/summarize.ts](src/summarize.ts), [src/instructions.ts](src/instructions.ts): settings, scoped overrides, and split-turn focus.
+- [src/status.ts](src/status.ts), [src/entry.ts](src/entry.ts), [src/outcome.ts](src/outcome.ts): footer status, summary-model entries, and outcomes.
 - [validation/](validation/): offline CLI provider, subprocess scenarios, and SDK lifecycle checks.
 
 ## Constraints
 
 - Reuse Pi's native compaction orchestration. Do not call the aborting manual API, hand-build compaction summaries or compaction entries, or manufacture continuation messages.
-- Preserve complete tool-batch persistence, native hooks, settings, retries, busy state, and ordinary loop continuation. Before the next response, append status messages only for skipped, cancelled, or failed attempts; never use them to trigger another turn. Success uses the native compaction entry and summary, preceded by a context-free summary-model entry for default summaries.
+- Preserve tool-batch persistence and ordinary continuation. Before the next response, append status only for skipped, cancelled, or failed attempts, never to trigger another turn. Persist a context-free summary-model entry only for successful default summaries.
 - Keep private API assumptions in the compatibility boundary. Unknown versions or conflicting patches must fail closed; never learn supported fingerprints from the executing host.
-- Preserve [configuration rules](README.md#configuration): absent settings use native selection; invalid explicit settings must not silently select another model. Never change the conversation model or thinking level, or forward its credentials to the configured provider. Keep native retention settings and retry callbacks.
+- Absent settings use native selection; invalid settings must not silently select another model. Never change the conversation model or forward its credentials to the configured provider. See [configuration](README.md#configuration).
 - Keep selected-model/thinking information in result details for `pi-tool-display`, not model-facing acknowledgement text.
-- Scope requests and summary-model metadata to their session and native operation. Append metadata only at native persistence, after Pi's final abort check. Deactivate retained callbacks before restoring owned hooks. Do not overwrite another extension's replacement.
+- Scope requests and metadata to their session and native operation. Append metadata only after Pi's final abort check; do not overwrite another extension's replacement.
 - Apply configured file focus to every compaction route independently of model and thinking opt-ins. Compose it once before per-call focus, expose the same text to hooks, and preserve native default prompts. At startup or reload, read only the selected instruction file and resolve relative paths in their original settings scope.
 - Match the native split-turn instruction suffix, not phrases inside serialized conversation. Clone provider input rather than mutate retry-shared context.
-- Follow [workspace development](../../../docs/development.md), [architecture](../../../docs/agents/architecture.md), and the [compatibility checklist](docs/pi-compatibility.md).
+- Follow the [compatibility checklist](docs/pi-compatibility.md) for Pi upgrades.
 
 ## Validation
 
-Run the [package checks](README.md#validation). Follow the [testing specification](docs/testing.md) and [workspace verification workflow](../../../docs/agents/verification.md). Provider fixtures remain offline and use cleaned system-temp workspaces.
+Use [package validation](README.md#validation), the [testing specification](docs/testing.md), and [workspace verification](../../../docs/agents/verification.md). Provider fixtures remain offline.

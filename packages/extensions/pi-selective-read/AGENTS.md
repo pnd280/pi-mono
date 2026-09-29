@@ -2,10 +2,9 @@
 
 ## Code navigation
 
-- [src/index.ts](src/index.ts) registers the replacement. [src/tool.ts](src/tool.ts) adapts Pi's native tool and defines its parameters.
+- [src/tool.ts](src/tool.ts): native read delegation and parameters; [src/index.ts](src/index.ts): registration.
 - [src/selection.ts](src/selection.ts) limits preview size. Shared [source-selection helpers](../../utils/README.md#source-selections) validate coordinates and slice source.
-- [src/result.ts](src/result.ts) separates source from continuation notices and records which result blocks contain source.
-- [src/render.ts](src/render.ts) renders selections within read context.
+- [src/result.ts](src/result.ts): source/notice separation and preview provenance; [src/render.ts](src/render.ts): contextual rendering.
 
 ## Constraints
 
@@ -17,4 +16,4 @@ Keep source coordinates independent of terminal width; sanitize only display tex
 
 Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
 
-Use [package validation](README.md#validation) and the shared [testing guidance](../../../docs/agents/testing.md). Cover preview bounds, invalid ranges, source-window boundaries, and native delegation without re-testing Pi's filesystem implementation.
+Use [package validation](README.md#validation) and [coverage boundaries](docs/testing.md). Do not re-test Pi's filesystem implementation.

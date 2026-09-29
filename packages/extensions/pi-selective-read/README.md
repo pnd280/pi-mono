@@ -26,11 +26,11 @@ Pass the filename in `path`, coordinates in `selection`, and an independent read
 - `endLine` defaults to `startLine`.
 - `endColumn` is exclusive. Omit it to select through the final line's end.
 
-Coordinates must be positive safe integers, and the end must follow the start. Columns beyond a line's length are clipped.
+Coordinates must be positive safe integers, and the end must follow the start.
 
-`selection` appends a preview without changing original content: at most five lines and 500 code points per line, with `…` for omissions. The preview reports truncation and selections outside the window. Use the original read content for exact edits.
+`selection` appends a preview without changing original content: at most five lines and 500 code points per line, with `…` for omissions. Use the original read content for exact edits; the preview may be partial or outside the read window.
 
-Expand a successful text read to highlight the selection in context without repeating the preview. Continuation notices stay visible and unselected. Pi's image handling and truncation limits remain.
+Expand a successful text read to highlight the selection in context. Pi's image handling and truncation limits remain.
 
 ## Configuration
 

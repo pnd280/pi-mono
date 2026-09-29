@@ -6,15 +6,13 @@
 
 ## Behavior
 
-The frame shares headings, scope tabs, save destinations, list styling, overflow positions, dirty indicators, feedback, and controls between `/widgets` and `/working-message`. The selected save scope uses the accent color. `*` marks an edited draft; `(not set)` refers to persisted state, not whether the draft has been edited.
+The frame shares scoped settings presentation between `/widgets` and `/working-message`. `*` marks an edited draft; `(not set)` refers to persisted state, not whether the draft has been edited.
 
-Overflowing lists show a dim `(selected/total)` row directly below the last visible item, before draft state, feedback, or controls. Settings-frame borders never carry list pagination; border overflow labels are reserved for prose previews. Lists that fit show no counter. Constrained layouts drop the bottom border before scope context to retain the selected item and its counter.
+Overflowing lists show `(selected/total)` below the last visible item rather than in the border; border overflow labels are reserved for prose previews.
 
-Feedback has a blank line above it when space allows; constrained layouts drop that gap before sacrificing selection, recovery, or controls. Keybinding hints always have a blank line above them, even in compact layouts; that separator is part of the reserved control budget.
+At 40×10, selection, save/exit controls, and inline recovery take priority over paths and secondary draft context. Below that size, resize if controls or recovery no longer fit.
 
-At 40×10, selection, save/exit controls, and inline recovery take priority over paths and secondary draft context. Below that size, the target takes priority; resize if controls or recovery no longer fit. Lists never wrap or change selection during rendering.
-
-`settingsLoadFeedback`, `settingsSaveFeedback`, and `settingsSaveFailure` distinguish warnings, successful but overridden saves, and failed saves with retained drafts. Detail lines appear when space allows. Labels, destinations, and feedback are terminal-sanitized; caller-owned values are unchanged.
+`settingsLoadFeedback`, `settingsSaveFeedback`, and `settingsSaveFailure` distinguish warnings, overridden saves, and failures. Labels, destinations, and feedback are terminal-sanitized; caller-owned values are unchanged.
 
 ## Caller responsibilities
 
@@ -26,4 +24,4 @@ Pass the current Pi theme on each render. Mount through the [responsive custom U
 
 ## Validation
 
-Use the [library checks](../../../../README.md#validation). Tests cover list-local pagination, constrained layout, target and recovery visibility, scope/dirty cues, empty states, and terminal safety. Consumers own draft, save, and host integration tests. Terminal appearance and physical keyboard protocols require separate terminal validation.
+Use the [library checks](../../../../README.md#validation). [Frame tests](index.test.ts) cover pagination, layout, and terminal safety; consumers own draft, save, and host integration tests. Physical keyboard and appearance need terminal validation.

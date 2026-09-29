@@ -4,7 +4,7 @@
 
 ## Behavior
 
-Validation-only [`@pi-mono/libs/validation/provider`](index.ts) creates messages with independent usage objects and runs scripted Pi event streams. `createFixtureStream` checks cancellation before/after scenarios without interrupting them. No provider registration or network transport.
+Validation-only [`@pi-mono/libs/validation/provider`](index.ts) builds scripted Pi event streams; it registers no provider or network transport. `createFixtureStream` checks cancellation before and after the caller's `run` callback, not during it.
 
 ## Caller responsibilities
 

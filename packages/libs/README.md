@@ -1,6 +1,6 @@
 # @pi-mono/libs
 
-Shared extension APIs and [TUI infrastructure](src/tui/README.md). Use [utils](../utils/README.md) for pure helpers. See the [manifest](package.json) for imports and Pi peers.
+Shared extension APIs and [TUI infrastructure](src/tui/README.md). Use [utils](../utils/README.md) for pure helpers. The [manifest](package.json) lists supported imports.
 
 ## Usage
 
@@ -43,7 +43,7 @@ Callers pass options per call. The [working-message coordinator](src/working-mes
 
 ## Side effects
 
-APIs may launch local helpers/workers, read/write files, repair permissions/ACLs, replace clipboard contents, mount UI, and replace object properties. No network requests.
+Depends on the library: storage and observation touch local files, clipboard and diff helpers launch local processes/workers, and TUI/hooks modify host state. No network requests.
 
 ## Validation
 

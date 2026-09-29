@@ -24,17 +24,17 @@ Missing or empty result details are supported. Nonempty details objects must con
 
 Adjacent calls [group](../../../../docs/presentation.md#groups) by exact literal `path` or multi-search `constraints`, defaulting to `.` when empty/omitted. `src/**` and `./src/**` differ; filters never merge with native directories.
 
-Explicit empty patterns remain valid: `ffgrep` displays `""`, and `fffind` uses `Listing <filter>` or `Listed <filter>`, defaulting to `.`. A missing `pattern` shows `(pattern missing)` before a result exists; once a result arrives, automatic integration uses a generic card. Missing patterns do not qualify for grouping.
+Explicit empty patterns remain valid; missing patterns cannot group and fall back to generic cards after a result arrives.
 
 Completed successful calls with nonnegative integer counts show result summaries instead of match excerpts in compact cards, both inside and outside groups:
 
-- Grep and multi-grep label `totalMatched` as matches collected for the call, for example `9 matches collected`.
+- Grep and multi-grep label `totalMatched` as matches collected for the call.
 - Find labels `totalMatched` as the total matching files, which can exceed the current page.
 - `totalFiles` is the unfiltered number of indexed files, not the number searched or containing matches.
 
 Missing or invalid counts use bounded output previews. Calls with [incompatible details](#arguments-and-results) use generic cards. Failed and partial results do not receive completed-result summaries.
 
-Counts and file annotations use `dim`. Pagination instructions, limit hints, and query and fallback diagnostics use `warning` and remain visible in compact and expanded cards. Combined notices and multiline queries retain their full text.
+Pagination, limit, query, and fallback notices remain visible in compact and expanded cards.
 
 ## Validation
 

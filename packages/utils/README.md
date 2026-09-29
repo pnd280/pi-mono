@@ -19,62 +19,41 @@ Pure workspace helpers; callers supply clocks, state, and policy. See the [manif
 
 For terminal text sanitization and shortcut normalization, use [terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md).
 
-### FFF tools
-
-Classifies package provenance and names only; callers validate schemas and choose display/blocking policy.
-
 ### Search scopes
 
-`alternatives` expands finite comma-separated braces, bounded to 64 alternatives and eight passes. It does not expand ranges or enumerate files. `globRoot` returns only the fixed directory prefix before the first wildcard; `hasGlob` recognizes the shared search syntax.
-
-`isFilenameFilter` identifies FFF's recursive bare-filename filters. `normalizeFffPath` preserves them after local anchor normalization and identifies extensionless directory constraints. `filenameQueryTokens` retains an existing explicit path as one term; callers supply the existence result. Callers own filesystem checks, exclusions, intersections, and instruction/blocking policy.
+[`search-scopes`](src/search-scopes.ts) derives static prefixes; brace alternatives are finite and capped at 64, without enumerating files. Existing-path detection, filesystem checks, exclusions, intersections, and blocking policy belong to callers. [`fff-tools`](src/fff-tools.ts) classifies provenance/names only, not tool schemas or policy.
 
 ### Paths
 
-Paths are lexical: no symlink resolution or filesystem checks.
-
-- `containsPath(parent, child)` includes equality. Both paths must be absolute; relative inputs throw `TypeError`.
-- `expandHomePath(value, home)` expands `~` and `~/`, plus `~\` on Windows. The supplied home path must be absolute.
-- `relativeDisplayPath(value, cwd)` uses paths relative to `cwd` for descendants, `.` for `cwd` itself, and absolute paths otherwise. It uses forward slashes in the result. `cwd` must be absolute.
-
-Use `absolutePathSchema` to enforce the same absolute-path requirement in other Zod schemas. These helpers do not interpret tool prefixes, file URLs, or glob syntax.
+[`paths`](src/paths.ts) works lexically, without symlink resolution or filesystem checks. Supply absolute paths where required; these helpers do not interpret tool prefixes, file URLs, or glob syntax.
 
 ### Shell arguments
 
-`quotePosixShellArgument` (`@pi-mono/utils/shell`) quotes NUL-free text as one literal POSIX-shell argument, including empty strings. It does not quote whole commands or support PowerShell or Windows command-prompt syntax.
+[`quotePosixShellArgument`](src/shell.ts) quotes one NUL-free POSIX-shell argument, not whole commands or Windows shell syntax.
 
 ### Source selections
 
-`selectionSchema` validates absolute, 1-based file lines and Unicode code point columns. Coordinates must be positive safe integers.
-
-- `startLine` is required.
-- `startColumn` defaults to 1.
-- `endLine` defaults to `startLine`.
-- `endColumn` is exclusive. Omit it to select through the final line's end.
-
-The schema rejects unknown fields and reversed or empty explicit ranges.
-
-Pass parsed selections to `selectSource(lines, firstLine, selection)`, where `firstLine` is the positive safe-integer line number of `lines[0]`; invalid values throw `RangeError`. Results clip to the window and line lengths, using zero-based window indexes; `partial` flags selected lines outside the window. Returned `before`/`text` preserve source, including tabs and controls; sanitize only for display.
+[`selectionSchema`](src/source-selection.ts) validates 1-based file lines and Unicode code point columns; end columns are exclusive, and omission selects through the final line's end. Pass parsed selections to `selectSource` with the line number of the first supplied line. Returned text preserves tabs and controls; sanitize only for display.
 
 ### Output text
 
-`splitOutputText` separates source from generated omissions by recorded UTF-16 ranges. Output transformations reject unordered, overlapping, or out-of-bounds omission ranges instead of corrupting provenance. Rejoining fragments reproduces original text, including source resembling notices. Consumers style and sanitize for display.
+[`splitOutputText`](src/output-text.ts) separates source from generated omissions by recorded UTF-16 ranges, even when source resembles a notice. Preserve those ranges across transformations; consumers style and sanitize for display.
 
 For stream retention or file previews, use [bounded stream output](../libs/src/output-buffer/README.md) or [bounded file output](../libs/src/bounded-output/README.md).
 
 ### Patches
 
-`parsePatch(source, maxBytes)` accepts one unified patch, with or without file headers. Each hunk must contain a change, and hunk ranges must be ordered and nonoverlapping in both source versions. It returns `undefined` for invalid or oversized patches and throws `RangeError` for an invalid byte limit. Pass the parsed result to the [diff renderer](../libs/src/tui/components/diff-view/README.md).
+[`parsePatch`](src/patch.ts) accepts one unified patch, with or without file headers; invalid or oversized patches return `undefined`. Pass parsed results to the [diff renderer](../libs/src/tui/components/diff-view/README.md).
 
 ### Text search
 
-Pass `normalizeSearch` text and a `prepareSearchQuery` query to `rankText(normalized, query)`. Its generator returns the rank or `undefined` for no match, yielding checkpoints during long scans and repeated term searches. Callers schedule and cancel.
+[`rankText`](src/text-search.ts) consumes normalized text and a prepared query. Callers schedule and cancel its checkpoint-yielding generator.
 
 Use [cooperative search](../libs/src/text-search/README.md) for event-loop scheduling and cancellation.
 
 ### UTF-8
 
-`utf8Prefix` and `utf8Suffix` accept nonnegative safe-integer byte limits and throw `RangeError` for invalid limits. They never return partial code points. `decodeUtf8Window` returns `{ text, omittedBytes }`, dropping an incomplete code point only at the declared clipped edge. `omittedBytes` counts discarded source bytes, independently of replacement decoding for invalid interior bytes.
+[`utf8Prefix`, `utf8Suffix`, and `decodeUtf8Window`](src/utf8.ts) clip at code-point boundaries. `omittedBytes` counts discarded source bytes, not replacement characters for invalid interior bytes.
 
 ## Configuration
 

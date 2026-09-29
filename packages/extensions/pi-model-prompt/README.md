@@ -4,11 +4,11 @@ Selects a model-specific `APPEND_SYSTEM.md` variant for each run when models nee
 
 ## Usage
 
-1. Write variant files next to Pi's base file, named `APPEND_SYSTEM.<variant>.md`, for example `~/.pi/agent/APPEND_SYSTEM.gpt.md`.
+1. Write variant files next to Pi's base file, named `APPEND_SYSTEM.<variant>.md`.
 2. Map models to variants in [settings](#configuration).
 3. Switch models as usual. The matching variant applies from the next prompt.
 
-A variant replaces the base text; it is not appended to it. A base file is optional, and an empty variant removes the append text. Models without a matching rule keep Pi's normal `APPEND_SYSTEM.md`.
+A variant replaces, rather than extends, the base text. An empty variant removes the append text. Models without a matching rule keep Pi's normal `APPEND_SYSTEM.md`.
 
 ### File precedence
 
@@ -25,7 +25,7 @@ Project files count only in [trusted](../../../node_modules/@earendil-works/pi-c
 
 ### Explicit append text
 
-The extension replaces append text only when it equals the discovered base text (empty when no base exists). Different text from `--append-system-prompt` or an earlier extension is left untouched. Identical text cannot be distinguished from the base and may be replaced.
+Replacement requires append text equal to the discovered base (empty when no base exists). Different text from `--append-system-prompt` or another extension is left untouched; identical text cannot be distinguished and may be replaced.
 
 ## Configuration
 
@@ -49,11 +49,11 @@ Set the literal `ext.pi-model-prompt` key in Pi's global `~/.pi/agent/settings.j
 
 The first matching rule that sets `append` wins; matching rules without `append` do not block later rules. With no rules configured, Pi's append text is unchanged.
 
-The `rules` array accepts at most 100 entries. Invalid rules, including those with unknown fields, are skipped. An invalid section, including unknown section fields or more than 100 rules, disables all rules.
+The `rules` array accepts at most 100 entries. Invalid rules are skipped; an invalid section disables all rules. Unknown fields are invalid at either level.
 
 Settings and files load on session start and `/reload`, like Pi's own `APPEND_SYSTEM.md`. Edits take effect after `/reload`.
 
-When a UI is available, warnings appear once per load for invalid settings, variants with no file at any level, and unreadable files. Unreadable or non-regular variants fall back to the next file in precedence; an unreadable base file disables replacement. Variant changes are otherwise silent.
+UI warnings report invalid settings, missing variants, and unreadable files on load. Unreadable or non-regular variants fall back to the next file in precedence; an unreadable base disables replacement.
 
 ## Side effects
 
@@ -71,5 +71,3 @@ From the repository root:
 vpr 'pi-model-prompt#check'
 vpr 'pi-model-prompt#test'
 ```
-
-See [workspace development](../../../docs/development.md) for shared checks.

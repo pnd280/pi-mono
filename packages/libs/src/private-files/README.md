@@ -4,9 +4,9 @@
 
 ## Behavior
 
-[`@pi-mono/libs/private-files`](index.ts) enforces permissions and ACLs, resolves directory scopes, coordinates writers through file locks, and atomically replaces files.
+[`@pi-mono/libs/private-files`](index.ts) enforces permissions and ACLs, resolves directory scopes, coordinates writers through locks, and atomically replaces files.
 
-Directories use `0700`, files `0600`; reads may repair permissions/ACLs. Checks reject foreign ownership and final-path symlinks; files also reject hard links and nonregular types. Already-open regular-file descriptors remain valid if another process unlinks them during lock release or atomic replacement.
+Directories use `0700`, files `0600`; reads may repair permissions/ACLs. Checks reject foreign ownership and final-path symlinks; files also reject hard links and nonregular types.
 
 ## Caller responsibilities
 
@@ -22,9 +22,9 @@ Use [`boundedRead`](privacy.ts) to read file contents. It returns `undefined` fo
 
 ### Scoped directories
 
-Use [`resolveDirectoryScope`](scoped-directory.ts) to canonicalize a directory and derive a SHA-256 storage key. Symlink aliases share the same key. Different real paths do not.
+Use [`resolveDirectoryScope`](scoped-directory.ts) for a canonical directory storage key; symlink aliases share it.
 
-`privateScopedDirectory({ root, namespace, key })` resolves the trusted root, then creates or validates `<root>/<namespace>/<key>`. The root may be a symlink, but its namespace and key directories may not. `namespace` and `key` must be single path components. Check platform support and choose the namespace and collection filenames.
+`privateScopedDirectory({ root, namespace, key })` creates or validates a scope under a trusted root. The root may be a symlink, but namespace/key directories may not; namespace and key must be single path components. Choose the namespace and collection filenames.
 
 ### Serialized transactions
 
@@ -36,7 +36,7 @@ Use [`WriteLifetime`](lifetime.ts) for `scope`. `dispose()` aborts its signal an
 
 A custom `WriteScope` must check cancellation synchronously before invoking its atomic callback and track the entire returned promise.
 
-Results distinguish `committed`, `unchanged`, and `failed`. Committed results include atomic-write warnings. Every result includes separate lock-cleanup errors.
+Results distinguish `committed`, `unchanged`, and `failed`, with write warnings and lock-cleanup errors reported separately.
 
 Translate errors and warnings in the consumer. Never retry solely because cleanup failed after a commit. To use the lower-level APIs with other storage formats or coordination needs, follow the [mutation protocol](#mutation-protocol).
 

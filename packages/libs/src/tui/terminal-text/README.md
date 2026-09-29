@@ -6,13 +6,13 @@
 
 [`@pi-mono/libs/tui/terminal-text`](index.ts) exports `displayText`, `compactDisplayText`, `styledOutput`, `sliceTerminalText`, and `hasUnsafeTerminalControls`.
 
-`displayText` makes plain terminal-safe text; `styledOutput` retains only SGR styling. Both normalize CRLF/CR to LF and tabs to four spaces.
+`displayText` makes plain terminal-safe text; `styledOutput` retains only SGR styling. Both normalize line endings and tabs.
 
-`compactDisplayText` makes a single-line plain label by replacing CR/LF/tabs with spaces before sanitizing and collapsing repeated spaces. It does not trim or limit length.
+`compactDisplayText` makes a single-line plain label without trimming or limiting length.
 
-`sliceTerminalText(text, start, end, options?)` returns `{ text, leadingSgr }` for a start-inclusive/end-exclusive UTF-16 range, preserving graphemes/recognized sequences, possibly omitting boundary graphemes. Recognized escape boundaries take precedence so a following combining mark cannot split a complete sequence. `preserveSgr: true` supplies the active SGR prefix for independent styling; otherwise `leadingSgr` is empty.
+`sliceTerminalText(text, start, end, options?)` returns `{ text, leadingSgr }` for a start-inclusive/end-exclusive UTF-16 range without splitting graphemes or recognized escapes; boundary graphemes may be omitted. Set `preserveSgr: true` to carry active SGR styling into an independently displayed slice.
 
-`hasUnsafeTerminalControls` detects DEL and all C0 and C1 controls except tab, LF, and CR. It does not modify the source.
+`hasUnsafeTerminalControls` detects DEL and C0/C1 controls except tab, LF, and CR without modifying the source.
 
 ## Caller responsibilities
 

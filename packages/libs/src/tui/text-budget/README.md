@@ -6,10 +6,10 @@
 
 [`@pi-mono/libs/tui/text-budget`](index.ts) wraps text synchronously and produces bounded excerpts.
 
-- `wrapRows` wraps ANSI-styled text and clamps each row to the available width, including viewports narrower than a wide grapheme.
+- `wrapRows` wraps ANSI-styled text and clamps wide graphemes that cannot fit.
 - `compactRows` retains head and tail rows, reserving one budgeted row for the caller's omission notice.
 - `textPrefix` clips a UTF-16 prefix without cutting a grapheme or SGR sequence.
-- `compactText` limits the text passed to wrapping, preserves head and tail excerpts with their SGR state, and applies the row budget.
+- `compactText` limits text passed to wrapping, preserving head/tail excerpts and SGR state.
 
 For `compactText`, `maxCharacters` must be a safe integer ≥2 UTF-16 units, otherwise `RangeError`. `notice` receives omitted-row counts after full wrapping, or `undefined` when character clipping skips measurement.
 
@@ -17,7 +17,7 @@ For `compactText`, `maxCharacters` must be a safe integer ≥2 UTF-16 units, oth
 
 Supply normalized text with only SGR styling. Use [terminal text utilities](../terminal-text/README.md) to normalize raw terminal output.
 
-Own width, row/character budgets, notices, styling, and source retention. `compactRows` needs measured rows; reserve tree connector width before measurement.
+Own width, budgets, notices, styling, and exact source retention. `compactRows` needs measured rows; reserve tree connector width before measurement.
 
 Use [text layout](../text-layout/README.md) to wrap complete text cooperatively. Connector placement belongs to [tree](../components/tree/README.md), and patch selection belongs to [diff view](../components/diff-view/README.md).
 

@@ -16,16 +16,16 @@ After a result exists, incompatible arguments use ungrouped generic cards, e.g. 
 
 ## Display
 
-Supported cards start with `Todos` and the action, for example `Todos · Created Review docs` or `Todos · Updated #3 Review docs · status → completed`.
+Supported cards start with `Todos` and the action.
 
-Compact cards replace successful output with a `dim` summary of the confirmed status and overall progress, such as `#3 completed · 1/3 completed · 1 in progress · 1 pending`:
+Compact cards replace successful output with confirmed status and progress:
 
 - Progress excludes deleted todos. Snapshots containing only deleted todos report their count and `no active todos`. Empty snapshots report `No todos`.
 - Lists with a status filter or `includeDeleted: true` also report the number of listed todos.
 - Missing or invalid snapshots use an output preview.
 - Failures omit the summary and show diagnostic bodies in `error`.
 
-Expansion adds full result text with terminal-safe rendering. API labels such as `[in_progress]`, `inProgressLabel`, and `blockedBy` stay literal: unstructured output cannot reliably distinguish field labels from subjects or descriptions. Friendly labels remain in generated headings and summaries; retained results and model-visible content are unchanged.
+Expansion restores full result text. API labels remain literal because unstructured output cannot reliably distinguish them from task content; friendly labels apply only to generated headings and summaries.
 
 Adjacent `todo` calls form a collapsed `Todos` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
 

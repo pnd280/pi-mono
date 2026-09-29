@@ -20,11 +20,11 @@ In automatic mode, incompatible arguments or results use the shared [invalid-inp
 
 ## Display
 
-Headings separate read windows and selection ranges. Compatible reads [group](../../../docs/presentation.md#groups); expansion uses search-match backgrounds without the model preview.
+Headings separate read windows and selection ranges. Compatible reads [group](../../../docs/presentation.md#groups); expansion highlights selections without repeating the model preview.
 
 Targets share [native path normalization](../native/README.md#arguments-and-results) for headings, grouping, and summary deduplication without rewriting retained arguments.
 
-Selection coordinates refer to retained source before terminal sanitization and tab expansion. Continuation and truncation notices remain visible and are excluded from selections. Trailer recognition has the same [text-envelope provenance limits](../native/README.md#text-envelope-provenance) as native cards.
+Selection coordinates refer to retained source before terminal sanitization and tab expansion. Notices remain visible but outside selections. Trailer recognition has the native [text-envelope provenance limits](../native/README.md#text-envelope-provenance).
 
 Other result presentation follows the [native adapter](../native/README.md#display). Images, errors, cancellations, and partial results do not receive selection highlighting.
 

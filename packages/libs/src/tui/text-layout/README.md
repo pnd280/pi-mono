@@ -6,9 +6,7 @@
 
 [`@pi-mono/libs/tui/text-layout`](index.ts) prepares complete wrapped text for asynchronous callers.
 
-`layoutPreview(text, width, current)` returns the same rows as `wrapTextWithAnsi(text, Math.max(1, width))`, including whitespace, graphemes, ANSI state, and empty/trailing logical lines.
-
-Source scanning uses bounded forward-only windows and yields between batches, checking `current` after each yield; cancellation returns `[]`, never partial rows. Wrapping batches end at complete logical lines (LF, CRLF, or CR), so Pi receives intact source rather than previously wrapped rows. Each individual logical line is wrapped synchronously by Pi; cancellation cannot interrupt that native call.
+`layoutPreview(text, width, current)` returns the same rows as Pi's `wrapTextWithAnsi(text, Math.max(1, width))`. It yields between complete-line batches, checking `current`; cancellation returns `[]`, never partial rows. An individual line's synchronous Pi wrapping cannot be interrupted.
 
 ## Caller responsibilities
 

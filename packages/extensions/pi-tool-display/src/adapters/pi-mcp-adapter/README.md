@@ -31,7 +31,7 @@ Validated metadata supplies resolved `server.tool`; otherwise retain requested i
 
 MCP calls remain individual cards outside exploration groups. Nonscript calls use output previews.
 
-Completed scripts summarize validated `details.calls` records. Tool calls, tool searches, and tool descriptions each count as operations:
+Completed scripts summarize validated `details.calls` records; calls, searches, and descriptions each count as operations:
 
 - When the script and all recorded operations succeed, a nonzero total replaces emitted text in compact mode. Expansion restores that text.
 - Failed or unfinished operations keep an output preview beside the total, with separate warning counts. An operation with `ok: false` and `error: "incomplete"` counts as unfinished rather than failed.
@@ -39,7 +39,7 @@ Completed scripts summarize validated `details.calls` records. Tool calls, tool 
 - Malformed operation records use an output preview without a summary.
 - Failed or cancelled scripts retain their operation count and diagnostic output even if their recorded nested operations succeeded.
 
-Direct resource URIs and references to omitted raw MCP results appear on expansion. Output truncation, saved-output references, and script operation failures remain visible when collapsed. Failures use `error` for markers, status notices, and diagnostic bodies. Cancellation diagnostics use `warning`.
+Direct resource URIs and references to omitted raw MCP results appear on expansion. Truncation, saved-output references, and script operation failures remain visible when collapsed.
 
 This adapter does not load the MCP package or read its caches or saved output.
 

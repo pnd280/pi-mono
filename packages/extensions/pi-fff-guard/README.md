@@ -6,23 +6,17 @@ Blocks explicit missing or Git-ignored FFF targets. FFF's index omits ignored pa
 
 Requires Node.js 24+, Git, and the separately installed/loaded official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff). Validated with Pi 0.85.1 and FFF 0.10.6.
 
-Intercepts enabled `fffind`, `ffgrep`, `fff-multi-grep`, and FFF's `find`, `grep`, `multi_grep` overrides only when Pi attributes them to the official package. Built-ins, unrelated tools, and unrecognized forks pass through.
+Intercepts official FFF search tools and its native-tool overrides only when Pi attributes them to the official package. Built-ins and unrecognized forks pass through.
 
 ## Usage
 
-An `fffind` call targeting an ignored path returns:
-
-```text
-fffind does not work with Git-ignored paths. Retry with rg or another available tool.
-```
-
-Missing explicit targets return `No such file or directory` before ignore checks. `path: "src/main.ts"` is explicit; `path: "main.ts"` is a recursive filename filter and needs no non-ignored local file.
+Ignored targets are blocked with a retry hint; missing explicit targets return `No such file or directory` before ignore checks. A bare filename such as `path: "main.ts"` is a recursive filter, not an explicit target that must exist locally.
 
 See [search scopes](docs/search-scopes.md) for normalization, globs, exclusions, repositories, and symlinks.
 
 ### Limits
 
-Inspection has a two-second deadline and scope/symlink traversal limits. Malformed scopes, timeout, Git failure, or symlink cycles allow the call with a plain-text UI/stderr diagnostic. Cancellation blocks it.
+Inspection has a two-second deadline and scope limits. Inspection failures allow the call with a UI/stderr diagnostic; cancellation blocks it.
 
 Wrappers must dispatch children through Pi hooks; direct `execute()` bypasses detection. Slash commands and `@` autocomplete are not intercepted.
 
@@ -32,7 +26,7 @@ No options or extension-specific environment variables.
 
 ## Side effects
 
-No persistent state, network requests, or project writes. Subprocesses only inspect Git. Arguments, registrations, and active tools stay unchanged; the guard neither runs replacement searches nor terminates turns.
+No persistent state, network requests, or project writes. Git inspection uses subprocesses; the guard does not run replacement searches or terminate turns.
 
 ## Validation
 
