@@ -277,7 +277,7 @@ function groupMemberLabel(p: PreparedCard): string {
 function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: number): string[] {
   const first = group.members[0] === p.call;
   const active = first && group.members.some(isLive);
-  const marker = active && animationPhase ? TUI_GLYPHS.activeBullet : TUI_GLYPHS.bullet;
+  const marker = active && animationPhase ? " " : TUI_GLYPHS.bullet;
   const rows: string[] = [];
 
   if (first) {
@@ -441,7 +441,8 @@ function invocation(p: PreparedCard): { parts: InvocationPart[]; detail: Heading
 export function heading(p: PreparedCard, animationPhase: number): string[] {
   if (p.group && !p.expanded) return groupHeading(p.group, p, animationPhase);
   const state = status(p);
-  const marker = state.pending && animationPhase ? TUI_GLYPHS.activeBullet : TUI_GLYPHS.bullet;
+  let marker = p.expanded ? "▾" : TUI_GLYPHS.bullet;
+  if (state.pending && animationPhase) marker = " ";
   const title = `${p.theme.fg(state.actionColor, marker)} ${p.theme.fg(state.actionColor, p.theme.bold(state.verb))}`;
   const { parts, detail } = invocation(p);
   const rows = targetTitleRows(title, parts, p) ?? titleRows(title, detail, p);

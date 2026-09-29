@@ -32,7 +32,7 @@ Execute these phases sequentially. Resolve relative skill links from this file a
 2. [Reusability](../_aux/audit-reusability/SKILL.md)
    Audit and apply verified substitutions and justified shared extractions. Preserve consumer policy and ownership; do not introduce abstractions merely because code looks similar.
 
-3. [TypeScript review](~/.pi/agent/skills/_router/typescript-review/SKILL.md)
+3. [TypeScript review](~/.agents/skills/_router/typescript-review/SKILL.md)
    Review runtime correctness and type contracts together using both companions named by the skill. Reconcile findings by root cause and apply evidence-backed fixes. If no TypeScript is relevant, record why this phase is not applicable.
 
 4. [Coding style](../_aux/audit-coding-style/SKILL.md)
@@ -41,7 +41,7 @@ Execute these phases sequentially. Resolve relative skill links from this file a
 5. [Tests](../_aux/audit-tests/SKILL.md)
    Audit and apply test cleanup against the resulting production structure. Preserve distinct regression protection and require evidence for removals. Address meaningful coverage gaps introduced or exposed by this work.
 
-6. [Documentation](~/.pi/agent/skills/audit-docs/SKILL.md)
+6. [Documentation](~/.agents/skills/audit-docs/SKILL.md)
    Audit documentation affected by the scoped behavior and resulting changes. Correct verified inaccuracies and missing guidance, and improve relevance, structure, and wording while preserving essential contracts. If no documentation is relevant, record why this phase is not applicable.
 
 For each phase:

@@ -96,94 +96,111 @@ function semanticTheme() {
 }
 
 describe("tool display renderers", () => {
-  it("animates live headings without preparing unrelated cards or unchanged result bodies", () => {
-    let tick = () => {};
+  it.each([false, true])(
+    "flashes only live heading markers without re-preparing bodies (expanded=%s)",
+    (expanded) => {
+      let tick = () => {};
 
-    const coordinator = new TranscriptCoordinator("animation-cache", {
-      animationClock: {
-        start(callback) {
-          tick = callback;
+      const coordinator = new TranscriptCoordinator("animation-cache", {
+        animationClock: {
+          start(callback) {
+            tick = callback;
 
-          return () => {};
+            return () => {};
+          }
         }
-      }
-    });
-    let preparations = 0;
-    const shell = {
-      ...nativeAdapter("bash")!,
-      textParts(text: string) {
-        preparations++;
+      });
+      let preparations = 0;
+      const shell = {
+        ...nativeAdapter("bash")!,
+        textParts(text: string) {
+          preparations++;
 
-        return [{ kind: "output" as const, text }];
-      }
-    };
-    const rows: ToolExecutionComponent[] = [];
+          return [{ kind: "output" as const, text }];
+        }
+      };
+      const rows: ToolExecutionComponent[] = [];
 
-    try {
-      for (const [index, name, origin] of [
-        [0, "bash", "historical"],
-        [1, "bash", "live"],
-        [2, "read", "historical"],
-        [3, "read", "live"]
-      ] as const) {
-        const args = name === "bash" ? { command: `echo ${index}` } : { path: `${index}.txt` };
-        const adapter = name === "bash" ? shell : nativeAdapter(name)!;
-        const call = coordinator.add(
-          { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) },
-          name,
-          args,
-          adapter,
-          origin
-        );
-        const supplied = result(`output ${index}`);
-        coordinator.result(call, supplied, "success", origin === "live");
-        const row = new ToolExecutionComponent(
-          name,
-          String(index),
-          args,
-          { showImages: false },
-          createToolDisplayRenderers(name, adapter, { binding: { call, coordinator } }),
-          renderingTui(),
-          "/tmp"
-        );
-        row.updateResult({ ...supplied, isError: false }, origin === "live");
-        coordinator.attach(call, {
-          invalidate: () => row.invalidate(),
-          requestRender: () => {},
-          setExpanded: (expanded) => row.setExpanded(expanded)
-        });
-        rows.push(row);
-      }
+      try {
+        for (const [index, name, origin] of [
+          [0, "bash", "historical"],
+          [1, "bash", "live"],
+          [2, "read", "historical"],
+          [3, "read", "live"]
+        ] as const) {
+          const args = name === "bash" ? { command: `echo ${index}` } : { path: `${index}.txt` };
+          const adapter = name === "bash" ? shell : nativeAdapter(name)!;
+          const call = coordinator.add(
+            { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) },
+            name,
+            args,
+            adapter,
+            origin
+          );
+          const supplied = result(`output ${index}`);
+          coordinator.result(call, supplied, "success", origin === "live");
+          const row = new ToolExecutionComponent(
+            name,
+            String(index),
+            args,
+            { showImages: false },
+            createToolDisplayRenderers(name, adapter, { binding: { call, coordinator } }),
+            renderingTui(),
+            "/tmp"
+          );
+          row.updateResult({ ...supplied, isError: false }, origin === "live");
+          coordinator.attach(call, {
+            invalidate: () => row.invalidate(),
+            requestRender: () => {},
+            setExpanded: (expanded) => row.setExpanded(expanded)
+          });
+          rows.push(row);
+        }
 
-      const render = () => rows.map((row) => stripTerminalSequences(row.render(80).join("\n")));
-      const initial = render();
-      expect(preparations).toBeLessThan(5);
-      tick();
-      const animated = render();
-      expect(animated[0]).toBe(initial[0]);
-      expect(animated[1]).not.toBe(initial[1]);
-      expect(animated[2]).not.toBe(initial[2]); // Completed group leader, live sibling.
-      expect(animated[3]).toBe(initial[3]);
-      tick();
-      expect(render()).toEqual(initial);
+        if (expanded) for (const call of coordinator.calls.values()) coordinator.expand(call, true);
 
-      for (let redraw = 0; redraw < 20; redraw++) {
+        const marker = expanded ? "▾" : "•";
+        const render = () => rows.map((row) => stripTerminalSequences(row.render(80).join("\n")));
+        const initial = render();
+        expect(initial[1]).toContain(`\n${marker} Running`);
+        expect(preparations).toBeLessThan(5);
         tick();
+        const animated = render();
+        expect(animated[0]).toBe(initial[0]);
+        expect(animated[1]).toBe(initial[1]!.replace(marker, " "));
+
+        if (expanded) {
+          expect(animated[2]).toBe(initial[2]);
+          expect(initial[3]).toContain("\n▾ Reading");
+          expect(animated[3]).toBe(initial[3]!.replace("▾", " "));
+        } else {
+          // Completed group leader flashes for its live sibling.
+          expect(initial[2]).toContain("\n• Exploring");
+          expect(animated[2]).toBe(initial[2]!.replace("•", " "));
+          expect(animated[3]).toBe(initial[3]);
+        }
+
+        tick();
+        expect(render()).toEqual(initial);
+
+        for (let redraw = 0; redraw < 20; redraw++) {
+          tick();
+          render();
+        }
+
+        expect(preparations).toBeLessThan(5);
+
+        coordinator.result(coordinator.byId("1")!, result("replacement output"), "success");
+        expect(render()[1]).toContain("replacement output");
+        expect(preparations).toBeLessThan(7);
+        rows[0]!.invalidate();
         render();
+        expect(preparations).toBeLessThan(8);
+      } finally {
+        coordinator.dispose();
       }
-
-      expect(preparations).toBeLessThan(5);
-
-      coordinator.result(coordinator.byId("1")!, result("replacement output"), "success");
-      expect(render()[1]).toContain("replacement output");
-      expect(preparations).toBeLessThan(7);
-      rows[0]!.invalidate();
-      render();
-      expect(preparations).toBeLessThan(8);
-    } finally {
-      coordinator.dispose();
     }
-  });
+  );
 
   it.each(["custom", "bash"])(
     "bounds collapsed %s arguments before formatting and retains them on expansion",
@@ -705,7 +722,7 @@ describe("tool display renderers", () => {
           coordinator.expand(call, expanded);
           const current = context({ args, expanded });
           expect(renderer.renderCall(args, theme, current).render(120)).toEqual([
-            `• Call failed todo(${JSON.stringify(args)})`
+            `${expanded ? "▾" : "•"} Call failed todo(${JSON.stringify(args)})`
           ]);
           expect(
             renderer.renderResult(retained, current, theme, current).render(120).join("\n")
@@ -744,10 +761,8 @@ describe("tool display renderers", () => {
           .renderCall(args, theme, context({ isError, executionStarted: false }))
           .render(100)
           .map(stripTerminalSequences)
-          .find((line) => /^[•◦] /.test(line));
-        expect(heading).toMatch(
-          new RegExp(`^[•◦] ${isError ? `${action} failed` : complete}(?: |$)`)
-        );
+          .find((line) => line.startsWith("• "));
+        expect(heading).toMatch(new RegExp(`^• ${isError ? `${action} failed` : complete}(?: |$)`));
       }
 
       for (const coordinated of [false, true]) {
@@ -787,11 +802,11 @@ describe("tool display renderers", () => {
               const heading = row
                 .render(100)
                 .map(stripTerminalSequences)
-                .find((line) => /^[•◦] /.test(line));
+                .find((line) => /^[•▾] /.test(line));
               expect(
                 heading,
                 `${name}: ${call.lifecycle}, coordinated=${coordinated}, expanded=${expanded}`
-              ).toMatch(new RegExp(`^[•◦] ${expected}(?: |$)`));
+              ).toMatch(new RegExp(`^${expanded ? "▾" : "•"} ${expected}(?: |$)`));
             }
           };
 
@@ -839,7 +854,7 @@ describe("tool display renderers", () => {
       const current = context({ isPartial: true });
       const header = renderer.renderCall({}, theme, current);
       renderer.renderResult(result("diagnostic"), current, theme, current);
-      expect(header.render(100)[0]).toBe("◦ Checking health");
+      expect(header.render(100)[0]).toBe("• Checking health");
       renderer.renderResult(result("diagnostic"), { ...current, isPartial: false }, theme, current);
       const status = {
         failure: "failed",
@@ -1191,7 +1206,7 @@ describe("tool display renderers", () => {
             .render(240);
           const branch = index % 2 === 1 ? "  └" : "  ├";
           const target = expanded ? expected[index] : paths[index]!.split("/").at(-1);
-          expect(rows).toContain(`${expanded ? "•" : branch} Read ${target}`);
+          expect(rows).toContain(`${expanded ? "▾" : branch} Read ${target}`);
           expect(call.args).toEqual({ path: paths[index] });
           if (index % 2 === 0 && !expanded)
             expect(rows[0]).toContain(
@@ -1560,7 +1575,7 @@ describe("tool display renderers", () => {
           createToolDisplayRenderers(name, adapter)
             .renderCall(args, theme, context({ expanded }))
             .render(100)
-        ).toEqual(["• Searched (pattern missing) \u2014 packages/"]);
+        ).toEqual([`${expanded ? "▾" : "•"} Searched (pattern missing) \u2014 packages/`]);
       }
     }
   );
@@ -2624,7 +2639,7 @@ describe("tool display renderers", () => {
       for (const expanded of [false, true]) {
         const rows = renderer.renderCall(args, theme, context({ expanded })).render(80);
         expect(rows.every((row) => !/[\r\n]/.test(row))).toBe(true);
-        expect(rows.filter((row) => row.startsWith("• "))).toHaveLength(1);
+        expect(rows.filter((row) => /^[•▾] /.test(row))).toHaveLength(1);
         expect(rows.join("\n")).toContain("last.txt:15-16");
         expect(args.path).toContain(lineBreak);
       }

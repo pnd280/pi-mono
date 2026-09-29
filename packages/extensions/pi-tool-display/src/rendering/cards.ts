@@ -244,7 +244,7 @@ class CardRow {
 
     // Pi renders every row on an animation redraw. Only a live heading depends on
     // the clock; its body and every completed card keep their prepared data.
-    const phase = current.animated ? (binding?.coordinator.phase ?? 1) : 0;
+    const phase = current.animated ? (binding?.coordinator.phase ?? 0) : 0;
 
     if (slot === "call" && current.headingPhase !== phase) {
       delete current.rows.call;

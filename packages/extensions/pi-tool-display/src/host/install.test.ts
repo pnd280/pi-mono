@@ -277,7 +277,7 @@ it("preserves live and restored cards and native registries through initializati
     const live = readRow(session, false);
     live.setArgsComplete();
     live.markExecutionStarted();
-    expect(text(live)).toContain("◦ Reading example.txt");
+    expect(text(live)).toContain("• Reading example.txt");
     live.updateResult({ content: [{ type: "text", text: "live file content" }], isError: false });
     expect(text(live)).toContain("• Read example.txt");
     expect(text(live)).not.toContain("live file content");

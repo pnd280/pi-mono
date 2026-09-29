@@ -260,7 +260,7 @@ it.each([
       const current = { ...context(), expanded };
       const header = renderer.renderCall({}, colored, current);
       const body = renderer.renderResult(supplied, current, colored, current);
-      expect(header.render(160).join("\n")).toContain(`<error>•</error>`);
+      expect(header.render(160).join("\n")).toContain(`<error>${expanded ? "▾" : "•"}</error>`);
       expect(header.render(160).join("\n")).toContain(verb);
       expect(body.render(160).join("\n")).toContain(`<${color}>published output</${color}>`);
       expect(body.render(160).join("\n")).toContain(`<${color}>MCP: ${error}</${color}>`);

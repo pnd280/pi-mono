@@ -18,7 +18,7 @@ In fullscreen mode, group clicks toggle all members; in regular mode, the termin
 
 Summary mode hides output from transcript search; images and failure details appear only when the run opens, though their calls count in its line. Switching modes does not preserve scroll position.
 
-Assistant prose blocks use `•` with a hanging indent, matching tool headings. Markdown formatting stays native; user messages, thinking, and diagnostics do not gain markers.
+Assistant prose blocks use `•` with a hanging indent, matching collapsed tool headings. Markdown formatting stays native; user messages, thinking, and diagnostics do not gain markers.
 
 Collapsed thinking (default **Ctrl+T**) hides placeholders as their thinking blocks finish, without waiting for the assistant message to end, allowing matching calls to group across them. Revealing thinking restores group boundaries, but thinking never splits or settles a tool run. Live indicators and assistant text stay visible.
 

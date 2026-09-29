@@ -8,7 +8,7 @@ Each visible assistant text block starts with `•`, with continuation rows inde
 
 ## Card layout
 
-Cards and group headings use `•`; live headings alternate with `◦`. Summary lines have no leading marker.
+Collapsed cards and group headings use `•`; expanded cards use `▾`. Pending markers flash on and off without shifting the heading. [Standalone renderers](renderers.md) keep pending markers visible. Summary lines have no leading marker.
 
 Standalone/expanded targets show descendants relative to Pi's rendering cwd, cwd as `.`, and other paths as absolute. Resolution is lexical, including home expansion, without filesystem inspection or symlink following. Native and selective-read targets first apply Pi's Unicode-space normalization across headings, grouping, and summary identities; custom paths do not. Raw parameters, retained output, generic arguments, and literal scopes/filters stay unchanged.
 
