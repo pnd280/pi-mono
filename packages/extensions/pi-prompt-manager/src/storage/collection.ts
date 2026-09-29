@@ -250,9 +250,7 @@ function retainHistory(
 
 function apply(current: Snapshot, operation: Mutation, retention: number): Document | undefined {
   if (current.access === "read-only")
-    throw new PromptError(
-      "Collection has invalid occurrence IDs and is read-only. Back up and repair with sessions stopped."
-    );
+    throw new PromptError("Collection is read-only. Back up and repair with sessions stopped.");
   if (operation.kind === "delete")
     return { ...current.document, entries: deleteTarget(current, operation.target) };
   const text = current.collection === "history" ? captureText(operation.text) : operation.text;

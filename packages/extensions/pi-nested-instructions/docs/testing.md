@@ -5,7 +5,7 @@
 ## Contracts
 
 - Select Pi's first readable regular instruction file per directory, with BOM handling, fallback on read errors, broad-to-narrow ordering, and cwd/ancestor exclusion. Preserve requested lexical scope across symlinks.
-- Infer native, selective-read-compatible, FFF standalone/override, multi-grep, and conservative Bash scopes from inputs only. Content patterns, exclusions, fuzzy words, scripts, output destinations, and result text cannot create unrelated scopes. Only stdin redirection marks a read, and optional-argument options cannot consume path operands. Directory listings do not mark content read.
+- Infer native, selective-read-compatible, FFF standalone/override, multi-grep, and conservative Bash scopes from inputs only. Content patterns, exclusions, fuzzy words, scripts, output destinations, and result text cannot create unrelated scopes. Only stdin redirection marks a read; optional-argument options and empty attached long-option values cannot consume path operands. Directory listings do not mark content read.
 - Record exact instruction-file reads as contentless metadata, including partial/failed/blocked attempts. No extra content I/O is permitted for those paths. Gather all direct markers before batch discovery; lower-priority markers do not suppress preferred files.
 - Deduplicate through actual session projections. Context replacements, omissions, compaction, and branching cannot leave stale suppression. Markers require their originating call; malformed persisted data is ignored.
 - Ordinary accesses retain snapshots. Reload detects changed selections, changed content, and removals without repeating unchanged notices or eagerly restoring compacted scopes. Unchanged direct-read revisions require no content read.

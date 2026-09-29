@@ -33,7 +33,7 @@ async function browserSnapshot(
 ): Promise<BrowserSnapshot<PromptItem>> {
   const items = await prepareItems(snapshot, signal);
   let message = snapshot.warnings[0];
-  if (snapshot.access === "read-only") message = "Read-only: copy/restore; repair IDs.";
+  if (snapshot.access === "read-only") message = "Read-only: copy/restore; repair collection.";
   else if (snapshot.access === "delete-only") message = "Recovery: additions disabled.";
 
   return {

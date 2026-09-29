@@ -157,6 +157,13 @@ it("infers literal Bash reads across quoting, options, pipes, and cd chains", as
   ).toEqual({ directories: ["lib", "pkg", "src"], reads: ["pkg/AGENTS.md", "src/CLAUDE.md"] });
 });
 
+it("keeps path operands after empty attached long-option values", async () => {
+  expect(await scopes("bash", { command: "grep --regexp= pkg/AGENTS.md" })).toEqual({
+    directories: ["pkg"],
+    reads: ["pkg/AGENTS.md"]
+  });
+});
+
 it("recognizes input redirection, descriptor duplication, and positive rg glob scopes without interpreting excludes", async () => {
   expect(
     await scopes("bash", {

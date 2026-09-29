@@ -41,7 +41,9 @@ it("keeps parsed numbers that cannot be re-encoded inspectable but read-only", (
     access: "read-only",
     document: { entries: [{ recordedAt: Infinity }], metadata: { value: Infinity } }
   });
-  expect(() => updateCollection({ ...scope, raw, operation: add("new") })).toThrow("read-only");
+  expect(() => updateCollection({ ...scope, raw, operation: add("new") })).toThrow(
+    "Collection is read-only. Back up and repair with sessions stopped."
+  );
 });
 
 it("preserves unknown fields and raw timestamps, ignores unusable text, and refuses read-only mutations", () => {

@@ -161,7 +161,7 @@ function parseOptions(
     }
 
     const attached = long ? raw.slice(key.length + 1) : keys.slice(position + 1).join("");
-    const value = attached
+    const value = (long ? raw.includes("=") : attached !== "")
       ? { value: attached, pattern: word.pattern, expandHome: false }
       : words[++index];
     if (!value) return undefined;
