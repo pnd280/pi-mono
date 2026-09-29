@@ -1,11 +1,12 @@
 import type { CustomEntry, EntryRenderOptions, Theme } from "@earendil-works/pi-coding-agent";
 import { MouseRegion, Text, truncateToWidth, type Component } from "@earendil-works/pi-tui";
+import { renderTree } from "@pi-mono/libs/tui/components/tree";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { formatDuration, formatFinishTime, summarySchema, type RunSummary } from "./summary.ts";
 
-type SummaryTheme = Pick<Theme, "fg" | "bold" | "italic">;
+type SummaryTheme = Pick<Theme, "fg" | "bold">;
 
 function lineCounts(added: number, removed: number, theme: SummaryTheme): string {
   const parts: string[] = [];
@@ -15,7 +16,11 @@ function lineCounts(added: number, removed: number, theme: SummaryTheme): string
   return parts.join(" ");
 }
 
-function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme): string {
+function summaryLines(
+  summary: RunSummary,
+  expanded: boolean,
+  theme: SummaryTheme
+): [string, ...string[]] {
   const separator = theme.fg("dim", " · ");
   const available = summary.files.filter((file) => file.status === "available");
   const parts: string[] = [];
@@ -70,7 +75,7 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
         `Statistics unavailable for ${unavailable} ${unavailable === 1 ? "file" : "files"}`
       )
     );
-  const lines = [theme.italic(parts.join(separator))];
+  const lines: [string, ...string[]] = [parts.join(separator)];
 
   if (expanded) {
     for (const file of summary.files) {
@@ -83,7 +88,7 @@ function summaryText(summary: RunSummary, expanded: boolean, theme: SummaryTheme
     }
   }
 
-  return lines.join("\n");
+  return lines;
 }
 
 export function createSummaryRenderer() {
@@ -110,14 +115,22 @@ export function createSummaryRenderer() {
         render: (width) => {
           if (width < 1) return [];
 
-          return new Text(summaryText(parsed.data, expansion.expanded, theme), 0, 0)
-            .render(Math.max(1, width - 2))
-            .map((line, index) => {
-              const prefix =
-                index === 0 ? `${theme.italic(theme.fg("dim", TUI_GLYPHS.bullet))} ` : "  ";
+          const [heading, ...files] = summaryLines(parsed.data, expansion.expanded, theme);
+          const marker = expansion.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
+          const rows = new Text(heading, 0, 0).render(Math.max(1, width - 2)).map((line, index) => {
+            const prefix = index === 0 ? `${theme.fg("dim", marker)} ` : "  ";
 
-              return truncateToWidth(prefix + line, width, "");
-            });
+            return truncateToWidth(prefix + line, width, "");
+          });
+
+          return rows.concat(
+            renderTree(
+              files.map((file) => ({
+                rows: new Text(file, 0, 0).render(Math.max(1, width - 4))
+              })),
+              { width, indent: 2, style: (text) => theme.fg("dim", text) }
+            )
+          );
         },
         invalidate() {}
       },

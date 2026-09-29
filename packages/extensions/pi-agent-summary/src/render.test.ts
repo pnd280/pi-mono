@@ -5,10 +5,9 @@ import { expect, it } from "vite-plus/test";
 import { createSummaryRenderer } from "./render.ts";
 import { summaryEntryType } from "./summary.ts";
 
-const theme: Pick<Theme, "fg" | "bold" | "italic"> = {
+const theme: Pick<Theme, "fg" | "bold"> = {
   fg: (_color, text) => text,
-  bold: (text) => text,
-  italic: (text) => text
+  bold: (text) => text
 };
 const renderSummary = createSummaryRenderer();
 const finishedAt = new Date(2026, 0, 1, 14, 34, 56).getTime();
@@ -55,14 +54,14 @@ it("replays persisted totals and details using the saved finish time, not the en
     expanded
   );
 
-  expect(expanded).toMatch(/1m 23s \(\d{1,2}:\d{2}:\d{2} [AP]M\)/);
+  expect(expanded).toMatch(/^▾ 1m 23s \(\d{1,2}:\d{2}:\d{2} [AP]M\)/);
   expect(expanded).toContain("33.3 tok/s");
-  expect(expanded).toMatch(/^ {2}src\/a\.ts[^\n]*\+40\s+−10/m);
-  expect(expanded).toMatch(/^ {2}src\/b\.ts[^\n]*\+2\s+−1/m);
-  expect(expanded).toContain("src/empty.ts");
+  expect(expanded).toMatch(/^ {2}├ src\/a\.ts[^\n]*\+40\s+−10/m);
+  expect(expanded).toMatch(/^ {2}├ src\/b\.ts[^\n]*\+2\s+−1/m);
+  expect(expanded).toMatch(/^ {2}└ src\/empty\.ts/m);
 });
 
-it("keeps wrapped metadata, statistics, and file details aligned after the marker", () => {
+it("keeps wrapped metadata and file details aligned after their markers", () => {
   const entry = savedEntry({
     durationMs: 83000,
     finishedAt,
@@ -75,15 +74,30 @@ it("keeps wrapped metadata, statistics, and file details aligned after the marke
         status: "available",
         added: 42,
         removed: 11
+      },
+      {
+        path: "src/long-directory/another-directory/other.ts",
+        status: "unavailable",
+        reason: "Source too large."
       }
     ]
   });
   const component = renderSummary(entry, { expanded: true }, theme)!;
   const rows = component.render(40);
-  expect(rows[0]).toMatch(/^• /);
+  expect(rows[0]).toMatch(/^▾ /);
   expect(rows.slice(1).every((row) => row.startsWith("  "))).toBe(true);
   expect(rows.every((row) => visibleWidth(row) <= 40)).toBe(true);
-  const content = (lines: string[]) => lines.join("").replace(/\s/g, "");
+  const firstFile = rows.findIndex((row) => row.startsWith("  ├ "));
+  const lastFile = rows.findIndex((row) => row.startsWith("  └ "));
+  expect(firstFile).toBeGreaterThan(0);
+  expect(lastFile).toBeGreaterThan(firstFile + 1);
+  expect(rows[firstFile + 1]).toMatch(/^ {2}│ /);
+  expect(rows[lastFile + 1]).toMatch(/^ {4}\S/);
+  const content = (lines: string[]) =>
+    lines
+      .map((line) => line.replace(/^ {2}[├└│] /, ""))
+      .join("")
+      .replace(/\s/g, "");
   expect(content(rows)).toBe(content(component.render(120)));
 });
 
@@ -114,9 +128,11 @@ it.each([false, true])("toggles only the clicked summary from expanded=%s", (exp
   const component = renderSummary(summaryWithFile(), { expanded }, theme)!;
   const other = renderSummary(summaryWithFile(), { expanded }, theme)!;
   const initial = component.render(120);
+  expect(initial[0]).toMatch(expanded ? /^▾ / : /^• /);
   expect(component.handleMouse?.(click)).toEqual({ handled: true });
   const toggled = component.render(120).join("\n");
-  expect(toggled.includes("src/a.ts")).toBe(!expanded);
+  expect(toggled).toMatch(expanded ? /^• / : /^▾ /);
+  expect(toggled.includes("  └ src/a.ts")).toBe(!expanded);
   expect(/\d{1,2}:\d{2}:\d{2}/.test(toggled)).toBe(!expanded);
   expect(other.render(120)).toEqual(initial);
   expect(component.handleMouse?.(click)).toEqual({ handled: true });
@@ -162,8 +178,11 @@ it("toggles the finish time even without file details", () => {
   )!;
   const initial = empty.render(120);
   expect(initial.join("\n")).not.toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  expect(initial[0]).toMatch(/^• /);
   expect(empty.handleMouse?.(click)).toEqual({ handled: true });
-  expect(empty.render(120).join("\n")).toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  const expanded = empty.render(120).join("\n");
+  expect(expanded).toMatch(/^▾ /);
+  expect(expanded).toMatch(/\d{1,2}:\d{2}:\d{2}/);
   expect(empty.handleMouse?.(click)).toEqual({ handled: true });
   expect(empty.render(120)).toEqual(initial);
 });
@@ -190,8 +209,8 @@ it("distinguishes unavailable statistics from no changes without adding them to 
   expect(text(mixed)).not.toContain("\n");
   expect(text(mixed)).toContain("+2 −1");
   expect(text(mixed)).toContain("Statistics unavailable for 2 files");
-  expect(text(mixed, true)).toContain("large.txt");
-  expect(text(mixed, true)).toContain("Source too large.");
+  expect(text(mixed, true)).toMatch(/^ {2}├ large\.txt[^\n]*Source too large\./m);
+  expect(text(mixed, true)).toMatch(/^ {2}└ other\.txt[^\n]*Source too large\./m);
 });
 
 it("leads with the saved provider, model, and thinking level, omitting it for summaries without a model", () => {
@@ -207,9 +226,11 @@ it("leads with the saved provider, model, and thinking level, omitting it for su
       { ...base, model, bashCalls: 1, throughput: { outputTokens: 200, durationMs: 6000 } },
       expanded
     );
-    expect(withThroughput).toMatch(
-      /^• anthropic\/claude-opus-5-5:medium \(33\.3 tok\/s\) \S+ 1m 23s /
-    );
+    expect(
+      withThroughput.startsWith(
+        `${expanded ? "▾" : "•"} anthropic/claude-opus-5-5:medium (33.3 tok/s) · 1m 23s `
+      )
+    ).toBe(true);
     expect(/\d{1,2}:\d{2}:\d{2}/.test(withThroughput)).toBe(expanded);
     expect(withThroughput).toContain("ran 1 command");
     expect(withThroughput).not.toContain("\n");

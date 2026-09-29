@@ -441,7 +441,7 @@ function invocation(p: PreparedCard): { parts: InvocationPart[]; detail: Heading
 export function heading(p: PreparedCard, animationPhase: number): string[] {
   if (p.group && !p.expanded) return groupHeading(p.group, p, animationPhase);
   const state = status(p);
-  let marker = p.expanded ? "▾" : TUI_GLYPHS.bullet;
+  let marker: string = p.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
   if (state.pending && animationPhase) marker = " ";
   const title = `${p.theme.fg(state.actionColor, marker)} ${p.theme.fg(state.actionColor, p.theme.bold(state.verb))}`;
   const { parts, detail } = invocation(p);

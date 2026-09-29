@@ -4,7 +4,7 @@
 
 ## Behavior
 
-[`@pi-mono/libs/tui/glyphs`](index.ts) supplies stable activity/status markers and box-drawing glyphs for shared and extension TUI.
+[`@pi-mono/libs/tui/glyphs`](index.ts) supplies stable activity/status markers and box-drawing glyphs for shared and extension TUI. Tool cards and agent summaries use `TUI_GLYPHS.bullet` (`•`) when collapsed and `TUI_GLYPHS.expanded` (`▾`) when expanded.
 
 ## Caller responsibilities
 
