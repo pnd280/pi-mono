@@ -313,6 +313,12 @@ importers:
         specifier: 'catalog:'
         version: 4.6.5
 
+  packages/extensions/pi-miscs:
+    dependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: catalog:pi-host
+        version: 0.87.1(supports-color@7.2.0)(ws@8.22.0)(zod@4.6.5)
+
   packages/extensions/pi-model-prompt:
     dependencies:
       '@earendil-works/pi-coding-agent':

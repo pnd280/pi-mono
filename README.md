@@ -25,17 +25,18 @@ Repeat `-e` for additional extensions. To persist the selection, use Pi's [local
 ## Extensions
 
 - [pi-tool-display](packages/extensions/pi-tool-display/README.md): compact, borderless tool activity with expandable output and file diffs.
+- [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks with progress widget and task browser.
+- [pi-smart-compact](packages/extensions/pi-smart-compact/README.md): model-callable native compaction with focused summaries and task continuation.
+- [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): private prompt history and saved drafts, scoped to the working directory.
+- [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md): arrange native widgets, statuses, and footer information through `/widgets`.
+- [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md): discover nested instructions from tool inputs without duplicating direct reads.
+- [pi-session-utils](packages/extensions/pi-session-utils/README.md): `/sesh` persists ephemeral sessions, creates empty parent-linked sub-sessions, and optionally generates names. `--parent-session` starts a linked child from the CLI.
+- [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): live elapsed runtime, bash-call counts, and file-change summaries kept outside model context.
 - [pi-fff-guard](packages/extensions/pi-fff-guard/README.md): block FFF searches targeting Git-ignored or missing explicit paths.
 - [pi-selective-read](packages/extensions/pi-selective-read/README.md): highlight source spans within surrounding read context.
-- [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md): discover nested instructions from tool inputs without duplicating direct reads.
-- [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): private prompt history and saved drafts, scoped to the working directory.
-- [pi-skills](packages/extensions/pi-skills/README.md): skill file references instead of injected content, with native completion anywhere in the prompt.
-- [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks with progress widget and task browser.
-- [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md): arrange native widgets, statuses, and footer information through `/widgets`.
-- [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): live elapsed runtime, bash-call counts, and file-change summaries kept outside model context.
-- [pi-session-utils](packages/extensions/pi-session-utils/README.md): `/sesh` persists ephemeral sessions, creates empty parent-linked sub-sessions, and optionally generates names. `--parent-session` starts a linked child from the CLI.
-- [pi-smart-compact](packages/extensions/pi-smart-compact/README.md): model-callable native compaction with focused summaries and task continuation.
 - [pi-model-prompt](packages/extensions/pi-model-prompt/README.md): model-specific `APPEND_SYSTEM.md` variants selected by regex rules.
+- [pi-skills](packages/extensions/pi-skills/README.md): skill file references instead of injected content, with native completion anywhere in the prompt.
+- [pi-miscs](packages/extensions/pi-miscs/README.md): shared package for small, typically single-file extensions; currently empty.
 
 ## Development
 
