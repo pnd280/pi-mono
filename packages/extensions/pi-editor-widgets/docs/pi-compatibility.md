@@ -18,7 +18,7 @@ Verified against installed Pi **0.87.1**. Public APIs do not expose other extens
 
 ## Limitations and replacement opportunities
 
-- Mouse input is available only in fullscreen mode. Context and token usage use `MouseRegion` to claim primary presses and toggle independently on Pi's synthesized click without taking focus; `/widgets context` and `/widgets tokens` provide keyboard paths only in fullscreen. Regular mode keeps the original non-interactive usage displays.
+- Mouse input is available only in fullscreen mode. Context and token usage use `MouseRegion` to claim primary presses and toggle independently on Pi's synthesized click without taking focus. Regular mode keeps the original non-interactive usage displays.
 - A custom footer is exclusive, not composable. Use native widgets/statuses for contributors or disable the competing footer extension.
 - Duplicated placements share one native instance and render at the same terminal width. Mouse dispatch must use that width rather than the compacted hit-area width. Drag capture after a later frame follows the component's most recent render geometry.
 - Components expose `render(width)`, not preferred-size metadata. Each placement renders once at the terminal width; occupied output determines its row width, and whole widgets wrap in order without shrinking. A full-width component occupies its own row. Widgets control wrapping within their own output. While `/widgets` is open, the menu sizes itself from the unclipped region height, so tall regions still clip on short terminals.

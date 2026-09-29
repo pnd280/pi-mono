@@ -49,7 +49,7 @@ export default function editorWidgets(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand("widgets", {
-    description: "Arrange editor widgets and footer rows; context/tokens toggle fullscreen details",
+    description: "Arrange editor widgets and footer rows",
     handler: async (args, ctx) => {
       if (ctx.mode !== "tui") {
         ctx.ui.notify("/widgets requires interactive TUI mode.", "error");
@@ -57,10 +57,8 @@ export default function editorWidgets(pi: ExtensionAPI): void {
         return;
       }
 
-      const action = args.trim();
-
-      if (action && action !== "context" && action !== "tokens") {
-        ctx.ui.notify("Usage: /widgets [context|tokens]", "error");
+      if (args.trim()) {
+        ctx.ui.notify("Usage: /widgets", "error");
 
         return;
       }
@@ -72,13 +70,6 @@ export default function editorWidgets(pi: ExtensionAPI): void {
           ctx,
           "pi-editor-widgets is inactive. Resolve the host/footer diagnostic and /reload."
         );
-
-        return;
-      }
-
-      if (action === "context" || action === "tokens") {
-        if (!current.toggleUsage(action))
-          ctx.ui.notify(`/widgets ${action} requires fullscreen TUI mode.`, "error");
 
         return;
       }

@@ -276,7 +276,6 @@ it.each(
     assertCopies(text.regular);
     expect(container.handleMouse(event)).toBeUndefined();
     expect(container.handleMouse({ ...event, type: "click" })).toBeUndefined();
-    expect(coordinator.toggleUsage(widget)).toBe(false);
     assertCopies(text.regular);
     host.switchTuiMode("fullscreen", false, false);
     assertCopies(text.compact);

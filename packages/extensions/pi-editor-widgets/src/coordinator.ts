@@ -106,14 +106,6 @@ export class WidgetCoordinator {
     this.host.ui.requestRender();
   }
 
-  toggleUsage(widget: "context" | "tokens"): boolean {
-    if (!this.active || this.host.renderer.mode !== "fullscreen") return false;
-    this.verbose[widget] = !this.verbose[widget];
-    this.host.ui.requestRender();
-
-    return true;
-  }
-
   /** Render an unsaved menu draft in the live regions; `undefined` restores the saved layout. */
   showDraft(layout: Layout | undefined): void {
     if (JSON.stringify(layout) === JSON.stringify(this.draft)) return;
@@ -200,7 +192,8 @@ export class WidgetCoordinator {
         // Claim the press so Pi delivers a click instead of starting text selection.
         if (event.type === "press") return { handled: true, render: false };
         if (event.type !== "click") return undefined;
-        this.toggleUsage(widget);
+        this.verbose[widget] = !this.verbose[widget];
+        this.host.ui.requestRender();
 
         return { handled: true };
       });

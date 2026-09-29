@@ -14,7 +14,7 @@ it.each(
   (["regular", "fullscreen"] as const).flatMap((mode) =>
     (["context", "tokens"] as const).map((widget) => [mode, widget] as const)
   )
-)("starting in %s, toggles %s only in fullscreen without persistence", async (mode, widget) => {
+)("in %s, clicks toggle %s only in fullscreen without persistence", async (mode, widget) => {
   const fixture = await hostFixture([editorWidgets], mode);
   const { session, host } = fixture;
   const usage = vi.spyOn(session, "getContextUsage").mockReturnValue({
@@ -47,11 +47,29 @@ it.each(
 
   try {
     await fixture.bind();
-    const runner = session.extensionRunner;
-    const ctx = runner.createCommandContext();
     const editor = host.editorContainer.children[0];
-    const notify = vi.spyOn(ctx.ui, "notify");
     const footer = () => plain(host.footerContainer.render(100));
+
+    const clickUsage = (text: string) => {
+      const lines = host.footerContainer.render(100).map(stripTerminalSequences);
+      const y = lines.findIndex((line) => line.includes(text));
+      expect(y).toBeGreaterThanOrEqual(0);
+      const x = lines[y]!.indexOf(text);
+
+      return host.footerContainer.handleMouse({
+        type: "click",
+        button: "left",
+        x,
+        y,
+        screenX: x,
+        screenY: y,
+        width: 100,
+        height: lines.length,
+        shift: false,
+        alt: false,
+        ctrl: false
+      });
+    };
 
     const assertCompact = () => {
       expect(footer()).toContain(text.compact);
@@ -60,17 +78,13 @@ it.each(
 
     if (mode === "regular") {
       expect(footer()).toContain(text.regular);
-      await runner.getCommand("widgets")?.handler(widget, ctx);
+      expect(clickUsage(text.regular)).toBeUndefined();
       expect(footer()).toContain(text.regular);
-      expect(notify).toHaveBeenLastCalledWith(
-        `/widgets ${widget} requires fullscreen TUI mode.`,
-        "error"
-      );
       host.switchTuiMode("fullscreen", false, false);
     }
 
     assertCompact();
-    await runner.getCommand("widgets")?.handler(` ${widget} `, ctx);
+    expect(clickUsage(text.compact)).toMatchObject({ handled: true });
     expect(footer()).toContain(text.verbose);
     // The other metric keeps its independent compact selection.
     if (widget === "tokens") expect(footer()).toContain("75k/200k (auto)");
@@ -78,17 +92,13 @@ it.each(
     expect(host.editorContainer.children[0]).toBe(editor);
     host.switchTuiMode("regular", false, false);
     expect(footer()).toContain(text.regular);
-    await runner.getCommand("widgets")?.handler(widget, ctx);
+    expect(clickUsage(text.regular)).toBeUndefined();
     expect(footer()).toContain(text.regular);
-    expect(notify).toHaveBeenLastCalledWith(
-      `/widgets ${widget} requires fullscreen TUI mode.`,
-      "error"
-    );
     host.switchTuiMode("fullscreen", false, false);
     expect(footer()).toContain(text.verbose);
-    await runner.getCommand("widgets")?.handler(widget, ctx);
+    expect(clickUsage(text.verbose)).toMatchObject({ handled: true });
     assertCompact();
-    await runner.getCommand("widgets")?.handler(widget, ctx);
+    expect(clickUsage(text.compact)).toMatchObject({ handled: true });
     host.resetExtensionUI();
     await session.reload();
     assertCompact();
@@ -100,7 +110,7 @@ it.each(
   }
 });
 
-it("/widgets rejects unknown arguments and saves the global draft selected in the menu, not the project override", async () => {
+it("/widgets accepts no arguments and saves the global draft selected in the menu, not the project override", async () => {
   const fixture = await hostFixture([editorWidgets]);
   const globalPath = join(fixture.agentDir, "settings.json");
   mkdirSync(fixture.agentDir, { recursive: true });
@@ -123,9 +133,9 @@ it("/widgets rejects unknown arguments and saves the global draft selected in th
     const notify = vi.spyOn(ctx.ui, "notify");
     const editor = fixture.host.editorContainer.children[0];
 
-    for (const args of ["global", "project", "invalid"]) {
+    for (const args of ["context", "tokens", "global", "project", "invalid"]) {
       await command?.handler(args, ctx);
-      expect(notify).toHaveBeenLastCalledWith("Usage: /widgets [context|tokens]", "error");
+      expect(notify).toHaveBeenLastCalledWith("Usage: /widgets", "error");
       expect(fixture.host.editorContainer.children[0]).toBe(editor);
     }
 

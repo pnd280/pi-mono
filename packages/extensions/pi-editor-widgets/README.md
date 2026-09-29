@@ -10,7 +10,7 @@ Arrange native widgets, individual statuses, and built-in footer information abo
 
 Contributions can share rows or appear in multiple regions. Rows wrap whole contributions instead of shrinking them; empty widgets collapse without losing their positions.
 
-In fullscreen, click the token/context widget or run `/widgets tokens` or `/widgets context` to toggle compact and detailed displays. Regular mode always shows full token details and context percentages. Fullscreen selections reset on session start or `/reload` and never write settings.
+In fullscreen, click the token/context widget to toggle compact and detailed displays. Regular mode always shows full token details and context percentages. Fullscreen selections reset on session start or `/reload` and never write settings.
 
 ## Configuration
 
