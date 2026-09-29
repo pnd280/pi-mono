@@ -54,7 +54,7 @@ function headerRows(
   label: string,
   file: string | undefined,
   width: number,
-  expanded: boolean,
+  hasChildren: boolean,
   theme: NoticeTheme
 ): string[] {
   const title = `${theme.fg("accent", TUI_GLYPHS.bullet)} ${theme.fg("accent", theme.bold(label))}`;
@@ -68,7 +68,7 @@ function headerRows(
     width,
     indent: 2,
     style: (text: string) => theme.fg("dim", text),
-    hasChildren: expanded
+    hasChildren
   };
   if (!inline)
     return [...new Text(title, 0, 0).render(width), ...renderTreeContinuation(rows, continuation)];
@@ -108,20 +108,31 @@ export function createNoticeRenderer() {
           if (width < 1) return [];
           const innerWidth = Math.max(1, width - 4);
           const label = notice ? labels[notice.action] : "Nested instructions";
-          const lines = headerRows(label, file, width, expansion.expanded, theme);
+          // The explanation describes the notice itself, so it continues the heading;
+          // only the instruction body or empty-file note is a child branch.
+          let child: string[] = [];
+          if (body) child = markdown.render(innerWidth);
+          else if (!explanation)
+            child = new Text(theme.fg("dim", "Empty instruction file."), 0, 0).render(innerWidth);
+          const hasChildren = expansion.expanded && child.length > 0;
+          const lines = headerRows(label, file, width, hasChildren, theme);
           headerHeight = lines.length;
           const items: TreeItem[] = [];
 
           if (expansion.expanded) {
             if (explanation)
-              items.push({
-                rows: new Text(theme.fg("dim", explanation), 0, 0).render(innerWidth)
-              });
-            if (body) items.push({ rows: markdown.render(innerWidth) });
-            else if (!explanation)
-              items.push({
-                rows: new Text(theme.fg("dim", "Empty instruction file."), 0, 0).render(innerWidth)
-              });
+              lines.push(
+                ...renderTreeContinuation(
+                  new Text(theme.fg("dim", explanation), 0, 0).render(innerWidth),
+                  {
+                    width,
+                    indent: 2,
+                    style: (text) => theme.fg("dim", text),
+                    hasChildren
+                  }
+                )
+              );
+            items.push({ rows: child });
           }
 
           lines.push(

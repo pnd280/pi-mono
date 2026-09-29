@@ -12,7 +12,7 @@ Registration uses Pi's public message-renderer API, independent of tool selectio
 
 Collapsed notices follow the [card style](../../../docs/presentation.md#card-layout): an accent bullet and bold accent action, followed by a normal-foreground path, such as `• Loaded src/AGENTS.md`. Long paths wrap beneath themselves, with a dim continuation guide when expanded.
 
-Expand with Pi's tool-output shortcut (default `Ctrl+O`) or click the header in fullscreen mode to read formatted Markdown. Expanded content uses the same four-column tree gutter and dim connectors as tool results, without an extra blank row below the heading. Update/removal explanations and empty-file notices use `dim`.
+Expand with Pi's tool-output shortcut (default `Ctrl+O`) or click the header in fullscreen mode to read formatted Markdown. Expanded content uses the same four-column tree gutter and dim connectors as tool results, without an extra blank row below the heading. Update/removal explanations continue the heading with a dim guide rather than forming their own branch; only the instruction body or empty-file note is a child branch. Explanations and empty-file notices use `dim`.
 
 Local expansion survives renderer rebuilds until global expansion changes. Only header clicks toggle the card; body selection and scrolling remain native. Notice paths use the cwd-relative spelling persisted with the message, not the current cwd. Invalid details retain the supplied text beneath a generic heading rather than stripping an unverified preamble.
 

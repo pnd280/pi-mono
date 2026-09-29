@@ -91,7 +91,11 @@ it.each(["loaded", "updated", "removed"] as const)(
     expect(rows[0]).not.toMatch(/nested instructions from|supersedes|no longer apply/);
     const expanded = render(message, { ...options, expanded: true }, theme).render(100);
     expect(expanded[0]).toMatch(/^• /);
-    expect(expanded[1]).toMatch(action === "updated" ? /^  ├ / : /^  └ /);
+    // Explanations continue the heading; only the instruction body is a branch.
+    const first = { loaded: /^  └ /, updated: /^  │ Replaces/, removed: /^ {4}The earlier/ };
+    expect(expanded[1]).toMatch(first[action]);
+    expect(expanded.filter((row) => row.includes("├"))).toEqual([]);
+    if (action === "updated") expect(expanded[2]).toMatch(/^  └ .*Project rules/);
     const text = expanded.join("\n");
 
     if (action === "removed") expect(text).toContain("no longer apply");
