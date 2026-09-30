@@ -1,8 +1,9 @@
-import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { createSyntheticSourceInfo, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { expect, it } from "vite-plus/test";
 
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
 import { genericAdapter, nativeAdapter } from "../adapters/index.ts";
+import { mcpToolInfo } from "../adapters/pi-mcp-adapter/test-fixture.ts";
 import { selectiveReadToolInfo } from "../adapters/pi-selective-read/test-fixture.ts";
 import { loadDisplaySettings } from "../settings.ts";
 import { selectAdapter } from "./selection.ts";
@@ -91,6 +92,17 @@ it("selects selective-read ahead of its owned renderers while respecting overrid
     })
   ).toBeUndefined();
 });
+
+it.each(["codemode", "mcp", "mcp__docs"])(
+  "retains builtin %s renderers instead of selecting the external MCP adapter",
+  (name) => {
+    const info = {
+      ...mcpToolInfo(name),
+      sourceInfo: createSyntheticSourceInfo(`builtin:${name}`, { source: "builtin" })
+    };
+    expect(selectAdapter(loadDisplaySettings([]), name, owner, false, info)).toBeUndefined();
+  }
+);
 
 it("keeps generic fallbacks free of native observation capabilities", () => {
   expect(genericAdapter.patch).toBeUndefined();

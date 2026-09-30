@@ -1,3 +1,5 @@
+import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
+import { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { createFixtureMessage, zeroUsage } from "@pi-mono/libs/validation/provider";
@@ -226,6 +228,96 @@ it("uses the active model's effective compaction reserve independently of the co
     expect(read()).toBe("0/200k (0.0%) (auto ~?)");
     session.setAutoCompactionEnabled(false);
     expect(read()).toBe("0/200k (0.0%)");
+  } finally {
+    await fixture.dispose();
+  }
+});
+
+it("matches native compaction with the routed window and selected model reserve", async () => {
+  const compactions: string[] = [];
+  const fixture = await hostFixture([
+    (pi) => {
+      pi.on("session_before_compact", (event) => {
+        compactions.push(event.reason);
+
+        return { cancel: true };
+      });
+    }
+  ]);
+  const { session, host, ui } = fixture;
+
+  try {
+    const faux = fauxProvider({
+      provider: "widget-fixture",
+      models: [{ id: "physical", contextWindow: 128000, maxTokens: 16384 }]
+    });
+    session.modelRuntime.registerNativeProvider(faux.provider);
+    session.modelRuntime.registerVirtualModel({
+      provider: "widget-fixture",
+      id: "router",
+      name: "Router",
+      route: () => ({ model: faux.getModel(), thinkingLevel: "off" })
+    });
+    await session.modelRuntime.refresh({ allowNetwork: false });
+    const router = new ModelRegistry(session.modelRuntime).find("widget-fixture", "router");
+    if (!router) throw new Error("Missing fixture router");
+    await session.setModel(router);
+    session.settingsManager.applyOverrides({
+      compaction: {
+        enabled: true,
+        reserveTokens: 16000,
+        keepRecentTokens: 1,
+        modelOverrides: { "widget-fixture/physical": { reserveTokens: 32000 } }
+      },
+      retry: { enabled: false }
+    });
+
+    for (const contextDisplay of ["regular", "compact", "verbose"] as const) {
+      const beforeRouting = builtinText(session, host.footerDataProvider, ui.theme, {
+        contextDisplay
+      });
+      expect(stripTerminalSequences(beforeRouting.get("builtin:context") ?? "")).toBe("?/? (auto)");
+    }
+
+    await fixture.bind();
+    faux.setResponses([
+      fauxAssistantMessage("First response"),
+      fauxAssistantMessage("Second response"),
+      fauxAssistantMessage("done")
+    ]);
+    await session.prompt("Route the request");
+    expect(session.routedModel?.model.id).toBe("physical");
+    const values = builtinText(session, host.footerDataProvider, ui.theme, {
+      contextDisplay: "verbose"
+    });
+    expect(stripTerminalSequences(values.get("builtin:context") ?? "")).toContain("/128k");
+    expect(stripTerminalSequences(values.get("builtin:context") ?? "")).toContain("(auto ~112k)");
+    expect(stripTerminalSequences(values.get("builtin:model") ?? "")).toContain(
+      "widget-fixture/router"
+    );
+
+    for (const [input, triggered] of [
+      [100000, false],
+      [120000, true]
+    ] as const) {
+      session.sessionManager.appendMessage({
+        ...createFixtureMessage(faux.getModel(), Date.now()),
+        usage: { ...zeroUsage(), input, totalTokens: input }
+      });
+      session.refreshContext();
+      await session.prompt("Continue with recorded usage");
+      expect(compactions.includes("threshold")).toBe(triggered);
+    }
+
+    session.settingsManager.applyOverrides({
+      compaction: { modelOverrides: { "widget-fixture/router": { reserveTokens: 48000 } } }
+    });
+    const overridden = builtinText(session, host.footerDataProvider, ui.theme, {
+      contextDisplay: "verbose"
+    });
+    expect(stripTerminalSequences(overridden.get("builtin:context") ?? "")).toContain(
+      "(auto ~80k)"
+    );
   } finally {
     await fixture.dispose();
   }

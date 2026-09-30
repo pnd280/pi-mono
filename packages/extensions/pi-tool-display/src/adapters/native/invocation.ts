@@ -1,8 +1,8 @@
 import type { InvocationPart, ToolFamily } from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
 
-/** Pi 0.87.1 replaces these spaces before lexical path resolution. Its helper is
- * not publicly exported; keep this native policy out of custom paths and filters.
+/** Pi 0.99.1 replaces these spaces before lexical path resolution. Its helper is
+ * not publicly exported by coding-agent; keep this native policy out of custom paths and filters.
  */
 export function normalizeNativePathSpaces(path: string): string {
   return path.replace(/[\u00a0\u2000-\u200a\u202f\u205f\u3000]/g, " ");

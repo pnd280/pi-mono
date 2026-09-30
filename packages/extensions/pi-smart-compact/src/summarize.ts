@@ -1,8 +1,17 @@
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
-import type { ExtensionRunner, ModelRegistry } from "@earendil-works/pi-coding-agent";
+import {
+  convertToLlm,
+  type ExtensionRunner,
+  type ModelRegistry
+} from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import type { AutoCompaction, DefaultCompaction, NativeSession } from "./compatibility.ts";
+import {
+  virtualModelApi,
+  type AutoCompaction,
+  type DefaultCompaction,
+  type NativeSession
+} from "./compatibility.ts";
 import type { CompactConfig } from "./config.ts";
 import { focusSplitTurn } from "./instructions.ts";
 
@@ -19,7 +28,7 @@ export async function summarizeWithOverrides(
   selection: CompactionModelOptions | undefined
 ) {
   const reference = selection?.config.model;
-  const thinkingLevel = selection?.config.thinkingLevel;
+  let thinkingLevel = selection?.config.thinkingLevel;
   if (!instructions && reference === undefined && thinkingLevel === undefined)
     return summarize(...args);
 
@@ -31,15 +40,24 @@ export async function summarizeWithOverrides(
         "The configured compaction model is unavailable. Check ext.pi-smart-compact.model."
       );
     args[1] = model;
-    // The registry resolves the selected provider's auth at request time. Never
-    // pass the conversation provider's credentials, headers, or environment to it.
-    args[2] = undefined;
-    args[3] = undefined;
-    args[6] = undefined;
   }
 
   if (thinkingLevel !== undefined && !getSupportedThinkingLevels(args[1]).includes(thinkingLevel))
     throw new Error("The configured thinkingLevel is unsupported by the compaction model.");
+
+  let requestModel = args[1];
+
+  if (thinkingLevel !== undefined && requestModel.api === virtualModelApi) {
+    // Apply the selected level to routing; the router owns the physical level.
+    // Keep args[1] as the selection for persisted summary-model metadata.
+    const route = await session.modelRuntime.resolveModel(
+      requestModel,
+      convertToLlm(session.agent.state.messages),
+      { reason: "direct", thinkingLevel, signal: args[3] }
+    );
+    requestModel = route.model;
+    thinkingLevel = route.thinkingLevel;
+  }
 
   const hooks = new OwnedHooks();
   const stream = session.agent.streamFunction;
@@ -47,7 +65,7 @@ export async function summarizeWithOverrides(
 
   try {
     hooks.replace(session.agent, "streamFunction", (model, context, options) => {
-      if (!active || options?.signal !== args[5]) return stream(model, context, options);
+      if (!active || options?.signal !== args[3]) return stream(model, context, options);
       const focused = instructions ? focusSplitTurn(context, instructions) : context;
       const configured = { ...options };
 
@@ -57,6 +75,11 @@ export async function summarizeWithOverrides(
       }
 
       if (selection && reference !== undefined) {
+        // The registry owns request-time auth. Never carry session credentials,
+        // headers, or environment into the configured provider request.
+        delete configured.apiKey;
+        delete configured.headers;
+        delete configured.env;
         // Registry calls bypass the native session stream's request defaults.
         // Preserve its network policy without borrowing conversation credentials.
         const settings = session.settingsManager;
@@ -83,7 +106,7 @@ export async function summarizeWithOverrides(
       return stream(model, focused, configured);
     });
 
-    return await summarize(...args);
+    return await summarize(args[0], requestModel, args[2], args[3], args[4]);
   } finally {
     active = false;
     hooks.restore();
@@ -108,7 +131,7 @@ export async function withCompactionInstructions(
 
   try {
     const configuredSummary: DefaultCompaction = (...args) => {
-      if (args[7] === reason && ownsRequest(args[5])) args[4] = instructions;
+      if (args[4] === reason && ownsRequest(args[3])) args[2] = instructions;
 
       return summarize(...args);
     };

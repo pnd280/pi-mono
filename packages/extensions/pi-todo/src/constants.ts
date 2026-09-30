@@ -2,6 +2,9 @@ export const WIDGET_KEY = "pi-todo";
 
 export const ERR_REQUIRES_INTERACTIVE = "/todos requires interactive mode";
 
+export const ERR_COLLAPSE_REQUIRES_FULLSCREEN =
+  "Todo widget collapse is only available in fullscreen mode";
+
 export const ERR_TODOS_USAGE = "Usage: /todos [collapse|expand|toggle]";
 
 export const MSG_NO_TODOS = "No todos yet. Ask the agent to add some!";

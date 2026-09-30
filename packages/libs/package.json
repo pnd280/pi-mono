@@ -41,7 +41,8 @@
     "./validation/interactive-host": "./src/validation/interactive-host/index.ts",
     "./validation/pi-process": "./src/validation/pi-process/index.ts",
     "./validation/terminal-launcher": "./src/validation/terminal-launcher/index.ts",
-    "./validation/provider": "./src/validation/provider/index.ts"
+    "./validation/provider": "./src/validation/provider/index.ts",
+    "./validation/tool-context": "./src/validation/tool-context/index.ts"
   },
   "scripts": {
     "format": "vp fmt .",

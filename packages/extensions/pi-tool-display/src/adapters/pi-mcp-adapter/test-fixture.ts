@@ -41,6 +41,7 @@ export function mcpToolInfo(name = "mcp"): ToolInfo {
 
   return {
     name,
+    exposure: "direct",
     description:
       name === "mcp__docs"
         ? 'Namespace-proxy for MCP server "docs". Forwards `{tool, args}` through the adapter\'s executeCall.'

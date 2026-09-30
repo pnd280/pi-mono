@@ -19,7 +19,7 @@ Use Pi's native `/name My session` to set a name manually.
 
 `persist` copies the active branch, preserves its parent link and session-wide name (including a cleared name), and assigns a new session ID. Already file-backed sessions are unchanged.
 
-`create-empty-child` copies neither conversation nor name; its parent link is metadata, not model context. Run `persist` first for an ephemeral session; a file-backed parent's file must exist (Pi normally writes it after the first response). Use `/clone` or `/fork` to copy history instead.
+`create-empty-child` copies neither conversation nor name; its parent link is metadata, not model context. Run `persist` first for an ephemeral session; a file-backed parent's file must exist (Pi writes it after the first user or assistant message; setup-only sessions may still be unwritten). Use `/clone` or `/fork` to copy history instead.
 
 ### Automatic session names
 

@@ -10,6 +10,7 @@ function result(details: unknown, text = "Done"): AgentToolResult<unknown> {
 function toolInfo(overrides: Partial<ToolInfo> = {}): ToolInfo {
   const base: ToolInfo = {
     name: "todo",
+    exposure: "model-only",
     description: "Manage todos",
     parameters: { type: "object", properties: { action: { type: "string" } } },
     sourceInfo: {

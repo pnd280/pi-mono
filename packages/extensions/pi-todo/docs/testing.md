@@ -5,6 +5,7 @@
 ## Contracts
 
 - Model-facing parameters use the shared [tool-schema profile](../../../libs/src/tool-schema/README.md), preserving action/field types, strict keys, nullable parent IDs, and field/dependency limits without runtime metadata or integer bounds. Execution still rejects out-of-range parent IDs without changing state; metadata preflight and replayable errors remain intact.
+- The tool is model-only: a real issued call cannot find or mutate todos through nested execution, while a direct model call persists a replayable snapshot. Interactive activation remains separate from exposure.
 - Mutations are atomic and return complete replayable snapshots on success and domain failure, including parameter arrays and metadata detached from caller-owned values. IDs advance only on creation; clear resets state; deleted tasks remain tombstones and completed tasks cannot reopen.
 - Hierarchy, status, and dependencies are independent. Reparent complete subtrees without losing order, reject cycles/depth overflow, and refuse deletion with live descendants. Dependency updates validate their own graph.
 - Field, dependency, metadata, task-count, and serialized-state limits apply to inputs and results, including versioned state after replay sanitization expands description tabs. Reject over-limit snapshots and fall back to the previous valid result. Bound result overhead separately so emitted snapshots remain replayable. Metadata copies remain independent, retain literal keys, and serialize without value loss or prototype mutation.

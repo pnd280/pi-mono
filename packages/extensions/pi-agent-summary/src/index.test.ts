@@ -28,7 +28,9 @@ it("records one context-free entry after all turns and retries settle, preservin
   await runtime.emit("agent_end", {});
   vi.advanceTimersByTime(1000);
   await runtime.emit("agent_start", {});
-  await expect(runtime.tool("bash", { command: "false" })).rejects.toThrow();
+  await expect(runtime.tool("bash", { command: "false" })).resolves.toMatchObject({
+    isError: true
+  });
   vi.advanceTimersByTime(1500);
   expect(runtime.api.appendEntry).not.toHaveBeenCalled();
   await runtime.emit("agent_settled", {});

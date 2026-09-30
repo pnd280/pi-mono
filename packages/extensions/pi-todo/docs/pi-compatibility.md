@@ -4,7 +4,7 @@
 
 ## Contracts to verify
 
-- [ ] [Activation](../src/runtime.ts) and [tool](../src/tool.ts): interactive TTY eligibility, model-facing schema, atomic mutations, and fully replayable result details; no custom tool renderers.
+- [ ] [Activation](../src/runtime.ts) and [tool](../src/tool.ts): interactive TTY eligibility, model-facing schema, atomic mutations, and fully replayable result details; no custom tool renderers. `exposure: "model-only"` keeps direct calls replayable and excludes nested mutation through `ctx.tools` or `ctx.executeTool()`.
 - [ ] [Tool-schema projection](../../../libs/src/tool-schema/README.md): serialized parameters preserve optional/nullable parent IDs and field limits without exposing runtime metadata or unsupported integer bounds; out-of-range parent IDs remain nonmutating domain errors.
 - [ ] [Session state](../src/session-state.ts): branch/compaction reconstruction, malformed/error result handling, and bounded snapshots.
 - [ ] [UI integration](../src/index.ts): widget/overlay lifecycle, remapped navigation, session cleanup, and independently owned working-message contributions.
@@ -15,5 +15,7 @@
 - Revisit public todo-state, widget, and contribution APIs against current replay/ownership semantics. Shared [working-message composition](../../../libs/src/working-message/README.md#behavior) cannot prevent nonparticipants from overwriting the message; resolve that boundary in libs if upstream support appears.
 
 ## Validation
+
+Pi **0.99.1** package checks and offline tests passed, including actual model-issued tool-context checks: nested todo execution is unavailable and nonmutating, while a direct call retains a replayable snapshot. Activation and UI policy are unchanged. Manual terminal checks were not run.
 
 Use [package checks](../README.md#validation) and [interactive checks](validation.md), including the offline working-message fixture with other contributors, reload, new sessions, and regular/fullscreen modes.

@@ -65,7 +65,7 @@ it("composes shared state across tool execution, replay, settings, and widget li
     }
 
     widget = factory(
-      { requestRender() {} },
+      { mode: "fullscreen", requestRender() {} },
       { fg: (_color, text) => text, strikethrough: (text) => text }
     );
   });

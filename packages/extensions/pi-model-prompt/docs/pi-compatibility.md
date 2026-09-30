@@ -17,4 +17,6 @@
 
 ## Validation
 
+Pi **0.99.1** package checks and offline host tests passed without runtime changes. The public prompt-section, trust, model-switch, and reload contracts remain compatible. No live-provider or manual checks were run.
+
 Use [workspace checks](../../../../docs/development.md#focused-validation). The host suite exercises the installed Pi runtime offline.

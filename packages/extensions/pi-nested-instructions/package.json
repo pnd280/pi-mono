@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@pi-mono/utils": "workspace:*",
+    "unbash": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {

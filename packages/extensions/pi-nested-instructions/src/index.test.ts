@@ -10,6 +10,7 @@ import {
 } from "@earendil-works/pi-ai";
 import {
   createAgentSession,
+  createCodemodeExtension,
   DefaultResourceLoader,
   ModelRuntime,
   SettingsManager,
@@ -76,7 +77,7 @@ async function host(responses: FauxResponseFactory[], before: ExtensionFactory[]
     model: faux.models[0],
     thinkingLevel: "off",
     sessionManager: fs.manager,
-    tools: ["read", "bash"]
+    tools: ["read", "bash", "codemode"]
   });
   cleanup.push(async () => {
     session.dispose();
@@ -161,6 +162,70 @@ it("marks blocked and invalid read attempts from issued inputs, not tool success
   ).toHaveLength(0);
   expect(h.errors).toEqual([]);
 });
+
+it.each([
+  { blocked: false, direct: false },
+  { blocked: true, direct: false },
+  { blocked: false, direct: true },
+  { blocked: true, direct: true }
+])(
+  "discovers nested inputs with direct-only suppression (blocked: $blocked, direct sibling: $direct)",
+  async ({ blocked, direct }) => {
+    const requests: string[] = [];
+    const h = await host(
+      [
+        () =>
+          fauxAssistantMessage([
+            fauxToolCall(
+              "codemode",
+              {
+                code: 'await Promise.allSettled([tools.read({path:"pkg/deep/AGENTS.md"}), tools.bash({command:"cat pkg/deep/file.ts"}), tools.read({path:"pkg/deep/file.ts", offset:"invalid"})]); text("filtered");'
+              },
+              { id: "parent" }
+            ),
+            ...(direct
+              ? [fauxToolCall("read", { path: "pkg/deep/AGENTS.md" }, { id: "direct" })]
+              : [])
+          ]),
+        (context) => {
+          requests.push(JSON.stringify(context.messages));
+
+          return fauxAssistantMessage("done");
+        }
+      ],
+      [
+        createCodemodeExtension({ mode: "on" }),
+        (pi) => {
+          pi.on("tool_call", (event) =>
+            blocked && event.parentToolCallId ? { block: true, reason: "fixture" } : undefined
+          );
+        }
+      ]
+    );
+    expect(h.session.getActiveToolNames()).toContain("codemode");
+    await h.session.prompt("Discover nested scopes");
+    expect(h.errors).toEqual([]);
+    expect(requests[0]).toContain("AUTO PARENT RULES");
+    expect(requests[0]).toContain("DIRECT CHILD RULES");
+    expect(requests[0]).not.toContain("DO NOT FOLLOW OUTPUT PATHS");
+    const branch = h.fs.manager.getBranch();
+    expect(
+      branch.filter((entry) => entry.type === "custom" && entry.customType === readType)
+    ).toHaveLength(direct ? 1 : 0);
+    expect(
+      branch.filter((entry) => entry.type === "custom_message" && entry.customType === noticeType)
+    ).toHaveLength(direct ? 1 : 2);
+    expect(
+      branch.filter((entry) => entry.type === "message" && entry.message.role === "toolResult")
+    ).toHaveLength(direct ? 2 : 1);
+    await h.session.reload();
+    expect(
+      h.fs.manager
+        .getBranch()
+        .filter((entry) => entry.type === "custom_message" && entry.customType === noticeType)
+    ).toHaveLength(direct ? 1 : 2);
+  }
+);
 
 it("refreshes changed scopes through a real host reload without repeating unchanged direct reads", async () => {
   const h = await host([

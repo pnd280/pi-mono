@@ -1,6 +1,6 @@
 # pi-model-prompt
 
-Selects a model-specific `APPEND_SYSTEM.md` variant for each run when models need different appended instructions. Uses Pi **0.87.1**'s public `before_agent_start` prompt sections.
+Selects a model-specific `APPEND_SYSTEM.md` variant for each run when models need different appended instructions. Uses Pi **0.99.1**'s public `before_agent_start` prompt sections.
 
 ## Usage
 

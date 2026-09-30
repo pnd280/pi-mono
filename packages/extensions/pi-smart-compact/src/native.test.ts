@@ -43,6 +43,7 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
       outcomes.push(message);
     },
     settingsManager: { getCompactionSettings: () => ({ enabled: false }) },
+    _exceedsCompactionThreshold: () => false,
     _agentRunAbortRequested: false,
     async _runAutoCompaction(reason: string, willRetry: boolean) {
       assert.equal(reason, "manual");

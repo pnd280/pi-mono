@@ -98,7 +98,7 @@ function context(
   const usage = session.getContextUsage();
   const tokens = usage?.tokens;
   const percent = usage?.percent;
-  const window = usage?.contextWindow ?? session.model?.contextWindow;
+  const window = usage?.contextWindow;
   const used = tokens == null ? "?" : formatTokens(tokens);
   const total = window === undefined ? "?" : formatTokens(window);
   const share = display === "compact" || percent == null ? "" : ` (${percent.toFixed(1)}%)`;
@@ -108,6 +108,7 @@ function context(
     let trigger = "?";
 
     try {
+      // Pi uses the selected model's reserve even when the window comes from a routed model.
       const reserve = session.settingsManager.getCompactionReserveTokens(session.model);
       trigger = formatTokens(window - reserve);
     } catch {

@@ -64,16 +64,14 @@ function classifySummary(
   args: Parameters<DefaultCompaction>,
   config: CompactionModelOptions["config"] | undefined
 ) {
-  const [reason, signal] = [args[7], args[5]];
+  const [reason, signal] = [args[4], args[3]];
   let trigger: SummaryModelEntry["trigger"] | undefined;
 
-  if (signal !== undefined) {
-    // Manual API calls and tool requests share reason: "manual", but use different controllers.
-    if (reason === "manual" && signal === session._compactionAbortController?.signal)
-      trigger = "manual";
-    else if (signal === session._autoCompactionAbortController?.signal)
-      trigger = reason === "manual" ? "tool" : reason;
-  }
+  // Manual API calls and tool requests share reason: "manual", but use different controllers.
+  if (reason === "manual" && signal === session._compactionAbortController?.signal)
+    trigger = "manual";
+  else if (signal === session._autoCompactionAbortController?.signal)
+    trigger = reason === "manual" ? "tool" : reason;
 
   // Tool requests always opt into model overrides; unrelated signals never route.
   const routed =
@@ -197,7 +195,7 @@ export function bindNativeCompaction(
       const thinkingLevel = (routed ? config?.thinkingLevel : undefined) ?? this.thinkingLevel;
 
       const instructions =
-        trigger === "tool" || (trigger !== undefined && config?.instructions) ? args[4] : undefined;
+        trigger === "tool" || (trigger !== undefined && config?.instructions) ? args[2] : undefined;
       const result = await summarizeWithOverrides(
         this,
         originalSummary.bind(this),
@@ -206,8 +204,8 @@ export function bindNativeCompaction(
         routed ? selection : undefined
       );
 
-      if (registration?.active && trigger !== undefined && args[5])
-        recordSummaryBeforeCompaction(this, registration, result, args[5], {
+      if (registration?.active && trigger !== undefined)
+        recordSummaryBeforeCompaction(this, registration, result, args[3], {
           model: `${args[1].provider}/${args[1].id}`,
           thinkingLevel: args[1].reasoning ? thinkingLevel : "off",
           trigger

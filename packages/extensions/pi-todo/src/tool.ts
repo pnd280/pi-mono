@@ -14,6 +14,7 @@ const inputSchema = mutationParamsSchema.extend({ action: z.enum(TASK_ACTIONS) }
 export function createTodoTool(controller: TodoController) {
   return {
     name: "todo",
+    exposure: "model-only",
     label: "Todos",
     description:
       "Manage a todo hierarchy: create, update, list, get, delete (tombstone), clear. Hierarchy is organizational; statuses and dependencies are independent.",

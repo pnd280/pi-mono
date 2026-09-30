@@ -1,4 +1,5 @@
 import { getCapabilities, truncateToWidth, type Component } from "@earendil-works/pi-tui";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { genericAdapter } from "../adapters/generic.ts";
@@ -40,6 +41,7 @@ function prepareCard(
   }));
   const adapter = interpretation.adapter;
   const invocation = lazy(() => adapter.invocation?.(base.context.args, base.result));
+  const code = lazy(() => adapter.code?.(base.context.args));
   const headingVerbs = lazy(() => adapter.headingVerbs?.(base.context.args));
   const summary = lazy(() => {
     if (!base.result || interpretation.pending || interpretation.outcome === "unavailable")
@@ -95,6 +97,9 @@ function prepareCard(
     get invocation() {
       return invocation();
     },
+    get code() {
+      return code();
+    },
     get exploration() {
       return interpretation.exploration;
     },
@@ -125,7 +130,7 @@ function hasAnimatedHeading(card: PreparedCard): boolean {
 type PreparedRow = {
   width: number;
   revision: number | undefined;
-  headingPhase: number | undefined;
+  blinkingRows?: string[];
   animated: boolean;
   expanded: boolean;
   adapter: ToolDisplayAdapter;
@@ -202,7 +207,6 @@ class CardRow {
     this.prepared = {
       width,
       revision,
-      headingPhase: undefined,
       animated: hasAnimatedHeading(card),
       expanded,
       adapter,
@@ -244,17 +248,18 @@ class CardRow {
     // the clock; its body and every completed card keep their prepared data.
     const phase = current.animated ? (binding?.coordinator.phase ?? 0) : 0;
 
-    if (slot === "call" && current.headingPhase !== phase) {
-      delete current.rows.call;
-      current.headingPhase = phase;
-    }
+    const rows = (current.rows[slot] ??= (
+      slot === "call" ? heading(current.card) : resultRows(current.card)
+    ).map((row) => truncateToWidth(row, width, "")));
+    if (slot !== "call" || !phase) return rows;
 
-    if (current.rows[slot]) return current.rows[slot];
-    const card = current.card;
+    // Animated headings start with this one-cell marker. Preserve the prepared
+    // ANSI styling and every other byte, including literal markers in arguments.
+    const marker = current.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
 
-    const rows = slot === "call" ? heading(card, phase) : resultRows(card);
-
-    return (current.rows[slot] = rows.map((row) => truncateToWidth(row, width, "")));
+    return (current.blinkingRows ??= rows.map((row, index) =>
+      index === 0 ? row.replace(marker, " ") : row
+    ));
   }
 
   private interpretation(): CallInterpretation {

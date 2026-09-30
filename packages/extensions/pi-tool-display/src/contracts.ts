@@ -97,6 +97,8 @@ export type InvocationPart = {
    */
   kind: "value" | "path" | "range" | "pattern" | "annotation" | "parameters";
   text: string;
+  /** The text is an excerpt; compact headings must show their omission notice. */
+  truncated?: boolean;
 };
 
 export type ExplorationScope = {
@@ -181,6 +183,25 @@ export type ResultTextContext = {
   hasImages?: boolean;
 };
 
+export type DisplayCode = {
+  text: string;
+  /** Highlighting language, such as `javascript`. */
+  language: string;
+};
+
+/** One call made by a tool on the model's behalf, such as a script's tool call. */
+export type NestedCall = {
+  name: string;
+  /** Plain argument preview; compact cards keep it to one row. */
+  args?: string | undefined;
+  status: "running" | "success" | "failure" | "cancelled";
+  durationMs?: number | undefined;
+  /** Cost in USD, for calls that report one. */
+  cost?: number | undefined;
+  /** Error preview; expanded cards show it below the call. */
+  error?: string | undefined;
+};
+
 export type HeadingVerbs = {
   action: string;
   pending: string;
@@ -259,6 +280,16 @@ export type ToolDisplayAdapter = {
    * result can supply a resolved tool identity.
    */
   invocation?(args: unknown, result?: BorrowedToolResult): InvocationPart[];
+  /**
+   * Show a source argument, such as a script, as highlighted code below the heading.
+   * Compact cards preview its first rows. Handle partial arguments.
+   */
+  code?(args: unknown): DisplayCode | undefined;
+  /**
+   * List nested calls from validated result metadata, including partial results.
+   * They precede the output; compact cards show the latest ones.
+   */
+  nestedCalls?(result: BorrowedToolResult): readonly NestedCall[] | undefined;
   /**
    * Supply ordered group items for the automatic CLI integration. Handle partial
    * arguments before a result exists; undefined, empty items, or missing/mixed scopes

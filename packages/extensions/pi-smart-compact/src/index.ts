@@ -66,6 +66,7 @@ export default function smartCompact(pi: ExtensionAPI) {
   });
   pi.registerTool({
     name: "compact",
+    exposure: "model-only",
     label: "Compact context",
     description: "Compact the session context",
     parameters: Type.Object({

@@ -202,6 +202,107 @@ describe("tool display renderers", () => {
     }
   );
 
+  it("reuses pending heading layout without reading arguments on animation ticks", () => {
+    let tick = () => {};
+
+    const coordinator = new TranscriptCoordinator("heading-cache", {
+      animationClock: {
+        start(callback) {
+          tick = callback;
+
+          return () => {};
+        }
+      }
+    });
+    let reads = 0;
+    const args = {
+      get payload() {
+        reads++;
+
+        return "retained • value";
+      }
+    };
+
+    try {
+      const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "pending" };
+      const call = coordinator.add(reference, "custom", args, genericAdapter, "live");
+      const renderer = createToolDisplayRenderers("custom", genericAdapter, {
+        binding: { call, coordinator }
+      });
+      const header = renderer.renderCall(args, semanticTheme(), context({ args }));
+      expect(stripTerminalSequences(header.render(80).join("\n"))).toBe(
+        '• Calling custom({"payload":"retained • value"})'
+      );
+      reads = 0;
+
+      for (let phase = 0; phase < 10; phase++) {
+        tick();
+        const marker = phase % 2 === 0 ? " " : "•";
+        expect(stripTerminalSequences(header.render(80).join("\n"))).toBe(
+          `${marker} Calling custom({"payload":"retained • value"})`
+        );
+      }
+
+      expect(reads).toBe(0);
+      coordinator.add(reference, "custom", { payload: "replacement" }, genericAdapter, "live");
+      expect(header.render(80).join("\n")).toContain("replacement");
+      header.invalidate();
+      expect(header.render(12).every((row) => visibleWidth(row) <= 12)).toBe(true);
+    } finally {
+      coordinator.dispose();
+    }
+  });
+
+  it("stops compact parameter traversal before omitted values and retains full expanded parameters", () => {
+    let omittedReads = 0;
+    const args = Object.freeze({
+      payload: "BEGIN" + "x".repeat(64 * 1024),
+      get omitted() {
+        omittedReads++;
+
+        return "FINAL_ARGUMENT";
+      }
+    });
+    const renderer = createToolDisplayRenderers("custom", genericAdapter);
+    const header = renderer.renderCall(args, theme, context({ args }));
+    const compact = header.render(100).join("\n");
+    expect(compact).toContain("BEGIN");
+    expect(compact).toContain("more details");
+    expect(omittedReads).toBe(0);
+    const expanded = renderer.renderCall(args, theme, context({ args, expanded: true }));
+    expect(expanded.render(100).join("\n")).toContain("FINAL_ARGUMENT");
+    expect(omittedReads).toBe(1);
+    expect(args.payload.length).toBe(64 * 1024 + 5);
+  });
+
+  it.each(["shell", "code"])(
+    "bounds compact %s source normalization before stripping controls",
+    (kind) => {
+      const args = Object.freeze({
+        command: "BEGIN" + "\x00".repeat(64 * 1024) + "FINAL_ARGUMENT"
+      });
+      const adapter: ToolDisplayAdapter | undefined =
+        kind === "shell"
+          ? nativeAdapter("bash")
+          : {
+              id: "script",
+              family: "invocation",
+              invocation: () => [],
+              code: () => ({ text: args.command, language: "javascript" })
+            };
+      const renderer = createToolDisplayRenderers(kind, adapter);
+      const header = renderer.renderCall(args, theme, context({ args }));
+      const compact = header.render(100).join("\n");
+      expect(compact).toContain("BEGIN");
+      expect(compact).toContain("more details");
+      expect(compact).not.toContain("FINAL_ARGUMENT");
+      const expanded = renderer.renderCall(args, theme, context({ args, expanded: true }));
+      expect(stripTerminalSequences(expanded.render(100).join("\n"))).toContain(
+        "BEGINFINAL_ARGUMENT"
+      );
+    }
+  );
+
   it.each(["custom", "bash"])(
     "bounds collapsed %s arguments before formatting and retains them on expansion",
     (name) => {
@@ -521,8 +622,37 @@ describe("tool display renderers", () => {
     }
   });
 
+  it.each([false, true])(
+    "retains nested calls, images, and notices in successful reads (expanded=%s)",
+    (expanded) => {
+      const adapter: ToolDisplayAdapter = {
+        id: "owner:nested-read",
+        family: "read",
+        nestedCalls: () => [{ name: "lookup", status: "success" }],
+        notices: () => [{ kind: "warning", text: "Read warning" }]
+      };
+      const retained: AgentToolResult<unknown> = {
+        content: [
+          { type: "text", text: "retained file content" },
+          { type: "image", mimeType: "image/png", data: "fixture" }
+        ],
+        details: undefined
+      };
+      const renderer = createPublicRenderers("nested_read", adapter);
+      const current = context({ expanded });
+      const rows = renderer.renderResult(retained, current, theme, current).render(120).join("\n");
+
+      expect(rows).toContain("✓ lookup");
+      expect(rows).toContain("[Image: image/png]");
+      expect(rows).toContain("Read warning");
+      expect(rows.includes("retained file content")).toBe(expanded);
+    }
+  );
+
   it("renders a row generically after any adapter callback throws and reports the adapter", () => {
-    const failing = (callback: "summary" | "outcome"): ToolDisplayAdapter => ({
+    const failing = (
+      callback: "summary" | "outcome" | "code" | "nestedCalls"
+    ): ToolDisplayAdapter => ({
       id: `failing-${callback}`,
       family: "invocation",
       summary: () => ({ text: "adapter summary" }),
@@ -531,14 +661,15 @@ describe("tool display renderers", () => {
       }
     });
 
-    for (const callback of ["summary", "outcome"] as const) {
+    for (const callback of ["summary", "outcome", "code", "nestedCalls"] as const) {
       const failures: string[] = [];
       const renderer = createToolDisplayRenderers("lookup", failing(callback), {
         onAdapterFailure: (adapter) => failures.push(adapter.id)
       });
       const current = context({ args: { query: "needle" } });
+      const heading = renderer.renderCall(current.args, theme, current);
       const body = renderer.renderResult(result("retained output"), current, theme, current);
-      const rows = () => body.render(120).join("\n");
+      const rows = () => [...heading.render(120), ...body.render(120)].join("\n");
 
       expect(rows()).not.toContain("adapter summary");
       expect(rows()).toContain("retained output");

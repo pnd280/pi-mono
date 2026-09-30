@@ -9,6 +9,7 @@ import type { TreeItem } from "@pi-mono/libs/tui/components/tree";
 import type {
   BorrowedToolResult,
   DisplayCall,
+  DisplayCode,
   DisplayGroup,
   ExplorationItem,
   InvocationPart,
@@ -78,6 +79,7 @@ export type Projection = Readonly<{
 export type PreparedCard = Projection &
   Readonly<{
     invocation: readonly InvocationPart[] | undefined;
+    code: DisplayCode | undefined;
     exploration: readonly ExplorationItem[];
     headingVerbs: ReturnType<NonNullable<ToolDisplayAdapter["headingVerbs"]>>;
     body: ResultBody;

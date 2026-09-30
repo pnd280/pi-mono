@@ -24,7 +24,7 @@ Validated metadata can replace successful text with compact summaries; otherwise
 
 Observed shells show status/duration beside previews. Successful reads hide text until expansion; edits/writes show diffs. Failure/cancellation output, notices, and images stay visible.
 
-Previews retain initial/final rows, whole graphemes, and ANSI styling; exceeding [formatting limits](#resource-limits) adds `… more output`. Shell cards omit trailing blank output rows without changing internal blank lines or stored output. Expansion shows summaries and retained output within live/saved retention limits.
+Consecutive text blocks in one result share a single preview, so output split across blocks shows one omission. Previews retain initial/final rows, whole graphemes, and ANSI styling; exceeding [formatting limits](#resource-limits) adds `… more output`. Shell cards omit trailing blank output rows without changing internal blank lines or stored output. Expansion shows summaries and retained output within live/saved retention limits.
 
 ## Groups
 
@@ -79,6 +79,10 @@ Only the latest outcome per file or directory counts: a later successful edit cl
 
 The built-in categories cover creations, edits, shell commands, MCP calls, searches, listings, reads, and unmatched tool names. See [summary wording](../src/summary/categories.ts) for the current labels.
 
+Pi's built-in [codemode](../src/adapters/builtin/codemode/README.md#summary-mode) counts each script once as `ran 1 script`; nested calls never count.
+
+Pi's built-in [tool search](../src/adapters/builtin/tool-search/README.md#summary-mode) adds a loaded-tools category, deduplicated by tool name across the run. Calls without valid nonempty loaded-name details count individually as `tool_search`.
+
 [Instruction notices](../src/adapters/pi-nested-instructions/README.md#display) count once per persisted file path and action, or directory for removals. Their counts remain separate from tool outcomes and file-read counts.
 
 Items appear in the order of their category's first call or notice; failures never reorder them. The first item starts with a capital letter unless it begins with a tool name, which keeps its case. Adapter-declared count labels become single-line terminal-safe text without changing category identities or counts.
@@ -127,6 +131,8 @@ A changed saved-output path or cache eviction discards the old preview. Late rea
 
 ## Resource limits
 
-Limits affect display, not execution or Pi's saved arguments/results. Collapsed previews retain the head and tail; expansion restores only what Pi retained or what the bounded observation captured. Oversized highlighting falls back to readable unstyled text, and patch generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behavior). Exceeded limits make patches unavailable, not edits/writes unsuccessful. Persisted fact size includes unknown fields, so an oversized record is not replayable.
+Limits affect display, not execution or Pi's saved arguments/results. Collapsed output previews retain the head and tail; source-code previews retain the first rows, and nested-call lists retain the latest calls. Expansion restores only what Pi retained or what the bounded observation captured. Oversized highlighting falls back to readable unstyled text, and patch generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behavior). Exceeded limits make patches unavailable, not edits/writes unsuccessful. Persisted fact size includes unknown fields, so an oversized record is not replayable.
 
-For current budgets see [target layout](../src/rendering/target-layout.ts), [preview formatting](../src/rendering/format.ts), [shell observation](../src/observation/), [saved previews](../src/transcript/session.ts), [patch limits](../src/diff.ts), and [record validation](../src/transcript/metadata.ts). [Automatic integration](../README.md#observation-and-saved-history) collects output/generates patches; the [standalone factory](renderers.md) only formats supplied data.
+Compact invocation values, patterns, and source-code previews are bounded before terminal normalization. Generic parameter previews also bound JSON serialization by text size, visited values, and nesting depth; an incomplete preview shows a `more details` notice. Expansion serializes the full retained arguments. Unchanged redraws reuse decorated assistant prose, run summaries, and heading layout; animation changes only the heading marker.
+
+For current budgets see [parameter previews](../src/invocation.ts), [heading previews](../src/rendering/headings.ts), [target layout](../src/rendering/target-layout.ts), [preview formatting](../src/rendering/format.ts), [shell observation](../src/observation/), [saved previews](../src/transcript/session.ts), [patch limits](../src/diff.ts), and [record validation](../src/transcript/metadata.ts). [Automatic integration](../README.md#observation-and-saved-history) collects output/generates patches; the [standalone factory](renderers.md) only formats supplied data.

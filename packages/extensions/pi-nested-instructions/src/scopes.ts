@@ -20,6 +20,7 @@ import { instructionNames } from "./storage.ts";
 
 export interface Invocation {
   toolCallId: string;
+  parentToolCallId?: string;
   toolName: string;
   input: unknown;
   sourceInfo?: { source: string; path: string };
@@ -207,6 +208,7 @@ export async function inferScope(invocation: Invocation, cwd: string): Promise<S
         !glob &&
         nestedPath(cwd, path.dirname(absolute)) &&
         hint.read &&
+        !invocation.parentToolCallId &&
         instructionNames.includes(path.basename(absolute))
       )
         reads.add(absolute);

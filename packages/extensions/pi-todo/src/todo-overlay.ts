@@ -1,5 +1,11 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, type Component, type TUI } from "@earendil-works/pi-tui";
+import {
+  truncateToWidth,
+  type Component,
+  type TUI,
+  type TuiMode,
+  type TuiMouseEvent
+} from "@earendil-works/pi-tui";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import { MAX_WIDGET_LINES, WIDGET_KEY } from "./constants.ts";
@@ -21,7 +27,7 @@ type WidgetSuppression = {
 
 export type TodoWidgetTheme = Pick<Theme, "fg" | "strikethrough">;
 
-export type TodoWidgetTui = Pick<TUI, "requestRender">;
+export type TodoWidgetTui = Pick<TUI, "requestRender" | "mode">;
 
 export type TodoWidgetFactory = (tui: TodoWidgetTui, theme: TodoWidgetTheme) => Component;
 
@@ -43,6 +49,8 @@ export class TodoOverlay {
   private uiCtx: TodoOverlayUI | undefined;
   private widgetRegistered = false;
   private collapsed = false;
+  /** Last mode seen through Pi's live TUI reference; collapse applies only in fullscreen. */
+  private tuiMode: TuiMode | undefined;
   private live = false;
   private generation = 0;
   private registrationEpoch = 0;
@@ -61,7 +69,13 @@ export class TodoOverlay {
     this.live = true;
     this.generation += 1;
     this.todosRevision = -1;
+    this.tuiMode = undefined;
     this.suppressions.clear();
+  }
+
+  /** Regular mode always shows the expanded widget; an unknown mode keeps the preference latent. */
+  canCollapse(): boolean {
+    return this.tuiMode !== "regular";
   }
 
   setCollapsed(collapsed: boolean): boolean {
@@ -97,30 +111,43 @@ export class TodoOverlay {
       this.uiCtx.setWidget(
         WIDGET_KEY,
         (tui, theme) => {
-          if (this.live && this.widgetRegistered && registrationEpoch === this.registrationEpoch) {
+          const isCurrent = () =>
+            this.live && this.widgetRegistered && registrationEpoch === this.registrationEpoch;
+
+          if (isCurrent()) {
             this.tui = tui;
+            this.observeMode(tui.mode);
           }
 
           let cache: { key: string; lines: string[] } | undefined;
 
           return {
             render: (width: number) => {
-              const key = `${this.todosRevision}|${this.collapsed}|${width}`;
+              const collapsed = this.collapsed && tui.mode === "fullscreen";
+              const key = `${this.todosRevision}|${collapsed}|${width}`;
 
               if (cache?.key !== key) {
                 cache = {
                   key,
-                  lines: buildTodoWidgetLines(this.refreshTodos(), theme, width, {
-                    collapsed: this.collapsed
-                  })
+                  lines: buildTodoWidgetLines(this.refreshTodos(), theme, width, { collapsed })
                 };
               }
 
               return cache.lines;
             },
-            // Theme invalidation clears cached ANSI so the next render restyles.
+            handleMouse: (event: TuiMouseEvent) => {
+              if (event.type !== "click" || event.button !== "left" || !isCurrent()) {
+                return undefined;
+              }
+
+              this.toggleCollapsed();
+
+              return { handled: true };
+            },
+            // Theme and TUI-mode switches invalidate; clear cached ANSI and pick up the new mode.
             invalidate: () => {
               cache = undefined;
+              if (isCurrent()) this.observeMode(tui.mode);
             }
           } satisfies Component;
         },
@@ -175,13 +202,20 @@ export class TodoOverlay {
     return this.todos;
   }
 
+  private observeMode(mode: TuiMode): void {
+    if (mode === this.tuiMode) return;
+
+    this.tuiMode = mode;
+    this.syncWorkingMessage(deriveTaskHierarchy(this.refreshTodos())?.entries ?? []);
+  }
+
   private syncWorkingMessage(entries: readonly TaskHierarchyEntry[]): void {
     if (!this.uiCtx) return;
 
     const inProgressEntries = entries.filter((entry) => entry.task.status === "in_progress");
     const firstInProgress = inProgressEntries[0]?.task;
 
-    if (!this.collapsed || !firstInProgress) {
+    if (!this.collapsed || this.tuiMode !== "fullscreen" || !firstInProgress) {
       this.uiCtx.setActivity();
 
       return;

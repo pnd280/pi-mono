@@ -15,6 +15,7 @@ import {
 
 const info: ToolInfo = {
   name: "compact",
+  exposure: "model-only",
   description: "Compact the session context",
   parameters: Type.Object({ instructions: Type.Optional(Type.String()) }),
   sourceInfo: {
@@ -24,7 +25,12 @@ const info: ToolInfo = {
     origin: "package"
   }
 };
-const contextInfo: ToolInfo = { ...info, name: "context_window", parameters: Type.Object({}) };
+const contextInfo: ToolInfo = {
+  ...info,
+  name: "context_window",
+  exposure: "direct",
+  parameters: Type.Object({})
+};
 const selection = {
   scheduled: true,
   modelOverride: "provider/nested/model-界",

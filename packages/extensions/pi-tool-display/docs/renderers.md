@@ -61,6 +61,12 @@ See [exploration groups](presentation.md#groups) for headings, boundaries, and e
 
 `headingVerbs(args)` returns, for example, `{ action: "Check", pending: "Checking", complete: "Checked" }`. Omitting the callback or returning `undefined` uses family defaults. Failure, cancellation, and unavailable headings append the outcome to `action`, as in `Check failed`. Verbs and `groupTitle` are plain single-line labels: terminal controls are removed and line breaks/tabs become spaces before wrapping.
 
+### Code and nested calls
+
+`code(args)` returns `{ text, language }` for a source argument, such as a script. The heading renders it below the title with that language's highlighting. Compact cards show up to 10 rows within the [heading formatting limit](presentation.md#resource-limits), with an expansion hint for omitted source. Handle partial arguments. Return no matching `invocation` parts so the source does not appear twice.
+
+`nestedCalls(result)` lists calls a tool made on the model's behalf, from validated result metadata. It also runs for partial results, so the list updates while the tool runs. Calls precede the output, including on compact read cards that hide successful text. Compact cards show the latest 8 calls on one row each. Expansion shows every call with its error preview. Multiple calls with a positive `cost` add a model-call total. Names, arguments, and errors are plain text.
+
 ### Result summaries
 
 `summary` runs only for completed results with a known success, failure, or cancellation. Use validated metadata or recorded facts. Distinguish collected/total matches and failed/unfinished operations; return `undefined` without sufficient data.

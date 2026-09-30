@@ -349,6 +349,37 @@ it("keeps group membership current without re-evaluating distant completed calls
   }
 });
 
+it("bounds prior-member reads when appending history and publishing live previews", () => {
+  const { coordinator: c, add } = fixture();
+  let reads = 0;
+
+  try {
+    for (let index = 0; index < 400; index++) {
+      const call = add("custom", String(index), "historical");
+      Object.defineProperty(call, "origin", {
+        get() {
+          reads++;
+
+          return "historical";
+        }
+      });
+    }
+
+    expect(reads).toBeLessThan(400 * 4);
+    reads = 0;
+    const live = add("custom", "live");
+    for (let update = 0; update < 100; update++) c.preview(live, { text: String(update) });
+    expect(reads).toBeLessThan(10);
+    c.setMode("summary");
+    expect(c.summaryRole(live)).toBeUndefined();
+    c.boundary();
+    c.result(live, result(), "success");
+    expect(c.summaryRole(live)?.kind).toBe("hidden");
+  } finally {
+    c.dispose();
+  }
+});
+
 it("bounds adapter work when reconstructing nested batches and boundaries", () => {
   const { coordinator: c, onExpansion } = fixture();
   const exploration = vi.fn(() => [
@@ -954,6 +985,101 @@ it("refreshes notice summaries and keeps them with their anchors across run boun
     coordinator.setBoundary(boundary, first);
     expect(coordinator.summary(first).segments.map(({ count }) => count)).toEqual([1]);
     expect(coordinator.summary(anchor).segments.map(({ count }) => count)).toEqual([2]);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("reuses run summary work across redraws, expansion, and unrelated display updates", () => {
+  const { coordinator, add } = summaryFixture();
+
+  try {
+    const calls = Array.from({ length: 100 }, () => add("custom", {}));
+    const first = calls[0]!;
+    const last = calls.at(-1)!;
+    coordinator.activate(first, "card");
+    const interpretation = vi.spyOn(coordinator, "interpretation");
+
+    for (let frame = 0; frame < 20; frame++) {
+      expect(coordinator.collapsible(first)).toBe(true);
+      expect(coordinator.collapsible(last)).toBe(true);
+      expect(coordinator.summary(first).segments[0]?.count).toBe(100);
+    }
+
+    coordinator.expand(last, true);
+    coordinator.setSavedPath(last, "/saved-output");
+    expect(coordinator.collapsible(first)).toBe(true);
+    expect(interpretation.mock.calls.length).toBeLessThan(200);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("refreshes cached summaries for appended calls, changed arguments, and republished outcomes", () => {
+  const { coordinator, add, clear, invalidations } = summaryFixture();
+
+  try {
+    const first = add("custom", {});
+    expect(coordinator.summary(first).segments[0]?.count).toBe(1);
+    clear();
+    const second = add("custom", {});
+    expect(invalidations(first)).toBeGreaterThan(0);
+    expect(coordinator.summary(first).segments[0]?.count).toBe(2);
+    coordinator.setAdapter(first, nativeAdapter("read")!);
+    coordinator.setAdapter(second, nativeAdapter("read")!);
+    for (const call of [first, second])
+      coordinator.add(call.reference, call.name, { path: "same.ts" }, call.adapter, "historical");
+    expect(coordinator.summary(first).segments[0]).toMatchObject({
+      category: { id: "read" },
+      count: 1,
+      counts: { unavailable: 1 }
+    });
+    const published = result();
+    coordinator.result(second, published, "success");
+    expect(coordinator.summary(first).segments[0]?.counts.unavailable).toBe(0);
+    coordinator.result(second, published, "failure");
+    expect(coordinator.summary(first).segments[0]?.counts.failed).toBe(1);
+    coordinator.fact(second, { kind: "cancellation", availability: "available" });
+    expect(coordinator.summary(first).segments[0]?.counts).toEqual({
+      failed: 0,
+      cancelled: 1,
+      unavailable: 0
+    });
+    coordinator.failAdapter(first, first.adapter, new Error("presentation failed"));
+    expect(coordinator.summary(first).segments.map(({ category }) => category.id)).toEqual([
+      "other:custom",
+      "read"
+    ]);
+  } finally {
+    coordinator.dispose();
+  }
+});
+
+it("retains live members through run splits, merges, repeated results, and settlement", () => {
+  const { coordinator, add, roles } = summaryFixture();
+
+  try {
+    const first = add("custom", {}, "live");
+    const second = add("custom", {}, "live");
+    const third = add("custom", {}, "live");
+    const owner = {};
+    coordinator.boundary();
+    coordinator.setBoundary(owner, second);
+    coordinator.result(second, result(), "success");
+    coordinator.result(second, result(), "success");
+    expect(roles()).toEqual(["card", "card", "card"]);
+    coordinator.setBoundary(owner, first);
+    expect(roles()).toEqual(["card", "card", "card"]);
+    coordinator.result(third, result(), "success");
+    expect(roles()).toEqual(["card", "leader", "hidden"]);
+    coordinator.setBoundary(owner);
+    expect(roles()).toEqual(["card", "card", "card"]);
+    coordinator.update(first, "queued");
+    coordinator.update(first, "executing");
+    coordinator.result(first, result("partial"), "success", true);
+    expect(roles()).toEqual(["card", "card", "card"]);
+    coordinator.settle();
+    expect(roles()).toEqual(["leader", "hidden", "hidden"]);
   } finally {
     coordinator.dispose();
   }

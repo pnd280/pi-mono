@@ -1,5 +1,5 @@
 import { AssistantMessageComponent, initTheme } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { Container, Markdown, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { assistantMessage } from "../test-fixture.ts";
@@ -118,6 +118,40 @@ it("retains Markdown transformers through streaming, invalidation, and removal",
   }
 
   expect(lines(component)).toEqual(["", "shown final"]);
+});
+
+it("bounds decoration work across unchanged redraws and refreshes width and content", () => {
+  const component = new AssistantMessageComponent(
+    assistantMessage([{ type: "text", text: "alpha beta gamma delta" }])
+  );
+  const prose = component.children
+    .flatMap((child) => (child instanceof Container ? child.children : []))
+    .find((child) => child instanceof Markdown);
+  expect(prose).toBeDefined();
+  const source = prose!.render(40);
+  const first = source[0];
+  let reads = 0;
+  Object.defineProperty(source, 0, {
+    get() {
+      reads++;
+
+      return first;
+    }
+  });
+  const release = bindAssistantPresentation(component, () => {});
+
+  try {
+    for (let frame = 0; frame < 10; frame++)
+      expect(lines(component, 40)).toEqual(["", "• alpha beta gamma delta"]);
+    expect(reads).toBeLessThanOrEqual(2);
+    expect(lines(component, 12)).toEqual(["", "• alpha beta", "  gamma", "  delta"]);
+    component.updateContent(assistantMessage([{ type: "text", text: "replacement" }]), true);
+    expect(lines(component, 40)).toEqual(["", "• replacement"]);
+    component.invalidate();
+    expect(lines(component, 40)).toEqual(["", "• replacement"]);
+  } finally {
+    release?.();
+  }
 });
 
 it("preserves later wrappers and makes retained callbacks inert on disposal", () => {

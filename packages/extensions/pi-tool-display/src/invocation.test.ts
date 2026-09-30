@@ -32,6 +32,65 @@ describe("tool presentation", () => {
     ).toBe("custom(<parameters unavailable>)");
   });
 
+  it("retains JSON spelling and borrows arguments when preparing a complete compact prefix", () => {
+    const args = Object.freeze({
+      text: 'quoted "value"\n\t\\界😀',
+      values: Object.freeze([null, false, 0, NaN, Infinity, undefined]),
+      omitted: undefined,
+      date: new Date("2025-01-02T00:00:00.000Z"),
+      nested: Object.freeze({ first: 1, second: 2 })
+    });
+    const part = invocationParts("custom", args, "invocation", 1024)[2]!;
+    expect(part.text).toBe(
+      '{"text":"quoted \\"value\\"\\n\\t\\\\界😀","values":[null,false,0,null,null,null],"date":"2025-01-02T00:00:00.000Z","nested":{"first":1,"second":2}}'
+    );
+    expect(part.truncated).toBe(false);
+    expect(args.text).toBe('quoted "value"\n\t\\界😀');
+  });
+
+  it("bounds wide and deep compact traversal and labels incomplete prefixes", () => {
+    let reads = 0;
+    const items = Array.from({ length: 1000 }, () => ({
+      get value() {
+        reads++;
+
+        return "item";
+      }
+    }));
+    const part = invocationParts("custom", { items }, "invocation", 128)[2]!;
+    expect(part.text).toContain('{"items":[{"value":"item"}');
+    expect(part.text.length).toBeLessThanOrEqual(128);
+    expect(part.truncated).toBe(true);
+    expect(reads).toBeLessThan(20);
+    let nested: unknown = "retained";
+    for (let index = 0; index < 100; index++) nested = { nested };
+    const deep = invocationParts("custom", { nested }, "invocation", 16 * 1024)[2]!;
+    expect(deep.truncated).toBe(true);
+    expect(deep.text).not.toContain("unavailable");
+    expect(invocationParts("custom", { nested }, "invocation")[2]?.text).toContain("retained");
+  });
+
+  it("bounds visits to omitted properties and retains invalid-parameter diagnostics", () => {
+    let reads = 0;
+    const args = Object.fromEntries(Array.from({ length: 1000 }, (_, index) => [index, undefined]));
+    for (const key of Object.keys(args))
+      Object.defineProperty(args, key, {
+        get() {
+          reads++;
+
+          return undefined;
+        }
+      });
+    const part = invocationParts("custom", args, "invocation", 128)[2]!;
+    expect(part.truncated).toBe(true);
+    expect(reads).toBeLessThanOrEqual(128);
+    const circular: { self?: unknown } = {};
+    circular.self = circular;
+    expect(invocationParts("custom", circular, "invocation", 128)[2]?.text).toBe(
+      "<parameters unavailable>"
+    );
+  });
+
   it("distinguishes supplied values from annotations even when they contain the same delimiters", () => {
     const parts = invocationParts(
       "grep",

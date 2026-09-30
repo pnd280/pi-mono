@@ -9,7 +9,7 @@
 - [ ] [Startup hook](../src/startup.ts): Pi and extension imports share the `SessionManager` prototype. CLI flag values are unavailable during extension factories. Initial `buildSessionContext()` runs after flags are populated but before JSON headers, extension binding, or prompts. `getHeader()` returns the live, mutable header before a fresh session file is written.
 - [ ] Pi propagates startup context-construction failures as nonzero exits. The one-shot hook is restored before forwarding or throwing; reload and replacement do not reapply the CLI flag.
 - [ ] [Parent lookup](../src/parent.ts): default session groups remain under `getAgentDir()/sessions/`; headers identify exact IDs and session cwd. Lookup must not invoke migration or modify parents.
-- [ ] [Generation](../src/auto-title/generate.ts): registry normalization, authentication, supported thinking, complete responses, safe errors, and bounded request/cache defaults; preserve configured-model validation, no fallback, and no retries.
+- [ ] [Generation](../src/auto-title/generate.ts): registry normalization, authentication, supported thinking, complete responses, safe errors, and bounded request/cache defaults; preserve configured-model validation, no fallback, and no retries. A virtual model's unknown output limit must not become a zero-token request: supply the 1,024-token title budget and let registry dispatch cap it to the routed physical model; retain any smaller known limit.
 - [ ] [Naming lifecycle](../src/auto-title/runtime.ts): one automatic attempt, branch/session/reload cancellation, manual/external name changes, and stale-result rejection.
 - [ ] [Naming adapter](../src/auto-title/index.ts): naming events and metadata-only updates in TUI, print, JSON, and RPC; no conversation messages or custom stdout. Persistence/child creation replace sessions without leaking old naming callbacks.
 
@@ -23,5 +23,7 @@
 - Compare new naming APIs with [source selection and naming policy](../README.md#automatic-session-names). Adoption must preserve text limits, explicit model choice, and request side effects.
 
 ## Validation
+
+Pi **0.99.1** package checks and offline tests passed, including API/process startup and persistence, naming lifecycle, and virtual-model requests routed to physical limits below and above the title budget. No live-provider title-quality or manual session-picker checks were run.
 
 Run [package checks](../README.md#validation). The [coverage specification](testing.md) defines unit, runtime, and installed-process checks for startup hooks, session replacement, naming, and clean protocol output. Model requests use offline fixture providers.

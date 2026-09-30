@@ -9,6 +9,7 @@ import { textPrefix, wrapRows } from "@pi-mono/libs/tui/text-budget";
 import {
   isLive,
   type DisplayCall,
+  type DisplayCode,
   type DisplayGroup,
   type HeadingVerbs,
   type InvocationPart,
@@ -23,6 +24,7 @@ import type { PreparedCard } from "./types.ts";
 
 const COMPACT_HEADING_CHARACTERS = 16 * 1024;
 const COMPACT_HEADING_ROWS = 3;
+const COMPACT_CODE_ROWS = 10;
 
 type HeadingColor = Parameters<Theme["fg"]>[0];
 
@@ -40,11 +42,17 @@ function formatParts(
   let text = "";
 
   for (const part of parts) {
-    const source = invocationPartText(part, p.context.cwd, relativeTo);
-    const prefix = textPrefix(source, remaining);
+    if (remaining <= 0) return { text, truncated: true };
+    const source =
+      part.kind === "path" ? invocationPartText(part, p.context.cwd, relativeTo) : part.text;
+    // Bound source work before terminal normalization can discard or expand it.
+    const retained = textPrefix(source.slice(0, remaining + 1), remaining);
+    const normalized = displayText(retained);
+    const prefix = textPrefix(normalized, remaining);
     if (prefix) text += style(part, prefix);
-    if (prefix.length < source.length) return { text, truncated: true };
-    remaining -= prefix.length;
+    if (part.truncated || retained.length < source.length || prefix.length < normalized.length)
+      return { text, truncated: true };
+    remaining -= Math.max(retained.length, prefix.length);
   }
 
   return { text, truncated: false };
@@ -272,10 +280,10 @@ function groupMemberLabel(p: PreparedCard): string {
   return actionVerbs.action;
 }
 
-function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: number): string[] {
+function groupHeading(group: DisplayGroup, p: PreparedCard): string[] {
   const first = group.members[0] === p.call;
   const active = first && group.members.some(isLive);
-  const marker = active && animationPhase ? " " : TUI_GLYPHS.bullet;
+  const marker = TUI_GLYPHS.bullet;
   const rows: string[] = [];
 
   if (first) {
@@ -368,7 +376,6 @@ function groupHeading(group: DisplayGroup, p: PreparedCard, animationPhase: numb
 function status(p: PreparedCard): {
   verb: string;
   actionColor: HeadingColor;
-  pending: boolean;
 } {
   const pending = p.context.isPartial;
   const actionVerbs = p.headingVerbs ?? verbs[p.adapter.family];
@@ -376,15 +383,13 @@ function status(p: PreparedCard): {
   if (pending)
     return {
       verb: compactDisplayText(actionVerbs.pending),
-      actionColor: actionColor(tone),
-      pending
+      actionColor: actionColor(tone)
     };
   const terminal = terminalStatus(p.outcome);
   if (terminal)
     return {
       verb: `${compactDisplayText(actionVerbs.action)} ${terminal.suffix}`,
-      actionColor: actionColor(tone),
-      pending
+      actionColor: actionColor(tone)
     };
   let verb = compactDisplayText(actionVerbs.complete);
   if (
@@ -396,8 +401,7 @@ function status(p: PreparedCard): {
 
   return {
     verb,
-    actionColor: actionColor(tone),
-    pending
+    actionColor: actionColor(tone)
   };
 }
 
@@ -408,7 +412,12 @@ function invocation(p: PreparedCard): { parts: InvocationPart[]; detail: Heading
     p.invocation ??
     (p.adapter.family === "invocation" && !p.showParameters
       ? [{ kind: "value" as const, text: name }]
-      : invocationParts(name, p.context.args, p.adapter.family));
+      : invocationParts(
+          name,
+          p.context.args,
+          p.adapter.family,
+          p.expanded ? Infinity : COMPACT_HEADING_CHARACTERS
+        ));
 
   const visible = parts.filter((part) => part.kind !== "parameters" || p.showParameters);
   const detail = formatParts(visible, p, (part, text) => {
@@ -427,14 +436,30 @@ function invocation(p: PreparedCard): { parts: InvocationPart[]; detail: Heading
   return { parts: visible, detail };
 }
 
-export function heading(p: PreparedCard, animationPhase: number): string[] {
-  if (p.group && !p.expanded) return groupHeading(p.group, p, animationPhase);
+function codeRows(code: DisplayCode, p: PreparedCard): string[] {
+  const detail = formatParts([{ kind: "value", text: code.text }], p, (_part, text) => text);
+  const source = detail.text.trimEnd();
+  if (!source && !detail.truncated) return [];
+  const highlighted = highlightCodeBounded(source, {
+    ...codeHighlightLimits,
+    language: code.language
+  });
+  // Blank source lines keep their row; wrapping alone would drop them.
+  const rows = highlighted
+    .split("\n")
+    .flatMap((line) => (line ? wrapRows(line, bodyWidth(p.width)) : [""]));
+
+  return previewRows(rows, p, detail, COMPACT_CODE_ROWS);
+}
+
+export function heading(p: PreparedCard): string[] {
+  if (p.group && !p.expanded) return groupHeading(p.group, p);
   const state = status(p);
-  let marker: string = p.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
-  if (state.pending && animationPhase) marker = " ";
+  const marker = p.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
   const title = `${p.theme.fg(state.actionColor, marker)} ${p.theme.fg(state.actionColor, p.theme.bold(state.verb))}`;
   const { parts, detail } = invocation(p);
   const rows = targetTitleRows(title, parts, p) ?? titleRows(title, detail, p);
+  if (p.code) rows.push(...headingContinuation(codeRows(p.code, p), p));
   if (p.showParameters && p.expanded && !["shell", "invocation"].includes(p.adapter.family))
     rows.push(
       ...headingContinuation(

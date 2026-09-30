@@ -15,12 +15,12 @@ import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { record } from "../values.ts";
 import { inspectedSource } from "./compatibility.ts";
 
-// Pi 0.87.1 updateContent creates direct Markdown children only for prose, using
+// Pi 0.99.1 updateContent creates direct Markdown children only for prose, using
 // outputPad on both sides, and one MouseRegion per nonempty consecutive thinking
 // run. Gate this private child-layout contract for both the API and installed CLI.
 const updateHashes = new Set([
   "fd0c8ba64d8a398fce1ff73d93e43bc70b66ba50e06491ddeb4826c37992a302",
-  "21231e9a625e9f97c43361e980af32dce7f77573e4edef89367971a0a521e269"
+  "d366fcccf73b9b9532c39e9d975d9816db5cbb2397a661c8347c4f665dcfeacc"
 ]);
 
 const presented = new WeakMap<AssistantMessageComponent, Set<number>>();
@@ -125,12 +125,19 @@ function markProse(component: AssistantMessageComponent): void {
     // Thinking Markdown is nested in a MouseRegion; diagnostics are Text.
     if (!(child instanceof Markdown)) return child;
 
+    let cached: { width: number; source: string[]; rows: string[] } | undefined;
+
     return {
-      invalidate: () => child.invalidate(),
+      invalidate() {
+        cached = undefined;
+        child.invalidate();
+      },
       render(width) {
         const contentWidth = Math.max(1, width - 2);
+        const source = child.render(contentWidth + padding * 2);
+        if (cached?.width === width && cached.source === source) return cached.rows;
 
-        return child.render(contentWidth + padding * 2).map((row, index) => {
+        const rows = source.map((row, index) => {
           const prefix = index === 0 ? `${TUI_GLYPHS.bullet} ` : "  ";
 
           return truncateToWidth(
@@ -139,6 +146,9 @@ function markProse(component: AssistantMessageComponent): void {
             ""
           );
         });
+        cached = { width, source, rows };
+
+        return rows;
       }
     };
   });

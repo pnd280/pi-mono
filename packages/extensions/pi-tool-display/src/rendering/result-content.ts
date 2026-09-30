@@ -4,11 +4,22 @@ import {
   highlightCodeSelection
 } from "@pi-mono/libs/tui/components/code-highlight";
 import { renderDiffBody } from "@pi-mono/libs/tui/components/diff-view";
-import { displayText, sliceTerminalText, styledOutput } from "@pi-mono/libs/tui/terminal-text";
+import {
+  compactDisplayText,
+  displayText,
+  sliceTerminalText,
+  styledOutput
+} from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { splitOutputText, type OutputText } from "@pi-mono/utils/output-text";
 
-import type { BorrowedToolResult, DisplayNotice, McpFacts, ResultTextPart } from "../contracts.ts";
+import type {
+  BorrowedToolResult,
+  DisplayNotice,
+  McpFacts,
+  NestedCall,
+  ResultTextPart
+} from "../contracts.ts";
 import { parseRetainedPatch } from "../diff.ts";
 import { stringField } from "../terminal-text.ts";
 import { record } from "../values.ts";
@@ -25,6 +36,72 @@ import type { Projection, ResultBody } from "./types.ts";
 
 // Mutable only while preparing a body; cards expose read-only measured items.
 type TreeItem = { rows: string[] };
+
+const COMPACT_NESTED_CALLS = 8;
+
+const nestedCallStatus = {
+  running: { icon: "…", color: "warning" },
+  success: { icon: "✓", color: "success" },
+  failure: { icon: "✗", color: "error" },
+  cancelled: { icon: "⊘", color: "muted" }
+} as const;
+
+function formatDuration(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+/** Cents for larger amounts, two significant digits for fractions of a cent. */
+function formatCost(cost: number): string {
+  return `$${cost >= 0.01 ? cost.toFixed(2) : cost.toPrecision(2)}`;
+}
+
+function nestedCallRows(call: NestedCall, p: Projection): string[] {
+  const width = bodyWidth(p.width);
+  const status = nestedCallStatus[call.status];
+  const fields = [
+    p.theme.fg(status.color, status.icon),
+    p.theme.fg("text", compactDisplayText(call.name))
+  ];
+  if (call.args) fields.push(p.theme.fg("muted", compactDisplayText(call.args)));
+  if (call.durationMs !== undefined)
+    fields.push(p.theme.fg("dim", formatDuration(call.durationMs)));
+  if (call.cost !== undefined && call.cost > 0)
+    fields.push(p.theme.fg("dim", formatCost(call.cost)));
+  const line = fields.join(" ");
+  if (!p.expanded) return [truncateToWidth(line, width, "…")];
+  const rows = wrapRows(line, width);
+  if (call.error !== undefined && call.error !== "")
+    for (const errorLine of displayText(call.error).split("\n"))
+      rows.push(...wrapRows(p.theme.fg("error", errorLine), width - 2).map((row) => `  ${row}`));
+
+  return rows;
+}
+
+/** Compact cards keep the latest calls; the cost total still covers every call. */
+function nestedCallItems(result: BorrowedToolResult, p: Projection): TreeItem[] {
+  const calls = p.adapter.nestedCalls?.(result);
+  if (calls === undefined || calls.length === 0) return [];
+  const shown = p.expanded ? calls : calls.slice(-COMPACT_NESTED_CALLS);
+  const rows: string[] = [];
+  if (shown.length < calls.length)
+    rows.push(
+      truncateToWidth(
+        p.theme.fg("dim", `… ${calls.length - shown.length} earlier calls (${expansionHint()})`),
+        bodyWidth(p.width),
+        "…"
+      )
+    );
+
+  for (const call of shown) rows.push(...nestedCallRows(call, p));
+  const priced = calls.filter((call) => call.cost !== undefined && call.cost > 0);
+
+  if (priced.length > 1) {
+    const total = priced.reduce((sum, call) => sum + (call.cost ?? 0), 0);
+    rows.push(...message(`Model calls: ${formatCost(total)}`, p, "muted"));
+  }
+
+  return [{ rows }];
+}
 
 export function buildGroupRows(p: Projection): string[] {
   if (!p.call || !p.result) return [];
@@ -405,8 +482,24 @@ function contentItems(result: BorrowedToolResult, p: Projection): TreeItem[] {
     result
   };
 
+  // Consecutive text blocks share one compact budget, so output split across
+  // blocks (such as one block per codemode `text()` call) previews as one stream.
+  let run: ResultTextPart[] = [];
+  let runAfterImage = false;
+
+  const flushRun = () => {
+    if (!run.length) return;
+    const rows = resultPartRows(run, p, p.adapter.family === "invocation" ? 10 : 5, {
+      empty: emptyOutputText(p)
+    });
+    if (runAfterImage) items.push({ rows });
+    else appendDetails(items, rows);
+    run = [];
+  };
+
   for (const [index, block] of result.content.entries()) {
     if (block.type === "image") {
+      flushRun();
       if (!describedImage(result.content, index, p)) items.push(...imageItems([block], p));
       continue;
     }
@@ -418,12 +511,12 @@ function contentItems(result: BorrowedToolResult, p: Projection): TreeItem[] {
       { kind: p.context.isError ? "error" : "output", text: block.text } satisfies ResultTextPart
     ];
     if (!parts.length) continue;
-    const rows = resultPartRows(parts, p, p.adapter.family === "invocation" ? 10 : 5, {
-      empty: emptyOutputText(p)
-    });
-    if (index === 0 || result.content[index - 1]?.type === "text") appendDetails(items, rows);
-    else items.push({ rows });
+    if (run.length) run.push({ kind: "output", text: "\n" });
+    else runAfterImage = result.content[index - 1]?.type === "image";
+    run.push(...parts);
   }
+
+  flushRun();
 
   if (!result.content.length && preview === undefined)
     items.push({ rows: output(emptyOutputText(p), p) });
@@ -525,10 +618,12 @@ export function buildResultBody(current: BorrowedToolResult, p: Projection): Res
 
 function resultBody(current: BorrowedToolResult, p: Projection): ResultBody {
   const annotations = notices(current, p);
+  const nested = nestedCallItems(current, p);
   if (p.adapter.family === "read" && !p.expanded && !p.context.isError && !p.context.isPartial)
-    return annotateResult(imageItems(current.content, p), annotations);
+    return annotateResult([...nested, ...imageItems(current.content, p)], annotations);
   const change = changeRows(current, p);
   const items: TreeItem[] = change.hasPatch ? [{ rows: change.rows }] : [];
+  items.push(...nested);
   const facts = p.mcp;
   if (facts)
     return {

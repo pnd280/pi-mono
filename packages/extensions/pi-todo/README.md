@@ -4,6 +4,8 @@ Session-backed todos for multi-step work, with an above-editor widget and read-o
 
 ## Usage
 
+The `todo` tool is model-only: call it directly so every mutation retains a replayable snapshot. It is unavailable through nested tool execution.
+
 The `todo` tool supports `create`, `update`, `list`, `get`, `delete`, and `clear`. Todos start `pending`. On update, `parentId: null` moves a subtree to the root. Parent status and dependencies do not control children; dependency cycles are forbidden.
 
 Deletion leaves tombstones, hidden by `list` unless `includeDeleted: true`. Todos with live descendants can be reparented but not deleted. `clear` removes everything and resets IDs. Completed todos cannot return to `pending` or `in_progress`.
@@ -16,7 +18,7 @@ Ctrl+C never cancels the browser. Opening requires a `tui.select.cancel` binding
 
 In fullscreen mode `/todos` is non-overlay and paging does not scroll the transcript. If [input routing](../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership) is unavailable, use arrow navigation.
 
-`/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session.
+`/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session. Clicking the widget also toggles it. Collapse is available only in fullscreen mode; regular mode always shows the expanded widget and rejects these commands, and the collapse preference applies again after switching to fullscreen.
 
 When collapsed, the widget contributes in-progress todo activity to the working message. Expanding it clears that contribution. `/working-message` opens the [shared ordering menu](../../libs/src/working-message/README.md#settings-menu); changes apply only when saved with Ctrl+S.
 
@@ -32,7 +34,7 @@ Set the literal `ext.pi-todo` key in Pi's global settings file or the current di
 }
 ```
 
-`collapseWidgetByDefault` defaults to `false`. A trusted project field overrides the global field. Invalid settings or failures from the [settings-file reader](../../libs/src/settings-file/README.md#behavior) are ignored. Settings reload on session start. Widget commands do not write settings.
+`collapseWidgetByDefault` defaults to `false` and affects only fullscreen mode. A trusted project field overrides the global field. Invalid settings or failures from the [settings-file reader](../../libs/src/settings-file/README.md#behavior) are ignored. Settings reload on session start. Widget commands do not write settings.
 
 Working-message ordering uses the separate [`workingMessage.order` setting](../../libs/src/working-message/README.md#persistence).
 

@@ -110,9 +110,11 @@ it("refreshes interpretation when a producer republishes a mutated result object
     const call = add(adapter, { path: "a.ts" });
     coordinator.result(call, value, "success");
     expect(coordinator.interpretation(call).outcome).toBe("success");
+    expect(coordinator.summary(call).segments[0]?.counts.failed).toBe(0);
     value.details.failed = true;
     coordinator.result(call, value, "success");
     expect(coordinator.interpretation(call).outcome).toBe("failure");
+    expect(coordinator.summary(call).segments[0]?.counts.failed).toBe(1);
   } finally {
     coordinator.dispose();
   }

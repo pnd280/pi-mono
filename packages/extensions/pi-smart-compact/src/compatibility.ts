@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import type { Api, Model } from "@earendil-works/pi-ai";
 import {
   compact,
   VERSION,
@@ -8,24 +9,30 @@ import {
   type SessionBeforeCompactEvent
 } from "@earendil-works/pi-coding-agent";
 
+// Pi does not export its virtual-model predicate from the public entry point.
+export const virtualModelApi = "pi-virtual";
+
 export type ContextSnapshot = { messages: AgentSession["agent"]["state"]["messages"] };
 
 type CompactArgs = Parameters<typeof compact>;
 
 export type DefaultCompaction = (
   preparation: CompactArgs[0],
-  model: CompactArgs[1],
-  apiKey: CompactArgs[2],
-  headers: CompactArgs[3],
+  model: Model<Api>,
   instructions: CompactArgs[4],
-  signal: CompactArgs[5],
-  env: CompactArgs[8],
+  signal: AbortSignal,
   reason: SessionBeforeCompactEvent["reason"]
 ) => ReturnType<typeof compact>;
 
 export type NativeSession = Pick<
   AgentSession,
-  "agent" | "sessionManager" | "settingsManager" | "model" | "thinkingLevel" | "subscribe"
+  | "agent"
+  | "sessionManager"
+  | "settingsManager"
+  | "modelRuntime"
+  | "model"
+  | "thinkingLevel"
+  | "subscribe"
 > & {
   _appendCustomMessage(
     message: Extract<ContextSnapshot["messages"][number], { role: "custom" }>
@@ -48,26 +55,26 @@ export type AutoCompaction = NativeSession["_runAutoCompaction"];
 
 export type ManualCompaction = AgentSession["compact"];
 
-// Reviewed Pi 0.87.1 API modules and installed bundled CLI, respectively. Never
+// Reviewed Pi 0.99.1 API modules and installed bundled CLI, respectively. Never
 // learn fingerprints from the running host: an unknown implementation must fail closed.
 const fingerprints = [
   {
     _compactBeforeNextAssistantResponse:
-      "f0f46fd6146aa61b2090cb02179a81fe77694b10b016c029438e8b4ad9d64b0f",
-    _runAutoCompaction: "4c0a463af9ffa0e3b5ce24738e1aa8b4ed18b244fe5f8758b7324518bdca2b99",
-    _runDefaultCompaction: "a3a74001d9914f0ae10d206672110817a5ffb1210ba37bdbe911ff4f349c6b1c",
+      "aaffb7a932c8ec50b67bb2f42d94d2295d37b431850fe4a9dbf2c3299f6318ca",
+    _runAutoCompaction: "f07bf873ed393f9345176b24ad80e21c123220df5bf60c0aecbf7e406ccbdf35",
+    _runDefaultCompaction: "97f694b93ba4c9aa53b9026a24e3177c4958fce2f55a48bd3b92d0b1dcff170c",
     _appendCustomMessage: "8611e9601816d650052ec466bd47ea61705c5fcb0f4e9a1cf462a0136afc4f0f",
     compact: "072f2b6ebff7b56fa5eef0f4e9614bd66fb48e7c61a673adfa77c4f89f9df433",
-    manualCompact: "cf235e168e9ca6166c26a174ef537dc64530b118fe26b597d93f3ac8487c4299"
+    manualCompact: "eca2d26b71753ef8f3713f18e8d29ee3af99fc797bfd3c6df0ba0b4ac4b9f8ff"
   },
   {
     _compactBeforeNextAssistantResponse:
-      "2c160077d3d0e9b4654c1c7c0256fca112463c494aa9e3258870d3e34c9f08a5",
-    _runAutoCompaction: "494680c7087a7e21663a22f5cada5b2b489fbd820eae56ebf4bfc62cc249bf8f",
-    _runDefaultCompaction: "809a00f74b69f7c956e4039a8e8dcdaca9d003871b3ce56524e4895f9d9b72f0",
+      "cb734ece36840ccb1a02c63471ccd1bd8eb893c195329da7a73053f012212a7e",
+    _runAutoCompaction: "89470ac522a561cd5261b1b62e73a4169899cb5e5d9a0a61ac0dcc677d0dc6fa",
+    _runDefaultCompaction: "21e5a890fc3d857b0d802ca680e3109c16ff50b94457370640d4f1d7ce9ea8c3",
     _appendCustomMessage: "7962902b977b66315b1bf64b4c695322117728bf9701116b46f59848eebcb296",
-    compact: "15622ec9429b172b7f04dc7a50b0688ad9cbe643358c5c3fa3f2c0bec9c88692",
-    manualCompact: "8d70d1bff47caffddb08ce163ff87c5322fa625630cca1a9c13008ba7b8f19ac"
+    compact: "142e5a30b99ee0c14a40f3652361756ea2f99c5f8016f83af4a8ce6966fb6d6c",
+    manualCompact: "d6b46ab807fcb112f929b51898098af63daf9441a3a0e6c418016e4cd023e29e"
   }
 ];
 
@@ -97,9 +104,9 @@ export function assertCompatible(
     })
   );
 
-  if (VERSION !== "0.87.1" || !inspected) {
+  if (VERSION !== "0.99.1" || !inspected) {
     throw new Error(
-      "pi-smart-compact requires the inspected Pi 0.87.1 compaction implementation; unsupported version or conflicting runtime patch."
+      "pi-smart-compact requires the inspected Pi 0.99.1 compaction implementation; unsupported version or conflicting runtime patch."
     );
   }
 }

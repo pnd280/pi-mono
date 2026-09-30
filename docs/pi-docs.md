@@ -2,6 +2,8 @@
 
 [Workspace development](development.md#pi-apis)
 
+These links use the workspace's installed Pi version. For installed-CLI behavior, also check the documentation and examples shipped with that CLI if its version differs.
+
 - [Main documentation](../node_modules/@earendil-works/pi-coding-agent/README.md)
 - [Extensions](../node_modules/@earendil-works/pi-coding-agent/docs/extensions.md) and [extension examples](../node_modules/@earendil-works/pi-coding-agent/examples/extensions/)
 - [TUI components](../node_modules/@earendil-works/pi-coding-agent/docs/tui.md)
@@ -14,5 +16,6 @@
 - [Adding models](../node_modules/@earendil-works/pi-coding-agent/docs/models.md)
 - [Packages](../node_modules/@earendil-works/pi-coding-agent/docs/packages.md)
 - [Environment variables](../node_modules/@earendil-works/pi-coding-agent/docs/environment-variables.md)
+- [MCP servers](../node_modules/@earendil-works/pi-coding-agent/docs/mcp.md)
 
-When changing a Pi integration, consult the relevant installed API contract and examples. Resolve links inside installed documentation relative to that document, not the workspace root.
+When changing a Pi integration, read the relevant installed API documentation and examples, including linked contracts needed by the change. Resolve links inside installed documentation relative to that document, not the workspace root.

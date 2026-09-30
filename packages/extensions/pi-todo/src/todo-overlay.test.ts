@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import type { TuiMode, TuiMouseEvent } from "@earendil-works/pi-tui";
 import { describe, it } from "vite-plus/test";
 
 import { WIDGET_KEY } from "./constants.ts";
@@ -8,7 +9,8 @@ import {
   TodoOverlay,
   type TodoOverlayUI,
   type TodoWidgetFactory,
-  type TodoWidgetTheme
+  type TodoWidgetTheme,
+  type TodoWidgetTui
 } from "./todo-overlay.ts";
 import type { Task } from "./types.ts";
 
@@ -43,6 +45,25 @@ function todoSource(initial: readonly Task[] = []) {
   };
 }
 
+const fullscreenTui: TodoWidgetTui = { mode: "fullscreen", requestRender() {} };
+
+function click(button: TuiMouseEvent["button"] = "left"): TuiMouseEvent {
+  return {
+    type: "click",
+    button,
+    x: 0,
+    y: 0,
+    screenX: 0,
+    screenY: 0,
+    width: 80,
+    height: 1,
+    shift: false,
+    alt: false,
+    ctrl: false,
+    clickCount: 1
+  };
+}
+
 describe("todo overlay", () => {
   it("shows a widget above the editor only while live todos exist", () => {
     const source = todoSource();
@@ -62,7 +83,7 @@ describe("todo overlay", () => {
     assert.ok(registration.content);
     assert.match(
       registration
-        .content({ requestRender() {} }, theme)
+        .content({ mode: "fullscreen", requestRender() {} }, theme)
         .render(80)
         .join("\n"),
       /Visible/u
@@ -85,7 +106,7 @@ describe("todo overlay", () => {
     overlay.update();
     const factory = widgetCalls.at(-1)?.content;
     assert.ok(factory);
-    const component = factory({ requestRender() {} }, theme);
+    const component = factory({ mode: "fullscreen", requestRender() {} }, theme);
     assert.doesNotMatch(component.render(80).join("\n"), /Visible later/u);
 
     overlay.dispose();
@@ -97,6 +118,57 @@ describe("todo overlay", () => {
     assert.equal(workingMessages.length, workingMessagesAtDispose);
   });
 
+  it("collapses only in fullscreen mode and follows runtime mode switches", () => {
+    const source = todoSource([{ id: 1, subject: "Active", status: "in_progress" }]);
+    const workingMessages: Array<string | undefined> = [];
+    const calls: WidgetCall[] = [];
+    const tui: { mode: TuiMode; requestRender(): void } = {
+      mode: "regular",
+      requestRender() {}
+    };
+    const overlay = new TodoOverlay(source.controller);
+    overlay.setUICtx(createUi(calls, workingMessages));
+    overlay.setCollapsed(true);
+    const factory = calls.at(-1)?.content;
+    assert.ok(factory);
+    const component = factory(tui, theme);
+
+    assert.equal(overlay.canCollapse(), false);
+    assert.match(component.render(80).join("\n"), /Active/u);
+    assert.equal(workingMessages.at(-1), undefined);
+
+    tui.mode = "fullscreen";
+    component.invalidate();
+    assert.equal(overlay.canCollapse(), true);
+    assert.doesNotMatch(component.render(80).join("\n"), /Active/u);
+    assert.equal(workingMessages.at(-1), "Active");
+
+    tui.mode = "regular";
+    component.invalidate();
+    assert.match(component.render(80).join("\n"), /Active/u);
+    assert.equal(workingMessages.at(-1), undefined);
+  });
+
+  it("toggles collapse on a primary click in fullscreen mode", () => {
+    const source = todoSource([{ id: 1, subject: "Clickable", status: "pending" }]);
+    const calls: WidgetCall[] = [];
+    const overlay = new TodoOverlay(source.controller);
+    overlay.setUICtx(createUi(calls));
+    overlay.update();
+    const factory = calls.at(-1)?.content;
+    assert.ok(factory);
+    const component = factory(fullscreenTui, theme);
+    const handleMouse = component.handleMouse?.bind(component);
+    assert.ok(handleMouse);
+
+    assert.equal(handleMouse(click("right")), undefined);
+    assert.match(component.render(80).join("\n"), /Clickable/u);
+    assert.deepEqual(handleMouse(click()), { handled: true });
+    assert.doesNotMatch(component.render(80).join("\n"), /Clickable/u);
+    assert.deepEqual(handleMouse(click()), { handled: true });
+    assert.match(component.render(80).join("\n"), /Clickable/u);
+  });
+
   it("updates a widget constructed synchronously by the host", () => {
     const source = todoSource([{ id: 1, subject: "Initial", status: "pending" }]);
     let rendered: string[] = [];
@@ -105,7 +177,7 @@ describe("todo overlay", () => {
       setWidget(_key, content) {
         if (content === undefined) return;
         const component = content(
-          { requestRender: () => (rendered = component.render(80)) },
+          { mode: "fullscreen", requestRender: () => (rendered = component.render(80)) },
           theme
         );
         rendered = component.render(80);
@@ -133,7 +205,7 @@ describe("todo overlay", () => {
     const restored = calls.at(-1)?.content;
     assert.ok(restored);
     assert.match(
-      restored({ requestRender() {} }, theme)
+      restored({ mode: "fullscreen", requestRender() {} }, theme)
         .render(80)
         .join("\n"),
       /Visible/u
@@ -162,12 +234,15 @@ describe("todo overlay", () => {
     const currentFactory = calls[2]?.content;
     assert.ok(currentFactory);
     let staleRenderRequests = 0;
-    staleFactory({ requestRender: () => (staleRenderRequests += 1) }, theme);
+    staleFactory({ mode: "fullscreen", requestRender: () => (staleRenderRequests += 1) }, theme);
     overlay.update();
     assert.equal(staleRenderRequests, 0);
 
     let currentRenderRequests = 0;
-    currentFactory({ requestRender: () => (currentRenderRequests += 1) }, theme);
+    currentFactory(
+      { mode: "fullscreen", requestRender: () => (currentRenderRequests += 1) },
+      theme
+    );
     overlay.update();
     assert.equal(currentRenderRequests, 1);
   });
@@ -187,13 +262,13 @@ describe("todo overlay", () => {
     ]);
     const workingMessages: Array<string | undefined> = [];
     const overlay = new TodoOverlay(source.controller);
-    overlay.setUICtx(createUi([], workingMessages));
+    overlay.setUICtx(createUi([], workingMessages, fullscreenTui));
 
     overlay.update();
-    assert.deepEqual(workingMessages, [undefined]);
+    assert.deepEqual(workingMessages, [undefined, undefined]);
 
     overlay.setCollapsed(true);
-    assert.deepEqual(workingMessages, [undefined, "Working safely (+2 more)"]);
+    assert.deepEqual(workingMessages, [undefined, undefined, "Working safely (+2 more)"]);
 
     source.update((tasks) =>
       tasks.map((task) =>
@@ -231,7 +306,7 @@ describe("todo overlay", () => {
     const widgetCalls: WidgetCall[] = [];
     const workingMessages: Array<string | undefined> = [];
     const overlay = new TodoOverlay(source.controller);
-    overlay.setUICtx(createUi(widgetCalls, workingMessages));
+    overlay.setUICtx(createUi(widgetCalls, workingMessages, fullscreenTui));
     overlay.setCollapsed(true);
     assert.equal(workingMessages.at(-1), "First active");
 
@@ -362,13 +437,16 @@ describe("todo overlay", () => {
   });
 });
 
+/** Records registrations; with a TUI, constructs the widget synchronously like Pi does. */
 function createUi(
   calls: WidgetCall[],
-  workingMessages: Array<string | undefined> = []
+  workingMessages: Array<string | undefined> = [],
+  tui?: TodoWidgetTui
 ): TodoOverlayUI {
   return {
     setWidget(key, content, options) {
       calls.push({ key, content, options });
+      if (tui && content) content(tui, theme);
     },
     setActivity(message) {
       workingMessages.push(message);

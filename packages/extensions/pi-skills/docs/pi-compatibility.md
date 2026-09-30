@@ -15,4 +15,6 @@
 
 ## Validation
 
+Pi **0.99.1** package checks, offline host input tests, and real-editor acceptance tests passed without runtime changes. Public input/autocomplete composition remains compatible. Manual terminal checks were not run.
+
 Use [package and offline terminal checks](../README.md#validation). Real-editor acceptance and installed-host input tests cover behavior that provider-only fixtures cannot establish.

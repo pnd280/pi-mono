@@ -54,10 +54,12 @@ function headerRows(
   label: string,
   file: string | undefined,
   width: number,
+  expanded: boolean,
   hasChildren: boolean,
   theme: NoticeTheme
 ): string[] {
-  const title = `${theme.fg("accent", TUI_GLYPHS.bullet)} ${theme.fg("accent", theme.bold(label))}`;
+  const marker = expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
+  const title = `${theme.fg("accent", marker)} ${theme.fg("accent", theme.bold(label))}`;
   if (!file) return new Text(title, 0, 0).render(width);
   const indent = visibleWidth(title) + 1;
   const inline = width - indent >= 4;
@@ -115,7 +117,7 @@ export function createNoticeRenderer() {
           else if (!explanation)
             child = new Text(theme.fg("dim", "Empty instruction file."), 0, 0).render(innerWidth);
           const hasChildren = expansion.expanded && child.length > 0;
-          const lines = headerRows(label, file, width, hasChildren, theme);
+          const lines = headerRows(label, file, width, expansion.expanded, hasChildren, theme);
           headerHeight = lines.length;
           const items: TreeItem[] = [];
 

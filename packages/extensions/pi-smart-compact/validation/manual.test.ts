@@ -228,11 +228,8 @@ it.each(cases)(
             await Reflect.apply(summarize, runtime.session, [
               event.preparation,
               faux.getModel(),
-              undefined,
-              undefined,
               instructions,
               unrelated.signal,
-              undefined,
               "manual"
             ]);
             assert.ok(

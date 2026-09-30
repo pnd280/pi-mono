@@ -2,9 +2,15 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { fauxToolCall, type AssistantMessageEvent } from "@earendil-works/pi-ai";
+import {
+  fauxAssistantMessage,
+  fauxProvider,
+  fauxToolCall,
+  type AssistantMessageEvent
+} from "@earendil-works/pi-ai";
 import {
   createAgentSession,
+  createCodemodeExtension,
   createReadToolDefinition,
   createSyntheticSourceInfo,
   CustomMessageComponent,
@@ -20,6 +26,7 @@ import {
   type AgentSessionRuntime,
   type AgentSessionEvent,
   type ExtensionAPI,
+  type InlineExtension,
   type ExtensionContext
 } from "@earendil-works/pi-coding-agent";
 import {
@@ -48,7 +55,7 @@ type LookupSession = Pick<AgentSession, "getAllTools" | "settingsManager" | "ses
   getToolDefinition: (name: string) => RenderDefinition;
 };
 
-// Pi 0.87.1's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 0.99.1's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: LookupSession }, name: string) => RenderDefinition;
@@ -61,7 +68,9 @@ function lookupSession(name = "read", source = "builtin"): LookupSession {
     settingsManager: SettingsManager.inMemory(),
     sessionManager: SessionManager.inMemory("/tmp"),
     getToolDefinition: () => definition,
-    getAllTools: () => [{ ...definition, sourceInfo: createSyntheticSourceInfo(name, { source }) }]
+    getAllTools: () => [
+      { ...definition, exposure: "direct", sourceInfo: createSyntheticSourceInfo(name, { source }) }
+    ]
   };
 }
 
@@ -100,7 +109,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 0.87.1's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 0.99.1's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as Host & {
     ui: TUI;
@@ -165,7 +174,8 @@ async function withSession(
     assertNoRegistration: () => void;
   }) => Promise<void>,
   displayConfiguration?: unknown,
-  baseToolsOverride?: ConstructorParameters<typeof AgentSession>[0]["baseToolsOverride"]
+  baseToolsOverride?: ConstructorParameters<typeof AgentSession>[0]["baseToolsOverride"],
+  builtinExtensions: readonly InlineExtension[] = []
 ): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "pi-tool-display-"));
   const agentDir = join(directory, "agent");
@@ -204,7 +214,15 @@ async function withSession(
       noPromptTemplates: true,
       noThemes: true,
       noContextFiles: true,
-      extensionFactories
+      // Built-ins load through their `builtin:<name>` paths, which give their tools builtin provenance.
+      additionalExtensionPaths: builtinExtensions.map(({ name }) => `builtin:${name}`),
+      // Pi snapshots the factory list; this fixture deliberately changes registrations on reload.
+      extensionFactories: [
+        ...builtinExtensions,
+        (pi) => {
+          for (const factory of extensionFactories) factory(pi);
+        }
+      ]
     });
     await resourceLoader.reload();
     expect(resourceLoader.getExtensions().errors).toEqual([]);
@@ -2961,6 +2979,121 @@ it.each(["summary", "compact"] as const)(
     );
   }
 );
+
+it("keeps nested codemode calls in the built-in parent card without duplicate summaries or persisted child facts", async () => {
+  await withSession(
+    async ({ session }) => {
+      expect(session.getAllTools().find((tool) => tool.name === "codemode")?.sourceInfo.path).toBe(
+        "builtin:codemode"
+      );
+      const view = host.getRegisteredToolDefinition.call({ session }, "codemode");
+      expect(view?.renderShell).toBe("self");
+      session.setActiveToolsByName([...session.getActiveToolNames(), "codemode"]);
+      const faux = fauxProvider({ provider: "display-nested", models: [{ id: "offline" }] });
+      session.modelRuntime.registerNativeProvider(faux.provider);
+      await session.modelRuntime.refresh({ allowNetwork: false });
+      await session.setModel(faux.getModel());
+      await writeFile(join(session.sessionManager.getCwd(), "nested.txt"), "original\n");
+      faux.setResponses([
+        fauxAssistantMessage([
+          fauxToolCall(
+            "codemode",
+            {
+              code: 'await tools.read({path:"nested.txt"}); await tools.edit({path:"nested.txt", edits:[{oldText:"original",newText:"changed"}]}); await tools.write({path:"created.txt",content:"created"}); const result = await tools.bash({command:"printf nested-output"}); text(result.output);'
+            },
+            { id: "parent" }
+          )
+        ]),
+        fauxAssistantMessage("done")
+      ]);
+      const tui = interactiveHost(session);
+      let pending = Promise.resolve();
+      const events: AgentSessionEvent[] = [];
+      const unsubscribe = session.subscribe((event) => {
+        events.push(event);
+        if (
+          [
+            "message_start",
+            "message_update",
+            "message_end",
+            "tool_execution_start",
+            "tool_execution_update",
+            "tool_execution_end",
+            "agent_end"
+          ].includes(event.type)
+        )
+          pending = pending.then(() => tui.handleEvent(event));
+      });
+
+      try {
+        await session.bindExtensions({ mode: "tui" });
+        tui.renderSessionItems([]);
+        await session.prompt("Run nested tools");
+        await pending;
+        const children = events.filter(
+          (event) => event.type === "tool_execution_end" && event.parentToolCallId === "parent"
+        );
+        expect(children).toHaveLength(4);
+        expect(
+          children.every((event) => event.type === "tool_execution_end" && !event.isError)
+        ).toBe(true);
+        expect(await readFile(join(session.sessionManager.getCwd(), "nested.txt"), "utf8")).toBe(
+          "changed\n"
+        );
+        const branch = session.sessionManager.getBranch();
+        expect(
+          branch.filter((entry) => entry.type === "message" && entry.message.role === "toolResult")
+        ).toHaveLength(1);
+        expect(
+          branch.filter((entry) => entry.type === "custom" && entry.customType === METADATA_TYPE)
+        ).toHaveLength(0);
+
+        for (const replay of [false, true]) {
+          if (replay) {
+            tui.chatContainer.clear();
+            tui.renderSessionEntries(session.sessionManager.buildContextEntries());
+          }
+
+          expect(
+            tui.chatContainer.children.filter((child) => child instanceof ToolExecutionComponent)
+          ).toHaveLength(1);
+          // The script counts once; its nested calls never become transcript calls.
+          const summary = transcriptText(tui);
+          expect(summary).toContain("Ran 1 script");
+          expect(summary).not.toMatch(
+            /Read \d+ files?|ran \d+ commands?|edited|created|• Explored/
+          );
+        }
+
+        tui.toggleToolOutputExpansion?.();
+        const card = transcriptText(tui);
+        for (const row of [
+          "• Ran script",
+          "✓ read",
+          "✓ edit",
+          "✓ write",
+          "✓ bash",
+          "nested-output"
+        ])
+          expect(card).toContain(row);
+        expect(card).not.toContain("Script completed");
+      } finally {
+        unsubscribe();
+        tui.footerDataProvider.dispose();
+      }
+    },
+    { collapsedMode: "summary" },
+    undefined,
+    [
+      {
+        name: "codemode",
+        factory: createCodemodeExtension({ mode: "on" }),
+        builtin: true,
+        replaceable: true
+      }
+    ]
+  );
+});
 
 it("starts verbose with Pi's verbose startup option", async () => {
   await withSession(

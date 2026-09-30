@@ -16,7 +16,7 @@ Discovery stays strictly below the session's working directory. Each addressed d
 4. `CLAUDE.md`
 5. `CLAUDE.MD`
 
-A file access starts at its parent; a directory access includes that directory. Scope follows the requested lexical path, not symlink-target ancestors. Direct external paths are ignored. Exact instruction-file read attempts are recorded as metadata rather than injecting a second copy, even if the tool fails.
+A file access starts at its parent; a directory access includes that directory. Scope follows the requested lexical path, not symlink-target ancestors. Direct external paths are ignored. Direct instruction-file read attempts are recorded as metadata rather than injecting a second copy, even if the tool fails. Nested calls, including codemode children, contribute scope but never suppress instruction delivery: their parent may hide the read output.
 
 For supported tool inputs, Bash inference limits, and direct-read precedence, see [input discovery](docs/design.md#input-discovery). For compaction, branching, and reload behavior, see [session lifetime](docs/design.md#session-lifetime).
 

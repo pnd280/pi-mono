@@ -6,7 +6,7 @@ Follow [display conventions](conventions.md). Resolvers automatically select ver
 
 ## Add an adapter
 
-1. Create `src/adapters/<extension-package>/index.ts` using the registering extension's full package name, including its scope. For example, use `src/adapters/@ff-labs/pi-fff/index.ts`.
+1. Create `src/adapters/<extension-package>/index.ts` using the registering extension's full package name, including its scope. For example, use `src/adapters/@ff-labs/pi-fff/index.ts`. Pi's built-in extensions use `src/adapters/builtin/<extension-name>/`, matching their `builtin:<extension-name>` source path.
 2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts); verify provenance and the [required structural contract](#recognize-tool-contracts), not names alone. Return `undefined` for unsupported definitions.
 3. Colocate [Zod schemas](../../../../docs/development.md#runtime-validation), presentation, and tests. Use `supports(args, result)` to reject uninterpretable CLI input; before results exist, `exploration` must reject unparseable partial arguments.
 4. Document compatibility, contracts, display behavior, limitations, and extension-specific validation in the adapter's `README.md`.
@@ -54,4 +54,4 @@ The resolver list and `selectAdapter` are host-internal; no public registration 
 
 ## Built-in adapters
 
-See the [native contract](../src/adapters/native/README.md) or the extension-specific contracts for [FFF](../src/adapters/@ff-labs/pi-fff/README.md), [MCP](../src/adapters/pi-mcp-adapter/README.md), [todo](../src/adapters/pi-todo/README.md), [selective read](../src/adapters/pi-selective-read/README.md), and [smart compact](../src/adapters/pi-smart-compact/README.md). The [resolver list](../src/host/selection.ts) is authoritative for automatic tool selection; [nested-instruction messages](../src/adapters/pi-nested-instructions/README.md) use a separate registration path.
+See the [native contract](../src/adapters/native/README.md) or the extension-specific contracts for [FFF](../src/adapters/@ff-labs/pi-fff/README.md), [MCP](../src/adapters/pi-mcp-adapter/README.md), [todo](../src/adapters/pi-todo/README.md), [selective read](../src/adapters/pi-selective-read/README.md), [smart compact](../src/adapters/pi-smart-compact/README.md), and Pi's built-in [codemode](../src/adapters/builtin/codemode/README.md), [MCP](../src/adapters/builtin/mcp/README.md), and [tool search](../src/adapters/builtin/tool-search/README.md). The [resolver list](../src/host/selection.ts) is authoritative for automatic tool selection; [nested-instruction messages](../src/adapters/pi-nested-instructions/README.md) use a separate registration path.

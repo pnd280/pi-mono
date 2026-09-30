@@ -1,15 +1,13 @@
 import { fauxToolCall, validateToolArguments } from "@earendil-works/pi-ai";
-import { createReadToolDefinition, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { createReadToolDefinition } from "@earendil-works/pi-coding-agent";
+import { createToolContext } from "@pi-mono/libs/validation/tool-context";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import register from "../index.ts";
 import { sourceResult, type ReadResult } from "./result.ts";
 import { createSelectiveReadTool, type SelectiveReadParams } from "./tool.ts";
 
-const readContext: Pick<ExtensionContext, "cwd"> = { cwd: "/session" };
-// The native read adapter consumes cwd and model, not UI or session APIs.
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-const context = readContext as ExtensionContext;
+const context = await createToolContext("/session");
 
 function fixture(source = "before\nalpha\nbeta\nafter\n") {
   const readFile = vi.fn(async () => Buffer.from(source));

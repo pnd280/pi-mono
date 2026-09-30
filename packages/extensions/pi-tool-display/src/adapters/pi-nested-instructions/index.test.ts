@@ -90,7 +90,7 @@ it.each(["loaded", "updated", "removed"] as const)(
     expect(rows[0]).toContain(action === "removed" ? "src" : "src/AGENTS.md");
     expect(rows[0]).not.toMatch(/nested instructions from|supersedes|no longer apply/);
     const expanded = render(message, { ...options, expanded: true }, theme).render(100);
-    expect(expanded[0]).toMatch(/^• /);
+    expect(expanded[0]).toMatch(/^▾ /);
     // Explanations continue the heading; only the instruction body is a branch.
     const first = { loaded: /^  └ /, updated: /^  │ Replaces/, removed: /^ {4}The earlier/ };
     expect(expanded[1]).toMatch(first[action]);
@@ -118,12 +118,22 @@ it("toggles the clicked header, retains its state across rebuilds, and follows g
   const other = render(notice(), options, theme);
   component.render(100);
   expect(component.handleMouse(click)).toEqual({ handled: true });
-  expect(component.render(100).join("\n")).toContain("Project rules");
+  const expanded = component.render(100);
+  expect(expanded[0]).toMatch(/^▾ /);
+  expect(expanded.join("\n")).toContain("Project rules");
   expect(other.render(100).join("\n")).not.toContain("Project rules");
   component.invalidate();
-  expect(render(message, options, theme).render(100).join("\n")).toContain("Project rules");
-  render(message, { ...options, expanded: true }, theme);
-  expect(render(message, options, theme).render(100).join("\n")).not.toContain("Project rules");
+  const rebuilt = render(message, options, theme);
+  expect(rebuilt.render(100)[0]).toMatch(/^▾ /);
+  expect(rebuilt.render(100).join("\n")).toContain("Project rules");
+  expect(rebuilt.handleMouse(click)).toEqual({ handled: true });
+  const collapsed = rebuilt.render(100);
+  expect(collapsed[0]).toMatch(/^• /);
+  expect(collapsed.join("\n")).not.toContain("Project rules");
+  expect(render(message, { ...options, expanded: true }, theme).render(100)[0]).toMatch(/^▾ /);
+  const globallyCollapsed = render(message, options, theme).render(100);
+  expect(globallyCollapsed[0]).toMatch(/^• /);
+  expect(globallyCollapsed.join("\n")).not.toContain("Project rules");
 });
 
 it("does not toggle on body selection, scrolling, dragging, or other mouse buttons", () => {
@@ -149,7 +159,7 @@ it.each([false, true])(
     const component = renderer()(notice("loaded", file), { expanded, outputPad: 3 }, theme);
     const rows = component.render(24);
     expect(rows.length).toBeGreaterThan(1);
-    expect(rows[0]).toMatch(/^• /);
+    expect(rows[0]).toMatch(expanded ? /^▾ / : /^• /);
     expect(rows.slice(1).every((row) => !row.trim() || row.startsWith("  "))).toBe(true);
     expect(rows.join("").replace(/[\s│]/g, "")).toContain(file);
     expect(rows[1]).toMatch(expanded ? /^  │ {6}/ : /^ {9}/);

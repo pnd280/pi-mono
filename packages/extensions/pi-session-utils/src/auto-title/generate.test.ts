@@ -40,7 +40,7 @@ async function fixture() {
   };
   faux.setResponses([fauxAssistantMessage("Fix token expiry")]);
 
-  return { faux, model, stream, auth, request, controller };
+  return { faux, model, stream, auth, request, controller, runtime };
 }
 
 it("sends the configured model, text, thinking, and request budgets through Pi's registry", async () => {
@@ -90,6 +90,31 @@ it("sends the configured model, text, thinking, and request budgets through Pi's
   expect(stream.mock.calls[0]![1].tools ?? []).toEqual([]);
   expect(model).toEqual(originalModel);
 });
+
+it.each([512, 16384])(
+  "caps virtual title requests to the routed model's %i-token limit",
+  async (limit) => {
+    const { request, model, stream, runtime } = await fixture();
+    model.maxTokens = limit;
+    runtime.registerVirtualModel({
+      provider: "title-fixture",
+      id: "router",
+      name: "Title router",
+      route: () => ({ model, thinkingLevel: "off" })
+    });
+    await runtime.refresh({ allowNetwork: false });
+    expect(request.registry.find("title-fixture", "router")?.maxTokens).toBe(0);
+    expect(
+      await generateTitle({
+        ...request,
+        config: { model: "title-fixture/router", thinkingLevel: "off" }
+      })
+    ).toBe("Fix token expiry");
+    expect(stream).toHaveBeenCalledOnce();
+    expect(stream.mock.calls[0]?.[0]).toBe(model);
+    expect(stream.mock.calls[0]?.[2]?.maxTokens).toBe(Math.min(limit, 1024));
+  }
+);
 
 it("requests thinking off without inheriting the active model's effort", async () => {
   const { request, stream } = await fixture();

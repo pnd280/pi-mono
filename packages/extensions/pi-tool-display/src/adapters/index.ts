@@ -18,12 +18,14 @@ export { nativeAdapter } from "./native/index.ts";
 
 export type {
   BorrowedToolResult,
+  DisplayCode,
   DisplayNotice,
   ExplorationItem,
   ExplorationScope,
   HeadingVerbs,
   InvocationPart,
   McpFacts,
+  NestedCall,
   Outcome,
   ResultSummary,
   ResultTextContext,

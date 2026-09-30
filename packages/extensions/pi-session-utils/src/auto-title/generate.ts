@@ -68,7 +68,8 @@ async function completeTitle({ config, registry, source, signal }: GenerationReq
       signal,
       timeoutMs,
       maxRetries: 0,
-      maxTokens: Math.min(model.maxTokens, maxOutputTokens),
+      // Virtual models can have no pre-route limit; Pi caps this budget after routing.
+      maxTokens: model.maxTokens > 0 ? Math.min(model.maxTokens, maxOutputTokens) : maxOutputTokens,
       cacheRetention: "none",
       sessionId: uuidv7()
     })

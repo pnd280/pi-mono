@@ -8,6 +8,7 @@ export function selectiveReadToolInfo(): ToolInfo {
 
   return {
     name: "read",
+    exposure: "direct",
     description: "Read with a source selection",
     parameters: Type.Object({
       ...native.parameters.properties,

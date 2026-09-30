@@ -36,6 +36,7 @@ Validation-only entry points:
 | [validation/pi-process](src/validation/pi-process/README.md)               | Private workspace directories and isolated launch configuration |
 | [validation/provider](src/validation/provider/README.md)                   | Scripted assistant messages and event streams                   |
 | [validation/terminal-launcher](src/validation/terminal-launcher/README.md) | Interactive fixture launches and exit status                    |
+| [validation/tool-context](src/validation/tool-context/README.md)           | Complete native tool contexts for isolated unit fixtures        |
 
 ## Configuration
 

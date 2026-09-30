@@ -67,6 +67,8 @@ type Boundary = {
 
 type MutableRun = {
   members: MutableCall[];
+  liveMembers: number;
+  summary?: RunSummary;
   opened: boolean;
   /** The agent ended after this run's last member. */
   closed: boolean;
@@ -185,8 +187,8 @@ export class TranscriptCoordinator implements TranscriptView {
       this.appendGroup(call, previous, grouping);
     }
 
-    this.appendRun(call, previous);
     if (isLive(call)) this.activeCalls.add(call);
+    this.appendRun(call, previous);
     this.schedule();
 
     return call;
@@ -287,6 +289,8 @@ export class TranscriptCoordinator implements TranscriptView {
     const cached = this.interpretations.get(call);
     if (cached?.inputs.every((input, index) => Object.is(input, inputs[index])))
       return cached.value;
+    const run = this.runs.get(call.key);
+    if (run) delete run.summary;
     const value = interpret(
       {
         call,
@@ -326,15 +330,22 @@ export class TranscriptCoordinator implements TranscriptView {
     const notices = this.notices.get(call.key) ?? [];
     notices.push(notice);
     this.notices.set(call.key, notices);
+    const run = this.runs.get(call.key);
+    if (run) delete run.summary;
     // Refresh the cached line and any newly available collapse controls.
-    for (const member of this.runs.get(call.key)?.members ?? [call]) this.invalidate(member);
+    for (const member of run?.members ?? [call]) this.invalidate(member);
   }
   summary(call: DisplayCall): RunSummary {
-    return buildRunSummary(
-      this.runs.get(call.key)?.members ?? [call],
+    const run = this.runs.get(call.key);
+    if (run?.summary) return run.summary;
+    const summary = buildRunSummary(
+      run?.members ?? [call],
       (member) => this.interpretation(member),
       (member) => this.notices.get(member.key) ?? []
     );
+    if (run) run.summary = summary;
+
+    return summary;
   }
   /** Only ended runs collapse; live runs render compact cards. */
   summaryRole(call: DisplayCall): SummaryRole | undefined {
@@ -549,11 +560,14 @@ export class TranscriptCoordinator implements TranscriptView {
       this.invalidate(call);
       const first = this.groups.get(call.key)?.members[0];
       if (first && first !== call && !first.expanded) this.invalidate(first);
-      if (isLive(call)) this.activeCalls.add(call);
+      const live = isLive(call);
+      const delta = Number(live) - Number(this.activeCalls.has(call));
+      if (live) this.activeCalls.add(call);
       else this.activeCalls.delete(call);
       const run = this.runs.get(call.key);
 
       if (run) {
+        run.liveMembers += delta;
         this.refreshEnded(run);
         this.invalidateLeader(run, call);
       }
@@ -573,7 +587,7 @@ export class TranscriptCoordinator implements TranscriptView {
     if (run && leader && leader !== except && this.summarized(run)) this.invalidate(leader);
   }
   private newRun(): MutableRun {
-    return { members: [], opened: false, closed: false, ended: false };
+    return { members: [], liveMembers: 0, opened: false, closed: false, ended: false };
   }
   private appendRun(call: MutableCall, previous: string | undefined): void {
     const before = previous === undefined ? undefined : this.runs.get(previous);
@@ -581,9 +595,12 @@ export class TranscriptCoordinator implements TranscriptView {
       before && previous !== undefined && !this.separated(previous, "run") ? before : undefined;
     const current = run ?? this.newRun();
     current.members.push(call);
+    current.liveMembers += Number(this.activeCalls.has(call));
+    delete current.summary;
     current.closed = false;
     this.runs.set(call.key, current);
     this.refreshEnded(current);
+    this.invalidateLeader(current, call);
   }
   /**
    * A run ends once no member is live and nothing more can join it: a run boundary
@@ -593,7 +610,7 @@ export class TranscriptCoordinator implements TranscriptView {
     const last = run.members.at(-1);
     const ended =
       !!last &&
-      !run.members.some(isLive) &&
+      run.liveMembers === 0 &&
       (run.closed || this.separated(last.key, "run") || last.origin === "historical");
     if (ended === run.ended) return;
     const summarized = this.summarized(run);
@@ -667,6 +684,10 @@ export class TranscriptCoordinator implements TranscriptView {
 
       if (run !== old) {
         run.members = members;
+        run.liveMembers = members.reduce(
+          (count, member) => count + Number(this.activeCalls.has(member)),
+          0
+        );
         run.opened = members.some((member) => previous.get(member.key)?.opened);
         const last = members.at(-1);
         run.closed = !!(last && previous.get(last.key)?.closed);

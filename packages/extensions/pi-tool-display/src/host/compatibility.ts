@@ -14,7 +14,7 @@ import type { DisplayMode } from "../contracts.ts";
 /** Last selected mode per interactive host; survives rebinding and extension reloads. */
 export const hostMode = Symbol.for("pi-tool-display.mode");
 
-// Private Pi 0.87.1 TUI contracts. Native construction belongs to libs/native-tools.
+// Private Pi 0.99.1 TUI contracts. Native construction belongs to libs/native-tools.
 export type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
 export interface Host {
@@ -41,7 +41,7 @@ export interface Host {
   switchTuiMode?: (this: Host, ...args: unknown[]) => boolean;
 }
 
-// Pi 0.87.1: toggleToolOutputExpansion only negates toolOutputExpanded through
+// Pi 0.99.1: toggleToolOutputExpansion only negates toolOutputExpanded through
 // setToolsExpanded, which updates the header, loaded resources, and chat rows, then
 // shows its status. Mode cycling depends on both bodies; recheck on Pi upgrades.
 // Hashes cover the unbundled API and the installed CLI's minified build.
@@ -73,7 +73,7 @@ export function modeHooksCompatible(host: Host): boolean {
   );
 }
 
-// Pi 0.87.1: a self-rendered row renders a margin row, selfRenderHeight renderer
+// Pi 0.99.1: a self-rendered row renders a margin row, selfRenderHeight renderer
 // rows, then image rows, and handleMouse subtracts that margin before routing to
 // the renderer slots. Row chrome rewrites both; recheck on Pi upgrades.
 const rowContractHashes = {
@@ -100,7 +100,7 @@ export function rowContractCompatible(
 export const hostHook = Symbol.for("pi-tool-display.hostIntegration");
 
 export function interactivePrototype(): Host & { [hostHook]?: () => void } {
-  // Pi 0.87.1 private methods are checked before installing any wrapper.
+  // Pi 0.99.1 private methods are checked before installing any wrapper.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return InteractiveMode.prototype as unknown as Host & { [hostHook]?: () => void };
 }

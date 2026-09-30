@@ -7,7 +7,11 @@ import type { AutocompleteProvider } from "@earendil-works/pi-tui";
 import { browserLayout } from "@pi-mono/libs/tui/components/browser";
 import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
 
-import { ERR_REQUIRES_INTERACTIVE, ERR_TODOS_USAGE } from "./constants.ts";
+import {
+  ERR_COLLAPSE_REQUIRES_FULLSCREEN,
+  ERR_REQUIRES_INTERACTIVE,
+  ERR_TODOS_USAGE
+} from "./constants.ts";
 import type { TodoController } from "./controller.ts";
 import { formatTodosCommandOutput } from "./format.ts";
 import type { TodoOverlay } from "./todo-overlay.ts";
@@ -104,7 +108,7 @@ export async function runTodosCommand(
   controller: Pick<TodoController, "getTodos">,
   options: {
     customViewHost: TodosCustomViewHost;
-    widgetStateHost: Pick<TodoOverlay, "toggleCollapsed" | "setCollapsed">;
+    widgetStateHost: Pick<TodoOverlay, "canCollapse" | "toggleCollapsed" | "setCollapsed">;
     writeOutput?: (text: string) => void;
   }
 ): Promise<void> {
@@ -117,6 +121,12 @@ export async function runTodosCommand(
   if (command === "collapse" || command === "expand" || command === "toggle") {
     if (ctx.mode !== "tui") {
       notify(ERR_REQUIRES_INTERACTIVE, "error");
+
+      return;
+    }
+
+    if (!options.widgetStateHost.canCollapse()) {
+      notify(ERR_COLLAPSE_REQUIRES_FULLSCREEN, "error");
 
       return;
     }

@@ -20,7 +20,7 @@ Check registry streaming, normalization, resolved options, authentication, heade
 
 ## Visible history
 
-Metadata is not insertion. Invisible system or usage entries cannot split groups; visible notices must. Verify live insertion and no-op boundaries, ownership/restoration, and replay against the installed CLI as well as API-level checks.
+Metadata is not insertion. Invisible system or usage entries cannot split groups; visible notices must. Verify live insertion and no-op boundaries, ownership/restoration, and replay against the workspace-resolved Pi executable as well as API-level checks.
 
 ## Defaults and side effects
 

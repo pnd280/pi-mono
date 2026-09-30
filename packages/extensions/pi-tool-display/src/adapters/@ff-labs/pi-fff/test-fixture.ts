@@ -3,6 +3,7 @@ import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 export function fffToolInfo(name: string, multi = false): ToolInfo {
   return {
     name,
+    exposure: "direct",
     description: "FFF",
     parameters: {
       type: "object",

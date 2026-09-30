@@ -9,9 +9,9 @@ allowBuilds:
   unrs-resolver: false
 
 catalog:
-  "@earendil-works/pi-ai": ^0.87.1
-  "@earendil-works/pi-coding-agent": ^0.87.1
-  "@earendil-works/pi-tui": ^0.87.1
+  "@earendil-works/pi-ai": ^0.99.1
+  "@earendil-works/pi-coding-agent": ^0.99.1
+  "@earendil-works/pi-tui": ^0.99.1
   "@git-diff-view/core": ^0.1.7
   "@stylistic/eslint-plugin": ^5.10.0
   "@types/node": ^26.6.3
@@ -21,6 +21,7 @@ catalog:
   eslint-plugin-boundaries: ^7.2.0
   proper-lockfile: ^4.1.2
   typescript: ^7.0.2
+  unbash: ^4.0.11
   vite: npm:@voidzero-dev/vite-plus-core@1.0.0
   vite-plus: 1.0.0
   zod: ^4.6.5
@@ -36,6 +37,8 @@ minimumReleaseAgeExclude:
   - "@earendil-works/pi-agent-core"
   - "@earendil-works/pi-ai"
   - "@earendil-works/pi-coding-agent"
+  - "@earendil-works/pi-codemode"
+  - "@earendil-works/pi-mcp"
   - "@earendil-works/pi-telemetry"
   - "@earendil-works/pi-tui"
   - "@voidzero-dev/vite-plus-core"

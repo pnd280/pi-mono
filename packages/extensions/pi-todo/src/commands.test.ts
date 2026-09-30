@@ -72,7 +72,10 @@ it("routes widget actions, usage errors and non-TUI notifications without openin
       }
 
       displayedWidget = content(
-        { requestRender: () => (displayedText = displayedWidget?.render(80).join("\n") ?? "") },
+        {
+          mode: "fullscreen",
+          requestRender: () => (displayedText = displayedWidget?.render(80).join("\n") ?? "")
+        },
         { fg: (_color, text) => text, strikethrough: (text) => text }
       );
       displayedText = displayedWidget.render(80).join("\n");
@@ -112,6 +115,33 @@ it("routes widget actions, usage errors and non-TUI notifications without openin
   expect(displayedText).toContain("Root");
   await runTodosCommand("", { ...ctx, hasUI: false }, controller, options);
   expect(writeOutput.mock.lastCall?.[0]).toContain("interactive");
+});
+
+it("rejects widget collapse commands in regular TUI mode", async () => {
+  const notify = vi.fn();
+  const widgetStateHost = {
+    canCollapse: () => false,
+    setCollapsed: vi.fn(() => true),
+    toggleCollapsed: vi.fn(() => true)
+  };
+  const ctx = {
+    mode: "tui" as const,
+    hasUI: true,
+    signal: undefined,
+    ui: { notify, custom: vi.fn() }
+  };
+  const options = {
+    widgetStateHost,
+    customViewHost: new TodosCustomViewHost({ suppress: vi.fn() })
+  };
+
+  for (const command of ["collapse", "expand", "toggle"]) {
+    await runTodosCommand(command, ctx, new TodoController(), options);
+    expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("fullscreen"), "error");
+  }
+
+  expect(widgetStateHost.setCollapsed).not.toHaveBeenCalled();
+  expect(widgetStateHost.toggleCollapsed).not.toHaveBeenCalled();
 });
 
 it("limits forced-Tab interception to /todos arguments and retains synchronous completions", async () => {

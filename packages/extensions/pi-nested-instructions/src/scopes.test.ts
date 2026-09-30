@@ -187,6 +187,109 @@ it("preserves quoted or escaped leading tildes as literal Bash paths", async () 
   }
 });
 
+it("preserves command boundaries across comments, newlines, and line continuations", async () => {
+  expect(
+    await scopes("bash", {
+      command: "cat pkg/AGENTS.md # cat ignored/AGENTS.md\nhead -n 1 lib/\\\nCLAUDE.md"
+    })
+  ).toEqual({ directories: ["lib", "pkg"], reads: ["pkg/AGENTS.md", "lib/CLAUDE.md"] });
+});
+
+it("distinguishes literal shell metacharacters from unquoted glob and brace scopes", async () => {
+  expect(
+    await scopes("bash", {
+      command: String.raw`cat 'pkg/*/AGENTS.md' pkg/\{literal\}/AGENTS.md "pkg/"'deep'/CLAUDE.md "pkg/\$name/AGENTS.md"`
+    })
+  ).toEqual({
+    directories: ["pkg", "pkg/{literal}", "pkg/*", "pkg/$name", "pkg/deep"],
+    reads: [
+      "pkg/*/AGENTS.md",
+      "pkg/{literal}/AGENTS.md",
+      "pkg/deep/CLAUDE.md",
+      "pkg/$name/AGENTS.md"
+    ]
+  });
+  expect(
+    await scopes("bash", { command: 'cat "pkg/"{src,{lib,test}}/AGENTS.md pkg/wild/*/AGENTS.md' })
+  ).toEqual({
+    directories: ["pkg", "pkg/lib", "pkg/src", "pkg/test", "pkg/wild"],
+    reads: ["pkg/src/AGENTS.md", "pkg/lib/AGENTS.md", "pkg/test/AGENTS.md"]
+  });
+});
+
+it.each([
+  `cat {"pkg",'lib'}/AGENTS.md`,
+  String.raw`cat pkg/{a\,b,c}/AGENTS.md`,
+  "cat 'pkg/{a,b}'/{src,lib}/AGENTS.md",
+  "cat pkg/'*'/{src,lib}/AGENTS.md",
+  String.raw`cat pkg/\*/{src,lib}/AGENTS.md`,
+  'cat "pkg/*"/*/AGENTS.md',
+  String.raw`cat pkg/\*/*/AGENTS.md`
+])("rejects patterns that mix shell quoting with scope expansion: %s", async (command) => {
+  expect(await scopes("bash", { command: `cat valid/AGENTS.md; ${command}` })).toEqual({
+    directories: [],
+    reads: []
+  });
+});
+
+it("keeps logical and pipeline boundaries when tracking cwd", async () => {
+  expect(
+    await scopes("bash", {
+      command:
+        "cd pkg && cat AGENTS.md | head -n 1 || cat ignored/AGENTS.md; cat also-ignored/AGENTS.md"
+    })
+  ).toEqual({ directories: ["pkg"], reads: ["pkg/AGENTS.md"] });
+  expect(await scopes("bash", { command: "cd pkg | cat ignored/AGENTS.md" })).toEqual({
+    directories: [],
+    reads: []
+  });
+  expect(
+    await scopes("bash", { command: "cat pkg/AGENTS.md | cd lib; cat ignored/AGENTS.md" })
+  ).toEqual({ directories: ["pkg"], reads: ["pkg/AGENTS.md"] });
+  expect(
+    await scopes("bash", {
+      command: "cd pkg && < input || cat ignored/AGENTS.md; cat also-ignored/AGENTS.md"
+    })
+  ).toEqual({ directories: ["pkg"], reads: [] });
+});
+
+it("recognizes leading stdin redirects without treating other descriptors as paths", async () => {
+  expect(
+    await scopes("bash", {
+      command: "0< pkg/AGENTS.md head -n 1 3< ignored/CLAUDE.md 2>&1 > output/AGENTS.md"
+    })
+  ).toEqual({ directories: ["pkg"], reads: ["pkg/AGENTS.md"] });
+});
+
+it.each([
+  "cat pkg/AGENTS.md; cat 'unfinished",
+  "cat pkg/AGENTS.md &&",
+  "cat pkg/AGENTS.md || cat $FILE",
+  "cat pkg/AGENTS.md; cd; cat $FILE",
+  'cat pkg/AGENTS.md; cat "lib/${NAME}/AGENTS.md"',
+  "cat pkg/AGENTS.md; cat lib/{src,$NAME}/AGENTS.md",
+  "cat pkg/AGENTS.md; cat <(cat lib/AGENTS.md)",
+  'cat pkg/AGENTS.md > "$(cat lib/AGENTS.md)"',
+  "cat pkg/AGENTS.md; cat $((1 + 2))",
+  "cat pkg/AGENTS.md; cat `pwd`/AGENTS.md",
+  "cat pkg/AGENTS.md; cat $'lib/AGENTS.md'",
+  'cat pkg/AGENTS.md; cat $"lib/AGENTS.md"',
+  "cat pkg/AGENTS.md; cat <<< 'lib/AGENTS.md'",
+  "cat pkg/AGENTS.md; cat <<EOF\nlib/AGENTS.md\nEOF",
+  "cat pkg/AGENTS.md &",
+  "cat pkg/AGENTS.md |& head -n 1",
+  "cat pkg/AGENTS.md; (cat lib/AGENTS.md)",
+  "cat pkg/AGENTS.md; { cat lib/AGENTS.md; }",
+  "cat pkg/AGENTS.md; if true; then cat lib/AGENTS.md; fi",
+  "cat pkg/AGENTS.md; f() { cat lib/AGENTS.md; }",
+  "cat pkg/AGENTS.md; NAME=lib cat lib/AGENTS.md",
+  "cat pkg/AGENTS.md; ! cat lib/AGENTS.md",
+  "cat pkg/AGENTS.md; time cat lib/AGENTS.md",
+  "cat pkg/AGENTS.md {fd}< lib/AGENTS.md"
+])("rejects the entire unsupported or malformed Bash invocation: %s", async (command) => {
+  expect(await scopes("bash", { command })).toEqual({ directories: [], reads: [] });
+});
+
 it("does not mark redirected stdin as read by filename-listing commands", async () => {
   expect(
     await scopes("bash", { command: "ls pkg/ < pkg/AGENTS.md; rg --files lib/ < lib/AGENTS.md" })

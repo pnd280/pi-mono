@@ -49,6 +49,7 @@ function harness({ hasUI = false }: { hasUI?: boolean } = {}) {
         {
           name,
           description: "fixture tool",
+          exposure: "direct",
           parameters: {},
           sourceInfo: {
             path: "/extensions/fixture.ts",

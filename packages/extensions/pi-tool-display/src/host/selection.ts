@@ -1,6 +1,9 @@
 import type { ToolDefinition, ToolInfo } from "@earendil-works/pi-coding-agent";
 
 import { piFffAdapter } from "../adapters/@ff-labs/pi-fff/index.ts";
+import { builtinCodemodeAdapter } from "../adapters/builtin/codemode/index.ts";
+import { builtinMcpAdapter } from "../adapters/builtin/mcp/index.ts";
+import { builtinToolSearchAdapter } from "../adapters/builtin/tool-search/index.ts";
 import { genericAdapter } from "../adapters/generic.ts";
 import { nativeAdapter } from "../adapters/native/index.ts";
 import { piMcpAdapter } from "../adapters/pi-mcp-adapter/index.ts";
@@ -18,7 +21,10 @@ const extensionAdapterResolvers: readonly ToolDisplayAdapterResolver[] = [
   piMcpAdapter,
   piTodoAdapter,
   piSelectiveReadAdapter,
-  piSmartCompactAdapter
+  piSmartCompactAdapter,
+  builtinCodemodeAdapter,
+  builtinMcpAdapter,
+  builtinToolSearchAdapter
 ];
 
 export function selectAdapter(

@@ -11,12 +11,12 @@ import {
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 import { observeMutationDefinition } from "@pi-mono/libs/file-mutations";
+import { createToolContext } from "@pi-mono/libs/validation/tool-context";
 import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 import { expect, it } from "vite-plus/test";
 
 import type { DisplayFact } from "../contracts.ts";
 import { OBSERVATION_BYTES, parseRetainedPatch } from "../diff.ts";
-import { nativeToolContext } from "../test-fixture.ts";
 import { record } from "../values.ts";
 import { displayMutationSink, observeNativeDefinition, type ObservationSink } from "./native.ts";
 
@@ -49,7 +49,7 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
         preview: (value) => previews.push(value.text)
       })
     );
-    const context = nativeToolContext(directory);
+    const context = await createToolContext(directory);
     const params = { command: 'printf "α\\r\\n%s\\n%s" "$DISPLAY_TEST" "$PI_SESSION_ID"' };
     const expected = await original.execute("plain", params, undefined, undefined, context);
     const updates: unknown[] = [];
@@ -63,7 +63,7 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
     );
     await expect(
       observed.execute("error", { command: "exit 7" }, undefined, undefined, context)
-    ).rejects.toThrow("Command exited with code 7");
+    ).resolves.toMatchObject({ isError: true, structuredContent: { exit_code: 7 } });
     expect(facts.at(-1)).toMatchObject({ outcome: "failure", exitCode: 7 });
     await expect(
       observed.execute(
@@ -116,7 +116,7 @@ it("retains every streamed shell chunk in the completed preview", async () => {
       },
       undefined,
       undefined,
-      nativeToolContext(directory)
+      await createToolContext(directory)
     );
 
     const final = previews.at(-1) ?? "";
@@ -152,7 +152,7 @@ it.each(["edit", "write"] as const)(
           : { path: "file", content: after },
         undefined,
         undefined,
-        nativeToolContext(directory)
+        await createToolContext(directory)
       );
       expect(await readFile(join(directory, "file"), "utf8")).toBe(after);
       const change = facts.find((fact) => fact.kind === "change");
@@ -197,7 +197,7 @@ it("reuses the native edit patch even when the file exceeds the observation limi
       { path: "file", edits: [{ oldText, newText }] },
       undefined,
       undefined,
-      nativeToolContext(directory)
+      await createToolContext(directory)
     );
     expect(await readFile(join(directory, "file"), "utf8")).toBe(after);
     const change = facts.find((fact) => fact.kind === "change");
@@ -237,7 +237,7 @@ it("retains a failed edit proposal and preserves the native filesystem error", a
         { path, edits: [{ oldText: "before", newText: "after" }] },
         undefined,
         undefined,
-        nativeToolContext(directory)
+        await createToolContext(directory)
       )
     ).rejects.toMatchObject({ code: "EISDIR" });
     expect(facts).toContainEqual(
@@ -265,7 +265,7 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
         directory,
         () => ({ started() {}, preview() {}, fact: (fact) => facts.push(fact) })
       );
-      const context = nativeToolContext(directory);
+      const context = await createToolContext(directory);
       await writeFile(path, "before\n", { mode: 0o400 });
       await expect(
         write.execute("failed-write", { path, content: "after\n" }, undefined, undefined, context)
@@ -315,7 +315,7 @@ it("preserves edit aliases, CRLF, cancellation, and write change facts", async (
       directory,
       begin
     );
-    const context = nativeToolContext(directory);
+    const context = await createToolContext(directory);
     await writeFile(join(directory, "file"), "alpha\r\nbeta\r\n");
     await symlink("file", join(directory, "alias"));
     const outputs = await Promise.all([

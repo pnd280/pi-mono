@@ -13,4 +13,6 @@
 
 ## Validation
 
+With Pi **0.99.1**, package checks and all pure-helper tests passed, including Pi fuzzy-score comparisons. Shared libs, FFF guard, nested-instruction, selective-read, and display consumer suites also passed without utility changes. This evidence does not establish live FFF behavior; external checks were not run.
+
 Use [package checks](../README.md#validation), then affected libs/extensions for changed input/output assumptions. This package needs no standalone Pi terminal scenario.

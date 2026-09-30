@@ -5,13 +5,12 @@ import { join } from "node:path";
 import {
   createEditToolDefinition,
   createWriteToolDefinition,
-  defineTool,
-  SessionManager,
-  type ExtensionContext
+  defineTool
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import type { PatchLimits } from "../bounded-diff/index.ts";
+import { createToolContext } from "../validation/tool-context/index.ts";
 import { observeMutationDefinition, type FileMutation } from "./index.ts";
 
 vi.mock("node:fs/promises", { spy: true });
@@ -26,11 +25,8 @@ afterEach(async () => {
 async function fixture() {
   const directory = await fs.mkdtemp(join(tmpdir(), "file-mutations-"));
   directories.push(directory);
-  const context = { cwd: directory, sessionManager: SessionManager.inMemory(directory) };
 
-  // Native edit/write factories only read cwd from the extension context.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return { directory, context: context as unknown as ExtensionContext };
+  return { directory, context: await createToolContext(directory) };
 }
 
 const limits: PatchLimits = {
