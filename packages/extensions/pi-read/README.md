@@ -1,4 +1,4 @@
-# pi-selective-read
+# pi-read
 
 Highlights referenced source spans within Pi's `read` context.
 
@@ -40,7 +40,7 @@ Replaces built-in `read` and adds source-reference prompt guidance. Previews ent
 
 Do not load another `read` replacement alongside this extension.
 
-In automatic mode, the [pi-tool-display selective-read adapter](../pi-tool-display/src/adapters/pi-selective-read/README.md) groups compatible reads and highlights selections without repeating the preview. Set `rendererOverrides.read` to `original` in [pi-tool-display settings](../pi-tool-display/README.md#configuration) for this extension's ungrouped rendering. `generic` neither highlights selections nor hides the appended preview.
+In automatic mode, the [pi-tool-display selective-read adapter](../pi-tool-display/src/adapters/pi-read/README.md) groups compatible reads and highlights selections without repeating the preview. Set `rendererOverrides.read` to `original` in [pi-tool-display settings](../pi-tool-display/README.md#configuration) for this extension's ungrouped rendering. `generic` neither highlights selections nor hides the appended preview.
 
 ## Validation
 

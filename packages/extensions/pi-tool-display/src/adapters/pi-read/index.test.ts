@@ -38,7 +38,7 @@ it("requires selective-read ownership, the read name, and the current parameter 
   expect(
     piSelectiveReadAdapter({
       ...info,
-      sourceInfo: { ...info.sourceInfo, path: "C:\\extensions\\pi-selective-read\\src\\index.ts" }
+      sourceInfo: { ...info.sourceInfo, path: "C:\\extensions\\pi-read\\src\\index.ts" }
     })
   ).toBe(adapter);
   expect(
@@ -47,7 +47,7 @@ it("requires selective-read ownership, the read name, and the current parameter 
       sourceInfo: {
         ...info.sourceInfo,
         path: "/cache/package/index.js",
-        source: "npm:pi-selective-read@0.1.0"
+        source: "npm:pi-read@0.1.0"
       }
     })
   ).toBe(adapter);
@@ -63,7 +63,7 @@ it("requires selective-read ownership, the read name, and the current parameter 
     { ...info, sourceInfo: { ...info.sourceInfo, path: "/extensions/misc/src/read-selection.ts" } },
     {
       ...info,
-      sourceInfo: { ...info.sourceInfo, path: "/extensions/pi-selective-read-copy/index.ts" }
+      sourceInfo: { ...info.sourceInfo, path: "/extensions/pi-read-copy/index.ts" }
     }
   ])
     expect(piSelectiveReadAdapter(unsupported)).toBeUndefined();

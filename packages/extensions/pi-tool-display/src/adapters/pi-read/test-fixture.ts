@@ -15,7 +15,7 @@ export function selectiveReadToolInfo(): ToolInfo {
       selection: Type.Optional(toToolSchema(selectionInputSchema))
     }),
     sourceInfo: {
-      path: "/workspace/packages/extensions/pi-selective-read/index.ts",
+      path: "/workspace/packages/extensions/pi-read/index.ts",
       source: "local",
       scope: "user",
       origin: "package"

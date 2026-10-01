@@ -6,7 +6,7 @@ export { piMcpAdapter } from "./pi-mcp-adapter/index.ts";
 
 export { piTodoAdapter, todoDisplayAdapter } from "./pi-todo/index.ts";
 
-export { piSelectiveReadAdapter, selectiveReadDisplayAdapter } from "./pi-selective-read/index.ts";
+export { piSelectiveReadAdapter, selectiveReadDisplayAdapter } from "./pi-read/index.ts";
 
 export {
   piSmartCompactAdapter,

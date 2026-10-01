@@ -1,13 +1,13 @@
 # Pi compatibility
 
-[pi-selective-read](../README.md)
+[pi-read](../README.md)
 
 ## Contracts to verify
 
 - [ ] [Native delegation](../src/tool.ts): factory/schema, prompt metadata, the complete `ExtensionToolContext`, execution arguments, cancellation, images, and original content/details; never reread files.
 - [ ] [Schema compatibility](testing.md#contracts): serialized parameters omit runtime metadata and unsupported integer bounds; execution still validates positive safe integers before file access.
 - [ ] [Results](../src/result.ts): independent read window and code-point selection, bounded preview, truncation/continuation notices excluded from source, and preview provenance accepted only for the exact all-text result shape with one trailing preview block.
-- [ ] [Rendering](../src/render.ts) and the [display adapter](../../pi-tool-display/src/adapters/pi-selective-read/README.md): preserve context and highlight selections without duplicating previews.
+- [ ] [Rendering](../src/render.ts) and the [display adapter](../../pi-tool-display/src/adapters/pi-read/README.md): preserve context and highlight selections without duplicating previews.
 
 ## Limitations and replacement opportunities
 

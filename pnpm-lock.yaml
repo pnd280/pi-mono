@@ -357,7 +357,7 @@ importers:
         specifier: 'catalog:'
         version: 4.6.5
 
-  packages/extensions/pi-selective-read:
+  packages/extensions/pi-read:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: catalog:pi-host

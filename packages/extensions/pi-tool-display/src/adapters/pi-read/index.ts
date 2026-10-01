@@ -39,7 +39,7 @@ function invocation(args: unknown): InvocationPart[] {
 
 export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
   ...native,
-  id: "pi-selective-read:read",
+  id: "pi-read:read",
   supports,
   invocation,
   summaryItems(args, { cwd }) {
@@ -133,8 +133,8 @@ export function piSelectiveReadAdapter(tool: ToolInfo | undefined): ToolDisplayA
     return undefined;
   const path = tool.sourceInfo.path.replaceAll("\\", "/");
   const owned =
-    /^npm:pi-selective-read(?:@[^/]+)?$/.test(tool.sourceInfo.source) ||
-    /(?:^|\/)pi-selective-read\/(?:src\/)?index\.[cm]?[jt]s$/.test(path);
+    /^npm:pi-read(?:@[^/]+)?$/.test(tool.sourceInfo.source) ||
+    /(?:^|\/)pi-read\/(?:src\/)?index\.[cm]?[jt]s$/.test(path);
 
   return owned && parametersSchema.safeParse(tool.parameters).success
     ? selectiveReadDisplayAdapter

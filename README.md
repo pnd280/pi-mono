@@ -33,7 +33,7 @@ Repeat `-e` for additional extensions. To persist the selection, use Pi's [packa
 - [pi-session-utils](packages/extensions/pi-session-utils/README.md): session persistence, parent-linked sub-sessions, and naming.
 - [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): runtime, bash-call, and file-change summaries outside model context.
 - [pi-fff-guard](packages/extensions/pi-fff-guard/README.md): guard FFF searches against ignored or missing paths.
-- [pi-selective-read](packages/extensions/pi-selective-read/README.md): source-span highlighting in read context.
+- [pi-read](packages/extensions/pi-read/README.md): source-span highlighting in read context.
 - [pi-model-prompt](packages/extensions/pi-model-prompt/README.md): model-specific append prompts.
 - [pi-skills](packages/extensions/pi-skills/README.md): skill file references and inline completion.
 

@@ -17,10 +17,10 @@ it("recognizes native construction through the installed pi executable, not just
     const assistant = fileURLToPath(new URL("./assistant.ts", import.meta.url));
     const compatibility = fileURLToPath(new URL("./compatibility.ts", import.meta.url));
     const selectiveAdapter = fileURLToPath(
-      new URL("../adapters/pi-selective-read/index.ts", import.meta.url)
+      new URL("../adapters/pi-read/index.ts", import.meta.url)
     );
     const selectiveExtension = fileURLToPath(
-      new URL("../../../pi-selective-read/index.ts", import.meta.url)
+      new URL("../../../pi-read/index.ts", import.meta.url)
     );
     const boundedDiff = fileURLToPath(
       new URL("../../../../libs/src/bounded-diff/index.ts", import.meta.url)
@@ -63,7 +63,7 @@ it("recognizes native construction through the installed pi executable, not just
           const proseBoundary = assistantBoundaryKind(prose);
           releaseProse?.();
           const proseRestored = !prose.render(80).join(" ").includes("•") && prose.render(80).join(" ").includes("Retained prose");
-          const selectiveReadRecognized = piSelectiveReadAdapter(pi.getAllTools().find(tool => tool.name === "read"))?.id === "pi-selective-read:read";
+          const selectiveReadRecognized = piSelectiveReadAdapter(pi.getAllTools().find(tool => tool.name === "read"))?.id === "pi-read:read";
           const patch = await createBoundedPatch({ path: "file", before: "before\\n", after: "after\\n", maxSourceBytes: 1024, maxPatchBytes: 1024, maxEditLength: 2000, timeoutMs: 1000, contextLines: 4 });
           const generatedPatch = patch.status === "ready";
           const modeHooks = modeHooksCompatible(interactivePrototype());
