@@ -40,7 +40,7 @@ export type TodoOverlayUI = {
   setActivity(text?: string): void;
 };
 
-export type BuildTodoWidgetLinesOptions = {
+type TodoWidgetRenderOptions = {
   collapsed?: boolean;
 };
 
@@ -54,8 +54,9 @@ export class TodoOverlay {
   private live = false;
   private generation = 0;
   private registrationEpoch = 0;
-  private todos: readonly Task[] = [];
-  private todosRevision = -1;
+  private presentation:
+    | { revision: number; snapshot: ReturnType<typeof prepareTodoPresentation> }
+    | undefined;
   private readonly suppressions = new Set<symbol>();
 
   constructor(private readonly controller: Pick<TodoController, "getTodos" | "getRevision">) {}
@@ -68,7 +69,7 @@ export class TodoOverlay {
     this.uiCtx = ctx;
     this.live = true;
     this.generation += 1;
-    this.todosRevision = -1;
+    this.presentation = undefined;
     this.tuiMode = undefined;
     this.suppressions.clear();
   }
@@ -92,13 +93,10 @@ export class TodoOverlay {
   update(): void {
     if (!this.live || !this.uiCtx) return;
 
-    const hierarchy = deriveTaskHierarchy(this.refreshTodos());
-    const entries = hierarchy?.entries ?? [];
-    this.syncWorkingMessage(entries);
+    const { snapshot } = this.refreshPresentation();
+    this.syncWorkingMessage();
 
-    const hasVisibleTasks = entries.some((entry) => entry.task.status !== "deleted");
-
-    if (!hasVisibleTasks || this.suppressions.size > 0) {
+    if (!snapshot || this.suppressions.size > 0) {
       this.clearRegisteredWidget();
 
       return;
@@ -123,20 +121,27 @@ export class TodoOverlay {
 
           return {
             render: (width: number) => {
+              const { revision, snapshot } = this.refreshPresentation();
+              if (isCurrent()) this.observeMode(tui.mode);
               const collapsed = this.collapsed && tui.mode === "fullscreen";
-              const key = `${this.todosRevision}|${collapsed}|${width}`;
+              const key = `${revision}|${collapsed}|${width}`;
 
               if (cache?.key !== key) {
                 cache = {
                   key,
-                  lines: buildTodoWidgetLines(this.refreshTodos(), theme, width, { collapsed })
+                  lines: snapshot?.render(theme, width, { collapsed }) ?? []
                 };
               }
 
               return cache.lines;
             },
             handleMouse: (event: TuiMouseEvent) => {
-              if (event.type !== "click" || event.button !== "left" || !isCurrent()) {
+              if (
+                event.type !== "click" ||
+                event.button !== "left" ||
+                tui.mode !== "fullscreen" ||
+                !isCurrent()
+              ) {
                 return undefined;
               }
 
@@ -190,102 +195,65 @@ export class TodoOverlay {
     this.tui = undefined;
   }
 
-  /** Refresh the isolated presentation snapshot only when the controller changed. */
-  private refreshTodos(): readonly Task[] {
+  /** Prepare both outputs together, without retaining the full raw task snapshot. */
+  private refreshPresentation() {
     const revision = this.controller.getRevision();
+    const cached = this.presentation;
+    if (cached?.revision === revision) return cached;
+    const presentation = {
+      revision,
+      snapshot: prepareTodoPresentation(this.controller.getTodos())
+    };
+    this.presentation = presentation;
 
-    if (revision !== this.todosRevision) {
-      this.todos = this.controller.getTodos();
-      this.todosRevision = revision;
-    }
-
-    return this.todos;
+    return presentation;
   }
 
   private observeMode(mode: TuiMode): void {
     if (mode === this.tuiMode) return;
 
     this.tuiMode = mode;
-    this.syncWorkingMessage(deriveTaskHierarchy(this.refreshTodos())?.entries ?? []);
+    this.syncWorkingMessage();
   }
 
-  private syncWorkingMessage(entries: readonly TaskHierarchyEntry[]): void {
+  private syncWorkingMessage(): void {
     if (!this.uiCtx) return;
 
-    const inProgressEntries = entries.filter((entry) => entry.task.status === "in_progress");
-    const firstInProgress = inProgressEntries[0]?.task;
-
-    if (!this.collapsed || this.tuiMode !== "fullscreen" || !firstInProgress) {
-      this.uiCtx.setActivity();
-
-      return;
-    }
-
-    const text =
-      presentCompactTaskText(firstInProgress.inProgressLabel ?? "") ||
-      presentCompactTaskText(firstInProgress.subject);
-
-    if (!text) {
-      this.uiCtx.setActivity();
-
-      return;
-    }
-
-    const additionalCount = inProgressEntries.length - 1;
-    this.uiCtx.setActivity(additionalCount > 0 ? `${text} (+${additionalCount} more)` : text);
+    this.uiCtx.setActivity(
+      this.collapsed && this.tuiMode === "fullscreen"
+        ? this.refreshPresentation().snapshot?.activity
+        : undefined
+    );
   }
 }
 
-export function buildTodoWidgetLines(
-  tasks: readonly Task[],
-  theme: TodoWidgetTheme,
-  width: number,
-  options: BuildTodoWidgetLinesOptions = {}
-): string[] {
+/** Own hierarchy selection and activity; styling and width stay live at render time. */
+export function prepareTodoPresentation(tasks: readonly Task[]) {
   const hierarchy = deriveTaskHierarchy(tasks);
-  if (!hierarchy) return [];
+  if (!hierarchy) return undefined;
   const all = hierarchy.entries.filter((entry) => entry.task.status !== "deleted");
-  if (all.length === 0) return [];
-  if (!Number.isFinite(width) || width <= 0) return [""];
+  if (all.length === 0) return undefined;
 
-  const safeWidth = Math.max(1, Math.floor(width));
-  const truncate = (line: string) => truncateToWidth(line, safeWidth);
   const completedCount = all.filter((entry) => entry.task.status === "completed").length;
   const totalVisible = all.length;
+  const inProgress = all.filter((entry) => entry.task.status === "in_progress");
   let overallStatus: TaskStatus = all.some((entry) => entry.task.status === "pending")
     ? "pending"
     : "completed";
-  if (all.some((entry) => entry.task.status === "in_progress")) overallStatus = "in_progress";
+  if (inProgress.length > 0) overallStatus = "in_progress";
   const showIds = tasks.some(
     (task) => task.parentId !== undefined || (task.blockedBy?.length ?? 0) > 0
   );
-
-  const heading = truncate(
-    theme.fg(
-      TASK_STATUS_COLOR[overallStatus],
-      `${TUI_GLYPHS.taskStatus[overallStatus]} Todos (${completedCount}/${totalVisible} completed)`
-    )
-  );
-
-  const lines: string[] = [heading];
-  if (options.collapsed === true) return lines;
-
+  const firstActive = inProgress[0]?.task;
+  const activeText = firstActive
+    ? presentCompactTaskText(firstActive.inProgressLabel ?? "") ||
+      presentCompactTaskText(firstActive.subject)
+    : "";
+  let activity = activeText || undefined;
+  if (activity && inProgress.length > 1) activity += ` (+${inProgress.length - 1} more)`;
   const maxBody = MAX_WIDGET_LINES - 1;
-
-  if (all.length <= maxBody) {
-    for (const entry of projectTaskTreeEntries(all)) {
-      lines.push(renderWidgetEntry({ entry, theme, showIds, truncate }));
-    }
-
-    return lines;
-  }
-
-  const visible = selectOverflowEntries(all, maxBody - 1);
-
-  for (const entry of projectTaskTreeEntries(visible, { hasTrailingRoot: true })) {
-    lines.push(renderWidgetEntry({ entry, theme, showIds, truncate }));
-  }
-
+  const overflowing = all.length > maxBody;
+  const visible = overflowing ? selectOverflowEntries(all, maxBody - 1) : all;
   const visibleIds = new Set(visible.map((entry) => entry.task.id));
   const hidden = all.filter((entry) => !visibleIds.has(entry.task.id));
   const hiddenCompleted = hidden.filter((entry) => entry.task.status === "completed").length;
@@ -294,11 +262,55 @@ export function buildTodoWidgetLines(
   if (hiddenCompleted > 0) overflowParts.push(`${hiddenCompleted} completed`);
   if (hiddenActive > 0) overflowParts.push(`${hiddenActive} active`);
   const overflowText = `+${hidden.length} more (${overflowParts.join(", ")})`;
-  lines.push(
-    truncate(`${theme.fg("dim", TODO_TREE_GLYPH.lastBranch)} ${theme.fg("dim", overflowText)}`)
-  );
 
-  return lines;
+  // Retain only selected presentation fields, not descriptions or metadata from legacy snapshots.
+  const entries = projectTaskTreeEntries(visible, { hasTrailingRoot: overflowing }).map((entry) => {
+    const task: Task = {
+      id: entry.task.id,
+      subject: presentCompactTaskText(entry.task.subject),
+      status: entry.task.status
+    };
+
+    if (entry.task.inProgressLabel !== undefined) {
+      task.inProgressLabel = presentCompactTaskText(entry.task.inProgressLabel);
+    }
+
+    if (entry.task.blockedBy !== undefined) task.blockedBy = [...entry.task.blockedBy];
+
+    return { ...entry, task };
+  });
+
+  return {
+    activity,
+    render(theme: TodoWidgetTheme, width: number, options: TodoWidgetRenderOptions = {}): string[] {
+      if (!Number.isFinite(width) || width <= 0) return [""];
+      const safeWidth = Math.max(1, Math.floor(width));
+      const truncate = (line: string) => truncateToWidth(line, safeWidth);
+      const lines = [
+        truncate(
+          theme.fg(
+            TASK_STATUS_COLOR[overallStatus],
+            `${TUI_GLYPHS.taskStatus[overallStatus]} Todos (${completedCount}/${totalVisible} completed)`
+          )
+        )
+      ];
+      if (options.collapsed === true) return lines;
+
+      for (const entry of entries) {
+        lines.push(renderWidgetEntry({ entry, theme, showIds, truncate }));
+      }
+
+      if (overflowing) {
+        lines.push(
+          truncate(
+            `${theme.fg("dim", TODO_TREE_GLYPH.lastBranch)} ${theme.fg("dim", overflowText)}`
+          )
+        );
+      }
+
+      return lines;
+    }
+  };
 }
 
 function selectOverflowEntries(

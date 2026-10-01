@@ -4,7 +4,7 @@
 
 Import `hostFixture` from `@pi-mono/libs/validation/interactive-host` in Vite+ tests that need installed Pi command registration, custom UI mounting, native registries, or renderer switching. Consumer scenarios and assertions stay with the feature they test.
 
-## Behavior
+## Behaviour
 
 Creates an offline `AgentSession` with Pi's real interactive containers, renderer, input dock, and UI proxy against a no-op 80×24 terminal. It loads only supplied extension factories, not workspace extensions.
 
@@ -20,4 +20,4 @@ Always close custom UI and await `dispose()` in `finally`. Do not run fixtures c
 
 Use the [library checks](../../../README.md#validation) and affected consumer suites; each suite registers only its own feature.
 
-The fixture relies on installed Pi 0.99.2's private containers, `mountInteractiveTui`, `createExtensionUIContext`, and `createChatViewport`. Recheck those contracts on Pi upgrades. A no-op terminal does not establish physical keyboard, mouse, or color behavior.
+The fixture relies on installed Pi 1.0.0's private containers, `mountInteractiveTui`, `createExtensionUIContext`, and `createChatViewport`. Recheck those contracts on Pi upgrades. A no-op terminal does not establish physical keyboard, mouse, or colour behaviour.

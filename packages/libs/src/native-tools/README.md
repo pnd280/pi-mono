@@ -2,11 +2,13 @@
 
 [Library index](../../README.md#usage)
 
-## Behavior
+React to native tool definitions from one shared observation instead of each consumer wrapping tools separately.
 
-[`@pi-mono/libs/native-tools`](index.ts) shares observation of verified native Pi API/CLI definitions across independently loaded consumers. SDK overrides, custom tools, and changed definitions are excluded.
+## Behaviour
 
-Observation preserves active tool selection. Disposal restores only replacements still owned by this library; retained wrappers call the original tool. Subscriptions have independent lifetimes.
+[`@pi-mono/libs/native-tools`](index.ts) shares observation of verified native Pi tool definitions, from both the API and the CLI, across independently loaded consumers. SDK overrides, custom tools, and changed definitions are excluded.
+
+Observation preserves active tool selection. Disposal restores only replacements still owned by this library. Retained wrappers call the original tool. Subscriptions have independent lifetimes.
 
 ## Caller responsibilities
 

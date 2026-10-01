@@ -1,5 +1,5 @@
 import { NativeClipboardError } from "@pi-mono/libs/native-clipboard";
-import { WriteLifetime, type WriteScope } from "@pi-mono/libs/private-files";
+import { WriteLifetime } from "@pi-mono/libs/private-files";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { parseCommand, usage, type NumberedAction } from "./commands.ts";
@@ -45,9 +45,8 @@ export class PromptManager {
   private copying = false;
   private restorationRevision = 0;
   private ui: AbortController | undefined;
-  readonly session: WriteScope = this.lifetime;
 
-  constructor(readonly ports: ManagerPorts) {}
+  constructor(private readonly ports: ManagerPorts) {}
 
   private isActive() {
     return !this.lifetime.signal.aborted;
@@ -104,7 +103,7 @@ export class PromptManager {
           const result = await this.ports.repository.mutate(
             "history",
             { kind: "add", text: entry.text, recordedAt: entry.recordedAt },
-            this.session
+            this.lifetime
           );
 
           if (
@@ -195,7 +194,7 @@ export class PromptManager {
       const result = await this.ports.repository.mutate(
         "drafts",
         { kind: "add", text, recordedAt },
-        this.session
+        this.lifetime
       );
 
       if (!this.reportMutation(result, "Draft saved.") || !this.isActive()) return;
@@ -210,21 +209,6 @@ export class PromptManager {
       this.notify(errorMessage(error), "error");
     } finally {
       if (ownsGuard) this.saving = false;
-    }
-  }
-
-  async add(text: string): Promise<void> {
-    if (!this.isActive()) return;
-
-    try {
-      const result = await this.ports.repository.mutate(
-        "drafts",
-        { kind: "add", text: text.trim(), recordedAt: this.ports.now().toISOString() },
-        this.session
-      );
-      this.reportMutation(result, "Draft saved.");
-    } catch (error) {
-      this.notify(errorMessage(error), "error");
     }
   }
 
@@ -282,7 +266,7 @@ export class PromptManager {
       result = await this.ports.repository.mutate(
         collection,
         { kind: "delete", target },
-        this.session
+        this.lifetime
       );
     } catch (error) {
       result = { status: "failed", message: errorMessage(error) };
@@ -359,9 +343,17 @@ export class PromptManager {
         case "save":
           await this.saveEditor();
           break;
-        case "add":
-          await this.add(command.text);
+
+        case "add": {
+          const result = await this.ports.repository.mutate(
+            "drafts",
+            { kind: "add", text: command.text, recordedAt: this.ports.now().toISOString() },
+            this.lifetime
+          );
+          this.reportMutation(result, "Draft saved.");
           break;
+        }
+
         case "numbered":
           await this.numbered(command.action, command.index);
           break;

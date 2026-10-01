@@ -120,7 +120,7 @@ function render(
 beforeAll(() => initTheme("dark", false));
 
 it("selects only Pi's built-in codemode registration and respects renderer overrides", () => {
-  expect(builtinCodemodeAdapter(info)).toBe(adapter);
+  expect(builtinCodemodeAdapter(info)?.id).toBe("builtin:codemode");
 
   for (const unsupported of [
     undefined,
@@ -173,25 +173,24 @@ it("reads nested calls and the script category only from validated details", () 
 
 it("renders the script as code and lists nested calls before the output", () => {
   const before = structuredClone(args);
-  const supplied = result({ calls });
+  const supplied = result({ calls }, [
+    { type: "text", text: HEADER },
+    { type: "text", text: "distinct-result-body" }
+  ]);
   const compact = render(supplied, false);
-  expect(compact.heading.split("\n")).toEqual([
-    "• Ran script",
-    '  │ await tools.read({ path: "nested.txt" });',
-    "  │ ",
-    '  │ const result = await tools.bash({ command: "printf nested-output" });',
-    "  │ text(result.output);"
-  ]);
-  expect(compact.body.split("\n")).toEqual([
-    '  ├ ✓ read {"path":"nested.txt"} 4ms',
-    '  │ ✗ bash {"command":"printf nested-output"} 1.5s',
-    "  └ nested-output"
-  ]);
+  expect(compact.heading).toContain("• Ran script");
+  for (const line of code.split("\n").filter(Boolean)) expect(compact.heading).toContain(line);
+  expect(compact.body).toContain('✓ read {"path":"nested.txt"} 4ms');
+  expect(compact.body).toContain('✗ bash {"command":"printf nested-output"} 1.5s');
+  expect(compact.body).toContain("distinct-result-body");
+  expect(compact.body.indexOf("✓ read")).toBeLessThan(compact.body.indexOf("✗ bash"));
+  expect(compact.body.indexOf("✗ bash")).toBeLessThan(compact.body.indexOf("distinct-result-body"));
   expect(compact.body).not.toContain("Script completed");
 
   const expanded = render(supplied, true);
   expect(expanded.heading.startsWith("▾ Ran script")).toBe(true);
-  expect(expanded.body).toContain("  │   first line\n  │   second line");
+  expect(expanded.body).toContain("first line");
+  expect(expanded.body).toContain("second line");
   expect(args).toEqual(before);
 });
 

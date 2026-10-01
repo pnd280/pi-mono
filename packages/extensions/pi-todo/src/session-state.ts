@@ -14,7 +14,7 @@ import {
   TASK_DETAILS_VERSION
 } from "./constants.ts";
 import { deriveTaskHierarchy } from "./hierarchy.ts";
-import { serializedSnapshotFitsLimit } from "./limits.ts";
+import { serializedValueFitsLimit } from "./limits.ts";
 import { jsonMetadataSchema } from "./metadata.ts";
 import {
   cloneTask,
@@ -91,8 +91,7 @@ export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefin
   const current = version !== undefined;
   const maximumBytes = current ? MAX_SNAPSHOT_BYTES : MAX_LEGACY_SNAPSHOT_BYTES;
   // Keep this budgeted preflight ahead of Zod cloning and metadata traversal.
-  if (!serializedSnapshotFitsLimit(value, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES))
-    return undefined;
+  if (!serializedValueFitsLimit(value, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES)) return undefined;
 
   try {
     const schemas = {
@@ -104,7 +103,7 @@ export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefin
     if (!parsed.success) return undefined;
     const snapshot = { tasks: parsed.data.tasks, nextId: parsed.data.nextId };
     // Envelope headroom cannot become additional todo capacity on repeated replay.
-    if (!serializedSnapshotFitsLimit(snapshot, maximumBytes)) return undefined;
+    if (!serializedValueFitsLimit(snapshot, maximumBytes)) return undefined;
 
     const state: TodoState = {
       tasks: snapshot.tasks.map(cloneTask),

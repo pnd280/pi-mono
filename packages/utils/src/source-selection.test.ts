@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 
-import { selectSource, selectionLabel, selectionSchema } from "./source-selection.ts";
+import { selectSource, selectionSchema } from "./source-selection.ts";
 
 it("normalizes omitted coordinates without accepting unknown fields or invalid ranges", () => {
   expect(selectionSchema.parse({ startLine: 6 })).toEqual({
@@ -41,8 +41,6 @@ it("clips code-point ranges to an absolute line window without normalizing raw s
     lines: [{ index: 0, before: "", text: "middle" }]
   });
   expect(selectSource(["outside"], 20, span)).toEqual({ partial: true, lines: [] });
-  expect(selectionLabel(span)).toBe("10:2-12:3");
-  expect(selectionLabel(selectionSchema.parse({ startLine: 1 }))).toBe("1");
 });
 
 it("clips oversized columns and preserves empty selections at exclusive boundaries", () => {

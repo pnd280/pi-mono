@@ -1,17 +1,38 @@
 # [pi-session-utils](README.md) development
 
+Keep naming separate from the locking and idle checks of session operations.
+
+## Must not regress
+
+- Keep saved files after switch errors, including errors after replacement. Clean up only on explicit cancellation.
+- Never open parent files with `SessionManager.open()` during lookup; opening can migrate their contents.
+- Reject invalid naming settings before any request, without affecting session operations. Never fall back to the active model. See [configuration](README.md#configuration).
+
 ## Constraints
 
-- Keep naming separate from session-operation locking and idle checks. For a busy child command, suggest a shell-quoted CLI invocation only if the current parent file exists and the path is safe to copy.
-- Preserve branch entry IDs and parent links; give persisted snapshots a fresh session ID. Preserve Pi's session-wide name or clearing even when its latest metadata is outside the active branch.
-- Use `withSession` for post-switch UI work. Do not use a stale extension context after successful replacement.
-- Preserve saved files after switch errors, including errors after replacement. Clean up only on explicit cancellation.
-- Do not open parent files with `SessionManager.open()` during lookup: opening can migrate their contents.
-- Keep startup host assumptions in `startup.ts`. Use [OwnedHooks](../../libs/src/owned-hooks/README.md); apply the CLI flag once per process, before prompts or protocol output.
-- Reject invalid naming settings before requests without affecting session operations; never fall back to the active model. See [configuration](README.md#configuration).
-- Use Pi's authentication and session-name metadata; do not send conversation messages or custom stdout.
-- Reuse [LatestTask](../../libs/src/latest-task/README.md) for stale-result protection and [terminal-text](../../libs/src/tui/terminal-text/README.md) for terminal safety and Unicode-safe boundaries. Cancel underlying I/O separately.
+Use fresh session contexts after replacement and restore startup hooks only while this extension owns them.
+
+### Session operations
+
+- For a busy child command, suggest a shell-quoted CLI command only if the current parent file exists and its path is safe to copy.
+- Keep branch entry IDs and parent links. Give saved snapshots a new session ID.
+- Keep Pi's session-wide name, or its clearing, even when the latest name metadata is outside the active branch.
+- Use `withSession` for UI work after a switch. Never use a stale extension context after a successful replacement.
+
+### Startup
+
+- Keep host assumptions for startup in `startup.ts`.
+- Use [OwnedHooks](../../libs/src/owned-hooks/README.md). Apply the CLI flag once per process, before prompts or protocol output.
+
+### Naming
+
+- Use Pi's authentication and session-name metadata. Never send conversation messages or write custom stdout.
+- Reuse [LatestTask](../../libs/src/latest-task/README.md) to discard stale results, and [terminal-text](../../libs/src/tui/terminal-text/README.md) for terminal safety and Unicode-safe boundaries. Cancel the underlying I/O separately.
 
 ## Validation
 
-Run [package validation](README.md#validation) using offline fixture models. For changed host assumptions use [compatibility](docs/pi-compatibility.md); for contract boundaries use [testing](docs/testing.md).
+| When you…                 | Read or run                                                             |
+| ------------------------- | ----------------------------------------------------------------------- |
+| Validate a package change | [Package validation](README.md#validation) with offline fixture models. |
+| Change host assumptions   | The [compatibility checklist](docs/pi-compatibility.md).                |
+| Choose what to test       | [Testing](docs/testing.md).                                             |

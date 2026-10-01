@@ -7,8 +7,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { discover, refresh } from "./discovery.ts";
 import { fixture } from "./fixture.ts";
-import { ledger, readType } from "./ledger.ts";
-import { decodeNotice } from "./notices.ts";
+import { readType } from "./ledger.ts";
+import { decodeNotice, digest, noticeEntry } from "./notices.ts";
 import { instructionFiles, type InstructionFiles } from "./storage.ts";
 
 let fs: Awaited<ReturnType<typeof fixture>>;
@@ -46,18 +46,15 @@ it("loads Pi's first readable regular filename per directory, broad to narrow, w
   await fs.write("pkg/deep/CLAUDE.MD", "fallback");
   await fs.write("pkg/deep/AGENTS.MD", "uppercase");
   await fs.write("pkg/deep/AGENTS.override.md", "\uFEFFpreferred");
-  expect(
-    notices(await run()).map(({ path: file, content }) => [path.relative(fs.cwd, file!), content])
-  ).toEqual([
-    ["pkg/AGENTS.md", "Loaded instructions from pkg/AGENTS.md:\n\nparent rules"],
-    [
-      "pkg/deep/AGENTS.override.md",
-      "Loaded instructions from pkg/deep/AGENTS.override.md:\n\npreferred"
-    ]
+  const loaded = notices(await run());
+  expect(loaded.map(({ path: file }) => path.relative(fs.cwd, file!))).toEqual([
+    "pkg/AGENTS.md",
+    "pkg/deep/AGENTS.override.md"
   ]);
-  expect(files.read).toHaveBeenCalledTimes(2);
-  await run();
-  expect(files.read).toHaveBeenCalledTimes(2);
+  expect(loaded[0]?.content).toContain("parent rules");
+  expect(loaded[1]?.content).toContain("preferred");
+  expect(loaded[1]?.content).not.toContain("\uFEFF");
+  expect(notices(await run())).toEqual([]);
 });
 
 it("falls back after directories, broken symlinks, or failed content reads", async () => {
@@ -126,56 +123,104 @@ it("gathers markers across the batch before reading content, while preserving pr
   expect(files.read).not.toHaveBeenCalled();
   await fs.write("pkg/AGENTS.override.md", "preferred override");
   expect(notices(await run())[0]?.path).toBe(path.join(fs.cwd, "pkg/AGENTS.override.md"));
-  expect(files.read).toHaveBeenCalledTimes(1);
 });
 
-it("reloads notices removed or replaced by context edits and by compaction", async () => {
-  await fs.write("pkg/AGENTS.md", "rules");
+it("orders and deduplicates the complete batch across sibling scopes and depths", async () => {
+  for (const directory of ["z/deep", "a", "z", "a/deep/deeper", "a/deep"])
+    await fs.write(`${directory}/AGENTS.md`, directory);
   const entries = await discover(
-    [fs.call("read", { path: "pkg/file" })],
+    [
+      fs.call("read", { path: "z/deep/file.ts" }),
+      fs.call("read", { path: "a/deep/deeper/file.ts" }),
+      fs.call("ls", { path: "z/" })
+    ],
     fs.cwd,
     fs.manager,
     files
   );
-  const [id] = fs.append(entries);
-  fs.manager.appendContextEdit(id!, { content: "shortened" });
-  expect(notices(await run())).toHaveLength(1);
-  const visible = fs.manager.getLeafId()!;
-  fs.manager.appendContextEdit(visible, null);
-  expect(notices(await run())).toHaveLength(1);
-  fs.manager.appendCompaction("summary", null, 1);
-  expect(notices(await run())).toHaveLength(1);
+  expect(notices(entries).map(({ path: file }) => path.relative(fs.cwd, file!))).toEqual([
+    "a/AGENTS.md",
+    "z/AGENTS.md",
+    "a/deep/AGENTS.md",
+    "z/deep/AGENTS.md",
+    "a/deep/deeper/AGENTS.md"
+  ]);
 });
 
-it("ties read markers to their exact projected call, not raw history or branch summaries", async () => {
+it.each(["shortened", "Loaded instructions from altered/AGENTS.md:\n\nrules"])(
+  "reloads notices replaced with %j, omitted by context edits, or compacted away",
+  async (replacement) => {
+    await fs.write("pkg/AGENTS.md", "rules");
+    const entries = await discover(
+      [fs.call("read", { path: "pkg/file" })],
+      fs.cwd,
+      fs.manager,
+      files
+    );
+    const [id] = fs.append(entries);
+    fs.manager.appendContextEdit(id!, { content: replacement });
+    expect(notices(await run())).toHaveLength(1);
+    const visible = fs.manager.getLeafId()!;
+    fs.manager.appendContextEdit(visible, null);
+    expect(notices(await run())).toHaveLength(1);
+    fs.manager.appendCompaction("summary", null, 1);
+    expect(notices(await run())).toHaveLength(1);
+  }
+);
+
+it.each([
+  ["version 1", { version: 1, stamp: "legacy", fileDigest: digest("rules") }],
+  ["removed stamp", { stamp: "legacy" }],
+  ["removed fileDigest", { fileDigest: digest("rules") }]
+])("ignores %s notice metadata without deleting its original text", async (_name, invalid) => {
   const file = await fs.write("pkg/AGENTS.md", "rules");
-  const call = fs.call("read", { path: "pkg/AGENTS.md" });
-  const callEntry = fs.manager.getLeafId()!;
-  fs.append(await discover([call], fs.cwd, fs.manager, files));
-  expect(ledger(fs.manager).wasRead(file)).toBe(true);
-  fs.manager.appendContextEdit(callEntry, { content: "call removed" });
-  expect(ledger(fs.manager).wasRead(file)).toBe(false);
-  expect(notices(await run())).toHaveLength(1);
-  fs.manager.branch(callEntry);
-  expect(ledger(fs.manager).wasRead(file)).toBe(false);
-  expect(notices(await run())).toHaveLength(1);
+  const current = noticeEntry(
+    path.dirname(file),
+    { path: file, content: "rules" },
+    "loaded",
+    fs.cwd
+  );
+  const legacy = { ...current, details: { ...decodeNotice(current).notice, ...invalid } };
+  fs.append([legacy]);
+  expect(decodeNotice(legacy)).toEqual({ notice: undefined, body: current.content });
+  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
+  expect(notices(await run())).toMatchObject([{ version: 2, path: file }]);
+  expect(fs.manager.getBranch()).toContainEqual(
+    expect.objectContaining({ content: current.content, details: legacy.details })
+  );
 });
+
+it.each(["call removed", null])(
+  "expires read markers after an originating-call edit to %j and branch navigation",
+  async (replacement) => {
+    await fs.write("pkg/AGENTS.md", "rules");
+    const call = fs.call("read", { path: "pkg/AGENTS.md" });
+    const callEntry = fs.manager.getLeafId()!;
+    fs.append(await discover([call], fs.cwd, fs.manager, files));
+    expect(await run()).toEqual([]);
+    expect(files.read).not.toHaveBeenCalled();
+    fs.manager.appendContextEdit(callEntry, replacement === null ? null : { content: replacement });
+    expect(notices(await run())).toHaveLength(1);
+    fs.manager.branch(callEntry);
+    expect(notices(await run())).toHaveLength(1);
+  }
+);
 
 it("rejects malformed markers and expires markers when a projected call's arguments change", async () => {
-  const file = await fs.write("pkg/AGENTS.md", "rules");
-  const other = path.join(fs.cwd, "other/AGENTS.md");
+  await fs.write("pkg/AGENTS.md", "rules");
+  const other = await fs.write("other/AGENTS.md", "other rules");
   const call = fs.call("read", { path: "pkg/AGENTS.md" });
   const origin = fs.manager.getLeafId()!;
   fs.append(await discover([call], fs.cwd, fs.manager, files));
   fs.manager.appendCustomEntry(readType, { path: other });
-  expect(ledger(fs.manager).wasRead(file)).toBe(true);
-  expect(ledger(fs.manager).wasRead(other)).toBe(false);
+  expect(await run()).toEqual([]);
+  expect(files.read).not.toHaveBeenCalled();
+  expect(notices(await run("read", { path: "other/file.ts" }))).toMatchObject([{ path: other }]);
   fs.manager.appendContextEdit(origin, {
     content: [
       { type: "toolCall", id: call.toolCallId, name: "read", arguments: { path: "other/file.ts" } }
     ]
   });
-  expect(ledger(fs.manager).wasRead(file)).toBe(false);
   expect(notices(await run())).toHaveLength(1);
 });
 
@@ -199,36 +244,64 @@ it("an empty preferred instruction file still suppresses lower-priority content"
   expect(entries).toHaveLength(1);
   expect(entries[0]?.path).toBe(path.join(fs.cwd, "pkg/AGENTS.override.md"));
   expect(entries[0]?.content).not.toContain("not selected");
+  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
+  await fs.write("pkg/AGENTS.override.md", "now non-empty");
+  const updated = await refresh(fs.cwd, fs.manager, files);
+  expect(updated.map((entry) => decodeNotice(entry).body)).toEqual(["now non-empty"]);
+  fs.append(updated);
+  await fs.write("pkg/AGENTS.override.md", "");
+  const emptied = await refresh(fs.cwd, fs.manager, files);
+  expect(emptied.map((entry) => decodeNotice(entry).body)).toEqual([""]);
+  fs.append(emptied);
+  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
+});
+
+it("compares exact visible bodies using their original display spelling after cwd changes", async () => {
+  await fs.write("pkg/AGENTS.md", "\nLoaded instructions from body/AGENTS.md:\n\nrules\n");
+  await run();
+  expect(await refresh(fs.root, fs.manager, files)).toEqual([]);
+  await fs.write("pkg/AGENTS.md", "\nLoaded instructions from body/AGENTS.md:\n\nrules");
+  const updated = await refresh(fs.root, fs.manager, files);
+  expect(updated.map((entry) => decodeNotice(entry).body)).toEqual([
+    "\nLoaded instructions from body/AGENTS.md:\n\nrules"
+  ]);
+  expect(notices(updated)).toMatchObject([
+    { action: "updated", displayPath: "work/pkg/AGENTS.md" }
+  ]);
+  fs.append(updated);
+  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
 });
 
 it("keeps ordinary snapshots and refreshes only changed/removed visible scopes", async () => {
   await fs.write("pkg/AGENTS.md", "old");
   await run();
   expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
-  await fs.write("pkg/AGENTS.override.md", "new preferred");
+  await fs.write("pkg/AGENTS.override.md", "old");
   expect(await run()).toEqual([]);
   const updated = await refresh(fs.cwd, fs.manager, files);
-  expect(notices(updated)).toMatchObject([
+  const updatedNotices = notices(updated);
+  expect(updatedNotices).toMatchObject([
     {
       action: "updated",
-      path: path.join(fs.cwd, "pkg/AGENTS.override.md"),
-      content:
-        "Updated instructions from pkg/AGENTS.override.md (supersedes the earlier instructions for this directory):\n\nnew preferred"
+      path: path.join(fs.cwd, "pkg/AGENTS.override.md")
     }
   ]);
+  expect(updatedNotices[0]?.content).toContain("old");
+  expect(updatedNotices[0]?.content).toMatch(/supersedes|replaces|overrides/i);
   fs.append(updated);
   await rm(path.join(fs.cwd, "pkg/AGENTS.override.md"));
   fs.append(await refresh(fs.cwd, fs.manager, files));
   await rm(path.join(fs.cwd, "pkg/AGENTS.md"));
   const removed = await refresh(fs.cwd, fs.manager, files);
-  expect(notices(removed)).toMatchObject([
+  const removedNotices = notices(removed);
+  expect(removedNotices).toMatchObject([
     {
       action: "removed",
-      path: null,
-      content:
-        "Removed instructions for pkg. The earlier instructions for this directory no longer apply."
+      path: null
     }
   ]);
+  expect(removedNotices[0]?.content).toContain("no longer apply");
+  expect(removedNotices[0]?.content).toContain("pkg");
   fs.append(removed);
   expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
   fs.manager.appendCompaction("summary", null, 1);

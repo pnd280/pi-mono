@@ -2,7 +2,7 @@
 
 [Workspace overview](../README.md)
 
-Pi provides the agent runtime, tool execution, sessions, and terminal UI. This workspace adds extensions that register tools, commands, event handlers, and presentation behavior in that host.
+Pi provides the agent runtime, tool execution, sessions, and terminal UI. This workspace adds extensions that register tools, commands, event handlers, and presentation behaviour in that host.
 
 ## Package layers
 
@@ -16,14 +16,21 @@ Extensions use libs and utils; libs can use utils. Neither shared package depend
 
 ## Runtime integration
 
-Pi loads an extension through its manifest's `pi.extensions` entry. The package-root `index.ts` forwards to the factory in `src/index.ts`; [tool display's entry point](../packages/extensions/pi-tool-display/src/index.ts) is one example. Lifecycle handlers connect package behavior to the active session and release owned resources on shutdown.
+Pi loads an extension through its manifest's `pi.extensions` entry. The package-root `index.ts` forwards to the factory in `src/index.ts`; [tool display's entry point](../packages/extensions/pi-tool-display/src/index.ts) is one example. Lifecycle handlers connect package behaviour to the active session and release owned resources on shutdown.
 
-Features compose through focused contracts and shared services:
+Shared contracts connect features without transferring their domain policy:
 
-- **Instruction content and presentation:** `pi-nested-instructions` publishes a [notice contract](../packages/extensions/pi-nested-instructions/src/notices.ts); `pi-tool-display` renders those messages. Discovery and transcript presentation have separate owners.
-- **File observations:** tool display and agent summary consume shared [file-mutation observations](../packages/libs/src/file-mutations/README.md), allowing both to use native edit/write facts without separate file reads.
-- **Activity display:** todo activity and agent-summary timing publish through the [working-message coordinator](../packages/libs/src/working-message/README.md), which combines contributions to one host UI surface.
+| Contract                                                                            | Producer                                                               | Consumer and responsibility                                                                        |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [Instruction notices](../packages/extensions/pi-nested-instructions/src/notices.ts) | `pi-nested-instructions` discovers instructions and publishes notices. | `pi-tool-display` renders the notices; discovery and transcript presentation have separate owners. |
+| [Selective-read results](../packages/extensions/pi-read/src/result.ts)              | `pi-read` owns preview provenance and source-window interpretation.    | `pi-tool-display` uses the pure result contract for eligibility and source presentation.           |
+| [File-mutation observations](../packages/libs/src/file-mutations/README.md)         | The shared library observes native edit/write facts.                   | Tool display and agent summary consume those facts without separate file reads.                    |
+| [Working messages](../packages/libs/src/working-message/README.md)                  | Todo activity and agent-summary timing publish contributions.          | The shared coordinator combines them on one host UI surface.                                       |
 
 Reusable TUI components own layout and interaction; extensions supply data, domain policy, and action effects. Host mounting lives separately from components under `libs/src/tui/`.
 
-For a feature's behavior and configuration, start with its [package README](../README.md#extensions). For Pi integration contracts, use the [installed API references](pi-docs.md); for development commands, see [development](development.md).
+| When you…                        | Read                                          |
+| -------------------------------- | --------------------------------------------- |
+| Use or configure a feature       | Its [package README](../README.md#extensions) |
+| Change a Pi integration contract | [Installed API references](pi-docs.md)        |
+| Set up or check the workspace    | [Development commands](development.md)        |

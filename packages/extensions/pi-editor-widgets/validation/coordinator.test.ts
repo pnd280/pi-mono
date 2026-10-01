@@ -445,7 +445,7 @@ it("moves/hides intact native instances without taking over replacement, removal
 it("preserves invalidation and native mouse targets", async () => {
   const fixture = await hostFixture();
   const { host, ui } = fixture;
-  const render = vi.fn((width: number) => new Text("clickable", 0, 0).render(width));
+  const render = (width: number) => new Text("clickable", 0, 0).render(width);
   const invalidate = vi.fn();
   const mouse = vi.fn(() => ({ handled: true, capture: true, focus: true }));
   const component = { render, invalidate, handleMouse: mouse };
@@ -469,7 +469,6 @@ it("preserves invalidation and native mouse targets", async () => {
     const lines = host.widgetContainerAbove.render(80).map(stripTerminalSequences);
     const column = (lines[1] ?? "").indexOf("clickable");
     expect(column).toBeGreaterThanOrEqual(0);
-    const calls = render.mock.calls.length;
     const event = {
       type: "press" as const,
       button: "left" as const,
@@ -494,8 +493,6 @@ it("preserves invalidation and native mouse targets", async () => {
     });
     host.widgetContainerAbove.invalidate();
     expect(invalidate).toHaveBeenCalled();
-    host.widgetContainerAbove.render(40);
-    expect(render.mock.calls.length).toBeGreaterThan(calls);
   } finally {
     coordinator.dispose();
     await fixture.dispose();

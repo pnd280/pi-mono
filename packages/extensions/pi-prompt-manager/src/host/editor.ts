@@ -1,13 +1,8 @@
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
 
 import { PromptError } from "../model.ts";
 
 export type EditorPort = { read(): string; write(text: string): void };
-
-export function editorPort(ctx: ExtensionContext): EditorPort {
-  return { read: () => ctx.ui.getEditorText(), write: (text) => ctx.ui.setEditorText(text) };
-}
 
 /** Source is refused, never sanitized. Pi still normalizes tabs and line endings. */
 export function assertRestorable(text: string): void {

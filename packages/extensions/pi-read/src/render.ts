@@ -1,37 +1,49 @@
 import {
   keyHint,
   type createReadToolDefinition,
-  type Theme
+  type Theme,
+  type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 import { Container, Text, type Component } from "@earendil-works/pi-tui";
 import { highlightCodeSelection } from "@pi-mono/libs/tui/components/code-highlight";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
-import {
-  selectSource,
-  selectionLabel,
-  selectionSchema,
-  type Selection
-} from "@pi-mono/utils/source-selection";
+import { selectionLabel, type Selection } from "@pi-mono/utils/source-selection";
 import { z } from "zod";
 
-import { readDocument, sourceResult, type ReadDocument } from "./result.ts";
-import type { SelectiveReadTool } from "./tool.ts";
+import {
+  interpretReadResult,
+  retainedSelectionSchema,
+  type ReadDocument,
+  type SelectiveReadDetails
+} from "./result.ts";
+
+type NativeRead = ReturnType<typeof createReadToolDefinition>;
+
+type ReadRenderers = Required<
+  Pick<
+    ToolDefinition<NativeRead["parameters"], SelectiveReadDetails | undefined, unknown>,
+    "renderCall" | "renderResult"
+  >
+>;
 
 const renderArgsSchema = z.object({
   path: z.string().optional().catch(undefined),
   offset: z.number().optional().catch(undefined),
   limit: z.number().optional().catch(undefined),
-  selection: selectionSchema.optional().catch(undefined)
+  selection: retainedSelectionSchema.optional().catch(undefined)
 });
 
 type RenderArgs = z.output<typeof renderArgsSchema>;
 
 function readWindow(args: RenderArgs): string | undefined {
   if (args.offset === undefined && args.limit === undefined) return undefined;
-  const first = Math.trunc(Math.max(0, (args.offset ?? 1) - 1)) + 1;
-  if (args.limit === undefined || args.limit < 1) return `from line ${first}`;
+  const start = Math.max(0, (args.offset ?? 1) - 1);
+  const first = Math.trunc(start) + 1;
+  if (args.limit === undefined) return `from line ${first}`;
+  const last = Math.trunc(start + args.limit);
+  if (last < first) return `from line ${first} · limit ${args.limit}`;
 
-  return `lines ${first}-${first + Math.trunc(args.limit) - 1}`;
+  return `lines ${first}-${last}`;
 }
 
 /** Compute styles on render so invalidation cannot retain colors from an old theme. */
@@ -50,27 +62,23 @@ function renderDocument(
   expanded: boolean,
   windowed: boolean
 ): Component {
-  const selected = selection
-    ? selectSource(document.lines, document.firstLine, selection).lines
-    : [];
-  const ranges = selected.map((line) => ({
-    line: line.index,
-    start: line.before.length,
-    end: line.before.length + line.text.length
-  }));
+  const ranges = selection ? document.select(selection).ranges : [];
 
   return themedText(() => {
     const rows: string[] = [];
-    const styled = highlightCodeSelection(document.lines.join("\n"), {
-      path: path ?? "",
-      maxBytes: expanded ? 64 * 1024 : 0,
-      maxLines: 2000,
-      maxLineBytes: 4096,
-      ranges,
-      mark: (text) => theme.bg("searchMatchBg", text) + theme.getBgAnsi("toolSuccessBg")
-    });
+    const styled =
+      expanded || selection !== undefined
+        ? highlightCodeSelection(document.lines.join("\n"), {
+            path: path ?? "",
+            maxBytes: expanded ? 64 * 1024 : 0,
+            maxLines: 2000,
+            maxLineBytes: 4096,
+            ranges,
+            mark: (text) => theme.bg("searchMatchBg", text) + theme.getBgAnsi("toolSuccessBg")
+          })
+        : undefined;
 
-    if (expanded) {
+    if (expanded && styled) {
       rows.push(...styled.text.split("\n").map((line) => theme.fg("toolOutput", line)));
     } else {
       const count = document.lines.length;
@@ -82,16 +90,14 @@ function renderDocument(
     }
 
     if (document.notice) rows.push(theme.fg("warning", displayText(document.notice)));
-    if (selection && !styled.hasSelection)
+    if (selection && !styled?.hasSelection)
       rows.push(theme.fg("warning", "No selected text is visible in this read window."));
 
     return rows.join("\n");
   });
 }
 
-export function createReadRenderers(
-  base: ReturnType<typeof createReadToolDefinition>
-): Required<Pick<SelectiveReadTool, "renderCall" | "renderResult">> {
+export function createReadRenderers(base: NativeRead): ReadRenderers {
   return {
     renderCall(raw, theme, context) {
       const args = renderArgsSchema.safeParse(raw).data ?? {};
@@ -115,12 +121,13 @@ export function createReadRenderers(
       });
     },
     renderResult(result, options, theme, context) {
-      const source = sourceResult(result);
       const args = renderArgsSchema.safeParse(context.args).data ?? {};
-      const document = readDocument(source, {
-        ...(args.offset === undefined ? {} : { offset: args.offset }),
-        ...(args.limit === undefined ? {} : { limit: args.limit })
-      });
+      const interpreted = interpretReadResult(result, args);
+      const source =
+        interpreted.preview.kind === "valid"
+          ? { ...result, content: [...interpreted.sourceContent] }
+          : result;
+      const document = interpreted.document;
 
       if (context.isError || options.isPartial || !document) {
         return (

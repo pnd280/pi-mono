@@ -84,18 +84,19 @@ it("reserves two columns for indentation without exceeding narrow widths", () =>
 });
 
 it("colors verbs as actions, counts as text, and the rest as muted", () => {
-  expect(
-    lines(
-      [segment("edit", 1), segment("shell", 1), segment("search", 1), segment("custom_tool", 1)],
-      // Tags count toward the width.
-      { theme: tagged, width: 400 }
-    )
-  ).toEqual([
-    "  <accent><b>Edited</b></><muted> </><text>1</><muted> file</>" +
-      "<dim> · </><accent>ran</><muted> </><text>1</><muted> command</>" +
-      "<dim> · </><text>1</><muted> search</>" +
-      "<dim> · </><accent>custom_tool</><muted> ×</><text>1</>"
-  ]);
+  const rendered = lines(
+    [segment("edit", 1), segment("shell", 1), segment("search", 1), segment("custom_tool", 1)],
+    // Tags count toward the width.
+    { theme: tagged, width: 400 }
+  ).join("\n");
+  expect(rendered.replaceAll(/<[^>]*>/g, "")).toBe(
+    "  Edited 1 file · ran 1 command · 1 search · custom_tool ×1"
+  );
+  for (const action of ["<b>Edited</b>", "ran", "custom_tool"])
+    expect(rendered).toContain(`<accent>${action}</>`);
+  expect(rendered).toContain("<text>1</>");
+  expect(rendered).toMatch(/<muted>\s*file<\/>/);
+  expect(rendered).toMatch(/<dim>\s*·\s*<\/>/);
 });
 
 it("keeps tool names in their original case", () => {
@@ -120,17 +121,13 @@ it("normalizes adapter-declared count labels before putting them in a summary ro
 });
 
 it("colors problem counts without adding an outcome marker", () => {
-  const success = lines([segment("read", 1)], {
-    theme: tagged
-  });
-  expect(success[0]).toBe("  <accent><b>Read</b></><muted> </><text>1</><muted> file</>");
-
   const problems = lines(
     [segment("list", 1, { unavailable: 1 }), segment("read", 1, { cancelled: 1 })],
     { theme: tagged }
+  ).join("\n");
+  expect(problems.replaceAll(/<[^>]*>/g, "")).toBe(
+    "  Listed 1 dir (1 unavailable) · read 1 file (1 cancelled)"
   );
-  expect(problems).toEqual([
-    "  <accent><b>Listed</b></><muted> </><text>1</><muted> dir</><muted> (1 unavailable)</>" +
-      "<dim> · </><accent>read</><muted> </><text>1</><muted> file</><error> (1 cancelled)</>"
-  ]);
+  expect(problems).toMatch(/<muted>\s*\(1 unavailable\)<\/>/);
+  expect(problems).toMatch(/<error>\s*\(1 cancelled\)<\/>/);
 });

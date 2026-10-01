@@ -5,22 +5,21 @@ import {
   type Component
 } from "@earendil-works/pi-tui";
 
-export type Contribution = { component: Component };
-
 /** `renderWidth` is the width passed to `render()`; `width` is the occupied mouse geometry. */
-export type Cell = {
+type Cell = {
   component: Component;
   x: number;
   y: number;
   width: number;
   height: number;
   renderWidth: number;
+  images: boolean;
 };
 
 export type Rendered = { lines: string[]; cells: Cell[] };
 
 /** Vertical placement of shorter items within a multiline row. */
-export type Align = "top" | "bottom";
+type Align = "top" | "bottom";
 
 type Item = {
   component: Component;
@@ -28,6 +27,7 @@ type Item = {
   width: number;
   group: number;
   bullet: boolean;
+  images: boolean;
 };
 
 const content = (line: string) => stripTerminalSequences(line).trim().length > 0;
@@ -51,7 +51,7 @@ function compactWidth(line: string): number {
   return visibleWidth(neutral.includes("\x1b") ? line : trimmed);
 }
 
-function measure(row: string[], sources: ReadonlyMap<string, Contribution>, width: number): Item[] {
+function measure(row: string[], sources: ReadonlyMap<string, Component>, width: number): Item[] {
   const items: Item[] = [];
   let group = 0;
   let bullet = false;
@@ -70,14 +70,20 @@ function measure(row: string[], sources: ReadonlyMap<string, Contribution>, widt
 
     const source = sources.get(id);
     if (!source) continue;
-    const lines = source.component.render(width).map((line) => truncateToWidth(line, width));
-    if (!lines.some(content)) continue;
+    const output = source.render(width);
+    // Native image payloads are opaque to text measurement and must own their full rows.
+    const images = output.some(
+      (line) => line.includes("\x1b_G") || line.includes("\x1b]1337;File=")
+    );
+    const lines = images ? output : output.map((line) => truncateToWidth(line, width));
+    if (!images && !lines.some(content)) continue;
     items.push({
-      component: source.component,
+      component: source,
       lines,
-      width: lines.reduce((max, line) => Math.max(max, compactWidth(line)), 1),
+      width: images ? width : lines.reduce((max, line) => Math.max(max, compactWidth(line)), 1),
       group,
-      bullet
+      bullet,
+      images
     });
     bullet = false;
   }
@@ -146,12 +152,14 @@ function compose(
       y: top(item),
       width: item.width,
       height: item.lines.length,
-      renderWidth: width
+      renderWidth: width,
+      images: item.images
     });
     x += item.width;
 
     return { item, position, spacing };
   });
+  if (items[0]?.images) return { lines: items[0].lines, cells };
   const lines = Array.from({ length: height }, (_, y) => {
     let line = "";
 
@@ -181,7 +189,7 @@ function compose(
 
 export function renderRows(
   rows: string[][],
-  sources: ReadonlyMap<string, Contribution>,
+  sources: ReadonlyMap<string, Component>,
   width: number,
   separator: string,
   align: Align = "top"
@@ -203,7 +211,12 @@ export function renderRows(
 
 export function clip(rendered: Rendered, height: number, width: number): Rendered {
   if (rendered.lines.length <= height) return rendered;
-  const visible = Math.max(0, height - 1);
+  let visible = Math.max(0, height - 1);
+  // Without native image geometry, clipping a payload or its blank rows could paint over the editor.
+  const splitImage = rendered.cells.find(
+    (cell) => cell.images && cell.y < visible && cell.y + cell.height > visible
+  );
+  if (splitImage) visible = splitImage.y;
 
   return {
     lines:

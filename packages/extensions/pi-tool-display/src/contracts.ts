@@ -137,22 +137,17 @@ export type DisplayRun = {
  * Row role in a collapsed summary run, which has ended. The leader renders the summary
  * line; every other member renders no rows.
  */
-export type SummaryRole = { readonly kind: "leader" | "hidden"; readonly run: DisplayRun };
+export type SummaryRole = { readonly kind: "leader" | "hidden" };
 
-/** Rendering reads state and submits expansion intents without owning transcript updates. */
+/** Rendering reads shared transcript meaning and reports presentation failures. */
 export interface TranscriptView {
   readonly calls: ReadonlyMap<string, DisplayCall>;
   readonly phase: number;
-  readonly mode: DisplayMode;
   group(call: DisplayCall): DisplayGroup | undefined;
-  run(call: DisplayCall): DisplayRun | undefined;
   /** Shared by grouping, summaries, and cards so every consumer agrees. */
   interpretation(call: DisplayCall): CallInterpretation;
   /** Fall back for this call after a presentation callback throws. */
   failAdapter(call: DisplayCall, adapter: ToolDisplayAdapter, error: unknown): void;
-  expand(call: DisplayCall, expanded: boolean): void;
-  /** Apply a row click; false leaves the click to the host. */
-  activate(call: DisplayCall, target: "card" | "notice" | "collapse"): boolean;
 }
 
 export type ResultTextPart = {
@@ -212,10 +207,10 @@ export type McpFacts = {
   server: string;
   tool: string;
   outcome: "transport-error" | "returned-error" | "cancelled" | "success" | "unavailable";
-  /** References to Pi media blocks avoid retaining a second copy of image bytes. */
+  /** Ordered media labels only; Pi owns image bytes and their rendering. */
   content: (
     | { type: "text"; text: string }
-    | { type: "media"; mimeType: string; contentIndex?: number }
+    | { type: "media"; mimeType: string }
     | { type: "resource"; uri: string; text?: string }
   )[];
 };
@@ -254,7 +249,12 @@ export type SummaryNotice = {
   readonly identity: string;
 };
 
-/** Callbacks receive borrowed arguments and results; never mutate or persist them. */
+/**
+ * Callbacks receive borrowed arguments and results; never mutate or persist them.
+ * Standalone cards skip CLI-only supports, exploration, and run-summary callbacks.
+ * A used callback that throws causes atomic generic fallback; presentation failures
+ * keep the row generic through later updates.
+ */
 export type ToolDisplayAdapter = {
   /** Stable contract ID. `pi:*`, `@ff-labs/pi-fff:*`, `pi-mcp-adapter:*`, and `generic` are reserved. */
   id: string;
@@ -295,6 +295,7 @@ export type ToolDisplayAdapter = {
    * arguments before a result exists; undefined, empty items, or missing/mixed scopes
    * exclude the call. Scope runs compare normalized directories or exact literal filters.
    * Result updates can remove or restore membership without changing source order.
+   * Standalone renderers never invoke this callback.
    */
   exploration?(args: unknown, result?: BorrowedToolResult): ExplorationItem[] | undefined;
   /**
@@ -352,7 +353,7 @@ export type ToolDisplayAdapter = {
   /**
    * Internal: summary-mode items for this call. Handle partial arguments; undefined
    * uses the family's category and counts the call once. An empty list omits the call
-   * from summary lines.
+   * from summary lines. Standalone renderers never invoke this callback.
    */
   summaryItems?(args: unknown, context: SummaryItemContext): readonly SummaryItem[] | undefined;
   /** Internal: categories this adapter introduces; built-in IDs cannot be redefined. */

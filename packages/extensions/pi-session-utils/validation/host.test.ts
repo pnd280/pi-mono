@@ -156,13 +156,14 @@ it("persists then creates an empty child without naming configuration", async ()
   ]);
 
   const parentEntries = SessionManager.open(path!).getEntries();
-  const parentSession = runtime.session;
+  const parentId = runtime.session.sessionManager.getSessionId();
   state.cancelNew = true;
   await runtime.session.prompt("/sesh create-empty-child");
-  expect(runtime.session).toBe(parentSession);
+  expect(runtime.session.sessionManager.getSessionId()).toBe(parentId);
+  expect(runtime.session.sessionFile).toBe(path);
+  expect(runtime.session.sessionManager.getEntries()).toEqual(parentEntries);
   state.cancelNew = false;
   await runtime.session.prompt("/sesh create-empty-child");
-  expect(runtime.session).not.toBe(parentSession);
   expect(runtime.session.sessionManager.getHeader()?.parentSession).toBe(path);
   expect(runtime.session.sessionManager.buildSessionContext().messages).toEqual([]);
   expect(runtime.session.sessionManager.getSessionName()).toBeUndefined();

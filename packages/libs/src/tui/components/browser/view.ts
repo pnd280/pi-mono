@@ -28,7 +28,7 @@ type BrowserEnvironment = {
 type FooterMessage = { text: string; color: "dim" | "warning" };
 
 export class Browser<Item> implements Component, Focusable {
-  readonly controller: BrowserController<Item>;
+  private readonly controller: BrowserController<Item>;
   private readonly input = new Input();
   private readonly controls: BrowserControls;
   private readonly textPreview: ScrollableTextPreview;
@@ -63,6 +63,10 @@ export class Browser<Item> implements Component, Focusable {
   }
   set focused(value: boolean) {
     this.input.focused = value;
+  }
+
+  activate(): Promise<void> {
+    return this.controller.activate();
   }
 
   invalidate(): void {
@@ -138,7 +142,7 @@ export class Browser<Item> implements Component, Focusable {
         padding,
         separator: " · ",
         style: (text) => theme.fg("dim", text)
-      }).rows;
+      });
 
     const hasSelection = state.status === "ready" && state.selected !== undefined;
     const primary: (string | undefined)[] = [];
@@ -174,7 +178,7 @@ export class Browser<Item> implements Component, Focusable {
             }
           }
         : {})
-    }).rows;
+    });
   }
 
   private secondaryHints(): (string | undefined)[] {

@@ -24,7 +24,6 @@ export type Occurrence = {
   identity: "valid" | "invalid" | "ambiguous";
   /** Stable within this snapshot even for missing or duplicated IDs. */
   key: string;
-  number: number;
 };
 
 export type Snapshot = {

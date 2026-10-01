@@ -11,7 +11,7 @@ Compare equivalent sizes and content. Different features may need different row 
 - Preserve item identity, outcome, and diagnostics in compact and expanded forms.
 - Make truncation, hidden content, scrolling, and routes to further detail discoverable.
 - Keep controls available in narrow views, including hints later in the reading order.
-- Check inline/overlay placement, host clipping, and transcript visibility for predictable behavior.
+- Check inline/overlay placement, host clipping, and transcript visibility for predictable behaviour.
 
 ## Evidence
 

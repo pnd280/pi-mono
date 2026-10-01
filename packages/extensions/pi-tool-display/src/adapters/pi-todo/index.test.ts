@@ -51,6 +51,10 @@ it("uses the shared single-line sanitizer while retaining the todo subject budge
   expect(todoDisplayAdapter.invocation?.({ action: "create", subject })).toEqual([
     { kind: "value", text: `A ${"界".repeat(197)}…` }
   ]);
+  const prefix = "x".repeat(198);
+  expect(
+    todoDisplayAdapter.invocation?.({ action: "create", subject: `${prefix}👩‍💻suffix` })
+  ).toEqual([{ kind: "value", text: `${prefix}…` }]);
 });
 
 it("summarizes update changes and resolves the subject from a result", () => {

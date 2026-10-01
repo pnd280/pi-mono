@@ -2,20 +2,46 @@
 
 [@pi-mono/libs](../../README.md)
 
-## Behavior
+Reads and updates JSON settings files such as Pi's `settings.json`. Used by [working-message ordering](../working-message/README.md#persistence) and [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration).
 
-[`readSettingsFile`](read.ts) reads bounded UTF-8 from regular files without parsing or defaulting; missing files and I/O errors throw. [`readSettingsRecord`](transaction.ts) parses a JSON object (including Pi's leading BOM); missing or empty files yield `{}`, while malformed or unreadable records throw.
+## Behaviour
 
-`isSettingsRecord` validates without replacing the object, allowing saves to preserve unrelated own keys.
+Reads return current content without changing the file. Updates apply one locked change.
 
-[`updateSettingsRecord`](transaction.ts) locks around a fresh read, synchronous mutation, and atomic replacement. It follows existing settings symlinks without replacing them, preserves unrelated fields and existing mode bits, and refuses malformed JSON or dangling links rather than repairing them. It can create parent directories; new files use mode `0600` subject to platform semantics. Reads and serialized writes are limited to 1 MiB.
+### Reads
 
-These record helpers are shared by [working-message ordering](../working-message/README.md#persistence) and [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration).
+| Function                               | Returns                                                          | Missing file | Empty file | Unreadable | Nonregular, over 1 MiB, or changed during the read | Malformed JSON |
+| -------------------------------------- | ---------------------------------------------------------------- | ------------ | ---------- | ---------- | -------------------------------------------------- | -------------- |
+| [`readSettingsFile`](read.ts)          | Bounded UTF-8 text from a regular file, not parsed or defaulted. | Throws       | `""`       | Throws     | `undefined`                                        | Not parsed     |
+| [`readSettingsRecord`](transaction.ts) | A parsed JSON object. Pi's leading BOM is accepted.              | `{}`         | `{}`       | Throws     | Throws                                             | Throws         |
+
+`isSettingsRecord` validates an object without replacing it, so saves can keep unrelated own keys.
+
+### Updates
+
+[`updateSettingsRecord`](transaction.ts):
+
+1. Takes a lock.
+2. Reads the file again while holding the lock.
+3. Runs your synchronous change.
+4. Replaces the file atomically.
+
+- Existing settings symlinks are followed, not replaced.
+- Unrelated fields and existing mode bits are kept.
+- Malformed JSON and dangling links are refused, never repaired.
+- Parent directories can be created. New files use mode `0600`, subject to the platform.
+
+### Limits
+
+Reads and serialised writes are limited to 1 MiB.
 
 ## Caller responsibilities
 
-Validate the parsed settings section and decide whether to ignore invalid files or disable a feature. Only access project settings after establishing project trust; these helpers do not enforce scope or trust. Mutators own their section schema and whether invalid preferences can be replaced. Present sanitized, consumer-specific read/write diagnostics without exposing settings contents.
+- Validate the parsed settings section, and decide whether an invalid file is ignored or disables the feature.
+- Access project settings only after establishing project trust. These helpers don't enforce scope or trust.
+- Mutators own their section's schema, and decide whether invalid preferences can be replaced.
+- Show sanitised read and write diagnostics specific to your feature, without exposing settings contents.
 
 ## Validation
 
-Use [package validation](../../README.md#validation) and check affected consumers. [Reader tests](index.test.ts), [transaction tests](transaction.test.ts), [working-message settings tests](../working-message/settings.test.ts), and [widget settings tests](../../../extensions/pi-editor-widgets/src/settings.test.ts) own the edge cases.
+Use [package validation](../../README.md#validation) and check affected consumers. Edge cases are tested in the [reader tests](index.test.ts), [transaction tests](transaction.test.ts), [working-message settings tests](../working-message/settings.test.ts), and [widget settings tests](../../../extensions/pi-editor-widgets/src/settings.test.ts).

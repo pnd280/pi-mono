@@ -76,7 +76,7 @@ function renderContext(args: unknown, expanded: boolean) {
 beforeAll(() => initTheme("dark", false));
 
 it("selects only Pi's built-in tool_search registration and respects renderer overrides", () => {
-  expect(builtinToolSearchAdapter(info)).toBe(adapter);
+  expect(builtinToolSearchAdapter(info)?.id).toBe("builtin:tool-search");
 
   for (const unsupported of [
     undefined,

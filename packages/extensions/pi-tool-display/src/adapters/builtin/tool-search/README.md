@@ -4,15 +4,15 @@
 
 ## Compatibility and selection
 
-Matches Pi's built-in `tool_search` only: tool name `tool_search`, `builtin` source with path `builtin:tool-search`, and parameters with a required string `query` and optional number `limit`. Pi's own schema-identity check is not public, so provenance relies on the synthetic built-in source path.
+The adapter matches Pi's built-in `tool_search` only: tool name `tool_search`, `builtin` source with path `builtin:tool-search`, and parameters with a required string `query` and optional number `limit`. Pi's own schema-identity check is not public, so provenance relies on the synthetic built-in source path.
 
-SDK registrations through `createToolSearchExtension()` get an unverifiable `<inline:…>` source and keep generic cards. Replacement extensions that register their own `tool_search` are not specialized either. Renderer overrides still apply.
+SDK registrations through `createToolSearchExtension()` get an unverifiable `<inline:…>` source and keep generic cards. Replacement extensions that register their own `tool_search` are not specialised either. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 
 ## Cards
 
-Cards read **Searching tools** while pending and **Searched tools** afterward, followed by the query after a spaced em dash. Raw parameters, including `limit`, stay hidden unless `showParameters: true`.
+Cards read "Searching tools" while pending and "Searched tools" afterward, followed by the query after a spaced em dash. Raw parameters, including `limit`, stay hidden unless `showParameters: true`.
 
-A successful result with valid `details.loaded` names replaces the compact body with **Loaded N tools: a, b** or **No matching tools**. Expansion shows only the original text, without the summary line. Errors, cancellations, and invalid details keep the ordinary output preview; unrecognized arguments fall back to generic cards.
+A successful result with valid `details.loaded` names replaces the compact body with "Loaded N tools: a, b" or "No matching tools". Expansion shows only the original text, without the summary line. Errors, cancellations, and invalid details keep the ordinary output preview; unrecognised arguments fall back to generic cards.
 
 ## Summary mode
 

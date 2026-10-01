@@ -66,8 +66,8 @@ it.each(["Renamed session", ""])(
     source.appendMessage(user("abandoned"));
     source.appendSessionInfo(name);
     source.branch(selected);
-    const branch = source.getBranch();
-    const entries = source.getEntries();
+    const branch = structuredClone(source.getBranch());
+    const entries = structuredClone(source.getEntries());
 
     const saved = SessionManager.open(saveActiveBranch(cwd, source));
 
@@ -161,7 +161,7 @@ it("keeps the saved file for recovery when switching fails", async () => {
   ).rejects.toThrow("switch failed");
 
   expect(path).toBeDefined();
-  expect(SessionManager.open(path!).buildSessionContext().messages).toEqual(
-    source.buildSessionContext().messages
-  );
+  expect(SessionManager.open(path!).buildSessionContext().messages).toEqual([
+    expect.objectContaining({ role: "user", content: "recoverable" })
+  ]);
 });

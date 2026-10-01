@@ -9,7 +9,7 @@ import {
 import { type Component, type Container, type TUI } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-export type NativeComponent = Component & { dispose?(): void };
+type NativeComponent = Component & { dispose?(): void };
 
 export interface WidgetHost {
   session: AgentSession;

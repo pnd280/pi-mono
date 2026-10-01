@@ -3,7 +3,6 @@ import { copyNative } from "@pi-mono/libs/native-clipboard";
 
 import { openBrowser } from "./browser/open.ts";
 import { completions } from "./commands.ts";
-import { editorPort } from "./host/editor.ts";
 import { PromptManager } from "./manager.ts";
 import { errorMessage, type Repository } from "./model.ts";
 import { loadSettings } from "./settings.ts";
@@ -49,7 +48,10 @@ export default function promptManager(pi: ExtensionAPI): void {
     if (activation !== generation) return;
     const current = new PromptManager({
       repository,
-      editor: editorPort(ctx),
+      editor: {
+        read: () => ctx.ui.getEditorText(),
+        write: (text) => ctx.ui.setEditorText(text)
+      },
       copy: copyNative,
       notify: (message, severity) => ctx.ui.notify(message, severity),
       open: (request) =>

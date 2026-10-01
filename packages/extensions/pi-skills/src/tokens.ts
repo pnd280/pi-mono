@@ -1,4 +1,14 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
 export const defaultExpansionFormat = "[{command}]({path})";
+
+function getSkillPaths(commands: ReturnType<ExtensionAPI["getCommands"]>): Map<string, string> {
+  return new Map(
+    commands
+      .filter((command) => command.source === "skill")
+      .map((command) => [`/${command.name}`, command.sourceInfo.path])
+  );
+}
 
 function formatReference(format: string, command: string, path: string): string {
   return format.replace(/\{(command|path)\}/gu, (_placeholder, key: string) =>
@@ -6,11 +16,12 @@ function formatReference(format: string, command: string, path: string): string 
   );
 }
 
-export function expandSkillTokens(
+export function expandSkillInput(
   text: string,
-  paths: ReadonlyMap<string, string>,
+  commands: ReturnType<ExtensionAPI["getCommands"]>,
   format = defaultExpansionFormat
 ): string {
+  const paths = getSkillPaths(commands);
   if (paths.size === 0 || !text.includes("/skill:")) return text;
 
   const references = new Map<string, string[]>();
@@ -32,7 +43,7 @@ export function expandSkillTokens(
 
   let endOfExistingReference = 0;
 
-  return text.replace(/\S+/gu, (token, start: number) => {
+  const expanded = text.replace(/\S+/gu, (token, start: number) => {
     if (start < endOfExistingReference) return token;
 
     const existing = references.get(token)?.find((reference) => text.startsWith(reference, start));
@@ -48,15 +59,9 @@ export function expandSkillTokens(
 
     return path === undefined ? token : formatReference(format, token, path);
   });
-}
 
-export function findSkillToken(line: string, cursorCol: number) {
-  const query = line.slice(0, cursorCol).match(/\S+$/u)?.[0];
+  const leadingCommand = expanded.match(/^\/skill:[^ ]+/u)?.[0];
 
-  if (!query?.startsWith("/skill:")) return undefined;
-
-  const start = cursorCol - query.length;
-  const suffix = line.slice(cursorCol).match(/^\S*/u)?.[0] ?? "";
-
-  return { start, end: cursorCol + suffix.length, query };
+  // Pi parses the leading command up to the first literal space after input handlers run.
+  return leadingCommand && paths.has(leadingCommand) ? ` ${expanded}` : expanded;
 }

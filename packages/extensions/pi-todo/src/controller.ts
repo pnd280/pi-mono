@@ -25,13 +25,16 @@ export class TodoController {
     return this.revision;
   }
 
-  apply(action: TaskAction, params: TaskMutationParams): TaskMutationResult {
+  apply(
+    action: TaskAction,
+    params: TaskMutationParams
+  ): Pick<TaskMutationResult, "content" | "details"> {
     const result = applyTaskMutation(this.state, action, params);
     const changed = result.state !== this.state;
-    this.state = cloneState(result.state);
+    this.state = result.state;
     if (changed) this.revision += 1;
 
-    return result;
+    return { content: result.content, details: result.details };
   }
 
   reconstructFromBranch<Entry>(entries: readonly Entry[]): void {

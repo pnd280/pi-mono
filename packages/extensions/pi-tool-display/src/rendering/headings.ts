@@ -20,7 +20,7 @@ import { invocationParts, invocationPartText, serializeParameters } from "../inv
 import { expansionHint, codeHighlightLimits, tree, styleParameters } from "./format.ts";
 import { bodyWidth } from "./layout.ts";
 import { targetRows } from "./target-layout.ts";
-import type { PreparedCard } from "./types.ts";
+import type { PreparedCard, PreparedGroup } from "./types.ts";
 
 const COMPACT_HEADING_CHARACTERS = 16 * 1024;
 const COMPACT_HEADING_ROWS = 3;
@@ -46,7 +46,7 @@ function formatParts(
     const source =
       part.kind === "path" ? invocationPartText(part, p.context.cwd, relativeTo) : part.text;
     // Bound source work before terminal normalization can discard or expand it.
-    const retained = textPrefix(source.slice(0, remaining + 1), remaining);
+    const retained = textPrefix(source, remaining);
     const normalized = displayText(retained);
     const prefix = textPrefix(normalized, remaining);
     if (prefix) text += style(part, prefix);
@@ -201,19 +201,19 @@ function actionColor(tone: ActionTone): HeadingColor {
   }
 }
 
-function callActionTone(call: DisplayCall, p: PreparedCard): ActionTone {
+function callActionTone(call: DisplayCall, group: PreparedGroup): ActionTone {
   if (isLive(call)) return "pending";
 
-  return actionTone(p.interpret(call).outcome);
+  return actionTone(group.interpret(call).outcome);
 }
 
-function groupActionColor(group: DisplayGroup, p: PreparedCard): HeadingColor {
+function groupActionColor(group: PreparedGroup): HeadingColor {
   const first = group.members[0];
   if (!first) return "accent";
 
-  const tone = callActionTone(first, p);
+  const tone = callActionTone(first, group);
 
-  return group.members.every((call) => callActionTone(call, p) === tone)
+  return group.members.every((call) => callActionTone(call, group) === tone)
     ? actionColor(tone)
     : "accent";
 }
@@ -227,8 +227,10 @@ function scopeHeading(
   const parts: InvocationPart[] = [
     { kind: group.scope.kind === "filter" ? "value" : "path", text: group.scope.value }
   ];
-  const detail = formatParts(parts, p, (_part, text) => p.theme.fg("text", text));
-  const rows = targetTitleRows(title, parts, p, true) ?? titleRows(title, detail, p, true);
+  let detail: HeadingDetail | undefined;
+  const genericDetail = () =>
+    (detail ??= formatParts(parts, p, (_part, text) => p.theme.fg("text", text)));
+  const rows = targetTitleRows(title, parts, p, true) ?? titleRows(title, genericDetail(), p, true);
   if (!outcome) return rows;
   const suffix = p.theme.fg("dim", " · ") + outcome;
 
@@ -248,7 +250,7 @@ function scopeHeading(
       cwd: p.context.cwd,
       theme: p.theme,
       expanded: p.expanded
-    }) ?? previewRows(wrapRows(detail.text, bodyWidth(p.width)), p, detail);
+    }) ?? previewRows(wrapRows(genericDetail().text, bodyWidth(p.width)), p, genericDetail());
 
   return [...wrapRows(title + suffix, p.width), ...headingContinuation(scope, p, true)];
 }
@@ -280,7 +282,7 @@ function groupMemberLabel(p: PreparedCard): string {
   return actionVerbs.action;
 }
 
-function groupHeading(group: DisplayGroup, p: PreparedCard): string[] {
+function groupHeading(group: PreparedGroup, p: PreparedCard): string[] {
   const first = group.members[0] === p.call;
   const active = first && group.members.some(isLive);
   const marker = TUI_GLYPHS.bullet;
@@ -289,7 +291,7 @@ function groupHeading(group: DisplayGroup, p: PreparedCard): string[] {
   if (first) {
     const outcomes = group.members
       .filter((call) => !isLive(call))
-      .map((call) => p.interpret(call).outcome);
+      .map((call) => group.interpret(call).outcome);
     const failed = outcomes.filter((outcome) => outcome === "failure").length;
     const cancelled = outcomes.filter((outcome) => outcome === "cancelled").length;
     const unavailable = outcomes.filter((outcome) => outcome === "unavailable").length;
@@ -300,7 +302,7 @@ function groupHeading(group: DisplayGroup, p: PreparedCard): string[] {
     ]
       .filter(Boolean)
       .join(p.theme.fg("dim", ", "));
-    const titleColor = groupActionColor(group, p);
+    const titleColor = groupActionColor(group);
 
     if (group.title !== undefined) {
       // Adapter-defined groups use a title instead of exposing their literal scope.
@@ -327,18 +329,7 @@ function groupHeading(group: DisplayGroup, p: PreparedCard): string[] {
   // displaced behind later summaries. Even repeated reads retain their identity.
   const relativeTo = group.scope.kind === "directory" ? group.scope.value : p.context.cwd;
   const item = {
-    rows: p.exploration.flatMap((entry) => {
-      const detail = formatParts(
-        entry.parts,
-        p,
-        (part, text) => {
-          if (part.kind === "annotation" || part.kind === "range") return p.theme.fg("dim", text);
-
-          return p.theme.fg(part.kind === "pattern" ? "syntaxString" : "text", text);
-        },
-        relativeTo
-      );
-
+    rows: group.exploration.flatMap((entry) => {
       const terminal = p.call && isLive(p.call) ? undefined : terminalStatus(p.outcome);
       const lifecycle = p.call?.lifecycle;
       let label = groupMemberLabel(p);
@@ -363,6 +354,17 @@ function groupHeading(group: DisplayGroup, p: PreparedCard): string[] {
           `${title} ${target[0] ?? ""}`,
           ...target.slice(1).map((row) => " ".repeat(indent) + row)
         ];
+
+      const detail = formatParts(
+        entry.parts,
+        p,
+        (part, text) => {
+          if (part.kind === "annotation" || part.kind === "range") return p.theme.fg("dim", text);
+
+          return p.theme.fg(part.kind === "pattern" ? "syntaxString" : "text", text);
+        },
+        relativeTo
+      );
 
       return previewRows(wrapRows(`${title} ${detail.text}`, bodyWidth(p.width)), p, detail);
     })
@@ -405,7 +407,7 @@ function status(p: PreparedCard): {
   };
 }
 
-function invocation(p: PreparedCard): { parts: InvocationPart[]; detail: HeadingDetail } {
+function invocation(p: PreparedCard): readonly InvocationPart[] {
   const mcp = p.mcp;
   const name = mcp ? displayText(`${mcp.server}.${mcp.tool}`) : p.name;
   const parts =
@@ -419,8 +421,11 @@ function invocation(p: PreparedCard): { parts: InvocationPart[]; detail: Heading
           p.expanded ? Infinity : COMPACT_HEADING_CHARACTERS
         ));
 
-  const visible = parts.filter((part) => part.kind !== "parameters" || p.showParameters);
-  const detail = formatParts(visible, p, (part, text) => {
+  return parts.filter((part) => part.kind !== "parameters" || p.showParameters);
+}
+
+function invocationDetail(parts: readonly InvocationPart[], p: PreparedCard): HeadingDetail {
+  return formatParts(parts, p, (part, text) => {
     if (part.kind === "annotation" || part.kind === "range") return p.theme.fg("dim", text);
     if (part.kind === "pattern") return p.theme.fg("syntaxString", text);
     if (part.kind === "parameters") return styleParameters(text, p.theme);
@@ -432,8 +437,6 @@ function invocation(p: PreparedCard): { parts: InvocationPart[]; detail: Heading
 
     return p.theme.fg(p.adapter.family === "invocation" ? "accent" : "text", text);
   });
-
-  return { parts: visible, detail };
 }
 
 function codeRows(code: DisplayCode, p: PreparedCard): string[] {
@@ -457,8 +460,8 @@ export function heading(p: PreparedCard): string[] {
   const state = status(p);
   const marker = p.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
   const title = `${p.theme.fg(state.actionColor, marker)} ${p.theme.fg(state.actionColor, p.theme.bold(state.verb))}`;
-  const { parts, detail } = invocation(p);
-  const rows = targetTitleRows(title, parts, p) ?? titleRows(title, detail, p);
+  const parts = invocation(p);
+  const rows = targetTitleRows(title, parts, p) ?? titleRows(title, invocationDetail(parts, p), p);
   if (p.code) rows.push(...headingContinuation(codeRows(p.code, p), p));
   if (p.showParameters && p.expanded && !["shell", "invocation"].includes(p.adapter.family))
     rows.push(

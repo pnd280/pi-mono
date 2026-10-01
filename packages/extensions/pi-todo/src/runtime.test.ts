@@ -10,8 +10,8 @@ it("registers only in interactive CLI invocations, respecting the argument termi
     ["-p"],
     ["--print"],
     ["--mode", "rpc"],
-    ["--mode=json"],
-    ["--export"],
+    ["--mode", "json"],
+    ["--export", "session.jsonl"],
     ["--help"],
     ["--version"],
     ["--list-models"]
@@ -19,7 +19,17 @@ it("registers only in interactive CLI invocations, respecting the argument termi
     expect(shouldActivate({ ...runtime, argv: [...runtime.argv, ...args] })).toBe(false);
   }
 
-  expect(shouldActivate({ ...runtime, argv: [...runtime.argv, "--", "-p"] })).toBe(true);
+  for (const args of [
+    ["--", "-p"],
+    ["--name", "--print"],
+    ["--append-system-prompt", "--help"],
+    ["--mode", "rpc", "--mode", "text"],
+    // Pi treats this as an extension flag, not its built-in mode option.
+    ["--mode=json"]
+  ]) {
+    expect(shouldActivate({ ...runtime, argv: [...runtime.argv, ...args] })).toBe(true);
+  }
+
   expect(shouldActivate({ ...runtime, title: "worker-rpc" })).toBe(false);
   expect(shouldActivate({ ...runtime, stdinIsTTY: undefined })).toBe(false);
   expect(shouldActivate({ ...runtime, stdoutIsTTY: false })).toBe(false);

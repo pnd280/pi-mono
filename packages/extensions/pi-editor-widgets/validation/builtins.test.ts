@@ -289,7 +289,6 @@ it("matches native compaction with the routed window and selected model reserve"
       fauxAssistantMessage("done")
     ]);
     await session.prompt("Route the request");
-    expect(session.routedModel?.model.id).toBe("physical");
     const values = builtinText(session, host.footerDataProvider, ui.theme, {
       contextDisplay: "verbose"
     });

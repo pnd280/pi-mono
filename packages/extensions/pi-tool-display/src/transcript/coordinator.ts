@@ -352,7 +352,7 @@ export class TranscriptCoordinator implements TranscriptView {
     const run = this.runs.get(call.key);
     if (!run || !this.summarized(run)) return undefined;
 
-    return { kind: run.members[0] === call ? "leader" : "hidden", run };
+    return { kind: run.members[0] === call ? "leader" : "hidden" };
   }
   /** Mode changes reset opened runs and re-render every row once. */
   setMode(mode: DisplayMode): void {

@@ -40,8 +40,8 @@ export default function smartCompact(pi: ExtensionAPI) {
       config = loadCompactConfig(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
       binding = bindNativeCompaction(
         ctx.sessionManager,
-        Object.keys(config).length ? { config, registry: ctx.modelRegistry } : undefined,
-        (entry) => pi.appendEntry<SummaryModelEntry>(summaryModelEntryType, entry)
+        (entry) => pi.appendEntry<SummaryModelEntry>(summaryModelEntryType, entry),
+        Object.keys(config).length ? { config, registry: ctx.modelRegistry } : undefined
       );
     } catch (error) {
       unavailable =

@@ -1,12 +1,12 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
-import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, vi } from "vite-plus/test";
 
 import { summaryModelEntryType } from "../src/entry.ts";
 import smartCompact from "../src/index.ts";
+import { sdkSessionFixture } from "./sdk-session.ts";
 
 it.each([
   { name: "configured virtual model", selectedVirtual: false, outcome: "success" },
@@ -14,11 +14,10 @@ it.each([
   { name: "rejected route", selectedVirtual: false, outcome: "rejection" },
   { name: "cancelled route", selectedVirtual: false, outcome: "cancellation" }
 ])("virtual compaction: $name", async ({ selectedVirtual, outcome }) => {
-  const fixture = await hostFixture([smartCompact]);
+  const fixture = await sdkSessionFixture([smartCompact]);
   const { session, agentDir } = fixture;
 
   try {
-    await mkdir(agentDir, { recursive: true });
     await writeFile(
       join(agentDir, "settings.json"),
       JSON.stringify({

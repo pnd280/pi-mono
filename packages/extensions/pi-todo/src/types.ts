@@ -1,7 +1,7 @@
 import type { JsonObject, JsonValue, TextContent } from "@earendil-works/pi-ai";
 import type { z } from "zod";
 
-import type { mutationParamsSchema } from "./mutation-schema.ts";
+import type { mutationParamsSchema } from "./tool-schema.ts";
 
 export const TASK_STATUSES = ["pending", "in_progress", "completed", "deleted"] as const;
 

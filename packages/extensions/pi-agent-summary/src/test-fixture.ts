@@ -8,7 +8,8 @@ import {
   DefaultResourceLoader,
   ModelRuntime,
   SessionManager,
-  SettingsManager
+  SettingsManager,
+  type AgentSession
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, vi } from "vite-plus/test";
 
@@ -29,12 +30,15 @@ beforeEach(() =>
   })
 );
 afterEach(async () => {
-  for (const dispose of cleanup.splice(0)) await dispose();
-  vi.useRealTimers();
-  vi.unstubAllEnvs();
+  try {
+    for (const dispose of cleanup.splice(0)) await dispose();
+  } finally {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  }
 });
 
-export async function fixture(mode: SummaryContext["mode"] = "tui") {
+export function fixture(mode: SummaryContext["mode"] = "tui") {
   const directory = mkdtempSync(join(tmpdir(), "pi-agent-summary-"));
   vi.stubEnv("PI_CODING_AGENT_DIR", directory);
   vi.stubEnv("PI_OFFLINE", "1");
@@ -76,34 +80,6 @@ export async function fixture(mode: SummaryContext["mode"] = "tui") {
       handlers[name].push(handler);
     }
   };
-  entry(api);
-  const settingsManager = SettingsManager.inMemory();
-  const resourceLoader = new DefaultResourceLoader({
-    cwd: directory,
-    agentDir: directory,
-    settingsManager,
-    noExtensions: true,
-    noSkills: true,
-    noPromptTemplates: true,
-    noThemes: true,
-    noContextFiles: true
-  });
-  await resourceLoader.reload();
-  const modelRuntime = await ModelRuntime.create({
-    authPath: join(directory, "auth.json"),
-    modelsPath: null,
-    modelsStorePath: join(directory, "models-store.json"),
-    refreshOnCreate: false,
-    allowModelNetwork: false
-  });
-  const { session: agentSession } = await createAgentSession({
-    cwd: directory,
-    agentDir: directory,
-    settingsManager,
-    resourceLoader,
-    modelRuntime,
-    sessionManager: session
-  });
 
   const emit = async <E extends keyof TestEvents>(
     name: E,
@@ -112,14 +88,56 @@ export async function fixture(mode: SummaryContext["mode"] = "tui") {
     for (const handler of handlers[name]) await handler(event, ctx);
   };
 
+  let nativeSession: Promise<AgentSession> | undefined;
   cleanup.push(async () => {
-    await emit("session_shutdown", {});
-    agentSession.dispose();
-    rmSync(directory, { recursive: true, force: true });
+    try {
+      await emit("session_shutdown", {});
+    } finally {
+      try {
+        const agentSession = await nativeSession?.catch(() => undefined);
+        agentSession?.dispose();
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    }
   });
+  // Observation must be installed before the first native session is constructed.
+  entry(api);
+  const native = () =>
+    (nativeSession ??= (async () => {
+      const settingsManager = SettingsManager.inMemory();
+      const resourceLoader = new DefaultResourceLoader({
+        cwd: directory,
+        agentDir: directory,
+        settingsManager,
+        noExtensions: true,
+        noSkills: true,
+        noPromptTemplates: true,
+        noThemes: true,
+        noContextFiles: true
+      });
+      await resourceLoader.reload();
+      const modelRuntime = await ModelRuntime.create({
+        authPath: join(directory, "auth.json"),
+        modelsPath: null,
+        modelsStorePath: join(directory, "models-store.json"),
+        refreshOnCreate: false,
+        allowModelNetwork: false
+      });
+      const { session: agentSession } = await createAgentSession({
+        cwd: directory,
+        agentDir: directory,
+        settingsManager,
+        resourceLoader,
+        modelRuntime,
+        sessionManager: session
+      });
+
+      return agentSession;
+    })());
   let nextId = 0;
 
-  const tool = async (toolName: string, input: Record<string, unknown>, action?: () => void) => {
+  const tool = async (toolName: string, input: Record<string, unknown>) => {
     const toolCallId = String(nextId++);
     await emit("tool_execution_start", {
       type: "tool_execution_start",
@@ -128,13 +146,11 @@ export async function fixture(mode: SummaryContext["mode"] = "tui") {
       args: input
     });
 
-    if (action) action();
-    else {
-      const tool = agentSession.agent.state.tools.find((tool) => tool.name === toolName);
-      if (!tool) throw new Error(`Missing tool ${toolName}`);
+    const agentSession = await native();
+    const tool = agentSession.agent.state.tools.find((tool) => tool.name === toolName);
+    if (!tool) throw new Error(`Missing tool ${toolName}`);
 
-      return tool.execute(toolCallId, input);
-    }
+    return tool.execute(toolCallId, input);
   };
 
   return { api, ctx, session, setWorkingMessage, emit, tool };

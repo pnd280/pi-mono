@@ -12,23 +12,21 @@ const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultText
   kind
 });
 
-/** The FFF 0.10.6 text envelope carries diagnostics absent from its numeric details. */
-export function fffResultParts(
-  text: string,
-  kind: FffToolKind,
-  context: Pick<ResultTextContext, "isError" | "isPartial">
-): ResultTextPart[] {
-  if (context.isPartial) return [part(text)];
-  if (context.isError) return [part(text, "error")];
+type Warning = { text: string; separator: string };
+
+type Envelope = { content: string; prefix?: Warning; trailer?: Warning };
+
+/** Recognise the envelope without formatting source lines on the notices-only path. */
+function envelope(text: string, kind: FffToolKind): Envelope {
   const wildcardSuffix =
     "' matches everything \u2014 grep needs a concrete substring or identifier. Example: `pattern: 'MyClass'` or `pattern: 'export function'`.";
   if (kind !== "find" && text.startsWith("Pattern '") && text.endsWith(wildcardSuffix))
-    return [part(text, "warning")];
-  const parts: ResultTextPart[] = [];
+    return { content: "", prefix: { text, separator: "" } };
   const fuzzy = "[0 exact matches. Maybe you meant this?]";
+  let prefix: Warning | undefined;
 
   if (text.startsWith(`${fuzzy}\n`)) {
-    parts.push(part(fuzzy, "warning"), part("\n"));
+    prefix = { text: fuzzy, separator: "\n" };
     text = text.slice(fuzzy.length + 1);
   }
 
@@ -38,6 +36,32 @@ export function fffResultParts(
     );
   const trailer = match && match.index + match[0].length === text.length ? match : null;
   const content = trailer ? text.slice(0, trailer.index) : text;
+  const notice = trailer?.[1];
+
+  return {
+    content,
+    ...(prefix ? { prefix } : {}),
+    ...(trailer && notice !== undefined
+      ? { trailer: { text: notice, separator: trailer[0].slice(0, -notice.length) } }
+      : {})
+  };
+}
+
+/** The FFF 0.10.6 text envelope carries diagnostics absent from its numeric details. */
+export function fffResultParts(
+  text: string,
+  kind: FffToolKind,
+  context: Pick<ResultTextContext, "isError" | "isPartial">
+): ResultTextPart[] {
+  if (context.isPartial) return [part(text)];
+  if (context.isError) return [part(text, "error")];
+  const { content, prefix, trailer } = envelope(text, kind);
+  const parts: ResultTextPart[] = [];
+
+  if (prefix) {
+    parts.push(part(prefix.text, "warning"));
+    if (prefix.separator) parts.push(part(prefix.separator));
+  }
 
   if (content === (kind === "find" ? "No files found matching pattern" : "No matches found")) {
     parts.push(part(content, "annotation"));
@@ -56,23 +80,22 @@ export function fffResultParts(
     });
   }
 
-  const notice = trailer?.[1];
-
-  if (trailer && notice !== undefined) {
-    const separator = trailer[0].slice(0, -notice.length);
-    if (separator) parts.push(part(separator));
-    parts.push(part(notice, "warning"));
+  if (trailer) {
+    if (trailer.separator) parts.push(part(trailer.separator));
+    parts.push(part(trailer.text, "warning"));
   }
 
   return parts;
 }
 
 export function fffTextNotices(result: BorrowedToolResult, kind: FffToolKind): DisplayNotice[] {
-  return result.content.flatMap((block) =>
-    block.type === "text"
-      ? fffResultParts(block.text, kind, { isError: false, isPartial: false })
-          .filter((part) => part.kind === "warning")
-          .map((part) => ({ kind: "warning" as const, text: part.text }))
-      : []
-  );
+  return result.content.flatMap((block) => {
+    if (block.type !== "text") return [];
+    const { prefix, trailer } = envelope(block.text, kind);
+    const notices: DisplayNotice[] = [];
+    if (prefix) notices.push({ kind: "warning", text: prefix.text });
+    if (trailer) notices.push({ kind: "warning", text: trailer.text });
+
+    return notices;
+  });
 }

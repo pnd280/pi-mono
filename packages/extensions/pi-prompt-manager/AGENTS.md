@@ -1,17 +1,30 @@
 # [pi-prompt-manager](README.md) development
 
+Keep one logical browser, and don't install a custom editor.
+
+## Must not regress
+
+| Risk         | Rule                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------- |
+| Activation   | Touch settings and storage only after a TUI session has started.                                           |
+| Exact source | Keep the exact stored and copied text separate from sanitised display text. Reject unsafe editor restores. |
+| Deletion     | Delete only when UUID, text, and timestamp all match. Never evict drafts to make room for additions.       |
+| Privacy      | Keep the [capture exclusions and side-effect limits](README.md#side-effects).                              |
+
 ## Constraints
 
-Activate and access settings/storage only after TUI session startup. Before filesystem changes, read the shared [mutation protocol](../../libs/src/private-files/README.md#mutation-protocol).
+- Before changing filesystem code, read the shared [mutation protocol](../../libs/src/private-files/README.md#mutation-protocol).
+- Use the native-only clipboard library, not Pi's general helper.
+- Restore selections only in the [browser host's](../../libs/src/tui/open-browser/README.md) `afterClose`, before any requested removal, and never during a responsive remount.
+- Keep recovery manual.
+- Report cleanup warnings after a commit separately from failed writes.
 
-Separate exact stored/copied source from sanitized display text. Reject unsafe editor restores. Use the native-only clipboard library, not Pi's general helper. Preserve [capture exclusions and side-effect limits](README.md#side-effects).
-
-Restore selections only in the [browser host's](../../libs/src/tui/open-browser/README.md) `afterClose`, before requested removal and never during responsive remounts. Keep one logical browser; do not install a custom editor.
-
-Keep recovery manual; never evict drafts for additions. Delete only when UUID, text, and timestamp match. Distinguish post-commit cleanup warnings from failed writes. See [controls](docs/controls.md) and [storage and recovery](docs/storage.md).
+Before changing browser keys, search, deletion, or draft commands, read [controls](docs/controls.md). Before changing storage layout, limits, backup, or repair, read [storage and recovery](docs/storage.md).
 
 ## Validation
 
-Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
-
-Use [package validation](README.md#validation) and [workspace verification](../../../docs/agents/verification.md). For host integration, check [API](validation/host.test.ts) and [installed-CLI](validation/bundle.test.ts) fixtures; for clipboard, interaction, or privacy changes, use [conditional checks](docs/validation.md). Shared TUI behavior belongs in [libs TUI](../../libs/src/tui/README.md#validation).
+- Use [package validation](README.md#validation) and [workspace verification](../../../docs/agents/verification.md).
+- For host integration, check the [API](validation/host.test.ts) and [installed-CLI](validation/bundle.test.ts) fixtures.
+- For clipboard, interaction, or privacy changes, use the [conditional checks](docs/validation.md).
+- Shared TUI behaviour belongs in [libs TUI](../../libs/src/tui/README.md#validation).
+- For Pi upgrades, use the [compatibility checklist](docs/pi-compatibility.md).

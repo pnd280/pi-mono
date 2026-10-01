@@ -24,8 +24,8 @@ import type { Task } from "./types.ts";
 type ViewOptions = {
   tasks: readonly Task[];
   theme: Pick<Theme, "fg" | "bold" | "strikethrough">;
-  tui: Pick<TUI, "mode" | "requestRender"> & { terminal: { rows: number } };
-  keybindings: Pick<KeybindingsManager, "getKeys" | "matches">;
+  tui: Pick<TUI, "requestRender"> & { terminal: { rows: number } };
+  keybindings: Pick<KeybindingsManager, "getKeys">;
   done(): void;
 };
 
@@ -117,7 +117,8 @@ export class TodosView implements Component {
       borders = budget >= 7,
       summary = budget >= 8 && hasEntries && !this.detail;
     const chromeRows = Number(title) * 2 + Number(borders) * 2 + Number(summary);
-    const maxFooterRows = hints ? Math.max(1, budget - chromeRows - 1) : 0;
+    // Keep one body row and the blank separator before the footer.
+    const maxFooterRows = hints ? Math.max(1, budget - chromeRows - 2) : 0;
     let capacity = Math.min(16, Math.max(1, budget - chromeRows - (hints ? 2 : 0)));
     let footer: string[] = [];
 
@@ -131,7 +132,7 @@ export class TodosView implements Component {
             padding: "",
             separator: " · ",
             style: (text) => this.options.theme.fg("dim", text)
-          }).rows
+          })
         : [];
       const footerRows = footer.length ? footer.length + 1 : 0;
       const nextCapacity = Math.min(16, Math.max(1, budget - chromeRows - footerRows));

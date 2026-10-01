@@ -1,27 +1,113 @@
-# Pi compatibility
+# Pi compatibility for maintainers
 
 [pi-tool-display](../README.md)
 
+> Last verified against Pi 1.0.0 with unchanged host fingerprints, the API and CLI suites, and the offline `summary` scenario in regular and fullscreen modes, including the **Ctrl+O** cycle. Not covered: the other terminal scenarios, terminal replay, physical mouse and image protocols, live MCP and FFF services, and platforms other than the tested one.
+
+A _fingerprint_ is a hash of an inspected private Pi method's source. When a fingerprint doesn't match, the matching hook stays uninstalled and the feature falls back as described in the [README](../README.md#compatibility).
+
+## Upgrade procedure
+
+1. Work through every item in the checklist below, inspecting both the API build and the installed CLI build.
+2. Update fingerprints only after the matching contract is confirmed.
+3. Run the [package checks](../README.md#validation), the [API](../src/host/install.test.ts) and [CLI](../src/host/install-cli.test.ts) suites, and the [terminal and adapter checks](validation.md). Include regular mode, fullscreen, reload, and replay.
+4. Update the "Last verified" line at the top of this file. Record what was not covered there, not in a separate log.
+
 ## Contracts to verify
 
-- [ ] [Host hooks](../src/host/compatibility.ts): construction, row insertion, expansion, thinking, reload, and conditional restoration; inspect API and installed CLI before changing fingerprints. Pending events must not reattach old row/assistant hooks after disposal or rebinding; compaction insertion handling must use the current binding.
-- [ ] [Assistant presentation](../src/host/assistant.ts): `updateContent` creates direct `Markdown` children only for prose, with symmetric `outputPad`, and nests thinking in `MouseRegion`. Verify prose markers, native Markdown transformers, width limits, thinking suppression at each run's last `thinking_end` before message completion, thinking-only group boundaries versus prose/diagnostic run boundaries, and restoration in API and installed CLI builds. Streaming completion uses event content indices, not shared mutable partials; Pi must rebuild the row after the event is recorded.
-- [ ] Mode cycling: `toggleToolOutputExpansion` must only negate `toolOutputExpanded` through `setToolsExpanded`, which updates the header, loaded resources, and chat rows before `showStatus`; `getStartupExpansionState` must reflect `--verbose`. Preserve the selected mode across reconstruction/reload without persisting it. `collapsedMode` controls startup and programmatic collapse from verbose; Ctrl+O follows the fixed cycle. Recheck both method fingerprints for the API and installed CLI builds. On mismatch, the hooks stay uninstalled and Ctrl+O toggles only the collapsed mode and verbose.
-- [ ] [Row chrome](../src/host/row-layout.ts): `ToolExecutionComponent` `render` renders a margin, `selfRenderHeight` rows, then images; `handleMouse` subtracts the margin before routing to renderer slots, whose regions call `setExpanded`. Native image components must remain public `Image` children so width constraints preserve Pi's IDs, conversion, caching, and reserved rows. Recheck both [fingerprints](../src/host/compatibility.ts) for the API and installed CLI builds. On mismatch, rows keep Pi's chrome (groups keep margin rows), summaries are disabled, and the host warns once.
-- [ ] [Native observation](../../../libs/src/native-tools/README.md): preserve middleware, definitions (including exposure and output schemas), structured results, active tools, mutation ordering, and other subscribers. A nonzero Bash exit resolves an error result with its exit code; cancellation and timeout remain distinct.
-- [ ] Nested execution: verify the built-in [codemode](../src/adapters/builtin/codemode/README.md) and [MCP](../src/adapters/builtin/mcp/README.md) adapter cards. Child execution events must not create transcript rows, orphan display facts, or duplicate summaries; only persisted parent calls own replay rows. MCP tools discovered through codemode retain built-in provenance and unsanitized identity in details, including normalized namespaces and collision-suffixed names. Selection must not depend on direct exposure or decode names. External `pi-mcp-adapter` tools retain their separate provenance contract.
-- [ ] [Transcript](../src/transcript/session.ts): unowned visible notices and boundary custom messages split groups and runs; owned instruction notices split groups only and follow their preceding run's visibility; invisible metadata, hidden messages, and context edits do not. Preserve row ownership across replay slices around boundary compaction summaries. Replay facts only for matching calls on the selected ancestry, with timestamp associations refreshed after appends, branch changes, and resets. Replay must not execute tools or reobserve files.
-- [ ] Extension notifications: `showExtensionNotify` must preserve `ctx.ui.notify` arguments and return values. Split groups/runs only on actual visible insertion for every severity; no-op notifications and thinking-toggle `showStatus` calls create no boundary.
-- [ ] [Nested-instruction messages](../src/adapters/pi-nested-instructions/README.md): `registerMessageRenderer` supplies expansion state and retains message identity across rebuilds. `MouseRegion` receives header-relative clicks in fullscreen mode; Pi's global tool-output expansion updates custom messages. `CustomMessageComponent` uses public `Container` rendering/mouse routing with one leading `Spacer(1)` followed by the supplied component; `layoutRow` moves the trailing run control after the last notice while preserving header-relative clicks. Verify live `message_start`, `entry_appended`, replay, and standalone notices. Reload/removal replaces the renderer registry without changing stored content.
-- [ ] [Adapters](adapters.md): verify provenance, schemas, borrowed results, cancellation, saved-output references, and image ownership, including FFF/MCP consumers.
+Work through every section below when you bump the supported Pi version, checking the API build and the installed CLI build.
+
+### Host hooks
+
+- [ ] [Host hooks](../src/host/compatibility.ts) cover construction, row insertion, expansion, thinking, reload, and conditional restoration.
+- [ ] After disposal or rebinding, pending events don't reattach old row or assistant hooks.
+- [ ] Compaction insertion handling uses the current binding.
+
+### Assistant presentation
+
+[Source](../src/host/assistant.ts).
+
+- [ ] `updateContent` creates direct `Markdown` children only for prose, with symmetric `outputPad`, and nests thinking in `MouseRegion`.
+- [ ] Prose markers, native Markdown transformers, and width limits work.
+- [ ] Thinking is hidden at each run's last `thinking_end`, before the message completes.
+- [ ] Thinking creates only group boundaries; prose and diagnostics create run boundaries.
+- [ ] Restoration works in the API and installed CLI builds.
+- [ ] Streaming completion uses event content indices, not shared mutable partials. Pi rebuilds the row after recording the event.
+
+### Mode cycling
+
+- [ ] `toggleToolOutputExpansion` only negates `toolOutputExpanded` through `setToolsExpanded`.
+- [ ] `setToolsExpanded` updates the header, loaded resources, and chat rows before `showStatus`.
+- [ ] `getStartupExpansionState` reflects `--verbose`.
+- [ ] The selected mode survives reconstruction and reload without being persisted.
+- [ ] `collapsedMode` controls startup and programmatic collapse from verbose. **Ctrl+O** follows the fixed cycle.
+- [ ] Recheck both method fingerprints in the API and installed CLI builds. On mismatch, **Ctrl+O** toggles only between the collapsed mode and verbose.
+
+### Row chrome
+
+[Source](../src/host/row-layout.ts); row chrome is defined in the [glossary](../GLOSSARY.md#transcript-structure).
+
+- [ ] `ToolExecutionComponent.render` draws a margin, then `selfRenderHeight` rows, then images.
+- [ ] `handleMouse` subtracts the margin before routing to renderer slots, whose regions call `setExpanded`.
+- [ ] Native image components are still public `Image` children, so width constraints keep Pi's IDs, conversion, caching, and reserved rows.
+- [ ] Recheck both [fingerprints](../src/host/compatibility.ts) in the API and installed CLI builds. On mismatch, rows keep Pi's chrome (groups keep margin rows), summaries turn off, and the host warns once.
+
+### Native observation
+
+See [native tools](../../../libs/src/native-tools/README.md).
+
+- [ ] Middleware, definitions (including exposure and output schemas), structured results, active tools, mutation ordering, and other subscribers are preserved.
+- [ ] A nonzero Bash exit resolves an error result with its exit code.
+- [ ] Cancellation and timeout stay distinct.
+
+### Nested execution
+
+- [ ] The built-in [codemode](../src/adapters/builtin/codemode/README.md) and [MCP](../src/adapters/builtin/mcp/README.md) adapter cards render.
+- [ ] Child execution events create no transcript rows, orphan display facts, or duplicate summaries. Only persisted parent calls own replay rows.
+- [ ] MCP tools discovered through codemode keep built-in provenance and their unsanitized identity in details, including normalized namespaces and collision-suffixed names.
+- [ ] Selection doesn't depend on direct exposure or on decoding names.
+- [ ] External `pi-mcp-adapter` tools keep their separate provenance contract.
+
+### Transcript
+
+[Source](../src/transcript/session.ts).
+
+- [ ] Visible notices and boundary custom messages from other owners split groups and runs.
+- [ ] This extension's instruction notices split only groups, and follow the visibility of the preceding run.
+- [ ] Invisible metadata, hidden messages, and context edits split nothing.
+- [ ] Row ownership survives replay slices around boundary compaction summaries.
+- [ ] Facts replay only for matching calls on the selected branch. Timestamp associations refresh after appends, branch changes, and resets.
+- [ ] Replay never runs tools or observes files again.
+
+### Extension notifications
+
+- [ ] `showExtensionNotify` preserves `ctx.ui.notify` arguments and return values.
+- [ ] Groups and runs split only when a visible component is actually inserted, for every severity.
+- [ ] No-op notifications and thinking-toggle `showStatus` calls create no boundary.
+
+### Nested-instruction messages
+
+[Adapter](../src/adapters/pi-nested-instructions/README.md).
+
+- [ ] `registerMessageRenderer` supplies expansion state and keeps message identity across rebuilds.
+- [ ] In fullscreen, `MouseRegion` receives header-relative clicks. Pi's global tool-output expansion updates custom messages.
+- [ ] `CustomMessageComponent` uses public `Container` rendering and mouse routing, with one leading `Spacer(1)` followed by the supplied component.
+- [ ] `layoutRow` moves the trailing run control after the last notice, keeping header-relative clicks.
+- [ ] Live `message_start`, `entry_appended`, replay, and standalone notices work.
+- [ ] Reload and removal replace the renderer registry without changing stored content.
+
+### Adapters
+
+- [ ] [Adapters](adapters.md) still match on provenance and schemas, treat results as borrowed, and handle cancellation, saved-output references, and image ownership, including for FFF and MCP consumers.
 
 ## Limitations and replacement opportunities
 
-- Public host/observation APIs could replace private hooks if they preserve the contracts above; trace shared-library consumers before removal.
-- [Pi 0.87.0 image-row limitation](validation.md#platform-limitations): revisit finalized-message image updates against the target; compare live and replay with and without this extension.
+- Public host and observation APIs could replace the private hooks if they keep the contracts above. Trace shared-library consumers before removing a hook.
+- Recheck the [image-row limitation](validation.md#platform-limitations) for finalized-message image updates against each new Pi version. Compare live and replay, with and without this extension.
 
-## Validation
+## Coverage notes
 
-Pi **0.99.2** workspace checks and offline API/installed-CLI suites passed with unchanged host fingerprints. Real codemode coverage verifies its adapter card, summary count, nested mutations, parent-only replay, and no child display metadata. A local stdio MCP server verifies discovery, deferred exposure, normalized namespaces, collision-suffixed names, built-in renderer selection, and original server/tool identities. Controlled tmux checks exercised regular-mode buffered output and thinking toggles, fullscreen summaries and compact-mode reload, and replay in both modes. Physical mouse/image protocols, live MCP/FFF services, and other platforms were not checked; external adapter fixtures do not establish live adapter compatibility.
-
-Use [package checks](../README.md#validation), [API](../src/host/install.test.ts) and [CLI](../src/host/install-cli.test.ts) suites, and [terminal/adapter checks](validation.md). Include regular/fullscreen, reload, and replay.
+- Real codemode coverage checks its adapter card, summary count, nested mutations, parent-only replay, and the absence of child display metadata.
+- A local stdio MCP server checks discovery, deferred exposure, normalized namespaces, collision-suffixed names, built-in renderer selection, and original server and tool identities.
+- For terminal coverage, run the [manual checks](validation.md) for buffered output, thinking toggles, fullscreen summaries, compact-mode reload, and replay in both modes.
+- External adapter fixtures don't establish compatibility with the live adapters.

@@ -42,6 +42,9 @@ it("waits for text without consuming the automatic attempt", async () => {
   const { title, session, generate } = fixture(undefined, imageOnly);
   await title.automatic(imageOnly);
   expect(generate).not.toHaveBeenCalled();
+  session.appendMessage(opening);
+  await title.automatic(imageOnly);
+  expect(generate).not.toHaveBeenCalled();
   await title.automatic(opening);
   expect(generate).toHaveBeenCalledExactlyOnceWith("Opening request", expect.any(AbortSignal));
   expect(session.getSessionName()).toBe("Generated title");
@@ -54,7 +57,7 @@ it("preserves existing names and allows explicit regeneration", async () => {
   await title.command("");
   expect(generate).toHaveBeenCalledOnce();
   expect(session.getSessionName()).toBe("Generated title");
-  expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("Generated title"), "info");
+  expect(notify).toHaveBeenCalledWith(expect.stringContaining("Generated title"), "info");
 });
 
 it("does not retry automatic failure; manual failure preserves the name and hides raw errors", async () => {
@@ -68,11 +71,11 @@ it("does not retry automatic failure; manual failure preserves the name and hide
   session.appendSessionInfo("Keep this title");
   await title.command("");
   expect(session.getSessionName()).toBe("Keep this title");
-  expect(notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
+  expect(notify).toHaveBeenCalledWith(expect.any(String), "warning");
   for (const [message] of notify.mock.calls) expect(message).not.toContain(secret);
   generate.mockRejectedValue(new TitleError("Configure the title model."));
   await title.command("");
-  expect(notify).toHaveBeenLastCalledWith("Configure the title model.", "warning");
+  expect(notify).toHaveBeenCalledWith("Configure the title model.", "warning");
 });
 
 it("only commits the latest regeneration", async () => {

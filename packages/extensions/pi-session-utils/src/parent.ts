@@ -25,7 +25,7 @@ const headerSchema = z.object({
 const MAX_HEADER_BYTES = 1024 * 1024;
 
 // Read only the header: opening a parent with SessionManager.open() can migrate its file.
-export function readParentHeader(path: string): z.infer<typeof headerSchema> {
+function readParentHeader(path: string): z.infer<typeof headerSchema> {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
 
   try {

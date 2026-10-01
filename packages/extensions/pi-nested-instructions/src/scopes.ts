@@ -7,11 +7,10 @@ import { fffAdapter, type FffToolKind } from "@pi-mono/utils/fff-tools";
 import { containsPath, expandHomePath } from "@pi-mono/utils/paths";
 import {
   alternatives,
-  filenameQueryTokens,
   globRoot,
   hasGlob,
   isFilenameFilter,
-  normalizeFffPath
+  parseFffScopes
 } from "@pi-mono/utils/search-scopes";
 import { z } from "zod";
 
@@ -50,26 +49,7 @@ function resolveInput(value: string, base: string, expandHome = true): string {
 }
 
 async function fffHints(kind: FffToolKind, input: Input, cwd: string): Promise<PathHint[]> {
-  const output: PathHint[] = [];
-  const searchPath = input.path?.trim();
-
-  if (kind !== "multi" && searchPath && !searchPath.startsWith("!")) {
-    const normalized = normalizeFffPath(searchPath, cwd);
-
-    if (!isFilenameFilter(normalized.value))
-      output.push({
-        value: normalized.value,
-        cwd,
-        kind: normalized.directoryOnly ? "directory" : "auto",
-        read: kind === "grep",
-        pattern: true
-      });
-  }
-
-  let query: string | null | undefined;
-  if (kind === "multi") query = input.constraints;
-  if (kind === "find") query = input.pattern;
-
+  const query = input.pattern;
   let existing = false;
 
   if (kind === "find" && query?.includes("/")) {
@@ -79,18 +59,17 @@ async function fffHints(kind: FffToolKind, input: Input, cwd: string): Promise<P
     );
   }
 
-  for (const token of filenameQueryTokens(query ?? "", existing)) {
-    if (!token.startsWith("!") && (token.includes("/") || hasGlob(token)))
-      output.push({
-        value: token,
-        cwd,
-        kind: token.endsWith("/") ? "directory" : "auto",
-        read: kind === "multi",
-        pattern: true
-      });
-  }
+  const { expressions } = parseFffScopes(kind, input, cwd, existing);
 
-  return output;
+  return expressions
+    .filter(({ source, value }) => source !== "path" || !isFilenameFilter(value))
+    .map(({ value, directoryOnly }) => ({
+      value,
+      cwd,
+      kind: directoryOnly ? "directory" : "auto",
+      read: kind !== "find",
+      pattern: true
+    }));
 }
 
 async function hints(invocation: Invocation, cwd: string): Promise<PathHint[]> {
@@ -134,7 +113,7 @@ function nativeHints(name: string, input: Input, cwd: string): PathHint[] {
 
   switch (name) {
     case "read":
-      add(searchPath, "file", true);
+      add(searchPath, "auto", true);
       break;
     case "ls":
       add(searchPath, "directory", false);
@@ -159,19 +138,6 @@ function nativeHints(name: string, input: Input, cwd: string): PathHint[] {
   }
 
   return output;
-}
-
-/** Broad-to-narrow lexical ancestors, excluding cwd itself and all external paths. */
-export function directoryChain(directory: string, cwd: string): string[] {
-  const chain: string[] = [];
-  let current = directory;
-
-  while (nestedPath(cwd, current)) {
-    chain.unshift(current);
-    current = path.dirname(current);
-  }
-
-  return chain;
 }
 
 export async function inferScope(invocation: Invocation, cwd: string): Promise<Scope> {
@@ -212,12 +178,17 @@ export async function inferScope(invocation: Invocation, cwd: string): Promise<S
         instructionNames.includes(path.basename(absolute))
       )
         reads.add(absolute);
-      for (const ancestor of directoryChain(directory ? absolute : path.dirname(absolute), cwd))
+
+      let ancestor = directory ? absolute : path.dirname(absolute);
+
+      while (nestedPath(cwd, ancestor)) {
         directories.add(ancestor);
+        ancestor = path.dirname(ancestor);
+      }
     }
   }
 
-  return { directories: sortDirectories(directories), reads: [...reads] };
+  return { directories: [...directories], reads: [...reads] };
 }
 
 export function sortDirectories(directories: Iterable<string>): string[] {

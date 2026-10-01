@@ -1,40 +1,185 @@
 # Widget validation
 
-[pi-editor-widgets](../README.md)
+[pi-editor-widgets](../README.md) · [Compatibility](pi-compatibility.md)
+
+Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). For maintainers: this package tests layout, rendering, settings, the `/widgets` menu, and the usage widgets.
 
 ## Automated coverage
 
-Run [package validation](../README.md#validation). Settings-write changes also require `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`. Installed-host integration in [validation/](../validation/) protects ownership, lifecycle, native metrics, menu and commands; pure layout, rendering, settings, and draft policies are tested beside their source. The shared [interactive host fixture](../../../libs/src/validation/interactive-host/README.md) provides installed Pi registration, both renderers, and offline isolated settings. It does not send model requests.
+Run [package validation](../README.md#validation). Changes to settings writes also need `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`.
 
-Token coverage must use native totals across assistant, tool, usage, compaction and branch entries, and latest-prompt cache-hit percentages. Fullscreen compact mode must show only nonzero input/output counters, omitting cache read/write totals, cache-hit percentages, cost and subscription markers. Cover empty usage, cache-only usage, input-only and output-only counts. Verbose and regular displays must retain the original full details.
+| Layer                                                                               | Covers                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Installed-host integration in [validation/](../validation/)                         | Ownership, lifecycle, native metrics, the menu, and commands.                                                                                                             |
+| Tests beside the source                                                             | Pure layout, rendering, settings, and draft navigation through semantic actions and snapshots.                                                                            |
+| [Settings-menu tests](../../../libs/src/tui/components/settings-menu/index.test.ts) | Shared frame sizing, feedback, scope markers, sanitisation, and controls. Widget tests cover only domain navigation, live draft previews, and integration with the frame. |
 
-Context coverage must distinguish zero usage, unavailable usage after compaction, and recovered usage from a later response in the original regular display and both fullscreen compact and verbose modes. Check used/window token formatting, compact percentage omission, verbose percentages and runtime auto-compaction thresholds, default percentage color boundaries, and each configured token-threshold band. The compaction threshold must combine the routed physical window with Pi's effective reserve for the selected model. An offline faux-provider case must distinguish the selected model's reserve from the physical model's override, confirm native compaction timing on either side of the displayed threshold, and label the model as the selected virtual model followed by `→` and the routed physical model with its requested thinking level when it supports reasoning, with no arrow before the first routed response. Before routing, an undeclared virtual window stays unknown in every display mode and must not produce a numeric compaction threshold. Update with native settings/model changes and remain independent of the color threshold. Missing windows or invalid compaction settings must not break rendering.
+The shared [interactive host fixture](../../../libs/src/validation/interactive-host/README.md) provides installed Pi registration, both renderers, and isolated offline settings. It sends no model requests.
 
-In fullscreen, primary clicks in any region must toggle all copies of the selected usage widget exactly once, request a redraw without taking focus, and ignore other buttons and unrelated mouse events. Exercise native terminal press/release input on wrapped rows at 40×10, including a redraw between press and release; Pi's captured target must still toggle once, and subsequent typing must reach the editor. Clicks must toggle the usage widgets independently without mounting a menu or writing settings. Regular mode must keep its original context and full token displays and leave usage-widget mouse input unhandled. `/widgets` accepts no arguments and only opens the layout menu. Fullscreen selections survive layout edits and switching to regular mode and back, and reset on reload.
+Settings tests here cover widget-section validation, externally unset layouts, scope and trust policy, and consumer handling of malformed files and locks. The shared [settings-file tests](../../../libs/src/settings-file/index.test.ts) own the file-size boundary.
 
-Settings must resolve the threshold independently from the layout, ignore untrusted project values, recover invalid fields through the next scope, and preserve the threshold on layout saves. Opening `/widgets` must apply external threshold edits or removal without requiring a save or writing settings.
+[Drafts](../src/drafts.ts) owns per-scope navigation and selection identity. Its tests cover saved-global inheritance, independent draft baselines after reloads, exact inherited-row rebasing, and duplicate row occurrences. Installed-host menu tests exercise native registration changes through the same navigation interface, including stale input without a render, nested rows, separators, and identical empty rows. Menu callers neither mutate view stacks nor invalidate identity caches.
 
-Shared-row coverage must include Pi's native string-array widgets (`Container`/`Text`), not only unpadded text factories. Protect ordered, whole-widget wrapping, including when squeezing could produce fewer lines. Each placement renders once at the terminal width, never at a smaller allocation: responsive content and visibility depend on terminal size, not neighbours. Test exact row membership and order, including when a later small widget could fit on an earlier row; exact fits including separators; row height determined by the tallest widget; and widening back into shared rows.
+### Must not regress
 
-Retain compact plain padding without losing content, painted/decorated/linked padding, full-width borders, leading indentation, singleton padding and blank lines, separator alignment on ragged lines, flex alignment, and ANSI/wide-character width bounds. Separators must collapse across empty widgets without dangling at wrapped row boundaries. Nested mouse dispatch must use the full render width, even for compacted, wrapped, or duplicated widgets. The coordinator must reuse measured placements across region reads and mouse dispatch instead of rendering them again.
+- Clicks and opening `/widgets` never write settings. Untrusted project values are ignored.
+- Clicking a usage widget never takes focus, and typing afterwards reaches the editor.
+- Mounted menus restore the saved layout on host cancellation as well as explicit closure, in both renderers. Closing after a global save reapplies the saved project override.
+- Removing one copy leaves the other placements visible, and nested edits stay on the intended row.
 
-Shared frame sizing, feedback, scope markers, sanitization, and controls are covered by [settings-menu tests](../../../libs/src/tui/components/settings-menu/index.test.ts), rather than repeated per consumer. Widget tests protect domain navigation, live draft previews, and integration with the shared frame.
+### Token widget
 
-Successful save feedback expires after three seconds and requests a redraw; another save restarts that deadline. Replacing success with a warning or error must keep that diagnostic visible, and closing or disposing the menu cancels pending expiry.
+- Totals use native counts across assistant, tool, usage, compaction, and branch entries. The cache-hit percentage comes from the latest prompt.
+- Fullscreen compact mode shows only nonzero input and output counts. It omits cache read and write totals, cache-hit percentages, cost, and subscription markers.
+- Verbose and regular displays keep the original full details.
+- Cover empty usage, cache-only usage, and input-only and output-only counts.
 
-The above-editor region must retain exactly one leading blank line when populated or empty in both renderers, including after release to native rendering; height budgets include it, and mouse events on it must not reach widgets. Removing a copy must leave other placements visible and nested edits on the intended row. Mouse dispatch must retain the clicked copy's render width even when flex leaves a narrower hit area. Mounted menus must restore the saved layout on host cancellation as well as explicit closure, in both renderers.
+### Context widget
 
-Session boundary tests emit native shutdown/start around an in-memory reset; they do not drive the interactive session picker. Tests do not establish physical-terminal behavior or visual quality.
+Cover zero usage, unavailable usage after compaction, and usage recovered by a later response, in the regular display and in fullscreen compact and verbose modes. Check:
+
+- used and window token formatting;
+- percentages omitted in compact mode, and shown in verbose mode with the runtime auto-compaction threshold;
+- the default percentage colour boundaries, and each configured token-threshold band.
+
+The compaction threshold combines the routed physical window with Pi's effective reserve for the selected model. It follows native settings and model changes, and is independent of the colour threshold. Missing windows and invalid compaction settings must not break rendering.
+
+An offline faux-provider case must:
+
+- tell the selected model's reserve apart from the physical model's override;
+- confirm native compaction timing on either side of the displayed threshold;
+- label the model as the selected virtual model, then `→`, then the routed physical model with its requested thinking level when it supports reasoning;
+- show no arrow before the first routed response.
+
+Before routing, an undeclared virtual window stays unknown in every display mode and never produces a numeric threshold.
+
+### Mouse toggling
+
+Fullscreen:
+
+- A primary click in any region toggles every copy of the selected usage widget exactly once, and requests a redraw.
+- Token and context widgets toggle independently, without mounting a menu.
+- Other buttons and unrelated mouse events are ignored.
+- Use native terminal press and release input on wrapped rows at 40×10, with a redraw between press and release. Pi's captured target must still toggle once.
+- Selections survive layout edits and a round trip through regular mode, and reset on reload.
+
+Regular mode keeps the original context and full token displays, and leaves mouse input on usage widgets unhandled.
+
+`/widgets` accepts no arguments and only opens the layout menu.
+
+### Context-colour settings
+
+- The threshold resolves separately from the layout, and recovers from invalid fields using the next scope.
+- Layout saves keep the threshold.
+- Opening `/widgets` applies external edits or removal of the threshold, without a save and without writing settings.
+
+### Shared rows
+
+Include Pi's native string-array widgets (`Container` and `Text`), not only unpadded text factories.
+
+Wrapping:
+
+- Each placement renders once at terminal width, never at a smaller allocation. Responsive content and visibility depend on terminal size, not on neighbours.
+- Whole widgets wrap in order, even when squeezing could save lines.
+- Test exact row membership and order, including when a later small widget could fit on an earlier row.
+- Test exact fits including separators, row height set by the tallest widget, and widening back into shared rows.
+
+Padding and alignment are kept for:
+
+- compact plain padding, without losing content;
+- painted, decorated, and linked padding;
+- full-width borders, leading indentation, singleton padding, and blank lines;
+- separator alignment on ragged lines, flex alignment, and ANSI and wide-character width bounds.
+
+Separators collapse across empty widgets and never dangle at the end of a wrapped row.
+
+The [image placement policy](../README.md#usage) is tested with native `Image` output for Kitty and iTerm2. Cases cover image-only output, a captioned container, shared-row neighbours, repeated placements, exact payload and blank-row preservation, and whole-widget clipping with matching mouse cells. Capability overrides are restored after each case; no image is sent to a physical terminal.
+
+### Mouse dispatch
+
+- Nested dispatch uses the full render width, even for compacted, wrapped, or duplicated widgets.
+- Dispatch keeps the clicked copy's render width even when flex leaves a narrower hit area.
+- The coordinator reuses measured placements across region reads and mouse dispatch instead of rendering again.
+
+### Above-editor region
+
+- The region keeps exactly one leading blank line, whether populated or empty, in both renderers and after release to native rendering.
+- Height budgets include that line, and mouse events on it never reach widgets.
+
+### Save feedback
+
+- Success feedback expires after three seconds and requests a redraw. Another save restarts the timer.
+- A warning or error that replaces success stays visible.
+- Closing or disposing the menu cancels pending expiry.
+
+### Not covered automatically
+
+- Session boundary tests emit native shutdown and start around an in-memory reset. They don't drive the interactive session picker.
+- Tests don't establish physical-terminal behaviour or visual quality.
 
 ## Terminal checks
 
-Use workspace Pi with this extension and a native widget contributor such as `pi-todo`. No model call is needed for the menu itself.
+Setup: workspace Pi with this extension and a native widget contributor such as `pi-todo`. The menu needs no model call.
 
-1. Open `/widgets` in regular and fullscreen modes. Resize while navigating and editing. Verify non-overlay operation, retained selection and drafts, working controls, and editor focus after closing. Edits must appear in the actual regions without another live widget instance, the menu must leave those regions visible when space allows, and closing without saving must restore the saved layout.
-2. Reorder, hide, re-add and duplicate widgets with **a**; click each copy of a mouse-aware widget. Check empty rows and regions, unavailable saved IDs, and registration changes while editing. One blank line must separate the chat from the above-editor region, including when all its widgets are empty. New registrations must not retarget the selected widget. Native placement changes must preserve the nested row's identity or return to the row list without applying stale input.
-3. Check the footer and `/widgets` at 80×24 and 40×10, in dark and light themes. Narrow footer rows should wrap whole fields in order instead of squeezing them into columns, even if that takes more lines; widening must restore shared rows. Check active-scope highlighting, unset/dirty markers, path and overflow labels, fixed bounded navigation, and save/exit hints. An unchanged unset-scope save must create that override. Verify independent drafts and one-way project inheritance; a global save must not retarget inherited nested edits. **Reset to defaults** remains staged until Ctrl+S.
-4. Hold a settings lock or use malformed JSON; failed saves must retain edits, keep the selected target and recovery visible, and allow Ctrl+S retry. Load/save warnings must not appear as unconditional success or duplicate notifications. Success clears after three seconds, actual edits, or scope changes; warnings and errors do not expire. Fixing and reopening clears load warnings.
-5. Exercise `/reload`, new/resumed sessions, and renderer switching. Verify cleanup, registration updates, editor availability, and native mouse interactions.
-6. Check both load orders with a separate custom-footer extension. Verify the conflict diagnostic, then disable the competing footer and reload to reacquire ownership.
-7. Using a session with known context usage, compare the [context color settings](settings.md#context-colors) in dark and light themes. In fullscreen, click the context widget: compact must hide the percentage, while verbose shows it and the automatic compaction threshold. Switch to regular mode: the original percentage and `(auto)` display must remain. Switching back must restore the fullscreen selection. Try copies in all regions and wrapped rows; toggling must update every copy without taking editor focus. Verify the threshold against Pi's effective model reserve, and check unknown usage after compaction. Change or remove `contextThreshold` in settings, reopen `/widgets`, and close without saving. The new color must apply immediately and remain after closing, without rewriting settings or changing the display mode.
-8. With known token usage, click the token widget in fullscreen. Compact must show only input/output counts; verbose must restore cache read/write totals, cache-hit percentage, cost and subscription markers when applicable. Copies must switch together without changing the context widget's mode or editor focus. Regular mode must retain the full display; switching back must restore the fullscreen selection.
+### Menu
+
+| Do                                                                                          | Expect                                                                                                                                               |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Open `/widgets` in regular and fullscreen modes; resize while editing                       | The menu is not an overlay. Selection, drafts, and controls keep working. The editor has focus after closing.                                        |
+| Make edits                                                                                  | They show in the real regions without another live widget instance. Regions stay visible when there's room.                                          |
+| Close without saving                                                                        | The saved layout is restored.                                                                                                                        |
+| Reorder, hide, re-add, and copy widgets with **a**; click each copy of a mouse-aware widget | Every copy responds.                                                                                                                                 |
+| Leave rows and regions empty; include unavailable saved IDs; register widgets while editing | One blank line separates chat from the above-editor region, even when all its widgets are empty. New registrations don't change the selected widget. |
+| Change a native placement while a nested row is open                                        | The nested row keeps its identity, or the menu returns to the row list without applying stale input.                                                 |
+
+### Layout and scopes
+
+Setup: check at 80×24 and 40×10, in dark and light themes.
+
+| Do                                    | Expect                                                                                                                             |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Narrow the terminal                   | Footer rows wrap whole fields in order rather than squeezing them into columns. Widening restores shared rows.                     |
+| Look over the menu                    | Active-scope highlight, unset and changed markers, path and overflow labels, bounded navigation, and save and exit hints all show. |
+| Save an unchanged scope that is unset | The override is created.                                                                                                           |
+| Edit global and project drafts        | They stay independent, and inheritance runs one way from global to project. A global save doesn't move inherited nested edits.     |
+| Choose "Reset to defaults"            | The default layout previews immediately. Settings stay unchanged until **Ctrl+S**.                                                 |
+
+### Save failures
+
+Setup: hold a settings lock, or make the settings file malformed JSON.
+
+| Do                                          | Expect                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Save                                        | Edits are kept, the selected target and recovery message stay visible, and **Ctrl+S** retries.    |
+| Watch notifications                         | Load and save warnings never show as success or appear twice.                                     |
+| Wait, edit, or switch scope after a success | Success clears after three seconds, an edit, or a scope change. Warnings and errors don't expire. |
+| Fix the file and reopen                     | Load warnings clear.                                                                              |
+
+### Lifecycle
+
+| Do                                                         | Expect                                                                                        |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Run `/reload`, start and resume sessions, switch renderers | Cleanup, registration updates, editor availability, and native mouse interactions all work.   |
+| Load a separate custom-footer extension, in both orders    | A conflict diagnostic appears. Disabling the other footer and reloading gives ownership back. |
+
+### Context widget
+
+Setup: a session with known context usage. Compare the [context colour settings](settings.md#context-colours) in dark and light themes.
+
+| Do                                                                           | Expect                                                                                         |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Click the context widget in fullscreen                                       | Compact hides the percentage. Verbose shows it with the automatic compaction threshold.        |
+| Switch to regular mode, then back                                            | Regular keeps the original percentage and `(auto)`. Fullscreen restores the earlier choice.    |
+| Click copies in every region and on wrapped rows                             | Every copy updates, and the editor keeps focus.                                                |
+| Compare the threshold with Pi's effective model reserve; compact the session | The threshold matches. Usage shows as unknown after compaction.                                |
+| Change or remove `contextThreshold`, reopen `/widgets`, close without saving | The new colour applies at once and stays, without rewriting settings or changing display mode. |
+
+### Token widget
+
+Setup: a session with known token usage, in fullscreen.
+
+| Do                                 | Expect                                                                                                                                                           |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Click the token widget             | Compact shows only input and output counts. Verbose restores cache read and write totals, cache-hit percentage, cost, and subscription markers where they apply. |
+| Click with copies placed elsewhere | All copies switch together. The context widget's mode and editor focus don't change.                                                                             |
+| Switch to regular mode, then back  | Regular keeps the full display. Fullscreen restores the earlier choice.                                                                                          |

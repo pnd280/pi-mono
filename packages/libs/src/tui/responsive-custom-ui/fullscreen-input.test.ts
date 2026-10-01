@@ -218,6 +218,7 @@ it.each(["missing", "noncallable", "focus"] as const)(
   async (failure) => {
     const host = createInputHost();
     const original = listeners(host.tui);
+    const originalListeners = [...original];
     if (failure === "missing") Reflect.deleteProperty(host.tui, "inputListeners");
     else if (failure === "noncallable") Reflect.set(host.tui, "inputListeners", new Set([17]));
     else Reflect.set(host.tui, "getFocusedComponent", undefined);
@@ -231,7 +232,7 @@ it.each(["missing", "noncallable", "focus"] as const)(
       Reflect.set(host.tui, "inputListeners", original);
       host.send("\x1b[B");
       expect(view.handleInput).toHaveBeenCalledWith("\x1b[B");
-      expect([...original]).toHaveLength(1);
+      expect([...original]).toEqual(originalListeners);
     } finally {
       await view.close();
     }

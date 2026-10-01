@@ -12,6 +12,8 @@ Evaluate distinct failure modes, ownership, and maintenance cost. Audit only unl
 
 ## Workflow
 
+Follow the four stages in order, mapping suites to contracts before classifying candidates.
+
 ### 1. Map suites to contracts
 
 Inspect staged, unstaged, and untracked work to preserve unrelated changes. Read applicable package instructions and the [workspace testing guide](../../../../docs/agents/testing.md), including its [test-quality principles](../../../../docs/agents/testing.md#test-quality) for every audit branch. If an affected package has `docs/testing.md`, verify its claims against public APIs, consumers, and regression evidence.
@@ -26,7 +28,7 @@ For each candidate, inspect assertions, fixtures, implementation, and retained t
 
 - **Keep:** protects a distinct local contract or integration risk.
 - **Simplify:** useful coverage has redundant cases, assertions, or scaffolding.
-- **Remove:** duplicates retained coverage or checks unchanged behavior owned elsewhere.
+- **Remove:** duplicates retained coverage or checks unchanged behaviour owned elsewhere.
 - **Unresolved:** ownership or unique regression value remains uncertain.
 
 Record `path:line`, classification, owning contract, proposed change, and supporting evidence for each actionable finding.
@@ -37,8 +39,8 @@ Record `path:line`, classification, owning contract, proposed change, and suppor
 
 Before editing, resolve contract gaps in the owning tests or focused guidance and justify exclusions independently of proposed deletions.
 
-1. Record baseline failures and discovery/execution counts. For workspace cleanup, pilot one package, then continue in package-sized batches.
-2. Preserve public outcomes with real boundaries or small fakes. Remove redundant scenarios and their unused fixtures, mocks, observers, and helpers. Keep production behavior unchanged; investigate bugs and ambiguous contracts separately.
+1. Record baseline failures and discovery and execution counts. For workspace cleanup, pilot one package, then continue in package-sized batches.
+2. Preserve public outcomes with real boundaries or small fakes. Remove redundant scenarios and their unused fixtures, mocks, observers, and helpers. Keep production behaviour unchanged; investigate bugs and ambiguous contracts separately.
 3. Run affected suites, including consumers when ownership or shared infrastructure changes. Review the diff for coverage loss.
 4. After the pilot and each substantial batch, update superseded guidance: audit methods here, package contracts in `docs/testing.md`, repository policy in the shared guide. New policy decisions require separate scope.
 
@@ -48,7 +50,7 @@ Before editing, resolve contract gaps in the owning tests or focused guidance an
 
 Follow [required verification](../../../../docs/agents/verification.md) for changed files. Group audit findings by cause and cleanup decisions by package.
 
-- Report priorities, important keep decisions, scope limits, exact checks/results, baseline failures, and unresolved risks. Distinguish observed results from source-based conclusions.
-- For cleanup, include comparable before/after counts, skips, packages with no tests, protected behaviors, and deleted scaffolding. Separate removed scenarios from relocated or strengthened coverage; claim runtime improvements only when measured.
+- Report priorities, important keep decisions, scope limits, exact checks and results, baseline failures, and unresolved risks. Distinguish observed results from source-based conclusions.
+- For cleanup, include comparable before-and-after counts, skips, packages with no tests, protected behaviours, and deleted scaffolding. Separate removed scenarios from relocated or strengthened coverage; claim runtime improvements only when measured.
 
 **Complete when:** the report accounts for the full scope and identifies unfinished work.

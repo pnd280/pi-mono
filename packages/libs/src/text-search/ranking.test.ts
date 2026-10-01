@@ -1,7 +1,7 @@
 import { fuzzyMatch } from "@earendil-works/pi-tui";
 import { expect, it } from "vite-plus/test";
 
-import { normalizeSearch, prepareSearchQuery, rankText } from "./text-search.ts";
+import { normalizeSearch, prepareSearchQuery, rankText } from "./ranking.ts";
 
 function rank(text: string, query: ReturnType<typeof prepareSearchQuery>) {
   const steps = rankText(text, query);
@@ -51,7 +51,7 @@ it("yields between repeated short scans so callers can cancel expensive term sea
   ] as const) {
     const steps = rankText(text, prepareSearchQuery(query));
     let next = steps.next();
-    expect(next).toEqual({ done: false, value: undefined });
+    expect(next.done).toBe(false);
     while (!next.done) next = steps.next();
     expect(next.value?.category).toBe(category);
   }

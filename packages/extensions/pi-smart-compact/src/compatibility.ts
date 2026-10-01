@@ -5,7 +5,6 @@ import {
   compact,
   VERSION,
   type AgentSession,
-  type ExtensionRunner,
   type SessionBeforeCompactEvent
 } from "@earendil-works/pi-coding-agent";
 
@@ -33,6 +32,7 @@ export type NativeSession = Pick<
   | "model"
   | "thinkingLevel"
   | "subscribe"
+  | "extensionRunner"
 > & {
   _appendCustomMessage(
     message: Extract<ContextSnapshot["messages"][number], { role: "custom" }>
@@ -40,7 +40,6 @@ export type NativeSession = Pick<
   _agentRunAbortRequested: boolean;
   _autoCompactionAbortController: AbortController | undefined;
   _compactionAbortController: AbortController | undefined;
-  _extensionRunner: ExtensionRunner;
   _runDefaultCompaction: DefaultCompaction;
   // The inspected runtime forwards manual unchanged, despite its narrower declaration.
   _runAutoCompaction(
@@ -55,7 +54,7 @@ export type AutoCompaction = NativeSession["_runAutoCompaction"];
 
 export type ManualCompaction = AgentSession["compact"];
 
-// Reviewed Pi 0.99.2 API modules and installed bundled CLI, respectively. Never
+// Reviewed Pi 1.0.0 API modules and installed bundled CLI, respectively. Never
 // learn fingerprints from the running host: an unknown implementation must fail closed.
 const fingerprints = [
   {
@@ -70,11 +69,11 @@ const fingerprints = [
   {
     _compactBeforeNextAssistantResponse:
       "cb734ece36840ccb1a02c63471ccd1bd8eb893c195329da7a73053f012212a7e",
-    _runAutoCompaction: "89470ac522a561cd5261b1b62e73a4169899cb5e5d9a0a61ac0dcc677d0dc6fa",
-    _runDefaultCompaction: "21e5a890fc3d857b0d802ca680e3109c16ff50b94457370640d4f1d7ce9ea8c3",
+    _runAutoCompaction: "2a17ea2ed812f10d258ab77eb8d3b8dc4eaaade8dc02bb00e66f39ceae95de5e",
+    _runDefaultCompaction: "be1bfc56c9becc10cfd7a878b3592199c70119776f1978eca5f0aafb4da7ccd7",
     _appendCustomMessage: "7962902b977b66315b1bf64b4c695322117728bf9701116b46f59848eebcb296",
-    compact: "142e5a30b99ee0c14a40f3652361756ea2f99c5f8016f83af4a8ce6966fb6d6c",
-    manualCompact: "d6b46ab807fcb112f929b51898098af63daf9441a3a0e6c418016e4cd023e29e"
+    compact: "0fced1a8aa5b49e13c692801b918b771ac807f11db95bd342d69f0e005ab89cf",
+    manualCompact: "b614a0470b18a8199d8128cada0e8b6e0b04f54cf882e216e70311bb1c7886bd"
   }
 ];
 
@@ -84,7 +83,7 @@ export function assertCompatible(
   summarize: unknown,
   automatic: unknown,
   manual: unknown
-): asserts prepare is Prepare {
+): void {
   const actual: Record<string, unknown> = {
     _compactBeforeNextAssistantResponse: prepare,
     _runAutoCompaction: automatic,
@@ -104,9 +103,9 @@ export function assertCompatible(
     })
   );
 
-  if (VERSION !== "0.99.2" || !inspected) {
+  if (VERSION !== "1.0.0" || !inspected) {
     throw new Error(
-      "pi-smart-compact requires the inspected Pi 0.99.2 compaction implementation; unsupported version or conflicting runtime patch."
+      "pi-smart-compact requires the inspected Pi 1.0.0 compaction implementation; unsupported version or conflicting runtime patch."
     );
   }
 }

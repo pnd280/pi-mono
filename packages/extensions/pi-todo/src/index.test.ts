@@ -83,6 +83,21 @@ it("composes shared state across tool execution, replay, settings, and widget li
   await tool.execute("1", { action: "create", subject: "Live" });
   dispatch("tool_execution_end", { toolName: "todo", isError: false });
   expect(widget?.render(80).join("\n")).toContain("Live");
+  const command = registerCommand.mock.calls.find(([name]) => name === "todos")?.[1];
+  if (!command) throw new Error("Todo command was not registered");
+  const notify = vi.fn();
+  await command.handler("", {
+    mode: "rpc",
+    hasUI: true,
+    signal: undefined,
+    ui: {
+      notify,
+      custom: async () => {
+        throw new Error("Unexpected command view");
+      }
+    }
+  });
+  expect(notify.mock.lastCall?.[0]).toContain("#1 Live");
   branch = [
     {
       type: "message",

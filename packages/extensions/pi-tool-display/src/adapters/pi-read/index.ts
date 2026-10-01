@@ -1,5 +1,6 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { selectSource, selectionLabel } from "@pi-mono/utils/source-selection";
+import { selectionLabel } from "@pi-mono/utils/source-selection";
+import { interpretReadResult } from "pi-read/result";
 
 import type {
   BorrowedToolResult,
@@ -19,11 +20,12 @@ if (!native) throw new Error("Native read display adapter is unavailable.");
 function supports(args: unknown, result: BorrowedToolResult): boolean {
   const input = argsSchema.safeParse(args);
   const output = resultSchema.safeParse(result);
+  if (!input.success || !output.success) return false;
+  const interpreted = interpretReadResult(result, input.data);
 
   return (
-    input.success &&
-    output.success &&
-    (!output.data.details?.selectiveRead || input.data.selection !== undefined)
+    interpreted.valid &&
+    (interpreted.preview.kind === "absent" || input.data.selection !== undefined)
   );
 }
 
@@ -62,66 +64,38 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
     ];
   },
   notices(result, expanded) {
-    const parsed = resultSchema.safeParse(result);
-    const count = parsed.data?.details?.selectiveRead?.sourceBlocks;
-
-    const source =
-      count === undefined ? result : { ...result, content: result.content.slice(0, count) };
+    const interpreted = interpretReadResult(result);
+    const source = { ...result, content: interpreted.sourceContent };
 
     return native.notices?.(source, expanded) ?? [];
   },
   textParts(text, args, context): ResultTextPart[] {
     const input = argsSchema.safeParse(args).data;
-    const result = resultSchema.safeParse(context.result).data;
-    if (!input || !result || !supports(args, context.result))
+    if (!input || !resultSchema.safeParse(context.result).success)
+      return [{ kind: context.isError ? "error" : "output", text }];
+    const interpreted = interpretReadResult(context.result, input);
+    if (!interpreted.valid || (interpreted.preview.kind === "valid" && !input.selection))
       return [{ kind: context.isError ? "error" : "output", text }];
 
-    const sourceBlocks = result.details?.selectiveRead?.sourceBlocks;
     // Only the recorded appended block is a model preview. Source lookalikes remain source.
-    if (sourceBlocks !== undefined && context.contentIndex === sourceBlocks) return [];
+    if (
+      interpreted.preview.kind === "valid" &&
+      context.contentIndex === interpreted.preview.contentIndex
+    )
+      return [];
     const parts = nativeResultParts("read", text, input, context);
     const selection = input.selection;
-    if (
-      !selection ||
-      context.isError ||
-      context.isPartial ||
-      context.isCancelled ||
-      result.content.some((block) => block.type === "image") ||
-      text.startsWith("Read image file [image/")
-    )
-      return parts;
-
-    const precedingLines = result.content
-      .slice(0, context.contentIndex)
-      .reduce(
-        (count, block) => count + (block.type === "text" ? block.text.split("\n").length : 0),
-        0
-      );
-    const start = Math.max(0, (input.offset ?? 1) - 1);
-    const firstLine = Math.trunc(start) + 1 + precedingLines;
-    const requested =
-      input.limit === undefined
-        ? Infinity
-        : Math.max(0, Math.trunc(start + input.limit) - Math.trunc(start));
-    const remaining = Math.max(
-      0,
-      (result.details?.truncation?.outputLines ?? requested) - precedingLines
-    );
+    if (!selection || context.isError || context.isPartial || context.isCancelled) return parts;
+    const block = interpreted.blocks[context.contentIndex];
+    if (!block) return parts;
 
     return parts.map((part, index) => {
       // Native read diagnostics are separate parts, never source coordinates.
       if (index !== 0 || part.kind !== "output") return part;
-      const lines = part.text === "" ? [] : part.text.split("\n");
-      if (part.text.endsWith("\n")) lines.pop();
-      const selected = selectSource(lines.slice(0, remaining), firstLine, selection);
 
       return {
         ...part,
-        selection: selected.lines.map((line) => ({
-          line: line.index,
-          start: line.before.length,
-          end: line.before.length + line.text.length
-        }))
+        selection: block.highlight(part.text, selection)
       };
     });
   }

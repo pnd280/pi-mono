@@ -4,7 +4,6 @@ export { browserLayout } from "./layout.ts";
 
 export type {
   BrowserOptions,
-  BrowserPorts,
   BrowserRemoval,
   BrowserSection,
   BrowserSelectionAction,

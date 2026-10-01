@@ -2,6 +2,10 @@
   "name": "pi-editor-widgets",
   "version": "0.1.0",
   "private": true,
+  "description": "Place Pi widgets and statuses above the editor, below it, or in the footer",
+  "keywords": [
+    "pi-package"
+  ],
   "type": "module",
   "exports": {
     ".": "./index.ts"

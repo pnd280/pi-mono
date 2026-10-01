@@ -16,6 +16,6 @@ process.exitCode = await runTerminalLauncher({
   describe: (directory) => [
     `Fixture: ${directory}`,
     "Clipboard helpers write only to this fixture's clipboard.txt.",
-    "History/drafts contain 40 paging fixtures. Submit pages for a long transcript."
+    "New fixtures start with 40 entries per collection. Submit pages for a long transcript."
   ]
 });

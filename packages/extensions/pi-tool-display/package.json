@@ -23,7 +23,13 @@
     "@pi-mono/libs": "workspace:*",
     "@pi-mono/utils": "workspace:*",
     "pi-nested-instructions": "workspace:*",
+    "pi-read": "workspace:*",
     "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:pi-host",
+    "@earendil-works/pi-coding-agent": "catalog:pi-host",
+    "@earendil-works/pi-tui": "catalog:pi-host"
   },
   "pi": {
     "extensions": [

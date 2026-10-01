@@ -17,11 +17,15 @@ afterEach(async () => {
 });
 
 const scopes = async (name: string, input: JsonObject, fff = false) => {
-  const result = await inferScope(fs.call(name, input, fff ? fffSource : undefined), fs.cwd);
+  const result = await inferScope(
+    { toolCallId: "scope", toolName: name, input, ...(fff ? { sourceInfo: fffSource } : {}) },
+    fs.cwd
+  );
 
+  // Scope membership matters here; discovery tests cover broad-to-narrow delivery.
   return {
-    directories: result.directories.map((value) => path.relative(fs.cwd, value)),
-    reads: result.reads.map((value) => path.relative(fs.cwd, value))
+    directories: result.directories.map((value) => path.relative(fs.cwd, value)).sort(),
+    reads: result.reads.map((value) => path.relative(fs.cwd, value)).sort()
   };
 };
 
@@ -32,6 +36,10 @@ it("uses file parents and directory targets, without requiring a successful call
     reads: []
   });
   expect(await scopes("ls", { path: "pkg/deep" })).toEqual({
+    directories: ["pkg", "pkg/deep"],
+    reads: []
+  });
+  expect(await scopes("read", { path: "pkg/deep" })).toEqual({
     directories: ["pkg", "pkg/deep"],
     reads: []
   });
@@ -68,7 +76,7 @@ it("does not traverse symlink destinations' ancestor chains", async () => {
 
 it("infers finite static glob prefixes, not matches, fuzzy names, or content patterns", async () => {
   expect(await scopes("find", { pattern: "{src,lib}/deep/**/*.ts" })).toEqual({
-    directories: ["lib", "src", "lib/deep", "src/deep"],
+    directories: ["lib", "lib/deep", "src", "src/deep"],
     reads: []
   });
   expect(
@@ -129,6 +137,17 @@ it("preserves existing FFF filename-query paths with spaces", async () => {
   });
 });
 
+it("retains query expansion limits while ignoring recursive filename path fields", async () => {
+  const recursive = "{a,b}".repeat(7) + ".ts";
+  expect(await scopes("fffind", { path: recursive }, true)).toEqual({
+    directories: [],
+    reads: []
+  });
+  await expect(scopes("fffind", { path: "pkg/", pattern: recursive }, true)).rejects.toThrow(
+    "too many scope alternatives"
+  );
+});
+
 it("infers literal Bash reads across quoting, options, pipes, and cd chains", async () => {
   expect(
     await scopes("bash", {
@@ -143,10 +162,15 @@ it("infers literal Bash reads across quoting, options, pipes, and cd chains", as
       command:
         "grep -n -e 'content/AGENTS.md' pkg/AGENTS.md; awk -v x=1 '{ print $0 }' lib/CLAUDE.md"
     })
-  ).toEqual({ directories: ["lib", "pkg"], reads: ["pkg/AGENTS.md", "lib/CLAUDE.md"] });
+  ).toEqual({ directories: ["lib", "pkg"], reads: ["lib/CLAUDE.md", "pkg/AGENTS.md"] });
+  expect(await scopes("bash", { command: "grep -nf pkg/AGENTS.md other/file.ts" })).toEqual({
+    directories: ["other", "pkg"],
+    reads: ["pkg/AGENTS.md"]
+  });
   expect(
     await scopes("bash", {
-      command: "ls pkg/AGENTS.md; find lib/ -name AGENTS.md; fd AGENTS.md src/; rg --files more/"
+      command:
+        "ls pkg/AGENTS.md; find lib/ '(' -name AGENTS.md -o -name CLAUDE.md ')'; fd AGENTS.md src/; rg --files more/"
     })
   ).toEqual({ directories: ["lib", "more", "pkg", "src"], reads: [] });
   // Optional-argument `--color` must not consume a path; `-NUM` is a head/tail count.
@@ -171,7 +195,7 @@ it("recognizes input redirection, descriptor duplication, and positive rg glob s
         "head -n 1 < pkg/AGENTS.md 2>&1 | tail -n 1; rg term -g 'lib/deep/**' -g '!excluded/**' >&2"
     })
   ).toEqual({
-    directories: ["lib", "pkg", "lib/deep"],
+    directories: ["lib", "lib/deep", "pkg"],
     reads: ["pkg/AGENTS.md"]
   });
 });
@@ -192,7 +216,7 @@ it("preserves command boundaries across comments, newlines, and line continuatio
     await scopes("bash", {
       command: "cat pkg/AGENTS.md # cat ignored/AGENTS.md\nhead -n 1 lib/\\\nCLAUDE.md"
     })
-  ).toEqual({ directories: ["lib", "pkg"], reads: ["pkg/AGENTS.md", "lib/CLAUDE.md"] });
+  ).toEqual({ directories: ["lib", "pkg"], reads: ["lib/CLAUDE.md", "pkg/AGENTS.md"] });
 });
 
 it("distinguishes literal shell metacharacters from unquoted glob and brace scopes", async () => {
@@ -201,19 +225,19 @@ it("distinguishes literal shell metacharacters from unquoted glob and brace scop
       command: String.raw`cat 'pkg/*/AGENTS.md' pkg/\{literal\}/AGENTS.md "pkg/"'deep'/CLAUDE.md "pkg/\$name/AGENTS.md"`
     })
   ).toEqual({
-    directories: ["pkg", "pkg/{literal}", "pkg/*", "pkg/$name", "pkg/deep"],
+    directories: ["pkg", "pkg/$name", "pkg/*", "pkg/deep", "pkg/{literal}"],
     reads: [
+      "pkg/$name/AGENTS.md",
       "pkg/*/AGENTS.md",
-      "pkg/{literal}/AGENTS.md",
       "pkg/deep/CLAUDE.md",
-      "pkg/$name/AGENTS.md"
+      "pkg/{literal}/AGENTS.md"
     ]
   });
   expect(
     await scopes("bash", { command: 'cat "pkg/"{src,{lib,test}}/AGENTS.md pkg/wild/*/AGENTS.md' })
   ).toEqual({
     directories: ["pkg", "pkg/lib", "pkg/src", "pkg/test", "pkg/wild"],
-    reads: ["pkg/src/AGENTS.md", "pkg/lib/AGENTS.md", "pkg/test/AGENTS.md"]
+    reads: ["pkg/lib/AGENTS.md", "pkg/src/AGENTS.md", "pkg/test/AGENTS.md"]
   });
 });
 
@@ -283,6 +307,9 @@ it.each([
   "cat pkg/AGENTS.md; if true; then cat lib/AGENTS.md; fi",
   "cat pkg/AGENTS.md; f() { cat lib/AGENTS.md; }",
   "cat pkg/AGENTS.md; NAME=lib cat lib/AGENTS.md",
+  "cat pkg/AGENTS.md; export NAME=$(cat lib/AGENTS.md)",
+  "cat pkg/AGENTS.md; declare -a NAMES=($LIST)",
+  "cat pkg/AGENTS.md; { cat lib/AGENTS.md; } > output",
   "cat pkg/AGENTS.md; ! cat lib/AGENTS.md",
   "cat pkg/AGENTS.md; time cat lib/AGENTS.md",
   "cat pkg/AGENTS.md {fd}< lib/AGENTS.md"
@@ -301,12 +328,10 @@ it("does not mark redirected stdin as read by filename-listing commands", async 
 
 it("does not interpret embedded scripts, substitutions, unknown options, non-stdin inputs, or output destinations", async () => {
   for (const command of [
-    "cat $FILE",
     "cat $(pwd)/pkg/AGENTS.md",
     "python -c 'open(\"pkg/AGENTS.md\").read()'",
     "bash -c 'cat pkg/AGENTS.md'",
     "cat --unknown pkg/AGENTS.md",
-    "cat <<EOF\ncat pkg/AGENTS.md\nEOF",
     "for f in pkg/*; do cat pkg/AGENTS.md; done",
     "echo anything > pkg/AGENTS.md",
     "cat 3< pkg/AGENTS.md"

@@ -18,7 +18,6 @@ const settingsSchema = z.strictObject({
   shortcuts: shortcutsSchema.prefault({})
 });
 const globalSettingsSchema = z.object({ "ext.pi-prompt-manager": z.unknown().optional() });
-const missingFileSchema = z.object({ code: z.literal("ENOENT") });
 
 export type Settings = z.output<typeof settingsSchema>;
 
@@ -84,7 +83,7 @@ export async function loadSettings(agentDir: string) {
   } catch (error) {
     const result = parseSettings(undefined);
 
-    if (!missingFileSchema.safeParse(error).success)
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT"))
       result.warnings.push("Global settings could not be read; using prompt-manager defaults.");
 
     return result;

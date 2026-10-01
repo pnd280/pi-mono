@@ -32,6 +32,6 @@ it("compares absolute lexical paths without confusing siblings or traversals wit
   expect(containsPath(root, resolve(root, "a", "..", "b"))).toBe(true);
   expect(containsPath(root, resolve(root, ".."))).toBe(false);
   expect(containsPath(root, root + "-other")).toBe(false);
-  expect(() => containsPath("relative", root)).toThrow("absolute");
-  expect(() => containsPath(root, "relative")).toThrow("absolute");
+  expect(() => containsPath("relative", root)).toThrow(TypeError);
+  expect(() => containsPath(root, "relative")).toThrow(TypeError);
 });

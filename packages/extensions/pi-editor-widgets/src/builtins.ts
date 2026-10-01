@@ -8,7 +8,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
-export function formatTokens(count: number): string {
+function formatTokens(count: number): string {
   if (count < 1000) return String(count);
   if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
   if (count < 1000000) return `${Math.round(count / 1000)}k`;

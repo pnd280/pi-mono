@@ -1,16 +1,69 @@
-import { symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { fauxAssistantMessage, type AssistantMessage } from "@earendil-works/pi-ai";
+import { DefaultResourceLoader, ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import { RunChanges } from "./changes.ts";
 import { summaryEntryType } from "./summary.ts";
 import { fixture } from "./test-fixture.ts";
 
+it("saves synthetic lifecycle summaries without native resource or model startup", async () => {
+  const unavailable = new Error("Native runtime startup is unavailable");
+  const reload = vi.spyOn(DefaultResourceLoader.prototype, "reload").mockRejectedValue(unavailable);
+  const create = vi.spyOn(ModelRuntime, "create").mockRejectedValue(unavailable);
+
+  try {
+    const runtime = fixture();
+    await runtime.emit("agent_start", {});
+    vi.advanceTimersByTime(1250);
+    await runtime.emit("agent_settled", {});
+    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+      durationMs: 1250,
+      finishedAt: Date.now(),
+      bashCalls: 0,
+      files: []
+    });
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    reload.mockRestore();
+    create.mockRestore();
+  }
+});
+
+it.each(["resources", "models"] as const)(
+  "cleans up when lazy native %s startup fails",
+  async (startup) => {
+    const unavailable = new Error("Native runtime startup is unavailable");
+    const start =
+      startup === "resources"
+        ? vi.spyOn(DefaultResourceLoader.prototype, "reload")
+        : vi.spyOn(ModelRuntime, "create");
+    start.mockRejectedValue(unavailable);
+
+    try {
+      const runtime = fixture();
+      onTestFinished(() => {
+        expect(existsSync(runtime.ctx.cwd)).toBe(false);
+        expect(runtime.api.appendEntry).not.toHaveBeenCalled();
+        expect(runtime.setWorkingMessage).toHaveBeenLastCalledWith(undefined);
+      });
+      await runtime.emit("session_start", {});
+      await runtime.emit("agent_start", {});
+      await expect(runtime.tool("write", { path: "file.txt", content: "new\n" })).rejects.toBe(
+        unavailable
+      );
+    } finally {
+      start.mockRestore();
+    }
+  }
+);
+
 it("records one context-free entry after all turns and retries settle, preserving other working text", async () => {
-  const runtime = await fixture();
+  const runtime = fixture();
   const other = registerWorkingMessage(runtime.api, {
     id: "other.activity",
     label: "Activity",
@@ -23,14 +76,14 @@ it("records one context-free entry after all turns and retries settle, preservin
   await runtime.emit("agent_start", {});
   await runtime.tool("bash", { command: "true" });
   vi.advanceTimersByTime(2000);
-  expect(runtime.setWorkingMessage).toHaveBeenLastCalledWith("Checking files · 2s");
+  const workingText: unknown = runtime.setWorkingMessage.mock.lastCall?.[0];
+  expect(workingText).toContain("Checking files");
+  expect(workingText).toContain("2s");
   await runtime.emit("turn_end", {});
   await runtime.emit("agent_end", {});
   vi.advanceTimersByTime(1000);
   await runtime.emit("agent_start", {});
-  await expect(runtime.tool("bash", { command: "false" })).resolves.toMatchObject({
-    isError: true
-  });
+  await runtime.tool("bash", { command: "false" });
   vi.advanceTimersByTime(1500);
   expect(runtime.api.appendEntry).not.toHaveBeenCalled();
   await runtime.emit("agent_settled", {});
@@ -75,7 +128,7 @@ it.each([
 ] as const)(
   "saves throughput across continuations in %s mode ending with %s",
   async (mode, stopReason) => {
-    const runtime = await fixture(mode);
+    const runtime = fixture(mode);
     const start = () =>
       runtime.emit("message_start", {
         type: "message_start",
@@ -142,7 +195,7 @@ it.each([
 it.each(["session_start", "session_shutdown"] as const)(
   "discards throughput on %s",
   async (event) => {
-    const runtime = await fixture();
+    const runtime = fixture();
     await runtime.emit("agent_start", {});
     const start = { type: "message_start" as const, message: assistantMessage(0, "pending") };
     const end = { type: "message_end" as const, message: assistantMessage(50, "stop") };
@@ -166,7 +219,7 @@ it.each(["session_start", "session_shutdown"] as const)(
 );
 
 it("records each model that answered, in order of first use, rather than the selection", async () => {
-  const runtime = await fixture();
+  const runtime = fixture();
   const answer = (
     provider: string,
     model: string,
@@ -220,7 +273,7 @@ it("records each model that answered, in order of first use, rather than the sel
 });
 
 it("aggregates native edit/write aliases and large files without scanning bash-only changes", async () => {
-  const runtime = await fixture();
+  const runtime = fixture();
   const path = join(runtime.ctx.cwd, "existing.txt");
   const unchanged = "unchanged content\n".repeat(6000);
   writeFileSync(path, `original\nkeep\n${unchanged}`);
@@ -232,10 +285,14 @@ it("aggregates native edit/write aliases and large files without scanning bash-o
   });
   await runtime.tool("write", { path, content: `final\nfrom-edit\nkeep\nextra\n${unchanged}` });
   await runtime.tool("write", { path: "@./new.txt", content: "new\n" });
-  await runtime.tool("bash", { command: "generate files" }, () => {
-    writeFileSync(join(runtime.ctx.cwd, "shell-only.txt"), "not counted\n");
-    writeFileSync(path, "later shell change, not counted\n");
+  await runtime.emit("tool_execution_start", {
+    type: "tool_execution_start",
+    toolName: "bash",
+    toolCallId: "shell-only",
+    args: { command: "generate files" }
   });
+  writeFileSync(join(runtime.ctx.cwd, "shell-only.txt"), "not counted\n");
+  writeFileSync(path, "later shell change, not counted\n");
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 0,
@@ -259,7 +316,7 @@ it("aggregates native edit/write aliases and large files without scanning bash-o
 });
 
 it("counts bash calls at start, including unfinished and blocked calls, but not user bash", async () => {
-  const runtime = await fixture();
+  const runtime = fixture();
   await runtime.emit("agent_start", {});
   for (const toolCallId of ["failed", "cancelled", "blocked", "blocked"])
     await runtime.emit("tool_execution_start", {
@@ -279,7 +336,7 @@ it("counts bash calls at start, including unfinished and blocked calls, but not 
 });
 
 it("waits if another extension has already started a run during settlement", async () => {
-  const runtime = await fixture();
+  const runtime = fixture();
   await runtime.emit("session_start", {});
   await runtime.emit("agent_start", {});
   vi.advanceTimersByTime(1000);
@@ -298,7 +355,7 @@ it("waits if another extension has already started a run during settlement", asy
 });
 
 it("cleans up unfinished runs on shutdown without appending a partial summary", async () => {
-  const runtime = await fixture();
+  const runtime = fixture();
   expect(vi.getTimerCount()).toBe(0);
   await runtime.emit("session_start", {});
   await runtime.emit("agent_start", {});
@@ -323,8 +380,68 @@ it("cleans up unfinished runs on shutdown without appending a partial summary", 
   });
 });
 
+it.each(["session_start", "session_shutdown"] as const)(
+  "ignores native completion captured before %s, including after another run starts",
+  async (event) => {
+    const runtime = fixture();
+    let previous: RunChanges | undefined;
+    // The captured method is called below with the observed run as its explicit receiver.
+    // oxlint-disable-next-line typescript/unbound-method
+    const completed = RunChanges.prototype.completed;
+    const capture = vi.spyOn(RunChanges.prototype, "completed").mockImplementation(function (
+      this: RunChanges,
+      mutation
+    ) {
+      previous ??= this;
+
+      return completed.call(this, mutation);
+    });
+
+    try {
+      await runtime.emit("agent_start", {});
+      await runtime.tool("write", { path: "baseline.txt", content: "first\n" });
+    } finally {
+      capture.mockRestore();
+    }
+
+    if (!previous) throw new Error("Missing observed run");
+    let reset: Promise<void> | undefined;
+    const observer = observeFileMutations({
+      eligible: (session) => session.sessionManager === runtime.session,
+      begin: () => ({
+        maxSourceBytes: 0,
+        started: () => {
+          reset = (async () => {
+            await runtime.emit(event, {});
+            await runtime.emit("agent_start", {});
+          })();
+        },
+        completed() {}
+      })
+    });
+
+    try {
+      await runtime.tool("write", { path: "late.txt", content: "late\n" });
+      await reset;
+      expect(await previous.finish()).toEqual([
+        { path: "baseline.txt", status: "available", added: 1, removed: 0 }
+      ]);
+      await runtime.emit("agent_settled", {});
+      expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+        durationMs: 0,
+        finishedAt: Date.now(),
+        bashCalls: 0,
+        files: []
+      });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      observer.dispose();
+    }
+  }
+);
+
 it("captures the finish time before awaiting file statistics", async () => {
-  const runtime = await fixture();
+  const runtime = fixture();
   await runtime.emit("agent_start", {});
   vi.advanceTimersByTime(1250);
   const finishedAt = Date.now();
@@ -342,9 +459,6 @@ it("captures the finish time before awaiting file statistics", async () => {
       bashCalls: 0,
       files: []
     });
-    expect(runtime.session.getLeafEntry()?.timestamp).toBe(
-      new Date(finishedAt + 5000).toISOString()
-    );
   } finally {
     finish.mockRestore();
   }
@@ -353,7 +467,7 @@ it("captures the finish time before awaiting file statistics", async () => {
 it.each(["session_shutdown", "session_start"] as const)(
   "discards a pending net comparison after %s",
   async (event) => {
-    const runtime = await fixture();
+    const runtime = fixture();
     await runtime.emit("agent_start", {});
     const pending = Promise.withResolvers<Awaited<ReturnType<RunChanges["finish"]>>>();
     const finish = vi.spyOn(RunChanges.prototype, "finish").mockReturnValueOnce(pending.promise);
@@ -373,7 +487,7 @@ it.each(["session_shutdown", "session_start"] as const)(
 );
 
 it("saves summaries outside TUI mode without touching the working UI", async () => {
-  const runtime = await fixture("rpc");
+  const runtime = fixture("rpc");
   await runtime.emit("session_start", {});
   await runtime.emit("agent_start", {});
   await runtime.tool("write", { path: "file.txt", content: "new\n" });

@@ -13,6 +13,7 @@ import {
   type NativeSession
 } from "./compatibility.ts";
 import type { CompactConfig } from "./config.ts";
+import type { SummaryModelEntry } from "./entry.ts";
 import { focusSplitTurn } from "./instructions.ts";
 
 export type CompactionModelOptions = {
@@ -23,40 +24,54 @@ export type CompactionModelOptions = {
 export async function summarizeWithOverrides(
   session: NativeSession,
   summarize: DefaultCompaction,
-  args: Parameters<DefaultCompaction>,
+  args: Readonly<Parameters<DefaultCompaction>>,
   instructions: string | undefined,
-  selection: CompactionModelOptions | undefined
-) {
-  const reference = selection?.config.model;
-  let thinkingLevel = selection?.config.thinkingLevel;
-  if (!instructions && reference === undefined && thinkingLevel === undefined)
-    return summarize(...args);
+  overrides: CompactionModelOptions | undefined
+): Promise<{
+  result: Awaited<ReturnType<DefaultCompaction>>;
+  selection: Pick<SummaryModelEntry, "model" | "thinkingLevel">;
+}> {
+  const reference = overrides?.config.model;
+  const inputThinkingLevel = overrides?.config.thinkingLevel;
+  let selectedModel = args[1];
 
-  if (selection && reference !== undefined) {
+  if (overrides && reference !== undefined) {
     const slash = reference.indexOf("/");
-    const model = selection.registry.find(reference.slice(0, slash), reference.slice(slash + 1));
+    const model = overrides.registry.find(reference.slice(0, slash), reference.slice(slash + 1));
     if (!model)
       throw new Error(
         "The configured compaction model is unavailable. Check ext.pi-smart-compact.model."
       );
-    args[1] = model;
+    selectedModel = model;
   }
 
-  if (thinkingLevel !== undefined && !getSupportedThinkingLevels(args[1]).includes(thinkingLevel))
+  if (
+    inputThinkingLevel !== undefined &&
+    !getSupportedThinkingLevels(selectedModel).includes(inputThinkingLevel)
+  )
     throw new Error("The configured thinkingLevel is unsupported by the compaction model.");
 
-  let requestModel = args[1];
+  // Snapshot selection before routing or generation can change session thinking.
+  // Virtual routing owns the physical request, not the persisted selected identity.
+  const selection = {
+    model: `${selectedModel.provider}/${selectedModel.id}`,
+    thinkingLevel: selectedModel.reasoning ? (inputThinkingLevel ?? session.thinkingLevel) : "off"
+  } satisfies Pick<SummaryModelEntry, "model" | "thinkingLevel">;
+  if (!instructions && reference === undefined && inputThinkingLevel === undefined)
+    return { result: await summarize(...args), selection };
 
-  if (thinkingLevel !== undefined && requestModel.api === virtualModelApi) {
+  let requestModel = selectedModel;
+  let requestThinkingLevel = inputThinkingLevel;
+
+  if (inputThinkingLevel !== undefined && requestModel.api === virtualModelApi) {
     // Apply the selected level to routing; the router owns the physical level.
-    // Keep args[1] as the selection for persisted summary-model metadata.
     const route = await session.modelRuntime.resolveModel(
       requestModel,
       convertToLlm(session.agent.state.messages),
-      { reason: "direct", thinkingLevel, signal: args[3] }
+      { reason: "direct", thinkingLevel: inputThinkingLevel, signal: args[3] }
     );
     requestModel = route.model;
-    thinkingLevel = route.thinkingLevel;
+    requestThinkingLevel = route.thinkingLevel;
   }
 
   const hooks = new OwnedHooks();
@@ -69,12 +84,12 @@ export async function summarizeWithOverrides(
       const focused = instructions ? focusSplitTurn(context, instructions) : context;
       const configured = { ...options };
 
-      if (thinkingLevel !== undefined) {
+      if (requestThinkingLevel !== undefined) {
         delete configured.reasoning;
-        if (thinkingLevel !== "off") configured.reasoning = thinkingLevel;
+        if (requestThinkingLevel !== "off") configured.reasoning = requestThinkingLevel;
       }
 
-      if (selection && reference !== undefined) {
+      if (overrides && reference !== undefined) {
         // The registry owns request-time auth. Never carry session credentials,
         // headers, or environment into the configured provider request.
         delete configured.apiKey;
@@ -92,13 +107,13 @@ export async function summarizeWithOverrides(
         if (websocketTimeout !== undefined)
           configured.websocketConnectTimeoutMs ??= websocketTimeout;
 
-        return selection.registry.streamSimple(model, focused, {
+        return overrides.registry.streamSimple(model, focused, {
           ...configured,
           // The session stream normally dispatches this hook after provider auth.
           // Keep that ordering without carrying over conversation headers.
           transformHeaders: (headers) =>
-            active && session._extensionRunner.hasHandlers("before_provider_headers")
-              ? session._extensionRunner.emitBeforeProviderHeaders(headers)
+            active && session.extensionRunner.hasHandlers("before_provider_headers")
+              ? session.extensionRunner.emitBeforeProviderHeaders(headers)
               : headers
         });
       }
@@ -106,7 +121,10 @@ export async function summarizeWithOverrides(
       return stream(model, focused, configured);
     });
 
-    return await summarize(args[0], requestModel, args[2], args[3], args[4]);
+    return {
+      result: await summarize(args[0], requestModel, args[2], args[3], args[4]),
+      selection
+    };
   } finally {
     active = false;
     hooks.restore();
@@ -122,7 +140,7 @@ export async function withCompactionInstructions(
 ) {
   if (instructions === undefined) return run();
   const hooks = new OwnedHooks();
-  const runner = session._extensionRunner;
+  const runner = session.extensionRunner;
   const emit = runner.emit.bind(runner);
   const summarize = session._runDefaultCompaction.bind(session);
   let active = true;
@@ -130,11 +148,20 @@ export async function withCompactionInstructions(
     active && signal !== undefined && signal === session._autoCompactionAbortController?.signal;
 
   try {
-    const configuredSummary: DefaultCompaction = (...args) => {
-      if (args[4] === reason && ownsRequest(args[3])) args[2] = instructions;
-
-      return summarize(...args);
-    };
+    const configuredSummary: DefaultCompaction = (
+      preparation,
+      model,
+      focus,
+      signal,
+      summaryReason
+    ) =>
+      summarize(
+        preparation,
+        model,
+        summaryReason === reason && ownsRequest(signal) ? instructions : focus,
+        signal,
+        summaryReason
+      );
 
     hooks.replace(session, "_runDefaultCompaction", configuredSummary);
 

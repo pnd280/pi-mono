@@ -2,9 +2,9 @@
 
 [Shared TUI](../README.md#usage)
 
-## Behavior
+## Behaviour
 
-[`openResponsiveCustomUI`](index.ts) preserves one component across inline/overlay remounts, calling optional `dispose()` only at final closure.
+Use [`openResponsiveCustomUI`](index.ts) when a view must keep its state while switching between inline and overlay presentations. It preserves one component across remounts, calling optional `dispose()` only at final closure.
 
 ### Fullscreen input ownership
 
@@ -28,11 +28,12 @@ Public terminal listeners append after Pi's fullscreen transcript listener and c
 
 ## Caller responsibilities
 
-Supply the [host options](index.ts). Use `onTransition` to cancel context-dependent actions such as [timed confirmation](../../timed-confirmation/README.md) on remount.
-
-Ownership opt-in requires `onInputRoutingUnavailable()`. Supply a consumer-specific warning and fallback controls. Derive ownership from the same injected keybindings and action precedence as input dispatch; do not register listeners or mutate host input state in components.
-
-Await closure before editor changes: Pi restores the opening snapshot on inline closure. The [browser host](../open-browser/README.md) provides `afterClose` and redraws.
+- Supply the [host options](index.ts).
+- Use `onTransition` to cancel context-dependent actions such as [timed confirmation](../../timed-confirmation/README.md) on remount.
+- Ownership opt-in requires `onInputRoutingUnavailable()`; supply a consumer-specific warning and fallback controls.
+- Derive ownership from the same injected keybindings and action precedence as input dispatch; do not register listeners or mutate host input state in components.
+- Await closure before editor changes: Pi restores the opening snapshot on inline closure.
+- The [browser host](../open-browser/README.md) provides `afterClose` and redraws.
 
 ## Validation
 

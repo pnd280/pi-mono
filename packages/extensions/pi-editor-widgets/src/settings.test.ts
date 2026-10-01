@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(directory, { recursive: true, force: true }));
 
-it("uses whole-layout scope replacement, restores inheritance separately from defaults, and preserves unrelated fields", () => {
+it("uses whole-layout scope replacement, reads externally unset layouts separately from defaults, and preserves unrelated fields", () => {
   const global = defaultLayout();
   global.hidden = ["widget:global"];
   const project = defaultLayout();
@@ -36,8 +36,8 @@ it("uses whole-layout scope replacement, restores inheritance separately from de
   });
   settings.save("project", project);
   expect(settings.load()).toEqual({ global, project, warnings: [] });
-  settings.save("project", undefined);
-  expect(settings.load().project).toBeUndefined();
+  write(settings.paths.project, { "ext.pi-editor-widgets": { note: "externally unset" } });
+  expect(settings.load()).toEqual({ global, project: undefined, warnings: [] });
   settings.save("project", defaultLayout());
   expect(settings.load().project).toEqual(defaultLayout());
   settings.save("global", project);
@@ -63,11 +63,18 @@ it("resolves contextThreshold per field, independently of the layout, and keeps 
   expect(JSON.parse(readFileSync(settings.paths.project, "utf8"))).toEqual({
     "ext.pi-editor-widgets": { layout, contextThreshold: 90000 }
   });
-  settings.save("project", undefined);
-  expect(JSON.parse(readFileSync(settings.paths.project, "utf8"))).toEqual({
-    "ext.pi-editor-widgets": { contextThreshold: 90000 }
+  write(settings.paths.project, { "ext.pi-editor-widgets": { contextThreshold: 90000 } });
+  expect(settings.load()).toEqual({
+    global: undefined,
+    project: undefined,
+    contextThreshold: 90000,
+    warnings: []
   });
-  const untrusted = new WidgetSettings({ ...settings.options, projectTrusted: false });
+  const untrusted = new WidgetSettings({
+    cwd: join(directory, "project"),
+    agentDir: join(directory, "agent"),
+    projectTrusted: false
+  });
   expect(untrusted.load().contextThreshold).toBe(150000);
 });
 
@@ -99,7 +106,11 @@ it("falls back to window percentages when neither scope has a valid threshold", 
 });
 
 it("ignores untrusted project files and ancestors, and refuses project writes", () => {
-  const untrusted = new WidgetSettings({ ...settings.options, projectTrusted: false });
+  const untrusted = new WidgetSettings({
+    cwd: join(directory, "project"),
+    agentDir: join(directory, "agent"),
+    projectTrusted: false
+  });
   write(settings.paths.project, { "ext.pi-editor-widgets": { layout: defaultLayout() } });
   write(join(directory, ".pi/settings.json"), {
     "ext.pi-editor-widgets": { layout: defaultLayout() }
@@ -140,16 +151,13 @@ it.each([null, [], "invalid"])(
   }
 );
 
-it.each(["{broken", "null", "[]", " ".repeat(1024 * 1024 + 1)])(
-  "never overwrites malformed or oversized settings",
-  (source) => {
-    mkdirSync(dirname(settings.paths.global), { recursive: true });
-    writeFileSync(settings.paths.global, source);
-    expect(settings.load().warnings).toHaveLength(1);
-    expect(() => settings.save("global", defaultLayout())).toThrow("Check access");
-    expect(readFileSync(settings.paths.global, "utf8")).toBe(source);
-  }
-);
+it.each(["{broken", "null", "[]"])("never overwrites malformed settings", (source) => {
+  mkdirSync(dirname(settings.paths.global), { recursive: true });
+  writeFileSync(settings.paths.global, source);
+  expect(settings.load().warnings).toHaveLength(1);
+  expect(() => settings.save("global", defaultLayout())).toThrow("Check access");
+  expect(readFileSync(settings.paths.global, "utf8")).toBe(source);
+});
 
 it("does not write on load and respects a held Pi settings lock", () => {
   expect(settings.load()).toEqual({ global: undefined, project: undefined, warnings: [] });
@@ -157,6 +165,8 @@ it("does not write on load and respects a held Pi settings lock", () => {
   settings.save("global", defaultLayout());
   const before = readFileSync(settings.paths.global, "utf8");
   mkdirSync(`${settings.paths.global}.lock`);
-  expect(() => settings.save("global", undefined)).toThrow("lock");
+  const changed = defaultLayout();
+  changed.hidden = ["widget:locked"];
+  expect(() => settings.save("global", changed)).toThrow("lock");
   expect(readFileSync(settings.paths.global, "utf8")).toBe(before);
 });

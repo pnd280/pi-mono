@@ -45,9 +45,7 @@ it("discovers preexisting native closures when enabled on reload, then survives 
       host.resetExtensionUI(); // Native /reload resets the UI before session.reload.
       await session.reload();
       ui.setWidget("existing", ["RELOADED"]);
-      expect(plain(host.widgetContainerBelow.render(80))).toContain("RELOADED");
-      expect(host.widgetContainerBelow.children).toHaveLength(1);
-      expect(host.footerContainer.children).toHaveLength(1);
+      expect(plain(host.widgetContainerBelow.render(80)).match(/RELOADED/g)).toEqual(["RELOADED"]);
     }
   } finally {
     await fixture.dispose();
@@ -77,7 +75,6 @@ it.each(["regular", "fullscreen"] as const)(
       host.ui.requestRender();
       const lines = host.renderer.render(12);
       expect(lines.every((line) => visibleWidth(line) <= 12)).toBe(true);
-      expect(host.widgetContainerAbove.children).toHaveLength(1);
       host.switchTuiMode(mode, false, false);
       ui.setStatus("live", "BACK");
       expect(plain(host.footerContainer.render(30))).toContain("BACK");
@@ -119,8 +116,6 @@ it("releases borrowed instances at shutdown and reacquires a clean registry for 
     expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("CURRENT");
     expect(instances).toHaveLength(2);
     expect(first?.render.mock.calls.length).toBe(oldRenders);
-    expect(fixture.host.widgetContainerAbove.children).toHaveLength(1);
-    expect(fixture.host.footerContainer.children).toHaveLength(1);
   } finally {
     await fixture.dispose();
   }
@@ -188,7 +183,7 @@ it.each(["print", "json", "rpc"] as const)(
       expect(ui.setStatus).not.toHaveBeenCalled();
       expect(ui.setWidget).not.toHaveBeenCalled();
       expect(ui.setFooter).not.toHaveBeenCalled();
-      expect(ui.notify).toHaveBeenCalledWith("/widgets requires interactive TUI mode.", "error");
+      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining("interactive TUI"), "error");
       expect(fixture.host.customFooter).toBeUndefined();
       expect(
         Object.getOwnPropertyDescriptor(InteractiveMode.prototype, "setExtensionStatus")

@@ -1,11 +1,24 @@
 # [pi-nested-instructions](README.md) development
 
+See the [glossary](GLOSSARY.md) for domain terms, and [session lifetime](docs/design.md#session-lifetime) before changing discovery or persistence.
+
+## Must not regress
+
+- Infer scope from tool inputs alone. Never inspect results, enumerate glob matches, or run commands to infer scope.
+- Never replace tools or modify Pi's native instruction loading. Keep Pi's filename precedence and the lexical cwd boundary.
+- Deduplicate against the canonical projection, including context edits, and tie each marker to the exact call that created it.
+
 ## Constraints
 
-Keep inference input-only and collect all batch markers before reading instructions. Do not inspect results, enumerate glob matches, execute inference commands, replace tools, or modify Pi's native instruction loading.
-
-Persist through public session APIs; keep rendering in [pi-tool-display](../pi-tool-display/src/adapters/pi-nested-instructions/README.md). Deduplicate against the canonical projection, including context edits, and tie markers to the exact originating call. Preserve Pi filename precedence and lexical cwd boundaries. See [domain terms](CONTEXT.md) and [session lifetime](docs/design.md#session-lifetime) when changing discovery or persistence. Document new adapter limits in [input discovery](docs/design.md#input-discovery).
+- Collect all markers in a batch before reading instructions.
+- Save only through public session APIs.
+- Keep rendering in [pi-tool-display](../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
+- Document new adapter limits in [input discovery](docs/design.md#input-discovery).
 
 ## Validation
 
-Use [package validation](README.md#validation). For Pi upgrades, use the [compatibility checklist](docs/pi-compatibility.md); for shared scope changes, check utils and `pi-fff-guard` too.
+| When you ...                              | Read                                                |
+| ----------------------------------------- | --------------------------------------------------- |
+| Change discovery, persistence, or notices | [package validation](README.md#validation)          |
+| Upgrade Pi                                | [compatibility checklist](docs/pi-compatibility.md) |
+| Change shared scope extraction            | Also check utils and `pi-fff-guard`.                |

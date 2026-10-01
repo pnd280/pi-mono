@@ -1,7 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
-import { genericAdapter } from "./adapters/generic.ts";
 import type { DisplayCall, Outcome, ToolDisplayAdapter } from "./contracts.ts";
 import { interpret } from "./interpretation.ts";
 import { TranscriptCoordinator } from "./transcript/coordinator.ts";
@@ -43,20 +42,13 @@ it("falls back to generic only for transcript results the selected adapter decli
   try {
     const call = add(declining, { path: "a.ts" });
     // Arguments alone are not checked: the call keeps its adapter until a result arrives.
-    expect(coordinator.interpretation(call).adapter).toBe(declining);
+    expect(coordinator.interpretation(call).adapter.id).toBe("reader");
     coordinator.result(call, result(), "success");
-    expect(coordinator.interpretation(call).adapter).toBe(genericAdapter);
+    expect(coordinator.interpretation(call).adapter.id).toBe("generic");
     expect(coordinator.interpretation(call).group).toBeUndefined();
   } finally {
     coordinator.dispose();
   }
-
-  // Standalone owners assert compatibility with their explicit adapter.
-  const standalone = interpret(
-    { name: "tool", adapter: declining, args: {}, result: result(), pending: false, failed: false },
-    cwd
-  );
-  expect(standalone.adapter).toBe(declining);
 });
 
 it("ranks cancellation over failure and failure over unavailable metadata", () => {
@@ -88,14 +80,6 @@ it("ranks cancellation over failure and failure over unavailable metadata", () =
   } finally {
     coordinator.dispose();
   }
-
-  const standalone = (failed: boolean, pending = false) =>
-    interpret(
-      { name: "tool", adapter: reporting("success"), args: {}, result: result(), pending, failed },
-      cwd
-    ).outcome;
-  expect(standalone(false)).toBe("success");
-  expect(standalone(true)).toBe("failure");
 });
 
 it("refreshes interpretation when a producer republishes a mutated result object", () => {
@@ -140,11 +124,11 @@ it("replaces an adapter that throws with generic and reports each failed interpr
       expect(interpretation.outcome).toBe("success");
       expect(interpretation.summaryItems).toEqual([{ category: "other:read" }]);
       expect(interpretation.group).toBeUndefined();
-      expect(interpretation.adapter).toBe(genericAdapter);
+      expect(interpretation.adapter.id).toBe("generic");
       // A fresh interpretation reports once, however many fields read the failed adapter.
       failures.mockClear();
       const fresh = interpret({ call }, cwd, failures);
-      expect(fresh.adapter).toBe(genericAdapter);
+      expect(fresh.adapter.id).toBe("generic");
       expect(failures).toHaveBeenCalledTimes(1);
       expect(failures.mock.calls[0]?.[0].id).toBe(`throwing-${callback}`);
     }

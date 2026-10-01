@@ -36,7 +36,7 @@ it("persists typed facts and reads only matching source calls from the supplied 
   const append = vi.fn<ExtensionAPI["appendEntry"]>();
   persistDisplayFact(append, reference, "pi:write", fact);
   const record = { version: 1, call: reference, adapter: "pi:write", fact };
-  expect(append).toHaveBeenCalledExactlyOnceWith(METADATA_TYPE, record);
+  expect(append).toHaveBeenCalledExactlyOnceWith("pi-tool-display.facts", record);
   const metadata = {
     type: "custom",
     id: "facts",

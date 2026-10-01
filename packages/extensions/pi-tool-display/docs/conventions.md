@@ -2,11 +2,13 @@
 
 [pi-tool-display](../README.md) · [Adapter development](adapters.md)
 
-For [`ToolDisplayAdapter`](../src/contracts.ts) implementations; see [layout](presentation.md) and [callback contracts](renderers.md#custom-adapters).
+Apply the same action wording and invalid-input fallback across [`ToolDisplayAdapter`](../src/contracts.ts) implementations so their cards read consistently.
+
+For layout, use [presentation](presentation.md). For callback contracts, use [custom adapters](renderers.md#custom-adapters).
 
 ## Invalid-input fallback
 
-`supports(args, result)` must reject uninterpretable input. Automatic CLI fallback shows generic tool names/parameters even with `showParameters: false`: invalid todo input becomes `Call failed todo({})`, not `Call failed …`.
+`supports(args, result)` must reject uninterpretable input. Automatic CLI fallback shows generic tool names and parameters even with `showParameters: false`: invalid todo input becomes `Call failed todo({})`, not `Call failed …`.
 
 The CLI checks `supports` only after a result exists, including partial updates. Earlier callbacks must tolerate partial arguments; `exploration` must reject unparseable ones. Standalone renderers never check `supports`; adapters handle incompatibility.
 
@@ -24,7 +26,7 @@ Separate search patterns and scopes with a spaced em dash (U+2014), not `in`. Us
 
 Use `Exploring <path>` and `Explored <path>` for directory groups, and `Filtering <filter>` and `Filtered <filter>` for literal-filter groups. Keep `ExplorationScope` kind names such as `directory` and `filter` out of displayed headings. Adapter-defined groups may use a custom title such as `Todos`.
 
-Omit group call/operation counts; member rows show calls. Retain failure, cancellation, and unavailable-outcome badges plus member diagnostics.
+Omit call and operation counts from group headings; member rows already show the calls. Keep failure, cancellation, and unavailable-outcome badges, and member diagnostics.
 
 ## Literal filters and paths
 

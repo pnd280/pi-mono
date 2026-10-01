@@ -1,10 +1,12 @@
 # pi-smart-compact
 
-Adds model-callable `context_window` and `compact` tools to inspect context usage and compact while continuing the current task. Pi handles compaction natively, including summaries of a long ongoing turn. An optional summary model can also serve `/compact` and automatic compaction; an instruction file adds focus to all three routes. Requires the inspected Pi **0.99.2** runtime; see [compatibility](docs/pi-compatibility.md).
+Keep long tasks going before they reach the context limit by letting the model compact its own context mid-task. For example, after a large refactor the model can call `compact({ instructions: "Preserve modified files and remaining tests." })` and then carry on.
+
+_Compaction_ replaces older conversation history with a summary written by a model. Pi does the compaction itself; this extension adds a way for the model to request it, an optional dedicated summary model, and an optional instruction file. Requires Pi 1.0.0; see [compatibility](docs/pi-compatibility.md).
 
 ## Usage
 
-The extension provides two model-callable tools:
+The extension adds two tools the model can call:
 
 ```typescript
 context_window({});
@@ -12,23 +14,41 @@ compact({});
 compact({ instructions: "Preserve decisions, modified files, and remaining tests." });
 ```
 
-`context_window({})` returns Pi's context usage unchanged as JSON (`tokens`, `contextWindow`, `percent`); unknown usage preserves `null` tokens and percent, and unavailable usage reports `Context usage unavailable.`
+### `context_window`
 
-`compact` is model-only, so each request has its own replayable tool result; nested code cannot schedule it. `context_window` is also available to nested tools.
+Returns Pi's context usage as JSON: `tokens`, `contextWindow`, and `percent`.
 
-`compact` acknowledges a request, not a successful compaction. [`pi-tool-display`](../pi-tool-display/README.md) shows a **Requested compaction** card with focus and configured model selection, and presents context usage as readable totals; model selection stays out of the model-facing acknowledgement.
+- When usage is unknown, `tokens` and `percent` are `null`.
+- When usage is unavailable, it returns `Context usage unavailable.`
+- Code run by other tools can also call it.
 
-Pi saves the whole tool batch, then attempts compaction before the next model response. Success uses Pi's native summary and entry. Skipped attempts and Pi-reported cancellations or failures save a model-visible `pi-smart-compact.result` status before continuation, without triggering another turn. Print mode waits for the task's final response.
+### `compact`
 
-Successful default summaries from the tool, `/compact`, or automatic compaction save a context-free `pi-smart-compact.model` entry with the selected summary model, thinking level, and trigger. Hook-supplied summaries and failed or cancelled attempts do not save this entry.
+`compact` asks Pi to compact; it does not confirm that compaction succeeded. Only the model can call it directly, so every request has its own tool result that replays correctly.
 
-The interactive footer shows `compacted N×` for successful compaction entries on the active branch, including those from other extensions. RPC forwards the status under `pi-smart-compact.compactions`; display depends on the client.
+What happens after a request:
 
-Instructions focus Pi's default history and split-turn summaries without replacing their native format; `session_before_compact` handlers can still cancel or supply custom summaries. Duplicate requests in a tool batch produce one attempt, with the last executed request's instructions (or no instructions) taking precedence. Escape during compaction cancels compaction, not the agent run.
+1. Pi saves the whole tool batch.
+2. Before the next model response, Pi tries to compact, using its native summary and entry.
+3. If the attempt is skipped, cancelled, or fails, a `pi-smart-compact.result` status message tells the model what happened. It does not start another turn.
+4. The task continues as normal. In print mode, Pi still waits for the task's final response.
+
+Other behaviour:
+
+- `instructions` add focus to Pi's default history and split-turn summaries without replacing their format.
+- Several `compact` calls in one tool batch produce a single attempt. The last call's instructions, or lack of them, win.
+- Pressing **Escape** during compaction cancels the compaction, not the agent run.
+- An explicit request ignores the automatic token threshold and `compaction.enabled`, without changing them.
+- `session_before_compact` handlers from other extensions can still cancel compaction or supply their own summaries.
+
+### What you see
+
+- When [pi-tool-display](../pi-tool-display/README.md) is loaded, `compact` calls show as a "Requested compaction" card with the focus and summary model, and context usage shows as readable totals. The model never sees the summary-model selection.
+- The interactive footer shows `compacted N×`, counting successful compactions on the active branch, including those from other extensions. RPC clients receive this status as `pi-smart-compact.compactions`.
 
 ## Configuration
 
-By default, compaction uses the session's active model and native thinking behavior, including subsequent model switches. To override them for the `compact` tool, set the literal top-level `ext.pi-smart-compact` key in global or trusted project [settings.json](../../../node_modules/@earendil-works/pi-coding-agent/docs/settings.md):
+By default, compaction uses the session's current model and Pi's native thinking behaviour. To use a different summary model, add an `ext.pi-smart-compact` key at the top level of global or trusted project [settings.json](https://pi.dev/docs/latest/settings):
 
 ```json
 {
@@ -42,45 +62,64 @@ By default, compaction uses the session's active model and native thinking behav
 }
 ```
 
-All fields are optional. `model` must identify a model known to Pi, including any slashes within its ID. Omitting it uses the active model. `thinkingLevel` accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`; explicitly unsupported levels are rejected rather than adjusted. Omitting it preserves native thinking behavior.
+All fields are optional.
 
-For a virtual model, the configured level is the router's input. The router selects the physical model and its thinking level. Summary-model metadata retains the selected virtual identity and level.
+| Field              | Default      | Effect                                                                                                                     |
+| ------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `model`            | Active model | Summary model for `compact`. Must be a model Pi knows; the ID may contain slashes.                                         |
+| `thinkingLevel`    | Native       | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. A level the model doesn't support is rejected, not adjusted. |
+| `applyToManual`    | `false`      | Also use `model` and `thinkingLevel` for `/compact`, including manual compaction through RPC and the SDK.                  |
+| `applyToAuto`      | `false`      | Also use `model` and `thinkingLevel` for automatic compaction at the threshold or on overflow.                             |
+| `instructionsFile` | None         | UTF-8 file of extra focus for every compaction route, whatever `applyToManual` and `applyToAuto` say.                      |
 
-`applyToManual` and `applyToAuto` default to `false` and independently apply model/thinking overrides to `/compact` (including RPC/SDK manual calls) and automatic threshold/overflow compaction. They do not control instruction-file focus; without model or thinking overrides, they leave native selection unchanged.
+For a virtual model, the configured thinking level is passed to the router, which picks the physical model and its level. Saved metadata records the virtual model and level.
 
-`instructionsFile` points to a UTF-8 file supplementing Pi's default prompts for **every compaction route**, independently of the flags. File text precedes `/compact <instructions>` or tool instructions, separated by a blank line. Existing `session_before_compact` handlers receive the combined focus; custom summarizers must use it themselves.
+### Instruction file
 
-Relative instruction paths resolve from the setting's directory: the agent directory globally or `<cwd>/.pi` for project settings. Absolute and `~/` paths work too. Inherited paths keep their original base; a trusted project may override the file, including with an empty file to disable inherited focus. Only the selected file is read, at session startup or `/reload`, with a 1 MiB limit. Neither settings nor instruction files are watched.
+For the example above, create `compaction-instructions.txt` beside the settings file containing the focus you want, such as `Preserve outstanding decisions and remaining tests.`
 
-For the example above, create `compaction-instructions.txt` beside the settings file with the focus you want, such as `Preserve outstanding decisions and remaining tests.`
+- The file's text comes first, then a blank line, then any `/compact <instructions>` or tool instructions.
+- `session_before_compact` handlers receive the combined focus. Custom summarizers must apply it themselves.
+- Relative paths resolve from the directory of the settings file that set them: the agent directory for global settings, or `<cwd>/.pi` for project settings. Absolute and `~/` paths also work.
+- A trusted project can override an inherited file, including with an empty file to turn the focus off.
+- Only the selected file is read, at startup or `/reload`, up to 1 MiB.
 
-Settings are read from:
+### Where settings live
 
 | Scope   | File                                                                           |
 | ------- | ------------------------------------------------------------------------------ |
 | Global  | `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when set. |
-| Project | `<cwd>/.pi/settings.json`; no ancestor search.                                 |
+| Project | `<cwd>/.pi/settings.json`; parent directories are not searched.                |
 
-Only [trusted projects](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#understand-project-trust) override global fields; omitted fields inherit. Apply changes with `/reload`. Remove `model` and `thinkingLevel` from participating settings to restore native selection. No extension-specific environment variables or settings writes.
+Project settings override global fields only in [trusted projects](https://pi.dev/docs/latest/security#understand-project-trust), and omitted fields are inherited. Settings and instruction files are not watched, so run `/reload` after changes. To go back to native selection, remove `model` and `thinkingLevel`. The extension has no environment variables and never writes settings.
 
-Unreadable, malformed, or oversized settings files (over 1 MiB), invalid values, unknown keys inside `ext.pi-smart-compact`, or an unreadable/missing selected instruction file make `compact` unavailable until corrected and reloaded. `context_window` and native compaction remain available.
+### Errors
 
-An unavailable model, unsupported thinking level, authentication error, or summary failure does not silently fall back to another model. During overflow recovery, Pi may already have omitted the failed attempt from model context; those edits remain if compaction fails.
+`compact` becomes unavailable until you fix the problem and run `/reload` if any of these happen:
 
-Hook-provided custom summaries ignore model and thinking overrides; the conversation model and thinking level never change. Pi retains native retries and the conversation model's retention budgets, with output capped by the summary model's limit. Choose a summary model with enough capacity for Pi's prepared requests, including overflow recovery.
+- a settings file is unreadable, malformed, or over 1 MiB;
+- a value is invalid, or `ext.pi-smart-compact` contains an unknown key;
+- the selected instruction file is missing or unreadable.
 
-An explicit tool request bypasses the automatic token threshold and `compaction.enabled` without changing them.
+`context_window` and Pi's native compaction keep working.
+
+An unavailable model, unsupported thinking level, authentication error, or failed summary never falls back silently to another model. During overflow recovery, Pi may already have removed the failed request from model context; that removal stays if compaction fails.
+
+### Edge cases
+
+- Custom summaries from `session_before_compact` handlers ignore `model` and `thinkingLevel`.
+- The conversation model and its thinking level never change.
+- Pi keeps its native retries and the conversation model's retention budgets. Output is capped by the summary model's limit, so pick a summary model large enough for Pi's requests, including overflow recovery.
+- Successful default summaries from any route save a `pi-smart-compact.model` entry recording the summary model, thinking level, and trigger. The model never sees it. Custom and failed summaries save no entry.
 
 ## Side effects
 
-- Sends conversation history to the active or configured summary model through native summarization requests, with their usual provider usage and cost.
-- Saves native compaction entries and metadata to the current session, plus context-free `pi-smart-compact.model` entries for default summaries and model-visible status messages for skipped, cancelled, or failed tool-requested attempts. Raw history remains in the session file.
-- Patches private Pi methods in memory, scoped to the session; restores only hooks it still owns, without overwriting later replacements by other extensions.
-- Sets and clears one footer status (`pi-smart-compact.compactions`) through `ctx.ui.setStatus`.
-- Does not modify installed Pi files, create configuration, send user prompts, or manufacture continuation requests.
+- It sends conversation history to the active or configured summary model through Pi's native summarisation requests, with the usual provider usage and cost.
+- It saves to the current session: native compaction entries, `pi-smart-compact.model` entries for default summaries, and status messages for skipped, cancelled, or failed requested attempts. Raw history stays in the session file.
+- It patches private Pi methods in memory for the session. On shutdown it restores only the hooks it still owns, leaving later replacements by other extensions in place.
+- It sets and clears one footer status, `pi-smart-compact.compactions`.
+- It does not modify installed Pi files, create configuration, send user prompts, or invent continuation requests.
 
 ## Validation
 
-Use the [workspace validation commands](../../../docs/development.md#focused-validation).
-
-See the [testing specification](docs/testing.md) for automated coverage and exclusions. Before changing supported fingerprints, follow the [compatibility checklist](docs/pi-compatibility.md), including manual checks of interactive progress, Escape behavior, and real-provider summary quality.
+Use the [workspace validation commands](../../../docs/development.md#focused-validation). The [testing specification](docs/testing.md) lists what is covered automatically. Before changing supported Pi versions, follow the [compatibility checklist](docs/pi-compatibility.md).

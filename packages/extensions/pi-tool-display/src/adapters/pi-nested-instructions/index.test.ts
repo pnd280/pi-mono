@@ -1,9 +1,9 @@
 import path from "node:path";
 
 import { initTheme, type MessageRenderer, type Theme } from "@earendil-works/pi-coding-agent";
-import { visibleWidth, type TuiMouseEvent } from "@earendil-works/pi-tui";
+import { Markdown, visibleWidth, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import { noticeEntry, noticeSchema, type Notice } from "pi-nested-instructions/notices";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { createNoticeRenderer, noticeSummary } from "./index.ts";
 
@@ -22,7 +22,7 @@ function notice(action: Notice["action"] = "loaded", file = "src/AGENTS.md") {
       ? noticeEntry(path.resolve(file), undefined, action, cwd)
       : noticeEntry(
           path.dirname(path.resolve(file)),
-          { path: path.resolve(file), stamp: "stamp", content: body },
+          { path: path.resolve(file), content: body },
           action,
           cwd
         );
@@ -73,7 +73,7 @@ it.each([
 it("omits summary counts for invalid notice details", () => {
   const { details } = notice();
 
-  for (const invalid of [undefined, {}, { ...details, version: 2 }, { ...details, action: "read" }])
+  for (const invalid of [undefined, {}, { ...details, version: 1 }, { ...details, action: "read" }])
     expect(noticeSummary(invalid)).toBeUndefined();
 });
 
@@ -136,6 +136,21 @@ it("toggles the clicked header, retains its state across rebuilds, and follows g
   expect(globallyCollapsed.join("\n")).not.toContain("Project rules");
 });
 
+it("formats the instruction body only when the notice is expanded", () => {
+  const renderBody = vi.spyOn(Markdown.prototype, "render");
+
+  try {
+    const component = renderer()(notice(), options, theme);
+    expect(component.render(100)).toHaveLength(1);
+    expect(renderBody).not.toHaveBeenCalled();
+    component.handleMouse(click);
+    expect(component.render(100).join("\n")).toContain("Project rules");
+    expect(renderBody).toHaveBeenCalled();
+  } finally {
+    renderBody.mockRestore();
+  }
+});
+
 it("does not toggle on body selection, scrolling, dragging, or other mouse buttons", () => {
   const component = renderer()(notice(), { ...options, expanded: true }, theme);
   const initial = component.render(100);
@@ -191,7 +206,7 @@ it("strips the preamble using the path shown to the model, not the current cwd",
   const file = path.join(cwd, "pkg/AGENTS.md");
   const entry = noticeEntry(
     path.dirname(file),
-    { path: file, stamp: "stamp", content: "Rules body" },
+    { path: file, content: "Rules body" },
     "loaded",
     cwd
   );

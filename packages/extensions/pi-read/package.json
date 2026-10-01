@@ -8,7 +8,8 @@
   ],
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./result": "./src/result.ts"
   },
   "scripts": {
     "format": "vp fmt .",

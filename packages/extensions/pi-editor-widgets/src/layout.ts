@@ -4,7 +4,7 @@ export const regions = ["aboveEditor", "belowEditor", "footer"] as const;
 
 export type Region = (typeof regions)[number];
 
-export const widgetIdSchema = z
+const widgetIdSchema = z
   .string()
   .max(4096)
   .regex(/^(?:builtin:.+|(?:widget|status):.*)$/su);
@@ -59,7 +59,7 @@ export function defaultLayout(): Layout {
   };
 }
 
-export function listedIds(layout: Layout): Set<string> {
+function listedIds(layout: Layout): Set<string> {
   return new Set([
     ...layout.hidden,
     ...regions.flatMap((region) => layout[region].flat().filter(isWidget))

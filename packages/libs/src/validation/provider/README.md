@@ -2,9 +2,11 @@
 
 [Library index](../../../README.md#offline-validation)
 
-## Behavior
+Drive validation scenarios with scripted assistant messages and event streams.
 
-Validation-only [`@pi-mono/libs/validation/provider`](index.ts) builds scripted Pi event streams; it registers no provider or network transport. `createFixtureStream` checks cancellation before and after the caller's `run` callback, not during it.
+## Behaviour
+
+Validation-only [`@pi-mono/libs/validation/provider`](index.ts) builds scripted Pi event streams; it registers no provider or network transport. Messages stay `pending` until the scenario completes, fails, or is cancelled. `createFixtureStream` checks cancellation before and after the caller's `run` callback, not during it.
 
 ## Caller responsibilities
 

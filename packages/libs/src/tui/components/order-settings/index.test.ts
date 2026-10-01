@@ -214,7 +214,7 @@ it("saves only the selected scope and retains drafts and error state on failed s
   view.handleInput("\x1b[B");
   view.handleInput("\x1b[1;2B");
   view.handleInput("\t");
-  expect(output()).toContain("  Working message");
+  expect(output()).toContain("Working message");
   expect(output()).toContain("Scope: global* | project");
   expect(output()).toContain("Settings: /project/.pi/settings.json");
   expect(output()).toContain("Unsaved draft in other scope");

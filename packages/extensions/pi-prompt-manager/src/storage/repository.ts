@@ -4,6 +4,7 @@ import {
   boundedRead,
   LockTimeoutError,
   PrivateFileError,
+  privateScopedDirectory,
   PrivateFileTransactions,
   ReadLimitError,
   resolveDirectoryScope,
@@ -23,7 +24,6 @@ import {
   type Repository
 } from "../model.ts";
 import { reductionGuidance } from "./collection.ts";
-import { collectionDirectory } from "./directory.ts";
 import { readCollectionAsync, updateCollectionAsync } from "./processing.ts";
 
 function storageErrorMessage(error: unknown): string {
@@ -78,8 +78,17 @@ export class FileRepository implements Repository {
   }
 
   private async path(collection: Collection) {
+    if (process.platform !== "linux" && process.platform !== "darwin")
+      throw new PromptError(
+        "Prompt storage supports Linux, macOS, and WSL local filesystems only."
+      );
+
     return join(
-      await collectionDirectory(this.options.agentDir, this.options.hash),
+      await privateScopedDirectory({
+        root: this.options.agentDir,
+        namespace: "pi-prompt-manager",
+        key: this.options.hash
+      }),
       `${collection}.json`
     );
   }

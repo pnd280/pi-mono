@@ -2,9 +2,11 @@
 
 [Library index](../../README.md#usage)
 
-## Behavior
+Show feedback that clears itself on a timer and never updates after disposal.
 
-[`ExpiringNotice`](index.ts) manages replaceable timed feedback. Clearing or replacing a notice cancels its expiry; disposal also prevents later updates.
+## Behaviour
+
+[`ExpiringNotice`](index.ts) manages replaceable timed feedback. Clearing or replacing a notice cancels its expiry. Disposal also prevents later updates.
 
 ## Caller responsibilities
 

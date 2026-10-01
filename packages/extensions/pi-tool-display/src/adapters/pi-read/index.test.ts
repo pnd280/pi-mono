@@ -34,13 +34,13 @@ function context(
 
 it("requires selective-read ownership, the read name, and the current parameter schema", () => {
   const info = selectiveReadToolInfo();
-  expect(piSelectiveReadAdapter(info)).toBe(adapter);
+  expect(piSelectiveReadAdapter(info)?.id).toBe("pi-read:read");
   expect(
     piSelectiveReadAdapter({
       ...info,
       sourceInfo: { ...info.sourceInfo, path: "C:\\extensions\\pi-read\\src\\index.ts" }
-    })
-  ).toBe(adapter);
+    })?.id
+  ).toBe("pi-read:read");
   expect(
     piSelectiveReadAdapter({
       ...info,
@@ -49,8 +49,8 @@ it("requires selective-read ownership, the read name, and the current parameter 
         path: "/cache/package/index.js",
         source: "npm:pi-read@0.1.0"
       }
-    })
-  ).toBe(adapter);
+    })?.id
+  ).toBe("pi-read:read");
   for (const unsupported of [
     undefined,
     { ...info, name: "read-selection" },
@@ -76,21 +76,30 @@ it("normalizes display arguments without mutating retained input", () => {
     limit: null,
     selection: { startLine: 2, startColumn: null, endLine: null, endColumn: null }
   };
-  const expected = { path: "a.ts", selection: { startLine: 2 } };
   const before = structuredClone(args);
   const text = "first\nsecond\nthird";
   const value = result(text, "preview");
 
   expect(adapter.supports?.(args, value)).toBe(true);
-  expect(adapter.invocation?.(args)).toEqual(adapter.invocation?.(expected));
-  expect(adapter.exploration?.(args, value)).toEqual(adapter.exploration?.(expected, value));
-  expect(adapter.textParts?.(text, args, context(value))).toEqual(
-    adapter.textParts?.(text, expected, context(value))
-  );
+  expect(
+    adapter
+      .invocation?.(args)
+      .map((part) => part.text)
+      .join("")
+  ).toBe("a.ts · selection 2");
+  expect(
+    adapter.exploration?.(args, value)?.map(({ scope, parts }) => ({
+      scope,
+      text: parts.map((part) => part.text).join("")
+    }))
+  ).toEqual([{ scope: { kind: "file", value: "a.ts" }, text: "a.ts · selection 2" }]);
+  expect(adapter.textParts?.(text, args, context(value))).toEqual([
+    { kind: "output", text, selection: [{ line: 1, start: 0, end: 6 }] }
+  ]);
   expect(args).toEqual(before);
 });
 
-it("rejects invalid coordinates and result boundaries instead of claiming unrelated reads", () => {
+it("rejects invalid arguments and the producer's invalid result contract", () => {
   const valid = { path: "a.ts", selection: { startLine: 1 } };
   expect(adapter.supports?.(valid, result("source", "preview"))).toBe(true);
   expect(adapter.supports?.({ path: "a.ts" }, result())).toBe(true);
@@ -114,17 +123,13 @@ it("rejects invalid coordinates and result boundaries instead of claiming unrela
     expect(() => adapter.invocation?.(args)).not.toThrow();
   }
 
-  for (const sourceBlocks of [0, -1, 0.5, 2, 9, "1"])
-    expect(
-      adapter.supports?.(valid, {
-        ...result("source", "preview"),
-        details: { selectiveRead: { sourceBlocks } }
-      })
-    ).toBe(false);
-  expect(adapter.supports?.({ path: "a.ts" }, result("source", "preview"))).toBe(false);
   expect(
-    adapter.supports?.(valid, { ...result(), details: { truncation: { outputLines: -1 } } })
+    adapter.supports?.(valid, {
+      ...result("source", "preview"),
+      details: { selectiveRead: { sourceBlocks: 9 } }
+    })
   ).toBe(false);
+  expect(adapter.supports?.({ path: "a.ts" }, result("source", "preview"))).toBe(false);
   expect(adapter.exploration?.(valid, { ...result(), details: null })).toBeUndefined();
 });
 
@@ -244,6 +249,58 @@ it("maps code-point columns onto raw source without selecting continuation diagn
   ).toEqual([]);
 });
 
+it("uses producer-owned per-block windows after native diagnostic separation", () => {
+  const first = "alpha\n";
+  const second = "\t😀界tail\nnext\n\n[3 more lines in file. Use offset=14 to continue.]";
+  const value: AgentToolResult<unknown> = {
+    content: [
+      { type: "text", text: first },
+      { type: "text", text: second },
+      { type: "text", text: "model preview" }
+    ],
+    details: { selectiveRead: { sourceBlocks: 2 }, truncation: { outputLines: 4, truncated: true } }
+  };
+  const before = structuredClone(value);
+  const args = {
+    path: "a.ts",
+    offset: 10,
+    limit: 1,
+    selection: { startLine: 12, startColumn: 2, endLine: 20 }
+  };
+
+  expect(adapter.supports?.(args, value)).toBe(true);
+  expect(adapter.textParts?.(first, args, context(value))[0]?.selection).toEqual([]);
+  const parts = adapter.textParts?.(second, args, context(value, { contentIndex: 1 }));
+  expect(parts?.[0]).toEqual({
+    kind: "output",
+    text: "\t😀界tail\nnext",
+    selection: [
+      { line: 0, start: 1, end: 8 },
+      { line: 1, start: 0, end: 4 }
+    ]
+  });
+  expect(parts?.filter((part) => part.kind === "warning")).toEqual([
+    { kind: "warning", text: "[3 more lines in file. Use offset=14 to continue.]" }
+  ]);
+  expect(adapter.textParts?.("model preview", args, context(value, { contentIndex: 2 }))).toEqual(
+    []
+  );
+  expect(value).toEqual(before);
+});
+
+it("keeps embedded native-looking source selected, but separates exact trailing native envelopes", () => {
+  const notice = "[2 more lines in file. Use offset=2 to continue.]";
+  const args = { path: "a.ts", selection: { startLine: 3 } };
+  const embedded = `prefix\n\n${notice}\nsuffix`;
+  expect(adapter.textParts?.(embedded, args, context(result(embedded)))[0]?.selection).toEqual([
+    { line: 2, start: 0, end: notice.length }
+  ]);
+  const trailing = `prefix\n\n${notice}`;
+  const parts = adapter.textParts?.(trailing, args, context(result(trailing)));
+  expect(parts?.[0]?.selection).toEqual([]);
+  expect(parts?.at(-1)).toEqual({ kind: "warning", text: notice });
+});
+
 it("retains native image, partial, error, and cancellation presentation without highlighting", () => {
   const args = { path: "a.ts", selection: { startLine: 1 } };
   const value = result("diagnostic");
@@ -261,14 +318,13 @@ it("retains native image, partial, error, and cancellation presentation without 
     details: undefined
   };
   expect(adapter.supports?.(args, image)).toBe(true);
-  expect(
-    adapter.textParts?.("Read image file [image/png]", args, context(image, { hasImages: true }))
-  ).toEqual([
-    { kind: "annotation", text: "Read image file [" },
-    { kind: "value", text: "image/png" },
-    { kind: "annotation", text: "]" },
-    { kind: "annotation", text: "" }
-  ]);
+  const imageParts = adapter.textParts?.(
+    "Read image file [image/png]",
+    args,
+    context(image, { hasImages: true })
+  );
+  expect(imageParts?.map((part) => part.text).join("")).toBe("Read image file [image/png]");
+  expect(imageParts).toContainEqual({ kind: "value", text: "image/png" });
   expect(adapter.imageCaptionMimeType?.("Read image file [image/png]")).toBe("image/png");
   const invalid = { ...value, details: { selectiveRead: { sourceBlocks: 100 } } };
   expect(adapter.textParts?.("diagnostic", args, context(invalid))).toEqual([

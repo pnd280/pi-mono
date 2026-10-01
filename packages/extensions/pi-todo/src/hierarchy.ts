@@ -163,10 +163,6 @@ export function projectTaskTreeEntries(
   }));
 }
 
-export function orderedDirectChildren(hierarchy: TaskHierarchy, parentId: number): readonly Task[] {
-  return hierarchy.childrenByParentId.get(parentId) ?? [];
-}
-
 /** Returns the subtree height with the requested todo as level 1. */
 export function subtreeHeight(hierarchy: TaskHierarchy, taskId: number): number {
   const depth = hierarchy.depthById.get(taskId);

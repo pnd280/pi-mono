@@ -19,9 +19,7 @@ it("recognizes native construction through the installed pi executable, not just
     const selectiveAdapter = fileURLToPath(
       new URL("../adapters/pi-read/index.ts", import.meta.url)
     );
-    const selectiveExtension = fileURLToPath(
-      new URL("../../../pi-read/index.ts", import.meta.url)
-    );
+    const selectiveExtension = fileURLToPath(new URL("../../../pi-read/index.ts", import.meta.url));
     const boundedDiff = fileURLToPath(
       new URL("../../../../libs/src/bounded-diff/index.ts", import.meta.url)
     );
@@ -102,24 +100,25 @@ it("recognizes native construction through the installed pi executable, not just
     );
     execution.child.stdin?.end();
     const { stdout, stderr } = await execution;
-    expect(stdout + stderr).toContain(
-      JSON.stringify({
-        recognized: true,
-        restored: true,
-        thinkingLive: true,
-        suppressed: true,
-        revealed: true,
-        thinkingBoundary: "group",
-        thinkingRestored: true,
-        proseMarked: true,
-        proseBoundary: "run",
-        proseRestored: true,
-        selectiveReadRecognized: true,
-        generatedPatch: true,
-        modeHooks: true,
-        rowContract: true
-      })
-    );
+    const report = (stdout + stderr)
+      .split("\n")
+      .find((line) => line.startsWith("{") && line.includes('"recognized"'));
+    expect(JSON.parse(report ?? "null")).toEqual({
+      recognized: true,
+      restored: true,
+      thinkingLive: true,
+      suppressed: true,
+      revealed: true,
+      thinkingBoundary: "group",
+      thinkingRestored: true,
+      proseMarked: true,
+      proseBoundary: "run",
+      proseRestored: true,
+      selectiveReadRecognized: true,
+      generatedPatch: true,
+      modeHooks: true,
+      rowContract: true
+    });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

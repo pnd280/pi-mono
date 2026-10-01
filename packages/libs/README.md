@@ -1,6 +1,8 @@
 # @pi-mono/libs
 
-Shared extension APIs and [TUI infrastructure](src/tui/README.md). Use [utils](../utils/README.md) for pure helpers. The [manifest](package.json) lists supported imports.
+Extensions in this workspace share code for work that touches files, processes, Pi hooks, or the terminal. For example, `settings-file` lets an extension update one key in `settings.json` under Pi's lock without losing unrelated keys.
+
+For pure helpers with no side effects, use [utils](../utils/README.md). The [manifest](package.json) lists the supported imports.
 
 ## Usage
 
@@ -12,7 +14,7 @@ Shared extension APIs and [TUI infrastructure](src/tui/README.md). Use [utils](.
 | [native-clipboard](src/native-clipboard/README.md)     | Exact UTF-8 clipboard writes through local helpers                        |
 | [private-files](src/private-files/README.md)           | Permission and ACL enforcement, directory scopes, locks, atomic writes    |
 | [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |
-| [text-search](src/text-search/README.md)               | Cooperative normalization and search                                      |
+| [text-search](src/text-search/README.md)               | Cooperative normalisation and search                                      |
 | [latest-task](src/latest-task/README.md)               | Result commits and pending state for the latest task                      |
 | [expiring-notice](src/expiring-notice/README.md)       | Replaceable notice expiry                                                 |
 | [timed-confirmation](src/timed-confirmation/README.md) | Target comparison and confirmation deadline                               |
@@ -44,10 +46,14 @@ Callers pass options per call. The [working-message coordinator](src/working-mes
 
 ## Side effects
 
-Depends on the library: storage and observation touch local files, clipboard and diff helpers launch local processes/workers, and TUI/hooks modify host state. No network requests.
+Each library has its own effects; none makes network requests.
+
+- Storage and observation libraries read and write local files.
+- Clipboard and diff helpers start local processes or workers.
+- TUI libraries and hooks modify Pi's host state.
 
 ## Validation
 
-[Coverage specification](docs/testing.md).
+The [coverage specification](docs/testing.md) lists what is tested here.
 
 Use the [focused commands and test prerequisites](../../docs/development.md#focused-validation) with `@pi-mono/libs`. For native clipboard or private-storage changes, also use the [isolated platform checks](../extensions/pi-prompt-manager/docs/validation.md#platform-checks).

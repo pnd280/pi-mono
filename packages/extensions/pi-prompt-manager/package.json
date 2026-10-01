@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@pi-mono/libs": "workspace:*",
-    "@pi-mono/utils": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {

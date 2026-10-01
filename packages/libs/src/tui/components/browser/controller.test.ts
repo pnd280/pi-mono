@@ -206,7 +206,7 @@ it("aborts obsolete preparation on section changes and final closure", async () 
   await controller.activate("saved");
 
   options.sections[1]!.remove!.run = async (_item, signal) => {
-    expect(signal).toBe(signals[1]);
+    expect(signal.aborted).toBe(false);
     controller.close();
     expect(signal.aborted).toBe(true);
 
@@ -258,17 +258,16 @@ it("freezes during removal, retains state on failure, then selects a nearby comm
   controller.action("preview");
   controller.action("delete");
   controller.action("delete");
-  const selected = controller.selected;
   controller.action("down");
   controller.action("switch");
   controller.setQuery("changed");
-  expect(controller.selected).toBe(selected);
+  expect(controller.selected?.id).toBe("1");
   expect(controller.query).toBe("");
   expect(controller.section.id).toBe("saved");
   pending.resolve(undefined);
   await vi.waitFor(() => expect(controller.busy).toBe(false));
   expect(controller.preview).toBe(true);
-  expect(controller.selected).toBe(selected);
+  expect(controller.selected?.id).toBe("1");
   controller.action("delete");
   controller.action("delete");
   await vi.waitFor(() => expect(controller.results).toHaveLength(2));
@@ -287,10 +286,10 @@ it("does not publish completed mutations after close", async () => {
   controller.action("delete");
   controller.action("cancel");
   expect(controller.closed).toBe(true);
-  const previous = controller.snapshot;
+  const previous = structuredClone(controller.snapshot);
   removal.resolve({ items: [] });
   await vi.waitFor(() => expect(controller.busy).toBe(false));
-  expect(controller.snapshot).toBe(previous);
+  expect(controller.snapshot).toEqual(previous);
   expect(ports.close).toHaveBeenCalledTimes(1);
 });
 
@@ -310,13 +309,12 @@ it.each(["accept", "refuse", "reject", "cancel"] as const)(
 
     const { controller, ports } = browser(options);
     await controller.activate();
-    const selected = controller.selected;
     controller.action("confirm");
     expect(controller.busy).toBe(true);
     controller.action("down");
     controller.action("switch");
     controller.setQuery("changed");
-    expect(controller.selected).toBe(selected);
+    expect(controller.selected?.id).toBe("0");
     expect(controller.section.id).toBe("saved");
     expect(controller.query).toBe("");
     if (outcome === "cancel") controller.action("cancel");

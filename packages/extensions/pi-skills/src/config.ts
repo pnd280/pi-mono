@@ -9,30 +9,27 @@ import { defaultExpansionFormat } from "./tokens.ts";
 const sectionSchema = z.strictObject({
   expansionFormat: z.string().max(512).includes("{path}").optional()
 });
-const settingsSchema = z.object({ "ext.pi-skills": sectionSchema.optional() });
 
-type SkillSettings = z.output<typeof sectionSchema>;
-
-function readSection(path: string): SkillSettings {
+function readExpansionFormat(path: string): string | undefined {
   try {
-    return settingsSchema.safeParse(readSettingsRecord(path)).data?.["ext.pi-skills"] ?? {};
+    return sectionSchema.safeParse(readSettingsRecord(path)["ext.pi-skills"]).data?.expansionFormat;
   } catch {
-    return {};
+    return undefined;
   }
 }
 
 /** Only the current directory's trusted project settings can override global settings. */
-export function loadSkillConfig(
+export function loadExpansionFormat(
   cwd: string,
   {
     projectTrusted = false,
     agentDir = getAgentDir()
   }: { projectTrusted?: boolean; agentDir?: string } = {}
-): { expansionFormat: string } {
-  const global = readSection(join(agentDir, "settings.json"));
-  const project = projectTrusted ? readSection(join(cwd, CONFIG_DIR_NAME, "settings.json")) : {};
+): string {
+  const global = readExpansionFormat(join(agentDir, "settings.json"));
+  const project = projectTrusted
+    ? readExpansionFormat(join(cwd, CONFIG_DIR_NAME, "settings.json"))
+    : undefined;
 
-  return {
-    expansionFormat: project.expansionFormat ?? global.expansionFormat ?? defaultExpansionFormat
-  };
+  return project ?? global ?? defaultExpansionFormat;
 }

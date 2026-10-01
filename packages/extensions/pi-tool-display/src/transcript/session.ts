@@ -1,6 +1,7 @@
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type {
+  BorrowedToolResult,
   CallReference,
   DisplayCall,
   DisplayFact,
@@ -94,7 +95,10 @@ export class DisplaySession {
       for (const call of this.coordinator.calls.values()) {
         if (call.origin !== "historical" || call.adapter.id !== "generic") continue;
         const selected = this.options.selectAdapter(call.name);
-        if (selected && selected.id !== "generic") this.coordinator.setAdapter(call, selected);
+        if (!selected || selected.id === "generic") continue;
+        this.coordinator.setAdapter(call, selected);
+        for (const fact of this.history.facts(call)) this.coordinator.fact(call, fact);
+        if (call.result) this.retainPath(call, call.result);
       }
     });
   }
@@ -141,7 +145,7 @@ export class DisplaySession {
       })
       .catch(() => {});
   }
-  private retainPath(call: DisplayCall, result: AgentToolResult<unknown>): void {
+  private retainPath(call: DisplayCall, result: BorrowedToolResult): void {
     if (!call.adapter.savedOutput) return;
     const path = record(result.details).fullOutputPath;
     if (typeof path === "string") this.coordinator.setSavedPath(call, path);

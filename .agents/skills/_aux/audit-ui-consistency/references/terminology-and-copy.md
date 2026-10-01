@@ -8,7 +8,7 @@ Compare the same concepts across commands, completions, views, cards, feedback, 
 
 - Use consistent nouns, verbs, capitalization, and status terms for equivalent concepts.
 - Distinguish alternatives from ordered actions such as restore-then-delete.
-- Use tense to distinguish requests, queued/running work, and completion across grouped and expanded forms.
+- Use tense to distinguish requests, queued and running work, and completion across grouped and expanded forms.
 - Compare friendly labels separately from raw API fields; preserve identifiers needed for configuration or API calls.
 - Check punctuation, units, plurals, key labels, abbreviations, and empty-state tone for coherence.
 - Match documentation and example names to the actual UI.

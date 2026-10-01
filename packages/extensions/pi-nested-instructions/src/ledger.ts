@@ -4,7 +4,7 @@ import type { ExtensionContext, SessionBoundaryDraft } from "@earendil-works/pi-
 import { absolutePathSchema } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
-import { digest, noticeSchema, noticeType, type Notice } from "./notices.ts";
+import { decodeNotice, digest, noticeSchema, noticeType } from "./notices.ts";
 
 export const readType = "pi-nested-instructions.read";
 
@@ -55,7 +55,7 @@ export function ledger(session: SessionView): Ledger {
     projection.entries.map((entry) => [entry.sourceEntry.id, entry.messages])
   );
   const reads = new Map<string, ReadMarker>();
-  const scopes = new Map<string, Notice>();
+  const scopes = new Map<string, { path: string | null; body: string }>();
   const calls = new Map<string, { entryId: string; digest: string }>();
   const visibleCalls = new Map<string, string>();
 
@@ -87,18 +87,17 @@ export function ledger(session: SessionView): Ledger {
       if (!parsed.success) continue;
       const notice = parsed.data;
       // A context replacement retains details, but no longer contains these instructions.
-      if (
-        !visible
-          .get(entry.id)
-          ?.some(
-            (message) =>
-              message.role === "custom" &&
-              typeof message.content === "string" &&
-              digest(message.content) === notice.messageDigest
-          )
-      )
-        continue;
-      scopes.set(notice.directory, notice);
+      const message = visible
+        .get(entry.id)
+        ?.find(
+          (candidate): candidate is Extract<typeof candidate, { role: "custom" }> =>
+            candidate.role === "custom" &&
+            typeof candidate.content === "string" &&
+            digest(candidate.content) === notice.messageDigest
+        );
+      if (!message) continue;
+      const { body } = decodeNotice({ content: message.content, details: notice });
+      scopes.set(notice.directory, { path: notice.path, body });
 
       if (notice.action !== "loaded") {
         for (const file of reads.keys())
@@ -135,7 +134,7 @@ export function ledger(session: SessionView): Ledger {
     current(directory, file, content) {
       const previous = scopes.get(directory);
 
-      return previous?.path === file && previous.fileDigest === digest(content);
+      return previous?.path === file && previous.body === content;
     },
     directories: () => [...scopes.keys(), ...[...reads.keys()].map((file) => path.dirname(file))]
   };

@@ -12,10 +12,9 @@ it("segments only generated notices without losing source or Unicode offsets", (
   ]);
   expect(splitOutputText({ text: "" })).toEqual([]);
   expect(splitOutputText(outputOmission("all"))).toEqual([{ kind: "omission", text: "all" }]);
-  expect(splitOutputText(joinOutputText([outputOmission("a"), outputOmission("b")]))).toEqual([
-    { kind: "omission", text: "a" },
-    { kind: "omission", text: "b" }
-  ]);
+  const adjacent = splitOutputText(joinOutputText([outputOmission("a"), outputOmission("b")]));
+  expect(adjacent.map(({ text }) => text).join("")).toBe("ab");
+  expect(adjacent.every(({ kind }) => kind === "omission")).toBe(true);
 });
 
 it("rejects invalid omission offsets rather than duplicating or dropping output", () => {

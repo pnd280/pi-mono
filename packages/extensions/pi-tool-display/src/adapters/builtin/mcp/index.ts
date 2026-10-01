@@ -38,16 +38,17 @@ function mcpFacts(_args: unknown, result?: BorrowedToolResult): McpFacts | undef
     server: identity.server,
     tool: identity.tool,
     outcome: "success",
-    content: result.content.map((block, contentIndex) =>
+    content: result.content.map((block) =>
       block.type === "text"
         ? { type: "text", text: block.text }
-        : { type: "media", mimeType: block.mimeType, contentIndex }
+        : { type: "media", mimeType: block.mimeType }
     )
   };
 }
 
-function notices(result: BorrowedToolResult): DisplayNotice[] {
-  const path = details(result)?.fullOutputPath;
+function notices(result: BorrowedToolResult, expanded: boolean): DisplayNotice[] {
+  // Expanded output already contains Pi's truncation warning and saved-output reference.
+  const path = expanded ? undefined : details(result)?.fullOutputPath;
 
   return path
     ? [

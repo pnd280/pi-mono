@@ -36,7 +36,6 @@ export const instructionFiles: InstructionFiles = {
 
 export interface Selection {
   path: string;
-  stamp: string;
   content?: string;
 }
 
@@ -51,9 +50,9 @@ export async function selectInstruction(
     try {
       const stamp = await files.stamp(file);
       if (stamp === undefined) continue;
-      if (suppress(file, stamp)) return { path: file, stamp };
+      if (suppress(file, stamp)) return { path: file };
 
-      return { path: file, stamp, content: await files.read(file) };
+      return { path: file, content: await files.read(file) };
     } catch {
       /* Pi falls back to the next readable regular file. */
     }

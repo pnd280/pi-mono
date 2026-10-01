@@ -49,10 +49,10 @@ export function mcpCallFacts(result?: BorrowedToolResult): McpFacts | undefined 
   return {
     ...identity,
     outcome: details.error === "tool_error" ? "returned-error" : "success",
-    content: result.content.map((block, contentIndex) =>
+    content: result.content.map((block) =>
       block.type === "text"
         ? { type: "text", text: block.text }
-        : { type: "media", mimeType: block.mimeType, contentIndex }
+        : { type: "media", mimeType: block.mimeType }
     )
   };
 }
@@ -102,7 +102,8 @@ export function mcpNotices(result: BorrowedToolResult, expanded: boolean): Displ
       });
   }
 
-  notices.push(...outputNotices(details.outputGuard));
+  // Expansion restores the output guard's warning and saved reference in published text.
+  if (!expanded) notices.push(...outputNotices(details.outputGuard));
 
   if (details.mode === "script" && details.calls) {
     const unsuccessful = details.calls.flatMap((call) => {

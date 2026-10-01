@@ -1,27 +1,31 @@
-# Pi compatibility
+# Pi compatibility for maintainers
 
 [pi-fff-guard](../README.md)
 
-## Contracts to verify
+> Last verified against Pi 1.0.0 (package checks and offline interception and scope tests, with explicit `ToolInfo.exposure`). Not covered: live calls to installed FFF, and the retirement checks. The FFF version in the README comes from earlier external testing.
 
-- [ ] [Interception](../src/index.ts): official-package provenance, enabled tool names, hook dispatch, and `{ block: true, reason }`; no argument mutation, replacement search, or turn termination.
-- [ ] [Inspection](../src/evaluate-search.ts): installed FFF schemas/normalization, explicit paths versus filters, ignore/symlink behavior, deadlines, and cancellation policy.
+## Upgrade procedure
 
-## Limitations and replacement opportunities
+1. Run the [package checks](../README.md#validation).
+2. If an integration contract changed, make real calls to the installed FFF. Local tests don't establish external compatibility.
+3. Work through the checklist below, then update the "Last verified" line. Keep the README's external version evidence tied to the versions actually tested.
 
-- [Direct `execute()` bypasses hooks](../README.md#limits). Pi 0.99.2's public `ctx.executeTool()` dispatches nested calls through hooks, but this does not establish how an external FFF wrapper executes calls. Recheck the installed wrapper before changing this limitation.
-- Upstream ignored-path support could remove the guard; follow the [retirement checks](#retirement-checks) against the installed FFF release, not Pi alone.
+## Checklist
+
+- [ ] [Interception](../src/index.ts): official-package provenance, enabled tool names, hook dispatch, and `{ block: true, reason }`. No argument changes, replacement searches, or ended turns.
+- [ ] [Inspection](../src/evaluate-search.ts): installed FFF schemas and normalisation, explicit paths versus filters, ignore and symlink behaviour, deadlines, and the cancellation policy.
+
+## Limitations
+
+- **Direct calls.** [Calling `execute()` directly skips hooks](../README.md#limits). Pi's public `ctx.executeTool()` dispatches nested calls through hooks (observed in Pi 0.99.2), but that doesn't show how an external FFF wrapper runs its calls. Recheck the installed wrapper before changing this limitation.
+- **Upstream fix.** If FFF supports ignored paths, the guard may no longer be needed. Follow the [retirement checks](#retirement-checks) against the installed FFF release, not Pi alone.
 
 ## Retirement checks
 
 After a released FFF version implements [FFF #714](https://github.com/dmtrKovalenko/fff/issues/714):
 
 1. Disable the guard.
-2. Check ignored-file, ignored-directory, and linked-dependency searches for every tool in use.
-3. If they pass, check missing explicit paths before retiring the guard; retain separate path validation if needed.
+2. For every tool in use, search an ignored file, an ignored directory, and a linked dependency.
+3. If those pass, check missing explicit paths before retiring the guard. Keep a separate path check if needed.
 
-## Validation
-
-Pi **0.99.2** package checks and offline interception/scope tests passed with explicit `ToolInfo.exposure`. Guard policy and official-package provenance are unchanged. Live installed-FFF calls and retirement checks were not run; historical external evidence remains version-qualified.
-
-Use [package checks](../README.md#validation) and real installed FFF calls for changed integration contracts. Keep the README's external version evidence qualified; local tests do not establish external compatibility.
+The [FFF 0.11.0 routing implementation](https://github.com/dmtrKovalenko/fff/blob/95fd777c2529fc7b4d7572dabff64cc07268f2c5/packages/pi-fff/src/aux-finders.ts#L167-L184) still leaves in-workspace paths on the workspace finder, including ignored paths. This is not a released fix for the retirement precondition; keep the guard until the procedure above passes. Source inspection alone does not establish live search compatibility.

@@ -6,36 +6,22 @@ import { deriveTaskHierarchy, type TaskHierarchyEntry } from "./hierarchy.ts";
 import { presentCompactTaskText } from "./text.ts";
 import type { Task } from "./types.ts";
 
-export type TodosSummary = {
-  total: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-};
-
-export function summarizeVisibleTodos(tasks: readonly Task[]): TodosSummary {
-  const visible = tasks.filter((task) => task.status !== "deleted");
-
-  return {
-    total: visible.length,
-    pending: visible.filter((task) => task.status === "pending").length,
-    inProgress: visible.filter((task) => task.status === "in_progress").length,
-    completed: visible.filter((task) => task.status === "completed").length
-  };
-}
-
 export function formatTodosSummary(tasks: readonly Task[]): string {
-  const summary = summarizeVisibleTodos(tasks);
-  if (summary.total === 0) return MSG_NO_TODOS;
+  const visible = tasks.filter((task) => task.status !== "deleted");
+  const total = visible.length;
+  if (total === 0) return MSG_NO_TODOS;
+  const completed = visible.filter((task) => task.status === "completed").length;
+  const inProgress = visible.filter((task) => task.status === "in_progress").length;
+  const pending = visible.filter((task) => task.status === "pending").length;
 
   const header: string[] = [];
-  if (summary.completed > 0) header.push(`${summary.completed}/${summary.total} completed`);
+  if (completed > 0) header.push(`${completed}/${total} completed`);
 
-  if (summary.inProgress > 0) {
-    header.push(`${summary.inProgress} ${TASK_STATUS_TEXT.in_progress}`);
+  if (inProgress > 0) {
+    header.push(`${inProgress} ${TASK_STATUS_TEXT.in_progress}`);
   }
 
-  if (summary.pending > 0) header.push(`${summary.pending} pending`);
+  if (pending > 0) header.push(`${pending} pending`);
 
   return header.join(" · ");
 }

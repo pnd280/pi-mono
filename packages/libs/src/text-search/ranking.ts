@@ -101,7 +101,7 @@ function* fuzzy(text: string, query: string): Steps<number | undefined> {
   return swapped === undefined ? undefined : swapped + 5;
 }
 
-/** Resumable phrase, all-term, then fuzzy ranking. Callers schedule yielded checkpoints. */
+/** Internal ranking seam: cooperative search schedules yielded checkpoints. */
 export function* rankText(
   normalized: string,
   { phrase, terms }: SearchQuery

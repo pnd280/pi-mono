@@ -209,7 +209,7 @@ it.each(["rpc", "print"] as const)(
         "ext.pi-model-prompt": {
           rules: [
             { match: "gpt", append: ["ant.md"] },
-            { match: "unused", append: ["missing.md"] }
+            { match: "unused", append: ["missing\x1b]52;c;Zml4dHVyZQ==\x07.md"] }
           ]
         }
       })
@@ -232,7 +232,7 @@ it.each(["rpc", "print"] as const)(
       expect(fixture.notify).not.toHaveBeenCalled();
     } else {
       expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
-        `pi-model-prompt: ${join(fixture.agentDir, "missing.md")} could not be read; rules listing it keep APPEND_SYSTEM.md`,
+        expect.stringContaining(join(fixture.agentDir, "missing.md")),
         "warning"
       );
     }

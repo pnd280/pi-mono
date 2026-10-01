@@ -11,10 +11,7 @@ export type HintFooterOptions = {
 };
 
 /** Pack display-safe hints, or replace their row budget with feedback. Never deliver notifications. */
-export function renderHintFooter(options: HintFooterOptions): {
-  rows: string[];
-  messageOverflow: boolean;
-} {
+export function renderHintFooter(options: HintFooterOptions): string[] {
   const { hints, padding, separator, style, message } = options;
   const width = Math.max(0, Math.floor(options.width));
   const available = Math.max(0, width - visibleWidth(padding));
@@ -32,19 +29,12 @@ export function renderHintFooter(options: HintFooterOptions): {
   if (line) lines.push(line);
   const count = width > 0 ? Math.max(0, Math.min(lines.length, Math.floor(options.maxRows))) : 0;
   const crop = (text: string) => truncateToWidth(text, width);
-  if (!message)
-    return {
-      rows: lines.slice(0, count).map((text) => crop(style(padding + text))),
-      messageOverflow: false
-    };
+  if (!message) return lines.slice(0, count).map((text) => crop(style(padding + text)));
   const feedback = available > 0 ? wrapTextWithAnsi(message.text, available) : [];
-  const messageOverflow = feedback.length > count || (available === 0 && message.text.length > 0);
-  if (messageOverflow && count > 0) feedback[count - 1] = message.overflowText;
+  const overflow = feedback.length > count || (available === 0 && message.text.length > 0);
+  if (overflow && count > 0) feedback[count - 1] = message.overflowText;
 
-  return {
-    rows: Array.from({ length: count }, (_, index) =>
-      feedback[index] === undefined ? "" : crop(message.style(padding + feedback[index]))
-    ),
-    messageOverflow
-  };
+  return Array.from({ length: count }, (_, index) =>
+    feedback[index] === undefined ? "" : crop(message.style(padding + feedback[index]))
+  );
 }

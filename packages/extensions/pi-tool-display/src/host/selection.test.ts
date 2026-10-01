@@ -107,6 +107,6 @@ it.each(["codemode", "mcp", "mcp__docs"])(
 it("keeps generic fallbacks free of native observation capabilities", () => {
   expect(genericAdapter.patch).toBeUndefined();
   expect(genericAdapter.savedOutput).toBeUndefined();
-  expect("exploration" in genericAdapter).toBe(false);
+  expect(genericAdapter.exploration?.({ path: "src/a.ts" })).toBeUndefined();
   expect(nativeAdapter("constructor")).toBeUndefined();
 });

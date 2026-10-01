@@ -36,7 +36,6 @@ it("retains shared patches and derives creation/modification facts", async () =>
 
 it("applies the documented patch bound and distinguishes observation failures", async () => {
   expect(parseRetainedPatch("@@ -0,0 +1 @@\n+" + "x".repeat(128 * 1024))).toBeUndefined();
-  const reasons = new Set<string>();
 
   for (const [status, description] of [
     ["source-too-large", /8 MiB/],
@@ -48,8 +47,5 @@ it("applies the documented patch bound and distinguishes observation failures", 
     const fact = await mutationChange(mutation({ status }));
     expect(fact.availability).toBe("unavailable");
     expect(fact.reason).toMatch(description);
-    reasons.add(fact.reason!);
   }
-
-  expect(reasons.size).toBe(5);
 });

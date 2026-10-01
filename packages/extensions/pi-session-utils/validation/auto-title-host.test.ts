@@ -1,4 +1,6 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { fauxAssistantMessage, fauxProvider, type TranscriptContext } from "@earendil-works/pi-ai";
@@ -15,6 +17,7 @@ import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import sessionUtils from "../index.ts";
+import { saveActiveBranch } from "../src/persist.ts";
 
 const cleanups: (() => Promise<void>)[] = [];
 const settings = JSON.stringify({
@@ -109,7 +112,7 @@ async function host({
     session.dispose();
     await rm(directory, { recursive: true, force: true });
   });
-  const notify = vi.fn();
+  const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
   const errors: unknown[] = [];
   await session.bindExtensions({
     mode,
@@ -132,6 +135,7 @@ async function host({
     titleRequests,
     notify,
     errors,
+    agentDir,
     settingsPath,
     projectSettingsPath,
     command
@@ -166,6 +170,181 @@ it.each(["print", "rpc"] as const)(
   }
 );
 
+it("rejects unknown subcommands and extra arguments without operations or naming requests", async () => {
+  const fixture = await host();
+  const runner = fixture.session.extensionRunner;
+  const ctx = runner.createCommandContext();
+  const switchSession = vi.fn<typeof ctx.switchSession>();
+  const newSession = vi.fn<typeof ctx.newSession>();
+  fixture.session.sessionManager.appendMessage({ role: "user", content: "Request", timestamp: 0 });
+  fixture.session.setSessionName("Keep this title");
+
+  for (const args of [
+    "",
+    "unknown",
+    "persist extra",
+    "create-empty-child extra",
+    "create-sub-session",
+    "auto-names"
+  ]) {
+    fixture.notify.mockClear();
+    await runner.getCommand("sesh")!.handler(args, { ...ctx, switchSession, newSession });
+    expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
+      "Usage: /sesh persist | /sesh create-empty-child | /sesh auto-name [clear]",
+      "error"
+    );
+  }
+
+  expect(newSession).not.toHaveBeenCalled();
+  expect(switchSession).not.toHaveBeenCalled();
+  expect(existsSync(join(fixture.agentDir, "sessions"))).toBe(false);
+  expect(fixture.titleRequests).toEqual([]);
+  expect(fixture.session.sessionManager.getSessionName()).toBe("Keep this title");
+  expect(fixture.errors).toEqual([]);
+});
+
+it.each(["persist", "create-empty-child"])(
+  "%s warns and returns immediately while busy without saving or switching",
+  async (command) => {
+    const fixture = await host();
+    const runner = fixture.session.extensionRunner;
+    const ctx = runner.createCommandContext();
+    const switchSession = vi.fn<typeof ctx.switchSession>();
+    const newSession = vi.fn<typeof ctx.newSession>();
+    await runner.getCommand("sesh")!.handler(command, {
+      ...ctx,
+      isIdle: () => false,
+      switchSession,
+      newSession
+    });
+
+    expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
+    expect(newSession).not.toHaveBeenCalled();
+    expect(switchSession).not.toHaveBeenCalled();
+    expect(existsSync(join(fixture.agentDir, "sessions"))).toBe(false);
+
+    if (command === "create-empty-child") {
+      const [message] = fixture.notify.mock.calls[0]!;
+      expect(message).toContain("/sesh persist");
+      expect(message).not.toContain("--parent-session");
+    }
+
+    expect(fixture.titleRequests).toEqual([]);
+    expect(fixture.errors).toEqual([]);
+  }
+);
+
+it("warns when persist is busy even if the session is already file-backed", async () => {
+  const fixture = await host();
+  const runner = fixture.session.extensionRunner;
+  const ctx = runner.createCommandContext();
+  const switchSession = vi.fn<typeof ctx.switchSession>();
+  await runner.getCommand("sesh")!.handler("persist", {
+    ...ctx,
+    sessionManager: SessionManager.create(ctx.cwd),
+    isIdle: () => false,
+    switchSession
+  });
+
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
+  expect(switchSession).not.toHaveBeenCalled();
+  expect(fixture.errors).toEqual([]);
+});
+
+it("includes a shell-safe linked CLI command for a busy persisted parent", async () => {
+  const fixture = await host();
+  const runner = fixture.session.extensionRunner;
+  const ctx = runner.createCommandContext();
+  const saved = saveActiveBranch(ctx.cwd, ctx.sessionManager);
+  const parent = join(
+    ctx.cwd,
+    "parent's $(printf injected) `printf substituted` ; $HOME [*].jsonl"
+  );
+  await rename(saved, parent);
+  const before = await readFile(parent, "utf8");
+  const switchSession = vi.fn<typeof ctx.switchSession>();
+  const newSession = vi.fn<typeof ctx.newSession>();
+  await runner.getCommand("sesh")!.handler("create-empty-child", {
+    ...ctx,
+    sessionManager: SessionManager.open(parent),
+    isIdle: () => false,
+    switchSession,
+    newSession
+  });
+
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
+  const [message] = fixture.notify.mock.calls[0]!;
+  const command = message.split("\n").find((line) => line.startsWith("pi --parent-session "));
+  expect(command).toBeDefined();
+  // Capture shell arguments without launching Pi or making a provider request.
+  const argumentsOutput = execFileSync(
+    "bash",
+    ["--noprofile", "--norc", "-c", `pi() { printf '%s\\0' "$@"; }\n${command}`],
+    { cwd: ctx.cwd, encoding: "utf8", env: { PATH: process.env.PATH } }
+  );
+  expect(argumentsOutput).toBe(`--parent-session\0${parent}\0`);
+  expect(newSession).not.toHaveBeenCalled();
+  expect(switchSession).not.toHaveBeenCalled();
+  expect(await readFile(parent, "utf8")).toBe(before);
+  expect(fixture.errors).toEqual([]);
+});
+
+it("warns without a dangling CLI command when a busy parent's file is not yet written", async () => {
+  const fixture = await host();
+  const runner = fixture.session.extensionRunner;
+  const ctx = runner.createCommandContext();
+  const sessionManager = SessionManager.create(ctx.cwd);
+  const newSession = vi.fn<typeof ctx.newSession>();
+  await runner.getCommand("sesh")!.handler("create-empty-child", {
+    ...ctx,
+    sessionManager,
+    isIdle: () => false,
+    newSession
+  });
+
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
+  const [message] = fixture.notify.mock.calls[0]!;
+  expect(message).not.toContain("--parent-session");
+  expect(existsSync(sessionManager.getSessionFile()!)).toBe(false);
+  expect(newSession).not.toHaveBeenCalled();
+  expect(fixture.errors).toEqual([]);
+});
+
+it.each(["completed", "cancelled", "failed"])(
+  "releases the session-operation lock after a %s switch",
+  async (outcome) => {
+    const fixture = await host();
+    const runner = fixture.session.extensionRunner;
+    const handler = runner.getCommand("sesh")!.handler;
+    const ctx = runner.createCommandContext();
+    const switchSession = vi
+      .fn<typeof ctx.switchSession>()
+      .mockImplementationOnce(async () => {
+        if (outcome === "failed") throw new Error("switch failed");
+
+        return { cancelled: outcome === "cancelled" };
+      })
+      .mockResolvedValue({ cancelled: true });
+    const operationContext = { ...ctx, switchSession };
+    const operation = handler("persist", operationContext);
+    if (outcome === "failed") await expect(operation).rejects.toThrow("switch failed");
+    else await operation;
+    expect(switchSession).toHaveBeenCalledOnce();
+    expect(existsSync(switchSession.mock.calls[0]![0])).toBe(outcome !== "cancelled");
+    fixture.notify.mockClear();
+
+    await handler(" persist ", operationContext);
+
+    expect(switchSession).toHaveBeenCalledTimes(2);
+    expect(existsSync(switchSession.mock.calls[1]![0])).toBe(false);
+    expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
+      "Session switch cancelled; no file saved",
+      "info"
+    );
+    expect(fixture.errors).toEqual([]);
+  }
+);
+
 it("keeps naming outside idle checks and the session-operation lock", async () => {
   const fixture = await host();
   const runner = fixture.session.extensionRunner;
@@ -192,22 +371,32 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
     newSession
   });
   expect(newSession).not.toHaveBeenCalled();
-  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
+
+  for (const args of ["unknown", "persist extra", "create-empty-child extra"]) {
+    fixture.notify.mockClear();
+    await handler(args, operationContext);
+    expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
+      "A session operation is already in progress",
+      "warning"
+    );
+  }
 
   const latest = handler("auto-name", busy);
   await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(2));
   expect(stream.mock.calls[0]?.[2]?.signal?.aborted).toBe(true);
-  await handler("auto-name clear", busy);
+  await handler(" auto-name clear ", busy);
   expect(stream.mock.calls[1]?.[2]?.signal?.aborted).toBe(true);
   await Promise.all([old, latest]);
   first.resolve(fauxAssistantMessage("Old title"));
   second.resolve(fauxAssistantMessage("Late title"));
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   // Completing naming must not release a still-pending persistence operation.
+  fixture.notify.mockClear();
   const blocked = handler("persist", operationContext);
   expect(switchSession).toHaveBeenCalledOnce();
   await blocked;
-  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
   replacement.resolve({ cancelled: true });
   await operation;
   expect(fixture.errors).toEqual([]);
@@ -218,11 +407,11 @@ it("keeps unconfigured naming inert while clear remains available", async () => 
   await fixture.session.prompt("Opening request");
   expect(fixture.titleRequests).toEqual([]);
   await fixture.command();
-  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
   fixture.session.setSessionName("Manual title");
   fixture.notify.mockClear();
   await fixture.command("clear");
-  expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(expect.any(String), "info");
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "info");
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(fixture.titleRequests).toEqual([]);
   expect(fixture.errors).toEqual([]);
@@ -232,8 +421,6 @@ it("rejects unknown naming arguments without requests or changing the name", asy
   const fixture = await host();
   fixture.session.setSessionName("Keep this title");
   for (const args of ["extra", "clear extra"]) await fixture.command(args);
-  const runner = fixture.session.extensionRunner;
-  await runner.getCommand("sesh")!.handler("auto-names", runner.createCommandContext());
   expect(fixture.titleRequests).toEqual([]);
   expect(fixture.session.sessionManager.getSessionName()).toBe("Keep this title");
   expect(fixture.errors).toEqual([]);
@@ -276,7 +463,7 @@ it("applies project settings edits and removal only after /reload", async () => 
   await fixture.session.reload();
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);
-  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
   await rm(fixture.projectSettingsPath);
   await fixture.session.reload();
   await fixture.command();
@@ -398,7 +585,7 @@ it("reads settings only on load, leaves old callbacks inert, and applies fixes o
   expect(fixture.session.sessionManager.getSessionName()).toBe("Offline session title");
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);
-  expect(fixture.notify).toHaveBeenLastCalledWith(expect.any(String), "warning");
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
   await writeFile(fixture.settingsPath, settings);
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);

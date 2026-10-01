@@ -1,4 +1,9 @@
-import { compactDisplayText, displayText, styledOutput } from "@pi-mono/libs/tui/terminal-text";
+import {
+  compactDisplayText,
+  displayText,
+  sliceTerminalText,
+  styledOutput
+} from "@pi-mono/libs/tui/terminal-text";
 
 import type { TaskMutationParams } from "./types.ts";
 
@@ -9,7 +14,10 @@ export function sanitizeTaskDescription(text: string): string {
 function excerpt(text: string, maximum: number): string {
   const points = Array.from(text);
 
-  return points.length <= maximum ? text : points.slice(0, maximum - 1).join("") + "…";
+  if (points.length <= maximum) return text;
+  const end = points.slice(0, maximum - 1).join("").length;
+
+  return sliceTerminalText(text, 0, end).text + "…";
 }
 
 export function presentCompactTaskText(text: string): string {

@@ -26,8 +26,10 @@ type ScopePreferences = { layout?: Layout | undefined; contextThreshold?: number
 
 export class WidgetSettings {
   readonly paths: Record<Scope, string>;
+  readonly projectTrusted: boolean;
 
-  constructor(readonly options: { cwd: string; projectTrusted: boolean; agentDir?: string }) {
+  constructor(options: { cwd: string; projectTrusted: boolean; agentDir?: string }) {
+    this.projectTrusted = options.projectTrusted;
     this.paths = {
       global: join(options.agentDir ?? getAgentDir(), "settings.json"),
       project: join(options.cwd, CONFIG_DIR_NAME, "settings.json")
@@ -76,7 +78,7 @@ export class WidgetSettings {
     };
 
     const global = loadScope("global");
-    const project = this.options.projectTrusted ? loadScope("project") : {};
+    const project = this.projectTrusted ? loadScope("project") : {};
     const contextThreshold = project.contextThreshold ?? global.contextThreshold;
 
     return {
@@ -87,19 +89,18 @@ export class WidgetSettings {
     };
   }
 
-  save(scope: Scope, layout: Layout | undefined): void {
-    if (scope === "project" && !this.options.projectTrusted)
+  save(scope: Scope, layout: Layout): void {
+    if (scope === "project" && !this.projectTrusted)
       throw new Error("Trust this project before saving project settings.");
 
     try {
-      const parsed = layout === undefined ? undefined : layoutSchema.parse(layout);
+      const parsed = layoutSchema.parse(layout);
       updateSettingsRecord(this.paths[scope], (record) => {
         // A valid JSON object may contain an invalid old layout: replace only that preference.
         // Reject malformed sections instead of discarding unrelated data to repair them.
         const section = record[key] === undefined ? {} : record[key];
         if (!isSettingsRecord(section)) throw new Error("Settings section must be an object.");
-        if (parsed === undefined) delete section.layout;
-        else section.layout = parsed;
+        section.layout = parsed;
         record[key] = section;
       });
     } catch {

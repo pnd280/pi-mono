@@ -7,6 +7,7 @@ import { bindNativeCompaction } from "./native.ts";
 
 const boundary = "_compactBeforeNextAssistantResponse";
 const context = { messages: ["before"] };
+const unexpectedSummary = () => assert.fail("These fixtures do not generate default summaries.");
 
 async function invoke(receiver: object) {
   const method: unknown = Reflect.get(AgentSession.prototype, boundary);
@@ -25,8 +26,8 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
     getBranch: () => []
   };
   const managerB = { buildSessionProjection: () => context, getBranch: () => [] };
-  const a = bindNativeCompaction(managerA);
-  const b = bindNativeCompaction(managerB);
+  const a = bindNativeCompaction(managerA, unexpectedSummary);
+  const b = bindNativeCompaction(managerB, unexpectedSummary);
   let forcedCalls = 0;
   let fail = false;
   let listeners = 0;
@@ -56,10 +57,12 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
   };
 
   try {
-    assert.throws(() => bindNativeCompaction(managerA), /already bound/);
+    assert.throws(() => bindNativeCompaction(managerA, unexpectedSummary), /already bound/);
     a.request("superseded focus");
     a.request();
-    assert.deepEqual(await invoke({ ...session, sessionManager: managerB }), context);
+    assert.deepEqual(await invoke({ ...session, sessionManager: managerB }), {
+      messages: ["before"]
+    });
     assert.equal(forcedCalls, 0);
     assert.deepEqual(await invoke(session), { messages: ["compacted"] });
     assert.equal(forcedCalls, 1);
@@ -72,11 +75,13 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
     const controller = new AbortController();
     a.request("discarded", controller.signal);
     controller.abort();
-    assert.equal(await invoke(session), context);
+    assert.deepEqual(await invoke(session), { messages: ["before"] });
     assert.equal(forcedCalls, 1);
     assert.throws(() => a.request(undefined, controller.signal), /abort/i);
     a.request();
-    assert.equal(await invoke({ ...session, _agentRunAbortRequested: true }), context);
+    assert.deepEqual(await invoke({ ...session, _agentRunAbortRequested: true }), {
+      messages: ["before"]
+    });
     await invoke(session);
     assert.equal(forcedCalls, 1);
     a.request("discarded");
@@ -93,7 +98,9 @@ it("scopes and consumes requests, clears abandoned requests, and restores the bo
     a.dispose();
     fail = false;
     b.request();
-    assert.deepEqual(await invoke({ ...session, sessionManager: managerB }), context);
+    assert.deepEqual(await invoke({ ...session, sessionManager: managerB }), {
+      messages: ["before"]
+    });
     assert.equal(forcedCalls, 3);
     assert.partialDeepStrictEqual(outcomes.at(-1), {
       details: { status: "skipped", reason: "Pi did not start compaction." }
@@ -124,7 +131,7 @@ it("does not misdiagnose native preparation errors as a small session", async ()
       return [];
     }
   };
-  const binding = bindNativeCompaction(manager);
+  const binding = bindNativeCompaction(manager, unexpectedSummary);
   const outcomes: unknown[] = [];
   const session = {
     sessionManager: manager,
@@ -140,7 +147,7 @@ it("does not misdiagnose native preparation errors as a small session", async ()
 
   try {
     binding.request();
-    assert.deepEqual(await invoke(session), context);
+    assert.deepEqual(await invoke(session), { messages: ["before"] });
     assert.equal(preparationFailed, true);
     assert.partialDeepStrictEqual(outcomes, [
       { details: { status: "skipped", reason: "Pi did not start compaction." } }
@@ -159,7 +166,7 @@ it("does not let a diagnostic branch read bypass native preparation error handli
       throw new Error("Unreadable session branch");
     }
   };
-  const binding = bindNativeCompaction(manager);
+  const binding = bindNativeCompaction(manager, unexpectedSummary);
   const outcomes: unknown[] = [];
 
   try {
@@ -176,7 +183,7 @@ it("does not let a diagnostic branch read bypass native preparation error handli
           outcomes.push(message);
         }
       }),
-      context
+      { messages: ["before"] }
     );
     assert.partialDeepStrictEqual(outcomes, [
       { details: { status: "skipped", reason: "Pi did not start compaction." } }
@@ -200,7 +207,7 @@ it.each([
 
   try {
     assert.throws(
-      () => bindNativeCompaction({}),
+      () => bindNativeCompaction({}, unexpectedSummary),
       /unsupported version or conflicting runtime patch/
     );
     assert.equal(Reflect.get(prototype, method), unknown);
@@ -220,7 +227,7 @@ it.each(["_runDefaultCompaction", "_runAutoCompaction", "compact"])(
     Object.defineProperty(prototype, method, { ...descriptor, writable: false });
 
     try {
-      assert.throws(() => bindNativeCompaction({}), /writable data properties/);
+      assert.throws(() => bindNativeCompaction({}, unexpectedSummary), /writable data properties/);
       assert.deepEqual(
         patched.map((name): unknown => Reflect.get(prototype, name)),
         originals
@@ -233,7 +240,7 @@ it.each(["_runDefaultCompaction", "_runAutoCompaction", "compact"])(
 
 it("does not publish an outcome after its session binding is disposed", async () => {
   const manager = { buildSessionProjection: () => context, getBranch: () => [] };
-  const binding = bindNativeCompaction(manager);
+  const binding = bindNativeCompaction(manager, unexpectedSummary);
   let subscribed = false;
 
   try {
@@ -268,7 +275,7 @@ it.each([boundary, "_runDefaultCompaction", "_runAutoCompaction", "compact"])(
   (method) => {
     const prototype = AgentSession.prototype;
     const original: unknown = Reflect.get(prototype, method);
-    const binding = bindNativeCompaction({});
+    const binding = bindNativeCompaction({}, unexpectedSummary);
     const wrapper: unknown = Reflect.get(prototype, method);
     const foreign = async () => context;
     Reflect.set(prototype, method, foreign);
@@ -277,9 +284,12 @@ it.each([boundary, "_runDefaultCompaction", "_runAutoCompaction", "compact"])(
     try {
       binding.dispose();
       assert.equal(Reflect.get(prototype, method), foreign);
-      assert.throws(() => bindNativeCompaction({}), /another extension replaced/);
+      assert.throws(
+        () => bindNativeCompaction({}, unexpectedSummary),
+        /another extension replaced/
+      );
       Reflect.set(prototype, method, wrapper);
-      next = bindNativeCompaction({});
+      next = bindNativeCompaction({}, unexpectedSummary);
       next.dispose();
       assert.equal(Reflect.get(prototype, method), original);
     } finally {
@@ -287,7 +297,8 @@ it.each([boundary, "_runDefaultCompaction", "_runAutoCompaction", "compact"])(
         Reflect.set(prototype, method, wrapper);
         next?.dispose();
         // Restore through a fresh binding if an assertion interrupted cleanup.
-        if (Reflect.get(prototype, method) !== original) bindNativeCompaction({}).dispose();
+        if (Reflect.get(prototype, method) !== original)
+          bindNativeCompaction({}, unexpectedSummary).dispose();
       }
     }
   }

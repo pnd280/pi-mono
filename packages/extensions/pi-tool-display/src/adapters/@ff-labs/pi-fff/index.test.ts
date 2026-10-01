@@ -32,13 +32,18 @@ it.each(["fffind", "fff-multi-grep"])(
     const multi = name === "fff-multi-grep";
     const adapter = piFffAdapter(fffToolInfo(name, multi))!;
 
-    for (const scope of [undefined, "", ".", "src/**"]) {
+    for (const [scope, expectedScope] of [
+      [undefined, "."],
+      ["", "."],
+      [".", "."],
+      ["src/**", "src/**"]
+    ] as const) {
       const args = multi
         ? { patterns: ["token"], constraints: scope }
         : { pattern: "token", path: scope };
       expect(adapter.exploration?.(args)).toEqual([
         {
-          scope: { kind: "filter", value: scope || "." },
+          scope: { kind: "filter", value: expectedScope },
           parts: [{ kind: "pattern", text: "token" }]
         }
       ]);

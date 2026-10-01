@@ -2,11 +2,13 @@
 
 [Library index](../../../README.md#offline-validation)
 
-## Behavior
+Open an interactive validation fixture in a real terminal and report its exit status.
+
+## Behaviour
 
 Validation-only [`runTerminalLauncher`](index.ts) (`@pi-mono/libs/validation/terminal-launcher`) accepts `regular`/`fullscreen`, immediately followed by optional `--reuse <directory>`. `--help` shows consumer help without creating a workspace.
 
-Children inherit terminal I/O and extra Pi arguments. Returns the exit code, or `1` without a numeric code; launch failures propagate.
+Children inherit terminal I/O and extra Pi arguments. Returns the exit code, or `1` without a numeric code. Launch failures propagate.
 
 ## Caller responsibilities
 

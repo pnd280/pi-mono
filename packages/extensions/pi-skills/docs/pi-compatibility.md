@@ -1,20 +1,41 @@
-# Pi compatibility
+# Pi compatibility for maintainers
 
 [pi-skills](../README.md)
 
-## Contracts to verify
+> Last verified against Pi 1.0.0 (package checks, offline host input tests, real-editor acceptance tests, and offline terminal completion, undo, formats, settings, resource reload, and provider composition). Not covered: physical-terminal checks, including native slash completion after leading whitespace, which Pi 1.0.0 added.
 
-- [ ] [Input expansion](../src/index.ts): registration order and chaining, registered skill paths and collisions, exact token boundaries, idempotent configured references, fenced text, prevention of native `<skill>` injection for custom formats, preserved images, and steering/follow-up delivery in TUI, print, JSON, and RPC modes.
-- [ ] [Format settings](../src/config.ts): bounded JSON validation, trusted project overrides, default Markdown link, and `/reload` updates without UI or settings writes.
-- [ ] [Completion](../src/autocomplete.ts): current Pi provider suggestions, `enableSkillCommands`, cursor-relative replacement, Tab/Enter acceptance without submission, and coexistence with file, attachment, and other commands.
-- [ ] [Lifecycle](../src/index.ts): resource discovery and `/reload` update paths and completion without duplicate providers or persistence.
+## Upgrade procedure
 
-## Limitations and replacement opportunities
+1. Run the [package and offline terminal checks](../README.md#validation). Real-editor acceptance and installed-host input tests cover behaviour that provider-only fixtures can't.
+2. Work through the checklist below, then update the "Last verified" line.
 
-- Keep native autocomplete composition rather than adding another matcher or file discovery. Pi currently expands only prompts beginning exactly `/skill:` and offers no input-handler option to disable that expansion. Recheck that default leading Markdown links stay literal and custom command-first formats remain guarded on Pi upgrades.
+## Checklist
 
-## Validation
+Input expansion and completion must compose with Pi's existing providers and registered skill paths.
 
-Pi **0.99.2** package checks, offline host input tests, and real-editor acceptance tests passed without runtime changes. Public input/autocomplete composition remains compatible. Manual terminal checks were not run.
+### Input expansion
 
-Use [package and offline terminal checks](../README.md#validation). Real-editor acceptance and installed-host input tests cover behavior that provider-only fixtures cannot establish.
+[Input expansion](../src/tokens.ts) owns catalogue projection, substitution, and the native-insertion guard; [input-hook wiring](../src/index.ts) passes the current commands:
+
+- [ ] Hook registration order and chaining.
+- [ ] Registered skill paths, and name collisions.
+- [ ] Exact token boundaries, including in fenced text. Configured references aren't expanded twice.
+- [ ] Custom formats never trigger Pi's native `<skill>` insertion.
+- [ ] Images are kept.
+- [ ] Steering and follow-up messages are delivered in TUI, print, JSON, and RPC modes.
+
+### Settings and completion
+
+- [ ] [Format settings](../src/config.ts): bounded JSON validation, trusted project overrides, the default Markdown link, and `/reload` updates, without UI or settings writes.
+- [ ] [Completion](../src/autocomplete.ts): suggestions from Pi's current provider, and `enableSkillCommands`.
+- [ ] Replacement is relative to the cursor, and **Tab** and **Enter** accept without submitting.
+- [ ] File, attachment, and other command completion keep working.
+
+### Lifecycle
+
+- [ ] [Lifecycle](../src/index.ts): resource discovery and `/reload` update paths and completion, without duplicate providers or saved state.
+
+## Limitations
+
+- **Native expansion.** Pi expands only prompts that begin exactly with `/skill:`, and its input handler has no option to turn that off. On upgrades, check that the default leading Markdown link stays literal, and that custom formats starting with the command are still guarded.
+- **Composition.** Keep composing with native autocomplete rather than adding another matcher or file discovery.

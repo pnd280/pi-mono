@@ -9,7 +9,7 @@ const sectionSchema = z.object({
 });
 const settingsSchema = z.object({ "ext.pi-todo": sectionSchema.optional() });
 
-export type TodoConfig = { [Key in keyof z.output<typeof sectionSchema>]-?: boolean };
+type TodoConfig = { [Key in keyof z.output<typeof sectionSchema>]-?: boolean };
 
 function readSection(path: string): z.output<typeof sectionSchema> {
   try {

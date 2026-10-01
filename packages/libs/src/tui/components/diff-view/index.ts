@@ -10,7 +10,7 @@ import { wrapRows } from "../../text-budget/index.ts";
 const INLINE_DIFF_WORK_LIMIT = 40_000;
 const INLINE_DIFF_LINE_LIMIT = 1000;
 
-export interface PatchRow {
+interface PatchRow {
   old?: PatchLine | undefined;
   new?: PatchLine | undefined;
 }
@@ -27,7 +27,7 @@ export interface DiffViewOptions {
 }
 
 /** Align replacements within each change block, never across context or hunk boundaries. */
-export function pairPatchLines(lines: readonly PatchLine[]): PatchRow[] {
+function pairPatchLines(lines: readonly PatchLine[]): PatchRow[] {
   const rows: PatchRow[] = [];
   let removed: PatchLine[] = [],
     added: PatchLine[] = [];

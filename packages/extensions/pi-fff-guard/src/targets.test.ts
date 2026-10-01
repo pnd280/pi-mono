@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -91,6 +92,8 @@ describe("FFF search scopes", () => {
 
     for (const searchPath of [
       "src/LICENSE",
+      "src/main.ts/",
+      "src/main.ts/**",
       "missing/",
       "./src/missing.ts",
       "src/main.ts/child",
@@ -115,7 +118,30 @@ describe("FFF search scopes", () => {
     });
   });
 
+  it("does not mistake existing unsupported targets for missing files", async () => {
+    const fifo = path.join(directory.root, "src/pipe.ts");
+    execFileSync("mkfifo", [fifo]);
+
+    await expectAllowed("grep", { path: "src/pipe.ts" });
+    await expectAllowed("grep", { path: "{src/pipe.ts,missing/absent.ts}" });
+
+    for (const searchPath of ["src/pipe.ts/", "src/pipe.ts/**"])
+      expect(await decision("grep", { path: searchPath })).toStrictEqual({
+        kind: "block",
+        reason: "No such file or directory"
+      });
+  });
+
+  it("keeps missing-path precedence even when all positive filters are excluded", async () => {
+    for (const constraints of ["node_modules/ missing/", "*.ts missing/ !*.ts"])
+      expect(await decision("multi", { constraints })).toStrictEqual({
+        kind: "block",
+        reason: "No such file or directory"
+      });
+  });
+
   it("allows wholly excluded ignored scopes but blocks partially excluded ones", async () => {
+    await expectAllowed("grep", { path: "src/", exclude: "missing/ src/main.ts/child" });
     await expectAllowed("grep", {
       path: "{src,node_modules}/**",
       exclude: "node_modules/,*.min.js"
@@ -154,6 +180,9 @@ describe("FFF search scopes", () => {
 
     await expectIgnored("multi", {
       constraints: "node_modules/**/*.{ts,js} node_modules/dependency/ !*.ts"
+    });
+    await expectIgnored("multi", {
+      constraints: "node_modules/*.{ts,js} !*.ts"
     });
     await expectIgnored("multi", { constraints: "node_modules/ node_modules/dependency/" });
   });

@@ -1,56 +1,286 @@
-# Tool-display coverage
+# Tool-display test coverage for maintainers
 
-[Package](../README.md) · [Shared testing policy](../../../../docs/agents/testing.md)
+[Package](../README.md) · [Shared testing policy](../../../../docs/agents/testing.md) · [Glossary](../GLOSSARY.md)
 
 ## Contracts
 
-### Selection and result interpretation
+Tool interpretation, transcript grouping, and rendering must preserve the execution facts supplied by the host.
 
-- Specialize only verified native/extension contracts. Respect exact renderer overrides and select trusted project settings before validation; invalid untrusted sections cannot disable display. Invalid applicable settings preserve original renderers and disable display observations. Preserve custom renderer slots and generic fallbacks without enabling tools.
-- Interpret only published data and validated adapter facts. Never recover omitted output from metadata, infer cancellation from prose, or mutate borrowed results. Literal notice lookalikes remain source.
-- Call interpretation ranks cancellation over failure over unavailable metadata, ignores adapter outcomes for partial results, and resolves grouping and summary identities against the session cwd. Any throwing adapter callback, including presentation callbacks, switches the call or row to generic rendering and reports the adapter. Groups, outcomes, and summary identities must agree on fallback regardless of callback order; presentation failure must retain owner-level summary omission and remain generic across later updates. Republished result objects refresh interpretation even when their identity is unchanged.
-- Native/selective-read Unicode-space equivalents share headings, exploration groups, and summary identities with latest-outcome replacement. Custom paths, FFF filters, search patterns, and borrowed arguments retain their original values.
-- Retain recognized native read continuation and byte-limit recovery envelopes in compact cards/groups, with one copy on expansion. Embedded lookalikes remain source; byte-identical native envelopes retain the documented provenance limit.
-- FFF scopes/diagnostics, MCP routing/media/error identity, todo snapshots, and selective-read preview provenance have adapter-specific semantics. Invalid or partial contracts fall back without claiming unrelated tools. Selective-read recognition uses the shared projected schema without integer bounds; installed-CLI coverage loads the actual extension so fixture drift cannot hide schema incompatibility. Unknown top-level read arguments must not force generic cards or lose grouping, read summary items, or selection presentation; retained arguments stay unchanged, and invalid known fields or unknown selection fields still fall back.
-- Pi's built-in codemode adapter renders highlighted script previews and nested calls from validated details, hides only the first-block result header, and counts each script once. The install suite loads `builtin:codemode` for real provenance, nested mutations, and parent-only replay.
-- Pi's built-in MCP and tool-search adapters require built-in source paths and compatible parameter schemas, and respect renderer overrides. MCP headings retain resolved server/tool identity even for empty results, while missing details retain Pi's name. Real offline MCP discovery must preserve selection and original identities for normalized namespaces and collision-suffixed names; deferred exposure must not disable the adapter. Tool search derives loaded-tool summaries only from validated details, hides raw parameters by default, and restores original text on expansion.
-- Smart-compact cards distinguish requesting compaction from completing it, retain instruction focus without raw parameters by default, and label only valid saved model/thinking selections. Hide only the recognized successful acknowledgement already represented by the heading; arbitrary text, errors, and partial results stay unchanged. Context-window cards summarize supplied token/capacity/percentage facts without calculating missing values or treating unknown usage as zero; expansion restores raw output. Collapsed/expanded rendering and reused rows must not mutate agent-facing content, retain stale facts, or infer selections from current settings.
+### Must not regress
 
-### Transcript and rendering
+These protect execution, trust, and stored data. A failure here changes tool behaviour or leaks state, not just appearance.
 
-- Nested-instruction notices use the producer's public contract without loading its discovery factory. Render status/path headers with `•` when collapsed and `▾` when expanded. Expand to Markdown without repeating the model-facing preamble or mutating stored content. Header clicks affect only that notice and survive redraws; global expansion changes take precedence. Body selection and scrolling are not intercepted. Headers stay flush left regardless of tool-output padding, with bold accent actions and normal-foreground paths. Paths wrap beneath themselves with a continuation guide when expanded; result-tree children follow the header without a spacer. Narrow widths, Unicode, and control characters stay readable. Saved messages keep this presentation through reload; removing display restores Pi's default rendering while discovery remains loaded.
-- Mark assistant prose blocks with `•` and a width-bounded hanging indent during streaming and replay, preserving native Markdown/transformers and borrowed messages. Do not mark user text, thinking, or diagnostics. Unchanged redraws reuse decoration without rescanning Markdown rows; width/content updates and invalidation refresh it. Invalidation and thinking toggles must not duplicate markers; removal restores native rows, and unverified assistant layouts stay untouched.
-- Hide collapsed thinking on block completion rather than message completion in regular and fullscreen modes. Preserve active thinking when shared partials expose later blocks, including consecutive thinking blocks sharing one placeholder. Ended placeholders must stay hidden through prose/tool streaming, toggles, and invalidation; message completion and abort clean up remaining placeholders without changing source messages or leaking completion state to later messages.
-- Group contiguous compatible scopes in source order, not by tool name alone. Visible transcript boundaries split groups; hidden completed thinking can merge them. Streaming, finalized content, and late adapters may regroup calls without duplicating members or changing unrelated expansion state.
-- Public extension notifications split groups and runs only when Pi inserts visible components. Preserve notification arguments, return values, and no-op behavior; native thinking-toggle status messages do not split runs. Withdrawing assistant boundaries preserves explicitly opened state from every contributing run, and explicit collapse remains effective afterward.
-- Changed display modes survive transcript reconstruction and extension reload without writing settings or history. `collapsedMode` selects startup and programmatic collapse from verbose; Ctrl+O follows the fixed cycle. Collapse requests in summary/compact leave the mode unchanged, and Pi's header/resources change expansion only across the verbose boundary.
-- Owned instruction notices join the preceding run in source order and remain exploration-group boundaries. Validated details contribute separate loaded/updated file counts and removed-directory counts, deduplicated per action by persisted identity without inheriting tool outcomes. Invalid details add no counts; omitted calls do not omit their notices. Summary leaders and collapse controls refresh for new notices, and notices follow their anchors across run-boundary changes. Live notices do not settle runs; ended runs hide their notices without margins and restore them on opening. Trailing notices own the bottom collapse control, and notice clicks do not expand the preceding group. Standalone notices and unrelated visible messages retain their boundary behavior. Cover live messages, appended entries, and replay.
-- Runs split only at unowned non-thinking visible transcript boundaries and unowned tools, independent of exploration scopes. Thinking creates only group boundaries: streaming indicators, completion, global toggles, and per-block clicks must not settle, partition, or reopen runs. Preserve this behavior during replay and preserve explicitly opened runs. Boundary owners can change kind or withdraw without deleting another owner's group/run boundary or a permanent notice.
-- Summary lines count files and directories once per category by their latest outcome and other included calls individually. Order items by first call or notice, keep tool names' case, indent every row two columns without a leading marker, wrap only between items within the remaining width, and never reorder items for failures.
-- Only ended runs collapse: live runs render compact cards until no member is live and a non-thinking boundary or agent end closes them. Summaries require fullscreen; regular mode renders summary as compact and its cycle skips the identical step. Historical append and live-preview work must not scan completed run members. Run splits, merges, repeated results, and settlement retain correct liveness. Unchanged summary/control checks reuse summary work, while membership, interpreted inputs, republished results, and notices refresh it. Hidden members and empty summaries render no rows or images, including margins. Collapsed summaries must not prepare the card content they replace. Opened runs restore compact cards until a mode change or either end's collapse control is clicked.
-- Plain full-width rules enclose opened single-card and grouped runs with one blank row of inner padding at each end, including below native images. Rules and their inner padding share the collapse hitbox without toggling cards. Footer clicks account for joined margins and image rows; image clicks are unhandled and leave cards and runs unchanged. Test layouts through `layoutRow` and click intent through `activate`; keep only a few full-stack row tests. An unrecognized row contract keeps Pi's chrome and disables summaries. Live and empty-summary runs have no controls.
-- Keep diagnostics/images with their source call and visible when compact text is hidden. Native image previews share the card's body indentation and collapsed group guide, fit the remaining width, and retain Pi's protocol commands and reserved rows. Adapter-supplied nested calls also remain visible on compact successful reads. Errors, cancellations, unavailable outcomes, and success remain distinguishable. Expansion restores retained content, not fabricated history.
-- Pending card and group markers flash between their glyph (`•` collapsed, `▾` expanded) and a same-width blank without changing the rest of the heading or body. Completed markers remain visible; standalone renderers without an animation clock keep pending markers visible. Animation redraws must not re-prepare unchanged headings or bodies, or serialize arguments again.
-- Renderer call/result slots share current call facts, including when rows are reused. Refresh on updates/theme invalidation and avoid preparing hidden or unbounded bodies during redraw. Parameters follow adapter policy and settings while preserving routing/path summaries. Compact generic parameter serialization stops before omitted values, with depth and visit budgets for nested or omitted properties; compact literal heading parts and source-code previews are bounded before normalization. Expansion restores complete retained values without mutating borrowed arguments.
-- Custom action and group labels normalize to single-line terminal-safe text before layout; narrow titled groups retain every outcome badge. Owner-level summary omission survives generic card fallback without interpreting unsupported result facts, while other fallback calls retain generic counts.
-- Diff, shell preview, and omission rendering preserve source and distinguish generated annotations. Diff unavailability distinguishes queue overload and worker failures from per-diff work limits. Compact budgets retain meaningful changes and both ends of long targets.
-- Invalid or oversized patch candidates retain published output alongside limitation notices. Usable published or observed patches still replace successful result text.
+Settings trust
 
-### Observation and lifecycle
+- Choose trusted project settings before validation. An invalid untrusted section cannot disable display.
+- An invalid applicable section keeps original tool renderers and turns off native observation.
+- Respect exact-name renderer overrides.
+- Keep custom renderer slots and generic fallbacks, without enabling any tool.
 
-- Observe native operations only in participating TUI sessions, preserving native settings, middleware results, schemas, active tools, and other observers without duplicating native I/O. Display errors cannot change execution outcomes.
-- Persist bounded operation/cancellation/patch facts and saved-output references outside model context, enforcing the whole-record byte limit including unknown fields. Replay only matching calls and adapters on the selected ancestry; recorded cancellation survives adapter changes. Associate calls by timestamp, content index, and tool-call ID across appends, branch changes, and resets, preserving distinct calls with equal timestamps. Never rerun operations, reobserve mutations, or animate incomplete history.
-- Saved-output reads start only for eligible expanded completed calls. Enforce byte and line budgets independently while retaining useful head/tail content. Bound loads and cache size, retry on re-expansion after saturation, and reject completions for obsolete paths or disposed sessions without losing published failures. Clear old previews before notifying rows of replacement paths, including saved-output facts, and remove obsolete saturation notices while retries are pending.
-- Eviction invalidates pending publication of that preview, including cache hits racing replacement completions. Re-expansion can load a fresh preview.
-- Reload/removal restores only owned hooks, preserves later wrappers, and makes old callbacks inert. Real host reconstruction, compaction, expansion, mouse routing, and thinking integration must still work through the installed CLI's bundled contracts.
-- Pending host-event continuations cannot install assistant hooks after disposal or take ownership from replacement transcript bindings. Compaction insertion handling follows the current binding.
+Execution and borrowed data
+
+- Display errors never change an execution outcome.
+- Never mutate borrowed arguments, results, or messages, including during expansion and reused rows.
+- Observe native operations only in interactive TUI sessions.
+- Preserve native settings, middleware results, schemas, active tools, and other observers. Do not repeat native I/O.
+
+Saved history
+
+- Persist bounded operation, cancellation, and patch facts plus saved-output references, outside model context.
+- Enforce the whole-record byte limit, counting unknown fields.
+- Replay never reruns operations, observes mutations again, or animates incomplete history.
+
+Reload and disposal
+
+- Reload and removal restore only hooks this extension installed, keep later wrappers, and make old callbacks inert.
+- Pending host-event continuations cannot install assistant hooks after disposal, or take ownership from a replacement transcript binding.
+- Compaction insertion handling follows the current binding.
+
+### Interpreting calls
+
+Sources of truth
+
+- Interpret only published data and validated adapter facts.
+- Never recover omitted output from metadata, and never infer cancellation from prose. Text that only looks like a notice stays source text.
+- Specialize only verified native and extension contracts.
+
+Outcomes
+
+- Rank outcomes as cancellation, then failure, then unavailable metadata.
+- Ignore adapter outcomes for partial results.
+- Resolve grouping and summary identities against the session cwd.
+- A republished result object refreshes interpretation, even when its identity is unchanged.
+
+Adapter failures
+
+- A throwing callback used by the current interpretation or presentation switches the call or row to generic rendering and reports the adapter.
+- Groups, outcomes, and summary identities agree on the fallback whatever the callback order.
+- After a presentation failure, the call stays generic through later updates and keeps owner-level summary omission.
+- Standalone cards skip CLI-only recognition, grouping, and run-summary callbacks. Used metadata callbacks can recover on a new snapshot; presentation failures stay generic. See [custom-adapter callback lifetimes](renderers.md#custom-adapters).
+
+Paths
+
+- Native and selective-read paths that differ only by Unicode space characters share headings, exploration groups, and summary identities, with latest-outcome replacement.
+- Custom paths, FFF filters, search patterns, and borrowed arguments keep their original values.
+
+Native read recovery notices
+
+- Compact cards and groups keep recognised native read continuation notices and byte-limit recovery notices, including values from fractional and negative native read windows. Expansion shows one copy.
+- Embedded lookalikes stay source text. Byte-identical native notices keep the documented provenance limit.
+
+### Adapters
+
+Each adapter falls back to generic rendering for invalid or partial contracts, without claiming unrelated tools. FFF scopes and diagnostics, MCP routing, media, and error identity, todo snapshots, and selective-read preview provenance have adapter-specific rules in each adapter's README.
+
+Selective read
+
+- The producer's [result contract](../../pi-read/docs/result.md) owns preview provenance, native source windows, and highlight coordinates. This package tests recognition, rejection policy, argument normalisation, diagnostic presentation, grouping, and installed-CLI integration through that contract.
+- Recognition uses the shared projected schema without integer bounds.
+- Installed-CLI coverage loads the real extension, so fixture drift cannot hide a schema incompatibility.
+- Unknown top-level read arguments do not force generic cards or lose grouping, read summary items, or selection presentation. Retained arguments stay unchanged.
+- Invalid known fields and unknown selection fields still fall back.
+
+Pi's built-in codemode
+
+- Render highlighted script previews and nested calls from validated details.
+- Hide only the result header of the first block.
+- Count each script once.
+- The install suite loads `builtin:codemode` to cover real provenance, nested mutations, and parent-only replay.
+
+Pi's built-in MCP and tool search
+
+- Require built-in source paths and compatible parameter schemas, and respect renderer overrides.
+- MCP headings keep the resolved server and tool identity, even for empty results. Without details, they keep Pi's name.
+- Real offline MCP discovery keeps selection and original identities for normalized namespaces and collision-suffixed names. Deferred exposure does not disable the adapter.
+- Tool search derives loaded-tool summaries only from validated details, hides raw parameters by default, and restores the original text on expansion.
+- Ordered MCP media facts contain MIME labels only. Pi retains image bytes and rendering.
+
+Smart compact
+
+- Distinguish requesting compaction from completing it.
+- Keep the instruction focus without showing raw parameters by default.
+- Label only valid saved model and thinking selections; never infer them from current settings.
+- Hide only the recognised successful acknowledgement that the heading already represents. Other text, errors, and partial results stay unchanged.
+- Context-window cards summarise the supplied token, capacity, and percentage facts. They never calculate missing values or treat unknown usage as zero. Expansion restores raw output.
+- Collapsed rendering, expanded rendering, and reused rows do not keep stale facts.
+
+### Transcript structure
+
+A _run_ is the sequence of this extension's calls between visible boundaries; see the [glossary](../GLOSSARY.md#transcript-structure).
+
+Exploration groups
+
+- Group adjacent compatible scopes in source order, not by tool name alone.
+- Visible transcript boundaries split groups. Hidden completed thinking can merge them.
+- Streaming, finalized content, and late adapters can regroup calls without duplicating members or changing unrelated expansion state.
+
+Runs
+
+- Visible assistant prose, unrelated messages, and unowned tools split runs. Exploration scopes do not.
+- Thinking creates only group boundaries. Streaming indicators, completion, global toggles, and per-block clicks never settle, split, or reopen a run. This holds during replay too.
+- Explicitly opened runs stay open.
+- A boundary owner can change kind or withdraw without deleting another owner's boundary or a permanent notice.
+
+Extension notifications
+
+- Public extension notifications split groups and runs only when Pi inserts visible components.
+- Notification arguments, return values, and no-op behaviour are preserved.
+- Pi's thinking-toggle status messages don't split runs.
+- Withdrawing an assistant boundary keeps the opened state of every contributing run, and an explicit collapse still works afterwards.
+
+Nested-instruction notices
+
+- Render through the producer's public contract, without loading its discovery factory.
+- Join the preceding run in source order and stay exploration-group boundaries.
+- Validated details add separate counts for loaded files, updated files, and removed directories. Counts deduplicate per action by persisted identity and never inherit tool outcomes. Invalid details add no counts.
+- Omitting a call from the summary doesn't omit its notices.
+- New notices refresh summary leaders and collapse controls. Notices follow their anchors when run boundaries change.
+- Live notices don't settle runs. Ended runs hide their notices without margins and restore them when opened.
+- A trailing notice owns the bottom collapse control. Clicking a notice doesn't expand the preceding group.
+- Standalone notices and unrelated visible messages keep their boundary behaviour.
+- Cover live messages, appended entries, and replay.
+- Retired version-1 instruction notices remain ordinary message content; only the producer's current contract supplies structured recognition and counts.
+
+### Modes
+
+- Display mode changes survive transcript reconstruction and extension reload, without writing settings or history.
+- `collapsedMode` selects the startup mode and the target of programmatic collapse from verbose. **Ctrl+O** follows the fixed cycle.
+- A collapse request in `summary` or `compact` leaves the mode unchanged. Pi's header and resources change expansion only when crossing the verbose boundary.
+
+### Summary lines
+
+Settlement
+
+- Only ended runs collapse. A run renders compact cards until no member is live and a non-thinking boundary or agent end closes it.
+- Summaries need fullscreen. Regular mode renders `summary` as `compact`, and its cycle skips the identical step.
+- Run splits, merges, repeated results, and settlement keep liveness correct.
+
+Counting and layout
+
+- Count files and directories once per category by latest outcome. Count other included calls individually.
+- Order items by first call or notice, and never reorder them for failures. Keep the case of tool names.
+- Indent every row two columns, with no leading marker. Wrap only between items, within the remaining width.
+
+Work reuse
+
+- Appending history and previewing live calls never scan completed run members.
+- Unchanged summary and control checks reuse summary work. Membership, interpreted inputs, republished results, and notices refresh it.
+- Collapsed summaries never prepare the card content they replace.
+- Hidden members and empty summaries render no rows, images, or margins.
+
+Opened runs
+
+- Opened runs show compact cards until a mode change or a click on either collapse control.
+- Plain full-width rules enclose opened single-card and grouped runs, with one blank row of inner padding at each end, including below native images.
+- Rules and their padding share the collapse hitbox and never toggle cards.
+- Footer clicks account for joined margins and image rows. Image clicks are unhandled and leave cards and runs unchanged.
+- Live runs and empty-summary runs have no controls.
+- An unrecognised row contract keeps Pi's chrome and disables summaries.
+- Test layouts through `layoutRow` and click intent through `activate`. Keep only a few full-stack row tests.
+
+### Assistant prose and thinking
+
+Assistant prose
+
+- Mark assistant prose blocks with `•` and a width-bounded hanging indent, during streaming and replay.
+- Keep native Markdown, transformers, and borrowed messages unchanged. Don't mark user text, thinking, or diagnostics.
+- Unchanged redraws reuse the decoration without rescanning Markdown rows. Width and content updates and invalidation refresh it.
+- Invalidation and thinking toggles never duplicate markers. Removal restores native rows. Unverified assistant layouts stay untouched.
+
+Collapsed thinking
+
+- Hide collapsed thinking when its block completes, not when the message completes, in regular and fullscreen modes.
+- Keep active thinking visible when shared partials expose later blocks, including consecutive thinking blocks sharing one placeholder.
+- Ended placeholders stay hidden through prose and tool streaming, toggles, and invalidation.
+- Message completion and abort clean up remaining placeholders, without changing source messages or leaking completion state to later messages.
+
+### Cards
+
+Diagnostics and images
+
+- Diagnostics and images stay with their source call and stay visible when compact text is hidden, as the [README](../README.md#usage) states.
+- Native image previews share the card's body indent and collapsed group guide, fit the remaining width, and keep Pi's protocol commands and reserved rows.
+- Adapter-supplied nested calls stay visible on compact successful reads.
+- Errors, cancellations, unavailable outcomes, and success stay distinguishable.
+- Expansion restores retained content, never invented history.
+
+Nested-instruction notice cards
+
+- Render status and path headers with `•` collapsed and `▾` expanded.
+- Expand to Markdown without repeating the model-facing preamble or changing stored content.
+- Header clicks affect only that notice and survive redraws. Global expansion changes take precedence. Body selection and scrolling are not intercepted.
+- Headers stay flush left regardless of tool-output padding, with bold accent actions and normal-foreground paths.
+- Expanded paths wrap beneath themselves with a continuation guide. Result-tree children follow the header without a spacer.
+- Narrow widths, Unicode, and control characters stay readable.
+- Saved messages keep this presentation through reload. Removing the display extension restores Pi's default rendering while discovery stays loaded.
+
+Pending markers
+
+- Pending card and group markers flash between their glyph (`•` collapsed, `▾` expanded) and a same-width blank, without changing the rest of the heading or body.
+- Completed markers stay visible. Standalone renderers without an animation clock keep pending markers visible.
+- Animation redraws never prepare unchanged headings or bodies again, or serialize arguments again.
+
+Call and result slots
+
+- Renderer call and result slots share current call facts, including in reused rows.
+- Standalone renderers skip grouping and run-summary work while refreshing both retained slots' outcomes and MCP identity on updates and invalidation.
+- Refresh on updates and theme invalidation. Don't prepare hidden or unbounded bodies during redraw.
+- Parameters follow adapter policy and settings, and keep routing and path summaries.
+- Compact generic parameter serialization stops before omitted values, with depth and visit budgets for nested or omitted properties.
+- Compact literal heading parts and source-code previews are bounded before normalization, without splitting graphemes at the source limit.
+- Expansion restores complete retained values.
+
+Labels
+
+- Custom action and group labels become single-line terminal-safe text before layout.
+- Narrow titled groups keep every outcome badge.
+- Owner-level summary omission survives generic card fallback, without interpreting unsupported result facts. Other fallback calls keep generic counts.
+
+Diffs and previews
+
+- Diff, shell preview, and omission rendering preserve source text and mark generated annotations as distinct.
+- Diff unavailability distinguishes queue overload and worker failure from per-diff work limits.
+- Compact budgets keep meaningful changes and both ends of long targets.
+- Invalid or oversized patch candidates keep published output alongside the limitation notice.
+- A usable published or observed patch still replaces successful result text.
+
+### Saved history and output
+
+Replay
+
+- Replay only matching calls and adapters on the selected branch. Recorded cancellation survives adapter changes.
+- After late registration selects a verified adapter, restore its matching saved facts and apply the normal saved-preview eligibility rules. Never observe historical tools or persist new facts during this update.
+- Associate calls by timestamp, content index, and tool-call ID across appends, branch changes, and resets. Distinct calls with equal timestamps stay distinct.
+
+Saved-output reads
+
+- Start reads only for eligible expanded completed calls.
+- Enforce byte and line budgets independently, keeping useful head and tail content.
+- Bound loads and cache size. After saturation, retry on re-expansion.
+- Reject completions for obsolete paths or disposed sessions, without losing published failures.
+- Clear old previews before telling rows about replacement paths, including saved-output facts.
+- Remove obsolete saturation notices while retries are pending.
+- Eviction cancels pending publication of that preview, including cache hits racing a replacement completion. Re-expansion can load a fresh preview.
+
+Real host
+
+- The API fixture exercises host reconstruction, compaction, expansion, mouse routing, and thinking integration.
+- The installed-CLI fixture checks bundled hook fingerprints, assistant presentation, selective-read recognition, and bounded patch workers.
 
 ## Coverage boundaries
 
-This package owns adapter interpretation, display policy, transcript state, and integration with Pi's private APIs. [Libraries](../../../libs/docs/testing.md) own native verification/shared mutation protocols, UTF-8 stream/file retention, async caches, terminal safety, highlighting, and diff geometry. [Utils](../../../utils/docs/testing.md) own patch/selection/path parsing. Retain consumer checks of configured budgets and wiring, not duplicate algorithm matrices. Performance assertions should bound repeated work rather than require a particular internal call sequence.
+Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). This package tests its adapters, display policy, transcript state, its use of Pi's private APIs, and the wiring of shared budgets. Performance assertions bound repeated work instead of requiring a particular internal call sequence.
 
-Offline provider scenarios own tool-plan order, streaming and buffered events, context-based continuation, and explicit unavailable-tool skips. Exercise these in-process with virtual time rather than waiting through human-facing animation delays. Installed-CLI smoke tests retain extension loading, native read errors/images, and mutation/resume checks; the full visual scenario matrix remains manual. Host and transcript tests own the resulting display behavior.
+| Suite               | Covers                                                                                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Offline provider    | Tool-plan order, streaming and buffered events, continuation from context, explicit unavailable-tool skips. Runs in-process with virtual time instead of real animation delays. |
+| Installed-CLI smoke | Extension loading, native read errors and images, mutation and resume.                                                                                                          |
+| Host and transcript | The resulting display behaviour.                                                                                                                                                |
+| Manual              | The full visual scenario matrix; see [validation](validation.md).                                                                                                               |
 
 ## Exclusions
 
-No paid/live MCP or FFF search requests, upstream tool execution matrices, or native persistence internals. Full ANSI snapshots and repeated color-only permutations are not substitutes for visible lifecycle/content contracts. Terminal image protocols, drag selection, visual themes, and platform-specific shell behavior need [manual checks](validation.md); headless render assertions do not establish them.
+- No paid or live MCP or FFF search requests.
+- No upstream tool execution matrices or native persistence internals.
+- Full ANSI snapshots and colour-only permutations don't replace checks of visible lifecycle and content contracts.
+- Terminal image protocols, drag selection, visual themes, and platform-specific shell behaviour need [manual checks](validation.md). Headless render assertions don't establish them.

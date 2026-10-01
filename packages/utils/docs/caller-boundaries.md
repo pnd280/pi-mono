@@ -4,26 +4,28 @@
 
 ## Search scopes
 
-[`search-scopes`](../src/search-scopes.ts) derives static prefixes without enumerating files. Callers own existing-path detection, filesystem checks, exclusions, intersections, and blocking policy. [`fff-tools`](../src/fff-tools.ts) classifies provenance and names only, not tool schemas or policy.
+[`search-scopes`](../src/search-scopes.ts) derives static prefixes without enumerating files. `parseFffScopes` interprets verified FFF path fields, filename queries, and multi-search constraints, returning positive expressions and negative query terms. Expressions retain their path-field or query origin: discovery ignores recursive filename path fields before expanding patterns. Supply whether the full filename query names an existing path so paths containing spaces remain intact.
 
-## Paths and shell arguments
+Callers own input validation, existing-path detection and error handling, scope limits, filesystem checks, exclusion application, intersections, and blocking policy. The guard propagates unexpected access failures; nested discovery can retain lexical hints. [`fff-tools`](../src/fff-tools.ts) classifies provenance and names only, not tool schemas or policy.
+
+## Paths
 
 [`paths`](../src/paths.ts) works lexically, without symlink resolution or filesystem checks. Supply absolute paths where required; these helpers do not interpret tool prefixes, file URLs, or glob syntax.
+
+## Shell arguments
 
 [`quotePosixShellArgument`](../src/shell.ts) quotes one NUL-free POSIX-shell argument, not whole commands or Windows shell syntax.
 
 ## Source selections
 
-[`selectionSchema`](../src/source-selection.ts) uses 1-based file lines and Unicode code point columns; end columns are exclusive, and omission selects through the final line's end. Pass parsed selections to `selectSource` with the line number of the first supplied line. Returned text preserves tabs and controls; sanitize only for display.
+[`selectionSchema`](../src/source-selection.ts) uses 1-based file lines and Unicode code point columns. End columns are exclusive, and omission selects through the final line's end. Pass parsed selections to `selectSource` with the line number of the first supplied line. Returned text preserves tabs and controls; sanitise only for display.
 
 ## Output text and UTF-8
 
-[`splitOutputText`](../src/output-text.ts) distinguishes generated omissions by recorded UTF-16 ranges even when source resembles a notice. Preserve those ranges across transformations; consumers style and sanitize for display. For stream retention or file previews, use [bounded stream output](../../libs/src/output-buffer/README.md) or [bounded file output](../../libs/src/bounded-output/README.md).
+[`splitOutputText`](../src/output-text.ts) distinguishes generated omissions by recorded UTF-16 ranges even when source resembles a notice. Preserve those ranges across transformations. Consumers style and sanitise for display. For stream retention or file previews, use [bounded stream output](../../libs/src/output-buffer/README.md) or [bounded file output](../../libs/src/bounded-output/README.md).
 
 [`decodeUtf8Window`](../src/utf8.ts) counts discarded source bytes in `omittedBytes`, not replacement characters for invalid interior bytes. UTF-8 clipping preserves code-point boundaries.
 
-## Patches and search
+## Patches
 
-[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers; invalid or oversized patches return `undefined`. Pass parsed results to the [diff renderer](../../libs/src/tui/components/diff-view/README.md).
-
-[`rankText`](../src/text-search.ts) consumes normalized text and a prepared query. Callers schedule and cancel its checkpoint-yielding generator. Use [cooperative search](../../libs/src/text-search/README.md) when event-loop scheduling and cancellation are needed.
+[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers. Invalid or oversized patches return `undefined`. Pass parsed results to the [diff renderer](../../libs/src/tui/components/diff-view/README.md).

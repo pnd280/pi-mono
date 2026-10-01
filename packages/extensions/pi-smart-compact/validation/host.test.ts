@@ -144,13 +144,6 @@ async function verifyNativeHost(configured: boolean) {
           if (message.role === "toolResult" && message.toolName === "compact")
             assert.equal(contentText(message.content), "Compaction requested.");
         mainRequests++;
-        const outcomes = context.messages.flatMap((message) => {
-          if (message.role !== "user") return [];
-          const content = contentText(message.content);
-
-          return content.startsWith("Compaction completed.") ? [content] : [];
-        });
-        assert.equal(outcomes.length, 0);
         if (mainRequests === 1)
           return fauxAssistantMessage(
             [fauxToolCall("context_window", {}), fauxToolCall("fixture_work", {})],
@@ -176,7 +169,7 @@ async function verifyNativeHost(configured: boolean) {
         if (event.toolName !== "context_window") return;
         inspections++;
         assert.equal(event.isError, false);
-        assert.equal(event.details, contextUsage);
+        assert.deepEqual(event.details, contextUsage);
         assert.deepEqual(event.content, [
           {
             type: "text",

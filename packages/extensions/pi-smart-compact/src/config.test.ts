@@ -132,7 +132,6 @@ it("resolves instruction files relative to their settings scope and reads only t
   writeFileSync(join(agentDir, "focus.txt"), "\uFEFF  Keep global references.\n");
   writeFileSync(join(cwd, CONFIG_DIR_NAME, "focus.txt"), "Keep project references.");
   expect(loadCompactConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
-    instructionsFile: join(agentDir, "focus.txt"),
     instructions: "Keep global references.",
     thinkingLevel: "off"
   });
@@ -142,7 +141,6 @@ it("resolves instruction files relative to their settings scope and reads only t
   });
   rmSync(join(agentDir, "focus.txt"));
   expect(loadCompactConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
-    instructionsFile: join(cwd, CONFIG_DIR_NAME, "focus.txt"),
     instructions: "Keep project references."
   });
 });

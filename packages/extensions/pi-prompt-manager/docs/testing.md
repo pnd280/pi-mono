@@ -1,22 +1,68 @@
-# Prompt-manager coverage
+# Prompt-manager test coverage for maintainers
 
 [Package](../README.md) · [Shared testing policy](../../../../docs/agents/testing.md)
 
-## Contracts
+Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). This package tests collection formats, retention and recovery, editor effects, activation, browser presentation policy, and its own option and error handling.
 
-- Stay inactive outside interactive TUI sessions, including no settings/storage reads. Reload replaces callbacks without replaying captures; pending effects must not reach a later session.
-- Capture trimmed interactive input before native expansion, excluding commands handled before the hook and extension-generated messages. Queued captures are FIFO and bounded with safe, limited diagnostics.
-- Store exact drafts separately, never evict drafts for additions, and prune History only on committed capture. Consecutive suppression and displayed-history deduplication have different semantics.
-- Collections preserve unknown recovery fields and exact source. Refuse additions to corrupt, oversized, or read-only collections rather than treating corruption as empty storage. Delete only unique entries whose UUID, text, and timestamp remain unchanged. Capacity checks account for original bytes and final JSON escaping. Read-only browser and mutation diagnostics must not blame valid IDs when non-finite parsed numbers require repair.
-- Aliases of the same real cwd share storage; distinct directories do not. Update the latest locked contents across instances/processes. Translate shared storage failures and post-commit warnings without exposing prompt text or retrying a committed mutation.
-- Save expanded editor text and clear only after commit if still unchanged and not explicitly restored. Restore safe source without submission after final browser closure, never during a remount; failed deletion leaves restored text intact.
-- Copy exact source with session cancellation and safe diagnostics. Commands reject invalid syntax before effects; global settings reads are bounded, settings validate independently and resolve shortcut collisions predictably.
-- Search prepares complete sanitized text without changing copy/restore source or draft numbering; stale preparation stops. Large collection work stays responsive and cancellable.
+## Must not regress
 
-## Coverage boundaries
+- Nothing reads settings or storage outside interactive TUI sessions.
+- Diagnostics never expose prompt text, and a committed change is never retried.
+- Drafts are never evicted to make room for additions.
+- Corrupt storage is never treated as empty.
+- Only unique entries whose UUID, text, and timestamp are unchanged are deleted.
 
-This package owns collection formats, retention/recovery, editor effects, activation, and repository options/error handling. [Utils](../../../utils/docs/testing.md) own search ranking; [libraries](../../../libs/docs/testing.md) own cooperative search, permission/ACL enforcement, lock/atomic-write protocols, clipboard transport, browser navigation, and mounting. Consumer tests should prove safety checks are used without repeating every shared protocol fault. Retain installed-CLI tests for worker/module loading and process exit; SDK tests do not exercise that boundary.
+## Lifecycle and capture
 
-## Exclusions
+- Reload replaces callbacks without replaying captures. Pending effects never reach a later session.
+- Interactive input is captured trimmed, before native expansion. Commands handled before the hook, and extension-generated messages, are excluded.
+- Queued captures are first in, first out, and bounded, with safe, limited diagnostics.
 
-No duplicate shared browser geometry, search-score matrix, or native editor history tests. OS clipboard delivery and non-Linux filesystem permissions require the isolated [platform checks](validation.md#platform-checks); stdin capture is not evidence of native clipboard behavior.
+## Collections
+
+- Drafts are stored exactly. History is pruned only when a capture is committed.
+- History storage suppresses only a capture that matches the latest saved entry; older duplicates stay stored.
+- The displayed history shows the newest occurrence of each distinct trimmed prompt.
+- Unknown fields and exact source survive recovery.
+- Additions are refused for corrupt, oversized, or read-only collections.
+- Capacity checks count original bytes and final JSON escaping.
+- When non-finite parsed numbers need repair, read-only diagnostics don't blame valid IDs.
+- Aliases of the same real cwd share storage; different directories don't. Changes apply to the latest locked contents across instances and processes.
+- Shared storage failures and warnings after a commit are translated for the user.
+- Unsupported platforms are refused before managed-directory I/O.
+
+## Editor
+
+- Saves use the expanded editor text. The editor is cleared only after the commit, and only if it is unchanged and nothing was restored since.
+- Safe source is restored without submitting, after the browser has finally closed, never during a remount.
+- If deletion fails, the restored text stays.
+
+## Commands, settings, and copy
+
+- Copy uses the exact source, is cancelled with the session, and reports safe diagnostics.
+- Commands reject invalid syntax before doing anything.
+- Numbered commands select the full collection position, including second-entry copying and inspection.
+- Global settings reads are bounded. Each setting is validated on its own, and shortcut collisions resolve predictably.
+- Absent global settings use defaults without warning; malformed JSON warns without exposing its contents.
+
+## Search
+
+- Search prepares complete sanitised text without changing the copy and restore source or draft numbering. Row summary excerpts keep complete graphemes. Stale preparation stops.
+- Large collection processing runs off-thread. Search and preview preparation cooperate with cancellation; native wrapping of one long line remains synchronous.
+- History deduplication uses trimmed exact source, not sanitised display, and skipped duplicates still yield and check cancellation.
+
+## Browser rows
+
+- Compact ages floor at minute, hour, day, seven-day week, 30-day month, and 365-day year thresholds. Below one minute they show "now".
+- Future ages have a `+` prefix when at least one minute away; invalid timestamps show "Unknown time".
+- Row formatting samples one clock value, aligns the age column to the visible ages, and mutes only unselected ages.
+
+## How to test
+
+- Consumer tests show that the shared safety checks are used, without repeating every fault in the shared protocols.
+- Keep the installed-CLI tests for worker and module loading and process exit; SDK tests don't exercise that boundary.
+
+## Not covered here
+
+- Shared browser geometry, the search-score matrix, and native editor history.
+- Delivery to the OS clipboard and filesystem permissions outside Linux; use the isolated [platform checks](validation.md#platform-checks). Capturing stdin doesn't prove native clipboard behaviour.

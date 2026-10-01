@@ -1,15 +1,11 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { z } from "zod";
 
 import type { TodoController } from "./controller.ts";
-import { promptGuidelines } from "./guidelines.ts";
 import { metadataLimitError } from "./limits.ts";
-import { mutationParamsSchema } from "./mutation-schema.ts";
+import { jsonMetadataSchema } from "./metadata.ts";
 import { errorResult } from "./reducer.ts";
-import { TodoParamsSchema } from "./tool-schema.ts";
-import { TASK_ACTIONS, type TaskDetails } from "./types.ts";
-
-const inputSchema = mutationParamsSchema.extend({ action: z.enum(TASK_ACTIONS) });
+import { todoInputSchema, TodoParamsSchema } from "./tool-schema.ts";
+import type { TaskDetails } from "./types.ts";
 
 export function createTodoTool(controller: TodoController) {
   return {
@@ -18,20 +14,22 @@ export function createTodoTool(controller: TodoController) {
     label: "Todos",
     description:
       "Manage a todo hierarchy: create, update, list, get, delete (tombstone), clear. Hierarchy is organizational; statuses and dependencies are independent.",
-    promptGuidelines,
+    promptGuidelines: [
+      "Use todo for work with 3+ steps or user-listed work; skip trivial work and chat-only requests.",
+      "With todo, mark work in_progress before starting and completed immediately after finishing; keep only one todo in_progress at a time.",
+      "Do not mark a todo completed while tests fail, work is partial, or errors remain; keep it in_progress and add a blocker todo."
+    ],
     executionMode: "sequential",
     parameters: TodoParamsSchema,
     async execute(_id, raw) {
-      const parsed = inputSchema.omit({ metadata: true }).safeParse(raw);
+      const parsed = todoInputSchema.safeParse(raw);
       if (!parsed.success) throw new Error("Invalid todo parameters");
       const { action, ...params } = parsed.data;
 
       if (raw.metadata !== undefined) {
         const limitError = metadataLimitError(raw.metadata);
         const metadata =
-          limitError === undefined
-            ? mutationParamsSchema.shape.metadata.safeParse(raw.metadata)
-            : undefined;
+          limitError === undefined ? jsonMetadataSchema.safeParse(raw.metadata) : undefined;
 
         if (limitError !== undefined || !metadata?.success) {
           const result = errorResult(
@@ -44,14 +42,10 @@ export function createTodoTool(controller: TodoController) {
           return { content: result.content, details: result.details };
         }
 
-        const result = controller.apply(action, { ...params, metadata: metadata.data });
-
-        return { content: result.content, details: result.details };
+        return controller.apply(action, { ...params, metadata: metadata.data });
       }
 
-      const result = controller.apply(action, params);
-
-      return { content: result.content, details: result.details };
+      return controller.apply(action, params);
     }
   } satisfies ToolDefinition<typeof TodoParamsSchema, TaskDetails>;
 }

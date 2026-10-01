@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { AgentSession, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 
-// Private Pi 0.99.2 contracts, gated by both API and installed-CLI fingerprints.
+// Private Pi 1.0.0 contracts, gated by both API and installed-CLI fingerprints.
 export interface SessionInternals {
   _cwd: string;
   _baseToolsOverride?: unknown;
@@ -26,11 +26,11 @@ export const nativeSession = (session: AgentSession) => session as unknown as Se
 const constructionHashes = [
   {
     _buildRuntime: "a3ab89260460277fd6dff8c9f076bf16cf9e1a877ca5fbba63ac7f7cb93eb1d4",
-    _refreshToolRegistry: "8290462cd798bd23547f99c60ec017d9697898695efdc2b28df0f78322b49089"
+    _refreshToolRegistry: "c8fc5c0676127f609a70f01e5e89042567e51f2ebc74e66a97b8e48803b0aa8e"
   },
   {
-    _buildRuntime: "0d5522f8f4e0dbe3fe7df897771cb738030377dccd69a27bcf44ffba8385c6e7",
-    _refreshToolRegistry: "9bb3bd0fef81380ba577bc1d293919e2171d4fea9fed7899ae823bb8e4a1aad4"
+    _buildRuntime: "57071583e66ab338901f8759fe368d077c7ebb5792ee6749a8a5954a6c5a6dd1",
+    _refreshToolRegistry: "077907f4b4abff6124b36fcb89dedc64e4a39ff834c4430909a34a92304c885c"
   }
 ];
 

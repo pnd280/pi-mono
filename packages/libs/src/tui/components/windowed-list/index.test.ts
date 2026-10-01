@@ -60,6 +60,23 @@ it("handles empty/zero viewports and clamps out-of-range selection without chang
   expect(
     renderWindowedList({ items, selectedIndex: 0, maxRows: 0, width: 30, theme, format }).lines
   ).toEqual([]);
+
+  for (const width of [0, 1, 2]) {
+    const { lines } = renderWindowedList({
+      items,
+      selectedIndex: 0,
+      maxRows: 2,
+      width,
+      theme: { ...theme, selectedText: plain },
+      format
+    });
+    expect(lines).toHaveLength(width ? 2 : 0);
+    expect(
+      lines.every((line) => visibleWidth(line) <= width),
+      `width ${width}`
+    ).toBe(true);
+  }
+
   expect(() =>
     renderWindowedList({
       items,

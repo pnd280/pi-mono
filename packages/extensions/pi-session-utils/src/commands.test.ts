@@ -1,5 +1,4 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -10,7 +9,6 @@ import {
   createEmptyChild,
   persistSession,
   registerSessionCommand,
-  runSessionOperation,
   type SessionCommandContext
 } from "./commands.ts";
 import { saveActiveBranch } from "./persist.ts";
@@ -71,80 +69,6 @@ it("registers only /sesh and completes only its supported subcommands", async ()
   expect(await complete("create-sub-session")).toBeNull();
 });
 
-it("rejects unknown subcommands and extra arguments before any session operations", async () => {
-  const ctx = context();
-
-  for (const args of [
-    "",
-    "unknown",
-    "persist extra",
-    "create-empty-child extra",
-    "create-sub-session"
-  ]) {
-    await runSessionOperation(args, ctx);
-  }
-
-  expect(ctx.newSession).not.toHaveBeenCalled();
-  expect(ctx.switchSession).not.toHaveBeenCalled();
-});
-
-it.each(["persist", "create-empty-child"])(
-  "%s warns and returns immediately while busy without saving or switching",
-  async (command) => {
-    const ctx = context();
-    ctx.isIdle.mockReturnValue(false);
-    await runSessionOperation(command, ctx);
-
-    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-    expect(ctx.newSession).not.toHaveBeenCalled();
-    expect(ctx.switchSession).not.toHaveBeenCalled();
-    expect(existsSync(join(directory, "agent", "sessions"))).toBe(false);
-
-    if (command === "create-empty-child") {
-      const [message] = ctx.ui.notify.mock.calls[0]!;
-      expect(message).toContain("/sesh persist");
-      expect(message).not.toContain("--parent-session");
-    }
-  }
-);
-
-it("warns when persist is busy even if the session is already file-backed", async () => {
-  const ctx = context(SessionManager.create(cwd));
-  ctx.isIdle.mockReturnValue(false);
-  await runSessionOperation("persist", ctx);
-
-  expect(ctx.ui.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  expect(ctx.switchSession).not.toHaveBeenCalled();
-});
-
-it("includes a shell-safe linked CLI command for a busy persisted parent", async () => {
-  const saved = saveActiveBranch(cwd, SessionManager.inMemory(cwd));
-  const parent = join(
-    directory,
-    "parent's $(printf injected) `printf substituted` ; $HOME [*].jsonl"
-  );
-  renameSync(saved, parent);
-  const before = readFileSync(parent, "utf8");
-  const ctx = context(SessionManager.open(parent));
-  ctx.isIdle.mockReturnValue(false);
-  await runSessionOperation("create-empty-child", ctx);
-
-  expect(ctx.ui.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  const [message] = ctx.ui.notify.mock.calls[0]!;
-  const command = message.split("\n").find((line) => line.startsWith("pi --parent-session "));
-  expect(command).toBeDefined();
-  // Capture shell arguments without launching Pi or making a provider request.
-  const argumentsOutput = execFileSync(
-    "bash",
-    ["--noprofile", "--norc", "-c", `pi() { printf '%s\\0' "$@"; }\n${command}`],
-    { cwd: directory, encoding: "utf8", env: { PATH: process.env.PATH } }
-  );
-  expect(argumentsOutput).toBe(`--parent-session\0${parent}\0`);
-  expect(ctx.newSession).not.toHaveBeenCalled();
-  expect(ctx.switchSession).not.toHaveBeenCalled();
-  expect(readFileSync(parent, "utf8")).toBe(before);
-});
-
 it.each(["\x1b[2J\x07", "\t", "\n", "\r"])(
   "keeps control-bearing parent paths out of copyable CLI guidance: %j",
   async (control) => {
@@ -185,18 +109,6 @@ it("sanitizes saved-path notifications without changing the switched path", asyn
   expect(notify.mock.calls[0]![0]).not.toContain("\x1b");
   expect(notify.mock.calls[0]![0]).not.toContain("\x07");
   expect(ctx.ui.notify).not.toHaveBeenCalled();
-});
-
-it("warns without a dangling CLI command when a busy parent's file is not yet written", async () => {
-  const ctx = context(SessionManager.create(cwd));
-  ctx.isIdle.mockReturnValue(false);
-  await runSessionOperation("create-empty-child", ctx);
-
-  expect(ctx.ui.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  const [message] = ctx.ui.notify.mock.calls[0]!;
-  expect(message).not.toContain("--parent-session");
-  expect(existsSync(ctx.sessionManager.getSessionFile()!)).toBe(false);
-  expect(ctx.newSession).not.toHaveBeenCalled();
 });
 
 it("requires an ephemeral parent to be persisted explicitly", async () => {

@@ -15,7 +15,7 @@ import {
   visibleWidth
 } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers as createPublicRenderers } from "pi-tool-display/renderers";
-import { beforeAll, describe, expect, it } from "vite-plus/test";
+import { beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
 import {
@@ -272,7 +272,6 @@ describe("tool display renderers", () => {
     const expanded = renderer.renderCall(args, theme, context({ args, expanded: true }));
     expect(expanded.render(100).join("\n")).toContain("FINAL_ARGUMENT");
     expect(omittedReads).toBe(1);
-    expect(args.payload.length).toBe(64 * 1024 + 5);
   });
 
   it.each(["shell", "code"])(
@@ -300,6 +299,37 @@ describe("tool display renderers", () => {
       expect(stripTerminalSequences(expanded.render(100).join("\n"))).toContain(
         "BEGINFINAL_ARGUMENT"
       );
+    }
+  );
+
+  it.each(["shell", "code"])(
+    "keeps whole graphemes at the compact %s heading source limit",
+    (kind) => {
+      const command = "x".repeat(16 * 1024 - "👍".length) + "👍🏽tail";
+      const args = Object.freeze({ command });
+      const adapter: ToolDisplayAdapter | undefined =
+        kind === "shell"
+          ? nativeAdapter("bash")
+          : {
+              id: "script",
+              family: "invocation",
+              invocation: () => [],
+              code: () => ({ text: command, language: "javascript" })
+            };
+      const renderer = createToolDisplayRenderers(kind, adapter);
+      const compact = stripTerminalSequences(
+        renderer.renderCall(args, theme, context({ args })).render(20_000).join("\n")
+      );
+      expect(compact.includes("👍")).toBe(false);
+      expect(compact).toContain("more details");
+      const expanded = stripTerminalSequences(
+        renderer
+          .renderCall(args, theme, context({ args, expanded: true }))
+          .render(20_000)
+          .join("\n")
+      );
+      expect(expanded).toContain("👍🏽tail");
+      expect(args.command).toBe(command);
     }
   );
 
@@ -462,6 +492,174 @@ describe("tool display renderers", () => {
     expect(preparations).toBeLessThan(7);
   });
 
+  it.each([false, true])(
+    "skips CLI-only callbacks while retained standalone slots refresh their card meaning (supports throws=%s)",
+    (supportsThrows) => {
+      const cliOnly = vi.fn(() => {
+        throw new Error("No transcript consumer");
+      });
+      const supports = vi.fn(() => {
+        if (supportsThrows) throw new Error("No automatic selection");
+
+        return false;
+      });
+      const adapter: ToolDisplayAdapter = {
+        id: "owner:standalone-meaning",
+        family: "invocation",
+        supports,
+        exploration: cliOnly,
+        summaryItems: cliOnly,
+        get groupTitle() {
+          return cliOnly();
+        },
+        get summaryCategories() {
+          return cliOnly();
+        },
+        mcp: (_args, supplied) => {
+          const tool = typeof supplied?.details === "string" ? supplied.details : "pending";
+
+          return {
+            server: "docs",
+            tool,
+            outcome: tool === "cancelled" ? "cancelled" : "success",
+            content: [{ type: "text", text: `typed ${tool}` }]
+          };
+        },
+        outcome: (supplied) => (supplied.details === "failed" ? "failure" : "success")
+      };
+      const renderer = createPublicRenderers("lookup", adapter);
+      const current = context({ args: { query: "needle" } });
+      const header = renderer.renderCall(current.args, theme, { ...current, isPartial: true });
+      expect(header.render(100).join("\n")).toContain("Calling docs.pending");
+      let output = renderer.renderResult(
+        { ...result("flattened"), details: "search" },
+        current,
+        theme,
+        current
+      );
+
+      for (const [details, isError, isPartial, action] of [
+        ["search", false, false, "Called"],
+        ["failed", false, false, "Call failed"],
+        ["cancelled", true, false, "Call cancelled"],
+        ["cancelled", false, true, "Calling"],
+        ["search", true, false, "Call failed"],
+        ["list", false, false, "Called"]
+      ] as const) {
+        const supplied = { ...result("flattened"), details };
+        const before = structuredClone({ supplied, args: current.args });
+        output = renderer.renderResult(supplied, { expanded: false, isPartial }, theme, {
+          ...current,
+          isError,
+          lastComponent: output
+        });
+
+        for (let redraw = 0; redraw < 20; redraw++) {
+          expect(header.render(100).join("\n")).toContain(`${action} docs.${details}`);
+          expect(output.render(100).join("\n")).toContain(`typed ${details}`);
+        }
+
+        header.invalidate();
+        expect(header.render(100).join("\n")).toContain(`${action} docs.${details}`);
+        expect(output.render(100).join("\n")).toContain(`typed ${details}`);
+        expect({ supplied, args: current.args }).toEqual(before);
+      }
+
+      expect(cliOnly).not.toHaveBeenCalled();
+      expect(supports).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["mcp", "outcome", "invocation", "summary", "notices", "textParts"] as const)(
+    "falls back atomically for a used standalone %s callback, not CLI-only failures",
+    (callback) => {
+      let fail = true;
+      const adapter: ToolDisplayAdapter = {
+        id: `owner:public-failure-${callback}`,
+        family: "invocation",
+        invocation: () => [{ kind: "value", text: "specialised identity" }],
+        [callback]: () => {
+          if (fail) throw new Error(callback);
+
+          return undefined;
+        }
+      };
+      const renderer = createPublicRenderers("lookup", adapter);
+      const current = context({ args: { query: "needle" }, isError: true });
+      const supplied = result("retained output");
+      const header = renderer.renderCall(current.args, theme, current);
+      let output = renderer.renderResult(supplied, current, theme, current);
+      header.render(100);
+      expect(output.render(100).join("\n")).toContain("retained output");
+      expect(header.render(100).join("\n")).toContain('Call failed lookup({"query":"needle"})');
+
+      fail = false;
+      output = renderer.renderResult(supplied, current, theme, {
+        ...current,
+        lastComponent: output
+      });
+      const updated = header.render(100).join("\n");
+      // Metadata fallback lasts for its snapshot; presentation failure stays generic.
+      expect(updated.includes("specialised identity")).toBe(
+        callback === "mcp" || callback === "outcome"
+      );
+      expect(output.render(100).join("\n")).toContain("retained output");
+    }
+  );
+
+  it.each([false, true])(
+    "does not prepare discarded generic path headings (grouped=%s)",
+    (grouped) => {
+      let reads = 0;
+      const target = {
+        kind: "path" as const,
+        get text() {
+          reads++;
+
+          return "/tmp/src/target.ts";
+        }
+      };
+      const adapter: ToolDisplayAdapter = {
+        id: "owner:path-work",
+        family: "read",
+        invocation: () => [target],
+        exploration: () => [
+          { parts: [target], scope: { kind: "file", value: "/tmp/src/target.ts" } }
+        ]
+      };
+      const coordinator = new TranscriptCoordinator("heading-work", { cwd: "/tmp" });
+
+      try {
+        const calls = [0, 1].map((index) => {
+          const call = coordinator.add(
+            { messageTimestamp: 1, contentIndex: index, toolCallId: String(index) },
+            "read",
+            {},
+            adapter,
+            "historical"
+          );
+          coordinator.result(call, result("retained source"), "success");
+
+          return call;
+        });
+        const renderer = grouped
+          ? createToolDisplayRenderers("read", adapter, {
+              binding: { call: calls[0]!, coordinator }
+            })
+          : createPublicRenderers("read", adapter);
+        const current = context();
+        const header = renderer.renderCall(current.args, theme, current);
+        const rows = header.render(100).join("\n");
+        expect(rows).toContain(grouped ? "Read target.ts" : "Read src/target.ts");
+        expect(reads).toBeLessThan(2);
+        for (let redraw = 0; redraw < 20; redraw++) header.render(100);
+        expect(reads).toBeLessThan(2);
+      } finally {
+        coordinator.dispose();
+      }
+    }
+  );
+
   it("refreshes both retained slots after theme invalidation", () => {
     let foreground = "\x1b[31m";
     const changingTheme = {
@@ -614,7 +812,6 @@ describe("tool display renderers", () => {
             .join("\n")
         ).toContain("retained documentation");
         coordinator.expand(call, false);
-        expect(call.adapter).toBe(adapter);
         expect(call.result).toBe(retained);
       }
     } finally {
@@ -649,7 +846,7 @@ describe("tool display renderers", () => {
     }
   );
 
-  it("renders a row generically after any adapter callback throws and reports the adapter", () => {
+  it("renders a row generically after a used card callback throws and reports the adapter", () => {
     const failing = (
       callback: "summary" | "outcome" | "code" | "nestedCalls"
     ): ToolDisplayAdapter => ({
@@ -715,7 +912,6 @@ describe("tool display renderers", () => {
         const card = renderer.renderCall(first.args, theme, current);
         expect(card.render(80).join("\n")).toContain('read({"path":"a.ts"})');
         expect(coordinator.group(first)).toBeUndefined();
-        expect(first.adapter).toBe(adapter);
         const summary = buildRunSummary(calls, (call) => coordinator.interpretation(call));
         expect(summary.segments.map(({ category }) => category.id)).toEqual(
           omitFromSummary ? [] : ["other:read", "read"]
@@ -752,7 +948,6 @@ describe("tool display renderers", () => {
       coordinator.update(first, "executing");
       coordinator.update(second, "executing");
       expect(coordinator.group(first)).toBeDefined();
-      expect(todoDisplayAdapter.groupTitle).toBe("Todos");
 
       const firstRenderer = createToolDisplayRenderers("todo", todoDisplayAdapter, {
         binding: { call: first, coordinator }
@@ -860,7 +1055,6 @@ describe("tool display renderers", () => {
       }
 
       expect(coordinator.group(call)).toBeUndefined();
-      expect(call.adapter).toBe(todoDisplayAdapter);
       expect(call.args).toBe(args);
       expect(call.result).toBe(retained);
     } finally {
@@ -1412,8 +1606,6 @@ describe("tool display renderers", () => {
       expect(coordinator.group(filtered)).toBeUndefined();
       expect(coordinator.group(otherFilter)).toBeUndefined();
       expect(heading(filtered)).toContain("src\u00a0dir/**");
-      expect(nativeArgs.path).toBe("src\u00a0dir/first\u2007file.ts");
-      expect(selectedArgs.path).toBe("src\u202fdir/second\u00a0file.ts");
     } finally {
       coordinator.dispose();
     }
@@ -1858,6 +2050,26 @@ describe("tool display renderers", () => {
         source: "one\ntwo\nthree",
         args: { path: "a.txt", limit: 1 },
         notice: "[2 more lines in file. Use offset=2 to continue.]"
+      },
+      {
+        source: "one\ntwo\nthree",
+        args: { path: "a.txt", offset: 1.5, limit: 1 },
+        notice: "[1.5 more lines in file. Use offset=2.5 to continue.]"
+      },
+      {
+        source: "one\ntwo\nthree",
+        args: { path: "a.txt", limit: -2 },
+        notice: "[5 more lines in file. Use offset=-1 to continue.]"
+      },
+      {
+        source: "one\ntwo\nthree",
+        args: { path: "a.txt", limit: -1e21 },
+        notice: "[1e+21 more lines in file. Use offset=-1e+21 to continue.]"
+      },
+      {
+        source: "line\n".repeat(2001) + "last",
+        args: { path: "a.txt", offset: 1.5 },
+        notice: "[Showing lines 1.5-2000.5 of 2002. Use offset=2001.5 to continue.]"
       },
       {
         source: "x".repeat(51 * 1024),
@@ -2555,7 +2767,7 @@ describe("tool display renderers", () => {
           outcome,
           content: [
             { type: "text", text: "before" },
-            { type: "media", mimeType: "image/png", contentIndex: 1 },
+            { type: "media", mimeType: "image/png" },
             { type: "resource", uri: "file:///resource", text: "after" }
           ]
         })

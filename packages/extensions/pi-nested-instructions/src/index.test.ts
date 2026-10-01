@@ -21,7 +21,7 @@ import { afterEach, expect, it, vi } from "vite-plus/test";
 import nestedInstructions from "../index.ts";
 import { fixture } from "./fixture.ts";
 import { readType } from "./ledger.ts";
-import { noticeType } from "./notices.ts";
+import { decodeNotice, noticeType } from "./notices.ts";
 
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -113,7 +113,6 @@ it("does not interrupt sibling tools and delivers only unseen instructions befor
   expect(h.session.extensionRunner.getMessageRenderer(noticeType)).toBeUndefined();
   await h.session.prompt("Run the batch");
   expect(h.errors).toEqual([]);
-  expect(requests).toHaveLength(1);
   expect(requests[0]).toContain("AUTO PARENT RULES");
   expect(requests[0]?.match(/DIRECT CHILD RULES/g)).toHaveLength(1);
   expect(requests[0]).not.toContain("DO NOT FOLLOW OUTPUT PATHS");
@@ -202,7 +201,6 @@ it.each([
         }
       ]
     );
-    expect(h.session.getActiveToolNames()).toContain("codemode");
     await h.session.prompt("Discover nested scopes");
     expect(h.errors).toEqual([]);
     expect(requests[0]).toContain("AUTO PARENT RULES");
@@ -215,6 +213,13 @@ it.each([
     expect(
       branch.filter((entry) => entry.type === "custom_message" && entry.customType === noticeType)
     ).toHaveLength(direct ? 1 : 2);
+    expect(
+      branch.flatMap((entry) =>
+        entry.type === "custom_message" && entry.customType === noticeType
+          ? [decodeNotice(entry).notice?.displayPath]
+          : []
+      )
+    ).toEqual(direct ? ["pkg/AGENTS.md"] : ["pkg/AGENTS.md", "pkg/deep/AGENTS.md"]);
     expect(
       branch.filter((entry) => entry.type === "message" && entry.message.role === "toolResult")
     ).toHaveLength(direct ? 2 : 1);

@@ -1,19 +1,21 @@
 # [@pi-mono/libs](README.md) development
 
+Keep feature records, capacities, diagnostics, session policy, and fixture scenarios in the consuming extensions.
+
 ## Code navigation
 
 [Library contracts](README.md#usage) · [Supported imports](package.json)
 
-For hook teardown, trace [native-tools](src/native-tools/index.ts), [file-mutations](src/file-mutations/index.ts), and the display [installer](../extensions/pi-tool-display/src/host/install.ts).
+| When you…                          | Read                                                                                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Trace hook teardown                | [native-tools](src/native-tools/index.ts), [file-mutations](src/file-mutations/index.ts), and the display [installer](../extensions/pi-tool-display/src/host/install.ts) |
+| Check browser or mounting coverage | [shared TUI validation](src/tui/README.md#validation)                                                                                                                    |
+| Recheck Pi contracts on upgrade    | [compatibility checklist](docs/pi-compatibility.md)                                                                                                                      |
 
 ## Constraints
 
-Preserve remaining consumers' observations and deactivate disposed hook callbacks.
-
-Keep feature records, capacities, diagnostics, session policy, and fixture scenarios in consumers.
+- When one consumer is disposed, keep the remaining consumers' observations and deactivate the disposed consumer's hook callbacks.
 
 ## Validation
 
-Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
-
-Use [package validation](README.md#validation). Browser and mounting coverage lives in [shared TUI](src/tui/README.md#validation); extensions own domain and SDK integration checks.
+Use [package validation](README.md#validation). Extensions own their domain and SDK integration checks.

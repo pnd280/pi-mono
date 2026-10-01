@@ -62,6 +62,7 @@ export function createFixtureStream({
 }: FixtureStreamOptions): AssistantMessageEventStream {
   const events = createAssistantMessageEventStream();
   const message = createFixtureMessage(model);
+  message.stopReason = "pending";
 
   void (async () => {
     try {

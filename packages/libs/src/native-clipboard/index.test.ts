@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { expect, it } from "vite-plus/test";
 
-import { copyNative, nativeHelpers, runHelper } from "./index.ts";
+import { copyNative, NativeClipboardError } from "./index.ts";
 
 const signal = () => new AbortController().signal;
 
@@ -34,15 +34,22 @@ it("writes complete Unicode/control/large payloads through stdin without shell i
 
 it("handles spawn, stdin and nonzero exit failures, with native-only fallbacks", async () => {
   await expect(
-    runHelper({ command: "/missing/pi-prompt-native-helper", args: [] }, "text", signal())
-  ).rejects.toThrow("start");
+    copyNative("text", signal(), {
+      helpers: [{ command: "/missing/pi-prompt-native-helper", args: [] }]
+    })
+  ).rejects.toBeInstanceOf(NativeClipboardError);
   await expect(
-    runHelper(
-      { command: process.execPath, args: ["-e", "process.exit(4)"] },
-      "x".repeat(8 * 1024 * 1024),
-      signal()
-    )
-  ).rejects.toThrow();
+    copyNative("x".repeat(8 * 1024 * 1024), signal(), {
+      helpers: [{ command: process.execPath, args: ["-e", "process.exit(4)"] }]
+    })
+  ).rejects.toBeInstanceOf(NativeClipboardError);
+  await expect(
+    copyNative("text", signal(), {
+      helpers: [
+        { command: process.execPath, args: ["-e", "process.stdin.resume();process.exitCode=4"] }
+      ]
+    })
+  ).rejects.toBeInstanceOf(NativeClipboardError);
   await copyNative("text", signal(), {
     helpers: [
       { command: "/missing/helper", args: [] },
@@ -81,17 +88,4 @@ it("rejects timer durations that Node would silently clamp", async () => {
   await expect(
     copyNative("text", signal(), { helpers: [], timeout: 2_147_483_648 })
   ).rejects.toThrow(RangeError);
-});
-
-it("selects platform-native helpers and refuses remote/no-display/native Windows environments", () => {
-  expect(nativeHelpers("darwin", {}, "")[0]?.command).toBe("pbcopy");
-  expect(
-    nativeHelpers("linux", { WAYLAND_DISPLAY: "wayland-0", DISPLAY: ":1" }, "").map(
-      (helper) => helper.command
-    )
-  ).toEqual(["wl-copy", "xclip", "xsel"]);
-  expect(nativeHelpers("linux", {}, "microsoft-standard-WSL2")[0]?.command).toBe("powershell.exe");
-  expect(() => nativeHelpers("linux", {}, "")).toThrow("No local");
-  expect(() => nativeHelpers("win32", {}, "")).toThrow("only");
-  expect(() => nativeHelpers("darwin", { SSH_TTY: "/dev/pts/1" }, "")).toThrow("Remote");
 });

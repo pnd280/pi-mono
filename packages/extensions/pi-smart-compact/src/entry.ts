@@ -17,10 +17,6 @@ const summaryModelSchema = z.object({
 /** Session entry excluded from model context; records who generated a default summary. */
 export type SummaryModelEntry = z.output<typeof summaryModelSchema>;
 
-function describeSummaryModel(entry: SummaryModelEntry): string {
-  return `Compacted with ${compactDisplayText(entry.model)}:${entry.thinkingLevel} (${entry.trigger})`;
-}
-
 export function renderSummaryModel(
   entry: CustomEntry,
   _options: EntryRenderOptions,
@@ -29,5 +25,12 @@ export function renderSummaryModel(
   const parsed = summaryModelSchema.safeParse(entry.data);
   if (!parsed.success) return;
 
-  return new Text(theme.fg("dim", describeSummaryModel(parsed.data)), 1, 0);
+  return new Text(
+    theme.fg(
+      "dim",
+      `Compacted with ${compactDisplayText(parsed.data.model)}:${parsed.data.thinkingLevel} (${parsed.data.trigger})`
+    ),
+    1,
+    0
+  );
 }

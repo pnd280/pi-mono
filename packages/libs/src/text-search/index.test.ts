@@ -1,23 +1,22 @@
 import { setImmediate } from "node:timers/promises";
 
-import { normalizeSearch } from "@pi-mono/utils/text-search";
 import { expect, it } from "vite-plus/test";
 
 import { normalizeSearchAsync, searchText } from "./index.ts";
 
 it("keeps caller objects, stable ranking and the original array for an empty query", async () => {
-  const items = ["f_o_o b_a_r", "bar foo", "foo bar one", "foo bar two", "miss"].map(
+  const items = ["f_o_o b_a_r", "f_o_o b_a_r", "bar foo", "foo bar one", "foo bar two", "miss"].map(
     (normalized, id) => ({ normalized, id })
   );
   const result = await searchText(items, "FOO  bar");
-  expect(result.map((item) => item.id)).toEqual([2, 3, 1, 0]);
-  expect(result[0]).toBe(items[2]);
+  expect(result.map((item) => item.id)).toEqual([3, 4, 2, 0, 1]);
+  expect(result[0]).toBe(items[3]);
   expect(await searchText(items, "\t")).toBe(items);
 });
 
 it("normalizes complete Unicode strings across whitespace and case-context chunk boundaries", async () => {
   const text = "A".repeat(65534) + "ΟΣΑ" + " ".repeat(3 * 65536) + "\u202fEND ";
-  expect(await normalizeSearchAsync(text)).toBe(normalizeSearch(text));
+  expect(await normalizeSearchAsync(text)).toBe("a".repeat(65534) + "οσα end");
 });
 
 it("stops whitespace normalization when its activation expires", async () => {
@@ -40,7 +39,27 @@ it("can cancel while ranking one large record", async () => {
     () => ++checkpoints < 3
   );
   expect(result.map((item) => item.id)).toEqual([]);
-  expect(checkpoints).toBe(3);
+});
+
+it("can cancel between repeated literal or fuzzy term scans within one short record", async () => {
+  for (const [normalized, query] of [
+    ["a".repeat(40000) + "z", "z z"],
+    ["a" + "_".repeat(40000) + "z", "az az"]
+  ] as const) {
+    let checkpoints = 0;
+    expect(await searchText([{ normalized }], query, () => ++checkpoints < 3)).toEqual([]);
+  }
+});
+
+it("can cancel while preparing a literal scan for a query larger than a chunk", async () => {
+  let checkpoints = 0;
+  expect(
+    await searchText(
+      [{ normalized: "ab".repeat(60000) + "c" }],
+      "ab".repeat(40000) + "c",
+      () => ++checkpoints < 3
+    )
+  ).toEqual([]);
 });
 
 it("abandons stale work both before starting and at cooperative checkpoints", async () => {

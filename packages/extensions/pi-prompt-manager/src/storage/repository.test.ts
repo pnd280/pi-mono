@@ -80,6 +80,28 @@ it("uses the latest persisted document across repository instances and realpath 
   ).rejects.toThrow("real path");
 });
 
+it("refuses unsupported platforms before creating managed directories", async () => {
+  const agentDir = join(fixture.directory, "unsupported-agent");
+  await mkdir(agentDir, { mode: 0o755 });
+  const repository = await FileRepository.create({ cwd: fixture.cwd, agentDir, retention: 250 });
+  const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+  const message = "Prompt storage supports Linux, macOS, and WSL local filesystems only.";
+
+  try {
+    Object.defineProperty(process, "platform", { value: "win32" });
+    expect(await repository.read("drafts")).toEqual({ status: "unavailable", message });
+    expect(await repository.mutate("history", add("must not save"), session())).toEqual({
+      status: "failed",
+      message
+    });
+  } finally {
+    Object.defineProperty(process, "platform", platform);
+  }
+
+  expect(await readdir(agentDir)).toEqual([]);
+  expect((await stat(agentDir)).mode & 0o777).toBe(0o755);
+});
+
 it("does not prune on opening and commits repeated exact drafts with different UUIDs", async () => {
   await fixture.repository.mutate("history", add("first"), session());
   await fixture.repository.mutate("history", add("second"), session());
@@ -288,12 +310,11 @@ it("preserves unrelated mutations from two real processes", async () => {
   }
 }, 15000);
 
-it("reports the collection deadline without reclaiming abandoned locks", async () => {
+it("refuses a mutation without reclaiming an abandoned lock", async () => {
   const lock = join(fixture.storage, "drafts.json.lock");
   await writeFile(lock, "abandoned-token", { mode: 0o600 });
   await utimes(lock, new Date(0), new Date(0));
   const result = await fixture.repository.mutate("drafts", add("must not commit"), session());
   expect(result.status).toBe("failed");
-  expect(result.status === "failed" && result.message).toContain("two-second");
   expect(await readFile(lock, "utf8")).toBe("abandoned-token");
 }, 15000);

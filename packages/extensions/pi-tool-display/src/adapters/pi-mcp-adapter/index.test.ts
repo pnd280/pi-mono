@@ -213,9 +213,14 @@ it("retains ordered published media without copying bytes or inferring flattened
     outcome: "success",
     content: [
       { type: "text", text: "before" },
-      { type: "media", mimeType: "image/png", contentIndex: 1 },
+      { type: "media", mimeType: "image/png" },
       { type: "text", text: "[Resource: file:///example]\nafter" }
     ]
+  });
+  expect(supplied.content[1]).toEqual({
+    type: "image",
+    mimeType: "image/png",
+    data: "PRIVATE_IMAGE_BYTES"
   });
 });
 
@@ -284,7 +289,7 @@ it("falls back for missing or malformed retained contracts without adding observ
   expect(adapter.supports?.({ tool: 5 }, result({ mode: "call" }))).toBe(false);
   expect(adapter.savedOutput).toBeUndefined();
   expect(adapter.patch).toBeUndefined();
-  expect("exploration" in adapter).toBe(false);
+  expect(adapter.exploration?.({ tool: "search" })).toBeUndefined();
 });
 
 it("summarizes only validated script operations and preserves output without successful operations", () => {
@@ -362,6 +367,24 @@ it("exposes bounded-output references and script failures without dumping detail
     value: "/tmp/result.json"
   });
   expect(JSON.stringify(adapter.notices?.(supplied, true))).not.toContain("PRIVATE_METADATA");
+
+  // The output guard retains its warning and saved path in published text.
+  const truncated = {
+    ...supplied,
+    content: [
+      {
+        type: "text" as const,
+        text: "preview\n\n[MCP text output truncated: original 3,000 lines / 60KB. Truncated: showing 1,998 of 3000 lines (2000 line limit). Full text saved to: /tmp/output.txt \u2014 use read with offset/limit or grep to inspect.]"
+      }
+    ]
+  };
+  const renderer = createToolDisplayRenderers("mcpScript", adapter);
+  const current = { ...context(), args: { code: 'emit("preview")' }, expanded: true };
+  const expanded = renderer.renderResult(truncated, current, theme, current).render(240).join("\n");
+  expect(expanded).toContain("MCP text output truncated");
+  expect(expanded.split("/tmp/output.txt")).toHaveLength(2);
+  expect(expanded).toContain("1 MCP script operation failed.");
+  expect(expanded).toContain("Saved MCP result: /tmp/result.json");
 });
 
 it("counts every MCP call once in the MCP summary category", () => {

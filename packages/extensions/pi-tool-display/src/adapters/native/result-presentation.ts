@@ -49,6 +49,12 @@ function nativeImageWarnings(text: string, hasImages: boolean): string[] {
   return notes.filter((note) => note === nonVisionImageNote || imageOmissionNotes.has(note));
 }
 
+// Native read accepts number-valued windows and prints their arithmetic without rounding.
+const readNumber = String.raw`-?\d+(?:\.\d+)?(?:e[+-]?\d+)?`;
+const readTrailer = new RegExp(
+  String.raw`(?:^|\n\n)(\[(?:Showing lines ${readNumber}-${readNumber} of \d+(?: \([\d.]+[KMG]?B limit\))?\. Use offset=${readNumber} to continue\.|${readNumber} more lines in file\. Use offset=${readNumber} to continue\.|Line \d+ is [\d.]+[KMG]?B, exceeds [\d.]+[KMG]?B limit\. Use bash: [^\n]+)\])$`
+);
+
 /** Compact reads retain diagnostics from the same native envelopes as expanded text. */
 export function nativeReadNotices(result: BorrowedToolResult): DisplayNotice[] {
   const hasImages = result.content.some((block) => block.type === "image");
@@ -122,9 +128,7 @@ export function nativeResultParts(
   if (shell)
     trailerPattern =
       /(?:^|\n\n)(\[Showing (?:lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?|last [\d.]+[KMG]?B of line \d+ \(line is [\d.]+[KMG]?B\))\. Full output: [^\n]+\])$/;
-  else if (name === "read")
-    trailerPattern =
-      /(?:^|\n\n)(\[(?:Showing lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?\. Use offset=\d+ to continue\.|\d+ more lines in file\. Use offset=\d+ to continue\.|Line \d+ is [\d.]+[KMG]?B, exceeds [\d.]+[KMG]?B limit\. Use bash: [^\n]+)\])$/;
+  else if (name === "read") trailerPattern = readTrailer;
   else if (["grep", "find", "ls"].includes(name))
     trailerPattern =
       /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/;

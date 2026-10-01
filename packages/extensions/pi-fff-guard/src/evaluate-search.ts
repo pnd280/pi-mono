@@ -1,11 +1,9 @@
 import { inspectGitIgnore, type GitIgnoreResult } from "@pi-mono/libs/git-ignore";
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 
-import { extractScope, searchInputSchema } from "./targets.ts";
+import { extractScope } from "./targets.ts";
 
-export type SearchDecision =
-  | { kind: "block"; reason: string }
-  | { kind: "allow"; diagnostic?: string };
+type SearchDecision = { kind: "block"; reason: string } | { kind: "allow"; diagnostic?: string };
 
 type SearchRequest = {
   kind: FffToolKind;
@@ -14,15 +12,6 @@ type SearchRequest = {
   cwd: string;
   signal?: AbortSignal | undefined;
 };
-
-function parseSearchInput(input: unknown) {
-  const parsed = searchInputSchema.safeParse(input);
-  if (parsed.success) return parsed.data;
-  const key = parsed.error.issues[0]?.path[0];
-  if (key === "exclude") throw new Error("Invalid FFF exclude: expected a string or string array");
-
-  throw new Error(`Invalid FFF ${String(key ?? "input")}: expected a string`);
-}
 
 function settleOnAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) return Promise.reject(signal.reason);
@@ -89,22 +78,18 @@ export async function evaluateSearch({
     : controller.signal;
 
   try {
-    const scopeInput = parseSearchInput(input);
     const scope = await settleOnAbort(
-      extractScope(kind, scopeInput, cwd, inspectionSignal),
+      extractScope(kind, input, cwd, inspectionSignal),
       inspectionSignal
     );
     inspectionSignal.throwIfAborted();
-    if (scope.missingPath) return { kind: "block" as const, reason: "No such file or directory" };
-    const inspected = new Set<string>();
+    if (scope.missing) return { kind: "block" as const, reason: "No such file or directory" };
 
-    for (const target of scope.targets) {
+    for (const targetPath of scope.paths) {
       inspectionSignal.throwIfAborted();
-      if (inspected.has(target.absolute)) continue;
-      inspected.add(target.absolute);
       const result = await settleOnAbort(
         inspectGitIgnore({
-          path: target.absolute,
+          path: targetPath,
           cwd,
           signal: inspectionSignal,
           timeoutMs: 2000

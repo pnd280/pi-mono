@@ -7,7 +7,7 @@ import { selectAdapter } from "../../../host/selection.ts";
 import { loadDisplaySettings } from "../../../settings.ts";
 import { builtinMcpAdapter, mcpToolDisplayAdapter as adapter } from "./index.ts";
 
-// Mirrors Pi 0.99.2 `createMcpToolDefinition` for a server that omits `properties`.
+// Mirrors Pi 1.0.0 `createMcpToolDefinition` for a server that omits `properties`.
 const info: ToolInfo = {
   name: "mcp__exa__web_search_exa",
   exposure: "direct",
@@ -59,7 +59,7 @@ function renderContext(args: unknown, overrides: { isPartial?: boolean; isError?
 beforeAll(() => initTheme("dark", false));
 
 it("selects built-in MCP server tools before Pi's renderers and respects overrides", () => {
-  expect(builtinMcpAdapter(info)).toBe(adapter);
+  expect(builtinMcpAdapter(info)?.id).toBe("builtin:mcp");
   const renderers = { renderCall: () => ({ render: () => [], invalidate() {} }) };
   const settings = (mode?: string) =>
     loadDisplaySettings([
@@ -147,6 +147,24 @@ it("keeps Pi's error flag and plain previews for calls without details", () => {
   expect(plain(body.render(180))).toContain("MCP error: closed");
 });
 
+it("projects ordered media labels while leaving image bytes in Pi's result", () => {
+  const supplied: AgentToolResult<unknown> = {
+    content: [
+      { type: "text", text: "before" },
+      { type: "image", mimeType: "image/png", data: "PRIVATE_IMAGE_BYTES" },
+      { type: "text", text: "after" }
+    ],
+    details: { server: "docs", tool: "search" }
+  };
+  const before = structuredClone(supplied);
+  expect(adapter.mcp?.({}, supplied)?.content).toEqual([
+    { type: "text", text: "before" },
+    { type: "media", mimeType: "image/png" },
+    { type: "text", text: "after" }
+  ]);
+  expect(supplied).toEqual(before);
+});
+
 it("reports truncation only from a saved-output path and counts calls as MCP", () => {
   const identity = { server: "exa", tool: "web_search_exa" };
   expect(adapter.notices?.(result(identity), false)).toEqual([]);
@@ -157,12 +175,20 @@ it("reports truncation only from a saved-output path and counts calls as MCP", (
       false
     )
   ).toEqual([]);
-  expect(
-    adapter.notices?.(result({ ...identity, fullOutputPath: "/tmp/pi-mcp-1.txt" }), false)
-  ).toEqual([
+  // Pi's limitMcpContent includes the saved path in its retained text envelope.
+  const truncated = result(
+    { ...identity, fullOutputPath: "/tmp/pi-mcp-1.txt" },
+    "Warning: truncated output (original token count: 9000)\nTotal output lines: 3\n\nhead…100 chars truncated…tail\n\n[Full output: /tmp/pi-mcp-1.txt (read it with offset/limit)]"
+  );
+  expect(adapter.notices?.(truncated, false)).toEqual([
     { kind: "warning", text: "MCP output truncated." },
     { kind: "reference", label: "Saved output", value: "/tmp/pi-mcp-1.txt" }
   ]);
+  const renderers = createToolDisplayRenderers(info.name, adapter);
+  const context = { ...renderContext({}), expanded: true };
+  const expanded = plain(renderers.renderResult(truncated, context, theme, context).render(180));
+  expect(expanded).toContain("Warning: truncated output");
+  expect(expanded.split("/tmp/pi-mcp-1.txt")).toHaveLength(2);
   expect(
     adapter.summaryItems?.({}, { result: undefined, change: undefined, cwd: "/project" })
   ).toEqual([{ category: "mcp" }]);

@@ -4,17 +4,17 @@
 
 ## Compatibility and selection
 
-Matches Pi's built-in `codemode` only: tool name `codemode`, `builtin` source with path `builtin:codemode`, and parameters with a required string `code`. Pi's own `isCodemodeTool` schema-identity check is not public, so provenance relies on the synthetic built-in source path.
+The adapter matches Pi's built-in `codemode` only: tool name `codemode`, `builtin` source with path `builtin:codemode`, and parameters with a required string `code`. Pi's own `isCodemodeTool` schema-identity check is not public, so provenance relies on the synthetic built-in source path.
 
-SDK registrations through `createCodemodeExtension()` get an unverifiable `<inline:…>` source and keep Pi's own renderer. Replacement extensions that register their own `codemode` are not specialized either. Renderer overrides still apply.
+SDK registrations through `createCodemodeExtension()` get an unverifiable `<inline:…>` source and keep Pi's own renderer. Replacement extensions that register their own `codemode` are not specialised either. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 
 ## Cards
 
-Headings read **Running script**, **Ran script**, or **Script failed**. The script follows as JavaScript-highlighted code; compact cards show up to 10 rows within the [heading formatting limit](../../../../docs/presentation.md#resource-limits), with an expansion hint for omitted source.
+Headings read "Running script", "Ran script", or "Script failed". The script follows as JavaScript-highlighted code; compact cards show up to 10 rows within the [heading formatting limit](../../../../docs/presentation.md#resource-limits), with an expansion hint for omitted source.
 
-The result lists the script's nested calls from `details.calls`, including partial results while the script runs. Each row shows a status icon (`…` running, `✓` success, `✗` failure, `⊘` cancelled), the tool name, Pi's argument preview, and any reported duration or model-call cost. Compact cards show the latest 8 calls, one row each; expansion shows every call with wrapped arguments and error previews. Multiple calls with positive costs add a **Model calls** total.
+The result lists the script's nested calls from `details.calls`, including partial results while the script runs. Each row shows a status icon (`…` running, `✓` success, `✗` failure, `⊘` cancelled), the tool name, Pi's argument preview, and any reported duration or model-call cost. Compact cards show the latest 8 calls, one row each; expansion shows every call with wrapped arguments and error previews. Multiple calls with positive costs add a "Model calls" total.
 
-The output follows without Pi's `Script completed`/`Script failed` header, which is hidden only as the first text block. Output from separate `text()` calls shares one compact preview. Failed scripts keep Pi's error output. Compact cards name `details.fullOutputPath` as **Full output**; expanded output already ends with Pi's reference.
+The output follows without Pi's `Script completed`/`Script failed` header, which is hidden only as the first text block. Output from separate `text()` calls shares one compact preview. Failed scripts keep Pi's error output. Compact cards name `details.fullOutputPath` as "Full output"; expanded output already ends with Pi's reference.
 
 ## Summary mode
 

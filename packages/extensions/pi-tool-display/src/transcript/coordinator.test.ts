@@ -173,7 +173,6 @@ it("repartitions changed streamed scopes without duplicating members or expandin
     const last = add("read", "b/last.ts");
     const stable = add("read", "c/stable.ts");
     const stableSibling = add("read", "c/sibling.ts");
-    const stableGroup = c.group(stable);
     const row = rowHandle();
     c.attach(stable, row);
     c.expand(last, true);
@@ -185,7 +184,6 @@ it("repartitions changed streamed scopes without duplicating members or expandin
     expect(c.group(last)).toBeUndefined();
     c.add(last.reference, "read", { path: "b/last.ts" }, last.adapter, "live");
     expect(c.group(last)?.members).toEqual([middle, last]);
-    expect(c.group(stable)).toBe(stableGroup);
     expect(c.group(stable)?.members).toEqual([stable, stableSibling]);
     expect(row.invalidate).not.toHaveBeenCalled();
   } finally {
@@ -535,7 +533,7 @@ it("retains every ordered call and failure while expanding the group together", 
   expect(group.members).toEqual([first, second, third]);
   c.boundary();
   const next = add("read", "c.ts");
-  expect(c.group(next)).not.toBe(group);
+  expect(c.group(next)).toBeUndefined();
   add("custom.read", "unknown");
   const afterCustom = add("read", "d.ts");
   expect(c.group(afterCustom)).toBeUndefined();
@@ -601,7 +599,8 @@ it("applies global expansion once per group while keeping independent groups syn
       }
 
       expect(calls.every((call) => call.expanded === expanded)).toBe(true);
-      expect(onExpansion.mock.calls.map(([call]) => call)).toEqual(calls);
+      expect(onExpansion).toHaveBeenCalledTimes(calls.length);
+      for (const call of calls) expect(onExpansion).toHaveBeenCalledWith(call);
       onExpansion.mockClear();
     }
   } finally {

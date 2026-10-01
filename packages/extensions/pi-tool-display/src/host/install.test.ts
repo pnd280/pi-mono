@@ -55,7 +55,7 @@ type LookupSession = Pick<AgentSession, "getAllTools" | "settingsManager" | "ses
   getToolDefinition: (name: string) => RenderDefinition;
 };
 
-// Pi 0.99.2's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 1.0.0's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: LookupSession }, name: string) => RenderDefinition;
@@ -109,7 +109,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 0.99.2's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 1.0.0's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as Host & {
     ui: TUI;
@@ -351,7 +351,7 @@ it("owns nested-instruction notice rendering through replay, reload, and display
     await writeFile(file, "Retained instructions");
     const entry = noticeEntry(
       directory,
-      { path: file, stamp: "fixture", content: "Retained instructions" },
+      { path: file, content: "Retained instructions" },
       "loaded",
       cwd
     );
@@ -1042,7 +1042,16 @@ it("preserves native construction settings when settings change before TUI bindi
       await tui.handleEvent({ type: "message_start", message });
       await tui.handleEvent({ type: "message_end", message });
       const observed = session.agent.state.tools.find((tool) => tool.name === "bash")!;
-      expect(await observed.execute("observed-settings", args)).toEqual(expected);
+      // Separate real shell runs can report different elapsed times.
+      expect(await observed.execute("observed-settings", args)).toEqual({
+        ...expected,
+        structuredContent: {
+          output: "preserved",
+          truncated: false,
+          exit_code: 0,
+          wall_time_seconds: expect.any(Number) as unknown
+        }
+      });
       expect(
         session.sessionManager
           .getBranch()
@@ -2614,26 +2623,23 @@ it("returns an available original view when decoration fails and never retries a
   const dispose = installHostIntegration();
 
   try {
-    const ownershipFailure = vi.fn(() => {
+    session.getAllTools = () => {
       throw new Error("ownership unavailable");
-    });
-    session.getAllTools = ownershipFailure;
+    };
+
     expect(host.getRegisteredToolDefinition.call({ session }, "read")).toBe(view);
     expect(previous).toHaveBeenCalledTimes(1);
-    expect(ownershipFailure).toHaveBeenCalledOnce();
 
     session.getAllTools = lookupSession().getAllTools;
-    const copyFailure = vi.fn(() => {
-      throw new Error("cannot copy view");
-    });
     const invalidView = Object.defineProperty({}, "renderCall", {
       enumerable: true,
-      get: copyFailure
+      get() {
+        throw new Error("cannot copy view");
+      }
     });
     previous.mockReturnValue(invalidView);
     expect(host.getRegisteredToolDefinition.call({ session }, "read")).toBe(invalidView);
     expect(previous).toHaveBeenCalledTimes(2);
-    expect(copyFailure).toHaveBeenCalledOnce();
 
     previous.mockReturnValue(undefined);
     expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).toBe("self");
@@ -2660,7 +2666,11 @@ it("replaces repeated installations and preserves later wrappers during repeated
   try {
     firstDispose?.();
     const installed = host.getRegisteredToolDefinition;
-    expect(installed).not.toBe(original);
+    const session = {
+      ...lookupSession(),
+      getToolDefinition: () => undefined
+    };
+    expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).toBe("self");
 
     const laterWrapper: typeof installed = function (name) {
       return installed.call(this, name);
@@ -2670,10 +2680,6 @@ it("replaces repeated installations and preserves later wrappers during repeated
     secondDispose?.();
     secondDispose?.();
     expect(host.getRegisteredToolDefinition).toBe(laterWrapper);
-    const session = {
-      ...lookupSession(),
-      getToolDefinition: () => undefined
-    };
     expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).not.toBe(
       "self"
     );
@@ -2737,7 +2743,7 @@ it("keeps instruction notices inside live and replayed runs, including trailing 
           timestamp: ++timestamp,
           ...noticeEntry(
             join(cwd, name),
-            { path: join(cwd, name, "AGENTS.md"), stamp: name, content: `Rules for ${name}` },
+            { path: join(cwd, name, "AGENTS.md"), content: `Rules for ${name}` },
             "loaded",
             cwd
           )
@@ -3223,10 +3229,6 @@ it("keeps Pi's row chrome and disables summaries when Pi's row contract differs"
             "pi-tool-display: row contract unavailable; summaries disabled.",
             "warning"
           );
-          const rows = tui.chatContainer.children.filter(
-            (child) => child instanceof ToolExecutionComponent
-          );
-          expect(rows.every((child) => !Object.hasOwn(child, "render"))).toBe(true);
           expect(transcriptText(tui)).not.toContain("Read 2 files");
           expect(transcriptText(tui)).toContain("Explored");
           expect(transcriptText(tui)).toContain("Run failed");

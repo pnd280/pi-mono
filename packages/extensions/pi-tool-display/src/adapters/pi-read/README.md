@@ -1,10 +1,10 @@
 # pi-read integration
 
-[Tool coverage](../../../README.md#tool-coverage) · [Adapter development](../../../docs/adapters.md)
+[Supported tools](../../../README.md#supported-tools) · [Adapter development](../../../docs/adapters.md)
 
 ## Compatibility and selection
 
-`piSelectiveReadAdapter(toolInfo)` recognizes the workspace [`pi-read`](../../../../pi-read/README.md) extension's `read` tool by package provenance and its parameter schema. For [standalone integration](../../../docs/renderers.md#explicit-contracts), pass `selectiveReadDisplayAdapter` from `pi-tool-display/adapters`.
+`piSelectiveReadAdapter(toolInfo)` recognises the workspace [`pi-read`](../../../../pi-read/README.md) extension's `read` tool by package provenance and its parameter schema. For [standalone integration](../../../docs/renderers.md#explicit-contracts), pass `selectiveReadDisplayAdapter` from `pi-tool-display/adapters`.
 
 Schema recognition checks integer coordinate types, required fields, and selection strictness in the [projected tool schema](../../../../../libs/src/tool-schema/README.md). It does not require provider-unsupported numeric bounds; argument validation still enforces positive safe integers and ordered ranges.
 
@@ -14,7 +14,7 @@ Schema recognition checks integer coordinate types, required fields, and selecti
 
 Use [read arguments](../../../../pi-read/README.md#usage); optional `null` values, including selection coordinates, count as omitted to match Pi normalization. Unknown top-level fields are ignored for display, matching read execution, without changing retained arguments. Known fields and nested `selection` remain validated; unknown selection fields are rejected.
 
-`details.selectiveRead.sourceBlocks` counts source blocks and requires `selection` plus exactly one following text preview. Only that recorded preview is hidden, never similar-looking source.
+Result provenance and native source windows use the producer-owned [`pi-read/result` contract](../../../../pi-read/docs/result.md). Display requires a selection when a validated preview is present, rejects invalid contracts rather than recovering them, and hides only the recorded preview.
 
 In automatic mode, incompatible arguments or results use the shared [invalid-input fallback](../../../docs/conventions.md#invalid-input-fallback).
 
@@ -24,7 +24,7 @@ Headings separate read windows and selection ranges. Compatible reads [group](..
 
 Targets share [native path normalization](../native/README.md#arguments-and-results) for headings, grouping, and summary deduplication without rewriting retained arguments.
 
-Selection coordinates refer to retained source before terminal sanitization and tab expansion. Notices remain visible but outside selections. Trailer recognition has the native [text-envelope provenance limits](../native/README.md#text-envelope-provenance).
+The shared interpretation supplies per-block highlights from the raw source part after native diagnostics are separated. Terminal sanitization and tab expansion remain display policy. Notices remain visible but outside selections. Trailer recognition has the native [text-envelope provenance limits](../native/README.md#text-envelope-provenance).
 
 Other result presentation follows the [native adapter](../native/README.md#display). Images, errors, cancellations, and partial results do not receive selection highlighting.
 
@@ -32,8 +32,9 @@ Other result presentation follows the [native adapter](../native/README.md#displ
 
 Use [package validation](../../../README.md#validation), including the [installed-CLI compatibility check](../../host/install-cli.test.ts).
 
-For visual checks:
+For visual checks, load both extensions. Include repeated reads, tabs, wide characters, multiline selections, selections outside the read window, images, and failed reads.
 
-1. Load both extensions. Include repeated reads, tabs, wide characters, multiline selections, selections outside the read window, images, and failed reads.
-2. Expand and collapse groups at narrow and wide terminal sizes in light and dark themes. Check that expanded reads show source once, without the appended preview.
-3. Replay the session. Check that expanded reads still highlight selections without repeating previews.
+| Do                                                                                     | Expect                                                           |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Expand and collapse groups at narrow and wide terminal sizes in light and dark themes. | Expanded reads show source once, without the appended preview.   |
+| Replay the session and expand a read.                                                  | The selection remains highlighted without repeating the preview. |

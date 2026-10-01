@@ -49,10 +49,3 @@ export type BrowserOptions<Item> = {
   /** Caller-owned diagnostic when no usable cancel binding exists. */
   cancelError?: Error;
 };
-
-export type BrowserPorts = {
-  changed(this: void): void;
-  close(this: void): void;
-  now(this: void): number;
-  onError(this: void, error: unknown): void;
-};

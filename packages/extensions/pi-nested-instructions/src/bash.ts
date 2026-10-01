@@ -2,12 +2,21 @@ import path from "node:path";
 
 import { expandHomePath } from "@pi-mono/utils/paths";
 import { hasGlob } from "@pi-mono/utils/search-scopes";
-import { parse, type Command, type Node, type Word, type WordPart } from "unbash";
+import {
+  parse,
+  type AndOr,
+  type Command,
+  type PipelineNode,
+  type Redirection,
+  type Statement,
+  type Word,
+  type WordPart
+} from "unbash";
 
 export interface PathHint {
   value: string;
   cwd: string;
-  kind: "file" | "directory" | "auto";
+  kind: "directory" | "auto";
   read: boolean;
   pattern: boolean;
   expandHome?: boolean;
@@ -131,33 +140,51 @@ function supportedPart(part: WordPart): boolean {
   }
 }
 
+function commandWords(command: Command): Word[] {
+  return command.args.filter((arg) => arg.type === "Word");
+}
+
+function redirectTarget(redirect: Redirection): Word | undefined {
+  return redirect.type === "HereDoc" ? undefined : redirect.target;
+}
+
 function supportedCommand(command: Command): boolean {
+  // Assignment arguments, such as `export a=b`, are validated through their values.
+  const assigned = command.args.flatMap((arg) =>
+    arg.type === "Word"
+      ? []
+      : [arg.index, ...(arg.value.type === "Word" ? [arg.value] : arg.value.elements)]
+  );
+
   // Word parts are lazy. Inspect them even in ignored arguments and redirect destinations.
   return (
-    command.prefix.length === 0 &&
-    [command.name, ...command.suffix, ...command.redirects.map(({ target }) => target)].every(
-      (word) => {
-        if (!word) return true;
-        if (!(word.parts?.every(supportedPart) ?? true)) return false;
-        if (!wordPattern(word)) return true;
+    command.prefix.every(({ type }) => type !== "Assignment") &&
+    [
+      command.name,
+      ...commandWords(command),
+      ...assigned,
+      ...command.redirects.map(redirectTarget)
+    ].every((word) => {
+      if (!word) return true;
+      if (!(word.parts?.every(supportedPart) ?? true)) return false;
+      if (!wordPattern(word)) return true;
 
-        // A dequoted scope pattern cannot distinguish literal and active metacharacters.
-        return (
-          !word.text.match(/\\[\s\S]/g)?.some(hasGlob) &&
-          !word.parts?.some(
-            (part) =>
-              (part.type === "SingleQuoted" && hasGlob(part.value)) ||
-              (part.type === "DoubleQuoted" &&
-                part.parts.some((child) => child.type === "Literal" && hasGlob(child.value)))
-          )
-        );
-      }
-    ) &&
+      // A dequoted scope pattern cannot distinguish literal and active metacharacters.
+      return (
+        !word.text.match(/\\[\s\S]/g)?.some(hasGlob) &&
+        !word.parts?.some(
+          (part) =>
+            (part.type === "SingleQuoted" && hasGlob(part.value)) ||
+            (part.type === "DoubleQuoted" &&
+              part.parts.some((child) => child.type === "Literal" && hasGlob(child.value)))
+        )
+      );
+    }) &&
     command.redirects.every(
       (redirect) =>
-        redirect.variableName === undefined &&
+        redirect.descriptor?.type !== "FileDescriptorVariable" &&
         ["<", ">", ">>", "<&", ">&"].includes(redirect.operator) &&
-        redirect.target !== undefined
+        redirectTarget(redirect) !== undefined
     )
   );
 }
@@ -200,20 +227,9 @@ function optionKind(
 
 interface Operands {
   paths: PathHint[];
-  globs: PathHint[];
   reads: boolean;
   expression: boolean;
   filesOnly: boolean;
-}
-
-function applyOption(spec: CommandSpec, key: string, value: PathHint | undefined, found: Operands) {
-  if (spec.filesOnly?.includes(key)) found.filesOnly = true;
-  if (spec.listing?.includes(key)) found.reads = false;
-  const kind = optionKind(spec, key);
-  if (kind === "script" || kind === "script-file") found.expression = true;
-  if (kind === "script-file" && value) found.paths.push(value);
-  if (spec.globs?.includes(key) && value && !value.value.startsWith("!"))
-    found.globs.push({ ...value, pattern: true });
 }
 
 function parseOptions(
@@ -226,23 +242,25 @@ function parseOptions(
   if (!word) return undefined;
   const long = word.value.startsWith("--");
   const raw = word.value.slice(long ? 2 : 1);
-  const keys = long ? [raw.split("=", 1)[0] ?? ""] : raw.split("");
+  const keys = long ? raw.split("=", 1) : raw.split("");
 
   for (const [position, key] of keys.entries()) {
     const kind = optionKind(spec, key);
     if (!kind) return undefined;
 
-    if (kind === "flag") {
-      applyOption(spec, key, undefined, found);
-      continue;
-    }
+    if (spec.filesOnly?.includes(key)) found.filesOnly = true;
+    if (spec.listing?.includes(key)) found.reads = false;
+    if (kind === "flag") continue;
+    if (kind !== "value") found.expression = true;
 
     const attached = long ? raw.slice(key.length + 1) : keys.slice(position + 1).join("");
     const value = (long ? raw.includes("=") : attached !== "")
       ? { ...word, value: attached, expandHome: false }
       : words[++index];
     if (!value) return undefined;
-    applyOption(spec, key, value, found);
+    if (kind === "script-file") found.paths.push(value);
+    if (spec.globs?.includes(key) && !value.value.startsWith("!"))
+      found.paths.push({ ...value, pattern: true });
     break;
   }
 
@@ -252,7 +270,6 @@ function parseOptions(
 function operands(spec: CommandSpec, words: PathHint[]): Operands | undefined {
   const found: Operands = {
     paths: [],
-    globs: [],
     reads: spec.reads,
     expression: false,
     filesOnly: false
@@ -289,25 +306,30 @@ function operands(spec: CommandSpec, words: PathHint[]): Operands | undefined {
 
 function commandHints(name: string, command: Command, cwd: string): PathHint[] {
   const hints: PathHint[] = [];
-  const args = command.suffix.map((word) => wordHint(word, cwd));
+  const args = commandWords(command).map((word) => wordHint(word, cwd));
   const spec = Object.hasOwn(commands, name) ? commands[name] : undefined;
 
   if (name === "find") {
     while (["-H", "-L", "-P"].includes(args[0]?.value ?? "")) args.shift();
 
     for (const arg of args) {
-      if (arg.value.startsWith("-") || arg.value === "!") break;
+      if (arg.value.startsWith("-") || ["!", "("].includes(arg.value)) break;
       hints.push({ ...arg, kind: "directory" });
     }
   } else if (spec) {
     const found = operands(spec, args);
     if (!found) return [];
-    for (const hint of [...found.paths, ...found.globs]) hints.push({ ...hint, read: found.reads });
+    for (const hint of found.paths) hints.push({ ...hint, read: found.reads });
 
     if (found.reads) {
       for (const redirect of command.redirects) {
-        if (redirect.operator === "<" && (redirect.fileDescriptor ?? 0) === 0 && redirect.target)
-          hints.push({ ...wordHint(redirect.target, cwd), kind: "file", read: true });
+        if (
+          redirect.type === "Redirect" &&
+          redirect.operator === "<" &&
+          (redirect.descriptor?.type === "FileDescriptor" ? redirect.descriptor.value : 0) === 0 &&
+          redirect.target
+        )
+          hints.push({ ...wordHint(redirect.target, cwd), read: true });
       }
     }
   }
@@ -325,7 +347,7 @@ export function bashHints(source: string, cwd: string, home: string): PathHint[]
   function infer(command: Command, name: string, piped: boolean): boolean {
     if (["source", ".", "eval", "pushd", "popd", "exec"].includes(name)) return false;
     if (name === "cd") {
-      const args = command.suffix.map((word) => wordHint(word, base));
+      const args = commandWords(command).map((word) => wordHint(word, base));
       if (args[0]?.value === "--") args.shift();
       const target = args[0];
       if (piped || !target || args.length !== 1 || target.value.startsWith("-") || target.pattern)
@@ -340,19 +362,14 @@ export function bashHints(source: string, cwd: string, home: string): PathHint[]
     return true;
   }
 
-  function visit(node: Node, separator = "", piped = false): boolean {
+  // Negation, `time`, and redirected compound commands are separate nodes and stay unsupported.
+  function visit(node: Statement | AndOr | PipelineNode, separator = "", piped = false): boolean {
     switch (node.type) {
       case "Statement":
-        return (
-          !node.background && node.redirects.length === 0 && visit(node.command, separator, piped)
-        );
+        return !node.background && visit(node.command, separator, piped);
       case "Pipeline":
       case "AndOr":
-        if (
-          node.type === "Pipeline" &&
-          (node.negated || node.time || node.operators.includes("|&"))
-        )
-          return false;
+        if (node.type === "Pipeline" && node.operators.includes("|&")) return false;
 
         return node.commands.every((child, index) =>
           visit(child, node.operators[index] ?? separator, piped || node.type === "Pipeline")

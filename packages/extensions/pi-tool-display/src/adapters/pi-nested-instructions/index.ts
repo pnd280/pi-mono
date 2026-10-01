@@ -113,9 +113,13 @@ export function createNoticeRenderer() {
           // The explanation describes the notice itself, so it continues the heading;
           // only the instruction body or empty-file note is a child branch.
           let child: string[] = [];
-          if (body) child = markdown.render(innerWidth);
-          else if (!explanation)
-            child = new Text(theme.fg("dim", "Empty instruction file."), 0, 0).render(innerWidth);
+
+          if (expansion.expanded) {
+            if (body) child = markdown.render(innerWidth);
+            else if (!explanation)
+              child = new Text(theme.fg("dim", "Empty instruction file."), 0, 0).render(innerWidth);
+          }
+
           const hasChildren = expansion.expanded && child.length > 0;
           const lines = headerRows(label, file, width, expansion.expanded, hasChildren, theme);
           headerHeight = lines.length;

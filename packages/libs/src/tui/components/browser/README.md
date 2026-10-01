@@ -2,39 +2,49 @@
 
 [Shared TUI](../../README.md#usage)
 
-## Behavior
+## Behaviour
 
-Use the [browser contracts](types.ts) for options and action signatures; [layout policy](layout.ts) chooses inline or overlay presentation.
+Extensions that need searchable sections with selection, previews, and actions use the collection browser. Use the [browser contracts](types.ts) for options and action signatures; [layout policy](layout.ts) chooses inline or overlay presentation.
 
-Sections retain their own queries and selections. Stable item keys preserve selection through search and refresh; pending removal/selection actions allow only cancellation. Late results cannot reopen a closed browser.
+- Sections retain their own queries and selections.
+- Stable item keys preserve selection through search and refresh.
+- While a removal or selection action is pending, only cancellation is allowed.
+- Late results cannot reopen a closed browser.
 
 ### Keys and cancellation
 
-Configured actions take precedence in this order: copy, cancel, confirm, up, down, page up, page down. Fixed controls are Tab/Shift+Tab (section), Ctrl+P (preview), Delete twice (removal), and Alt+Enter (alternate action).
+Configured actions take precedence in this order: `copy`, `cancel`, `confirm`, `up`, `down`, `pageUp`, `pageDown`. Fixed controls are **Tab** and **Shift+Tab** (switch section), **Ctrl+P** (preview), **Delete** twice (remove), and **Alt+Enter** (alternate action).
 
-The [browser host](../../open-browser/README.md) routes eligible fullscreen paging ahead of transcript paging. Keys assigned to higher-priority actions and release events are not claimed; the browser component installs no listeners.
+- The [browser host](../../open-browser/README.md) routes eligible fullscreen paging ahead of transcript paging.
+- Keys assigned to higher-priority actions and release events are not claimed.
+- The browser component installs no listeners.
 
-Ctrl+C never cancels. Construction requires a cancel binding other than Ctrl+C that is not also bound to copy.
+**Ctrl+C** never cancels. Construction requires a cancel binding other than **Ctrl+C** that is not also bound to copy.
 
-Cancel returns from preview to the list, or closes from the list; while loading or an action is pending, it closes immediately. Closing does not undo effects already started by consumer callbacks.
+- Cancel returns from preview to the list, or closes from the list.
+- While loading or an action is pending, cancel closes immediately.
+- Closing does not undo effects already started by consumer callbacks.
 
-Inspection mode uses a one-based item index and permits copying, scrolling, and closure, not selection actions. Below 40 columns or 10 rows, only cancellation is available.
+- Inspection mode uses a one-based item index and permits copying, scrolling, and closure, not selection actions.
+- Below 40 columns or 10 rows, only cancellation is available.
 
 ## Caller responsibilities
 
-Supply at least one section, unique IDs, an existing initial section, and stable unique snapshot item keys.
-
-`load(signal)` returns prepared items/optional status. Pass the activation signal through preparation; it is aborted on reactivation or final closure, not remount.
-
-The `search` callback filters and ranks results and must honor the supplied `current` callback.
-
-Supply terminal-safe rows/previews and retain exact source separately. Format only the visible window, preserving count/order and width-preserving styles.
-
-`remove.run(item, signal)` returns a committed snapshot, or `undefined` after reporting failure. Use its signal only to cancel replacement-snapshot preparation, never effects already started.
-
-Load/initial-search errors display directly: use terminal-safe messages. Action/later-search errors go to `onError`. `cancelError` chooses the diagnostic for unusable cancel bindings.
-
-Use the [browser host](../../open-browser/README.md) for Pi mounting and effects after closure. When constructing `Browser` directly, await `browser.controller.activate()` and call `browser.dispose()` at final closure, not during remounts.
+- Supply at least one section, unique IDs, and an existing initial section.
+- Supply stable unique snapshot item keys.
+- `load(signal)` returns prepared items and an optional status.
+- Pass the activation signal through preparation; it is aborted on reactivation or final closure, not remount.
+- The `search` callback filters and ranks results and must honour the supplied `current` callback.
+- Supply terminal-safe rows and previews, and keep the exact source separately.
+- Format only the visible window, keeping its count and order and width-preserving styles.
+- `remove.run(item, signal)` returns a committed snapshot, or `undefined` after reporting failure.
+- Use the removal signal only to cancel replacement-snapshot preparation, never effects already started.
+- Errors from loading and the initial search are shown directly, so use terminal-safe messages.
+- Errors from actions and later searches go to `onError`.
+- `cancelError` chooses the diagnostic for unusable cancel bindings.
+- Use the [browser host](../../open-browser/README.md) for Pi mounting and effects after closure.
+- When constructing `Browser` directly, await `browser.activate()` to load the initial section and call `browser.dispose()` at final closure, not during remounts.
+- Call `browser.invalidate()` on presentation transitions to cancel armed deletion without closing the logical browser or aborting preparation.
 
 ## Usage
 

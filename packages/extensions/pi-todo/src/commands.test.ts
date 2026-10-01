@@ -155,8 +155,16 @@ it("limits forced-Tab interception to /todos arguments and retains synchronous c
   };
   const provider = todosArgumentAutocompleteProvider(current);
   const signal = new AbortController().signal;
-  await provider.getSuggestions(["/todos "], 0, 7, { signal, force: true });
-  expect(getSuggestions).toHaveBeenLastCalledWith(["/todos "], 0, 7, { signal, force: false });
+
+  for (const line of ["/todos ", " \t/todos "]) {
+    expect(provider.shouldTriggerFileCompletion?.([line], 0, line.length)).toBe(true);
+    await provider.getSuggestions([line], 0, line.length, { signal, force: true });
+    expect(getSuggestions).toHaveBeenLastCalledWith([line], 0, line.length, {
+      signal,
+      force: false
+    });
+  }
+
   await provider.getSuggestions(["/other "], 0, 7, { signal, force: true });
   expect(getSuggestions).toHaveBeenLastCalledWith(["/other "], 0, 7, { signal, force: true });
 });

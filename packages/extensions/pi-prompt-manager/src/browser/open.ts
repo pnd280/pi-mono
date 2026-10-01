@@ -3,7 +3,6 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import { searchText } from "@pi-mono/libs/text-search";
 import type { BrowserOptions, BrowserSnapshot } from "@pi-mono/libs/tui/components/browser";
 import { openBrowser as openSharedBrowser } from "@pi-mono/libs/tui/open-browser";
-import { relativeTime } from "@pi-mono/utils/relative-time";
 
 import { assertRestorable } from "../host/editor.ts";
 import type { RestorationRequest, ViewRequest } from "../manager.ts";
@@ -19,6 +18,28 @@ import {
 import { initialHistoryQuery, prepareItems, type SearchItem } from "../search.ts";
 
 type PromptItem = SearchItem & { removable: boolean };
+
+// Match Pi's session picker; its formatSessionDate helper is not exported.
+const relativeTimeUnits = [
+  [365 * 86400, "y"],
+  [30 * 86400, "mo"],
+  [7 * 86400, "w"],
+  [86400, "d"],
+  [3600, "h"],
+  [60, "m"]
+] as const;
+
+function relativeTime(time: number | undefined, now: number): string {
+  if (time === undefined) return "Unknown time";
+  const seconds = Math.abs(now - time) / 1000;
+
+  for (const [duration, unit] of relativeTimeUnits) {
+    if (seconds >= duration)
+      return `${time > now ? "+" : ""}${Math.floor(seconds / duration)}${unit}`;
+  }
+
+  return "now";
+}
 
 type BrowserPorts = {
   read: Repository["read"];

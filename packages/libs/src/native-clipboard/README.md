@@ -2,9 +2,19 @@
 
 [Library index](../../README.md#usage)
 
-## Behavior
+Write exact UTF-8 to the system clipboard through local helpers instead of terminal escape sequences.
 
-[`copyNative`](index.ts) (`@pi-mono/libs/native-clipboard`) replaces the native clipboard with exact UTF-8 through local helpers, never OSC 52. The default 5,000 ms timeout covers all attempts. Cancellation may throw the signal reason; only `NativeClipboardError` messages are display-safe.
+## Behaviour
+
+[`copyNative`](index.ts) (`@pi-mono/libs/native-clipboard`) replaces the native clipboard with exact UTF-8 through local helpers, never OSC 52.
+
+```ts
+import { copyNative } from "@pi-mono/libs/native-clipboard";
+
+await copyNative(exactText, signal);
+```
+
+The default 5,000 ms timeout covers all attempts. Cancellation may throw the signal reason. Only `NativeClipboardError` messages are display-safe.
 
 ## Caller responsibilities
 
@@ -20,14 +30,6 @@ Requires a local clipboard session and helper:
 SSH sessions and native Windows are unsupported.
 
 Supply exact source and a signal; choose safe messages for non-`NativeClipboardError` exceptions.
-
-## Usage
-
-```ts
-import { copyNative } from "@pi-mono/libs/native-clipboard";
-
-await copyNative(exactText, signal);
-```
 
 Override the timeout with `copyNative(exactText, signal, { timeout: 10000 })`. Timeout overrides must be integers from 0 through 2,147,483,647 milliseconds.
 

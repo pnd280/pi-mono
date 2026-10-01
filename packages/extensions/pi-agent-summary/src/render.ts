@@ -4,9 +4,16 @@ import { renderTree } from "@pi-mono/libs/tui/components/tree";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
-import { formatDuration, formatFinishTime, summarySchema, type RunSummary } from "./summary.ts";
+import { formatDuration, summarySchema, type RunSummary } from "./summary.ts";
 
 type SummaryTheme = Pick<Theme, "fg" | "bold">;
+
+const finishTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true
+});
 
 function lineCounts(added: number, removed: number, theme: SummaryTheme): string {
   const parts: string[] = [];
@@ -46,7 +53,7 @@ function summaryLines(
   parts.push(
     theme.fg(
       "dim",
-      `${formatDuration(summary.durationMs)}${expanded ? ` (${formatFinishTime(summary.finishedAt)})` : ""}`
+      `${formatDuration(summary.durationMs)}${expanded ? ` (${finishTimeFormatter.format(summary.finishedAt)})` : ""}`
     )
   );
 

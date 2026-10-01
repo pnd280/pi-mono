@@ -90,6 +90,7 @@ it("recognizes native envelopes while preserving supplied bytes and literal look
     ["bash", "(no output)", { ...complete, isPartial: true }, "", ""],
     ["bash", "literal (no output)\nCommand exited with code 42\n", complete, "", ""],
     ["read", "user prose\n\n[Showing lines unrelated to the native contract]", complete, "", ""],
+    ["read", "retained\n\n[1.5 more lines in file. Use offset=2e+ to continue.]", complete, "", ""],
     ["read", "retained\n\n[2 more lines in file. Use offset=3 to continue.]\n", complete, "", ""]
   ] as const) {
     const parts = nativeResultParts(name, text, {}, context);

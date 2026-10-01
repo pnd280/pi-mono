@@ -5,10 +5,7 @@ const baseKeys = new Set<string>(Object.values(Key).filter((key) => typeof key =
 const modifiers = ["ctrl", "shift", "alt", "super"];
 
 function validKey(value: string): value is KeyId {
-  // A plus symbol may itself be the base key, including in ctrl++.
-  const parts = value.endsWith("+")
-    ? [...value.slice(0, -1).split("+").filter(Boolean), "+"]
-    : value.split("+");
+  const parts = value.split("+");
   const base = parts.pop();
 
   return (
@@ -23,15 +20,12 @@ function normalizeKey(value: string): KeyId | undefined {
   const parts = value.toLowerCase().split("+");
   let base = parts.pop() ?? "";
 
-  if (!base && value.endsWith("+")) {
-    base = "+";
-    if (parts.length > 0 && parts.pop() !== "") return undefined;
-  }
-
   if (base === "esc") base = "escape";
   if (base === "return") base = "enter";
   if (base === "pageup") base = "pageUp";
   if (base === "pagedown") base = "pageDown";
+  // Pi 1.0.0 cannot dispatch literal plus, modified Escape or modified function keys.
+  if (!base || (parts.length > 0 && (base === "escape" || /^f\d+$/.test(base)))) return undefined;
   if (parts.some((part) => !modifiers.includes(part)) || new Set(parts).size !== parts.length)
     return undefined;
   const key = [...modifiers.filter((modifier) => parts.includes(modifier)), base].join("+");

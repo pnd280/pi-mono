@@ -2,17 +2,18 @@
 
 [Shared TUI](../../README.md#usage)
 
-## Behavior
+## Behaviour
 
-[`renderHintFooter`](index.ts) fits hints to the visible terminal width, up to `maxRows`.
+A footer must show available hints and transient feedback in a fixed height. [`renderHintFooter`](index.ts) returns rows fitted to the visible terminal width, up to `maxRows`.
 
-Messages replace hints without changing height. Overflow sets `messageOverflow` and replaces the final row with `overflowText`; nonempty messages also overflow at zero rows.
+Messages replace hints without changing height. Overflow replaces the final row with `overflowText`. Zero width or zero rows returns no rows.
 
 ## Caller responsibilities
 
-Supply display-safe strings, width-preserving styling, and finite nonnegative viewport dimensions. Select hints and row limits for the active actions and layout.
-
-Retain full messages; notify overflow outside rendering. The renderer sends no notifications/timers; [expiring notices](../../../expiring-notice/README.md) defer/deduplicate delivery.
+- Supply display-safe strings, width-preserving styling, and finite nonnegative viewport dimensions.
+- Select hints and row limits for the active actions and layout.
+- Retain full messages separately from the bounded rows.
+- The renderer sends no notifications and starts no timers; [expiring notices](../../../expiring-notice/README.md) defer and deduplicate delivery.
 
 ## Validation
 

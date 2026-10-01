@@ -111,7 +111,6 @@ async function host({
 
   return {
     session,
-    settingsManager,
     addAutocompleteProvider,
     errors,
     getApi: () => api!,
@@ -163,17 +162,9 @@ it("loads JSON formats on session start and reload without native skill injectio
 
 it("keeps expansion enabled with completion disabled and uses reloaded skills", async () => {
   const fixture = await host({ enabled: false });
-  const completion = () =>
+  const completion = (nativeCommands: ReturnType<ExtensionAPI["getCommands"]> = []) =>
     fixture.addAutocompleteProvider.mock.calls.at(-1)![0](
-      new CombinedAutocompleteProvider(
-        fixture
-          .getApi()
-          .getCommands()
-          .filter(
-            (item) => fixture.settingsManager.getEnableSkillCommands() || item.source !== "skill"
-          ),
-        process.cwd()
-      )
+      new CombinedAutocompleteProvider(nativeCommands, process.cwd())
     );
   const options = { signal: new AbortController().signal };
   expect(await completion().getSuggestions(["Use /skill:re"], 0, 13, options)).toBeNull();
@@ -181,10 +172,14 @@ it("keeps expansion enabled with completion disabled and uses reloaded skills", 
   const first = `[/skill:review](${fixture.getSkillPath()})`;
   expect(userTexts(fixture.session)).toEqual([first]);
 
-  fixture.settingsManager.setEnableSkillCommands(true);
-  expect(await completion().getSuggestions(["Use /skill:re"], 0, 13, options)).toMatchObject({
-    items: [{ value: "skill:review" }]
-  });
+  expect(
+    await completion(fixture.getApi().getCommands()).getSuggestions(
+      ["Use /skill:re"],
+      0,
+      13,
+      options
+    )
+  ).toMatchObject({ items: [{ value: "skill:review" }] });
   await fixture.changeSkill();
   await fixture.session.reload();
   await fixture.session.prompt("/skill:fresh /skill:review");
@@ -192,8 +187,8 @@ it("keeps expansion enabled with completion disabled and uses reloaded skills", 
     first,
     `[/skill:fresh](${fixture.getSkillPath()}) /skill:review`
   ]);
-  expect(await completion().getSuggestions(["/skill:fr"], 0, 9, options)).toMatchObject({
-    items: [{ value: "skill:fresh" }]
-  });
+  expect(
+    await completion(fixture.getApi().getCommands()).getSuggestions(["/skill:fr"], 0, 9, options)
+  ).toMatchObject({ items: [{ value: "skill:fresh" }] });
   expect(fixture.errors).toEqual([]);
 });

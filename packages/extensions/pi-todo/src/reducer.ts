@@ -13,15 +13,10 @@ import {
   MAX_TASKS,
   TASK_DETAILS_VERSION
 } from "./constants.ts";
-import {
-  deriveTaskHierarchy,
-  orderedDirectChildren,
-  subtreeHeight,
-  type TaskHierarchyEntry
-} from "./hierarchy.ts";
+import { deriveTaskHierarchy, subtreeHeight, type TaskHierarchyEntry } from "./hierarchy.ts";
 import {
   metadataLimitError,
-  serializedSnapshotFitsLimit,
+  serializedValueFitsLimit,
   snapshotDetailsFitLimit,
   snapshotFitsLimit
 } from "./limits.ts";
@@ -103,13 +98,13 @@ export function cloneState(state: TodoState): TodoState {
   };
 }
 
-export function isTransitionValid(from: TaskStatus, to: TaskStatus): boolean {
+function isTransitionValid(from: TaskStatus, to: TaskStatus): boolean {
   if (from === to) return true;
 
   return VALID_TRANSITIONS[from].has(to);
 }
 
-export function detectCycle(
+function detectCycle(
   taskList: readonly Task[],
   taskId: number,
   nextBlockedBy: readonly number[]
@@ -144,7 +139,7 @@ export function deriveBlocks(taskList: readonly Task[]): Map<number, number[]> {
   return blocks;
 }
 
-export function taskListResultText(taskList: readonly Task[], params: TaskMutationParams): string {
+function taskListResultText(taskList: readonly Task[], params: TaskMutationParams): string {
   const hierarchy = deriveTaskHierarchy(taskList);
   if (!hierarchy) return "No todos";
 
@@ -220,11 +215,13 @@ function renderListEntry(entry: TaskHierarchyEntry, statusFilter: TaskStatus | u
   return `${prefix}[${task.status}] #${task.id} ${compactDisplayText(task.subject)}${inProgressLabel}${dependencies}${path}`;
 }
 
-export function taskDetailResultText(taskList: readonly Task[], task: Task): string {
+function taskDetailResultText(taskList: readonly Task[], task: Task): string {
   const blocks = deriveBlocks(taskList).get(task.id) ?? [];
   const hierarchy = deriveTaskHierarchy(taskList);
   const children = hierarchy
-    ? orderedDirectChildren(hierarchy, task.id).filter((child) => child.status !== "deleted")
+    ? (hierarchy.childrenByParentId.get(task.id) ?? []).filter(
+        (child) => child.status !== "deleted"
+      )
     : [];
   const lines = [`#${task.id} [${task.status}] ${compactDisplayText(task.subject)}`];
   if (task.parentId !== undefined) lines.push(`  parent: #${task.parentId}`);
@@ -426,16 +423,9 @@ function mutationResult(
 export function applyTaskMutation(
   state: TodoState,
   action: TaskAction,
-  params: TaskMutationParams
+  rawParams: TaskMutationParams
 ): TaskMutationResult {
-  return applySanitizedTaskMutation(state, action, sanitizeTaskMutationParams(params));
-}
-
-function applySanitizedTaskMutation(
-  state: TodoState,
-  action: TaskAction,
-  params: TaskMutationParams
-): TaskMutationResult {
+  const params = sanitizeTaskMutationParams(rawParams);
   const ingressFailure = mutationParamsLimitError(params);
 
   if (ingressFailure !== undefined) {
@@ -1042,7 +1032,7 @@ export function stateFitsCurrentLimits(state: TodoState): boolean {
 
   return (
     deriveTaskHierarchy(state.tasks) !== undefined &&
-    serializedSnapshotFitsLimit({ tasks: state.tasks, nextId: state.nextId })
+    serializedValueFitsLimit({ tasks: state.tasks, nextId: state.nextId }, MAX_SNAPSHOT_BYTES)
   );
 }
 

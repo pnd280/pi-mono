@@ -1,4 +1,8 @@
 import {
+  Container,
+  getCapabilities,
+  Image,
+  setCapabilities,
   stripTerminalSequences,
   Text,
   visibleWidth,
@@ -7,14 +11,12 @@ import {
 } from "@earendil-works/pi-tui";
 import { expect, it, vi } from "vite-plus/test";
 
-import { clip, renderRows as renderStyledRows, type Contribution } from "./render.ts";
+import { clip, renderRows as renderStyledRows } from "./render.ts";
 
-const renderRows = (rows: string[][], sources: ReadonlyMap<string, Contribution>, width: number) =>
+const renderRows = (rows: string[][], sources: ReadonlyMap<string, Component>, width: number) =>
   renderStyledRows(rows, sources, width, "\x1b[2m • \x1b[22m");
 
-const source = (render: Component["render"]): Contribution => ({
-  component: { render, invalidate() {} }
-});
+const source = (render: Component["render"]): Component => ({ render, invalidate() {} });
 const text = (value: string) => source((width) => wrapTextWithAnsi(value, width));
 const plain = (lines: string[]) => lines.map(stripTerminalSequences);
 
@@ -66,7 +68,12 @@ it("renders a singleton at full width, preserves blank lines and padding, and re
   expanded = false;
   expect(renderRows([["native"]], sources, 12).lines).toEqual([]);
   expanded = true;
-  expect(renderRows([["native"]], sources, 20).lines).toHaveLength(4);
+  expect(plain(renderRows([["native"]], sources, 20).lines)).toEqual([
+    "++++++++++++++++++++",
+    "  body  ",
+    "",
+    "bottom"
+  ]);
 });
 
 it("preserves multiline content and only separates visible contributions", () => {
@@ -271,6 +278,67 @@ it("bottom-aligns shorter items and their mouse cells when requested", () => {
   ]);
 });
 
+it.each(["kitty", "iterm2"] as const)(
+  "preserves native %s images in full-width placements and never clips through them",
+  (protocol) => {
+    const capabilities = getCapabilities();
+
+    try {
+      setCapabilities({ ...capabilities, images: protocol });
+      const image = new Image(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1kAAAAASUVORK5CYII=",
+        "image/png",
+        { fallbackColor: (value) => value },
+        { maxWidthCells: 5, maxHeightCells: 2 }
+      );
+      expect(renderRows([["image"]], new Map([["image", image]]), 40).lines).toEqual(
+        image.render(40)
+      );
+      const widget = new Container();
+      widget.addChild(new Text("caption", 0, 0));
+      widget.addChild(image);
+      const native = widget.render(40);
+      expect(native).toHaveLength(3);
+      const render = vi.spyOn(widget, "render");
+      const first = text("A");
+      const result = renderRows(
+        [
+          ["a", "separator", "image", "separator", "b"],
+          ["flex", "image"]
+        ],
+        new Map([
+          ["a", first],
+          ["image", widget],
+          ["b", text("B")]
+        ]),
+        40
+      );
+      expect(render.mock.calls).toEqual([[40], [40]]);
+      expect(result.lines).toHaveLength(8);
+      expect(result.lines.slice(1, 4)).toEqual(native);
+      expect(result.lines.slice(5)).toEqual(native);
+      expect(plain(result.lines.slice(0, 1))).toEqual(["A"]);
+      expect(plain(result.lines.slice(4, 5))).toEqual(["B"]);
+      expect(result.cells.map(({ x, y, width, height }) => ({ x, y, width, height }))).toEqual([
+        { x: 0, y: 0, width: 1, height: 1 },
+        { x: 0, y: 1, width: 40, height: 3 },
+        { x: 0, y: 4, width: 1, height: 1 },
+        { x: 0, y: 5, width: 40, height: 3 }
+      ]);
+      const clipped = clip(result, 3, 40);
+      expect(plain(clipped.lines)).toEqual(["A", "… widgets clipped"]);
+      expect(clipped.cells.map((cell) => cell.component)).toEqual([first]);
+      const fitted = clip(result, 5, 40);
+      expect(fitted.lines.slice(1, 4)).toEqual(native);
+      expect(fitted.lines.at(-1)).toBe("… widgets clipped");
+      expect(fitted.cells.map((cell) => cell.component)).toEqual([first, widget]);
+      expect(clip(result, 0, 40)).toEqual({ lines: [], cells: [] });
+    } finally {
+      setCapabilities(capabilities);
+    }
+  }
+);
+
 it("stacks at narrow widths in sequence and supports one-sided flex", () => {
   const sources = new Map([
     ["a", text("alpha")],
@@ -280,6 +348,7 @@ it("stacks at narrow widths in sequence and supports one-sided flex", () => {
   expect(plain(renderRows([["flex", "b"]], sources, 10).lines)).toEqual(["      beta"]);
   expect(plain(renderRows([["b", "flex"]], sources, 10).lines)).toEqual(["beta"]);
   const result = clip(renderRows([["a"], ["b"]], sources, 20), 1, 20);
-  expect(result.lines).toEqual(["… widgets clipped"]);
+  expect(result.lines).toHaveLength(1);
+  expect(result.lines[0]).toContain("clipped");
   expect(result.cells).toEqual([]);
 });

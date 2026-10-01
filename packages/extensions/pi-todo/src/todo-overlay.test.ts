@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 
-import type { TuiMode, TuiMouseEvent } from "@earendil-works/pi-tui";
+import { visibleWidth, type TuiMode, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import { describe, it } from "vite-plus/test";
 
-import { WIDGET_KEY } from "./constants.ts";
+import { TodoController } from "./controller.ts";
 import {
-  buildTodoWidgetLines,
+  prepareTodoPresentation,
   TodoOverlay,
   type TodoOverlayUI,
   type TodoWidgetFactory,
@@ -20,7 +20,6 @@ const theme = {
 } satisfies TodoWidgetTheme;
 
 type WidgetCall = {
-  key: string;
   content: TodoWidgetFactory | undefined;
   options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
 };
@@ -72,13 +71,12 @@ describe("todo overlay", () => {
     overlay.setUICtx(createUi(calls));
 
     overlay.update();
-    assert.equal(calls.length, 0);
+    assert.equal(calls.at(-1)?.content, undefined);
 
     source.set([{ id: 1, subject: "Visible", status: "pending" }]);
     overlay.update();
     const registration = calls.at(-1);
     assert.ok(registration);
-    assert.equal(registration.key, WIDGET_KEY);
     assert.deepEqual(registration.options, { placement: "aboveEditor" });
     assert.ok(registration.content);
     assert.match(
@@ -110,12 +108,10 @@ describe("todo overlay", () => {
     assert.doesNotMatch(component.render(80).join("\n"), /Visible later/u);
 
     overlay.dispose();
-    const widgetCallsAtDispose = widgetCalls.length;
-    const workingMessagesAtDispose = workingMessages.length;
     overlay.setCollapsed(false);
     overlay.toggleCollapsed();
-    assert.equal(widgetCalls.length, widgetCallsAtDispose);
-    assert.equal(workingMessages.length, workingMessagesAtDispose);
+    assert.equal(widgetCalls.at(-1)?.content, undefined);
+    assert.equal(workingMessages.at(-1), undefined);
   });
 
   it("collapses only in fullscreen mode and follows runtime mode switches", () => {
@@ -136,6 +132,7 @@ describe("todo overlay", () => {
     assert.equal(overlay.canCollapse(), false);
     assert.match(component.render(80).join("\n"), /Active/u);
     assert.equal(workingMessages.at(-1), undefined);
+    assert.equal(component.handleMouse?.(click()), undefined);
 
     tui.mode = "fullscreen";
     component.invalidate();
@@ -192,7 +189,7 @@ describe("todo overlay", () => {
     assert.match(rendered.join("\n"), /Updated/u);
   });
 
-  it("restores the widget once after suppression and ignores releases after disposal", () => {
+  it("restores the widget after suppression and ignores repeated or disposed releases", () => {
     const source = todoSource([{ id: 1, subject: "Visible", status: "pending" }]);
     const calls: WidgetCall[] = [];
     const overlay = new TodoOverlay(source.controller);
@@ -211,13 +208,14 @@ describe("todo overlay", () => {
       /Visible/u
     );
     suppression.release();
-    assert.equal(calls.at(-1)?.content, restored);
+    const stillVisible = calls.at(-1)?.content;
+    assert.ok(stillVisible);
+    assert.match(stillVisible(fullscreenTui, theme).render(80).join("\n"), /Visible/u);
 
     const staleSuppression = overlay.suppress();
     overlay.dispose();
-    const callsAtDispose = calls.length;
     staleSuppression.release();
-    assert.equal(calls.length, callsAtDispose);
+    assert.equal(calls.at(-1)?.content, undefined);
   });
 
   it("ignores a late factory from a cleared widget registration", () => {
@@ -226,25 +224,27 @@ describe("todo overlay", () => {
     const overlay = new TodoOverlay(source.controller);
     overlay.setUICtx(createUi(calls));
     overlay.update();
-    const staleFactory = calls[0]?.content;
+    const staleFactory = calls.at(-1)?.content;
     assert.ok(staleFactory);
 
     const suppression = overlay.suppress();
     suppression.release();
-    const currentFactory = calls[2]?.content;
+    const currentFactory = calls.at(-1)?.content;
     assert.ok(currentFactory);
     let staleRenderRequests = 0;
     staleFactory({ mode: "fullscreen", requestRender: () => (staleRenderRequests += 1) }, theme);
     overlay.update();
     assert.equal(staleRenderRequests, 0);
 
-    let currentRenderRequests = 0;
-    currentFactory(
-      { mode: "fullscreen", requestRender: () => (currentRenderRequests += 1) },
+    let rendered = "";
+    const component = currentFactory(
+      { mode: "fullscreen", requestRender: () => (rendered = component.render(80).join("\n")) },
       theme
     );
+    source.set([{ id: 1, subject: "Updated", status: "pending" }]);
     overlay.update();
-    assert.equal(currentRenderRequests, 1);
+    assert.match(rendered, /Updated/u);
+    assert.equal(staleRenderRequests, 0);
   });
 
   it("projects hierarchy-first active state into the collapsed working message", () => {
@@ -265,10 +265,10 @@ describe("todo overlay", () => {
     overlay.setUICtx(createUi([], workingMessages, fullscreenTui));
 
     overlay.update();
-    assert.deepEqual(workingMessages, [undefined, undefined]);
+    assert.equal(workingMessages.at(-1), undefined);
 
     overlay.setCollapsed(true);
-    assert.deepEqual(workingMessages, [undefined, undefined, "Working safely (+2 more)"]);
+    assert.match(workingMessages.at(-1) ?? "", /Working safely.*2/u);
 
     source.update((tasks) =>
       tasks.map((task) =>
@@ -282,7 +282,7 @@ describe("todo overlay", () => {
       )
     );
     overlay.update();
-    assert.equal(workingMessages.at(-1), "Nested subject (+2 more)");
+    assert.match(workingMessages.at(-1) ?? "", /Nested subject.*2/u);
 
     source.update((tasks) =>
       tasks.map((task) =>
@@ -334,21 +334,19 @@ describe("todo overlay", () => {
       strikethrough: (text: string) => text
     } satisfies TodoWidgetTheme;
 
-    const lines = buildTodoWidgetLines(
-      [
-        {
-          id: 1,
-          subject: "Subject\x1b[31m\nspoof",
-          status: "in_progress",
-          inProgressLabel: "working\x1b]0;owned\x07\nnow"
-        }
-      ],
-      recordingTheme,
-      80
-    );
+    const snapshot = prepareTodoPresentation([
+      {
+        id: 1,
+        subject: "Subject\x1b[31m\nspoof",
+        status: "in_progress",
+        inProgressLabel: "working\x1b]0;owned\x07\nnow"
+      }
+    ]);
+    assert.ok(snapshot);
+    const lines = snapshot.render(recordingTheme, 80);
 
-    assert.match(lines.join("\n"), /Todos \(0\/1 completed\)/u);
-    assert.match(lines.join("\n"), /Subject spoof \(working now\)/u);
+    assert.match(lines.join("\n"), /Subject spoof/u);
+    assert.match(lines.join("\n"), /working now/u);
     assert.equal(lines.join("\n").includes("\x1b"), false);
 
     for (const input of styledInputs) {
@@ -359,14 +357,12 @@ describe("todo overlay", () => {
   });
 
   it("shows dependency identifiers needed to understand a blocked todo", () => {
-    const text = buildTodoWidgetLines(
-      [
-        { id: 1, subject: "Dependency", status: "pending" },
-        { id: 2, subject: "Blocked", status: "pending", blockedBy: [1] }
-      ],
-      theme,
-      80
-    ).join("\n");
+    const snapshot = prepareTodoPresentation([
+      { id: 1, subject: "Dependency", status: "pending" },
+      { id: 2, subject: "Blocked", status: "pending", blockedBy: [1] }
+    ]);
+    assert.ok(snapshot);
+    const text = snapshot.render(theme, 80).join("\n");
 
     assert.match(text, /#1 Dependency/u);
     assert.match(text, /#2 Blocked[^\n]*#1/u);
@@ -383,7 +379,9 @@ describe("todo overlay", () => {
       { id: 12, subject: "In progress", status: "in_progress", parentId: 11 }
     ];
 
-    const text = buildTodoWidgetLines(tasks, theme, 100).join("\n");
+    const snapshot = prepareTodoPresentation(tasks);
+    assert.ok(snapshot);
+    const text = snapshot.render(theme, 100).join("\n");
 
     assert.match(text, /Active ancestor[\s\S]*In progress/u);
     assert.doesNotMatch(text, /Pending (9|10)/u);
@@ -405,7 +403,9 @@ describe("todo overlay", () => {
       }))
     ];
 
-    const text = buildTodoWidgetLines(tasks, theme, 100).join("\n");
+    const snapshot = prepareTodoPresentation(tasks);
+    assert.ok(snapshot);
+    const text = snapshot.render(theme, 100).join("\n");
 
     assert.match(text, /Required done ancestor[\s\S]*Active child/u);
     assert.doesNotMatch(text, /Unrelated done [2-6]/u);
@@ -429,11 +429,126 @@ describe("todo overlay", () => {
       { id: 12, subject: "Third active", status: "pending", parentId: 11 }
     ];
 
-    const text = buildTodoWidgetLines(tasks, theme, 100).join("\n");
+    const snapshot = prepareTodoPresentation(tasks);
+    assert.ok(snapshot);
+    const text = snapshot.render(theme, 100).join("\n");
 
     assert.match(text, /First ancestor 1[\s\S]*First active/u);
     assert.match(text, /Second ancestor[\s\S]*Second active/u);
     assert.doesNotMatch(text, /Third ancestor|Third active/u);
+  });
+
+  it("renders a prepared snapshot independently of caller changes and counts hidden statuses", () => {
+    const tasks: Task[] = [
+      ...Array.from({ length: 12 }, (_, index): Task => ({
+        id: index + 1,
+        subject: `Done ${index + 1}`,
+        status: "completed"
+      })),
+      { id: 13, subject: "Active", status: "in_progress", blockedBy: [1] },
+      { id: 14, subject: "Deleted", status: "deleted" }
+    ];
+    const snapshot = prepareTodoPresentation(tasks);
+    assert.ok(snapshot);
+    tasks[12]!.subject = "Changed";
+    tasks[12]!.blockedBy!.push(99);
+    tasks.push({ id: 15, subject: "Later active", status: "in_progress" });
+    assert.equal(snapshot.activity, "Active");
+    const rows = snapshot.render(theme, 100);
+    assert.match(rows[0] ?? "", /12\/13 completed/u);
+    assert.match(rows.join("\n"), /#13 Active[^\n]*#1/u);
+    assert.doesNotMatch(rows.join("\n"), /Changed|#99|Deleted|Later active/u);
+    assert.match(rows.at(-1) ?? "", /\+3 more \(3 completed\)/u);
+    assert.equal(snapshot.render(theme, 100, { collapsed: true }).length, 1);
+    assert.deepEqual(snapshot.render(theme, 0), [""]);
+    assert.equal(prepareTodoPresentation([]), undefined);
+    assert.equal(
+      prepareTodoPresentation([{ id: 1, subject: "Deleted", status: "deleted" }]),
+      undefined
+    );
+    assert.equal(
+      prepareTodoPresentation([{ id: 1, subject: "Orphan", status: "pending", parentId: 99 }]),
+      undefined
+    );
+  });
+
+  it("refreshes rows by revision and width and discards themed rows on invalidation", () => {
+    const source = todoSource([{ id: 1, subject: "Initial long subject", status: "pending" }]);
+    const calls: WidgetCall[] = [];
+    const overlay = new TodoOverlay(source.controller);
+    overlay.setUICtx(createUi(calls));
+    overlay.update();
+    const factory = calls.at(-1)?.content;
+    assert.ok(factory);
+    let prefix = "old:";
+    const changingTheme: TodoWidgetTheme = {
+      fg: (_color, text) => `${prefix}${text}`,
+      strikethrough: (text) => text
+    };
+    const component = factory(fullscreenTui, changingTheme);
+    assert.match(component.render(100).join("\n"), /old:Initial long subject/u);
+    const narrow = component.render(10);
+    assert.ok(narrow.every((row) => visibleWidth(row) <= 10));
+    assert.doesNotMatch(narrow.join("\n"), /Initial long subject/u);
+    assert.match(component.render(100).join("\n"), /Initial long subject/u);
+
+    // Rendering can race the host's tool-end update; the controller revision is authoritative.
+    source.set([{ id: 1, subject: "Updated", status: "pending" }]);
+    const updated = component.render(100).join("\n");
+    assert.match(updated, /Updated/u);
+    assert.doesNotMatch(updated, /Initial/u);
+    prefix = "new:";
+    component.invalidate();
+    const themed = component.render(100).join("\n");
+    assert.match(themed, /new:Updated/u);
+    assert.doesNotMatch(themed, /old:/u);
+    overlay.setCollapsed(true);
+    assert.equal(component.render(100).length, 1);
+    overlay.setCollapsed(false);
+    assert.match(component.render(100).join("\n"), /Updated/u);
+  });
+
+  it("reconstructs prepared activity while suppressed and restores the new hierarchy", () => {
+    const controller = new TodoController();
+    controller.apply("create", { subject: "Old active" });
+    controller.apply("update", { id: 1, status: "in_progress" });
+    const calls: WidgetCall[] = [];
+    const messages: Array<string | undefined> = [];
+    const overlay = new TodoOverlay(controller);
+    overlay.setUICtx(createUi(calls, messages, fullscreenTui));
+    overlay.setCollapsed(true);
+    const suppression = overlay.suppress();
+    controller.reconstructFromBranch([
+      {
+        type: "message",
+        message: {
+          role: "toolResult",
+          toolName: "todo",
+          details: {
+            version: 2,
+            tasks: [
+              { id: 1, subject: "Restored root", status: "completed" },
+              { id: 2, subject: "Restored active", status: "in_progress", parentId: 1 },
+              { id: 3, subject: "Other active", status: "in_progress" }
+            ],
+            nextId: 4
+          }
+        }
+      }
+    ]);
+    overlay.update();
+    assert.equal(messages.at(-1), "Restored active (+1 more)");
+    assert.equal(calls.at(-1)?.content, undefined);
+    suppression.release();
+    const factory = calls.at(-1)?.content;
+    assert.ok(factory);
+    const component = factory(fullscreenTui, theme);
+    assert.equal(component.render(100).length, 1);
+    overlay.setCollapsed(false);
+    const expanded = component.render(100).join("\n");
+    assert.match(expanded, /Restored root[\s\S]*Restored active/u);
+    assert.doesNotMatch(expanded, /Old active/u);
+    assert.equal(messages.at(-1), undefined);
   });
 });
 
@@ -444,8 +559,8 @@ function createUi(
   tui?: TodoWidgetTui
 ): TodoOverlayUI {
   return {
-    setWidget(key, content, options) {
-      calls.push({ key, content, options });
+    setWidget(_key, content, options) {
+      calls.push({ content, options });
       if (tui && content) content(tui, theme);
     },
     setActivity(message) {

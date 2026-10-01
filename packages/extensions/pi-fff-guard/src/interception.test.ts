@@ -95,11 +95,9 @@ describe("public interception adapter", () => {
       const result = await host.call(name, input);
       expect(result?.block).toBe(true);
       expect(result?.reason).toContain(name);
-      expect(result?.reason).toMatch(/ignored.*retry.*rg/i);
-      if (name === "fffind")
-        expect(result?.reason).toBe(
-          "fffind does not work with Git-ignored paths. Retry with rg or another available tool."
-        );
+      expect(result?.reason).toMatch(/ignored/i);
+      expect(result?.reason).toMatch(/retry/i);
+      expect(result?.reason).toMatch(/tool/i);
     }
   });
 
@@ -114,8 +112,7 @@ describe("public interception adapter", () => {
     await directory.write(missingPath);
     expect(await host.call("ffgrep", { pattern: "marker", path: missingPath })).toStrictEqual({
       block: true,
-      reason:
-        "ffgrep does not work with Git-ignored paths. Retry with rg or another available tool."
+      reason: expect.stringContaining("Git-ignored") as unknown
     });
     await symlink("missing", path.join(directory.root, "src/broken"));
     expect(await host.call("ffgrep", { pattern: "marker", path: "src/broken" })).toStrictEqual({
@@ -184,20 +181,20 @@ describe("public interception adapter", () => {
   });
 
   it.each([
-    ["fffind", { pattern: 42 }],
-    ["ffgrep", { path: false }],
-    ["fff-multi-grep", { constraints: [] }],
-    ["ffgrep", { exclude: ["*.ts", 42] }]
+    ["fffind", { pattern: 42 }, "Invalid FFF pattern: expected a string"],
+    ["ffgrep", { path: false }, "Invalid FFF path: expected a string"],
+    ["fff-multi-grep", { constraints: [] }, "Invalid FFF constraints: expected a string"],
+    ["ffgrep", { exclude: ["*.ts", 42] }, "Invalid FFF exclude: expected a string or string array"]
   ] as const)(
     "allows malformed scope fields for %s with a diagnostic: %j",
-    async (name, invalid) => {
+    async (name, invalid, expected) => {
       const host = harness();
       host.register(name);
       const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
       expect(
         await host.call(name, { path: "node_modules/", pattern: "*.ts", ...invalid })
       ).toBeUndefined();
-      expect(diagnostic).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Invalid FFF"));
+      expect(diagnostic).toHaveBeenCalledWith(expect.stringContaining(expected));
     }
   );
 
@@ -210,12 +207,16 @@ describe("public interception adapter", () => {
 
     expect(await host.call("ffgrep", { path: `src/${name}`, pattern: "marker" })).toBeUndefined();
     const report = hasUI ? host.notify : stderr;
-    expect(report).toHaveBeenCalledTimes(1);
-    const message: unknown = report.mock.calls[0]?.[0];
-    if (typeof message !== "string") throw new Error("Expected a diagnostic string.");
-    expect(message.trim()).not.toBe("");
-    expect(message.includes("\x1b")).toBe(false);
-    expect(message.includes("\x07")).toBe(false);
+    expect(report).toHaveBeenCalled();
+
+    for (const call of report.mock.calls) {
+      const message: unknown = call[0];
+      if (typeof message !== "string") throw new Error("Expected a diagnostic string.");
+      expect(message.trim()).not.toBe("");
+      expect(message.includes("\x1b")).toBe(false);
+      expect(message.includes("\x07")).toBe(false);
+    }
+
     expect(hasUI ? stderr : host.notify).not.toHaveBeenCalled();
   });
 

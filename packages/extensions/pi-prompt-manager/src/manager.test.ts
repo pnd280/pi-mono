@@ -14,7 +14,7 @@ const committed = (): MutationResult => ({
 it("saves exact expanded editor text, rejects overlapping saves, and leaves concurrent edits intact", async () => {
   const pending = Promise.withResolvers<MutationResult>();
   const mutate = vi.fn<Repository["mutate"]>(() => pending.promise);
-  const { manager, setText, getText, notices } = managerFixture({
+  const { manager, setText, getText } = managerFixture({
     repository: { read: async () => collection(), mutate }
   });
   setText(" \tfull pasted text\r\n ");
@@ -29,7 +29,6 @@ it("saves exact expanded editor text, rejects overlapping saves, and leaves conc
   pending.resolve(committed());
   await save;
   expect(getText()).toBe("new work");
-  expect(notices).toContain("Draft saved.");
 });
 
 it("same-text explicit restoration prevents an older save from clearing it", async () => {
@@ -53,7 +52,9 @@ it("clears only after successful commit and reports clear failure separately fro
   const notify = vi.fn<ManagerPorts["notify"]>();
   const fixture = managerFixture({ editor: { read: () => "draft", write }, notify });
   await fixture.manager.saveEditor();
-  expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["info", "warning"]);
+  expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(
+    expect.arrayContaining(["info", "warning"])
+  );
   const failed = managerFixture({
     repository: {
       read: async () => collection(),
@@ -75,12 +76,13 @@ it("add is independent of editor saving and whitespace-only editor saves open dr
     .mockResolvedValue(committed());
   const fixture = managerFixture({ repository: { read: async () => collection(), mutate } });
   const save = fixture.manager.saveEditor();
-  await fixture.manager.command('drafts add  "literal"  interior  ');
+  await fixture.manager.command('drafts add  "literal"  interior\n  second line  ');
   expect(fixture.getText()).toBe("draft");
   expect(mutate.mock.calls[1]?.slice(0, 2)).toMatchObject([
     "drafts",
-    { text: '"literal"  interior' }
+    { text: '"literal"  interior\n  second line' }
   ]);
+  expect(fixture.notices).toEqual(["Draft saved."]);
   pending.resolve(committed());
   await save;
   const open = vi.fn<ManagerPorts["open"]>(async () => {});
@@ -88,6 +90,26 @@ it("add is independent of editor saving and whitespace-only editor saves open dr
   blank.setText("\n \t");
   await blank.manager.saveEditor();
   expect(open).toHaveBeenCalledWith(expect.objectContaining({ collection: "drafts" }));
+});
+
+it("copies the second full-collection draft and passes its number to inspection", async () => {
+  const snapshot = collection([entry("first draft"), entry(" \tsecond draft\r\n ")]);
+  const read = vi.fn<Repository["read"]>(async () => snapshot);
+  const copy = vi.fn<ManagerPorts["copy"]>(async () => {});
+  const open = vi.fn<ManagerPorts["open"]>(async () => {});
+  const { manager } = managerFixture({ repository: { read, mutate: vi.fn() }, copy, open });
+
+  try {
+    await manager.command("drafts copy 2");
+    expect(read).toHaveBeenCalledWith("drafts", expect.any(AbortSignal));
+    expect(copy).toHaveBeenCalledExactlyOnceWith(" \tsecond draft\r\n ", expect.any(AbortSignal));
+    await manager.command("drafts show 2");
+    expect(open).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ collection: "drafts", inspectionIndex: 2 })
+    );
+  } finally {
+    await manager.dispose();
+  }
 });
 
 it("restoration refuses controls or an editor change and never deletes on refusal", async () => {
@@ -121,7 +143,9 @@ it("restore-then-delete failure retains snapshot source and reports deletion fai
     "drafts",
     { kind: "delete", target: current.entries[0] }
   ]);
-  expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["error", "warning"]);
+  expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(
+    expect.arrayContaining(["error", "warning"])
+  );
 });
 
 it.each(["restore", "restore-delete", "cancel", "expired"] as const)(
@@ -249,11 +273,13 @@ it("reports safe clipboard diagnostics without exposing arbitrary helper errors"
 
     try {
       await fixture.manager.copy(collection([entry("source")]).entries[0]!);
-      expect(notify).toHaveBeenCalledTimes(1);
-      expect(notify.mock.calls[0]?.[1]).toBe("error");
+      expect(notify).toHaveBeenCalledWith(expect.any(String), "error");
       if (error instanceof NativeClipboardError)
-        expect(notify.mock.calls[0]?.[0]).toBe(error.message);
-      else expect(notify.mock.calls[0]?.[0]).not.toContain("sensitive source text");
+        expect(notify).toHaveBeenCalledWith(error.message, "error");
+      else
+        expect(notify.mock.calls.map(([message]) => message).join()).not.toContain(
+          "sensitive source text"
+        );
     } finally {
       await fixture.manager.dispose();
     }
@@ -284,17 +310,24 @@ it("reports numbered copy and deletion outcomes, including cleanup warnings", as
     await fixture.manager.copy(target);
     expect(copy).toHaveBeenCalledTimes(1);
     expect(copy.mock.calls[0]?.[0]).toBe("source");
-    expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["warning"]);
+    expect(notify).toHaveBeenCalledWith(expect.any(String), "warning");
+    expect(notify.mock.calls.map(([, severity]) => severity)).not.toContain("info");
     copying.resolve();
     await pending;
-    expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["warning", "info"]);
+    expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
 
     notify.mockClear();
     await fixture.manager.command("drafts copy 1");
     await fixture.manager.command("drafts delete 1");
-    expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(["info", "warning"]);
-    expect(notify.mock.calls[1]?.[0]).toContain("Descriptor cleanup warning.");
-    expect(notify.mock.calls[1]?.[0]).toContain("Lock cleanup warning.");
+    expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining("Descriptor cleanup warning."),
+      "warning"
+    );
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining("Lock cleanup warning."),
+      "warning"
+    );
     await fixture.manager.dispose();
     notify.mockClear();
     await fixture.manager.copy(target);

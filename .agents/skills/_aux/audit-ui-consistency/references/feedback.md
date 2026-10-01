@@ -8,7 +8,7 @@ Compare notifications and inline messages for equivalent outcomes, including com
 
 - Match severity, attribution, placement, duration, and next steps to the outcome.
 - State the result and any required user action clearly.
-- Trace success/failure feedback across layers to identify duplicates or contradictions; retain intentional persistent diagnostics.
+- Trace success and failure feedback across layers to identify duplicates or contradictions; retain intentional persistent diagnostics.
 - Distinguish failed writes from committed writes with cleanup warnings.
 - Distinguish cancellation, timeout, unavailability, and failure.
 - Preserve controls and keep feedback accurate after a surface or session expires.

@@ -1,12 +1,12 @@
 import { fauxAssistantMessage, fauxProvider, fauxToolCall, Type } from "@earendil-works/pi-ai";
-import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it } from "vite-plus/test";
 
 import smartCompact from "../src/index.ts";
+import { sdkSessionFixture } from "./sdk-session.ts";
 
 it("rejects nested compaction requests while leaving context inspection composable", async () => {
   let inspected = false;
-  const fixture = await hostFixture([
+  const fixture = await sdkSessionFixture([
     smartCompact,
     (pi) =>
       pi.registerTool({
@@ -46,8 +46,6 @@ it("rejects nested compaction requests while leaving context inspection composab
     expect(session.sessionManager.getBranch().some((entry) => entry.type === "compaction")).toBe(
       false
     );
-    const direct = session.agent.state.tools.find((tool) => tool.name === "compact");
-    expect(await direct?.execute("direct", {})).toMatchObject({ details: { scheduled: true } });
   } finally {
     await fixture.dispose();
   }

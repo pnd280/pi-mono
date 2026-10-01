@@ -13,9 +13,9 @@ import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 import { builtinText } from "./builtins.ts";
 import type { WidgetHost } from "./host.ts";
 import { regions, resolveLayout, type Layout, type Placement, type Region } from "./layout.ts";
-import { clip, renderRows, type Contribution, type Rendered } from "./render.ts";
+import { clip, renderRows, type Rendered } from "./render.ts";
 
-type Registered = Contribution & Placement & { available: boolean };
+type Registered = Placement & { component: Component; available: boolean };
 
 const aboveEditorSpacing = 1;
 
@@ -268,7 +268,11 @@ export class WidgetCoordinator {
     if (this.measured?.width === width) return this.measured;
     this.sync();
     const layout = resolveLayout(this.draft ?? this.saved, [...this.registry.values()]);
-    const sources = new Map([...this.registry].filter(([, source]) => source.available));
+    const sources = new Map(
+      [...this.registry].flatMap(([id, source]) =>
+        source.available ? [[id, source.component] as const] : []
+      )
+    );
     const separator = this.theme().fg("dim", " • ");
     this.measured = {
       width,
@@ -312,7 +316,7 @@ export class WidgetCoordinator {
     });
     if (!result || "target" in result || (!result.handled && !result.capture && !result.focus))
       return result;
-    // Pi 0.99.2's container dispatch contract retains the native target for drag capture and focus.
+    // Pi 1.0.0's container dispatch contract retains the native target for drag capture and focus.
     const forwarded = {
       ...result,
       handled: true,

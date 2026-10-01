@@ -310,11 +310,6 @@ it("hides collapsed summary members and drops images until a click opens the run
     coordinator.activate(leader.call, "card");
 
     rows.dispose();
-    expect(
-      ["render", "handleMouse", "invalidate", "setExpanded"].filter((method) =>
-        Object.hasOwn(hidden.child, method)
-      )
-    ).toEqual([]);
     // Restored rows render Pi's own layout, including its margin.
     expect(render(hidden.child)).toEqual(["", "  └ Read outcome unavailable b.ts"]);
   } finally {

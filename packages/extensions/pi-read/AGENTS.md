@@ -1,11 +1,18 @@
 # [pi-read](README.md) development
 
+Keep Pi's content blocks and details unchanged when adding selection previews.
+
+## Must not regress
+
+- Leave file access and images to Pi, and never reread the file.
+
 ## Constraints
 
-Preserve native content blocks and details. Exclude truncation and continuation notices from selected source. Delegate file access and images to Pi; never reread the file.
-
-Use shared [source-selection helpers](../../utils/README.md#source-selections) for coordinate validation and slicing. Keep source coordinates independent of terminal width; sanitize only display text. Keep preview validation consistent with the consuming [pi-tool-display adapter](../pi-tool-display/src/adapters/pi-read/README.md#arguments-and-results).
+- Keep truncation and continuation notices out of the selected source.
+- Use the shared [source-selection helpers](../../utils/README.md#source-selections) to validate coordinates and slice source.
+- Keep source coordinates independent of terminal width. Sanitise only display text.
+- Keep preview provenance and native source-window interpretation in the pure [`pi-read/result` contract](docs/result.md), shared with the display adapter.
 
 ## Validation
 
-Use [package validation](README.md#validation) and [coverage boundaries](docs/testing.md). For Pi upgrades, use the [compatibility checklist](docs/pi-compatibility.md).
+Use [package validation](README.md#validation) and [testing](docs/testing.md). For Pi upgrades, use the [compatibility checklist](docs/pi-compatibility.md).

@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
-import { LockTimeoutError } from "./errors.ts";
+import { LockTimeoutError, PrivateFileError } from "./errors.ts";
 import { acquireLock } from "./lock.ts";
 
 vi.mock("node:fs/promises", { spy: true });
@@ -63,7 +63,7 @@ it.each(["token", "inode"] as const)(
       if (changed === "inode") await unlink(path);
       else token = "another owner's token";
       await writeFile(path, token, { mode: 0o600 });
-      await expect(lock.release()).rejects.toThrow("ownership changed");
+      await expect(lock.release()).rejects.toBeInstanceOf(PrivateFileError);
       expect(await readFile(path, "utf8")).toBe(token);
     } finally {
       await rm(directory, { recursive: true, force: true });

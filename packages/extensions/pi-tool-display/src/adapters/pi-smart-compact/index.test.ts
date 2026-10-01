@@ -84,16 +84,16 @@ function renderContext(args: unknown, expanded: boolean) {
 beforeAll(() => initTheme("dark", false));
 
 it("selects only the owning extension's tool contracts and respects renderer overrides", () => {
-  for (const [tool, adapter] of [
-    [info, compact],
-    [contextInfo, contextWindow]
+  for (const [tool, adapterId] of [
+    [info, "pi-smart-compact:compact"],
+    [contextInfo, "pi-smart-compact:context_window"]
   ] as const) {
     for (const sourceInfo of [
       tool.sourceInfo,
       { ...tool.sourceInfo, path: "C:\\extensions\\pi-smart-compact\\src\\index.ts" },
       { ...tool.sourceInfo, path: "/cache/index.js", source: "npm:pi-smart-compact@0.1.0" }
     ])
-      expect(piSmartCompactAdapter({ ...tool, sourceInfo })).toBe(adapter);
+      expect(piSmartCompactAdapter({ ...tool, sourceInfo })?.id).toBe(adapterId);
 
     for (const unsupported of [
       undefined,
@@ -112,7 +112,7 @@ it("selects only the owning extension's tool contracts and respects renderer ove
     const owner = { renderCall: () => ({ render: () => [], invalidate() {} }) };
 
     for (const [mode, expected] of [
-      ["auto", adapter.id],
+      ["auto", adapterId],
       ["generic", "generic"],
       ["original", undefined]
     ] as const) {

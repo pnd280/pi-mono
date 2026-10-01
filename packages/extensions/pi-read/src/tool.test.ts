@@ -1,10 +1,10 @@
-import { fauxToolCall, validateToolArguments } from "@earendil-works/pi-ai";
+import { fauxToolCall, Type, validateToolArguments } from "@earendil-works/pi-ai";
 import { createReadToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createToolContext } from "@pi-mono/libs/validation/tool-context";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import register from "../index.ts";
-import { sourceResult, type ReadResult } from "./result.ts";
+import { interpretReadResult, type ReadResult } from "./result.ts";
 import { createSelectiveReadTool, type SelectiveReadParams } from "./tool.ts";
 
 const context = await createToolContext("/session");
@@ -89,13 +89,55 @@ it("keeps runtime metadata and unsupported integer bounds out of the serialized 
   });
 });
 
+it("extends the accepted native schema and preserves its independently supplied metadata", () => {
+  const native = createReadToolDefinition("/project");
+  const base = {
+    ...native,
+    label: "accepted read",
+    description: "Accepted native description.",
+    promptSnippet: "Accepted snippet",
+    promptGuidelines: ["Accepted guideline"],
+    parameters: {
+      ...native.parameters,
+      description: "Accepted parameter schema",
+      additionalProperties: false,
+      properties: {
+        ...native.parameters.properties,
+        path: { ...native.parameters.properties.path, description: "Accepted path metadata" },
+        offset: Type.Optional({
+          ...native.parameters.properties.offset,
+          description: "Accepted offset metadata"
+        })
+      }
+    }
+  };
+  const before = JSON.stringify(base.parameters);
+  const tool = createSelectiveReadTool(base);
+
+  expect(tool.parameters).toMatchObject({
+    description: "Accepted parameter schema",
+    additionalProperties: false,
+    required: ["path"],
+    properties: base.parameters.properties
+  });
+  expect(tool.parameters.properties.selection).toBeDefined();
+  expect(tool.label).toBe("accepted read");
+  expect(tool.description).toContain("Accepted native description.");
+  expect(tool.promptSnippet).toBe("Accepted snippet");
+  expect(tool.promptGuidelines).toContain("Accepted guideline");
+  expect(JSON.stringify(base.parameters)).toBe(before);
+  expect(native.parameters.properties.path).not.toMatchObject({
+    description: "Accepted path metadata"
+  });
+});
+
 it("returns native results unchanged without a selection and forwards execution context", async () => {
   const { tool, execute } = fixture();
   const signal = new AbortController().signal;
   const onUpdate = vi.fn();
   const args = { path: "sample.ts", offset: 2, limit: 2 };
   const result = await tool.execute("identity", args, signal, onUpdate, context);
-  expect(result).toBe(await nativeResult(execute));
+  expect(result).toEqual(await nativeResult(execute));
   expect(execute).toHaveBeenCalledExactlyOnceWith("identity", args, signal, onUpdate, context);
 });
 
@@ -105,12 +147,11 @@ it("adds a preview without changing native blocks or details and reads only once
     selection: { startLine: 2, startColumn: 2, endLine: 3, endColumn: 3 }
   });
   const native = await nativeResult(execute);
-  expect(result.content[0]).toBe(native.content[0]);
+  expect(result.content[0]).toEqual(native.content[0]);
   expect(lastText(result).split("\n").slice(1)).toEqual(["lpha", "be"]);
-  expect(sourceResult(result).content).toEqual(native.content);
+  expect(interpretReadResult(result).sourceContent).toEqual(native.content);
   expect(result.details?.selectiveRead).toEqual({ sourceBlocks: native.content.length });
   expect(readFile).toHaveBeenCalledExactlyOnceWith("/session/sample.ts");
-  expect(execute.mock.calls[0]![1]).toEqual({ path: "sample.ts" });
 });
 
 it("rejects invalid selections before reading, and preserves native errors and cancellation", async () => {
@@ -135,21 +176,45 @@ it("rejects invalid selections before reading, and preserves native errors and c
   expect(readFile).not.toHaveBeenCalled();
   const error = new Error("read failed");
   execute.mockRejectedValueOnce(error);
-  await expect(run({ selection: { startLine: 1 } })).rejects.toBe(error);
+  await expect(run({ selection: { startLine: 1 } })).rejects.toThrow("read failed");
 });
 
 describe("native source windows", () => {
+  it.each([
+    { window: { limit: -1 }, lines: ["before", "alpha", "beta", "after"] },
+    { window: { offset: 2, limit: -2 }, lines: ["alpha", "beta", "after"] },
+    { window: { limit: -0.1 }, lines: [] },
+    { window: { offset: 2.8, limit: 1.4 }, lines: ["alpha", "beta"] }
+  ])(
+    "keeps the native fractional and end-relative source window: %j",
+    async ({ window, lines }) => {
+      const { run, execute } = fixture();
+      const result = await run({ ...window, selection: { startLine: 1, endLine: 5 } });
+      const native = await nativeResult(execute);
+      const interpreted = interpretReadResult(result, window);
+      expect(interpreted.sourceContent).toEqual(native.content);
+      expect(interpreted.document?.lines).toEqual(lines);
+      expect(interpreted.document?.notice).toContain("more lines in file");
+      expect(lastText(result)).not.toContain("more lines in file");
+      if (lines.length > 0) expect(lastText(result).split("\n").slice(1)).toEqual(lines);
+    }
+  );
+
   it("reports partial selections without selecting a limit continuation notice", async () => {
     const { run } = fixture();
     const result = await run({ offset: 2, limit: 2, selection: { startLine: 1, endLine: 3 } });
-    expect(lastText(sourceResult(result))).toContain("more lines in file");
-    expect(lastText(result)).toMatch(/^.*\(partial\):/);
+    expect(interpretReadResult(result, { offset: 2, limit: 2 }).document?.notice).toContain(
+      "more lines in file"
+    );
+    expect(lastText(result)).toContain("partial");
     expect(lastText(result).split("\n").slice(1)).toEqual(["alpha", "beta"]);
   });
 
   it("does not preview continuation notices when the selection is outside the read window", async () => {
     const result = await fixture().run({ limit: 1, selection: { startLine: 3 } });
-    expect(lastText(sourceResult(result))).toContain("more lines in file");
+    expect(interpretReadResult(result, { limit: 1 }).document?.notice).toContain(
+      "more lines in file"
+    );
     expect(lastText(result)).toMatch(/offset.*limit/);
     expect(lastText(result)).not.toContain("more lines in file");
   });
@@ -178,7 +243,7 @@ describe("native source windows", () => {
     };
     execute.mockResolvedValueOnce(native);
     const result = await run({ limit: 3, selection: { startLine: 3 } });
-    expect(sourceResult(result).content).toEqual(native.content);
+    expect(interpretReadResult(result).sourceContent).toEqual(native.content);
     expect(lastText(result)).toMatch(/offset.*limit/);
     expect(lastText(result)).not.toContain("Showing lines");
   });
@@ -236,36 +301,6 @@ it("leaves native images and text-only image failure notes untouched", async () 
       expect(note.text).toContain("Read image file [image/");
     }
 
-    expect(result).toBe(native);
+    expect(result).toEqual(native);
   }
-});
-
-it("restores preview provenance after serialization without hiding unmarked source", () => {
-  const result: ReadResult = {
-    content: [
-      { type: "text", text: "Selected source preview:\nsource" },
-      { type: "text", text: "preview" }
-    ],
-    details: { selectiveRead: { sourceBlocks: 1 } }
-  };
-  expect(sourceResult(structuredClone(result)).content).toEqual([result.content[0]]);
-  const unmarked = { ...result, details: undefined };
-  expect(sourceResult(unmarked)).toBe(unmarked);
-  const invalidResults = [
-    { ...result, details: { selectiveRead: { sourceBlocks: 10 } } },
-    {
-      ...result,
-      content: [...result.content, { type: "text", text: "unowned" }],
-      details: { selectiveRead: { sourceBlocks: 1 } }
-    },
-    {
-      ...result,
-      content: [
-        ...result.content.slice(0, 1),
-        { type: "image", data: "AA==", mimeType: "image/png" }
-      ],
-      details: { selectiveRead: { sourceBlocks: 1 } }
-    }
-  ] satisfies ReadResult[];
-  for (const invalid of invalidResults) expect(sourceResult(invalid)).toBe(invalid);
 });

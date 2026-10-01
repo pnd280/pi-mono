@@ -1,11 +1,6 @@
 import { setImmediate } from "node:timers/promises";
 
-import {
-  normalizeSearch,
-  prepareSearchQuery,
-  rankText,
-  type SearchRank
-} from "@pi-mono/utils/text-search";
+import { normalizeSearch, prepareSearchQuery, rankText, type SearchRank } from "./ranking.ts";
 
 /** Preserve whole-string Unicode case rules while yielding during whitespace normalization. */
 export async function normalizeSearchAsync(text: string, signal?: AbortSignal): Promise<string> {

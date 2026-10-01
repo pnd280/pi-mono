@@ -209,7 +209,7 @@ it.each(["host", "operation"])(
       try {
         const retained = shellCall(replay, "cancelled");
         replay.result("cancelled", published, "failure");
-        expect(retained.adapter).toBe(genericAdapter);
+        expect(retained.adapter.id).toBe("generic");
         expect(retained.outcome).toBe("failure");
         expect(isCancelled(retained)).toBe(true);
         expect(appendEntry).toHaveBeenCalledOnce();
@@ -539,11 +539,11 @@ it.each(["fff", "mcp"] as const)(
         "historical"
       );
       const call = session.coordinator.byId(name)!;
-      expect(call.adapter).toBe(genericAdapter);
+      expect(call.adapter.id).toBe("generic");
       expect(session.coordinator.group(call)).toBeUndefined();
       available = true;
       session.refreshAdapters();
-      expect(call.adapter).toBe(adapter);
+      expect(call.adapter.id).toBe(adapter.id);
       expect(call.args).toBe(args);
       expect(call.result).toBe(published);
       expect(call.origin).toBe("historical");
@@ -565,6 +565,64 @@ it.each(["fff", "mcp"] as const)(
     }
   }
 );
+
+it("restores native facts and eligible saved previews after late contract selection", async () => {
+  const history = SessionManager.inMemory();
+  const args = { command: "echo retained" };
+  const messageEntryId = history.appendMessage(
+    assistantMessage([fauxToolCall("bash", args, { id: "late-native" })])
+  );
+  const operation = {
+    kind: "operation",
+    availability: "available",
+    durationMs: 12,
+    outcome: "success"
+  };
+  history.appendCustomEntry(METADATA_TYPE, {
+    version: 1,
+    call: { messageEntryId, messageTimestamp: 1, contentIndex: 0, toolCallId: "late-native" },
+    adapter: "pi:bash",
+    fact: operation
+  });
+  const file = files();
+  const append = vi.fn();
+  let available = false;
+  const session = fixture({
+    history,
+    selectAdapter: (name) => (available ? nativeAdapter(name) : genericAdapter),
+    expanded: () => true,
+    readSavedOutput: file.read,
+    append
+  });
+
+  try {
+    session.message(
+      {
+        kind: "assistant",
+        timestamp: 1,
+        calls: [{ index: 0, id: "late-native", name: "bash", args }]
+      },
+      "historical"
+    );
+    const published = result("published-output");
+    session.result("late-native", published, "success");
+    const call = session.coordinator.byId("late-native")!;
+    expect(call.operation).toBeUndefined();
+    expect(file.read).not.toHaveBeenCalled();
+    available = true;
+    session.refreshAdapters();
+    expect(call.operation).toEqual(operation);
+    expect(file.read).toHaveBeenCalledExactlyOnceWith("published-output");
+    await file.complete("published-output");
+    expect(call.savedOutput?.text).toBe("preview:published-output");
+    expect(call.args).toBe(args);
+    expect(call.result).toBe(published);
+    expect(session.beginObservation("late-native", "pi:bash")).toBeUndefined();
+    expect(append).not.toHaveBeenCalled();
+  } finally {
+    session.dispose();
+  }
+});
 
 it("makes retained observation callbacks inert after session disposal, including persistence", () => {
   const append = vi.fn();

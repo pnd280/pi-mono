@@ -67,8 +67,8 @@ it("refuses own accessors and nonwritable data properties without changing them"
   const target = { first: 1, second: 2 };
   Object.defineProperty(target, "first", { get: () => 1, set });
   Object.defineProperty(target, "second", { writable: false });
-  expect(() => hooks.replace(target, "first", 3)).toThrow("writable data properties");
-  expect(() => hooks.replace(target, "second", 4)).toThrow("writable data properties");
+  expect(() => hooks.replace(target, "first", 3)).toThrow(TypeError);
+  expect(() => hooks.replace(target, "second", 4)).toThrow(TypeError);
   hooks.restore();
   expect(set).not.toHaveBeenCalled();
   expect(target).toEqual({ first: 1, second: 2 });

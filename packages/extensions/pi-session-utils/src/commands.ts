@@ -92,22 +92,6 @@ export async function createEmptyChild(ctx: SessionCommandContext): Promise<void
   if (result.cancelled) ctx.ui.notify("Sub-session creation cancelled", "info");
 }
 
-export async function runSessionOperation(args: string, ctx: SessionCommandContext): Promise<void> {
-  switch (args.trim()) {
-    case "persist":
-      await persistSession(ctx);
-      break;
-    case "create-empty-child":
-      await createEmptyChild(ctx);
-      break;
-    default:
-      ctx.ui.notify(
-        "Usage: /sesh persist | /sesh create-empty-child | /sesh auto-name [clear]",
-        "error"
-      );
-  }
-}
-
 const subcommands = [
   { value: "persist", description: "Save this ephemeral session to disk" },
   {
@@ -152,7 +136,19 @@ export function registerSessionCommand(
       running = true;
 
       try {
-        await runSessionOperation(action, ctx);
+        switch (action) {
+          case "persist":
+            await persistSession(ctx);
+            break;
+          case "create-empty-child":
+            await createEmptyChild(ctx);
+            break;
+          default:
+            ctx.ui.notify(
+              "Usage: /sesh persist | /sesh create-empty-child | /sesh auto-name [clear]",
+              "error"
+            );
+        }
       } finally {
         running = false;
       }

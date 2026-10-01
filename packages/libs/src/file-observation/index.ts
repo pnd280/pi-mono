@@ -29,7 +29,16 @@ export async function observeTextFile(path: string, maxBytes: number): Promise<F
     if (!before.isFile()) return { status: "not-file" };
     if (before.size > maxBytes) return { status: "too-large" };
     const buffer = Buffer.alloc(before.size + 1);
-    const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+    let bytesRead = 0;
+
+    // Read one extra byte to detect growth; a single read may return fewer bytes.
+    while (bytesRead < buffer.length) {
+      const count = (await file.read(buffer, bytesRead, buffer.length - bytesRead, bytesRead))
+        .bytesRead;
+      if (count === 0) break;
+      bytesRead += count;
+    }
+
     const after = await file.stat();
     if (bytesRead !== before.size || before.size !== after.size || before.mtimeMs !== after.mtimeMs)
       return { status: "changed" };

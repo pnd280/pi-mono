@@ -1,29 +1,45 @@
 # pi-editor-widgets
 
-Arrange native widgets, individual statuses, and built-in footer information above the editor, below it, or in the footer. Contributors continue using Pi's ordinary `setWidget()` and `setStatus()` APIs. Interactive TUI only, in regular and fullscreen modes.
+Choose where Pi's widgets and statuses appear: above the editor, below it, or in the footer. For example, open `/widgets` to move a git-status widget into the footer beside the model name, or show the token count above the editor.
+
+Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; this extension only arranges what they contribute. Built-in footer information can be arranged the same way. Works in the interactive TUI, in regular and fullscreen modes.
 
 ## Usage
 
-1. Open `/widgets`, then choose a region, row, and contents. Follow the menu's fixed key hints: **a** adds, **Shift+Up/Down** reorders, and **Delete** removes a placement. Removing the last copy hides that contributor.
-2. Use **Tab** to switch global/project drafts; project scope requires trust. Edits preview live without saving.
-3. Press **Ctrl+S** to save the displayed scope. **Escape** returns to the parent view; **Ctrl+C** closes and discards remaining unsaved edits. Failed saves retain the draft for retry.
+1. Open `/widgets`, then choose a region, a row, and its contents.
+2. Edit the layout with the keys shown in the menu:
 
-Contributions can share rows or appear in multiple regions. Rows wrap whole contributions instead of shrinking them; empty widgets collapse without losing their positions.
+   | Key                          | Action                                                                             |
+   | ---------------------------- | ---------------------------------------------------------------------------------- |
+   | **a**                        | Add a placement.                                                                   |
+   | **Shift+Up**, **Shift+Down** | Move a placement.                                                                  |
+   | **Delete**                   | Remove a placement. Removing the last copy hides that widget.                      |
+   | **Tab**                      | Switch between global and project layouts. Project layouts need a trusted project. |
 
-In fullscreen, click the token/context widget to toggle compact and detailed displays. Regular mode always shows full token details and context percentages. Fullscreen selections reset on session start or `/reload` and never write settings.
+   Edits preview live but aren't saved yet.
+
+3. Press **Ctrl+S** to save the layout you're viewing. If saving fails, your edits are kept so you can retry.
+4. Press **Escape** to go back, or **Ctrl+C** to close and discard unsaved edits.
+
+Widgets and statuses can share a row, or appear in several regions at once. A row too narrow for its contents wraps whole items onto the next line instead of shrinking them. An empty widget takes no space but keeps its position.
+
+Widgets that contain Kitty or iTerm2 images use full-width rows and keep their native output intact. If the height limit falls inside one of these widgets, clipping stops before that widget.
+
+### Token and context display
+
+In fullscreen mode, click the token and context widget to switch between a compact and a detailed view. Regular mode always shows full token details and context percentages. The fullscreen choice resets on session start or `/reload`, and is never saved.
 
 ## Configuration
 
-For manual layout JSON, scope inheritance, or context-color settings, read [settings and layouts](docs/settings.md). Preferences refresh on session start, `/reload`, and opening `/widgets`.
+To edit layouts as JSON, set up inheritance between global and project layouts, or change context colours, read [settings and layouts](docs/settings.md). Preferences are reloaded on session start, `/reload`, and when you open `/widgets`.
 
 ## Side effects
 
-This extension owns the entire footer. Disable competing custom-footer extensions and `/reload` to resolve conflicts; native widgets and statuses remain supported.
-
-Moving, duplicating, or hiding contributions does not create or dispose registered components; copies share the same instance and its side effects. Mouse drag capture has [geometry limitations](docs/pi-compatibility.md#limitations-and-replacement-opportunities).
-
-Only Ctrl+S writes layout settings, preserving unrelated fields and settings symlinks. Unreadable or malformed files/sections require repair before saving.
+- This extension takes over the whole footer. If another extension also replaces the footer, disable it and run `/reload`. Native widgets and statuses keep working.
+- Moving, copying, or hiding a widget never creates or disposes it. Copies share one instance, including its side effects.
+- Only **Ctrl+S** writes layout settings. Unrelated fields and settings symlinks are preserved. If a settings file or section is unreadable or malformed, repair it before saving.
+- Mouse drag capture has [geometry limits](docs/pi-compatibility.md#limitations).
 
 ## Validation
 
-Use [focused checks](../../../docs/development.md#focused-validation) for `pi-editor-widgets`. For interaction changes, use the [terminal checks](docs/testing.md#terminal-checks); for Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+Use the [focused checks](../../../docs/development.md#focused-validation) for `pi-editor-widgets`. For interaction changes, also run the maintainer [terminal checks](docs/testing.md#terminal-checks). For Pi upgrades, follow the maintainer [compatibility checklist](docs/pi-compatibility.md).

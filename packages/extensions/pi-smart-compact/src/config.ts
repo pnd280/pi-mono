@@ -29,9 +29,11 @@ const configSchema = z.strictObject({
 });
 const settingsSchema = z.object({ "ext.pi-smart-compact": configSchema.optional() });
 
-export type CompactConfig = z.output<typeof configSchema> & { instructions?: string };
+export type CompactSettings = z.output<typeof configSchema>;
 
-function readSection(path: string): CompactConfig {
+export type CompactConfig = Omit<CompactSettings, "instructionsFile"> & { instructions?: string };
+
+function readSection(path: string): CompactSettings {
   try {
     const parsed = settingsSchema.safeParse(readSettingsRecord(path));
 
@@ -65,11 +67,11 @@ export function loadCompactConfig(
   const global = readSection(join(agentDir, "settings.json"));
   const project = projectTrusted ? readSection(join(cwd, CONFIG_DIR_NAME, "settings.json")) : {};
 
-  const config = { ...global, ...project };
-  if (config.instructionsFile === undefined) return config;
+  const { instructionsFile, ...config } = { ...global, ...project };
+  if (instructionsFile === undefined) return config;
 
   try {
-    const instructions = readSettingsFile(config.instructionsFile);
+    const instructions = readSettingsFile(instructionsFile);
     if (instructions !== undefined) return { ...config, instructions: instructions.trim() };
   } catch {
     // Do not expose file contents or silently ignore a configured focus.

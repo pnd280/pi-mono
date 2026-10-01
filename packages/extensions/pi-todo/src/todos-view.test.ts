@@ -1,7 +1,15 @@
 import { initTheme } from "@earendil-works/pi-coding-agent";
-import { KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
+import {
+  KeybindingsManager,
+  stripTerminalSequences,
+  TUI_KEYBINDINGS,
+  visibleWidth
+} from "@earendil-works/pi-tui";
+import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { beforeAll, expect, it, vi } from "vite-plus/test";
 
+import { TodosCustomViewHost } from "./commands.ts";
+import { TodoController } from "./controller.ts";
 import { TodosView } from "./todos-view.ts";
 
 beforeAll(() => initTheme("dark", false));
@@ -12,6 +20,61 @@ const theme = {
   strikethrough: (text: string) => text
 };
 
+it("keeps list and detail rows within short and narrow terminal dimensions", () => {
+  const terminal = { rows: 24 };
+  const view = new TodosView({
+    tasks: Array.from({ length: 20 }, (_, index) => ({
+      id: index + 1,
+      subject: `Long todo subject ${index + 1}`,
+      status: "pending",
+      description: "A long description line.\n".repeat(20)
+    })),
+    theme,
+    tui: { requestRender() {}, terminal },
+    keybindings: new KeybindingsManager(TUI_KEYBINDINGS),
+    done: vi.fn()
+  });
+
+  for (const detail of [false, true]) {
+    if (detail) view.handleInput("\r");
+
+    for (const [width, height] of [
+      [80, 24],
+      [40, 10],
+      [20, 7],
+      [20, 3]
+    ] as const) {
+      terminal.rows = height;
+      const lines = view.render(width);
+      expect(lines.length, `${width}x${height}, detail=${detail}`).toBeLessThanOrEqual(height);
+      expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
+      expect(lines.join("\n")).toContain(detail ? "Long todo subject 1" : "pending");
+    }
+  }
+});
+
+it("keeps close controls visible in a short regular-mode overlay", async () => {
+  const fixture = await hostFixture();
+  const controller = new TodoController();
+  controller.apply("create", { subject: "Visible todo" });
+  const view = new TodosCustomViewHost({ suppress: () => ({ release() {} }) });
+  fixture.terminal.rows = 7;
+  const write = vi.spyOn(fixture.host.ui.terminal, "write");
+  fixture.host.ui.start();
+  const opening = view.show({ ui: fixture.ui, signal: undefined }, controller);
+
+  try {
+    await vi.waitFor(() => expect(fixture.host.ui.hasOverlay()).toBe(true));
+    write.mockClear();
+    fixture.host.ui.renderNow(true);
+    expect(stripTerminalSequences(write.mock.calls.flat().join(""))).toContain("Esc close");
+  } finally {
+    view.shutdown();
+    await opening;
+    await fixture.dispose();
+  }
+});
+
 it("uses configured selection paging for the list and details", () => {
   const view = new TodosView({
     tasks: Array.from({ length: 30 }, (_, index) => ({
@@ -21,7 +84,7 @@ it("uses configured selection paging for the list and details", () => {
       description: Array.from({ length: 50 }, (_, line) => `Detail line ${line + 1}`).join("\n")
     })),
     theme,
-    tui: { mode: "fullscreen", requestRender() {}, terminal: { rows: 40 } },
+    tui: { requestRender() {}, terminal: { rows: 40 } },
     keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
       "tui.select.pageDown": "ctrl+n",
       "tui.select.pageUp": "ctrl+p",
@@ -36,7 +99,8 @@ it("uses configured selection paging for the list and details", () => {
   expect(view.ownsFullscreenInput("\x1b[6~")).toBe(false);
   view.handleInput("\x0e");
   view.handleInput("\r");
-  expect(view.render(80).join("\n")).toContain("Todo #16");
+  const pagedSelection = /Todo #(\d+)/u.exec(view.render(80).join("\n"));
+  expect(Number(pagedSelection?.[1])).toBeGreaterThan(2);
   view.handleInput("\x1b");
   view.handleInput("\x10");
   view.handleInput("\r");
@@ -58,7 +122,7 @@ it("claims only effective paging actions and reserves control keys", () => {
   const view = new TodosView({
     tasks: [{ id: 1, subject: "Todo", status: "pending" }],
     theme,
-    tui: { mode: "fullscreen", requestRender() {}, terminal: { rows: 24 } },
+    tui: { requestRender() {}, terminal: { rows: 24 } },
     keybindings: keys,
     done: vi.fn()
   });
@@ -83,7 +147,7 @@ it("shares dispatch precedence for ambiguous terminal encodings in lists and det
       }
     ],
     theme,
-    tui: { mode: "fullscreen", requestRender() {}, terminal: { rows: 24 } },
+    tui: { requestRender() {}, terminal: { rows: 24 } },
     keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
       "tui.select.pageDown": ["ctrl+[", "ctrl+m", "ctrl+n"]
     }),
@@ -114,7 +178,7 @@ it("resolves conflicting configured todo controls without using Ctrl+C to cancel
   const view = new TodosView({
     tasks: [{ id: 1, subject: "Todo", status: "pending" }],
     theme,
-    tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
+    tui: { requestRender() {}, terminal: { rows: 24 } },
     keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
       "tui.select.cancel": ["ctrl+c", "escape"],
       "tui.select.confirm": ["escape", "ctrl+y"]
@@ -140,7 +204,7 @@ it.each([{ cancel: [] }, { cancel: ["ctrl+c"] }] as const)(
         new TodosView({
           tasks: [],
           theme,
-          tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
+          tui: { requestRender() {}, terminal: { rows: 24 } },
           keybindings: new KeybindingsManager(TUI_KEYBINDINGS, {
             "tui.select.cancel": [...cancel]
           }),
@@ -159,7 +223,7 @@ it("selects hierarchy preorder, opens read-only details, returns, and ignores Ct
       { id: 3, subject: "Child", status: "completed", parentId: 1, description: "Detail text" }
     ],
     theme,
-    tui: { mode: "regular", requestRender() {}, terminal: { rows: 24 } },
+    tui: { requestRender() {}, terminal: { rows: 24 } },
     keybindings: new KeybindingsManager(TUI_KEYBINDINGS),
     done
   });

@@ -1,22 +1,52 @@
-# Pi compatibility
+# Pi compatibility for maintainers
 
 [pi-agent-summary](../README.md)
 
-## Contracts to verify
+> Last verified against Pi 1.0.0 (package checks and offline tests, real codemode and virtual-model coverage, shared mutation and display suites). Not covered: manual visual checks.
 
-- [ ] [Lifecycle](../src/index.ts): first `agent_start` through `agent_settled`, including retries, queued follow-ups, cancellation, and timer cleanup; count direct and nested agent bash calls once per call ID, excluding manual shell input.
-- [ ] [Run metadata](../src/index.ts): assistant `message_end` events name the answering `provider`, `model`, and requested `thinkingLevel`; under a virtual selection these are the routed physical model, while failed or aborted routing leaves `api: "pi-virtual"` (Pi's unexported `VIRTUAL_MODEL_API`) on the message. Error responses do not count. The [stored schema](../src/summary.ts) accepts all host thinking levels, absent levels, and absent model lists, but rejects empty lists and models without a provider.
-- [ ] [Output throughput](../src/throughput.ts): public assistant `message_start`/`message_end` events delimit response streams; completed `message.usage.output` includes reasoning once. Verify cancelled/error usage, tool/nested-usage exclusion, continuation aggregation, and non-TUI reporting.
-- [ ] [Mutation statistics](../src/changes.ts): verified native operations, ordering, path deduplication, net/reverted changes, and unavailable versus zero statistics.
-- [ ] [Persistence/rendering](../src/index.ts): `appendEntry` stays outside model context; replay, expansion/mouse behavior, and non-TUI execution preserve metadata without contents or patches.
+## Upgrade procedure
 
-## Limitations and replacement opportunities
+1. Run the [package and manual checks](../README.md#validation).
+2. When affected, check the other file-mutation consumer (`pi-tool-display`) and working-message composition with `pi-todo`.
+3. Work through the checklist below, then update the "Last verified" line.
 
-- [Output throughput](../README.md#output-throughput) is client-observed and depends on provider stream-start timing and reported usage. Prefer a public provider timing/throughput API if Pi adds one; do not estimate token counts from stream chunks.
-- [Observation excludes bash changes, overrides, and custom tools](../README.md#tool-statistics). Revisit public mutation/run-summary APIs with trustworthy outcomes and ordering; retain bounded retention and context-free persistence. Shared observation changes belong in libs.
+## Checklist
 
-## Validation
+Recheck lifecycle boundaries, attribution, and native file observations against the installed Pi version.
 
-Pi **0.99.2** package checks and offline tests passed. Real codemode and virtual-model coverage verifies one summary, nested Bash/file accounting, assistant-only throughput, routed physical-model identity, and context-free persistence. Shared mutation and display suites passed. Manual visual checks were not run.
+### Lifecycle
 
-Use [package and visual checks](../README.md#validation); check shared file-mutation consumers (`pi-tool-display`) and working-message composition with `pi-todo` when affected.
+[Lifecycle](../src/index.ts):
+
+- [ ] A run lasts from the first `agent_start` to `agent_settled`, through retries, queued follow-ups, and cancellation, and the timer is cleaned up.
+- [ ] Direct and nested agent `bash` calls count once per call ID. Manual shell input is excluded.
+
+### Answering models
+
+[Run metadata](../src/index.ts):
+
+- [ ] Assistant `message_end` events name the answering `provider`, `model`, and requested `thinkingLevel`.
+- [ ] Under a virtual selection these are the routed physical model. Failed or aborted routing leaves `api: "pi-virtual"` on the message (Pi's unexported `VIRTUAL_MODEL_API`).
+- [ ] Error responses don't count.
+- [ ] The [stored schema](../src/summary.ts) accepts every host thinking level, missing levels, and missing model lists, and rejects empty lists and models without a provider.
+
+### Throughput
+
+[Output throughput](../src/throughput.ts):
+
+- [ ] Public assistant `message_start` and `message_end` events delimit response streams.
+- [ ] A completed `message.usage.output` includes reasoning exactly once.
+- [ ] Usage from cancelled and failed responses, exclusion of tool and nested usage, aggregation across continuations, and reporting outside the TUI.
+
+### File statistics
+
+- [ ] [Mutation statistics](../src/changes.ts): verified native operations, ordering, path deduplication, net and reverted changes, and unavailable versus zero statistics.
+
+### Persistence and rendering
+
+- [ ] [Persistence and rendering](../src/index.ts): `appendEntry` stays out of model context. Replay, expansion and mouse behaviour, and runs outside the TUI keep metadata without contents or patches.
+
+## Limitations
+
+- **Throughput.** [Output throughput](../README.md#output-throughput) is measured by the client, so it depends on when the provider's stream starts and on reported usage. If Pi adds a public timing or throughput API, use it. Never estimate token counts from stream chunks.
+- **File coverage.** [Observation skips bash changes, overrides, and custom tools](../README.md#file-changes). Revisit public mutation or run-summary APIs that report trustworthy outcomes and ordering, while keeping bounded retention and saving outside model context. Changes to shared observation belong in libs.

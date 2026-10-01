@@ -1,34 +1,96 @@
-# Session management coverage
+# Session management test coverage for maintainers
 
 [Package](../README.md) · [Shared testing policy](../../../../docs/agents/testing.md)
 
-## Contracts
+Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). Property restoration belongs to [OwnedHooks](../../../libs/src/owned-hooks/README.md). Pi owns session reconstruction, metadata serialisation, later persistence, and provider-specific reasoning mappings.
 
-### Session commands and startup
+This package tests command policy, choosing what goes into the JSONL snapshot, parent resolution, the startup hook's lifecycle, source text selection, naming configuration, title sanitisation, and naming lifecycle wiring.
 
-- Persistence and child creation require `isIdle()` and warn immediately when busy, without waiting, saving, switching, or queuing. Busy child creation includes a POSIX-shell-safe `pi --parent-session` command for an existing parent file; ephemeral or unwritten parents receive save-first guidance. The command preserves paths with spaces, apostrophes, and shell metacharacters as one literal argument. Paths with control characters receive idle-retry guidance instead; notifications sanitize displayed paths without changing filesystem or session-switch targets.
-- `/sesh persist` copies only the active branch under a fresh session header, retains any parent link, and switches to the saved file. Entries keep IDs, parent links, metadata, and model context. The current session-wide name or explicit clearing survives even when its metadata is outside the active branch; an empty branch can retain a name without importing conversation. The source and already file-backed sessions remain unchanged.
-- `/sesh create-empty-child` starts an empty conversation linked to the current persisted session. It refuses ephemeral parents and allocated-but-unwritten parent files, and leaves the current session unchanged on cancellation.
-- `/sesh` owns persistence, child creation, and `auto-name [clear]`; no standalone naming command is registered. Unsupported subcommands and extra arguments cause no session operations or naming requests. Completion offers supported subcommands and nested clear with short descriptions, without intercepting submission of complete arguments.
-- Only persistence and child creation share an operation lock. Naming works while the agent or a session operation is busy; regeneration supersedes previous generation and clear cancels immediately.
-- Cancelled persistence removes the new file. A switch error retains the saved copy for recovery.
-- `--parent-session` resolves a readable file path or an unambiguous exact ID without changing the parent. Header reads are bounded; malformed, oversized, missing, or non-file parents are rejected safely.
-- The startup flag cannot reparent existing/nonempty sessions or combine with conflicting session-selection flags. Pi parses prompts and option values without treating their contents as flags.
-- File-backed and ephemeral children keep the chosen parent without importing its conversation. Persisting an ephemeral child retains its lineage. Scratch sessions reconstructed by other extension factories are ignored. Reload and later sub-session creation do not reapply the startup parent.
-- The initial JSON header already includes the parent, and startup errors exit nonzero instead of proceeding into a prompt.
+## Must not regress
 
-### Naming
+- A switch error keeps the saved copy for recovery. Only cancelled persistence removes the new file.
+- Parent files are never changed.
+- Startup errors exit nonzero instead of continuing into a prompt.
+- Missing or invalid naming settings disable requests rather than choosing a fallback model.
+- Stale results can never rename a session.
 
-- Generation requires an explicit model and supported thinking level from `ext.pi-session-utils.auto-title` in global or trusted current-project settings. Fields inherit across scopes. Missing or invalid settings disable requests rather than selecting a fallback model; clear and session operations remain available.
-- Automatic naming makes at most one attempt per load, waits for nonempty user text without consuming the attempt, preserves existing names, and stays quiet. Manual regeneration uses recent current-branch conversation and reports safe notifications.
-- Only current-branch user and assistant text is sent, within the documented 4,000-character source bounds; tool output and thinking are excluded. Complete text responses become sanitized, grapheme-safe titles of at most 80 characters; incomplete responses and provider errors preserve the name.
-- Authentication and transport use Pi's configured provider. Deadlines and cancellation settle even if external work ignores abort, and stale results cannot rename a session.
-- Native rename/clear cancels generation even if the name returns to its original value. Tree navigation, reload, session replacement, and shutdown also cancel pending work; tree navigation does not replenish the automatic attempt. Persistence retains existing name metadata, while empty children start unnamed and can name themselves from their own requests. Print/JSON output stays clean and exit does not wait for background naming.
+## Session commands
 
-## Coverage boundaries
+Persistence and child creation share an operation lock and require an idle agent. Naming can run while either is busy.
 
-This package owns command policy, JSONL snapshot selection, parent resolution, startup-hook lifecycle, source selection, naming configuration, title sanitization, and naming lifecycle wiring. Session-manager round trips, Pi host and runtime tests, and isolated installed-Pi processes verify integration. [OwnedHooks](../../../libs/src/owned-hooks/README.md) owns property restoration; [libraries](../../../libs/docs/testing.md) own latest-task stale-result protection, bounded settings I/O, and terminal grapheme algorithms. Pi owns session reconstruction, metadata serialization, later persistence, and provider-specific reasoning mappings.
+### Busy agent
 
-## Exclusions
+- Persistence and child creation need `isIdle()`. When busy they warn at once, without waiting, saving, switching, or queueing.
+- A busy child command includes a POSIX-shell-safe `pi --parent-session` command when the parent file exists. Paths with spaces, apostrophes, and shell metacharacters stay one literal argument.
+- Ephemeral and unwritten parents get guidance to save first.
+- Paths with control characters get guidance to retry once idle. Notifications sanitise displayed paths without changing the real filesystem or switch targets.
 
-No paid model requests, subjective title-quality assertions, alternative-branch export, terminal rendering assertions, or duplicated provider-authentication implementation. Use representative host modes for distinct notification/activation branches plus real process checks, rather than testing every scenario in every mode. Process fixtures use offline providers or append assistant entries directly to exercise persistence.
+### Persist
+
+- `/sesh persist` copies only the active branch under a new session header, keeps any parent link, and switches to the saved file.
+- Entries keep their IDs, parent links, metadata, and model context.
+- The current session-wide name, or an explicit clear, survives even when its metadata is outside the active branch. An empty branch can keep a name without bringing in any conversation.
+- The source session, and sessions already saved, are unchanged.
+
+### Create an empty child
+
+- `/sesh create-empty-child` starts an empty conversation linked to the current saved session.
+- It refuses ephemeral parents and parent files that were allocated but never written.
+- Cancelling leaves the current session unchanged.
+
+### Command surface
+
+- `/sesh` handles persistence, child creation, and `auto-name [clear]`. No separate naming command is registered.
+- Unsupported subcommands and extra arguments start no session operation or naming request.
+- While an operation holds the lock, non-naming arguments get the in-progress warning instead of usage guidance.
+- Completion offers the supported subcommands, and the nested `clear`, with short descriptions, without intercepting submission of complete arguments.
+- Only persistence and child creation share an operation lock. Naming works while the agent or a session operation is busy. Regeneration replaces earlier generation, and `clear` cancels at once.
+- The operation lock stays held until the awaited operation settles, then releases after success, cancellation, or an error.
+
+## Startup flag
+
+- `--parent-session` resolves a readable file path, or an exact ID that matches one session. Header reads are bounded. Malformed, oversized, missing, and non-file parents are rejected safely.
+- The flag can't reparent existing or non-empty sessions, or combine with conflicting session-selection flags.
+- Pi parses prompts and option values without treating their contents as flags.
+- Saved and ephemeral children keep the chosen parent without bringing in its conversation. Saving an ephemeral child keeps its lineage.
+- Scratch sessions rebuilt by other extensions' factories are ignored.
+- Reloads, and later sub-sessions, don't apply the startup parent again.
+- The first JSON header already includes the parent.
+
+## Naming
+
+Naming requires an explicit model; missing or invalid settings must leave session operations usable.
+
+### Configuration
+
+- Generation needs an explicit model and a supported thinking level, from `ext.pi-session-utils.auto-title` in global or trusted current-project settings. Fields are inherited across scopes.
+- With missing or invalid settings, `clear` and session operations still work.
+
+### Automatic and manual
+
+- Automatic naming makes at most one attempt per load. It waits for an incoming message with non-empty user text without using up the attempt, even when the branch already contains text. It keeps existing names and stays quiet.
+- Manual regeneration uses recent conversation from the current branch and reports safe notifications.
+
+### Requests and titles
+
+- Only user and assistant text from the current branch is sent, within the documented 4,000-character limits. Tool output and thinking are excluded.
+- Complete text responses become sanitised titles of at most 80 characters that never split a grapheme. Incomplete responses and provider errors leave the name unchanged.
+- Authentication and transport use Pi's configured provider.
+- Deadlines and cancellation settle even if external work ignores the abort.
+
+### Cancellation
+
+- A native rename or clear cancels generation, even if the name ends up back at its original value.
+- Tree navigation, reload, session replacement, and shutdown also cancel pending work. Tree navigation doesn't give back the automatic attempt.
+- Persistence keeps existing name metadata. Empty children start unnamed and can name themselves from their own requests.
+- Print and JSON output stay clean, and exit doesn't wait for background naming.
+
+## How to test
+
+- Integration is checked with session-manager round trips, Pi host and runtime tests, and isolated installed-Pi processes.
+- Cover each distinct notification and activation branch in a representative host mode, plus real process checks, rather than every scenario in every mode.
+- Process fixtures use offline providers, or append assistant entries directly to exercise persistence.
+
+## Not covered here
+
+Paid model requests, judgments of title quality, exporting other branches, terminal rendering, and reimplementing provider authentication.

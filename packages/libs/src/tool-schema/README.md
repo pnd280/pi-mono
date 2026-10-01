@@ -2,21 +2,13 @@
 
 [Library index](../../README.md#usage)
 
-## Behavior
+## Behaviour
 
 [`toToolSchema`](index.ts) (`@pi-mono/libs/tool-schema`) projects a Zod input schema into Pi's TypeBox parameters. It preserves the input TypeScript type, including optional and nullable fields, and can be composed inside `Type.Object` and `Type.Optional`.
 
-The adapter uses one deliberately limited compatibility profile, not a universal provider schema standard. It omits integer bounds (including Zod's automatic safe-integer bounds) because some providers reject them, and excludes hidden runtime metadata. Unsupported keywords, constrained record keys, and recursion fail tool construction rather than silently broadening inputs. Consult the [projection implementation](index.ts) and [schema tests](index.test.ts) for the exact supported keyword set. Explicit integer bounds require a nonempty description on the bounded schema, field, or containing nullable/array/record schema.
+The adapter uses one deliberately limited compatibility profile, not a universal provider schema standard. It omits integer bounds (including Zod's automatic safe-integer bounds) because some providers reject them, and excludes hidden runtime metadata. Unsupported keywords, constrained record keys, and recursion fail tool construction rather than silently broadening inputs. Consult the [projection implementation](index.ts) and [schema tests](index.test.ts) for the exact supported keyword set. Explicit integer bounds require a nonempty description on the bounded schema, field, or containing nullable, array, or record schema.
 
 Refinements and transforms still belong to runtime parsing; the tool schema does not execute them. Extend the profile only after checking the provider boundary and adding coverage.
-
-## Caller responsibilities
-
-- Keep feature schemas, descriptions, and validation errors in the consumer. State omitted numeric constraints in the required description; the adapter checks that a description exists, not what it says.
-- Validate full inputs before side effects with the original Zod schema or equivalent domain validation. A projected TypeBox schema is not a replacement for runtime validation.
-- Use `z.strictObject` where unknown keys must be rejected. Optionality must be expressed in the containing Zod object or with `Type.Optional` when composing TypeBox objects.
-- For display consumers, follow [structural recognition guidance](../../../extensions/pi-tool-display/docs/adapters.md#recognize-tool-contracts) rather than treating the projected schema as a stable fingerprint.
-- Check actual provider acceptance when changing the profile or supported providers. Local serialization and argument-validation tests cannot establish live API compatibility.
 
 ## Usage
 
@@ -32,6 +24,14 @@ const parameters = toToolSchema(input);
 // In execute(), before side effects:
 const args = input.parse({ line: 1 });
 ```
+
+## Caller responsibilities
+
+- Keep feature schemas, descriptions, and validation errors in the consumer. State omitted numeric constraints in the required description; the adapter checks that a description exists, not what it says.
+- Validate full inputs before side effects with the original Zod schema or equivalent domain validation. A projected TypeBox schema is not a replacement for runtime validation.
+- Use `z.strictObject` where unknown keys must be rejected. Optionality must be expressed in the containing Zod object or with `Type.Optional` when composing TypeBox objects.
+- For display consumers, follow [structural recognition guidance](../../../extensions/pi-tool-display/docs/adapters.md#recognise-tool-contracts) rather than treating the projected schema as a stable fingerprint.
+- Check actual provider acceptance when changing the profile or supported providers. Local serialisation and argument-validation tests cannot establish live API compatibility.
 
 ## Validation
 

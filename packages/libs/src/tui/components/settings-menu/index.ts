@@ -89,7 +89,7 @@ function textLines(frame: Frame, value: string): string[] {
 
 /** Hint regions own their leading blank row; maxRows counts only the hints themselves. */
 function hints(frame: Frame, values: readonly string[], maxRows: number): string[] {
-  const { rows } = renderHintFooter({
+  const rows = renderHintFooter({
     width: frame.width,
     maxRows,
     hints: values,
@@ -128,7 +128,7 @@ function scopeLines(options: SettingsMenuOptions, activeOnly = false): string[] 
     padding: "  ",
     separator: theme.fg("muted", " | "),
     style: (value) => value
-  }).rows;
+  });
 }
 
 function dirtyLines(options: SettingsMenuOptions): string[] {

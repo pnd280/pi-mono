@@ -5,9 +5,9 @@ import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import { WidgetCoordinator } from "../src/coordinator.ts";
-import { defaultLayout } from "../src/layout.ts";
+import { defaultLayout, type Layout } from "../src/layout.ts";
 import { WidgetMenu } from "../src/menu.ts";
-import { WidgetSettings, type Preferences } from "../src/settings.ts";
+import { WidgetSettings } from "../src/settings.ts";
 
 const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
 const enter = "\r";
@@ -15,7 +15,7 @@ const down = "\x1b[B";
 const escape = "\x1b";
 const remove = "\x1b[3~";
 
-function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>) {
+function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>, global?: Layout) {
   const settings = new WidgetSettings({
     cwd: fixture.directory,
     agentDir: fixture.agentDir,
@@ -24,23 +24,31 @@ function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>) {
   const coordinator = new WidgetCoordinator(fixture.host, () => fixture.ui.theme, vi.fn());
   const close = vi.fn();
   const requestRender = vi.fn();
-  const apply = vi.fn((preferences: Preferences) =>
-    coordinator.apply(preferences.project ?? preferences.global, preferences.contextThreshold)
-  );
+  const preferences = settings.load();
+  if (global !== undefined) preferences.global = global;
+  coordinator.apply(preferences.project ?? preferences.global, preferences.contextThreshold);
   const menu = new WidgetMenu({
     settings,
-    preferences: settings.load(),
+    preferences,
     coordinator,
     theme: () => fixture.ui.theme,
     rows: () => fixture.terminal.rows,
     requestRender,
-    close,
-    apply
+    close
   });
 
   onTestFinished(() => menu.dispose());
 
-  return { settings, coordinator, close, apply, menu, requestRender };
+  return { settings, coordinator, close, menu, requestRender };
+}
+
+function select(menu: WidgetMenu, id: string): void {
+  const { choices, view } = menu.drafts.snapshot();
+  const target = choices.findIndex((choice) => choice.id === id);
+  expect(target).toBeGreaterThanOrEqual(0);
+  const delta = target - view.selected;
+  for (let index = 0; index < Math.abs(delta); index++)
+    menu.handleInput(delta > 0 ? down : "\x1b[A");
 }
 
 it("saves the displayed inherited layout even when an unset scope has not been edited", async () => {
@@ -59,7 +67,7 @@ it("saves the displayed inherited layout even when an unset scope has not been e
     menu.handleInput("\x13");
     expect(settings.load().project).toEqual(inherited);
     expect(plain(menu.render(80))).not.toContain("not set");
-    expect(menu.drafts.dirty).toBe(false);
+    expect(menu.drafts.current).toEqual({ value: inherited, saved: inherited });
   } finally {
     coordinator.dispose();
     await fixture.dispose();
@@ -86,29 +94,25 @@ it("keeps unset markers until save and identifies edits in either scope", async 
   }
 });
 
-it("adds with a from populated and empty rows without redundant action or details views", async () => {
+it("adds with a from populated and empty rows", async () => {
   const fixture = await hostFixture();
   fixture.ui.setWidget("one", ["ONE"]);
-  const { coordinator, menu, apply } = menuFor(fixture);
+  const { coordinator, menu, settings } = menuFor(fixture);
 
   try {
-    const root = plain(menu.render(80));
-    expect(root).not.toContain("Save layout");
-
     menu.handleInput("a");
     menu.handleInput("?");
-    expect(plain(menu.render(80))).toBe(root);
+    expect(menu.drafts.view.kind).toBe("root");
+    expect(menu.drafts.current).toEqual({ value: undefined, saved: undefined });
     menu.handleInput(enter);
     menu.handleInput(enter);
-    const contents = plain(menu.render(80));
-    expect(contents).not.toContain("Add item");
     menu.handleInput(enter);
     expect(menu.drafts.view.kind).toBe("contents");
     menu.handleInput("a");
     expect(menu.drafts.view.kind).toBe("picker");
     menu.handleInput(escape);
     menu.handleInput(remove);
-    expect(plain(menu.render(40))).toContain("Empty row. Press a to add.");
+    expect(plain(menu.render(40))).toContain("a add");
     menu.handleInput(down);
     menu.handleInput(enter);
     expect(menu.drafts.view).toMatchObject({ kind: "contents", selected: 0 });
@@ -118,7 +122,10 @@ it("adds with a from populated and empty rows without redundant action or detail
     menu.handleInput(enter);
     expect(menu.drafts.layout().aboveEditor).toEqual([["widget:one"]]);
     expect(menu.drafts.layout().hidden).not.toContain("widget:one");
-    expect(apply).not.toHaveBeenCalled();
+    expect(() => readFileSync(settings.paths.global)).toThrow();
+    expect(() => readFileSync(settings.paths.project)).toThrow();
+    menu.handleInput("\x03");
+    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("ONE");
   } finally {
     coordinator.dispose();
     await fixture.dispose();
@@ -128,24 +135,25 @@ it("adds with a from populated and empty rows without redundant action or detail
 it("retains failed drafts, applies successful saves, and renders the selected action on tiny terminals", async () => {
   const fixture = await hostFixture();
   fixture.ui.setWidget("one", ["NATIVE"]);
-  const { settings, coordinator, menu, apply } = menuFor(fixture);
+  const { settings, coordinator, menu } = menuFor(fixture);
 
   try {
     settings.save("global", defaultLayout());
+    const before = readFileSync(settings.paths.global, "utf8");
     menu.handleInput(enter);
     menu.handleInput(enter);
     menu.handleInput(remove);
     const draft = structuredClone(menu.drafts.current.value);
     mkdirSync(`${settings.paths.global}.lock`);
     menu.handleInput("\x13");
-    expect(apply).not.toHaveBeenCalled();
+    expect(readFileSync(settings.paths.global, "utf8")).toBe(before);
     expect(menu.drafts.current.value).toEqual(draft);
-    expect(menu.drafts.dirty).toBe(true);
+    expect(menu.drafts.current.saved).toBeUndefined();
+    expect(plain(menu.render(200))).toContain("global* (not set)");
     expect(plain(menu.render(200))).toContain("Draft retained");
     rmdirSync(`${settings.paths.global}.lock`);
     menu.handleInput("\x13");
-    expect(apply).toHaveBeenCalledOnce();
-    expect(menu.drafts.dirty).toBe(false);
+    expect(menu.drafts.current).toEqual({ value: draft, saved: draft });
     expect(settings.load().global?.hidden).toContain("widget:one");
     expect(plain(fixture.host.widgetContainerAbove.render(80))).not.toContain("NATIVE");
     menu.handleInput(escape);
@@ -166,16 +174,16 @@ it("retains failed drafts, applies successful saves, and renders the selected ac
 
 it("refuses a stale menu save after footer ownership is lost", async () => {
   const fixture = await hostFixture();
-  const { settings, coordinator, menu, apply } = menuFor(fixture);
+  const { settings, coordinator, menu } = menuFor(fixture);
 
   try {
-    menu.drafts.reset();
+    for (let index = 0; index < 3; index++) menu.handleInput(down);
+    menu.handleInput(enter);
     fixture.ui.setFooter(() => ({ render: () => ["OTHER"], invalidate() {} }));
     menu.handleInput("\x13");
-    expect(apply).not.toHaveBeenCalled();
-    expect(menu.drafts.dirty).toBe(true);
-    expect(plain(menu.render(140))).toContain("Save failed. Draft retained.");
-    expect(plain(menu.render(140))).toContain("Resolve footer conflict and /reload.");
+    expect(menu.drafts.current).toEqual({ value: defaultLayout(), saved: undefined });
+    expect(plain(menu.render(140))).toContain("Draft retained");
+    expect(plain(menu.render(140))).toContain("footer conflict");
     expect(() => readFileSync(settings.paths.global)).toThrow();
     expect(plain(fixture.host.footerContainer.render(80))).toContain("OTHER");
   } finally {
@@ -215,7 +223,7 @@ it("saves scopes independently and explains when a project override still wins",
     expect(settings.load().project).toEqual(project);
     menu.handleInput("\t");
     expect(menu.drafts.current.value).toEqual(defaultLayout());
-    expect(menu.drafts.dirty).toBe(true);
+    expect(menu.drafts.current.saved).toEqual(project);
     expect(settings.load().project).toEqual(project);
     menu.handleInput("\x13");
     expect(settings.load().project).toEqual(defaultLayout());
@@ -242,7 +250,6 @@ it("keeps essential controls readable at 40x10 and advertises only applicable ac
     expect(root).not.toContain("Del ");
     menu.handleInput(enter);
     expect(plain(menu.render(40))).toContain("Shift+↑/↓ move");
-    expect(plain(menu.render(40))).not.toContain("? details");
     menu.handleInput(enter);
     const contents = plain(menu.render(40));
     expect(contents).toContain("Esc back");
@@ -257,13 +264,14 @@ it("keeps essential controls readable at 40x10 and advertises only applicable ac
 it("removes one visible copy without promising to hide the remaining copy", async () => {
   const fixture = await hostFixture();
   fixture.ui.setWidget("copy", ["COPY"]);
-  const { coordinator, menu } = menuFor(fixture);
+  const layout = defaultLayout();
+  layout.aboveEditor = [["widget:copy"], ["widget:copy"]];
+  const { coordinator, menu } = menuFor(fixture, layout);
 
   try {
-    const layout = defaultLayout();
-    layout.aboveEditor = [["widget:copy"], ["widget:copy"]];
-    menu.drafts.current.value = layout;
-    menu.drafts.push({ kind: "contents", region: "aboveEditor", row: 1, selected: 0 });
+    menu.handleInput(enter);
+    menu.handleInput(down);
+    menu.handleInput(enter);
     const output = plain(menu.render(80));
     expect(output).toContain("Del remove");
     expect(output).not.toContain("Del hide");
@@ -279,21 +287,22 @@ it("removes one visible copy without promising to hide the remaining copy", asyn
 
 it("expires save success after three seconds, restarting the deadline on another save", async () => {
   const fixture = await hostFixture();
-  const { coordinator, menu, requestRender } = menuFor(fixture);
+  const { coordinator, menu, requestRender, settings } = menuFor(fixture);
   vi.useFakeTimers();
 
   try {
     menu.handleInput("\x13");
-    expect(plain(menu.render(80))).toContain("Saved and applied.");
+    expect(plain(menu.render(80))).toContain("Saved");
     vi.advanceTimersByTime(2000);
     menu.handleInput("\x13");
     vi.advanceTimersByTime(1000);
-    expect(plain(menu.render(80))).toContain("Saved and applied.");
+    expect(plain(menu.render(80))).toContain("Saved");
     requestRender.mockClear();
     vi.advanceTimersByTime(2000);
-    expect(plain(menu.render(80))).not.toContain("Saved and applied.");
+    expect(plain(menu.render(80))).not.toContain("Saved");
     expect(requestRender).toHaveBeenCalled();
-    expect(menu.drafts.dirty).toBe(false);
+    expect(menu.drafts.current).toEqual({ value: defaultLayout(), saved: defaultLayout() });
+    expect(settings.load().global).toEqual(defaultLayout());
   } finally {
     menu.handleInput("\x03");
     vi.useRealTimers();
@@ -312,7 +321,7 @@ it("keeps save errors and warnings visible after an earlier success would expire
     mkdirSync(`${settings.paths.global}.lock`);
     menu.handleInput("\x13");
     vi.advanceTimersByTime(3000);
-    expect(plain(menu.render(100))).toContain("Save failed. Draft retained.");
+    expect(plain(menu.render(100))).toContain("Draft retained");
     rmdirSync(`${settings.paths.global}.lock`);
     menu.handleInput("\x13");
     const load = vi.spyOn(settings, "load").mockReturnValueOnce({
@@ -322,7 +331,7 @@ it("keeps save errors and warnings visible after an earlier success would expire
     menu.handleInput("\x13");
     load.mockRestore();
     vi.advanceTimersByTime(3000);
-    expect(plain(menu.render(100))).toContain("Settings warning. Check files.");
+    expect(plain(menu.render(100))).toContain("Settings warning");
   } finally {
     menu.handleInput("\x03");
     vi.useRealTimers();
@@ -362,26 +371,31 @@ it("clears saved feedback on edits and scope changes while retaining independent
 
   try {
     menu.handleInput("\x13");
-    expect(plain(menu.render(80))).toContain("Saved and applied");
+    expect(plain(menu.render(80))).toContain("Saved");
     menu.handleInput("\t");
-    expect(plain(menu.render(80))).not.toContain("Saved and applied");
+    expect(plain(menu.render(80))).not.toContain("Saved");
     menu.handleInput("\t");
     menu.handleInput("\x13");
     menu.handleInput(enter);
     menu.handleInput("\x1b[1;2B");
-    expect(menu.drafts.dirty).toBe(true);
-    expect(plain(menu.render(80))).not.toContain("Saved and applied");
+    expect(plain(menu.render(80))).toContain("global*");
+    expect(menu.drafts.current.value?.aboveEditor).toEqual([["widget:two"], ["widget:one"]]);
+    expect(menu.drafts.current.saved?.aboveEditor).toEqual([["widget:one"], ["widget:two"]]);
+    expect(plain(menu.render(80))).not.toContain("Saved");
     menu.handleInput("\t");
-    expect(menu.drafts.dirty).toBe(false);
+    expect(menu.drafts.current).toEqual({ value: undefined, saved: undefined });
+    expect(plain(menu.render(80))).toContain("Unsaved draft in other scope");
     menu.handleInput("\x1b[Z");
-    expect(menu.drafts.dirty).toBe(true);
+    expect(plain(menu.render(80))).toContain("global*");
+    expect(menu.drafts.current.value?.aboveEditor).toEqual([["widget:two"], ["widget:one"]]);
+    expect(menu.drafts.current.saved?.aboveEditor).toEqual([["widget:one"], ["widget:two"]]);
   } finally {
     coordinator.dispose();
     await fixture.dispose();
   }
 });
 
-it("adds rows with a after new registrations and from an empty region without an action item", async () => {
+it("adds rows with a after new registrations and from an empty region", async () => {
   const fixture = await hostFixture();
   fixture.ui.setWidget("one", ["ONE"]);
   fixture.ui.setWidget("two", ["TWO"]);
@@ -390,10 +404,10 @@ it("adds rows with a after new registrations and from an empty region without an
   try {
     menu.handleInput(enter);
     menu.handleInput(down);
-    expect(plain(menu.render(80))).not.toContain("Add row");
     fixture.ui.setWidget("three", ["THREE"]);
     menu.handleInput("a");
-    expect(menu.drafts.dirty).toBe(true);
+    expect(menu.drafts.current.saved).toBeUndefined();
+    expect(plain(menu.render(80))).toContain("global* (not set)");
     expect(menu.drafts.layout().aboveEditor).toEqual([
       ["widget:one"],
       ["widget:two"],
@@ -405,7 +419,7 @@ it("adds rows with a after new registrations and from an empty region without an
     for (let index = 0; index < 4; index++) menu.handleInput(remove);
     fixture.terminal.rows = 10;
     expect(menu.drafts.layout().aboveEditor).toEqual([]);
-    expect(plain(menu.render(40))).toContain("No rows. Press a to add.");
+    expect(plain(menu.render(40))).toContain("No rows");
     expect(plain(menu.render(40))).toContain("a add");
     menu.handleInput(enter);
     expect(menu.drafts.view).toMatchObject({ kind: "rows", selected: 0 });
@@ -448,7 +462,12 @@ it("previews drafts live in the actual regions and restores the saved layout on 
     // No second copy inside the menu: it shrinks to leave the live regions visible.
     const text = menu.render(80);
     expect(plain(text)).not.toContain("LIVE WIDGET");
-    expect(text.length).toBeLessThanOrEqual(28 - coordinator.regionHeight(80));
+    const regionLines = [
+      ...fixture.host.widgetContainerAbove.render(80),
+      ...fixture.host.widgetContainerBelow.render(80),
+      ...fixture.host.footerContainer.render(80)
+    ];
+    expect(text.length + regionLines.length).toBeLessThanOrEqual(fixture.terminal.rows);
     expect(factory).toHaveBeenCalledOnce();
     for (let index = 0; index < 3; index++) menu.handleInput(escape);
     expect(close).toHaveBeenCalledOnce();
@@ -461,51 +480,72 @@ it("previews drafts live in the actual regions and restores the saved layout on 
   }
 });
 
-it("indicates a clipped picker collection and unavailable widgets", async () => {
+it("labels unavailable widgets and offers copies without duplicating items in the same row", async () => {
   const fixture = await hostFixture();
-  const { coordinator, menu } = menuFor(fixture);
+  const layout = defaultLayout();
+  layout.hidden = Array.from({ length: 30 }, (_, index) => `widget:hidden-${index}`);
+  const { coordinator, menu } = menuFor(fixture, layout);
 
   try {
-    menu.drafts.push({ kind: "picker", region: "footer", row: 0, selected: 0 });
-    const layout = defaultLayout();
-    layout.hidden = Array.from({ length: 30 }, (_, index) => `widget:hidden-${index}`);
-    menu.drafts.current.value = layout;
-    menu.drafts.view.selected = 14;
+    menu.handleInput(down);
+    menu.handleInput(down);
+    menu.handleInput(enter);
+    menu.handleInput(enter);
+    menu.handleInput("a");
+    select(menu, "widget:hidden-12");
     fixture.terminal.rows = 24;
     const text = plain(menu.render(80));
-    // separator, flex, 30 hidden widgets, then 6 visible built-ins offered as copies.
-    expect(text).toContain("15/38");
+    expect(text).toContain("hidden-12");
     expect(text).toContain("unavailable");
-    menu.drafts.view.selected = 37;
-    const visible = plain(menu.render(80));
-    // Row 1 holds cwd/git/title; row 2's built-ins can be copied into it.
-    expect(visible).toMatch(/Working directory\s+Already in row/u);
-    expect(visible).toContain("Model and thinking");
+    select(menu, "builtin:cwd");
+    expect(plain(menu.render(80))).toContain("Already in row");
+    menu.handleInput(enter);
+    expect(menu.drafts.view.kind).toBe("picker");
+    select(menu, "builtin:model");
+    menu.handleInput(enter);
+    expect(menu.drafts.layout().footer[0]).toContain("builtin:model");
   } finally {
     coordinator.dispose();
     await fixture.dispose();
   }
 });
 
-it("keeps the selected status identity when new statuses sort ahead of it", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setStatus("middle", "MIDDLE");
-  fixture.ui.setStatus("last", "LAST");
-  const { coordinator, menu } = menuFor(fixture);
+it.each(["global", "inherited project"])(
+  "keeps the selected status identity in %s when new statuses sort ahead of it",
+  async (scope) => {
+    const fixture = await hostFixture();
+    fixture.ui.setStatus("middle", "MIDDLE");
+    fixture.ui.setStatus("last", "LAST");
+    const { coordinator, menu } = menuFor(fixture);
 
-  try {
-    menu.drafts.push({ kind: "contents", region: "footer", row: 2, selected: 2 });
-    expect(plain(menu.render(80))).toContain("→ middle");
-    fixture.ui.setStatus("first", "FIRST");
-    menu.handleInput(remove);
-    expect(menu.drafts.layout().hidden).toEqual(["status:middle"]);
-    expect(menu.drafts.layout().footer[2]).toContain("status:first");
-    expect(menu.drafts.layout().footer[2]).toContain("status:last");
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
+    try {
+      if (scope === "inherited project") menu.handleInput("\t");
+      menu.handleInput(down);
+      menu.handleInput(down);
+      menu.handleInput(enter);
+      menu.handleInput(down);
+      menu.handleInput(down);
+      menu.handleInput(enter);
+      select(menu, "status:middle");
+      menu.render(80);
+      if (scope === "inherited project") menu.handleInput("\t");
+      fixture.ui.setStatus("first", "FIRST");
+
+      if (scope === "inherited project") {
+        menu.handleInput("\x13");
+        menu.handleInput("\t");
+      }
+
+      menu.handleInput(remove);
+      expect(menu.drafts.layout().hidden).toEqual(["status:middle"]);
+      expect(menu.drafts.layout().footer[2]).toContain("status:first");
+      expect(menu.drafts.layout().footer[2]).toContain("status:last");
+    } finally {
+      coordinator.dispose();
+      await fixture.dispose();
+    }
   }
-});
+);
 
 it.each(["rows", "contents", "picker"])(
   "does not retarget an edit in %s when its native row moves to another region",
@@ -523,7 +563,7 @@ it.each(["rows", "contents", "picker"])(
       fixture.ui.setWidget("first", ["MOVED"], { placement: "belowEditor" });
       // No intervening render: the stale keypress must not edit the new occupant.
       menu.handleInput(view === "picker" ? enter : remove);
-      expect(menu.drafts.dirty).toBe(false);
+      expect(menu.drafts.current).toEqual({ value: undefined, saved: undefined });
       expect(menu.drafts.layout().aboveEditor).toEqual([["widget:second"]]);
       expect(menu.drafts.layout().belowEditor).toEqual([["widget:first"]]);
       expect(menu.drafts.view).toMatchObject({ kind: "rows", region: "aboveEditor" });
@@ -544,8 +584,10 @@ it("keeps empty-region controls usable after the selected native row moves away"
     menu.render(80);
     fixture.ui.setWidget("only", ["MOVED"], { placement: "belowEditor" });
     menu.handleInput(remove);
-    expect(menu.drafts.dirty).toBe(false);
-    expect(plain(menu.render(40))).toContain("No rows. Press a to add.");
+    expect(menu.drafts.current).toEqual({ value: undefined, saved: undefined });
+    expect(menu.drafts.layout().aboveEditor).toEqual([]);
+    expect(menu.drafts.layout().belowEditor).toEqual([["widget:only"]]);
+    expect(plain(menu.render(40))).toContain("a add");
     menu.handleInput("a");
     expect(menu.drafts.view).toMatchObject({ kind: "contents", row: 0 });
     expect(menu.drafts.layout().aboveEditor).toEqual([[]]);
@@ -584,7 +626,13 @@ it("keeps a separator anchored to its contributor when new statuses arrive", asy
   const { coordinator, menu } = menuFor(fixture);
 
   try {
-    menu.drafts.push({ kind: "contents", region: "footer", row: 2, selected: 1 });
+    menu.handleInput(down);
+    menu.handleInput(down);
+    menu.handleInput(enter);
+    menu.handleInput(down);
+    menu.handleInput(down);
+    menu.handleInput(enter);
+    menu.handleInput(down);
     menu.render(80);
     fixture.ui.setStatus("first", "FIRST");
     menu.handleInput(remove);
@@ -602,13 +650,13 @@ it("keeps a separator anchored to its contributor when new statuses arrive", asy
 
 it("retains selection between identical empty rows", async () => {
   const fixture = await hostFixture();
-  const { coordinator, menu } = menuFor(fixture);
+  const layout = defaultLayout();
+  layout.aboveEditor = [[], []];
+  const { coordinator, menu } = menuFor(fixture, layout);
 
   try {
-    const layout = defaultLayout();
-    layout.aboveEditor = [[], []];
-    menu.drafts.current.value = layout;
-    menu.drafts.push({ kind: "rows", region: "aboveEditor", selected: 1 });
+    menu.handleInput(enter);
+    menu.handleInput(down);
     menu.render(80);
     menu.render(40);
     menu.handleInput(enter);

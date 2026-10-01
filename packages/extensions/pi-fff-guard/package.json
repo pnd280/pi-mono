@@ -21,6 +21,9 @@
     "@pi-mono/utils": "workspace:*",
     "zod": "catalog:"
   },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "catalog:pi-host"
+  },
   "pi": {
     "extensions": [
       "./index.ts"

@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import type { FffToolKind } from "./fff-tools.ts";
 import { containsPath, relativeDisplayPath } from "./paths.ts";
 
 export function hasGlob(value: string): boolean {
@@ -32,9 +33,58 @@ export function normalizeFffPath(expression: string, cwd: string) {
   };
 }
 
-/** Filename queries keep an existing explicit path intact; fuzzy terms split on whitespace. */
-export function filenameQueryTokens(pattern: string, existingPath: boolean): string[] {
-  return pattern.includes("/") && existingPath ? [pattern] : pattern.split(/\s+/).filter(Boolean);
+export interface FffScopeExpression {
+  source: "path" | "query";
+  value: string;
+  directoryOnly: boolean;
+  /** Explicit constraints require a viable path; unanchored filename queries remain fuzzy. */
+  validatePath: boolean;
+}
+
+/** Parse FFF's positive scope constraints and negative query terms without filesystem policy. */
+export function parseFffScopes(
+  kind: FffToolKind,
+  input: {
+    path?: string | null | undefined;
+    pattern?: string | null | undefined;
+    constraints?: string | null | undefined;
+  },
+  cwd: string,
+  existingPatternPath: boolean
+): { expressions: FffScopeExpression[]; exclusions: string[] } {
+  const expressions: FffScopeExpression[] = [];
+  const exclusions: string[] = [];
+  const searchPath = input.path?.trim();
+
+  if (kind !== "multi" && searchPath && !searchPath.startsWith("!"))
+    expressions.push({ source: "path", ...normalizeFffPath(searchPath, cwd), validatePath: true });
+
+  let query = "";
+  if (kind === "multi") query = input.constraints ?? "";
+  if (kind === "find") query = input.pattern ?? "";
+  // An existing explicit filename-query path can contain spaces. Multi-search
+  // constraints always split, irrespective of that caller-supplied fact.
+  const tokens =
+    kind === "find" && query.includes("/") && existingPatternPath
+      ? [query]
+      : query.split(/\s+/).filter(Boolean);
+
+  for (const token of tokens) {
+    if (token.startsWith("!")) exclusions.push(token.slice(1));
+    else if (token.includes("/") || hasGlob(token))
+      expressions.push({
+        source: "query",
+        value: token,
+        directoryOnly: token.endsWith("/"),
+        validatePath:
+          kind === "multi" ||
+          /^(?:\/|\.{1,2}\/|~\/)/.test(token) ||
+          token.endsWith("/") ||
+          hasGlob(token)
+      });
+  }
+
+  return { expressions, exclusions };
 }
 
 /** Finite brace alternatives only. Bound expansion, never enumerate the filesystem. */
@@ -43,8 +93,9 @@ export function alternatives(value: string): string[] {
 
   for (let depth = 0; depth < 8; depth++) {
     const next = expanded.flatMap((entry) => {
-      const match = /\{([^{}]+)\}/.exec(entry);
-      if (!match?.[1]?.includes(",")) return [entry];
+      // Skip comma-free groups such as `{1..4}` so later alternatives still expand.
+      const match = /\{([^{},]*,[^{}]*)\}/.exec(entry);
+      if (!match?.[1]) return [entry];
 
       return match[1]
         .split(",")

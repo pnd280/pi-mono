@@ -2,12 +2,12 @@
 
 [Return to the UI consistency audit](../SKILL.md).
 
-Compare deletion, clearing, and combined effects with advertised behavior. Different effects may justify different confirmation.
+Compare deletion, clearing, and combined effects with advertised behaviour. Different effects may justify different confirmation.
 
 ## Checks
 
 - Identify the exact target in labels and confirmation: occurrences, subtrees, filtered results, or entire collections.
-- Match documentation and hints to confirmation and direct-command behavior.
+- Match documentation and hints to confirmation and direct-command behaviour.
 - Compare confirmation invalidation on navigation, resize, timeout, repeated input, and target replacement.
 - Distinguish closing a surface from cancelling an operation. Closure alone proves neither cancellation nor rollback.
 - Make sequential order and partial success explicit.

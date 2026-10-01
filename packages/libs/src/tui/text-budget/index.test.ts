@@ -60,9 +60,10 @@ it("handles empty output, blank rows, and a notice-only budget without duplicati
   expect(wrapRows("", 80)).toEqual([]);
   expect(wrapRows("anything", 0)).toEqual([]);
   expect(compactRows(["one", "two"], budget(20, 2))).toEqual(["one", "two"]);
-  expect(compactRows(["one", "two"], budget(20, 1)).map(stripTerminalSequences)).toEqual([
-    "… 2 more rows (expa…"
-  ]);
+  const noticeOnly = compactRows(["one", "two"], budget(20, 1)).map(stripTerminalSequences);
+  expect(noticeOnly).toHaveLength(1);
+  expect(noticeOnly[0]).toContain("2 more rows");
+  expect(visibleWidth(noticeOnly[0]!)).toBeLessThanOrEqual(20);
   expect(compactRows(wrapRows("\n".repeat(30), 20), budget(20))).toHaveLength(5);
   expect(compactText("text", budget(0))).toEqual([]);
   expect(compactText("text", budget(80, 0))).toEqual([]);

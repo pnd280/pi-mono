@@ -2,24 +2,36 @@
 
 [pi-fff-guard](../README.md)
 
-The pure prefix and normalization helpers are shared with [nested instructions](../../pi-nested-instructions/README.md) through [utils](../../../utils/README.md#search-scopes). The guard retains its own missing-path, intersection, exclusion, and Git policies.
+How the guard decides which paths a search targets. The pure prefix and normalisation helpers are shared with [nested instructions](../../pi-nested-instructions/README.md) through [utils](../../../utils/README.md#search-scopes). The guard retains its own missing-path, intersection, exclusion, and Git policies.
 
 ## Paths and filters
 
-The guard checks explicit `path` values and multi-grep constraints for missing or ignored targets, including broken links. [Exclusions differ](#globs-and-exclusions). Relative paths use session cwd; `~/` expands home.
+The guard checks explicit `path` values and multi-grep constraints for missing or ignored targets, including broken links. Exclusions are handled differently; see [globs and exclusions](#globs-and-exclusions). Relative paths resolve from the session cwd, and `~/` expands to the home directory.
 
-In `path` and `exclude`, FFF strips `./` and workspace-local absolute prefixes. Thus `main.ts` and `./main.ts` are recursive filters requiring no local file; `src/main.ts` is explicit. Extensionless values are directory constraints, so a same-named regular file does not satisfy them.
+In `path` and `exclude`, FFF strips `./` and absolute prefixes inside the workspace:
 
-For `fffind.pattern`, the guard checks existing explicit paths and globs with fixed directory prefixes, such as `node_modules/**`. Missing-path checks require an anchor (`/`, `./`, `../`, `~/`), trailing `/`, or rooted glob.
+| Value                      | Treated as                                                              |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `main.ts`, `./main.ts`     | Recursive filename filter; no local file needs to exist.                |
+| `src/main.ts`              | Explicit path.                                                          |
+| `src/utils` (no extension) | Directory constraint; a regular file with that name doesn't satisfy it. |
+
+For `fffind.pattern`, the guard checks existing explicit paths and globs with fixed directory prefixes, such as `node_modules/**`.
+
+Missing-path checks need an anchor (`/`, `./`, `../`, or `~/`), a trailing `/`, or a rooted glob.
 
 The guard trims `path` without splitting it and preserves existing explicit `fffind.pattern` paths. Other filename queries and multi-grep constraints split on whitespace without shell-quote parsing.
 
 ## Globs and exclusions
 
 - FFF glob syntax takes precedence even when the same literal path exists; bare filename filters remain recursive.
-- For globs, the guard validates only the fixed directory prefix before the first wildcard. It does not require matching files. For finite brace alternatives, it reports a missing-path error only if every branch has a missing concrete root.
+- For globs, the guard validates only the fixed directory prefix before the first wildcard. It does not require matching files.
+- For finite brace alternatives, it reports a missing-path error only if every branch has a missing concrete root.
+- A missing explicit target still blocks when exclusions remove the entire search.
 - Positive scopes intersect. Each rooted glob still applies when another scope narrows the search to the same directory or a descendant. Constraint order does not change exclusion handling.
-- Missing exclusions are not errors. Fully excluded ignored targets pass through; partially excluded ignored directories still block.
+- Missing exclusions are not errors.
+- Fully excluded ignored targets pass through.
+- Partially excluded ignored directories still block.
 - FFF's `exclude` field splits entries on commas and whitespace, including array entries. Multi-grep brace alternatives are not split on commas.
 
 ## Unchanged searches
@@ -28,4 +40,4 @@ Repository-root `.` searches, bare fuzzy queries, generic filters such as `*.ts`
 
 ## Git ignore rules
 
-The guard uses effective Git ignore rules, local/global exclusions, and tracked-file exceptions, supporting worktrees and external repositories. Workspace paths use workspace rules even inside nested repositories; external paths use their own repositories. Non-ignored symlinks are also checked under their destinations' rules.
+The guard uses effective Git ignore rules, local and global exclusions, and tracked-file exceptions, supporting worktrees and external repositories. Workspace paths use workspace rules even inside nested repositories; external paths use their own repositories. Non-ignored symlinks are also checked under their destinations' rules.

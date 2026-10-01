@@ -2,17 +2,19 @@
 
 [Library index](../../../README.md#offline-validation)
 
-## Behavior
+Launch installed Pi in isolated disposable directories for validation.
+
+## Behaviour
 
 Validation-only [`@pi-mono/libs/validation/pi-process`](index.ts) prepares private disposable workspaces and isolated Pi launches.
 
-`createPiLaunch` prepares but never starts installed Pi, inheriting no user credentials/settings. Storage/offline settings override supplied environment additions.
+`createPiLaunch` prepares but never starts installed Pi, inheriting no user credentials or settings. Storage and offline settings override supplied environment additions.
 
 Environment isolation does not restrict filesystem access or tool execution.
 
 ## Caller responsibilities
 
-Create fixture contents under `createValidationWorkspace`'s `work`, `home`, `agent`, and `tmp` directories; select offline providers and resource flags explicitly, and start the process through the chosen runner. Supply fixture-only environment additions, not `process.env`.
+Create fixture contents under `createValidationWorkspace`'s `work`, `home`, `agent`, and `tmp` directories. Select offline providers and resource flags explicitly, and start the process through the chosen runner. Supply fixture-only environment additions, not `process.env`.
 
 Wait for fixture processes to exit before removing the workspace.
 

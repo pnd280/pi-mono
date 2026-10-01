@@ -3,11 +3,17 @@ import { TimedConfirmation } from "../../../timed-confirmation/index.ts";
 import type { BrowserAction } from "./controls.ts";
 import type {
   BrowserOptions,
-  BrowserPorts,
   BrowserSection,
   BrowserSelectionAction,
   BrowserSnapshot
 } from "./types.ts";
+
+type BrowserPorts = {
+  changed(this: void): void;
+  close(this: void): void;
+  now(this: void): number;
+  onError(this: void, error: unknown): void;
+};
 
 type ViewState = { query: string; selected: string | undefined };
 

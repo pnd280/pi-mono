@@ -15,4 +15,4 @@ Compare the same data across widgets, browsers, cards, and restored history.
 
 ## Evidence
 
-Use a small shared fixture covering statuses, filters, hierarchy, and deletion. Calculate expected counts and compare equivalent lifecycle points. Separate freshness differences from arithmetic or labeling errors.
+Use a small shared fixture covering statuses, filters, hierarchy, and deletion. Calculate expected counts and compare equivalent lifecycle points. Separate freshness differences from arithmetic or labelling errors.

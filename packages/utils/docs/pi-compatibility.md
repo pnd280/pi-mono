@@ -1,18 +1,22 @@
-# Pi compatibility
+# Pi compatibility for maintainers
 
 [@pi-mono/utils](../README.md)
 
-## Contracts to verify
+> Last verified against Pi 1.0.0 (package checks and all helper tests; libs, FFF guard, nested-instruction, selective-read, and display consumer suites). Not covered: live FFF behaviour.
 
-- [ ] Trace [direct and indirect consumers](../AGENTS.md#code-navigation): FFF provenance and scope normalization, source coordinates, omission ranges, patches, and UTF-8 boundaries must still match target tool and result contracts.
+## Upgrade procedure
+
+1. Run the [package checks](../README.md#validation).
+2. Run the affected libs and extensions whose input or output assumptions changed. This package needs no standalone terminal scenario.
+3. Work through the checklist below, then update the "Last verified" line.
+
+Cooperative search owns the [fuzzy-score differential checks](../../libs/src/text-search/README.md#validation) against Pi. They are no longer utility-package checks.
+
+## Checklist
+
+- [ ] Trace the [direct and indirect consumers](../AGENTS.md#code-navigation). FFF provenance and scope normalisation, source coordinates, omission ranges, patches, and UTF-8 boundaries must still match the target tool and result contracts.
 - [ ] Keep helpers pure; do not introduce Pi runtime state, I/O, scheduling, or consumer policy.
 
-## Limitations and replacement opportunities
+## Limitations
 
-- Compare target public helpers with the [supported exports](../README.md#usage). Replace local code only when bounds, Unicode units, parsing/failure behavior, and consumers agree; similar names do not establish equivalence.
-
-## Validation
-
-With Pi **0.99.2**, package checks and all pure-helper tests passed, including Pi fuzzy-score comparisons. Shared libs, FFF guard, nested-instruction, selective-read, and display consumer suites also passed without utility changes. This evidence does not establish live FFF behavior; external checks were not run.
-
-Use [package checks](../README.md#validation), then affected libs/extensions for changed input/output assumptions. This package needs no standalone Pi terminal scenario.
+Compare new public Pi helpers with the [supported exports](../README.md#usage). Replace local code only when bounds, Unicode units, parsing and failure behaviour, and consumers all agree; a similar name doesn't mean the behaviour is the same.

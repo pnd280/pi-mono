@@ -6,7 +6,8 @@ import type {
 import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/libs/working-message";
 
 import {
-  registerTodosCommand,
+  getTodosArgumentCompletions,
+  runTodosCommand,
   TodosCustomViewHost,
   todosArgumentAutocompleteProvider
 } from "./commands.ts";
@@ -34,8 +35,14 @@ type TodoEventHandlers = {
   ) => void;
 };
 
-export type TodoExtensionAPI = Pick<ExtensionAPI, "registerCommand" | "events"> & {
+export type TodoExtensionAPI = Pick<ExtensionAPI, "events"> & {
   registerTool(definition: ReturnType<typeof createTodoTool>): void;
+  registerCommand(
+    name: string,
+    definition: Omit<Parameters<ExtensionAPI["registerCommand"]>[1], "handler"> & {
+      handler(args: string, ctx: Parameters<typeof runTodosCommand>[1]): Promise<void>;
+    }
+  ): void;
   on<Event extends keyof TodoEventHandlers>(event: Event, handler: TodoEventHandlers[Event]): void;
 };
 
@@ -58,7 +65,12 @@ export default function piTodo(pi: TodoExtensionAPI): void {
   const widget = new TodoOverlay(controller);
   const views = new TodosCustomViewHost(widget);
   pi.registerTool(createTodoTool(controller));
-  registerTodosCommand(pi, controller, views, widget);
+  pi.registerCommand("todos", {
+    description: "Review todos or control the above-editor todo widget",
+    getArgumentCompletions: getTodosArgumentCompletions,
+    handler: (args, ctx) =>
+      runTodosCommand(args, ctx, controller, { customViewHost: views, widgetStateHost: widget })
+  });
   pi.on("session_start", (_event, ctx) => {
     const config = loadTodoConfig(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
 

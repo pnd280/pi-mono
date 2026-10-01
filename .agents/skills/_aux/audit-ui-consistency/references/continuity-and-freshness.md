@@ -15,4 +15,4 @@ Compare navigation state retention and data freshness.
 
 ## Evidence
 
-Record transition sequences and before/after state for equivalent surfaces. Separate intentional persistence differences from accidental loss. Use host checks for restoration and focus behavior that components cannot establish.
+Record transition sequences and before-and-after state for equivalent surfaces. Separate intentional persistence differences from accidental loss. Use host checks for restoration and focus behaviour that components cannot establish.

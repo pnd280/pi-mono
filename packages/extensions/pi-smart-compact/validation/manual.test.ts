@@ -18,41 +18,89 @@ import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 import { it, vi } from "vite-plus/test";
 
 import smartCompact from "../index.ts";
-import type { CompactConfig } from "../src/config.ts";
+import type { CompactSettings } from "../src/config.ts";
 import { summaryModelEntryType } from "../src/entry.ts";
 
 const override = { model: "manual-fixture/summary", thinkingLevel: "low" } as const;
+const instructions = "Preserve MANUAL_FOCUS_MARKER.";
+const fileFocus = "Preserve FILE_FOCUS_MARKER.";
+const combinedFocus = "Preserve FILE_FOCUS_MARKER.\n\nPreserve MANUAL_FOCUS_MARKER.";
+
+type SummarySelection = { model: "main" | "summary"; thinkingLevel: "high" | "low" };
+
+const nativeSummary: SummarySelection = { model: "main", thinkingLevel: "high" };
+const dedicatedSummary: SummarySelection = { model: "summary", thinkingLevel: "low" };
+const lowerThinking: SummarySelection = { model: "main", thinkingLevel: "low" };
 const cases: {
   name: string;
-  config: CompactConfig;
+  config: CompactSettings;
+  manual: SummarySelection;
+  automatic: SummarySelection;
+  manualFocus?: string;
+  automaticFocus?: string;
   error?: RegExp;
   automaticError?: RegExp;
   summaries: number;
 }[] = [
-  { name: "omitted", config: override, summaries: 1 },
-  { name: "automatic only", config: { ...override, applyToAuto: true }, summaries: 1 },
+  {
+    name: "omitted",
+    config: override,
+    manual: nativeSummary,
+    automatic: nativeSummary,
+    summaries: 1
+  },
+  {
+    name: "automatic only",
+    config: { ...override, applyToAuto: true },
+    manual: nativeSummary,
+    automatic: dedicatedSummary,
+    summaries: 1
+  },
   {
     name: "both enabled",
     config: { ...override, applyToManual: true, applyToAuto: true },
+    manual: dedicatedSummary,
+    automatic: dedicatedSummary,
     summaries: 1
   },
   {
     name: "thinking only",
     config: { thinkingLevel: "low", applyToManual: true, applyToAuto: true },
+    manual: lowerThinking,
+    automatic: lowerThinking,
     summaries: 1
   },
   {
     name: "native defaults",
     config: { applyToManual: true, applyToAuto: true },
+    manual: nativeSummary,
+    automatic: nativeSummary,
+    summaries: 1
+  },
+  {
+    name: "empty instruction file",
+    config: { instructionsFile: "focus.txt", applyToManual: true, applyToAuto: true },
+    manual: nativeSummary,
+    automatic: nativeSummary,
     summaries: 1
   },
   {
     name: "automatic missing model",
     config: { model: "missing/model", applyToAuto: true },
+    manual: nativeSummary,
+    automatic: nativeSummary,
     automaticError: /model is unavailable/,
     summaries: 1
   },
-  { name: "instruction file", config: { instructionsFile: "focus.txt" }, summaries: 1 },
+  {
+    name: "instruction file",
+    config: { instructionsFile: "focus.txt" },
+    manual: nativeSummary,
+    automatic: nativeSummary,
+    manualFocus: combinedFocus,
+    automaticFocus: fileFocus,
+    summaries: 1
+  },
   {
     name: "instruction file without model opt-ins",
     config: {
@@ -61,67 +109,126 @@ const cases: {
       applyToManual: false,
       applyToAuto: false
     },
+    manual: nativeSummary,
+    automatic: nativeSummary,
+    manualFocus: combinedFocus,
+    automaticFocus: fileFocus,
     summaries: 1
   },
   {
     name: "instruction file with model opt-ins",
     config: { ...override, instructionsFile: "focus.txt", applyToManual: true, applyToAuto: true },
+    manual: dedicatedSummary,
+    automatic: dedicatedSummary,
+    manualFocus: combinedFocus,
+    automaticFocus: fileFocus,
     summaries: 1
   },
   {
     name: "retry",
     config: { ...override, applyToManual: true, instructionsFile: "focus.txt" },
+    manual: dedicatedSummary,
+    automatic: nativeSummary,
+    manualFocus: combinedFocus,
+    automaticFocus: fileFocus,
     summaries: 2
   },
-  { name: "thinking changed", config: {}, summaries: 1 },
-  { name: "unrelated summary", config: {}, summaries: 1 },
-  { name: "late abort", config: {}, error: /cancelled|aborted/i, summaries: 1 },
+  {
+    name: "thinking changed",
+    config: {},
+    manual: nativeSummary,
+    automatic: nativeSummary,
+    summaries: 1
+  },
+  {
+    name: "unrelated summary",
+    config: {},
+    manual: nativeSummary,
+    automatic: nativeSummary,
+    summaries: 1
+  },
+  {
+    name: "late abort",
+    config: {},
+    manual: nativeSummary,
+    automatic: nativeSummary,
+    error: /cancelled|aborted/i,
+    summaries: 1
+  },
   {
     name: "late abort with retained append",
     config: {},
+    manual: nativeSummary,
+    automatic: nativeSummary,
     error: /cancelled|aborted/i,
     summaries: 1
   },
   {
     name: "missing model",
     config: { model: "missing/model", applyToManual: true },
+    manual: nativeSummary,
+    automatic: nativeSummary,
     error: /model is unavailable/,
     summaries: 0
   },
   {
     name: "unsupported thinking",
     config: { ...override, thinkingLevel: "max", applyToManual: true },
+    manual: nativeSummary,
+    automatic: nativeSummary,
     error: /thinkingLevel is unsupported/,
     summaries: 0
   },
   {
     name: "failure",
     config: { ...override, applyToManual: true },
+    manual: dedicatedSummary,
+    automatic: nativeSummary,
     error: /Manual summary failure/,
     summaries: 1
   },
   {
     name: "abort",
     config: { ...override, applyToManual: true },
+    manual: dedicatedSummary,
+    automatic: nativeSummary,
     error: /cancelled|aborted/i,
     summaries: 1
   },
   {
     name: "hook cancellation",
     config: { model: "missing/model", applyToManual: true, instructionsFile: "focus.txt" },
+    manual: nativeSummary,
+    automatic: nativeSummary,
+    manualFocus: combinedFocus,
+    automaticFocus: fileFocus,
     error: /cancelled/,
     summaries: 0
   },
   {
     name: "custom summary",
     config: { model: "missing/model", applyToManual: true, instructionsFile: "focus.txt" },
+    manual: nativeSummary,
+    automatic: nativeSummary,
+    manualFocus: combinedFocus,
+    automaticFocus: fileFocus,
     summaries: 0
   }
 ];
 
 it.each(cases)(
   "SDK manual and automatic compaction: $name",
-  async ({ name, config, error, automaticError, summaries }) => {
+  async ({
+    name,
+    config,
+    manual,
+    automatic,
+    manualFocus,
+    automaticFocus,
+    error,
+    automaticError,
+    summaries
+  }) => {
     const directory = await createValidationWorkspace("pi-manual-compact-");
     const agentDir = join(directory, "agent");
     const cwd = join(directory, "work");
@@ -132,23 +239,22 @@ it.each(cases)(
     let phase: "manual" | "automatic" = "manual";
     let reloaded = false;
     let automaticReason: "threshold" | "overflow" = "threshold";
-    const routed = () =>
-      !reloaded &&
-      ((phase === "manual" && config.applyToManual) ||
-        (phase === "automatic" && config.applyToAuto));
+
+    const expectedSelection = () => {
+      if (reloaded) return nativeSummary;
+
+      return phase === "manual" ? manual : automatic;
+    };
+
     let summaryRequests = 0;
     let unrelatedRequests = 0;
     const unrelated = new AbortController();
     const errors: unknown[] = [];
-    const instructions = "Preserve MANUAL_FOCUS_MARKER.";
 
     const expectedFocus = () => {
-      if (!reloaded && config.instructionsFile)
-        return phase === "manual"
-          ? "Preserve FILE_FOCUS_MARKER.\n\nPreserve MANUAL_FOCUS_MARKER."
-          : "Preserve FILE_FOCUS_MARKER.";
+      if (reloaded) return phase === "manual" ? instructions : undefined;
 
-      return phase === "manual" ? instructions : undefined;
+      return phase === "manual" ? (manualFocus ?? instructions) : automaticFocus;
     };
 
     vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
@@ -156,7 +262,10 @@ it.each(cases)(
 
     try {
       await writeFile(settingsPath, JSON.stringify({ "ext.pi-smart-compact": config }));
-      await writeFile(join(agentDir, "focus.txt"), "Preserve FILE_FOCUS_MARKER.\n");
+      await writeFile(
+        join(agentDir, "focus.txt"),
+        name === "empty instruction file" ? " \n" : "Preserve FILE_FOCUS_MARKER.\n"
+      );
       const faux = fauxProvider({
         provider: "manual-fixture",
         models: [
@@ -177,10 +286,10 @@ it.each(cases)(
           }
 
           summaryRequests++;
-          const selected = routed();
-          assert.equal(model.id, selected && config.model ? "summary" : "main");
-          assert.equal(options.reasoning, (selected && config.thinkingLevel) || "high");
-          if (selected && config.model) assert.equal(options.maxTokens, 128);
+          const selected = expectedSelection();
+          assert.equal(model.id, selected.model);
+          assert.equal(options.reasoning, selected.thinkingLevel);
+          if (selected.model === "summary") assert.equal(options.maxTokens, 128);
           assert.equal(runtime.session.model?.id, "main");
           assert.equal(runtime.session.thinkingLevel, "high");
           assert.equal(runtime.session.isCompacting, true);
@@ -296,7 +405,7 @@ it.each(cases)(
       const stream = session.agent.streamFunction;
       let expectedAppend: unknown = Reflect.get(session.sessionManager, "appendCompaction");
 
-      if (name === "native defaults") {
+      if (name === "native defaults" || name === "empty instruction file") {
         const descriptor = Object.getOwnPropertyDescriptor(session.agent, "streamFunction");
         assert.ok(descriptor);
         Object.defineProperty(session.agent, "streamFunction", { ...descriptor, writable: false });
@@ -359,8 +468,8 @@ it.each(cases)(
           type: "custom",
           customType: "pi-smart-compact.model",
           data: {
-            model: routed() && config.model ? config.model : "manual-fixture/main",
-            thinkingLevel: (routed() && config.thinkingLevel) || "high",
+            model: `manual-fixture/${manual.model}`,
+            thinkingLevel: manual.thinkingLevel,
             trigger: "manual"
           }
         });
@@ -376,8 +485,8 @@ it.each(cases)(
 
       const checkAutomatic = async (expectedError?: RegExp) => {
         phase = "automatic";
-        const automatic: unknown = Reflect.get(session, "_runAutoCompaction");
-        assert.ok(typeof automatic === "function");
+        const runAutomatic: unknown = Reflect.get(session, "_runAutoCompaction");
+        assert.ok(typeof runAutomatic === "function");
         const ends: Extract<AgentSessionEvent, { type: "compaction_end" }>[] = [];
         const unsubscribe = session.subscribe((event) => {
           if (event.type === "compaction_end") ends.push(event);
@@ -391,7 +500,7 @@ it.each(cases)(
             const requestsBefore = summaryRequests;
             const eventsBefore = ends.length;
             const willRetry = reason === "overflow";
-            const continuation: unknown = await Reflect.apply(automatic, session, [
+            const continuation: unknown = await Reflect.apply(runAutomatic, session, [
               reason,
               willRetry
             ]);
@@ -419,8 +528,8 @@ it.each(cases)(
                 type: "custom",
                 customType: "pi-smart-compact.model",
                 data: {
-                  model: routed() && config.model ? config.model : "manual-fixture/main",
-                  thinkingLevel: (routed() && config.thinkingLevel) || "high",
+                  model: `manual-fixture/${expectedSelection().model}`,
+                  thinkingLevel: expectedSelection().thinkingLevel,
                   trigger: reason
                 }
               });

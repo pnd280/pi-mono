@@ -46,7 +46,9 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     label: "Elapsed time",
     contributor: "pi-agent-summary"
   });
-  const timer = new AgentTimer((text) => workingMessage.setText(text));
+  // The coordinator returns an arrow that captures its entry, not a receiver-dependent method.
+  // oxlint-disable-next-line typescript/unbound-method
+  const timer = new AgentTimer(workingMessage.setText);
   let run:
     | {
         changes: RunChanges;
@@ -63,12 +65,11 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
       begin: () => {
         const changes = run?.changes;
         if (!changes) return;
-        const sink = changes.sink();
 
         return {
-          ...sink,
+          maxSourceBytes: changes.maxSourceBytes,
           completed: (mutation) => {
-            if (run?.changes === changes) return sink.completed(mutation);
+            if (run?.changes === changes) return changes.completed(mutation);
           }
         };
       }

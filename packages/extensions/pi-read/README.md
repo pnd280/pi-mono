@@ -1,10 +1,10 @@
 # pi-read
 
-Highlights referenced source spans within Pi's `read` context.
+The model can point at an exact span of code while reading a file, such as `src/example.ts:12:4-15:9`. Pi's `read` gains a `selection` argument: the result keeps the usual surrounding lines, adds a short preview of just the selected span, and highlights the span when you expand the read.
 
 ## Usage
 
-Pass the filename in `path`, coordinates in `selection`, and an independent read window in `offset`/`limit`. For `src/example.ts:12:4-15:9`:
+Put the filename in `path`, the span in `selection`, and the lines to read in `offset` and `limit`; the read window and the selection are independent. For `src/example.ts:12:4-15:9`:
 
 ```json
 {
@@ -20,30 +20,52 @@ Pass the filename in `path`, coordinates in `selection`, and an independent read
 }
 ```
 
-`path` does not parse location suffixes. Lines are absolute and 1-based; columns count 1-based Unicode code points, not bytes or terminal cells.
+`path` doesn't parse location suffixes such as `:12:4`.
 
-- `startColumn` defaults to 1.
-- `endLine` defaults to `startLine`.
-- `endColumn` is exclusive. Omit it to select through the final line's end.
+### Coordinates
 
-Coordinates must be positive safe integers, and the end must follow the start.
+- Lines are absolute and start at 1.
+- Columns count Unicode code points from 1, not bytes or terminal cells.
+- `startColumn` defaults to 1, and `endLine` defaults to `startLine`.
+- `endColumn` is exclusive. Leave it out to select to the end of the last line.
+- All values must be positive safe integers, and the end must come after the start.
 
-`selection` appends a preview without changing original content: at most five lines and 500 code points per line, with `…` for omissions. Use the original read content for exact edits; the preview may be partial when the selection extends beyond the read window.
+### Preview
 
-Expand a successful text read to highlight the selection in context. Pi's image handling and truncation limits remain.
+The preview is appended after the file content, which is left unchanged.
+
+- It shows at most five lines, and 500 code points per line, with `…` marking omissions.
+- If the selection extends beyond the read window, the preview may be partial.
+- For exact edits, use the original read content, not the preview.
+
+Expand a successful text read to see the selection highlighted in context. Pi's image handling and truncation limits still apply.
 
 ## Side effects
 
-Replaces built-in `read` and adds source-reference prompt guidance. Previews enter tool results and session history. No file writes, network requests, or other persistent state.
+- It replaces the built-in `read` tool and adds prompt guidance about source references.
+- Previews become part of tool results and session history.
+- It writes no files, makes no network requests, and keeps no other state.
 
 ## Compatibility
 
-Do not load another `read` replacement alongside this extension.
+Don't load another `read` replacement alongside this extension.
 
-In automatic mode, the [pi-tool-display selective-read adapter](../pi-tool-display/src/adapters/pi-read/README.md) groups compatible reads and highlights selections without repeating the preview. Set `rendererOverrides.read` to `original` in [pi-tool-display settings](../pi-tool-display/README.md#configuration) for this extension's ungrouped rendering. `generic` neither highlights selections nor hides the appended preview.
+With [pi-tool-display](../pi-tool-display/README.md#configuration), choose how reads render with `rendererOverrides.read`:
+
+| Value            | Rendering                                                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto` (default) | The [selective-read adapter](../pi-tool-display/src/adapters/pi-read/README.md) groups compatible reads and highlights selections without repeating the preview. |
+| `original`       | This extension's own rendering, ungrouped.                                                                                                                       |
+| `generic`        | No highlighting, and the appended preview is shown.                                                                                                              |
 
 ## Validation
 
-[Coverage specification](docs/testing.md) · [Pi compatibility](docs/pi-compatibility.md).
+See the [coverage specification](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md). For appearance changes, check by hand.
 
-For appearance changes, inspect collapsed and expanded reads in Pi with a multiline selection, tabs, wide characters, a narrow terminal, and both light and dark themes. Check that context stays visible and the preview is not duplicated.
+Setup: in Pi, read a file with a multiline selection that includes tabs and wide characters.
+
+| Do                                    | Expect                                                    |
+| ------------------------------------- | --------------------------------------------------------- |
+| View the read collapsed and expanded. | Context stays visible, and the preview isn't shown twice. |
+| Narrow the terminal.                  | Highlighting stays on the selected span.                  |
+| Switch between light and dark themes. | The highlight is readable in both.                        |

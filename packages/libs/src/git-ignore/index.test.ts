@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { inspectGitIgnore, runGit, type GitCommand } from "./index.ts";
+import { inspectGitIgnore, type GitCommand } from "./index.ts";
 import { cleanupGitFixtures, createGitFixture, type GitFixture } from "./test-fixture.ts";
 
 it("separates caller cancellation from a caller-supplied deadline", async () => {
@@ -32,7 +32,7 @@ it("retains inspection failures for consumer diagnostics and rejects invalid pre
 
   const options = { path: resolve("."), cwd: resolve("."), timeoutMs: 2000, git };
   expect(await inspectGitIgnore(options)).toEqual({ status: "unavailable", cause });
-  await expect(inspectGitIgnore({ ...options, path: "relative" })).rejects.toThrow("absolute");
+  await expect(inspectGitIgnore({ ...options, path: "relative" })).rejects.toThrow(TypeError);
   await expect(inspectGitIgnore({ ...options, timeoutMs: Infinity })).rejects.toThrow(RangeError);
 });
 
@@ -172,10 +172,11 @@ describe("Git authority", () => {
       [".gitignore", "", ".tmp/", ".tmp", ""].join("\0"),
       [".gitignore", "invalid", ".tmp/", ".tmp", ""].join("\0")
     ]) {
-      const malformed: GitCommand = (cwd, args, input, signal) =>
-        args[0] === "check-ignore"
-          ? Promise.resolve({ code: 0, stdout, stderr: "" })
-          : runGit(cwd, args, input, signal);
+      const malformed: GitCommand = async (_cwd, args) => ({
+        code: 0,
+        stdout: args[0] === "check-ignore" ? stdout : `${directory.root}\n`,
+        stderr: ""
+      });
       expect(
         (
           await inspectGitIgnore({

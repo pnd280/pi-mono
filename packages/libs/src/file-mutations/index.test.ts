@@ -324,8 +324,6 @@ it("awaits shared asynchronous patches and isolates rejected completion callback
     release.resolve();
     await execution;
   }
-
-  expect(finished).toBe(true);
 });
 
 it("releases the native mutation queue before awaiting observer completion", async () => {

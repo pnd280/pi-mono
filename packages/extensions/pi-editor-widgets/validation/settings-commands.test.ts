@@ -47,7 +47,6 @@ it.each(
 
   try {
     await fixture.bind();
-    const editor = host.editorContainer.children[0];
     const footer = () => plain(host.footerContainer.render(100));
 
     const clickUsage = (text: string) => {
@@ -89,7 +88,6 @@ it.each(
     // The other metric keeps its independent compact selection.
     if (widget === "tokens") expect(footer()).toContain("75k/200k (auto)");
     else expect(footer()).not.toContain("R900");
-    expect(host.editorContainer.children[0]).toBe(editor);
     host.switchTuiMode("regular", false, false);
     expect(footer()).toContain(text.regular);
     expect(clickUsage(text.regular)).toBeUndefined();
@@ -110,58 +108,67 @@ it.each(
   }
 });
 
-it("/widgets accepts no arguments and saves the global draft selected in the menu, not the project override", async () => {
-  const fixture = await hostFixture([editorWidgets]);
-  const globalPath = join(fixture.agentDir, "settings.json");
-  mkdirSync(fixture.agentDir, { recursive: true });
-  mkdirSync(join(fixture.directory, ".pi"));
-  const project = defaultLayout();
-  project.aboveEditor = [["widget:project"]];
-  writeFileSync(
-    join(fixture.directory, ".pi/settings.json"),
-    JSON.stringify({ "ext.pi-editor-widgets": { layout: project } })
-  );
-  let opening: Promise<void> | undefined;
-
-  try {
-    await fixture.bind();
-    const runner = fixture.session.extensionRunner;
-    const command = runner.getCommand("widgets");
-    expect(command).toBeDefined();
-    expect(command?.getArgumentCompletions).toBeUndefined();
-    const ctx = runner.createCommandContext();
-    const notify = vi.spyOn(ctx.ui, "notify");
-    const editor = fixture.host.editorContainer.children[0];
-
-    for (const args of ["context", "tokens", "global", "project", "invalid"]) {
-      await command?.handler(args, ctx);
-      expect(notify).toHaveBeenLastCalledWith("Usage: /widgets", "error");
-      expect(fixture.host.editorContainer.children[0]).toBe(editor);
-    }
-
-    opening = command?.handler("", ctx);
-    await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor));
-    const menu = fixture.host.editorContainer.children[0]!;
-    expect(plain(menu.render(100))).toContain(
-      `Settings: ${join(fixture.directory, ".pi/settings.json")}`
+it.each(["regular", "fullscreen"] as const)(
+  "/widgets in %s saves the selected global draft and restores the project override on close",
+  async (mode) => {
+    const fixture = await hostFixture([editorWidgets], mode);
+    const globalPath = join(fixture.agentDir, "settings.json");
+    mkdirSync(fixture.agentDir, { recursive: true });
+    mkdirSync(join(fixture.directory, ".pi"));
+    const project = defaultLayout();
+    project.aboveEditor = [["widget:project"]];
+    writeFileSync(
+      join(fixture.directory, ".pi/settings.json"),
+      JSON.stringify({ "ext.pi-editor-widgets": { layout: project } })
     );
-    menu.handleInput?.("\t");
-    expect(plain(menu.render(100))).toContain(`Settings: ${globalPath}`);
-    expect(plain(menu.render(80))).toContain("Scope: global (not set) | project");
-    menu.handleInput?.("\x13");
-    expect(plain(menu.render(80))).toContain("Project layout applies on close.");
-    expect(plain(menu.render(80))).not.toContain("global (not set)");
-    const saved: unknown = JSON.parse(readFileSync(globalPath, "utf8"));
-    expect(saved).toMatchObject({ "ext.pi-editor-widgets": { layout: { aboveEditor: [] } } });
-    menu.handleInput?.("\x03");
-    await opening;
-    expect(fixture.host.editorContainer.children[0]).toBe(editor);
-  } finally {
-    fixture.host.editorContainer.children[0]?.handleInput?.("\x03");
-    await fixture.dispose();
-    await opening;
+    let opening: Promise<void> | undefined;
+
+    try {
+      await fixture.bind();
+      fixture.ui.setWidget("project", ["PROJECT WIDGET"], { placement: "belowEditor" });
+      expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("PROJECT WIDGET");
+      const runner = fixture.session.extensionRunner;
+      const command = runner.getCommand("widgets");
+      expect(command).toBeDefined();
+      const ctx = runner.createCommandContext();
+      const notify = vi.spyOn(ctx.ui, "notify");
+      const editor = fixture.host.editorContainer.children[0];
+
+      for (const args of ["context", "tokens", "global", "project", "invalid"]) {
+        await command?.handler(args, ctx);
+        expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("/widgets"), "error");
+        expect(fixture.host.editorContainer.children[0]).toBe(editor);
+      }
+
+      opening = command?.handler("", ctx);
+      await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor));
+      const menu = fixture.host.editorContainer.children[0]!;
+      expect(plain(menu.render(100))).toContain(
+        `Settings: ${join(fixture.directory, ".pi/settings.json")}`
+      );
+      menu.handleInput?.("\t");
+      expect(plain(menu.render(100))).toContain(`Settings: ${globalPath}`);
+      menu.handleInput?.("\x13");
+      expect(plain(menu.render(80))).toContain("Project layout applies on close");
+      expect(plain(menu.render(80))).not.toContain("global (not set)");
+      expect(plain(fixture.host.widgetContainerAbove.render(80))).not.toContain("PROJECT WIDGET");
+      expect(plain(fixture.host.widgetContainerBelow.render(80))).toContain("PROJECT WIDGET");
+      const saved: unknown = JSON.parse(readFileSync(globalPath, "utf8"));
+      expect(saved).toMatchObject({
+        "ext.pi-editor-widgets": { layout: { aboveEditor: [], belowEditor: [["widget:project"]] } }
+      });
+      menu.handleInput?.("\x03");
+      await opening;
+      expect(fixture.host.editorContainer.children[0]).toBe(editor);
+      expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("PROJECT WIDGET");
+      expect(plain(fixture.host.widgetContainerBelow.render(80))).not.toContain("PROJECT WIDGET");
+    } finally {
+      fixture.host.editorContainer.children[0]?.handleInput?.("\x03");
+      await fixture.dispose();
+      await opening;
+    }
   }
-});
+);
 
 it("/widgets refreshes the context threshold without saving and restores percentage colors when removed", async () => {
   const fixture = await hostFixture([editorWidgets]);
@@ -277,11 +284,11 @@ it("/widgets exposes load warnings and distinguishes a successful save with anot
       `Settings: ${join(fixture.agentDir, "settings.json")}`
     );
     menu?.handleInput?.("\t");
-    expect(plain(menu?.render(100) ?? [])).toContain("Settings warning.");
+    expect(plain(menu?.render(100) ?? [])).toContain("Settings warning");
     const notify = vi.spyOn(ctx.ui, "notify");
     menu?.handleInput?.("\x13");
-    expect(plain(menu?.render(100) ?? [])).toContain("Saved and applied.");
-    expect(plain(menu?.render(100) ?? [])).toContain("Settings warning.");
+    expect(plain(menu?.render(100) ?? [])).toContain("Saved");
+    expect(plain(menu?.render(100) ?? [])).toContain("Settings warning");
     expect(plain(menu?.render(100) ?? [])).not.toContain("Save failed");
     expect(notify).not.toHaveBeenCalled();
     expect(readFileSync(join(fixture.agentDir, "settings.json"), "utf8")).toBe("{broken");

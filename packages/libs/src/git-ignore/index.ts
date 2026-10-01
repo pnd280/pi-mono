@@ -42,7 +42,7 @@ export type GitCommand = (
   signal: AbortSignal
 ) => Promise<GitOutput>;
 
-export const runGit: GitCommand = (cwd, args, input, signal) =>
+const runGit: GitCommand = (cwd, args, input, signal) =>
   new Promise((resolve, reject) => {
     signal.throwIfAborted();
     const env: NodeJS.ProcessEnv = {

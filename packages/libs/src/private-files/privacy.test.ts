@@ -112,7 +112,7 @@ it("checks descriptor ownership before permission repair", async () => {
   try {
     const uid = (await handle.stat()).uid;
     vi.spyOn(process, "getuid").mockReturnValue(uid + 1);
-    await expect(checkHandle(handle)).rejects.toThrow("ownership");
+    await expect(checkHandle(handle)).rejects.toBeInstanceOf(PrivateFileError);
     expect((await handle.stat()).mode & 0o777).toBe(0o644);
   } finally {
     await handle.close();

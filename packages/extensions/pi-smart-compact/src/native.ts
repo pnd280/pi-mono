@@ -21,7 +21,7 @@ import {
 type Registration = {
   active: boolean;
   selection: CompactionModelOptions | undefined;
-  onSummarized: ((entry: SummaryModelEntry) => void) | undefined;
+  onSummarized: (entry: SummaryModelEntry) => void;
   clearSummary?: (() => void) | undefined;
   pending?: { instructions?: string | undefined; signal?: AbortSignal | undefined } | undefined;
 };
@@ -89,7 +89,7 @@ function recordSummaryBeforeCompaction(
   signal: AbortSignal,
   entry: SummaryModelEntry
 ) {
-  if (!registration.onSummarized || signal.aborted) return;
+  if (signal.aborted) return;
   registration.clearSummary?.();
   const manager = session.sessionManager;
   // Preserve the receiver of retained or borrowed wrappers with apply below.
@@ -124,7 +124,7 @@ function recordSummaryBeforeCompaction(
         return append.apply(this, args);
 
       clear();
-      if (registration.active && !signal.aborted) registration.onSummarized?.(entry);
+      if (registration.active && !signal.aborted) registration.onSummarized(entry);
 
       return append.apply(this, args);
     });
@@ -136,8 +136,8 @@ function recordSummaryBeforeCompaction(
 
 export function bindNativeCompaction(
   manager: object,
-  selection?: CompactionModelOptions,
-  onSummarized?: (entry: SummaryModelEntry) => void
+  onSummarized: (entry: SummaryModelEntry) => void,
+  selection?: CompactionModelOptions
 ) {
   const prototype: object = AgentSession.prototype;
   if (!hasCompactionMethods(prototype))
@@ -191,12 +191,10 @@ export function bindNativeCompaction(
       const selection = registration?.selection;
       const config = selection?.config;
       const { trigger, routed } = classifySummary(this, args, config);
-      // Pi snapshots thinking before generation; a user may change it while awaiting the summary.
-      const thinkingLevel = (routed ? config?.thinkingLevel : undefined) ?? this.thinkingLevel;
 
       const instructions =
         trigger === "tool" || (trigger !== undefined && config?.instructions) ? args[2] : undefined;
-      const result = await summarizeWithOverrides(
+      const { result, selection: summarySelection } = await summarizeWithOverrides(
         this,
         originalSummary.bind(this),
         args,
@@ -206,8 +204,7 @@ export function bindNativeCompaction(
 
       if (registration?.active && trigger !== undefined)
         recordSummaryBeforeCompaction(this, registration, result, args[3], {
-          model: `${args[1].provider}/${args[1].id}`,
-          thinkingLevel: args[1].reasoning ? thinkingLevel : "off",
+          ...summarySelection,
           trigger
         });
 

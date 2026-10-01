@@ -1,8 +1,29 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteItem, AutocompleteProvider } from "@earendil-works/pi-tui";
 
-import { getCompletableSkillNames } from "./skills.ts";
-import { findSkillToken } from "./tokens.ts";
+function getCompletableSkillNames(commands: ReturnType<ExtensionAPI["getCommands"]>): Set<string> {
+  const collisions = new Set(
+    commands.filter((command) => command.source !== "skill").map((command) => command.name)
+  );
+
+  // Native items have no provenance. Even identical descriptions cannot disambiguate them.
+  return new Set(
+    commands
+      .filter((command) => command.source === "skill" && !collisions.has(command.name))
+      .map((command) => command.name)
+  );
+}
+
+function findSkillToken(line: string, cursorCol: number) {
+  const query = line.slice(0, cursorCol).match(/\S+$/u)?.[0];
+
+  if (!query?.startsWith("/skill:")) return undefined;
+
+  const start = cursorCol - query.length;
+  const suffix = line.slice(cursorCol).match(/^\S*/u)?.[0] ?? "";
+
+  return { start, end: cursorCol + suffix.length, query };
+}
 
 export function createSkillAutocompleteProvider(
   current: AutocompleteProvider,

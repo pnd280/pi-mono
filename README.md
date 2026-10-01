@@ -1,6 +1,6 @@
 # pi-mono
 
-Extensions for the [Pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent).
+Extensions for the [Pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent)
 
 ## Setup
 
@@ -10,7 +10,7 @@ Use Node.js from [.node-version](.node-version) and the [Vite+ CLI (`vp`)](https
 vp install --frozen-lockfile
 ```
 
-Extensions load TypeScript directly; no build is needed.
+Extensions load TypeScript directly, so there's no build step.
 
 ## Load an extension
 
@@ -20,22 +20,26 @@ Launch workspace Pi with an extension directory:
 vp exec pi -e ./packages/extensions/pi-tool-display
 ```
 
-Repeat `-e` for additional extensions. To persist the selection, use Pi's [package installation](node_modules/@earendil-works/pi-coding-agent/docs/packages.md#install-and-manage-packages).
+Repeat `-e` to load more extensions. To keep extensions loaded across launches, use Pi's [package installation](https://pi.dev/docs/latest/packages#install-and-manage-packages).
+
+Published Pi links point to the latest documentation, which may describe a newer version than this workspace uses. Maintainers can check the [installed API references](docs/pi-docs.md) for the pinned version.
 
 ## Extensions
 
-- [pi-tool-display](packages/extensions/pi-tool-display/README.md): compact tool activity, expandable output, and file diffs.
-- [pi-todo](packages/extensions/pi-todo/README.md): session-backed tasks, progress widget, and task browser.
-- [pi-smart-compact](packages/extensions/pi-smart-compact/README.md): native compaction with task continuation.
-- [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md): directory-scoped prompt history and saved drafts.
-- [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md): widget, status, and footer layouts.
-- [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md): nested instruction discovery from tool inputs.
-- [pi-session-utils](packages/extensions/pi-session-utils/README.md): session persistence, parent-linked sub-sessions, and naming.
-- [pi-agent-summary](packages/extensions/pi-agent-summary/README.md): runtime, bash-call, and file-change summaries outside model context.
-- [pi-fff-guard](packages/extensions/pi-fff-guard/README.md): guard FFF searches against ignored or missing paths.
-- [pi-read](packages/extensions/pi-read/README.md): source-span highlighting in read context.
-- [pi-model-prompt](packages/extensions/pi-model-prompt/README.md): model-specific append prompts.
-- [pi-skills](packages/extensions/pi-skills/README.md): skill file references and inline completion.
+| Extension                                                                      | What it does                                                                                    |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| [pi-tool-display](packages/extensions/pi-tool-display/README.md)               | Shows tool calls as compact, expandable cards with file diffs, so long runs stay readable.      |
+| [pi-todo](packages/extensions/pi-todo/README.md)                               | Gives the model a todo list, shown in a widget and a `/todos` browser and saved in the session. |
+| [pi-smart-compact](packages/extensions/pi-smart-compact/README.md)             | Keeps the current task going after Pi compacts the conversation.                                |
+| [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md)           | Searchable history of your prompts and saved drafts, kept per directory.                        |
+| [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md)           | Arranges widgets, status items, and the footer around the editor.                               |
+| [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md) | Loads `AGENTS.md` files from subdirectories when the model starts working in them.              |
+| [pi-session-utils](packages/extensions/pi-session-utils/README.md)             | Saves unsaved sessions, starts empty child sessions, and names sessions automatically.          |
+| [pi-agent-summary](packages/extensions/pi-agent-summary/README.md)             | Adds a one-line summary after each run: time, models, commands, and changed files.              |
+| [pi-fff-guard](packages/extensions/pi-fff-guard/README.md)                     | Stops FFF searches that would silently find nothing in ignored or missing paths.                |
+| [pi-read](packages/extensions/pi-read/README.md)                               | Lets the model select and highlight an exact span of a file when reading it.                    |
+| [pi-model-prompt](packages/extensions/pi-model-prompt/README.md)               | Appends different system instructions depending on the model.                                   |
+| [pi-skills](packages/extensions/pi-skills/README.md)                           | Turns `/skill:<name>` anywhere in a prompt into a file link, with **Tab** completion.           |
 
 ## Development
 

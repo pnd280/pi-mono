@@ -16,25 +16,20 @@ import {
 import { resolveInvocationPath } from "./invocation.ts";
 import { fallbackItems } from "./summary/categories.ts";
 
-/**
- * A transcript call, or a standalone render that supplies Pi's flags. Only transcript
- * calls check `supports`: standalone callers assert compatibility with their adapter.
- */
-export type InterpretationInput =
-  | {
-      readonly call: DisplayCall;
-      /** Replaces the call's selected adapter, e.g. after its presentation failed. */
-      readonly adapter?: ToolDisplayAdapter;
-    }
-  | {
-      readonly call?: undefined;
-      readonly name: string;
-      readonly adapter: ToolDisplayAdapter;
-      readonly args: unknown;
-      readonly result: BorrowedToolResult | undefined;
-      readonly pending: boolean;
-      readonly failed: boolean;
-    };
+export type InterpretationInput = {
+  readonly call: DisplayCall;
+  /** Replaces the call's selected adapter, e.g. after its presentation failed. */
+  readonly adapter?: ToolDisplayAdapter;
+};
+
+/** Standalone owners assert adapter compatibility and supply Pi's flags. */
+export type CardInterpretationInput = {
+  readonly adapter: ToolDisplayAdapter;
+  readonly args: unknown;
+  readonly result: BorrowedToolResult | undefined;
+  readonly pending: boolean;
+  readonly failed: boolean;
+};
 
 /** Calls group when both their normalized scope and custom title match. */
 export type GroupKey = {
@@ -42,8 +37,8 @@ export type GroupKey = {
   readonly title: string | undefined;
 };
 
-/** What a call means for display. All fields use the same effective adapter. */
-export interface CallInterpretation {
+/** Card meaning, without transcript identities or run-summary work. */
+export interface CardInterpretation {
   /** The selected display adapter, or generic for unsupported results and failed adapters. */
   readonly adapter: ToolDisplayAdapter;
   /** Argument streaming, queueing, or execution; not proof of execution. */
@@ -51,6 +46,10 @@ export interface CallInterpretation {
   /** Cancellation outranks failure; success and unavailable metadata override neither. */
   readonly outcome: Outcome;
   readonly mcp: McpFacts | undefined;
+}
+
+/** Transcript meaning. All fields use the same effective adapter. */
+export interface CallInterpretation extends CardInterpretation {
   readonly exploration: readonly ExplorationItem[];
   /** Normalized against the interpretation cwd; undefined excludes the call from groups. */
   readonly group: GroupKey | undefined;
@@ -114,6 +113,63 @@ function groupKey(
 
 const PENDING = new Set(["preparing", "queued", "executing"]);
 
+function cardMeaning(
+  adapter: ToolDisplayAdapter,
+  args: unknown,
+  result: BorrowedToolResult | undefined,
+  pending: boolean,
+  recorded: Outcome
+): CardInterpretation {
+  const mcp = adapter.mcp?.(args, result);
+  const reported = result && !pending ? adapter.outcome?.(result) : undefined;
+  const outcomes = [recorded, reported, pending ? undefined : mcp?.outcome];
+  let outcome: Outcome = "success";
+  if (outcomes.includes("cancelled")) outcome = "cancelled";
+  else if (
+    outcomes.some(
+      (value) => value === "failure" || value === "transport-error" || value === "returned-error"
+    )
+  )
+    outcome = "failure";
+  else if (outcomes.includes("unavailable")) outcome = "unavailable";
+
+  return { adapter, pending, outcome, mcp };
+}
+
+function withAdapter<Value>(
+  selected: ToolDisplayAdapter,
+  derive: (adapter: ToolDisplayAdapter) => Value,
+  onFailure: AdapterFailureHandler | undefined
+): Value {
+  try {
+    return derive(selected);
+  } catch (error) {
+    if (selected === genericAdapter) throw error;
+    reportAdapterFailure(onFailure, selected, error);
+
+    return derive(genericAdapter);
+  }
+}
+
+/** Ignore CLI-only callbacks, including their failures, for standalone cards. */
+export function interpretCard(
+  input: CardInterpretationInput,
+  onFailure?: AdapterFailureHandler
+): CardInterpretation {
+  return withAdapter(
+    input.adapter,
+    (adapter) =>
+      cardMeaning(
+        adapter,
+        input.args,
+        input.result,
+        input.pending,
+        input.failed ? "failure" : "success"
+      ),
+    onFailure
+  );
+}
+
 /**
  * Interpret metadata atomically so a failed callback cannot leave consumers with a
  * mix of specialized and generic facts. The coordinator caches this snapshot; card
@@ -125,60 +181,32 @@ export function interpret(
   onFailure?: AdapterFailureHandler
 ): CallInterpretation {
   const call = input.call;
-  const owner = call ? call.adapter : input.adapter;
+  const owner = call.adapter;
   const selected = input.adapter ?? owner;
-  const args = call ? call.args : input.args;
-  const result = call ? call.result : input.result;
-  const name = call ? call.name : input.name;
-  const pending = call ? PENDING.has(call.lifecycle) : input.pending;
-  let recorded: Outcome = "success";
-  if (call) recorded = call.outcome;
-  else if (input.failed) recorded = "failure";
+  const { args, result, name } = call;
+  const pending = PENDING.has(call.lifecycle);
+  const recorded = isCancelled(call) ? "cancelled" : call.outcome;
 
-  const derive = (adapter: ToolDisplayAdapter): CallInterpretation => {
-    const mcp = adapter.mcp?.(args, result);
-    const reported = result && !pending ? adapter.outcome?.(result) : undefined;
-    const outcomes = [
-      recorded,
-      call && isCancelled(call) ? "cancelled" : undefined,
-      reported,
-      pending ? undefined : mcp?.outcome
-    ];
-    let outcome: Outcome = "success";
-    if (outcomes.includes("cancelled")) outcome = "cancelled";
-    else if (
-      outcomes.some(
-        (value) => value === "failure" || value === "transport-error" || value === "returned-error"
-      )
-    )
-      outcome = "failure";
-    else if (outcomes.includes("unavailable")) outcome = "unavailable";
-    const exploration = adapter.exploration?.(args, result) ?? [];
+  return withAdapter(
+    selected,
+    (candidate): CallInterpretation => {
+      const adapter =
+        result && candidate.supports?.(args, result) === false ? genericAdapter : candidate;
+      const meaning = cardMeaning(adapter, args, result, pending, recorded);
+      const exploration = adapter.exploration?.(args, result) ?? [];
 
-    return {
-      adapter,
-      pending,
-      outcome,
-      mcp,
-      exploration,
-      group: groupKey(exploration, adapter.groupTitle, cwd),
-      // The selected owner's policy applies even when its presentation falls back.
-      summaryItems: owner.omitFromSummary
-        ? []
-        : (adapter.summaryItems?.(args, { result, change: call?.change, cwd }) ??
-          fallbackItems(adapter.family, name, call?.change)),
-      summaryCategories: adapter.summaryCategories ?? []
-    };
-  };
-
-  try {
-    return derive(
-      call && result && selected.supports?.(args, result) === false ? genericAdapter : selected
-    );
-  } catch (error) {
-    if (selected === genericAdapter) throw error;
-    reportAdapterFailure(onFailure, selected, error);
-
-    return derive(genericAdapter);
-  }
+      return {
+        ...meaning,
+        exploration,
+        group: groupKey(exploration, adapter.groupTitle, cwd),
+        // The selected owner's policy applies even when its presentation falls back.
+        summaryItems: owner.omitFromSummary
+          ? []
+          : (adapter.summaryItems?.(args, { result, change: call.change, cwd }) ??
+            fallbackItems(adapter.family, name, call.change)),
+        summaryCategories: adapter.summaryCategories ?? []
+      };
+    },
+    onFailure
+  );
 }

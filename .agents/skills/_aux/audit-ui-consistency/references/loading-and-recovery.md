@@ -15,4 +15,4 @@ Compare readiness, absent data, restrictions, and recoverable failures.
 
 ## Evidence
 
-Reproduce relevant initial, pending, failed, and recovered states with disposable fixtures. Verify retry claims against actual reload and cache behavior.
+Reproduce relevant initial, pending, failed, and recovered states with disposable fixtures. Verify retry claims against actual reload and cache behaviour.

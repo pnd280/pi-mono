@@ -76,7 +76,6 @@ function snapshot(
 
     return {
       source,
-      number: index + 1,
       key:
         validId(source.id) && ids.get(source.id.toLowerCase()) === 1
           ? source.id.toLowerCase()

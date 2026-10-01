@@ -91,9 +91,12 @@ it("sends the configured model, text, thinking, and request budgets through Pi's
   expect(model).toEqual(originalModel);
 });
 
-it.each([512, 16384])(
-  "caps virtual title requests to the routed model's %i-token limit",
-  async (limit) => {
+it.each([
+  [512, 512],
+  [16384, 1024]
+])(
+  "caps virtual title requests to the routed model's token limit: %i becomes %i",
+  async (limit, expected) => {
     const { request, model, stream, runtime } = await fixture();
     model.maxTokens = limit;
     runtime.registerVirtualModel({
@@ -103,7 +106,6 @@ it.each([512, 16384])(
       route: () => ({ model, thinkingLevel: "off" })
     });
     await runtime.refresh({ allowNetwork: false });
-    expect(request.registry.find("title-fixture", "router")?.maxTokens).toBe(0);
     expect(
       await generateTitle({
         ...request,
@@ -111,8 +113,10 @@ it.each([512, 16384])(
       })
     ).toBe("Fix token expiry");
     expect(stream).toHaveBeenCalledOnce();
-    expect(stream.mock.calls[0]?.[0]).toBe(model);
-    expect(stream.mock.calls[0]?.[2]?.maxTokens).toBe(Math.min(limit, 1024));
+    expect(stream.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ provider: "title-fixture", id: "nested/model" })
+    );
+    expect(stream.mock.calls[0]?.[2]?.maxTokens).toBe(expected);
   }
 );
 

@@ -4,6 +4,8 @@
 
 ## Usage
 
+Extensions share terminal components and Pi mounting through separate entry points.
+
 Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [package exports](../../package.json)). Keep domain policy and I/O in consumers; shared components own presentation and interaction, not persistence.
 
 | Module                                                   | Responsibility                                                           |
@@ -21,9 +23,9 @@ Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [packag
 | [Code highlighting](components/code-highlight/README.md) | Bounded syntax highlighting                                              |
 | [Text layout](text-layout/README.md)                     | Cooperative full-text wrapping                                           |
 | [Text budgets](text-budget/README.md)                    | Synchronous wrapping and bounded excerpts                                |
-| [Terminal text](terminal-text/README.md)                 | Display sanitization and unsafe-control detection                        |
+| [Terminal text](terminal-text/README.md)                 | Display sanitisation and unsafe-control detection                        |
 | [Glyphs](glyphs/README.md)                               | Shared activity markers and tree connector glyphs                        |
-| [Keybindings](keybindings/README.md)                     | Shortcut validation and canonicalization                                 |
+| [Keybindings](keybindings/README.md)                     | Shortcut validation and canonicalisation                                 |
 
 ## Validation
 

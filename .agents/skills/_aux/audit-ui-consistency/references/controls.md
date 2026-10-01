@@ -9,9 +9,9 @@ Compare advertised actions with input dispatch across browsers, details, preview
 - Match hints to actual remapping, conflicts, and precedence.
 - Compare key labels, unavailable actions, and the distinction between fixed and configurable controls.
 - Verify that navigation and paging target the expected list, preview, or transcript in each mode.
-- Match cancel behavior to its advertised effect: close, return, or stop work.
+- Match cancel behaviour to its advertised effect: close, return, or stop work.
 - Match focus, selection, and mouse routing to the visible surface.
-- Check controls during loading, deletion, copying, and busy states, including confirmation repeat/release behavior.
+- Check controls during loading, deletion, copying, and busy states, including confirmation repeat and release behaviour.
 
 ## Evidence
 

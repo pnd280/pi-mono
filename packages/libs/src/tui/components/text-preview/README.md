@@ -2,17 +2,17 @@
 
 [Shared TUI](../../README.md#usage)
 
-## Behavior
+## Behaviour
 
-[`ScrollableTextPreview`](index.ts) caches a text viewport; `renderOverflowBorder` draws caller-owned overflow labels.
+Long output needs a scrollable viewport that stays consistent while async layout completes. [`ScrollableTextPreview`](index.ts) caches a text viewport; `renderOverflowBorder` draws caller-owned overflow labels.
 
-The preview calls `changed` when current work completes. Text changes reset scroll; stale/disposed work cannot publish.
+The preview calls `changed` when current work completes. Text changes reset scroll; stale or disposed work cannot publish.
 
 ## Caller responsibilities
 
-Supply terminal-safe text, for example from [`displayText`](../../terminal-text/index.ts), and retain exact source separately. Handle navigation keys, viewport dimensions, and loading presentation.
-
-Use one instance per logical view; `current` becomes false and `dispose()` runs only at final closure, never [responsive remounts](../../responsive-custom-ui/README.md).
+- Supply terminal-safe text, for example from [`displayText`](../../terminal-text/index.ts), and retain exact source separately.
+- Handle navigation keys, viewport dimensions, and loading presentation.
+- Use one instance per logical view; `current` becomes false and `dispose()` runs only at final closure, never [responsive remounts](../../responsive-custom-ui/README.md).
 
 ## Usage
 

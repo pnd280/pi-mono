@@ -2,7 +2,9 @@
 
 [Library index](../../README.md#usage)
 
-## Behavior
+Temporarily replace object properties and restore only replacements this library still owns.
+
+## Behaviour
 
 [`@pi-mono/libs/owned-hooks`](index.ts) exports `OwnedHooks` for temporary property replacements.
 

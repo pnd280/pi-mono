@@ -2,28 +2,28 @@
 
 [Shared TUI](../README.md#usage)
 
-## Behavior
+## Behaviour
 
-[`text-budget`](index.ts) wraps text synchronously and produces bounded excerpts.
+Use [`text-budget`](index.ts) to wrap text synchronously and produce excerpts within row and character budgets.
 
 - `wrapRows` wraps ANSI-styled text and clamps wide graphemes that cannot fit.
 - `compactRows` retains head and tail rows, reserving one budgeted row for the caller's omission notice.
 - `textPrefix` clips a UTF-16 prefix without cutting a grapheme or SGR sequence.
-- `compactText` limits text passed to wrapping, preserving head/tail excerpts and SGR state.
+- `compactText` limits text passed to wrapping, keeping excerpts from the start and end and SGR state.
 
 `notice` receives omitted-row counts after full wrapping, or `undefined` when character clipping skips measurement. See [budget options](index.ts) for limits.
 
 ## Caller responsibilities
 
-Supply normalized text with only SGR styling. Use [terminal text utilities](../terminal-text/README.md) to normalize raw terminal output.
-
-Own width, budgets, notices, styling, and exact source retention. `compactRows` needs measured rows; reserve tree connector width before measurement.
-
-Use [text layout](../text-layout/README.md) to wrap complete text cooperatively. Connector placement belongs to [tree](../components/tree/README.md), and patch selection belongs to [diff view](../components/diff-view/README.md).
+- Supply normalised text with only SGR styling. Use [terminal text utilities](../terminal-text/README.md) to normalise raw terminal output.
+- Own width, budgets, notices, styling, and exact source retention.
+- `compactRows` needs measured rows; reserve tree connector width before measurement.
+- Use [text layout](../text-layout/README.md) to wrap complete text cooperatively.
+- Connector placement belongs to [tree](../components/tree/README.md), and patch selection belongs to [diff view](../components/diff-view/README.md).
 
 ## Usage
 
-Reserve the indentation and two connector columns before measuring normalized content:
+Reserve the indentation and two connector columns before measuring normalised content:
 
 ```ts
 import { compactText } from "@pi-mono/libs/tui/text-budget";

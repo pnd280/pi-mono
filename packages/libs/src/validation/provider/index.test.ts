@@ -73,6 +73,29 @@ it("emits text indices after existing tool content and completes through Pi's st
   });
 });
 
+it("keeps unfinished scripted responses pending until the scenario completes", async () => {
+  const finishing = Promise.withResolvers<void>();
+  const stream = createFixtureStream({
+    model,
+    async run({ text }) {
+      text("partial response");
+      await finishing.promise;
+
+      return "stop";
+    }
+  });
+
+  try {
+    const event = await stream[Symbol.asyncIterator]().next();
+    expect(event.value).toMatchObject({ type: "start", partial: { stopReason: "pending" } });
+  } finally {
+    finishing.resolve();
+    await stream.result();
+  }
+
+  expect(await stream.result()).toMatchObject({ stopReason: "stop" });
+});
+
 it("ends failed fixtures with an error rather than leaving stream consumers waiting", async () => {
   const stream = createFixtureStream({
     model,

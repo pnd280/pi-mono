@@ -1,26 +1,60 @@
-# Pi compatibility
+# Pi compatibility for maintainers
 
-[Package](../README.md)
+[Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-## Contracts to verify
+> Last verified against Pi 1.0.0 (package checks and offline host tests, real codemode cases, shared utils, FFF guard, and display suites). Not covered: live FFF integration and manual notice presentation.
 
-- [ ] Native context discovery still prioritizes `AGENTS.override.md`, `AGENTS.md`, `AGENTS.MD`, `CLAUDE.md`, then `CLAUDE.MD`, strips a UTF-8 BOM, follows file symlinks, and skips unreadable/nonregular candidates.
-- [ ] `turn_end.message` exposes directly issued assistant tool-call inputs, including blocked or rejected calls. Public `tool_execution_start` events with `parentToolCallId` supply nested inputs before validation/interception; collect them until the same `turn_end`, without reading results. Only direct calls can create read-suppression markers because nested output need not reach the model. Boundary drafts persist after tool results and before the next model request, without implicit steering or continuation.
-- [ ] `getAllTools().sourceInfo` identifies official FFF tools, including late registrations and overrides. Check selective-read and native path schemas alongside FFF's actual source schemas.
-- [ ] `buildSessionProjection()` retains source entry IDs and applies compaction/context edits; `getBranch()` supplies branch-local metadata. Replaced content must not retain loaded status from unchanged details alone.
-- [ ] `session_start` fires for startup, resume, reload, new sessions, and forks. `sendMessage(..., { triggerTurn: false })` does not interrupt a running batch. No pending discovery state is kept across turns or sessions.
-- [ ] Metadata-only custom entries remain absent from model context; visible notices retain their content/details without a registered renderer. Presentation belongs to the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
+## Upgrade procedure
 
-## Limitations and replacement opportunities
+1. Run the [package checks and offline tests](../README.md#validation). No paid model request is needed.
+2. After shared adapter changes, also run the utils and `pi-fff-guard` suites. Changes to the notice contract also need the pi-tool-display suite.
+3. Work through the checklist below, then update the "Last verified" line.
 
-Uses public Pi APIs; no host patch or tool override. The local filename list and input adapters need upgrade checks because Pi has no public nested-only discovery API that avoids reading directly observed instruction files.
+## Checklist
 
-Scope detection is deliberately conservative. It does not follow result paths, opaque scripts, FFF cursor state, or transient context rewrites by other extensions. Direct reads are attempts, not proof of complete delivery. Filesystem revision comparison on reload avoids reading unchanged directly observed files.
+Nested discovery must preserve Pi's native instruction loading and deduplicate against the surviving session context.
 
-Replace local behavior only if a public Pi API preserves these boundaries and metadata-only markers. Do not replace it with the startup loader, which also reads global/ancestor content.
+### Native discovery
 
-## Validation
+- [ ] Native context discovery still prefers `AGENTS.override.md`, `AGENTS.md`, `AGENTS.MD`, `CLAUDE.md`, then `CLAUDE.MD`.
+- [ ] It strips a UTF-8 BOM, follows file symlinks, and skips unreadable and non-regular candidates.
 
-Pi **0.99.2** package checks and offline host tests passed. Real codemode cases cover blocked and invalid child inputs, direct-sibling suppression, hidden child output, next-request delivery, and reload deduplication. Shared utils, FFF guard, and display suites also passed. Live FFF integration and manual notice presentation were not checked.
+### Tool inputs
 
-Run [package checks and offline tests](../README.md#validation), plus utils and `pi-fff-guard` suites after shared adapter changes. Notice contract changes also require the pi-tool-display suite. No paid model request is required by the automated checks.
+- [ ] `turn_end.message` exposes the inputs of tool calls the assistant made directly, including blocked or rejected calls.
+- [ ] Public `tool_execution_start` events with `parentToolCallId` supply nested inputs before validation and interception. Collect them until the same `turn_end`, without reading results.
+- [ ] Only direct calls can create read-suppression markers, because nested output may never reach the model.
+- [ ] Boundary drafts are saved after tool results and before the next model request, without implicit steering or continuation.
+- [ ] `getAllTools().sourceInfo` identifies official FFF tools, including late registrations and overrides. Check the selective-read and native path schemas alongside FFF's real source schemas.
+
+### Session
+
+- [ ] `buildSessionProjection()` keeps source entry IDs and applies compaction and context edits. `getBranch()` supplies metadata for the branch.
+- [ ] Replaced content doesn't keep its loaded status just because its details are unchanged.
+- [ ] `session_start` fires for startup, resume, reload, new sessions, and forks.
+- [ ] `sendMessage(..., { triggerTurn: false })` doesn't interrupt a running batch.
+- [ ] No pending discovery state is kept across turns or sessions.
+- [ ] Metadata-only custom entries stay out of model context. Visible notices keep their content and details without a registered renderer. Presentation belongs to the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
+
+## Persisted notice contract
+
+The [notice interface](../src/notices.ts) writes version 2, removing the unused notice `stamp` and the separate `fileDigest`. It retains `messageDigest` to validate the full canonical model-facing message before the ledger decodes and compares its instruction body.
+
+This is a breaking replay change with no compatibility reader or automatic migration:
+
+- Version-1 notices no longer validate. Version-2 details containing either removed key also fail strict validation.
+- Invalid notices provide no deduplication or refresh scope tracking, no structured notice rendering, and no run-summary counts. Their original model-facing content is not deleted; display falls back to the supplied text.
+- Resume and reload do not eagerly restore scopes represented only by old notices. A later qualifying tool input can load those instructions again, even while the old message text remains in context.
+- Direct-read markers remain version 1 and retain their filesystem revision stamps, originating-call identity, and call fingerprints.
+
+Keep discovery and the pi-tool-display adapter on the same notice contract. Contract changes need checks for strict validation, visible-message corruption, body equality, rendering, summaries, and host replay.
+
+## Limitations
+
+The extension uses only public Pi APIs, with no host patches or tool overrides. The local filename list and input adapters still need checking on upgrades, because Pi has no public API for discovering only nested files that also avoids reading instruction files the model read directly.
+
+- Discovery doesn't follow result paths, opaque scripts, FFF cursor state, or temporary context rewrites by other extensions.
+- A direct read is an attempt, not proof that the content was delivered in full.
+- Comparing filesystem revisions on reload avoids rereading unchanged files the model read directly.
+
+Replace local behaviour only if a public Pi API keeps these boundaries and metadata-only markers. Don't replace it with the startup loader, which also reads global and ancestor content.

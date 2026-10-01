@@ -1,44 +1,36 @@
 import { join } from "node:path";
 
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
-import { loadAppendFiles, resolveAppendReplacement, type AppendFiles } from "./append-files.ts";
-import {
-  loadModelPromptConfig,
-  referencedFiles,
-  selectAppendFiles,
-  type ModelRule
-} from "./config.ts";
+import { loadModelPromptSnapshot, type ModelPromptSnapshot } from "./model-prompt.ts";
 
 export default function modelPrompt(pi: ExtensionAPI): void {
-  let rules: ModelRule[] = [];
-  let files: AppendFiles | undefined;
+  let snapshot: ModelPromptSnapshot | undefined;
 
   // Pi's resource loader rereads APPEND_SYSTEM.md on startup and /reload, which both start a session.
   pi.on("session_start", (_event, ctx) => {
-    const agentDir = getAgentDir();
-    const config = loadModelPromptConfig(agentDir);
-    rules = config.rules;
-    files = loadAppendFiles({
+    snapshot = loadModelPromptSnapshot({
       projectDir: ctx.isProjectTrusted() ? join(ctx.cwd, CONFIG_DIR_NAME) : undefined,
-      agentDir,
-      paths: referencedFiles(rules)
+      agentDir: getAgentDir()
     });
 
     if (!ctx.hasUI) return;
 
-    for (const warning of [...config.warnings, ...files.warnings]) {
-      ctx.ui.notify(`pi-model-prompt: ${warning}`, "warning");
+    for (const warning of snapshot.warnings) {
+      ctx.ui.notify(displayText(`pi-model-prompt: ${warning}`), "warning");
     }
   });
 
   pi.on("before_agent_start", (event, ctx) => {
     const model = ctx.model;
-    if (!files || !model) return;
+    if (!snapshot || !model) return;
 
     const options = event.systemPromptOptions;
-    const paths = selectAppendFiles(rules, `${model.provider}/${model.id}`);
-    const replacement = resolveAppendReplacement(files, options.appendSystemPrompt, paths);
+    const replacement = snapshot.replacementFor(
+      `${model.provider}/${model.id}`,
+      options.appendSystemPrompt
+    );
     if (replacement !== undefined) options.appendSystemPrompt = replacement;
   });
 }

@@ -3,13 +3,8 @@ import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { genericAdapter } from "../adapters/generic.ts";
-import {
-  isLive,
-  type BorrowedToolResult,
-  type DisplayCall,
-  type ToolDisplayAdapter
-} from "../contracts.ts";
-import { interpret, reportAdapterFailure, type CallInterpretation } from "../interpretation.ts";
+import { isLive, type BorrowedToolResult, type ToolDisplayAdapter } from "../contracts.ts";
+import { interpretCard, reportAdapterFailure, type CardInterpretation } from "../interpretation.ts";
 import { heading } from "./headings.ts";
 import { buildGroupRows, buildResultBody } from "./result-content.ts";
 import { resultRows } from "./results.ts";
@@ -31,7 +26,7 @@ function lazy<T>(prepare: () => T): () => T {
 }
 
 function prepareCard(
-  interpretation: CallInterpretation,
+  interpretation: CardInterpretation,
   base: Omit<Projection, "adapter" | "mcp" | "outcome" | "summary">
 ): PreparedCard {
   const context = lazy(() => ({
@@ -99,9 +94,6 @@ function prepareCard(
     },
     get code() {
       return code();
-    },
-    get exploration() {
-      return interpretation.exploration;
     },
     get headingVerbs() {
       return headingVerbs();
@@ -262,36 +254,30 @@ class CardRow {
     ));
   }
 
-  private interpretation(): CallInterpretation {
+  private interpretation(): CardInterpretation {
     const { binding, onAdapterFailure } = this.options;
     if (binding) return binding.coordinator.interpretation(binding.call);
 
-    // Standalone renders have no transcript identities; Pi's context cwd only displays paths.
-    return interpret(
+    return interpretCard(
       {
-        name: this.name,
         adapter: this.fallback ? genericAdapter : this.adapter,
         args: this.context.args,
         result: this.result,
         pending: this.context.isPartial,
         failed: this.context.isError
       },
-      this.context.cwd,
       onAdapterFailure
     );
   }
 
   private prepare(
-    interpretation: CallInterpretation,
+    interpretation: CardInterpretation,
     view: Pick<Projection, "width" | "expanded">
   ): PreparedCard {
     const { binding } = this.options;
     const call = binding?.call;
     const selected = interpretation.adapter;
-    const interpretCall = (member: DisplayCall) =>
-      binding
-        ? binding.coordinator.interpretation(member)
-        : interpret({ call: member }, this.context.cwd);
+    const group = binding?.coordinator.group(binding.call);
 
     return prepareCard(interpretation, {
       ...view,
@@ -303,8 +289,14 @@ class CardRow {
       theme: this.theme,
       call,
       result: call?.result ?? this.result,
-      group: binding ? binding.coordinator.group(binding.call) : undefined,
-      interpret: interpretCall
+      group:
+        group && binding
+          ? {
+              ...group,
+              exploration: binding.coordinator.interpretation(binding.call).exploration,
+              interpret: (member) => binding.coordinator.interpretation(member)
+            }
+          : undefined
     });
   }
 }

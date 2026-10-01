@@ -1,15 +1,22 @@
-# pi-todo development
+# [pi-todo](README.md) development
+
+Leave tool cards to the host; attach no renderer fields to the tool definition.
+
+## Must not regress
+
+- Keep every mutation atomic, and every result fully replayable.
+- Keep the hierarchy independent of status and dependencies.
 
 ## Constraints
 
-Keep hierarchy independent of status and dependencies, mutations atomic, and every result fully replayable.
-
-Leave cards to the host; attach no renderer fields to the tool definition.
-
-Reuse shared terminal sanitization and [custom-UI mounting](../../libs/src/tui/responsive-custom-ui/README.md). Publish activity through the [working-message coordinator](../../libs/src/working-message/README.md), not directly to Pi. Keep UI ownership local; use non-overlay UI in fullscreen mode without global keybinding changes.
+- Reuse shared terminal sanitisation and [custom-UI mounting](../../libs/src/tui/responsive-custom-ui/README.md).
+- Publish activity through the [working-message coordinator](../../libs/src/working-message/README.md), never directly to Pi.
+- Keep UI ownership local. In fullscreen mode, use UI that isn't an overlay, without changing global keybindings.
 
 ## Validation
 
-Pi upgrades: [compatibility checklist](docs/pi-compatibility.md).
-
-For UI changes, use the [interactive checks](docs/validation.md); see [coverage boundaries](docs/testing.md#coverage-boundaries) before duplicating shared-library tests.
+| When you ...                                      | Read                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------- |
+| Change the widget, browser, or working-message UI | [interactive checks](docs/validation.md)                                  |
+| Add tests                                         | [testing](docs/testing.md) first, to avoid repeating shared-library tests |
+| Upgrade Pi                                        | [compatibility checklist](docs/pi-compatibility.md)                       |

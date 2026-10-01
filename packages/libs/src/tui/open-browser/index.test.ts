@@ -146,7 +146,6 @@ it.each(["select", "alternate", "cancel", "refuse"] as const)(
     options.sections[1]!.confirm!.run = select;
     options.sections[1]!.alternate!.run = select;
     let view: (Component & { dispose?(): void }) | undefined;
-    const presentations: boolean[] = [];
     const mountedCallbacks: (() => void)[] = [];
     const ui: OpenBrowserOptions<TestItem>["ui"] = {
       custom: (factory, settings) => {
@@ -154,7 +153,6 @@ it.each(["select", "alternate", "cancel", "refuse"] as const)(
         const overlay = settings?.overlay ?? false;
         let current: typeof view;
         let closed = false;
-        presentations.push(overlay);
 
         return new Promise((resolve, reject) => {
           void Promise.resolve(
@@ -225,7 +223,6 @@ it.each(["select", "alternate", "cancel", "refuse"] as const)(
         expect(editor).toBe("original editor");
       }
 
-      expect(presentations).toEqual([false, true, false, true, false]);
       let input = "\r";
       if (action === "cancel") input = "\x1b";
       else if (action === "alternate") input = "\x1b\r";

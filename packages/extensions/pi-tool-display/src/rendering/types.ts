@@ -57,6 +57,12 @@ export type CardRendererOptions = ToolDisplayRendererOptions & {
   onAdapterFailure?: AdapterFailureHandler;
 };
 
+/** Group-only facts and lookup exist only for a real transcript group. */
+export type PreparedGroup = DisplayGroup & {
+  readonly exploration: readonly ExplorationItem[];
+  readonly interpret: (call: DisplayCall) => CallInterpretation;
+};
+
 export type Projection = Readonly<{
   name: string;
   adapter: Readonly<ToolDisplayAdapter>;
@@ -67,12 +73,10 @@ export type Projection = Readonly<{
   showParameters: boolean;
   call: DisplayCall | undefined;
   result: BorrowedToolResult | undefined;
-  group: DisplayGroup | undefined;
+  group: PreparedGroup | undefined;
   mcp: McpFacts | undefined;
   outcome: Outcome;
   summary: ResultSummary | undefined;
-  /** Interprets group members consistently with the transcript. */
-  interpret: (call: DisplayCall) => CallInterpretation;
 }>;
 
 /** Lazily prepared, row-owned data. Layout consumers cannot invalidate or replace it. */
@@ -80,7 +84,6 @@ export type PreparedCard = Projection &
   Readonly<{
     invocation: readonly InvocationPart[] | undefined;
     code: DisplayCode | undefined;
-    exploration: readonly ExplorationItem[];
     headingVerbs: ReturnType<NonNullable<ToolDisplayAdapter["headingVerbs"]>>;
     body: ResultBody;
     hasBody: boolean;

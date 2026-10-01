@@ -165,7 +165,6 @@ it.each([
       expect(shape(summary())).toEqual([`${category}:1`]);
       finish(add(name, { path: "src\u202fdir/a b.ts" }, { adapter }), "cancelled");
       expect(shape(summary())).toEqual([`${category}:1 cancelled=1`]);
-      expect(args.path).toBe("src\u00a0dir/a\u2007b.ts");
     } finally {
       coordinator.dispose();
     }

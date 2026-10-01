@@ -27,10 +27,9 @@ export class SessionTitle {
 
   async automatic(message: UserMessage, signal?: AbortSignal): Promise<void> {
     if (this.disposed || this.attempted || this.host.getSessionName()) return;
-    const source =
-      firstRequestSource(this.host.getBranch()) || requestSource(contentText(message.content));
+    const source = requestSource(contentText(message.content));
     if (!source) return;
-    await this.run(source, false, signal);
+    await this.run(firstRequestSource(this.host.getBranch()) || source, false, signal);
   }
 
   async command(args: string): Promise<void> {

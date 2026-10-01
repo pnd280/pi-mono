@@ -101,7 +101,8 @@ type ObservedFile = {
 };
 
 /** Retains only the baseline/latest source; tool patches and intermediate snapshots stay call-scoped. */
-export class RunChanges {
+export class RunChanges implements MutationSink {
+  readonly maxSourceBytes = PATCH_LIMITS.maxSourceBytes;
   private files = new Map<string, ObservedFile>();
   private retainedBytes = 0;
 
@@ -113,14 +114,7 @@ export class RunChanges {
       throw new RangeError("Retained source budget must be a nonnegative safe integer.");
   }
 
-  sink(): MutationSink {
-    return {
-      maxSourceBytes: PATCH_LIMITS.maxSourceBytes,
-      completed: (mutation) => this.record(mutation)
-    };
-  }
-
-  async record(mutation: FileMutation): Promise<void> {
+  async completed(mutation: FileMutation): Promise<void> {
     const path = relativeDisplayPath(mutation.path, this.cwd);
     const before = observedSource(mutation.before);
     const after = mutation.outcome === "success" ? observedSource(mutation.after) : undefined;

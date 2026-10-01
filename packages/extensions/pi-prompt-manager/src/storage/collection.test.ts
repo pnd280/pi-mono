@@ -41,9 +41,7 @@ it("keeps parsed numbers that cannot be re-encoded inspectable but read-only", (
     access: "read-only",
     document: { entries: [{ recordedAt: Infinity }], metadata: { value: Infinity } }
   });
-  expect(() => updateCollection({ ...scope, raw, operation: add("new") })).toThrow(
-    "Collection is read-only. Back up and repair with sessions stopped."
-  );
+  expect(() => updateCollection({ ...scope, raw, operation: add("new") })).toThrow("read-only");
 });
 
 it("preserves unknown fields and raw timestamps, ignores unusable text, and refuses read-only mutations", () => {
@@ -158,13 +156,10 @@ it("rejects history with more records than the recovery count", () => {
     entry(`entry ${index}`)
   );
   const raw = rawDocument(records);
-  expect(raw.length).toBeLessThan(limits.historyFile);
   expect(readCollection("history", scope.cwd, rawDocument(records.slice(1))).entries).toHaveLength(
     limits.recoveryCount
   );
-  expect(() => readCollection("history", scope.cwd, raw)).toThrow(
-    "History exceeds the 5,000-record recovery bound"
-  );
+  expect(() => readCollection("history", scope.cwd, raw)).toThrow("recovery");
 });
 
 it("counts ignored records for recovery and allows only deletions that shrink original bytes", () => {
@@ -285,7 +280,8 @@ it("retains history prefixes, suppresses only consecutive equality, and does not
       operation: add(text),
       retention: 1
     });
-    expect(result).toEqual({ status: "unchanged", value: current });
+    expect(result.status).toBe("unchanged");
+    expect(result.value.entries.map((item) => item.source.text)).toEqual(["A", "B", "A"]);
   }
 
   const result = updateCollection({

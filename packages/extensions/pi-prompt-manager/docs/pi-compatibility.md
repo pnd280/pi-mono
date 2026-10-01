@@ -1,21 +1,29 @@
-# Pi compatibility
+# Pi compatibility for maintainers
 
 [pi-prompt-manager](../README.md)
 
-## Contracts to verify
+> Last verified against Pi 1.0.0 (package checks and offline API and installed-CLI tests; no runtime changes needed). Not covered: manual terminal checks, delivery to the native clipboard, and platform checks.
 
-- [ ] [Lifecycle/capture](../src/index.ts): activate only after TUI startup; preserve input ordering, capture exclusions, reload cleanup, and no non-TUI settings/storage access.
-- [ ] [Editor](../src/host/editor.ts): expanded paste, safe restoration without submission/history insertion, and concurrent-edit protection.
-- [ ] [Browser](../src/browser/open.ts): Pi keybindings, remounts at the 19/18-row inline/overlay boundary, cancellation, and restoration only after final closure.
-- [ ] [Fullscreen paging](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): list/preview/inspection paging leaves the transcript fixed and respects search/dialog focus. Unsupported routing warns once per opening without closing the view.
+## Upgrade procedure
 
-## Limitations and replacement opportunities
+1. Run the [package, API, CLI, terminal, and platform checks](validation.md). Shared mounting and interaction coverage belongs to [libs TUI](../../../libs/src/tui/README.md#validation).
+2. Work through the checklist below, then update the "Last verified" line.
 
-- [Restoration may normalize tabs/line endings](../README.md#restore-text). Revisit lossless editor APIs without sacrificing terminal safety or exact stored/copied source.
-- Compare new history, browser, clipboard, and storage APIs with current contracts. Native-only clipboard transport, private storage, and capture exclusions are deliberate policies, not gaps to remove.
+## Checklist
 
-## Validation
+- [ ] [Lifecycle and capture](../src/index.ts): activates only after TUI startup. Input order, capture exclusions, and reload cleanup are kept. Settings and storage aren't touched outside the TUI.
+- [ ] [Editor host mapping](../src/index.ts) and [source refusal](../src/host/editor.ts): pastes are expanded, restoring is safe and neither submits nor adds to history, and concurrent edits are protected.
+- [ ] [Browser](../src/browser/open.ts): Pi keybindings work, the view remounts at the boundary between 19-row inline and 18-row overlay, cancellation works, and restoring happens only after the final close.
+- [ ] [Fullscreen paging](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): paging the list, preview, or inspection leaves the transcript still, and respects focus in search and dialogs. If routing is unsupported, a warning appears once per opening and the view stays open.
 
-Pi **0.99.2** package checks and offline API/installed-CLI tests passed without runtime changes. Capture, restoration, storage policy, and native-only clipboard transport remain unchanged. Manual terminal, native clipboard delivery, and platform checks were not run.
+## Limitations
 
-Use [package, API/CLI, terminal, and platform checks](validation.md). Shared mounting/interaction coverage belongs to [libs TUI](../../../libs/src/tui/README.md#validation).
+Native-only clipboard transport, private storage, and capture exclusions are deliberate policies. Keep them when considering new host APIs.
+
+### Restoring
+
+[Restoring may normalise tabs and line endings](../README.md#restore-text). Revisit lossless editor APIs, as long as terminal safety and the exact stored and copied source are kept.
+
+### New APIs
+
+Compare any new history, browser, clipboard, and storage APIs with the checklist.

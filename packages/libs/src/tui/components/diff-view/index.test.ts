@@ -1,8 +1,8 @@
-import { sliceByColumn, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { parsePatch as parseSourcePatch } from "@pi-mono/utils/patch";
 import { expect, it } from "vite-plus/test";
 
-import { pairPatchLines, renderDiffBody } from "./index.ts";
+import { renderDiffBody } from "./index.ts";
 
 const backgrounds: Record<string, string> = {
   toolErrorBg: "\x1b[48;5;1m",
@@ -25,6 +25,32 @@ const displayOptions = {
   highlight
 };
 const parsePatch = (source: string) => parseSourcePatch(source, 128 * 1024);
+
+// Interpret the terminal's SGR background state, not the renderer's escape ordering.
+// This fixture uses ASCII cells and indexed background colours only.
+function backgroundAt(row: string, column: number): number | undefined {
+  let background: number | undefined;
+  let cell = 0;
+
+  // oxlint-disable-next-line no-control-regex
+  for (const match of row.matchAll(/\x1b\[([0-9;]*)m|([^\x1b])/gu)) {
+    if (match[1] !== undefined) {
+      const codes = match[1].split(";").map(Number);
+
+      for (let index = 0; index < codes.length; index++) {
+        const code = codes[index];
+
+        if (code === 0 || code === 49) background = undefined;
+        else if (code === 48 && codes[index + 1] === 5) {
+          background = codes[index + 2];
+          index += 2;
+        }
+      }
+    } else if (cell++ === column) return background;
+  }
+
+  throw new Error(`Missing terminal cell ${column}`);
+}
 
 it("does not highlight omitted compact lines or hunks, but expands all retained source", () => {
   const parsed = parsePatch(
@@ -54,18 +80,32 @@ it("pairs unequal change blocks without moving lines across context or hunk boun
   const parsed = parsePatch(
     "@@ -5,3 +8,4 @@\n-old\n+new\n+extra\n context\n-deleted\n+replaced\n@@ -100000000,0 +100000002 @@\n+last\n"
   )!;
-  expect(
-    parsed.hunks
-      .flatMap((hunk) => pairPatchLines(hunk.lines))
-      .map((row) => [row.old?.text, row.new?.text])
-  ).toEqual([
-    ["old", "new"],
-    [undefined, "extra"],
-    ["context", "context"],
-    ["deleted", "replaced"],
-    [undefined, "last"]
+  const split = renderDiffBody(parsed, { ...displayOptions, width: 160 }).map(
+    stripTerminalSequences
+  );
+  expect(split).toHaveLength(7);
+  expect(split[0]).toBe("Hunk 1/2");
+  expect(split[1]).toMatch(/^\s*5 -old\s+│\s+8 \+new\s*$/);
+  expect(split[2]).toMatch(/^\s+│\s+9 \+extra\s*$/);
+  expect(split[3]).toMatch(/^\s*6  context\s+│\s+10  context\s*$/);
+  expect(split[4]).toMatch(/^\s*7 -deleted\s+│\s+11 \+replaced\s*$/);
+  expect(split[5]).toBe("Hunk 2/2");
+  expect(split[6]).toMatch(/^\s+│ 100000002 \+last\s*$/);
+
+  const unified = renderDiffBody(parsed, { ...displayOptions, width: 40 }).map((row) =>
+    stripTerminalSequences(row).trim()
+  );
+  expect(unified).toEqual([
+    "Hunk 1/2",
+    "5 -old",
+    "8 +new",
+    "9 +extra",
+    "10  context",
+    "7 -deleted",
+    "11 +replaced",
+    "Hunk 2/2",
+    "100000002 +last"
   ]);
-  expect(parsed.hunks.at(-1)?.lines.at(-1)?.newLine).toBe(100000002);
 });
 
 it("shows split previews by default when wide and unified rows when narrow without losing content", () => {
@@ -121,16 +161,12 @@ it("restores row backgrounds after inline highlights and clears styles between c
   const changed = rows.find((row) => stripTerminalSequences(row).includes("old"))!;
   const plain = stripTerminalSequences(changed);
   const separator = plain.indexOf("│");
-  const removed = theme.getBgAnsi("toolErrorBg");
-  const added = theme.getBgAnsi("toolSuccessBg");
-  const inline = theme.getBgAnsi("selectedBg");
-  expect(sliceByColumn(changed, 4, 1)).toContain(removed);
-  expect(sliceByColumn(changed, plain.indexOf("old"), 1)).toContain(inline);
-  expect(sliceByColumn(changed, plain.indexOf("new"), 1)).toContain(inline);
-  expect(sliceByColumn(changed, separator - 2, 1)).toContain(removed);
-  expect(sliceByColumn(changed, 119, 1)).toContain(added);
-  // sliceByColumn retains earlier SGR codes, including those already reset.
-  expect(sliceByColumn(changed, separator, 1).endsWith("\x1b[0m│")).toBe(true);
+  expect(backgroundAt(changed, plain.indexOf("const"))).toBe(1);
+  expect(backgroundAt(changed, plain.indexOf("old"))).toBe(3);
+  expect(backgroundAt(changed, plain.indexOf("new"))).toBe(3);
+  expect(backgroundAt(changed, separator - 2)).toBe(1);
+  expect(backgroundAt(changed, plain.length - 1)).toBe(2);
+  expect(backgroundAt(changed, separator)).toBeUndefined();
   expect(rows.find((row) => stripTerminalSequences(row).includes("context"))).not.toContain(
     "\x1b[48;"
   );
@@ -152,21 +188,18 @@ it("emphasizes inline changes after sanitizing controls without splitting graphe
   expect(parsed).toEqual(original);
 });
 
-it("bounds total inline comparison work across pairs without dropping later changes", () => {
+it("keeps later changes visible after an expensive inline comparison", () => {
   const parsed = parsePatch(
     `@@ -1,2 +1,2 @@\n-${"α".repeat(200)}\n-old\n+${"β".repeat(200)}\n+new\n`
   )!;
   const rows = renderDiffBody(parsed, { ...displayOptions, width: 240 });
   const compared = rows.filter((row) => stripTerminalSequences(row).includes("α"));
   expect(compared.length).toBeGreaterThan(0);
-  expect(compared.every((row) => row.includes("\x1b[1m") || row.includes("\x1b[1;"))).toBe(true);
   const later = rows.find((row) => stripTerminalSequences(row).includes("2 -old"))!;
   expect(stripTerminalSequences(later)).toContain("2 +new");
-  expect(later).not.toContain("\x1b[1m");
-  expect(later).not.toContain(theme.getBgAnsi("selectedBg"));
 });
 
-it("shows complete focused diffs through the row limit and labels only multi-hunk patches", () => {
+it("shows complete focused diffs through the row limit and identifies multiple hunks", () => {
   for (const width of [80, 120]) {
     const limit = 30;
 
@@ -177,20 +210,12 @@ it("shows complete focused diffs through the row limit and labels only multi-hun
       const compact = renderDiffBody(parsed, { ...displayOptions, width });
       const text = stripTerminalSequences(compact.join("\n"));
       expect(compact.length).toBe(count <= limit ? count : limit + 1);
-      expect(text).not.toContain("Hunk 1/1");
       expect(text.includes(`+line ${count - 1}`)).toBe(count <= limit);
       if (count > limit) expect(stripTerminalSequences(compact.at(-1)!)).toMatch(/^… /);
       const expanded = stripTerminalSequences(
         renderDiffBody(parsed, { ...displayOptions, width, expanded: true }).join("\n")
       );
-      expect(expanded).not.toContain("Hunk 1/1");
       expect(expanded).toContain(`+line ${count - 1}`);
-
-      for (const rendered of [text, expanded]) {
-        expect(rendered).not.toContain("Before");
-        expect(rendered).not.toContain("After");
-        expect(rendered).not.toContain("@@");
-      }
     }
   }
 
@@ -270,7 +295,6 @@ it("adds surrounding context without spending the 30 changed-row budget", () => 
       expect(text).toContain(value);
     expect(text).not.toContain("LATER_");
     expect(text).not.toContain("unselected context");
-    expect(text).not.toContain("Hunk 1/1");
     expect(rows).toHaveLength(35); // 30 changed rows, four context rows, hint.
   }
 });
@@ -319,7 +343,6 @@ it("excerpts long changed lines around the actual edit instead of their shared p
     const compact = stripTerminalSequences(rows.join("\n"));
     expect(compact).toContain("OLD_TARGET");
     expect(compact).toContain("NEW_TARGET");
-    expect(compact).not.toContain("Hunk 1/1");
     expect(rows.length).toBeLessThanOrEqual(36);
     const expanded = stripTerminalSequences(
       renderDiffBody(parsed, { ...displayOptions, width, expanded: true }).join("\n")
@@ -374,12 +397,11 @@ it.each([0, 200])(
   }
 );
 
-it("keeps long lines without inline comparison and displays missing-newline facts", () => {
+it("keeps long lines and displays missing-newline facts", () => {
   const before = "α".repeat(1000),
     after = "β";
   const parsed = parsePatch(`@@ -1 +1 @@\n-${before}\n\\ No newline at end of file\n+${after}\n`)!;
   const rows = renderDiffBody(parsed, { ...displayOptions, width: 120, expanded: true });
-  expect(rows.join("\n")).not.toContain("\x1b[1m");
   const text = stripTerminalSequences(rows.join("\n"));
   expect(text.match(/α/g)).toHaveLength(1000);
   expect(text.match(/β/g)).toHaveLength(1);

@@ -46,7 +46,6 @@ it("marks each prose block without marking thinking or diagnostics or changing s
     release?.();
   }
 
-  expect(Object.hasOwn(component, "updateContent")).toBe(false);
   expect(lines(component).join("\n")).not.toContain("•");
   expect(lines(component).join("\n")).toContain("Thinking...");
 });

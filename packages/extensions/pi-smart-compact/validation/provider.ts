@@ -69,13 +69,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
 
   AgentSession.prototype.prompt = async function (...args) {
     session = this;
-    const extensionRunner: unknown = Reflect.get(this, "_extensionRunner");
-
-    if (typeof extensionRunner !== "object" || extensionRunner === null) {
-      throw new Error("Missing native extension runner");
-    }
-
-    runner = extensionRunner;
+    runner = this.extensionRunner;
     originalDefault = Reflect.get(this, "_runDefaultCompaction");
     originalEmit = Reflect.get(runner, "emit");
     originalStream = this.agent.streamFunction;
@@ -256,7 +250,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
           summaryRequests++;
           trace("provider:summary", {
             ...requestDetails,
-            cacheRetention: options.cacheRetention,
             summaryKind: prompt.includes("# Instructions\nThe messages above")
               ? "prefix"
               : "history",

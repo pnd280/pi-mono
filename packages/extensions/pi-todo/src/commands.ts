@@ -1,8 +1,4 @@
-import type {
-  ExtensionAPI,
-  ExtensionCommandContext,
-  ExtensionUIContext
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionCommandContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteProvider } from "@earendil-works/pi-tui";
 import { browserLayout } from "@pi-mono/libs/tui/components/browser";
 import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
@@ -37,7 +33,7 @@ export function todosArgumentAutocompleteProvider(
   current: AutocompleteProvider
 ): AutocompleteProvider {
   const owns = (lines: string[], line: number, col: number) =>
-    (lines[line] ?? "").slice(0, col).startsWith("/todos ");
+    (lines[line] ?? "").slice(0, col).trimStart().startsWith("/todos ");
 
   return {
     ...(current.triggerCharacters === undefined
@@ -90,7 +86,7 @@ export class TodosCustomViewHost {
             "warning"
           ),
         useOverlay: (tui) => tui.mode !== "fullscreen" && browserLayout(tui.terminal.rows).overlay,
-        overlayOptions: { width: "100%", maxHeight: "75%", anchor: "center" },
+        overlayOptions: { width: "100%", anchor: "center" },
         create: (tui, theme, keybindings, done) =>
           new TodosView({ tasks: controller.getTodos(), tui, theme, keybindings, done })
       });
@@ -143,18 +139,4 @@ export async function runTodosCommand(
       ctx.hasUI ? formatTodosCommandOutput(controller.getTodos()) : ERR_REQUIRES_INTERACTIVE,
       ctx.hasUI ? "info" : "error"
     );
-}
-
-export function registerTodosCommand(
-  pi: Pick<ExtensionAPI, "registerCommand">,
-  controller: TodoController,
-  customViewHost: TodosCustomViewHost,
-  widgetStateHost: TodoOverlay
-): void {
-  pi.registerCommand("todos", {
-    description: "Review todos or control the above-editor todo widget",
-    getArgumentCompletions: getTodosArgumentCompletions,
-    handler: (args, ctx) =>
-      runTodosCommand(args, ctx, controller, { customViewHost, widgetStateHost })
-  });
 }

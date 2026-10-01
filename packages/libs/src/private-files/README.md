@@ -2,11 +2,13 @@
 
 [Library index](../../README.md#usage)
 
-## Behavior
+Store records that stay readable only by their owner, with coordinated writers.
+
+## Behaviour
 
 [`@pi-mono/libs/private-files`](index.ts) enforces permissions and ACLs, resolves directory scopes, coordinates writers through locks, and atomically replaces files.
 
-Directories use `0700`, files `0600`; reads may repair permissions/ACLs. Checks reject foreign ownership and final-path symlinks; files also reject hard links and nonregular types.
+Directories use `0700`, files `0600`; reads may repair permissions and ACLs. Checks reject foreign ownership and final-path symlinks. Files also reject hard links and nonregular types.
 
 ## Caller responsibilities
 
@@ -18,7 +20,7 @@ Use trusted private parents on local Linux, macOS, or WSL storage with POSIX own
 
 ### Mutation protocol
 
-Use [serialized transactions](transactions.md#serialized-transactions) or the [lower-level mutation protocol](transactions.md#mutation-protocol). Never retry a committed write solely because cleanup failed.
+Use [serialised transactions](transactions.md#serialised-transactions) or the [lower-level mutation protocol](transactions.md#mutation-protocol). Never retry a committed write solely because cleanup failed.
 
 ## Validation
 

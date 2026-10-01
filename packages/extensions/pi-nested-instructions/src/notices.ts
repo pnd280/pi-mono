@@ -9,14 +9,12 @@ import type { Selection } from "./storage.ts";
 export const noticeType = "pi-nested-instructions.notice";
 
 export const noticeSchema = z.strictObject({
-  version: z.literal(1),
+  version: z.literal(2),
   directory: absolutePathSchema.max(65536),
   path: absolutePathSchema.max(65536).nullable(),
   /** The cwd-relative path used in the model-facing preamble when the notice was created. */
   displayPath: z.string().max(65536),
   action: z.enum(["loaded", "updated", "removed"]),
-  stamp: z.string().max(256).nullable(),
-  fileDigest: z.string().length(64).nullable(),
   messageDigest: z.string().length(64)
 });
 
@@ -24,7 +22,7 @@ export type Notice = z.infer<typeof noticeSchema>;
 
 type NoticeMessage = Pick<CustomMessageEntryDraft, "content" | "details">;
 
-/** Fingerprint for notice `fileDigest`/`messageDigest` and projection visibility checks. */
+/** Fingerprint for projected notice messages and originating tool calls. */
 export function digest(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
@@ -45,13 +43,11 @@ export function noticeEntry(
   const displayPath = relativeDisplayPath(selected?.path ?? directory, cwd);
   const content = noticePreamble(displayPath, action) + (selected?.content ?? "");
   const details: Notice = {
-    version: 1,
+    version: 2,
     directory,
     path: selected?.path ?? null,
     displayPath,
     action,
-    stamp: selected?.stamp ?? null,
-    fileDigest: selected?.content === undefined ? null : digest(selected.content),
     messageDigest: digest(content)
   };
 

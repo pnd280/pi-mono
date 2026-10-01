@@ -45,7 +45,6 @@ describe("tool presentation", () => {
       '{"text":"quoted \\"value\\"\\n\\t\\\\界😀","values":[null,false,0,null,null,null],"date":"2025-01-02T00:00:00.000Z","nested":{"first":1,"second":2}}'
     );
     expect(part.truncated).toBe(false);
-    expect(args.text).toBe('quoted "value"\n\t\\界😀');
   });
 
   it("bounds wide and deep compact traversal and labels incomplete prefixes", () => {

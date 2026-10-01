@@ -241,16 +241,9 @@ function startArraySizeFrame(
   return true;
 }
 
-export function serializedSnapshotFitsLimit<Value>(
-  value: Value,
-  maximumBytes = MAX_SNAPSHOT_BYTES
-): boolean {
-  return serializedValueFitsLimit(value, maximumBytes);
-}
-
 /** Details preflight for callers that already validated the todo snapshot at the same budget. */
 export function snapshotDetailsFitLimit(details: TaskDetails, maximumBytes: number): boolean {
-  return serializedSnapshotFitsLimit(details, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES);
+  return serializedValueFitsLimit(details, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES);
 }
 
 export function snapshotFitsLimit(details: TaskDetails): boolean {
@@ -258,8 +251,8 @@ export function snapshotFitsLimit(details: TaskDetails): boolean {
     details.version === undefined ? MAX_LEGACY_SNAPSHOT_BYTES : MAX_SNAPSHOT_BYTES;
 
   return (
-    serializedSnapshotFitsLimit({ tasks: details.tasks, nextId: details.nextId }, maximumBytes) &&
-    serializedSnapshotFitsLimit(details, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES)
+    serializedValueFitsLimit({ tasks: details.tasks, nextId: details.nextId }, maximumBytes) &&
+    serializedValueFitsLimit(details, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES)
   );
 }
 

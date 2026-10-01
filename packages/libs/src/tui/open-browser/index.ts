@@ -18,7 +18,7 @@ export async function openBrowser<Item>(options: OpenBrowserOptions<Item>): Prom
   if (!active()) return;
   let view: Browser<Item> | undefined;
   let requestRender: (() => void) | undefined;
-  const abort = () => view?.controller.close();
+  const abort = () => view?.dispose();
   options.signal.addEventListener("abort", abort, { once: true });
 
   try {
@@ -28,11 +28,11 @@ export async function openBrowser<Item>(options: OpenBrowserOptions<Item>): Prom
       onInputRoutingUnavailable: options.onInputRoutingUnavailable,
       useOverlay: (tui) => browserLayout(tui.terminal.rows).overlay,
       overlayOptions: { width: "100%", maxHeight: "75%", anchor: "center" },
-      onTransition: () => view?.controller.cancelConfirmation(),
+      onTransition: () => view?.invalidate(),
       create: (tui, theme, keys, close) => {
         requestRender = () => tui.requestRender();
         view = new Browser(options.browser, { tui, theme, keys, close, onError: options.onError });
-        if (active()) void view.controller.activate();
+        if (active()) void view.activate();
 
         return view;
       }

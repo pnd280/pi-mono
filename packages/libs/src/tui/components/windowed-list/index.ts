@@ -1,5 +1,6 @@
 import {
   SelectList,
+  truncateToWidth,
   type SelectItem,
   type SelectListLayoutOptions,
   type SelectListTheme
@@ -40,5 +41,10 @@ export function renderWindowedList<Item>(options: WindowedListOptions<Item>): {
   const list = new SelectList(formatted.items, count, theme, formatted.layout);
   list.setSelectedIndex(selected - start);
 
-  return { lines: list.render(width), start, count };
+  // Pi's selection prefix can exceed a one-column viewport.
+  return {
+    lines: list.render(width).map((line) => truncateToWidth(line, width, "")),
+    start,
+    count
+  };
 }

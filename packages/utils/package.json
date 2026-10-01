@@ -4,8 +4,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./relative-time": "./src/relative-time.ts",
-    "./text-search": "./src/text-search.ts",
     "./fff-tools": "./src/fff-tools.ts",
     "./search-scopes": "./src/search-scopes.ts",
     "./paths": "./src/paths.ts",
@@ -24,8 +22,5 @@
   "dependencies": {
     "@git-diff-view/core": "catalog:",
     "zod": "catalog:"
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-tui": "catalog:pi-host"
   }
 }

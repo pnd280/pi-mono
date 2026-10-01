@@ -1,5 +1,5 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+import { compactDisplayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
 import type {
@@ -107,7 +107,10 @@ function presentTaskText(text: string): string {
   const compact = compactDisplayText(text).trim();
   const points = Array.from(compact);
 
-  return points.length <= 200 ? compact : points.slice(0, 199).join("") + "…";
+  if (points.length <= 200) return compact;
+  const end = points.slice(0, 199).join("").length;
+
+  return sliceTerminalText(compact, 0, end).text + "…";
 }
 
 function taskSubject(
