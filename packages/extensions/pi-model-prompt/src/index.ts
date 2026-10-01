@@ -5,8 +5,8 @@ import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works
 import { loadAppendFiles, resolveAppendReplacement, type AppendFiles } from "./append-files.ts";
 import {
   loadModelPromptConfig,
-  referencedVariants,
-  selectAppendVariant,
+  referencedFiles,
+  selectAppendFiles,
   type ModelRule
 } from "./config.ts";
 
@@ -22,7 +22,7 @@ export default function modelPrompt(pi: ExtensionAPI): void {
     files = loadAppendFiles({
       projectDir: ctx.isProjectTrusted() ? join(ctx.cwd, CONFIG_DIR_NAME) : undefined,
       agentDir,
-      variants: referencedVariants(rules)
+      paths: referencedFiles(rules)
     });
 
     if (!ctx.hasUI) return;
@@ -37,8 +37,8 @@ export default function modelPrompt(pi: ExtensionAPI): void {
     if (!files || !model) return;
 
     const options = event.systemPromptOptions;
-    const variant = selectAppendVariant(rules, `${model.provider}/${model.id}`);
-    const replacement = resolveAppendReplacement(files, options.appendSystemPrompt, variant);
+    const paths = selectAppendFiles(rules, `${model.provider}/${model.id}`);
+    const replacement = resolveAppendReplacement(files, options.appendSystemPrompt, paths);
     if (replacement !== undefined) options.appendSystemPrompt = replacement;
   });
 }

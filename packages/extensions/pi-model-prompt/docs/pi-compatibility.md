@@ -4,7 +4,7 @@
 
 ## Contracts to verify
 
-- [ ] [Base discovery](../src/append-files.ts): Pi still loads one `APPEND_SYSTEM.md` (trusted project first, then agent directory), strips a byte-order mark, skips discovery when `--append-system-prompt` is given, and passes a single source unjoined to `systemPromptOptions.appendSystemPrompt`.
+- [ ] [Base discovery](../src/append-files.ts): Pi still loads one `APPEND_SYSTEM.md` (trusted project first, then agent directory), strips a byte-order mark, skips discovery when `--append-system-prompt` is given, and passes a single source unjoined to `systemPromptOptions.appendSystemPrompt`. Pi still joins multiple append sources with `\n\n`, which listed files mirror.
 - [ ] [Prompt adapter](../src/index.ts): `before_agent_start` exposes mutable `systemPromptOptions.appendSystemPrompt` and `ctx.model` reflects the model for the run.
 - [ ] [Lifecycle](../src/index.ts): `session_start` fires after the resource loader rereads files on startup and `/reload`; `ctx.isProjectTrusted()` matches the loader's trust decision.
 - [ ] [Settings](../src/config.ts): `getAgentDir()` honors `PI_CODING_AGENT_DIR`.

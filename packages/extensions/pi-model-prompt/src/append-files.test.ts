@@ -33,135 +33,118 @@ async function fixture(files: {
     await writeFile(join(agentDir, name), text);
   }
 
-  return { projectDir, agentDir };
+  return { projectDir, agentDir, at: (name: string) => join(agentDir, name) };
 }
 
-it("uses scope-first precedence for trusted projects", async () => {
-  const { projectDir, agentDir } = await fixture({
-    project: { "APPEND_SYSTEM.md": "project base", "APPEND_SYSTEM.a.md": "project a" },
-    agent: {
-      "APPEND_SYSTEM.md": "agent base",
-      "APPEND_SYSTEM.a.md": "agent a",
-      "APPEND_SYSTEM.b.md": "agent b"
-    }
-  });
-  const files = loadAppendFiles({ projectDir, agentDir, variants: ["a", "b"] });
-
-  expect(files.base).toBe("project base");
-  expect(files.warnings).toEqual([]);
-  expect(resolveAppendReplacement(files, "project base", "a")).toBe("project a");
-  // The project's own base outranks personal agent-level variants.
-  expect(resolveAppendReplacement(files, "project base", "b")).toBeUndefined();
-});
-
-it("uses a project variant when only the agent has a base file", async () => {
-  const { projectDir, agentDir } = await fixture({
-    project: { "APPEND_SYSTEM.a.md": "project a" },
-    agent: { "APPEND_SYSTEM.md": "agent base", "APPEND_SYSTEM.a.md": "agent a" }
-  });
-  const files = loadAppendFiles({ projectDir, agentDir, variants: ["a"] });
-
-  expect(files.base).toBe("agent base");
-  expect(files.warnings).toEqual([]);
-  expect(resolveAppendReplacement(files, "agent base", "a")).toBe("project a");
-});
-
-it("falls back to the project base rather than an agent variant after a bad project variant", async () => {
+it("discovers the base like Pi: trusted project file first, then agent file", async () => {
   const { projectDir, agentDir } = await fixture({
     project: { "APPEND_SYSTEM.md": "project base" },
-    agent: { "APPEND_SYSTEM.md": "agent base", "APPEND_SYSTEM.a.md": "agent a" }
+    agent: { "APPEND_SYSTEM.md": "agent base" }
   });
-  const variantPath = join(projectDir, "APPEND_SYSTEM.a.md");
-  await mkdir(variantPath);
-  const files = loadAppendFiles({ projectDir, agentDir, variants: ["a"] });
 
-  expect(files.base).toBe("project base");
-  expect(files.warnings).toEqual([`${variantPath} could not be read; falling back`]);
-  expect(resolveAppendReplacement(files, "project base", "a")).toBeUndefined();
+  expect(loadAppendFiles({ projectDir, agentDir, paths: [] }).base).toBe("project base");
+  expect(loadAppendFiles({ projectDir: undefined, agentDir, paths: [] }).base).toBe("agent base");
 });
 
-it("applies variants without a base file and strips a byte-order mark like Pi", async () => {
-  const { agentDir } = await fixture({ agent: { "APPEND_SYSTEM.a.md": "\uFEFFagent a" } });
-  const files = loadAppendFiles({ projectDir: undefined, agentDir, variants: ["a"] });
+it("joins files in listed order with Pi's separator, reusing repeated files", async () => {
+  const { agentDir, at } = await fixture({
+    agent: { "APPEND_SYSTEM.md": "base", "a.md": "A", "b.md": "B" }
+  });
+  const files = loadAppendFiles({
+    projectDir: undefined,
+    agentDir,
+    paths: [at("a.md"), at("b.md")]
+  });
+
+  expect(files.warnings).toEqual([]);
+  expect(resolveAppendReplacement(files, "base", [at("b.md"), at("a.md")])).toBe("B\n\nA");
+  expect(resolveAppendReplacement(files, "base", [at("a.md"), at("b.md"), at("a.md")])).toBe(
+    "A\n\nB\n\nA"
+  );
+  expect(resolveAppendReplacement(files, "base", undefined)).toBeUndefined();
+});
+
+it("applies files without a base file and strips a byte-order mark like Pi", async () => {
+  const { agentDir, at } = await fixture({ agent: { "a.md": "\uFEFFagent a" } });
+  const files = loadAppendFiles({ projectDir: undefined, agentDir, paths: [at("a.md")] });
 
   expect(files.base).toBe("");
-  expect(resolveAppendReplacement(files, "", "a")).toBe("agent a");
+  expect(resolveAppendReplacement(files, "", [at("a.md")])).toBe("agent a");
 });
 
-it("strips the base byte-order mark and preserves empty variants and exact whitespace", async () => {
-  const { agentDir } = await fixture({
-    agent: {
-      "APPEND_SYSTEM.md": "\uFEFFbase\r\n",
-      "APPEND_SYSTEM.empty.md": "",
-      "APPEND_SYSTEM.exact.md": "  variant\r\n"
-    }
+it("strips the base byte-order mark and preserves empty lists, empty files, and whitespace", async () => {
+  const { agentDir, at } = await fixture({
+    agent: { "APPEND_SYSTEM.md": "\uFEFFbase\r\n", "empty.md": "", "exact.md": "  variant\r\n" }
   });
-  const files = loadAppendFiles({ projectDir: undefined, agentDir, variants: ["empty", "exact"] });
+  const files = loadAppendFiles({
+    projectDir: undefined,
+    agentDir,
+    paths: [at("empty.md"), at("exact.md")]
+  });
 
   expect(files.base).toBe("base\r\n");
-  expect(resolveAppendReplacement(files, "base\r\n", "empty")).toBe("");
-  expect(resolveAppendReplacement(files, "base\r\n", "exact")).toBe("  variant\r\n");
+  expect(resolveAppendReplacement(files, "base\r\n", [])).toBe("");
+  expect(resolveAppendReplacement(files, "base\r\n", [at("empty.md")])).toBe("");
+  expect(resolveAppendReplacement(files, "base\r\n", [at("exact.md")])).toBe("  variant\r\n");
 });
 
-it("warns for missing or unreadable variants and falls back", async () => {
-  const { projectDir, agentDir } = await fixture({
-    agent: { "APPEND_SYSTEM.md": "agent base", "APPEND_SYSTEM.b.md": "agent b" }
+it("keeps the base text for rules listing missing or unreadable files", async () => {
+  const { agentDir, at } = await fixture({ agent: { "APPEND_SYSTEM.md": "base", "a.md": "A" } });
+  await mkdir(at("dir.md"));
+  const files = loadAppendFiles({
+    projectDir: undefined,
+    agentDir,
+    paths: [at("a.md"), at("missing.md"), at("dir.md")]
   });
-  await mkdir(join(projectDir, "APPEND_SYSTEM.b.md"));
-  const files = loadAppendFiles({ projectDir, agentDir, variants: ["missing", "b"] });
 
   expect(files.warnings).toEqual([
-    "no APPEND_SYSTEM.missing.md found; using APPEND_SYSTEM.md",
-    `${join(projectDir, "APPEND_SYSTEM.b.md")} could not be read; falling back`
+    `${at("missing.md")} could not be read; rules listing it keep APPEND_SYSTEM.md`,
+    `${at("dir.md")} could not be read; rules listing it keep APPEND_SYSTEM.md`
   ]);
-  expect(resolveAppendReplacement(files, "agent base", "missing")).toBeUndefined();
-  expect(resolveAppendReplacement(files, "agent base", "b")).toBe("agent b");
+  expect(resolveAppendReplacement(files, "base", [at("a.md")])).toBe("A");
+  expect(resolveAppendReplacement(files, "base", [at("a.md"), at("missing.md")])).toBeUndefined();
+  expect(resolveAppendReplacement(files, "base", [at("dir.md")])).toBeUndefined();
 });
 
-it.skipIf(process.platform === "win32")(
-  "falls back from FIFO variants without blocking startup",
-  async () => {
-    const { projectDir, agentDir } = await fixture({
-      agent: { "APPEND_SYSTEM.md": "agent base", "APPEND_SYSTEM.a.md": "agent a" }
-    });
-    const fifo = join(projectDir, "APPEND_SYSTEM.a.md");
-    execFileSync("mkfifo", [fifo]);
+it.skipIf(process.platform === "win32")("rejects FIFO files without blocking startup", async () => {
+  const { agentDir, at } = await fixture({ agent: { "APPEND_SYSTEM.md": "base" } });
+  const fifo = at("fifo.md");
+  execFileSync("mkfifo", [fifo]);
 
-    // Isolate the synchronous read so a blocking regression cannot hang the test runner.
-    const result = spawnSync(
-      process.execPath,
-      [
-        "--input-type=module",
-        "-e",
-        `
+  // Isolate the synchronous read so a blocking regression cannot hang the test runner.
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
     import { loadAppendFiles, resolveAppendReplacement } from ${JSON.stringify(new URL("./append-files.ts", import.meta.url).href)};
-    const files = loadAppendFiles(${JSON.stringify({ projectDir, agentDir, variants: ["a"] })});
+    const files = loadAppendFiles(${JSON.stringify({ agentDir, paths: [fifo] })});
     process.stdout.write(JSON.stringify({
       warnings: files.warnings,
-      replacement: resolveAppendReplacement(files, "agent base", "a")
+      replacement: resolveAppendReplacement(files, "base", ${JSON.stringify([fifo])}) ?? null
     }));
   `
-      ],
-      { encoding: "utf8", timeout: 2000 }
-    );
+    ],
+    { encoding: "utf8", timeout: 2000 }
+  );
 
-    expect(result.error).toBeUndefined();
-    expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({
-      warnings: [`${fifo} could not be read; falling back`],
-      replacement: "agent a"
-    });
-  }
-);
+  expect(result.error).toBeUndefined();
+  expect(result.status).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual({
+    warnings: [`${fifo} could not be read; rules listing it keep APPEND_SYSTEM.md`],
+    replacement: null
+  });
+});
 
 it("disables replacement when the base file cannot be read", async () => {
-  const { agentDir } = await fixture({ agent: { "APPEND_SYSTEM.a.md": "agent a" } });
-  await mkdir(join(agentDir, "APPEND_SYSTEM.md"));
-  const files = loadAppendFiles({ projectDir: undefined, agentDir, variants: ["a"] });
+  const { agentDir, at } = await fixture({ agent: { "a.md": "A" } });
+  await mkdir(at("APPEND_SYSTEM.md"));
+  const files = loadAppendFiles({ projectDir: undefined, agentDir, paths: [at("a.md")] });
 
   expect(files.base).toBeUndefined();
   expect(files.warnings).toEqual([
-    `${join(agentDir, "APPEND_SYSTEM.md")} could not be read; variants disabled`
+    `${at("APPEND_SYSTEM.md")} could not be read; replacement disabled`
   ]);
-  expect(resolveAppendReplacement(files, "", "a")).toBeUndefined();
+  expect(resolveAppendReplacement(files, "", [at("a.md")])).toBeUndefined();
 });

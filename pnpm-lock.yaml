@@ -320,6 +320,9 @@ importers:
       '@pi-mono/libs':
         specifier: workspace:*
         version: link:../../libs
+      '@pi-mono/utils':
+        specifier: workspace:*
+        version: link:../../utils
       zod:
         specifier: 'catalog:'
         version: 4.6.5

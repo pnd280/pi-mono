@@ -1,27 +1,14 @@
 # pi-model-prompt
 
-Selects a model-specific `APPEND_SYSTEM.md` variant for each run when models need different appended instructions. Uses Pi **0.99.2**'s public `before_agent_start` prompt sections.
+Replaces Pi's `APPEND_SYSTEM.md` text with model-specific prompt files for each run when models need different appended instructions. Uses Pi **0.99.2**'s public `before_agent_start` prompt sections.
 
 ## Usage
 
-1. Write variant files next to Pi's base file, named `APPEND_SYSTEM.<variant>.md`.
-2. Map models to variants in [settings](#configuration).
-3. Switch models as usual. The matching variant applies from the next prompt.
+1. Write prompt files anywhere.
+2. List them per model in [settings](#configuration).
+3. Switch models as usual. The matching files apply from the next prompt.
 
-A variant replaces, rather than extends, the base text. An empty variant removes the append text. Models without a matching rule keep Pi's normal `APPEND_SYSTEM.md`.
-
-### File precedence
-
-For a selected variant, the first existing file wins:
-
-| Priority | File                                     |
-| -------- | ---------------------------------------- |
-| 1        | `.pi/APPEND_SYSTEM.<variant>.md`         |
-| 2        | `.pi/APPEND_SYSTEM.md`                   |
-| 3        | `<agent-dir>/APPEND_SYSTEM.<variant>.md` |
-| 4        | `<agent-dir>/APPEND_SYSTEM.md`           |
-
-Project files count only in [trusted](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#understand-project-trust) projects. A project's own base file therefore outranks personal agent-level variants.
+The listed files replace, rather than extend, the base text: their contents are joined in list order with a blank line (`\n\n`), as Pi joins multiple append sources. List `APPEND_SYSTEM.md` (relative to the settings directory) to keep the agent-level base. An empty list or empty files remove the append text. Models without a matching rule keep Pi's normal `APPEND_SYSTEM.md`, discovered from the [trusted](../../../node_modules/@earendil-works/pi-coding-agent/docs/security.md#understand-project-trust) project's `.pi/` first, then the agent directory.
 
 ### Explicit append text
 
@@ -35,25 +22,25 @@ Set the literal `ext.pi-model-prompt` key in Pi's global `~/.pi/agent/settings.j
 {
   "ext.pi-model-prompt": {
     "rules": [
-      { "match": "claude", "append": "ant" },
-      { "match": "^openai-codex/gpt-", "append": "gpt" }
+      { "match": "claude", "append": ["prompts/ant.md"] },
+      { "match": "^openai-codex/gpt-", "append": ["APPEND_SYSTEM.md", "~/prompts/gpt.md"] }
     ]
   }
 }
 ```
 
-| Field    | Meaning                                                                                                                                               |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `match`  | Required JavaScript regular expression, 1-512 characters, tested against `provider/modelId`. Unanchored and case-sensitive; add `^` or `$` as needed. |
-| `append` | Optional variant name selecting `APPEND_SYSTEM.<append>.md`: 1-64 ASCII letters, digits, `_`, or `-`.                                                 |
+| Field    | Meaning                                                                                                                                                                                            |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `match`  | Required JavaScript regular expression, 1-512 characters, tested against `provider/modelId`. Unanchored and case-sensitive; add `^` or `$` as needed.                                              |
+| `append` | Optional array of up to 32 file paths, each 1-4096 characters, appended in order. A leading `~` expands to the home directory; other relative paths resolve against the settings file's directory. |
 
 The first matching rule that sets `append` wins; matching rules without `append` do not block later rules. With no rules configured, Pi's append text is unchanged.
 
-The `rules` array accepts at most 100 entries. Invalid rules are skipped; an invalid section disables all rules. Unknown fields are invalid at either level.
+The `rules` array accepts at most 100 entries. Invalid rules are skipped; an invalid section disables all rules. Unknown fields are invalid at either level. Listed files may live anywhere, including inside projects; trust applies only to base discovery.
 
 Settings and files load on session start and `/reload`, like Pi's own `APPEND_SYSTEM.md`. Edits take effect after `/reload`.
 
-UI warnings report invalid settings, missing variants, and unreadable files on load. Unreadable or non-regular variants fall back to the next file in precedence; an unreadable base disables replacement.
+UI warnings report invalid settings and unreadable files on load. A rule listing a missing, unreadable, or non-regular file keeps the base text rather than applying a partial list; an unreadable base disables replacement.
 
 ## Side effects
 

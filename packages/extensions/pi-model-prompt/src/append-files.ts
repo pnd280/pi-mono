@@ -3,19 +3,22 @@ import { join } from "node:path";
 
 const BASE_FILE = "APPEND_SYSTEM.md";
 
+/** Pi joins multiple append sources with the same separator. */
+const SEPARATOR = "\n\n";
+
 export interface AppendFiles {
   /**
    * Text Pi loads from its own `APPEND_SYSTEM.md` discovery (`""` when no file exists), or
    * `undefined` when it cannot be read and replacement must be disabled.
    */
   base: string | undefined;
-  /** Replacement text for variants whose file outranks the base file. */
-  variants: ReadonlyMap<string, string>;
+  /** Contents of readable configured files, keyed by absolute path. */
+  files: ReadonlyMap<string, string>;
   warnings: string[];
 }
 
 function readPrompt(path: string): string {
-  // A FIFO at a variant path must not block session startup, even before the type check.
+  // A FIFO at a configured path must not block session startup, even before the type check.
   const descriptor = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
 
   try {
@@ -30,17 +33,17 @@ function readPrompt(path: string): string {
 }
 
 /**
- * Loads the base and variant files once. Precedence is scope-first: project variant, project
- * base, agent variant, agent base. Pass `projectDir` only for trusted projects, as Pi does.
+ * Loads the base file and configured files once. Base discovery mirrors Pi: trusted project
+ * file, then agent file. Pass `projectDir` only for trusted projects, as Pi does.
  */
 export function loadAppendFiles({
   projectDir,
   agentDir,
-  variants
+  paths
 }: {
   projectDir: string | undefined;
   agentDir: string;
-  variants: readonly string[];
+  paths: readonly string[];
 }): AppendFiles {
   const warnings: string[] = [];
   const dirs = projectDir === undefined ? [agentDir] : [projectDir, agentDir];
@@ -53,51 +56,43 @@ export function loadAppendFiles({
       base = readPrompt(basePath);
     } catch {
       base = undefined;
-      warnings.push(`${basePath} could not be read; variants disabled`);
+      warnings.push(`${basePath} could not be read; replacement disabled`);
     }
   }
 
-  const loaded = new Map<string, string>();
+  const files = new Map<string, string>();
 
-  for (const variant of variants) {
-    const fileName = `APPEND_SYSTEM.${variant}.md`;
-    const candidates = dirs.flatMap((dir) => [
-      { path: join(dir, fileName), variant: true },
-      { path: join(dir, BASE_FILE), variant: false }
-    ]);
-
-    if (!candidates.some((candidate) => candidate.variant && existsSync(candidate.path))) {
-      warnings.push(`no ${fileName} found; using ${BASE_FILE}`);
-      continue;
-    }
-
-    for (const candidate of candidates) {
-      if (!existsSync(candidate.path)) continue;
-      if (!candidate.variant) break;
-
-      try {
-        loaded.set(variant, readPrompt(candidate.path));
-        break;
-      } catch {
-        warnings.push(`${candidate.path} could not be read; falling back`);
-      }
+  for (const path of paths) {
+    try {
+      files.set(path, readPrompt(path));
+    } catch {
+      warnings.push(`${path} could not be read; rules listing it keep ${BASE_FILE}`);
     }
   }
 
-  return { base, variants: loaded, warnings };
+  return { base, files, warnings };
 }
 
 /**
- * Returns replacement text only when the current append text equals the discovered base.
- * Explicit append text and other extensions' edits are protected only when they differ.
+ * Returns the selected files joined in order, only when the current append text equals the
+ * discovered base and every file was read. Explicit append text and other extensions' edits are
+ * protected only when they differ.
  */
 export function resolveAppendReplacement(
   files: AppendFiles,
   current: string,
-  variant: string | undefined
+  paths: readonly string[] | undefined
 ): string | undefined {
-  if (variant === undefined || files.base === undefined || current !== files.base) return undefined;
-  const replacement = files.variants.get(variant);
+  if (paths === undefined || files.base === undefined || current !== files.base) return undefined;
+  const parts: string[] = [];
+
+  for (const path of paths) {
+    const text = files.files.get(path);
+    if (text === undefined) return undefined;
+    parts.push(text);
+  }
+
+  const replacement = parts.join(SEPARATOR);
 
   return replacement === current ? undefined : replacement;
 }

@@ -1,10 +1,10 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, expect, it } from "vite-plus/test";
 
-import { loadModelPromptConfig, referencedVariants, selectAppendVariant } from "./config.ts";
+import { loadModelPromptConfig, referencedFiles, selectAppendFiles } from "./config.ts";
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -29,58 +29,79 @@ it("has no rules or warnings without settings", async () => {
 });
 
 it("selects the first matching rule that sets append, using unanchored case-sensitive regex", async () => {
-  const { rules, warnings } = loadModelPromptConfig(
-    await agentDirWith(
-      withRules([
-        { match: "opus" },
-        { match: "claude", append: "ant" },
-        { match: "^openai-codex/gpt-6-(astra|sol)$", append: "gpt-main" },
-        { match: "gpt", append: "gpt" },
-        { match: ".", append: "fallback" }
-      ])
-    )
+  const agentDir = await agentDirWith(
+    withRules([
+      { match: "opus" },
+      { match: "claude", append: ["ant.md"] },
+      { match: "^openai-codex/gpt-6-(astra|sol)$", append: ["gpt.md", "main.md"] },
+      { match: "gpt", append: ["gpt.md"] },
+      { match: ".", append: [] }
+    ])
   );
+  const { rules, warnings } = loadModelPromptConfig(agentDir);
+  const at = (name: string) => join(agentDir, name);
 
   expect(warnings).toEqual([]);
-  expect(selectAppendVariant(rules, "cpa-ant/claude-opus-5-5")).toBe("ant");
-  expect(selectAppendVariant(rules, "openai-codex/gpt-6-sol")).toBe("gpt-main");
-  expect(selectAppendVariant(rules, "openai-codex/gpt-6-luna")).toBe("gpt");
-  expect(selectAppendVariant(rules, "x/CLAUDE")).toBe("fallback");
-  expect(selectAppendVariant(rules, "")).toBeUndefined();
-  expect(referencedVariants(rules)).toEqual(["ant", "gpt-main", "gpt", "fallback"]);
+  expect(selectAppendFiles(rules, "cpa-ant/claude-opus-5-5")).toEqual([at("ant.md")]);
+  expect(selectAppendFiles(rules, "openai-codex/gpt-6-sol")).toEqual([at("gpt.md"), at("main.md")]);
+  expect(selectAppendFiles(rules, "openai-codex/gpt-6-luna")).toEqual([at("gpt.md")]);
+  expect(selectAppendFiles(rules, "x/CLAUDE")).toEqual([]);
+  expect(selectAppendFiles(rules, "")).toBeUndefined();
+  expect(referencedFiles(rules)).toEqual([at("ant.md"), at("gpt.md"), at("main.md")]);
+});
+
+it("expands home and resolves relative paths against the settings directory", async () => {
+  const agentDir = await agentDirWith(
+    withRules([
+      { match: "a", append: ["/abs/one.md", "prompts/two.md", "../three.md", "~/four.md"] }
+    ])
+  );
+  const { rules } = loadModelPromptConfig(agentDir);
+
+  expect(selectAppendFiles(rules, "a")).toEqual([
+    "/abs/one.md",
+    join(agentDir, "prompts", "two.md"),
+    join(agentDir, "..", "three.md"),
+    join(homedir(), "four.md")
+  ]);
 });
 
 it("skips invalid rules with warnings and keeps valid ones", async () => {
   const { rules, warnings } = loadModelPromptConfig(
     await agentDirWith(
       withRules([
-        { match: "(", append: "broken" },
-        { match: "a", append: "../escape" },
-        { match: "a", append: "x", extra: true },
-        { match: "", append: "empty" },
+        { match: "(", append: ["broken.md"] },
+        { match: "a", append: "ant.md" },
+        { match: "a", append: [""] },
+        { match: "a", append: ["x.md"], extra: true },
+        { match: "", append: ["empty.md"] },
         "claude",
-        { match: "claude", append: "ant" }
+        { match: "claude", append: ["/ant.md"] }
       ])
     )
   );
 
-  expect(warnings).toHaveLength(5);
+  expect(warnings).toHaveLength(6);
   expect(warnings[0]).toBe("rules[0] skipped: invalid regular expression");
-  expect(warnings.slice(1).every((warning) => /^rules\[[1-4]\] skipped: /u.test(warning))).toBe(
+  expect(warnings.slice(1).every((warning) => /^rules\[[1-5]\] skipped: /u.test(warning))).toBe(
     true
   );
-  expect(selectAppendVariant(rules, "p/claude")).toBe("ant");
-  expect(referencedVariants(rules)).toEqual(["ant"]);
+  expect(selectAppendFiles(rules, "p/claude")).toEqual(["/ant.md"]);
+  expect(referencedFiles(rules)).toEqual(["/ant.md"]);
 });
 
-it("enforces rule, pattern, and variant limits without truncating input", async () => {
+it("enforces rule, pattern, file-count, and path limits without truncating input", async () => {
   const match = "a".repeat(512);
-  const append = "v".repeat(64);
-  const rules = Array.from({ length: 100 }, () => ({ match, append }));
+  const path = `/${"p".repeat(4095)}`;
+  const append = Array.from({ length: 32 }, (_, index) => `/${index}.md`);
+  const rules = [
+    { match, append },
+    ...Array.from({ length: 99 }, () => ({ match: "b", append: [path] }))
+  ];
   const accepted = loadModelPromptConfig(await agentDirWith(withRules(rules)));
   expect(accepted.warnings).toEqual([]);
-  expect(selectAppendVariant(accepted.rules, match)).toBe(append);
-  expect(referencedVariants(accepted.rules)).toEqual([append]);
+  expect(selectAppendFiles(accepted.rules, match)).toEqual(append);
+  expect(selectAppendFiles(accepted.rules, "b")).toEqual([path]);
 
   const tooMany = loadModelPromptConfig(await agentDirWith(withRules([...rules, { match }])));
   expect(tooMany.rules).toEqual([]);
@@ -90,12 +111,13 @@ it("enforces rule, pattern, and variant limits without truncating input", async 
     await agentDirWith(
       withRules([
         { match: `${match}a`, append },
-        { match, append: `${append}v` }
+        { match, append: [`${path}p`] },
+        { match, append: [...append, "/extra.md"] }
       ])
     )
   );
   expect(tooLong.rules).toEqual([]);
-  expect(tooLong.warnings).toHaveLength(2);
+  expect(tooLong.warnings).toHaveLength(3);
 });
 
 it("does not echo unknown settings keys in validation warnings", async () => {

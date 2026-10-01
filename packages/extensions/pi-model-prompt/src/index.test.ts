@@ -52,11 +52,14 @@ async function host({
 
   const write = (name: string, text: string) => writeFile(join(agentDir, name), text);
   await write("APPEND_SYSTEM.md", "BASE-APPEND");
-  await write("APPEND_SYSTEM.ant.md", "ANT-APPEND");
+  await write("ant.md", "ANT-APPEND");
+  await write("shared.md", "SHARED-APPEND");
   await write(
     "settings.json",
     JSON.stringify({
-      "ext.pi-model-prompt": { rules: [{ match: "^faux/claude-", append: "ant" }] }
+      "ext.pi-model-prompt": {
+        rules: [{ match: "^faux/claude-", append: ["ant.md", join(agentDir, "shared.md")] }]
+      }
     })
   );
   vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
@@ -138,14 +141,14 @@ async function host({
     }
   });
 
-  return { session, requests, notify, errors, write, claude, gpt: gpt! };
+  return { session, requests, notify, errors, write, agentDir, claude, gpt: gpt! };
 }
 
 it("replaces the base append text for matching models and restores it after switching", async () => {
   const fixture = await host();
 
   await fixture.session.prompt("first");
-  expect(fixture.requests[0]).toContain("ANT-APPEND");
+  expect(fixture.requests[0]).toContain("ANT-APPEND\n\nSHARED-APPEND");
   expect(fixture.requests[0]).not.toContain("BASE-APPEND");
 
   await fixture.session.setModel(fixture.gpt);
@@ -175,20 +178,20 @@ it.each(["CLI", "earlier extension"] as const)(
 );
 
 it.each([true, false])(
-  "honors project trust (%s) but ignores project settings",
+  "follows Pi's base discovery for project trust (%s) but ignores project settings",
   async (projectTrusted) => {
     const fixture = await host({
       projectTrusted,
       projectFiles: {
         "APPEND_SYSTEM.md": "PROJECT-BASE",
-        "APPEND_SYSTEM.ant.md": "PROJECT-APPEND",
         "settings.json": JSON.stringify({ "ext.pi-model-prompt": { rules: [] } })
       }
     });
 
     await fixture.session.prompt("first");
-    expect(fixture.requests[0]).toContain(projectTrusted ? "PROJECT-APPEND" : "ANT-APPEND");
-    expect(fixture.requests[0]).not.toContain(projectTrusted ? "ANT-APPEND" : "PROJECT-APPEND");
+    expect(fixture.requests[0]).toContain("ANT-APPEND");
+    expect(fixture.requests[0]).not.toContain("PROJECT-BASE");
+    expect(fixture.requests[0]).not.toContain("BASE-APPEND");
     expect(fixture.errors).toEqual([]);
   }
 );
@@ -199,14 +202,14 @@ it.each(["rpc", "print"] as const)(
     const fixture = await host({ mode });
     expect(fixture.notify).not.toHaveBeenCalled();
 
-    await fixture.write("APPEND_SYSTEM.ant.md", "ANT-RELOADED");
+    await fixture.write("ant.md", "ANT-RELOADED");
     await fixture.write(
       "settings.json",
       JSON.stringify({
         "ext.pi-model-prompt": {
           rules: [
-            { match: "gpt", append: "ant" },
-            { match: "unused", append: "missing" }
+            { match: "gpt", append: ["ant.md"] },
+            { match: "unused", append: ["missing.md"] }
           ]
         }
       })
@@ -229,7 +232,7 @@ it.each(["rpc", "print"] as const)(
       expect(fixture.notify).not.toHaveBeenCalled();
     } else {
       expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
-        "pi-model-prompt: no APPEND_SYSTEM.missing.md found; using APPEND_SYSTEM.md",
+        `pi-model-prompt: ${join(fixture.agentDir, "missing.md")} could not be read; rules listing it keep APPEND_SYSTEM.md`,
         "warning"
       );
     }

@@ -1,19 +1,20 @@
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { readSettingsRecord } from "@pi-mono/libs/settings-file";
+import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 export const SETTINGS_KEY = "ext.pi-model-prompt";
 
 const MAX_RULES = 100;
 const MAX_PATTERN_LENGTH = 512;
-
-/** Variant names become part of a file name, so path separators and dot segments are excluded. */
-const variantNameSchema = z.string().regex(/^[\w-]{1,64}$/u);
+const MAX_FILES_PER_RULE = 32;
+const MAX_PATH_LENGTH = 4096;
 
 const ruleSchema = z.strictObject({
   match: z.string().min(1).max(MAX_PATTERN_LENGTH),
-  append: variantNameSchema.optional()
+  append: z.array(z.string().min(1).max(MAX_PATH_LENGTH)).max(MAX_FILES_PER_RULE).optional()
 });
 
 const sectionSchema = z.strictObject({
@@ -22,7 +23,8 @@ const sectionSchema = z.strictObject({
 
 export interface ModelRule {
   pattern: RegExp;
-  append: string | undefined;
+  /** Absolute file paths, in append order. */
+  append: readonly string[] | undefined;
 }
 
 export interface ModelPromptConfig {
@@ -30,7 +32,10 @@ export interface ModelPromptConfig {
   warnings: string[];
 }
 
-/** Reads rules from the global settings file only; invalid rules are skipped with a warning. */
+/**
+ * Reads rules from the global settings file only; invalid rules are skipped with a warning.
+ * `append` paths expand a leading `~`, then resolve relative to the settings file's directory.
+ */
 export function loadModelPromptConfig(agentDir: string): ModelPromptConfig {
   const warnings: string[] = [];
   let record: Record<string, unknown>;
@@ -57,6 +62,7 @@ export function loadModelPromptConfig(agentDir: string): ModelPromptConfig {
   }
 
   const rules: ModelRule[] = [];
+  const home = homedir();
 
   for (const [index, rawRule] of (section.data.rules ?? []).entries()) {
     const rule = ruleSchema.safeParse(rawRule);
@@ -77,17 +83,20 @@ export function loadModelPromptConfig(agentDir: string): ModelPromptConfig {
       continue;
     }
 
-    rules.push({ pattern, append: rule.data.append });
+    rules.push({
+      pattern,
+      append: rule.data.append?.map((path) => resolve(agentDir, expandHomePath(path, home)))
+    });
   }
 
   return { rules, warnings };
 }
 
 /** The first matching rule that sets a field decides it; later rules may supply other fields. */
-export function selectAppendVariant(
+export function selectAppendFiles(
   rules: readonly ModelRule[],
   modelKey: string
-): string | undefined {
+): readonly string[] | undefined {
   for (const rule of rules) {
     if (rule.append !== undefined && rule.pattern.test(modelKey)) return rule.append;
   }
@@ -95,6 +104,6 @@ export function selectAppendVariant(
   return undefined;
 }
 
-export function referencedVariants(rules: readonly ModelRule[]): string[] {
-  return [...new Set(rules.flatMap((rule) => (rule.append === undefined ? [] : [rule.append])))];
+export function referencedFiles(rules: readonly ModelRule[]): string[] {
+  return [...new Set(rules.flatMap((rule) => rule.append ?? []))];
 }
