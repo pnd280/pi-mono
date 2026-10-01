@@ -16,6 +16,6 @@
 
 ## Validation
 
-Pi **0.99.1** package checks and offline tests passed, including actual model-issued tool-context checks: nested todo execution is unavailable and nonmutating, while a direct call retains a replayable snapshot. Activation and UI policy are unchanged. Manual terminal checks were not run.
+Pi **0.99.2** package checks and offline tests passed, including actual model-issued tool-context checks: nested todo execution is unavailable and nonmutating, while a direct call retains a replayable snapshot. Activation and UI policy are unchanged. Manual terminal checks were not run.
 
 Use [package checks](../README.md#validation) and [interactive checks](validation.md), including the offline working-message fixture with other contributors, reload, new sessions, and regular/fullscreen modes.

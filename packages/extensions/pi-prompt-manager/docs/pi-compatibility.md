@@ -16,6 +16,6 @@
 
 ## Validation
 
-Pi **0.99.1** package checks and offline API/installed-CLI tests passed without runtime changes. Capture, restoration, storage policy, and native-only clipboard transport remain unchanged. Manual terminal, native clipboard delivery, and platform checks were not run.
+Pi **0.99.2** package checks and offline API/installed-CLI tests passed without runtime changes. Capture, restoration, storage policy, and native-only clipboard transport remain unchanged. Manual terminal, native clipboard delivery, and platform checks were not run.
 
 Use [package, API/CLI, terminal, and platform checks](validation.md). Shared mounting/interaction coverage belongs to [libs TUI](../../../libs/src/tui/README.md#validation).

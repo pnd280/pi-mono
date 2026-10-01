@@ -4,7 +4,7 @@
 
 ## Supported boundary
 
-Supports Pi **0.99.1** API modules and installed bundled CLI. At session binding, [compatibility checks](../src/compatibility.ts) require the version and reviewed fingerprints for five prototype methods (`_compactBeforeNextAssistantResponse`, `_runAutoCompaction`, `_runDefaultCompaction`, `_appendCustomMessage`, `compact`) and the exported lower-level `compact` implementation. Unknown versions, fingerprints, or conflicting boundary replacements are rejected. Invoking the unavailable tool surfaces the initialization error.
+Supports Pi **0.99.2** API modules and installed bundled CLI. At session binding, [compatibility checks](../src/compatibility.ts) require the version and reviewed fingerprints for five prototype methods (`_compactBeforeNextAssistantResponse`, `_runAutoCompaction`, `_runDefaultCompaction`, `_appendCustomMessage`, `compact`) and the exported lower-level `compact` implementation. Unknown versions, fingerprints, or conflicting boundary replacements are rejected. Invoking the unavailable tool surfaces the initialization error.
 
 Fingerprints guard implementations; they do not guarantee compatibility with every third-party extension. Do not refresh them just to pass a test. Review source, prompts, consumers, and lifecycle, then verify both runtime distributions. Review same-version prompt or dependency changes too.
 
@@ -47,6 +47,6 @@ Fingerprints guard implementations; they do not guarantee compatibility with eve
 
 ## Validation
 
-Pi **0.99.1** package checks and offline tests passed against API modules and the installed bundled CLI. Source-reviewed fingerprints cover the five-argument default summarizer, after-hook authentication, native persistence/abort ordering, and lower-level prompts. Tests cover credential isolation, configured routing, retries, focus, cancellation, continuation, metadata adjacency, and tool exposure. Interactive progress/Escape and live-provider summary quality were not checked.
+Pi **0.99.2** package checks and offline tests passed against API modules and the installed bundled CLI. Source review found the compaction implementation and all API/CLI fingerprints unchanged, so only the version gate changed. The fingerprints cover the five-argument default summarizer, after-hook authentication, native persistence/abort ordering, and lower-level prompts. Tests cover credential isolation, configured routing, retries, focus, cancellation, continuation, metadata adjacency, and tool exposure. Interactive progress/Escape and live-provider summary quality were not checked.
 
 Run [package checks](../README.md#validation) and inspect the [coverage specification](testing.md). Both the real bundled CLI and API runtime must pass before accepting fingerprints. Manually check interactive progress/Escape behavior and real-provider summary quality after runtime changes; these are not established by the offline tests.

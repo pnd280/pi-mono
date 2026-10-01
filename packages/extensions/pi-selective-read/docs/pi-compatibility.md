@@ -16,6 +16,6 @@
 
 ## Validation
 
-Pi **0.99.1** package checks and native-read tests passed with a real typed tool context; the runtime delegation is unchanged. The display adapter and installed-CLI suite also passed. Manual image/appearance and live-provider schema checks were not run.
+Pi **0.99.2** package checks and native-read tests passed with a real typed tool context; the runtime delegation is unchanged. The display adapter and installed-CLI suite also passed. Manual image/appearance and live-provider schema checks were not run.
 
 Use [package and appearance checks](../README.md#validation); also check `pi-tool-display`, including its installed-CLI test, when changing tool schemas, shared arguments/results, or renderer integration.

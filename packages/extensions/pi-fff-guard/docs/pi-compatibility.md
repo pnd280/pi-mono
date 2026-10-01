@@ -9,7 +9,7 @@
 
 ## Limitations and replacement opportunities
 
-- [Direct `execute()` bypasses hooks](../README.md#limits). Pi 0.99.1's public `ctx.executeTool()` dispatches nested calls through hooks, but this does not establish how an external FFF wrapper executes calls. Recheck the installed wrapper before changing this limitation.
+- [Direct `execute()` bypasses hooks](../README.md#limits). Pi 0.99.2's public `ctx.executeTool()` dispatches nested calls through hooks, but this does not establish how an external FFF wrapper executes calls. Recheck the installed wrapper before changing this limitation.
 - Upstream ignored-path support could remove the guard; follow the [retirement checks](#retirement-checks) against the installed FFF release, not Pi alone.
 
 ## Retirement checks
@@ -22,6 +22,6 @@ After a released FFF version implements [FFF #714](https://github.com/dmtrKovale
 
 ## Validation
 
-Pi **0.99.1** package checks and offline interception/scope tests passed with explicit `ToolInfo.exposure`. Guard policy and official-package provenance are unchanged. Live installed-FFF calls and retirement checks were not run; historical external evidence remains version-qualified.
+Pi **0.99.2** package checks and offline interception/scope tests passed with explicit `ToolInfo.exposure`. Guard policy and official-package provenance are unchanged. Live installed-FFF calls and retirement checks were not run; historical external evidence remains version-qualified.
 
 Use [package checks](../README.md#validation) and real installed FFF calls for changed integration contracts. Keep the README's external version evidence qualified; local tests do not establish external compatibility.

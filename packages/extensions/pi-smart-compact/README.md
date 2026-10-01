@@ -1,6 +1,6 @@
 # pi-smart-compact
 
-Adds model-callable `context_window` and `compact` tools to inspect context usage and compact while continuing the current task. Pi handles compaction natively, including summaries of a long ongoing turn. An optional summary model can also serve `/compact` and automatic compaction; an instruction file adds focus to all three routes. Requires the inspected Pi **0.99.1** runtime; see [compatibility](docs/pi-compatibility.md).
+Adds model-callable `context_window` and `compact` tools to inspect context usage and compact while continuing the current task. Pi handles compaction natively, including summaries of a long ongoing turn. An optional summary model can also serve `/compact` and automatic compaction; an instruction file adds focus to all three routes. Requires the inspected Pi **0.99.2** runtime; see [compatibility](docs/pi-compatibility.md).
 
 ## Usage
 

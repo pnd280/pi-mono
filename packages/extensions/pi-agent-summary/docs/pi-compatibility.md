@@ -17,6 +17,6 @@
 
 ## Validation
 
-Pi **0.99.1** package checks and offline tests passed. Real codemode and virtual-model coverage verifies one summary, nested Bash/file accounting, assistant-only throughput, selected-model identity, and context-free persistence. Shared mutation and display suites passed. Manual visual checks were not run.
+Pi **0.99.2** package checks and offline tests passed. Real codemode and virtual-model coverage verifies one summary, nested Bash/file accounting, assistant-only throughput, selected-model identity, and context-free persistence. Shared mutation and display suites passed. Manual visual checks were not run.
 
 Use [package and visual checks](../README.md#validation); check shared file-mutation consumers (`pi-tool-display`) and working-message composition with `pi-todo` when affected.

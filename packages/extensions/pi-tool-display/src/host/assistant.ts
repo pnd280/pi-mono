@@ -15,7 +15,7 @@ import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { record } from "../values.ts";
 import { inspectedSource } from "./compatibility.ts";
 
-// Pi 0.99.1 updateContent creates direct Markdown children only for prose, using
+// Pi 0.99.2 updateContent creates direct Markdown children only for prose, using
 // outputPad on both sides, and one MouseRegion per nonempty consecutive thinking
 // run. Gate this private child-layout contract for both the API and installed CLI.
 const updateHashes = new Set([

@@ -1,6 +1,6 @@
 # pi-skills
 
-Expands registered skill commands into configurable file references (Markdown links by default) and adds native skill completion anywhere in Pi's prompt. Uses Pi **0.99.1**'s public extension and autocomplete APIs.
+Expands registered skill commands into configurable file references (Markdown links by default) and adds native skill completion anywhere in Pi's prompt. Uses Pi **0.99.2**'s public extension and autocomplete APIs.
 
 ## Usage
 

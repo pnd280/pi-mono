@@ -6,7 +6,7 @@
 
 Matches MCP server tools registered by Pi's built-in MCP extension: `builtin` source with path `builtin:mcp`, a tool name starting with `mcp__`, an `mcp__<server>` namespace, and an object parameter schema with `properties`. Server input schemas are otherwise arbitrary, so arguments only need to be an object.
 
-The extension's resource tools (`list_mcp_resources`, `list_mcp_resource_templates`, `read_mcp_resource`) have no namespace and stay unmatched; they use generic cards. [`pi-mcp-adapter`](../../pi-mcp-adapter/README.md) tools have their own adapter. Renderer overrides still apply.
+The extension's resource tools (`list_mcp_resources`, `list_mcp_resource_templates`, `read_mcp_resource`) have no namespace and stay unmatched; they use generic cards. [`pi-mcp-adapter`](../../pi-mcp-adapter/README.md) tools have their own adapter. Renderer overrides still apply. Pi 0.99.2 replaces every character outside `[A-Za-z0-9_]` with `_` and adds a hash suffix to colliding or overlong tool names; exact-name override keys must use the registered names. Default MCP exposure is `codemode`, with tool discovery through `searchTools()` or `ALL_TOOLS` rather than inline declarations.
 
 ## Cards
 
@@ -26,4 +26,4 @@ The adapter never reads saved output or connects to servers. Calls made inside c
 
 ## Validation
 
-Run [package validation](../../../../README.md#validation). The [colocated fixture](index.test.ts) mirrors Pi 0.99.1's private `createMcpToolDefinition` projection without opening a connection. Recheck that projection when upgrading Pi.
+Run [package validation](../../../../README.md#validation). The [colocated fixture](index.test.ts) mirrors Pi 0.99.2's private `createMcpToolDefinition` projection without opening a connection. The [offline host test](../../../../validation/mcp.test.ts) loads `builtin:mcp` and discovers a local stdio server through codemode, checking selection and original identities for normalized, collision-suffixed names. Recheck both boundaries when upgrading Pi; neither establishes external-service compatibility.

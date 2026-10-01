@@ -65,7 +65,7 @@ Expanding completed shell cards reads bounded previews from Pi's temporary outpu
 
 ## Compatibility
 
-Verified against Pi 0.99.1 via offline API and installed-CLI tests. Unsupported host hooks warn and fall back: native observation stops (saved data can still render), assistant presentation remains native, summary mode renders as compact, or **Ctrl+O** toggles only collapsed and verbose modes, according to the unavailable contract. See the [compatibility checklist](docs/pi-compatibility.md).
+Verified against Pi 0.99.2 via offline API and installed-CLI tests. Unsupported host hooks warn and fall back: native observation stops (saved data can still render), assistant presentation remains native, summary mode renders as compact, or **Ctrl+O** toggles only collapsed and verbose modes, according to the unavailable contract. See the [compatibility checklist](docs/pi-compatibility.md).
 
 No tool registration, active-tool changes, or added keybindings; the mode cycle reuses Pi's expansion action. Custom cards do not apply to HTML exports.
 

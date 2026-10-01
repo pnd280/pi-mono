@@ -7,7 +7,7 @@ import { selectAdapter } from "../../../host/selection.ts";
 import { loadDisplaySettings } from "../../../settings.ts";
 import { builtinMcpAdapter, mcpToolDisplayAdapter as adapter } from "./index.ts";
 
-// Mirrors Pi 0.99.1 `createMcpToolDefinition` for a server that omits `properties`.
+// Mirrors Pi 0.99.2 `createMcpToolDefinition` for a server that omits `properties`.
 const info: ToolInfo = {
   name: "mcp__exa__web_search_exa",
   exposure: "direct",

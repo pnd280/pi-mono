@@ -24,6 +24,6 @@
 
 ## Validation
 
-Pi **0.99.1** package checks and offline tests passed, including API/process startup and persistence, naming lifecycle, and virtual-model requests routed to physical limits below and above the title budget. No live-provider title-quality or manual session-picker checks were run.
+Pi **0.99.2** package checks and offline tests passed, including API/process startup and persistence, naming lifecycle, and virtual-model requests routed to physical limits below and above the title budget. No live-provider title-quality or manual session-picker checks were run.
 
 Run [package checks](../README.md#validation). The [coverage specification](testing.md) defines unit, runtime, and installed-process checks for startup hooks, session replacement, naming, and clean protocol output. Model requests use offline fixture providers.

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -21,7 +21,7 @@ import {
 import { observeNativeTools } from "./index.ts";
 
 it.each([0, 1])(
-  "shares a single mutation wrapper and restores it after subscriber %s is removed last",
+  "shares wrappers through default-tool reloads and restores after subscriber %s is removed last",
   async (last) => {
     const directory = await mkdtemp(join(tmpdir(), "native-tools-"));
     const manager = SessionManager.inMemory(directory);
@@ -74,7 +74,7 @@ it.each([0, 1])(
     vi.stubEnv("PI_OFFLINE", "1");
 
     try {
-      const settingsManager = SettingsManager.inMemory();
+      const settingsManager = SettingsManager.create(directory, directory);
       const resourceLoader = new DefaultResourceLoader({
         cwd: directory,
         agentDir: directory,
@@ -129,6 +129,20 @@ it.each([0, 1])(
       expect(readCalls).toHaveLength(1);
       await read();
       expect(readCalls).toHaveLength(2);
+
+      await session.bindExtensions({});
+
+      for (const defaultTools of [["read", "grep"], ["read"]]) {
+        await writeFile(join(directory, "settings.json"), JSON.stringify({ defaultTools }));
+        await session.reload();
+        expect(session.getActiveToolNames()).toEqual(
+          expect.arrayContaining(["read", "bash", "edit", "write", "grep"])
+        );
+        const before = readCalls.length;
+        await read();
+        expect(readCalls).toHaveLength(before + 1);
+      }
+
       firstRepeated.dispose();
       await execute("repeated\n");
       expect(repeatedChanges).toHaveLength(3);

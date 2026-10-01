@@ -2,7 +2,7 @@ import { createInterface } from "node:readline";
 
 import { z } from "zod";
 
-const toolNameSchema = z.enum(["echo", "fail", "image", "large"]);
+const toolNameSchema = z.enum(["echo", "echo-value", "echo_value", "fail", "image", "large"]);
 const inputSchema = z.object({ value: z.string().optional() });
 const callSchema = z.object({ name: toolNameSchema, arguments: inputSchema.prefault({}) });
 const requestSchema = z.object({
@@ -17,7 +17,7 @@ const tools = toolNameSchema.options.map((name) => ({
   inputSchema: z.toJSONSchema(inputSchema)
 }));
 
-/** Minimal stdio MCP backend for the fixed terminal plan; no network or filesystem work. */
+/** Stdio MCP backend for terminal and host checks; no network or filesystem work. */
 function respond(method: string, params: unknown): unknown {
   if (method === "initialize")
     return {

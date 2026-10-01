@@ -21,6 +21,6 @@ Replace local behavior only if a public Pi API preserves these boundaries and me
 
 ## Validation
 
-Pi **0.99.1** package checks and offline host tests passed. Real codemode cases cover blocked and invalid child inputs, direct-sibling suppression, hidden child output, next-request delivery, and reload deduplication. Shared utils, FFF guard, and display suites also passed. Live FFF integration and manual notice presentation were not checked.
+Pi **0.99.2** package checks and offline host tests passed. Real codemode cases cover blocked and invalid child inputs, direct-sibling suppression, hidden child output, next-request delivery, and reload deduplication. Shared utils, FFF guard, and display suites also passed. Live FFF integration and manual notice presentation were not checked.
 
 Run [package checks and offline tests](../README.md#validation), plus utils and `pi-fff-guard` suites after shared adapter changes. Notice contract changes also require the pi-tool-display suite. No paid model request is required by the automated checks.
