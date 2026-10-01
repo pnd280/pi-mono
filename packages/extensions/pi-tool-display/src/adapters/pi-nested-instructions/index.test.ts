@@ -88,7 +88,7 @@ it.each(["loaded", "updated", "removed"] as const)(
     expect(rows[0]).toMatch(/^• /);
     expect(rows[0]?.toLowerCase()).toContain(action);
     expect(rows[0]).toContain(action === "removed" ? "src" : "src/AGENTS.md");
-    expect(rows[0]).not.toMatch(/nested instructions from|supersedes|no longer apply/);
+    expect(rows[0]).not.toMatch(/instructions from|supersedes|no longer apply/);
     const expanded = render(message, { ...options, expanded: true }, theme).render(100);
     expect(expanded[0]).toMatch(/^▾ /);
     // Explanations continue the heading; only the instruction body is a branch.
@@ -183,7 +183,7 @@ it("sanitizes unusual paths without losing instruction text or repeating the mod
     .render(100)
     .join("\n");
   expect(expanded).toContain("Project rules");
-  expect(expanded).not.toContain("nested instructions from");
+  expect(expanded).not.toContain("instructions from");
 });
 
 it("strips the preamble using the path shown to the model, not the current cwd", () => {
@@ -201,5 +201,5 @@ it("strips the preamble using the path shown to the model, not the current cwd",
     .join("\n");
   expect(rows).toContain("pkg/AGENTS.md");
   expect(rows).toContain("Rules body");
-  expect(rows).not.toContain("nested instructions from");
+  expect(rows).not.toContain("instructions from");
 });

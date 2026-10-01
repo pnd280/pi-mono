@@ -31,9 +31,9 @@ export function digest(content: string): string {
 
 function noticePreamble(displayPath: string, action: Notice["action"]): string {
   if (action === "removed")
-    return `Removed nested instructions for ${displayPath}. The earlier instructions for this directory no longer apply.`;
+    return `Removed instructions for ${displayPath}. The earlier instructions for this directory no longer apply.`;
 
-  return `${action === "loaded" ? "Loaded" : "Updated"} nested instructions from ${displayPath}${action === "updated" ? " (supersedes the earlier instructions for this directory)" : ""}:\n\n`;
+  return `${action === "loaded" ? "Loaded" : "Updated"} instructions from ${displayPath}${action === "updated" ? " (supersedes the earlier instructions for this directory)" : ""}:\n\n`;
 }
 
 export function noticeEntry(

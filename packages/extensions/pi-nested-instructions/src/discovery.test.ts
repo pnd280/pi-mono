@@ -49,10 +49,10 @@ it("loads Pi's first readable regular filename per directory, broad to narrow, w
   expect(
     notices(await run()).map(({ path: file, content }) => [path.relative(fs.cwd, file!), content])
   ).toEqual([
-    ["pkg/AGENTS.md", "Loaded nested instructions from pkg/AGENTS.md:\n\nparent rules"],
+    ["pkg/AGENTS.md", "Loaded instructions from pkg/AGENTS.md:\n\nparent rules"],
     [
       "pkg/deep/AGENTS.override.md",
-      "Loaded nested instructions from pkg/deep/AGENTS.override.md:\n\npreferred"
+      "Loaded instructions from pkg/deep/AGENTS.override.md:\n\npreferred"
     ]
   ]);
   expect(files.read).toHaveBeenCalledTimes(2);
@@ -209,14 +209,26 @@ it("keeps ordinary snapshots and refreshes only changed/removed visible scopes",
   expect(await run()).toEqual([]);
   const updated = await refresh(fs.cwd, fs.manager, files);
   expect(notices(updated)).toMatchObject([
-    { action: "updated", path: path.join(fs.cwd, "pkg/AGENTS.override.md") }
+    {
+      action: "updated",
+      path: path.join(fs.cwd, "pkg/AGENTS.override.md"),
+      content:
+        "Updated instructions from pkg/AGENTS.override.md (supersedes the earlier instructions for this directory):\n\nnew preferred"
+    }
   ]);
   fs.append(updated);
   await rm(path.join(fs.cwd, "pkg/AGENTS.override.md"));
   fs.append(await refresh(fs.cwd, fs.manager, files));
   await rm(path.join(fs.cwd, "pkg/AGENTS.md"));
   const removed = await refresh(fs.cwd, fs.manager, files);
-  expect(notices(removed)).toMatchObject([{ action: "removed", path: null }]);
+  expect(notices(removed)).toMatchObject([
+    {
+      action: "removed",
+      path: null,
+      content:
+        "Removed instructions for pkg. The earlier instructions for this directory no longer apply."
+    }
+  ]);
   fs.append(removed);
   expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
   fs.manager.appendCompaction("summary", null, 1);

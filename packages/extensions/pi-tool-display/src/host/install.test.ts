@@ -383,7 +383,7 @@ it("owns nested-instruction notice rendering through replay, reload, and display
     expect(contents(compact)).not.toContain("Retained instructions");
     compact.setExpanded(true);
     expect(contents(compact)).toContain("Retained instructions");
-    expect(contents(compact)).not.toContain("nested instructions from");
+    expect(contents(compact)).not.toContain("instructions from");
 
     // Loading discovery before display must not compete for the renderer.
     extensionFactories.unshift(nestedInstructions);
