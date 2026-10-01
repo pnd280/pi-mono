@@ -249,14 +249,14 @@ it("matches native compaction with the routed window and selected model reserve"
   try {
     const faux = fauxProvider({
       provider: "widget-fixture",
-      models: [{ id: "physical", contextWindow: 128000, maxTokens: 16384 }]
+      models: [{ id: "physical", reasoning: true, contextWindow: 128000, maxTokens: 16384 }]
     });
     session.modelRuntime.registerNativeProvider(faux.provider);
     session.modelRuntime.registerVirtualModel({
       provider: "widget-fixture",
       id: "router",
       name: "Router",
-      route: () => ({ model: faux.getModel(), thinkingLevel: "off" })
+      route: () => ({ model: faux.getModel(), thinkingLevel: "high" })
     });
     await session.modelRuntime.refresh({ allowNetwork: false });
     const router = new ModelRegistry(session.modelRuntime).find("widget-fixture", "router");
@@ -277,6 +277,9 @@ it("matches native compaction with the routed window and selected model reserve"
         contextDisplay
       });
       expect(stripTerminalSequences(beforeRouting.get("builtin:context") ?? "")).toBe("?/? (auto)");
+      expect(stripTerminalSequences(beforeRouting.get("builtin:model") ?? "")).toBe(
+        "widget-fixture/router"
+      );
     }
 
     await fixture.bind();
@@ -292,8 +295,8 @@ it("matches native compaction with the routed window and selected model reserve"
     });
     expect(stripTerminalSequences(values.get("builtin:context") ?? "")).toContain("/128k");
     expect(stripTerminalSequences(values.get("builtin:context") ?? "")).toContain("(auto ~112k)");
-    expect(stripTerminalSequences(values.get("builtin:model") ?? "")).toContain(
-      "widget-fixture/router"
+    expect(stripTerminalSequences(values.get("builtin:model") ?? "")).toBe(
+      "widget-fixture/router → physical:high"
     );
 
     for (const [input, triggered] of [

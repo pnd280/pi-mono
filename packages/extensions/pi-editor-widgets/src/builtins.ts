@@ -139,6 +139,10 @@ export function builtinText(
   let modelText = "no-model";
   if (model)
     modelText = `${model.provider}/${model.id}${model.reasoning ? `:${session.thinkingLevel}` : ""}`;
+  // A virtual selection routes each request; show where the latest response went, as Pi's footer does.
+  const routed = session.routedModel;
+  if (routed)
+    modelText += ` → ${routed.model.id}${routed.model.reasoning && routed.thinkingLevel ? `:${routed.thinkingLevel}` : ""}`;
 
   return new Map([
     ["builtin:cwd", theme.fg("dim", formatCwd(session.sessionManager.getCwd()))],
