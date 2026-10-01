@@ -42,13 +42,17 @@ export const summarySchema = z.object({
       durationMs: z.number().positive()
     })
     .optional(),
-  // Absent in summaries saved before model capture and in runs without a selected model.
-  model: z
-    .object({
-      provider: z.string().min(1),
-      id: z.string().min(1),
-      thinkingLevel: z.enum(thinkingLevels)
-    })
+  // Models that answered, in order of first use. Absent in runs without a response.
+  models: z
+    .array(
+      z.object({
+        provider: z.string().min(1),
+        id: z.string().min(1),
+        // Absent for responses Pi did not request with a thinking level.
+        thinkingLevel: z.enum(thinkingLevels).optional()
+      })
+    )
+    .min(1)
     .optional(),
   files: z.array(fileChangeSchema)
 });

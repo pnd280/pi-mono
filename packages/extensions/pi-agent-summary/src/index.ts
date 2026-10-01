@@ -15,7 +15,7 @@ import { RunThroughput } from "./throughput.ts";
 import { AgentTimer } from "./timer.ts";
 
 export type SummaryContext = WorkingMessageContext &
-  Pick<ExtensionContext, "isIdle" | "sessionManager" | "model">;
+  Pick<ExtensionContext, "isIdle" | "sessionManager">;
 
 export type SummaryEvents = {
   session_start: unknown;
@@ -29,13 +29,16 @@ export type SummaryEvents = {
 
 export type SummaryExtensionAPI = Pick<
   ExtensionAPI,
-  "events" | "registerCommand" | "appendEntry" | "registerEntryRenderer" | "getThinkingLevel"
+  "events" | "registerCommand" | "appendEntry" | "registerEntryRenderer"
 > & {
   on<E extends keyof SummaryEvents>(
     event: E,
     handler: (event: SummaryEvents[E], ctx: SummaryContext) => void | Promise<void>
   ): void;
 };
+
+// Pi's `VIRTUAL_MODEL_API`, which the package index does not export.
+const virtualModelApi = "pi-virtual";
 
 export default function piAgentSummary(pi: SummaryExtensionAPI): void {
   const workingMessage = registerWorkingMessage(pi, {
@@ -48,7 +51,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     | {
         changes: RunChanges;
         bashCalls: Set<string>;
-        model: RunSummary["model"];
+        models: NonNullable<RunSummary["models"]>;
         throughput: RunThroughput;
       }
     | undefined;
@@ -90,16 +93,11 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     bind(ctx);
   });
   pi.on("agent_start", (_event, ctx) => {
-    // Continuations keep the model and thinking level selected when the run began.
     run ??= {
       changes: new RunChanges(ctx.cwd),
       bashCalls: new Set(),
       throughput: new RunThroughput(),
-      model: ctx.model && {
-        provider: ctx.model.provider,
-        id: ctx.model.id,
-        thinkingLevel: pi.getThinkingLevel()
-      }
+      models: []
     };
     if (manager !== ctx.sessionManager) bind(ctx);
     timer.start(ctx.mode === "tui");
@@ -108,7 +106,20 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     if (event.message.role === "assistant") run?.throughput.start();
   });
   pi.on("message_end", (event) => {
-    if (event.message.role === "assistant") run?.throughput.end(event.message.usage.output);
+    const message = event.message;
+    if (message.role !== "assistant" || !run) return;
+    run.throughput.end(message.usage.output);
+    // Assistant messages name the physical model a virtual selection routed to. Failed requests did
+    // not answer, and routing that fails or is aborted leaves the virtual model on the message.
+    if (message.stopReason === "error" || message.api === virtualModelApi) return;
+    const { provider, model: id, thinkingLevel } = message;
+    if (
+      !run.models.some(
+        (used) =>
+          used.provider === provider && used.id === id && used.thinkingLevel === thinkingLevel
+      )
+    )
+      run.models.push({ provider, id, ...(thinkingLevel && { thinkingLevel }) });
   });
   pi.on("tool_execution_start", (event) => {
     if (event.toolName === "bash") run?.bashCalls.add(event.toolCallId);
@@ -129,7 +140,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     pi.appendEntry(summaryEntryType, {
       ...duration,
       finishedAt,
-      ...(finished.model && { model: finished.model }),
+      ...(finished.models.length > 0 && { models: finished.models }),
       ...(throughput && { throughput }),
       bashCalls: finished.bashCalls.size,
       files

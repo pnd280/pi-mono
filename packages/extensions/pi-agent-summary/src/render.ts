@@ -31,9 +31,14 @@ function summaryLines(
     throughput = `${theme.bold(((outputTokens / durationMs) * 1000).toFixed(1))} tok/s`;
   }
 
-  if (summary.model) {
+  if (summary.models) {
     const model = compactDisplayText(
-      `${summary.model.provider}/${summary.model.id}:${summary.model.thinkingLevel}`
+      summary.models
+        .map(
+          ({ provider, id, thinkingLevel }) =>
+            `${provider}/${id}${thinkingLevel ? `:${thinkingLevel}` : ""}`
+        )
+        .join(" → ")
     );
     parts.push(theme.fg("dim", `${model}${throughput ? ` (${throughput})` : ""}`));
   }
@@ -45,7 +50,7 @@ function summaryLines(
     )
   );
 
-  if (!summary.model && throughput) parts.push(theme.fg("dim", throughput));
+  if (!summary.models && throughput) parts.push(theme.fg("dim", throughput));
 
   if (summary.bashCalls)
     parts.push(

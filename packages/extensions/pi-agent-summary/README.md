@@ -10,7 +10,7 @@ When Pi settles, the transcript shows a summary such as:
 • anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · edited 3 files · +42 −11
 ```
 
-The model and thinking level reflect the start of the run, not later switches. Runs without a selected model omit the model prefix.
+The prefix names the models that answered and the thinking level Pi requested from each, in order of first use, such as `openai-codex/gpt-5.5:high → openai-codex/gpt-5.5-mini:medium`. Under a Pi virtual model, these are the physical models it routed to. Requests that end in an error do not count, while interrupted responses do; runs without a response omit the prefix.
 
 Click a summary in fullscreen TUI to expand its local finish time and per-file changes; Pi's tool-output shortcut (default Ctrl+O) toggles all summaries in either TUI mode. [`pi-tool-display`](../pi-tool-display/README.md) aligns the summary marker with other message markers.
 
@@ -32,7 +32,7 @@ No extension-specific options or environment variables. The shared [coordinator]
 
 ## Side effects
 
-Appends one context-free `pi-agent-summary.summary` entry per settled run; it stores timing, model and throughput when available, command count, and file statistics or unavailability reasons. Entries do not trigger turns.
+Appends one context-free `pi-agent-summary.summary` entry per settled run; it stores timing, answering models and throughput when available, command count, and file statistics or unavailability reasons. Entries do not trigger turns.
 
 Observation may read targets before native writes; [shared file-mutation observation](../../libs/src/file-mutations/README.md) avoids duplicate reads with `pi-tool-display`. Contents and patches stay in memory. No directory scans, extra target writes, Git commands, or network requests.
 

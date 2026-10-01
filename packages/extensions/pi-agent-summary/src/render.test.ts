@@ -65,7 +65,7 @@ it("keeps wrapped metadata and file details aligned after their markers", () => 
   const entry = savedEntry({
     durationMs: 83000,
     finishedAt,
-    model: { provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "medium" },
+    models: [{ provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "medium" }],
     throughput: { outputTokens: 200, durationMs: 6000 },
     bashCalls: 4,
     files: [
@@ -213,17 +213,17 @@ it("distinguishes unavailable statistics from no changes without adding them to 
   expect(text(mixed, true)).toMatch(/^ {2}└ other\.txt[^\n]*Source too large\./m);
 });
 
-it("leads with the saved provider, model, and thinking level, omitting it for summaries without a model", () => {
+it("leads with the models that answered, omitting them for summaries without a model", () => {
   const base = { durationMs: 83000, finishedAt, bashCalls: 0, files: [] };
   const text = (data: unknown, expanded = false) =>
     renderSummary(savedEntry(data), { expanded }, theme)!.render(120).join("\n");
-  const model = { provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "medium" };
-  const withModel = text({ ...base, model });
+  const models = [{ provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "medium" }];
+  const withModel = text({ ...base, models });
   expect(withModel.trimEnd()).toMatch(/^• anthropic\/claude-opus-5-5:medium \S+ 1m 23s$/);
 
   for (const expanded of [false, true]) {
     const withThroughput = text(
-      { ...base, model, bashCalls: 1, throughput: { outputTokens: 200, durationMs: 6000 } },
+      { ...base, models, bashCalls: 1, throughput: { outputTokens: 200, durationMs: 6000 } },
       expanded
     );
     expect(
@@ -238,8 +238,14 @@ it("leads with the saved provider, model, and thinking level, omitting it for su
   }
 
   expect(
-    text({ ...base, model: { provider: "openai", id: "gpt-5-mini", thinkingLevel: "off" } })
-  ).toContain("openai/gpt-5-mini:off");
+    text({
+      ...base,
+      models: [
+        { provider: "openai", id: "gpt-5-mini", thinkingLevel: "off" },
+        { provider: "openai", id: "gpt-5-nano" }
+      ]
+    })
+  ).toContain("openai/gpt-5-mini:off → openai/gpt-5-nano · 1m 23s");
   expect(text(base).trimEnd()).toBe("• 1m 23s");
   expect(text(base)).not.toContain("\n");
 });

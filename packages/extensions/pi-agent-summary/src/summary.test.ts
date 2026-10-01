@@ -21,12 +21,18 @@ it.each(["off", "minimal", "low", "medium", "high", "xhigh", "max"])(
     expect(
       summarySchema.parse({
         ...summary,
-        model: { provider: "test-provider", id: "test-model", thinkingLevel, unknown: true },
+        models: [
+          { provider: "test-provider", id: "test-model", thinkingLevel, unknown: true },
+          { provider: "test-provider", id: "unmanaged" }
+        ],
         unknown: true
       })
     ).toEqual({
       ...summary,
-      model: { provider: "test-provider", id: "test-model", thinkingLevel }
+      models: [
+        { provider: "test-provider", id: "test-model", thinkingLevel },
+        { provider: "test-provider", id: "unmanaged" }
+      ]
     });
   }
 );
@@ -62,11 +68,14 @@ it.each([
     files: [{ path: "file", status: "available", added: -1, removed: 0 }]
   },
   { ...summary, files: [{ path: "file", status: "unavailable" }] },
-  { ...summary, model: { provider: "anthropic", id: "", thinkingLevel: "medium" } },
-  { ...summary, model: { provider: "", id: "claude-opus-5-5", thinkingLevel: "medium" } },
-  { ...summary, model: { id: "claude-opus-5-5", thinkingLevel: "medium" } },
-  { ...summary, model: { provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "extreme" } },
-  { ...summary, model: { provider: "anthropic", id: "claude-opus-5-5" } },
+  ...[
+    [],
+    {},
+    [{ provider: "anthropic", id: "" }],
+    [{ provider: "", id: "claude-opus-5-5" }],
+    [{ id: "claude-opus-5-5" }],
+    [{ provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "extreme" }]
+  ].map((models) => ({ ...summary, models })),
   ...[null, "1000", -1, 1.5, NaN, Infinity, 8_640_000_000_000_001].map((finishedAt) => ({
     ...summary,
     finishedAt

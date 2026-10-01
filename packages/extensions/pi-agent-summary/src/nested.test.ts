@@ -7,7 +7,7 @@ import { expect, it } from "vite-plus/test";
 import agentSummary from "./index.ts";
 import { summaryEntryType, summarySchema } from "./summary.ts";
 
-it("counts nested execution once and excludes child usage while retaining the selected virtual identity", async () => {
+it("counts nested execution once and excludes child usage while recording the routed physical model", async () => {
   const fixture = await hostFixture([
     agentSummary,
     createCodemodeExtension({ mode: "on" }),
@@ -65,7 +65,7 @@ it("counts nested execution once and excludes child usage while retaining the se
     const summary = summarySchema.parse(entry.data);
     expect(summary).toMatchObject({
       bashCalls: 1,
-      model: { provider: "summary-nested", id: "router", thinkingLevel: "off" },
+      models: [{ provider: "summary-nested", id: "physical", thinkingLevel: "off" }],
       files: [{ path: "created.txt", status: "available", added: 1, removed: 0 }]
     });
     const messages = session.sessionManager

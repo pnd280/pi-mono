@@ -1,7 +1,7 @@
 import { symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { fauxAssistantMessage, fauxProvider, type AssistantMessage } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, type AssistantMessage } from "@earendil-works/pi-ai";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -117,6 +117,7 @@ it.each([
     expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
       durationMs: 19_000,
       finishedAt: Date.now(),
+      models: [{ provider: "faux", id: "faux-1" }],
       throughput: { outputTokens: 120, durationMs: 4000 },
       bashCalls: 0,
       files: []
@@ -131,6 +132,7 @@ it.each([
     expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
       durationMs: 0,
       finishedAt: Date.now(),
+      models: [{ provider: "faux", id: "faux-1" }],
       bashCalls: 0,
       files: []
     });
@@ -156,69 +158,62 @@ it.each(["session_start", "session_shutdown"] as const)(
     expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
       durationMs: 0,
       finishedAt: Date.now(),
+      models: [{ provider: "faux", id: "faux-1" }],
       bashCalls: 0,
       files: []
     });
   }
 );
 
-it("records the provider, model, and thinking level selected when the run began", async () => {
+it("records each model that answered, in order of first use, rather than the selection", async () => {
   const runtime = await fixture();
-  runtime.ctx.model = fauxProvider({
-    provider: "anthropic",
-    models: [{ id: "claude-opus-5-5", reasoning: true }]
-  }).getModel("claude-opus-5-5");
-  vi.mocked(runtime.api.getThinkingLevel).mockReturnValue("medium");
+  const answer = (
+    provider: string,
+    model: string,
+    thinkingLevel: AssistantMessage["thinkingLevel"],
+    stopReason: AssistantMessage["stopReason"] = "stop",
+    api = "faux"
+  ) =>
+    runtime.emit("message_end", {
+      type: "message_end",
+      message: {
+        ...assistantMessage(10, stopReason),
+        api,
+        provider,
+        model,
+        ...(thinkingLevel && { thinkingLevel })
+      }
+    });
   await runtime.emit("agent_start", {});
-  runtime.ctx.model = fauxProvider({
-    provider: "other-provider",
-    models: [{ id: "other-model", reasoning: true }]
-  }).getModel("other-model");
-  vi.mocked(runtime.api.getThinkingLevel).mockReturnValue("high");
+  await answer("router", "auto", "high", "aborted", "pi-virtual");
+  await answer("openai", "failed", "high", "error");
+  await answer("openai", "strong", "high", "toolUse");
   await runtime.emit("agent_start", {});
+  await answer("openai", "cheap", "medium", "toolUse");
+  await answer("openai", "interrupted", "high", "aborted");
+  await answer("openai", "strong", "low");
+  await answer("openai", "unmanaged", undefined);
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 0,
     finishedAt: Date.now(),
-    model: { provider: "anthropic", id: "claude-opus-5-5", thinkingLevel: "medium" },
+    models: [
+      { provider: "openai", id: "strong", thinkingLevel: "high" },
+      { provider: "openai", id: "cheap", thinkingLevel: "medium" },
+      { provider: "openai", id: "interrupted", thinkingLevel: "high" },
+      { provider: "openai", id: "strong", thinkingLevel: "low" },
+      { provider: "openai", id: "unmanaged" }
+    ],
     bashCalls: 0,
     files: []
   });
 
-  runtime.ctx.model = undefined;
   await runtime.emit("agent_start", {});
+  await answer("openai", "failed", "high", "error");
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
     durationMs: 0,
     finishedAt: Date.now(),
-    bashCalls: 0,
-    files: []
-  });
-});
-
-it("leaves an initially missing model absent until the next run", async () => {
-  const runtime = await fixture();
-  await runtime.emit("agent_start", {});
-  runtime.ctx.model = fauxProvider({
-    provider: "later-provider",
-    models: [{ id: "later-model", reasoning: true }]
-  }).getModel("later-model");
-  vi.mocked(runtime.api.getThinkingLevel).mockReturnValue("high");
-  await runtime.emit("agent_start", {});
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-    durationMs: 0,
-    finishedAt: Date.now(),
-    bashCalls: 0,
-    files: []
-  });
-
-  await runtime.emit("agent_start", {});
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
-    durationMs: 0,
-    finishedAt: Date.now(),
-    model: { provider: "later-provider", id: "later-model", thinkingLevel: "high" },
     bashCalls: 0,
     files: []
   });
