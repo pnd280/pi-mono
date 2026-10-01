@@ -1054,8 +1054,8 @@ it("preserves native construction settings when settings change before TUI bindi
   });
 });
 
-it.each([null, "kitty"] as const)(
-  "preserves an image-bearing grouped sibling with image protocol %s",
+it.each([null, "kitty", "iterm2"] as const)(
+  "preserves an indented image-bearing grouped sibling with image protocol %s",
   async (images) => {
     const previous = getCapabilities();
     setCapabilityOverrides({ images });
@@ -1098,18 +1098,45 @@ it.each([null, "kitty"] as const)(
           expect(projected).not.toContain("Explored");
           const rendered = rows.flatMap((row) => row.render(80)).join("\n");
           const transcript = images ? rendered : stripTerminalSequences(rendered);
-          const imagePosition = transcript.indexOf(images ? "\x1b_G" : "[Image: image/png]");
+          const imageSequences = {
+            none: "[Image: image/png]",
+            kitty: "\x1b_G",
+            iterm2: "\x1b]1337;File="
+          };
+          const imageSequence = imageSequences[images ?? "none"];
+          const imagePosition = transcript.indexOf(imageSequence);
           expect(imagePosition).toBeGreaterThan(transcript.indexOf("image.png"));
           expect(imagePosition).toBeLessThan(transcript.indexOf("after.ts"));
-          expect(transcript.split(images ? "\x1b_Ga=T" : "[Image: image/png]")).toHaveLength(2);
-          expect(images ? projected : stripTerminalSequences(projected)).toContain(
-            images ? "\x1b_G" : "[Image: image/png]"
+          expect(transcript.split(images === "kitty" ? "\x1b_Ga=T" : imageSequence)).toHaveLength(
+            2
           );
+          expect(images ? projected : stripTerminalSequences(projected)).toContain(imageSequence);
+
+          if (images) {
+            const imageRows = rows[1]!.render(24);
+            const imageRow = imageRows.find((row) => row.includes(imageSequence))!;
+            // iTerm2 retains Pi's cursor-up command after the visible prefix.
+            expect(
+              stripTerminalSequences(imageRow.slice(0, imageRow.indexOf(imageSequence))).split(
+                "\x1b["
+              )[0]
+            ).toBe("  │   ");
+            expect(stripTerminalSequences(imageRows[1]!)).toBe("  │   ");
+          }
+
           rows[0]!.setExpanded(true);
           const expanded = rows[1]!.render(80).join("\n");
-          expect(images ? expanded : stripTerminalSequences(expanded)).toContain(
-            images ? "\x1b_G" : "[Image: image/png]"
-          );
+          expect(images ? expanded : stripTerminalSequences(expanded)).toContain(imageSequence);
+
+          if (images) {
+            const imageRows = rows[1]!.render(24);
+            const imageRow = imageRows.find((row) => row.includes(imageSequence))!;
+            expect(
+              stripTerminalSequences(imageRow.slice(0, imageRow.indexOf(imageSequence))).split(
+                "\x1b["
+              )[0]
+            ).toBe("    ");
+          }
         } finally {
           tui.footerDataProvider.dispose();
         }

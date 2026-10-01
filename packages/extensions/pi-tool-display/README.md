@@ -10,7 +10,7 @@ Pi's expansion key (default **Ctrl+O**) cycles **summary** → **compact** → *
 - **Compact**: the cards and groups described below.
 - **Verbose**: every card expanded, with Pi's startup header and loaded resources. Pi's `--verbose` starts here.
 
-Adjacent compatible calls form [exploration groups](docs/presentation.md#groups); compact cards show bounded [result previews or summaries](docs/presentation.md#results) and edit/write diffs. Diagnostics and images stay visible in compact mode. In fullscreen, clicks expand cards, groups, or summary runs; regular mode leaves mouse input to the terminal.
+Adjacent compatible calls form [exploration groups](docs/presentation.md#groups); compact cards show bounded [result previews or summaries](docs/presentation.md#results) and edit/write diffs. Diagnostics and images stay visible in compact mode. In fullscreen, clicks expand cards, groups, or summary runs. Regular mode leaves mouse input to the terminal.
 
 Summary mode hides output from transcript search, including image and failure details until the run opens. Switching modes does not preserve scroll position. Assistant prose uses a `•` marker; collapsed thinking (default **Ctrl+T**) hides completed thinking blocks. See [presentation](docs/presentation.md#thinking) for boundaries and replay behavior.
 

@@ -82,7 +82,7 @@ Keep the fixture directory through replay checks. Remove only that directory aft
 - In `thinking`, toggle **Ctrl+T** during streaming/after completion: collapsed placeholders disappear at `thinking_end`, before subsequent prose/tool streaming finishes, not only at message completion. Active indicators, explanation, and diagnostics remain. Toggles and redraws must not revive ended placeholders. In fullscreen summary mode, the first two reads stay compact through thinking, then collapse at the explanation; the remaining run collapses at agent end. Global toggles and per-block thinking clicks must not settle or reopen runs, including runs opened by hand. Compare `--reuse` replay.
 - In collapsed `buffered`, keep the two-read group between `shell two` and `shell three`. Expand to verify call-specific commands, targets, and results; toggle thinking and compare replay. Later rows must not reuse earlier data.
 - Run `explore`, then `images`: notices/images stay beneath their call before the next tool; assistant completion separates groups. Compare replay.
-- With `images`, compare image display enabled and disabled. A supported terminal displays each image once before the next tool. Unsupported protocols retain a notice. Account for the [finalized-image limitation](#platform-limitations).
+- With `images`, compare image display enabled and disabled at wide and narrow widths. A supported terminal displays each image once before the next tool, aligned with the card body and continuing the collapsed group's guide. Expansion removes the group guide and retains body indentation; previews fit the remaining width. Unsupported protocols retain a notice. In fullscreen, click image rows, indentation, spacers, and unused columns after scrolling and resizing: no overlay opens, and card/group expansion, opened runs, and the editor draft remain unchanged. Regular mode leaves mouse input to the terminal. Account for the [image limitations](#platform-limitations).
 
 #### Saved output
 
@@ -114,6 +114,8 @@ Compare live/replay results with [host cases](../src/host/install.test.ts). Keep
 - [pi-mcp-adapter fixture](../src/adapters/pi-mcp-adapter/README.md#validation).
 
 ## Platform limitations
+
+Pi 0.99.2 disables iTerm2 images in fullscreen mode; inline images require a fullscreen-supported native protocol, such as Kitty.
 
 Pi 0.87.0 does not update a live native image row when finalized-message middleware adds or removes result images. API checks with and without the extension reproduce this behavior, including Kitty image output. Reconstructed rows use the finalized images.
 

@@ -22,8 +22,48 @@ function result(text: string): AgentToolResult<unknown> {
 
 it("keeps image-only rows without a margin", () => {
   expect(
-    layoutRow(["", "image"], 0, { kind: "card", joined: false, collapse: undefined }).rows
+    layoutRow(["", "image"], 0, {
+      kind: "card",
+      joined: false,
+      imagePrefix: "",
+      collapse: undefined
+    }).rows
   ).toEqual(["", "image"]);
+});
+
+it("indents image rows without adding click targets or moving the footer", () => {
+  const chrome = {
+    kind: "card" as const,
+    joined: false,
+    imagePrefix: "    ",
+    collapse: { top: false, bottom: true, rule: "footer" }
+  };
+  const rows = ["", "card", "", "first", "", "", "second", ""];
+  const layout = layoutRow(rows, 1, chrome);
+  expect(layout.rows).toEqual([
+    "",
+    "card",
+    "    ",
+    "    first",
+    "    ",
+    "    ",
+    "    second",
+    "    ",
+    "",
+    "footer"
+  ]);
+  expect(layout.targets).toEqual([
+    undefined,
+    { kind: "card", y: 0 },
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    { kind: "collapse" },
+    { kind: "collapse" }
+  ]);
 });
 
 describe("bound row chrome", () => {

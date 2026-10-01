@@ -44,7 +44,7 @@ Visible assistant content/diagnostics, cache-miss notices, compaction summaries/
 
 Public extension notifications (`ctx.ui.notify`) separate groups and runs only when Pi inserts visible components, for all notification severities. No-op notifications and Pi's thinking-toggle status messages create no boundary.
 
-Notices, images, and failure diagnostics stay beneath their call:
+Notices, images, and failure diagnostics stay beneath their call. Native image previews align with the card body, continue collapsed group guides, and shrink to fit the remaining width. Images remain inline without click actions:
 
 ```text
 • Explored .

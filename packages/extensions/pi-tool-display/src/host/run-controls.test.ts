@@ -5,7 +5,7 @@ import {
   stripTerminalSequences,
   type TuiMouseEvent
 } from "@earendil-works/pi-tui";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { nativeAdapter } from "../adapters/native/index.ts";
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
@@ -15,6 +15,7 @@ import { TranscriptRows } from "./rows.ts";
 
 it.each([
   { count: 1, expanded: false },
+  { count: 2, expanded: false },
   { count: 2, expanded: true }
 ])(
   "places the bottom control after native images: $count calls, expanded=$expanded",
@@ -28,7 +29,11 @@ it.each([
       animationClock: { start: () => () => {} }
     });
     const children: ToolExecutionComponent[] = [];
-    const host = { chatContainer: { children }, ui: renderingTui() };
+    const showOverlay = vi.fn();
+    const host = {
+      chatContainer: { children },
+      ui: Object.assign(renderingTui(), { showOverlay })
+    };
     const rows = new TranscriptRows(host, coordinator, {
       active: () => true,
       styleAssistant: true,
@@ -98,6 +103,11 @@ it.each([
         const image = tailRows.findIndex((row) => row.includes("\x1b_G"));
         expect(image).toBeGreaterThan(0);
         expect(image).toBeLessThan(footer);
+        const prefix = count > 1 && !expanded ? "      " : "    ";
+        expect(tailRows[image]).toMatch(new RegExp(`^${prefix}\\x1b_G`));
+        const columns = Number(/(?:^|,)c=(\d+)/.exec(tailRows[image]!)?.[1]);
+        expect(columns).toBeGreaterThan(0);
+        expect(columns + prefix.length).toBeLessThanOrEqual(width);
         const click: TuiMouseEvent = {
           type: "click",
           button: "left",
@@ -114,8 +124,21 @@ it.each([
         // Native image rows and their spacer must not collapse or toggle cards.
         expect(tail.handleMouse({ ...click, y: image - 1 })).toBeUndefined();
         expect(tail.handleMouse({ ...click, y: image })).toBeUndefined();
-        expect(last.expanded).toBe(expanded);
-        expect(coordinator.run(last)?.opened).toBe(true);
+        expect(
+          tail.handleMouse({ ...click, x: prefix.length + columns, y: image })
+        ).toBeUndefined();
+        expect(
+          tail.handleMouse({ ...click, button: "right", x: prefix.length, y: image })
+        ).toBeUndefined();
+
+        for (const y of [image, image + 1]) {
+          expect(tail.handleMouse({ ...click, x: prefix.length, y })).toBeUndefined();
+          expect(last.expanded).toBe(expanded);
+          expect(coordinator.run(last)?.opened).toBe(true);
+          expect(tail.render(width)).toEqual(tailRows);
+        }
+
+        expect(showOverlay).not.toHaveBeenCalled();
 
         // Both padding rows and the moved footer collapse without toggling cards.
         for (const [child, y] of [

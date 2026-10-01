@@ -2,8 +2,9 @@ import {
   CustomMessageComponent,
   type ToolExecutionComponent
 } from "@earendil-works/pi-coding-agent";
-import type { TuiMouseEvent } from "@earendil-works/pi-tui";
+import { Image, truncateToWidth, visibleWidth, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import type { DisplayCall } from "../contracts.ts";
 import { renderCollapseRow, renderRunSummary } from "../rendering/summary-line.ts";
@@ -19,6 +20,8 @@ export type RowChrome =
       kind: "card";
       /** A collapsed group member after the first shares its predecessor's margin. */
       joined: boolean;
+      /** Native image rows continue the source card's body indentation and group guide. */
+      imagePrefix: string;
       /** Opened-run collapse controls: a rule and its inner padding row. */
       collapse: { top: boolean; bottom: boolean; rule: string } | undefined;
     };
@@ -71,7 +74,7 @@ export function layoutRow(
   }
 
   self.forEach((row, y) => push(row, { kind: "card", y }));
-  images.forEach((row) => push(row));
+  images.forEach((row) => push(chrome.imagePrefix + row));
 
   if (collapse?.bottom) {
     push("", { kind: "collapse" });
@@ -116,10 +119,19 @@ function rowChrome(
   const top = !notice && run?.members[0] === call;
   const bottom = tail && run?.members.at(-1) === call;
   const collapsible = (top || bottom) && theme !== undefined && coordinator.collapsible(call);
+  let imagePrefix = "    ";
+
+  if (group)
+    imagePrefix = group.members.at(-1) !== call ? `  ${TUI_GLYPHS.tree.guide}   ` : "      ";
 
   return {
     kind: "card",
     joined: !!group && group.members[0] !== call,
+    imagePrefix: truncateToWidth(
+      theme ? theme.fg("dim", imagePrefix) : imagePrefix,
+      Math.max(0, width - 1),
+      ""
+    ),
     collapse: collapsible ? { top, bottom, rule: renderCollapseRow({ width, theme }) } : undefined
   };
 }
@@ -188,13 +200,34 @@ export function bindRowChrome(
     );
     // Summary chrome replaces the entire row. Do not prepare hidden cards or images.
     // For visible cards, Pi updates selfRenderHeight while rendering.
-    const rows = chrome.kind === "card" ? previousRender.call(this, width) : [];
-    // CustomMessageComponent is a one-row Spacer followed by our notice renderer.
-    const height = notice ? Math.max(0, rows.length - 1) : record(this).selfRenderHeight;
-    const layout = layoutRow(rows, typeof height === "number" ? height : 0, chrome);
-    targets = layout.targets;
+    const imageHooks = new OwnedHooks();
 
-    return layout.rows;
+    if (chrome.kind === "card") {
+      const indent = visibleWidth(chrome.imagePrefix);
+
+      // Pi renders these same public Image children after its card. Constrain only
+      // their width, keeping Pi's image IDs, conversion, caching, and reserved rows.
+      for (const child of this.children) {
+        if (!(child instanceof Image)) continue;
+        // oxlint-disable-next-line typescript/unbound-method
+        const previousImageRender = child.render;
+        imageHooks.replace(child, "render", function (this: Image, imageWidth) {
+          return previousImageRender.call(this, Math.max(1, imageWidth - indent));
+        });
+      }
+    }
+
+    try {
+      const rows = chrome.kind === "card" ? previousRender.call(this, width) : [];
+      // CustomMessageComponent is a one-row Spacer followed by our notice renderer.
+      const height = notice ? Math.max(0, rows.length - 1) : record(this).selfRenderHeight;
+      const layout = layoutRow(rows, typeof height === "number" ? height : 0, chrome);
+      targets = layout.targets;
+
+      return layout.rows;
+    } finally {
+      imageHooks.restore();
+    }
   };
 
   const handleMouse: typeof row.handleMouse = function (this: DisplayRow, event) {
