@@ -258,6 +258,19 @@ it("keeps ragged multiline separators next to the following column", () => {
   expect(plain(result.lines)).toEqual(["long line here • B1", "x              • B2"]);
 });
 
+it("bottom-aligns shorter items and their mouse cells when requested", () => {
+  const sources = new Map([
+    ["a", source(() => ["A1", "A2", "A3"])],
+    ["b", source(() => ["B"])]
+  ]);
+  const result = renderStyledRows([["a", "separator", "b"]], sources, 20, " • ", "bottom");
+  expect(plain(result.lines).map((line) => line.trimEnd())).toEqual(["A1", "A2", "A3 • B"]);
+  expect(result.cells.map(({ x, y, height }) => ({ x, y, height }))).toEqual([
+    { x: 0, y: 0, height: 3 },
+    { x: 5, y: 2, height: 1 }
+  ]);
+});
+
 it("stacks at narrow widths in sequence and supports one-sided flex", () => {
   const sources = new Map([
     ["a", text("alpha")],

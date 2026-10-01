@@ -273,7 +273,7 @@ export class WidgetCoordinator {
     this.measured = {
       width,
       rendered: {
-        aboveEditor: renderRows(layout.aboveEditor, sources, width, separator),
+        aboveEditor: renderRows(layout.aboveEditor, sources, width, separator, "bottom"),
         belowEditor: renderRows(layout.belowEditor, sources, width, separator),
         footer: renderRows(layout.footer, sources, width, separator)
       }

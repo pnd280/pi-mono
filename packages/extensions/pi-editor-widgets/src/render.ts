@@ -19,6 +19,9 @@ export type Cell = {
 
 export type Rendered = { lines: string[]; cells: Cell[] };
 
+/** Vertical placement of shorter items within a multiline row. */
+export type Align = "top" | "bottom";
+
 type Item = {
   component: Component;
   lines: string[];
@@ -114,8 +117,16 @@ function wrap(items: Item[], width: number): Item[][] {
   return rows;
 }
 
-function compose(items: Item[], width: number, hasFlex: boolean, separator: string): Rendered {
+function compose(
+  items: Item[],
+  width: number,
+  hasFlex: boolean,
+  separator: string,
+  align: Align
+): Rendered {
   const height = Math.max(0, ...items.map((item) => item.lines.length));
+  const top = (item: Item) => (align === "bottom" ? height - item.lines.length : 0);
+  const lineAt = (item: Item, y: number) => item.lines[y - top(item)] ?? "";
   const needed = items.reduce(
     (sum, item, index) => sum + item.width + gap(items[index - 1], item),
     0
@@ -132,7 +143,7 @@ function compose(items: Item[], width: number, hasFlex: boolean, separator: stri
     cells.push({
       component: item.component,
       x,
-      y: 0,
+      y: top(item),
       width: item.width,
       height: item.lines.length,
       renderWidth: width
@@ -146,12 +157,12 @@ function compose(items: Item[], width: number, hasFlex: boolean, separator: stri
 
     positions.forEach(({ item, position, spacing }, index) => {
       const previous = items[index - 1];
-      const current = truncateToWidth(item.lines[y] ?? "", item.width, "");
+      const current = truncateToWidth(lineAt(item, y), item.width, "");
       const bullet =
         previous &&
         previous.group === item.group &&
         item.bullet &&
-        content(previous.lines[y] ?? "") &&
+        content(lineAt(previous, y)) &&
         content(current);
       const padding = Math.max(0, position - visibleWidth(line));
       line +=
@@ -172,14 +183,15 @@ export function renderRows(
   rows: string[][],
   sources: ReadonlyMap<string, Contribution>,
   width: number,
-  separator: string
+  separator: string,
+  align: Align = "top"
 ): Rendered {
   const result: Rendered = { lines: [], cells: [] };
   if (width < 1) return result;
 
   for (const row of rows) {
     for (const items of wrap(measure(row, sources, width), width)) {
-      const rendered = compose(items, width, row.includes("flex"), separator);
+      const rendered = compose(items, width, row.includes("flex"), separator, align);
       const offset = result.lines.length;
       result.cells.push(...rendered.cells.map((cell) => ({ ...cell, y: cell.y + offset })));
       result.lines.push(...rendered.lines);
