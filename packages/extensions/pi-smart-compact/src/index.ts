@@ -46,7 +46,8 @@ export default function smartCompact(pi: ExtensionAPI) {
     } catch (error) {
       unavailable =
         error instanceof Error ? error.message : "pi-smart-compact initialization failed.";
-      throw error;
+      // Rethrowing makes Pi render the full stack; the message alone is actionable.
+      if (ctx.hasUI) ctx.ui.notify(`pi-smart-compact: ${unavailable}`, "error");
     }
   });
   // session_compact fires only after a compaction entry is persisted, so failures never count.
