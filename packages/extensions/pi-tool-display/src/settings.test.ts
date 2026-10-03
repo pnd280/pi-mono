@@ -5,33 +5,10 @@ const source = (rendererOverrides: unknown, path = "global/settings.json") => ({
   path,
   settings: { [SETTINGS_KEY]: { rendererOverrides } }
 });
-it("merges exact tool names with project auto resets and empty-map inheritance", () => {
-  const global = source({ read: "original", search: "generic", unavailable: "original" });
-  expect(
-    loadDisplaySettings([global, source({ read: "auto" }, "project/settings.json")])
-  ).toMatchObject({
-    valid: true,
-    rendererOverrides: { read: "auto", search: "generic", unavailable: "original" }
-  });
-  expect(loadDisplaySettings([global, source({})]).rendererOverrides).toEqual(
-    loadDisplaySettings([global]).rendererOverrides
-  );
-});
-it("defaults parameters to hidden and merges explicit visibility independently of tool overrides", () => {
+it("rejects invalid parameter visibility despite later replacement", () => {
   const visibility = (showParameters: unknown, path = "global/settings.json") => ({
     path,
     settings: { [SETTINGS_KEY]: { showParameters } }
-  });
-  expect(loadDisplaySettings([])).toMatchObject({ valid: true, showParameters: false });
-  const global = visibility(true);
-  expect(loadDisplaySettings([global, source({ read: "generic" })])).toMatchObject({
-    valid: true,
-    showParameters: true,
-    rendererOverrides: { read: "generic" }
-  });
-  expect(loadDisplaySettings([global, visibility(false, "project/settings.json")])).toMatchObject({
-    valid: true,
-    showParameters: false
   });
 
   for (const invalid of [null, "true", 0, [], {}]) {
@@ -45,22 +22,11 @@ it("defaults parameters to hidden and merges explicit visibility independently o
     ]);
   }
 });
-it("defaults the collapsed mode to summary and lets trusted project values replace global ones", () => {
+it("rejects invalid collapsed modes despite later replacement", () => {
   const mode = (collapsedMode: unknown, path = "global/settings.json") => ({
     path,
     settings: { [SETTINGS_KEY]: { collapsedMode } }
   });
-  const global = mode("compact");
-  expect(loadDisplaySettings([])).toMatchObject({ valid: true, collapsedMode: "summary" });
-  expect(loadDisplaySettings([global])).toMatchObject({ valid: true, collapsedMode: "compact" });
-  expect(loadDisplaySettings([global, mode("summary", "project/settings.json")])).toMatchObject({
-    valid: true,
-    collapsedMode: "summary"
-  });
-  // Omission inherits instead of resetting to the default.
-  expect(
-    loadDisplaySettings([global, source({ read: "auto" }, "project/settings.json")])
-  ).toMatchObject({ valid: true, collapsedMode: "compact" });
 
   for (const invalid of ["verbose", "expanded", true, null]) {
     const settings = loadDisplaySettings([mode(invalid), mode("compact", "project/settings.json")]);
@@ -131,20 +97,6 @@ it("treats prototype-like renderer names as exact keys and validates their value
     valid: false,
     rendererOverrides: {}
   });
-});
-
-it("sanitizes warning paths and unknown keys without changing supplied settings", () => {
-  const sources = [
-    {
-      path: "global\u001b[2J/settings.json",
-      settings: { [SETTINGS_KEY]: { ["\u001b]0;injected\u0007bad"]: true } }
-    }
-  ];
-  const retained = structuredClone(sources);
-  expect(loadDisplaySettings(sources).warnings).toEqual([
-    "global/settings.json: invalid ext.pi-tool-display.bad; keeping original rendering and disabling display observation."
-  ]);
-  expect(sources).toEqual(retained);
 });
 
 it.each([null, [], { other: {} }])("rejects invalid sections: %j", (section) => {

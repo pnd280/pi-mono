@@ -46,4 +46,4 @@ Keep handles runtime-local. Session start clears text. Republish restored state 
 
 ## Validation
 
-Use [library checks](../../README.md#validation). [Composition](coordinator.test.ts), [registration](index.test.ts), [settings](settings.test.ts), and [command](command.test.ts) tests cover the library; draft and input tests belong to [order-settings](../tui/components/order-settings/README.md#validation). Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) for real Pi checks in regular and fullscreen modes.
+Use [library checks](../../README.md#validation). [Settings](settings.test.ts) and [command](command.test.ts) tests exercise filesystem and installed-host integration. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) for real Pi checks in regular and fullscreen modes.

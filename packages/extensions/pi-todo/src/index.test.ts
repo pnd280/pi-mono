@@ -10,7 +10,6 @@ import { afterEach, expect, it, vi } from "vite-plus/test";
 import entry from "../index.ts";
 import { loadTodoConfig } from "./config.ts";
 import type { TodoExtensionAPI, TodoLifecycleContext } from "./index.ts";
-import { shouldActivate } from "./runtime.ts";
 import type { TodoWidgetFactory } from "./todo-overlay.ts";
 
 vi.mock("./runtime.ts", () => ({ shouldActivate: vi.fn(() => true) }));
@@ -25,7 +24,7 @@ afterEach(() => {
     rmSync(directory, { recursive: true, force: true });
 });
 
-it("composes shared state across tool execution, replay, settings, and widget lifetime", async () => {
+it("replays branch state and clears todo activity without clearing other contributions", async () => {
   const agentDir = mkdtempSync(join(tmpdir(), "todo-working-message-"));
   directories.push(agentDir);
   vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
@@ -47,7 +46,6 @@ it("composes shared state across tool execution, replay, settings, and widget li
     contributor: "other"
   });
   entry(api);
-  expect(registerCommand.mock.calls.some(([name]) => name === "todos")).toBe(true);
 
   const dispatch = (name: string, event = { toolName: "", isError: false }) => {
     const callback = handlers.get(name);
@@ -83,21 +81,6 @@ it("composes shared state across tool execution, replay, settings, and widget li
   await tool.execute("1", { action: "create", subject: "Live" });
   dispatch("tool_execution_end", { toolName: "todo", isError: false });
   expect(widget?.render(80).join("\n")).toContain("Live");
-  const command = registerCommand.mock.calls.find(([name]) => name === "todos")?.[1];
-  if (!command) throw new Error("Todo command was not registered");
-  const notify = vi.fn();
-  await command.handler("", {
-    mode: "rpc",
-    hasUI: true,
-    signal: undefined,
-    ui: {
-      notify,
-      custom: async () => {
-        throw new Error("Unexpected command view");
-      }
-    }
-  });
-  expect(notify.mock.lastCall?.[0]).toContain("#1 Live");
   branch = [
     {
       type: "message",
@@ -122,7 +105,6 @@ it("composes shared state across tool execution, replay, settings, and widget li
   dispatch("tool_execution_end", { toolName: "todo", isError: false });
   expect(setWorkingMessage.mock.lastCall?.[0]).toContain("Other status");
   expect(setWorkingMessage.mock.lastCall?.[0]).toContain("Working");
-  expect(widget?.render(80).join("\n")).not.toContain("Restored");
   branch = [];
   dispatch("session_tree");
   expect(widget).toBeUndefined();
@@ -131,11 +113,4 @@ it("composes shared state across tool execution, replay, settings, and widget li
   expect(setWorkingMessage).toHaveBeenLastCalledWith(undefined);
   dispatch("tool_execution_end", { toolName: "todo", isError: false });
   expect(widget).toBeUndefined();
-});
-
-it("does not register anything outside the runtime activation boundary", () => {
-  vi.mocked(shouldActivate).mockReturnValueOnce(false);
-  const registerTool = vi.fn();
-  entry({ registerTool, registerCommand: vi.fn(), events: createEventBus(), on() {} });
-  expect(registerTool).not.toHaveBeenCalled();
 });

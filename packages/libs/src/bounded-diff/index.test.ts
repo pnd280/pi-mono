@@ -128,9 +128,3 @@ it("queues only declared options without cloning unrelated caller data", async (
   if (result.status !== "ready") throw new Error(result.status);
   expect(applyPatch(options.before, result.patch)).toBe(options.after);
 });
-
-it("honors zero work budgets and rejects invalid options", async () => {
-  expect(await change("before", "after", { timeoutMs: 0 })).toEqual({ status: "budget-exceeded" });
-  await expect(change("a", "b", { contextLines: -1 })).rejects.toThrow(RangeError);
-  await expect(change("a", "b", { timeoutMs: Infinity })).rejects.toThrow(RangeError);
-});

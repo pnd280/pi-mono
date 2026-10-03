@@ -4,12 +4,17 @@
 
 Maintainer coverage boundary: shared algorithms are tested in libs and utils (see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership)). This package tests the todo graph and state policy, replay schemas, activation, task selection and presentation, and adapter wiring. Todo cards are tested in [tool display](../../pi-tool-display/docs/testing.md).
 
+Unit coverage is limited to the atomicity, replay and working-message ownership invariants below. Real-filesystem settings coverage and real-host tool-exposure and overlay checks are retained. The remaining sections describe behaviour, not a unit-test inventory; widget-registration ownership currently has no automated regression assertion.
+
 ## Must not regress
 
-- Mutations are atomic, and return complete replayable snapshots on both success and domain failure.
-- A real call issued by the model can't find or change todos through nested execution. A direct model call saves a replayable snapshot.
-- Over-limit snapshots are rejected, and replay falls back to the previous valid result.
-- Widget and working-message cleanup keeps other contributors.
+- Nested tool calls cannot discover or execute the `todo` tool.
+- A rejected mutation leaves the tasks and next ID unchanged, including when the proposed result exceeds snapshot limits.
+- Returned tool results contain a complete replayable state snapshot on success and domain failure; invalid parameter shapes may throw instead.
+- A successful direct model call records its snapshot in the session branch for reconstruction.
+- Replay skips snapshots exceeding their format's limits and restores the latest valid todo result on the current branch, or empty state if none exists.
+- Widget cleanup removes only the todo widget registration.
+- Clearing todo activity leaves other working-message contributions intact while the session remains active.
 
 ## Schema
 

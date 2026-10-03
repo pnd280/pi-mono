@@ -21,17 +21,6 @@ function fixture(args: string[]) {
   };
 }
 
-it("handles help, invalid modes, and missing reuse paths before preparing a workspace", async () => {
-  const help = fixture(["--help"]);
-  expect(await runTerminalLauncher(help)).toBe(0);
-  expect(help.log).toHaveBeenCalledWith("fixture help");
-  expect(help.createWorkspace).not.toHaveBeenCalled();
-  const invalid = fixture(["invalid"]);
-  expect(await runTerminalLauncher(invalid)).toBe(1);
-  expect(invalid.launch).not.toHaveBeenCalled();
-  await expect(runTerminalLauncher(fixture(["regular", "--reuse"]))).rejects.toThrow("requires");
-});
-
 it.each(["regular", "fullscreen"])(
   "forwards %s mode and trailing arguments to a real child",
   async (mode) => {

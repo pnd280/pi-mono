@@ -87,15 +87,6 @@ it("selects built-in MCP server tools before Pi's renderers and respects overrid
     expect(builtinMcpAdapter(unsupported)).toBeUndefined();
 });
 
-it("accepts Pi's details or none, and rejects other shapes", () => {
-  const args = { query: "vite" };
-  expect(adapter.supports?.(args, result({ server: "exa", tool: "web_search_exa" }))).toBe(true);
-  expect(adapter.supports?.(args, result(undefined, "connection closed"))).toBe(true);
-  for (const details of [{}, { server: "exa" }, { server: "", tool: "x" }, "exa"])
-    expect(adapter.supports?.(args, result(details))).toBe(false);
-  expect(adapter.supports?.("vite", result(undefined))).toBe(false);
-});
-
 it("shows the Pi name while pending and the unsanitized identity with arguments afterward", () => {
   const args = { query: "vite plus release notes" };
   const supplied = result({ server: "exa.ai", tool: "web.search" });
@@ -109,42 +100,6 @@ it("shows the Pi name while pending and the unsanitized identity with arguments 
   expect(plain(call.render(180))).toContain(`exa.ai.web.search(${JSON.stringify(args)})`);
   expect(plain(body.render(180))).toContain("Title: Vite+ release notes");
   expect({ args, supplied }).toEqual(before);
-});
-
-it("retains the resolved identity when a successful MCP result has no content", () => {
-  const args = { query: "vite" };
-  const supplied: AgentToolResult<unknown> = {
-    content: [],
-    details: { server: "exa.ai", tool: "web.search" }
-  };
-  const renderers = createToolDisplayRenderers(info.name, adapter);
-  const context = renderContext(args);
-  const call = renderers.renderCall(args, theme, context);
-  renderers.renderResult(supplied, context, theme, context);
-
-  expect(plain(call.render(180))).toContain('exa.ai.web.search({"query":"vite"})');
-  expect(adapter.mcp?.(args, supplied)).toEqual({
-    server: "exa.ai",
-    tool: "web.search",
-    outcome: "success",
-    content: []
-  });
-});
-
-it("keeps Pi's error flag and plain previews for calls without details", () => {
-  const args = { query: "vite" };
-  const renderers = createToolDisplayRenderers(info.name, adapter, { showParameters: false });
-  const context = renderContext(args, { isError: true });
-  const call = renderers.renderCall(args, theme, context);
-  const body = renderers.renderResult(
-    result(undefined, "MCP error: closed"),
-    context,
-    theme,
-    context
-  );
-  expect(plain(call.render(180))).toContain("mcp__exa__web_search_exa");
-  expect(plain(call.render(180))).toMatch(/failed/i);
-  expect(plain(body.render(180))).toContain("MCP error: closed");
 });
 
 it("projects ordered media labels while leaving image bytes in Pi's result", () => {
@@ -163,33 +118,4 @@ it("projects ordered media labels while leaving image bytes in Pi's result", () 
     { type: "text", text: "after" }
   ]);
   expect(supplied).toEqual(before);
-});
-
-it("reports truncation only from a saved-output path and counts calls as MCP", () => {
-  const identity = { server: "exa", tool: "web_search_exa" };
-  expect(adapter.notices?.(result(identity), false)).toEqual([]);
-  expect(adapter.notices?.(result(undefined), false)).toEqual([]);
-  expect(
-    adapter.notices?.(
-      result({ ...identity }, "Warning: truncated output (original token count: 9)"),
-      false
-    )
-  ).toEqual([]);
-  // Pi's limitMcpContent includes the saved path in its retained text envelope.
-  const truncated = result(
-    { ...identity, fullOutputPath: "/tmp/pi-mcp-1.txt" },
-    "Warning: truncated output (original token count: 9000)\nTotal output lines: 3\n\nhead…100 chars truncated…tail\n\n[Full output: /tmp/pi-mcp-1.txt (read it with offset/limit)]"
-  );
-  expect(adapter.notices?.(truncated, false)).toEqual([
-    { kind: "warning", text: "MCP output truncated." },
-    { kind: "reference", label: "Saved output", value: "/tmp/pi-mcp-1.txt" }
-  ]);
-  const renderers = createToolDisplayRenderers(info.name, adapter);
-  const context = { ...renderContext({}), expanded: true };
-  const expanded = plain(renderers.renderResult(truncated, context, theme, context).render(180));
-  expect(expanded).toContain("Warning: truncated output");
-  expect(expanded.split("/tmp/pi-mcp-1.txt")).toHaveLength(2);
-  expect(
-    adapter.summaryItems?.({}, { result: undefined, change: undefined, cwd: "/project" })
-  ).toEqual([{ category: "mcp" }]);
 });

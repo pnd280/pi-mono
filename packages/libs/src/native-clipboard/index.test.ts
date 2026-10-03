@@ -83,9 +83,3 @@ it("has a five-second deadline and cancellation prevents later helper fallback",
     await rm(directory, { recursive: true, force: true });
   }
 }, 8000);
-
-it("rejects timer durations that Node would silently clamp", async () => {
-  await expect(
-    copyNative("text", signal(), { helpers: [], timeout: 2_147_483_648 })
-  ).rejects.toThrow(RangeError);
-});

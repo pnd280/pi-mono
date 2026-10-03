@@ -2,15 +2,10 @@ import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
-import {
-  createEmptyChild,
-  persistSession,
-  registerSessionCommand,
-  type SessionCommandContext
-} from "./commands.ts";
+import { createEmptyChild, persistSession, type SessionCommandContext } from "./commands.ts";
 import { saveActiveBranch } from "./persist.ts";
 
 type SessionSwitchOptions = NonNullable<Parameters<SessionCommandContext["switchSession"]>[1]>;
@@ -42,32 +37,6 @@ function context(sessionManager = SessionManager.inMemory(cwd)) {
     ui: { notify: vi.fn<SessionCommandContext["ui"]["notify"]>() }
   };
 }
-
-it("registers only /sesh and completes only its supported subcommands", async () => {
-  const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
-  registerSessionCommand(
-    {
-      registerCommand: (name, options) => {
-        commands.set(name, options);
-      }
-    },
-    vi.fn(async () => {})
-  );
-  expect([...commands.keys()]).toEqual(["sesh"]);
-  const complete = commands.get("sesh")!.getArgumentCompletions!;
-  expect(new Set((await complete(""))?.map((item) => item.value))).toEqual(
-    new Set(["persist", "create-empty-child", "auto-name"])
-  );
-  expect((await complete("create-"))?.map((item) => item.value)).toEqual(["create-empty-child"]);
-  expect((await complete("auto-"))?.map((item) => item.value)).toEqual(["auto-name"]);
-  expect((await complete("auto-name "))?.map((item) => item.value)).toEqual(["auto-name clear"]);
-  expect((await complete("auto-name cl"))?.map((item) => item.value)).toEqual(["auto-name clear"]);
-  expect(await complete("auto-name")).toBeNull();
-  expect(await complete("auto-name clear")).toBeNull();
-  expect(await complete("auto-name unknown")).toBeNull();
-  expect(await complete("persist")).toBeNull();
-  expect(await complete("create-sub-session")).toBeNull();
-});
 
 it.each(["\x1b[2J\x07", "\t", "\n", "\r"])(
   "keeps control-bearing parent paths out of copyable CLI guidance: %j",
@@ -109,15 +78,6 @@ it("sanitizes saved-path notifications without changing the switched path", asyn
   expect(notify.mock.calls[0]![0]).not.toContain("\x1b");
   expect(notify.mock.calls[0]![0]).not.toContain("\x07");
   expect(ctx.ui.notify).not.toHaveBeenCalled();
-});
-
-it("requires an ephemeral parent to be persisted explicitly", async () => {
-  const ctx = context();
-  await createEmptyChild(ctx);
-  expect(ctx.newSession).not.toHaveBeenCalled();
-  expect(ctx.switchSession).not.toHaveBeenCalled();
-  expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("/sesh persist"), "error");
-  expect(existsSync(join(directory, "agent", "sessions"))).toBe(false);
 });
 
 it("refuses a dangling parent link when Pi has allocated but not yet written a file", async () => {

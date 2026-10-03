@@ -21,4 +21,4 @@ Mounting a browser needs Pi presentation, remount survival, and post-closure eff
 
 ## Validation
 
-Use the [package checks](../../../README.md#validation). [Host tests](index.test.ts) cover paging, remounts, cancellation, and editor snapshot ordering; focus routing is tested in [responsive custom UI](../responsive-custom-ui/README.md#validation).
+Use the [package checks](../../../README.md#validation). [Host tests](index.test.ts) cover paging, remounts, and cancellation; focus routing is tested in [responsive custom UI](../responsive-custom-ui/README.md#validation). [Working-message command tests](../../working-message/command.test.ts) cover installed-host editor restoration.

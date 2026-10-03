@@ -10,24 +10,35 @@ Compaction requests must preserve credential isolation, session ownership, and t
 
 ### Model and credential isolation
 
-- No model or thinking override ever changes the conversation model or its thinking level.
-- A configured model uses its own provider authentication: key, headers, environment, and base URL.
-- Failures to look up, authenticate, or generate with the selected model never fall back to the active model.
-- Focus and model routing never leak into a concurrent operation with a different abort signal.
-
-### Session isolation and cleanup
-
-- Requests are isolated per session. Settlement, disposal, or abort never carries a request into another run.
-- Temporary summarizer, event, and stream wrappers deactivate after every outcome.
-- Cleanup restores original identity and property ownership only for hooks the extension still owns.
-- The shared boundary is restored after its last owner exits, unless another patch has replaced it. It rejects unsupported implementations and conflicting ownership.
-- Event listeners for outcomes are released on every exit. Disposing a binding during an attempt prevents late outcome publication.
+- Configured summary requests use the selected provider's key, headers, environment, and base URL rather than carrying over conversation-provider credentials.
+- A failed model lookup, authentication, or summary generation does not fall back to the conversation model.
+- Summary model and thinking overrides leave the conversation model and its thinking level unchanged.
+- An operation with a different abort signal receives neither the owning compaction's focus nor its model and thinking overrides.
 
 ### Failure and abort
 
-- A reported failure or cancellation of a requested compaction leaves the old context intact.
-- An actual abort prevents another request to the main model.
-- Unexpected native exceptions propagate, without a status message.
+- A requested compaction reported as failed or cancelled before native persistence preserves the existing conversation context, apart from its outcome status.
+- Cancelling a requested compaction without aborting the agent run allows continuation with a cancellation status.
+- Aborting the whole agent run prevents a further conversation-model request.
+- An unexpected native exception propagates without an extension outcome status.
+
+These guarantees do not undo Pi's earlier overflow-recovery edits or make metadata and compaction writes atomic; see the [compatibility limits](pi-compatibility.md#limitations).
+
+### Session isolation and cleanup
+
+- A pending request can be consumed only by its owning session.
+- A consumed request is not retried at a later boundary, including after a skip, cancellation, failure, or exception.
+- Settlement, binding disposal, or an abort detected before the boundary discards the pending request.
+- Session replacement and reload dispose the old binding before binding the new session state.
+- Temporary summarisation, event, and stream overrides stop applying when their scoped attempt exits, including on errors.
+- Cleanup restores the original function and property ownership only where the extension still owns the hook.
+- Cleanup leaves later replacements by other extensions in place.
+- Disposing one binding leaves other bound sessions' native routing active.
+- Disposing the last binding restores the shared native hooks when all are still owned by this extension.
+- Binding rejects unsupported Pi versions, unreviewed native implementations, and detected conflicting boundary replacements without overwriting them.
+- A failed binding installation rolls back hooks already installed by that attempt.
+- Outcome listeners are released when the native attempt exits, including on exceptions.
+- Disposing a binding during an attempt prevents late outcome status publication.
 
 ## Tools
 
@@ -156,21 +167,21 @@ Edge cases:
 
 ## Where each layer is tested
 
-| Layer                        | Covers                                                                                                                                                                                                                                                                                                                                                            |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Configuration and unit tests | Bounded settings reads limited to trusted scopes, instruction-file resolution, inheritance and reload, one-shot request isolation, aborts, swallowed preparation errors, and hook ownership. Invalid configuration fails closed without changing native compaction.                                                                                               |
-| CLI subprocess tests         | Run against the installed CLI. Provider requests, event order, next-response context, and reopened session files. Credential and header isolation, retries and timeouts, split-turn and history focus, cancellation and failure, metadata placement, no redundant success notice, and saved non-success status, in text and JSON modes.                           |
-| Real API and SDK host        | API fingerprints, `context_window` usage, session replacement and reload, model switches, selected-provider routing, and reentrant requests. Native entry points tell manual, threshold, overflow, and tool requests apart. Hook cancellation and custom summaries, output caps, restoration after every outcome, and native selection when settings are removed. |
-| Print-mode SDK policy tests  | Real model-issued tool exposure and asynchronous virtual routing, using a small session fixture without a terminal, theme, viewport, or interactive runtime. The fixture isolates credentials and settings, emits shutdown, disposes the session, and restores its environment.                                                                                   |
-| Footer tests                 | Counts from committed branch entries, and cleanup across navigation, reload, and shutdown.                                                                                                                                                                                                                                                                        |
-| Renderer tests               | Malformed metadata and terminal-control safety.                                                                                                                                                                                                                                                                                                                   |
+| Layer                          | Covers                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Filesystem configuration tests | Bounded settings reads limited to trusted scopes, instruction-file resolution, inheritance and reload. Invalid configuration fails closed without changing native compaction.                                                                                                                                                                                     |
+| Native unit tests              | One-shot session-owned requests, pending-request cleanup, exception propagation without outcome status, listener release, binding disposal, fail-closed compatibility checks, installation rollback, and hook ownership.                                                                                                                                          |
+| CLI subprocess tests           | Run against the installed CLI. Provider requests, event order, next-response context, and reopened session files. Credential and header isolation, retries and timeouts, split-turn and history focus, cancellation and failure, metadata placement, no redundant success notice, and saved non-success status, in text and JSON modes.                           |
+| Real API and SDK host          | API fingerprints, `context_window` usage, session replacement and reload, model switches, selected-provider routing, and reentrant requests. Native entry points tell manual, threshold, overflow, and tool requests apart. Hook cancellation and custom summaries, output caps, restoration after every outcome, and native selection when settings are removed. |
+| Print-mode SDK policy tests    | Real model-issued tool exposure and asynchronous virtual routing, using a small session fixture without a terminal, theme, viewport, or interactive runtime. The fixture isolates credentials and settings, emits shutdown, disposes the session, and restores its environment.                                                                                   |
+| Footer tests                   | Counts from committed branch entries, and cleanup across navigation, reload, and shutdown.                                                                                                                                                                                                                                                                        |
 
 Use offline providers and disposable workspaces in the system temporary directory. Never depend on personal settings, credentials, or network calls to providers.
 
 ## Not covered automatically
 
 - Tests show that prompts and lifecycle are handled, not that a real model follows the instructions.
-- Footer and renderer tests do not establish RPC display or terminal appearance.
+- Footer host tests do not establish RPC display or terminal appearance. Metadata rendering has no automated coverage.
 - Print-mode SDK policy tests do not exercise interactive mounting or UI transport. Footer status has its own tests.
 - Automatic routing tests call native entry points directly. They do not exercise threshold detection or the full overflow retry scheduler.
 - Pi owns summarisation and provider behaviour. Tests protect this extension's boundaries rather than duplicating native coverage.

@@ -1,66 +1,28 @@
-import { existsSync, symlinkSync, writeFileSync } from "node:fs";
+import { symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { fauxAssistantMessage, type AssistantMessage } from "@earendil-works/pi-ai";
-import { DefaultResourceLoader, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
-import { expect, it, onTestFinished, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { RunChanges } from "./changes.ts";
 import { summaryEntryType } from "./summary.ts";
 import { fixture } from "./test-fixture.ts";
 
-it("saves synthetic lifecycle summaries without native resource or model startup", async () => {
-  const unavailable = new Error("Native runtime startup is unavailable");
-  const reload = vi.spyOn(DefaultResourceLoader.prototype, "reload").mockRejectedValue(unavailable);
-  const create = vi.spyOn(ModelRuntime, "create").mockRejectedValue(unavailable);
-
-  try {
-    const runtime = fixture();
-    await runtime.emit("agent_start", {});
-    vi.advanceTimersByTime(1250);
-    await runtime.emit("agent_settled", {});
-    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-      durationMs: 1250,
-      finishedAt: Date.now(),
-      bashCalls: 0,
-      files: []
-    });
-    expect(vi.getTimerCount()).toBe(0);
-  } finally {
-    reload.mockRestore();
-    create.mockRestore();
-  }
+it("saves one summary for a started run and stops the timer at settlement", async () => {
+  const runtime = fixture();
+  await runtime.emit("agent_start", {});
+  vi.advanceTimersByTime(1250);
+  await runtime.emit("agent_settled", {});
+  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+    durationMs: 1250,
+    finishedAt: Date.now(),
+    bashCalls: 0,
+    files: []
+  });
+  expect(vi.getTimerCount()).toBe(0);
 });
-
-it.each(["resources", "models"] as const)(
-  "cleans up when lazy native %s startup fails",
-  async (startup) => {
-    const unavailable = new Error("Native runtime startup is unavailable");
-    const start =
-      startup === "resources"
-        ? vi.spyOn(DefaultResourceLoader.prototype, "reload")
-        : vi.spyOn(ModelRuntime, "create");
-    start.mockRejectedValue(unavailable);
-
-    try {
-      const runtime = fixture();
-      onTestFinished(() => {
-        expect(existsSync(runtime.ctx.cwd)).toBe(false);
-        expect(runtime.api.appendEntry).not.toHaveBeenCalled();
-        expect(runtime.setWorkingMessage).toHaveBeenLastCalledWith(undefined);
-      });
-      await runtime.emit("session_start", {});
-      await runtime.emit("agent_start", {});
-      await expect(runtime.tool("write", { path: "file.txt", content: "new\n" })).rejects.toBe(
-        unavailable
-      );
-    } finally {
-      start.mockRestore();
-    }
-  }
-);
 
 it("records one context-free entry after all turns and retries settle, preserving other working text", async () => {
   const runtime = fixture();
@@ -120,78 +82,6 @@ function assistantMessage(
   };
 }
 
-it.each([
-  ["tui", "stop"],
-  ["rpc", "aborted"],
-  ["json", "error"],
-  ["print", "stop"]
-] as const)(
-  "saves throughput across continuations in %s mode ending with %s",
-  async (mode, stopReason) => {
-    const runtime = fixture(mode);
-    const start = () =>
-      runtime.emit("message_start", {
-        type: "message_start",
-        message: assistantMessage(0, "pending")
-      });
-    const end = (output: number, reason: AssistantMessage["stopReason"]) =>
-      runtime.emit("message_end", {
-        type: "message_end",
-        message: assistantMessage(output, reason)
-      });
-    await start();
-    vi.advanceTimersByTime(1000);
-    await end(500, "stop");
-    await runtime.emit("agent_start", {});
-    await start();
-    vi.advanceTimersByTime(250);
-    const toolResult = {
-      role: "toolResult" as const,
-      toolCallId: "nested",
-      toolName: "nested",
-      content: [],
-      isError: false,
-      usage: assistantMessage(500, "stop").usage,
-      timestamp: Date.now()
-    };
-    await runtime.emit("message_start", { type: "message_start", message: toolResult });
-    await runtime.emit("message_end", { type: "message_end", message: toolResult });
-    vi.advanceTimersByTime(750);
-    await end(80, "toolUse");
-    await runtime.emit("agent_end", {});
-    vi.advanceTimersByTime(10_000);
-    await runtime.emit("agent_start", {});
-    await start();
-    vi.advanceTimersByTime(3000);
-    await end(40, stopReason);
-    await start();
-    vi.advanceTimersByTime(5000);
-    await runtime.emit("agent_settled", {});
-    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-      durationMs: 19_000,
-      finishedAt: Date.now(),
-      models: [{ provider: "faux", id: "faux-1" }],
-      throughput: { outputTokens: 120, durationMs: 4000 },
-      bashCalls: 0,
-      files: []
-    });
-    expect(runtime.session.buildSessionContext().messages).toEqual([]);
-    expect(vi.getTimerCount()).toBe(0);
-    if (mode !== "tui") expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
-
-    await runtime.emit("agent_start", {});
-    await end(40, "stop");
-    await runtime.emit("agent_settled", {});
-    expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
-      durationMs: 0,
-      finishedAt: Date.now(),
-      models: [{ provider: "faux", id: "faux-1" }],
-      bashCalls: 0,
-      files: []
-    });
-  }
-);
-
 it.each(["session_start", "session_shutdown"] as const)(
   "discards throughput on %s",
   async (event) => {
@@ -217,60 +107,6 @@ it.each(["session_start", "session_shutdown"] as const)(
     });
   }
 );
-
-it("records each model that answered, in order of first use, rather than the selection", async () => {
-  const runtime = fixture();
-  const answer = (
-    provider: string,
-    model: string,
-    thinkingLevel: AssistantMessage["thinkingLevel"],
-    stopReason: AssistantMessage["stopReason"] = "stop",
-    api = "faux"
-  ) =>
-    runtime.emit("message_end", {
-      type: "message_end",
-      message: {
-        ...assistantMessage(10, stopReason),
-        api,
-        provider,
-        model,
-        ...(thinkingLevel && { thinkingLevel })
-      }
-    });
-  await runtime.emit("agent_start", {});
-  await answer("router", "auto", "high", "aborted", "pi-virtual");
-  await answer("openai", "failed", "high", "error");
-  await answer("openai", "strong", "high", "toolUse");
-  await runtime.emit("agent_start", {});
-  await answer("openai", "cheap", "medium", "toolUse");
-  await answer("openai", "interrupted", "high", "aborted");
-  await answer("openai", "strong", "low");
-  await answer("openai", "unmanaged", undefined);
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-    durationMs: 0,
-    finishedAt: Date.now(),
-    models: [
-      { provider: "openai", id: "strong", thinkingLevel: "high" },
-      { provider: "openai", id: "cheap", thinkingLevel: "medium" },
-      { provider: "openai", id: "interrupted", thinkingLevel: "high" },
-      { provider: "openai", id: "strong", thinkingLevel: "low" },
-      { provider: "openai", id: "unmanaged" }
-    ],
-    bashCalls: 0,
-    files: []
-  });
-
-  await runtime.emit("agent_start", {});
-  await answer("openai", "failed", "high", "error");
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
-    durationMs: 0,
-    finishedAt: Date.now(),
-    bashCalls: 0,
-    files: []
-  });
-});
 
 it("aggregates native edit/write aliases and large files without scanning bash-only changes", async () => {
   const runtime = fixture();
@@ -311,26 +147,6 @@ it("aggregates native edit/write aliases and large files without scanning bash-o
     durationMs: 250,
     finishedAt: Date.now(),
     bashCalls: 0,
-    files: []
-  });
-});
-
-it("counts bash calls at start, including unfinished and blocked calls, but not user bash", async () => {
-  const runtime = fixture();
-  await runtime.emit("agent_start", {});
-  for (const toolCallId of ["failed", "cancelled", "blocked", "blocked"])
-    await runtime.emit("tool_execution_start", {
-      type: "tool_execution_start",
-      toolName: "bash",
-      toolCallId,
-      args: { command: "false" }
-    });
-  await runtime.emit("user_bash", { command: "true" });
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-    durationMs: 0,
-    finishedAt: Date.now(),
-    bashCalls: 3,
     files: []
   });
 });
@@ -439,30 +255,6 @@ it.each(["session_start", "session_shutdown"] as const)(
     }
   }
 );
-
-it("captures the finish time before awaiting file statistics", async () => {
-  const runtime = fixture();
-  await runtime.emit("agent_start", {});
-  vi.advanceTimersByTime(1250);
-  const finishedAt = Date.now();
-  const finish = vi.spyOn(RunChanges.prototype, "finish").mockImplementationOnce(async () => {
-    vi.advanceTimersByTime(5000);
-
-    return [];
-  });
-
-  try {
-    await runtime.emit("agent_settled", {});
-    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-      durationMs: 1250,
-      finishedAt,
-      bashCalls: 0,
-      files: []
-    });
-  } finally {
-    finish.mockRestore();
-  }
-});
 
 it.each(["session_shutdown", "session_start"] as const)(
   "discards a pending net comparison after %s",

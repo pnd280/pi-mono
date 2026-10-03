@@ -14,14 +14,10 @@ export const recordedAt = "2026-01-01T12:00:00.000Z";
 
 /** Fixed boundaries from docs/storage.md, independent of the production limit declarations. */
 export const documentedLimits = {
-  historyText: 64 * 1024,
-  historyFile: 8 * 1024 * 1024,
   draftText: 256 * 1024,
   draftCount: 1000,
   draftFile: 16 * 1024 * 1024,
-  read: 64 * 1024 * 1024,
-  recoveryCount: 5000,
-  recoveryRecord: 8 * 1024 * 1024
+  read: 64 * 1024 * 1024
 } as const;
 
 export function entry(text: string, extra: Record<string, unknown> = {}): StoredEntry {
@@ -84,12 +80,5 @@ export function managerFixture(overrides: Partial<ManagerPorts> = {}) {
     ...overrides
   });
 
-  return {
-    manager,
-    notices,
-    getText: () => text,
-    setText: (next: string) => {
-      text = next;
-    }
-  };
+  return { manager, notices };
 }

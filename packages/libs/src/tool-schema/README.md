@@ -6,7 +6,7 @@
 
 [`toToolSchema`](index.ts) (`@pi-mono/libs/tool-schema`) projects a Zod input schema into Pi's TypeBox parameters. It preserves the input TypeScript type, including optional and nullable fields, and can be composed inside `Type.Object` and `Type.Optional`.
 
-The adapter uses one deliberately limited compatibility profile, not a universal provider schema standard. It omits integer bounds (including Zod's automatic safe-integer bounds) because some providers reject them, and excludes hidden runtime metadata. Unsupported keywords, constrained record keys, and recursion fail tool construction rather than silently broadening inputs. Consult the [projection implementation](index.ts) and [schema tests](index.test.ts) for the exact supported keyword set. Explicit integer bounds require a nonempty description on the bounded schema, field, or containing nullable, array, or record schema.
+The adapter uses one deliberately limited compatibility profile, not a universal provider schema standard. It omits integer bounds (including Zod's automatic safe-integer bounds) because some providers reject them, and excludes hidden runtime metadata. Unsupported keywords, constrained record keys, and recursion fail tool construction rather than silently broadening inputs. Consult the [projection implementation](index.ts) for the exact supported keyword set. Explicit integer bounds require a nonempty description on the bounded schema, field, or containing nullable, array, or record schema.
 
 Refinements and transforms still belong to runtime parsing; the tool schema does not execute them. Extend the profile only after checking the provider boundary and adding coverage.
 

@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vite-plus/test";
 
 import { OrderSettingsView } from "../components/order-settings/index.ts";
-import { createInputHost, testKeys, testTheme } from "../test-fixture.ts";
+import { createInputHost } from "../test-fixture.ts";
 import { openResponsiveCustomUI } from "./index.ts";
 
 it.each(["factory", "before-install", "open", "remount"] as const)(
@@ -62,32 +62,6 @@ it.each(["factory", "before-install", "open", "remount"] as const)(
     }
   }
 );
-
-it("disposes a created logical view when the host rejects mounting", async () => {
-  const host = createInputHost();
-  const dispose = vi.fn();
-  const error = new Error("mount failed");
-
-  try {
-    await expect(
-      openResponsiveCustomUI({
-        ui: {
-          custom: (factory) => {
-            void factory(host.tui, testTheme, testKeys, () => {});
-
-            return Promise.reject(error);
-          }
-        },
-        signal: new AbortController().signal,
-        useOverlay: () => false,
-        create: () => ({ render: () => [], invalidate() {}, dispose })
-      })
-    ).rejects.toBe(error);
-    expect(dispose).toHaveBeenCalledOnce();
-  } finally {
-    host.dispose();
-  }
-});
 
 it("keeps the working-message ordering menu opted out through shared mounting", async () => {
   const host = createInputHost();

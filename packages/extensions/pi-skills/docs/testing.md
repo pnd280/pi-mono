@@ -2,17 +2,21 @@
 
 [Package](../README.md) · [Shared testing policy](../../../../docs/agents/testing.md)
 
-Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). This package tests the complete input-expansion and configuration interfaces, and how its provider composes with Pi's.
+Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). Unit coverage is limited to the native-insertion guard, borrowed completion-item identity, and current-catalogue lookup risks listed below. Filesystem settings, installed-host input and reload, and real-editor routing suites retain integration coverage.
 
 ## Must not regress
 
-- Leading references stay literal and never trigger Pi's native insertion of the skill's contents, including custom formats that start with the command.
-- Accepting with **Enter** in the real editor never submits.
+- A project format overrides the global format only when it is valid and comes from the trusted current directory, not an ancestor.
+- Leading registered skill references returned by the input hook do not trigger Pi's native skill-content insertion under its literal-space command parsing, including existing references and custom formats starting with `{command}`.
+- Pressing **Enter** to accept an open skill suggestion in the real editor inserts the completion without submitting the prompt.
+- Completion items borrowed from another provider are accepted by that provider even when their text matches a skill suggestion.
+- After `/reload`, subsequent input expansion uses the updated format and currently registered skill paths.
+- After `/reload`, skill completion offers newly registered skills rather than removed ones.
 
 ## Expansion
 
 - Exact, whitespace-separated registered commands are expanded using their paths as registered and the configured format.
-- The expansion interface accepts the current command catalogue and returns ready-to-submit text, including the leading-command guard using Pi's literal-space parsing.
+- The expansion interface accepts the current command catalogue and returns ready-to-submit text.
 - Colliding skill commands still expand, while records from other command sources are ignored.
 - Unmatched text is kept.
 - Inserted or previously expanded references are never scanned again, including references whose prefixes overlap.
@@ -20,16 +24,13 @@ Shared algorithms are tested in libs and utils; see the [workspace ownership rul
 
 ## Configuration
 
-- A format from the trusted current project overrides the global format.
 - Invalid formats and files fall back safely.
 - Each scope is validated independently, rejecting unknown section keys and falling back when its optional format is absent.
-- Reload refreshes the configuration and the registered resources.
 
 ## Completion
 
 - Native autocomplete order and metadata are kept.
 - Command names shared with other sources are excluded.
-- Items owned by this extension are recognised by object identity; borrowed items are never claimed.
 - Accepting replaces the whole token around the cursor, keeps surrounding separators and lines, and leaves the cursor after the inserted space.
 - Cursor-token eligibility is exercised through suggestions, file gating, and acceptance, including a cursor immediately after `/skill:` and unrelated attached text.
 - Unrelated completion is passed through unchanged. Aborted asynchronous results are discarded.

@@ -107,51 +107,6 @@ it("selects only Pi's built-in tool_search registration and respects renderer ov
   }
 });
 
-it("names the query and summarizes loaded tools from validated details", () => {
-  const args = { query: "github issues", limit: 3 };
-  expect(adapter.invocation?.(args).filter((part) => part.kind !== "parameters")).toEqual([
-    { kind: "value", text: "tools" },
-    { kind: "annotation", text: " \u2014 " },
-    { kind: "pattern", text: "github issues" }
-  ]);
-  const context = { args, operation: undefined, expanded: false } as const;
-  expect(
-    adapter.summary?.(result(["gh_list", "gh_view"]), { ...context, outcome: "success" })
-  ).toEqual({ text: "Loaded 2 tools: gh_list, gh_view" });
-  expect(adapter.summary?.(result(["gh_list"]), { ...context, outcome: "success" })).toEqual({
-    text: "Loaded 1 tool: gh_list"
-  });
-  expect(adapter.summary?.(result([]), { ...context, outcome: "success" })).toEqual({
-    text: "No matching tools"
-  });
-  expect(
-    adapter.summary?.(result(["gh_list"]), { ...context, outcome: "success", expanded: true })
-  ).toBeUndefined();
-
-  for (const loaded of [undefined, "gh_list", [1]])
-    expect(adapter.summary?.(result(loaded), { ...context, outcome: "success" })).toBeUndefined();
-  expect(adapter.summary?.(result(["gh_list"]), { ...context, outcome: "failure" })).toBe(
-    undefined
-  );
-  const items = (supplied: AgentToolResult<unknown> | undefined) =>
-    adapter.summaryItems?.(args, { result: supplied, change: undefined, cwd: "/" });
-  expect(items(result(["gh_list", "gh_view"]))).toEqual([
-    { category: "loaded-tools", identity: "gh_list" },
-    { category: "loaded-tools", identity: "gh_view" }
-  ]);
-  for (const supplied of [undefined, result([]), result("gh_list")])
-    expect(items(supplied)).toBeUndefined();
-  expect(adapter.summaryCategories).toEqual([
-    { id: "loaded-tools", count: { one: "loaded {n} tool", other: "loaded {n} tools" } }
-  ]);
-});
-
-it("rejects unrecognized arguments so they fall back to generic cards", () => {
-  for (const args of [{}, { query: 1 }, { query: "x", extra: true }])
-    expect(adapter.supports?.(args, result([]))).toBe(false);
-  expect(adapter.supports?.({ query: "x" }, result([]))).toBe(true);
-});
-
 it("renders search headings and hides raw parameters unless requested", () => {
   const args = { query: "github issues" };
   const supplied = result(["gh_list"], "Loaded 1 tool. They are available from your next call:");

@@ -6,10 +6,12 @@ Shared algorithms are tested in libs and utils; see the [workspace ownership rul
 
 ## Must not regress
 
-- Different explicit `--append-system-prompt` text, and earlier edits by other extensions, survive. Replacement happens only when the current append text equals the loaded base text. Identical text can't be told apart from the base.
-- Project settings are always ignored, and untrusted projects contribute no base file.
-- Validation warnings never echo settings content.
-- File warnings identify paths without terminal control sequences.
+- Project settings do not supply or override model-prompt rules, even in trusted projects.
+- An untrusted project's `APPEND_SYSTEM.md` is excluded from base discovery, but globally configured files may still be read from that project.
+- The extension leaves `systemPromptOptions.appendSystemPrompt` unchanged when it differs from the loaded base text, including text from `--append-system-prompt` or an earlier extension.
+- Explicit append text identical to the loaded base remains eligible for replacement because its source cannot be distinguished.
+- Settings-validation warnings do not echo supplied keys or values.
+- File warnings sent to `ctx.ui.notify` identify the affected path as plain text with terminal control sequences removed.
 
 ## Rules
 
@@ -38,12 +40,10 @@ Shared algorithms are tested in libs and utils; see the [workspace ownership rul
 
 ## Where each layer is tested
 
-| Suite                                           | Covers                                                                                                                                                                                                                               |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [Session snapshot](../src/model-prompt.test.ts) | Rule parsing, path resolution, base discovery, ordered replacements, warning order and deduplication, and a timed subprocess that checks FIFOs are rejected. All scenarios use the snapshot's loader and `replacementFor` interface. |
-| [Host](../src/index.test.ts)                    | Event wiring, trust, model switching, CLI and earlier-extension append text, and reload, using Pi's faux provider and transcript replay helper.                                                                                      |
+- [Session snapshot](../src/model-prompt.test.ts) covers settings-warning privacy and differing-append protection, plus real filesystem checks for path resolution, base discovery, byte-order marks, read failures, warning order and deduplication, and a timed subprocess that checks FIFOs are rejected.
+- [Host](../src/index.test.ts) covers event wiring, trust, model switching, CLI and earlier-extension append text, and reload, using real Pi sessions and a faux provider.
 
-The 4096-character path acceptance case asserts the complete unreadable-file warning, because a real filesystem cannot open that path. This distinguishes schema acceptance from an invalid-rule warning without exposing the parser or injecting a filesystem.
+Unit coverage is limited to the listed must-not-regress invariants; rule-selection, schema-limit, and general joining policy cases are not retained. Real filesystem, subprocess, and host integration coverage remains.
 
 ## Not covered here
 

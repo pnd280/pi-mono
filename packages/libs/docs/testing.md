@@ -2,15 +2,25 @@
 
 [Package](../README.md) · [Shared testing policy](../../../docs/agents/testing.md)
 
-For maintainers: this package tests reusable algorithms and protocols, including cooperative search and its internal ranking. Other pure helpers are tested in [utils](../../utils/docs/testing.md), and features in their extensions; see the [workspace ownership rules](../../../docs/agents/testing.md#ownership).
+For maintainers: this guide describes reusable algorithms and protocols. Other pure helpers belong in [utils](../../utils/docs/testing.md), and features in their extensions; see the [workspace ownership rules](../../../docs/agents/testing.md#ownership).
+
+Unit coverage is limited to the Must not regress invariants below. The remaining sections describe contracts, not a unit-coverage inventory; genuine filesystem, process, and installed-host integration checks are retained.
 
 ## Must not regress
 
-- **Private files.** Ownership is enforced. Unsafe links and file types are rejected before permissions or ACLs are repaired.
-- **Locks.** Locks are never stolen. Transactions lock before reading the current bytes.
-- **Settings.** Updates keep unrelated JSON keys, settings symlinks, and mode bits, and never write a malformed or oversized file.
-- **Terminal output.** Sanitised and highlighted text never emits terminal commands.
-- **Hook ownership.** Native hooks restore only replacements they own, and disposed consumers cannot affect surviving ones.
+- Under caller-established trusted parents, private-file access rejects foreign ownership before repairing permissions or ACLs.
+- Private-file access rejects final-path symlinks, hard-linked files, and nonregular files without changing their permissions or contents.
+- Private-file lock acquisition does not reclaim an existing lock, regardless of its age or the owning process's liveness.
+- Private-file transactions acquire the data path's lock before reading the bytes supplied to the update callback.
+- Settings updates preserve JSON keys that the synchronous mutator leaves untouched, including `__proto__` and `constructor`.
+- Settings updates follow an existing symlink without replacing the link itself.
+- On POSIX filesystems, settings updates preserve existing permission bits even when the writer's umask would mask them.
+- Settings updates refuse malformed input or serialised output above 1 MiB before replacing the file.
+- For complete input snapshots, `displayText` removes terminal escape and control bytes other than normalised whitespace.
+- For complete input snapshots, `styledOutput` retains only SGR styling from source terminal controls.
+- `highlightCodeBounded` returns its input unchanged when language detection or input limits prevent highlighting, so callers must supply display-safe text.
+- Native hook disposal leaves later replacements by other owners intact.
+- Disposing a native-tool or file-mutation subscription prevents further observation callback invocations for that subscription without disabling surviving subscriptions.
 
 ## Model-facing schemas
 
@@ -72,7 +82,7 @@ Observations distinguish complete, missing, changed, invalid, and non-regular so
 - Helpers receive exact UTF-8 on stdin, with no shell interpretation.
 - They use the platform's native selection and fallback, with no OSC 52 fallback.
 - They respect cancellation and deadlines.
-- Platform selection has internal deterministic coverage; process failures, fallback, and complete payload delivery are exercised through `copyNative`.
+- Process failures, fallback, and complete payload delivery are exercised through `copyNative`.
 
 ## Output and diffs
 
@@ -97,7 +107,7 @@ Apply resource bounds without losing source order or labelling source text as ge
 
 - Inspection uses real repository rules, worktrees, tracked exceptions, literal names, and symlink boundaries.
 - Cancellation and deadlines stay distinct from missing or ignored targets.
-- Injected malformed Git responses are rejected independently of the real-repository cases.
+- Malformed Git responses are rejected.
 
 ## Native tool hooks
 

@@ -8,33 +8,43 @@ Tool interpretation, transcript grouping, and rendering must preserve the execut
 
 ### Must not regress
 
-These protect execution, trust, and stored data. A failure here changes tool behaviour or leaks state, not just appearance.
+These invariants protect settings trust, delegated execution, stored data, and ownership across transcript replacement.
 
 Settings trust
 
-- Choose trusted project settings before validation. An invalid untrusted section cannot disable display.
-- An invalid applicable section keeps original tool renderers and turns off native observation.
-- Respect exact-name renderer overrides.
-- Keep custom renderer slots and generic fallbacks, without enabling any tool.
+- Untrusted project settings are excluded before validation, so an invalid untrusted section cannot disable display.
+- An invalid global or trusted project section keeps original tool renderers and disables native observation, even if a later section overrides its values.
+- Renderer overrides match exact tool names, including prototype-like names, before automatic adapter selection.
+- Under automatic selection, tools without a verified adapter keep either supplied renderer slot and receive generic cards only when neither slot exists.
 
 Execution and borrowed data
 
-- Display errors never change an execution outcome.
-- Never mutate borrowed arguments, results, or messages, including during expansion and reused rows.
-- Observe native operations only in interactive TUI sessions.
-- Preserve native settings, middleware results, schemas, active tools, and other observers. Do not repeat native I/O.
+- Failures in observation callbacks or fact persistence do not replace a delegated tool result or error.
+- Borrowed arguments, results, and messages remain unchanged during rendering, expansion, and row reuse.
+- Native observation requires an interactive TUI binding, verified native provenance, and selection of the specialised native adapter.
+- Observed native calls retain their construction settings, including the shell path and command prefix.
+- Display integration preserves tool parameter schemas.
+- Display integration preserves results produced through Pi's middleware.
+- Display integration registers no tools.
+- Display integration leaves the active tool selection unchanged.
+- File mutation observation uses the shared capture rather than rereading targets for display.
 
 Saved history
 
-- Persist bounded operation, cancellation, and patch facts plus saved-output references, outside model context.
-- Enforce the whole-record byte limit, counting unknown fields.
-- Replay never reruns operations, observes mutations again, or animates incomplete history.
+- New `pi-tool-display.facts` entries contain bounded operation, cancellation, patch, and saved-output reference facts rather than result bodies, images, styled text, or live shell previews.
+- Display facts use custom session entries rather than model-context messages.
+- Records exceeding the whole-record byte limit are rejected, including when unknown fields cause the excess.
+- Replay restores matching recorded facts without rerunning tools or observing source mutations again; eligible expanded cards may still read saved output.
+- Historical calls with missing results do not animate as pending live calls.
 
 Reload and disposal
 
-- Reload and removal restore only hooks this extension installed, keep later wrappers, and make old callbacks inert.
-- Pending host-event continuations cannot install assistant hooks after disposal, or take ownership from a replacement transcript binding.
-- Compaction insertion handling follows the current binding.
+- Reload and removal restore only hooks and definitions still owned by this extension, preserving wrappers installed later.
+- Disposing display observation leaves other mutation subscribers active.
+- Retained observation callbacks cannot update calls or persist facts after their display session is disposed.
+- Pending host-event continuations cannot reattach assistant decoration after disposal.
+- Pending host-event continuations cannot take row ownership from a replacement transcript binding.
+- Compaction notices are assigned to the current transcript binding after host handling, including when successful compaction reconstructs the transcript.
 
 ### Interpreting calls
 
@@ -269,14 +279,15 @@ Real host
 
 ## Coverage boundaries
 
+Unit coverage is limited to [Must not regress](#must-not-regress). Other contracts guide real-host, process, filesystem, and manual checks.
+
 Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). This package tests its adapters, display policy, transcript state, its use of Pi's private APIs, and the wiring of shared budgets. Performance assertions bound repeated work instead of requiring a particular internal call sequence.
 
-| Suite               | Covers                                                                                                                                                                          |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Offline provider    | Tool-plan order, streaming and buffered events, continuation from context, explicit unavailable-tool skips. Runs in-process with virtual time instead of real animation delays. |
-| Installed-CLI smoke | Extension loading, native read errors and images, mutation and resume.                                                                                                          |
-| Host and transcript | The resulting display behaviour.                                                                                                                                                |
-| Manual              | The full visual scenario matrix; see [validation](validation.md).                                                                                                               |
+| Suite               | Covers                                                                 |
+| ------------------- | ---------------------------------------------------------------------- |
+| Installed-CLI smoke | Extension loading, native read errors and images, mutation and resume. |
+| Host and transcript | The resulting display behaviour.                                       |
+| Manual              | The full visual scenario matrix; see [validation](validation.md).      |
 
 ## Exclusions
 

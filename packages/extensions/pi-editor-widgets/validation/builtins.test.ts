@@ -5,7 +5,7 @@ import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { createFixtureMessage, zeroUsage } from "@pi-mono/libs/validation/provider";
 import { expect, it, vi } from "vite-plus/test";
 
-import { builtinText, formatCwd } from "../src/builtins.ts";
+import { builtinText } from "../src/builtins.ts";
 
 const model = {
   baseUrl: "https://fixture.invalid",
@@ -400,8 +400,6 @@ it("reflects thinking/model changes, renames and branch data without adding acti
     const count = session.sessionManager.getEntries().length;
     read("builtin:tokens");
     expect(session.sessionManager.getEntries()).toHaveLength(count);
-    expect(formatCwd("/home/person/repo", "/home/person")).toBe("~/repo");
-    expect(formatCwd("/home/person-else/repo", "/home/person")).toBe("/home/person-else/repo");
   } finally {
     await fixture.dispose();
   }

@@ -8,24 +8,28 @@ Shared algorithms are tested in libs and utils; see the [workspace ownership rul
 
 Run [package validation](../README.md#validation). Changes to settings writes also need `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`.
 
-| Layer                                                                               | Covers                                                                                                                                                                    |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Installed-host integration in [validation/](../validation/)                         | Ownership, lifecycle, native metrics, the menu, and commands.                                                                                                             |
-| Tests beside the source                                                             | Pure layout, rendering, settings, and draft navigation through semantic actions and snapshots.                                                                            |
-| [Settings-menu tests](../../../libs/src/tui/components/settings-menu/index.test.ts) | Shared frame sizing, feedback, scope markers, sanitisation, and controls. Widget tests cover only domain navigation, live draft previews, and integration with the frame. |
+| Layer                                                                             | Covers                                                                                                            |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Installed-host integration in [validation/](../validation/)                       | Ownership, lifecycle, native metrics, the menu, and commands.                                                     |
+| Tests beside the source                                                           | Real-filesystem settings checks, plus unit regressions for duplicate removal and nested saved-global inheritance. |
+| [Shared settings frame](../../../libs/src/tui/components/settings-menu/README.md) | Widget tests cover domain navigation, live draft previews, and integration with the frame.                        |
 
 The shared [interactive host fixture](../../../libs/src/validation/interactive-host/README.md) provides installed Pi registration, both renderers, and isolated offline settings. It sends no model requests.
 
 Settings tests here cover widget-section validation, externally unset layouts, scope and trust policy, and consumer handling of malformed files and locks. The shared [settings-file tests](../../../libs/src/settings-file/index.test.ts) own the file-size boundary.
 
-[Drafts](../src/drafts.ts) owns per-scope navigation and selection identity. Its tests cover saved-global inheritance, independent draft baselines after reloads, exact inherited-row rebasing, and duplicate row occurrences. Installed-host menu tests exercise native registration changes through the same navigation interface, including stale input without a render, nested rows, separators, and identical empty rows. Menu callers neither mutate view stacks nor invalidate identity caches.
+[Drafts](../src/drafts.ts) owns per-scope navigation and selection identity. Its unit tests cover removing one copy without hiding remaining placements, exact inherited-row rebasing, missing targets, and duplicate row occurrences. Unit coverage is limited to the listed must-not-regress risks; standalone layout and rendering cases are not retained. Installed-host menu tests exercise native registration changes through the same navigation interface, including stale input without a render, nested rows, separators, and identical empty rows. Menu callers neither mutate view stacks nor invalidate identity caches.
 
 ### Must not regress
 
-- Clicks and opening `/widgets` never write settings. Untrusted project values are ignored.
-- Clicking a usage widget never takes focus, and typing afterwards reaches the editor.
-- Mounted menus restore the saved layout on host cancellation as well as explicit closure, in both renderers. Closing after a global save reapplies the saved project override.
-- Removing one copy leaves the other placements visible, and nested edits stay on the intended row.
+- Untrusted project settings are ignored, and project saves are refused at the settings boundary.
+- Only an explicit **Ctrl+S** save in `/widgets` writes layout settings; opening the menu, previewing edits and clicking usage widgets leave settings files unchanged.
+- Closing a mounted menu explicitly or through host cancellation restores the effective saved layout in both regular and fullscreen modes.
+- Closing after a global save reapplies any saved project layout instead of retaining the global preview.
+- Registration changes do not retarget nested edits to another row, including when input arrives before another render; losing the target returns the menu to the row list without applying the stale input.
+- Updating saved-global inheritance preserves the intended nested row, including duplicate row occurrences, or returns to the row list if that row no longer matches.
+- Removing one copy does not hide the contribution while another placement remains.
+- When the editor has focus, clicking a token or context widget in fullscreen mode keeps subsequent typing in the editor.
 
 ### Token widget
 
@@ -93,7 +97,7 @@ Padding and alignment are kept for:
 
 Separators collapse across empty widgets and never dangle at the end of a wrapped row.
 
-The [image placement policy](../README.md#usage) is tested with native `Image` output for Kitty and iTerm2. Cases cover image-only output, a captioned container, shared-row neighbours, repeated placements, exact payload and blank-row preservation, and whole-widget clipping with matching mouse cells. Capability overrides are restored after each case; no image is sent to a physical terminal.
+Check the [image placement policy](../README.md#usage) manually with native `Image` output for Kitty and iTerm2, including image-only output, a captioned container, shared-row neighbours, repeated placements, exact payload and blank-row preservation, and whole-widget clipping with matching mouse cells. These cases are not covered automatically.
 
 ### Mouse dispatch
 

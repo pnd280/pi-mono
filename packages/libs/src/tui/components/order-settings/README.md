@@ -31,4 +31,4 @@ Use [`OrderSettingsView`](index.ts) to edit item order with independent drafts, 
 
 ## Validation
 
-Use the [library checks](../../../../README.md#validation) and [component tests](index.test.ts) for drafts, inheritance, saving, and constrained layouts.
+Use the [library checks](../../../../README.md#validation); [working-message command tests](../../../working-message/command.test.ts) exercise the editor through the installed host.

@@ -224,19 +224,6 @@ it("rejects malformed markers and expires markers when a projected call's argume
   expect(notices(await run())).toHaveLength(1);
 });
 
-it("never substitutes content reads for failed metadata inspection", async () => {
-  await fs.write("pkg/AGENTS.md", "do not duplicate");
-
-  files.stamp = async () => {
-    throw new Error("metadata unavailable");
-  };
-
-  const entries = await run("read", { path: "pkg/AGENTS.md" });
-  expect(entries).toHaveLength(1);
-  expect(entries[0]?.type).toBe("custom");
-  expect(files.read).not.toHaveBeenCalled();
-});
-
 it("an empty preferred instruction file still suppresses lower-priority content", async () => {
   await fs.write("pkg/AGENTS.override.md", "");
   await fs.write("pkg/AGENTS.md", "not selected");

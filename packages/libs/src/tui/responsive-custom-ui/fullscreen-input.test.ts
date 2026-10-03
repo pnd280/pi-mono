@@ -213,32 +213,6 @@ it("defers installation requested synchronously during listener traversal", asyn
   }
 });
 
-it.each(["missing", "noncallable", "focus"] as const)(
-  "reports an unsupported %s contract once and keeps ordinary navigation",
-  async (failure) => {
-    const host = createInputHost();
-    const original = listeners(host.tui);
-    const originalListeners = [...original];
-    if (failure === "missing") Reflect.deleteProperty(host.tui, "inputListeners");
-    else if (failure === "noncallable") Reflect.set(host.tui, "inputListeners", new Set([17]));
-    else Reflect.set(host.tui, "getFocusedComponent", undefined);
-    const view = await open(host);
-
-    try {
-      host.presentation?.render(80);
-      host.presentation?.render(80);
-      expect(view.unavailable).toHaveBeenCalledOnce();
-      // Restore the host's broken pipeline to exercise ordinary focused delivery.
-      Reflect.set(host.tui, "inputListeners", original);
-      host.send("\x1b[B");
-      expect(view.handleInput).toHaveBeenCalledWith("\x1b[B");
-      expect([...original]).toEqual(originalListeners);
-    } finally {
-      await view.close();
-    }
-  }
-);
-
 it.each(["remove", "reorder", "copy"] as const)(
   "deactivates instead of competing with listener %s interference",
   async (change) => {

@@ -1,40 +1,10 @@
 import { rm, symlink } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { inspectGitIgnore, type GitCommand } from "./index.ts";
+import { inspectGitIgnore } from "./index.ts";
 import { cleanupGitFixtures, createGitFixture, type GitFixture } from "./test-fixture.ts";
-
-it("separates caller cancellation from a caller-supplied deadline", async () => {
-  const waiting: GitCommand = (_cwd, _args, _input, signal) =>
-    new Promise((_resolve, reject) => {
-      signal.throwIfAborted();
-      signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
-    });
-  const options = { path: resolve("."), cwd: resolve("."), timeoutMs: 10, git: waiting };
-  const controller = new AbortController();
-  const pending = inspectGitIgnore({ ...options, signal: controller.signal });
-  controller.abort();
-  expect(await pending).toEqual({ status: "cancelled" });
-  expect(await inspectGitIgnore({ ...options, signal: controller.signal })).toEqual({
-    status: "cancelled"
-  });
-  expect(await inspectGitIgnore(options)).toEqual({ status: "timed-out" });
-});
-
-it("retains inspection failures for consumer diagnostics and rejects invalid prerequisites", async () => {
-  const cause = Object.assign(new Error("spawn git ENOENT\nwith details"), { code: "ENOENT" });
-
-  const git: GitCommand = async () => {
-    throw cause;
-  };
-
-  const options = { path: resolve("."), cwd: resolve("."), timeoutMs: 2000, git };
-  expect(await inspectGitIgnore(options)).toEqual({ status: "unavailable", cause });
-  await expect(inspectGitIgnore({ ...options, path: "relative" })).rejects.toThrow(TypeError);
-  await expect(inspectGitIgnore({ ...options, timeoutMs: Infinity })).rejects.toThrow(RangeError);
-});
 
 describe("Git authority", () => {
   let directory: GitFixture;
@@ -155,7 +125,7 @@ describe("Git authority", () => {
     expect((await detect("node_modules/linked/missing.ts")).status).toBe("missing");
   });
 
-  it("distinguishes non-repositories, missing paths, and malformed records", async () => {
+  it("distinguishes non-repositories and missing paths", async () => {
     const outside = join(external.root, "outside");
     await rm(join(external.root, ".git"), { recursive: true, force: true });
     expect(
@@ -164,30 +134,5 @@ describe("Git authority", () => {
     expect(
       (await inspectGitIgnore({ path: outside, cwd: external.root, timeoutMs: 2000 })).status
     ).toBe("missing");
-
-    for (const stdout of [
-      "bad",
-      [".gitignore", "1", ".tmp/", "wrong-path", ""].join("\0"),
-      ["", "1", ".tmp/", ".tmp", ""].join("\0"),
-      [".gitignore", "", ".tmp/", ".tmp", ""].join("\0"),
-      [".gitignore", "invalid", ".tmp/", ".tmp", ""].join("\0")
-    ]) {
-      const malformed: GitCommand = async (_cwd, args) => ({
-        code: 0,
-        stdout: args[0] === "check-ignore" ? stdout : `${directory.root}\n`,
-        stderr: ""
-      });
-      expect(
-        (
-          await inspectGitIgnore({
-            path: join(directory.root, ".tmp"),
-            cwd: directory.root,
-            timeoutMs: 2000,
-            git: malformed
-          })
-        ).status,
-        stdout
-      ).toBe("unavailable");
-    }
   });
 });

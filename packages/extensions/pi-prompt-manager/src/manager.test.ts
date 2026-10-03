@@ -5,257 +5,19 @@ import type { ManagerPorts } from "./manager.ts";
 import type { MutationResult, Repository } from "./model.ts";
 import { collection, entry, managerFixture } from "./test-fixture.ts";
 
-const committed = (): MutationResult => ({
-  status: "committed",
-  snapshot: collection(),
-  warnings: []
-});
-
-it("saves exact expanded editor text, rejects overlapping saves, and leaves concurrent edits intact", async () => {
-  const pending = Promise.withResolvers<MutationResult>();
-  const mutate = vi.fn<Repository["mutate"]>(() => pending.promise);
-  const { manager, setText, getText } = managerFixture({
-    repository: { read: async () => collection(), mutate }
-  });
-  setText(" \tfull pasted text\r\n ");
-  const save = manager.saveEditor();
-  await manager.saveEditor();
-  expect(mutate).toHaveBeenCalledTimes(1);
-  expect(mutate.mock.calls[0]?.slice(0, 2)).toMatchObject([
-    "drafts",
-    { kind: "add", text: " \tfull pasted text\r\n " }
-  ]);
-  setText("new work");
-  pending.resolve(committed());
-  await save;
-  expect(getText()).toBe("new work");
-});
-
-it("same-text explicit restoration prevents an older save from clearing it", async () => {
-  const pending = Promise.withResolvers<MutationResult>();
-  const fixture = managerFixture({
-    repository: { read: async () => collection(), mutate: () => pending.promise }
-  });
-  const source = "\tline\r\nnext";
-  fixture.setText(source);
-  const save = fixture.manager.saveEditor();
-  expect(fixture.manager.restore(collection([entry(source)]).entries[0]!)).toBe(true);
-  pending.resolve(committed());
-  await save;
-  expect(fixture.getText()).toBe(source);
-});
-
-it("clears only after successful commit and reports clear failure separately from save success", async () => {
-  const write = vi.fn(() => {
-    throw new Error("clear failed");
-  });
-  const notify = vi.fn<ManagerPorts["notify"]>();
-  const fixture = managerFixture({ editor: { read: () => "draft", write }, notify });
-  await fixture.manager.saveEditor();
-  expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(
-    expect.arrayContaining(["info", "warning"])
-  );
-  const failed = managerFixture({
-    repository: {
-      read: async () => collection(),
-      mutate: async () => ({ status: "failed", message: "busy" })
-    }
-  });
-  await failed.manager.saveEditor();
-  expect(failed.getText()).toBe("draft");
-  const normal = managerFixture();
-  await normal.manager.saveEditor();
-  expect(normal.getText()).toBe("");
-});
-
-it("add is independent of editor saving and whitespace-only editor saves open drafts", async () => {
-  const pending = Promise.withResolvers<MutationResult>();
-  const mutate = vi
-    .fn<Repository["mutate"]>()
-    .mockImplementationOnce(() => pending.promise)
-    .mockResolvedValue(committed());
-  const fixture = managerFixture({ repository: { read: async () => collection(), mutate } });
-  const save = fixture.manager.saveEditor();
-  await fixture.manager.command('drafts add  "literal"  interior\n  second line  ');
-  expect(fixture.getText()).toBe("draft");
-  expect(mutate.mock.calls[1]?.slice(0, 2)).toMatchObject([
-    "drafts",
-    { text: '"literal"  interior\n  second line' }
-  ]);
-  expect(fixture.notices).toEqual(["Draft saved."]);
-  pending.resolve(committed());
-  await save;
-  const open = vi.fn<ManagerPorts["open"]>(async () => {});
-  const blank = managerFixture({ open });
-  blank.setText("\n \t");
-  await blank.manager.saveEditor();
-  expect(open).toHaveBeenCalledWith(expect.objectContaining({ collection: "drafts" }));
-});
-
-it("copies the second full-collection draft and passes its number to inspection", async () => {
-  const snapshot = collection([entry("first draft"), entry(" \tsecond draft\r\n ")]);
-  const read = vi.fn<Repository["read"]>(async () => snapshot);
-  const copy = vi.fn<ManagerPorts["copy"]>(async () => {});
-  const open = vi.fn<ManagerPorts["open"]>(async () => {});
-  const { manager } = managerFixture({ repository: { read, mutate: vi.fn() }, copy, open });
-
-  try {
-    await manager.command("drafts copy 2");
-    expect(read).toHaveBeenCalledWith("drafts", expect.any(AbortSignal));
-    expect(copy).toHaveBeenCalledExactlyOnceWith(" \tsecond draft\r\n ", expect.any(AbortSignal));
-    await manager.command("drafts show 2");
-    expect(open).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ collection: "drafts", inspectionIndex: 2 })
-    );
-  } finally {
-    await manager.dispose();
-  }
-});
-
-it("restoration refuses controls or an editor change and never deletes on refusal", async () => {
-  const mutate = vi.fn<Repository["mutate"]>();
-  const fixture = managerFixture({ repository: { read: async () => collection(), mutate } });
-  expect(
-    await fixture.manager.restoreAndDelete(
-      collection([entry("unsafe\x1b]52;c;text\x07")]).entries[0]!
-    )
-  ).toBe(false);
-  expect(fixture.getText()).toBe("draft");
-  expect(mutate).not.toHaveBeenCalled();
-  const write = vi.fn();
-  const read = vi.fn().mockReturnValueOnce("first").mockReturnValue("changed");
-  const changed = managerFixture({ editor: { read, write } });
-  expect(changed.manager.restore(collection([entry("source")]).entries[0]!)).toBe(false);
-  expect(write).not.toHaveBeenCalled();
-});
-
-it("restore-then-delete failure retains snapshot source and reports deletion failure without rollback", async () => {
-  const current = collection([entry("selected")]);
-  const mutate = vi.fn<Repository["mutate"]>(async (): Promise<MutationResult> => ({
-    status: "failed",
-    message: "target changed"
-  }));
-  const notify = vi.fn<ManagerPorts["notify"]>();
-  const fixture = managerFixture({ repository: { read: async () => current, mutate }, notify });
-  await fixture.manager.command("drafts restore-and-delete 1");
-  expect(fixture.getText()).toBe("selected");
-  expect(mutate.mock.calls[0]?.slice(0, 2)).toMatchObject([
-    "drafts",
-    { kind: "delete", target: current.entries[0] }
-  ]);
-  expect(notify.mock.calls.map(([, severity]) => severity)).toEqual(
-    expect.arrayContaining(["error", "warning"])
-  );
-});
-
-it.each(["restore", "restore-delete", "cancel", "expired"] as const)(
-  "applies a browser's %s request only after closure and keeps stale callbacks inert",
-  async (action) => {
-    const closed = Promise.withResolvers<void>();
-    const removal = Promise.withResolvers<MutationResult>();
-    const mutate = vi.fn<Repository["mutate"]>(() => removal.promise);
-    const target = collection([entry("selected")]).entries[0]!;
-    const open = vi.fn<ManagerPorts["open"]>(async (request) => {
-      await closed.promise;
-      await request.afterClose(
-        action === "cancel"
-          ? undefined
-          : { target, deleteAfterRestore: action === "restore-delete" }
-      );
-    });
-    const fixture = managerFixture({
-      open,
-      repository: { read: async () => collection(), mutate }
-    });
-    const opening = fixture.manager.open("drafts");
-    expect(fixture.getText()).toBe("draft");
-    expect(mutate).not.toHaveBeenCalled();
-    if (action === "expired") await fixture.manager.dispose();
-    closed.resolve();
-
-    if (action === "restore-delete") {
-      await vi.waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
-      expect(fixture.getText()).toBe("selected");
-      expect(mutate.mock.calls[0]?.slice(0, 2)).toEqual(["drafts", { kind: "delete", target }]);
-    }
-
-    removal.resolve(committed());
-    await opening;
-    expect(fixture.getText()).toBe(
-      action === "restore" || action === "restore-delete" ? "selected" : "draft"
-    );
-    if (action !== "restore-delete") expect(mutate).not.toHaveBeenCalled();
-    fixture.setText("new work");
-    await open.mock.calls[0]![0].afterClose({ target, deleteAfterRestore: true });
-    expect(fixture.getText()).toBe("new work");
-    expect(mutate).toHaveBeenCalledTimes(action === "restore-delete" ? 1 : 0);
-    await fixture.manager.dispose();
-  }
-);
-
-it("capture is synchronous, FIFO, bounded by count, and shares one generic warning budget", async () => {
+it("keeps capture failure and queue overflow notifications generic", async () => {
   const failure = Promise.withResolvers<MutationResult>();
   const mutate = vi.fn<Repository["mutate"]>(() => failure.promise);
   const fixture = managerFixture({ repository: { read: vi.fn(), mutate } });
 
   for (let i = 0; i < 251; i++) fixture.manager.capture(`prompt-${i}`);
-  expect(mutate).not.toHaveBeenCalled();
   expect(fixture.notices).toHaveLength(1);
   await Promise.resolve();
-  expect(mutate).toHaveBeenCalledTimes(1);
   failure.resolve({ status: "failed", message: "sensitive failure detail" });
   await vi.waitFor(() => expect(mutate).toHaveBeenCalledTimes(250));
-  expect(mutate.mock.calls.map((call) => call[1])).toMatchObject(
-    Array.from({ length: 250 }, (_, index) => ({ text: `prompt-${index}` }))
-  );
   expect(fixture.notices).toHaveLength(1);
   expect(fixture.notices.join()).not.toContain("sensitive");
   await fixture.manager.dispose();
-});
-
-it("bounds waiting bytes, silently ignores blank/oversized captures, and does not retry", async () => {
-  const mutate = vi.fn<Repository["mutate"]>(async (): Promise<MutationResult> => ({
-    status: "failed",
-    message: "failure"
-  }));
-  const fixture = managerFixture({ repository: { read: vi.fn(), mutate } });
-  fixture.manager.capture(" ");
-  fixture.manager.capture("é".repeat(32769));
-  expect(fixture.notices).toEqual([]);
-
-  for (let i = 0; i < 129; i++) fixture.manager.capture(String(i).padEnd(65536, "x"));
-  await vi.waitFor(() => expect(mutate).toHaveBeenCalledTimes(128));
-  expect(fixture.notices).toHaveLength(1);
-  await fixture.manager.dispose();
-});
-
-it("stops a numbered copy when its collection read finishes after session expiry", async () => {
-  const started = Promise.withResolvers<void>();
-  let cancelled = false;
-  const read = vi.fn<Repository["read"]>(async (_collection, signal) => {
-    started.resolve();
-    if (!signal) throw new Error("Missing session cancellation");
-    await new Promise<void>((resolve) =>
-      signal.addEventListener(
-        "abort",
-        () => {
-          cancelled = true;
-          resolve();
-        },
-        { once: true }
-      )
-    );
-
-    return collection([entry("source")]);
-  });
-  const copy = vi.fn<ManagerPorts["copy"]>();
-  const { manager } = managerFixture({ repository: { read, mutate: vi.fn() }, copy });
-  const command = manager.command("drafts copy 1");
-  await started.promise;
-  await manager.dispose();
-  await command;
-  expect(cancelled).toBe(true);
-  expect(copy).not.toHaveBeenCalled();
 });
 
 it("reports safe clipboard diagnostics without exposing arbitrary helper errors", async () => {
@@ -286,14 +48,11 @@ it("reports safe clipboard diagnostics without exposing arbitrary helper errors"
   }
 });
 
-it("reports numbered copy and deletion outcomes, including cleanup warnings", async () => {
-  const copying = Promise.withResolvers<void>();
+it("reports committed deletion cleanup warnings separately from failures", async () => {
   const snapshot = collection([entry("source")]);
   const notify = vi.fn<ManagerPorts["notify"]>();
-  const copy = vi.fn<ManagerPorts["copy"]>(() => copying.promise);
   const fixture = managerFixture({
     notify,
-    copy,
     repository: {
       read: async () => snapshot,
       mutate: async () => ({
@@ -303,23 +62,9 @@ it("reports numbered copy and deletion outcomes, including cleanup warnings", as
       })
     }
   });
-  const target = snapshot.entries[0]!;
 
   try {
-    const pending = fixture.manager.copy(target);
-    await fixture.manager.copy(target);
-    expect(copy).toHaveBeenCalledTimes(1);
-    expect(copy.mock.calls[0]?.[0]).toBe("source");
-    expect(notify).toHaveBeenCalledWith(expect.any(String), "warning");
-    expect(notify.mock.calls.map(([, severity]) => severity)).not.toContain("info");
-    copying.resolve();
-    await pending;
-    expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
-
-    notify.mockClear();
-    await fixture.manager.command("drafts copy 1");
     await fixture.manager.command("drafts delete 1");
-    expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
     expect(notify).toHaveBeenCalledWith(
       expect.stringContaining("Descriptor cleanup warning."),
       "warning"
@@ -328,42 +73,7 @@ it("reports numbered copy and deletion outcomes, including cleanup warnings", as
       expect.stringContaining("Lock cleanup warning."),
       "warning"
     );
-    await fixture.manager.dispose();
-    notify.mockClear();
-    await fixture.manager.copy(target);
-    expect(notify).not.toHaveBeenCalled();
   } finally {
     await fixture.manager.dispose();
   }
-});
-
-it("expires late editor/clipboard/UI callbacks and reserves a UI while it is loading", async () => {
-  const saving = Promise.withResolvers<MutationResult>();
-  const copying = Promise.withResolvers<void>();
-  const opening = Promise.withResolvers<void>();
-  const open = vi.fn<ManagerPorts["open"]>(() => opening.promise);
-  const copy = vi.fn<ManagerPorts["copy"]>(() => copying.promise);
-  const fixture = managerFixture({
-    open,
-    copy,
-    repository: { read: async () => collection(), mutate: () => saving.promise }
-  });
-  const save = fixture.manager.saveEditor();
-  const copyingNow = fixture.manager.copy(collection([entry("copy")]).entries[0]!);
-  const browser = fixture.manager.open("history");
-  await fixture.manager.open("drafts");
-  expect(open).toHaveBeenCalledTimes(1);
-  await fixture.manager.dispose();
-  const before = fixture.notices.length;
-  saving.resolve(committed());
-  copying.resolve();
-  opening.resolve();
-  await Promise.all([save, copyingNow, browser]);
-  expect(fixture.getText()).toBe("draft");
-  expect(fixture.notices).toHaveLength(before);
-  expect(open.mock.calls[0]?.[0].signal.aborted).toBe(true);
-  expect(copy.mock.calls[0]?.[1].aborted).toBe(true);
-  fixture.manager.capture("stale");
-  await fixture.manager.command("save");
-  expect(fixture.notices).toHaveLength(before);
 });

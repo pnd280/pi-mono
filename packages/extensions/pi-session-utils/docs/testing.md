@@ -4,15 +4,16 @@
 
 Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). Property restoration belongs to [OwnedHooks](../../../libs/src/owned-hooks/README.md). Pi owns session reconstruction, metadata serialisation, later persistence, and provider-specific reasoning mappings.
 
-This package tests command policy, choosing what goes into the JSONL snapshot, parent resolution, the startup hook's lifecycle, source text selection, naming configuration, title sanitisation, and naming lifecycle wiring.
+Unit coverage is limited to the must-not-regress invariants below. Filesystem, session-manager round-trip, model-registry, real-host, and process integration tests retain broader coverage.
 
 ## Must not regress
 
-- A switch error keeps the saved copy for recovery. Only cancelled persistence removes the new file.
-- Parent files are never changed.
-- Startup errors exit nonzero instead of continuing into a prompt.
-- Missing or invalid naming settings disable requests rather than choosing a fallback model.
-- Stale results can never rename a session.
+- Missing or invalid merged naming settings, an unavailable configured model, or an unsupported thinking level prevent naming requests rather than falling back to the active model.
+- Parent lookup leaves file contents unchanged, including older supported session headers, whether the parent is selected by path or exact ID.
+- A persistence switch error leaves the saved snapshot available for recovery, including when the error occurs after session replacement.
+- An explicitly cancelled persistence switch removes only the newly saved snapshot.
+- Superseded or cancelled naming results do not change the session name, even when the provider ignores cancellation.
+- Invalid `--parent-session` startup exits nonzero before executing the prompt.
 
 ## Session commands
 

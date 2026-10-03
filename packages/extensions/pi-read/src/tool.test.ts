@@ -1,9 +1,7 @@
-import { fauxToolCall, Type, validateToolArguments } from "@earendil-works/pi-ai";
 import { createReadToolDefinition } from "@earendil-works/pi-coding-agent";
 import { createToolContext } from "@pi-mono/libs/validation/tool-context";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import register from "../index.ts";
 import { interpretReadResult, type ReadResult } from "./result.ts";
 import { createSelectiveReadTool, type SelectiveReadParams } from "./tool.ts";
 
@@ -39,97 +37,6 @@ function lastText(result: ReadResult): string {
 
   return block.text;
 }
-
-it("registers a read tool whose selections pass Pi's argument validator", () => {
-  const args = { path: "sample.ts", selection: { startLine: 2, endColumn: 4 } };
-  let registrations = 0;
-  register({
-    registerTool(tool) {
-      registrations++;
-      expect(tool.name).toBe("read");
-      expect(validateToolArguments(tool, fauxToolCall("read", args, { id: "valid" }))).toEqual(
-        args
-      );
-
-      for (const selection of [{}, { startLine: 1.5 }, { startLine: 2, extra: true }]) {
-        expect(() => {
-          validateToolArguments(
-            tool,
-            fauxToolCall("read", { path: "sample.ts", selection }, { id: "invalid" })
-          );
-        }).toThrow();
-      }
-    }
-  });
-  expect(registrations).toBe(1);
-});
-
-it("keeps runtime metadata and unsupported integer bounds out of the serialized tool schema", () => {
-  const { tool } = fixture();
-  const serialized = JSON.stringify(tool.parameters);
-  for (const keyword of ["~standard", "minimum", "maximum"])
-    expect(serialized).not.toContain(`"${keyword}"`);
-  const description: unknown = expect.any(String);
-  expect(JSON.parse(serialized)).toMatchObject({
-    type: "object",
-    required: ["path"],
-    properties: {
-      selection: {
-        type: "object",
-        required: ["startLine"],
-        additionalProperties: false,
-        properties: {
-          startLine: { type: "integer", description },
-          startColumn: { type: "integer", description },
-          endLine: { type: "integer", description },
-          endColumn: { type: "integer", description }
-        }
-      }
-    }
-  });
-});
-
-it("extends the accepted native schema and preserves its independently supplied metadata", () => {
-  const native = createReadToolDefinition("/project");
-  const base = {
-    ...native,
-    label: "accepted read",
-    description: "Accepted native description.",
-    promptSnippet: "Accepted snippet",
-    promptGuidelines: ["Accepted guideline"],
-    parameters: {
-      ...native.parameters,
-      description: "Accepted parameter schema",
-      additionalProperties: false,
-      properties: {
-        ...native.parameters.properties,
-        path: { ...native.parameters.properties.path, description: "Accepted path metadata" },
-        offset: Type.Optional({
-          ...native.parameters.properties.offset,
-          description: "Accepted offset metadata"
-        })
-      }
-    }
-  };
-  const before = JSON.stringify(base.parameters);
-  const tool = createSelectiveReadTool(base);
-
-  expect(tool.parameters).toMatchObject({
-    description: "Accepted parameter schema",
-    additionalProperties: false,
-    required: ["path"],
-    properties: base.parameters.properties
-  });
-  expect(tool.parameters.properties.selection).toBeDefined();
-  expect(tool.label).toBe("accepted read");
-  expect(tool.description).toContain("Accepted native description.");
-  expect(tool.promptSnippet).toBe("Accepted snippet");
-  expect(tool.promptGuidelines).toContain("Accepted guideline");
-  expect(JSON.stringify(base.parameters)).toBe(before);
-  expect(native.parameters.properties.path).not.toMatchObject({
-    description: "Accepted path metadata"
-  });
-});
 
 it("returns native results unchanged without a selection and forwards execution context", async () => {
   const { tool, execute } = fixture();

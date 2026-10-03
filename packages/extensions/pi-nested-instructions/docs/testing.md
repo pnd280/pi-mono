@@ -4,12 +4,17 @@
 
 Maintainer coverage boundary: shared algorithms are tested in libs and utils (see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership)). This package tests adapter policy, instruction selection, metadata lifetime, delivery order, and refresh.
 
+The suite retains filesystem, canonical session projection, and offline real-host integration checks. It has no standalone unit-test matrix for the detailed input-inference rules.
+
 ## Must not regress
 
-- Hidden child output never blocks instruction delivery or creates read markers.
-- Context replacements, omissions, compaction, and branching never leave stale suppression.
-- Native cwd instructions stay intact.
-- Notices keep their full model-facing content and validated metadata whether or not a display extension is loaded. Discovery registers no custom renderer.
+- Nested discovery leaves Pi's native global, cwd, and parent instruction loading and reload behaviour unchanged.
+- Supported nested tool inputs can load instructions even when the parent hides the child output, unless a direct sibling read suppresses the selected file.
+- Nested calls do not create direct-read suppression markers, including blocked and invalid child attempts.
+- A [notice](../GLOSSARY.md#delivery) stops suppressing rediscovery when its complete message is changed or omitted from the canonical session projection by context edits, compaction, or branch navigation.
+- A direct-read marker suppresses rediscovery only while its exact originating entry and unchanged tool call remain in the canonical session projection.
+- Loaded and updated notices carry the full selected instruction body and schema-valid metadata independently of whether pi-tool-display is loaded.
+- Loading discovery alone leaves Pi's default notice renderer in use.
 
 ## Selection
 
@@ -69,7 +74,6 @@ Example: `cd pkg && cat src/a.ts || rm -rf x` is inferred as a read of `pkg/src/
 
 - Use disposable filesystem fixtures and the installed `SessionManager` for projection behaviour.
 - Host checks use Pi's faux provider with network access disabled.
-- Bash tests cover the restricted boundary between unbash and inference, not the upstream parser's full grammar.
 - Rendering, expansion, layout, and mouse routing are tested in the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
 
 ## Not covered here

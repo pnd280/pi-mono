@@ -19,7 +19,6 @@ import type { SummaryContext, SummaryEvents, SummaryExtensionAPI } from "./index
 type TestEvents = SummaryEvents & {
   turn_end: unknown;
   agent_end: unknown;
-  user_bash: unknown;
 };
 
 const cleanup: (() => Promise<void>)[] = [];
@@ -57,8 +56,7 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
     message_end: [],
     tool_execution_start: [],
     turn_end: [],
-    agent_end: [],
-    user_bash: []
+    agent_end: []
   };
   const setWorkingMessage = vi.fn();
   const ctx: SummaryContext = {

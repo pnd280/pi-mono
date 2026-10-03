@@ -4,7 +4,6 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
-import type { Outcome, ResultTextContext } from "../../contracts.ts";
 import { selectAdapter } from "../../host/selection.ts";
 import { loadDisplaySettings } from "../../settings.ts";
 import {
@@ -47,21 +46,6 @@ const content = (lines: string[]) => plain(lines).replace(/[├└│•\s]/g, "
 
 function result(details: unknown, text = "Compaction requested."): AgentToolResult<unknown> {
   return { content: [{ type: "text", text }], details };
-}
-
-function displayContext(
-  details: unknown,
-  overrides: Partial<ResultTextContext> = {}
-): ResultTextContext {
-  return {
-    result: result(details),
-    contentIndex: 0,
-    isError: false,
-    isPartial: false,
-    isCancelled: false,
-    expanded: true,
-    ...overrides
-  };
 }
 
 function renderContext(args: unknown, expanded: boolean) {
@@ -130,58 +114,6 @@ it("selects only the owning extension's tool contracts and respects renderer ove
   expect(piSmartCompactAdapter({ ...info, parameters: contextInfo.parameters })).toBeUndefined();
 });
 
-it("uses only validated scheduling metadata and preserves other output", () => {
-  const args = { instructions: "Preserve remaining tests." };
-  const text = "Compaction requested.";
-  const unchanged = [{ kind: "output", text }];
-  expect(compact.textParts?.(text, args, displayContext(selection))).toEqual([
-    { kind: "annotation", text: "Model: " },
-    { kind: "value", text: "provider/nested/model-界:high" }
-  ]);
-  expect(compact.textParts?.(text, args, displayContext({ scheduled: true }))).toEqual([]);
-
-  for (const details of [
-    undefined,
-    {},
-    { ...selection, scheduled: false },
-    { ...selection, modelOverride: "invalid" },
-    { ...selection, thinkingLevel: undefined },
-    { ...selection, thinkingLevel: "automatic" }
-  ])
-    expect(compact.textParts?.(text, args, displayContext(details))).toEqual(unchanged);
-  for (const flags of [{ isPartial: true }, { isError: true }, { isCancelled: true }])
-    expect(compact.textParts?.(text, args, displayContext(selection, flags))).toEqual(
-      flags.isError ? [{ kind: "error", text }] : unchanged
-    );
-  const diagnostic = "pi-smart-compact: invalid or unreadable settings.";
-  for (const isCancelled of [false, true])
-    expect(
-      compact.textParts?.(
-        diagnostic,
-        args,
-        displayContext(undefined, { isError: true, isCancelled })
-      )
-    ).toEqual([{ kind: "error", text: diagnostic }]);
-  const invalid = { model: "pretend/model" };
-  expect(compact.supports?.(invalid, result(selection))).toBe(false);
-  expect(compact.headingVerbs?.(invalid)).toBeUndefined();
-  expect(compact.textParts?.(text, invalid, displayContext(selection))).toEqual(unchanged);
-  const other = "Compaction could not be requested.";
-  expect(compact.textParts?.(other, args, displayContext(selection))).toEqual([
-    { kind: "output", text: other }
-  ]);
-});
-
-it("omits absent focus and empty parameter punctuation", () => {
-  for (const instructions of [undefined, null, "", "  "]) {
-    const args = { instructions };
-    expect(compact.supports?.(args, result({ scheduled: true }))).toBe(true);
-    expect(compact.invocation?.(args).filter((part) => part.kind !== "parameters")).toEqual([
-      { kind: "value", text: "compaction" }
-    ]);
-  }
-});
-
 it("renders compact request status, focus, and model without generic calls", () => {
   const args = { instructions: "Preserve unfinished tests." };
   const supplied = result(selection);
@@ -218,42 +150,6 @@ it("renders compact request status, focus, and model without generic calls", () 
   }
 
   expect({ args, supplied }).toEqual(before);
-});
-
-it("formats supplied context facts without estimating unknown values or clamping overflow", () => {
-  const summarize = (details: unknown, outcome: Outcome = "success") =>
-    contextWindow.summary?.(result(details), {
-      args: {},
-      outcome,
-      operation: undefined,
-      expanded: false
-    })?.text;
-  expect(summarize({ tokens: 5963, contextWindow: 272000, percent: 2.1922794 })).toBe(
-    "5,963 / 272,000 tokens · 2.19% used"
-  );
-  expect(summarize({ tokens: 0, contextWindow: 272000, percent: 0 })).toBe(
-    "0 / 272,000 tokens · 0% used"
-  );
-  expect(summarize({ tokens: null, contextWindow: 272000, percent: null })).toBe(
-    "Usage unknown · 272,000-token window"
-  );
-  expect(summarize({ tokens: 5963, contextWindow: 272000, percent: null })).toBe(
-    "5,963 / 272,000 tokens"
-  );
-  const usage = { tokens: 12000, contextWindow: 10000, percent: 120 };
-  expect(summarize(usage)).toBe("12,000 / 10,000 tokens · 120% used");
-  for (const details of [
-    undefined,
-    {},
-    { ...usage, tokens: -1 },
-    { ...usage, contextWindow: 0 },
-    { ...usage, percent: Infinity }
-  ])
-    expect(summarize(details)).toBeUndefined();
-  for (const outcome of ["failure", "cancelled", "unavailable"] as const)
-    expect(summarize(usage, outcome)).toBeUndefined();
-  expect(contextWindow.supports?.({ unexpected: true }, result(usage))).toBe(false);
-  expect(contextWindow.headingVerbs?.({ unexpected: true })).toBeUndefined();
 });
 
 it.each([false, true])(

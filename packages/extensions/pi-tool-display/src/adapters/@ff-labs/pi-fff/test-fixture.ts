@@ -1,13 +1,13 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 
-export function fffToolInfo(name: string, multi = false): ToolInfo {
+export function fffToolInfo(name: string): ToolInfo {
   return {
     name,
     exposure: "direct",
     description: "FFF",
     parameters: {
       type: "object",
-      properties: { [multi ? "patterns" : "pattern"]: { type: multi ? "array" : "string" } }
+      properties: { pattern: { type: "string" } }
     },
     sourceInfo: {
       source: "npm:@ff-labs/pi-fff@0.10.6",

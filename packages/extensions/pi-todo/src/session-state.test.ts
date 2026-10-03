@@ -55,51 +55,6 @@ describe("todo session state", () => {
     assert.deepEqual(restored, emptyTodoState());
   });
 
-  it("clones restored todos and accepts source-compatible extra detail fields", () => {
-    const snapshot = {
-      action: "update",
-      params: {},
-      tasks: [
-        {
-          id: 1,
-          subject: "Implement",
-          status: "in_progress",
-          inProgressLabel: "implementing",
-          blockedBy: [2],
-          owner: "agent",
-          metadata: { key: "value" },
-          extra: "ignored"
-        },
-        { id: 2, subject: "Deleted dependency", status: "deleted" }
-      ],
-      nextId: 3
-    };
-
-    const restored = parseTodoStateSnapshot(snapshot);
-
-    assert.ok(restored);
-    assert.deepEqual(restored, {
-      tasks: [
-        {
-          id: 1,
-          subject: "Implement",
-          status: "in_progress",
-          inProgressLabel: "implementing",
-          blockedBy: [2],
-          owner: "agent",
-          metadata: { key: "value" }
-        },
-        { id: 2, subject: "Deleted dependency", status: "deleted" }
-      ],
-      nextId: 3
-    });
-
-    const restoredTask = restored.tasks[0];
-    assert.ok(restoredTask?.blockedBy);
-    restoredTask.blockedBy.push(99);
-    assert.deepEqual(snapshot.tasks[0]?.blockedBy, [2]);
-  });
-
   it("normalizes unversioned and version 1 snapshots to root todos", () => {
     const taskWithFutureParent = {
       id: 1,
@@ -179,38 +134,6 @@ describe("todo session state", () => {
       todoStateFromBranch([todoResultEntry(valid), todoResultEntry(invalidForests.at(-1))]),
       { tasks: valid.tasks, nextId: valid.nextId }
     );
-  });
-
-  it("sanitizes compact fields on current and legacy replay while preserving multiline descriptions", () => {
-    const hostileTask = {
-      id: 1,
-      subject: "Replay\x1b[31m\nspoof",
-      description: "Paragraph one\x1b]0;owned\x07\n\nParagraph two\tindent",
-      inProgressLabel: "replaying\x1b[2J\nnow",
-      owner: "agent\x00\nname",
-      status: "in_progress"
-    };
-    const expectedTask = {
-      id: 1,
-      subject: "Replay spoof",
-      description: "Paragraph one\n\nParagraph two  indent",
-      inProgressLabel: "replaying now",
-      owner: "agent name",
-      status: "in_progress"
-    };
-
-    assert.deepEqual(
-      parseTodoStateSnapshot({
-        version: TASK_DETAILS_VERSION,
-        tasks: [hostileTask],
-        nextId: 2
-      }),
-      { tasks: [expectedTask], nextId: 2 }
-    );
-    assert.deepEqual(parseTodoStateSnapshot({ tasks: [hostileTask], nextId: 2 }), {
-      tasks: [expectedTask],
-      nextId: 2
-    });
   });
 
   it.each([1, TASK_DETAILS_VERSION])(

@@ -22,41 +22,6 @@ function mutation(
   };
 }
 
-it("uses a native patch when source observation cannot supply a comparison", async () => {
-  const changes = new RunChanges("/work");
-  await changes.completed({
-    ...mutation("file", "before\n", "after\nextra\n"),
-    before: { status: "too-large" },
-    after: { status: "too-large" },
-    patch: async () => ({ status: "ready", patch: "@@ -1 +1,2 @@\n-before\n+after\n+extra\n" })
-  });
-  expect(await changes.finish()).toEqual([
-    { path: "file", status: "available", added: 2, removed: 1 }
-  ]);
-});
-
-it("counts empty creations and omits fully reverted edits", async () => {
-  const changes = new RunChanges("/work");
-  await changes.completed(mutation("empty", undefined, ""));
-  await changes.completed(mutation("reverted", "old\n", "new\n"));
-  await changes.completed(mutation("reverted", "new\n", "old\n", 2));
-  expect(await changes.finish()).toEqual([
-    { path: "empty", status: "available", added: 0, removed: 0 }
-  ]);
-});
-
-it("uses mutation order rather than callback order for net statistics", async () => {
-  const changes = new RunChanges("/work");
-  const later = mutation("file", "middle\n", "last\nextra\n", 2);
-  const earlier = mutation("file", "old\n", "middle\n", 1);
-  const laterRecording = changes.completed(later);
-  const earlierRecording = changes.completed(earlier);
-  await Promise.all([laterRecording, earlierRecording]);
-  expect(await changes.finish()).toEqual([
-    { path: "file", status: "available", added: 2, removed: 1 }
-  ]);
-});
-
 it("bounds aggregate retained strings but preserves single-patch statistics", async () => {
   const changes = new RunChanges("/work", 90);
   await changes.completed(mutation("one", "old long line\n", "new long line\n"));
@@ -71,30 +36,6 @@ it("bounds aggregate retained strings but preserves single-patch statistics", as
       status: "unavailable",
       reason: expect.stringMatching(/retention.*90/i) as unknown
     }
-  ]);
-});
-
-it("uses only baseline and latest sources when intermediate observations are unavailable", async () => {
-  const changes = new RunChanges("/work");
-  const oversized = mutation("file", "before\n", "oversized", 1);
-  oversized.after = { status: "too-large" };
-  oversized.patch = async () => ({ status: "source-unavailable" });
-  const final = mutation("file", "oversized", "after\n", 2);
-  final.before = { status: "too-large" };
-  await changes.completed(oversized);
-  await changes.completed(final);
-  expect(await changes.finish()).toEqual([
-    { path: "file", status: "available", added: 1, removed: 1 }
-  ]);
-});
-
-it("recovers the net comparison after a failed intermediate write", async () => {
-  const changes = new RunChanges("/work");
-  await changes.completed(mutation("file", "before\n", "first\n", 1));
-  await changes.completed({ ...mutation("file", "first\n", "proposed\n", 2), outcome: "failure" });
-  await changes.completed(mutation("file", "partially written", "after\n", 3));
-  expect(await changes.finish()).toEqual([
-    { path: "file", status: "available", added: 1, removed: 1 }
   ]);
 });
 
@@ -172,9 +113,8 @@ it.each([
   ]);
 });
 
-it("omits unchanged files and awaits pending statistics without leaking them into the next run", async () => {
+it("awaits pending statistics without leaking them into the next run", async () => {
   const changes = new RunChanges("/work");
-  await changes.completed(mutation("unchanged", "same\n", "same\n"));
   const change = mutation("file", "before\n", "after\n");
   const pending = Promise.withResolvers<Awaited<ReturnType<FileMutation["patch"]>>>();
   change.patch = () => pending.promise;

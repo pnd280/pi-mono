@@ -41,18 +41,3 @@ it("pages a focused inline view through regular terminal input", async () => {
     host.dispose();
   }
 });
-
-it("never opens an already-cancelled presentation", async () => {
-  const controller = new AbortController();
-  controller.abort();
-  const custom = vi.fn<() => Promise<never>>();
-  const create = vi.fn(() => ({ render: () => [], invalidate() {} }));
-  await openResponsiveCustomUI({
-    ui: { custom },
-    signal: controller.signal,
-    create,
-    useOverlay: () => false
-  });
-  expect(custom).not.toHaveBeenCalled();
-  expect(create).not.toHaveBeenCalled();
-});

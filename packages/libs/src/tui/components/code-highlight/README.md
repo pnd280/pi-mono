@@ -21,4 +21,4 @@ Explicit language overrides path detection. Missing language or exceeded input l
 
 ## Validation
 
-Use [package validation](../../../../README.md#validation). Tests cover [highlighting limits](index.test.ts) and [selection boundaries](selection.test.ts).
+Use [package validation](../../../../README.md#validation). Tests cover [unchanged-input fallback at highlighting limits](index.test.ts).

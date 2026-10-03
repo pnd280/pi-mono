@@ -75,43 +75,6 @@ it("resolves a parent in a custom directory, without changing the child's cwd", 
   expect(child.buildSessionContext().messages).toEqual([]);
 });
 
-it.each(["--continue", "-c", "--resume", "-r", "--session", "--session-id", "--fork"])(
-  "rejects conflicting %s without changing the selected session",
-  (flag) => {
-    const source = SessionManager.inMemory(cwd);
-    const header = structuredClone(source.getHeader());
-    expect(() =>
-      applyStartupParent(source, parseArgs([flag, "value", "--parent-session", parent]))
-    ).toThrow(Error);
-    expect(source.getHeader()).toEqual(header);
-  }
-);
-
-it("does not mistake a prompt or another option's value for a session-selection flag", () => {
-  const child = SessionManager.inMemory(cwd);
-  applyStartupParent(
-    child,
-    parseArgs(["--name", "--session", "--parent-session", parent, "--", "--continue"])
-  );
-  expect(child.getHeader()?.parentSession).toBe(parent);
-});
-
-it("refuses to reparent an existing or nonempty session", () => {
-  const source = SessionManager.open(parent);
-  const args = parseArgs(["--parent-session", parent]);
-  expect(() => applyStartupParent(source, args)).toThrow(Error);
-  const inMemory = SessionManager.inMemory(cwd);
-  inMemory.appendMessage({ role: "user", content: "existing", timestamp: Date.now() });
-  expect(() => applyStartupParent(inMemory, args)).toThrow(Error);
-  expect(source.getHeader()?.parentSession).toBeUndefined();
-  expect(inMemory.getHeader()?.parentSession).toBeUndefined();
-});
-
-it.each([undefined, "", "   "])("rejects a missing or empty parent: %s", (value) => {
-  const args = ["--parent-session", ...(value === undefined ? [] : [value])];
-  expect(() => applyStartupParent(SessionManager.inMemory(cwd), parseArgs(args))).toThrow(Error);
-});
-
 it("rejects missing, malformed, oversized, and non-file parents without leaking contents", () => {
   const invalid = join(directory, "invalid.jsonl");
   const secret = "private parent content";

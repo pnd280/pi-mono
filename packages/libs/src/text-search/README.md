@@ -24,7 +24,6 @@ Choose which text to search and keep exact source separate from terminal-safe di
 
 Query preparation, categories, scores, and checkpoint accounting belong to the internal [ranking implementation](ranking.ts), not package exports.
 
-- [Ranking tests](ranking.test.ts) cover long queries, chunk-spanning matches, repeated scans, and differential fuzzy-score checks against Pi.
-- [Cooperative-search tests](index.test.ts) cover Unicode case context, stable ordering, item identity, and cancellation through the scheduler.
+- Unit coverage follows the [library Must not regress invariants](../../docs/testing.md#must-not-regress); search has no standalone unit suite.
 
 For changes to cooperative search or item preparation, use prompt manager's [interaction measurement and responsiveness check](../../../extensions/pi-prompt-manager/docs/validation.md#interaction-measurement).

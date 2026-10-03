@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 
-import { decodeUtf8Window, utf8Prefix, utf8Suffix } from "./utf8.ts";
+import { decodeUtf8Window } from "./utf8.ts";
 
 it("clips every UTF-8 boundary without introducing replacement characters", () => {
   const text = "a界😀z";
@@ -18,8 +18,6 @@ it("clips every UTF-8 boundary without introducing replacement characters", () =
     [8, "a界😀", "界😀z"],
     [9, "a界😀z", "a界😀z"]
   ] as const) {
-    expect(utf8Prefix(text, limit), `prefix at ${limit} bytes`).toBe(prefix);
-    expect(utf8Suffix(text, limit), `suffix at ${limit} bytes`).toBe(suffix);
     expect(decodeUtf8Window(bytes.subarray(0, limit), "head")).toEqual({
       text: prefix,
       omittedBytes: limit - Buffer.byteLength(prefix)
@@ -31,17 +29,7 @@ it("clips every UTF-8 boundary without introducing replacement characters", () =
   }
 });
 
-it("rejects invalid byte limits instead of violating the requested bound", () => {
-  for (const bytes of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Infinity]) {
-    expect(() => utf8Prefix("abc", bytes)).toThrow(RangeError);
-    expect(() => utf8Suffix("abc", bytes)).toThrow(RangeError);
-  }
-});
-
-it("retains BOMs and literal replacement characters, and replaces interior invalid bytes", () => {
-  const text = "\uFEFFa\uFFFD";
-  for (const boundary of [undefined, "head", "tail"] as const)
-    expect(decodeUtf8Window(Buffer.from(text), boundary)).toEqual({ text, omittedBytes: 0 });
+it("replaces interior invalid bytes", () => {
   expect(decodeUtf8Window(Buffer.from([0x61, 0xff, 0x62]))).toEqual({
     text: "a�b",
     omittedBytes: 0

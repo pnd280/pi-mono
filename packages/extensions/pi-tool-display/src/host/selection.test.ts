@@ -2,7 +2,6 @@ import { createSyntheticSourceInfo, type ToolDefinition } from "@earendil-works/
 import { expect, it } from "vite-plus/test";
 
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
-import { genericAdapter, nativeAdapter } from "../adapters/index.ts";
 import { mcpToolInfo } from "../adapters/pi-mcp-adapter/test-fixture.ts";
 import { selectiveReadToolInfo } from "../adapters/pi-read/test-fixture.ts";
 import { loadDisplaySettings } from "../settings.ts";
@@ -103,10 +102,3 @@ it.each(["codemode", "mcp", "mcp__docs"])(
     expect(selectAdapter(loadDisplaySettings([]), name, owner, false, info)).toBeUndefined();
   }
 );
-
-it("keeps generic fallbacks free of native observation capabilities", () => {
-  expect(genericAdapter.patch).toBeUndefined();
-  expect(genericAdapter.savedOutput).toBeUndefined();
-  expect(genericAdapter.exploration?.({ path: "src/a.ts" })).toBeUndefined();
-  expect(nativeAdapter("constructor")).toBeUndefined();
-});

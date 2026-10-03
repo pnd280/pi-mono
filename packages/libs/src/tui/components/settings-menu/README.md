@@ -26,4 +26,4 @@
 
 ## Validation
 
-Use the [library checks](../../../../README.md#validation). [Frame tests](index.test.ts) cover pagination, layout, and terminal safety; consumers own draft, save, and host integration tests. Physical keyboard and appearance need terminal validation.
+Use the [library checks](../../../../README.md#validation). Consumers own draft, save, and host integration tests. Physical keyboard and appearance need terminal validation.

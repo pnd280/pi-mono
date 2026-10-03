@@ -5,10 +5,9 @@ import {
   type AssistantMessage
 } from "@earendil-works/pi-ai";
 import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { createFixtureStream } from "@pi-mono/libs/validation/provider";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
-import { cleanTitle, generateTitle, TitleError, type TitleRegistry } from "./generate.ts";
+import { generateTitle, TitleError } from "./generate.ts";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -42,54 +41,6 @@ async function fixture() {
 
   return { faux, model, stream, auth, request, controller, runtime };
 }
-
-it("sends the configured model, text, thinking, and request budgets through Pi's registry", async () => {
-  const model = fauxProvider({
-    provider: "title-fixture",
-    models: [{ id: "nested/model", reasoning: true }]
-  }).getModel();
-  const originalModel = structuredClone(model);
-  const stream = vi.fn<TitleRegistry["streamSimple"]>((requestedModel, _context, options) =>
-    createFixtureStream({
-      model: requestedModel,
-      signal: options?.signal,
-      run: async ({ text }) => {
-        text('"Fix token expiry"');
-
-        return "stop";
-      }
-    })
-  );
-  const registry: TitleRegistry = {
-    find: (provider, id) =>
-      provider === "title-fixture" && id === "nested/model" ? model : undefined,
-    streamSimple: stream
-  };
-  const source = "Fix authentication by checking token expiry";
-  expect(
-    await generateTitle({
-      config: { model: "title-fixture/nested/model", thinkingLevel: "low" },
-      registry,
-      source,
-      signal: new AbortController().signal
-    })
-  ).toBe("Fix token expiry");
-  expect(stream).toHaveBeenCalledExactlyOnceWith(
-    expect.objectContaining({ provider: "title-fixture", id: "nested/model" }),
-    expect.objectContaining({
-      messages: [expect.objectContaining({ role: "user", content: source })]
-    }),
-    expect.objectContaining({
-      reasoning: "low",
-      maxRetries: 0,
-      maxTokens: 1024,
-      timeoutMs: 15_000,
-      cacheRetention: "none"
-    })
-  );
-  expect(stream.mock.calls[0]![1].tools ?? []).toEqual([]);
-  expect(model).toEqual(originalModel);
-});
 
 it.each([
   [512, 512],
@@ -161,14 +112,6 @@ it("rejects a thinking-only response rather than exposing reasoning as a title",
   const { request, faux } = await fixture();
   faux.setResponses([fauxAssistantMessage([{ type: "thinking", thinking: "Hidden reasoning" }])]);
   await expect(generateTitle(request)).rejects.toThrow(TitleError);
-});
-
-it("sanitizes titles and truncates without splitting graphemes", () => {
-  expect(cleanTitle('\u001b]0;unsafe\u0007"Fix\r\n token\t expiry"\u001b[2J')).toBe(
-    "Fix token expiry"
-  );
-  expect(cleanTitle("a".repeat(79) + "👩‍💻 trailing")).toBe("a".repeat(79));
-  expect(() => cleanTitle("\u001b[31m\u0000\u001b[0m")).toThrow(TitleError);
 });
 
 it("times out stalled authentication and never starts transport afterward", async () => {

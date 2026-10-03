@@ -8,42 +8,43 @@ Shared algorithms are tested in libs and utils; see the [workspace ownership rul
 
 Contracts split by decision stage: what gets intercepted, which targets count as explicit paths, how scopes combine, and the final allow or block outcome.
 
-### Interception
+### Must not regress
 
-- Only official FFF registrations are intercepted, including override names and tools registered after startup. Built-ins and lookalikes pass through.
-- Arguments, registrations, and active tools are never changed, and no replacement search is run.
+- Only official FFF registrations are intercepted, including override names and tools registered after startup.
+- Built-ins and lookalikes pass through.
+- The guard leaves arguments, registrations, and active tools unchanged.
+- The guard does not run a replacement search.
+- Missing explicit targets are blocked before ignore inspection, even when the search is fully excluded.
+- Ignored targets remaining searchable after exclusions are blocked with guidance to retry using another tool.
+- Exclusions apply only to their matching positive scope.
+- Caller cancellation blocks the call.
+- Calls settle at the two-second deadline even if scope extraction or Git inspection ignores the abort.
+- Existence and ignore state are checked again on every call.
+- Delivered diagnostics contain no terminal controls.
+- Diagnostics do not expose internal Git errors.
 
 ### Missing targets
 
-- Missing explicit targets are blocked before ignore inspection.
 - Recursive filename filters are not explicit local files.
 - Rooted globs need a root that exists, not matching files.
 - Files and other non-directory objects cannot satisfy directory-only scopes or glob roots. An existing unsupported object, such as a FIFO, is not reported as a missing file.
-- Missing-target precedence survives a fully excluded search.
 
 ### Scopes
 
 - Extraction follows FFF syntax, finite alternatives, exclusions, hidden-file rules, and intersecting constraints.
 - Shared FFF expression parsing supplies explicit-path and directory intent; the guard owns filesystem errors, limits, missingness, and exclusion application.
-- Exclusions apply to their matching positive scope, without losing an ignored target that is still searchable.
 - Retained alternatives sharing a lexical root receive one Git inspection, in first-seen order after exclusions.
 - Ordinary explicit targets and fixed glob roots avoid duplicate resolution probes; subsequent Git inspection still rechecks existence.
 
 ### Decisions
 
-| Situation                                                          | Result                        |
-| ------------------------------------------------------------------ | ----------------------------- |
-| Ignored target                                                     | Blocked, with retry guidance. |
-| Malformed scope, Git failure, traversal limit, two-second deadline | Allowed, with a diagnostic.   |
-| Caller cancellation                                                | Blocked.                      |
-
-- Calls settle even if scope extraction or Git inspection ignores the abort.
-- Existence and ignore state are checked again on every call.
+- Malformed scopes, Git failures, traversal limits, and the two-second deadline allow the call with a diagnostic.
 - Non-missing filesystem failures in positive scopes and exclusions allow the call with a diagnostic.
 - Malformed scope fields retain field-specific diagnostics, including string-or-array guidance for `exclude`.
-- Diagnostics contain no terminal controls or internal Git errors.
 
 ## How to test
+
+Unit coverage is limited to the must-not-regress invariants; probe counts, inspection order, injected filesystem failures, and malformed-field diagnostics have no dedicated unit cases.
 
 Use disposable repositories to check integration with the shared helpers, without repeating the shared Git matrix. The unsupported-target check requires the Unix `mkfifo` command.
 

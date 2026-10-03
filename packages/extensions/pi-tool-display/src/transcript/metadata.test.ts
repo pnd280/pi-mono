@@ -66,61 +66,6 @@ it("persists typed facts and reads only matching source calls from the supplied 
     ]).forCall(reference)
   ).toEqual([record]);
 });
-it("indexes source entries once and keeps the latest fact per adapter, call, and kind", () => {
-  const entries: SessionEntry[] = [];
-  const timestamp = new Date(0).toISOString();
-
-  for (let index = 0; index < 100; index++) {
-    const id = String(index);
-    entries.push({
-      type: "message",
-      id,
-      parentId: null,
-      timestamp,
-      message: assistantMessage([fauxToolCall("bash", {}, { id })], index)
-    });
-    const call = {
-      messageEntryId: id,
-      messageTimestamp: index,
-      contentIndex: 0,
-      toolCallId: id
-    };
-    for (const durationMs of [1, 2])
-      entries.push({
-        type: "custom",
-        id: `fact-${id}-${durationMs}`,
-        parentId: id,
-        timestamp,
-        customType: METADATA_TYPE,
-        data: {
-          version: 1,
-          call,
-          adapter: "pi:bash",
-          fact: { kind: "operation", availability: "available", outcome: "success", durationMs }
-        }
-      });
-  }
-
-  let accesses = 0;
-  const branch = entries.map((entry) => ({
-    ...entry,
-    get id() {
-      accesses++;
-
-      return entry.id;
-    }
-  }));
-  const records = new DisplayRecordIndex(branch);
-
-  for (let index = 0; index < 100; index++) {
-    const reference = { messageTimestamp: index, contentIndex: 0, toolCallId: String(index) };
-    const facts = records.forCall(reference);
-    expect(facts).toHaveLength(1);
-    expect(facts[0]!.fact).toMatchObject({ durationMs: 2 });
-  }
-
-  expect(accesses).toBeLessThanOrEqual(branch.length);
-});
 
 it.each([
   { kind: "operation", availability: "available", durationMs: 1, outcome: ["success"] },

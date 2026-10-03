@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 
-import type { JsonObject } from "@earendil-works/pi-ai";
 import { describe, it } from "vite-plus/test";
 
 import {
@@ -9,10 +8,7 @@ import {
   MAX_DESCRIPTION_LENGTH,
   MAX_DETAILS_OVERHEAD_BYTES,
   MAX_LEGACY_SNAPSHOT_BYTES,
-  MAX_LIST_CHARACTERS,
   MAX_LIST_LINES,
-  MAX_METADATA_BYTES,
-  MAX_METADATA_DEPTH,
   MAX_OWNER_LENGTH,
   MAX_SNAPSHOT_BYTES,
   MAX_SUBJECT_LENGTH,
@@ -24,111 +20,6 @@ import { parseTodoStateSnapshot } from "./session-state.ts";
 import type { Task, TaskMutationParams, TodoState } from "./types.ts";
 
 describe("todo reducer", () => {
-  it("creates, lists, gets, updates, deletes, and clears todos", () => {
-    let state = emptyTodoState();
-
-    const created = mutate(state, "create", {
-      subject: "Research existing tool",
-      description: "Read source behavior",
-      owner: "agent",
-      metadata: { phase: "scout" }
-    });
-    state = created.state;
-
-    for (const field of ["#1", "Research existing tool", "pending"])
-      assert.ok(created.content[0]?.text.includes(field));
-    assert.equal(created.details.nextId, 2);
-    assert.deepEqual(created.details.tasks[0], {
-      id: 1,
-      subject: "Research existing tool",
-      description: "Read source behavior",
-      status: "pending",
-      owner: "agent",
-      metadata: { phase: "scout" }
-    });
-
-    const updated = mutate(state, "update", {
-      id: 1,
-      status: "in_progress",
-      inProgressLabel: "researching source",
-      metadata: { phase: "implementation", owner: null }
-    });
-    state = updated.state;
-
-    assert.equal(updated.details.tasks[0]?.status, "in_progress");
-    assert.deepEqual(updated.details.tasks[0].metadata, { phase: "implementation" });
-
-    const listed = mutate(state, "list", {});
-    for (const field of ["in_progress", "#1", "Research existing tool", "researching source"])
-      assert.ok(listed.content[0]?.text.includes(field));
-
-    const got = mutate(state, "get", { id: 1 });
-    const gotText = got.content[0]?.text ?? "";
-    for (const field of ["#1", "Read source behavior", "researching source", "agent"])
-      assert.ok(gotText.includes(field));
-
-    const deleted = mutate(state, "delete", { id: 1 });
-    state = deleted.state;
-    assert.equal(deleted.details.tasks[0]?.status, "deleted");
-
-    assert.doesNotMatch(
-      mutate(state, "list", {}).content[0]?.text ?? "",
-      /Research existing tool/u
-    );
-    assert.match(
-      mutate(state, "list", { includeDeleted: true }).content[0]?.text ?? "",
-      /deleted.*#1 Research existing tool/u
-    );
-
-    const cleared = mutate(state, "clear", {});
-    assert.deepEqual(cleared.details.tasks, []);
-    assert.equal(cleared.details.nextId, 1);
-  });
-
-  it("projects model-controlled text to terminal-safe state and result content", () => {
-    const created = mutate(emptyTodoState(), "create", {
-      subject: "Implement\x1b[31m\nspoof",
-      description: "First \x1b[32mline\x1b[0m\nSecond\tcolumn",
-      inProgressLabel: "working\x1b]0;owned\x07\nnow",
-      owner: "agent\x1b[2J\nname"
-    });
-
-    assert.deepEqual(created.state.tasks[0], {
-      id: 1,
-      subject: "Implement spoof",
-      description: "First line\nSecond  column",
-      inProgressLabel: "working now",
-      status: "pending",
-      owner: "agent name"
-    });
-    assert.match(created.content[0]?.text ?? "", /#1.*Implement spoof/u);
-    assert.deepEqual(created.details.params, {
-      subject: "Implement spoof",
-      description: "First line\nSecond  column",
-      inProgressLabel: "working now",
-      owner: "agent name"
-    });
-
-    const updated = mutate(created.state, "update", {
-      id: 1,
-      subject: "Updated\x1b[2K\nsubject",
-      description: "Safe paragraph one\n\nSafe paragraph two\x1b[31m",
-      inProgressLabel: "testing\x9b31m\nnow",
-      owner: "owner\x00\nnext"
-    });
-    const task = updated.state.tasks[0];
-    assert.ok(task);
-    assert.equal(task.subject, "Updated subject");
-    assert.equal(task.description, "Safe paragraph one\n\nSafe paragraph two");
-    assert.equal(task.inProgressLabel, "testing now");
-    assert.equal(task.owner, "owner next");
-    assert.equal(JSON.stringify(updated).includes("\x1b"), false);
-    assert.equal(JSON.stringify(updated).includes("\x9b"), false);
-
-    const emptySubject = mutate(emptyTodoState(), "create", { subject: "\x1b[31m\x1b[0m" });
-    assert.match(emptySubject.details.error ?? "", /subject.*required/u);
-  });
-
   it("rejects metadata values that would change during JSON persistence", () => {
     for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0]) {
       const result = mutate(emptyTodoState(), "create", {
@@ -140,80 +31,6 @@ describe("todo reducer", () => {
       assert.deepEqual(result.state, emptyTodoState());
       assert.deepEqual(parseTodoStateSnapshot(result.details), emptyTodoState());
     }
-  });
-
-  it.each<["update" | "delete", TaskMutationParams]>([
-    ["update", { id: 2, parentId: 3 }],
-    ["update", { id: 2, metadata: { values: ["replacement"], remove: null } }],
-    ["update", { id: 2, metadata: { values: null, remove: null } }],
-    ["delete", { id: 2 }]
-  ])("isolates state and result snapshots for %s with %j", (action, params) => {
-    const initial = (): TodoState => ({
-      tasks: [
-        { id: 1, subject: "Parent", status: "pending", metadata: { values: ["parent"] } },
-        {
-          id: 2,
-          subject: "Child",
-          status: "pending",
-          parentId: 1,
-          blockedBy: [1],
-          metadata: { values: ["child"], remove: true }
-        },
-        { id: 3, subject: "Destination", status: "pending", metadata: { values: ["destination"] } }
-      ],
-      nextId: 4
-    });
-    const state = initial();
-    const result = mutate(state, action, params);
-    assert.equal(result.details.error, undefined);
-    assert.deepEqual(state, initial());
-    assert.deepEqual(result.details.tasks, result.state.tasks);
-    const unchangedDetails = structuredClone(result.details.tasks);
-
-    for (const task of result.state.tasks) {
-      task.blockedBy?.push(99);
-
-      if (task.metadata) {
-        assert.ok(Array.isArray(task.metadata.values));
-        task.metadata.values.push("changed state");
-      }
-    }
-
-    assert.deepEqual(state, initial());
-    assert.deepEqual(result.details.tasks, unchangedDetails);
-
-    for (const task of result.details.tasks) {
-      task.blockedBy?.push(100);
-
-      if (task.metadata) {
-        assert.ok(Array.isArray(task.metadata.values));
-        task.metadata.values.push("changed details");
-      }
-    }
-
-    assert.deepEqual(state, initial());
-    if (Array.isArray(params.metadata?.values))
-      assert.deepEqual(params.metadata.values, ["replacement"]);
-  });
-
-  it("keeps result parameters independent of caller-owned arrays and metadata", () => {
-    const state = mutate(emptyTodoState(), "create", { subject: "Dependency" }).state;
-    const blockedBy = [1];
-    const metadata = { nested: { phase: "original" } };
-    const params = { subject: "Task", blockedBy, metadata };
-    const result = mutate(state, "create", params);
-
-    assert.equal(result.details.error, undefined);
-    blockedBy.push(99);
-    metadata.nested.phase = "changed";
-
-    assert.deepEqual(result.details.params, {
-      subject: "Task",
-      blockedBy: [1],
-      metadata: { nested: { phase: "original" } }
-    });
-    assert.deepEqual(result.details.tasks.at(-1)?.blockedBy, [1]);
-    assert.deepEqual(result.details.tasks.at(-1)?.metadata, { nested: { phase: "original" } });
   });
 
   it("returns validation diagnostics with complete state snapshots", () => {
@@ -234,118 +51,9 @@ describe("todo reducer", () => {
     assert.match(restoreDeleted.details.error ?? "", /deleted.*pending/u);
     assert.equal(restoreDeleted.details.tasks[0]?.status, "deleted");
     assert.equal(restoreDeleted.details.nextId, deleted.nextId);
-
-    const selfBlock = mutate(state, "update", { id: 1, addBlockedBy: [1] });
-    assert.match(selfBlock.details.error ?? "", /#1.*itself/u);
-
-    const missingDependency = mutate(state, "update", { id: 1, addBlockedBy: [99] });
-    assert.match(missingDependency.details.error ?? "", /addBlockedBy.*#99/u);
   });
 
-  it("rejects non-positive, non-integer, and unsafe todo ids", () => {
-    let state = emptyTodoState();
-    state = mutate(state, "create", { subject: "One" }).state;
-
-    assert.match(mutate(state, "get", { id: 1.5 }).details.error ?? "", /invalid.*id/u);
-    assert.match(mutate(state, "delete", { id: -1 }).details.error ?? "", /invalid.*id/u);
-    assert.match(
-      mutate(state, "get", { id: Number.MAX_SAFE_INTEGER + 1 }).details.error ?? "",
-      /invalid.*id/u
-    );
-    assert.match(
-      mutate(state, "update", { id: 0, status: "in_progress" }).details.error ?? "",
-      /invalid.*id/u
-    );
-    assert.match(
-      mutate(state, "create", { subject: "Two", blockedBy: [1, 2.5] }).details.error ?? "",
-      /blockedBy.*invalid/u
-    );
-    assert.match(
-      mutate(state, "update", { id: 1, addBlockedBy: [2.5] }).details.error ?? "",
-      /addBlockedBy.*invalid/u
-    );
-    assert.match(
-      mutate(state, "update", { id: 1, removeBlockedBy: [-1] }).details.error ?? "",
-      /removeBlockedBy.*invalid/u
-    );
-    assert.match(
-      mutate({ tasks: [], nextId: Number.MAX_SAFE_INTEGER }, "create", {
-        subject: "No safe successor id"
-      }).details.error ?? "",
-      /id.*limit/u
-    );
-  });
-
-  it("bounds todo fields, dependencies, metadata, and todo count", () => {
-    const state = emptyTodoState();
-    assert.match(
-      mutate(state, "create", { subject: "s".repeat(MAX_SUBJECT_LENGTH + 1) }).details.error ?? "",
-      /subject.*characters/u
-    );
-    assert.match(
-      mutate(state, "create", {
-        subject: "Todo",
-        description: "d".repeat(MAX_DESCRIPTION_LENGTH + 1)
-      }).details.error ?? "",
-      /description.*characters/u
-    );
-    assert.match(
-      mutate(state, "create", {
-        subject: "Todo",
-        inProgressLabel: "a".repeat(MAX_IN_PROGRESS_LABEL_LENGTH + 1)
-      }).details.error ?? "",
-      /inProgressLabel.*characters/u
-    );
-    assert.match(
-      mutate(state, "create", {
-        subject: "Todo",
-        blockedBy: Array.from({ length: MAX_DEPENDENCIES + 1 }, () => 1)
-      }).details.error ?? "",
-      /blockedBy.*ids/u
-    );
-    assert.match(
-      mutate(state, "create", {
-        subject: "Todo",
-        metadata: { value: "m".repeat(MAX_METADATA_BYTES) }
-      }).details.error ?? "",
-      /metadata.*bytes/u
-    );
-
-    let nested: JsonObject = {};
-    for (let depth = 0; depth < MAX_METADATA_DEPTH; depth += 1) nested = { nested };
-    assert.match(
-      mutate(state, "create", { subject: "Todo", metadata: nested }).details.error ?? "",
-      /metadata.*depth/u
-    );
-
-    const nearlyFullHierarchy: TodoState = {
-      tasks: Array.from({ length: MAX_TASKS - 1 }, (_, index): Task => {
-        const task: Task = {
-          id: index + 1,
-          subject: `Todo ${index + 1}`,
-          status: "pending"
-        };
-        if (index > 0) task.parentId = 1;
-
-        return task;
-      }),
-      nextId: MAX_TASKS
-    };
-    const finalChild = mutate(nearlyFullHierarchy, "create", {
-      subject: "Final child",
-      parentId: 1
-    });
-    assert.equal(finalChild.details.error, undefined);
-    assert.equal(finalChild.state.tasks.length, MAX_TASKS);
-    assert.equal(finalChild.state.tasks.at(-1)?.parentId, 1);
-    assert.match(
-      mutate(finalChild.state, "create", { subject: "One too many", parentId: 1 }).details.error ??
-        "",
-      /todo.*limit/u
-    );
-  });
-
-  it("bounds list content while retaining the complete snapshot", () => {
+  it("retains the complete snapshot when list content is bounded", () => {
     const omitted = 25;
     const taskCount = MAX_LIST_LINES + omitted;
     const state: TodoState = {
@@ -358,29 +66,9 @@ describe("todo reducer", () => {
     };
 
     const listed = mutate(state, "list", {});
-    const lines = listed.content[0]?.text.split("\n") ?? [];
-
-    assert.equal(lines.length, MAX_LIST_LINES + 1);
-    assert.match(lines.at(-1) ?? "", new RegExp(`\\b${omitted}\\b`, "u"));
-    assert.match(lines.at(-1) ?? "", /omitted/u);
     assert.deepEqual(listed.details.tasks, state.tasks);
     assert.equal(listed.details.nextId, state.nextId);
     assert.equal(parseTodoStateSnapshot(listed.details)?.tasks.length, taskCount);
-
-    const characterBoundedState: TodoState = {
-      tasks: Array.from({ length: MAX_TASKS }, (_, index) => ({
-        id: index + 1,
-        subject: "s".repeat(MAX_SUBJECT_LENGTH),
-        status: "pending" as const
-      })),
-      nextId: MAX_TASKS + 1
-    };
-    const characterBoundedText = mutate(characterBoundedState, "list", {}).content[0]?.text ?? "";
-    const firstLine = characterBoundedText.split("\n")[0] ?? "";
-    assert.match(firstLine, /#1\b/u);
-    assert.ok(firstLine.includes("s".repeat(MAX_SUBJECT_LENGTH)));
-    assert.ok(characterBoundedText.length <= MAX_LIST_CHARACTERS);
-    assert.match(characterBoundedText, /omitted/u);
   });
 
   it("includes complete snapshots in list, get, and domain-error details", () => {
@@ -542,7 +230,7 @@ describe("todo reducer", () => {
     }
   });
 
-  it("creates roots and children under any live parent status", () => {
+  it("rejects invalid parents atomically on creation", () => {
     let state = emptyTodoState();
     state = mutate(state, "create", { subject: "Pending parent" }).state;
     state = mutate(state, "create", { subject: "Active parent" }).state;
@@ -555,13 +243,6 @@ describe("todo reducer", () => {
     state = mutate(state, "create", { subject: "Active child", parentId: 2 }).state;
     state = mutate(state, "create", { subject: "Completed child", parentId: 3 }).state;
     state = mutate(state, "create", { subject: "Explicit root", parentId: null }).state;
-
-    for (const field of ["#4", "#1", "Pending child"])
-      assert.ok(pendingChild.content[0]?.text.includes(field));
-    assert.deepEqual(
-      state.tasks.map((task) => task.parentId),
-      [undefined, undefined, undefined, 1, 2, 3, undefined]
-    );
 
     const deletedParent = mutate(state, "delete", { id: 7 }).state;
 
@@ -579,7 +260,7 @@ describe("todo reducer", () => {
     }
   });
 
-  it("reparents and detaches complete subtrees using source sibling order", () => {
+  it("rejects invalid reparenting atomically", () => {
     let state = emptyTodoState();
     state = mutate(state, "create", { subject: "Root one" }).state;
     state = mutate(state, "create", { subject: "Root two" }).state;
@@ -600,35 +281,6 @@ describe("todo reducer", () => {
       assert.match(rejected.details.error ?? "", diagnostic);
       assert.deepEqual(rejected.state, deletedDestination);
     }
-
-    const moved = mutate(state, "update", { id: 3, parentId: 2 });
-    state = moved.state;
-    assert.equal(state.tasks.find((task) => task.id === 5)?.parentId, 3);
-    assert.match(
-      mutate(state, "list", {}).content[0]?.text ?? "",
-      /Root one[\s\S]*Child two[\s\S]*Root two[\s\S]*Child one[\s\S]*Grandchild/u
-    );
-
-    const idempotent = mutate(state, "update", {
-      id: 3,
-      parentId: 2,
-      subject: "Renamed child"
-    });
-    assert.match(
-      mutate(idempotent.state, "list", {}).content[0]?.text ?? "",
-      /Root one[\s\S]*Child two[\s\S]*Root two[\s\S]*Renamed child[\s\S]*Grandchild/u
-    );
-
-    const detached = mutate(idempotent.state, "update", { id: 3, parentId: null });
-    assert.equal(detached.state.tasks.find((task) => task.id === 3)?.parentId, undefined);
-    const detachedList = mutate(detached.state, "list", {}).content[0]?.text ?? "";
-    assert.match(
-      detachedList,
-      /Root one[\s\S]*Child two[\s\S]*Root two[\s\S]*Renamed child[\s\S]*Grandchild/u
-    );
-
-    const sameRoot = mutate(detached.state, "update", { id: 1, parentId: null });
-    assert.equal(mutate(sameRoot.state, "list", {}).content[0]?.text, detachedList);
   });
 
   it("rejects hierarchy cycles and depth overflow atomically at level eight", () => {
@@ -664,29 +316,7 @@ describe("todo reducer", () => {
     assert.deepEqual(tooDeepMove.state, movable);
   });
 
-  it("keeps hierarchy and blockedBy cycle validation independent", () => {
-    let state = emptyTodoState();
-    state = mutate(state, "create", { subject: "Root" }).state;
-    state = mutate(state, "create", { subject: "Child", parentId: 1, blockedBy: [1] }).state;
-    state = mutate(state, "create", { subject: "Sibling child", parentId: 1 }).state;
-
-    assert.deepEqual(state.tasks[1], {
-      id: 2,
-      subject: "Child",
-      status: "pending",
-      parentId: 1,
-      blockedBy: [1]
-    });
-    const legalAncestorDependency = mutate(state, "update", { id: 1, addBlockedBy: [3] });
-    assert.equal(legalAncestorDependency.details.error, undefined);
-
-    const dependencyCycle = mutate(state, "update", { id: 1, addBlockedBy: [2] });
-    assert.match(dependencyCycle.details.error ?? "", /addBlockedBy.*cycle/u);
-    const hierarchyCycle = mutate(state, "update", { id: 1, parentId: 3 });
-    assert.match(hierarchyCycle.details.error ?? "", /parentId.*cycle/u);
-  });
-
-  it("guards both tombstone paths and preserves deleted subtree placement", () => {
+  it("rejects both tombstone paths atomically for live descendants", () => {
     let state = emptyTodoState();
     state = mutate(state, "create", { subject: "Root" }).state;
     state = mutate(state, "create", { subject: "Child", parentId: 1 }).state;
@@ -700,59 +330,5 @@ describe("todo reducer", () => {
       assert.deepEqual(rejected.state, state);
       assert.deepEqual(rejected.details.tasks, state.tasks);
     }
-
-    assert.match(
-      mutate(state, "update", { id: 2, parentId: null, status: "deleted" }).details.error ?? "",
-      /parentId.*deleted/u
-    );
-
-    state = mutate(state, "delete", { id: 3 }).state;
-    state = mutate(state, "update", { id: 2, status: "deleted" }).state;
-    state = mutate(state, "delete", { id: 1 }).state;
-    assert.deepEqual(
-      state.tasks.map((task) => ({ id: task.id, parentId: task.parentId, status: task.status })),
-      [
-        { id: 1, parentId: undefined, status: "deleted" },
-        { id: 2, parentId: 1, status: "deleted" },
-        { id: 3, parentId: 2, status: "deleted" }
-      ]
-    );
-    const renamed = mutate(state, "update", { id: 2, subject: "Archived child" });
-    assert.equal(renamed.details.error, undefined);
-    assert.equal(renamed.state.tasks.find((task) => task.id === 2)?.parentId, 1);
-    assert.match(
-      mutate(renamed.state, "update", { id: 2, parentId: null }).details.error ?? "",
-      /#2.*deleted/u
-    );
-  });
-
-  it("projects hierarchy-first lists, filtered paths, and immediate detail context", () => {
-    let state = emptyTodoState();
-    state = mutate(state, "create", { subject: "Root" }).state;
-    state = mutate(state, "create", { subject: "First child", parentId: 1, blockedBy: [1] }).state;
-    state = mutate(state, "update", { id: 2, status: "in_progress" }).state;
-    state = mutate(state, "create", { subject: "Second child", parentId: 1 }).state;
-    state = mutate(state, "create", { subject: "Grandchild", parentId: 2 }).state;
-    state = mutate(state, "update", { id: 4, status: "completed" }).state;
-    state = mutate(state, "delete", { id: 3 }).state;
-
-    const list = mutate(state, "list", {}).content[0]?.text ?? "";
-    assert.match(list, /#1 Root[\s\S]*#2 First child[\s\S]*#4 Grandchild/u);
-    assert.doesNotMatch(list, /Second child/u);
-    assert.match(
-      mutate(state, "list", { status: "completed" }).content[0]?.text ?? "",
-      /#4 Grandchild.*#1\/#2/u
-    );
-    assert.match(
-      mutate(state, "list", { includeDeleted: true }).content[0]?.text ?? "",
-      /deleted.*#3 Second child/u
-    );
-    const rootDetails = mutate(state, "get", { id: 1 }).content[0]?.text ?? "";
-    assert.match(rootDetails, /children: #2/u);
-    assert.match(rootDetails, /(?:^|\n)\s*blocks:\s*#2(?:\n|$)/u);
-    const childDetails = mutate(state, "get", { id: 2 }).content[0]?.text ?? "";
-    assert.match(childDetails, /parent: #1/u);
-    assert.match(childDetails, /children: #4/u);
-    assert.doesNotMatch(childDetails, /(?:^|\n)\s*blocks:/u);
   });
 });

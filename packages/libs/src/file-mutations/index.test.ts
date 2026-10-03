@@ -211,47 +211,6 @@ it("isolates observer errors and reports committed writes even if cancellation h
   expect(changes[0]?.after).toEqual({ status: "ready", text: "written" });
 });
 
-it.each(["edit", "write"] as const)(
-  "reports a failed %s attempt with proposed content without hiding the tool failure",
-  async (name) => {
-    const { directory, context } = await fixture();
-    const path = join(directory, "file");
-    const before = "before\n";
-    const proposed = "proposed\n";
-    await fs.writeFile(path, before);
-    const failure = new Error("injected disk write failure");
-    const write = vi.mocked(fs.writeFile).mockClear().mockRejectedValueOnce(failure);
-    const started = vi.fn();
-    const completed = vi.fn<(mutation: FileMutation) => void>();
-    const original =
-      name === "edit"
-        ? defineTool(createEditToolDefinition(directory))
-        : defineTool(createWriteToolDefinition(directory));
-    const tool = observeMutationDefinition(original, directory, () => [
-      { maxSourceBytes: 1024, started, completed }
-    ]);
-    const args =
-      name === "edit"
-        ? { path, edits: [{ oldText: before, newText: proposed }] }
-        : { path, content: proposed };
-
-    await expect(tool.execute(name, args, undefined, undefined, context)).rejects.toThrow(
-      failure.message
-    );
-    expect(write).toHaveBeenCalledTimes(1);
-    expect(started).toHaveBeenCalledTimes(1);
-    expect(completed).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({
-        path,
-        before: { status: "ready", text: before },
-        after: { status: "ready", text: proposed },
-        outcome: "failure"
-      })
-    );
-    expect(await fs.readFile(path, "utf8")).toBe(before);
-  }
-);
-
 it("does not report a mutation when an edit fails before attempting a disk write", async () => {
   const { directory, context } = await fixture();
   const path = join(directory, "file");

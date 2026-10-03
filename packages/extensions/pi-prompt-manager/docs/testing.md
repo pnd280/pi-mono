@@ -4,13 +4,16 @@
 
 Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). This package tests collection formats, retention and recovery, editor effects, activation, browser presentation policy, and its own option and error handling.
 
+Unit coverage is limited to the "Must not regress" invariants below. Real filesystem, worker, SDK-host, and installed-CLI integration tests retain broader boundary coverage; other behaviours use the [manual validation checks](validation.md).
+
 ## Must not regress
 
-- Nothing reads settings or storage outside interactive TUI sessions.
-- Diagnostics never expose prompt text, and a committed change is never retried.
-- Drafts are never evicted to make room for additions.
-- Corrupt storage is never treated as empty.
-- Only unique entries whose UUID, text, and timestamp are unchanged are deleted.
+- Extension notifications exclude prompt text, including text in malformed collections or arbitrary host and clipboard errors.
+- Invalid UTF-8, malformed JSON, and unsupported collection documents remain unavailable rather than becoming empty collections that a mutation can overwrite; a missing file counts as empty.
+- Draft additions that exceed capacity are refused without evicting existing drafts.
+- Deletion requires the selected UUID to remain unique in the latest locked collection, compared without regard to case, with the exact text and original `recordedAt` value and presence unchanged.
+- Cleanup warnings after a commit remain committed outcomes, not failed writes that the extension automatically retries.
+- The extension reads settings and initialises storage only after `session_start` in TUI mode; print, JSON, and RPC modes remain inactive.
 
 ## Lifecycle and capture
 

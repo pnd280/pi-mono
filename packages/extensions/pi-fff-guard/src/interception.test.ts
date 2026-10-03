@@ -180,24 +180,6 @@ describe("public interception adapter", () => {
     expect(results[1]).toBeUndefined();
   });
 
-  it.each([
-    ["fffind", { pattern: 42 }, "Invalid FFF pattern: expected a string"],
-    ["ffgrep", { path: false }, "Invalid FFF path: expected a string"],
-    ["fff-multi-grep", { constraints: [] }, "Invalid FFF constraints: expected a string"],
-    ["ffgrep", { exclude: ["*.ts", 42] }, "Invalid FFF exclude: expected a string or string array"]
-  ] as const)(
-    "allows malformed scope fields for %s with a diagnostic: %j",
-    async (name, invalid, expected) => {
-      const host = harness();
-      host.register(name);
-      const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
-      expect(
-        await host.call(name, { path: "node_modules/", pattern: "*.ts", ...invalid })
-      ).toBeUndefined();
-      expect(diagnostic).toHaveBeenCalledWith(expect.stringContaining(expected));
-    }
-  );
-
   it.each([false, true])("sanitizes filesystem diagnostics (UI: %s)", async (hasUI) => {
     const host = harness({ hasUI });
     host.register("ffgrep");

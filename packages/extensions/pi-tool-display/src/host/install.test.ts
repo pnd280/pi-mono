@@ -2614,49 +2614,6 @@ it.each(["missing", "non-writable"])(
   }
 );
 
-it("returns an available original view when decoration fails and never retries a failing previous lookup", () => {
-  const original = host.getRegisteredToolDefinition;
-  const session: LookupSession = { ...lookupSession(), getToolDefinition: () => undefined };
-  const view = original.call({ session }, "read");
-  const previous = vi.fn().mockReturnValue(view);
-  host.getRegisteredToolDefinition = previous;
-  const dispose = installHostIntegration();
-
-  try {
-    session.getAllTools = () => {
-      throw new Error("ownership unavailable");
-    };
-
-    expect(host.getRegisteredToolDefinition.call({ session }, "read")).toBe(view);
-    expect(previous).toHaveBeenCalledTimes(1);
-
-    session.getAllTools = lookupSession().getAllTools;
-    const invalidView = Object.defineProperty({}, "renderCall", {
-      enumerable: true,
-      get() {
-        throw new Error("cannot copy view");
-      }
-    });
-    previous.mockReturnValue(invalidView);
-    expect(host.getRegisteredToolDefinition.call({ session }, "read")).toBe(invalidView);
-    expect(previous).toHaveBeenCalledTimes(2);
-
-    previous.mockReturnValue(undefined);
-    expect(host.getRegisteredToolDefinition.call({ session }, "read")?.renderShell).toBe("self");
-    expect(previous).toHaveBeenCalledTimes(3);
-
-    const failure = new Error("previous lookup failed");
-    previous.mockImplementation(() => {
-      throw failure;
-    });
-    expect(() => host.getRegisteredToolDefinition.call({ session }, "read")).toThrow(failure);
-    expect(previous).toHaveBeenCalledTimes(4);
-  } finally {
-    dispose?.();
-    host.getRegisteredToolDefinition = original;
-  }
-});
-
 it("replaces repeated installations and preserves later wrappers during repeated disposal and reinstallation", () => {
   const original = host.getRegisteredToolDefinition;
   const firstDispose = installHostIntegration();

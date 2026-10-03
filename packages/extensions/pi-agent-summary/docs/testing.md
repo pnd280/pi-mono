@@ -2,20 +2,22 @@
 
 [Package](../README.md) · [Shared testing policy](../../../../docs/agents/testing.md)
 
-Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). For maintainers: this package tests run accumulation, the summary schema, timing policy, and host subscriptions.
+Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). For maintainers: unit tests cover only the must-not-regress invariants below; real native-tool and host integrations also cover subscription, aggregation, nested execution, and routing. The remaining sections describe behaviour, not exhaustive automated coverage.
 
 ## Must not regress
 
-- Settlement appends exactly one summary, outside model context.
-- Statistics are saved; source text and patches never are.
-- Unavailable file endpoints, including failed final writes, never count as zero changes.
-- Settlement and session resets never carry totals or active intervals into the next run.
+- Saved summaries contain run metadata and file statistics or unavailability reasons, not file contents or patches.
+- Appending a summary with `appendEntry` leaves the model's session context unchanged.
+- Files whose statistics remain unavailable, including after a failed final write, are recorded as unavailable rather than as zero changes.
+- A started run appends exactly one summary at an idle `agent_settled`, unless a session reset or shutdown discards it before persistence.
+- A run started after settlement, session reset, or shutdown begins without the previous run's accumulated statistics.
+- Settlement, session reset, and shutdown stop the live timer's interval.
 
 ## Run timing
 
 - A run uses monotonic time across turns, retries, and follow-ups until settlement. Repeated starts don't reset it.
 - The finish time is captured before asynchronous statistics complete.
-- Shutdown and reload discard unfinished runs and late statistics, and stop UI timers.
+- Shutdown and reload discard unfinished runs and late statistics.
 - Native completions captured before a session reset cannot update the discarded run or its replacement.
 - Runs outside the TUI are saved without UI timers.
 - Cleanup keeps other working-message contributions.
@@ -66,11 +68,11 @@ Expanded only:
 ## How to test
 
 - Keep one real native `edit` and `write` integration that proves subscription and aggregation, including aliases and sources over 64 KiB. Don't add another matrix of shared diff cases.
-- Exercise timer cleanup, continuations, and behaviour outside the TUI through lifecycle events. Test monotonic-clock jumps at the timer seam.
+- Exercise timer cleanup, continuations, and run resets through lifecycle events.
 - The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events without starting a native runtime.
 - Its real-tool helper lazily creates one offline session using the event adapter's session manager, after observation is installed.
 - Fixture teardown releases observations, timers, and temporary files even when native startup fails.
-- Renderer tests protect the leading marker, the single-line layout, retained data within width budgets, the saved finish time shown only when expanded, throughput from saved stream totals rather than run duration, unavailable totals, and expansion.
+- Renderer tests protect the distinction between available totals and unavailable files, including their expanded reasons.
 - Check diagnostic categories, not full prose.
 
 ## Not covered here

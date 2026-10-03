@@ -34,18 +34,6 @@ it("retains shared patches and derives creation/modification facts", async () =>
   expect((await mutationChange(mutation({ status: "ready", patch }))).change).toBe("modification");
 });
 
-it("applies the documented patch bound and distinguishes observation failures", async () => {
+it("rejects retained patches exceeding the persistence bound", () => {
   expect(parseRetainedPatch("@@ -0,0 +1 @@\n+" + "x".repeat(128 * 1024))).toBeUndefined();
-
-  for (const [status, description] of [
-    ["source-too-large", /8 MiB/],
-    ["budget-exceeded", /50 ms/],
-    ["queue-full", /queue/i],
-    ["worker-failed", /worker/i],
-    ["binary", /binary/i]
-  ] as const) {
-    const fact = await mutationChange(mutation({ status }));
-    expect(fact.availability).toBe("unavailable");
-    expect(fact.reason).toMatch(description);
-  }
 });

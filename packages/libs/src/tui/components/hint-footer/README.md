@@ -17,4 +17,4 @@ Messages replace hints without changing height. Overflow replaces the final row 
 
 ## Validation
 
-See [package validation](../../../../README.md#validation), the [packing tests](index.test.ts), and prompt manager's [presentation scenarios](../../../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting).
+See [package validation](../../../../README.md#validation) and prompt manager's [presentation scenarios](../../../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting).

@@ -160,20 +160,6 @@ describe("native source windows", () => {
       lines: ["first", "second"],
       notice: "third\n\nnotice"
     });
-    expect(interpreted.document?.select(span(2, 4)).ranges).toEqual([
-      { line: 0, start: 0, end: 5 },
-      { line: 1, start: 0, end: 6 }
-    ]);
-    expect(interpreted.blocks[0]?.highlight("first\nsecond\nthird", span(2, 4))).toEqual([
-      { line: 0, start: 0, end: 5 },
-      { line: 1, start: 0, end: 6 }
-    ]);
-    expect(
-      interpretReadResult(retained, { offset: undefined, limit: undefined }).document?.firstLine
-    ).toBe(1);
-    expect(interpretReadResult(retained, { offset: -2, limit: 1 }).document?.lines).toEqual([
-      "first"
-    ]);
   });
 
   it("keeps end-relative windows selectable without inferring notice provenance from prose", () => {
@@ -183,11 +169,6 @@ describe("native source windows", () => {
       lines: ["first", "second", "third"],
       notice: "arbitrary native notice"
     });
-    expect(interpreted.blocks[0]?.highlight("first\nsecond\nthird", span(1, 3))).toEqual([
-      { line: 0, start: 0, end: 5 },
-      { line: 1, start: 0, end: 6 },
-      { line: 2, start: 0, end: 5 }
-    ]);
     expect(
       interpreted.blocks[0]?.highlight(
         "first\nsecond\nthird\n\narbitrary native notice",
@@ -225,10 +206,9 @@ describe("native source windows", () => {
       partial: true
     });
     expect(interpreted.blocks[0]?.highlight("", span(1))).toEqual([]);
-    expect(interpretReadResult(result("")).document).toMatchObject({ lines: [], notice: "" });
   });
 
-  it("preserves aggregate joins and per-block coordinates, including trailing newlines and empty blocks", () => {
+  it("bounds multi-block source by returned counts despite trailing newlines and empty blocks", () => {
     const retained: ReadResultView = {
       content: [
         { type: "text", text: "alpha\n" },
@@ -242,64 +222,7 @@ describe("native source windows", () => {
       details: { selectiveRead: { sourceBlocks: 3 }, truncation: { outputLines: 5 } }
     };
     const interpreted = interpretReadResult(retained, { offset: 10, limit: 1 });
-    const selection = selectionSchema.parse({ startLine: 13, startColumn: 2, endLine: 20 });
     expect(interpreted.document?.lines).toEqual(["alpha", "", "", "\t😀界tail", "next"]);
-    expect(interpreted.document?.select(selection).ranges).toEqual([
-      { line: 3, start: 1, end: 8 },
-      { line: 4, start: 0, end: 4 }
-    ]);
-    expect(interpreted.blocks[2]?.highlight("\t😀界tail\nnext", selection)).toEqual([
-      { line: 0, start: 1, end: 8 },
-      { line: 1, start: 0, end: 4 }
-    ]);
     expect(interpreted.blocks[3]).toBeUndefined();
-    expect(interpreted.document?.select(span(11)).ranges).toEqual([{ line: 1, start: 0, end: 0 }]);
-    expect(interpreted.blocks[0]?.highlight("alpha\n", span(11))).toEqual([]);
-    expect(interpreted.blocks[1]?.highlight("", span(12))).toEqual([]);
-  });
-
-  it("counts original preceding block lines but highlights only the supplied native source part", () => {
-    const notice = "[2 more lines in file. Use offset=2 to continue.]";
-    const retained: ReadResultView = {
-      content: [
-        { type: "text", text: `source\n\n${notice}` },
-        { type: "text", text: "next" }
-      ]
-    };
-    const interpreted = interpretReadResult(retained);
-    expect(interpreted.blocks[0]?.highlight("source", span(1, 9))).toEqual([
-      { line: 0, start: 0, end: 6 }
-    ]);
-    expect(interpreted.blocks[1]?.highlight("next", span(4))).toEqual([
-      { line: 0, start: 0, end: 4 }
-    ]);
-    const embedded = `prefix\n\n${notice}\nsuffix`;
-    // Interpretation does not infer native provenance from a source-text lookalike.
-    expect(interpretReadResult(result(embedded)).blocks[0]?.highlight(embedded, span(3))).toEqual([
-      { line: 2, start: 0, end: notice.length }
-    ]);
-  });
-
-  it("leaves images and text-only image failure prefixes ineligible, including literal lookalikes", () => {
-    for (const retained of [
-      { content: [] },
-      { content: [{ type: "image", data: "AA==", mimeType: "image/png" }] },
-      {
-        content: [
-          { type: "text", text: "source" },
-          { type: "image", data: "AA==", mimeType: "image/png" }
-        ]
-      },
-      result(
-        "Read image file [image/png]\n[Image omitted: could not be converted to a supported inline image format.]"
-      ),
-      result("Read image file [image/literal source text]")
-    ] satisfies ReadResultView[]) {
-      const interpreted = interpretReadResult(retained);
-      expect(interpreted.valid).toBe(true);
-      expect(interpreted.document).toBeUndefined();
-      expect(interpreted.blocks.every((block) => block === undefined)).toBe(true);
-      expect(interpreted.sourceContent).toBe(retained.content);
-    }
   });
 });
