@@ -33,13 +33,15 @@ Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<
 
 Workspace commands:
 
-| Command          | Scope                                  |
-| ---------------- | -------------------------------------- |
-| `vpr check`      | Formatting, linting, and type checking |
-| `vpr test`       | All tests in one Vitest invocation     |
-| `vpr lint`       | Linting and type checking              |
-| `vp fmt --check` | Formatting without writes              |
-| `vp fmt`         | Apply formatting                       |
+| Command                  | Scope                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `vpr check`              | Formatting, linting, type checking, `docs:check`, and `fingerprints:check`                                                  |
+| `vpr docs:check`         | Markdown links, anchors, and "Last verified" Pi versions                                                                    |
+| `vpr fingerprints:check` | [Host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) of private Pi methods |
+| `vpr test`               | All tests in one Vitest invocation                                                                                          |
+| `vpr lint`               | Linting and type checking                                                                                                   |
+| `vp fmt --check`         | Formatting without writes                                                                                                   |
+| `vp fmt`                 | Apply formatting                                                                                                            |
 
 Use `vpr check` for the repository's `stylish` lint format; the built-in `vp check` does not support custom output formats.
 
@@ -136,7 +138,7 @@ Schemas are unnecessary for control-flow narrowing, host capability checks, or i
 
 ## Pi APIs
 
-Implement Pi changes through workspace extensions, preferring public APIs. Runtime monkey-patches may work around API limits. Never suggest or edit Pi core or upstream package files, including installed dependencies.
+Implement Pi changes through workspace extensions, preferring public APIs. Runtime monkey-patches may work around API limits. When you add, move, or remove a SHA-256 fingerprint of a private Pi method, update `owners` in the [fingerprint script](../.agents/skills/pi-update/scripts/fingerprints.ts) and the [host fingerprints table](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints); `vpr check` fails until they match. Never suggest or edit Pi core or upstream package files, including installed dependencies.
 
 Namespace persisted custom entry and custom message `customType` identifiers as `<extension-package>.<entry-name>`, for example `pi-agent-summary.summary`. Define each identifier in its owning module and reuse it for writes, reads, and renderer registration. These identifiers are distinct from Pi-generated session record `id` values.
 

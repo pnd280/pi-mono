@@ -44,7 +44,8 @@ export interface Host {
 // Pi 1.0.0: toggleToolOutputExpansion only negates toolOutputExpanded through
 // setToolsExpanded, which updates the header, loaded resources, and chat rows, then
 // shows its status. Mode cycling depends on both bodies; recheck on Pi upgrades.
-// Hashes cover the unbundled API and the installed CLI's minified build.
+// Hashes cover the unbundled API and the installed CLI's minified build. Keep
+// .agents/skills/pi-update/scripts/fingerprints.ts in sync with all hashed methods here.
 const modeHookHashes = {
   toggleToolOutputExpansion: new Set([
     "de91b6264219310ad41fb8984ae6db195a3eeb0850b277ded343063b65882e71",

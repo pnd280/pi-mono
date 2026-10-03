@@ -12,6 +12,7 @@ Make breaking changes directly; add compatibility support only when explicitly r
 
 | Task                                                                                                  | Guidance                                                   |
 | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Find the package that owns a feature                                                                  | [Workspace architecture](docs/architecture.md)             |
 | Change behaviour or refactor                                                                          | [Code organisation and reuse](docs/agents/architecture.md) |
 | Choose coverage, edit tests, or review tests                                                          | [Testing](docs/agents/testing.md)                          |
 | Validate changes, edit TypeScript or tooling, configure packages, update dependencies, or use Pi APIs | [Development](docs/development.md)                         |

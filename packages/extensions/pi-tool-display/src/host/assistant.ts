@@ -18,6 +18,7 @@ import { inspectedSource } from "./compatibility.ts";
 // Pi 1.0.0 updateContent creates direct Markdown children only for prose, using
 // outputPad on both sides, and one MouseRegion per nonempty consecutive thinking
 // run. Gate this private child-layout contract for both the API and installed CLI.
+// Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with this method.
 const updateHashes = new Set([
   "fd0c8ba64d8a398fce1ff73d93e43bc70b66ba50e06491ddeb4826c37992a302",
   "d366fcccf73b9b9532c39e9d975d9816db5cbb2397a661c8347c4f665dcfeacc"

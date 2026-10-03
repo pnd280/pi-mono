@@ -23,6 +23,7 @@ export function unchangedDefinition(definition: ToolDefinition, fields: ToolDefi
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 export const nativeSession = (session: AgentSession) => session as unknown as SessionInternals;
 
+// Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const constructionHashes = [
   {
     _buildRuntime: "a3ab89260460277fd6dff8c9f076bf16cf9e1a877ca5fbba63ac7f7cb93eb1d4",

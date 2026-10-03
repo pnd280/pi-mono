@@ -56,6 +56,7 @@ export type ManualCompaction = AgentSession["compact"];
 
 // Reviewed Pi 1.0.0 API modules and installed bundled CLI, respectively. Never
 // learn fingerprints from the running host: an unknown implementation must fail closed.
+// Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const fingerprints = [
   {
     _compactBeforeNextAssistantResponse:

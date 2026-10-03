@@ -16,7 +16,20 @@ Check registry streaming, normalisation, resolved options, authentication, heade
 
 - Check hooks and return types, fail-closed `user_bash`, prompt-mutating `before_agent_start`, reload, cleanup, interruption, and reconstruction. Confirm changed events are used before migrating their consumers.
 - Review private TUI construction, layout, notice insertion, native rows, and patch ownership and restoration. Check both API and executable contracts where used; passing API tests do not prove executable private hooks.
-- Verify contracts before changing fingerprints; retain valid fingerprints.
+- Verify contracts before changing fingerprints; retain valid fingerprints. See [host fingerprints](#host-fingerprints).
+
+## Host fingerprints
+
+Four owners gate private Pi hooks on SHA-256 hashes of method source. Each owner lists two hashes per method: one for the unbundled API build (`dist/`), and one for the minified installed CLI (`dist/bundle/cli.js`).
+
+| Owner                                                                                                         | Hooked Pi source                                                                     | Methods                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| [`native-tools/compatibility.ts`](../../../../packages/libs/src/native-tools/compatibility.ts)                | `AgentSession` (`core/agent-session.js`)                                             | `_buildRuntime`, `_refreshToolRegistry`                                                                                   |
+| [`pi-smart-compact/src/compatibility.ts`](../../../../packages/extensions/pi-smart-compact/src/compatibility.ts) | `AgentSession`, `compact` (`core/compaction/compaction.js`)                          | `_compactBeforeNextAssistantResponse`, `_runAutoCompaction`, `_runDefaultCompaction`, `_appendCustomMessage`, `compact`, `AgentSession.compact` |
+| [`pi-tool-display/src/host/compatibility.ts`](../../../../packages/extensions/pi-tool-display/src/host/compatibility.ts) | `InteractiveMode` (`modes/interactive/interactive-mode.js`), `ToolExecutionComponent` | `toggleToolOutputExpansion`, `setToolsExpanded`, `render`, `handleMouse`                                                  |
+| [`pi-tool-display/src/host/assistant.ts`](../../../../packages/extensions/pi-tool-display/src/host/assistant.ts) | `AssistantMessageComponent` (`modes/interactive/components/assistant-message.js`) | `updateContent` |
+
+Run `vpr fingerprints:check` from the workspace root; `vpr check` and CI also run it. It hashes both builds of the installed Pi and marks each hash that its owner file does not list (`CHANGED`). It also marks each 64-hex hash in workspace source that no registered method produces (`UNCLAIMED`). When you add, rename, or remove a fingerprinted hook, update `owners` in the script and the table above in the same change. A changed hash means the method body changed: diff the old and new source of that method, verify the hook still holds, and only then replace the hash. `pi-smart-compact` also pins `VERSION`.
 
 ## Visible history
 

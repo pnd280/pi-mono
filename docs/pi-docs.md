@@ -19,8 +19,9 @@ Agents and maintainers checking Pi contracts should use the workspace's installe
 | Edit manifests or host dependencies             | [Packages](../node_modules/@earendil-works/pi-coding-agent/docs/packages.md)                                                                                                    |
 | Configure Pi through the environment            | [Environment variables](../node_modules/@earendil-works/pi-coding-agent/docs/environment-variables.md)                                                                          |
 | Connect MCP tools                               | [MCP servers](../node_modules/@earendil-works/pi-coding-agent/docs/mcp.md)                                                                                                      |
+| Check a field the docs don't cover              | [Extension types](../node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/types.d.ts) and [pi-ai types](../node_modules/@earendil-works/pi-ai/dist/types.d.ts)     |
 
-When changing a Pi integration, read the relevant installed API documentation and examples, including linked contracts needed by the change. Resolve links inside installed documentation relative to that document, not the workspace root.
+When changing a Pi integration, read the relevant installed API documentation and examples, including linked contracts needed by the change. The Markdown docs omit some contracts, such as `ToolDefinition.constrainedSampling` for grammar tools. Before you state that Pi lacks a capability, read the type declarations. Resolve links inside installed documentation relative to that document, not the workspace root.
 
 ## Linking Pi documentation
 
