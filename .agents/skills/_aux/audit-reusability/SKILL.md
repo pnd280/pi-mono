@@ -58,7 +58,7 @@ Record one finding per cause with title, priority, category, classification, loc
 
 Implement authorised substitutions or extractions without repeat approval. Leave conditional redesigns outside that authorisation as decisions. Preserve identifiers, ownership, and consumer policy; remove superseded code, update all consumers and inaccurate documentation, and add compatibility aliases only if requested.
 
-Test shared contracts at their owner and consumer policy at integration boundaries. Follow [testing guidance](../../../../docs/agents/testing.md) when adding regressions for plausible gaps, including red/green evidence; rely on existing dependency coverage for unchanged dependency behaviour.
+Test shared contracts at their owner and consumer policy at integration boundaries. Follow [testing guidance](../../../../docs/agents/testing.md#coverage) to decide whether a regression test is allowed and for red/green evidence; rely on existing dependency coverage for unchanged dependency behaviour.
 
 **Complete when:** every authorised change and affected consumer is updated and required checks pass. Report blocked changes as incomplete.
 

@@ -24,6 +24,6 @@ Choose which text to search and keep exact source separate from terminal-safe di
 
 Query preparation, categories, scores, and checkpoint accounting belong to the internal [ranking implementation](ranking.ts), not package exports.
 
-- Unit coverage follows the [library Must not regress invariants](../../docs/testing.md#must-not-regress); search has no standalone unit suite.
+- Search has no listed [library invariant](../../docs/testing.md#must-not-regress), so it has no automated tests.
 
 For changes to cooperative search or item preparation, use prompt manager's [interaction measurement and responsiveness check](../../../extensions/pi-prompt-manager/docs/validation.md#interaction-measurement).

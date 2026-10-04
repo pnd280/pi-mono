@@ -42,4 +42,4 @@ To edit layouts as JSON, set up inheritance between global and project layouts, 
 
 ## Validation
 
-Use the [focused checks](../../../docs/development.md#focused-validation) for `pi-editor-widgets`. For interaction changes, also run the maintainer [terminal checks](docs/testing.md#terminal-checks). For Pi upgrades, follow the maintainer [compatibility checklist](docs/pi-compatibility.md).
+Use the [focused checks](../../../docs/development.md#focused-validation) for `pi-editor-widgets`. For interaction changes, also run the maintainer [terminal checks](docs/testing.md#manual-checks). For Pi upgrades, follow the maintainer [compatibility checklist](docs/pi-compatibility.md).

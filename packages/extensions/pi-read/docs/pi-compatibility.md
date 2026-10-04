@@ -23,7 +23,7 @@ Selection previews must preserve native file access, results, and rendering fall
 
 ### Schema
 
-[Schema compatibility](testing.md#registration-and-schema):
+[Schema compatibility](../../../libs/src/tool-schema/README.md):
 
 - [ ] Serialised parameters leave out runtime metadata and unsupported integer bounds.
 - [ ] Execution still validates positive safe integers before file access.

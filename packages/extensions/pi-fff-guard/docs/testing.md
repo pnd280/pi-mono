@@ -1,56 +1,21 @@
-# FFF guard coverage
+# FFF guard test coverage
 
-[Package](../README.md) · [Shared testing policy](../../../../docs/agents/testing.md)
+[Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). For maintainers: this package tests scope intersection and exclusion, the missing-target policy, allow and block decisions, late registration, and notification delivery.
+This package tests interception, the missing-target and ignore policy, and allow and block decisions. Utils owns scope parsing and FFF provenance; libs owns Git ignore inspection. Fixtures that run Git keep their isolation checks, so inherited Git selectors cannot change a real repository.
 
-## Contracts
+## Must not regress
 
-Contracts split by decision stage: what gets intercepted, which targets count as explicit paths, how scopes combine, and the final allow or block outcome.
+- **High, unit:** Only official FFF registrations are intercepted, including override names and tools registered after startup. Built-ins and lookalikes pass through.
+- **High, unit:** The guard leaves arguments, registrations, and active tools unchanged, and runs no replacement search.
+- **High, integration:** Missing explicit targets are blocked before ignore inspection, even when the search is fully excluded.
+- **High, integration:** Ignored targets that stay searchable after exclusions are blocked with guidance to retry using another tool. Exclusions apply only to their matching positive scope.
+- **High, integration:** Existence and ignore state are checked again on every call.
+- **High, unit:** Caller cancellation blocks the call, and calls settle at the two-second deadline even if scope extraction or Git inspection ignores the abort.
+- **Critical, unit:** Delivered diagnostics contain no terminal controls.
+- **High, unit:** Diagnostics do not expose internal Git errors.
 
-### Must not regress
+## Not tested
 
-- Only official FFF registrations are intercepted, including override names and tools registered after startup.
-- Built-ins and lookalikes pass through.
-- The guard leaves arguments, registrations, and active tools unchanged.
-- The guard does not run a replacement search.
-- Missing explicit targets are blocked before ignore inspection, even when the search is fully excluded.
-- Ignored targets remaining searchable after exclusions are blocked with guidance to retry using another tool.
-- Exclusions apply only to their matching positive scope.
-- Caller cancellation blocks the call.
-- Calls settle at the two-second deadline even if scope extraction or Git inspection ignores the abort.
-- Existence and ignore state are checked again on every call.
-- Delivered diagnostics contain no terminal controls.
-- Diagnostics do not expose internal Git errors.
-
-### Missing targets
-
-- Recursive filename filters are not explicit local files.
-- Rooted globs need a root that exists, not matching files.
-- Files and other non-directory objects cannot satisfy directory-only scopes or glob roots. An existing unsupported object, such as a FIFO, is not reported as a missing file.
-
-### Scopes
-
-- Extraction follows FFF syntax, finite alternatives, exclusions, hidden-file rules, and intersecting constraints.
-- Shared FFF expression parsing supplies explicit-path and directory intent; the guard owns filesystem errors, limits, missingness, and exclusion application.
-- Retained alternatives sharing a lexical root receive one Git inspection, in first-seen order after exclusions.
-- Ordinary explicit targets and fixed glob roots avoid duplicate resolution probes; subsequent Git inspection still rechecks existence.
-
-### Decisions
-
-- Malformed scopes, Git failures, traversal limits, and the two-second deadline allow the call with a diagnostic.
-- Non-missing filesystem failures in positive scopes and exclusions allow the call with a diagnostic.
-- Malformed scope fields retain field-specific diagnostics, including string-or-array guidance for `exclude`.
-
-## How to test
-
-Unit coverage is limited to the must-not-regress invariants; probe counts, inspection order, injected filesystem failures, and malformed-field diagnostics have no dedicated unit cases.
-
-Use disposable repositories to check integration with the shared helpers, without repeating the shared Git matrix. The unsupported-target check requires the Unix `mkfifo` command.
-
-## Not covered here
-
-- Whether FFF itself indexes and searches correctly.
-- Paid model calls.
-
-Keep the fixture-isolation checks where the fixture itself runs Git. Without them, inherited Git selectors could modify a real repository. They protect test safety, not guard behaviour.
+- Glob roots, directory-only scopes, probe counts, inspection order, and malformed-field diagnostics: below the severity bar.
+- Whether FFF itself indexes and searches correctly: owned by FFF.

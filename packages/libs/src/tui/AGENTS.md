@@ -19,4 +19,4 @@ Keep domain policy and I/O in consumers; reusable components receive effect call
 
 ## Validation
 
-Use [package validation](../../README.md#validation) and [workspace verification](../../../../docs/agents/verification.md). Browser interaction tests belong in `components/browser/`, editor snapshot ordering in `open-browser/`, and host presentation lifetime in `responsive-custom-ui/`.
+Use [package validation](../../README.md#validation) and [workspace verification](../../../../docs/agents/verification.md). If a TUI invariant is approved, put browser interaction tests in `components/browser/`, editor snapshot ordering in `open-browser/`, and host presentation lifetime in `responsive-custom-ui/`.

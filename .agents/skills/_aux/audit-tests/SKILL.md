@@ -1,6 +1,6 @@
 ---
 name: audit-tests
-description: Audit test coverage and maintenance cost; clean up only when requested.
+description: Audit tests against listed high and critical invariants; prune only when requested.
 disable-model-invocation: true
 metadata:
   opencode/autoinvoke: false
@@ -8,49 +8,33 @@ metadata:
 
 # Test audit
 
-Evaluate distinct failure modes, ownership, and maintenance cost. Audit only unless cleanup is requested. Scope to supplied paths, changes, or category; otherwise, review workspace tests excluding dependencies and generated files.
+Enforce the [testing policy](../../../../docs/agents/testing.md#coverage): each test protects one listed invariant, at its layer, within budget. Audit only, unless the user requests cleanup. Scope to supplied paths or packages; otherwise, audit all workspace tests. Keep unrelated staged and unstaged work.
 
-## Workflow
+## 1. Map
 
-Follow the four stages in order, mapping suites to contracts before classifying candidates.
+Read each in-scope package's `docs/testing.md`. Map every test case and parameterised row to the one invariant it protects, or to none.
 
-### 1. Map suites to contracts
+**Complete when:** every case maps to an invariant or to none.
 
-Inspect staged, unstaged, and untracked work to preserve unrelated changes. Read applicable package instructions and the [workspace testing guide](../../../../docs/agents/testing.md), including its [test-quality principles](../../../../docs/agents/testing.md#test-quality) for every audit branch. If an affected package has `docs/testing.md`, verify its claims against public APIs, consumers, and regression evidence.
+## 2. Classify
 
-Map suites and fixtures to observable contracts and their local, shared-library, or dependency owners. Include consumer wiring risks and dependency versions where ownership depends on them. Distinguish runner-discovered cases, parameterized rows, and distinct contracts.
+- **Keep:** protects a listed invariant at its layer, and catches a defect that no retained case catches.
+- **Remove:** maps to no invariant, or repeats a defect that a retained case catches. For a repeat, name the retained case.
+- **Replace:** several cases that one e2e scenario can cover. That scenario must reach the same failure state.
+- **Unresolved:** protects behaviour that seems high or critical but is not listed. Propose the invariant to the user.
 
-**Complete when:** every in-scope suite has an owning contract, with specification gaps and material exclusions recorded.
+Also flag invariants that are below the severity bar, that describe removed behaviour, or that no case covers. If evidence is uncertain, inject the defect temporarily and confirm that a retained case fails.
 
-### 2. Classify candidates
+**Complete when:** every case and invariant has a classification with `path:line` and evidence. For an audit-only request, go to step 4.
 
-For each candidate, inspect assertions, fixtures, implementation, and retained tests. When considering simplification or removal, apply the [over-testing and removal checks](references/over-testing.md); for other candidates, use its ownership checks where the contract owner is unclear. Name the plausible defect caught and whether retained coverage catches the same defect.
+## 3. Clean up
 
-- **Keep:** protects a distinct local contract or integration risk.
-- **Simplify:** useful coverage has redundant cases, assertions, or scaffolding.
-- **Remove:** duplicates retained coverage or checks unchanged behaviour owned elsewhere.
-- **Unresolved:** ownership or unique regression value remains uncertain.
+1. Get user approval for new and dropped invariants. Record baseline counts and failures.
+2. Per package: write replacement scenarios first, then remove cases and the scaffolding that only they used. Do not change production code.
+3. Run affected suites, including consumers of shared code. Update `docs/testing.md` to match the retained invariants.
 
-Record `path:line`, classification, owning contract, proposed change, and supporting evidence for each actionable finding.
+**Complete when:** every case maps to a listed invariant, affected suites pass, and `docs/testing.md` matches.
 
-**Complete when:** every candidate has an evidenced classification; uncertain removals remain unresolved. For audit-only work, continue at step 4.
+## 4. Report
 
-### 3. Apply requested cleanup
-
-Before editing, resolve contract gaps in the owning tests or focused guidance and justify exclusions independently of proposed deletions.
-
-1. Record baseline failures and discovery and execution counts. For workspace cleanup, pilot one package, then continue in package-sized batches.
-2. Preserve public outcomes with real boundaries or small fakes. Remove redundant scenarios and their unused fixtures, mocks, observers, and helpers. Keep production behaviour unchanged; investigate bugs and ambiguous contracts separately.
-3. Run affected suites, including consumers when ownership or shared infrastructure changes. Review the diff for coverage loss.
-4. After the pilot and each substantial batch, update superseded guidance: audit methods here, package contracts in `docs/testing.md`, repository policy in the shared guide. New policy decisions require separate scope.
-
-**Complete when:** every reduction meets the evidence requirements, obsolete scaffolding is removed, affected checks pass, and guidance matches retained coverage. Blocked cleanup remains incomplete.
-
-### 4. Verify and report
-
-Follow [required verification](../../../../docs/agents/verification.md) for changed files. Group audit findings by cause and cleanup decisions by package.
-
-- Report priorities, important keep decisions, scope limits, exact checks and results, baseline failures, and unresolved risks. Distinguish observed results from source-based conclusions.
-- For cleanup, include comparable before-and-after counts, skips, packages with no tests, protected behaviours, and deleted scaffolding. Separate removed scenarios from relocated or strengthened coverage; claim runtime improvements only when measured.
-
-**Complete when:** the report accounts for the full scope and identifies unfinished work.
+Follow [verification](../../../../docs/agents/verification.md). For each package, report proposed and dropped invariants, removals, replacements, unresolved cases, before-and-after case counts, and the checks you ran with their results.

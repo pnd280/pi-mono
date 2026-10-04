@@ -1,129 +1,29 @@
-# Widget validation
+# Editor-widget test coverage
 
-[pi-editor-widgets](../README.md) · [Compatibility](pi-compatibility.md)
+[Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Compatibility](pi-compatibility.md)
 
-Shared algorithms are tested in libs and utils; see the [workspace ownership rules](../../../../docs/agents/testing.md#ownership). For maintainers: this package tests layout, rendering, settings, the `/widgets` menu, and the usage widgets.
+This package tests settings trust and writes, layout menu state, and editor focus. Libs owns settings-file writes, the shared settings frame, and the [interactive host fixture](../../../libs/src/validation/interactive-host/README.md). Changes to settings writes also need `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`.
 
-## Automated coverage
+## Must not regress
 
-Run [package validation](../README.md#validation). Changes to settings writes also need `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`.
+- **Critical, integration:** Untrusted project settings are ignored, and project saves are refused at the settings boundary.
+- **Critical, e2e:** Only an explicit **Ctrl+S** save in `/widgets` writes layout settings. Opening the menu, previewing edits, and clicking usage widgets leave settings files unchanged.
+- **High, e2e:** Closing a mounted menu explicitly or through host cancellation restores the effective saved layout in regular and fullscreen modes. Closing after a global save reapplies any saved project layout instead of keeping the global preview.
+- **High, e2e:** Registration changes do not retarget nested edits to another row, including when input arrives before another render. Losing the target returns the menu to the row list without applying the stale input.
+- **High, unit:** Updating saved-global inheritance preserves the intended nested row, including duplicate row occurrences, or returns to the row list if that row no longer matches.
+- **High, unit:** Removing one copy does not hide the contribution while another placement remains.
+- **High, e2e:** When the editor has focus, clicking a token or context widget in fullscreen mode keeps subsequent typing in the editor.
 
-| Layer                                                                             | Covers                                                                                                            |
-| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Installed-host integration in [validation/](../validation/)                       | Ownership, lifecycle, native metrics, the menu, and commands.                                                     |
-| Tests beside the source                                                           | Real-filesystem settings checks, plus unit regressions for duplicate removal and nested saved-global inheritance. |
-| [Shared settings frame](../../../libs/src/tui/components/settings-menu/README.md) | Widget tests cover domain navigation, live draft previews, and integration with the frame.                        |
+## Not tested
 
-The shared [interactive host fixture](../../../libs/src/validation/interactive-host/README.md) provides installed Pi registration, both renderers, and isolated offline settings. It sends no model requests.
+- Token and context widget formatting, colour thresholds, mouse toggling, shared-row wrapping and padding, mouse dispatch, the above-editor blank line, and save-feedback timing: below the severity bar. Use the manual checks.
+- The interactive session picker and physical-terminal behaviour: not driven by the host fixture.
 
-Settings tests here cover widget-section validation, externally unset layouts, scope and trust policy, and consumer handling of malformed files and locks. The shared [settings-file tests](../../../libs/src/settings-file/index.test.ts) own the file-size boundary.
-
-[Drafts](../src/drafts.ts) owns per-scope navigation and selection identity. Its unit tests cover removing one copy without hiding remaining placements, exact inherited-row rebasing, missing targets, and duplicate row occurrences. Unit coverage is limited to the listed must-not-regress risks; standalone layout and rendering cases are not retained. Installed-host menu tests exercise native registration changes through the same navigation interface, including stale input without a render, nested rows, separators, and identical empty rows. Menu callers neither mutate view stacks nor invalidate identity caches.
-
-### Must not regress
-
-- Untrusted project settings are ignored, and project saves are refused at the settings boundary.
-- Only an explicit **Ctrl+S** save in `/widgets` writes layout settings; opening the menu, previewing edits and clicking usage widgets leave settings files unchanged.
-- Closing a mounted menu explicitly or through host cancellation restores the effective saved layout in both regular and fullscreen modes.
-- Closing after a global save reapplies any saved project layout instead of retaining the global preview.
-- Registration changes do not retarget nested edits to another row, including when input arrives before another render; losing the target returns the menu to the row list without applying the stale input.
-- Updating saved-global inheritance preserves the intended nested row, including duplicate row occurrences, or returns to the row list if that row no longer matches.
-- Removing one copy does not hide the contribution while another placement remains.
-- When the editor has focus, clicking a token or context widget in fullscreen mode keeps subsequent typing in the editor.
-
-### Token widget
-
-- Totals use native counts across assistant, tool, usage, compaction, and branch entries. The cache-hit percentage comes from the latest prompt.
-- Fullscreen compact mode shows only nonzero input and output counts. It omits cache read and write totals, cache-hit percentages, cost, and subscription markers.
-- Verbose and regular displays keep the original full details.
-- Cover empty usage, cache-only usage, and input-only and output-only counts.
-
-### Context widget
-
-Cover zero usage, unavailable usage after compaction, and usage recovered by a later response, in the regular display and in fullscreen compact and verbose modes. Check:
-
-- used and window token formatting;
-- percentages omitted in compact mode, and shown in verbose mode with the runtime auto-compaction threshold;
-- the default percentage colour boundaries, and each configured token-threshold band.
-
-The compaction threshold combines the routed physical window with Pi's effective reserve for the selected model. It follows native settings and model changes, and is independent of the colour threshold. Missing windows and invalid compaction settings must not break rendering.
-
-An offline faux-provider case must:
-
-- tell the selected model's reserve apart from the physical model's override;
-- confirm native compaction timing on either side of the displayed threshold;
-- label the model as the selected virtual model, then `→`, then the routed physical model with its requested thinking level when it supports reasoning;
-- show no arrow before the first routed response.
-
-Before routing, an undeclared virtual window stays unknown in every display mode and never produces a numeric threshold.
-
-### Mouse toggling
-
-Fullscreen:
-
-- A primary click in any region toggles every copy of the selected usage widget exactly once, and requests a redraw.
-- Token and context widgets toggle independently, without mounting a menu.
-- Other buttons and unrelated mouse events are ignored.
-- Use native terminal press and release input on wrapped rows at 40×10, with a redraw between press and release. Pi's captured target must still toggle once.
-- Selections survive layout edits and a round trip through regular mode, and reset on reload.
-
-Regular mode keeps the original context and full token displays, and leaves mouse input on usage widgets unhandled.
-
-`/widgets` accepts no arguments and only opens the layout menu.
-
-### Context-colour settings
-
-- The threshold resolves separately from the layout, and recovers from invalid fields using the next scope.
-- Layout saves keep the threshold.
-- Opening `/widgets` applies external edits or removal of the threshold, without a save and without writing settings.
-
-### Shared rows
-
-Include Pi's native string-array widgets (`Container` and `Text`), not only unpadded text factories.
-
-Wrapping:
-
-- Each placement renders once at terminal width, never at a smaller allocation. Responsive content and visibility depend on terminal size, not on neighbours.
-- Whole widgets wrap in order, even when squeezing could save lines.
-- Test exact row membership and order, including when a later small widget could fit on an earlier row.
-- Test exact fits including separators, row height set by the tallest widget, and widening back into shared rows.
-
-Padding and alignment are kept for:
-
-- compact plain padding, without losing content;
-- painted, decorated, and linked padding;
-- full-width borders, leading indentation, singleton padding, and blank lines;
-- separator alignment on ragged lines, flex alignment, and ANSI and wide-character width bounds.
-
-Separators collapse across empty widgets and never dangle at the end of a wrapped row.
-
-Check the [image placement policy](../README.md#usage) manually with native `Image` output for Kitty and iTerm2, including image-only output, a captioned container, shared-row neighbours, repeated placements, exact payload and blank-row preservation, and whole-widget clipping with matching mouse cells. These cases are not covered automatically.
-
-### Mouse dispatch
-
-- Nested dispatch uses the full render width, even for compacted, wrapped, or duplicated widgets.
-- Dispatch keeps the clicked copy's render width even when flex leaves a narrower hit area.
-- The coordinator reuses measured placements across region reads and mouse dispatch instead of rendering again.
-
-### Above-editor region
-
-- The region keeps exactly one leading blank line, whether populated or empty, in both renderers and after release to native rendering.
-- Height budgets include that line, and mouse events on it never reach widgets.
-
-### Save feedback
-
-- Success feedback expires after three seconds and requests a redraw. Another save restarts the timer.
-- A warning or error that replaces success stays visible.
-- Closing or disposing the menu cancels pending expiry.
-
-### Not covered automatically
-
-- Session boundary tests emit native shutdown and start around an in-memory reset. They don't drive the interactive session picker.
-- Tests don't establish physical-terminal behaviour or visual quality.
-
-## Terminal checks
+## Manual checks
 
 Setup: workspace Pi with this extension and a native widget contributor such as `pi-todo`. The menu needs no model call.
+
+Check the [image placement policy](../README.md#usage) with native `Image` output for Kitty and iTerm2: image-only output, a captioned container, shared-row neighbours, repeated placements, exact payload and blank-row preservation, and whole-widget clipping with matching mouse cells.
 
 ### Menu
 

@@ -35,4 +35,4 @@ const args = input.parse({ line: 1 });
 
 ## Validation
 
-Use the [package validation commands](../../README.md#validation), then check the [selective-read](../../../extensions/pi-read/README.md#validation) and [todo](../../../extensions/pi-todo/README.md#validation) consumers. Schema changes also require [tool-display checks](../../../extensions/pi-tool-display/README.md#validation), including its installed-CLI test, because display adapter recognition inspects registered parameters. Coverage is specified in the [library testing contracts](../../docs/testing.md#model-facing-schemas).
+Use the [package validation commands](../../README.md#validation), then check the [selective-read](../../../extensions/pi-read/README.md#validation) and [todo](../../../extensions/pi-todo/README.md#validation) consumers. Schema changes also require [tool-display checks](../../../extensions/pi-tool-display/README.md#validation), including its installed-CLI test, because display adapter recognition inspects registered parameters. The profile has no automated coverage; see the [library testing exclusions](../../docs/testing.md#not-tested).

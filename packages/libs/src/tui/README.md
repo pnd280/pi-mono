@@ -29,4 +29,4 @@ Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [packag
 
 ## Validation
 
-Use the [package checks](../../README.md#validation). Unit tests follow the [Must not regress invariants](../../docs/testing.md#must-not-regress), and real-renderer host-mounting tests live beside their implementations. For real-terminal appearance, use prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting) and tool display's [host interaction checks](../../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks).
+Use the [package checks](../../README.md#validation). Tests cover only the listed [Must not regress invariants](../../docs/testing.md#must-not-regress); shared TUI behaviour is below the severity bar. For real-terminal appearance, use prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting) and tool display's [host interaction checks](../../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks).

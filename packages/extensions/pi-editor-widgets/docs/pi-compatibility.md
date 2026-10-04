@@ -11,7 +11,7 @@ Public APIs don't expose other extensions' registries or row placement, so this 
 1. Run the [package checks and tests](../README.md#validation), including the shared [interactive host fixture](../../../libs/src/validation/interactive-host/README.md).
 2. Work through the host checks below.
 3. Check custom UI mounting through the shared [responsive host](../../../libs/src/tui/responsive-custom-ui/README.md).
-4. Do the [terminal checks](testing.md#terminal-checks).
+4. Do the [terminal checks](testing.md#manual-checks).
 5. Update the "Last verified" line.
 
 ### Status discovery
