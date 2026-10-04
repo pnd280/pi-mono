@@ -16,7 +16,7 @@ Observation preserves active tool selection. Disposal restores only replacements
 2. Once the session is eligible, call `bind(session)` or `bindSessionManager(manager)`.
 3. Dispose the subscription on shutdown.
 
-Use `isNative(session, name)` to check whether the current definition is verified, including shared replacements.
+Use `isNative(session, name, tool?)` to check whether the current definition is verified, including shared replacements. Pass `tool` when you already hold the name's `ToolInfo`; otherwise the check reads `session.getAllTools()`, which builds info for every tool.
 
 Use [file-mutations](../file-mutations/README.md) to combine `edit`/`write` requests. Keep policy, warnings, and persistence local.
 

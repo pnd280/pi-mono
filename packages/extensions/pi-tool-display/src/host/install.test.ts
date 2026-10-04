@@ -13,6 +13,7 @@ import {
   createCodemodeExtension,
   createReadToolDefinition,
   createSyntheticSourceInfo,
+  defineTool,
   CustomMessageComponent,
   DefaultResourceLoader,
   initTheme,
@@ -52,22 +53,25 @@ import { installHostIntegration } from "./install.ts";
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
 type LookupSession = Pick<AgentSession, "getAllTools" | "settingsManager" | "sessionManager"> & {
-  getToolDefinition: (name: string) => RenderDefinition;
+  getToolDefinition: (name: string) => ReturnType<AgentSession["getToolDefinition"]>;
+  extensionRunner: Pick<AgentSession["extensionRunner"], "resolveToolRenderers">;
 };
 
-// Pi 1.0.0's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 1.0.1's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: LookupSession }, name: string) => RenderDefinition;
 };
 
 function lookupSession(name = "read", source = "builtin"): LookupSession {
-  const definition = { ...createReadToolDefinition("/tmp"), name };
+  const definition = defineTool({ ...createReadToolDefinition("/tmp"), name });
 
   return {
     settingsManager: SettingsManager.inMemory(),
     sessionManager: SessionManager.inMemory("/tmp"),
     getToolDefinition: () => definition,
+    // No extension registers a tool renderer resolver, so Pi's base lookup decides.
+    extensionRunner: { resolveToolRenderers: (_name, base) => base() },
     getAllTools: () => [
       { ...definition, exposure: "direct", sourceInfo: createSyntheticSourceInfo(name, { source }) }
     ]
@@ -109,7 +113,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 1.0.0's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 1.0.1's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as Host & {
     ui: TUI;
@@ -2556,7 +2560,7 @@ it("leaves external owner rendering untouched, including built-in names and inhe
           { renderCall: () => new Text("owner call") },
           { renderResult: () => new Text("owner result") }
         ]) {
-          const definition = { ...createReadToolDefinition("/tmp"), name };
+          const definition = defineTool({ ...createReadToolDefinition("/tmp"), name });
           delete definition.renderCall;
           delete definition.renderResult;
           if (inherited) Object.setPrototypeOf(definition, renderers);
@@ -2574,6 +2578,44 @@ it("leaves external owner rendering untouched, including built-in names and inhe
     expect(host.getRegisteredToolDefinition.call({ session }, "unknown_builtin")?.renderShell).toBe(
       "self"
     );
+  } finally {
+    dispose?.();
+  }
+});
+
+it("leaves resolver renderers of registered tools untouched and keeps unregistered calls upgradable", () => {
+  const original = host.getRegisteredToolDefinition;
+  const dispose = installHostIntegration();
+  const name = "mcp__fixture__search";
+  const { renderCall: _call, renderResult: _result, ...plain } = createReadToolDefinition("/tmp");
+  const definition = defineTool({ ...plain, name });
+  // Like Pi's MCP fallback, the resolver also answers names that are not registered (yet).
+  const resolved = { renderCall: () => new Text("resolver call") };
+
+  const session = (registered: boolean, rendererOverrides = {}): LookupSession => {
+    const settings: Record<string, unknown> = { "ext.pi-tool-display": { rendererOverrides } };
+
+    return {
+      ...lookupSession(name, "extension"),
+      settingsManager: SettingsManager.inMemory(settings),
+      getToolDefinition: () => (registered ? definition : undefined),
+      extensionRunner: {
+        resolveToolRenderers: (toolName, base) => (toolName === name ? resolved : base())
+      }
+    };
+  };
+
+  const shell = (target: LookupSession) =>
+    host.getRegisteredToolDefinition.call({ session: target }, name)?.renderShell;
+
+  try {
+    const owned = session(true);
+    expect(host.getRegisteredToolDefinition.call({ session: owned }, name)).toBe(
+      original.call({ session: owned }, name)
+    );
+    // MCP tools register after reload reconstructs rows. Pi's rows could not be upgraded.
+    expect(shell(session(false))).toBe("self");
+    expect(shell(session(true, { [name]: "generic" }))).toBe("self");
   } finally {
     dispose?.();
   }

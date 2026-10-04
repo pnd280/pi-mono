@@ -1,4 +1,4 @@
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
+import type { AgentSession, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { observeNativeTools } from "@pi-mono/libs/native-tools";
 
@@ -47,8 +47,8 @@ export class NativeRegistry {
     );
   }
 
-  isNative(session: AgentSession, name: string): boolean {
-    return this.native.isNative(session, name);
+  isNative(session: AgentSession, name: string, tool?: ToolInfo): boolean {
+    return this.native.isNative(session, name, tool);
   }
 
   bind(session: AgentSession, eligible: () => boolean): void {

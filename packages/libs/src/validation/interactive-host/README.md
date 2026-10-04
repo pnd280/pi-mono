@@ -20,4 +20,4 @@ Always close custom UI and await `dispose()` in `finally`. Do not run fixtures c
 
 Use the [library checks](../../../README.md#validation) and affected consumer suites; each suite registers only its own feature.
 
-The fixture relies on installed Pi 1.0.0's private containers, `mountInteractiveTui`, `createExtensionUIContext`, and `createChatViewport`. Recheck those contracts on Pi upgrades. A no-op terminal does not establish physical keyboard, mouse, or colour behaviour.
+The fixture relies on installed Pi 1.0.1's private containers, `mountInteractiveTui`, `createExtensionUIContext`, and `createChatViewport`. Recheck those contracts on Pi upgrades. A no-op terminal does not establish physical keyboard, mouse, or colour behaviour.

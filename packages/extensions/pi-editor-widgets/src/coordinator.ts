@@ -316,7 +316,7 @@ export class WidgetCoordinator {
     });
     if (!result || "target" in result || (!result.handled && !result.capture && !result.focus))
       return result;
-    // Pi 1.0.0's container dispatch contract retains the native target for drag capture and focus.
+    // Pi 1.0.1's container dispatch contract retains the native target for drag capture and focus.
     const forwarded = {
       ...result,
       handled: true,

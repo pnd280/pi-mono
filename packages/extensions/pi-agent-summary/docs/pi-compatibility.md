@@ -2,7 +2,7 @@
 
 [pi-agent-summary](../README.md)
 
-> Last verified against Pi 1.0.0 (package checks and offline tests, real codemode and virtual-model coverage, shared mutation and display suites). Not covered: manual visual checks.
+> Last verified against Pi 1.0.2 (package checks and offline tests, real codemode and virtual-model coverage, shared mutation and display suites; no runtime changes needed). Not covered: manual visual checks.
 
 ## Upgrade procedure
 

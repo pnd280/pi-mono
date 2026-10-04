@@ -2,7 +2,7 @@
 
 [pi-skills](../README.md)
 
-> Last verified against Pi 1.0.0 (package checks, offline host input tests, real-editor acceptance tests, and offline terminal completion, undo, formats, settings, resource reload, and provider composition). Not covered: physical-terminal checks, including native slash completion after leading whitespace, which Pi 1.0.0 added.
+> Last verified against Pi 1.0.2 (workspace checks, offline host input tests, real-editor acceptance tests, formats, settings, resource reload, and provider composition; no runtime changes needed). Not covered: manual terminal checks, including native slash completion after leading whitespace (added in Pi 1.0.0).
 
 ## Upgrade procedure
 

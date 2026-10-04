@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.0.0 (workspace checks and offline tests, with all extension consumers; native-construction fingerprints reviewed against the API and bundled CLI). Not covered: live-provider schema acceptance, native clipboard delivery, and platform-specific checks.
+> Last verified against Pi 1.0.2 (workspace checks and offline tests, with all extension consumers; native-construction fingerprints unchanged in the API and bundled CLI). Not covered: live-provider schema acceptance, native clipboard delivery, and platform-specific checks.
 
 ## Upgrade procedure
 

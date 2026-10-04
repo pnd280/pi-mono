@@ -9,9 +9,9 @@ allowBuilds:
   unrs-resolver: false
 
 catalog:
-  "@earendil-works/pi-ai": ^1.0.0
-  "@earendil-works/pi-coding-agent": ^1.0.0
-  "@earendil-works/pi-tui": ^1.0.0
+  "@earendil-works/pi-ai": ^1.0.2
+  "@earendil-works/pi-coding-agent": ^1.0.2
+  "@earendil-works/pi-tui": ^1.0.2
   "@git-diff-view/core": ^0.1.7
   "@stylistic/eslint-plugin": ^5.10.0
   "@types/node": ^26.6.3

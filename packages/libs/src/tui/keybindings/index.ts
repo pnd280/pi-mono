@@ -24,7 +24,7 @@ function normalizeKey(value: string): KeyId | undefined {
   if (base === "return") base = "enter";
   if (base === "pageup") base = "pageUp";
   if (base === "pagedown") base = "pageDown";
-  // Pi 1.0.0 cannot dispatch literal plus, modified Escape or modified function keys.
+  // Pi 1.0.1 cannot dispatch literal plus, modified Escape or modified function keys.
   if (!base || (parts.length > 0 && (base === "escape" || /^f\d+$/.test(base)))) return undefined;
   if (parts.some((part) => !modifiers.includes(part)) || new Set(parts).size !== parts.length)
     return undefined;

@@ -15,7 +15,7 @@ Settings trust
 - Untrusted project settings are excluded before validation, so an invalid untrusted section cannot disable display.
 - An invalid global or trusted project section keeps original tool renderers and disables native observation, even if a later section overrides its values.
 - Renderer overrides match exact tool names, including prototype-like names, before automatic adapter selection.
-- Under automatic selection, tools without a verified adapter keep either supplied renderer slot and receive generic cards only when neither slot exists.
+- Under automatic selection, tools without a verified adapter keep either supplied renderer slot, from their definition or a `registerToolRenderer` resolver, and receive generic cards only when neither slot exists. Unregistered tools always receive generic cards, so late registration can upgrade them, even when a resolver answers their name.
 
 Execution and borrowed data
 

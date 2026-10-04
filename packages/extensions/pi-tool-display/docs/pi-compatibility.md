@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.0.0 with unchanged host fingerprints, the API and CLI suites, and the offline `summary` scenario in regular and fullscreen modes, including the **Ctrl+O** cycle. Not covered: the other terminal scenarios, terminal replay, physical mouse and image protocols, live MCP and FFF services, and platforms other than the tested one.
+> Last verified against Pi 1.0.2 with unchanged host fingerprints, the API and CLI suites, and offline terminal checks in tmux on Linux. Both regular and fullscreen modes passed `summary`, the **Ctrl+O** cycle, two reloads with the selected mode retained, `explore`, and saved-session replay; session and mutation-file hashes stayed unchanged during replay. Not covered: the other terminal scenarios, physical mouse and image protocols, a live `registerToolRenderer` resolver (an offline test covers ownership), live MCP and FFF services, and other platforms.
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. When a fingerprint doesn't match, the matching hook stays uninstalled and the feature falls back as described in the [README](../README.md#compatibility).
 
@@ -20,6 +20,8 @@ Work through every section below when you bump the supported Pi version, checkin
 ### Host hooks
 
 - [ ] [Host hooks](../src/host/compatibility.ts) cover construction, row insertion, expansion, thinking, reload, and conditional restoration.
+- [ ] `getRegisteredToolDefinition` returns the renderers that Pi resolves through `session.extensionRunner.resolveToolRenderers`: extension resolvers from `registerToolRenderer`, then built-in renderers on the registered definition. The [lookup wrapper](../src/host/install.ts) calls it exactly once and gives no adapter to tools that it cannot select.
+- [ ] For registered tools, adapter selection treats `resolveToolRenderers(name, () => definition)` as the owner's renderers: resolvers, then the registered definition, without Pi's built-in renderers. Pi uses the same chain for HTML export. Unregistered names get no resolver renderers. Pi's MCP resolver answers every `mcp__` name, but servers register their tools after `/reload` reconstructs rows, and only generic rows can upgrade.
 - [ ] After disposal or rebinding, pending events don't reattach old row or assistant hooks.
 - [ ] Compaction insertion handling uses the current binding.
 
@@ -103,6 +105,7 @@ See [native tools](../../../libs/src/native-tools/README.md).
 ## Limitations and replacement opportunities
 
 - Public host and observation APIs could replace the private hooks if they keep the contracts above. Trace shared-library consumers before removing a hook.
+- `registerToolRenderer` (Pi 1.0.1) could replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. It doesn't replace it yet: Pi also calls resolvers for HTML export, resolvers run in extension load order, so an earlier resolver can hide this one, and a resolver receives no host to claim the row's call.
 - Recheck the [image-row limitation](validation.md#platform-limitations) for finalized-message image updates against each new Pi version. Compare live and replay, with and without this extension.
 
 ## Coverage notes

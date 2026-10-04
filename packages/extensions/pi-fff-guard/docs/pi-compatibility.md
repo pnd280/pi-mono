@@ -2,7 +2,7 @@
 
 [pi-fff-guard](../README.md)
 
-> Last verified against Pi 1.0.0 (package checks and offline interception and scope tests, with explicit `ToolInfo.exposure`). Not covered: live calls to installed FFF, and the retirement checks. The FFF version in the README comes from earlier external testing.
+> Last verified against Pi 1.0.2 (package checks and offline interception and scope tests, with explicit `ToolInfo.exposure`; no runtime changes needed). Not covered: live calls to installed FFF, and the retirement checks. The FFF version in the README comes from earlier external testing.
 
 ## Upgrade procedure
 

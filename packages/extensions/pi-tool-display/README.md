@@ -49,7 +49,7 @@ These tools get dedicated cards:
 - Extensions: [FFF](src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](src/adapters/pi-mcp-adapter/README.md), [todo](src/adapters/pi-todo/README.md), [selective read](src/adapters/pi-read/README.md), and [smart compact](src/adapters/pi-smart-compact/README.md).
 - [Nested-instruction notices](src/adapters/pi-nested-instructions/README.md), which also count toward run summaries.
 
-A dedicated card replaces any renderer the tool supplies. Other tools keep their own renderer if they have one; otherwise they get a generic card. Historical calls to tools that are no longer loaded also get a generic card.
+A dedicated card replaces any renderer the tool supplies. Other tools keep their own renderer if they have one, including renderers that extensions supply through `registerToolRenderer`; otherwise they get a generic card. Calls to tools that are not loaded, such as old calls or MCP calls before the server reconnects, get a generic card. It switches to the dedicated card if the tool registers later.
 
 ## Configuration
 

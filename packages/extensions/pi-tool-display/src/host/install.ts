@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import type {
   AgentSession,
   AgentSessionEvent,
-  ExtensionAPI
+  ExtensionAPI,
+  ToolInfo
 } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
@@ -11,7 +12,7 @@ import type { DisplayMode, ToolDisplayAdapter } from "../contracts.ts";
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
 import type { ToolDisplayRenderers } from "../rendering/types.ts";
 import type { DisplaySettings } from "../settings.ts";
-import { DisplaySession } from "../transcript/session.ts";
+import { DisplaySession, type AdapterSelector } from "../transcript/session.ts";
 import { record } from "../values.ts";
 import { trackThinkingCompletion } from "./assistant.ts";
 import {
@@ -105,14 +106,26 @@ export function installHostIntegration(
 
   const native = new NativeRegistry((session) => sessions.get(session)?.display, warning);
 
-  function adapter(session: AgentSession, name: string, configuration: DisplaySettings) {
-    return selectAdapter(
-      configuration,
-      name,
-      session.getToolDefinition(name),
-      native.isNative(session, name),
-      session.getAllTools().find((tool) => tool.name === name)
-    );
+  /** Pi builds every tool's info on each call; index it once, on the first lookup. */
+  function adapters(session: AgentSession, configuration: DisplaySettings): AdapterSelector {
+    let tools: Map<string, ToolInfo> | undefined;
+
+    return (name) => {
+      const definition = session.getToolDefinition(name);
+      tools ??= new Map(session.getAllTools().map((tool) => [tool.name, tool]));
+      const info = tools.get(name);
+
+      return selectAdapter(
+        configuration,
+        name,
+        // Owner renderers: extension resolvers, then the registered tool. Pi's built-in
+        // renderers are excluded. Unregistered names keep generic cards, which late
+        // registration (such as MCP reconnecting after reload) can upgrade; Pi's rows cannot.
+        definition && session.extensionRunner.resolveToolRenderers(name, () => definition),
+        native.isNative(session, name, info),
+        info
+      );
+    };
   }
 
   function release(binding: Binding): void {
@@ -152,7 +165,7 @@ export function installHostIntegration(
       cwd: host.session.sessionManager.getCwd(),
       history: host.session.sessionManager,
       settings: configuration,
-      selectAdapter: (name) => adapter(host.session, name, configuration),
+      adapters: () => adapters(host.session, configuration),
       onAdapterFailure: adapterFailure,
       expanded: () => host.toolOutputExpanded ?? false,
       append
@@ -179,11 +192,13 @@ export function installHostIntegration(
     hosts.set(host, current);
     sessions.set(host.session, current);
     bindings.add(current);
-    native.bind(host.session, () =>
-      ["bash", "powershell", "edit", "write"].some(
-        (name) => adapter(host.session, name, configuration)?.id === `pi:${name}`
-      )
-    );
+    native.bind(host.session, () => {
+      const select = adapters(host.session, configuration);
+
+      return ["bash", "powershell", "edit", "write"].some(
+        (name) => select(name)?.id === `pi:${name}`
+      );
+    });
 
     return current;
   }
@@ -232,7 +247,9 @@ export function installHostIntegration(
     try {
       const binding = hosts.get(this);
       const configuration = binding?.display.settings ?? displaySettings(this.session);
-      const selected = adapter(this.session, name, configuration);
+      const selected = binding
+        ? binding.display.selectAdapter(name)
+        : adapters(this.session, configuration)(name);
       if (!selected) return definition;
       let renderers: ToolDisplayRenderers | undefined;
 
@@ -384,7 +401,7 @@ export function installHostIntegration(
           ? ensure(this, this.chatContainer?.children.length === 0)
           : undefined;
         if (!binding) return reconstruct.call(this, items, options);
-        const result = binding.display.coordinator.batch(() => {
+        const result = binding.display.reconstruct(() => {
           for (const item of items)
             binding.display.message(binding.messages.read(item), "historical");
 

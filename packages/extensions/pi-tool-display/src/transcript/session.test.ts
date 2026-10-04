@@ -17,7 +17,7 @@ function fixture(options: Partial<ConstructorParameters<typeof DisplaySession>[0
     cwd: "/tmp",
     history: { getBranch: () => [], getLeafId: () => null, getEntry: () => undefined },
     settings: loadDisplaySettings([]),
-    selectAdapter: nativeAdapter,
+    adapters: () => nativeAdapter,
     expanded: () => false,
     ...options
   });
@@ -141,7 +141,11 @@ it.each(["host", "operation"])(
       expect(call.outcome).toBe("failure");
       expect(isCancelled(call)).toBe(true);
       expect(appendEntry).toHaveBeenCalledOnce();
-      const replay = fixture({ history, append: appendEntry, selectAdapter: () => genericAdapter });
+      const replay = fixture({
+        history,
+        append: appendEntry,
+        adapters: () => () => genericAdapter
+      });
 
       try {
         const retained = shellCall(replay, "cancelled");
@@ -191,7 +195,7 @@ it("validates facts only for requested historical calls, including cancellation 
     });
   }
 
-  const session = fixture({ history, selectAdapter: () => genericAdapter });
+  const session = fixture({ history, adapters: () => () => genericAdapter });
 
   try {
     expect(hidden).not.toHaveBeenCalled();
@@ -244,7 +248,7 @@ it.each(["fff", "mcp"] as const)(
     const append = vi.fn();
     let available = false;
     const session = fixture({
-      selectAdapter: () => (available ? adapter : genericAdapter),
+      adapters: () => () => (available ? adapter : genericAdapter),
       readSavedOutput: file.read,
       append
     });
@@ -309,7 +313,7 @@ it("restores native facts and eligible saved previews after late contract select
   let available = false;
   const session = fixture({
     history,
-    selectAdapter: (name) => (available ? nativeAdapter(name) : genericAdapter),
+    adapters: () => (name) => (available ? nativeAdapter(name) : genericAdapter),
     expanded: () => true,
     readSavedOutput: file.read,
     append

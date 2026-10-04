@@ -2,7 +2,7 @@
 
 [pi-smart-compact](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.0.0 (API modules and installed bundled CLI; offline tests). Not covered: interactive progress, **Escape** behaviour, and real-provider summary quality.
+> Last verified against Pi 1.0.2 (API modules and installed bundled CLI with unchanged fingerprints, version pin moved to 1.0.2; offline tests). Not covered: interactive progress, **Escape** behaviour, and real-provider summary quality.
 
 For maintainers upgrading Pi. Terms used below:
 
@@ -13,7 +13,7 @@ For maintainers upgrading Pi. Terms used below:
 
 ## Supported boundary
 
-At session binding, the [compatibility checks](../src/compatibility.ts) require Pi 1.0.0 and reviewed fingerprints for:
+At session binding, the [compatibility checks](../src/compatibility.ts) require Pi 1.0.2 and reviewed fingerprints for:
 
 - five prototype methods: `_compactBeforeNextAssistantResponse`, `_runAutoCompaction`, `_runDefaultCompaction`, `_appendCustomMessage`, and `compact`;
 - the exported lower-level `compact` implementation.
@@ -97,6 +97,7 @@ The compatibility boundary defines Pi's `pi-virtual` API marker itself, because 
 ### Provider requests
 
 - [ ] Configured summaries use `ctx.modelRegistry.streamSimple()`, for provider authentication and thinking mapping at request time.
+- [ ] Pi selects `samplingParamsByThinkingLevel` from the effective physical thinking level. Summary routing preserves the model's sampling configuration and request overrides without copying the conversation model's defaults.
 - [ ] Native request keys, headers, and environment are cleared from intercepted options before registry dispatch. The registry supplies the selected provider's credentials and base URL.
 - [ ] Authentication and generation errors and aborts reach native outcomes and retries, with no fallback to the active model.
 - [ ] Registry calls skip the session stream's request defaults, so the adapter mirrors the public `settingsManager` retry and timeout policy:

@@ -2,7 +2,7 @@
 
 [pi-read](../README.md)
 
-> Last verified against Pi 1.0.0 (package checks and native-read tests with a real typed tool context, the display adapter, and the installed-CLI suite; runtime delegation unchanged). Not covered: manual image and appearance checks, and schema checks with live providers.
+> Last verified against Pi 1.0.2 (package checks and native-read tests with a real typed tool context, the display adapter, and the installed-CLI suite; read tool unchanged, runtime delegation unchanged). Not covered: manual image and appearance checks, and schema checks with live providers.
 
 ## Upgrade procedure
 

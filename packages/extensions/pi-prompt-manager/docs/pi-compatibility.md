@@ -2,7 +2,7 @@
 
 [pi-prompt-manager](../README.md)
 
-> Last verified against Pi 1.0.0 (package checks and offline API and installed-CLI tests; no runtime changes needed). Not covered: manual terminal checks, delivery to the native clipboard, and platform checks.
+> Last verified against Pi 1.0.2 (package checks and offline API and installed-CLI tests; no runtime changes needed). Not covered: manual terminal checks, delivery to the native clipboard, and platform checks.
 
 ## Upgrade procedure
 

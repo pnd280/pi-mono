@@ -53,9 +53,20 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
     const params = { command: 'printf "α\\r\\n%s\\n%s" "$DISPLAY_TEST" "$PI_SESSION_ID"' };
     const expected = await original.execute("plain", params, undefined, undefined, context);
     const updates: unknown[] = [];
-    expect(
-      await observed.execute("observed", params, undefined, (value) => updates.push(value), context)
-    ).toEqual(expected);
+    const result = await observed.execute(
+      "observed",
+      params,
+      undefined,
+      (value) => updates.push(value),
+      context
+    );
+    // Each execution measures its own wall time, rounded to 0.1 s.
+    const untimed = (value: { structuredContent?: unknown }) => ({
+      ...value,
+      structuredContent: { ...record(value.structuredContent), wall_time_seconds: 0 }
+    });
+    expect(record(result.structuredContent).wall_time_seconds).toBeTypeOf("number");
+    expect(untimed(result)).toEqual(untimed(expected));
     expect(updates.length).toBeGreaterThan(0);
     expect(previews.at(-1)).toContain("α\r\npreserved");
     expect(facts).toContainEqual(

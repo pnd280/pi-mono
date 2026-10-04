@@ -1,4 +1,4 @@
-import type { AgentSession, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { AgentSession, ToolDefinition, ToolInfo } from "@earendil-works/pi-coding-agent";
 
 import { OwnedHooks } from "../owned-hooks/index.ts";
 import {
@@ -108,7 +108,8 @@ class NativeTools {
     let subscribed = true;
 
     return {
-      isNative: (session: AgentSession, name: string) => this.isNative(session, name),
+      isNative: (session: AgentSession, name: string, tool?: ToolInfo) =>
+        this.isNative(session, name, tool),
       bind: (session: AgentSession) => this.bind(session),
       bindSessionManager: (manager: object) => {
         for (const session of this.knownSessions())
@@ -138,21 +139,25 @@ class NativeTools {
     }
   }
 
-  private isNative(session: AgentSession, name: string): boolean {
+  /** `tool` is the caller's registry info for `name`; Pi builds every tool's info to look it up. */
+  private isNative(session: AgentSession, name: string, tool?: ToolInfo): boolean {
     if (nativeSession(session)._baseToolsOverride !== undefined) return false;
-    if (session.getAllTools().find((tool) => tool.name === name)?.sourceInfo.source !== "builtin")
-      return false;
     const current = session.getToolDefinition(name);
     const construction = this.sessions.get(session);
     const original = construction?.definitions.get(name);
     const observed = construction?.replacements.get(name);
+    if (
+      !current ||
+      !original ||
+      !(
+        (current === observed?.replacement && unchangedDefinition(current, observed.fields)) ||
+        (current === original.definition && unchangedDefinition(current, original.fields))
+      )
+    )
+      return false;
+    const info = tool ?? session.getAllTools().find((candidate) => candidate.name === name);
 
-    return (
-      !!current &&
-      !!original &&
-      ((current === observed?.replacement && unchangedDefinition(current, observed.fields)) ||
-        (current === original.definition && unchangedDefinition(current, original.fields)))
-    );
+    return info?.sourceInfo.source === "builtin";
   }
 
   private bind(session: AgentSession): void {

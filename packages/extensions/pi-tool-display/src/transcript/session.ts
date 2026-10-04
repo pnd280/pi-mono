@@ -35,6 +35,8 @@ export type TranscriptMessage =
       interruption?: { outcome: "cancelled" | "failure"; text: string };
     };
 
+export type AdapterSelector = (name: string) => ToolDisplayAdapter | undefined;
+
 type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
 
 type DisplaySessionOptions = {
@@ -42,7 +44,8 @@ type DisplaySessionOptions = {
   cwd: string;
   history: HistorySource;
   settings: DisplaySettings;
-  selectAdapter(name: string): ToolDisplayAdapter | undefined;
+  /** A selector over one tool registry snapshot; registration can change between snapshots. */
+  adapters(): AdapterSelector;
   expanded(): boolean;
   /** Initial transcript mode; the host owns later transitions. */
   mode?: DisplayMode;
@@ -74,6 +77,7 @@ export class DisplaySession {
   private output: SavedOutputLoader;
   private messages = new Set<string>();
   private disposed = false;
+  private snapshot: AdapterSelector | undefined;
   constructor(private options: DisplaySessionOptions) {
     this.settings = options.settings;
     this.coordinator = new TranscriptCoordinator(options.runtime, {
@@ -91,16 +95,32 @@ export class DisplaySession {
     if (this.disposed) return;
 
     // Registration can finish after reconstruction. Upgrade contracts without replaying calls.
+    const select = this.options.adapters();
     this.coordinator.batch(() => {
       for (const call of this.coordinator.calls.values()) {
         if (call.origin !== "historical" || call.adapter.id !== "generic") continue;
-        const selected = this.options.selectAdapter(call.name);
+        const selected = select(call.name);
         if (!selected || selected.id === "generic") continue;
         this.coordinator.setAdapter(call, selected);
         for (const fact of this.history.facts(call)) this.coordinator.fact(call, fact);
         if (call.result) this.retainPath(call, call.result);
       }
     });
+  }
+  /** Uses the reconstruction snapshot while one is open. */
+  selectAdapter(name: string): ToolDisplayAdapter | undefined {
+    return (this.snapshot ?? this.options.adapters())(name);
+  }
+  /** Rebuild history in one batch that shares one tool registry snapshot. */
+  reconstruct<T>(update: () => T): T {
+    const outer = !this.snapshot;
+    this.snapshot ??= this.options.adapters();
+
+    try {
+      return this.coordinator.batch(update);
+    } finally {
+      if (outer) this.snapshot = undefined;
+    }
   }
   beginObservation(id: string, adapter: string): ObservationSink | undefined {
     const call = this.coordinator.byId(id);
@@ -188,12 +208,12 @@ export class DisplaySession {
       return;
     }
 
+    const select = this.snapshot ?? this.options.adapters();
     coordinator.batch(() => {
       for (const content of input.calls) {
         const position = JSON.stringify([input.timestamp, content.index, content.id]);
         const selected =
-          retainedAdapter(coordinator, content, input.timestamp, origin) ??
-          this.options.selectAdapter(content.name);
+          retainedAdapter(coordinator, content, input.timestamp, origin) ?? select(content.name);
 
         if (!selected) {
           if (!this.messages.has(position)) coordinator.boundary();

@@ -2,7 +2,7 @@
 
 [@pi-mono/utils](../README.md)
 
-> Last verified against Pi 1.0.0 (package checks and all helper tests; libs, FFF guard, nested-instruction, selective-read, and display consumer suites). Not covered: live FFF behaviour.
+> Last verified against Pi 1.0.2 (package checks and all helper tests in the workspace run, with all consumer suites; no runtime changes needed). Not covered: live FFF behaviour.
 
 ## Upgrade procedure
 

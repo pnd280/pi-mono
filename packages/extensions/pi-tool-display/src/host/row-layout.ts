@@ -36,7 +36,7 @@ export type RowLayout = {
 };
 
 /**
- * Pure: apply chrome to Pi 1.0.0's self-rendered row: a margin row and
+ * Pure: apply chrome to Pi 1.0.1's self-rendered row: a margin row and
  * `selfHeight` renderer rows when the renderers produced any, then image rows.
  */
 export function layoutRow(

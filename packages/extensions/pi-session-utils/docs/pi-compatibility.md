@@ -2,7 +2,7 @@
 
 [pi-session-utils](../README.md)
 
-> Last verified against Pi 1.0.0 (package checks and offline tests, including API and process startup, persistence, the naming lifecycle, and virtual-model requests routed to physical limits below and above the title budget). Not covered: title quality with live providers, and manual checks of the session picker.
+> Last verified against Pi 1.0.2 (package checks and offline tests, including API and process startup, persistence, the naming lifecycle, virtual-model requests routed to physical limits below and above the title budget, and offline payload probes for per-level sampling through physical and virtual title models; no runtime changes needed). Not covered: title quality with live providers, and manual checks of the session picker.
 
 ## Upgrade procedure
 
@@ -55,6 +55,7 @@ Session replacement must preserve saved data and parent links while giving namin
 [Generation](../src/auto-title/generate.ts):
 
 - [ ] Registry normalisation, authentication, supported thinking levels, complete responses, safe errors, and bounded request and cache defaults.
+- [ ] Pi applies the title model's `samplingParamsByThinkingLevel` using its effective physical level, including `off`. The extension leaves sampling selection to the registry and keeps its token budget, disabled cache retention, and no-retry policy.
 - [ ] The configured model is validated, with no fallback and no retries.
 - [ ] A virtual model's unknown output limit never becomes a zero-token request. The extension supplies the 1,024-token title budget, registry dispatch caps it to the routed physical model, and any smaller known limit is kept.
 
