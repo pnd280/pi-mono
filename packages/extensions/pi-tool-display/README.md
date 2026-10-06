@@ -30,6 +30,8 @@ Summary lines need Pi's fullscreen mode. In regular mode, `summary` renders as `
 
 In fullscreen, clicking a card, group, or summary line expands it. Clicking the horizontal rule above or below an opened run collapses it again. Regular mode leaves mouse input to the terminal.
 
+In fullscreen, click a subagent card with a task ID to open its transcript. pi-subagents checks that the card is current and that it owns the task. Use **Ctrl+O** to expand its details.
+
 ### Assistant text and thinking
 
 Assistant prose starts with a `•` marker. When thinking is collapsed (default **Ctrl+T**), finished thinking blocks are hidden. See [thinking](docs/presentation.md#thinking) for details.
@@ -39,6 +41,10 @@ Assistant prose starts with a `•` marker. When thinking is collapsed (default 
 - Transcript search cannot find output hidden inside a summary line, including image and failure details, until you open the run.
 - Switching modes does not keep the scroll position.
 - Custom cards do not appear in HTML exports.
+- Live foreign transcript viewers, including the subagent panel, show preparing calls as generic cards such as "Calling edit({})" until matching saved call provenance arrives.
+- Foreign viewers keep arguments empty until the tool call finishes streaming.
+
+These foreign-viewer limits are intentional. The top-level TUI can verify tools through its live registry; a foreign viewer has no access to the viewed session's registry and waits for saved evidence before selecting a dedicated card. It does not infer tool behaviour from a name such as `edit`.
 
 ## Supported tools
 
@@ -46,7 +52,7 @@ These tools get dedicated cards:
 
 - Pi's [native tools](src/adapters/native/README.md): read, bash, PowerShell, edit, write, and the search and listing tools.
 - Pi's built-in [codemode](src/adapters/builtin/codemode/README.md), [MCP](src/adapters/builtin/mcp/README.md), and [tool search](src/adapters/builtin/tool-search/README.md).
-- Extensions: [FFF](src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](src/adapters/pi-mcp-adapter/README.md), [todo](src/adapters/pi-todo/README.md), [selective read](src/adapters/pi-read/README.md), and [smart compact](src/adapters/pi-smart-compact/README.md).
+- Extensions: [FFF](src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](src/adapters/pi-mcp-adapter/README.md), [todo](src/adapters/pi-todo/README.md), [selective read](src/adapters/pi-read/README.md), [smart compact](src/adapters/pi-smart-compact/README.md), and [subagents](src/adapters/pi-subagents/README.md).
 - [Nested-instruction notices](src/adapters/pi-nested-instructions/README.md), which also count toward run summaries.
 
 A dedicated card replaces any renderer the tool supplies. Other tools keep their own renderer if they have one, including renderers that extensions supply through `registerToolRenderer`; otherwise they get a generic card. Calls to tools that are not loaded, such as old calls or MCP calls before the server reconnects, get a generic card. It switches to the dedicated card if the tool registers later.
@@ -94,13 +100,15 @@ The extension observes live tool calls and replays recorded facts. Neither chang
 
 ### What is recorded
 
-In interactive TUI sessions, the extension observes Pi's native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, timing, outcomes, and file contents from before each write. These observations are shared with `pi-agent-summary` through [file observations](../../libs/src/file-mutations/README.md), so files are not read twice. Another process writing the same file can race with the observation. Display failures never change a tool's outcome.
+In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, timing, outcomes, and file contents from before each write. These observations are shared with `pi-agent-summary` through [file observations](../../libs/src/file-mutations/README.md), so files are not read twice. Another process writing the same file can race with the observation. Display failures never change a tool's outcome.
 
 Session history stores operation and cancellation facts, bounded patches, and references to saved output. They are kept in `pi-tool-display.facts` custom entries, outside the model's context. Live shell previews stay in memory only.
 
+The separate `pi-tool-display.transcript` entries record versioned call provenance, boundaries, and run summaries. Each record is at most 16 KiB, with at most 64 summary segments. Changed progress is saved at most once per second; a run's final summary is immutable. These records contain no arguments, result bodies, images, or styled text, and stay outside model context.
+
 > **Patches can keep deleted text.** Removed and context lines from overwritten files may remain in session history.
 
-The extension does not observe SDK tool overrides, custom tools, manual `!` and `!!` commands, or print, JSON, and RPC modes.
+Native observation excludes SDK tool overrides, custom tools, and manual `!` and `!!` commands. Verified extension adapters can still contribute call provenance and summaries.
 
 ### Replay and saved output
 
@@ -128,6 +136,8 @@ The extension registers no tools, changes no active tools, and adds no keybindin
 ## For tool authors
 
 To give your own tool a custom card, use the [standalone renderer API](docs/renderers.md). Automatic integration needs an [adapter resolver](docs/adapters.md#add-an-adapter) in this package.
+
+To display another session, use the read-only [transcript viewer API](docs/viewer.md). The caller supplies snapshots and live events; unsupported foreign renderers use generic cards.
 
 ## Validation
 

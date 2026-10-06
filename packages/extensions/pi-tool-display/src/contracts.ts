@@ -131,6 +131,8 @@ export type DisplayRun = {
   readonly members: readonly DisplayCall[];
   /** Opened runs render their compact cards in summary mode until the mode changes. */
   readonly opened: boolean;
+  readonly closed: boolean;
+  readonly ended: boolean;
 };
 
 /**
@@ -201,6 +203,37 @@ export type HeadingVerbs = {
   action: string;
   pending: string;
   complete: string;
+};
+
+export type DisplayAction = { event: string; data: Readonly<Record<string, string>> };
+
+/**
+ * A task's reported state. `active` covers queued and running work, and `returned`
+ * covers calls that returned while their task continues. The renderer appends
+ * elapsed time when the progress has `startedAt`.
+ */
+export type DisplayProgressStatus = {
+  glyph?: string;
+  text?: string;
+  tone: "active" | "success" | "failure" | "returned";
+};
+
+/** A long-running task's structured status; adapters supply data, never components. */
+export type DisplayProgress = {
+  label: string;
+  description: string;
+  /** Model identity; an empty value omits it. */
+  identity: string;
+  /** Omit before the task reports a state; the renderer then shows the call lifecycle. */
+  status?: DisplayProgressStatus;
+  startedAt?: number;
+  endedAt?: number;
+  secondary: string;
+  /** Expanded fields; omit default values. */
+  fields: readonly { label: string; value: string }[];
+  prompt?: string;
+  /** Collapsed cards preview the first result lines. Omission hides the result until expanded. */
+  resultPreview?: boolean;
 };
 
 export type McpFacts = {
@@ -350,6 +383,10 @@ export type ToolDisplayAdapter = {
   mcp?(args: unknown, result?: BorrowedToolResult): McpFacts | undefined;
   /** Internal: omit this owner's calls from run summaries, even when their cards fall back. */
   omitFromSummary?: boolean;
+  /** Foreign original-renderer fallbacks retain their source run boundaries. */
+  separateRun?: boolean;
+  progress?(args: unknown, result?: BorrowedToolResult): DisplayProgress | undefined;
+  action?(args: unknown, result?: BorrowedToolResult): DisplayAction | undefined;
   /**
    * Internal: summary-mode items for this call. Handle partial arguments; undefined
    * uses the family's category and counts the call once. An empty list omits the call

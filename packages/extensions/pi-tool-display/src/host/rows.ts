@@ -7,13 +7,13 @@ import type { Component } from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import { noticeSummary } from "../adapters/pi-nested-instructions/index.ts";
-import type { DisplayCall, SummaryNotice } from "../contracts.ts";
+import type { DisplayAction, DisplayCall, SummaryNotice } from "../contracts.ts";
 import type { DisplayTheme } from "../rendering/types.ts";
 import type { TranscriptCoordinator } from "../transcript/coordinator.ts";
+import { isInstructionNotice } from "../transcript/messages.ts";
 import { record } from "../values.ts";
 import { assistantBoundaryKind, bindAssistantPresentation } from "./assistant.ts";
 import type { Host } from "./compatibility.ts";
-import { isInstructionNotice } from "./messages.ts";
 import { bindRowChrome } from "./row-layout.ts";
 
 /** Pi row ownership, visible separators, and input routing for one transcript binding. */
@@ -45,6 +45,8 @@ export class TranscriptRows {
       chrome: boolean;
       /** Without mode hooks, Pi's global expansion toggles collapsed mode and verbose. */
       syncMode?: () => void;
+      boundary?: (call: DisplayCall, kind: "group" | "run") => void;
+      action?: (action: DisplayAction) => void;
     }
   ) {
     this.unindexedCalls = coordinator.calls.values();
@@ -200,7 +202,11 @@ export class TranscriptRows {
   }
   boundaryBefore(component: Component): void {
     const call = this.precedingCall(component);
-    if (call) this.coordinator.boundary(call);
+
+    if (call) {
+      this.coordinator.boundary(call);
+      this.options.boundary?.(call, "run");
+    }
   }
   assistantBoundary(component: Component | undefined): void {
     if (!this.options.active()) return;
@@ -233,6 +239,7 @@ export class TranscriptRows {
       if (this.options.chrome)
         this.disposers.push(
           bindRowChrome(child, call, coordinator, {
+            action: this.options.action,
             active: this.options.active,
             theme: () => this.theme,
             tail: () => !this.trailingNotices.has(call)

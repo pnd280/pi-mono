@@ -1,20 +1,15 @@
-import { randomUUID } from "node:crypto";
-
-import type {
-  AgentSession,
-  AgentSessionEvent,
-  ExtensionAPI,
-  ToolInfo
-} from "@earendil-works/pi-coding-agent";
+import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import type { DisplayMode, ToolDisplayAdapter } from "../contracts.ts";
+import type { DisplayAction, DisplayMode, ToolDisplayAdapter } from "../contracts.ts";
 import { createToolDisplayRenderers } from "../rendering/cards.ts";
 import type { ToolDisplayRenderers } from "../rendering/types.ts";
 import type { DisplaySettings } from "../settings.ts";
-import { DisplaySession, type AdapterSelector } from "../transcript/session.ts";
+import { TranscriptMessages } from "../transcript/messages.ts";
+import type { DisplaySession } from "../transcript/session.ts";
 import { record } from "../values.ts";
 import { trackThinkingCompletion } from "./assistant.ts";
+import type { DisplayCollector, DisplayCollectors } from "./collection.ts";
 import {
   hostHook,
   hostMode,
@@ -24,14 +19,12 @@ import {
   type Host
 } from "./compatibility.ts";
 import { displaySettings } from "./configuration.ts";
-import { executionOutcome, hostToolResult, TranscriptMessages } from "./messages.ts";
-import { NativeRegistry } from "./native-registry.ts";
 import { TranscriptRows } from "./rows.ts";
-import { selectAdapter } from "./selection.ts";
 
 type Binding = {
   host: Host;
   display: DisplaySession;
+  collector: DisplayCollector;
   messages: TranscriptMessages;
   rows: TranscriptRows;
 };
@@ -58,17 +51,10 @@ function shownMode(mode: DisplayMode, summarized: boolean): DisplayMode {
   return mode === "summary" && !summarized ? "compact" : mode;
 }
 
-function updatedContentIndex(event: AgentSessionEvent): number | undefined {
-  if (event.type !== "message_update") return undefined;
-
-  return "contentIndex" in event.assistantMessageEvent
-    ? event.assistantMessageEvent.contentIndex
-    : undefined;
-}
-
 export function installHostIntegration(
-  append?: ExtensionAPI["appendEntry"],
-  warn: (message: string) => void = () => {}
+  collection: DisplayCollectors,
+  warn: (message: string) => void = () => {},
+  action: (action: DisplayAction) => void = () => {}
 ): (() => void) | undefined {
   const prototype = interactivePrototype();
   prototype[hostHook]?.();
@@ -94,43 +80,12 @@ export function installHostIntegration(
     }
   };
 
-  const failedAdapters = new Set<string>();
-
-  // One warning per adapter: a broken adapter must not look like a declined contract.
   const adapterFailure = (failed: ToolDisplayAdapter) => {
-    if (failedAdapters.has(failed.id)) return;
-
-    failedAdapters.add(failed.id);
-    warning(`display adapter ${failed.id} failed; its calls render generically.`);
+    collection.adapterFailure(failed);
   };
-
-  const native = new NativeRegistry((session) => sessions.get(session)?.display, warning);
-
-  /** Pi builds every tool's info on each call; index it once, on the first lookup. */
-  function adapters(session: AgentSession, configuration: DisplaySettings): AdapterSelector {
-    let tools: Map<string, ToolInfo> | undefined;
-
-    return (name) => {
-      const definition = session.getToolDefinition(name);
-      tools ??= new Map(session.getAllTools().map((tool) => [tool.name, tool]));
-      const info = tools.get(name);
-
-      return selectAdapter(
-        configuration,
-        name,
-        // Owner renderers: extension resolvers, then the registered tool. Pi's built-in
-        // renderers are excluded. Unregistered names keep generic cards, which late
-        // registration (such as MCP reconnecting after reload) can upgrade; Pi's rows cannot.
-        definition && session.extensionRunner.resolveToolRenderers(name, () => definition),
-        native.isNative(session, name, info),
-        info
-      );
-    };
-  }
 
   function release(binding: Binding): void {
     binding.rows.dispose();
-    binding.display.dispose();
     bindings.delete(binding);
     hosts.delete(binding.host);
     if (sessions.get(binding.host.session) === binding) sessions.delete(binding.host.session);
@@ -140,14 +95,20 @@ export function installHostIntegration(
     if (!active || !host.ui || !host.chatContainer) return undefined;
     let binding = hosts.get(host);
 
-    if (binding && (reset || sessions.get(host.session) !== binding)) {
+    if (
+      binding &&
+      (reset ||
+        sessions.get(host.session) !== binding ||
+        binding.collector.sessionId !== host.session.sessionManager.getSessionId())
+    ) {
       release(binding);
       binding = undefined;
     }
 
     if (binding) return binding;
-    const configuration = displaySettings(host.session);
-    configuration.warnings.forEach(warning);
+    const collector = collection.get(host.session);
+    if (!collector) return;
+    const configuration = collector.settings;
 
     if (!modeHooks && configuration.valid && !modeWarning) {
       modeWarning = true;
@@ -159,26 +120,21 @@ export function installHostIntegration(
       warning("row contract unavailable; summaries disabled.");
     }
 
-    const display = new DisplaySession({
-      mode: initialMode(host, configuration),
-      runtime: randomUUID(),
-      cwd: host.session.sessionManager.getCwd(),
-      history: host.session.sessionManager,
-      settings: configuration,
-      adapters: () => adapters(host.session, configuration),
-      onAdapterFailure: adapterFailure,
-      expanded: () => host.toolOutputExpanded ?? false,
-      append
-    });
+    const display = reset ? collector.reconstruct() : collector.display;
+    collector.attach(() => host.toolOutputExpanded ?? false);
+    display.coordinator.setMode(initialMode(host, configuration));
     display.coordinator.setSummaries(summaries(host, rowChrome));
     const current: Binding = {
       host,
       display,
+      collector,
       messages: new TranscriptMessages(configuration.valid && rowChrome),
       rows: new TranscriptRows(host, display.coordinator, {
         active: () => active && hosts.get(host) === current,
         styleAssistant: configuration.valid,
         chrome: rowChrome,
+        boundary: (call, kind) => collector.publisher.boundary(call, kind),
+        action,
         ...(modeHooks
           ? {}
           : {
@@ -192,13 +148,6 @@ export function installHostIntegration(
     hosts.set(host, current);
     sessions.set(host.session, current);
     bindings.add(current);
-    native.bind(host.session, () => {
-      const select = adapters(host.session, configuration);
-
-      return ["bash", "powershell", "edit", "write"].some(
-        (name) => select(name)?.id === `pi:${name}`
-      );
-    });
 
     return current;
   }
@@ -249,7 +198,7 @@ export function installHostIntegration(
       const configuration = binding?.display.settings ?? displaySettings(this.session);
       const selected = binding
         ? binding.display.selectAdapter(name)
-        : adapters(this.session, configuration)(name);
+        : collection.adapters(this.session, configuration)(name);
       if (!selected) return definition;
       let renderers: ToolDisplayRenderers | undefined;
 
@@ -309,7 +258,6 @@ export function installHostIntegration(
     if (!active) return;
     active = false;
     for (const binding of bindings) release(binding);
-    native.dispose();
     hooks.restore();
     if (prototype[hostHook] === dispose) delete prototype[hostHook];
   };
@@ -418,35 +366,10 @@ export function installHostIntegration(
         const binding = ensure(this);
 
         if (binding) {
-          const display = binding.display;
           if (event.type === "message_update")
             trackThinkingCompletion(this.streamingComponent, event.assistantMessageEvent);
-
-          if (
-            event.type === "message_start" ||
-            event.type === "message_update" ||
-            event.type === "message_end"
-          ) {
-            display.message(
-              binding.messages.read(event.message, updatedContentIndex(event)),
-              "live",
-              event.type === "message_end"
-            );
-          }
-
-          if (event.type === "tool_execution_start") display.queued(event.toolCallId);
-          if (event.type === "tool_execution_update" || event.type === "tool_execution_end")
-            display.result(
-              event.toolCallId,
-              hostToolResult(
-                event.type === "tool_execution_update" ? event.partialResult : event.result
-              ),
-              event.type === "tool_execution_end"
-                ? executionOutcome(event.isError, this.session.agent.signal)
-                : "success",
-              event.type === "tool_execution_update"
-            );
-          if (event.type === "agent_end") display.coordinator.settle();
+          // The collector deduplicates the public event if its subscriber ran first.
+          binding.collector.event(event);
         }
 
         // message_end updates the component and clears the host's streaming reference.

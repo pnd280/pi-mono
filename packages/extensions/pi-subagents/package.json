@@ -1,0 +1,36 @@
+{
+  "name": "pi-subagents",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Delegate work to separate Pi sessions",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
+    "test": "vp test run",
+    "validate:terminal": "node validation/launch-terminal.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "workspace:*",
+    "@pi-mono/utils": "workspace:*",
+    "pi-tool-display": "workspace:*",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:pi-host",
+    "@earendil-works/pi-coding-agent": "catalog:pi-host",
+    "@earendil-works/pi-tui": "catalog:pi-host"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

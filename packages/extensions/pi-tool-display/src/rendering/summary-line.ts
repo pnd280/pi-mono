@@ -48,7 +48,7 @@ function styledTemplate(
   return text;
 }
 
-function segmentText(segment: SummarySegment, theme: DisplayTheme, first: boolean): string {
+export function segmentText(segment: SummarySegment, theme: DisplayTheme, first: boolean): string {
   const { category, count, counts } = segment;
   const text = styledTemplate(
     compactDisplayText(count === 1 ? category.count.one : category.count.other),

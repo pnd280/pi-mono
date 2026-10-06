@@ -5,6 +5,7 @@ import {
   isCancelled,
   type BorrowedToolResult,
   type DisplayCall,
+  type DisplayAction,
   type ExplorationItem,
   type ExplorationScope,
   type McpFacts,
@@ -50,6 +51,7 @@ export interface CardInterpretation {
 
 /** Transcript meaning. All fields use the same effective adapter. */
 export interface CallInterpretation extends CardInterpretation {
+  readonly action: DisplayAction | undefined;
   readonly exploration: readonly ExplorationItem[];
   /** Normalized against the interpretation cwd; undefined excludes the call from groups. */
   readonly group: GroupKey | undefined;
@@ -196,6 +198,7 @@ export function interpret(
       const exploration = adapter.exploration?.(args, result) ?? [];
 
       return {
+        action: adapter.action?.(args, result),
         ...meaning,
         exploration,
         group: groupKey(exploration, adapter.groupTitle, cwd),

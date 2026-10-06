@@ -13,7 +13,8 @@ export class NativeRegistry {
 
   constructor(
     private display: (session: AgentSession) => DisplaySession | undefined,
-    warning: (message: string) => void
+    warning: (message: string) => void,
+    runtime: (session: AgentSession) => void
   ) {
     this.native = observeNativeTools({
       names: ["bash", "powershell"],
@@ -24,7 +25,10 @@ export class NativeRegistry {
             ? this.display(session)?.beginObservation(id, `pi:${original.name}`)
             : undefined
         ),
-      refreshed: (session) => this.display(session)?.refreshAdapters(),
+      refreshed: (session) => {
+        runtime(session);
+        this.display(session)?.refreshAdapters();
+      },
       warning
     });
     this.mutations = observeFileMutations({

@@ -117,6 +117,12 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
             handleInput: (data) => {
               if (!settled && !closed && !presentation.remount) currentView.handleInput?.(data);
             },
+            handleMouse: (event) => {
+              if (!settled && !closed && !presentation.remount)
+                return currentView.handleMouse?.(event);
+
+              return;
+            },
             invalidate: () => {
               if (!settled && !closed) currentView.invalidate();
             },

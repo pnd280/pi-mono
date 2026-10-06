@@ -159,13 +159,18 @@ export function piMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
   const kind = owned ? toolKind(tool) : undefined;
   if (!kind) return undefined;
 
+  return mcpDisplayAdapter(kind, tool.name);
+}
+
+/** Replay uses the producer's versioned, verified contract, never a live registry. */
+export function mcpDisplayAdapter(kind: ToolKind, name: string): ToolDisplayAdapter {
   return {
     id: `pi-mcp-adapter:${kind}`,
     family: "invocation",
     // MCP tool names alone may not explain the request.
     alwaysShowParameters: true,
     supports: (args, result) => supportsResult(kind, args, result),
-    invocation: (args, result) => invocation(kind, tool.name, args, result),
+    invocation: (args, result) => invocation(kind, name, args, result),
     mcp: (_args, result) => mcpCallFacts(result),
     // Every MCP call counts once, including repeated identical requests.
     summaryItems: () => [{ category: "mcp" }],

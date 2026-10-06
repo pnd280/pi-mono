@@ -9,6 +9,7 @@ import { nativeAdapter } from "../adapters/native/index.ts";
 import { piMcpAdapter } from "../adapters/pi-mcp-adapter/index.ts";
 import { piSelectiveReadAdapter } from "../adapters/pi-read/index.ts";
 import { piSmartCompactAdapter } from "../adapters/pi-smart-compact/index.ts";
+import { piSubagentAdapter } from "../adapters/pi-subagents/index.ts";
 import { piTodoAdapter } from "../adapters/pi-todo/index.ts";
 import type { ToolDisplayAdapter, ToolDisplayAdapterResolver } from "../contracts.ts";
 import type { DisplaySettings } from "../settings.ts";
@@ -20,12 +21,30 @@ const extensionAdapterResolvers: readonly ToolDisplayAdapterResolver[] = [
   piFffAdapter,
   piMcpAdapter,
   piTodoAdapter,
+  piSubagentAdapter,
   piSelectiveReadAdapter,
   piSmartCompactAdapter,
   builtinCodemodeAdapter,
   builtinMcpAdapter,
   builtinToolSearchAdapter
 ];
+
+/** Without a renderer registry, unresolved owners must remain original/unavailable. */
+export function publicAdapter(
+  settings: DisplaySettings,
+  name: string,
+  info?: ToolInfo
+): ToolDisplayAdapter | undefined {
+  if (!settings.valid || settings.rendererOverrides[name] === "original") return;
+  if (settings.rendererOverrides[name] === "generic") return genericAdapter;
+
+  for (const resolve of extensionAdapterResolvers) {
+    const adapter = resolve(info);
+    if (adapter) return adapter;
+  }
+
+  return;
+}
 
 export function selectAdapter(
   settings: DisplaySettings,

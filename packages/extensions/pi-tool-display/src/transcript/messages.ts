@@ -1,10 +1,11 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { noticeType } from "pi-nested-instructions/notices";
 
+import { noticeSummary } from "../adapters/pi-nested-instructions/index.ts";
 import type { Outcome } from "../contracts.ts";
 import { stringField } from "../terminal-text.ts";
-import type { TranscriptMessage } from "../transcript/session.ts";
 import { record } from "../values.ts";
+import type { TranscriptMessage } from "./session.ts";
 
 export function hostToolResult(value: unknown): AgentToolResult<unknown> {
   // Pi's execution events and persisted toolResult messages carry AgentToolResult media
@@ -50,6 +51,24 @@ function assistantInterruption(
   return undefined;
 }
 
+function hasAssistantBoundary(
+  value: Record<string, unknown>,
+  content: readonly unknown[]
+): boolean {
+  if (value.stopReason === "length") return true;
+  if (
+    (value.stopReason === "aborted" || value.stopReason === "error") &&
+    !content.some((block) => record(block).type === "toolCall")
+  )
+    return true;
+
+  return content.some((block) => {
+    const value = record(block);
+
+    return value.type === "text" && typeof value.text === "string" && value.text.trim().length > 0;
+  });
+}
+
 /** Normalize messages and discover buffered calls before Pi constructs their rows.
  * Streaming content is append-only; starts, finalization, and replay scan the full
  * message. Ordinary updates visit only the changed block and newly visible tail.
@@ -66,7 +85,12 @@ export class TranscriptMessages {
     if (value.role === "system" || value.type === "usage" || value.type === "custom") return;
     if (value.role === "custom" && value.display === false) return;
     // Actual inserted notice rows supply a group boundary, not a run boundary.
-    if (this.ownNotices && isInstructionNotice(input)) return;
+    if (this.ownNotices && isInstructionNotice(input))
+      return {
+        kind: "notice",
+        id: JSON.stringify([value.timestamp, value.details]),
+        notice: noticeSummary(value.details)
+      };
     if (value.role === "toolResult")
       return {
         kind: "result",
@@ -104,6 +128,7 @@ export class TranscriptMessages {
       kind: "assistant",
       timestamp,
       calls,
+      boundary: hasAssistantBoundary(value, value.content),
       ...(interruption ? { interruption } : {})
     };
   }

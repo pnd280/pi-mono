@@ -12,6 +12,10 @@ Choose the [exported module](package.json) for your task:
 - Discovery: [FFF provenance](src/fff-tools.ts), [search scopes](src/search-scopes.ts), [lexical paths](src/paths.ts).
 - Commands: [POSIX argument quoting](src/shell.ts).
 
+Use [task envelopes](src/task-envelope.ts) to format subagent task results and extract their bodies.
+
+Use [idle wake](src/idle-wake.ts) to start a turn on an idle agent with custom messages. It is a workaround for [Pi issue 5581](https://github.com/earendil-works/pi/issues/5581); see [idle-wake caller boundaries](docs/caller-boundaries.md#idle-wake).
+
 For terminal text sanitisation and shortcut normalisation, use [terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md).
 
 Before using a helper, read its [caller boundaries](docs/caller-boundaries.md). For text ranking and cancellable event-loop scheduling, use [cooperative search](../libs/src/text-search/README.md).

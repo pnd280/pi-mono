@@ -10,7 +10,7 @@ export const SAVED_OUTPUT_LINES = 4000;
 
 export const SAVED_OUTPUT_CACHE_ENTRIES = 8;
 
-async function readOutput(path: string): Promise<SavedOutput> {
+export async function readOutput(path: string): Promise<SavedOutput> {
   const result = await readBoundedOutput(path, {
     maxBytes: SAVED_OUTPUT_BYTES,
     maxLines: SAVED_OUTPUT_LINES,

@@ -10,6 +10,7 @@ import {
   parseDisplayRecord,
   persistDisplayFact
 } from "./metadata.ts";
+import { parseTranscriptRecord } from "./records.ts";
 
 it("persists typed facts and reads only matching source calls from the supplied ancestry", () => {
   const source = {
@@ -48,6 +49,16 @@ it("persists typed facts and reads only matching source calls from the supplied 
   expect(new DisplayRecordIndex([source, metadata]).forCall(reference)).toEqual([record]);
   expect(new DisplayRecordIndex([source]).forCall(reference)).toEqual([]);
   expect(new DisplayRecordIndex([metadata]).forCall(reference)).toEqual([]);
+
+  // Copied source messages can share timestamps and tool IDs within one ancestry.
+  const copiedSource = { ...source, id: "copied-source", parentId: metadata.id };
+  const copiedReference = { ...reference, messageEntryId: copiedSource.id };
+  const index = new DisplayRecordIndex([source, metadata, copiedSource]);
+  expect(index.forCall(reference)).toEqual([record]);
+  expect(index.forCall(copiedReference)).toEqual([]);
+  const reversed = new DisplayRecordIndex([source, metadata, copiedSource]);
+  expect(reversed.forCall(copiedReference)).toEqual([]);
+  expect(reversed.forCall(reference)).toEqual([record]);
 
   for (const mismatch of [
     { ...source, id: "other-branch" },
@@ -101,6 +112,10 @@ it.each([
 });
 
 it("bounds the original record, including unknown fields, and rejects unsafe call references", () => {
+  const runtime = { version: 1, kind: "runtime", sessionId: "session", generation: "generation" };
+  expect(parseTranscriptRecord(runtime)).toEqual(runtime);
+  expect(parseTranscriptRecord({ ...runtime, extra: "x".repeat(16 * 1024) })).toBeUndefined();
+  expect(parseTranscriptRecord({ ...runtime, sessionId: "界".repeat(1024) })).toBeUndefined();
   const record = {
     version: 1,
     call: { messageTimestamp: 1, contentIndex: 0, toolCallId: "a" },

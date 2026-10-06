@@ -4,6 +4,7 @@ import {
   highlightCodeSelection
 } from "@pi-mono/libs/tui/components/code-highlight";
 import { renderDiffBody } from "@pi-mono/libs/tui/components/diff-view";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import {
   compactDisplayText,
   displayText,
@@ -41,9 +42,9 @@ const COMPACT_NESTED_CALLS = 8;
 
 const nestedCallStatus = {
   running: { icon: "…", color: "warning" },
-  success: { icon: "✓", color: "success" },
-  failure: { icon: "✗", color: "error" },
-  cancelled: { icon: "⊘", color: "muted" }
+  success: { icon: TUI_GLYPHS.outcome.success, color: "success" },
+  failure: { icon: TUI_GLYPHS.outcome.failure, color: "error" },
+  cancelled: { icon: TUI_GLYPHS.outcome.cancelled, color: "muted" }
 } as const;
 
 function formatDuration(ms: number): string {

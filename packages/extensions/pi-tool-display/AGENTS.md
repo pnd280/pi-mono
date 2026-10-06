@@ -21,7 +21,7 @@ When you add a message type or adapt a Pi row, keep the difference between an ex
 ### Pi host access
 
 - Keep all private Pi access under `host/`.
-- Observe a tool only when it has a verified native definition, the session is an interactive TUI session, and specialised rendering is selected.
+- Collect in TUI, RPC, print, and JSON sessions. Observe a native tool only when it has a verified native definition and specialised rendering is selected. Collection belongs to the session, not the terminal binding.
 - Preserve middleware, settings, active tools, results, and mutation ordering, so other consumers of [native tools](../../libs/src/native-tools/README.md) and [file mutations](../../libs/src/file-mutations/README.md) see no change.
 - Never register tools for presentation, and never recreate closures you did not create.
 - Restore only hooks and definitions this extension installed, and keep wrappers added after it.

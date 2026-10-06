@@ -35,6 +35,8 @@ pi.registerTool({
 });
 ```
 
+The exported `subagentDisplayAdapter` and `subagentAbortDisplayAdapter` supply the same task-progress cards used by pi-subagents, including its standalone tool, abort, and completion renderers. See its [contract and display limits](../src/adapters/pi-subagents/README.md).
+
 The third argument is `ToolDisplayRendererOptions`, not CLI settings. `showParameters: true` shows optional specialised parameters. MCP and generic cards always show arguments, and structured blocks need expansion.
 
 ## Custom adapters
@@ -47,7 +49,7 @@ For concrete targets use `path` and optionally `range`; use `value` or `pattern`
 
 Standalone adapters must handle incompatible input themselves. Only the automatic CLI integration checks `supports`. To add automatic selection for another extension, [register a resolver](adapters.md#add-an-adapter).
 
-Standalone cards do not invoke `exploration` or internal `summaryItems`, or read `groupTitle` and `summaryCategories`. Failures in those CLI-only fields therefore cannot force standalone fallback. The card's `summary` callback still applies to standalone results; it is distinct from run-summary items.
+Standalone cards do not invoke `exploration`, `action`, or internal `summaryItems`, or read `groupTitle` and `summaryCategories`. Failures in those unused fields therefore cannot force standalone fallback. The card's `summary` callback still applies to standalone results; it is distinct from run-summary items.
 
 Callbacks used by cards fail atomically to generic meaning, so specialised MCP identity never survives with generic outcomes. A failure in metadata (`mcp` or `outcome`) applies to the current snapshot and can recover after an update or invalidation. A presentation failure keeps both retained slots generic through later updates. The CLI also interprets grouping and run-summary fields, whose failures invalidate the whole interpretation.
 

@@ -25,6 +25,7 @@ Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [packag
 | [Text budgets](text-budget/README.md)                    | Synchronous wrapping and bounded excerpts                                |
 | [Terminal text](terminal-text/README.md)                 | Display sanitisation and unsafe-control detection                        |
 | [Glyphs](glyphs/README.md)                               | Shared activity markers and tree connector glyphs                        |
+| [Token counts](token-count/README.md)                    | Footer-scale token count formatting                                      |
 | [Keybindings](keybindings/README.md)                     | Shortcut validation and canonicalisation                                 |
 
 ## Validation

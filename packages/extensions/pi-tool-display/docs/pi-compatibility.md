@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.0.2 with unchanged host fingerprints, the API and CLI suites, and offline terminal checks in tmux on Linux. Both regular and fullscreen modes passed `summary`, the **Ctrl+O** cycle, two reloads with the selected mode retained, `explore`, and saved-session replay; session and mutation-file hashes stayed unchanged during replay. Not covered: the other terminal scenarios, physical mouse and image protocols, a live `registerToolRenderer` resolver (an offline test covers ownership), live MCP and FFF services, and other platforms.
+> Last verified against Pi 1.0.2 on Linux with unchanged host fingerprints, API and CLI suites, and headless viewer probes. Earlier tmux smoke checks covered regular/fullscreen `summary`, **Ctrl+O**, two reloads, `explore`, and byte-preserving saved-session replay; they predate the current UI revisions. Not covered by this review: real-terminal behaviour, physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. When a fingerprint doesn't match, the matching hook stays uninstalled and the feature falls back as described in the [README](../README.md#compatibility).
 
@@ -27,7 +27,7 @@ Work through every section below when you bump the supported Pi version, checkin
 
 ### Assistant presentation
 
-[Source](../src/host/assistant.ts).
+[Host binding and thinking](../src/host/assistant.ts) use the [shared prose markers](../src/rendering/assistant.ts), which the foreign viewer also uses.
 
 - [ ] `updateContent` creates direct `Markdown` children only for prose, with symmetric `outputPad`, and nests thinking in `MouseRegion`.
 - [ ] Prose markers, native Markdown transformers, and width limits work.
@@ -61,6 +61,8 @@ See [native tools](../../../libs/src/native-tools/README.md).
 - [ ] Middleware, definitions (including exposure and output schemas), structured results, active tools, mutation ordering, and other subscribers are preserved.
 - [ ] A nonzero Bash exit resolves an error result with its exit code.
 - [ ] Cancellation and timeout stay distinct.
+- [ ] Session-scoped collection runs in TUI, RPC, print, and JSON modes, independently of row mounting. Public events reconcile with persisted entries before final summaries.
+- [ ] If native construction discovery is unavailable, the public collector can still verify extension contracts and leaves unresolved renderer ownership unavailable.
 
 ### Nested execution
 
@@ -74,12 +76,16 @@ See [native tools](../../../libs/src/native-tools/README.md).
 
 [Source](../src/transcript/session.ts).
 
-- [ ] Visible notices and boundary custom messages from other owners split groups and runs.
+- [ ] Pi's public `sessionEntryToContextMessages` converts appended custom messages before boundary detection. Visible notices and boundary custom messages from other owners split groups and runs.
 - [ ] This extension's instruction notices split only groups, and follow the visibility of the preceding run.
 - [ ] Invisible metadata, hidden messages, and context edits split nothing.
 - [ ] Row ownership survives replay slices around boundary compaction summaries.
 - [ ] Facts replay only for matching calls on the selected branch. Timestamp associations refresh after appends, branch changes, and resets.
 - [ ] Replay never runs tools or observes files again.
+- [ ] `SessionManager.inMemory` accepts owned decoded entries without filesystem writes. Foreign sources use `parseSessionEntries`, not `SessionManager.open`.
+- [ ] RPC deltas and replacement snapshots reconcile once on the active branch, including compaction, context-edited results, and leaf moves. Ordinary messages still require `get_entries` refreshes.
+- [ ] Public `ToolExecutionComponent` renderer slots and image sizing preserve shared row layout without private viewer access.
+- [ ] Session changes and shutdown invalidate pending publication, saved-output loading, and view callbacks.
 
 ### Extension notifications
 

@@ -18,7 +18,7 @@ Execution and borrowed data
 - **Critical, e2e:** Failures in observation callbacks or fact persistence do not replace a delegated tool result or error.
 - **Critical, unit:** Borrowed arguments, results, and messages stay unchanged during rendering, expansion, and row reuse.
 - **Critical, e2e:** Observed native calls keep their construction settings, including the shell path and command prefix.
-- **High, e2e:** Native observation requires an interactive TUI binding, verified native provenance, and selection of the specialised native adapter.
+- **Critical, e2e (T1):** Collection in TUI, RPC, print, and JSON preserves execution, trusted settings, verified native selection, renderer overrides, and middleware. Native observation requires verified native provenance and selection of the specialised native adapter.
 - **High, e2e:** Display integration preserves tool parameter schemas and results produced through Pi's middleware, registers no tools, and leaves the active tool selection unchanged.
 - **High, integration:** File mutation observation uses the shared capture rather than rereading targets for display.
 
@@ -27,12 +27,16 @@ Saved history
 - **Critical, unit:** New `pi-tool-display.facts` entries contain bounded operation, cancellation, patch, and saved-output reference facts, not result bodies, images, styled text, or live shell previews. Records above the whole-record byte limit are rejected, including when unknown fields cause the excess.
 - **High, e2e:** Display facts use custom session entries, not model-context messages.
 - **Critical, e2e:** Replay restores matching recorded facts without rerunning tools or observing source mutations again. Eligible expanded cards may still read saved output.
+- **Critical, e2e and unit (T2):** Portable metadata stays bounded and outside model context. Specialised foreign interpretation requires matching source calls and supported recorded contracts; live activity also matches its task session and collector generation. Pure byte-limit edge cases extend existing record validation.
+- **Critical, e2e (T3):** Foreign viewing preserves the source session and borrowed data, never executes tools or imports child extensions, and never rereads mutation targets. Only the supplied saved-output loader may read referenced output. A snapshot marked historical never invokes that loader; unavailable external output does not replace retained content.
+- **High, e2e (T4):** Snapshot/live reconciliation exposes each committed call and result once on the selected branch across overlap, refresh, reconnect, compaction, and branch changes. Incomplete historical outcomes remain unavailable. Historical replacement clears provisional messages, running state, and execution updates even when entry IDs match.
 
 Reload and disposal
 
 - **High, e2e:** Reload and removal restore only hooks and definitions still owned by this extension, and keep wrappers installed later.
 - **High, integration:** Disposing display observation leaves other mutation subscribers active, and retained observation callbacks cannot update calls or persist facts after their display session is disposed.
 - **High, e2e:** Pending host-event continuations cannot reattach assistant decoration after disposal or take row ownership from a replacement transcript binding.
+- **High, e2e (T5):** Disposed collectors and viewers cannot update or persist into replacement sessions; disposal preserves other mutation subscribers and later wrappers.
 
 ## Not tested
 

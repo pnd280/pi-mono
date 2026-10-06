@@ -10,7 +10,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./renderers": "./src/rendering/api.ts",
-    "./adapters": "./src/adapters/index.ts"
+    "./adapters": "./src/adapters/index.ts",
+    "./viewer": "./src/viewer/index.ts"
   },
   "scripts": {
     "format": "vp fmt .",

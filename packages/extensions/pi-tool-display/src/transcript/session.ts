@@ -8,6 +8,7 @@ import type {
   DisplayMode,
   Outcome,
   SavedOutput,
+  SummaryNotice,
   ToolDisplayAdapter
 } from "../contracts.ts";
 import type { AdapterFailureHandler } from "../interpretation.ts";
@@ -21,6 +22,7 @@ import { persistDisplayFact } from "./metadata.ts";
 
 export type TranscriptMessage =
   | { kind: "boundary" }
+  | { kind: "notice"; id: string; notice: SummaryNotice | undefined }
   | {
       kind: "result";
       id: string;
@@ -31,11 +33,16 @@ export type TranscriptMessage =
   | {
       kind: "assistant";
       timestamp: number;
+      boundary?: boolean;
       calls: readonly { index: number; id: string; name: string; args: unknown }[];
       interruption?: { outcome: "cancelled" | "failure"; text: string };
     };
 
-export type AdapterSelector = (name: string) => ToolDisplayAdapter | undefined;
+export type AdapterSelector = (
+  name: string,
+  reference?: CallReference,
+  args?: unknown
+) => ToolDisplayAdapter | undefined;
 
 type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
 
@@ -76,6 +83,8 @@ export class DisplaySession {
   private history: DisplayHistory;
   private output: SavedOutputLoader;
   private messages = new Set<string>();
+  private assistants = new Map<number, { owner: object; after: DisplayCall | undefined }>();
+  private noticeAnchor: DisplayCall | undefined;
   private disposed = false;
   private snapshot: AdapterSelector | undefined;
   constructor(private options: DisplaySessionOptions) {
@@ -195,8 +204,23 @@ export class DisplaySession {
     if (this.disposed || !input) return;
     const coordinator = this.coordinator;
 
+    if (input.kind === "notice") {
+      const key = `notice:${input.id}`;
+      if (this.messages.has(key)) return;
+      this.messages.add(key);
+      const call = this.noticeAnchor;
+
+      if (call) {
+        coordinator.setBoundary(input, call, "group");
+        if (input.notice) coordinator.addSummaryNotice(call, input.notice);
+      }
+
+      return;
+    }
+
     if (input.kind === "boundary") {
       coordinator.boundary();
+      this.noticeAnchor = undefined;
 
       return;
     }
@@ -210,17 +234,18 @@ export class DisplaySession {
 
     const select = this.snapshot ?? this.options.adapters();
     coordinator.batch(() => {
+      let boundary = this.assistants.get(input.timestamp);
+
+      if (!boundary) {
+        boundary = { owner: {}, after: [...coordinator.calls.values()].at(-1) };
+        this.assistants.set(input.timestamp, boundary);
+      }
+
+      coordinator.setBoundary(boundary.owner, input.boundary ? boundary.after : undefined);
+      if (input.boundary) this.noticeAnchor = undefined;
+
       for (const content of input.calls) {
         const position = JSON.stringify([input.timestamp, content.index, content.id]);
-        const selected =
-          retainedAdapter(coordinator, content, input.timestamp, origin) ?? select(content.name);
-
-        if (!selected) {
-          if (!this.messages.has(position)) coordinator.boundary();
-          this.messages.add(position);
-          continue;
-        }
-
         const source = this.history.messageEntry(input.timestamp, content.index, content.id);
         const reference: CallReference = {
           messageTimestamp: input.timestamp,
@@ -228,6 +253,17 @@ export class DisplaySession {
           toolCallId: content.id,
           ...(source ? { messageEntryId: source } : {})
         };
+        const selected =
+          retainedAdapter(coordinator, content, input.timestamp, origin) ??
+          select(content.name, reference, content.args);
+
+        if (!selected) {
+          if (!this.messages.has(position)) coordinator.boundary();
+          this.messages.add(position);
+          continue;
+        }
+
+        if (selected.separateRun) coordinator.boundary();
         const call = coordinator.add(
           reference,
           content.name,
@@ -236,6 +272,8 @@ export class DisplaySession {
           origin,
           this.options.expanded()
         );
+        this.noticeAnchor = call;
+        if (selected.separateRun) coordinator.boundary(call);
         if (origin === "historical")
           for (const fact of this.history.facts(call)) coordinator.fact(call, fact);
         if (origin === "live" && complete) coordinator.update(call, "queued");
@@ -253,5 +291,6 @@ export class DisplaySession {
     this.coordinator.dispose();
     this.output.dispose();
     this.messages.clear();
+    this.assistants.clear();
   }
 }

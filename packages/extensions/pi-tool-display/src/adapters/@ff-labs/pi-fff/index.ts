@@ -49,6 +49,11 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
   if (!kind || !tool) return undefined;
   if (!registrationSchemas[kind].safeParse(tool.parameters).success) return undefined;
 
+  return fffDisplayAdapter(kind, tool.name);
+}
+
+/** Replay uses the producer's versioned, verified contract, never a live registry. */
+export function fffDisplayAdapter(kind: FffToolKind, name: string): ToolDisplayAdapter {
   return {
     id: `@ff-labs/pi-fff:${kind}`,
     family: "search",
@@ -62,7 +67,7 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
       const listing = kind === "find" && data.pattern === "";
 
       return invocationParts(
-        tool.name,
+        name,
         kind === "multi"
           ? {
               pattern: Array.isArray(data.patterns)

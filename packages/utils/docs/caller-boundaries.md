@@ -26,6 +26,18 @@ Callers own input validation, existing-path detection and error handling, scope 
 
 [`decodeUtf8Window`](../src/utf8.ts) counts discarded source bytes in `omittedBytes`, not replacement characters for invalid interior bytes. UTF-8 clipping preserves code-point boundaries.
 
+## Task envelopes
+
+[`formatTaskEnvelope`](../src/task-envelope.ts) writes the model-facing text of a subagent task result. It escapes the task ID and summary and preserves the body unchanged. Callers own summary and body limits.
+
+Supply the expected task ID and state to `parseTaskEnvelope` from validated result details, not from the text. The parser returns the unchanged body when the envelope framing and expected values match, or `undefined` when they do not. Edits within an otherwise valid body or escaped summary are accepted.
+
+## Idle wake
+
+[`wakeIdle`](../src/idle-wake.ts) works around [Pi issue 5581](https://github.com/earendil-works/pi/issues/5581). When the agent is idle, `sendMessage` with `triggerTurn` starts a turn without `before_agent_start`, so prepared context is missing. The helper queues the messages as `nextTurn` and then sends a user message, which runs the hook.
+
+Callers supply the Pi extension API and the wake prompt, and call the helper only while the agent is idle. The prompt appears in the transcript as a user message. Remove the helper when Pi fixes the issue.
+
 ## Patches
 
 [`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers. Invalid or oversized patches return `undefined`. Pass parsed results to the [diff renderer](../../libs/src/tui/components/diff-view/README.md).

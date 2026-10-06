@@ -7,15 +7,7 @@ import type {
   ThemeColor
 } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
-
-function formatTokens(count: number): string {
-  if (count < 1000) return String(count);
-  if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
-  if (count < 1000000) return `${Math.round(count / 1000)}k`;
-  if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
-
-  return `${Math.round(count / 1000000)}M`;
-}
+import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 
 export function formatCwd(cwd: string, home = process.env.HOME || process.env.USERPROFILE): string {
   if (!home) return compactDisplayText(cwd);
@@ -36,7 +28,7 @@ function tokens(session: AgentSession, display: UsageDisplay): string {
     ["input", "↑"],
     ["output", "↓"]
   ] as const) {
-    if (usage[key]) parts.push(`${prefix}${formatTokens(usage[key])}`);
+    if (usage[key]) parts.push(`${prefix}${formatTokenCount(usage[key])}`);
   }
 
   if (display === "compact") return parts.join(" ");
@@ -45,7 +37,7 @@ function tokens(session: AgentSession, display: UsageDisplay): string {
     ["cacheRead", "R"],
     ["cacheWrite", "W"]
   ] as const) {
-    if (usage[key]) parts.push(`${prefix}${formatTokens(usage[key])}`);
+    if (usage[key]) parts.push(`${prefix}${formatTokenCount(usage[key])}`);
   }
 
   let hit: number | undefined;
@@ -99,8 +91,8 @@ function context(
   const tokens = usage?.tokens;
   const percent = usage?.percent;
   const window = usage?.contextWindow;
-  const used = tokens == null ? "?" : formatTokens(tokens);
-  const total = window === undefined ? "?" : formatTokens(window);
+  const used = tokens == null ? "?" : formatTokenCount(tokens);
+  const total = window === undefined ? "?" : formatTokenCount(window);
   const share = display === "compact" || percent == null ? "" : ` (${percent.toFixed(1)}%)`;
   let auto = session.autoCompactionEnabled ? " (auto)" : "";
 
@@ -110,7 +102,7 @@ function context(
     try {
       // Pi uses the selected model's reserve even when the window comes from a routed model.
       const reserve = session.settingsManager.getCompactionReserveTokens(session.model);
-      trigger = formatTokens(window - reserve);
+      trigger = formatTokenCount(window - reserve);
     } catch {
       // Invalid native compaction settings must not break the widget render loop.
     }

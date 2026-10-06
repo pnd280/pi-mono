@@ -11,7 +11,9 @@
     "./source-selection": "./src/source-selection.ts",
     "./patch": "./src/patch.ts",
     "./output-text": "./src/output-text.ts",
-    "./utf8": "./src/utf8.ts"
+    "./utf8": "./src/utf8.ts",
+    "./task-envelope": "./src/task-envelope.ts",
+    "./idle-wake": "./src/idle-wake.ts"
   },
   "scripts": {
     "format": "vp fmt .",

@@ -14,6 +14,7 @@ it("recognizes native construction through the installed pi executable, not just
   try {
     const executable = await resolvePiExecutable();
     const integration = fileURLToPath(new URL("./install.ts", import.meta.url));
+    const collection = fileURLToPath(new URL("./collection.ts", import.meta.url));
     const assistant = fileURLToPath(new URL("./assistant.ts", import.meta.url));
     const compatibility = fileURLToPath(new URL("./compatibility.ts", import.meta.url));
     const selectiveAdapter = fileURLToPath(
@@ -29,14 +30,17 @@ it("recognizes native construction through the installed pi executable, not just
       `
       import { AgentSession, AssistantMessageComponent, initTheme } from "@earendil-works/pi-coding-agent";
       import { installHostIntegration } from ${JSON.stringify(integration)};
+      import { DisplayCollectors } from ${JSON.stringify(collection)};
       import { assistantBoundaryKind, bindAssistantPresentation, trackThinkingCompletion } from ${JSON.stringify(assistant)};
       import { interactivePrototype, modeHooksCompatible, rowContractCompatible } from ${JSON.stringify(compatibility)};
       import { createBoundedPatch } from ${JSON.stringify(boundedDiff)};
       import { piSelectiveReadAdapter } from ${JSON.stringify(selectiveAdapter)};
       const original = Reflect.get(AgentSession.prototype, "_buildRuntime");
-      const dispose = installHostIntegration();
+       const collection = new DisplayCollectors();
+       const dispose = installHostIntegration(collection);
       const recognized = Reflect.get(AgentSession.prototype, "_buildRuntime") !== original;
       dispose?.();
+      collection.dispose();
       const restored = Reflect.get(AgentSession.prototype, "_buildRuntime") === original;
       export default function (pi) {
         pi.registerCommand("verify-display", { handler: async () => {

@@ -107,6 +107,8 @@ export class TranscriptCoordinator implements TranscriptView {
   private failedAdapters = new WeakMap<DisplayCall, ToolDisplayAdapter>();
   private stopAnimation: (() => void) | undefined;
   private disposed = false;
+  /** The agent is still running, so calls can join the run that ends with the last historical call. */
+  private continuing = false;
   phase = 0;
   mode: DisplayMode;
   /** Whether summary mode collapses runs; otherwise it renders like compact. */
@@ -323,6 +325,13 @@ export class TranscriptCoordinator implements TranscriptView {
   run(call: DisplayCall): DisplayRun | undefined {
     return this.runs.get(call.key);
   }
+  /** Portable run snapshots must distinguish closed membership from terminal results. */
+  runClosed(call: DisplayCall): boolean {
+    const run = this.runs.get(call.key);
+    const last = run?.members.at(-1);
+
+    return !!run && (run.closed || (!!last && this.separated(last.key, "run")));
+  }
   /** Notices stay attached to their preceding call when run boundaries change. */
   addSummaryNotice(after: DisplayCall, notice: SummaryNotice): void {
     const call = this.mutable(after);
@@ -443,6 +452,14 @@ export class TranscriptCoordinator implements TranscriptView {
     call.lifecycle = lifecycle;
     this.changed(call);
   }
+  /** A foreign authoritative call becomes live only when its current connection observes execution. */
+  observeExecution(view: DisplayCall): void {
+    const call = this.mutable(view);
+    if (!call || call.lifecycle === "complete") return;
+    call.origin = "live";
+    call.lifecycle = "executing";
+    this.changed(call);
+  }
   result(
     view: DisplayCall,
     result: AgentToolResult<unknown>,
@@ -508,6 +525,7 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   /** The agent ended: unfinished calls become unavailable and the final run ends. */
   settle(): void {
+    this.continuing = false;
     const last = this.sequence.at(-1);
     const run = last === undefined ? undefined : this.runs.get(last);
     if (run) run.closed = true;
@@ -517,6 +535,13 @@ export class TranscriptCoordinator implements TranscriptView {
       this.changed(call);
     }
 
+    if (run) this.refreshEnded(run);
+  }
+  /** The agent is still running after reconstructed history: its final run stays open. */
+  resume(): void {
+    this.continuing = true;
+    const last = this.sequence.at(-1);
+    const run = last === undefined ? undefined : this.runs.get(last);
     if (run) this.refreshEnded(run);
   }
   attach(call: DisplayCall, row: RowHandle): () => void {
@@ -611,7 +636,9 @@ export class TranscriptCoordinator implements TranscriptView {
     const ended =
       !!last &&
       run.liveMembers === 0 &&
-      (run.closed || this.separated(last.key, "run") || last.origin === "historical");
+      (run.closed ||
+        this.separated(last.key, "run") ||
+        (last.origin === "historical" && !(this.continuing && last.key === this.sequence.at(-1))));
     if (ended === run.ended) return;
     const summarized = this.summarized(run);
     run.ended = ended;

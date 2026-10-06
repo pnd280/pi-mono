@@ -38,6 +38,12 @@ Match verified provenance and the parameter structure the renderer needs: types,
 
 Build schema fixtures through the registered tool's projection, and retain integration coverage that loads the extension. Projection changes also affect schema-inspecting consumers: run their adapter and installed-CLI checks, not just the producing tool's tests.
 
+## Progress cards and actions
+
+`progress(args, result)` supplies structured task status, identity, non-default expanded fields, and the collapsed result-preview choice to the shared progress card. Omit `status` until the task reports one; the renderer then shows the host call phase and owns colours, elapsed time, and wrapping. A final failure, cancellation, or unavailable outcome overrides a conflicting reported status.
+
+`action(args, result)` supplies a pure event descriptor; the mounting host owns dispatch and authorisation. Neither callback performs effects. Progress cards also work with standalone adapters. Actions need the automatic host or a viewer with an `action` callback; the standalone factory does not dispatch them.
+
 ## Summary items
 
 [Summary mode](presentation.md#summary-mode) uses internal adapter fields. They are not part of the [renderer API](renderers.md) yet and may change without notice.
@@ -60,13 +66,15 @@ The host selects rendering in this order:
 
 The resolver list and `selectAdapter` are host-internal; no public registration API exists. Late tool registration switches reconstructed generic rows to available adapters.
 
+Foreign replay uses the versioned contracts in [`recorded.ts`](../src/adapters/recorded.ts), after validating producer records against source calls. Add a supported contract there when adding an automatic adapter. Never resolve foreign provenance through the viewing host's registry or import a recorded source path. The [subagent adapter](../src/adapters/pi-subagents/README.md) demonstrates structured progress and actions.
+
 ## Built-in adapters
 
 Each adapter documents its contract in its own README. The [resolver list](../src/host/selection.ts) is the authoritative list for automatic tool selection.
 
-| Source           | Adapters                                                                                                                                                                                                                                                               |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pi native tools  | [Native contract](../src/adapters/native/README.md)                                                                                                                                                                                                                    |
-| Pi built-ins     | [codemode](../src/adapters/builtin/codemode/README.md), [MCP](../src/adapters/builtin/mcp/README.md), [tool search](../src/adapters/builtin/tool-search/README.md)                                                                                                     |
-| Extensions       | [FFF](../src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](../src/adapters/pi-mcp-adapter/README.md), [todo](../src/adapters/pi-todo/README.md), [selective read](../src/adapters/pi-read/README.md), [smart compact](../src/adapters/pi-smart-compact/README.md) |
-| Session messages | [Nested instructions](../src/adapters/pi-nested-instructions/README.md), registered separately (see [session-message adapters](#session-message-adapters))                                                                                                             |
+| Source           | Adapters                                                                                                                                                                                                                                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pi native tools  | [Native contract](../src/adapters/native/README.md)                                                                                                                                                                                                                                                                         |
+| Pi built-ins     | [codemode](../src/adapters/builtin/codemode/README.md), [MCP](../src/adapters/builtin/mcp/README.md), [tool search](../src/adapters/builtin/tool-search/README.md)                                                                                                                                                          |
+| Extensions       | [FFF](../src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](../src/adapters/pi-mcp-adapter/README.md), [todo](../src/adapters/pi-todo/README.md), [selective read](../src/adapters/pi-read/README.md), [smart compact](../src/adapters/pi-smart-compact/README.md), [subagents](../src/adapters/pi-subagents/README.md) |
+| Session messages | [Nested instructions](../src/adapters/pi-nested-instructions/README.md), registered separately (see [session-message adapters](#session-message-adapters))                                                                                                                                                                  |

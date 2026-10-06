@@ -46,9 +46,27 @@ import { expect, it, vi } from "vite-plus/test";
 import toolDisplay from "../index.ts";
 import { assistantMessage, messageToolCall, renderingTui } from "../test-fixture.ts";
 import { METADATA_TYPE } from "../transcript/metadata.ts";
+import { TranscriptRecordIndex } from "../transcript/records.ts";
+import { DisplayCollectors } from "./collection.ts";
 import { hostHook, interactivePrototype, type Host } from "./compatibility.ts";
 import { displaySettings } from "./configuration.ts";
-import { installHostIntegration } from "./install.ts";
+import { installHostIntegration as installHostHooks } from "./install.ts";
+
+function installHostIntegration(): (() => void) | undefined {
+  const collection = new DisplayCollectors();
+  const dispose = installHostHooks(collection);
+
+  if (!dispose) {
+    collection.dispose();
+
+    return;
+  }
+
+  return () => {
+    dispose();
+    collection.dispose();
+  };
+}
 
 type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
@@ -284,12 +302,15 @@ it("preserves live and restored cards and native registries through initializati
     let assertPreserved = preserveRegistry(session);
     // Startup reconstruction also happens before session_start.
     expect(text(readRow(session))).toContain("• Read example.txt");
+    assertPreserved();
     await session.bindExtensions({
       mode: "tui",
       onError: (error) => {
         errors.push(error);
       }
     });
+    // Session start now installs verified native observation in every mode.
+    assertPreserved = preserveRegistry(session);
     assertNoRegistration();
     assertPreserved();
     const activeNames = session.getActiveToolNames();
@@ -314,8 +335,10 @@ it("preserves live and restored cards and native registries through initializati
           // Pi rebuilds its definitions on reload; compare identity within each runtime.
           assertPreserved = preserveRegistry(session);
           restored = readRow(session);
+          assertPreserved();
         }
       });
+      assertPreserved = preserveRegistry(session);
       assertNoRegistration();
       assertPreserved();
       if (!restored) throw new Error("Expected transcript restoration during reload");
@@ -1346,9 +1369,6 @@ it("preserves later in-place native wrappers when removing observation", async (
         [{ type: "text", text: "retained" }]
       );
       expect(laterExecute).toHaveBeenCalledOnce();
-      expect(session.sessionManager.getEntries().some((entry) => entry.type === "custom")).toBe(
-        false
-      );
     } finally {
       tui.footerDataProvider.dispose();
     }
@@ -2533,18 +2553,56 @@ it("separates summaries and expansion at public warning notifications", async ()
   );
 });
 
-it("removes the hook outside TUI mode, including reload", async () => {
-  const original = host.getRegisteredToolDefinition;
-  await withSession(async ({ session, assertNoRegistration }) => {
-    const assertPreserved = preserveRegistry(session);
-    await session.bindExtensions({ mode: "rpc", onError: () => {} });
-    expect(host.getRegisteredToolDefinition).toBe(original);
-    assertPreserved();
-    await session.reload();
-    expect(host.getRegisteredToolDefinition).toBe(original);
-    assertNoRegistration();
-  });
-});
+it.each(["rpc", "print", "json"] as const)(
+  "collects native facts in %s without TUI hooks through reload",
+  async (mode) => {
+    const original = host.getRegisteredToolDefinition;
+    await withSession(async ({ session, assertNoRegistration }) => {
+      await session.bindExtensions({ mode, onError: () => {} });
+      const assertPreserved = preserveRegistry(session);
+      expect(host.getRegisteredToolDefinition).toBe(original);
+      const faux = fauxProvider({ provider: "display-headless", models: [{ id: "offline" }] });
+      session.modelRuntime.registerNativeProvider(faux.provider);
+      await session.modelRuntime.refresh({ allowNetwork: false });
+      await session.setModel(faux.getModel());
+      faux.setResponses([
+        fauxAssistantMessage([
+          fauxToolCall(
+            "bash",
+            { command: 'printf "%s" "$TOOL_DISPLAY_TEST"' },
+            { id: "headless-shell" }
+          )
+        ]),
+        fauxAssistantMessage("done")
+      ]);
+      await session.prompt("Run the native command");
+      const entries = session.sessionManager.getEntries();
+      const records = new TranscriptRecordIndex(entries);
+      expect([...records.calls.values()]).toMatchObject([
+        { name: "bash", selection: { kind: "adapter", id: "pi:bash", version: 1 } }
+      ]);
+      expect([...records.runs.values()].filter(({ record }) => record.final)).toMatchObject([
+        {
+          record: {
+            segments: [{ category: "shell", count: 1, failed: 0, cancelled: 0, unavailable: 0 }]
+          }
+        }
+      ]);
+      expect(
+        entries.filter((entry) => entry.type === "custom" && entry.customType === METADATA_TYPE)
+      ).toHaveLength(1);
+      expect(
+        entries.find((entry) => entry.type === "message" && entry.message.role === "toolResult")
+      ).toMatchObject({
+        message: { content: [{ type: "text", text: "preserved" }], isError: false }
+      });
+      assertPreserved();
+      await session.reload();
+      expect(host.getRegisteredToolDefinition).toBe(original);
+      assertNoRegistration();
+    });
+  }
+);
 
 it("leaves external owner rendering untouched, including built-in names and inherited slots", () => {
   const original = host.getRegisteredToolDefinition;

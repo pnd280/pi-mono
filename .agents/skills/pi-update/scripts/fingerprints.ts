@@ -58,6 +58,9 @@ function listedHashes(): Map<string, Set<string>> {
   const listed = new Map<string, Set<string>>();
 
   for (const file of files) {
+    // The index still lists unstaged deletions and moves. Missing declared owners
+    // are diagnosed separately below; there is no working-tree source to scan here.
+    if (!existsSync(file)) continue;
     const hashes = new Set(Array.from(readFileSync(file, "utf8").matchAll(/["']([0-9a-f]{64})["']/g), ([, hash = ""]) => hash));
 
     if (hashes.size > 0) listed.set(file, hashes);

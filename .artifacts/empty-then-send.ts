@@ -26,11 +26,14 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function (pi: ExtensionAPI) {
-	pi.registerCommand("empty-then-send", {
-		description: "Send a custom message through the normal prompt path",
-		handler: async (args) => {
-			pi.sendMessage({ customType: "empty-then-send", content: args, display: true }, { deliverAs: "nextTurn" });
-			pi.sendUserMessage("");
-		},
-	});
+  pi.registerCommand("empty-then-send", {
+    description: "Send a custom message through the normal prompt path",
+    handler: async (args) => {
+      pi.sendMessage(
+        { customType: "empty-then-send", content: args, display: true },
+        { deliverAs: "nextTurn" }
+      );
+      pi.sendUserMessage("");
+    }
+  });
 }

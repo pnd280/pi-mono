@@ -17,10 +17,16 @@ What a call means for display: its effective display adapter, pending state, out
 _Avoid_: projection, call state, call view
 
 **Native observation**:
-Facts collected about a verified native tool call in a live TUI session, such as shell previews, timing, outcomes, and pre-write contents. Supplements Pi's published results; never replaces them.
+Facts collected about a verified native tool call in a live TUI, RPC, print, or JSON session, such as shell previews, timing, outcomes, and pre-write contents. Supplements Pi's published results; never replaces them.
 _Avoid_: capture, tracking
 
 ### Transcript structure
+
+**Collector generation**:
+The identity of one session-owned collection lifetime. Portable records share this identity; live consumers reject records from a previous connection's generation.
+
+**Foreign viewer**:
+A read-only model and component over supplied entries and public events. It uses supported recorded contracts instead of the viewing host's tool registry.
 
 **Exploration group**:
 Adjacent exploration calls sharing one scope and title, shown under a single heading. Thinking may split a group.

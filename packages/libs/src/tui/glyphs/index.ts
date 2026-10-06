@@ -6,6 +6,12 @@ export const TUI_GLYPHS = {
   bullet,
   activeBullet,
   expanded: "▾",
+  queued: "◌",
+  outcome: {
+    success: "✓",
+    failure: "✗",
+    cancelled: "⊘"
+  },
   taskStatus: {
     pending: activeBullet,
     in_progress: bullet,

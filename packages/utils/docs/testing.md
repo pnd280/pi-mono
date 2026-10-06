@@ -13,6 +13,7 @@ This package tests pure validation and transformation. [Libs](../../libs/docs/te
 - **High, unit:** Output omission classification uses recorded ranges for generated notices, not literal lookalikes in source text.
 - **High, unit:** Output joining and slicing preserve source text and its omission ranges as UTF-16 offsets, and reject overlapping ranges.
 - **High, unit:** Patch parsing accepts only one unified patch within the caller's byte bound, and rejects invalid hunk counts and unordered or overlapping ranges in either source version.
+- **High, unit:** Task-envelope parsing preserves the body exactly, including closing-tag lookalikes, and rejects mismatched framing, task IDs, or states.
 - **High, unit:** UTF-8 window decoding drops incomplete characters at the declared clipped edge, replaces invalid interior bytes, and counts discarded edge bytes rather than replacement-character expansion.
 
 ## Not tested

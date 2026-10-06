@@ -17,12 +17,12 @@ Cards share one layout: a heading marker, a target line, and a bounded result ar
 
 ### Markers
 
-| Element                         | Marker                                                                                                            |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Collapsed card or group heading | `•`                                                                                                               |
-| Expanded card                   | `▾`                                                                                                               |
-| Pending card or group           | The marker flashes on and off without shifting the heading. [Standalone renderers](renderers.md) keep it visible. |
-| Summary line                    | None                                                                                                              |
+| Element                         | Marker                                                                                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Collapsed card or group heading | `•`                                                                                                                                        |
+| Expanded card                   | `▾`                                                                                                                                        |
+| Pending card or group           | The marker alternates between `muted` and `dim` every 600 ms and stays visible. [Standalone renderers](renderers.md) keep a steady marker. |
+| Summary line                    | None                                                                                                                                       |
 
 ### Target paths
 
@@ -151,7 +151,7 @@ A run collapses only when both are true:
 1. No member is streaming, queued, or executing.
 2. A non-thinking boundary or the agent's end prevents more calls from joining.
 
-History is always ended. Until a run collapses, it shows compact cards, so its line only ever describes finished calls. Clicking a card before the run ends keeps the run open afterwards, as if you had clicked its line.
+History is always ended, except in a [transcript viewer](viewer.md) whose agent has started and has not settled: there, the final run stays open. Until a run collapses, it shows compact cards, so its line only ever describes finished calls. Clicking a card before the run ends keeps the run open afterwards, as if you had clicked its line.
 
 Summary lines need Pi's fullscreen mode, and never rewrite rows already in terminal scrollback. In regular mode, `summary` renders as `compact`, and the mode cycle toggles `compact` and `verbose`. Switching Pi's TUI mode re-renders the transcript.
 

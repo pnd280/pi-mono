@@ -4,6 +4,7 @@ import { z } from "zod";
 import { callKey, type CallReference, type DisplayFact } from "../contracts.ts";
 import { PATCH_BYTES } from "../diff.ts";
 import { record } from "../values.ts";
+import { recordCallKey, sourceCall } from "./records.ts";
 
 export const METADATA_TYPE = "pi-tool-display.facts";
 
@@ -95,7 +96,8 @@ export class DisplayRecordIndex {
 
   forCall(call: CallReference): readonly DisplayRecord[] {
     const key = callKey("history", call);
-    const cached = this.parsed.get(key);
+    const cacheKey = recordCallKey(call);
+    const cached = this.parsed.get(cacheKey);
     if (cached) return cached;
     const records = new Map<string, Map<DisplayFact["kind"], DisplayRecord>>();
 
@@ -103,17 +105,12 @@ export class DisplayRecordIndex {
       const record = parseDisplayRecord(value);
       if (!record || callKey("history", record.call) !== key) continue;
 
-      if (record.call.messageEntryId) {
-        const source = this.sources.get(record.call.messageEntryId);
-        if (!source || source.type !== "message" || source.message.role !== "assistant") continue;
-        const content = source.message.content[record.call.contentIndex];
-        if (
-          source.message.timestamp !== record.call.messageTimestamp ||
-          content?.type !== "toolCall" ||
-          content.id !== record.call.toolCallId
-        )
-          continue;
-      }
+      if (
+        record.call.messageEntryId &&
+        (record.call.messageEntryId !== call.messageEntryId ||
+          !sourceCall(this.sources, record.call))
+      )
+        continue;
 
       const facts = records.get(record.adapter) ?? new Map<DisplayFact["kind"], DisplayRecord>();
       facts.set(record.fact.kind, record);
@@ -121,8 +118,8 @@ export class DisplayRecordIndex {
     }
 
     const facts = [...records.values()].flatMap((facts) => [...facts.values()]);
-    this.pending.delete(key);
-    this.parsed.set(key, facts);
+    // Other source entries can share the positional key; retain their candidates.
+    this.parsed.set(cacheKey, facts);
 
     return facts;
   }

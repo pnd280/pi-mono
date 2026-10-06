@@ -6,6 +6,7 @@ import { genericAdapter } from "../adapters/generic.ts";
 import { isLive, type BorrowedToolResult, type ToolDisplayAdapter } from "../contracts.ts";
 import { interpretCard, reportAdapterFailure, type CardInterpretation } from "../interpretation.ts";
 import { heading } from "./headings.ts";
+import { progressPreviewRows, progressRows } from "./progress.ts";
 import { buildGroupRows, buildResultBody } from "./result-content.ts";
 import { resultRows } from "./results.ts";
 import type {
@@ -122,7 +123,8 @@ function hasAnimatedHeading(card: PreparedCard): boolean {
 type PreparedRow = {
   width: number;
   revision: number | undefined;
-  blinkingRows?: string[];
+  animatedRows?: [string[], string[]];
+  progressSecond?: number;
   animated: boolean;
   expanded: boolean;
   adapter: ToolDisplayAdapter;
@@ -240,18 +242,35 @@ class CardRow {
     // the clock; its body and every completed card keep their prepared data.
     const phase = current.animated ? (binding?.coordinator.phase ?? 0) : 0;
 
-    const rows = (current.rows[slot] ??= (
-      slot === "call" ? heading(current.card) : resultRows(current.card)
-    ).map((row) => truncateToWidth(row, width, "")));
-    if (slot !== "call" || !phase) return rows;
+    const progress = current.card.adapter.progress?.(
+      current.card.context.args,
+      current.card.result
+    );
 
-    // Animated headings start with this one-cell marker. Preserve the prepared
-    // ANSI styling and every other byte, including literal markers in arguments.
-    const marker = current.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
+    if (current.animated && progress?.startedAt !== undefined && progress.endedAt === undefined) {
+      const second = Math.floor(Date.now() / 1000);
 
-    return (current.blinkingRows ??= rows.map((row, index) =>
-      index === 0 ? row.replace(marker, " ") : row
+      if (current.progressSecond !== second) {
+        current.progressSecond = second;
+        delete current.rows.call;
+        delete current.animatedRows;
+      }
+    }
+
+    const rows = (current.rows[slot] ??= this.slotRows(slot, current.card, progress).map((row) =>
+      truncateToWidth(row, width, "")
     ));
+    if (slot !== "call" || !current.animated) return rows;
+
+    // Keep the marker visible in both phases without changing the heading or its layout.
+    const marker = current.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
+    const tint = (color: "muted" | "dim") =>
+      rows.map((row, index) =>
+        index === 0 ? row.replace(marker, this.theme.fg(color, marker)) : row
+      );
+    current.animatedRows ??= [tint("muted"), tint("dim")];
+
+    return current.animatedRows[phase ? 1 : 0];
   }
 
   private interpretation(): CardInterpretation {
@@ -268,6 +287,20 @@ class CardRow {
       },
       onAdapterFailure
     );
+  }
+
+  private slotRows(
+    slot: Slot,
+    card: PreparedCard,
+    progress: ReturnType<NonNullable<ToolDisplayAdapter["progress"]>>
+  ): string[] {
+    if (progress) {
+      if (slot === "call") return progressRows(progress, card);
+      if (!card.expanded)
+        return progress.resultPreview && card.result ? progressPreviewRows(card) : [];
+    }
+
+    return slot === "call" ? heading(card) : resultRows(card);
   }
 
   private prepare(

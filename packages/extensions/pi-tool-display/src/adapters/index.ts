@@ -14,6 +14,12 @@ export {
   contextWindowDisplayAdapter
 } from "./pi-smart-compact/index.ts";
 
+export {
+  piSubagentAdapter,
+  subagentAbortDisplayAdapter,
+  subagentDisplayAdapter
+} from "./pi-subagents/index.ts";
+
 export { nativeAdapter } from "./native/index.ts";
 
 export type {
