@@ -6,6 +6,6 @@ export function toolGuidance(): string {
     "Launch independent tasks concurrently with multiple tool calls. Do not duplicate delegated work.",
     "Children share your working directory. Parallel tasks must not edit the same files.",
     "Each new task has a fresh conversation. Supply a detailed prompt, the expected final answer, whether to write code or research, and relevant verification commands.",
-    "Use task_id to continue a task with its previous context.",
+    "Use task_id to continue a task with its previous context."
   ].join("\n\n");
 }

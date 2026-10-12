@@ -5,6 +5,7 @@ import { beforeAll, expect, it } from "vite-plus/test";
 
 import { selectAdapter } from "../../../host/selection.ts";
 import { loadDisplaySettings } from "../../../settings.ts";
+import { plainTheme as theme } from "../../../test-fixture.ts";
 import { builtinMcpAdapter, mcpToolDisplayAdapter as adapter } from "./index.ts";
 
 // Mirrors Pi 1.0.1 `createMcpToolDefinition` for a server that omits `properties`.
@@ -25,12 +26,6 @@ const resourceTool: ToolInfo = {
     properties: { server: { type: "string" }, uri: { type: "string" } },
     required: ["server", "uri"]
   }
-};
-const theme = {
-  fg: (_color: string, text: string) => text,
-  bg: (_color: string, text: string) => text,
-  getBgAnsi: () => "",
-  bold: (text: string) => text
 };
 const plain = (lines: string[]) => stripTerminalSequences(lines.join("\n"));
 

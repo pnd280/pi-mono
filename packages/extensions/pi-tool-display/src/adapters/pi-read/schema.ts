@@ -1,7 +1,7 @@
 import { retainedSelectionSchema } from "pi-read/result";
 import { z } from "zod";
 
-// Pi omits optional nulls before execution, but retained display arguments stay raw.
+// Pi omits optional nulls before execution, but standalone cards receive raw arguments.
 function optionalArgument<T extends z.ZodType>(schema: T) {
   return z.preprocess((value) => (value === null ? undefined : value), schema.optional());
 }

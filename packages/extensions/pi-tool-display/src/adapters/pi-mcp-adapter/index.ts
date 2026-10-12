@@ -2,7 +2,6 @@ import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import type { BorrowedToolResult, InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
-import { serializeParameters } from "../../invocation.ts";
 import { record } from "../../values.ts";
 import {
   mcpCallFacts,
@@ -101,17 +100,10 @@ function invocation(
     }
   }
 
-  let parameterText: string | undefined;
-
   return [
     { kind: "value", text: title },
     ...parts,
-    {
-      kind: "parameters",
-      get text() {
-        return (parameterText ??= `(${serializeParameters(parameters ?? {})})`);
-      }
-    }
+    { kind: "parameters", value: parameters ?? {} }
   ];
 }
 
@@ -159,18 +151,13 @@ export function piMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
   const kind = owned ? toolKind(tool) : undefined;
   if (!kind) return undefined;
 
-  return mcpDisplayAdapter(kind, tool.name);
-}
-
-/** Replay uses the producer's versioned, verified contract, never a live registry. */
-export function mcpDisplayAdapter(kind: ToolKind, name: string): ToolDisplayAdapter {
   return {
     id: `pi-mcp-adapter:${kind}`,
     family: "invocation",
     // MCP tool names alone may not explain the request.
     alwaysShowParameters: true,
     supports: (args, result) => supportsResult(kind, args, result),
-    invocation: (args, result) => invocation(kind, name, args, result),
+    invocation: (args, result) => invocation(kind, tool.name, args, result),
     mcp: (_args, result) => mcpCallFacts(result),
     // Every MCP call counts once, including repeated identical requests.
     summaryItems: () => [{ category: "mcp" }],

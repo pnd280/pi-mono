@@ -1,6 +1,6 @@
 # Workspace development
 
-Make breaking changes directly; add compatibility support only when explicitly requested.
+Treat every change request as building from the ground up by default. Make breaking changes directly; do not add or retain legacy support, fallbacks, or related notices or scripts unless explicitly requested.
 
 ## Working agreement
 

@@ -31,6 +31,24 @@ Four owners gate private Pi hooks on SHA-256 hashes of method source. Each owner
 
 Run `vpr fingerprints:check` from the workspace root; `vpr check` and CI also run it. It hashes both builds of the installed Pi and marks each hash that its owner file does not list (`CHANGED`). It also marks each 64-hex hash in workspace source that no registered method produces (`UNCLAIMED`). When you add, rename, or remove a fingerprinted hook, update `owners` in the script and the table above in the same change. A changed hash means the method body changed: diff the old and new source of that method, verify the hook still holds, and only then replace the hash. `pi-smart-compact` also pins `VERSION`.
 
+## Private hook replacement
+
+Check every private hook for a public replacement in the target release, including hooks whose fingerprints did not change. Private hooks include the [fingerprinted methods](#host-fingerprints) and every other prototype or instance property replacement; search the workspace for `OwnedHooks` to find them.
+
+1. List each hook with the package features that depend on it, from the owner code and the package's `docs/pi-compatibility.md`.
+2. Search the target's documentation, examples, declarations, and implementation for public APIs that give the same behaviour, such as events, renderer registration, `ctx.ui` methods, tool definition fields, and exported components.
+3. Classify each hook with versioned evidence:
+
+   | Parity  | Disposition                                                                                                |
+   | ------- | ---------------------------------------------------------------------------------------------------------- |
+   | Full    | Optional adoption. Name the public API and the hook code it removes.                                       |
+   | Partial | Keep the hook. Record each feature that the public API cannot keep, and the public API that Pi would need. |
+   | None    | Keep the hook. Record the public API that Pi would need.                                                   |
+
+4. Count a replacement as full parity only when it keeps the package policies in its `AGENTS.md` and compatibility checklist. For example, a tool override is not a replacement when the package forbids registering tools.
+5. Do not remove a feature to remove a hook unless the user approves it in the decision stage.
+6. Report every result in the handoff. In an authorised migration, update the package's replacement opportunities in `docs/pi-compatibility.md`.
+
 ## Visible history
 
 Metadata is not insertion. Invisible system or usage entries cannot split groups; visible notices must. Verify live insertion and no-op boundaries, ownership and restoration, and replay against the workspace-resolved Pi executable as well as API-level checks.

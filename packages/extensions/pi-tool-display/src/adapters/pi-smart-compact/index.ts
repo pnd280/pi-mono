@@ -2,7 +2,7 @@ import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import type { InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
-import { invocationParts, serializeParameters } from "../../invocation.ts";
+import { invocationParts } from "../../invocation.ts";
 
 const compactArgsSchema = z.strictObject({ instructions: z.string().nullish() });
 const compactParametersSchema = z.object({
@@ -36,15 +36,6 @@ const usageSchema = z.object({
 });
 const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
-function parametersPart(args: unknown): InvocationPart {
-  return {
-    kind: "parameters",
-    get text() {
-      return ` (${serializeParameters(args)})`;
-    }
-  };
-}
-
 export const smartCompactDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-smart-compact:compact",
   family: "invocation",
@@ -59,7 +50,7 @@ export const smartCompactDisplayAdapter: ToolDisplayAdapter = {
     const parts: InvocationPart[] = [{ kind: "value", text: "compaction" }];
     const focus = parsed.instructions?.trim();
     if (focus) parts.push({ kind: "annotation", text: " \u2014 " }, { kind: "value", text: focus });
-    parts.push(parametersPart(args));
+    parts.push({ kind: "parameters", value: args, separated: true });
 
     return parts;
   },
@@ -95,7 +86,10 @@ export const contextWindowDisplayAdapter: ToolDisplayAdapter = {
       : undefined,
   invocation: (args) =>
     contextArgsSchema.safeParse(args).success
-      ? [{ kind: "value", text: "context window" }, parametersPart(args)]
+      ? [
+          { kind: "value", text: "context window" },
+          { kind: "parameters", value: args, separated: true }
+        ]
       : invocationParts("context_window", args, "invocation"),
   summary(result, { args, outcome }) {
     if (outcome !== "success" || !contextArgsSchema.safeParse(args).success) return undefined;

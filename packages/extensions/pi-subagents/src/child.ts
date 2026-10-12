@@ -1,39 +1,50 @@
 import { spawn } from "node:child_process";
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type {
-  JsonAgentSessionEvent,
-  RpcCommand,
-  RpcExtensionUIRequest,
-  RpcResponse,
-  SessionStats,
-  SessionEntry
+import {
+  truncateHead,
+  type JsonAgentSessionEvent,
+  type RpcCommand,
+  type RpcExtensionUIRequest,
+  type RpcResponse,
+  type RpcSessionState,
+  type SessionStats
 } from "@earendil-works/pi-coding-agent";
+import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
-import { checkpointSession } from "./checkpoints.ts";
 import { ChildConnection, type ProcessExit, type RpcRecord } from "./connection.ts";
-import { DEPTH_ENV, STOP_GRACE_MS, TASK_ID_ENV } from "./constants.ts";
+import {
+  DEPTH_ENV,
+  PROTOCOL_KEY,
+  PROTOCOL_VERSION,
+  STOP_GRACE_MS,
+  TASK_ID_ENV
+} from "./constants.ts";
 import { childArgs, type ChildSelection, type PiInvocation } from "./invocation.ts";
 import { forceStop, isAlive, processOptions, terminateTree } from "./platform.ts";
+import { childMessageSchema, decode, encode, type ChildMessage } from "./protocol.ts";
+
+type Begun = Extract<ChildMessage, { kind: "begun" }>;
 
 export type ChildStart = {
   taskId: string;
+  runId: string;
   sessionId: string;
   sessionFile: string;
+  /** The continued history ends with a tool call that has no result. */
+  interrupted: boolean;
   /** The model and thinking level that the child applied after Pi resolved and clamped the selection. */
   model?: string;
   thinking: string;
+  /** Statistics after `begin`; Pi's totals also cover the file's earlier runs. */
   usageStart: SessionStats;
 };
 
 export type ChildResult = {
-  taskId?: string;
-  sessionFile?: string;
   outcome: "completed" | "failed" | "cancelled";
   text: string;
   usageStart?: SessionStats;
   usageEnd?: SessionStats;
-  activity?: string;
   exit: ProcessExit;
 };
 
@@ -48,9 +59,15 @@ export type ChildOptions = ChildSelection & {
   sessionName?: string;
   prompt: string;
   streamingBehavior?: "steer" | "followUp";
-  restored?: { sessionId: string; entries: readonly SessionEntry[] };
+  taskId: string;
+  runId: string;
+  /** The run to continue, with `sessionFile`; null for a new task. */
+  previousRunId: string | null;
+  /** The session identity that a resumed file must have. */
+  sessionId?: string;
+  onSpawn?: (pid: number) => Promise<void>;
   onStart?: (start: ChildStart) => void | Promise<void>;
-  onCheckpoint?: () => Promise<void>;
+  /** The child's latest top-level tool, cleared when its agent starts and when the run exits. */
   onActivity?: (activity: string) => void;
   onEvent?: (event: JsonAgentSessionEvent) => void;
   onUIRequest?: (request: RpcExtensionUIRequest) => void;
@@ -64,10 +81,14 @@ export class ChildRun {
   readonly connection: ChildConnection;
   readonly done: Promise<ChildResult>;
   private start: ChildStart | undefined;
+  /** The child acknowledged this run's `begin`; only then does it exchange other messages. */
+  private begun = false;
+  /** Requests that wait for their reply; each takes the first message that it matches. */
+  private replies = new Set<(message: ChildMessage) => boolean>();
   private usageEnd: SessionStats | undefined;
   private lastAssistant: AssistantMessage | undefined;
   private text = "";
-  private activity: string | undefined;
+  private activity = "";
   private step = "spawn";
   private failure: { step: string; message: string } | undefined;
   private cancellation: string | undefined;
@@ -78,10 +99,11 @@ export class ChildRun {
   private collecting = false;
   private closing = false;
   private inputClosed = false;
-  private checkpointingStop = false;
+  private stopping = false;
   private finished = false;
   private stopTimer: ReturnType<typeof setTimeout> | undefined;
   private clearForceStop: (() => void) | undefined;
+  private listeners = new Set<(message: ChildMessage) => void>();
 
   constructor(private readonly options: ChildOptions) {
     options.onStep?.("spawn");
@@ -109,10 +131,34 @@ export class ChildRun {
       this.ready.resolve(undefined);
       clearTimeout(this.stopTimer);
       this.clearForceStop?.();
+      this.setActivity("");
 
       return this.result(exit);
     });
     void this.launch().catch((error: unknown) => this.fail(error));
+  }
+
+  get cwd(): string {
+    return this.options.cwd;
+  }
+
+  /** The child's agent events, without RPC responses or dialogs. */
+  events(listener: (event: JsonAgentSessionEvent) => void): () => void {
+    return this.connection.subscribe((record) => {
+      if (record.type !== "response" && record.type !== "extension_ui_request") listener(record);
+    });
+  }
+
+  /** The child file's entries, after `since` when given, and its current leaf. */
+  async entries(since?: string) {
+    const response = await this.connection.request({
+      type: "get_entries",
+      ...(since ? { since } : {})
+    });
+    if (!response.success) throw new Error(response.error);
+    if (response.command !== "get_entries") throw new Error("Missing child entries");
+
+    return response.data;
   }
 
   cancel(reason: string): Promise<ChildResult> {
@@ -179,6 +225,63 @@ export class ChildRun {
     return response.data.disposition;
   }
 
+  /** Observe the coordination messages of the begun run. */
+  listen(listener: (message: ChildMessage) => void): () => void {
+    this.listeners.add(listener);
+
+    return () => this.listeners.delete(listener);
+  }
+
+  /**
+   * Send a reserved `/subagents` subcommand and return the child's reply; undefined when the
+   * connection was closing and nothing was sent. A `handled` response is not success: Pi also
+   * reports it when the command handler throws. The child writes its reply before Pi writes the
+   * command's response, so a missing reply is reported, never retried.
+   */
+  async ask<T>(
+    name: string,
+    payload: unknown,
+    match: (message: ChildMessage) => T | undefined
+  ): Promise<T | undefined> {
+    let reply: T | undefined;
+
+    const take = (message: ChildMessage) => {
+      if (reply !== undefined) return false;
+      reply = match(message);
+
+      return reply !== undefined;
+    };
+
+    this.replies.add(take);
+
+    try {
+      if (!(await this.command(name, payload))) return;
+      if (reply === undefined) throw new Error(`Subagent did not acknowledge ${name}`);
+
+      return reply;
+    } finally {
+      this.replies.delete(take);
+    }
+  }
+
+  /**
+   * Send a reserved `/subagents` subcommand that has no reply; false when the connection was
+   * closing and nothing was sent. It is not input: it neither invalidates collection nor arms
+   * completion, and its pending response holds stdin open.
+   */
+  async command(name: string, payload: unknown): Promise<boolean> {
+    if (this.closing || this.finished) return false;
+    const response = await this.connection.request({
+      type: "prompt",
+      message: `/subagents ${name} ${encode(payload)}`
+    });
+    if (!response.success) throw new Error(response.error);
+    if (response.command !== "prompt" || response.data.disposition !== "handled")
+      throw new Error("Subagent command was not handled");
+
+    return true;
+  }
+
   private async newSession(): Promise<void> {
     const response = await this.request({
       type: "new_session",
@@ -194,8 +297,48 @@ export class ChildRun {
     }
   }
 
+  private async begin(state: RpcSessionState): Promise<Begun> {
+    const commands = await this.request({ type: "get_commands" });
+    // Without the command, the begin request would reach the model as a prompt.
+    if (
+      commands.command !== "get_commands" ||
+      !commands.data.commands.some(
+        (command) => command.source === "extension" && command.name === "subagents"
+      )
+    )
+      throw new Error("Child did not load pi-subagents");
+    this.step = "begin";
+    this.options.onStep?.(this.step);
+    const reply = await this.ask(
+      "begin",
+      {
+        version: PROTOCOL_VERSION,
+        task_id: this.options.taskId,
+        run_id: this.options.runId,
+        previous_run_id: this.options.previousRunId
+      },
+      (message) =>
+        (message.kind === "begun" || message.kind === "begin-failed") &&
+        message.run_id === this.options.runId
+          ? message
+          : undefined
+    );
+    if (!reply) throw new Error("Subagent launch cancelled");
+    if (reply.kind === "begin-failed") throw new Error(reply.error);
+    if (
+      reply.task_id !== this.options.taskId ||
+      reply.session_id !== state.sessionId ||
+      reply.session_file !== state.sessionFile
+    )
+      throw new Error("Invalid subagent begin acknowledgement");
+
+    return reply;
+  }
+
   private async launch(): Promise<void> {
-    if (this.options.sessionFile === undefined) await this.newSession();
+    const pid = this.connection.process.pid;
+    if (pid !== undefined) await this.options.onSpawn?.(pid);
+    if (this.options.previousRunId === null) await this.newSession();
 
     const state = await this.request({ type: "get_state" });
 
@@ -203,30 +346,18 @@ export class ChildRun {
       throw new Error("Child has no session file");
     }
 
-    if (this.options.restored) {
-      if (state.data.sessionId !== this.options.restored.sessionId)
-        throw new Error("Restored child session identity mismatch");
-      const snapshot = await this.snapshot();
-      const branch = new Map(
-        checkpointSession(snapshot)
-          .getBranch()
-          .map((entry) => [entry.id, entry])
-      );
-      if (
-        this.options.restored.entries.some(
-          (entry) => JSON.stringify(branch.get(entry.id)) !== JSON.stringify(entry)
-        )
-      )
-        throw new Error("Restored child history does not match its checkpoint");
-    }
-
+    if (this.options.sessionId !== undefined && state.data.sessionId !== this.options.sessionId)
+      throw new Error("Subagent session identity does not match its task");
+    const begun = await this.begin(state.data);
     if (this.closing) return;
     const usage = await this.request({ type: "get_session_stats" });
     if (usage.command !== "get_session_stats") throw new Error("Missing child usage");
     this.start = {
-      taskId: this.options.taskId ?? state.data.sessionId,
-      sessionId: state.data.sessionId,
-      sessionFile: state.data.sessionFile,
+      taskId: this.options.taskId,
+      runId: this.options.runId,
+      sessionId: begun.session_id,
+      sessionFile: begun.session_file,
+      interrupted: begun.interrupted,
       ...(state.data.model ? { model: `${state.data.model.provider}/${state.data.model.id}` } : {}),
       thinking: state.data.thinkingLevel,
       usageStart: usage.data
@@ -260,17 +391,6 @@ export class ChildRun {
     return !this.closing && !this.finished;
   }
 
-  async snapshot() {
-    const response = await this.request({ type: "get_entries" });
-    if (response.command !== "get_entries") throw new Error("Missing child entries");
-
-    return {
-      sessionId: this.start?.sessionId ?? this.options.restored?.sessionId ?? "",
-      cwd: this.options.cwd,
-      ...response.data
-    };
-  }
-
   private observe(record: RpcRecord): void {
     if (record.type === "response") {
       if (record.success && record.command === "prompt" && record.data.disposition === "started") {
@@ -283,7 +403,13 @@ export class ChildRun {
     }
 
     if (record.type === "extension_ui_request") {
-      this.options.onUIRequest?.(record);
+      if (record.method === "setStatus" && record.statusKey === PROTOCOL_KEY) {
+        const message =
+          record.statusText === undefined
+            ? undefined
+            : decode(childMessageSchema, record.statusText);
+        if (message) this.message(message);
+      } else this.options.onUIRequest?.(record);
 
       return;
     }
@@ -292,24 +418,56 @@ export class ChildRun {
     this.options.onEvent?.(record);
   }
 
+  /**
+   * A reply goes to the request that waits for it; replies that no request matches are dropped.
+   * Only the begun run of this connection exchanges other coordination messages.
+   */
+  private message(message: ChildMessage): void {
+    if (this.finished) return;
+
+    for (const take of this.replies) {
+      if (!take(message)) continue;
+      if (message.kind === "begun") this.begun = true;
+
+      return;
+    }
+
+    if (
+      this.begun &&
+      message.kind !== "begun" &&
+      message.kind !== "begin-failed" &&
+      message.kind !== "control-reply"
+    )
+      for (const listener of this.listeners) listener(message);
+  }
+
   private observeEvent(event: JsonAgentSessionEvent): void {
     if (event.type === "agent_start") {
       this.agentEnded = false;
       this.settled = false;
       this.epoch++;
+      this.setActivity("");
     } else if (event.type === "agent_end") {
       this.agentEnded = true;
-      if (this.closing) this.checkpointAndClose();
+      if (this.closing) this.statsAndClose();
     } else if (event.type === "agent_settled") {
       this.settled = true;
       this.epoch++;
       this.options.onStep?.("agent_settled");
     } else if (event.type === "message_end" && event.message.role === "assistant") {
       this.lastAssistant = event.message;
-    } else if (event.type === "tool_execution_start" && this.activity !== event.toolName) {
-      this.activity = event.toolName;
-      this.options.onActivity?.(this.activity);
+    } else if (event.type === "tool_execution_start" && !event.parentToolCallId) {
+      // Calls that another tool made are part of that tool's activity.
+      this.setActivity(
+        truncateHead(compactDisplayText(event.toolName), { maxBytes: 2048, maxLines: 1 }).content
+      );
     }
+  }
+
+  private setActivity(activity: string): void {
+    if (activity === this.activity) return;
+    this.activity = activity;
+    this.options.onActivity?.(activity);
   }
 
   private scheduleCollection(): void {
@@ -334,7 +492,6 @@ export class ChildRun {
     try {
       const text = await this.request({ type: "get_last_assistant_text" });
       const usage = await this.request({ type: "get_session_stats" });
-      await this.options.onCheckpoint?.();
 
       // A newly accepted prompt invalidates this snapshot, even if it raced the reads.
       if (
@@ -369,22 +526,27 @@ export class ChildRun {
     this.options.onStep?.("clear_queue");
     void this.connection.request({ type: "clear_queue" }).catch(() => {});
     this.options.onStep?.("abort");
-    // EOF disposes collectors. Capture terminal events first, without waiting for settle hooks.
+    // EOF disposes collectors. Read final statistics first, without waiting for settle hooks.
     void this.connection.request({ type: "abort" }).then(
-      () => this.checkpointAndClose(),
+      () => this.statsAndClose(),
       () => this.closeInput()
     );
-    if (this.agentEnded) this.checkpointAndClose();
+    if (this.agentEnded) this.statsAndClose();
     this.scheduleStop();
   }
 
-  private checkpointAndClose(): void {
-    if (this.checkpointingStop || this.inputClosed || this.finished) return;
-    this.checkpointingStop = true;
-    void Promise.resolve()
-      .then(() => this.options.onCheckpoint?.())
-      .finally(() => this.closeInput())
-      .catch(() => {});
+  /** A stopped run's usage counts when its statistics arrive before the stop deadline. */
+  private statsAndClose(): void {
+    if (this.stopping || this.inputClosed || this.finished) return;
+    this.stopping = true;
+    void this.connection
+      .request({ type: "get_session_stats" })
+      .then((response) => {
+        if (response.success && response.command === "get_session_stats")
+          this.usageEnd ??= response.data;
+      })
+      .catch(() => {})
+      .finally(() => this.closeInput());
   }
 
   private closeInput(): void {
@@ -399,7 +561,7 @@ export class ChildRun {
 
   private scheduleStop(): void {
     if (this.stopTimer !== undefined || this.finished) return;
-    // Abort, checkpoint capture, and shutdown share one deadline, including blocked settle hooks.
+    // Abort, final statistics, and shutdown share one deadline, including blocked settle hooks.
     this.stopTimer = setTimeout(() => {
       if (!isAlive(this.connection.process)) return;
       this.closeInput();
@@ -415,9 +577,8 @@ export class ChildRun {
 
   private result(exit: ProcessExit): ChildResult {
     const common = {
-      ...this.start,
-      ...(this.usageEnd ? { usageEnd: this.usageEnd } : {}),
-      ...(this.activity ? { activity: this.activity } : {}),
+      ...(this.start ? { usageStart: this.start.usageStart } : {}),
+      ...(this.start && this.usageEnd ? { usageEnd: this.usageEnd } : {}),
       exit
     };
 

@@ -1,7 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
-import { noticeType } from "pi-nested-instructions/notices";
 
-import { noticeSummary } from "../adapters/pi-nested-instructions/index.ts";
+import { instructionNotice } from "../adapters/pi-nested-instructions/notices.ts";
 import type { Outcome } from "../contracts.ts";
 import { stringField } from "../terminal-text.ts";
 import { record } from "../values.ts";
@@ -22,12 +21,6 @@ export function executionOutcome(isError: boolean, signal?: AbortSignal): Outcom
   if (!isError) return "success";
 
   return signal?.aborted ? "cancelled" : "failure";
-}
-
-export function isInstructionNotice(input: unknown): boolean {
-  const value = record(input);
-
-  return value.role === "custom" && value.customType === noticeType && value.display === true;
 }
 
 type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
@@ -85,11 +78,12 @@ export class TranscriptMessages {
     if (value.role === "system" || value.type === "usage" || value.type === "custom") return;
     if (value.role === "custom" && value.display === false) return;
     // Actual inserted notice rows supply a group boundary, not a run boundary.
-    if (this.ownNotices && isInstructionNotice(input))
+    const notice = this.ownNotices ? instructionNotice(input) : undefined;
+    if (notice)
       return {
         kind: "notice",
         id: JSON.stringify([value.timestamp, value.details]),
-        notice: noticeSummary(value.details)
+        notice: notice.summary
       };
     if (value.role === "toolResult")
       return {

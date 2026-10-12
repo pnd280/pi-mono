@@ -1,8 +1,9 @@
 import type { AgentToolResult, ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { MutationPatch } from "@pi-mono/libs/file-mutations";
 import type { CodeSelectionRange } from "@pi-mono/libs/tui/components/code-highlight";
 import type { OutputText } from "@pi-mono/utils/output-text";
 
-import type { CallInterpretation } from "./interpretation.ts";
+import type { AdapterEvaluator, CallInterpretation } from "./interpretation.ts";
 
 export type ToolFamily = "read" | "search" | "list" | "shell" | "edit" | "write" | "invocation";
 
@@ -20,33 +21,52 @@ export type Outcome = "success" | "failure" | "cancelled" | "unavailable";
 
 export type OperationFact = {
   readonly kind: "operation";
-  readonly availability: "available";
-  readonly durationMs: number;
+  /** Absent when a replayed call has no timing on this machine. */
+  readonly durationMs?: number | undefined;
   readonly outcome: Outcome;
   readonly exitCode?: number | null | undefined;
   readonly timedOut?: boolean | undefined;
 };
 
-export type ChangeFact = {
-  readonly kind: "change";
-  readonly availability: "available" | "unavailable";
-  readonly patch?: string | undefined;
-  readonly change?: "creation" | "modification" | undefined;
-  readonly reason?: string | undefined;
-};
+/** Why an observed change has no patch; display text comes from the code. */
+export type ChangeUnavailableReason = Exclude<MutationPatch["status"], "ready">;
+
+export type ChangeFact =
+  | {
+      readonly kind: "change";
+      readonly change: "creation" | "modification";
+      readonly patch: string;
+    }
+  | {
+      readonly kind: "change";
+      readonly change: "unavailable";
+      readonly reason: ChangeUnavailableReason;
+    };
 
 export type SavedOutputFact = {
   readonly kind: "saved-output";
-  readonly availability: "available";
   readonly path: string;
 };
 
 export type CancellationFact = {
   readonly kind: "cancellation";
-  readonly availability: "available";
 };
 
 export type DisplayFact = OperationFact | ChangeFact | SavedOutputFact | CancellationFact;
+
+/**
+ * Replay state of details kept only on the machine that observed a call: timing and
+ * saved-output references. `pending` waits for the local read; `absent` means the
+ * writer's file is not on this machine; `unsaved` means the file has no line for the call.
+ */
+export type LocalDetails =
+  | "pending"
+  | "found"
+  | "absent"
+  | "unsaved"
+  | "not-observed"
+  | "too-large"
+  | "unreadable";
 
 type DeepReadonly<Value> = Value extends readonly (infer Item)[]
   ? readonly DeepReadonly<Item>[]
@@ -78,6 +98,10 @@ export type DisplayCall = {
   readonly operation?: OperationFact;
   readonly cancellation?: CancellationFact;
   readonly change?: ChangeFact;
+  /** Historical calls only. */
+  readonly local?: LocalDetails;
+  /** Historical calls only: the cwd where the call ran, when it differs from the session cwd. */
+  readonly cwd?: string;
   readonly savedPath?: string;
   readonly savedOutput?: SavedOutput;
   readonly liveOutput?: Readonly<OutputText> | undefined;
@@ -85,21 +109,28 @@ export type DisplayCall = {
   readonly revision: number;
 };
 
-export type InvocationPart = {
-  /**
-   * Use `path` for concrete file targets, which render relative to Pi's cwd when
-   * inside it (or relative to the directory scope in collapsed groups). Use
-   * `value` for literal filters and `pattern` for search patterns.
-   * A `range` following a concrete `path` stays together when wrapping the target.
-   * With `showParameters: false`, only `parameters` parts are hidden unless the
-   * adapter sets `alwaysShowParameters: true`. Include optional delimiters in the same
-   * part so hiding it leaves no empty punctuation.
-   */
-  kind: "value" | "path" | "range" | "pattern" | "annotation" | "parameters";
-  text: string;
-  /** The text is an excerpt; compact headings must show their omission notice. */
-  truncated?: boolean;
-};
+export type InvocationPart =
+  | {
+      /**
+       * Use `path` for concrete file targets, which render relative to Pi's cwd when
+       * inside it (or relative to the directory scope in collapsed groups). Use
+       * `value` for literal filters and `pattern` for search patterns.
+       * A `range` following a concrete `path` stays together when wrapping the target.
+       */
+      kind: "value" | "path" | "range" | "pattern" | "annotation";
+      text: string;
+    }
+  | {
+      /**
+       * Borrowed arguments that the display serializes as `(…)` within the heading
+       * budget, and only when shown. With `showParameters: false`, these parts are
+       * hidden unless the adapter sets `alwaysShowParameters: true`.
+       */
+      kind: "parameters";
+      value: unknown;
+      /** Put a space before the opening parenthesis. */
+      separated?: boolean;
+    };
 
 export type ExplorationScope = {
   /** File targets group by their parent; filters are compared literally, never resolved. */
@@ -131,8 +162,6 @@ export type DisplayRun = {
   readonly members: readonly DisplayCall[];
   /** Opened runs render their compact cards in summary mode until the mode changes. */
   readonly opened: boolean;
-  readonly closed: boolean;
-  readonly ended: boolean;
 };
 
 /**
@@ -148,8 +177,8 @@ export interface TranscriptView {
   group(call: DisplayCall): DisplayGroup | undefined;
   /** Shared by grouping, summaries, and cards so every consumer agrees. */
   interpretation(call: DisplayCall): CallInterpretation;
-  /** Fall back for this call after a presentation callback throws. */
-  failAdapter(call: DisplayCall, adapter: ToolDisplayAdapter, error: unknown): void;
+  /** Holds the call's sticky display adapter failure for its cards. */
+  evaluator(call: DisplayCall): AdapterEvaluator;
 }
 
 export type ResultTextPart = {
@@ -208,14 +237,14 @@ export type HeadingVerbs = {
 export type DisplayAction = { event: string; data: Readonly<Record<string, string>> };
 
 /**
- * A task's reported state. `active` covers queued and running work, and `returned`
- * covers calls that returned while their task continues. The renderer appends
- * elapsed time when the progress has `startedAt`.
+ * A task's reported state. `active` covers queued and running work, `cancelled` a
+ * stopped task, and `returned` calls that returned while their task continues. The
+ * renderer appends elapsed time when the progress has `startedAt`.
  */
 export type DisplayProgressStatus = {
   glyph?: string;
   text?: string;
-  tone: "active" | "success" | "failure" | "returned";
+  tone: "active" | "success" | "failure" | "cancelled" | "returned";
 };
 
 /** A long-running task's structured status; adapters supply data, never components. */
@@ -284,6 +313,12 @@ export type SummaryNotice = {
 
 /**
  * Callbacks receive borrowed arguments and results; never mutate or persist them.
+ * In the automatic CLI integration, arguments are a copy of Pi's raw arguments validated
+ * against the currently registered tool schema. They exclude changes by the tool's
+ * `prepareArguments` and `tool_call` handlers, so they can differ from the executed
+ * arguments. They are Pi's raw arguments when this validation fails or the tool is not
+ * registered. Standalone cards, and rows without a transcript call, receive Pi's raw
+ * arguments.
  * Standalone cards skip CLI-only supports, exploration, and run-summary callbacks.
  * A used callback that throws causes atomic generic fallback; presentation failures
  * keep the row generic through later updates.
@@ -296,7 +331,9 @@ export type ToolDisplayAdapter = {
   alwaysShowParameters?: boolean;
   /**
    * Validate retained data in the automatic CLI integration after a result exists,
-   * including partial updates. False uses generic rendering and excludes the call
+   * including partial updates. Validated `args` contain no optional nulls that the
+   * schema rejects; a call whose validation fails keeps its raw arguments.
+   * False uses generic rendering and excludes the call
    * from exploration groups; a later supported result restores its presentation.
    * Omission accepts all results. The selected contract and retained data stay
    * unchanged. Standalone factories use their explicit adapter without this check.
@@ -320,7 +357,8 @@ export type ToolDisplayAdapter = {
   code?(args: unknown): DisplayCode | undefined;
   /**
    * List nested calls from validated result metadata, including partial results.
-   * They precede the output; compact cards show the latest ones.
+   * They precede ordinary output but follow a complete diff panel, including its
+   * failure output and notices. Compact cards show the latest calls.
    */
   nestedCalls?(result: BorrowedToolResult): readonly NestedCall[] | undefined;
   /**
@@ -349,6 +387,8 @@ export type ToolDisplayAdapter = {
       args: unknown;
       outcome: Outcome;
       operation: OperationFact | undefined;
+      /** Replay state of local timing; `absent` means it stayed on another machine. */
+      local: LocalDetails | undefined;
       expanded: boolean;
     }
   ): ResultSummary | undefined;
@@ -383,8 +423,7 @@ export type ToolDisplayAdapter = {
   mcp?(args: unknown, result?: BorrowedToolResult): McpFacts | undefined;
   /** Internal: omit this owner's calls from run summaries, even when their cards fall back. */
   omitFromSummary?: boolean;
-  /** Foreign original-renderer fallbacks retain their source run boundaries. */
-  separateRun?: boolean;
+  /** Read once for each update; depend only on the arguments and result. The renderer owns the clock. */
   progress?(args: unknown, result?: BorrowedToolResult): DisplayProgress | undefined;
   action?(args: unknown, result?: BorrowedToolResult): DisplayAction | undefined;
   /**

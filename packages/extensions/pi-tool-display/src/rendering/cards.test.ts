@@ -18,18 +18,12 @@ import {
   selectiveReadDisplayAdapter,
   type ToolDisplayAdapter
 } from "../adapters/index.ts";
+import { plainTheme as theme } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { createToolDisplayRenderers } from "./cards.ts";
 import type { ToolDisplayRenderers } from "./types.ts";
 
 type Context = Parameters<ToolDisplayRenderers["renderCall"]>[2];
-
-const theme = {
-  fg: (_color: string, text: string) => text,
-  bg: (_color: string, text: string) => text,
-  getBgAnsi: (_color: string) => "",
-  bold: (text: string) => text
-};
 
 function context(overrides: Partial<Context> = {}): Context {
   return {

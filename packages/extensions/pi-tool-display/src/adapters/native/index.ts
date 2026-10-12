@@ -1,21 +1,13 @@
+import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { z } from "zod";
 
 import type { ToolFamily } from "../../contracts.ts";
 import type { SummaryItem, SummaryItemContext, ToolDisplayAdapter } from "../../contracts.ts";
-import { writeCategory } from "../../summary/categories.ts";
-import { pathSummaryItem } from "../../summary/items.ts";
-import { nativeInvocationParts, normalizeNativePathSpaces } from "./invocation.ts";
-import {
-  nativeResultParts,
-  nativeResultNotices,
-  nativeReadNotices,
-  nativeImageCaption
-} from "./result-presentation.ts";
+import { pathSummaryItem, writeCategory } from "../../summary/items.ts";
+import { nativeFilePath, nativeInvocationParts, normalizeNativePathSpaces } from "./invocation.ts";
+import { nativeReadAdapter } from "./read.ts";
+import { nativeResultParts, nativeResultNotices } from "./result-presentation.ts";
 
-const readArgsSchema = z
-  .object({ path: z.unknown().optional(), file_path: z.unknown().optional() })
-  .transform((args) => args.path ?? args.file_path)
-  .pipe(z.string().min(1).transform(normalizeNativePathSpaces));
 const directoryArgsSchema = z.object({
   path: z.string().transform(normalizeNativePathSpaces).optional()
 });
@@ -36,6 +28,7 @@ const nativeFamilies: Readonly<Record<string, ToolFamily>> = {
 export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
   const family = Object.hasOwn(nativeFamilies, name) ? nativeFamilies[name] : undefined;
   if (!family) return undefined;
+  if (family === "read") return nativeReadAdapter;
 
   // Commands and searches count every call via the family fallback; files and
   // directories count once by path.
@@ -50,7 +43,7 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
         : undefined;
     }
 
-    const path = readArgsSchema.safeParse(args).data;
+    const path = nativeFilePath(args);
     const category = family === "write" ? writeCategory(context.change) : family;
 
     return path === undefined ? undefined : [pathSummaryItem(category, path, context.cwd)];
@@ -63,44 +56,42 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
     summaryItems,
     savedOutput: family === "shell",
     patch: family === "edit",
-    summary(_result, { operation }) {
-      if (family !== "shell" || !operation) return undefined;
+    summary(_result, { operation, local }) {
+      if (family !== "shell") return undefined;
+      if (!operation)
+        return local === "absent"
+          ? { text: "Timing not on this machine", preserveOutput: true }
+          : undefined;
       let status = `Operation ${operation.outcome} · exit unknown`;
       if (operation.timedOut) status = "Timed out";
       else if (operation.outcome === "cancelled") status = "Cancelled";
       else if (operation.exitCode !== undefined && operation.exitCode !== null)
         status = `Exit ${operation.exitCode}`;
 
+      let timing: string | undefined;
+      if (operation.durationMs !== undefined) timing = formatDuration(operation.durationMs);
+      else if (local === "absent") timing = "Timing not on this machine";
+
       return {
-        text: `${status} · ${Math.round(operation.durationMs)}ms`,
+        text: timing === undefined ? status : `${status} · ${timing}`,
         // Exit status describes execution, not the command's answer.
         preserveOutput: true
       };
     },
-    notices: (result, expanded) => [
-      ...nativeResultNotices(result.details),
-      ...(name === "read" && !expanded ? nativeReadNotices(result) : [])
-    ],
+    notices: (result) => nativeResultNotices(result.details),
     textParts: (text, args, context) => nativeResultParts(name, text, args, context),
-    ...(family === "read"
-      ? { imageCaptionMimeType: (text: string) => nativeImageCaption(text)?.mimeType }
-      : {}),
-    ...(family === "read" || family === "search" || family === "list"
+    ...(family === "search" || family === "list"
       ? {
           exploration(args: unknown) {
-            const path = family === "read" ? readArgsSchema.safeParse(args).data : undefined;
             const directory = (
               family === "search" ? searchArgsSchema : directoryArgsSchema
             ).safeParse(args);
-            if (family === "read" ? path === undefined : !directory.success) return undefined;
+            if (!directory.success) return undefined;
 
             return [
               {
                 parts: nativeInvocationParts(name, args, family),
-                scope:
-                  path !== undefined
-                    ? { kind: "file", value: path }
-                    : { kind: "directory", value: directory.data?.path || "." }
+                scope: { kind: "directory", value: directory.data.path || "." }
               }
             ];
           }

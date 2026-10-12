@@ -20,6 +20,10 @@ import { OBSERVATION_BYTES, parseRetainedPatch } from "../diff.ts";
 import { record } from "../values.ts";
 import { displayMutationSink, observeNativeDefinition, type ObservationSink } from "./native.ts";
 
+function patchOf(fact: DisplayFact | undefined): string | undefined {
+  return fact?.kind === "change" && fact.change !== "unavailable" ? fact.patch : undefined;
+}
+
 function observeMutation(
   original: ToolDefinition,
   cwd: string,
@@ -167,15 +171,15 @@ it.each(["edit", "write"] as const)(
       );
       expect(await readFile(join(directory, "file"), "utf8")).toBe(after);
       const change = facts.find((fact) => fact.kind === "change");
-      expect(change?.availability).toBe("available");
+      expect(patchOf(change)).toBeTypeOf("string");
 
       if (name === "edit") {
         expect(record(result.details).patch).toBeTypeOf("string");
-        expect(change!.patch).toBe(record(result.details).patch);
+        expect(patchOf(change)).toBe(record(result.details).patch);
       }
 
       const bom = name === "write" ? "\uFEFF" : "";
-      expect(parseRetainedPatch(change!.patch!)?.hunks[0]?.lines).toEqual([
+      expect(parseRetainedPatch(patchOf(change)!)?.hunks[0]?.lines).toEqual([
         { kind: "removed", text: `${bom}before`, oldLine: 1 },
         { kind: "added", text: `${bom}after`, newLine: 1 }
       ]);
@@ -213,11 +217,8 @@ it("reuses the native edit patch even when the file exceeds the observation limi
     expect(await readFile(join(directory, "file"), "utf8")).toBe(after);
     const change = facts.find((fact) => fact.kind === "change");
     expect(record(result.details).patch).toBeTypeOf("string");
-    expect(change).toMatchObject({
-      availability: "available",
-      patch: record(result.details).patch
-    });
-    expect(parseRetainedPatch(change!.patch!)).toMatchObject({ added: 1, removed: 1 });
+    expect(change).toMatchObject({ change: "modification", patch: record(result.details).patch });
+    expect(parseRetainedPatch(patchOf(change)!)).toMatchObject({ added: 1, removed: 1 });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -255,8 +256,7 @@ it("retains a failed edit proposal and preserves the native filesystem error", a
       expect.objectContaining({ kind: "operation", outcome: "failure" })
     );
     const change = facts.find((fact) => fact.kind === "change");
-    expect(change?.availability).toBe("available");
-    expect(change?.patch).toContain("+after");
+    expect(patchOf(change)).toContain("+after");
     expect(await readFile(path + ".original", "utf8")).toBe("before\n");
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -282,10 +282,10 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
         write.execute("failed-write", { path, content: "after\n" }, undefined, undefined, context)
       ).rejects.toThrow();
       expect(facts).toEqual([
-        expect.objectContaining({ kind: "change", availability: "available" }),
+        expect.objectContaining({ kind: "change", change: "modification" }),
         expect.objectContaining({ kind: "operation", outcome: "failure" })
       ]);
-      expect(facts.find((fact) => fact.kind === "change")?.patch).toContain("-before");
+      expect(patchOf(facts.find((fact) => fact.kind === "change"))).toContain("-before");
       expect(await readFile(path, "utf8")).toBe("before\n");
       facts.length = 0;
       await chmod(path, 0o200);
@@ -296,7 +296,7 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
         undefined,
         context
       );
-      expect(facts[0]).toMatchObject({ kind: "change", availability: "unavailable" });
+      expect(facts[0]).toMatchObject({ kind: "change", change: "unavailable" });
       expect(facts.at(-1)).toMatchObject({ kind: "operation", outcome: "success" });
       await chmod(path, 0o600);
       expect(await readFile(path, "utf8")).toBe("written\n");
@@ -348,8 +348,7 @@ it("preserves edit aliases, CRLF, cancellation, and write change facts", async (
     expect(await readFile(join(directory, "file"), "utf8")).toBe("ALPHA\r\nBETA\r\n");
     for (const output of outputs) expect(record(output.details).patch).toBeTypeOf("string");
     const firstChange = facts.get("first")?.find((fact) => fact.kind === "change");
-    expect(firstChange?.availability).toBe("available");
-    expect(firstChange?.patch).toContain("+ALPHA");
+    expect(patchOf(firstChange)).toContain("+ALPHA");
     await expect(
       edit.execute(
         "cancelled-edit",
@@ -368,7 +367,7 @@ it("preserves edit aliases, CRLF, cancellation, and write change facts", async (
       undefined,
       context
     );
-    expect(facts.get("oversized")?.[0]).toMatchObject({ availability: "unavailable" });
+    expect(facts.get("oversized")?.[0]).toMatchObject({ change: "unavailable" });
     expect((await readFile(join(directory, "file"))).length).toBe(OBSERVATION_BYTES + 1);
     await write.execute(
       "created",

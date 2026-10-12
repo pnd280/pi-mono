@@ -36,11 +36,8 @@ export function serializeParameters(input: unknown, indentation?: number): strin
 /** Serialize a JSON prefix without traversing omitted argument values. The depth
  * and visit budgets also bound deeply nested or entirely omitted properties.
  */
-function parameterPreview(
-  input: unknown,
-  maximum: number
-): Pick<InvocationPart, "text" | "truncated"> {
-  if (maximum === Infinity) return { text: serializeParameters(input) };
+function parameterPreview(input: unknown, maximum: number): { text: string; truncated: boolean } {
+  if (maximum === Infinity) return { text: serializeParameters(input), truncated: false };
   let text = "";
   let truncated = false;
   let visits = 0;
@@ -152,8 +149,24 @@ function parameterPreview(
     return { text, truncated };
   } catch {
     // Match expanded serialization for invalid borrowed values, including cycles.
-    return { text: UNAVAILABLE_PARAMETERS };
+    return { text: UNAVAILABLE_PARAMETERS, truncated: false };
   }
+}
+
+type ParametersPart = Extract<InvocationPart, { kind: "parameters" }>;
+
+/** Serialize at most `maximum` characters; a truncated excerpt has no closing parenthesis. */
+export function parametersText(
+  part: ParametersPart,
+  maximum: number
+): { text: string; truncated: boolean } {
+  const open = part.separated ? " (" : "(";
+  const preview = parameterPreview(part.value, Math.max(0, maximum - open.length));
+
+  return {
+    text: preview.truncated ? open + preview.text : `${open}${preview.text})`,
+    truncated: preview.truncated
+  };
 }
 
 /** Resolve only explicitly tagged file targets. Retained rendering must not inspect
@@ -174,7 +187,11 @@ export function resolveInvocationPath(value: string, cwd: string): string | unde
   return resolve(cwd, path);
 }
 
-export function invocationPartText(part: InvocationPart, cwd: string, relativeTo = cwd): string {
+export function invocationPartText(
+  part: Exclude<InvocationPart, ParametersPart>,
+  cwd: string,
+  relativeTo = cwd
+): string {
   const path = part.kind === "path" ? resolveInvocationPath(part.text, cwd) : undefined;
 
   return displayText(path === undefined ? part.text : relativeDisplayPath(path, relativeTo));
@@ -184,8 +201,7 @@ export function invocationPartText(part: InvocationPart, cwd: string, relativeTo
 export function invocationParts(
   name: string,
   input: unknown,
-  family: ToolFamily,
-  maximumParameterCharacters = Infinity
+  family: ToolFamily
 ): InvocationPart[] {
   const args = record(input);
   const rawPath = args.path ?? args.file_path;
@@ -205,7 +221,7 @@ export function invocationParts(
       const pattern = literal(args.pattern);
 
       return [
-        pattern ? value(pattern) : annotation("…"),
+        pattern ? { kind: "pattern", text: pattern } : annotation("…"),
         annotation(" \u2014 "),
         target(path || "."),
         ...(glob ? [annotation(" ("), value(glob), annotation(")")] : [])
@@ -220,11 +236,6 @@ export function invocationParts(
     case "write":
       return [path ? target(path) : annotation("…")];
     case "invocation":
-      return [
-        value(name),
-        annotation("("),
-        { kind: "parameters", ...parameterPreview(args, maximumParameterCharacters) },
-        annotation(")")
-      ];
+      return [value(name), { kind: "parameters", value: args }];
   }
 }

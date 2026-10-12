@@ -5,7 +5,7 @@ import type { DisplayCall, DisplayGroup, DisplayRun, SummaryRole } from "../cont
 import { renderCollapseRow } from "./summary-line.ts";
 import type { DisplayTheme } from "./types.ts";
 
-/** Chrome is shared by Pi's transcript rows and public-component foreign rows. */
+/** Chrome around one Pi transcript row. */
 export type RowChrome =
   | { kind: "hidden" }
   | { kind: "summary"; line: readonly string[] }

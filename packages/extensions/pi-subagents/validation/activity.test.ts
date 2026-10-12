@@ -1,20 +1,22 @@
+import { randomUUID } from "node:crypto";
 import { copyFile, readFile, rm } from "node:fs/promises";
 
 import { expect, test } from "vite-plus/test";
 import { z } from "zod";
 
 import { ChildRun } from "../src/child.ts";
-import { taskRecordSchema } from "../src/records.ts";
+import { RunReader } from "../src/reader.ts";
+import { taskRecordSchema, type TaskRecord } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
-import { TaskSource } from "../src/source.ts";
+import type { TaskEvent } from "../src/tasks.ts";
 import { remainingProcesses, killFixtureProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
 test.skipIf(process.platform !== "linux")(
-  "scopes real display activity to each child and resets it when a task resumes",
+  "scopes activity to each child and resets it when a task resumes",
   async () => {
-    const directory = await createFixtureWorkspace({ display: true });
+    const directory = await createFixtureWorkspace();
     const host = await Supervisor.start(directory);
 
     try {
@@ -29,25 +31,33 @@ test.skipIf(process.platform !== "linux")(
         updates
           .filter((detail) => detail.description === "Read activity task")
           .map((detail) => detail.activity)
-      ).toContain("Read 1 file");
+      ).toContain("read");
       expect(
         updates.some(
-          (detail) =>
-            detail.description === "Write activity task" && detail.activity === "Created 1 file"
+          (detail) => detail.description === "Write activity task" && detail.activity === "write"
         )
       ).toBe(true);
       expect(
         updates.some(
-          (detail) =>
-            detail.description === "Read activity task" && detail.activity.includes("Created")
+          (detail) => detail.description === "Read activity task" && detail.activity === "write"
         )
       ).toBe(false);
-      const page = z
-        .object({ tasks: z.array(taskRecordSchema) })
-        .parse(JSON.parse((await host.command("list")).message));
-      const task = page.tasks.find((item) => item.description === "Read activity task")!;
-      const original = await readFile(task.session_file, "utf8");
-      expect(original).toContain("pi-tool-display.transcript");
+      const list = async () =>
+        z
+          .object({ tasks: z.array(taskRecordSchema) })
+          .parse(JSON.parse((await host.command("list")).message)).tasks;
+      const task = (await list()).find((item) => item.description === "Read activity task")!;
+      const resumedAt = host.records.length;
+      await host.prompt(`resume-activity-id ${task.task_id}`);
+      const resumedActivity = host.records.slice(resumedAt).flatMap((event) => {
+        if (event.type !== "tool_execution_update" || event.toolName !== "subagent") return [];
+        const details = z.object({ details: detailsSchema }).safeParse(event.partialResult)
+          .data?.details;
+
+        return details?.activity ? [details.activity] : [];
+      });
+      expect(resumedActivity).toContain("write");
+      expect(resumedActivity).not.toContain("read");
       const after = host.records.length;
       const work = host.prompt(`resume-slow-id ${task.task_id}`);
       await host.wait((event) => {
@@ -72,15 +82,15 @@ test.skipIf(process.platform !== "linux")(
       await work;
 
       // Open only a disposable copy; the source conversations must remain unchanged.
+      const tasks = await list();
+      const stopped = tasks.find((item) => item.task_id === task.task_id)!;
+      const original = await readFile(task.session_file, "utf8");
       const sessionFile = `${directory}/source-session.jsonl`;
       await copyFile(task.session_file, sessionFile);
-      const replacementTask = page.tasks.find(
-        (item) => item.description === "Write activity task"
-      )!;
+      const replacementTask = tasks.find((item) => item.description === "Write activity task")!;
       const replacementBytes = await readFile(replacementTask.session_file, "utf8");
-      const checkpointBytes = await readFile(task.checkpoint.file);
-      const replacementCheckpointBytes = await readFile(replacementTask.checkpoint.file);
       const launch = await fixtureLaunch(directory);
+      const runId = randomUUID();
       const run = new ChildRun({
         invocation: launch,
         cwd: `${directory}/work`,
@@ -90,6 +100,9 @@ test.skipIf(process.platform !== "linux")(
         thinking: task.thinking,
         trusted: true,
         sessionFile,
+        taskId: task.task_id,
+        runId,
+        previousRunId: stopped.run_id,
         prompt: "slow"
       });
 
@@ -97,29 +110,51 @@ test.skipIf(process.platform !== "linux")(
         expect(await run.started).toMatchObject({ sessionId: task.session_id });
         await run.connection.request({ type: "get_state" });
         await expect.poll(() => run.connection.pendingCount).toBe(0);
-        const first = new TaskSource({ run, task: { ...task, session_file: sessionFile } });
-        const replacement = new TaskSource({ task: replacementTask });
-        let disposedUpdates = 0;
-        first.subscribe(() => {
-          disposedUpdates++;
+        // The reader follows this run as `Tasks` would report it; the run itself is real.
+        const live: TaskRecord = { ...stopped, session_file: sessionFile, run_id: runId };
+        const records = new Map([
+          [live.task_id, live],
+          [replacementTask.task_id, replacementTask]
+        ]);
+        const listeners = new Set<(event: TaskEvent) => void>();
+        const reader = new RunReader({
+          subscribe: (listener) => {
+            listeners.add(listener);
+
+            return () => listeners.delete(listener);
+          },
+          owned: (id) => {
+            const record = records.get(id);
+            if (!record) throw new Error("Task does not belong to this session");
+
+            return record;
+          }
         });
         let snapshots = 0;
         const unsubscribe = run.connection.subscribe((record) => {
           if (record.type === "response" && record.success && record.command === "get_entries")
             snapshots++;
         });
+        const views: { dispose(): void }[] = [];
 
         try {
-          // Hold actual RPC bytes while the refresh request is in flight.
+          // Hold actual RPC bytes while the view's first read is in flight.
           run.connection.process.stdout.pause();
-          first.refresh();
+          for (const listener of listeners) listener({ kind: "run", record: live, run });
+          const first = reader.observe(live.task_id);
+          views.push(first);
+          let disposedUpdates = 0;
+          first.subscribe(() => {
+            disposedUpdates++;
+          });
           await expect.poll(() => run.connection.pendingCount).toBe(1);
           expect(snapshots).toBe(0);
           first.dispose();
-          replacement.refresh();
-          await expect.poll(() => replacement.model?.messages.length ?? 0).toBeGreaterThan(0);
+          const replacement = reader.observe(replacementTask.task_id);
+          views.push(replacement);
+          await expect.poll(() => replacement.transcript?.items().length ?? 0).toBeGreaterThan(0);
           expect(replacement.unavailable).toBeUndefined();
-          const replacementMessages = JSON.stringify(replacement.model?.messages);
+          const replacementMessages = JSON.stringify(replacement.transcript?.items());
           expect(replacementMessages).toContain("activity-write");
           expect(replacementMessages).not.toContain("activity-read");
 
@@ -127,22 +162,17 @@ test.skipIf(process.platform !== "linux")(
           await expect.poll(() => snapshots).toBe(1);
           // A subsequent round trip also lets the earlier snapshot continuation finish.
           await run.connection.request({ type: "get_state" });
-          expect(first.model).toBeUndefined();
+          expect(first.transcript).toBeUndefined();
           expect(first.unavailable).toBeUndefined();
           expect(disposedUpdates).toBe(0);
-          expect(JSON.stringify(replacement.model?.messages)).toBe(replacementMessages);
+          expect(JSON.stringify(replacement.transcript?.items())).toBe(replacementMessages);
           expect(await readFile(task.session_file, "utf8")).toBe(original);
           expect(await readFile(replacementTask.session_file, "utf8")).toBe(replacementBytes);
-          expect(await readFile(task.checkpoint.file)).toEqual(checkpointBytes);
-          expect(await readFile(replacementTask.checkpoint.file)).toEqual(
-            replacementCheckpointBytes
-          );
         } finally {
           run.connection.process.stdout.resume();
           unsubscribe();
-          first.dispose();
-          first.model?.dispose();
-          replacement.dispose();
+          for (const view of views) view.dispose();
+          reader.dispose();
         }
       } finally {
         await run.terminate("Activity fixture finished");

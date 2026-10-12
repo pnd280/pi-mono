@@ -22,7 +22,8 @@ export type ChildSelection = {
   model: string;
   thinking: string;
   trusted: boolean;
-  taskId?: string;
+  /** The supervisor's own extension entry; Pi loads a path that settings also name only once. */
+  extension?: string;
   sessionFile?: string;
 };
 
@@ -36,6 +37,7 @@ export function childArgs(selection: ChildSelection): string[] {
     selection.thinking,
     selection.trusted ? "--approve" : "--no-approve"
   ];
+  if (selection.extension !== undefined) args.push("--extension", selection.extension);
   if (selection.sessionFile !== undefined) args.push("--session", selection.sessionFile);
 
   return args;

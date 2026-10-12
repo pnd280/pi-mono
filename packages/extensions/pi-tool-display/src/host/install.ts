@@ -1,13 +1,11 @@
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-import type { DisplayAction, DisplayMode, ToolDisplayAdapter } from "../contracts.ts";
-import { createToolDisplayRenderers } from "../rendering/cards.ts";
-import type { ToolDisplayRenderers } from "../rendering/types.ts";
+import type { DisplayAction, DisplayMode } from "../contracts.ts";
+import type { DisplayFailure } from "../interpretation.ts";
 import type { DisplaySettings } from "../settings.ts";
 import { TranscriptMessages } from "../transcript/messages.ts";
 import type { DisplaySession } from "../transcript/session.ts";
-import { record } from "../values.ts";
 import { trackThinkingCompletion } from "./assistant.ts";
 import type { DisplayCollector, DisplayCollectors } from "./collection.ts";
 import {
@@ -27,6 +25,7 @@ type Binding = {
   collector: DisplayCollector;
   messages: TranscriptMessages;
   rows: TranscriptRows;
+  detach: () => void;
 };
 
 const nextMode: Record<DisplayMode, DisplayMode> = {
@@ -64,6 +63,7 @@ export function installHostIntegration(
   const bindings = new Set<Binding>();
   const hosts = new WeakMap<Host, Binding>();
   const sessions = new WeakMap<AgentSession, Binding>();
+  const hostRows = new WeakMap<Host, TranscriptRows>();
   const originalToggle = prototype.toggleToolOutputExpansion;
   const originalSetExpanded = prototype.setToolsExpanded;
   const modeHooks = modeHooksCompatible(prototype);
@@ -80,12 +80,20 @@ export function installHostIntegration(
     }
   };
 
-  const adapterFailure = (failed: ToolDisplayAdapter) => {
-    collection.adapterFailure(failed);
+  const failure = (failed: DisplayFailure) => {
+    collection.failure(failed);
   };
 
+  function rowsFor(host: Host): TranscriptRows {
+    let rows = hostRows.get(host);
+    if (!rows) hostRows.set(host, (rows = new TranscriptRows(host)));
+
+    return rows;
+  }
+
   function release(binding: Binding): void {
-    binding.rows.dispose();
+    binding.rows.release();
+    binding.detach();
     bindings.delete(binding);
     hosts.delete(binding.host);
     if (sessions.get(binding.host.session) === binding) sessions.delete(binding.host.session);
@@ -121,29 +129,29 @@ export function installHostIntegration(
     }
 
     const display = reset ? collector.reconstruct() : collector.display;
-    collector.attach(() => host.toolOutputExpanded ?? false);
     display.coordinator.setMode(initialMode(host, configuration));
     display.coordinator.setSummaries(summaries(host, rowChrome));
+    const rows = rowsFor(host);
+    rows.attach(display.coordinator, {
+      styleAssistant: configuration.valid,
+      chrome: rowChrome,
+      action,
+      ...(modeHooks
+        ? {}
+        : {
+            syncMode: () =>
+              display.coordinator.setMode(
+                host.toolOutputExpanded ? "verbose" : configuration.collapsedMode
+              )
+          })
+    });
     const current: Binding = {
       host,
       display,
       collector,
       messages: new TranscriptMessages(configuration.valid && rowChrome),
-      rows: new TranscriptRows(host, display.coordinator, {
-        active: () => active && hosts.get(host) === current,
-        styleAssistant: configuration.valid,
-        chrome: rowChrome,
-        boundary: (call, kind) => collector.publisher.boundary(call, kind),
-        action,
-        ...(modeHooks
-          ? {}
-          : {
-              syncMode: () =>
-                display.coordinator.setMode(
-                  host.toolOutputExpanded ? "verbose" : configuration.collapsedMode
-                )
-            })
-      })
+      rows,
+      detach: collector.attach(() => host.toolOutputExpanded ?? false)
     };
     hosts.set(host, current);
     sessions.set(host.session, current);
@@ -198,43 +206,13 @@ export function installHostIntegration(
       const configuration = binding?.display.settings ?? displaySettings(this.session);
       const selected = binding
         ? binding.display.selectAdapter(name)
-        : collection.adapters(this.session, configuration)(name);
+        : collection.tools(this.session, configuration).adapter(name);
       if (!selected) return definition;
-      let renderers: ToolDisplayRenderers | undefined;
 
-      // Lookup has only a tool name. Pi supplies the exact call ID when constructing
-      // the row's renderer slots, before inserting that row into the transcript.
-      const resolveRenderers = (id: string): ToolDisplayRenderers => {
-        if (renderers) return renderers;
-        const call = binding?.rows.claimCall(name, id);
-        renderers = createToolDisplayRenderers(name, selected, {
-          showParameters: configuration.showParameters,
-          onAdapterFailure: adapterFailure,
-          ...(call && binding
-            ? { binding: { call, coordinator: binding.display.coordinator } }
-            : {})
-        });
-        if (call) binding?.rows.retainDefinition(view, call);
-
-        return renderers;
-      };
-
-      const slots: ToolDisplayRenderers = {
-        renderShell: "self",
-        renderCall(args, theme, context) {
-          binding?.rows.useTheme(theme);
-
-          return resolveRenderers(context.toolCallId).renderCall(args, theme, context);
-        },
-        renderResult(result, options, theme, context) {
-          binding?.rows.useTheme(theme);
-
-          return resolveRenderers(context.toolCallId).renderResult(result, options, theme, context);
-        }
-      };
-      const view = { ...definition, ...slots };
-
-      return view;
+      return rowsFor(this).definition(definition, name, selected, {
+        showParameters: configuration.showParameters,
+        onFailure: failure
+      });
     } catch {
       return definition;
     }
@@ -244,13 +222,7 @@ export function installHostIntegration(
     insert: (this: Host, ...args: Args) => Result
   ) {
     return function (this: Host, ...args: Args): Result {
-      const binding = active ? hosts.get(this) : undefined;
-      if (!binding) return insert.apply(this, args);
-      binding.rows.prepareInsertion();
-      const result = insert.apply(this, args);
-      binding.rows.finishInsertion();
-
-      return result;
+      return rowsFor(this).insert(() => insert.apply(this, args));
     };
   }
 
@@ -330,14 +302,7 @@ export function installHostIntegration(
     const addMessage = prototype.addMessageToChat;
     if (typeof addMessage === "function")
       hooks.replace(prototype, "addMessageToChat", function (this: Host, value, options) {
-        const binding = active ? hosts.get(this) : undefined;
-        const assistant = record(value).role === "assistant";
-        if (!assistant) binding?.rows.prepareInsertion();
-        const result = addMessage.call(this, value, options);
-        if (assistant) binding?.rows.assistantBoundary(this.chatContainer?.children.at(-1));
-        else binding?.rows.finishInsertion(value);
-
-        return result;
+        return rowsFor(this).addMessage(value, () => addMessage.call(this, value, options));
       });
     const reconstruct = prototype.renderSessionItems;
     const handle = prototype.handleEvent;
@@ -372,19 +337,7 @@ export function installHostIntegration(
           binding.collector.event(event);
         }
 
-        // message_end updates the component and clears the host's streaming reference.
-        const streaming = this.streamingComponent;
-        if (event.type === "compaction_end") binding?.rows.prepareInsertion();
-        await handle.call(this, event);
-        // Success reconstructs the binding before appending the summary; failed
-        // compactions append notices to the original binding instead.
-        const current = active ? hosts.get(this) : undefined;
-        if (event.type === "compaction_end") current?.rows.finishInsertion();
-
-        if (binding && current === binding) {
-          binding.rows.assistantBoundary(this.streamingComponent ?? streaming);
-          binding.rows.bind();
-        }
+        await rowsFor(this).handleEvent(event.type, () => handle.call(this, event));
       });
     } else warning("transcript row contract unavailable; grouping disabled.");
     prototype[hostHook] = dispose;

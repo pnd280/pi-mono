@@ -15,7 +15,6 @@ import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview"
 import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
-import { createTranscriptViewer, type TranscriptViewer } from "pi-tool-display/viewer";
 
 import {
   boardEntries,
@@ -25,11 +24,12 @@ import {
   views,
   type BoardEntry
 } from "./board.ts";
-import { OPEN_EVENT, RESULT_MESSAGE } from "./constants.ts";
+import type { RunReader, TaskView } from "./reader.ts";
 import type { TaskRecord } from "./records.ts";
-import { resultRenderer } from "./render.ts";
-import { TaskSource } from "./source.ts";
+import { createRenderers } from "./render.ts";
 import type { Tasks } from "./tasks.ts";
+import type { Transcript } from "./transcript.ts";
+import { TranscriptViewer } from "./viewer.ts";
 
 const keys = [
   "up",
@@ -43,7 +43,6 @@ const keys = [
   "ctrl+b",
   "ctrl+d"
 ] as const;
-const modes = ["summary", "compact", "verbose"] as const;
 const transcriptOverlay = {
   anchor: "center",
   width: "100%",
@@ -61,14 +60,15 @@ class Spinner extends Loader {
 
 /** A scrollable transcript, inline in regular mode and overlaid in fullscreen mode. */
 class TranscriptView implements Component {
-  private source: TaskSource | undefined;
-  private ownedSource = false;
+  private source: TaskView | undefined;
   private sourceUnsubscribe: (() => void) | undefined;
   private viewer: TranscriptViewer | undefined;
+  /** The transcript that the viewer shows; each new run of the task has its own. */
+  private shown: Transcript | undefined;
   private viewing: string | undefined;
   private scroll: ScrollView | undefined;
   private working: Spinner | undefined;
-  private mode = 0;
+  private expanded = false;
   private active = true;
   private bodyRows = 0;
   /** The viewer's rendered size, which its mouse layout and row targets use. */
@@ -80,17 +80,12 @@ class TranscriptView implements Component {
 
   constructor(
     private tasks: Tasks,
+    private reader: RunReader,
     private tui: TUI,
     private theme: Theme,
     private close: () => void
   ) {
-    this.unsubscribe = tasks.subscribe((event) => {
-      if (
-        this.ownedSource &&
-        this.viewing &&
-        (event.kind === "completed" || event.taskId === this.viewing)
-      )
-        this.source?.start(this.tasks.owned(this.viewing));
+    this.unsubscribe = tasks.subscribe(() => {
       this.updateWorking();
       this.tui.requestRender();
     });
@@ -118,23 +113,28 @@ class TranscriptView implements Component {
 
   open(id: string): void {
     if (!this.active) return;
-    const task = this.tasks.owned(id);
+    const source = this.reader.observe(id);
     this.closeSource();
     this.error = "";
     this.viewing = id;
-    const live = this.tasks.active(id);
-    this.ownedSource = !live;
-    this.source = live?.source ?? new TaskSource({ task });
+    this.source = source;
     this.sourceUnsubscribe = this.source.subscribe(() => this.installViewer());
     this.installViewer();
     this.updateWorking();
-    this.source.refresh();
   }
 
   private installViewer(): void {
     if (!this.active) return;
+    const transcript = this.source?.transcript;
 
-    if (!this.viewer && this.source?.model) {
+    if (transcript !== this.shown) {
+      this.viewer?.dispose();
+      this.viewer = undefined;
+      this.scroll = undefined;
+      this.shown = transcript;
+    }
+
+    if (!this.viewer && transcript) {
       // Nested cards carry the child session's binding, so accept any task in this tree.
       const open = (task_id: string) => {
         try {
@@ -144,19 +144,16 @@ class TranscriptView implements Component {
         }
       };
 
-      this.viewer = createTranscriptViewer(this.source.model, {
+      // Nested calls use the same cards as the main chat.
+      this.viewer = new TranscriptViewer(transcript, {
         ui: this.tui,
-        theme: this.theme,
-        cwd: this.source.cwd,
-        fullscreen: this.tui.mode === "fullscreen",
-        requestRender: () => this.tui.requestRender(),
-        action: (action) => {
-          if (action.event === OPEN_EVENT && action.data.task_id) open(action.data.task_id);
-        },
-        // Nested completions use the same card as the main chat.
-        messageRenderers: new Map([[RESULT_MESSAGE, resultRenderer(open)]])
+        cwd: this.source?.cwd ?? "",
+        tools: new Map([
+          ["subagent", createRenderers(open)],
+          ["subagent_abort", createRenderers(open, "subagent_abort")]
+        ])
       });
-      this.viewer.setMode(modes[this.mode] ?? "summary");
+      this.viewer.setExpanded(this.expanded);
       this.scroll = new ScrollView(this.viewer, { follow: "end", scrollbar: "hidden" });
     }
 
@@ -166,13 +163,14 @@ class TranscriptView implements Component {
   private closeSource(): void {
     this.sourceUnsubscribe?.();
     this.viewer?.dispose();
-    if (this.ownedSource) this.source?.dispose();
+    this.source?.dispose();
     this.sourceUnsubscribe = undefined;
     this.viewer = undefined;
+    this.shown = undefined;
     this.source = undefined;
     this.scroll = undefined;
     this.viewing = undefined;
-    this.mode = 0;
+    this.expanded = false;
     this.updateWorking();
   }
 
@@ -181,8 +179,8 @@ class TranscriptView implements Component {
     if (matchesKey(data, "escape")) this.close();
     else if (matchesKey(data, "ctrl+d")) void this.abort();
     else if (matchesKey(data, "ctrl+o")) {
-      this.mode = (this.mode + 1) % modes.length;
-      this.viewer?.setMode(modes[this.mode] ?? "summary");
+      this.expanded = !this.expanded;
+      this.viewer?.setExpanded(this.expanded);
     } else if (matchesKey(data, "up")) this.scroll?.scrollBy(-1);
     else if (matchesKey(data, "down")) this.scroll?.scrollBy(1);
     else if (matchesKey(data, "pageUp"))
@@ -248,7 +246,7 @@ class TranscriptView implements Component {
       hints: [
         "Esc back",
         ...(this.working ? ["Ctrl+D abort"] : []),
-        `Ctrl+O ${modes[this.mode]}`,
+        `Ctrl+O ${this.expanded ? "collapse" : "expand"}`,
         "↑↓/PgUp/PgDn scroll",
         "Home/End first/last"
       ],
@@ -421,13 +419,19 @@ class TaskPanel implements Component {
 
   constructor(
     private tasks: Tasks,
+    private reader: RunReader,
     private tui: TUI,
     private theme: Theme,
     private close: () => void
   ) {
     this.unsubscribe = tasks.subscribe(() => this.update());
-    this.timer = setInterval(() => tui.requestRender(), 1000);
+    // A read that changes the tasks emits an update.
+    this.timer = setInterval(() => {
+      void tasks.readDescendants();
+      tui.requestRender();
+    }, 1000);
     this.update();
+    void tasks.readDescendants();
   }
 
   get viewingTranscript(): boolean {
@@ -446,7 +450,7 @@ class TaskPanel implements Component {
     if (!this.active) return;
     this.tasks.owned(id);
     this.error = "";
-    this.transcript ??= new TranscriptView(this.tasks, this.tui, this.theme, () => {
+    this.transcript ??= new TranscriptView(this.tasks, this.reader, this.tui, this.theme, () => {
       this.transcript?.dispose();
       this.transcript = undefined;
       this.tui.requestRender();
@@ -645,6 +649,7 @@ export class Panels {
 
   constructor(
     private tasks: Tasks,
+    private reader: RunReader,
     private ctx: ExtensionContext
   ) {}
 
@@ -666,7 +671,7 @@ export class Panels {
       onInputRoutingUnavailable: () =>
         this.ctx.ui.notify("Subagent panel key routing unavailable", "warning"),
       create: (tui, theme, _keys, close) => {
-        this.panel = new TaskPanel(this.tasks, tui, theme, close);
+        this.panel = new TaskPanel(this.tasks, this.reader, tui, theme, close);
         if (taskId) this.panel.open(taskId);
 
         return this.panel;

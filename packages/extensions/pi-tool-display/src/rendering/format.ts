@@ -38,9 +38,9 @@ export function styleParameters(text: string, theme: DisplayTheme): string {
   // Tokenize our serialized JSON, not arbitrary output. Quoted values may contain
   // punctuation and escaped quotes that must not be mistaken for structure.
   return text.replace(
-    /"(?:\\.|[^"\\])*"(\s*:)?|[{}[\],:]|-?\d+(?:\.\d+)?(?:e[+-]?\d+)?|true|false|null/g,
+    /"(?:\\.|[^"\\])*"(\s*:)?|[{}[\],:()]|-?\d+(?:\.\d+)?(?:e[+-]?\d+)?|true|false|null/g,
     (token: string, colon: string | undefined) =>
-      theme.fg(colon || "{}[],:".includes(token) ? "dim" : "text", token)
+      theme.fg(colon || "{}[],:()".includes(token) ? "dim" : "text", token)
   );
 }
 

@@ -85,13 +85,10 @@ type Status = { glyph: string; color: Parameters<Theme["fg"]>[0]; label: string 
 
 /** Completed tasks need no label: the check mark carries the outcome. */
 function status(task: TaskRecord): Status {
-  if (task.state === "active") {
-    const label = task.started_at === undefined ? "running" : "";
-
+  if (task.state === "active")
     return task.background
-      ? { glyph: BACKGROUND_GLYPH, color: "warning", label }
-      : { glyph: TUI_GLYPHS.taskStatus.in_progress, color: "accent", label };
-  }
+      ? { glyph: BACKGROUND_GLYPH, color: "warning", label: "" }
+      : { glyph: TUI_GLYPHS.taskStatus.in_progress, color: "accent", label: "" };
 
   const { success, failure, cancelled } = TUI_GLYPHS.outcome;
 
@@ -123,10 +120,8 @@ export function taskMetadata(
 ): string[] {
   const { label } = status(task);
   const end = task.state === "active" ? Date.now() : task.ended_at;
-  const time =
-    task.started_at !== undefined && typeof end === "number" ? duration(end - task.started_at) : "";
-  const activity =
-    task.state === "active" ? (tasks.active(task.task_id)?.details.activity ?? "") : "";
+  const time = end === null ? "" : duration(end - task.started_at);
+  const activity = task.state === "active" ? tasks.activity(task.task_id) : "";
   const live = context && task.state === "active" ? contextLabel(task) : "";
   const cost = !full && task.usage && task.usage.cost > 0 ? `$${task.usage.cost.toFixed(2)}` : "";
 

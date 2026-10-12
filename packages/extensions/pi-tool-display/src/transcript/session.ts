@@ -1,24 +1,21 @@
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type {
-  BorrowedToolResult,
   CallReference,
   DisplayCall,
-  DisplayFact,
   DisplayMode,
   Outcome,
   SavedOutput,
   SummaryNotice,
   ToolDisplayAdapter
 } from "../contracts.ts";
-import type { AdapterFailureHandler } from "../interpretation.ts";
+import type { DisplayFailureHandler } from "../interpretation.ts";
 import type { ObservationSink } from "../observation/native.ts";
-import { SavedOutputLoader } from "../observation/saved-output.ts";
 import type { DisplaySettings } from "../settings.ts";
-import { record } from "../values.ts";
-import { TranscriptCoordinator } from "./coordinator.ts";
+import { TranscriptCoordinator, type ValidatedArgs } from "./coordinator.ts";
 import { DisplayHistory, type HistorySource } from "./history.ts";
-import { persistDisplayFact } from "./metadata.ts";
+import { SavedCalls, type SavedCallsOptions } from "./saved-calls.ts";
+import { SavedOutputs } from "./saved-output.ts";
 
 export type TranscriptMessage =
   | { kind: "boundary" }
@@ -38,11 +35,11 @@ export type TranscriptMessage =
       interruption?: { outcome: "cancelled" | "failure"; text: string };
     };
 
-export type AdapterSelector = (
-  name: string,
-  reference?: CallReference,
-  args?: unknown
-) => ToolDisplayAdapter | undefined;
+/** One tool registry snapshot; registration can change between snapshots. */
+export type ToolSnapshot = {
+  adapter: (name: string) => ToolDisplayAdapter | undefined;
+  args: ValidatedArgs;
+};
 
 type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
 
@@ -51,14 +48,14 @@ type DisplaySessionOptions = {
   cwd: string;
   history: HistorySource;
   settings: DisplaySettings;
-  /** A selector over one tool registry snapshot; registration can change between snapshots. */
-  adapters(): AdapterSelector;
+  tools(): ToolSnapshot;
   expanded(): boolean;
   /** Initial transcript mode; the host owns later transitions. */
   mode?: DisplayMode;
   append?: ExtensionAPI["appendEntry"] | undefined;
+  local: SavedCallsOptions["local"];
   readSavedOutput?: (path: string) => Promise<SavedOutput>;
-  onAdapterFailure?: AdapterFailureHandler;
+  onFailure?: DisplayFailureHandler;
 };
 
 function retainedAdapter(
@@ -81,49 +78,57 @@ export class DisplaySession {
   readonly coordinator: TranscriptCoordinator;
   readonly settings: DisplaySettings;
   private history: DisplayHistory;
-  private output: SavedOutputLoader;
+  private saved: SavedCalls;
+  private output: SavedOutputs;
   private messages = new Set<string>();
   private assistants = new Map<number, { owner: object; after: DisplayCall | undefined }>();
   private noticeAnchor: DisplayCall | undefined;
   private disposed = false;
-  private snapshot: AdapterSelector | undefined;
+  private snapshot: ToolSnapshot | undefined;
   constructor(private options: DisplaySessionOptions) {
     this.settings = options.settings;
     this.coordinator = new TranscriptCoordinator(options.runtime, {
       cwd: options.cwd,
       ...(options.mode ? { mode: options.mode } : {}),
-      onExpansion: (call) => this.loadSavedOutput(call),
-      ...(options.onAdapterFailure ? { onAdapterFailure: options.onAdapterFailure } : {})
+      onSavedOutputChange: (call) => this.output.refresh(call),
+      ...(options.onFailure ? { onFailure: options.onFailure } : {})
     });
     this.history = new DisplayHistory(options.history);
-    this.output = new SavedOutputLoader(options.readSavedOutput, (path) =>
-      this.coordinator.evictSavedOutput(path)
-    );
+    this.saved = new SavedCalls({
+      cwd: options.cwd,
+      coordinator: this.coordinator,
+      history: this.history,
+      append: options.append,
+      local: options.local
+    });
+    this.output = new SavedOutputs(this.coordinator, options.readSavedOutput);
   }
   refreshAdapters(): void {
     if (this.disposed) return;
 
-    // Registration can finish after reconstruction. Upgrade contracts without replaying calls.
-    const select = this.options.adapters();
+    // Registration can finish after reconstruction. Upgrade contracts and validate
+    // arguments against the new schemas without replaying calls.
+    const tools = this.options.tools();
     this.coordinator.batch(() => {
       for (const call of this.coordinator.calls.values()) {
         if (call.origin !== "historical" || call.adapter.id !== "generic") continue;
-        const selected = select(call.name);
-        if (!selected || selected.id === "generic") continue;
-        this.coordinator.setAdapter(call, selected);
-        for (const fact of this.history.facts(call)) this.coordinator.fact(call, fact);
-        if (call.result) this.retainPath(call, call.result);
+        const selected = tools.adapter(call.name);
+        const upgraded = selected && selected.id !== "generic" ? selected : undefined;
+        this.coordinator.refreshTools(call, upgraded ?? call.adapter, tools.args);
+        if (!upgraded) continue;
+        this.saved.replay(call);
+        if (call.result) this.output.retain(call, call.result);
       }
     });
   }
   /** Uses the reconstruction snapshot while one is open. */
   selectAdapter(name: string): ToolDisplayAdapter | undefined {
-    return (this.snapshot ?? this.options.adapters())(name);
+    return (this.snapshot ?? this.options.tools()).adapter(name);
   }
   /** Rebuild history in one batch that shares one tool registry snapshot. */
   reconstruct<T>(update: () => T): T {
     const outer = !this.snapshot;
-    this.snapshot ??= this.options.adapters();
+    this.snapshot ??= this.options.tools();
 
     try {
       return this.coordinator.batch(update);
@@ -135,66 +140,48 @@ export class DisplaySession {
     const call = this.coordinator.byId(id);
     if (this.disposed || !call || call.origin !== "live" || call.adapter.id !== adapter)
       return undefined;
-    const source = this.history.messageEntry(
-      call.reference.messageTimestamp,
-      call.reference.contentIndex,
-      call.reference.toolCallId
-    );
-    if (source) this.coordinator.setReferenceEntry(call, source);
+    this.saved.observe(call);
 
     return {
       started: () => this.coordinator.update(call, "executing"),
-      fact: (fact) => this.observe(call, fact),
+      fact: (fact) => this.saved.fact(call, fact),
       preview: (output) => this.coordinator.preview(call, output)
     };
-  }
-  private observe(call: DisplayCall, fact: DisplayFact): void {
-    if (this.disposed) return;
-    this.coordinator.fact(call, fact);
-    if (this.options.append && call.origin === "live")
-      persistDisplayFact(this.options.append, call.reference, call.adapter.id, fact);
-  }
-  private loadSavedOutput(call: DisplayCall): void {
-    const path = call.savedPath;
-    if (
-      this.disposed ||
-      !path ||
-      !call.expanded ||
-      (call.savedOutput?.path === path && !call.savedOutput.retryable) ||
-      call.lifecycle !== "complete"
-    )
-      return;
-    this.coordinator.setSavedOutput(call, undefined);
-    void this.output
-      .load(path)
-      .then((output) => {
-        if (this.disposed || !output || call.savedPath !== path || this.output.wasEvicted(output))
-          return;
-        this.coordinator.setSavedOutput(call, output);
-      })
-      .catch(() => {});
-  }
-  private retainPath(call: DisplayCall, result: BorrowedToolResult): void {
-    if (!call.adapter.savedOutput) return;
-    const path = record(result.details).fullOutputPath;
-    if (typeof path === "string") this.coordinator.setSavedPath(call, path);
-    this.loadSavedOutput(call);
   }
   /** Pi started the call; native observation may already have reported it executing. */
   queued(id: string): void {
     const call = this.coordinator.byId(id);
-    if (call && call.lifecycle !== "executing") this.coordinator.update(call, "queued");
+    if (!call || this.disposed) return;
+    if (call.lifecycle !== "executing") this.coordinator.update(call, "queued");
+    this.saved.queued(call);
   }
+  /**
+   * Pi's execution event. Extensions can still replace the result before Pi saves it,
+   * so the call's facts are saved with Pi's final result message.
+   */
   result(id: string, result: AgentToolResult<unknown>, outcome: Outcome, partial = false): void {
+    const call = this.publish(id, result, outcome, partial);
+    if (call && !partial) this.saved.end(call, outcome);
+  }
+  private publish(
+    id: string,
+    result: AgentToolResult<unknown>,
+    outcome: Outcome,
+    partial = false
+  ): DisplayCall | undefined {
     if (this.disposed) return;
     const call = this.coordinator.byId(id);
     if (!call) return;
     this.coordinator.batch(() => {
       if (!partial && outcome === "cancelled" && call.origin === "live" && !call.cancellation)
-        this.observe(call, { kind: "cancellation", availability: "available" });
+        this.coordinator.fact(call, { kind: "cancellation" });
+      // Keep the path first, so completion loads only the final saved output.
+      this.output.retain(call, result);
       this.coordinator.result(call, result, outcome, partial);
-      this.retainPath(call, result);
+      if (!partial) this.saved.replay(call);
     });
+
+    return call;
   }
   message(
     input: TranscriptMessage | undefined,
@@ -227,12 +214,15 @@ export class DisplaySession {
 
     if (input.kind === "result") {
       const call = coordinator.byId(input.id);
-      if (call?.name === input.name) this.result(input.id, input.result, input.outcome);
+      if (call?.name !== input.name) return;
+      this.publish(input.id, input.result, input.outcome);
+      // Pi saves this message after its listeners, so facts written now precede it.
+      if (origin === "live" && complete) this.saved.finish(call, input.result, input.outcome);
 
       return;
     }
 
-    const select = this.snapshot ?? this.options.adapters();
+    const tools = this.snapshot ?? this.options.tools();
     coordinator.batch(() => {
       let boundary = this.assistants.get(input.timestamp);
 
@@ -246,16 +236,9 @@ export class DisplaySession {
 
       for (const content of input.calls) {
         const position = JSON.stringify([input.timestamp, content.index, content.id]);
-        const source = this.history.messageEntry(input.timestamp, content.index, content.id);
-        const reference: CallReference = {
-          messageTimestamp: input.timestamp,
-          contentIndex: content.index,
-          toolCallId: content.id,
-          ...(source ? { messageEntryId: source } : {})
-        };
         const selected =
           retainedAdapter(coordinator, content, input.timestamp, origin) ??
-          select(content.name, reference, content.args);
+          tools.adapter(content.name);
 
         if (!selected) {
           if (!this.messages.has(position)) coordinator.boundary();
@@ -263,19 +246,23 @@ export class DisplaySession {
           continue;
         }
 
-        if (selected.separateRun) coordinator.boundary();
+        const source = this.history.messageEntry(input.timestamp, content.index, content.id);
+        const reference: CallReference = {
+          messageTimestamp: input.timestamp,
+          contentIndex: content.index,
+          toolCallId: content.id,
+          ...(source ? { messageEntryId: source } : {})
+        };
         const call = coordinator.add(
           reference,
           content.name,
           content.args,
           selected,
           origin,
-          this.options.expanded()
+          this.options.expanded(),
+          tools.args
         );
         this.noticeAnchor = call;
-        if (selected.separateRun) coordinator.boundary(call);
-        if (origin === "historical")
-          for (const fact of this.history.facts(call)) coordinator.fact(call, fact);
         if (origin === "live" && complete) coordinator.update(call, "queued");
         if (call.lifecycle !== "complete" && input.interruption)
           coordinator.result(
@@ -283,10 +270,13 @@ export class DisplaySession {
             { content: [{ type: "text", text: input.interruption.text }], details: undefined },
             input.interruption.outcome
           );
+        if (origin === "historical") this.saved.replay(call);
       }
     });
   }
+
   dispose(): void {
+    this.saved.dispose();
     this.disposed = true;
     this.coordinator.dispose();
     this.output.dispose();

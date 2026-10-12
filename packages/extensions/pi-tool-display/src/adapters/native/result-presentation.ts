@@ -1,12 +1,8 @@
+import type { CodeSelectionRange } from "@pi-mono/libs/tui/components/code-highlight";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
-import type {
-  BorrowedToolResult,
-  DisplayNotice,
-  ResultTextContext,
-  ResultTextPart
-} from "../../contracts.ts";
+import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../contracts.ts";
 import { stringField } from "../../terminal-text.ts";
 import { record } from "../../values.ts";
 
@@ -55,32 +51,6 @@ const readTrailer = new RegExp(
   String.raw`(?:^|\n\n)(\[(?:Showing lines ${readNumber}-${readNumber} of \d+(?: \([\d.]+[KMG]?B limit\))?\. Use offset=${readNumber} to continue\.|${readNumber} more lines in file\. Use offset=${readNumber} to continue\.|Line \d+ is [\d.]+[KMG]?B, exceeds [\d.]+[KMG]?B limit\. Use bash: [^\n]+)\])$`
 );
 
-/** Compact reads retain diagnostics from the same native envelopes as expanded text. */
-export function nativeReadNotices(result: BorrowedToolResult): DisplayNotice[] {
-  const hasImages = result.content.some((block) => block.type === "image");
-
-  return result.content.flatMap((block, contentIndex) =>
-    block.type === "text"
-      ? nativeResultParts(
-          "read",
-          block.text,
-          {},
-          {
-            result,
-            contentIndex,
-            expanded: false,
-            isError: false,
-            isPartial: false,
-            isCancelled: false,
-            hasImages
-          }
-        )
-          .filter((part) => part.kind === "warning")
-          .map((part) => ({ kind: "warning" as const, text: part.text }))
-      : []
-  );
-}
-
 function splitTrailer(text: string, pattern: RegExp | undefined) {
   const match = pattern?.exec(text);
   const notice = match?.[1];
@@ -94,12 +64,16 @@ function splitTrailer(text: string, pattern: RegExp | undefined) {
   };
 }
 
-/** Interpret retained native envelopes; exact literal lookalikes share their styling. */
+/**
+ * Interpret retained native envelopes; exact literal lookalikes share their styling.
+ * `highlight` marks the selection in read source text.
+ */
 export function nativeResultParts(
   name: string,
   text: string,
   input: unknown,
-  context: ResultTextContext
+  context: ResultTextContext,
+  highlight?: (source: string) => readonly CodeSelectionRange[]
 ): ResultTextPart[] {
   if (context.isPartial) return [part(text)];
   const compactCancellation = context.isCancelled && !context.expanded;
@@ -139,14 +113,15 @@ export function nativeResultParts(
     suffix.unshift(part(trailer.separator), part(trailer.notice, "warning"));
   }
 
-  return [...nativeContentParts(name, text, record(input), context), ...suffix];
+  return [...nativeContentParts(name, text, record(input), context, highlight), ...suffix];
 }
 
 function nativeContentParts(
   name: string,
   text: string,
   args: Record<string, unknown>,
-  context: ResultTextContext
+  context: ResultTextContext,
+  highlight: ((source: string) => readonly CodeSelectionRange[]) | undefined
 ): ResultTextPart[] {
   const shell = name === "bash" || name === "powershell";
 
@@ -162,6 +137,7 @@ function nativeContentParts(
           .split(/(\n)/)
           .map((text) => part(text, warnings.includes(text) ? "warning" : "annotation"))
       ];
+    if (highlight) return [{ ...part(text), selection: highlight(text) }];
   }
 
   let empty: string | undefined;

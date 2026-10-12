@@ -1,16 +1,13 @@
-import type {
-  Theme,
-  ToolDefinition,
-  ToolRenderResultOptions
-} from "@earendil-works/pi-coding-agent";
+import type { ToolDefinition, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
-import type { TreeItem } from "@pi-mono/libs/tui/components/tree";
+import type { DiffViewTheme } from "@pi-mono/libs/tui/components/diff-view";
 
 import type {
   BorrowedToolResult,
   DisplayCall,
   DisplayCode,
   DisplayGroup,
+  DisplayProgress,
   ExplorationItem,
   InvocationPart,
   McpFacts,
@@ -19,9 +16,10 @@ import type {
   ToolDisplayAdapter,
   TranscriptView
 } from "../contracts.ts";
-import type { AdapterFailureHandler, CallInterpretation } from "../interpretation.ts";
+import type { CallInterpretation, DisplayFailureHandler } from "../interpretation.ts";
+import type { PreparedResult } from "./result-content.ts";
 
-export type DisplayTheme = Pick<Theme, "fg" | "bg" | "getBgAnsi" | "bold">;
+export type DisplayTheme = DiffViewTheme;
 
 type HostContext = Parameters<NonNullable<ToolDefinition["renderCall"]>>[2];
 
@@ -53,8 +51,8 @@ export interface ToolDisplayRendererOptions {
 
 export type CardRendererOptions = ToolDisplayRendererOptions & {
   binding?: DisplayBinding;
-  /** Reports adapter callbacks that threw while rendering; the row continues generically. */
-  onAdapterFailure?: AdapterFailureHandler;
+  /** Reports a standalone card failure once; the row continues generically. */
+  onFailure?: DisplayFailureHandler;
 };
 
 /** Group-only facts and lookup exist only for a real transcript group. */
@@ -85,12 +83,7 @@ export type PreparedCard = Projection &
     invocation: readonly InvocationPart[] | undefined;
     code: DisplayCode | undefined;
     headingVerbs: ReturnType<NonNullable<ToolDisplayAdapter["headingVerbs"]>>;
-    body: ResultBody;
-    hasBody: boolean;
-    groupRows: readonly string[];
+    /** Read once for each card revision; `progress` depends only on arguments and result. */
+    progress: DisplayProgress | undefined;
+    preparedResult: PreparedResult;
   }>;
-
-export type ResultBody = Readonly<{
-  items: readonly TreeItem[];
-  annotations: readonly string[];
-}>;

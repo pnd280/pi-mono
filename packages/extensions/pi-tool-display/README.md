@@ -30,7 +30,7 @@ Summary lines need Pi's fullscreen mode. In regular mode, `summary` renders as `
 
 In fullscreen, clicking a card, group, or summary line expands it. Clicking the horizontal rule above or below an opened run collapses it again. Regular mode leaves mouse input to the terminal.
 
-In fullscreen, click a subagent card with a task ID to open its transcript. pi-subagents checks that the card is current and that it owns the task. Use **Ctrl+O** to expand its details.
+In fullscreen, click a subagent card or background result with a task ID to open its transcript. pi-subagents checks that the card is current and that it owns the task. Use **Ctrl+O** to expand its details.
 
 ### Assistant text and thinking
 
@@ -41,10 +41,6 @@ Assistant prose starts with a `•` marker. When thinking is collapsed (default 
 - Transcript search cannot find output hidden inside a summary line, including image and failure details, until you open the run.
 - Switching modes does not keep the scroll position.
 - Custom cards do not appear in HTML exports.
-- Live foreign transcript viewers, including the subagent panel, show preparing calls as generic cards such as "Calling edit({})" until matching saved call provenance arrives.
-- Foreign viewers keep arguments empty until the tool call finishes streaming.
-
-These foreign-viewer limits are intentional. The top-level TUI can verify tools through its live registry; a foreign viewer has no access to the viewed session's registry and waits for saved evidence before selecting a dedicated card. It does not infer tool behaviour from a name such as `edit`.
 
 ## Supported tools
 
@@ -54,6 +50,7 @@ These tools get dedicated cards:
 - Pi's built-in [codemode](src/adapters/builtin/codemode/README.md), [MCP](src/adapters/builtin/mcp/README.md), and [tool search](src/adapters/builtin/tool-search/README.md).
 - Extensions: [FFF](src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](src/adapters/pi-mcp-adapter/README.md), [todo](src/adapters/pi-todo/README.md), [selective read](src/adapters/pi-read/README.md), [smart compact](src/adapters/pi-smart-compact/README.md), and [subagents](src/adapters/pi-subagents/README.md).
 - [Nested-instruction notices](src/adapters/pi-nested-instructions/README.md), which also count toward run summaries.
+- [Subagent background results](src/adapters/pi-subagents/README.md#background-results).
 
 A dedicated card replaces any renderer the tool supplies. Other tools keep their own renderer if they have one, including renderers that extensions supply through `registerToolRenderer`; otherwise they get a generic card. Calls to tools that are not loaded, such as old calls or MCP calls before the server reconnects, get a generic card. It switches to the dedicated card if the tool registers later.
 
@@ -90,7 +87,7 @@ Mode changes made with **Ctrl+O** last through `/reload` and session switches in
 
 Trusted project settings merge over global settings key by key. Untrusted project settings are ignored.
 
-> Any invalid applicable section, even one a later file overrides, restores original tool rendering and stops native observation. Nested-instruction message cards remain registered. The terminal warning names the file and key. Fix the setting, then run `/reload`.
+> Any invalid applicable section, even one a later file overrides, restores original tool rendering and stops native observation. Message cards for nested instructions and subagent background results remain registered. The terminal warning names the file and key. Fix the setting, then run `/reload`.
 
 The extension has no environment variables or CLI flags, and never writes settings.
 
@@ -98,13 +95,15 @@ The extension has no environment variables or CLI flags, and never writes settin
 
 The extension observes live tool calls and replays recorded facts. Neither changes tool execution.
 
+Warnings appear as Pi notifications in TUI and RPC sessions. Print and JSON sessions write them to stderr. Warnings during a TUI quit go to stderr when Pi exits, because the terminal display has already stopped.
+
 ### What is recorded
 
 In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, timing, outcomes, and file contents from before each write. These observations are shared with `pi-agent-summary` through [file observations](../../libs/src/file-mutations/README.md), so files are not read twice. Another process writing the same file can race with the observation. Display failures never change a tool's outcome.
 
-Session history stores operation and cancellation facts, bounded patches, and references to saved output. They are kept in `pi-tool-display.facts` custom entries, outside the model's context. Live shell previews stay in memory only.
+Session history stores only facts that Pi's own entries lack: cancellation, a shell exit code or timeout when the call did not succeed, a change applied although Pi reported failure, an operation failure that Pi's result or call cancellation cannot preserve, and bounded patches. When collection stops before Pi saves a call's result, such as at shutdown, the observed outcome and exit code are saved, because replay cannot rely on that result. They are kept in `pi-tool-display.call` custom entries, outside the model's context. A `pi-tool-display.writer` entry names the local file for subsequent saved call facts and results, and the directory where those calls ran. `write` saves its patch only when replay cannot derive the same patch from the written content. `edit` diffs come from Pi's result: the extension saves its own diff when the edit did not succeed, ended without a result, or Pi's patch is missing, invalid, or has different hunks.
 
-The separate `pi-tool-display.transcript` entries record versioned call provenance, boundaries, and run summaries. Each record is at most 16 KiB, with at most 64 summary segments. Changed progress is saved at most once per second; a run's final summary is immutable. These records contain no arguments, result bodies, images, or styled text, and stay outside model context.
+Timing, saved-output references, and diagnostics stay on this machine, in `pi-tool-display/calls/<writer>.jsonl` under Pi's agent directory. A file is created when collection starts, including after a reload. Folders and files are owner-only, and linked files are refused. A failed write or close of this file shows a warning, also during shutdown. The extension never deletes these files, because copied or moved sessions can still name them. Sessions that Pi does not save keep these details in memory. Live shell previews stay in memory only.
 
 > **Patches can keep deleted text.** Removed and context lines from overwritten files may remain in session history.
 
@@ -112,7 +111,7 @@ Native observation excludes SDK tool overrides, custom tools, and manual `!` and
 
 ### Replay and saved output
 
-Reopening a session restores matching facts for calls on the selected branch without rerunning tools or observing source files again. Published results still supply their outcomes. Missing facts are never guessed from output text. See [outcomes](docs/presentation.md#outcomes).
+Reopening a session restores matching facts for calls on the selected branch without rerunning tools or observing source files again. Published results still supply their outcomes. Replay finds local details through the nearest writer entry before a call's saved facts or result, so forks and copies keep them on the same machine. When that file is not on this machine, shell cards show `Timing not on this machine`, and expanded cards say that local details are missing. Missing facts are never guessed from output text. See [outcomes](docs/presentation.md#outcomes).
 
 Expanding a finished shell card reads a bounded preview from Pi's temporary output file. See [saved-output previews](docs/presentation.md#saved-output-previews) for loading and retry. The extension keeps no durable output archive and makes no network requests.
 
@@ -124,20 +123,18 @@ Automatic integration depends on Pi's private TUI contracts. See the [compatibil
 
 Unavailable host contracts disable the affected features:
 
-| Missing contract       | Fallback                                                                 |
-| ---------------------- | ------------------------------------------------------------------------ |
-| Native observation     | Observation stops; adapter-specific saved facts need a matching adapter. |
-| Assistant presentation | Assistant text renders natively.                                         |
-| Summary rows           | `summary` renders as `compact`.                                          |
-| Mode cycle             | **Ctrl+O** toggles only between collapsed and `verbose`.                 |
+| Missing contract       | Fallback                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| Native observation     | Observation stops; operation and change facts replay only with the native adapter. |
+| Assistant presentation | Assistant text renders natively.                                                   |
+| Summary rows           | `summary` renders as `compact`.                                                    |
+| Mode cycle             | **Ctrl+O** toggles only between collapsed and `verbose`.                           |
 
 The extension registers no tools, changes no active tools, and adds no keybindings; the mode cycle reuses Pi's expansion action.
 
 ## For tool authors
 
 To give your own tool a custom card, use the [standalone renderer API](docs/renderers.md). Automatic integration needs an [adapter resolver](docs/adapters.md#add-an-adapter) in this package.
-
-To display another session, use the read-only [transcript viewer API](docs/viewer.md). The caller supplies snapshots and live events; unsupported foreign renderers use generic cards.
 
 ## Validation
 

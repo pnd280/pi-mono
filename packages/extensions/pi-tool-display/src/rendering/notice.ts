@@ -11,44 +11,25 @@ import {
   type TreeItem
 } from "@pi-mono/libs/tui/components/tree";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
-import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
-import { decodeNotice, noticeSchema } from "pi-nested-instructions/notices";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { decodeNotice } from "pi-nested-instructions/notices";
 
-import type { SummaryNotice } from "../../contracts.ts";
+import { pathRows } from "./target-layout.ts";
 
 type NoticeMessage = Parameters<MessageRenderer>[0];
 
 type NoticeTheme = Pick<Theme, "fg" | "bold">;
 
-const labels = { loaded: "Loaded", updated: "Updated", removed: "Removed instructions" };
+const labels = {
+  loaded: "Loaded instructions",
+  updated: "Updated instructions",
+  removed: "Removed instructions"
+};
 const explanations = {
   loaded: "",
   updated: "Replaces the earlier instructions for this directory.",
   removed: "The earlier instructions for this directory no longer apply."
 };
-
-/** Only validated persisted facts contribute counts; never infer actions from prose. */
-export function noticeSummary(details: unknown): SummaryNotice | undefined {
-  const parsed = noticeSchema.safeParse(details);
-  if (!parsed.success) return undefined;
-  const notice = parsed.data;
-  const removed = notice.action === "removed";
-
-  return {
-    category: {
-      id: `pi-nested-instructions:${notice.action}`,
-      count: {
-        one: removed
-          ? "removed instructions from {n} dir"
-          : `${notice.action} {n} instruction file`,
-        other: removed
-          ? "removed instructions from {n} dirs"
-          : `${notice.action} {n} instruction files`
-      }
-    },
-    identity: removed ? notice.directory : (notice.path ?? notice.directory)
-  };
-}
 
 function headerRows(
   label: string,
@@ -62,26 +43,28 @@ function headerRows(
   const title = `${theme.fg("accent", marker)} ${theme.fg("accent", theme.bold(label))}`;
   if (!file) return new Text(title, 0, 0).render(width);
   const indent = visibleWidth(title) + 1;
-  const inline = width - indent >= 4;
-  const rows = new Text(theme.fg("text", compactDisplayText(file)), 0, 0).render(
-    inline ? width - indent : Math.max(1, width - 4)
-  );
+  const path = displayText(file);
   const continuation = {
     width,
     indent: 2,
     style: (text: string) => theme.fg("dim", text),
     hasChildren
   };
-  if (!inline)
-    return [...new Text(title, 0, 0).render(width), ...renderTreeContinuation(rows, continuation)];
+  // Paths wrap like tool-card targets, beside the label when at least four columns remain.
+  const inline = pathRows(path, { width: width - indent, theme, expanded });
+  if (inline)
+    return [
+      `${title} ${inline[0] ?? ""}`,
+      ...renderTreeContinuation(
+        inline.slice(1).map((row) => " ".repeat(Math.max(0, indent - 4)) + row),
+        continuation
+      )
+    ];
+  const rows =
+    pathRows(path, { width: width - 4, theme, expanded }) ??
+    new Text(theme.fg("text", path), 0, 0).render(Math.max(1, width - 4));
 
-  return [
-    `${title} ${rows[0] ?? ""}`,
-    ...renderTreeContinuation(
-      rows.slice(1).map((row) => " ".repeat(indent - 4) + row),
-      continuation
-    )
-  ];
+  return [...new Text(title, 0, 0).render(width), ...renderTreeContinuation(rows, continuation)];
 }
 
 export function createNoticeRenderer() {

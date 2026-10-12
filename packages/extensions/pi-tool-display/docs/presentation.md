@@ -17,12 +17,12 @@ Cards share one layout: a heading marker, a target line, and a bounded result ar
 
 ### Markers
 
-| Element                         | Marker                                                                                                                                     |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Collapsed card or group heading | `•`                                                                                                                                        |
-| Expanded card                   | `▾`                                                                                                                                        |
-| Pending card or group           | The marker alternates between `muted` and `dim` every 600 ms and stays visible. [Standalone renderers](renderers.md) keep a steady marker. |
-| Summary line                    | None                                                                                                                                       |
+| Element                         | Marker                                                                                                                                                                                                                       |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collapsed card or group heading | `•`                                                                                                                                                                                                                          |
+| Expanded card                   | `▾`                                                                                                                                                                                                                          |
+| Pending card or group           | The marker alternates between `muted` and `dim` every 600 ms and stays visible. [Standalone renderers](renderers.md) keep a steady marker. Pending verbs and labels use `warning`, also in group members and progress cards. |
+| Summary line                    | None                                                                                                                                                                                                                         |
 
 ### Target paths
 
@@ -30,17 +30,18 @@ Standalone and expanded targets show paths as follows:
 
 - Descendants of Pi's rendering cwd are relative to it, and the cwd itself is `.`.
 - Other paths are absolute.
+- Historical relative targets resolve against the recorded execution cwd, then follow the same display rules.
 - Resolution is lexical, including home expansion. The filesystem is never inspected and symlinks are not followed.
 - Native and selective-read targets first apply Pi's Unicode-space normalization, consistently across headings, grouping, and summary identities. Custom paths are not normalized.
-- Raw parameters, retained output, generic arguments, and literal scopes and filters stay unchanged.
+- Path display does not change parameters, retained output, generic arguments, or literal scopes and filters. Parameters and generic arguments show the [validated copy of Pi's raw arguments](adapters.md#callback-arguments) when validation against the current tool schema succeeds. Otherwise, they show Pi's raw arguments.
 
 ### Wrapping
 
 - Targets wrap beneath themselves in the normal foreground. Ranges and annotations use `dim`.
 - A literal line break in a path becomes a separate indented row.
-- Wrapping prefers path separators, and keeps a range together when it fits.
+- Wrapping prefers path separators, and keeps a range and annotations, such as a read selection, beside the filename when they fit. Nested-instruction notices wrap their paths the same way.
 - With at least four target columns, target wrapping has no row limit. A collapsed target over the [formatting limit](#resource-limits) keeps its start and end around `…`.
-- Other collapsed summaries, commands, and narrower targets show up to three detail rows, with truncation hints. A long invocation may put its action on its own row.
+- Other collapsed summaries, commands, and narrower targets show up to three detail rows, with truncation hints. A hint never replaces a single row: when only one more row remains, it shows. A long invocation may put its action on its own row.
 - Groups apply these rules to each member. Diagnostics and images stay visible.
 
 Expansion removes [heading preview limits](#resource-limits). Parameters hidden by [`showParameters`](../README.md#configuration) stay hidden.
@@ -56,6 +57,8 @@ When validated metadata allows it, successful text is replaced with a compact su
 | Edit or write           | Diff                                        |
 | Failure or cancellation | Output stays visible                        |
 | Notices and images      | Stay visible                                |
+
+Shell status, operation rows, nested calls, and progress cards use one duration format: milliseconds below one second, tenths of a second below one minute, then minutes and seconds, such as `1m 5s`. A running progress timer counts whole seconds.
 
 Preview rules:
 
@@ -109,7 +112,7 @@ Groups appear in `compact` and `verbose` modes. In [summary mode](#summary-mode)
 
 ### Notices and images
 
-Notices, images, and failure diagnostics stay beneath their call. Native image previews align with the card body, continue the collapsed group guide, and shrink to fit the remaining width. Images stay inline and have no click action:
+Notices, images, and failure diagnostics stay beneath their call. Notices follow the result output. Native image previews align with the card body, continue the collapsed group guide, and shrink to fit the remaining width. Images stay inline and have no click action:
 
 ```text
 • Explored .
@@ -151,7 +154,7 @@ A run collapses only when both are true:
 1. No member is streaming, queued, or executing.
 2. A non-thinking boundary or the agent's end prevents more calls from joining.
 
-History is always ended, except in a [transcript viewer](viewer.md) whose agent has started and has not settled: there, the final run stays open. Until a run collapses, it shows compact cards, so its line only ever describes finished calls. Clicking a card before the run ends keeps the run open afterwards, as if you had clicked its line.
+History is always ended. Until a run collapses, it shows compact cards, so its line only ever describes finished calls. Clicking a card before the run ends keeps the run open afterwards, as if you had clicked its line.
 
 Summary lines need Pi's fullscreen mode, and never rewrite rows already in terminal scrollback. In regular mode, `summary` renders as `compact`, and the mode cycle toggles `compact` and `verbose`. Switching Pi's TUI mode re-renders the transcript.
 
@@ -171,7 +174,7 @@ Outcomes
 
 Categories
 
-- Built-in categories cover creations, edits, shell commands, MCP calls, searches, listings, reads, and unmatched tool names. The current labels are in [summary wording](../src/summary/categories.ts).
+- Built-in categories cover creations, edits, shell commands, MCP calls, searches, listings, reads, and unmatched tool names. The current labels are in [summary wording](../src/summary/model.ts).
 - Pi's built-in [codemode](../src/adapters/builtin/codemode/README.md#summary-mode) counts each script once as `ran 1 script`. Nested calls never count.
 - Pi's built-in [tool search](../src/adapters/builtin/tool-search/README.md#summary-mode) adds a loaded-tools category, deduplicated by tool name across the run. Calls without valid, nonempty loaded-name details count individually as `tool_search`.
 - [Instruction notices](../src/adapters/pi-nested-instructions/README.md#display) count once per persisted file path and action, or per directory for removals. These counts stay separate from tool outcomes and file-read counts.
@@ -223,6 +226,12 @@ Cancellation:
 - Cancellation outranks failure. Success and unavailable metadata override neither.
 - Once cancellation is confirmed, compact native cards may omit the exact known cancellation message while keeping process output and extra diagnostics. Expansion restores the full diagnostics. Similar ordinary output without confirmation stays visible.
 
+Local details on replay:
+
+- Expanded native `bash`, `powershell`, `edit`, and `write` cards say why timing and saved-output references are missing: the writer's file is not on this machine, the file has no line for the call, the file exceeds 8 MiB or cannot be read safely, or the call was not observed.
+- When the file is not on this machine, shell summaries and operation rows show `Timing not on this machine` in place of the duration.
+- Other adapters keep no local details and show no notice.
+
 ## Notices and colours
 
 Severity changes styling, never visibility. Compact groups keep informational notices.
@@ -233,17 +242,23 @@ Severity changes styling, never visibility. Compact groups keep informational no
 | Cancellations and actionable limitations | warning |
 | Unavailable historical facts             | muted   |
 
+Headings, group badges, and summary counts name failed and cancelled outcomes in `error`. Status details use `warning` for a cancellation, for example a shell's `Cancelled` row, a progress status, or a nested call.
+
 Live and saved previews distinguish generated omissions from identical process text, which keeps ordinary styling. Generic output is never searched for extension phrases. See [adapter provenance limits](adapters.md#built-in-adapters).
 
 ## Diff viewer
 
 Layout
 
+- The diff is a full-width panel below the heading, with no tree connector. The `toolPendingBg` surface covers context rows and separators. Panels wider than two columns have one column of padding on each side.
+- The top strip carries counts and warnings. With multiple hunks, its first row also shows the first hunk's position when both fit. Caller text takes priority.
+- A strip precedes each later hunk, with its number and, when space permits, its start line.
+- The bottom strip carries the omission hint, failure text, notices, and operation row. Nested calls and images follow the complete panel.
 - Mixed patches use side-by-side columns when there is room. Narrow or one-sided patches use unified rows.
 - Writes omit one-sided counts; edits keep them.
 - Compact previews prioritize changed code and nearby context, and mark omitted excerpts and hunks.
 - Pi's expansion reveals all retained hunks with full wrapping. There are no per-hunk controls.
-- Added and removed rows and inline changes use theme colours. Context and separators keep the terminal background.
+- Strips and changed rows tint the surface toward the theme's diff colours. Added-row tints use `toolDiffAdded`, independently of `toolSuccessBg`. Contrast depends on the supplied colours and the terminal's colour mode. Inline changes use `selectedBg`. A changed row's background also covers its padding column.
 
 Unavailable patches
 
@@ -281,13 +296,14 @@ What is kept
 - Expansion restores only what Pi retained or what the bounded observation captured.
 - Exceeded limits make a patch unavailable; they never make an edit or write unsuccessful.
 - Persisted fact size includes unknown fields, so an oversized record cannot be replayed.
+- Each local line is limited to 32 KiB. When a writer's header exceeds the limit, its file is not created and its local details stay in memory. An oversized call line is replaced by a diagnostic with bounded fields. Replay does not read a writer's file above 8 MiB, whatever its line sizes.
 
 How work is bounded
 
 - Oversized highlighting falls back to readable unstyled text.
 - Patch generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behaviour).
 - Compact invocation values, patterns, and source-code previews are bounded before terminal normalization.
-- Generic parameter previews also bound JSON serialization by text size, values visited, and nesting depth. An incomplete preview shows a `more details` notice. Expansion serializes the full retained arguments.
+- Generic parameter previews also bound JSON serialization by text size, values visited, and nesting depth. An incomplete preview shows a `more details` notice. Expansion serializes all retained arguments: the [validated copy](adapters.md#callback-arguments) when validation succeeds, otherwise Pi's raw arguments.
 - Unchanged redraws reuse decorated assistant prose, run summaries, and heading layout. Animation changes only the heading marker.
 
 Current budgets live in the source:
@@ -302,5 +318,6 @@ Current budgets live in the source:
 | Saved previews     | [session.ts](../src/transcript/session.ts)            |
 | Patch limits       | [diff.ts](../src/diff.ts)                             |
 | Record validation  | [metadata.ts](../src/transcript/metadata.ts)          |
+| Local lines        | [store.ts](../src/transcript/store.ts)                |
 
 [Automatic integration](../README.md#what-is-recorded) collects output and generates patches. The [standalone factory](renderers.md) only formats data it is given.

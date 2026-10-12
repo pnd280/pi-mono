@@ -10,15 +10,8 @@ import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
 import type { RpcRecord } from "../src/connection.ts";
-import {
-  LATE_USAGE_KIND,
-  RESULT_MESSAGE,
-  TASK_ENTRY,
-  TASKS_MESSAGE,
-  RELAY_ENTRY
-} from "../src/constants.ts";
-import { taskRecordSchema } from "../src/records.ts";
-import { parseRelay } from "../src/relay.ts";
+import { LATE_USAGE_KIND, RESULT_MESSAGE, RUN_ENTRY, TASKS_MESSAGE } from "../src/constants.ts";
+import { runRecordSchema, taskRecordSchema } from "../src/records.ts";
 import { detailsSchema, type ToolDetails } from "../src/result.ts";
 import { remainingProcesses, killFixtureProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
@@ -145,6 +138,16 @@ async function taskList(host: Supervisor) {
   return z
     .object({ tasks: z.array(taskRecordSchema) })
     .parse(JSON.parse((await host.command("list")).message)).tasks;
+}
+
+/** Descendant records reach the supervisor in memory, through the child's updates. */
+async function descendantStarted(host: Supervisor): Promise<void> {
+  await expect
+    .poll(async () => (await taskList(host)).some((task) => task.parent_task_id !== null), {
+      timeout: 10_000,
+      interval: 25
+    })
+    .toBe(true);
 }
 
 test("continues after the first background result while a slower task runs", async () => {
@@ -288,23 +291,14 @@ test("settles a child only after its background grandchild result is consumed", 
     expectChildUsageOnce(entries, 1);
     // Three child requests and one grandchild request each use 15 tokens and cost 0.001.
     expect(result.usage).toMatchObject({ totalTokens: 60, cost: { total: 0.004 } });
-    // Active checkpoints must retain the late usage before final stats replace the live total.
-    const active = supervisorEntries
-      .flatMap((entry) =>
-        entry.type === "custom" && entry.customType === TASK_ENTRY
-          ? [taskRecordSchema.parse(entry.data)]
-          : []
-      )
-      .reverse()
-      .find((task) => task.task_id === child.task_id && task.state === "active");
-    expect(active?.usage).toEqual({
+    // The run's recorded usage includes the late usage that the child counted.
+    expect(child.usage).toEqual({
       input: 40,
       output: 20,
       cache_read: 0,
       cache_write: 0,
       cost: 0.004
     });
-    expect(child.usage).toEqual(active?.usage);
   });
 }, 30_000);
 
@@ -358,12 +352,12 @@ test("promotes foreground work, retains it across turn abort, and counts late us
       (event) =>
         event.type === "entry_appended" &&
         event.entry.type === "custom" &&
-        event.entry.customType === TASK_ENTRY &&
-        taskRecordSchema.safeParse(event.entry.data).data?.description === "Promote after usage"
+        event.entry.customType === RUN_ENTRY &&
+        runRecordSchema.safeParse(event.entry.data).data?.description === "Promote after usage"
     );
     if (record.type !== "entry_appended" || record.entry.type !== "custom")
       throw new Error("No task record");
-    const task = taskRecordSchema.parse(record.entry.data);
+    const task = runRecordSchema.parse(record.entry.data);
     await host.wait(
       (event) =>
         event.type === "tool_execution_update" &&
@@ -486,14 +480,7 @@ test.each(["user abort", "turn abort", "shutdown", "SIGKILL", "blocked shutdown"
             : "nested-slow"
         )
         .catch((error: unknown) => error);
-      const descendant = await host.wait(
-        (event) =>
-          event.type === "entry_appended" &&
-          event.entry.type === "custom" &&
-          event.entry.customType === RELAY_ENTRY &&
-          parseRelay(event.entry.data)?.kind === "task"
-      );
-      expect(descendant.type).toBe("entry_appended");
+      await descendantStarted(host);
 
       if (action === "blocked shutdown" || action === "turn abort") {
         // Wait until the grandchild has started its shutdown-blocking scenario.
@@ -580,13 +567,7 @@ test("routes nested dialogs and reconstructs descendant ownership after restart"
 test("routes promotion to the owner and frees subtree capacity for queued top-level work", async () => {
   await fixture(async (host) => {
     const initial = host.reply("nested-foreground");
-    await host.wait(
-      (event) =>
-        event.type === "entry_appended" &&
-        event.entry.type === "custom" &&
-        event.entry.customType === RELAY_ENTRY &&
-        parseRelay(event.entry.data)?.kind === "task"
-    );
+    await descendantStarted(host);
     const page = z
       .object({ tasks: z.array(taskRecordSchema) })
       .parse(JSON.parse((await host.command("list")).message));

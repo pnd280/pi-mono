@@ -4,13 +4,13 @@
 
 ## Contract
 
-The adapter renders `pi-nested-instructions.notice` session messages using the identifier and decoder exported by `pi-nested-instructions/notices`. The producer owns the persisted schema and model-facing preamble; this adapter owns presentation only and performs no discovery, filesystem access, or persistence.
+The adapter renders `pi-nested-instructions.notice` session messages using the identifier and decoder exported by `pi-nested-instructions/notices`. The producer owns the persisted schema and model-facing preamble; this adapter owns presentation only and performs no discovery, filesystem access, or persistence. Its [card renderer](../../rendering/notice.ts) lives with the shared card layout.
 
 Registration uses Pi's public message-renderer API, independent of tool selection and private tool-row hooks. Saved notices render even without the discovery extension loaded. Without pi-tool-display, Pi displays the full messages using its default renderer.
 
 ## Display
 
-Collapsed notices show an action and path in the shared [card style](../../../docs/presentation.md#card-layout). Body formatting waits until expansion.
+Collapsed notices show `Loaded instructions`, `Updated instructions`, or `Removed instructions` and a path in the shared [card style](../../../docs/presentation.md#card-layout). Paths wrap like card targets. Body formatting waits until expansion.
 
 Expand with Pi's tool-output shortcut (default **Ctrl+O**) or click the header in fullscreen mode to read formatted Markdown.
 

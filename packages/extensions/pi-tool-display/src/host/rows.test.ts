@@ -6,29 +6,25 @@ import { assistantMessage } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "../transcript/coordinator.ts";
 import { TranscriptRows } from "./rows.ts";
 
-it("ignores late assistant components after binding deactivation", () => {
+it("restores native assistant rows after release", () => {
   initTheme("dark", false);
   const coordinator = new TranscriptCoordinator("inactive-rows");
-  let active = true;
-  const rows = new TranscriptRows({}, coordinator, {
-    active: () => active,
-    styleAssistant: true,
-    chrome: true
-  });
   const component = new AssistantMessageComponent(
     assistantMessage([{ type: "text", text: "Native assistant prose" }])
   );
+  const rows = new TranscriptRows({ chatContainer: { children: [component] } });
+  rows.attach(coordinator, { styleAssistant: true, chrome: true });
 
   try {
-    active = false;
-    rows.dispose();
-    rows.assistantBoundary(component);
+    rows.addMessage({ role: "assistant" }, () => {});
+    rows.release();
+    rows.addMessage({ role: "assistant" }, () => {});
     component.invalidate();
     const rendered = component.render(80).map(stripTerminalSequences).join("\n");
     expect(rendered).toContain("Native assistant prose");
     expect(rendered).not.toContain("•");
   } finally {
-    rows.dispose();
+    rows.release();
     coordinator.dispose();
   }
 });

@@ -1,13 +1,14 @@
-import { readFile, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readFile, rm, writeFile } from "node:fs/promises";
 
 import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import { expect, test } from "vite-plus/test";
 import { z } from "zod";
 
-import { RESULT_MESSAGE } from "../src/constants.ts";
+import { END_ENTRY, RESULT_MESSAGE } from "../src/constants.ts";
 import { taskRecordSchema } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
-import { remainingProcesses, killFixtureProcesses } from "./processes.ts";
+import { fixtureProcesses, killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace } from "./workspace.ts";
 
@@ -20,10 +21,10 @@ const pageSchema = z.object({
   usage: z.object({ input: z.number(), output: z.number(), cost: z.number() })
 });
 
-test.skipIf(process.platform !== "linux").each([true, false])(
-  "pages late final summaries on the selected ancestry without modifying the child (display=%s)",
-  async (display) => {
-    const directory = await createFixtureWorkspace({ display });
+test.skipIf(process.platform !== "linux")(
+  "pages tool summaries on the selected ancestry once without modifying the child",
+  async () => {
+    const directory = await createFixtureWorkspace();
     const host = await Supervisor.start(directory);
 
     try {
@@ -37,8 +38,32 @@ test.skipIf(process.platform !== "linux").each([true, false])(
         return pageSchema.parse(JSON.parse(notification.message));
       };
 
+      await expect.poll(() => existsSync(`${directory}/work/digest-ready`)).toBe(true);
       const early = await show();
-      expect(early.items.some((item) => item.type === "tools")).toBe(false);
+      expect(early.items).toEqual([{ type: "user", text: "activity-digest" }]);
+      const file = z
+        .object({ tasks: z.array(taskRecordSchema) })
+        .parse(JSON.parse((await host.command("list")).message)).tasks[0]!.session_file;
+      expect(
+        parseSessionEntries(await readFile(file, "utf8")).find(
+          (entry) => entry.type !== "session" && entry.id === early.cursor
+        )
+      ).toMatchObject({
+        type: "message",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "DO_NOT_SHOW_THINKING" },
+            {
+              type: "toolCall",
+              id: "shared-activity-call",
+              name: "read",
+              arguments: { path: ".pi-subagents-fixture" }
+            }
+          ]
+        }
+      });
+      await writeFile(`${directory}/work/digest-release`, "release");
       await host.wait(
         (event) =>
           event.type === "message_end" &&
@@ -46,24 +71,59 @@ test.skipIf(process.platform !== "linux").each([true, false])(
           event.message.customType === RESULT_MESSAGE
       );
       const completed = await show();
-      expect(completed.items).toHaveLength(display ? 3 : 2);
-      expect(completed.items.filter((item) => item.type === "tools")).toEqual(
-        display ? [{ type: "tools", text: "Read 1 file" }] : []
-      );
+      expect(completed.items).toEqual([
+        { type: "user", text: "activity-digest" },
+        { type: "tools", text: "read ×1" },
+        { type: "assistant", text: "Activity fixture finished" }
+      ]);
       expect(completed.usage).toMatchObject({ input: 20, output: 10, cost: 0.002 });
 
-      if (early.cursor) {
-        const later = await show(`--since ${early.cursor}`);
-        expect(later.items.filter((item) => item.type === "tools")).toHaveLength(display ? 1 : 0);
-        expect(later.more).toBe(false);
+      // The tool result completes after the cursor's assistant entry.
+      const later = await show(`--since ${early.cursor}`);
+      expect([...early.items, ...later.items]).toEqual(completed.items);
+      expect(later.more).toBe(false);
+      let pageCursor = parseSessionEntries(await readFile(file, "utf8")).find(
+        (entry) => entry.type !== "session"
+      )!.id;
+      const pages = [];
+
+      for (let index = 0; index < 10; index++) {
+        const page = await show(`--since ${pageCursor} --limit 1`);
+        expect(page.items).toHaveLength(1);
+        pages.push(...page.items);
+        pageCursor = page.cursor!;
+        if (!page.more) break;
       }
 
-      await host.prompt(`digest-fork ${id}`);
-      expect(JSON.parse((await host.command(`show ${id} --last`)).message)).toEqual({
+      expect(pages).toEqual(completed.items.slice(completed.items.length - pages.length));
+      expect(pages).toContainEqual({ type: "tools", text: "read ×1" });
+
+      await host.prompt(`digest-compact ${id}`);
+      const compacted = await show();
+      expect(compacted.items.slice(0, completed.items.length)).toEqual(completed.items);
+      // Two runs of the fixture's replies, and the fixture's compaction entry of 7 and 3 tokens.
+      const listed = z
+        .object({ tasks: z.array(taskRecordSchema) })
+        .parse(JSON.parse((await host.command("list")).message)).tasks[0]!.usage;
+
+      for (const usage of [compacted.usage, listed]) {
+        expect(usage).toMatchObject({ input: 37, output: 18 });
+        expect(usage?.cost).toBeCloseTo(0.004, 9);
+      }
+
+      expect(
+        (await show(`--since ${completed.cursor}`)).items.filter((item) => item.type === "tools")
+      ).toEqual([]);
+
+      // Resuming the first run branches the child file away from the compacted run.
+      const firstEnd = (await host.entries()).find(
+        (entry) => entry.type === "custom" && entry.customType === END_ENTRY
+      )!;
+      await host.request({ type: "prompt", message: `/fixture-tree ${firstEnd.id}` });
+      expect(JSON.parse((await host.command(`show ${id} --last`)).message)).toMatchObject({
         task_id: id,
         state: "inactive",
-        cursor: null,
-        text: null
+        text: "Activity fixture finished"
       });
       await host.prompt(`resume-id ${id}`);
       const task = z
@@ -84,14 +144,14 @@ test.skipIf(process.platform !== "linux").each([true, false])(
         if (!page.more) break;
       }
 
-      expect(seen).toHaveLength(2);
-      expect(seen.filter((item) => item.type === "tools")).toEqual([]);
-      expect(seen.filter((item) => item.type === "assistant").map((item) => item.text)).toEqual([
-        "No earlier fixture seed"
+      expect(seen).toEqual([
+        ...completed.items,
+        { type: "user", text: "recall" },
+        { type: "assistant", text: "No earlier fixture seed" }
       ]);
       const latest = await show("--limit 1");
-      expect(latest.omitted).toBe(1);
-      expect(latest.usage).toMatchObject({ input: 10, output: 5, cost: 0.001 });
+      expect(latest.omitted).toBe(4);
+      expect(latest.usage).toMatchObject({ input: 30, output: 15, cost: 0.003 });
       const last: unknown = JSON.parse((await host.command(`show ${id} --last`)).message);
       expect(last).toEqual({
         task_id: id,
@@ -107,6 +167,55 @@ test.skipIf(process.platform !== "linux").each([true, false])(
         /DO_NOT_SHOW_THINKING|\.pi-subagents-fixture|disposable subagents workspace/
       );
       expect(await readFile(task.session_file, "utf8")).toBe(before);
+    } finally {
+      await host.stop();
+      const leaked = await remainingProcesses(directory);
+      await killFixtureProcesses(directory);
+      await rm(directory, { recursive: true, force: true });
+      expect(leaked).toEqual([]);
+    }
+  },
+  40_000
+);
+
+test.skipIf(process.platform !== "linux")(
+  "returns the latest assistant text after an abort during a tool call",
+  async () => {
+    const directory = await createFixtureWorkspace();
+    const host = await Supervisor.start(directory);
+
+    try {
+      await host.reply("background-abort-tool");
+      const id = detailsSchema.parse((await host.results())[0]!.details).task_id!;
+      await expect
+        .poll(async () => (await fixtureProcesses(directory)).map(({ command }) => command))
+        .toContainEqual(expect.stringContaining("sleep 600"));
+      await host.command(`abort ${id}`);
+      const listed = async () =>
+        z
+          .object({ tasks: z.array(taskRecordSchema) })
+          .parse(JSON.parse((await host.command("list")).message)).tasks[0]!;
+      await expect.poll(async () => (await listed()).state).toBe("inactive");
+      const entries = parseSessionEntries(await readFile((await listed()).session_file, "utf8"));
+      const assistants = entries.flatMap((entry) =>
+        entry.type === "message" && entry.message.role === "assistant"
+          ? [{ id: entry.id, message: entry.message }]
+          : []
+      );
+      // Pi 1.0.2 requests one more response after the aborted tool and records it as an empty
+      // error. Without that message, this test does not cover the skip.
+      expect(assistants.map(({ message }) => [message.stopReason, message.content.length])).toEqual(
+        [
+          ["toolUse", 2],
+          ["error", 0]
+        ]
+      );
+      expect(JSON.parse((await host.command(`show ${id} --last`)).message)).toEqual({
+        task_id: id,
+        state: "inactive",
+        cursor: assistants[0]!.id,
+        text: "Fixture text before the tool"
+      });
     } finally {
       await host.stop();
       const leaked = await remainingProcesses(directory);

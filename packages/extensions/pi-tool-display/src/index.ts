@@ -1,16 +1,20 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { noticeType } from "pi-nested-instructions/notices";
 
-import { createNoticeRenderer } from "./adapters/pi-nested-instructions/index.ts";
+import { subagentResultType } from "./adapters/pi-subagents/index.ts";
+import type { DisplayAction } from "./contracts.ts";
 import { DisplayCollectors } from "./host/collection.ts";
 import { installHostIntegration } from "./host/install.ts";
-import { PublicCollector } from "./host/public-collection.ts";
+import { createNoticeRenderer } from "./rendering/notice.ts";
+import { createSubagentResultRenderer } from "./rendering/subagent-result.ts";
 
 export default function toolDisplay(pi: ExtensionAPI): void {
+  const emit = (action: DisplayAction) => pi.events.emit(action.event, action.data);
   pi.registerMessageRenderer(noticeType, createNoticeRenderer());
+  pi.registerMessageRenderer(subagentResultType, createSubagentResultRenderer(emit));
   const warnings: string[] = [];
   let notify: ((message: string) => void) | undefined;
-  let fallback: PublicCollector | undefined;
+  const stderr = (message: string) => process.stderr.write(`${message}\n`);
 
   const warning = (message: string) => {
     if (notify) notify(message);
@@ -18,21 +22,21 @@ export default function toolDisplay(pi: ExtensionAPI): void {
   };
 
   const collection = new DisplayCollectors((type, data) => pi.appendEntry(type, data), warning);
-  const dispose = installHostIntegration(collection, warning, (action) =>
-    pi.events.emit(action.event, action.data)
-  );
-  pi.on("session_shutdown", () => {
-    notify = undefined;
+  const dispose = installHostIntegration(collection, warning, emit);
+  // Pi awaits this handler, so lines queued during local file setup reach the file.
+  // The session context stays valid until the handler ends, so flush warnings still show.
+  pi.on("session_shutdown", async (event, context) => {
     dispose?.();
-    collection.dispose();
-    fallback?.dispose();
+    // A TUI quit stops the terminal before this handler, so warnings print once Pi exits.
+    if (event.reason === "quit" && context.mode === "tui")
+      notify = (message) => process.once("exit", () => stderr(message));
+    await collection.dispose();
+    notify = undefined;
   });
   pi.on("session_start", (_event, context) => {
-    notify = (message) => context.ui.notify(message, "warning");
-    fallback?.dispose();
-    fallback = collection.start(context.sessionManager)
-      ? undefined
-      : new PublicCollector(pi, context, warning);
+    // Print and JSON sessions have no notifications; stderr keeps their stdout output intact.
+    notify = context.hasUI ? (message) => context.ui.notify(message, "warning") : stderr;
+    collection.start(context.sessionManager);
     if (context.mode !== "tui") dispose?.();
     else if (!dispose)
       warnings.push(
@@ -40,12 +44,4 @@ export default function toolDisplay(pi: ExtensionAPI): void {
       );
     warnings.splice(0).forEach(notify);
   });
-  pi.on("message_start", (event) => fallback?.event(event));
-  pi.on("message_update", (event) => fallback?.event(event));
-  pi.on("message_end", (event) => fallback?.event(event));
-  pi.on("tool_execution_start", (event) => fallback?.event(event));
-  pi.on("tool_execution_end", (event) => fallback?.event(event));
-  pi.on("turn_end", (event) => fallback?.event(event));
-  pi.on("agent_end", (event) => fallback?.event(event));
-  pi.on("agent_settled", (event) => fallback?.event(event));
 }

@@ -28,6 +28,7 @@
     "./tui/terminal-text": "./src/tui/terminal-text/index.ts",
     "./tui/glyphs": "./src/tui/glyphs/index.ts",
     "./tui/token-count": "./src/tui/token-count/index.ts",
+    "./tui/duration": "./src/tui/duration/index.ts",
     "./tui/text-layout": "./src/tui/text-layout/index.ts",
     "./tui/text-budget": "./src/tui/text-budget/index.ts",
     "./tui/components/browser": "./src/tui/components/browser/index.ts",

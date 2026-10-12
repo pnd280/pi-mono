@@ -72,7 +72,7 @@ export const codemodeDisplayAdapter: ToolDisplayAdapter = {
       ? undefined
       : detailsSchema.safeParse(result.details).data?.fullOutputPath;
 
-    return path ? [{ kind: "reference", label: "Full output", value: path }] : [];
+    return path ? [{ kind: "reference", label: "Saved output", value: path }] : [];
   },
   // Count each script once; its nested calls never reach the transcript.
   summaryItems: () => [{ category: scriptCategory.id }],

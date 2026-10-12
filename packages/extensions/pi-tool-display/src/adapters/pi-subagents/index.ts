@@ -1,10 +1,10 @@
-import type { ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { MessageRenderer, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
-import type { DisplayProgress, ToolDisplayAdapter } from "../../contracts.ts";
+import type { BorrowedToolResult, DisplayProgress, ToolDisplayAdapter } from "../../contracts.ts";
 
 const argsSchema = z.object({
   description: z.string().min(1),
@@ -74,9 +74,9 @@ function usage({ usage }: Details): string {
   return `↑${formatTokenCount(usage.input)}\u00a0↓${formatTokenCount(usage.output)}\u00a0$${usage.cost.toFixed(2)}`;
 }
 
-/** Returned calls name their task; failures put usage before the reason. */
+/** Only expanded fields name a returned call's task; failures put usage before the reason. */
 function secondary(details: Details): string {
-  if (details.returned) return details.task_id ?? "Waiting for capacity";
+  if (details.returned) return details.task_id === undefined ? "Waiting for capacity" : "";
   if (details.state === "queued") return "Waiting for capacity";
   if (details.state === "running") return "";
   if (details.state === "completed") return usage(details);
@@ -102,7 +102,7 @@ function status(details: Details): NonNullable<DisplayProgress["status"]> {
     glyph:
       details.state === "cancelled" ? TUI_GLYPHS.outcome.cancelled : TUI_GLYPHS.outcome.failure,
     text: details.state,
-    tone: "failure"
+    tone: details.state === "cancelled" ? "cancelled" : "failure"
   };
 }
 
@@ -200,7 +200,7 @@ export const subagentDisplayAdapter: ToolDisplayAdapter = {
 };
 
 /** The abort call succeeds; its card reports the task it stopped. */
-export const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
+const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-subagents:subagent_abort",
   family: "invocation",
   supports: (args, result) =>
@@ -242,6 +242,26 @@ export const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
     };
   }
 };
+
+/** The background result message that pi-subagents persists. */
+export const subagentResultType = "pi-subagents.result";
+
+/** Pure: a background result message as subagent card input; undefined unless its details match. */
+export function subagentResultCard(
+  message: Pick<Parameters<MessageRenderer>[0], "content" | "details">
+): { args: { description: string }; result: BorrowedToolResult } | undefined {
+  const details = detailsSchema.safeParse(message.details).data;
+  if (!details) return undefined;
+  const { content } = message;
+
+  return {
+    args: { description: details.description },
+    result: {
+      content: typeof content === "string" ? [{ type: "text", text: content }] : content,
+      details: message.details
+    }
+  };
+}
 
 export function piSubagentAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
   if (

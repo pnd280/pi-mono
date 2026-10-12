@@ -3,7 +3,9 @@ import {
   highlightCodeBounded,
   highlightCodeSelection
 } from "@pi-mono/libs/tui/components/code-highlight";
-import { renderDiffBody } from "@pi-mono/libs/tui/components/diff-view";
+import { renderDiffPanel } from "@pi-mono/libs/tui/components/diff-view";
+import { renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
+import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import {
   compactDisplayText,
@@ -13,15 +15,17 @@ import {
 } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { splitOutputText, type OutputText } from "@pi-mono/utils/output-text";
+import type { ParsedPatch } from "@pi-mono/utils/patch";
 
 import type {
   BorrowedToolResult,
   DisplayNotice,
+  LocalDetails,
   McpFacts,
   NestedCall,
   ResultTextPart
 } from "../contracts.ts";
-import { parseRetainedPatch } from "../diff.ts";
+import { changeReasonText, parseRetainedPatch } from "../diff.ts";
 import { stringField } from "../terminal-text.ts";
 import { record } from "../values.ts";
 import {
@@ -30,13 +34,171 @@ import {
   codeHighlightLimits,
   output,
   message,
-  reference
+  reference,
+  tree
 } from "./format.ts";
 import { bodyWidth } from "./layout.ts";
-import type { Projection, ResultBody } from "./types.ts";
+import type { Projection } from "./types.ts";
 
-// Mutable only while preparing a body; cards expose read-only measured items.
-type TreeItem = { rows: string[] };
+// Mutable only while preparing a body; placements read measured items.
+type TreeItem = { rows: string[]; image?: true };
+
+type ResultBody = Readonly<{
+  items: readonly TreeItem[];
+  annotations: readonly string[];
+  /** Full-width patch panel rows, between the annotations and the tree. */
+  panel: readonly string[];
+}>;
+
+const PREVIEW_LINES = 3;
+
+/**
+ * The result placements of one prepared card: its body in the result slot, its
+ * rows under a group member heading, and the collapsed progress preview. Each
+ * placement is built on first use, so a hidden slot does no work.
+ */
+export class PreparedResult {
+  private body: ResultBody | undefined;
+  private group: readonly string[] | undefined;
+
+  /** `card` is the prepared card that holds this result. */
+  constructor(private card: Projection) {}
+
+  private get cardBody(): ResultBody {
+    const p = this.card;
+
+    return (this.body ??= p.result
+      ? buildResultBody(p.result, p)
+      : { items: [], annotations: [], panel: [] });
+  }
+
+  /** Whether the card has tree items for the heading's continuation guide. */
+  get hasBody(): boolean {
+    return this.cardBody.items.some((item) => item.rows.length > 0);
+  }
+
+  /** The card body in the result slot. Collapsed group members show it in the group. */
+  rows(): string[] {
+    const p = this.card;
+    if (p.group && !p.expanded) return [];
+    const { items, annotations, panel } = this.cardBody;
+
+    return [
+      ...renderTreeContinuation(annotations, {
+        width: p.width,
+        indent: 2,
+        style: (text) => p.theme.fg("dim", text),
+        hasChildren: this.hasBody
+      }),
+      ...panel,
+      ...tree(items, p)
+    ];
+  }
+
+  /** The result rows under a group member heading, with the same policy as the card body. */
+  get groupRows(): readonly string[] {
+    if (this.group) return this.group;
+    const p = this.card;
+    if (!p.call || !p.result) return (this.group = []);
+    const body = buildResultBody(p.result, atWidth(p, p.width - 2));
+
+    return (this.group = [
+      ...body.annotations,
+      ...body.panel,
+      ...body.items.flatMap((item) => item.rows)
+    ]);
+  }
+
+  /** The first logical lines of a collapsed completed progress card's retained result. */
+  progressPreview(): string[] {
+    const p = this.card;
+    const theme = p.theme;
+    const width = Math.max(1, p.width - 4);
+    const result = p.result;
+    if (!result) return [];
+    const parts = textParts(result, p, false);
+    // Use the adapter's interpretation of known envelopes, as the expanded body does.
+    const text = displayText(
+      result.content
+        .flatMap((block, contentIndex) => {
+          if (block.type !== "text") return [];
+          const blockParts = parts(contentIndex, block.text);
+
+          return blockParts.length ? [blockParts.map((part) => part.text).join("")] : [];
+        })
+        .join("\n")
+    )
+      .replace(/^(?:[^\S\n]*\n)+/, "")
+      .trimEnd();
+    if (!text) return tree([{ rows: [theme.fg("dim", "(no output)")] }], p);
+    const lines = text.split("\n");
+    // A hint must save space, so it never replaces a single line.
+    const shown = lines.length > PREVIEW_LINES + 1 ? PREVIEW_LINES : lines.length;
+    const hidden = lines.length - shown;
+
+    return tree(
+      [
+        {
+          rows: [
+            ...lines
+              .slice(0, shown)
+              .map((line) => theme.fg("toolOutput", truncateToWidth(line, width, "…"))),
+            ...(hidden > 0
+              ? [
+                  theme.fg(
+                    "dim",
+                    truncateToWidth(`… ${hidden} more lines (${expansionHint()})`, width, "…")
+                  )
+                ]
+              : [])
+          ]
+        }
+      ],
+      p
+    );
+  }
+}
+
+/** Copies only projection fields, so card-only callbacks stay unread. */
+function atWidth(p: Projection, width: number): Projection {
+  const { name, adapter, context, theme, expanded, showParameters, call, result, group } = p;
+
+  return {
+    name,
+    adapter,
+    context,
+    theme,
+    width,
+    expanded,
+    showParameters,
+    call,
+    result,
+    group,
+    mcp: p.mcp,
+    outcome: p.outcome,
+    summary: p.summary
+  };
+}
+
+/** The display adapter's parts for each text block; without the callback, a block is plain text. */
+function textParts(
+  result: BorrowedToolResult,
+  p: Projection,
+  expanded: boolean
+): (contentIndex: number, text: string) => ResultTextPart[] {
+  const context = {
+    ...p.context,
+    isCancelled: p.outcome === "cancelled",
+    expanded,
+    hasImages: result.content.some((block) => block.type === "image"),
+    result
+  };
+
+  return (contentIndex, text) =>
+    p.adapter.textParts?.(text, p.context.args, { ...context, contentIndex }) ?? [
+      { kind: p.context.isError ? "error" : "output", text }
+    ];
+}
 
 const COMPACT_NESTED_CALLS = 8;
 
@@ -44,12 +206,8 @@ const nestedCallStatus = {
   running: { icon: "…", color: "warning" },
   success: { icon: TUI_GLYPHS.outcome.success, color: "success" },
   failure: { icon: TUI_GLYPHS.outcome.failure, color: "error" },
-  cancelled: { icon: TUI_GLYPHS.outcome.cancelled, color: "muted" }
+  cancelled: { icon: TUI_GLYPHS.outcome.cancelled, color: "warning" }
 } as const;
-
-function formatDuration(ms: number): string {
-  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
-}
 
 /** Cents for larger amounts, two significant digits for fractions of a cent. */
 function formatCost(cost: number): string {
@@ -104,35 +262,28 @@ function nestedCallItems(result: BorrowedToolResult, p: Projection): TreeItem[] 
   return [{ rows }];
 }
 
-export function buildGroupRows(p: Projection): string[] {
-  if (!p.call || !p.result) return [];
-  const body = buildResultBody(p.result, p);
-
-  return [...body.annotations, ...body.items.flatMap((item) => item.rows)];
-}
-
 function replacesOutput(p: Projection): boolean {
   return !p.expanded && !p.context.isError && !!p.summary && !p.summary.preserveOutput;
 }
 
-function patchRows(
-  patch: string,
-  p: Projection,
-  annotations: readonly string[]
-): string[] | undefined {
-  const parsed = parseRetainedPatch(patch);
-  if (!parsed) return undefined;
+/** A displayable patch and the rows that lead its panel. */
+type PatchChange = { parsed: ParsedPatch; annotations: readonly string[] };
+
+/** The full-width panel for a patch; `footer` holds the card details that follow it. */
+function patchPanel(change: PatchChange, p: Projection, footer: readonly string[]): string[] {
+  const { parsed } = change;
   // Preserve +0 -0 for empty patches so a no-op still has visible output.
   const oneSided =
     (parsed.added > 0 && parsed.removed === 0) || (parsed.removed > 0 && parsed.added === 0);
-  const rows =
+  const totals =
     p.adapter.family === "write" && oneSided
       ? []
       : [
           `${p.theme.fg("toolDiffAdded", `+${parsed.added}`)} ${p.theme.fg("toolDiffRemoved", `-${parsed.removed}`)}`
         ];
-  const body = renderDiffBody(parsed, {
-    width: bodyWidth(p.width),
+
+  return renderDiffPanel(parsed, {
+    width: p.width,
     expanded: p.expanded,
     compactRows: 30,
     contextRows: 2,
@@ -142,11 +293,10 @@ function patchRows(
       highlightCodeBounded(source, {
         ...codeHighlightLimits,
         path: stringField(record(p.context.args).path)
-      })
+      }),
+    header: [...totals, ...change.annotations],
+    footer
   });
-  rows.push(...annotations, ...body);
-
-  return rows;
 }
 
 function applicationFailure(p: Projection): string[] {
@@ -172,7 +322,8 @@ function patchCandidates(result: BorrowedToolResult, p: Projection): PatchCandid
   const suppliedPatch = record(result.details).patch;
   const published =
     p.adapter.patch && !p.context.isError && typeof suppliedPatch === "string" ? suppliedPatch : "";
-  const observed = p.call?.change?.patch ?? "";
+  const change = p.call?.change;
+  const observed = change && change.change !== "unavailable" ? change.patch : "";
 
   return [
     ...(published ? [{ patch: published, observed: false }] : []),
@@ -180,10 +331,10 @@ function patchCandidates(result: BorrowedToolResult, p: Projection): PatchCandid
   ];
 }
 
-function renderPatchCandidates(
+function selectPatch(
   candidates: PatchCandidate[],
   p: Projection
-): { rows: string[]; rendered: boolean } {
+): { rows: string[]; patch: PatchChange | undefined } {
   let fallbackAnnotations: string[] = [];
 
   for (const candidate of candidates) {
@@ -191,10 +342,10 @@ function renderPatchCandidates(
       candidate.observed && p.call?.operation?.outcome !== "success"
         ? message("Proposed change; application not confirmed.", p, "warning")
         : [];
-    const rows = patchRows(candidate.patch, p, annotations);
+    const parsed = parseRetainedPatch(candidate.patch);
     fallbackAnnotations = annotations;
 
-    if (rows) return { rows, rendered: true };
+    if (parsed) return { rows: [], patch: { parsed, annotations } };
   }
 
   return {
@@ -202,25 +353,25 @@ function renderPatchCandidates(
       ...fallbackAnnotations,
       ...message("Patch display unavailable: invalid or oversized patch.", p, "warning")
     ],
-    rendered: false
+    patch: undefined
   };
 }
 
+/** With a patch, `rows` are the details that follow it; otherwise they replace it. */
 function changeRows(
   result: BorrowedToolResult,
   p: Projection
-): { rows: string[]; hasPatch: boolean } {
+): { rows: string[]; patch: PatchChange | undefined } {
   const candidates = patchCandidates(result, p);
-  const rendered = candidates.length
-    ? renderPatchCandidates(candidates, p)
-    : { rows: [], rendered: false };
-  const rows = [...rendered.rows];
+  const selected = candidates.length ? selectPatch(candidates, p) : { rows: [], patch: undefined };
+  const rows = [...selected.rows];
 
   if (candidates.length) rows.push(...applicationFailure(p));
-  if (!rendered.rendered && p.call?.change?.availability === "unavailable")
-    rows.push(...message(p.call.change.reason ?? "Change information unavailable.", p, "warning"));
+  const change = p.call?.change;
+  if (!selected.patch && change?.change === "unavailable")
+    rows.push(...message(changeReasonText(change.reason), p, "warning"));
 
-  return { rows, hasPatch: rendered.rendered };
+  return { rows, patch: selected.patch };
 }
 
 function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
@@ -265,6 +416,7 @@ function imageItems(content: BorrowedToolResult["content"], p: Projection): Tree
     block.type === "image"
       ? [
           {
+            image: true,
             rows: output(
               `${reference("[Image: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`,
               p,
@@ -475,13 +627,7 @@ function contentItems(result: BorrowedToolResult, p: Projection): TreeItem[] {
   // Saved files contain process output, not Pi's failure footer or result middleware diagnostics.
   if (preview !== undefined && !p.context.isError)
     return [...items, ...imageItems(result.content, p)];
-  const textContext = {
-    ...p.context,
-    isCancelled: p.outcome === "cancelled",
-    expanded: p.expanded,
-    hasImages: result.content.some((block) => block.type === "image"),
-    result
-  };
+  const parts = textParts(result, p, p.expanded);
 
   // Consecutive text blocks share one compact budget, so output split across
   // blocks (such as one block per codemode `text()` call) previews as one stream.
@@ -501,20 +647,16 @@ function contentItems(result: BorrowedToolResult, p: Projection): TreeItem[] {
   for (const [index, block] of result.content.entries()) {
     if (block.type === "image") {
       flushRun();
+      // Suppressed text blocks must not erase the image boundary.
+      runAfterImage = true;
       if (!describedImage(result.content, index, p)) items.push(...imageItems([block], p));
       continue;
     }
 
-    const parts = p.adapter.textParts?.(block.text, p.context.args, {
-      ...textContext,
-      contentIndex: index
-    }) ?? [
-      { kind: p.context.isError ? "error" : "output", text: block.text } satisfies ResultTextPart
-    ];
-    if (!parts.length) continue;
+    const blockParts = parts(index, block.text);
+    if (!blockParts.length) continue;
     if (run.length) run.push({ kind: "output", text: "\n" });
-    else runAfterImage = result.content[index - 1]?.type === "image";
-    run.push(...parts);
+    run.push(...blockParts);
   }
 
   flushRun();
@@ -532,20 +674,22 @@ function appendDetails(items: TreeItem[], rows: string[]): void {
   else items.push({ rows: [...rows] });
 }
 
+const localNotices: Partial<Record<LocalDetails, string>> = {
+  "not-observed": "Operation details unavailable; call was not observed.",
+  absent: "Local details for this part of the session are not on this machine.",
+  unsaved: "Local details were not saved for this call.",
+  "too-large": "Local details for this part of the session are unavailable: file exceeds 8 MiB.",
+  unreadable:
+    "Local details for this part of the session are unavailable: file cannot be read safely."
+};
+
 function unavailableHistory(p: Projection): DisplayNotice[] {
   if (p.call?.origin !== "historical") return [];
   const notices: DisplayNotice[] = [];
   if (p.adapter.id === "pi:write" && !p.call.change)
     notices.push({ kind: "unavailable", text: "Before-state unavailable; no historical diff." });
-  if (
-    p.expanded &&
-    !p.call.operation &&
-    ["pi:bash", "pi:powershell", "pi:edit", "pi:write"].includes(p.adapter.id)
-  )
-    notices.push({
-      kind: "unavailable",
-      text: "Operation details unavailable; call was not observed."
-    });
+  const local = p.call.local && localNotices[p.call.local];
+  if (p.expanded && local) notices.push({ kind: "unavailable", text: local });
 
   return notices;
 }
@@ -577,10 +721,15 @@ function notices(result: BorrowedToolResult, p: Projection): string[] {
     const color = (
       { failure: "error", cancelled: "warning", unavailable: "muted", success: "dim" } as const
     )[operation.outcome];
+    let timing = "";
+    if (operation.durationMs !== undefined)
+      timing = p.theme.fg("dim", `; ${formatDuration(operation.durationMs)}`);
+    else if (p.call.local === "absent")
+      timing = p.theme.fg("muted", "; timing not on this machine");
     const detail =
       p.theme.fg("dim", "Operation: ") +
       p.theme.fg(color, operation.outcome) +
-      p.theme.fg("dim", `; ${Math.round(operation.durationMs)}ms`) +
+      timing +
       (operation.exitCode !== undefined
         ? p.theme.fg("dim", "; exit ") + p.theme.fg(color, String(operation.exitCode ?? "unknown"))
         : "") +
@@ -592,18 +741,17 @@ function notices(result: BorrowedToolResult, p: Projection): string[] {
 }
 
 function annotateResult(items: TreeItem[], annotations: string[]): ResultBody {
-  // Call-level notices must not become children of an unrelated final media/resource.
-  // With one result item they can continue its body; otherwise they continue the root.
-  if (items.length === 1) {
-    appendDetails(items, annotations);
+  // Call-level notices follow the output, but must not become children of an unrelated
+  // final media/resource. With one result item they continue its body; with several,
+  // they form a final branch. Without items they continue the root.
+  if (items.length === 1) appendDetails(items, annotations);
+  else if (items.length > 1 && annotations.length) items.push({ rows: [...annotations] });
+  else return { items, annotations, panel: [] };
 
-    return { items, annotations: [] };
-  }
-
-  return { items, annotations };
+  return { items, annotations: [], panel: [] };
 }
 
-export function buildResultBody(current: BorrowedToolResult, p: Projection): ResultBody {
+function buildResultBody(current: BorrowedToolResult, p: Projection): ResultBody {
   const body = resultBody(current, p);
   if (!p.summary?.text) return body;
   const color = p.outcome === "cancelled" ? "warning" : "error";
@@ -623,12 +771,13 @@ function resultBody(current: BorrowedToolResult, p: Projection): ResultBody {
   if (p.adapter.family === "read" && !p.expanded && !p.context.isError && !p.context.isPartial)
     return annotateResult([...nested, ...imageItems(current.content, p)], annotations);
   const change = changeRows(current, p);
-  const items: TreeItem[] = change.hasPatch ? [{ rows: change.rows }] : [];
-  items.push(...nested);
   const facts = p.mcp;
-  if (facts)
+
+  if (facts) {
+    const body = annotateResult([...nested, ...mcpItems(facts, p)], annotations);
+
     return {
-      items: [...items, ...mcpItems(facts, p)],
+      items: body.items,
       annotations: [
         ...(p.outcome === "failure" && facts.outcome === "transport-error"
           ? message("Transport error", p, "error")
@@ -636,20 +785,35 @@ function resultBody(current: BorrowedToolResult, p: Projection): ResultBody {
         ...(p.outcome === "failure" && facts.outcome === "returned-error"
           ? message("Tool returned an error", p, "error")
           : []),
-        ...(!change.hasPatch ? change.rows : []),
-        ...annotations
-      ]
+        ...(!change.patch ? change.rows : []),
+        ...body.annotations
+      ],
+      panel: change.patch ? patchPanel(change.patch, p, change.rows) : []
     };
-  if (!change.hasPatch || p.context.isError) {
-    const content = contentItems(current, p);
-    if (change.hasPatch || ["edit", "write", "shell"].includes(p.adapter.family))
-      appendDetails(
-        items,
-        content.flatMap((item) => item.rows)
-      );
-    else items.push(...content);
-  } else items.push(...imageItems(current.content, p));
-  if (!change.hasPatch) appendDetails(items, change.rows);
+  }
+
+  if (change.patch) {
+    // Failure text and call notices follow the patch; images stay in the tree.
+    const details = p.context.isError
+      ? contentItems(current, p).flatMap((item) => (item.image ? [] : item.rows))
+      : [];
+
+    return {
+      items: [...nested, ...imageItems(current.content, p)],
+      annotations: [],
+      panel: patchPanel(change.patch, p, [...change.rows, ...details, ...annotations])
+    };
+  }
+
+  const items: TreeItem[] = [...nested];
+  const content = contentItems(current, p);
+  if (["edit", "write", "shell"].includes(p.adapter.family))
+    appendDetails(
+      items,
+      content.flatMap((item) => item.rows)
+    );
+  else items.push(...content);
+  appendDetails(items, change.rows);
 
   return annotateResult(items, annotations);
 }

@@ -1,6 +1,51 @@
-import type { DisplayCall, Outcome, SummaryCategory, SummaryNotice } from "../contracts.ts";
+import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+
+import type {
+  ChangeFact,
+  DisplayCall,
+  Outcome,
+  SummaryCategory,
+  SummaryItem,
+  SummaryNotice,
+  ToolFamily
+} from "../contracts.ts";
 import type { CallInterpretation } from "../interpretation.ts";
-import { builtinCategories, resolveCategory } from "./categories.ts";
+import { writeCategory } from "./items.ts";
+
+/** Category IDs with this prefix count calls per tool name. */
+const TOOL_PREFIX = "other:";
+
+const builtinCategories: ReadonlyMap<string, SummaryCategory> = new Map(
+  [
+    { id: "create", count: { one: "created {n} file", other: "created {n} files" } },
+    { id: "edit", count: { one: "edited {n} file", other: "edited {n} files" } },
+    { id: "shell", count: { one: "ran {n} command", other: "ran {n} commands" } },
+    { id: "mcp", count: { one: "{n} MCP call", other: "{n} MCP calls" } },
+    { id: "search", count: { one: "{n} search", other: "{n} searches" } },
+    { id: "list", count: { one: "listed {n} dir", other: "listed {n} dirs" } },
+    { id: "read", count: { one: "read {n} file", other: "read {n} files" } }
+  ].map((category) => [category.id, category])
+);
+
+/** Adapters without summary items count each call once in their family's category. */
+export function fallbackItems(
+  family: ToolFamily,
+  tool: string,
+  change: ChangeFact | undefined
+): SummaryItem[] {
+  switch (family) {
+    case "read":
+    case "search":
+    case "list":
+    case "shell":
+    case "edit":
+      return [{ category: family }];
+    case "write":
+      return [{ category: writeCategory(change) }];
+    case "invocation":
+      return [{ category: `${TOOL_PREFIX}${tool}` }];
+  }
+}
 
 export type SummaryCounts = {
   readonly failed: number;
@@ -14,12 +59,36 @@ export type SummarySegment = {
   /** Distinct identities plus calls without one. */
   readonly count: number;
   readonly counts: SummaryCounts;
+  /** The wording leads with a tool name, which is an identifier rather than a verb. */
+  readonly toolNamed: boolean;
 };
 
 export type RunSummary = {
   /** Categories in the order of their first call or notice. */
   readonly segments: readonly SummarySegment[];
 };
+
+/**
+ * Built-in, then adapter-declared categories. Other IDs count per tool name; an
+ * undeclared adapter category counts under its ID.
+ */
+function resolveCategory(
+  id: string,
+  declared: ReadonlyMap<string, SummaryCategory>
+): Pick<SummarySegment, "category" | "toolNamed"> {
+  const category = builtinCategories.get(id) ?? declared.get(id);
+  if (category) return { category, toolNamed: id.startsWith(TOOL_PREFIX) };
+  const tool = id.startsWith(TOOL_PREFIX) ? id.slice(TOOL_PREFIX.length) : id;
+  const name = compactDisplayText(tool);
+
+  return {
+    category: {
+      id: `${TOOL_PREFIX}${tool}`,
+      count: { one: `${name} ×{n}`, other: `${name} ×{n}` }
+    },
+    toolNamed: true
+  };
+}
 
 function counts(states: readonly Outcome[]): SummaryCounts {
   const count = (state: Outcome) => states.filter((value) => value === state).length;
@@ -73,7 +142,7 @@ export function buildRunSummary(
 
   return {
     segments: [...categories].map(([id, entries]) => ({
-      category: resolveCategory(id, declared),
+      ...resolveCategory(id, declared),
       count: entries.size,
       counts: counts([...entries.values()])
     }))

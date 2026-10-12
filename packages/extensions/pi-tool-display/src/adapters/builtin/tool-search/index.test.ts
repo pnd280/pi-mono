@@ -12,6 +12,7 @@ import { beforeAll, expect, it } from "vite-plus/test";
 
 import { selectAdapter } from "../../../host/selection.ts";
 import { loadDisplaySettings } from "../../../settings.ts";
+import { plainTheme as theme } from "../../../test-fixture.ts";
 import { builtinToolSearchAdapter, toolSearchDisplayAdapter as adapter } from "./index.ts";
 
 type Registered = Pick<ToolDefinition, "name" | "description" | "parameters">;
@@ -43,12 +44,6 @@ const info: ToolInfo = {
     scope: "temporary",
     origin: "top-level"
   }
-};
-const theme = {
-  fg: (_color: string, text: string) => text,
-  bg: (_color: string, text: string) => text,
-  getBgAnsi: () => "",
-  bold: (text: string) => text
 };
 const plain = (lines: string[]) => stripTerminalSequences(lines.join("\n"));
 

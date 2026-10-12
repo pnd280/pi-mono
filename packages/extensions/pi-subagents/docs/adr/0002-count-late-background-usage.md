@@ -9,7 +9,7 @@ Pi counts `usage` session entries in `getSessionStats()`, the footer, and the co
 - Every custom-message persistence path, including deferred, `nextTurn`, and settle-boundary messages, goes through this method, and each result is persisted once.
 - Pi never persists a custom message between a tool call and its result, so the usage entry that follows it has the same safe position.
 - A child supervisor writes its grandchild's late usage before its own run settles ([ADR 0001](0001-hold-run-for-background-results.md)), so its supervisor's usage difference includes it.
-- Live task records count the same `late_usage` delta from the result's `message_end` event. Pi does not emit `entry_appended` for the wrapper's `appendUsage` call.
+- While a run is active, its in-memory task record counts the same `late_usage` delta from the result's `message_end` event. Pi does not emit `entry_appended` for the wrapper's `appendUsage` call. The run's `end` entry then records the statistics difference, which includes the usage entry ([ADR 0003](0003-keep-task-history-in-child-sessions.md)).
 
 ## Considered options
 

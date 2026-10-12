@@ -44,13 +44,13 @@ it("normalizes display arguments without mutating retained input", () => {
   expect(
     adapter
       .invocation?.(args)
-      .map((part) => part.text)
+      .map((part) => ("text" in part ? part.text : ""))
       .join("")
   ).toBe("a.ts · selection 2");
   expect(
     adapter.exploration?.(args, value)?.map(({ scope, parts }) => ({
       scope,
-      text: parts.map((part) => part.text).join("")
+      text: parts.map((part) => ("text" in part ? part.text : "")).join("")
     }))
   ).toEqual([{ scope: { kind: "file", value: "a.ts" }, text: "a.ts · selection 2" }]);
   expect(adapter.textParts?.(text, args, context(value))).toEqual([
@@ -68,7 +68,9 @@ it("suppresses only the recorded preview block, preserving borrowed source and l
     args,
     context(value)
   );
-  expect(parts?.map((part) => part.text).join("")).toBe("Selected source preview:\nsource");
+  expect(parts?.map((part) => ("text" in part ? part.text : "")).join("")).toBe(
+    "Selected source preview:\nsource"
+  );
   expect(parts?.[0]?.selection).toEqual([{ line: 1, start: 0, end: 6 }]);
   expect(
     adapter.textParts?.(

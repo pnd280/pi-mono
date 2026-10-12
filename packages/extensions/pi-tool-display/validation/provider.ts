@@ -15,7 +15,6 @@ import { createFixtureStream, type FixtureStreamContext } from "@pi-mono/libs/va
 import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 
-import { registerViewerFixture } from "./viewer.ts";
 import { assertFixtureWorkspace } from "./workspace.ts";
 
 type PlannedCall = { name: string; args: JsonObject };
@@ -50,7 +49,6 @@ function scenarios(cwd: string): ReadonlyMap<string, readonly PlannedCall[]> {
   );
 
   return new Map([
-    ["saved-output", [shell("console.log('retained output\\n'.repeat(10000))")]],
     [
       "summary",
       [
@@ -341,7 +339,6 @@ export function createDisplayFixtureStream(cwd: string): ProviderStreams["stream
 export default async function displayFixture(pi: ExtensionAPI): Promise<void> {
   const cwd = process.cwd();
   await assertFixtureWorkspace(cwd);
-  registerViewerFixture(pi);
   const stream = createDisplayFixtureStream(cwd);
 
   pi.registerProvider(

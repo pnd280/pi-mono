@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
@@ -12,9 +13,12 @@ import {
   type ProviderStreams
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createFixtureStream } from "@pi-mono/libs/validation/provider";
+import {
+  createFixtureStream,
+  zeroUsage,
+  type FixtureStreamContext
+} from "@pi-mono/libs/validation/provider";
 
-import { TASK_ENTRY } from "../src/constants.ts";
 import { assertFixtureWorkspace } from "./workspace.ts";
 
 export const FIXTURE_PROVIDER = "subagents-fixture";
@@ -48,27 +52,37 @@ function continuationPlan(scenario: string): Call[] | undefined {
         delivery: update[2] === "steer" ? "steer" : "follow_up"
       }
     ];
-  const owner = /^owner-retry ([0-9a-f-]{36}) ([0-9a-f-]{36})$/.exec(scenario);
+  const owner = /^owner-resume ([0-9a-f-]{36}) ([0-9a-f-]{36})$/.exec(scenario);
   if (owner?.[1] && owner[2])
     return [
       {
-        description: "Retry former owner",
+        description: "Resume through owner",
         task_id: owner[1],
         prompt: `update-id ${owner[2]} follow_up`
       }
     ];
-  const fork = /^digest-fork ([0-9a-f-]{36})$/.exec(scenario)?.[1];
-  if (fork)
-    return [{ description: "Fork child conversation", task_id: fork, prompt: "/fixture-fork" }];
+  const compact = /^digest-compact ([0-9a-f-]{36})$/.exec(scenario)?.[1];
+  if (compact)
+    return [
+      { description: "Compact child conversation", task_id: compact, prompt: "digest-compact" }
+    ];
   const history = /^(extend|history)-id ([0-9a-f-]{36})$/.exec(scenario);
   if (history?.[2])
     return [
       {
-        description: "Checkpoint history",
+        description: "Resumed history",
         task_id: history[2],
         prompt: history[1] === "extend" ? "nested-background" : "history-context"
       }
     ];
+  const resumedActivity = /^resume-activity-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
+  if (resumedActivity)
+    return [
+      { description: "Resumed activity", prompt: "activity-write", task_id: resumedActivity }
+    ];
+  const resumedStubborn = /^stubborn-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
+  if (resumedStubborn)
+    return [{ description: "Resume stubborn", prompt: "ignore-abort", task_id: resumedStubborn }];
   const resumedSlow = /^resume-slow-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
 
   return resumedSlow
@@ -104,6 +118,7 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     ["background-retry", "finite-late"],
     ["background-slow", "slow"],
     ["background-stubborn", "ignore-abort"],
+    ["background-abort-tool", "abort-tool"],
     ["background-input", "input-hold"],
     ["background-settling", "settle-hold"],
     ["background-exiting", "exit-hold"],
@@ -194,6 +209,18 @@ function failFinalReply(scenario: string, completions: number): void {
   }
 }
 
+/** Text, then a tool call that only an abort ends; Pi then adds an empty message to the run. */
+function abortToolResponse({ message, events, text }: FixtureStreamContext): "toolUse" {
+  text("Fixture text before the tool");
+  const call = fauxToolCall("bash", { command: "sleep 600" }, { id: "fixture-abort-tool" });
+  const contentIndex = message.content.length;
+  message.content.push(call);
+  events.push({ type: "toolcall_start", contentIndex, partial: message });
+  events.push({ type: "toolcall_end", contentIndex, toolCall: call, partial: message });
+
+  return "toolUse";
+}
+
 function plainResponse(
   scenario: string,
   context: Parameters<ProviderStreams["stream"]>[1],
@@ -254,6 +281,12 @@ function createStream(dialogAnswer: () => boolean): ProviderStreams["stream"] {
       ["finite-late", 4000],
       ["input-hold", 3000]
     ]).get(scenario);
+    if (scenario === "abort-tool")
+      return createFixtureStream({
+        model,
+        signal,
+        run: async (stream) => abortToolResponse(stream)
+      });
     let requestSignal = signal;
     if (scenario === "ignore-abort") requestSignal = undefined;
     else if (scenario === "cancelled")
@@ -451,33 +484,6 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       await ctx.fork(id.trim(), { position: "at" });
     }
   });
-  pi.registerCommand("fixture-legacy", {
-    description: "Append an excluded legacy task record",
-    handler: async () => {
-      pi.appendEntry(TASK_ENTRY, {
-        task_id: "legacy",
-        parent_task_id: null,
-        description: "Legacy",
-        session_file: "legacy.jsonl",
-        model: "fixture/model",
-        thinking: "off",
-        background: false,
-        state: "active",
-        outcome: null
-      });
-    }
-  });
-  pi.registerCommand("fixture-fork", {
-    description: "Create a fixture child branch",
-    handler: async (_args, ctx) => {
-      const first = ctx.sessionManager
-        .getEntries()
-        .find((entry) => entry.type === "message" && entry.message.role === "user");
-      if (!first) throw new Error("No fixture user entry");
-      await ctx.navigateTree(first.id, { summarize: false });
-      pi.appendEntry("subagents-fixture.branch", {});
-    }
-  });
   let commandStarted: (() => void) | undefined;
   pi.on("agent_start", () => commandStarted?.());
   pi.registerCommand("fixture-run", {
@@ -494,7 +500,11 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
   let answer = false;
   let settleHold = false;
   let exitHold = false;
+  let digestCompact = false;
+  let digestHold = false;
   pi.on("before_agent_start", async (event, ctx) => {
+    digestCompact = event.prompt === "digest-compact";
+    digestHold = event.prompt === "activity-digest";
     settleHold = event.prompt === "settle-hold";
     exitHold = event.prompt === "exit-hold";
     ignoreShutdown = event.prompt === "ignore-abort" || event.prompt === "shutdown-blocked";
@@ -508,6 +518,30 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
         "\u001b[31mSame\u001b[0m";
 
     return { systemPrompt: `${event.systemPrompt}\nSUBAGENTS_PREPARED_CONTEXT` };
+  });
+  // Hold the saved result so paging starts after the assistant's tool-call entry.
+  pi.on("tool_result", async (_event, ctx) => {
+    if (!digestHold) return;
+    await writeFile(join(ctx.cwd, "digest-ready"), "ready");
+    while (!existsSync(join(ctx.cwd, "digest-release"))) await setTimeout(25);
+  });
+  pi.on("agent_before_settle", async () => {
+    if (digestCompact) {
+      // The usage of the model request that would write the summary.
+      const usage = { ...zeroUsage(), input: 7, output: 3, totalTokens: 10 };
+      usage.cost.total = 0.001;
+
+      return {
+        entries: [
+          {
+            type: "compaction",
+            summary: "Digest fixture summary",
+            firstKeptEntryId: null,
+            usage
+          }
+        ]
+      };
+    }
   });
   pi.on("agent_settled", async (_event, ctx) => {
     if (!settleHold) return;

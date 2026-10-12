@@ -4,11 +4,10 @@ import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { genericAdapter } from "../adapters/generic.ts";
 import { isLive, type BorrowedToolResult, type ToolDisplayAdapter } from "../contracts.ts";
-import { interpretCard, reportAdapterFailure, type CardInterpretation } from "../interpretation.ts";
+import { AdapterEvaluator, interpretCard, type CardInterpretation } from "../interpretation.ts";
 import { heading } from "./headings.ts";
-import { progressPreviewRows, progressRows } from "./progress.ts";
-import { buildGroupRows, buildResultBody } from "./result-content.ts";
-import { resultRows } from "./results.ts";
+import { progressHeading } from "./progress.ts";
+import { PreparedResult } from "./result-content.ts";
 import type {
   CardRendererOptions,
   ToolDisplayRenderers,
@@ -28,17 +27,19 @@ function lazy<T>(prepare: () => T): () => T {
 
 function prepareCard(
   interpretation: CardInterpretation,
-  base: Omit<Projection, "adapter" | "mcp" | "outcome" | "summary">
+  base: Omit<Projection, "adapter" | "mcp" | "outcome" | "summary">,
+  evaluator: AdapterEvaluator
 ): PreparedCard {
   const context = lazy(() => ({
     ...base.context,
     isPartial: interpretation.pending,
     isError: interpretation.outcome === "failure" || interpretation.outcome === "cancelled"
   }));
-  const adapter = interpretation.adapter;
+  const adapter = evaluator.presentation(interpretation.adapter);
   const invocation = lazy(() => adapter.invocation?.(base.context.args, base.result));
   const code = lazy(() => adapter.code?.(base.context.args));
   const headingVerbs = lazy(() => adapter.headingVerbs?.(base.context.args));
+  const progress = lazy(() => adapter.progress?.(base.context.args, base.result));
   const summary = lazy(() => {
     if (!base.result || interpretation.pending || interpretation.outcome === "unavailable")
       return undefined;
@@ -46,35 +47,13 @@ function prepareCard(
       args: base.context.args,
       outcome: interpretation.outcome,
       operation: base.call?.operation,
+      local: base.call?.local,
       expanded: base.expanded
     });
 
     return value && displayText(value.text).trim() ? value : undefined;
   });
-  const body = lazy(() =>
-    base.result ? buildResultBody(base.result, prepared) : { items: [], annotations: [] }
-  );
-  // Groups use the same result policy in the call slot at their nested width.
-  // Keep preparation lazy so a hidden result slot does not format a second body.
-  const groupRows = lazy(() =>
-    buildGroupRows({
-      ...base,
-      adapter,
-      width: base.width - 2,
-      get context() {
-        return context();
-      },
-      get outcome() {
-        return interpretation.outcome;
-      },
-      get mcp() {
-        return interpretation.mcp;
-      },
-      get summary() {
-        return summary();
-      }
-    })
-  );
+  const preparedResult = lazy(() => new PreparedResult(prepared));
   const prepared: PreparedCard = {
     ...base,
     adapter,
@@ -99,14 +78,11 @@ function prepareCard(
     get headingVerbs() {
       return headingVerbs();
     },
-    get body() {
-      return body();
+    get progress() {
+      return progress();
     },
-    get hasBody() {
-      return body().items.some((item) => item.rows.length > 0);
-    },
-    get groupRows() {
-      return groupRows();
+    get preparedResult() {
+      return preparedResult();
     }
   };
 
@@ -124,10 +100,13 @@ type PreparedRow = {
   width: number;
   revision: number | undefined;
   animatedRows?: [string[], string[]];
-  progressSecond?: number;
+  /** Whether elapsed time has changed the progress heading rows. */
+  progressStale?: () => boolean;
   animated: boolean;
   expanded: boolean;
   adapter: ToolDisplayAdapter;
+  /** The interpreted adapter, before its presentation guard. */
+  interpreted: ToolDisplayAdapter;
   images: ReturnType<typeof getCapabilities>["images"];
   card: PreparedCard;
   rows: Partial<Record<Slot, string[]>>;
@@ -141,8 +120,8 @@ class CardRow {
   private callArgs: { value: unknown } | undefined;
   private result: BorrowedToolResult | undefined;
   private prepared: PreparedRow | undefined;
-  /** Standalone failure state; bound calls delegate fallback to the coordinator. */
-  private fallback = false;
+  /** Bound calls use the coordinator's evaluator instead. */
+  private standalone: AdapterEvaluator | undefined;
 
   constructor(
     private name: string,
@@ -171,6 +150,13 @@ class CardRow {
     this.prepared = undefined;
   }
 
+  private get evaluator(): AdapterEvaluator {
+    const { binding, onFailure } = this.options;
+    if (binding) return binding.coordinator.evaluator(binding.call);
+
+    return (this.standalone ??= new AdapterEvaluator(() => this.adapter, onFailure));
+  }
+
   private get expanded(): boolean {
     const { binding } = this.options;
 
@@ -181,7 +167,7 @@ class CardRow {
 
   private preparedFor(width: number): PreparedRow {
     const call = this.options.binding?.call;
-    const adapter = this.fallback ? genericAdapter : (call?.adapter ?? this.adapter);
+    const adapter = this.evaluator.adapter;
     const expanded = this.expanded;
     const revision = call?.revision;
     const images = getCapabilities().images;
@@ -204,6 +190,7 @@ class CardRow {
       animated: hasAnimatedHeading(card),
       expanded,
       adapter,
+      interpreted: interpretation.adapter,
       images,
       card,
       rows: {}
@@ -212,25 +199,12 @@ class CardRow {
     return this.prepared;
   }
 
-  /** A throwing adapter callback renders the row with the generic adapter instead. */
+  /** A recorded failure changes the effective display adapter, so the retry prepares again. */
   render(slot: Slot, width: number): string[] {
-    try {
-      return this.renderSlot(slot, width);
-    } catch (error) {
-      const adapter = this.prepared?.card.adapter;
-      if (this.fallback || !adapter || adapter === genericAdapter) throw error;
-      const { binding, onAdapterFailure } = this.options;
-
-      if (binding) binding.coordinator.failAdapter(binding.call, adapter, error);
-      else {
-        this.fallback = true;
-        reportAdapterFailure(onAdapterFailure, adapter, error);
-      }
-
-      this.invalidate();
-
-      return this.renderSlot(slot, width);
-    }
+    return this.evaluator.render(
+      () => this.prepared?.interpreted,
+      () => this.renderSlot(slot, width)
+    );
   }
 
   private renderSlot(slot: Slot, width: number): string[] {
@@ -242,22 +216,12 @@ class CardRow {
     // the clock; its body and every completed card keep their prepared data.
     const phase = current.animated ? (binding?.coordinator.phase ?? 0) : 0;
 
-    const progress = current.card.adapter.progress?.(
-      current.card.context.args,
-      current.card.result
-    );
-
-    if (current.animated && progress?.startedAt !== undefined && progress.endedAt === undefined) {
-      const second = Math.floor(Date.now() / 1000);
-
-      if (current.progressSecond !== second) {
-        current.progressSecond = second;
-        delete current.rows.call;
-        delete current.animatedRows;
-      }
+    if (current.animated && current.progressStale?.()) {
+      delete current.rows.call;
+      delete current.animatedRows;
     }
 
-    const rows = (current.rows[slot] ??= this.slotRows(slot, current.card, progress).map((row) =>
+    const rows = (current.rows[slot] ??= this.slotRows(slot, current).map((row) =>
       truncateToWidth(row, width, "")
     ));
     if (slot !== "call" || !current.animated) return rows;
@@ -274,33 +238,37 @@ class CardRow {
   }
 
   private interpretation(): CardInterpretation {
-    const { binding, onAdapterFailure } = this.options;
+    const { binding } = this.options;
     if (binding) return binding.coordinator.interpretation(binding.call);
 
     return interpretCard(
       {
-        adapter: this.fallback ? genericAdapter : this.adapter,
         args: this.context.args,
         result: this.result,
         pending: this.context.isPartial,
         failed: this.context.isError
       },
-      onAdapterFailure
+      this.evaluator
     );
   }
 
-  private slotRows(
-    slot: Slot,
-    card: PreparedCard,
-    progress: ReturnType<NonNullable<ToolDisplayAdapter["progress"]>>
-  ): string[] {
+  private slotRows(slot: Slot, current: PreparedRow): string[] {
+    const { card } = current;
+    const progress = card.progress;
+
     if (progress) {
-      if (slot === "call") return progressRows(progress, card);
+      if (slot === "call") {
+        const heading = progressHeading(progress, card);
+        current.progressStale = heading.stale;
+
+        return heading.rows;
+      }
+
       if (!card.expanded)
-        return progress.resultPreview && card.result ? progressPreviewRows(card) : [];
+        return progress.resultPreview ? card.preparedResult.progressPreview() : [];
     }
 
-    return slot === "call" ? heading(card) : resultRows(card);
+    return slot === "call" ? heading(card) : card.preparedResult.rows();
   }
 
   private prepare(
@@ -312,25 +280,29 @@ class CardRow {
     const selected = interpretation.adapter;
     const group = binding?.coordinator.group(binding.call);
 
-    return prepareCard(interpretation, {
-      ...view,
-      name: this.name,
-      showParameters:
-        selected.alwaysShowParameters === true || this.options.showParameters === true,
-      // Pi can retain streamed args and the pre-message_end error flag.
-      context: call ? { ...this.context, args: call.args } : this.context,
-      theme: this.theme,
-      call,
-      result: call?.result ?? this.result,
-      group:
-        group && binding
-          ? {
-              ...group,
-              exploration: binding.coordinator.interpretation(binding.call).exploration,
-              interpret: (member) => binding.coordinator.interpretation(member)
-            }
-          : undefined
-    });
+    return prepareCard(
+      interpretation,
+      {
+        ...view,
+        name: this.name,
+        showParameters:
+          selected.alwaysShowParameters === true || this.options.showParameters === true,
+        // Pi can retain streamed args and the pre-message_end error flag.
+        context: call ? { ...this.context, args: call.args } : this.context,
+        theme: this.theme,
+        call,
+        result: call?.result ?? this.result,
+        group:
+          group && binding
+            ? {
+                ...group,
+                exploration: binding.coordinator.interpretation(binding.call).exploration,
+                interpret: (member) => binding.coordinator.interpretation(member)
+              }
+            : undefined
+      },
+      this.evaluator
+    );
   }
 }
 

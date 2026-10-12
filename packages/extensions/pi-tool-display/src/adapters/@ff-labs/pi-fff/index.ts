@@ -38,7 +38,7 @@ function supportsFffCall(kind: FffToolKind, args: unknown, result?: BorrowedTool
 }
 
 function patternPart(kind: FffToolKind, pattern: unknown): InvocationPart {
-  if (typeof pattern !== "string") return { kind: "annotation", text: "(pattern missing)" };
+  if (typeof pattern !== "string") return { kind: "annotation", text: "…" };
   if (kind === "find" && pattern === "") return { kind: "annotation", text: "files" };
 
   return { kind: "pattern", text: pattern === "" ? '""' : stringField(pattern) };
@@ -49,11 +49,6 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
   if (!kind || !tool) return undefined;
   if (!registrationSchemas[kind].safeParse(tool.parameters).success) return undefined;
 
-  return fffDisplayAdapter(kind, tool.name);
-}
-
-/** Replay uses the producer's versioned, verified contract, never a live registry. */
-export function fffDisplayAdapter(kind: FffToolKind, name: string): ToolDisplayAdapter {
   return {
     id: `@ff-labs/pi-fff:${kind}`,
     family: "search",
@@ -67,7 +62,7 @@ export function fffDisplayAdapter(kind: FffToolKind, name: string): ToolDisplayA
       const listing = kind === "find" && data.pattern === "";
 
       return invocationParts(
-        name,
+        tool.name,
         kind === "multi"
           ? {
               pattern: Array.isArray(data.patterns)
@@ -79,7 +74,6 @@ export function fffDisplayAdapter(kind: FffToolKind, name: string): ToolDisplayA
         listing ? "list" : "search"
       ).map((part, index) => {
         if (!listing && index === 0 && kind !== "multi") return patternPart(kind, data.pattern);
-        if (index === 0 && part.kind === "value") return { ...part, kind: "pattern" };
 
         return part.kind === "path" ? { ...part, kind: "value" } : part;
       });

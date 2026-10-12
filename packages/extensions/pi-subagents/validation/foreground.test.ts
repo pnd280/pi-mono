@@ -1,16 +1,20 @@
-import { readFile, rm, stat } from "node:fs/promises";
+import { readdir, readFile, rm, stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 
 import { contentText } from "@earendil-works/pi-ai";
-import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { createTranscriptModel } from "pi-tool-display/viewer";
+import {
+  parseSessionEntries,
+  SessionManager,
+  type SessionEntry
+} from "@earendil-works/pi-coding-agent";
 import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
-import { readCheckpoint } from "../src/checkpoints.ts";
-import { TASK_ENTRY } from "../src/constants.ts";
-import { taskRecordSchema } from "../src/records.ts";
+import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY } from "../src/constants.ts";
+import { endRecordSchema, runRecordSchema, taskRecordSchema } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
+import { readTaskSnapshot } from "../src/sessions.ts";
 import { fixtureProcesses, killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace } from "./workspace.ts";
@@ -48,19 +52,25 @@ async function list(host: Supervisor) {
   return z.object({ tasks: z.array(taskRecordSchema) }).parse(data).tasks;
 }
 
+/** The supervisor's run and end entries, which are its only task entries. */
+function isRunEntry(entry: SessionEntry): boolean {
+  return (
+    entry.type === "custom" && (entry.customType === RUN_ENTRY || entry.customType === END_ENTRY)
+  );
+}
+
 async function activeTask(host: Supervisor, after = 0) {
   const record = await host.wait(
     (event) =>
       event.type === "entry_appended" &&
       event.entry.type === "custom" &&
-      event.entry.customType === TASK_ENTRY &&
-      taskRecordSchema.safeParse(event.entry.data).data?.state === "active",
+      event.entry.customType === RUN_ENTRY,
     after
   );
   if (record.type !== "entry_appended" || record.entry.type !== "custom")
     throw new Error("Missing active task");
 
-  return taskRecordSchema.parse(record.entry.data);
+  return runRecordSchema.parse(record.entry.data);
 }
 
 async function waitForBash(host: Supervisor): Promise<void> {
@@ -134,7 +144,7 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
               .poll(async () => {
                 const task = (await list(host))[0]!;
 
-                return (await readCheckpoint(task)).entries.some(
+                return (await readTaskSnapshot(task)).entries.some(
                   (entry) =>
                     entry.type === "message" &&
                     entry.message.role === "assistant" &&
@@ -162,11 +172,11 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
           } else if (action === "session change") {
             await host.request({ type: "new_session" });
             expect(await list(host)).toEqual([]);
-            const records = SessionManager.open(sessionFile)
-              .getEntries()
-              .filter((entry) => entry.type === "custom" && entry.customType === TASK_ENTRY);
+            // A run without an end entry stays cancelled in the saved session.
+            const records = SessionManager.open(sessionFile).getEntries().filter(isRunEntry);
             expect(records.at(-1)).toMatchObject({
-              data: { state: "active", outcome: null }
+              customType: RUN_ENTRY,
+              data: { task_id: child.task_id }
             });
           } else if (action === "graceful exit") {
             host.connection.closeInput();
@@ -187,35 +197,9 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
             expect(tasks.every((task) => task.state === "inactive")).toBe(true);
             expect(await fixtureProcesses(directory)).toHaveLength(1);
             if (action === "queued turn abort") expect(tasks).toHaveLength(1);
-
-            if (action === "turn abort" || action === "user abort") {
-              const snapshot = await readCheckpoint(tasks[0]!);
-              const model = createTranscriptModel({ ...snapshot, historical: true });
-
-              try {
-                const call = model.display.coordinator.byId("fixture-sleep")!;
-                expect(model.display.coordinator.interpretation(call).outcome).toBe("cancelled");
-                expect(model.display.coordinator.summary(call).segments).toMatchObject([
-                  { count: 1, counts: { cancelled: 1, unavailable: 0 } }
-                ]);
-
-                if (action === "user abort") {
-                  expect(call.operation?.outcome).toBe("cancelled");
-                  expect(call.operation?.durationMs).toBeGreaterThanOrEqual(0);
-                  expect(contentText(call.result!.content)).toBe("Command aborted");
-                } else {
-                  // A hard kill supplies cancellation evidence, never a fabricated tool result.
-                  expect(call.result).toBeUndefined();
-                  expect(call.operation).toBeUndefined();
-                }
-              } finally {
-                model.dispose();
-              }
-            }
           }
         },
         {
-          display: action === "turn abort" || action === "user abort",
           settings: { "ext.pi-subagents": { maxConcurrent: 1, maxQueued: 2 } }
         }
       );
@@ -270,16 +254,10 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
           await work;
           expect(await list(host)).toEqual([]);
           expect((await host.state()).sessionId === oldSession).toBe(transition === "tree");
-          const count = (await host.entries()).filter(
-            (entry) => entry.type === "custom" && entry.customType === TASK_ENTRY
-          ).length;
+          const count = (await host.entries()).filter(isRunEntry).length;
           await host.prompt("reply");
           expect(await list(host)).toEqual([]);
-          expect(
-            (await host.entries()).filter(
-              (entry) => entry.type === "custom" && entry.customType === TASK_ENTRY
-            )
-          ).toHaveLength(count);
+          expect((await host.entries()).filter(isRunEntry)).toHaveLength(count);
         },
         { settings: { "ext.pi-subagents": { maxDepth: 2, maxConcurrent: 4 } } }
       );
@@ -287,38 +265,36 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
     40_000
   );
 
-  test("restores only checkpoint history and explicitly resumes stopped tasks with stable IDs", async () => {
+  test("resumes stopped tasks in their child file from the selected ancestry with stable IDs", async () => {
     await withFixture(
       async (directory, start) => {
         const host = await start();
         await host.prompt("delegate-remember");
         const original = (await list(host))[0]!;
-        const originalBytes = await readFile(original.session_file, "utf8");
-        const records = (await host.entries()).filter(
-          (entry) => entry.type === "custom" && entry.customType === TASK_ENTRY
-        );
+        const records = (await host.entries()).filter(isRunEntry);
         const empty = records[0]!.id;
         const saved = records.at(-1)!.id;
         await host.prompt(`extend-id ${original.task_id}`);
         expect((await list(host)).length).toBeGreaterThan(1);
-        const later = (await list(host))[0]!;
-        const laterBytes = await readFile(later.session_file, "utf8");
+        const laterBytes = await readFile(original.session_file, "utf8");
         await host.request({ type: "prompt", message: `/fixture-tree ${saved}` });
         expect(await list(host)).toEqual([original]);
         await host.prompt(`history-id ${original.task_id}`);
         const resumedText = contentText((await host.results()).at(-1)!.content);
         expect(resumedText).toContain("remember");
         expect(resumedText).not.toContain("nested-background");
-        const resumed = (await list(host))[0]!;
-        expect(resumed.task_id).toBe(original.task_id);
-        expect(resumed.session_id).not.toBe(original.session_id);
-        expect(await list(host)).toHaveLength(1);
-        expect(await readFile(original.session_file, "utf8")).toBe(originalBytes);
-        expect(await readFile(later.session_file, "utf8")).toBe(laterBytes);
+        expect(await list(host)).toMatchObject([
+          {
+            task_id: original.task_id,
+            session_id: original.session_id,
+            session_file: original.session_file
+          }
+        ]);
+        // A resume appends to the child file and keeps the excluded run.
+        expect((await readFile(original.session_file, "utf8")).startsWith(laterBytes)).toBe(true);
 
-        await host.request({ type: "prompt", message: "/fixture-legacy" });
-        const legacyLeaf = (await host.entries()).at(-1)!.id;
-        await host.request({ type: "prompt", message: `/fixture-parent-fork ${legacyLeaf}` });
+        const leaf = (await host.entries()).at(-1)!.id;
+        await host.request({ type: "prompt", message: `/fixture-parent-fork ${leaf}` });
         expect(await list(host)).toHaveLength(1);
         expect(await fixtureProcesses(directory)).toHaveLength(1);
         await host.request({ type: "prompt", message: `/fixture-tree ${empty}` });
@@ -326,8 +302,12 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
           { task_id: original.task_id, state: "inactive", outcome: "cancelled" }
         ]);
         expect(await fixtureProcesses(directory)).toHaveLength(1);
+        // A run without an end entry continues its own history, without the later runs.
         await host.prompt(`history-id ${original.task_id}`);
-        expect(contentText((await host.results()).at(-1)!.content)).not.toContain("remember");
+        const cancelledText = contentText((await host.results()).at(-1)!.content);
+        expect(cancelledText).toContain("remember");
+        expect(cancelledText).not.toContain("nested-background");
+        expect(cancelledText.split("history-context")).toHaveLength(2);
         expect(await list(host)).toHaveLength(1);
 
         const after = host.records.length;
@@ -359,6 +339,36 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
         ).toBe(true);
         expect((await stat(`${directory}/work/interrupted-effect`)).mtimeMs).toBe(effect.mtimeMs);
         expect(await fixtureProcesses(directory)).toHaveLength(1);
+
+        // The supervisor stores two small entries per run, whatever its children write.
+        const stored = host.records.flatMap((event) =>
+          event.type === "entry_appended" &&
+          event.entry.type === "custom" &&
+          event.entry.customType.startsWith("pi-subagents.")
+            ? [event.entry]
+            : []
+        );
+        const runs = stored.flatMap((entry) =>
+          entry.customType === RUN_ENTRY ? [runRecordSchema.parse(entry.data).run_id] : []
+        );
+        const ends = stored.flatMap((entry) =>
+          entry.customType === END_ENTRY ? [endRecordSchema.parse(entry.data).run_id] : []
+        );
+        expect(stored).toHaveLength(runs.length + ends.length);
+        expect(runs).toHaveLength(
+          host.records.filter(
+            (event) => event.type === "tool_execution_start" && event.toolName === "subagent"
+          ).length
+        );
+        expect(new Set(runs).size).toBe(runs.length);
+        expect(new Set(ends).size).toBe(ends.length);
+        expect(ends.every((run) => runs.includes(run))).toBe(true);
+        for (const entry of stored)
+          expect(Buffer.byteLength(JSON.stringify(entry.data))).toBeLessThan(2048);
+        expect(await readdir(join(directory, "agent"))).not.toContain("pi-subagents");
+        expect(
+          (await readdir(dirname(original.session_file))).filter((name) => name.endsWith(".lease"))
+        ).toEqual([]);
       },
       { settings: { "ext.pi-subagents": { maxDepth: 3, maxConcurrent: 6 } } }
     );
@@ -425,9 +435,15 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
         cost: { total: 0.001 }
       });
       expect((await resumed.stats()).tokens.total - before.tokens.total).toBe(45);
-      expect((await list(resumed)).find((task) => task.task_id === taskId)?.session_file).not.toBe(
+      expect((await list(resumed)).find((task) => task.task_id === taskId)?.session_file).toBe(
         saved.session_file
       );
+      // The task total adds each run's own usage, also when it is restored from the session.
+      const total = { input: 20, output: 10, cache_read: 0, cache_write: 0, cost: 0.002 };
+      expect((await list(resumed)).find((task) => task.task_id === taskId)?.usage).toEqual(total);
+      await resumed.stop();
+      const restored = await start({ sessionId });
+      expect((await list(restored)).find((task) => task.task_id === taskId)?.usage).toEqual(total);
     });
   }, 30_000);
 
@@ -449,6 +465,62 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
       expect(await readFile(child.session_file, "utf8")).toBe(before);
     });
   }, 30_000);
+
+  test("lets one process at a time write a task's child file, also after its supervisor is killed", async () => {
+    await withFixture(async (directory, start) => {
+      const first = await start();
+      await first.prompt("delegate-remember");
+      const task = (await list(first))[0]!;
+      // A fork of the supervisor session owns the same task.
+      const second = await start({ fork: (await first.state()).sessionFile! });
+      const runs = async () =>
+        parseSessionEntries(await readFile(task.session_file, "utf8")).filter(
+          (entry) => entry.type === "custom" && entry.customType === MARKER_ENTRY
+        ).length;
+      const others = async () =>
+        (await fixtureProcesses(directory)).filter(
+          ({ pid }) => pid !== second.connection.process.pid
+        );
+
+      const rejected = async () => {
+        await second.prompt(`history-id ${task.task_id}`);
+        const result = (await second.results()).at(-1)!;
+        expect(result.isError).toBe(true);
+        expect(contentText(result.content)).toContain("Task is running in another process");
+        // No second writer started a run in the file.
+        expect(await runs()).toBe(2);
+      };
+
+      const work = first.prompt(`stubborn-id ${task.task_id}`).catch((error: unknown) => error);
+      await expect
+        .poll(async () => (await others()).some(({ command }) => command.includes("sleep 600")))
+        .toBe(true);
+      await rejected();
+
+      // The child ignores EOF and outlives its supervisor, so it can still write.
+      first.connection.process.kill("SIGKILL");
+      await first.connection.closed;
+      await work;
+      await rejected();
+
+      for (const { pid } of await others()) {
+        try {
+          process.kill(pid, "SIGKILL");
+        } catch {
+          /* It exited after the listing. */
+        }
+      }
+
+      await expect.poll(others).toEqual([]);
+      await second.prompt(`history-id ${task.task_id}`);
+      expect(detailsSchema.parse((await second.results()).at(-1)!.details).state).toBe("completed");
+      expect(await runs()).toBe(3);
+      // The dead writers' entry was removed with the lease.
+      expect(
+        (await readdir(dirname(task.session_file))).filter((name) => name.endsWith(".lease"))
+      ).toEqual([]);
+    });
+  }, 45_000);
 
   test.each(["confirm", "select"] as const)(
     "forwards a child %s dialog and delivers its answer",
@@ -514,16 +586,13 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
         expect(overflow.isError).toBe(true);
         const live = new Set<string>();
 
+        // The end entry follows the run's process exit, before its capacity is released.
         for (const event of host.records) {
-          if (
-            event.type !== "entry_appended" ||
-            event.entry.type !== "custom" ||
-            event.entry.customType !== TASK_ENTRY
-          )
-            continue;
-          const record = taskRecordSchema.parse(event.entry.data);
-          if (record.state === "active") live.add(record.task_id);
-          else live.delete(record.task_id);
+          if (event.type !== "entry_appended" || event.entry.type !== "custom") continue;
+          if (event.entry.customType === RUN_ENTRY)
+            live.add(runRecordSchema.parse(event.entry.data).run_id);
+          else if (event.entry.customType === END_ENTRY)
+            live.delete(endRecordSchema.parse(event.entry.data).run_id);
           expect(live.size).toBeLessThanOrEqual(1);
         }
       },

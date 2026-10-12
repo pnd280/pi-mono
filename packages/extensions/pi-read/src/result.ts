@@ -20,7 +20,7 @@ const optionalCoordinate = z.preprocess(
   selectionInputSchema.shape.startColumn
 );
 
-/** Pi removes optional nulls before execution, but display arguments retain them. */
+/** Pi removes optional nulls before execution, but standalone display cards receive raw arguments. */
 export const retainedSelectionSchema = selectionInputSchema
   .extend({
     startColumn: optionalCoordinate,

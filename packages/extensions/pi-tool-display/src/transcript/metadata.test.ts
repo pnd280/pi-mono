@@ -1,139 +1,53 @@
-import { fauxToolCall } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
 
-import type { DisplayFact } from "../contracts.ts";
-import { assistantMessage } from "../test-fixture.ts";
-import {
-  METADATA_TYPE,
-  DisplayRecordIndex,
-  parseDisplayRecord,
-  persistDisplayFact
-} from "./metadata.ts";
-import { parseTranscriptRecord } from "./records.ts";
+import { parseCallRecord, parseWriterRecord } from "./metadata.ts";
 
-it("persists typed facts and reads only matching source calls from the supplied ancestry", () => {
-  const source = {
-    type: "message",
-    id: "source",
-    parentId: null,
-    timestamp: new Date(0).toISOString(),
-    message: assistantMessage([
-      fauxToolCall("write", { path: "a", content: "new" }, { id: "write-1" })
-    ])
-  } satisfies SessionEntry;
-  const reference = {
-    messageEntryId: source.id,
-    messageTimestamp: 1,
-    contentIndex: 0,
-    toolCallId: "write-1"
-  };
-  const fact = {
-    kind: "change",
-    availability: "available",
-    patch: "--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+new\n",
-    change: "modification"
-  } satisfies DisplayFact;
-  const append = vi.fn<ExtensionAPI["appendEntry"]>();
-  persistDisplayFact(append, reference, "pi:write", fact);
-  const record = { version: 1, call: reference, adapter: "pi:write", fact };
-  expect(append).toHaveBeenCalledExactlyOnceWith("pi-tool-display.facts", record);
-  const metadata = {
-    type: "custom",
-    id: "facts",
-    parentId: source.id,
-    timestamp: source.timestamp,
-    customType: METADATA_TYPE,
-    data: append.mock.calls[0]![1]
-  } satisfies SessionEntry;
-  expect(new DisplayRecordIndex([source, metadata]).forCall(reference)).toEqual([record]);
-  expect(new DisplayRecordIndex([source]).forCall(reference)).toEqual([]);
-  expect(new DisplayRecordIndex([metadata]).forCall(reference)).toEqual([]);
+const call = { entry: "a1b2c3d4", toolCallId: "toolu_1" };
 
-  // Copied source messages can share timestamps and tool IDs within one ancestry.
-  const copiedSource = { ...source, id: "copied-source", parentId: metadata.id };
-  const copiedReference = { ...reference, messageEntryId: copiedSource.id };
-  const index = new DisplayRecordIndex([source, metadata, copiedSource]);
-  expect(index.forCall(reference)).toEqual([record]);
-  expect(index.forCall(copiedReference)).toEqual([]);
-  const reversed = new DisplayRecordIndex([source, metadata, copiedSource]);
-  expect(reversed.forCall(copiedReference)).toEqual([]);
-  expect(reversed.forCall(reference)).toEqual([record]);
-
-  for (const mismatch of [
-    { ...source, id: "other-branch" },
-    { ...source, message: { ...source.message, timestamp: 2 } },
-    { ...source, message: assistantMessage([fauxToolCall("write", {}, { id: "other-call" })]) },
-    { ...source, message: assistantMessage([{ type: "text", text: "no tool call" }]) }
-  ])
-    expect(new DisplayRecordIndex([mismatch, metadata]).forCall(reference)).toEqual([]);
-
-  expect(
-    new DisplayRecordIndex([
-      source,
-      metadata,
-      { ...metadata, data: { ...record, version: 2 } },
-      { ...metadata, customType: "other-extension", data: { ...record, adapter: "other" } }
-    ]).forCall(reference)
-  ).toEqual([record]);
+it.each([
+  { cancelled: true },
+  { outcome: "failure" },
+  { exitCode: 2 },
+  { exitCode: null, cancelled: true },
+  { timedOut: true },
+  { applied: true, change: { kind: "modification", patch: "@@ -1 +1 @@\n-a\n+b\n" } },
+  { change: { kind: "creation" } },
+  { change: { kind: "creation", patch: "@@ -0,0 +1 @@\n+a\n" } },
+  { change: { kind: "unavailable", reason: "binary" } }
+])("accepts call facts that Pi does not record: %j", (facts) => {
+  expect(parseCallRecord({ ...call, ...facts })).toEqual({ ...call, ...facts });
 });
 
 it.each([
-  { kind: "operation", availability: "available", durationMs: 1, outcome: ["success"] },
-  { kind: "change", availability: ["available"] },
-  { kind: "change", availability: "available" },
-  { kind: "change", availability: "unavailable", reason: "x".repeat(257) },
-  { kind: "operation", availability: "available", outcome: "success", durationMs: -1 },
-  { kind: "operation", availability: "available", outcome: "success", durationMs: Infinity },
-  {
-    kind: "operation",
-    availability: "available",
-    outcome: "success",
-    durationMs: 1,
-    exitCode: 1.5
-  },
-  {
-    kind: "operation",
-    availability: "available",
-    outcome: "success",
-    durationMs: 1,
-    timedOut: "false"
-  },
-  { kind: "saved-output", availability: "available", path: "" }
-])("rejects persisted facts with invalid fields: %j", (fact) => {
-  expect(
-    parseDisplayRecord({
-      version: 1,
-      call: { messageTimestamp: 1, contentIndex: 0, toolCallId: "a" },
-      adapter: "pi:write",
-      fact
-    })
-  ).toBeUndefined();
+  { entry: "" },
+  { toolCallId: 1 },
+  { applied: false },
+  { cancelled: false },
+  { outcome: "cancelled" },
+  { exitCode: 1.5 },
+  { timedOut: "false" },
+  { change: { kind: "modification" } },
+  { change: { kind: "unavailable", reason: "Binary content." } },
+  { change: { kind: "creation", patch: "x".repeat(128 * 1024 + 1) } }
+])("rejects call records with invalid fields: %j", (fields) => {
+  expect(parseCallRecord({ ...call, ...fields })).toBeUndefined();
 });
 
-it("bounds the original record, including unknown fields, and rejects unsafe call references", () => {
-  const runtime = { version: 1, kind: "runtime", sessionId: "session", generation: "generation" };
-  expect(parseTranscriptRecord(runtime)).toEqual(runtime);
-  expect(parseTranscriptRecord({ ...runtime, extra: "x".repeat(16 * 1024) })).toBeUndefined();
-  expect(parseTranscriptRecord({ ...runtime, sessionId: "界".repeat(1024) })).toBeUndefined();
-  const record = {
-    version: 1,
-    call: { messageTimestamp: 1, contentIndex: 0, toolCallId: "a" },
-    adapter: "pi:bash",
-    fact: {
-      kind: "operation",
-      availability: "available",
-      outcome: "success",
-      durationMs: 0,
-      exitCode: null
-    }
-  };
-  expect(parseDisplayRecord(record)).toEqual(record);
-  expect(parseDisplayRecord({ ...record, extra: "x".repeat(160 * 1024) })).toBeUndefined();
+it("bounds the original record, including unknown fields", () => {
+  const value = { ...call, cancelled: true };
+  // Unknown fields are not returned, but they count toward the limit.
+  expect(parseCallRecord({ ...value, extra: "x" })).toEqual(value);
+  expect(parseCallRecord({ ...value, extra: "x".repeat(160 * 1024) })).toBeUndefined();
   expect(
-    parseDisplayRecord({
-      ...record,
-      extra: record,
+    parseWriterRecord({
+      writer: "3f0c4b1e-8f5a-4c3d-9b2a-1e2f3a4b5c6d",
+      cwd: "/work",
+      extra: "x".repeat(160 * 1024)
+    })
+  ).toBeUndefined();
+  expect(
+    parseCallRecord({
+      ...value,
       cycle: {
         get self() {
           return this;
@@ -141,40 +55,11 @@ it("bounds the original record, including unknown fields, and rejects unsafe cal
       }
     })
   ).toBeUndefined();
-  for (const call of [
-    { ...record.call, contentIndex: Number.MAX_SAFE_INTEGER + 1 },
-    { ...record.call, contentIndex: -1 },
-    { ...record.call, messageTimestamp: NaN },
-    { ...record.call, messageTimestamp: "1" },
-    { ...record.call, messageEntryId: null }
-  ])
-    expect(parseDisplayRecord({ ...record, call })).toBeUndefined();
 });
 
-it("ignores malformed and oversized records and isolates serialization/persistence failures", () => {
-  const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "a" };
-  expect(
-    parseDisplayRecord({
-      version: 1,
-      call: reference,
-      adapter: "pi:write",
-      fact: { kind: "change", availability: "available", patch: "x".repeat(200_000) }
-    })
-  ).toBeUndefined();
-  expect(() =>
-    persistDisplayFact(
-      () => {
-        throw new Error("disk failure");
-      },
-      reference,
-      "pi:bash",
-      {
-        kind: "operation",
-        availability: "available",
-        durationMs: 12,
-        outcome: "failure",
-        exitCode: 7
-      }
-    )
-  ).not.toThrow();
+it("accepts writer records only with a UUID and a cwd", () => {
+  const writer = { writer: "3f0c4b1e-8f5a-4c3d-9b2a-1e2f3a4b5c6d", cwd: "/work" };
+  expect(parseWriterRecord(writer)).toEqual(writer);
+  expect(parseWriterRecord({ ...writer, writer: "../other" })).toBeUndefined();
+  expect(parseWriterRecord({ ...writer, cwd: "" })).toBeUndefined();
 });

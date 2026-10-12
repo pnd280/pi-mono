@@ -1,7 +1,8 @@
+import { isDeepStrictEqual } from "node:util";
+
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import type { OutputText } from "@pi-mono/utils/output-text";
 
-import { genericAdapter } from "../adapters/generic.ts";
 import type { ToolDisplayAdapter } from "../contracts.ts";
 import {
   callKey,
@@ -14,6 +15,7 @@ import {
   type DisplayRun,
   type ExplorationScope,
   type Lifecycle,
+  type LocalDetails,
   type Outcome,
   type SavedOutput,
   type SummaryNotice,
@@ -21,12 +23,12 @@ import {
   type TranscriptView
 } from "../contracts.ts";
 import {
+  AdapterEvaluator,
   interpret,
-  reportAdapterFailure,
   sameGroupKey,
   sameScope,
-  type AdapterFailureHandler,
   type CallInterpretation,
+  type DisplayFailureHandler,
   type GroupKey
 } from "../interpretation.ts";
 import { buildRunSummary, type RunSummary } from "../summary/model.ts";
@@ -51,6 +53,15 @@ const clock: AnimationClock = {
 };
 
 type MutableCall = { -readonly [Key in keyof DisplayCall]: DisplayCall[Key] };
+
+/**
+ * Validates a copy of Pi's raw call arguments against the currently registered tool
+ * schema. Returns the raw arguments when validation fails. Never modifies them.
+ */
+export type ValidatedArgs = (name: string, args: unknown) => unknown;
+
+/** Without a tool registry, callbacks receive Pi's raw arguments. */
+const withoutRegistry: ValidatedArgs = (_name, args) => args;
 
 type MutableGroup = {
   members: MutableCall[];
@@ -100,15 +111,15 @@ export class TranscriptCoordinator implements TranscriptView {
   private liveIdentities = new Map<string, MutableCall>();
   private activeCalls = new Set<MutableCall>();
   private rows = new Map<string, Set<RowHandle>>();
+  /** Pi's raw arguments for each call; `args` holds their validated copy, if any. */
+  private rawArgs = new WeakMap<DisplayCall, unknown>();
   private interpretations = new WeakMap<
     DisplayCall,
     { inputs: readonly unknown[]; value: CallInterpretation }
   >();
-  private failedAdapters = new WeakMap<DisplayCall, ToolDisplayAdapter>();
+  private evaluators = new WeakMap<DisplayCall, AdapterEvaluator>();
   private stopAnimation: (() => void) | undefined;
   private disposed = false;
-  /** The agent is still running, so calls can join the run that ends with the last historical call. */
-  private continuing = false;
   phase = 0;
   mode: DisplayMode;
   /** Whether summary mode collapses runs; otherwise it renders like compact. */
@@ -122,9 +133,12 @@ export class TranscriptCoordinator implements TranscriptView {
       /** Defaults to true; the host enables summaries only in fullscreen. */
       summaries?: boolean;
       animationClock?: AnimationClock;
-      /** State consequences must not depend on whether a Pi row is attached. */
-      onExpansion?(call: DisplayCall): void;
-      onAdapterFailure?: AdapterFailureHandler;
+      /**
+       * The call's saved path, expansion, or completion changed. State consequences
+       * must not depend on whether a Pi row is attached.
+       */
+      onSavedOutputChange?(call: DisplayCall): void;
+      onFailure?: DisplayFailureHandler;
     } = {}
   ) {
     this.cwd = options.cwd ?? process.cwd();
@@ -137,7 +151,8 @@ export class TranscriptCoordinator implements TranscriptView {
     args: unknown,
     adapter: ToolDisplayAdapter,
     origin: DisplayCall["origin"],
-    expanded = false
+    expanded = false,
+    validated: ValidatedArgs = withoutRegistry
   ): DisplayCall {
     const key = callKey(this.runtime, reference);
     // Finalized assistant middleware can remove/reorder blocks around a streamed call.
@@ -153,10 +168,8 @@ export class TranscriptCoordinator implements TranscriptView {
         existing.reference.toolCallId !== reference.toolCallId ||
         existing.reference.messageEntryId !== reference.messageEntryId;
       if (referenceChanged) existing.reference = { ...reference };
-      if (Object.is(existing.args, args)) return existing;
-
-      existing.args = args;
-      this.changed(existing);
+      this.rawArgs.set(existing, args);
+      if (this.validate(existing, validated)) this.changed(existing);
 
       return existing;
     }
@@ -165,7 +178,7 @@ export class TranscriptCoordinator implements TranscriptView {
       key,
       reference: { ...reference },
       name,
-      args,
+      args: validated(name, args),
       adapter,
       origin,
       lifecycle: origin === "live" ? "preparing" : "unavailable",
@@ -173,6 +186,7 @@ export class TranscriptCoordinator implements TranscriptView {
       expanded,
       revision: 0
     };
+    this.rawArgs.set(call, args);
     this.state.set(key, call);
     this.latestById.set(reference.toolCallId, call);
     if (origin === "live") this.liveIdentities.set(identity, call);
@@ -195,11 +209,25 @@ export class TranscriptCoordinator implements TranscriptView {
 
     return call;
   }
-  setAdapter(view: DisplayCall, adapter: ToolDisplayAdapter): void {
+  /** A newer tool registry can select another adapter and validate arguments differently. */
+  refreshTools(view: DisplayCall, adapter: ToolDisplayAdapter, validated: ValidatedArgs): void {
     const call = this.mutable(view);
-    if (!call || call.adapter.id === adapter.id) return;
-    call.adapter = adapter;
-    this.changed(call);
+    if (!call) return;
+    const adapterChanged = call.adapter.id !== adapter.id;
+    if (adapterChanged) call.adapter = adapter;
+    if (this.validate(call, validated) || adapterChanged) this.changed(call);
+  }
+  /**
+   * Validate the raw arguments again and report whether the call's arguments changed.
+   * Middleware can modify Pi's argument object in place, so this compares values, not
+   * identities. Equal values keep the arguments and their cached interpretation.
+   */
+  private validate(call: MutableCall, validated: ValidatedArgs): boolean {
+    const args = validated(call.name, this.rawArgs.get(call));
+    if (isDeepStrictEqual(call.args, args)) return false;
+    call.args = args;
+
+    return true;
   }
   /** Reconcile groups and invalidate each affected row once after synchronous updates.
    * Intermediate group views are not ready for rendering or expansion.
@@ -276,7 +304,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.regroupBoundaries(changed("group"));
     this.repartitionRuns(changed("run"));
   }
-  /** Cached until an interpreted input changes; identities use the session cwd. */
+  /** Cached until an interpreted input changes; identities use the call's cwd. */
   interpretation(call: DisplayCall): CallInterpretation {
     const inputs = [
       call.adapter,
@@ -286,33 +314,37 @@ export class TranscriptCoordinator implements TranscriptView {
       call.outcome,
       call.cancellation,
       call.operation,
-      call.change
+      call.change,
+      call.cwd
     ];
     const cached = this.interpretations.get(call);
     if (cached?.inputs.every((input, index) => Object.is(input, inputs[index])))
       return cached.value;
     const run = this.runs.get(call.key);
     if (run) delete run.summary;
-    const value = interpret(
-      {
-        call,
-        ...(this.failedAdapters.get(call) === call.adapter ? { adapter: genericAdapter } : {})
-      },
-      this.cwd,
-      this.options.onAdapterFailure
-    );
+    const value = interpret(call, call.cwd ?? this.cwd, this.evaluator(call));
     this.interpretations.set(call, { inputs, value });
 
     return value;
   }
-  /** A presentation failure changes every display consumer, not just one renderer slot. */
-  failAdapter(view: DisplayCall, adapter: ToolDisplayAdapter, error: unknown): void {
-    const call = this.mutable(view);
-    if (!call || call.adapter !== adapter || this.failedAdapters.get(call) === adapter) return;
-    this.failedAdapters.set(call, adapter);
-    this.interpretations.delete(call);
-    this.changed(call);
-    reportAdapterFailure(this.options.onAdapterFailure, adapter, error);
+  evaluator(view: DisplayCall): AdapterEvaluator {
+    let evaluator = this.evaluators.get(view);
+
+    if (!evaluator) {
+      // A card failure changes every display consumer, not just one renderer slot.
+      evaluator = new AdapterEvaluator(
+        () => view.adapter,
+        this.options.onFailure,
+        () => {
+          this.interpretations.delete(view);
+          const call = this.mutable(view);
+          if (call) this.changed(call);
+        }
+      );
+      this.evaluators.set(view, evaluator);
+    }
+
+    return evaluator;
   }
   byId(id: string): DisplayCall | undefined {
     return this.latestById.get(id);
@@ -324,13 +356,6 @@ export class TranscriptCoordinator implements TranscriptView {
   }
   run(call: DisplayCall): DisplayRun | undefined {
     return this.runs.get(call.key);
-  }
-  /** Portable run snapshots must distinguish closed membership from terminal results. */
-  runClosed(call: DisplayCall): boolean {
-    const run = this.runs.get(call.key);
-    const last = run?.members.at(-1);
-
-    return !!run && (run.closed || (!!last && this.separated(last.key, "run")));
   }
   /** Notices stay attached to their preceding call when run boundaries change. */
   addSummaryNotice(after: DisplayCall, notice: SummaryNotice): void {
@@ -452,14 +477,6 @@ export class TranscriptCoordinator implements TranscriptView {
     call.lifecycle = lifecycle;
     this.changed(call);
   }
-  /** A foreign authoritative call becomes live only when its current connection observes execution. */
-  observeExecution(view: DisplayCall): void {
-    const call = this.mutable(view);
-    if (!call || call.lifecycle === "complete") return;
-    call.origin = "live";
-    call.lifecycle = "executing";
-    this.changed(call);
-  }
   result(
     view: DisplayCall,
     result: AgentToolResult<unknown>,
@@ -472,6 +489,8 @@ export class TranscriptCoordinator implements TranscriptView {
     // Results are borrowed: a producer can update and republish the same object.
     this.interpretations.delete(call);
 
+    const completed = !partial && call.lifecycle !== "complete";
+
     if (!partial) {
       call.lifecycle = "complete";
       call.outcome = outcome;
@@ -479,6 +498,7 @@ export class TranscriptCoordinator implements TranscriptView {
     }
 
     this.changed(call);
+    if (completed) this.options.onSavedOutputChange?.(call);
   }
   fact(view: DisplayCall, fact: DisplayFact): void {
     if (fact.kind === "saved-output") return this.setSavedPath(view, fact.path);
@@ -501,12 +521,25 @@ export class TranscriptCoordinator implements TranscriptView {
     call.reference = { ...call.reference, messageEntryId };
     this.changed(call);
   }
+  setCwd(view: DisplayCall, cwd: string): void {
+    const call = this.mutable(view);
+    if (!call || call.cwd === cwd) return;
+    call.cwd = cwd;
+    this.changed(call);
+  }
+  setLocal(view: DisplayCall, local: LocalDetails): void {
+    const call = this.mutable(view);
+    if (!call || call.local === local) return;
+    call.local = local;
+    this.changed(call);
+  }
   setSavedPath(view: DisplayCall, path: string): void {
     const call = this.mutable(view);
     if (!call || call.savedPath === path) return;
     call.savedPath = path;
     delete call.savedOutput;
     this.changed(call);
+    this.options.onSavedOutputChange?.(call);
   }
   setSavedOutput(view: DisplayCall, output: SavedOutput | undefined): void {
     const call = this.mutable(view);
@@ -515,17 +548,8 @@ export class TranscriptCoordinator implements TranscriptView {
     else delete call.savedOutput;
     this.changed(call);
   }
-  evictSavedOutput(path: string): void {
-    if (this.disposed) return;
-
-    for (const call of this.state.values()) {
-      if (call.savedOutput?.path !== path) continue;
-      this.setSavedOutput(call, undefined);
-    }
-  }
   /** The agent ended: unfinished calls become unavailable and the final run ends. */
   settle(): void {
-    this.continuing = false;
     const last = this.sequence.at(-1);
     const run = last === undefined ? undefined : this.runs.get(last);
     if (run) run.closed = true;
@@ -535,13 +559,6 @@ export class TranscriptCoordinator implements TranscriptView {
       this.changed(call);
     }
 
-    if (run) this.refreshEnded(run);
-  }
-  /** The agent is still running after reconstructed history: its final run stays open. */
-  resume(): void {
-    this.continuing = true;
-    const last = this.sequence.at(-1);
-    const run = last === undefined ? undefined : this.runs.get(last);
     if (run) this.refreshEnded(run);
   }
   attach(call: DisplayCall, row: RowHandle): () => void {
@@ -567,7 +584,7 @@ export class TranscriptCoordinator implements TranscriptView {
       member.expanded = expanded;
       member.revision++;
       for (const row of this.rows.get(member.key) ?? []) row.setExpanded(expanded);
-      this.options.onExpansion?.(member);
+      this.options.onSavedOutputChange?.(member);
     }
   }
   private mutable(view: DisplayCall): MutableCall | undefined {
@@ -636,9 +653,7 @@ export class TranscriptCoordinator implements TranscriptView {
     const ended =
       !!last &&
       run.liveMembers === 0 &&
-      (run.closed ||
-        this.separated(last.key, "run") ||
-        (last.origin === "historical" && !(this.continuing && last.key === this.sequence.at(-1))));
+      (run.closed || this.separated(last.key, "run") || last.origin === "historical");
     if (ended === run.ended) return;
     const summarized = this.summarized(run);
     run.ended = ended;
@@ -796,7 +811,7 @@ export class TranscriptCoordinator implements TranscriptView {
     if (call.expanded === expanded) return;
     call.expanded = expanded;
     for (const row of this.rows.get(call.key) ?? []) row.setExpanded(expanded);
-    this.options.onExpansion?.(call);
+    this.options.onSavedOutputChange?.(call);
   }
   private refreshGrouping(call: MutableCall): void {
     const grouping = this.interpretation(call).group;

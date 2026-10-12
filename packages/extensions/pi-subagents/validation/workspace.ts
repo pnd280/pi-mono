@@ -16,7 +16,6 @@ export async function createFixtureWorkspace(
   options: {
     settings?: Record<string, unknown>;
     projectSettings?: Record<string, unknown>;
-    display?: boolean;
   } = {}
 ): Promise<string> {
   const directory = await createValidationWorkspace("pi-subagents-");
@@ -29,9 +28,6 @@ export async function createFixtureWorkspace(
         retry: { enabled: false },
         ...options.settings,
         extensions: [
-          ...(options.display
-            ? [fileURLToPath(new URL("../../pi-tool-display/index.ts", import.meta.url))]
-            : []),
           fileURLToPath(new URL("../index.ts", import.meta.url)),
           fileURLToPath(new URL("./provider.ts", import.meta.url))
         ]

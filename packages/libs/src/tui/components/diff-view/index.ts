@@ -1,5 +1,11 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import {
+  mixColors,
+  sliceByColumn,
+  truncateToWidth,
+  visibleWidth,
+  type Color
+} from "@earendil-works/pi-tui";
 import { DiffLine, DiffLineType, diffChanges, type DiffRange } from "@git-diff-view/core";
 import type { ParsedPatch, PatchLine } from "@pi-mono/utils/patch";
 import { z } from "zod";
@@ -10,9 +16,45 @@ import { wrapRows } from "../../text-budget/index.ts";
 const INLINE_DIFF_WORK_LIMIT = 40_000;
 const INLINE_DIFF_LINE_LIMIT = 1000;
 
+/** How far strips and changed rows move from the panel surface toward a foreground colour. */
+const STRIP_TINT = 0.08;
+const CHANGE_TINT = 0.2;
+
+// oxlint-disable-next-line no-control-regex -- Split styled text at full and background resets.
+const RESET = /(\x1b\[0?m|\x1b\[49m)/;
+
 interface PatchRow {
   old?: PatchLine | undefined;
   new?: PatchLine | undefined;
+}
+
+/** One styled cell row. A changed row's background also colours the adjacent panel padding. */
+interface Cell {
+  text: string;
+  background?: Color | undefined;
+}
+
+/** One row inside the panel padding, with the backgrounds of its padding columns. */
+interface PanelRow {
+  text: string;
+  left?: Color | undefined;
+  right?: Color | undefined;
+  strip?: boolean;
+}
+
+/** The theme tokens the panel mixes for its surface, strips, and changed rows. */
+export type DiffViewTheme = Pick<Theme, "fg" | "bg" | "bold" | "style"> & {
+  colors: Pick<
+    Theme["colors"],
+    "toolPendingBg" | "toolDiffContext" | "toolDiffAdded" | "toolDiffRemoved"
+  >;
+};
+
+interface Palette {
+  surface: Color;
+  strip: Color;
+  added: Color;
+  removed: Color;
 }
 
 export interface DiffViewOptions {
@@ -22,8 +64,15 @@ export interface DiffViewOptions {
   compactRows: number;
   contextRows: number;
   expansionHint: string;
-  theme: Pick<Theme, "fg" | "bg" | "getBgAnsi" | "bold">;
+  theme: DiffViewTheme;
   highlight: (text: string) => string;
+  /**
+   * Styled top-strip rows. With multiple hunks, the first row also shows the first hunk's
+   * position when it fits beside the caller's text.
+   */
+  header?: readonly string[];
+  /** Styled rows for the bottom strip, after the compact notice. */
+  footer?: readonly string[];
 }
 
 /** Align replacements within each change block, never across context or hunk boundaries. */
@@ -131,29 +180,59 @@ function token(line: PatchLine): "toolDiffAdded" | "toolDiffRemoved" | "toolDiff
   return "toolDiffContext";
 }
 
+/**
+ * Panel colours derived from the theme's tool surface and diff foregrounds. Contrast depends
+ * on those supplied colours and the terminal's colour mode.
+ */
+function panelPalette(theme: DiffViewOptions["theme"]): Palette {
+  const { colors } = theme;
+  const surface = colors.toolPendingBg;
+
+  return {
+    surface,
+    strip: mixColors(surface, colors.toolDiffContext, STRIP_TINT, "srgb"),
+    added: mixColors(surface, colors.toolDiffAdded, CHANGE_TINT, "srgb"),
+    removed: mixColors(surface, colors.toolDiffRemoved, CHANGE_TINT, "srgb")
+  };
+}
+
+function changeBackground(line: PatchLine, palette: Palette): Color | undefined {
+  if (line.kind === "added") return palette.added;
+  if (line.kind === "removed") return palette.removed;
+
+  return undefined;
+}
+
+/** Clip and pad to exactly `width` columns, ending styles before the padding. */
+function padRow(row: string, width: number): string {
+  const clipped = truncateToWidth(row, width, "");
+
+  return clipped + "\x1b[0m" + " ".repeat(Math.max(0, width - visibleWidth(clipped)));
+}
+
+/** Apply a background to styled text. Each span between inline resets is styled separately. */
+function fill(text: string, background: Color, theme: DiffViewOptions["theme"]): string {
+  return (
+    text
+      .split(RESET)
+      .map((part, index) => (index % 2 || !part ? part : theme.style(part, { bg: background })))
+      .join("") + "\x1b[0m"
+  );
+}
+
 function shadeRow(
   row: string,
   line: PatchLine,
   width: number,
-  theme: DiffViewOptions["theme"]
-): string {
+  theme: DiffViewOptions["theme"],
+  palette: Palette
+): Cell {
   // Wrapping retains ANSI state. End each cell's syntax/bold styles before its
   // padding and separator, and restore the row background after inline resets.
-  const clipped = truncateToWidth(row, width, "");
-  const padded = clipped + "\x1b[0m" + " ".repeat(Math.max(0, width - visibleWidth(clipped)));
-  if (line.kind !== "added" && line.kind !== "removed") return padded;
-  const color = line.kind === "added" ? "toolSuccessBg" : "toolErrorBg";
-  const background = theme.getBgAnsi(color);
+  const padded = padRow(row, width);
+  const background = changeBackground(line, palette);
 
-  return (
-    theme.bg(
-      color,
-      padded
-        .replaceAll("\x1b[0m", "\x1b[0m" + background)
-        .replaceAll("\x1b[m", "\x1b[m" + background)
-        .replaceAll("\x1b[49m", background)
-    ) + "\x1b[0m"
-  );
+  return { text: background ? fill(padded, background, theme) : padded, background };
 }
 
 function columnAt(source: string, offset: number): number {
@@ -257,21 +336,28 @@ const rowBudgetsSchema = z.object({
   contextRows: z.int().nonnegative()
 });
 
-/** Responsive unified/split layout backed by parsed hunks; no input handling or I/O. */
-export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): string[] {
+/**
+ * Full-width panel with a responsive unified/split layout backed by parsed hunks; no input
+ * handling or I/O. Strips above, between, and below the hunks carry caller rows, hunk positions,
+ * and the compact notice. Every row is exactly `width` columns.
+ */
+export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): string[] {
   if (!rowBudgetsSchema.safeParse(options).success)
     throw new RangeError(
       "Diff row budgets must be safe integers: at least two changed rows, nonnegative context."
     );
   const lines = parsed.hunks.flatMap((hunk) => hunk.lines);
-  if (!lines.length || options.width < 1) return [];
+  if (options.width < 1) return [];
   const { width, theme, expanded } = options;
+  const palette = panelPalette(theme);
+  // One column of panel padding on each side, when the width leaves room for content.
+  const padding = width > 2 ? 1 : 0;
+  const available = width - 2 * padding;
   const digits = String(
     lines.reduce((maximum, line) => Math.max(maximum, line.oldLine ?? 0, line.newLine ?? 0), 1)
   ).length;
   const hunks = parsed.hunks.map((hunk) => pairPatchLines(hunk.lines));
   let ranges = new Map<PatchLine, DiffRange>();
-  const available = width;
   const leftWidth = Math.floor((available - 3) / 2),
     rightWidth = available - 3 - leftWidth;
   const split = parsed.added > 0 && parsed.removed > 0 && leftWidth - digits - 2 >= 40;
@@ -317,7 +403,7 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
     side: "old" | "new",
     cellWidth: number,
     excerpt: boolean
-  ): string[] => {
+  ): Cell[] => {
     if (!line) return [];
     const { source, styled } = presentation(line);
     const contentWidth = Math.max(1, cellWidth - digits - 2);
@@ -329,11 +415,13 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
     const gutter = `${theme.fg("dim", number)} ${theme.fg(token(line), sign)}`;
     const wrapped = wrapRows(content, contentWidth);
     const rows = (wrapped.length ? wrapped : [""]).map((row, index) =>
-      shadeRow((index ? " ".repeat(digits + 2) : gutter) + row, line, cellWidth, theme)
+      shadeRow((index ? " ".repeat(digits + 2) : gutter) + row, line, cellWidth, theme, palette)
     );
     if (line.noNewline)
       rows.push(
-        ...wrapRows(theme.fg("dim", "\\ No newline at end of file"), Math.max(1, cellWidth))
+        ...wrapRows(theme.fg("dim", "\\ No newline at end of file"), Math.max(1, cellWidth)).map(
+          (text) => ({ text })
+        )
       );
 
     return rows;
@@ -341,8 +429,58 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
 
   const join = (left: string, right: string) =>
     `${left}${" ".repeat(Math.max(0, leftWidth - visibleWidth(left)))}${theme.fg("dim", " │ ")}${right}`;
-  const hunkHeader = (index: number) =>
-    truncateToWidth(theme.fg("accent", `Hunk ${index + 1}/${hunks.length}`), width, "…");
+
+  const strip = (left: string, right = ""): PanelRow => {
+    const reserved = right ? visibleWidth(right) + 1 : 0;
+    // Caller text can include warnings or totals. Hunk metadata must not displace it.
+    const shown = reserved && visibleWidth(left) + reserved <= available ? right : "";
+    const text = truncateToWidth(left, available - (shown ? reserved : 0), "…");
+
+    return {
+      text: `${text}${" ".repeat(Math.max(0, available - visibleWidth(text) - visibleWidth(shown)))}${shown}`,
+      strip: true
+    };
+  };
+
+  const startLine = (index: number) => {
+    const first = parsed.hunks[index]?.lines[0];
+
+    return `line ${first?.newLine ?? first?.oldLine ?? 1}`;
+  };
+
+  const hunkStrip = (index: number) =>
+    strip(
+      theme.fg("accent", `Hunk ${index + 1}/${hunks.length}`),
+      theme.fg("dim", startLine(index))
+    );
+
+  const edge = (background: Color | undefined) =>
+    background ? theme.style(" ", { bg: background }) : " ";
+
+  const paint = (row: PanelRow) => {
+    const text = padRow(row.text, available);
+
+    return fill(
+      padding ? edge(row.left) + text + edge(row.right) : text,
+      row.strip ? palette.strip : palette.surface,
+      theme
+    );
+  };
+
+  const panel = (body: PanelRow[], notice?: string): string[] => {
+    const header = (options.header ?? []).flatMap((row) => wrapRows(row, available));
+    const position =
+      hunks.length > 1 ? theme.fg("dim", `Hunk 1/${hunks.length} · ${startLine(0)}`) : "";
+    const rows: PanelRow[] = [];
+    if (header.length || position)
+      rows.push(strip(header[0] ?? "", position), ...header.slice(1).map((row) => strip(row)));
+    rows.push(...body);
+    if (notice) rows.push(strip(theme.fg("dim", notice)));
+    for (const row of options.footer ?? [])
+      rows.push(...wrapRows(row, available).map((text) => strip(text)));
+
+    return rows.map(paint);
+  };
 
   const heights = new Map<PatchLine, { width: number; height: number }>();
 
@@ -394,7 +532,7 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
 
   const gap = split ? join(theme.fg("dim", "⋮"), theme.fg("dim", "⋮")) : theme.fg("dim", "⋮");
 
-  const renderHunk = (index: number, preview?: HunkPreview): string[] => {
+  const renderHunk = (index: number, preview?: HunkPreview): PanelRow[] => {
     const paired = hunks[index];
     const hunk = parsed.hunks[index];
     if (!paired || !hunk) return [];
@@ -402,17 +540,17 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
       preview && new Set([...preview.rows].flatMap((row) => [row.old, row.new]));
     const excerptedLines =
       preview && new Set([...preview.excerpts].flatMap((row) => [row.old, row.new]));
-    const rows: string[] = [];
+    const rows: PanelRow[] = [];
     let skipped = false;
 
-    const append = (include: boolean, render: () => string[]) => {
+    const append = (include: boolean, render: () => PanelRow[]) => {
       if (!include) {
         skipped = true;
 
         return;
       }
 
-      if (skipped && rows.length) rows.push(gap);
+      if (skipped && rows.length) rows.push({ text: gap });
       skipped = false;
       rows.push(...render());
     };
@@ -424,9 +562,11 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
           const left = lineRows(row.old, "old", leftWidth, excerpt);
           const right = lineRows(row.new, "new", rightWidth, excerpt);
 
-          return Array.from({ length: Math.max(left.length, right.length) }, (_, offset) =>
-            join(left[offset] ?? "", right[offset] ?? "")
-          );
+          return Array.from({ length: Math.max(left.length, right.length) }, (_, offset) => ({
+            text: join(left[offset]?.text ?? "", right[offset]?.text ?? ""),
+            left: left[offset]?.background,
+            right: right[offset]?.background
+          }));
         });
     } else {
       // Selecting paired replacements must not reorder a unified patch's removals/additions.
@@ -437,7 +577,7 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
             line.kind === "removed" ? "old" : "new",
             available,
             excerptedLines?.has(line) ?? false
-          )
+          ).map(({ text, background }) => ({ text, left: background, right: background }))
         );
     }
 
@@ -447,19 +587,17 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
   if (expanded || fits(hunks.flat())) {
     ranges = changeRanges(hunks.flat());
 
-    return hunks.flatMap((_, index) => [
-      ...(hunks.length > 1 ? [hunkHeader(index)] : []),
-      ...renderHunk(index)
-    ]);
+    return panel(
+      hunks.flatMap((_, index) => [...(index ? [hunkStrip(index)] : []), ...renderHunk(index)])
+    );
   }
 
   // Choose source changes before applying a displayed-row budget. Wrapped context
   // must never evict the first replacement, and both sides remain selected together.
   const first = hunks[0];
-  if (!first) return [];
-  const headers = hunks.length > 1 ? [hunkHeader(0)] : [];
+  if (!first) return panel([]);
 
-  const finish = (rows: string[], excerpted: boolean) => {
+  const finish = (rows: PanelRow[], excerpted: boolean) => {
     const more = hunks.length - 1;
     const notice = [
       excerpted ? "hunk excerpt" : "",
@@ -468,11 +606,7 @@ export function renderDiffBody(parsed: ParsedPatch, options: DiffViewOptions): s
       .filter(Boolean)
       .join("; ");
 
-    return [
-      ...headers,
-      ...rows,
-      truncateToWidth(theme.fg("dim", `… ${notice} (${options.expansionHint})`), width, "…")
-    ];
+    return panel(rows, `… ${notice} (${options.expansionHint})`);
   };
 
   if (fits(first)) {

@@ -20,14 +20,18 @@ import {
   type ExtensionFactory
 } from "@earendil-works/pi-coding-agent";
 import { expect, test as caseTest, vi } from "vite-plus/test";
+import { z } from "zod";
 
 import { ChildRun } from "../src/child.ts";
 import { DEPTH_ENV, RESULT_MESSAGE, TASK_ID_ENV } from "../src/constants.ts";
 import subagents from "../src/index.ts";
 import * as invocation from "../src/invocation.ts";
-import { rebuildOwnership, type TaskRecord } from "../src/records.ts";
+import { WriterLease } from "../src/lease.ts";
+import type { ChildMessage } from "../src/protocol.ts";
+import { taskHistory, taskRecordSchema, type TaskRecord } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
-import { Tasks, type ManagedTask, type TaskEvent } from "../src/tasks.ts";
+import { branchTo } from "../src/sessions.ts";
+import { Tasks, type TaskEvent } from "../src/tasks.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
@@ -91,9 +95,14 @@ function launchCall(prompt: string) {
 
 type SDKFixture = {
   session: AgentSession;
-  started: Promise<{ tasks: Tasks; task: ManagedTask }>;
+  /** The first child run of the supervisor. */
+  started: Promise<ChildRun>;
   requests: TranscriptContext[];
   queue(...responses: FauxResponseStep[]): void;
+  /** Drop the coordination messages from direct children that `drop` matches. */
+  intercept(drop: (message: ChildMessage) => boolean): void;
+  /** The supervisor's task records from `/subagents list`. */
+  records(): Promise<TaskRecord[]>;
 };
 
 async function fixture(
@@ -115,15 +124,17 @@ async function fixture(
       command: launch.command,
       args: [launch.args[0]!]
     });
-    const started = Promise.withResolvers<{ tasks: Tasks; task: ManagedTask }>();
-    // The spy calls the real method with each Tasks instance as its receiver.
+    const started = Promise.withResolvers<ChildRun>();
+    let drop: ((message: ChildMessage) => boolean) | undefined;
+    // The spy calls the real method with each run as its receiver.
     // oxlint-disable-next-line typescript/unbound-method
-    const start = Tasks.prototype.start;
-    vi.spyOn(Tasks.prototype, "start").mockImplementation(function (this: Tasks, ...args) {
-      const task = start.apply(this, args);
-      started.resolve({ tasks: this, task });
+    const listen = ChildRun.prototype.listen;
+    vi.spyOn(ChildRun.prototype, "listen").mockImplementation(function (this: ChildRun, listener) {
+      started.resolve(this);
 
-      return task;
+      return listen.call(this, (message) => {
+        if (!drop?.(message)) listener(message);
+      });
     });
     const cwd = launch.options.cwd;
     const agentDir = join(directory, "agent");
@@ -166,12 +177,27 @@ async function fixture(
       noTools: "builtin"
     }));
     const errors: unknown[] = [];
-    await session.bindExtensions({ mode: "rpc", onError: (error) => errors.push(error) });
+    const notes: string[] = [];
+    const runner = session.extensionRunner;
+    await session.bindExtensions({
+      mode: "rpc",
+      uiContext: { ...runner.createContext().ui, notify: (message) => notes.push(message) },
+      onError: (error) => errors.push(error)
+    });
     const requests: TranscriptContext[] = [];
     await body({
       session,
       started: started.promise,
       requests,
+      intercept(next) {
+        drop = next;
+      },
+      async records() {
+        await runner.getCommand("subagents")!.handler("list", runner.createCommandContext());
+
+        return z.object({ tasks: z.array(taskRecordSchema) }).parse(JSON.parse(notes.at(-1)!))
+          .tasks;
+      },
       queue(...responses) {
         faux.appendResponses(
           responses.map((response) => async (context, options, state, model) => {
@@ -212,6 +238,7 @@ async function fixture(
   }
 }
 
+/** Hold each completion at the event seam, so that its release reaches delivery synchronously. */
 function holdCompletions() {
   const reached = Promise.withResolvers<Extract<TaskEvent, { kind: "completed" }>>();
   const held: (() => void)[] = [];
@@ -280,7 +307,7 @@ test.each(["release then abort", "abort after end", "release after aborted end"]
           );
           const prompt = session.prompt("Start the finite background task");
           const event = await bounded(completion.reached, "real child completion");
-          expect(event.result.outcome).toBe("completed");
+          expect(event.outcome).toBe("completed");
           expect(session.isIdle).toBe(false);
 
           if (order === "release then abort") {
@@ -325,9 +352,9 @@ test.each(["release then abort", "abort after end", "release after aborted end"]
   45_000
 );
 
-// S9/S1: the process has failed, but a held capture keeps its managed record active.
+// S9/S1: the process has failed, but a held lease release keeps its managed record active.
 test("rejects abort after process exit and retains the real failed completion", async () => {
-  const releaseCapture = Promise.withResolvers<void>();
+  const releaseLease = Promise.withResolvers<void>();
   const abortReady = Promise.withResolvers<void>();
 
   try {
@@ -338,10 +365,10 @@ test("rejects abort after process exit and retains the real failed completion", 
           launchCall("finite-late"),
           async () => {
             await bounded(abortReady.promise, "post-exit abort request");
-            const { task } = await host.started;
+            const start = await (await host.started).started;
 
             return fauxAssistantMessage(
-              fauxToolCall("subagent_abort", { task_id: task.details.task_id! }),
+              fauxToolCall("subagent_abort", { task_id: start!.taskId }),
               { stopReason: "toolUse" }
             );
           },
@@ -356,59 +383,41 @@ test("rejects abort after process exit and retains the real failed completion", 
             return fauxAssistantMessage("Failure consumed");
           }
         );
-        const prompt = host.session.prompt("Start the late background task");
-        const { tasks, task } = await bounded(host.started, "managed task creation");
-        await bounded(task.run.started, "real child launch");
-        const id = task.details.task_id!;
-        expect(tasks.owned(id).state).toBe("active");
-        const captured = Promise.withResolvers<void>();
-        const request = task.run.connection.request.bind(task.run.connection);
-        let collectedText = false;
-        let collectionReadsFinished = false;
-        vi.spyOn(task.run.connection, "request").mockImplementation(async (command) => {
-          const response = await request(command);
-          if (command.type === "get_last_assistant_text") collectedText = true;
-          if (command.type === "get_session_stats" && collectedText) collectionReadsFinished = true;
-
-          return response;
-        });
-        // The wrapper reads the real snapshot from the intercepted ChildRun instance.
+        const releasing = Promise.withResolvers<void>();
+        // The wrapper releases the real lease after the held window.
         // oxlint-disable-next-line typescript/unbound-method
-        const snapshot = ChildRun.prototype.snapshot;
+        const release = WriterLease.prototype.release;
         let held = false;
-        vi.spyOn(ChildRun.prototype, "snapshot").mockImplementation(async function (
-          this: ChildRun
+        vi.spyOn(WriterLease.prototype, "release").mockImplementation(async function (
+          this: WriterLease
         ) {
-          // Hold collection's last capture, after earlier event captures have drained.
-          const finalCapture = this === task.run && collectionReadsFinished && !held;
-          const value = await snapshot.call(this);
-
-          if (
-            finalCapture &&
-            value.entries.some(
-              (entry) =>
-                entry.type === "message" &&
-                entry.message.role === "assistant" &&
-                entry.message.stopReason === "stop"
-            )
-          ) {
+          if (!held) {
             held = true;
-            captured.resolve();
-            await bounded(releaseCapture.promise, "capture release");
+            releasing.resolve();
+            await bounded(releaseLease.promise, "lease release");
           }
 
-          return value;
+          return release.call(this);
         });
-        await bounded(captured.promise, "final child capture");
-        expect(task.run.connection.process.kill("SIGTERM")).toBe(true);
-        const exited = await bounded(task.run.done, "real child failure exit");
+        const prompt = host.session.prompt("Start the late background task");
+        const run = await bounded(host.started, "child run creation");
+        const id = (await bounded(run.started, "real child launch"))!.taskId;
+        const record = async () => (await host.records()).find((item) => item.task_id === id);
+        expect(await record()).toMatchObject({ state: "active" });
+        expect(run.connection.process.kill("SIGTERM")).toBe(true);
+        const exited = await bounded(run.done, "real child failure exit");
         expect(exited.outcome).toBe("failed");
-        expect(tasks.active(id)).toBe(task);
-        expect(tasks.owned(id).state).toBe("active");
-        const cancel = task.run.cancel.bind(task.run);
-        const cancellation = vi.spyOn(task.run, "cancel").mockImplementation((reason) => {
-          const result = cancel(reason);
-          releaseCapture.resolve();
+        await bounded(releasing.promise, "held lease release");
+        expect(await record()).toMatchObject({ state: "active" });
+        // The wrapper cancels the real run, then lets its cleanup finish.
+        // oxlint-disable-next-line typescript/unbound-method
+        const cancel = ChildRun.prototype.cancel;
+        const cancellation = vi.spyOn(ChildRun.prototype, "cancel").mockImplementation(function (
+          this: ChildRun,
+          reason
+        ) {
+          const result = cancel.call(this, reason);
+          releaseLease.resolve();
 
           return result;
         });
@@ -423,18 +432,18 @@ test("rejects abort after process exit and retains the real failed completion", 
         expect(detailsSchema.safeParse(result.details).data?.state).not.toBe("cancelled");
         await bounded(consumed.promise, "failed background result consumption");
         await bounded(prompt, "post-exit prompt settlement");
-        expect(tasks.owned(id)).toMatchObject({ state: "inactive", outcome: "failed" });
+        expect(await record()).toMatchObject({ state: "inactive", outcome: "failed" });
         expect(savedResults(host.session)).toHaveLength(1);
         expect(detailsSchema.parse(savedResults(host.session)[0]!.details).state).toBe("failed");
         expect(contentText(savedResults(host.session)[0]!.content)).toContain(exited.text);
       },
       () => {
-        releaseCapture.resolve();
+        releaseLease.resolve();
         abortReady.resolve();
       }
     );
   } finally {
-    releaseCapture.resolve();
+    releaseLease.resolve();
     abortReady.resolve();
   }
 }, 45_000);
@@ -466,73 +475,71 @@ test("confirms descendant cancellation and propagates the owner's inactive error
           fauxAssistantMessage("Descendant abort result received"),
           fauxAssistantMessage("Owner completion consumed")
         );
-        const prompt = host.session.prompt("Start the background owner");
-        const { tasks, task } = await bounded(host.started, "owner creation");
         const active = Promise.withResolvers<TaskRecord>();
-        const unsubscribe = tasks.subscribe(() => {
-          const descendant = tasks
-            .list()
-            .find(
-              (record) =>
-                record.parent_task_id === task.details.task_id && record.state === "active"
-            );
-          if (descendant) active.resolve({ ...descendant });
+        let stale: string | undefined;
+        // The owner sends the descendant's end before its abort confirmation. Dropping that
+        // record leaves the supervisor with a stale active descendant.
+        host.intercept((message) => {
+          if (message.kind !== "task") return false;
+
+          if (message.record.state === "active" && stale === undefined) {
+            stale = message.record.task_id;
+            active.resolve(message.record);
+          }
+
+          return message.record.task_id === stale && message.record.state === "inactive";
+        });
+        const prompt = host.session.prompt("Start the background owner");
+        const owner = await bounded(host.started, "owner creation");
+        const ownerId = (await bounded(owner.started, "owner launch"))!.taskId;
+        const record = async (id: string) =>
+          (await host.records()).find((item) => item.task_id === id);
+        const descendant = await bounded(active.promise, "active descendant relay");
+        expect(descendant.parent_task_id).toBe(ownerId);
+        abortTarget.resolve(descendant.task_id);
+        await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(1), {
+          timeout: WAIT_MS,
+          interval: 10
+        });
+        const confirmed = abortResults(host.session)[0]!;
+        expect(confirmed.isError).toBe(false);
+        expect(detailsSchema.parse(confirmed.details)).toMatchObject({
+          task_id: descendant.task_id,
+          state: "cancelled"
         });
 
-        try {
-          const stale = await bounded(active.promise, "active descendant relay");
-          abortTarget.resolve(stale.task_id);
-          await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(1), {
-            timeout: WAIT_MS,
-            interval: 10
-          });
-          const confirmed = abortResults(host.session)[0]!;
-          expect(confirmed.isError).toBe(false);
-          expect(detailsSchema.parse(confirmed.details)).toMatchObject({
-            task_id: stale.task_id,
-            state: "cancelled"
-          });
-          await vi.waitFor(() => expect(tasks.owned(stale.task_id).state).toBe("inactive"), {
-            timeout: WAIT_MS,
-            interval: 10
-          });
-          const before = await bounded(task.run.snapshot(), "owner's inactive descendant record");
-          expect(rebuildOwnership(before.entries).tasks.get(stale.task_id)).toMatchObject({
-            state: "inactive",
-            outcome: "cancelled"
-          });
-          expect(tasks.owned(task.details.task_id!).state).toBe("active");
-          expect(task.run.connection.process.exitCode).toBeNull();
-          const owned = tasks.owned.bind(tasks);
-          const lookup = vi
-            .spyOn(tasks, "owned")
-            .mockImplementation((id) => (id === stale.task_id ? stale : owned(id)));
-          staleTarget.resolve(stale.task_id);
-          await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(2), {
-            timeout: WAIT_MS,
-            interval: 10
-          });
-          lookup.mockRestore();
-          const result = abortResults(host.session)[1]!;
-          expect(result.isError).toBe(true);
-          expect(contentText(result.content)).toContain("Task is inactive");
-          expect(detailsSchema.safeParse(result.details).data?.state).not.toBe("cancelled");
-          const after = await bounded(
-            task.run.snapshot(),
-            "unchanged descendant in the real owner"
+        const history = async (label: string) => {
+          const snapshot = await bounded(owner.entries(), label);
+
+          return taskHistory(branchTo(snapshot.entries, snapshot.leafId), ownerId).get(
+            descendant.task_id
           );
-          expect(rebuildOwnership(after.entries).tasks.get(stale.task_id)).toEqual(
-            rebuildOwnership(before.entries).tasks.get(stale.task_id)
-          );
-          expect(tasks.owned(task.details.task_id!).state).toBe("active");
-          await bounded(prompt, "owner completion settlement");
-          expect(savedResults(host.session)).toHaveLength(1);
-          expect(contentText(savedResults(host.session)[0]!.content)).toContain(
-            "Cancelled by supervisor"
-          );
-        } finally {
-          unsubscribe();
-        }
+        };
+
+        const before = await history("owner's inactive descendant record");
+        expect(before).toMatchObject({
+          state: "inactive",
+          outcome: "cancelled"
+        });
+        expect(await record(descendant.task_id)).toMatchObject({ state: "active" });
+        expect(await record(ownerId)).toMatchObject({ state: "active" });
+        expect(owner.connection.process.exitCode).toBeNull();
+        staleTarget.resolve(descendant.task_id);
+        await vi.waitFor(() => expect(abortResults(host.session)).toHaveLength(2), {
+          timeout: WAIT_MS,
+          interval: 10
+        });
+        const result = abortResults(host.session)[1]!;
+        expect(result.isError).toBe(true);
+        expect(contentText(result.content)).toContain("Task is inactive");
+        expect(detailsSchema.safeParse(result.details).data?.state).not.toBe("cancelled");
+        expect(await history("unchanged descendant in the real owner")).toEqual(before);
+        expect(await record(ownerId)).toMatchObject({ state: "active" });
+        await bounded(prompt, "owner completion settlement");
+        expect(savedResults(host.session)).toHaveLength(1);
+        expect(contentText(savedResults(host.session)[0]!.content)).toContain(
+          "Cancelled by supervisor"
+        );
       },
       () => {
         abortTarget.resolve("00000000-0000-0000-0000-000000000000");

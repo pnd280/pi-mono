@@ -1,59 +1,23 @@
 import { randomUUID } from "node:crypto";
 
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
-import { z } from "zod";
-
 import type { Capacity } from "./capacity.ts";
-import { RECORD_MAX_BYTES, RELAY_ENTRY, TASK_ENTRY } from "./constants.ts";
-import { parseRecord, taskRecordSchema, type TaskRecord } from "./records.ts";
+import type { ChildMessage, SlotReply } from "./protocol.ts";
+import type { TaskRecord } from "./records.ts";
 
-const id = z.string().min(1).max(1024);
-const request = z.object({ request_id: id, owner_session_id: id });
-const relaySchema = z.discriminatedUnion("kind", [
-  request.extend({ kind: z.literal("slot-request") }),
-  request.extend({ kind: z.literal("slot-release") }),
-  request.extend({
-    kind: z.literal("slot-reply"),
-    granted: z.boolean(),
-    error: z.string().max(4096).optional()
-  }),
-  z.object({ kind: z.literal("task"), record: taskRecordSchema }),
-  z.object({ kind: z.literal("session-changed"), task_id: id, revision: z.int().nonnegative() })
-]);
-
-export type RelayMessage = z.infer<typeof relaySchema>;
-
-export type Reservation = { release(): void; requestId?: string };
-
-export function parseRelay(value: unknown): RelayMessage | undefined {
-  try {
-    if (Buffer.byteLength(JSON.stringify(value)) > RECORD_MAX_BYTES + 4096) return;
-
-    return relaySchema.safeParse(value).data;
-  } catch {
-    return;
-  }
-}
+export type Reservation = { release(): void };
 
 interface RelayHost {
-  sessionId: string;
-  depth: number;
+  /** This supervisor's task ID; a root supervisor has none. */
+  self: string | undefined;
   maxConcurrent: number;
   capacity: Capacity;
-  append(message: RelayMessage): void;
-  forward(childId: string, message: RelayMessage): Promise<void>;
+  /** Send a message to this process's supervisor. */
+  send(message: ChildMessage): void;
+  /** Send a slot reply to a direct child. */
+  reply(childId: string, message: SlotReply): Promise<void>;
   belongsTo(childId: string, taskId: string): boolean;
   accepts(childId: string, record: TaskRecord): boolean;
   record(record: TaskRecord): void;
-  changed(taskId: string): void;
-}
-
-function relayEntry(entry: SessionEntry): RelayMessage | undefined {
-  if (entry.type !== "custom") return;
-  if (entry.customType === RELAY_ENTRY) return parseRelay(entry.data);
-  const record = entry.customType === TASK_ENTRY ? parseRecord(entry.data) : undefined;
-
-  return record ? { kind: "task", record } : undefined;
 }
 
 /** Only adjacent processes exchange messages. The root alone grants whole-tree capacity. */
@@ -71,28 +35,16 @@ export class Relay {
   acquire(signal?: AbortSignal): Promise<Reservation> {
     if (!this.active || signal?.aborted)
       return Promise.reject(new Error("Subagent launch cancelled"));
-    if (this.host.depth === 0)
+    const owner = this.host.self;
+    if (owner === undefined)
       return this.host.capacity.acquire(signal).then((release) => ({ release }));
     const requestId = randomUUID();
 
     return new Promise((resolve, reject) => {
-      const release = () =>
-        this.host.append({
-          kind: "slot-release",
-          request_id: requestId,
-          owner_session_id: this.host.sessionId
-        });
-
       const abort = () => {
         this.pending.delete(requestId);
         signal?.removeEventListener("abort", abort);
-
-        try {
-          release();
-        } catch {
-          /* Ancestor exit cleanup also releases pending grants. */
-        }
-
+        this.release(requestId, owner);
         reject(new Error("Cancelled by turn abort"));
       };
 
@@ -104,11 +56,7 @@ export class Relay {
       signal?.addEventListener("abort", abort, { once: true });
 
       try {
-        this.host.append({
-          kind: "slot-request",
-          request_id: requestId,
-          owner_session_id: this.host.sessionId
-        });
+        this.host.send({ kind: "slot-request", request_id: requestId, owner });
       } catch (error) {
         this.pending.get(requestId)?.dispose();
         this.pending.delete(requestId);
@@ -117,10 +65,18 @@ export class Relay {
     });
   }
 
-  receive(child: string, entry: SessionEntry): void {
+  /** Releases are idempotent; the root also releases a child subtree's slots when it exits. */
+  private release(requestId: string, owner: string): void {
+    try {
+      this.host.send({ kind: "slot-release", request_id: requestId, owner });
+    } catch {
+      /* The ancestor releases this slot when this process exits. */
+    }
+  }
+
+  receive(child: string, message: ChildMessage): void {
     if (!this.active) return;
-    const message = relayEntry(entry);
-    if (!message) return;
+
     if (message.kind === "task") {
       if (
         message.record.parent_task_id === null ||
@@ -129,43 +85,39 @@ export class Relay {
       )
         return;
       this.host.record(message.record);
-
-      if (message.record.state === "inactive") {
-        this.release(message.record.slot_request_id);
-        this.exited(message.record.task_id);
-      }
-    } else if (message.kind === "session-changed") {
-      if (!this.host.belongsTo(child, message.task_id)) return;
-      this.host.changed(message.task_id);
+      if (message.record.state === "inactive") this.exited(message.record.task_id);
     } else if (message.kind === "slot-request") {
-      if (
-        !this.host.belongsTo(child, message.owner_session_id) ||
-        this.routes.has(message.request_id)
-      )
-        return;
-      this.routes.set(message.request_id, { child, owner: message.owner_session_id });
-
-      if (this.host.depth === 0) {
-        this.grant(child, message);
-
-        return;
-      }
+      if (!this.host.belongsTo(child, message.owner) || this.routes.has(message.request_id)) return;
+      this.routes.set(message.request_id, { child, owner: message.owner });
+      if (this.host.self === undefined) this.grant(child, message.request_id, message.owner);
+      else this.host.send(message);
     } else if (message.kind === "slot-release") {
       const route = this.routes.get(message.request_id);
-      if (route?.child !== child || route.owner !== message.owner_session_id) return;
-      this.release(message.request_id);
+      if (route?.child !== child || route.owner !== message.owner) return;
       this.routes.delete(message.request_id);
-    } else return;
-    if (this.host.depth > 0 || message.kind === "task") this.host.append(message);
+      this.free(message.request_id, message.owner);
+    }
   }
 
-  private grant(child: string, message: Extract<RelayMessage, { kind: "slot-request" }>): void {
+  /** At the root, return a grant; elsewhere, pass the release to the supervisor. */
+  private free(requestId: string, owner: string): void {
+    if (this.host.self !== undefined) {
+      this.release(requestId, owner);
+
+      return;
+    }
+
+    this.grants.get(requestId)?.release();
+    this.grants.delete(requestId);
+  }
+
+  private grant(child: string, requestId: string, owner: string): void {
     const release = this.host.capacity.tryAcquire();
-    if (release)
-      this.grants.set(message.request_id, { child, owner: message.owner_session_id, release });
-    const reply: RelayMessage = {
-      ...message,
-      kind: "slot-reply",
+    if (release) this.grants.set(requestId, { child, owner, release });
+    else this.routes.delete(requestId);
+    const reply: SlotReply = {
+      request_id: requestId,
+      owner,
       granted: !!release,
       ...(!release
         ? {
@@ -173,24 +125,41 @@ export class Relay {
           }
         : {})
     };
-    void this.host.forward(child, reply).catch(() => this.release(message.request_id));
+    void this.host.reply(child, reply).catch(() => {
+      this.routes.delete(requestId);
+      this.free(requestId, owner);
+    });
   }
 
-  async reply(message: RelayMessage): Promise<void> {
-    if (!this.active || message.kind !== "slot-reply")
-      throw new Error("Invalid subagent relay reply");
+  /** Handle a slot reply from the supervisor: pass it down, or settle this process's request. */
+  async reply(message: SlotReply): Promise<void> {
+    if (!this.active) throw new Error("Subagent session ended");
 
-    if (message.owner_session_id !== this.host.sessionId) {
+    if (message.owner !== this.host.self) {
       const route = this.routes.get(message.request_id);
-      if (!route || route.owner !== message.owner_session_id)
-        throw new Error("Unknown subagent relay request");
-      await this.host.forward(route.child, message);
+      if (!route || route.owner !== message.owner) throw new Error("Unknown subagent slot request");
+      if (!message.granted) this.routes.delete(message.request_id);
+
+      try {
+        await this.host.reply(route.child, message);
+      } catch (error) {
+        this.routes.delete(message.request_id);
+        if (message.granted) this.release(message.request_id, message.owner);
+        throw error;
+      }
 
       return;
     }
 
     const pending = this.pending.get(message.request_id);
-    if (!pending) return;
+
+    if (!pending) {
+      // A late grant for a request that this process no longer waits for.
+      if (message.granted) this.release(message.request_id, message.owner);
+
+      return;
+    }
+
     pending.dispose();
     this.pending.delete(message.request_id);
 
@@ -198,37 +167,26 @@ export class Relay {
     else {
       let released = false;
       pending.resolve({
-        requestId: message.request_id,
         release: () => {
           if (released) return;
           released = true;
-
-          try {
-            this.host.append({
-              kind: "slot-release",
-              request_id: message.request_id,
-              owner_session_id: message.owner_session_id
-            });
-          } catch {
-            /* The ancestor also releases this reservation from the exit record. */
-          }
+          this.release(message.request_id, message.owner);
         }
       });
     }
   }
 
-  private release(id: string | undefined): void {
-    if (id === undefined) return;
-    this.grants.get(id)?.release();
-    this.grants.delete(id);
-  }
-
+  /** A task's process exited: free the slots that it or its descendants requested. */
   exited(taskId: string): void {
+    for (const [id, route] of this.routes) {
+      if (route.child !== taskId && !this.host.belongsTo(taskId, route.owner)) continue;
+      this.routes.delete(id);
+      this.free(id, route.owner);
+    }
+
     for (const [id, grant] of this.grants)
-      if (grant.child === taskId || this.host.belongsTo(taskId, grant.owner)) this.release(id);
-    for (const [id, route] of this.routes)
-      if (route.child === taskId || this.host.belongsTo(taskId, route.owner))
-        this.routes.delete(id);
+      if (grant.child === taskId || this.host.belongsTo(taskId, grant.owner))
+        this.free(id, grant.owner);
   }
 
   invalidate(): void {
@@ -244,7 +202,8 @@ export class Relay {
 
   shutdown(): void {
     this.invalidate();
-    for (const id of this.grants.keys()) this.release(id);
+    for (const grant of this.grants.values()) grant.release();
+    this.grants.clear();
     this.routes.clear();
   }
 }

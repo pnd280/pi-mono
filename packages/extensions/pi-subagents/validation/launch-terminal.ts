@@ -9,7 +9,7 @@ process.exitCode = await runTerminalLauncher({
 Creates an offline disposable workspace and retains it for replay.
 Prompts: delegate-reply, delegate-error, delegate-slow, delegate-stubborn,
          delegate-dialog, delegate-display, delegate-remember, capacity`,
-  createWorkspace: () => createFixtureWorkspace({ display: true }),
+  createWorkspace: () => createFixtureWorkspace(),
   launch: fixtureLaunch,
   describe: (directory) => [
     `Fixture directory: ${directory}`,

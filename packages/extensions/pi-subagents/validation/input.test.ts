@@ -5,9 +5,8 @@ import { contentText } from "@earendil-works/pi-ai";
 import { expect, test } from "vite-plus/test";
 import { z } from "zod";
 
-import { RESULT_MESSAGE, RELAY_ENTRY } from "../src/constants.ts";
+import { RESULT_MESSAGE } from "../src/constants.ts";
 import { taskRecordSchema } from "../src/records.ts";
-import { parseRelay } from "../src/relay.ts";
 import { detailsSchema } from "../src/result.ts";
 import { remainingProcesses, killFixtureProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
@@ -109,7 +108,7 @@ test.skipIf(process.platform !== "linux").each(["follow_up", "steer", "settling"
 );
 
 test.skipIf(process.platform !== "linux").each(["stopped", "live"])(
-  "routes input to its owner and durably adopts an inactive descendant from a %s owner",
+  "routes input to its owner, and only the owner resumes an inactive descendant of a %s owner",
   async (mode) => {
     const directory = await createFixtureWorkspace();
     let host = await Supervisor.start(directory);
@@ -120,19 +119,11 @@ test.skipIf(process.platform !== "linux").each(["stopped", "live"])(
 
     try {
       await host.reply(mode === "live" ? "background-owner-live" : "background-owner");
-      await host.wait((event) => {
-        if (
-          event.type !== "entry_appended" ||
-          event.entry.type !== "custom" ||
-          event.entry.customType !== RELAY_ENTRY
-        )
-          return false;
-        const relay = parseRelay(event.entry.data);
-
-        return (
-          relay?.kind === "task" && relay.record.state === (mode === "live" ? "inactive" : "active")
-        );
-      });
+      await expect
+        .poll(async () => (await page()).find((task) => task.parent_task_id !== null)?.state, {
+          timeout: 10_000
+        })
+        .toBe(mode === "live" ? "inactive" : "active");
       const [owner, child] = await page();
       expect(child?.parent_task_id).toBe(owner!.task_id);
       if (mode === "stopped") {
@@ -153,17 +144,14 @@ test.skipIf(process.platform !== "linux").each(["stopped", "live"])(
         expect(
           completion[0]?.type === "custom_message" ? contentText(completion[0].content) : ""
         ).toContain("Input occurrences: 1; earlier context: true");
+        await expect.poll(async () => (await page())[0]?.state).toBe("inactive");
       } else expect((await page())[0]?.state).toBe("active");
-      const before = await readFile(owner!.session_file, "utf8");
+      const saved = await readFile(child!.session_file, "utf8");
       await host.prompt(`update-id ${child!.task_id} follow_up`);
-      expect(detailsSchema.parse((await host.results()).at(-1)!.details)).toMatchObject({
-        task_id: child!.task_id,
-        state: "completed"
-      });
-      expect(
-        (await page()).find((task) => task.task_id === child!.task_id)?.parent_task_id
-      ).toBeNull();
-      expect((await readFile(owner!.session_file, "utf8")).startsWith(before)).toBe(true);
+      const rejected = (await host.results()).at(-1)!;
+      expect(rejected.isError).toBe(true);
+      expect(contentText(rejected.content)).toContain("Only direct tasks can be resumed");
+      expect(await readFile(child!.session_file, "utf8")).toBe(saved);
       if (mode === "live")
         await host.wait(
           (event) =>
@@ -174,14 +162,9 @@ test.skipIf(process.platform !== "linux").each(["stopped", "live"])(
       const state = await host.state();
       await host.stop();
       host = await Supervisor.start(directory, { sessionId: state.sessionId });
-      expect(
-        (await page()).find((task) => task.task_id === child!.task_id)?.parent_task_id
-      ).toBeNull();
-      await host.prompt(`owner-retry ${owner!.task_id} ${child!.task_id}`);
-      expect(contentText((await host.results()).at(-1)!.content)).toContain(
-        "Task does not belong to this session"
+      expect((await page()).find((task) => task.task_id === child!.task_id)?.parent_task_id).toBe(
+        owner!.task_id
       );
-      const saved = await readFile(child!.session_file, "utf8");
       const foreign = await Supervisor.start(directory);
 
       try {
@@ -191,19 +174,12 @@ test.skipIf(process.platform !== "linux").each(["stopped", "live"])(
         await foreign.stop();
       }
 
-      const former = await Supervisor.start(directory, { sessionId: owner!.session_file });
-
-      try {
-        await former.prompt(`update-id ${child!.task_id} steer`);
-        expect((await former.results()).at(-1)?.isError).toBe(true);
-        expect((await former.command(`abort ${child!.task_id}`)).message).toContain(
-          "Task does not belong to this session"
-        );
-      } finally {
-        await former.stop();
-      }
-
       expect(await readFile(child!.session_file, "utf8")).toBe(saved);
+      await host.prompt(`owner-resume ${owner!.task_id} ${child!.task_id}`);
+      expect(contentText((await host.results()).at(-1)!.content)).toContain(
+        `Input occurrences: ${mode === "live" ? 1 : 2}`
+      );
+      expect((await readFile(child!.session_file, "utf8")).startsWith(saved)).toBe(true);
     } finally {
       await host.stop();
       const leaked = await remainingProcesses(directory);

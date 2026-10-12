@@ -26,8 +26,8 @@ Use [`text-budget`](index.ts) to wrap text synchronously and produce excerpts wi
 Reserve the indentation and two connector columns before measuring normalised content:
 
 ```ts
-import { compactText } from "@pi-mono/libs/tui/text-budget";
 import { renderTree } from "@pi-mono/libs/tui/components/tree";
+import { compactText } from "@pi-mono/libs/tui/text-budget";
 
 const rows = compactText(displaySafeText, {
   width: 76,

@@ -2,7 +2,7 @@ import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import type { InvocationPart, SummaryCategory, ToolDisplayAdapter } from "../../../contracts.ts";
-import { invocationParts, serializeParameters } from "../../../invocation.ts";
+import { invocationParts } from "../../../invocation.ts";
 
 const TOOL_NAME = "tool_search";
 const SOURCE_PATH = "builtin:tool-search";
@@ -23,15 +23,6 @@ const loadedCategory: SummaryCategory = {
   count: { one: "loaded {n} tool", other: "loaded {n} tools" }
 };
 
-function parametersPart(args: unknown): InvocationPart {
-  return {
-    kind: "parameters",
-    get text() {
-      return ` (${serializeParameters(args)})`;
-    }
-  };
-}
-
 export const toolSearchDisplayAdapter: ToolDisplayAdapter = {
   id: "builtin:tool-search",
   family: "invocation",
@@ -44,7 +35,7 @@ export const toolSearchDisplayAdapter: ToolDisplayAdapter = {
     const query = parsed.query.trim();
     if (query)
       parts.push({ kind: "annotation", text: " \u2014 " }, { kind: "pattern", text: query });
-    parts.push(parametersPart(args));
+    parts.push({ kind: "parameters", value: args, separated: true });
 
     return parts;
   },

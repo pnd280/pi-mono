@@ -1,13 +1,10 @@
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { textPrefix, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import type { DisplayProgress, DisplayProgressStatus } from "../contracts.ts";
-import { tree } from "./format.ts";
 import type { Projection } from "./types.ts";
-
-const PREVIEW_LINES = 3;
 
 type StatusColor = "dim" | "muted" | "warning" | "success" | "error" | "accent";
 
@@ -15,24 +12,40 @@ const toneColors = {
   active: "warning",
   success: "success",
   failure: "error",
+  cancelled: "warning",
   returned: "accent"
 } as const satisfies Record<DisplayProgressStatus["tone"], StatusColor>;
 
-function elapsed(progress: DisplayProgress): string {
-  if (progress.startedAt === undefined) return "";
-  const seconds = Math.max(
-    0,
-    Math.floor(((progress.endedAt ?? Date.now()) - progress.startedAt) / 1000)
-  );
+/** Progress heading rows. Running elapsed time makes them stale each second. */
+export type ProgressHeading = {
+  readonly rows: string[];
+  readonly stale: () => boolean;
+};
 
-  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+type Elapsed = { text: string; staleAt: number };
+
+function elapsed(progress: DisplayProgress, now: number, final: boolean): Elapsed {
+  const { startedAt, endedAt } = progress;
+  if (startedAt === undefined) return { text: "", staleAt: Infinity };
+  if (endedAt !== undefined)
+    return { text: formatDuration(Math.max(0, endedAt - startedAt)), staleAt: Infinity };
+  // A final result without an end time has no duration to show.
+  if (final) return { text: "", staleAt: Infinity };
+  // A running timer ticks in whole seconds.
+  const seconds = Math.max(0, Math.floor((now - startedAt) / 1000));
+
+  return {
+    text: seconds ? formatDuration(seconds * 1000) : "0s",
+    staleAt: startedAt + (seconds + 1) * 1000
+  };
 }
 
 /** Without a reported status, the host's call phase selects the label. */
 function status(
   progress: DisplayProgress,
   p: Projection,
-  clean: (text: string) => string
+  clean: (text: string) => string,
+  time: string
 ): { text: string; color: StatusColor } {
   if (!p.context.isPartial && p.outcome === "unavailable")
     return { text: "outcome unavailable", color: "muted" };
@@ -41,7 +54,7 @@ function status(
       text: [
         p.outcome === "failure" ? TUI_GLYPHS.outcome.failure : TUI_GLYPHS.outcome.cancelled,
         p.outcome === "failure" ? "failed" : "cancelled",
-        elapsed(progress)
+        time
       ]
         .filter(Boolean)
         .join(" "),
@@ -60,14 +73,27 @@ function status(
 
   const text = [reported.glyph, reported.text]
     .map((part) => (part ? clean(part) : ""))
-    .concat(elapsed(progress))
+    .concat(time)
     .filter(Boolean)
     .join(" ");
 
   return { text, color: toneColors[reported.tone] };
 }
 
-export function progressRows(progress: DisplayProgress, p: Projection): string[] {
+type CardColor = "error" | "warning" | "accent" | "muted";
+
+/** Pending uses `warning`; failure and cancellation use `error`, except cancelled details. */
+function cardColors(p: Projection): { marker: CardColor; label: CardColor; secondary: CardColor } {
+  if (p.context.isPartial) return { marker: "warning", label: "warning", secondary: "muted" };
+  if (p.outcome === "failure") return { marker: "error", label: "error", secondary: "error" };
+  if (p.outcome === "cancelled") return { marker: "error", label: "error", secondary: "warning" };
+
+  return { marker: "muted", label: "accent", secondary: "muted" };
+}
+
+export function progressHeading(progress: DisplayProgress, p: Projection): ProgressHeading {
+  const time = elapsed(progress, Date.now(), !p.context.isPartial);
+  const stale = () => Date.now() >= time.staleAt;
   const theme = p.theme;
 
   const clean = (text: string) => {
@@ -76,32 +102,30 @@ export function progressRows(progress: DisplayProgress, p: Projection): string[]
     return compactDisplayText(retained) + (retained.length < text.length ? "…" : "");
   };
 
-  const failed = !p.context.isPartial && ["failure", "cancelled"].includes(p.outcome);
+  const colors = cardColors(p);
   const marker = p.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
-  let markerColor: "error" | "warning" | "muted" = "muted";
-  if (p.context.isPartial) markerColor = "warning";
-  if (failed) markerColor = "error";
-  const state = status(progress, p, clean);
+  const state = status(progress, p, clean, time.text);
   const separator = theme.fg("dim", " · ");
   // Style the status before wrapping so continuation rows keep its colour.
-  const title = `${theme.fg(failed ? "error" : "accent", theme.bold(clean(progress.label)))} ${clean(progress.description)}${separator}${theme.fg(state.color, state.text)}`;
+  const title = `${theme.fg(colors.label, theme.bold(clean(progress.label)))} ${clean(progress.description)}${separator}${theme.fg(state.color, state.text)}`;
   const bodyWidth = Math.max(1, p.width - 2);
   const rows = wrapRows(title, bodyWidth).map(
-    (row, index) => `${index ? "  " : `${theme.fg(markerColor, marker)} `}${row}`
+    (row, index) => `${index ? "  " : `${theme.fg(colors.marker, marker)} `}${row}`
   );
   const identity = clean(progress.identity);
   const secondaryText = clean(progress.secondary);
   const secondary = [
     ...(identity ? [theme.fg("dim", identity)] : []),
-    ...(secondaryText ? [theme.fg(failed ? "error" : "muted", secondaryText)] : [])
+    ...(secondaryText ? [theme.fg(colors.secondary, secondaryText)] : [])
   ].join(separator);
-  rows.push(...wrapRows(secondary, bodyWidth).map((row) => `  ${row}`));
-
-  if (!p.expanded) return rows;
-
-  // Details lead into the result branch with a guide; before a result, they use a plain indent.
-  const indent = p.result ? `  ${theme.fg("dim", TUI_GLYPHS.tree.guide)} ` : "    ";
+  // Metadata and details lead into the result branch with a guide; without a body, they use a plain indent.
+  // A collapsed card shows a body only for a result preview.
+  const hasBody = p.result !== undefined && (p.expanded || progress.resultPreview === true);
+  const indent = hasBody ? `  ${theme.fg("dim", TUI_GLYPHS.tree.guide)} ` : "    ";
   const detailWidth = Math.max(1, p.width - 4);
+  rows.push(...wrapRows(secondary, detailWidth).map((row) => `${indent}${row}`));
+
+  if (!p.expanded) return { rows, stale };
 
   for (const field of progress.fields)
     rows.push(
@@ -127,53 +151,5 @@ export function progressRows(progress: DisplayProgress, p: Projection): string[]
 
   if (p.result) rows.push(`${indent}${theme.fg("dim", "Result:")}`);
 
-  return rows;
-}
-
-/** Collapsed completed cards show the first logical lines of the retained result in a result branch. */
-export function progressPreviewRows(p: Projection): string[] {
-  const theme = p.theme;
-  const width = Math.max(1, p.width - 4);
-  const result = p.result;
-  const content = result?.content ?? [];
-  // Use the adapter's interpretation of known envelopes, as the expanded body does.
-  const text = displayText(
-    content
-      .flatMap((block, contentIndex) => {
-        if (block.type !== "text" || !result) return [];
-        const parts = p.adapter.textParts?.(block.text, p.context.args, {
-          result,
-          contentIndex,
-          isError: p.context.isError,
-          isPartial: p.context.isPartial,
-          isCancelled: p.outcome === "cancelled",
-          expanded: false,
-          hasImages: content.some((item) => item.type === "image")
-        }) ?? [{ kind: "output", text: block.text }];
-
-        return parts.length ? [parts.map((part) => part.text).join("")] : [];
-      })
-      .join("\n")
-  )
-    .replace(/^(?:[^\S\n]*\n)+/, "")
-    .trimEnd();
-  if (!text) return tree([{ rows: [theme.fg("dim", "(no output)")] }], p);
-  const lines = text.split("\n");
-  const hidden = lines.length - PREVIEW_LINES;
-
-  return tree(
-    [
-      {
-        rows: [
-          ...lines
-            .slice(0, PREVIEW_LINES)
-            .map((line) => theme.fg("toolOutput", truncateToWidth(line, width, "…"))),
-          ...(hidden > 0
-            ? [theme.fg("dim", `… ${hidden} more ${hidden === 1 ? "line" : "lines"}`)]
-            : [])
-        ]
-      }
-    ],
-    p
-  );
+  return { rows, stale };
 }

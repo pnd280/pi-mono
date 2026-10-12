@@ -21,7 +21,7 @@ export class Supervisor {
 
   static async start(
     directory: string,
-    options: { trusted?: boolean; sessionId?: string; depth?: number } = {}
+    options: { trusted?: boolean; sessionId?: string; fork?: string; depth?: number } = {}
   ): Promise<Supervisor> {
     const launch = await createPiLaunch({
       directory,
@@ -34,7 +34,8 @@ export class Supervisor {
         "--model",
         "scripted",
         options.trusted === false ? "--no-approve" : "--approve",
-        ...(options.sessionId ? ["--session", options.sessionId] : [])
+        ...(options.sessionId ? ["--session", options.sessionId] : []),
+        ...(options.fork ? ["--fork", options.fork] : [])
       ]
     });
     const host = new Supervisor(launch);

@@ -20,7 +20,6 @@
   "dependencies": {
     "@pi-mono/libs": "workspace:*",
     "@pi-mono/utils": "workspace:*",
-    "pi-tool-display": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {

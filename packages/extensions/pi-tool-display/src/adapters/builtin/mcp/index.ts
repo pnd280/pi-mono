@@ -52,7 +52,7 @@ function notices(result: BorrowedToolResult, expanded: boolean): DisplayNotice[]
 
   return path
     ? [
-        { kind: "warning", text: "MCP output truncated." },
+        { kind: "warning", text: "MCP output truncated; expand to inspect retained output." },
         { kind: "reference", label: "Saved output", value: path }
       ]
     : [];

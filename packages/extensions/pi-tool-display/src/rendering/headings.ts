@@ -16,7 +16,12 @@ import {
   type Outcome,
   type ToolFamily
 } from "../contracts.ts";
-import { invocationParts, invocationPartText, serializeParameters } from "../invocation.ts";
+import {
+  invocationParts,
+  invocationPartText,
+  parametersText,
+  serializeParameters
+} from "../invocation.ts";
 import { expansionHint, codeHighlightLimits, tree, styleParameters } from "./format.ts";
 import { bodyWidth } from "./layout.ts";
 import { targetRows } from "./target-layout.ts";
@@ -43,14 +48,21 @@ function formatParts(
 
   for (const part of parts) {
     if (remaining <= 0) return { text, truncated: true };
-    const source =
-      part.kind === "path" ? invocationPartText(part, p.context.cwd, relativeTo) : part.text;
+    let source: string;
+    let excerpt = false;
+    if (part.kind === "parameters")
+      ({ text: source, truncated: excerpt } = parametersText(part, remaining));
+    else
+      source =
+        part.kind === "path"
+          ? invocationPartText(part, p.call?.cwd ?? p.context.cwd, relativeTo)
+          : part.text;
     // Bound source work before terminal normalization can discard or expand it.
     const retained = textPrefix(source, remaining);
     const normalized = displayText(retained);
     const prefix = textPrefix(normalized, remaining);
     if (prefix) text += style(part, prefix);
-    if (part.truncated || retained.length < source.length || prefix.length < normalized.length)
+    if (excerpt || retained.length < source.length || prefix.length < normalized.length)
       return { text, truncated: true };
     remaining -= Math.max(retained.length, prefix.length);
   }
@@ -64,19 +76,19 @@ function previewRows(
   detail: HeadingDetail,
   maximum = COMPACT_HEADING_ROWS
 ): string[] {
-  if (p.expanded) return rows;
+  // A hint must save space, so it never replaces a single row.
+  if (p.expanded || (!detail.truncated && rows.length <= maximum + 1)) return rows;
   const retained = rows.slice(0, maximum);
-  if (detail.truncated || rows.length > maximum)
-    retained.push(
-      truncateToWidth(
-        p.theme.fg(
-          "dim",
-          `… ${detail.truncated ? "more details" : `${rows.length - maximum} more rows`} (${expansionHint()})`
-        ),
-        bodyWidth(p.width),
-        "…"
-      )
-    );
+  retained.push(
+    truncateToWidth(
+      p.theme.fg(
+        "dim",
+        `… ${detail.truncated ? "more details" : `${rows.length - maximum} more rows`} (${expansionHint()})`
+      ),
+      bodyWidth(p.width),
+      "…"
+    )
+  );
 
   return retained;
 }
@@ -92,7 +104,7 @@ function headingContinuation(
     width: p.width,
     indent: 2,
     style: (text) => p.theme.fg("dim", text),
-    hasChildren: hasChildren ?? p.hasBody
+    hasChildren: hasChildren ?? p.preparedResult.hasBody
   });
 }
 
@@ -137,7 +149,8 @@ function targetTitleRows(
   const indent = visibleWidth(title) + 1;
   const rows = targetRows(parts, {
     width: p.width - indent,
-    cwd: p.context.cwd,
+    cwd: p.call?.cwd ?? p.context.cwd,
+    relativeTo: p.context.cwd,
     theme: p.theme,
     expanded: p.expanded
   });
@@ -210,6 +223,8 @@ function callActionTone(call: DisplayCall, group: PreparedGroup): ActionTone {
 function groupActionColor(group: PreparedGroup): HeadingColor {
   const first = group.members[0];
   if (!first) return "accent";
+  // An active group shows its pending verb, so it uses the pending colour.
+  if (group.members.some(isLive)) return actionColor("pending");
 
   const tone = callActionTone(first, group);
 
@@ -247,7 +262,8 @@ function scopeHeading(
   const scope =
     targetRows(parts, {
       width: bodyWidth(p.width),
-      cwd: p.context.cwd,
+      cwd: p.call?.cwd ?? p.context.cwd,
+      relativeTo: p.context.cwd,
       theme: p.theme,
       expanded: p.expanded
     }) ?? previewRows(wrapRows(genericDetail().text, bodyWidth(p.width)), p, genericDetail());
@@ -338,13 +354,14 @@ function groupHeading(group: PreparedGroup, p: PreparedCard): string[] {
       else if (lifecycle === "executing") annotation = " (running)";
       else if (lifecycle === "queued") annotation = " (queued)";
 
+      const live = p.call !== undefined && isLive(p.call);
       const title =
-        p.theme.fg(terminal?.color ?? "accent", label) +
+        p.theme.fg(terminal?.color ?? actionColor(live ? "pending" : "neutral"), label) +
         (annotation ? p.theme.fg("dim", annotation) : "");
       const indent = visibleWidth(title) + 1;
       const target = targetRows(entry.parts, {
         width: bodyWidth(p.width) - indent,
-        cwd: p.context.cwd,
+        cwd: p.call?.cwd ?? p.context.cwd,
         relativeTo,
         theme: p.theme,
         expanded: p.expanded
@@ -369,7 +386,7 @@ function groupHeading(group: PreparedGroup, p: PreparedCard): string[] {
       return previewRows(wrapRows(`${title} ${detail.text}`, bodyWidth(p.width)), p, detail);
     })
   };
-  item.rows.push(...p.groupRows.map((row) => `  ${row}`));
+  item.rows.push(...p.preparedResult.groupRows.map((row) => `  ${row}`));
   rows.push(...tree([item], p, group.members.at(-1) !== p.call));
 
   return rows;
@@ -399,7 +416,7 @@ function status(p: PreparedCard): {
     p.call?.change?.change === "creation" &&
     p.call.operation?.outcome === "success"
   )
-    verb = "Added";
+    verb = "Created";
 
   return {
     verb,
@@ -410,16 +427,7 @@ function status(p: PreparedCard): {
 function invocation(p: PreparedCard): readonly InvocationPart[] {
   const mcp = p.mcp;
   const name = mcp ? displayText(`${mcp.server}.${mcp.tool}`) : p.name;
-  const parts =
-    p.invocation ??
-    (p.adapter.family === "invocation" && !p.showParameters
-      ? [{ kind: "value" as const, text: name }]
-      : invocationParts(
-          name,
-          p.context.args,
-          p.adapter.family,
-          p.expanded ? Infinity : COMPACT_HEADING_CHARACTERS
-        ));
+  const parts = p.invocation ?? invocationParts(name, p.context.args, p.adapter.family);
 
   return parts.filter((part) => part.kind !== "parameters" || p.showParameters);
 }

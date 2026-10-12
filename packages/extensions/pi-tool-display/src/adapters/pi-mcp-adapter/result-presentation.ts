@@ -61,7 +61,9 @@ function outputNotices(value: unknown): DisplayNotice[] {
   const parsed = outputGuardSchema.safeParse(value);
   if (!parsed.success) return [];
   const guard = parsed.data;
-  const notices: DisplayNotice[] = [{ kind: "warning", text: "MCP output truncated." }];
+  const notices: DisplayNotice[] = [
+    { kind: "warning", text: "MCP output truncated; expand to inspect retained output." }
+  ];
   if (guard.fullOutputPath)
     notices.push({ kind: "reference", label: "Saved output", value: guard.fullOutputPath });
   if (guard.writeError)

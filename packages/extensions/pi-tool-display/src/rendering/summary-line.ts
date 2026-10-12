@@ -2,7 +2,6 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
-import { isToolCategory } from "../summary/categories.ts";
 import type { RunSummary, SummarySegment } from "../summary/model.ts";
 import type { DisplayTheme } from "./types.ts";
 
@@ -48,13 +47,13 @@ function styledTemplate(
   return text;
 }
 
-export function segmentText(segment: SummarySegment, theme: DisplayTheme, first: boolean): string {
-  const { category, count, counts } = segment;
+function segmentText(segment: SummarySegment, theme: DisplayTheme, first: boolean): string {
+  const { category, count, counts, toolNamed } = segment;
   const text = styledTemplate(
     compactDisplayText(count === 1 ? category.count.one : category.count.other),
     count,
     theme,
-    { first, recase: !isToolCategory(category) }
+    { first, recase: !toolNamed }
   );
   const markers: [number, string, Color][] = [
     [counts.failed, "failed", "error"],

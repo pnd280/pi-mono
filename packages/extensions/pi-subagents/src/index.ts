@@ -1,24 +1,28 @@
-import { contentText } from "@earendil-works/pi-ai";
+import { isAbsolute } from "node:path";
+
 import type {
   ExtensionAPI,
   ExtensionContext,
   ToolRenderers
 } from "@earendil-works/pi-coding-agent";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
-import { subagentAbortDisplayAdapter } from "pi-tool-display/adapters";
 import { z } from "zod";
 
 import { createAbortTool } from "./abort-tool.ts";
+import { begin, currentRun, send } from "./begin.ts";
 import { runCommand } from "./commands.ts";
 import { remindTasks } from "./compaction.ts";
 import { loadConfig } from "./config.ts";
-import { OPEN_EVENT, RESULT_MESSAGE } from "./constants.ts";
+import { OPEN_EVENT } from "./constants.ts";
 import { Delivery } from "./delivery.ts";
 import { getDepth, getTaskId } from "./depth.ts";
+import { forwardDialog } from "./dialogs.ts";
 import { getPiInvocation } from "./invocation.ts";
 import { installLateUsagePatch } from "./late-usage.ts";
 import { Panels } from "./panel.ts";
-import { createRenderers, resultRenderer } from "./render.ts";
+import { controlSchema, decode, slotReplySchema, type ChildMessage } from "./protocol.ts";
+import { RunReader } from "./reader.ts";
+import { createRenderers } from "./render.ts";
 import { Tasks } from "./tasks.ts";
 import { createSubagentTool } from "./tool.ts";
 import { taskWidget } from "./widget.ts";
@@ -33,6 +37,7 @@ export default function subagents(pi: ExtensionAPI): void {
     contributor: "pi-subagents"
   });
   let tasks: Tasks | undefined;
+  let reader: RunReader | undefined;
   let delivery: Delivery | undefined;
   let panels: Panels | undefined;
   let disposeWidget: (() => void) | undefined;
@@ -55,11 +60,10 @@ export default function subagents(pi: ExtensionAPI): void {
     });
   const emitOpen = (task_id: string, binding_id?: string) =>
     pi.events.emit(OPEN_EVENT, { task_id, binding_id });
-  pi.registerMessageRenderer(RESULT_MESSAGE, resultRenderer(emitOpen));
   // Pi rebuilds the chat on reload before session_start registers the tool.
   const cards: Record<string, ToolRenderers> = {
     subagent: createRenderers(emitOpen),
-    subagent_abort: createRenderers(emitOpen, "subagent_abort", subagentAbortDisplayAdapter)
+    subagent_abort: createRenderers(emitOpen, "subagent_abort")
   };
   pi.registerToolRenderer((name, next) => {
     const own = Object.hasOwn(cards, name) ? cards[name] : undefined;
@@ -71,20 +75,39 @@ export default function subagents(pi: ExtensionAPI): void {
     description:
       "List tasks, show <task_id> (--since, --limit, --last), abort <task_id>, or background [task_id]",
     handler: async (args, ctx) => {
+      // Reserved subcommands from this child's supervisor. Pi reports them as handled even when
+      // they throw; their replies travel through the protocol status.
+      const reserved = /^(begin|slot|control) (.*)$/s.exec(args.trim());
+
+      if (reserved && depth > 0 && taskId) {
+        const [, name, payload = ""] = reserved;
+        if (name === "begin") return begin(pi, payload, ctx);
+        if (!tasks?.activeBinding) throw new Error("Subagent session has not started");
+
+        if (name === "slot") {
+          const reply = decode(slotReplySchema, payload);
+          if (!reply) throw new Error("Invalid subagent slot reply");
+
+          return tasks.slot(reply);
+        }
+
+        const control = decode(controlSchema, payload);
+        if (!control) throw new Error("Invalid subagent control request");
+
+        return tasks.control(control, (request, description, signal) =>
+          forwardDialog(request, description, ctx.ui, signal)
+        );
+      }
+
       if (!args.trim() && ctx.mode === "tui") return panels?.open();
 
       const current = tasks;
 
-      return runCommand(
-        args,
-        current,
-        {
-          notify: (message, type) => {
-            if (current?.activeBinding && tasks === current) ctx.ui.notify(message, type);
-          }
-        },
-        depth
-      );
+      return runCommand(args, current && reader && { tasks: current, reader }, {
+        notify: (message, type) => {
+          if (current?.activeBinding && tasks === current) ctx.ui.notify(message, type);
+        }
+      });
     }
   });
   pi.registerShortcut("ctrl+alt+s", {
@@ -95,6 +118,7 @@ export default function subagents(pi: ExtensionAPI): void {
   const shutdown = (immediate: boolean) => {
     tasks?.invalidate();
     const stopped = tasks?.shutdown(immediate);
+    reader?.dispose();
     delivery?.shutdown();
     panels?.dispose();
     disposeWidget?.();
@@ -109,55 +133,55 @@ export default function subagents(pi: ExtensionAPI): void {
     if (lateUsageWarning) ctx.ui.notify(lateUsageWarning, "warning");
     lateUsageWarning = undefined;
     const config = loadConfig(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
+    // An inline or built-in source names no file that a child could load.
+    const extension = pi
+      .getCommands()
+      .find((command) => command.source === "extension" && command.name === "subagents")
+      ?.sourceInfo.path;
     const current = new Tasks(config, ctx.sessionManager.getBranch(), {
       depth,
       sessionId: ctx.sessionManager.getSessionId(),
-      sessionFile: ctx.sessionManager.getSessionFile(),
+      invocation: getPiInvocation(),
+      launch: () => ({
+        model: ctx.model && `${ctx.model.provider}/${ctx.model.id}`,
+        thinking: pi.getThinkingLevel(),
+        cwd: ctx.cwd,
+        trusted: ctx.isProjectTrusted(),
+        parentSession: ctx.sessionManager.getSessionFile()
+      }),
+      ...(extension && isAbsolute(extension) ? { extension } : {}),
       warn: (message) => {
         if (tasks === current && current.activeBinding) ctx.ui.notify(message, "warning");
       },
-      ...(depth > 0 && taskId ? { taskId } : {}),
+      ...(depth > 0 && taskId
+        ? { taskId, send: (message: ChildMessage) => send(ctx.ui, message) }
+        : {}),
       append: (type, record) => {
         if (tasks === current && current.activeBinding) pi.appendEntry(type, record);
-      },
-      input: async (task_id, prompt, delivery) => {
-        const record = current.owned(task_id);
-        const result = await tool.execute(
-          "relay",
-          { task_id, prompt, delivery, description: record.description, background: true },
-          undefined,
-          undefined,
-          ctx
-        );
-        if (result.isError) throw new Error(contentText(result.content));
-
-        return result.details;
       }
     });
     tasks = current;
-    await tasks.recover();
+    reader = new RunReader(tasks);
+    await tasks.readDescendants();
     delivery = new Delivery(tasks, pi, ctx, depth, waiting);
-    panels = new Panels(tasks, ctx);
+    panels = new Panels(tasks, reader, ctx);
     disposeWidget = taskWidget(tasks, ctx, () => open());
-    const tool = createSubagentTool(
-      tasks,
-      getPiInvocation(),
-      () => pi.getThinkingLevel(),
-      depth,
-      emitOpen
-    );
     if (depth >= config.maxDepth && !registered) return;
     const exposure = depth >= config.maxDepth ? "hidden" : "model-only";
-    pi.registerTool({ ...tool, exposure });
-    pi.registerTool({ ...createAbortTool(tasks, delivery, emitOpen), exposure });
+    pi.registerTool({ ...createSubagentTool(tasks, emitOpen), exposure });
+    pi.registerTool({ ...createAbortTool(tasks, emitOpen), exposure });
     registered = true;
   };
 
   pi.on("session_start", (_event, ctx) => bind(ctx));
+  // A begun run is one chain under its marker; see ADR 0003.
   pi.on("session_before_tree", async (event, ctx) => {
+    if (currentRun() !== undefined) return { cancel: true };
     const target = ctx.sessionManager.getEntry(event.preparation.targetId);
+    // Pi moves to the parent of a user or custom message.
     const effective =
-      target?.type === "message" && target.message.role === "user"
+      (target?.type === "message" && target.message.role === "user") ||
+      target?.type === "custom_message"
         ? target.parentId
         : event.preparation.targetId;
     if (effective !== ctx.sessionManager.getLeafId()) await shutdown(true);
@@ -166,9 +190,11 @@ export default function subagents(pi: ExtensionAPI): void {
     if (!tasks?.activeBinding) await bind(ctx);
   });
   pi.on("session_before_fork", async () => {
+    if (currentRun() !== undefined) return { cancel: true };
     await shutdown(true);
   });
   pi.on("session_before_switch", async () => {
+    if (currentRun() !== undefined) return { cancel: true };
     await shutdown(true);
   });
   pi.on("agent_end", (event, ctx) => delivery?.end(event, ctx));

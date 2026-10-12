@@ -1,141 +1,70 @@
-import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
-import { callKey, type CallReference, type DisplayFact } from "../contracts.ts";
-import { PATCH_BYTES } from "../diff.ts";
-import { record } from "../values.ts";
-import { recordCallKey, sourceCall } from "./records.ts";
+import type { ChangeUnavailableReason } from "../contracts.ts";
+import { isChangeUnavailableReason, PATCH_BYTES } from "../diff.ts";
 
-export const METADATA_TYPE = "pi-tool-display.facts";
+/** Session facts of one call that Pi's own entries do not hold. */
+export const CALL_TYPE = "pi-tool-display.call";
+
+/** Names the local file that holds the details of the calls after it on the branch. */
+export const WRITER_TYPE = "pi-tool-display.writer";
 
 export const MAX_RECORD_BYTES = 160 * 1024;
 
-const callReferenceSchema = z.object({
-  toolCallId: z.string().max(1024),
-  messageTimestamp: z.number().nonnegative(),
-  contentIndex: z.int().nonnegative(),
-  messageEntryId: z.string().optional()
-});
+/** Pi entry and tool-call IDs, in session entries and local lines. */
+export const idSchema = z.string().min(1).max(1024);
 
-const displayRecordSchema = z.object({
-  version: z.literal(1),
-  call: callReferenceSchema,
-  adapter: z.string().max(128),
-  fact: z.discriminatedUnion("kind", [
-    z.object({
-      kind: z.literal("cancellation"),
-      availability: z.literal("available")
-    }),
-    z.object({
-      kind: z.literal("operation"),
-      availability: z.literal("available"),
-      durationMs: z.number().nonnegative(),
-      outcome: z.enum(["success", "failure", "cancelled", "unavailable"]),
-      exitCode: z.int().nullable().optional(),
-      timedOut: z.boolean().optional()
-    }),
-    z
-      .object({
-        kind: z.literal("change"),
-        availability: z.enum(["available", "unavailable"]),
-        patch: z
-          .string()
-          .refine((patch) => Buffer.byteLength(patch) <= PATCH_BYTES)
-          .optional(),
-        reason: z.string().max(256).optional(),
-        change: z.enum(["creation", "modification"]).optional()
+const patchSchema = z.string().refine((patch) => Buffer.byteLength(patch) <= PATCH_BYTES);
+
+const callRecordSchema = z.object({
+  /** Pi entry ID of the assistant message that holds the call. */
+  entry: idSchema,
+  toolCallId: idSchema,
+  /** The call was cancelled, for any tool; Pi's result has no cancellation flag. */
+  cancelled: z.literal(true).optional(),
+  /** The observed operation failed, independently of Pi's result and call cancellation. */
+  outcome: z.literal("failure").optional(),
+  /** Shell only, when success does not imply exit 0; null when the process had no exit code. */
+  exitCode: z.int().nullable().optional(),
+  timedOut: z.literal(true).optional(),
+  /** edit and write: the change was applied although Pi reported failure. */
+  applied: z.literal(true).optional(),
+  change: z
+    .discriminatedUnion("kind", [
+      // Replay derives the patch from the content argument when this omits it.
+      z.object({ kind: z.literal("creation"), patch: patchSchema.optional() }),
+      z.object({ kind: z.literal("modification"), patch: patchSchema }),
+      z.object({
+        kind: z.literal("unavailable"),
+        reason: z.custom<ChangeUnavailableReason>(isChangeUnavailableReason)
       })
-      .refine((fact) => fact.availability !== "available" || fact.patch !== undefined),
-    z.object({
-      kind: z.literal("saved-output"),
-      availability: z.literal("available"),
-      path: z.string().min(1).max(4096)
-    })
-  ])
+    ])
+    .optional()
 });
 
-export type DisplayRecord = z.infer<typeof displayRecordSchema>;
+export type CallRecord = z.infer<typeof callRecordSchema>;
 
-function validDisplayRecord(value: unknown): value is DisplayRecord {
-  return displayRecordSchema.safeParse(value).success;
-}
+const writerRecordSchema = z.object({ writer: z.uuid(), cwd: z.string().min(1).max(4096) });
 
-export function parseDisplayRecord(value: unknown): DisplayRecord | undefined {
-  if (!validDisplayRecord(value)) return undefined;
+export type WriterRecord = z.infer<typeof writerRecordSchema>;
 
+function bounded(value: unknown): boolean {
   try {
-    if (Buffer.byteLength(JSON.stringify(value)) > MAX_RECORD_BYTES) return undefined;
+    return Buffer.byteLength(JSON.stringify(value)) <= MAX_RECORD_BYTES;
   } catch {
-    return undefined;
-  }
-
-  return value;
-}
-
-/** Index only the selected ancestry. Payload validation is deferred until a
- * retained call requests its facts, so compacted-away patches are never serialized.
- */
-export class DisplayRecordIndex {
-  private sources: Map<string, SessionEntry>;
-  private pending = new Map<string, unknown[]>();
-  private parsed = new Map<string, readonly DisplayRecord[]>();
-
-  constructor(branch: readonly SessionEntry[]) {
-    this.sources = new Map(branch.map((entry) => [entry.id, entry]));
-
-    for (const entry of branch) {
-      if (entry.type !== "custom" || entry.customType !== METADATA_TYPE) continue;
-      const call = callReferenceSchema.safeParse(record(entry.data).call).data;
-      if (!call) continue;
-      const key = callKey("history", call);
-      const values = this.pending.get(key) ?? [];
-      values.push(entry.data);
-      this.pending.set(key, values);
-    }
-  }
-
-  forCall(call: CallReference): readonly DisplayRecord[] {
-    const key = callKey("history", call);
-    const cacheKey = recordCallKey(call);
-    const cached = this.parsed.get(cacheKey);
-    if (cached) return cached;
-    const records = new Map<string, Map<DisplayFact["kind"], DisplayRecord>>();
-
-    for (const value of this.pending.get(key) ?? []) {
-      const record = parseDisplayRecord(value);
-      if (!record || callKey("history", record.call) !== key) continue;
-
-      if (
-        record.call.messageEntryId &&
-        (record.call.messageEntryId !== call.messageEntryId ||
-          !sourceCall(this.sources, record.call))
-      )
-        continue;
-
-      const facts = records.get(record.adapter) ?? new Map<DisplayFact["kind"], DisplayRecord>();
-      facts.set(record.fact.kind, record);
-      records.set(record.adapter, facts);
-    }
-
-    const facts = [...records.values()].flatMap((facts) => [...facts.values()]);
-    // Other source entries can share the positional key; retain their candidates.
-    this.parsed.set(cacheKey, facts);
-
-    return facts;
+    return false;
   }
 }
 
-/** Best effort: collection and persistence must never change the delegated result. */
-export function persistDisplayFact(
-  append: ExtensionAPI["appendEntry"],
-  call: CallReference,
-  adapter: string,
-  fact: DisplayFact
-): void {
-  try {
-    const record = parseDisplayRecord({ version: 1, call, adapter, fact });
-    if (record) append(METADATA_TYPE, record);
-  } catch {
-    /* Pi execution remains authoritative. */
-  }
+/** The whole original value counts toward the limit, including unknown fields. */
+export function parseCallRecord(value: unknown): CallRecord | undefined {
+  const parsed = callRecordSchema.safeParse(value);
+
+  return parsed.success && bounded(value) ? parsed.data : undefined;
+}
+
+export function parseWriterRecord(value: unknown): WriterRecord | undefined {
+  const parsed = writerRecordSchema.safeParse(value);
+
+  return parsed.success && bounded(value) ? parsed.data : undefined;
 }

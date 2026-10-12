@@ -2,9 +2,8 @@ import { DEFAULT_MAX_BYTES, type ExtensionUIContext } from "@earendil-works/pi-c
 import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
-import { controlRequestSchema } from "./control.ts";
+import type { RunReader } from "./reader.ts";
 import type { TaskRecord } from "./records.ts";
-import { parseRelay } from "./relay.ts";
 import { showTask } from "./show.ts";
 import type { Tasks } from "./tasks.ts";
 
@@ -58,41 +57,23 @@ function listPage(records: TaskRecord[], tokens: string[]): TaskPage {
 
 export async function runCommand(
   args: string,
-  tasks: Tasks | undefined,
-  ui: Pick<ExtensionUIContext, "notify">,
-  depth: number
+  session: { tasks: Tasks; reader: RunReader } | undefined,
+  ui: Pick<ExtensionUIContext, "notify">
 ): Promise<void> {
   try {
-    if (!tasks) throw new Error("Subagent session has not started");
-
-    if (args.trim().startsWith("relay ")) {
-      if (depth < 1) throw new Error("Relay is only available in child supervisors");
-      const value: unknown = JSON.parse(args.trim().slice(6));
-      const control = controlRequestSchema.safeParse(value).data;
-
-      if (control) {
-        await tasks.control(control);
-
-        return;
-      }
-
-      const message = parseRelay(value);
-      if (!message) throw new Error("Invalid subagent relay message");
-      await tasks.relay.reply(message);
-
-      return;
-    }
-
+    if (!session) throw new Error("Subagent session has not started");
+    const { tasks, reader } = session;
     const [command = "list", ...tokens] = args.trim() ? args.trim().split(/\s+/) : [];
     let result: unknown;
+    if (command === "list" || command === "show") await tasks.readDescendants();
 
     if (command === "list") {
       result = listPage(tasks.list(), tokens);
     } else if (command === "show" && tokens[0]) {
-      result = await showTask(tasks, tokens[0], tokens.slice(1));
+      result = await showTask(reader, tokens[0], tokens.slice(1));
     } else if (command === "abort" && tokens.length === 1 && tokens[0]) {
-      const task = await tasks.abort(tokens[0]);
-      result = { task_id: task.task_id, state: task.state, outcome: task.outcome };
+      const { record } = await tasks.abort(tokens[0]);
+      result = { task_id: record.task_id, state: record.state, outcome: record.outcome };
     } else if (command === "background" && tokens.length <= 1) {
       result = { tasks: await tasks.background(tokens[0]) };
     } else {

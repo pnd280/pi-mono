@@ -5,19 +5,13 @@ import {
   truncateHead,
   type SessionEntry
 } from "@earendil-works/pi-coding-agent";
-import {
-  createTranscriptModel,
-  parseTranscriptRecord,
-  summarizeRun,
-  TRANSCRIPT_TYPE,
-  type TranscriptSnapshot
-} from "pi-tool-display/viewer";
 import { z } from "zod";
 
-import { checkpointSession, readCheckpoint } from "./checkpoints.ts";
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
+import type { RunReader } from "./reader.ts";
 import { boundedText, detailsUsage, sumUsage, type ToolDetails } from "./result.ts";
-import type { Tasks } from "./tasks.ts";
+import { branchTo } from "./sessions.ts";
+import type { TranscriptSnapshot } from "./transcript.ts";
 
 type Item = { type: "user" | "assistant" | "tools"; text: string };
 
@@ -70,77 +64,61 @@ function usage(entries: readonly SessionEntry[]): ToolDetails["usage"] {
   return total;
 }
 
-/** Validate final summaries only on the selected ancestry. */
-function items(snapshot: TranscriptSnapshot): { id: string; item: Item }[] {
-  const result: { id: string; item: Item }[] = [];
-  const finals = new Set<string>();
+/** Names each tool once, in call order, with its count. */
+function summary(names: readonly string[]): string {
+  const counts = new Map<string, number>();
+  for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
 
-  for (const [index, entry] of snapshot.entries.entries()) {
-    if (
-      entry.type === "message" &&
-      (entry.message.role === "user" || entry.message.role === "assistant")
-    ) {
-      const value = contentText(entry.message.content);
-      if (value)
-        result.push({ id: entry.id, item: { type: entry.message.role, text: text(value) } });
+  return text([...counts].map(([name, count]) => `${name} ×${count}`).join(", "));
+}
+
+/**
+ * A response's calls are summarised at the entry that completes them, so later entries never
+ * add an item before a cursor. Calls that never complete have no summary.
+ */
+function items(entries: readonly SessionEntry[]): { id: string; item: Item }[] {
+  const result: { id: string; item: Item }[] = [];
+  const open = new Map<string, { names: string[]; pending: Set<string> }>();
+
+  for (const entry of entries) {
+    if (entry.type !== "message") continue;
+    const { message } = entry;
+
+    if (message.role === "toolResult") {
+      const group = open.get(message.toolCallId);
+      if (!group) continue;
+      open.delete(message.toolCallId);
+      group.pending.delete(message.toolCallId);
+      if (!group.pending.size)
+        result.push({ id: entry.id, item: { type: "tools", text: summary(group.names) } });
       continue;
     }
 
-    if (entry.type !== "custom" || entry.customType !== TRANSCRIPT_TYPE) continue;
-    const record = parseTranscriptRecord(entry.data);
-    if (record?.kind !== "run" || !record.final) continue;
-    const key = JSON.stringify([record.sessionId, record.generation, record.id]);
-    if (finals.has(key)) continue;
-    const model = createTranscriptModel({
-      ...snapshot,
-      entries: snapshot.entries.slice(0, index + 1),
-      leafId: entry.id
-    });
+    if (message.role !== "user" && message.role !== "assistant") continue;
+    const value = contentText(message.content);
+    if (value) result.push({ id: entry.id, item: { type: message.role, text: text(value) } });
+    if (message.role !== "assistant") continue;
+    const calls = message.content.filter((block) => block.type === "toolCall");
+    const group = { names: calls.map((call) => call.name), pending: new Set<string>() };
 
-    try {
-      const summary = summarizeRun(model, record);
-      if (!summary) continue;
-      finals.add(key);
-      result.push({ id: entry.id, item: { type: "tools", text: summary.text } });
-    } finally {
-      model.dispose();
+    for (const call of calls) {
+      group.pending.add(call.id);
+      open.set(call.id, group);
     }
   }
 
   return result;
 }
 
-async function snapshot(tasks: Tasks, id: string): Promise<TranscriptSnapshot> {
-  const task = tasks.owned(id);
-  const live = tasks.active(id);
-
-  if (live) {
-    try {
-      const response = await live.run.connection.request({ type: "get_entries" });
-      if (!response.success) throw new Error(response.error);
-      if (response.command !== "get_entries") throw new Error("Missing child entries");
-
-      return { sessionId: task.session_id, cwd: live.source.cwd, ...response.data };
-    } catch (error) {
-      if (tasks.active(id)) throw error;
-    }
-  }
-
-  return readCheckpoint(task);
-}
-
 function lastText(saved: TranscriptSnapshot): { cursor: string | null; text: string | null } {
   const projected = buildSessionProjection([...saved.entries], saved.leafId);
 
   for (const entry of projected.entries.slice().reverse()) {
+    // A stopped or failed request can end with an empty message, also after an abort.
     const last = entry.messages
       .slice()
       .reverse()
-      .find(
-        (message) =>
-          message.role === "assistant" &&
-          !(message.stopReason === "aborted" && message.content.length === 0)
-      );
+      .find((message) => message.role === "assistant" && message.content.length > 0);
     if (last?.role === "assistant")
       return {
         cursor: entry.sourceEntry.id,
@@ -151,11 +129,11 @@ function lastText(saved: TranscriptSnapshot): { cursor: string | null; text: str
   return { cursor: null, text: null };
 }
 
-export async function showTask(tasks: Tasks, id: string, tokens: string[]): Promise<unknown> {
+/** The state is the read run's state, even when the task starts another run during the read. */
+export async function showTask(reader: RunReader, id: string, tokens: string[]): Promise<unknown> {
   const config = options(tokens);
-  const captured = await snapshot(tasks, id);
-  const saved = { ...captured, entries: checkpointSession(captured).getBranch() };
-  const task = tasks.owned(id);
+  const { record: task, snapshot: captured } = await reader.read(id);
+  const saved = { ...captured, entries: branchTo(captured.entries, captured.leafId) };
   if (config.last) return { task_id: id, state: task.state, ...lastText(saved) };
   const common = { task_id: id, state: task.state, usage: usage(saved.entries) };
 
@@ -163,9 +141,10 @@ export async function showTask(tasks: Tasks, id: string, tokens: string[]): Prom
     config.since === undefined ? -1 : saved.entries.findIndex((entry) => entry.id === config.since);
   if (config.since !== undefined && start < 0)
     throw new Error("Unknown subagent transcript cursor");
-  const all = items(saved);
+  const all = items(saved.entries);
   const positions = new Map(saved.entries.map((entry, index) => [entry.id, index]));
   const eligible = all.filter((item) => (positions.get(item.id) ?? -1) > start);
+
   const selected =
     config.since === undefined ? eligible.slice(-config.limit) : eligible.slice(0, config.limit);
 

@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.0.2 on Linux with unchanged host fingerprints, API and CLI suites, and headless viewer probes. Earlier tmux smoke checks covered regular/fullscreen `summary`, **Ctrl+O**, two reloads, `explore`, and byte-preserving saved-session replay; they predate the current UI revisions. Not covered by this review: real-terminal behaviour, physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
+> Last verified against Pi 1.0.2 on Linux with unchanged host fingerprints, and API and CLI suites. Earlier tmux smoke checks covered regular/fullscreen `summary`, **Ctrl+O**, two reloads, `explore`, and byte-preserving saved-session replay; they predate the current UI revisions. Not covered by this review: real-terminal behaviour, physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. When a fingerprint doesn't match, the matching hook stays uninstalled and the feature falls back as described in the [README](../README.md#compatibility).
 
@@ -27,7 +27,7 @@ Work through every section below when you bump the supported Pi version, checkin
 
 ### Assistant presentation
 
-[Host binding and thinking](../src/host/assistant.ts) use the [shared prose markers](../src/rendering/assistant.ts), which the foreign viewer also uses.
+[Host binding and thinking](../src/host/assistant.ts) use the [shared prose markers](../src/rendering/assistant.ts).
 
 - [ ] `updateContent` creates direct `Markdown` children only for prose, with symmetric `outputPad`, and nests thinking in `MouseRegion`.
 - [ ] Prose markers, native Markdown transformers, and width limits work.
@@ -61,20 +61,19 @@ See [native tools](../../../libs/src/native-tools/README.md).
 - [ ] Middleware, definitions (including exposure and output schemas), structured results, active tools, mutation ordering, and other subscribers are preserved.
 - [ ] A nonzero Bash exit resolves an error result with its exit code.
 - [ ] Cancellation and timeout stay distinct.
-- [ ] Session-scoped collection runs in TUI, RPC, print, and JSON modes, independently of row mounting. Public events reconcile with persisted entries before final summaries.
-- [ ] If native construction discovery is unavailable, the public collector can still verify extension contracts and leaves unresolved renderer ownership unavailable.
+- [ ] Session-scoped collection runs in TUI, RPC, print, and JSON modes, independently of row mounting.
 
 ### Nested execution
 
 - [ ] The built-in [codemode](../src/adapters/builtin/codemode/README.md) and [MCP](../src/adapters/builtin/mcp/README.md) adapter cards render.
-- [ ] Child execution events create no transcript rows, orphan display facts, or duplicate summaries. Only persisted parent calls own replay rows.
+- [ ] Child execution events create no transcript rows, orphan call entries or local lines, or duplicate summaries. Only persisted parent calls own replay rows.
 - [ ] MCP tools discovered through codemode keep built-in provenance and their unsanitized identity in details, including normalized namespaces and collision-suffixed names.
 - [ ] Selection doesn't depend on direct exposure or on decoding names.
 - [ ] External `pi-mcp-adapter` tools keep their separate provenance contract.
 
 ### Transcript
 
-[Source](../src/transcript/session.ts).
+Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/transcript/saved-calls.ts).
 
 - [ ] Pi's public `sessionEntryToContextMessages` converts appended custom messages before boundary detection. Visible notices and boundary custom messages from other owners split groups and runs.
 - [ ] This extension's instruction notices split only groups, and follow the visibility of the preceding run.
@@ -82,10 +81,8 @@ See [native tools](../../../libs/src/native-tools/README.md).
 - [ ] Row ownership survives replay slices around boundary compaction summaries.
 - [ ] Facts replay only for matching calls on the selected branch. Timestamp associations refresh after appends, branch changes, and resets.
 - [ ] Replay never runs tools or observes files again.
-- [ ] `SessionManager.inMemory` accepts owned decoded entries without filesystem writes. Foreign sources use `parseSessionEntries`, not `SessionManager.open`.
-- [ ] RPC deltas and replacement snapshots reconcile once on the active branch, including compaction, context-edited results, and leaf moves. Ordinary messages still require `get_entries` refreshes.
-- [ ] Public `ToolExecutionComponent` renderer slots and image sizing preserve shared row layout without private viewer access.
-- [ ] Session changes and shutdown invalidate pending publication, saved-output loading, and view callbacks.
+- [ ] Public listeners receive a tool result's `message_end` after extension replacement and before Pi appends the result entry, so call entries precede their results. Copies and forks keep entry IDs and entry order.
+- [ ] Session changes and shutdown invalidate pending saved-output loading. Shutdown flushes queued local lines.
 
 ### Extension notifications
 
@@ -107,6 +104,7 @@ See [native tools](../../../libs/src/native-tools/README.md).
 ### Adapters
 
 - [ ] [Adapters](adapters.md) still match on provenance and schemas, treat results as borrowed, and handle cancellation, saved-output references, and image ownership, including for FFF and MCP consumers.
+- [ ] `validateToolArguments` is still a public `@earendil-works/pi-ai` export. It still clones its input, removes optional nulls that the schema rejects, and converts values. Pi's execution still validates with it after `prepareArguments`, and `tool_call` handlers still receive the validated copy. Saved assistant messages and `tool_execution_start` still carry the raw arguments. See [callback arguments](adapters.md#callback-arguments).
 
 ## Limitations and replacement opportunities
 

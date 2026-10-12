@@ -6,6 +6,7 @@ import { beforeAll, expect, it } from "vite-plus/test";
 
 import { selectAdapter } from "../../host/selection.ts";
 import { loadDisplaySettings } from "../../settings.ts";
+import { plainTheme as theme } from "../../test-fixture.ts";
 import {
   piSmartCompactAdapter,
   smartCompactDisplayAdapter as compact,
@@ -34,12 +35,6 @@ const selection = {
   scheduled: true,
   modelOverride: "provider/nested/model-界",
   thinkingLevel: "high"
-};
-const theme = {
-  fg: (_color: string, text: string) => text,
-  bg: (_color: string, text: string) => text,
-  getBgAnsi: () => "",
-  bold: (text: string) => text
 };
 const plain = (lines: string[]) => stripTerminalSequences(lines.join("\n"));
 const content = (lines: string[]) => plain(lines).replace(/[├└│•\s]/g, "");

@@ -29,23 +29,6 @@ const extensionAdapterResolvers: readonly ToolDisplayAdapterResolver[] = [
   builtinToolSearchAdapter
 ];
 
-/** Without a renderer registry, unresolved owners must remain original/unavailable. */
-export function publicAdapter(
-  settings: DisplaySettings,
-  name: string,
-  info?: ToolInfo
-): ToolDisplayAdapter | undefined {
-  if (!settings.valid || settings.rendererOverrides[name] === "original") return;
-  if (settings.rendererOverrides[name] === "generic") return genericAdapter;
-
-  for (const resolve of extensionAdapterResolvers) {
-    const adapter = resolve(info);
-    if (adapter) return adapter;
-  }
-
-  return;
-}
-
 export function selectAdapter(
   settings: DisplaySettings,
   name: string,

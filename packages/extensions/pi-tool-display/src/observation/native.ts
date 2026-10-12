@@ -79,7 +79,6 @@ export function displayMutationSink(observer: ObservationSink, name: string): Mu
       if (name === "write") await change();
       observer.fact({
         kind: "operation",
-        availability: "available",
         durationMs: mutation.durationMs,
         outcome: mutation.outcome
       });
@@ -115,7 +114,7 @@ async function executeWithSavedReference(
 
     return result;
   } finally {
-    if (savedPath) fact({ kind: "saved-output", availability: "available", path: savedPath });
+    if (savedPath) fact({ kind: "saved-output", path: savedPath });
   }
 }
 
@@ -145,7 +144,6 @@ export function observeNativeDefinition(
       const terminal = (started: number, outcome: Outcome, extra = {}) =>
         fact({
           kind: "operation",
-          availability: "available",
           durationMs: Math.max(0, performance.now() - started),
           outcome,
           ...extra

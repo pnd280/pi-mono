@@ -16,7 +16,7 @@ The adapter replaces Pi's own MCP renderer. Pending calls show Pi's tool name, s
 
 Output uses the ordinary [MCP facts](../../../../docs/renderers.md#mcp-facts) preview. Pi's error flag marks returned MCP errors and thrown calls as failures. Thrown or blocked calls have no details and keep Pi's tool name. Other detail shapes fall back to generic cards.
 
-When Pi truncated the output and saved it, compact cards use `details.fullOutputPath` to add an "MCP output truncated." warning and a "Saved output" reference. Expanded cards keep Pi's warning and reference in the retained output without adding them again. If saving failed, Pi records nothing structured, so the card adds no notice; the truncation text remains in the output.
+When Pi truncated the output and saved it, compact cards use `details.fullOutputPath` to add an "MCP output truncated; expand to inspect retained output." warning and a "Saved output" reference. Expanded cards keep Pi's warning and reference in the retained output without adding them again. If saving failed, Pi records nothing structured, so the card adds no notice; the truncation text remains in the output.
 
 ## Summary mode
 

@@ -4,15 +4,9 @@ import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
 import { createToolDisplayRenderers as createTranscriptRenderers } from "../../rendering/cards.ts";
+import { plainTheme as theme } from "../../test-fixture.ts";
 import { TranscriptCoordinator } from "../../transcript/coordinator.ts";
 import { selectiveReadDisplayAdapter } from "./index.ts";
-
-const theme = {
-  fg: (_color: string, text: string) => text,
-  bg: (_color: string, text: string) => text,
-  getBgAnsi: () => "",
-  bold: (text: string) => text
-};
 
 beforeAll(() => initTheme("dark", false));
 

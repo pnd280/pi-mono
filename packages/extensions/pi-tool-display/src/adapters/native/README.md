@@ -20,7 +20,7 @@ Concrete targets use Pi's Unicode-space normalization before lexical resolution 
 
 See the shared [exploration-group rules](../../../docs/presentation.md#groups), [target formatting](../../../docs/presentation.md#card-layout), and [result presentation](../../../docs/presentation.md#results).
 
-Observed shells show the recorded status and duration; missing codes stay unknown. Output text alone never establishes status.
+Observed shells show the recorded status and duration; missing codes stay unknown. When the duration stayed on another machine, `Timing not on this machine` replaces it. Output text alone never establishes status.
 
 Image omission warnings and fallbacks remain available when Pi cannot display images.
 

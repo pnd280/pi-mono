@@ -35,23 +35,21 @@ pi.registerTool({
 });
 ```
 
-The exported `subagentDisplayAdapter` and `subagentAbortDisplayAdapter` supply the same task-progress cards used by pi-subagents, including its standalone tool, abort, and completion renderers. See its [contract and display limits](../src/adapters/pi-subagents/README.md).
-
 The third argument is `ToolDisplayRendererOptions`, not CLI settings. `showParameters: true` shows optional specialised parameters. MCP and generic cards always show arguments, and structured blocks need expansion.
 
 ## Custom adapters
 
 Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`. Use the [type declarations](../src/contracts.ts) for the callback and field inventory. The sections below cover choices that types alone cannot explain: [grouping](#exploration-scopes), [summaries](#result-summaries), [source text](#result-text), [outcomes](#outcomes), and [MCP facts](#mcp-facts).
 
-Validate borrowed arguments and results without modifying them, and never infer facts from ordinary output. `alwaysShowParameters: true` overrides `showParameters`. Hidden parts with `kind: "parameters"` skip `text` access even after expansion; use a getter to avoid hidden serialization.
+Validate borrowed arguments and results without modifying them, and never infer facts from ordinary output. Cards read callbacks once for each update, not on each redraw, so callbacks must depend only on their inputs. `alwaysShowParameters: true` overrides `showParameters`. A `kind: "parameters"` part carries the borrowed `value`, not text. The display serializes it as `(…)` only when shown, within the compact heading budget, and `separated: true` puts a space before it.
 
 For concrete targets use `path` and optionally `range`; use `value` or `pattern` for literal expressions, which receive no path normalization. See [display conventions](conventions.md#literal-filters-and-paths).
 
-Standalone adapters must handle incompatible input themselves. Only the automatic CLI integration checks `supports`. To add automatic selection for another extension, [register a resolver](adapters.md#add-an-adapter).
+Standalone adapters must handle incompatible input themselves. Only the automatic CLI integration checks `supports`. Standalone cards, and automatic rows that have no matching transcript call, receive Pi's raw arguments from `renderCall`. These can contain optional `null` values that Pi removed before execution, so an adapter for these cards must accept or ignore such values. Rows that have a transcript call receive [validated arguments](adapters.md#callback-arguments) when validation succeeds. To add automatic selection for another extension, [register a resolver](adapters.md#add-an-adapter).
 
-Standalone cards do not invoke `exploration`, `action`, or internal `summaryItems`, or read `groupTitle` and `summaryCategories`. Failures in those unused fields therefore cannot force standalone fallback. The card's `summary` callback still applies to standalone results; it is distinct from run-summary items.
+Standalone cards do not invoke `exploration`, `action`, or internal `summaryItems`, or read `groupTitle` and `summaryCategories`. Failures in those unused fields therefore cannot cause [generic fallback](../GLOSSARY.md#interpretation) in standalone cards. The card's `summary` callback still applies to standalone results; it is distinct from run-summary items.
 
-Callbacks used by cards fail atomically to generic meaning, so specialised MCP identity never survives with generic outcomes. A failure in metadata (`mcp` or `outcome`) applies to the current snapshot and can recover after an update or invalidation. A presentation failure keeps both retained slots generic through later updates. The CLI also interprets grouping and run-summary fields, whose failures invalidate the whole interpretation.
+Callbacks used by cards fail atomically to generic meaning, so specialised MCP identity never survives with generic outcomes. Any failure in metadata (`mcp` or `outcome`) or presentation keeps both retained slots generic through later updates and invalidation. The CLI also interprets grouping and run-summary fields, whose failures invalidate the whole interpretation.
 
 ### Exploration scopes
 
@@ -69,9 +67,9 @@ See [exploration groups](presentation.md#groups) for headings, boundaries, and e
 
 ### Code and nested calls
 
-`code(args)` returns `{ text, language }` for a source argument, such as a script. The heading renders it below the title with that language's highlighting. Compact cards show up to 10 rows within the [heading formatting limit](presentation.md#resource-limits), with an expansion hint for omitted source. Handle partial arguments. Return no matching `invocation` parts so the source does not appear twice.
+`code(args)` returns `{ text, language }` for a source argument, such as a script. The heading renders it below the title with that language's highlighting. Compact cards show up to 10 rows, or all 11 when only one row would be omitted, within the [heading formatting limit](presentation.md#resource-limits), with an expansion hint for omitted source. Handle partial arguments. Return no matching `invocation` parts so the source does not appear twice.
 
-`nestedCalls(result)` lists calls a tool made on the model's behalf, from validated result metadata. It also runs for partial results, so the list updates while the tool runs. Calls precede the output, including on compact read cards that hide successful text. Compact cards show the latest 8 calls on one row each. Expansion shows every call with its error preview. Multiple calls with a positive `cost` add a model-call total. Names, arguments, and errors are plain text.
+`nestedCalls(result)` lists calls a tool made on the model's behalf, from validated result metadata. It also runs for partial results, so the list updates while the tool runs. Calls precede ordinary output, including on compact read cards that hide successful text. When a card has a usable patch, nested calls and images follow the complete [diff panel](presentation.md#diff-viewer), including its failure output and notices. Compact cards show the latest 8 calls on one row each. Expansion shows every call with its error preview. Multiple calls with a positive `cost` add a model-call total. Names, arguments, and errors are plain text.
 
 ### Result summaries
 
