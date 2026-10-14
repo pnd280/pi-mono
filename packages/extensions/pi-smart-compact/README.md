@@ -48,13 +48,16 @@ Other behaviour:
 
 ## Configuration
 
-By default, compaction uses the session's current model and Pi's native thinking behaviour. To use a different summary model, add an `ext.pi-smart-compact` key at the top level of global or trusted project [settings.json](https://pi.dev/docs/latest/settings):
+By default, compaction uses the session's current model and Pi's native thinking behaviour. To choose a summary model for each conversation model, add an `ext.pi-smart-compact` key at the top level of global or trusted project [settings.json](https://pi.dev/docs/latest/settings):
 
 ```json
 {
   "ext.pi-smart-compact": {
-    "model": "provider/model-id",
-    "thinkingLevel": "off",
+    "rules": [
+      { "match": "^local/" },
+      { "match": "^anthropic/", "model": "anthropic/claude-haiku-4-5", "thinkingLevel": "off" },
+      { "match": "", "model": "provider/model-id" }
+    ],
     "applyToManual": true,
     "applyToAuto": true,
     "instructionsFile": "compaction-instructions.txt"
@@ -64,15 +67,28 @@ By default, compaction uses the session's current model and Pi's native thinking
 
 All fields are optional.
 
-| Field              | Default      | Effect                                                                                                                     |
-| ------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `model`            | Active model | Summary model for `compact`. Must be a model Pi knows; the ID may contain slashes.                                         |
-| `thinkingLevel`    | Native       | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. A level the model doesn't support is rejected, not adjusted. |
-| `applyToManual`    | `false`      | Also use `model` and `thinkingLevel` for `/compact`, including manual compaction through RPC and the SDK.                  |
-| `applyToAuto`      | `false`      | Also use `model` and `thinkingLevel` for automatic compaction at the threshold or on overflow.                             |
-| `instructionsFile` | None         | UTF-8 file of extra focus for every compaction route, whatever `applyToManual` and `applyToAuto` say.                      |
+| Field              | Default | Effect                                                                                                          |
+| ------------------ | ------- | --------------------------------------------------------------------------------------------------------------- |
+| `rules`            | None    | Summary model and thinking level for `compact`, chosen by conversation model. See [rules](#rules).              |
+| `applyToManual`    | `false` | Also use the matching rule for `/compact`, including manual compaction through RPC and the SDK.                 |
+| `applyToAuto`      | `false` | Also use the matching rule for automatic compaction at the threshold or on overflow.                            |
+| `instructionsFile` | None    | UTF-8 file of extra focus for every compaction route, whatever `rules`, `applyToManual`, and `applyToAuto` say. |
 
-For a virtual model, the configured thinking level is passed to the router, which picks the physical model and its level. Saved metadata records the virtual model and level.
+### Rules
+
+When compaction starts, each rule is tested in order against the conversation model as `provider/id`. The first matching rule decides both of its fields, and later rules are ignored. When no rule matches, compaction uses native selection.
+
+| Field           | Default            | Effect                                                                                                                                         |
+| --------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `match`         | Required           | JavaScript regular expression tested against `provider/id`. Unanchored and case-sensitive; add `^` or `$` as needed. `""` matches every model. |
+| `model`         | Conversation model | Summary model. Must be a model Pi knows; the ID may contain slashes.                                                                           |
+| `thinkingLevel` | Native             | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. A level the model doesn't support is rejected, not adjusted.                     |
+
+- A rule with only `match` keeps native selection for its models and stops later rules from matching, like `^local/` above.
+- After a `/model` change, the next compaction uses the rule that matches the new model.
+- A trusted project's `rules` replace the global list instead of adding to it.
+- For a virtual conversation model, rules match its own ID, such as `router/auto`, not the physical model it routes to.
+- For a virtual summary model, the rule's thinking level is passed to the router, which picks the physical model and its level. Saved metadata records the virtual model and level.
 
 ### Instruction file
 
@@ -91,14 +107,14 @@ For the example above, create `compaction-instructions.txt` beside the settings 
 | Global  | `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when set. |
 | Project | `<cwd>/.pi/settings.json`; parent directories are not searched.                |
 
-Project settings override global fields only in [trusted projects](https://pi.dev/docs/latest/security#understand-project-trust), and omitted fields are inherited. Settings and instruction files are not watched, so run `/reload` after changes. To go back to native selection, remove `model` and `thinkingLevel`. The extension has no environment variables and never writes settings.
+Project settings override global fields only in [trusted projects](https://pi.dev/docs/latest/security#understand-project-trust), and omitted fields are inherited. Settings and instruction files are not watched, so run `/reload` after changes. To go back to native selection, remove `rules`. The extension has no environment variables and never writes settings.
 
 ### Errors
 
 `compact` becomes unavailable until you fix the problem and run `/reload` if any of these happen:
 
 - a settings file is unreadable, malformed, or over 1 MiB;
-- a value is invalid, or `ext.pi-smart-compact` contains an unknown key;
+- a value is invalid, including a `match` that is not a valid regular expression, or `ext.pi-smart-compact` or a rule contains an unknown key;
 - the selected instruction file is missing or unreadable.
 
 `context_window` and Pi's native compaction keep working.
@@ -107,7 +123,7 @@ An unavailable model, unsupported thinking level, authentication error, or faile
 
 ### Edge cases
 
-- Custom summaries from `session_before_compact` handlers ignore `model` and `thinkingLevel`.
+- Custom summaries from `session_before_compact` handlers ignore `rules`.
 - The conversation model and its thinking level never change.
 - Pi keeps its native retries and the conversation model's retention budgets. Output is capped by the summary model's limit, so pick a summary model large enough for Pi's requests, including overflow recovery.
 - Successful default summaries from any route save a `pi-smart-compact.model` entry recording the summary model, thinking level, and trigger. The model never sees it. Custom and failed summaries save no entry.

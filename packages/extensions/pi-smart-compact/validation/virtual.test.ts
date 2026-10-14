@@ -22,8 +22,16 @@ it.each([
       join(agentDir, "settings.json"),
       JSON.stringify({
         "ext.pi-smart-compact": {
-          ...(selectedVirtual ? {} : { model: "compact-virtual/router" }),
-          thinkingLevel: "low",
+          // A virtual conversation model matches its own ID, not the routed physical model.
+          rules: [
+            selectedVirtual
+              ? { match: "^compact-virtual/router$", thinkingLevel: "low" }
+              : {
+                  match: "^compact-virtual/main$",
+                  model: "compact-virtual/router",
+                  thinkingLevel: "low"
+                }
+          ],
           applyToManual: true
         }
       })

@@ -12,7 +12,7 @@ import {
   type DefaultCompaction,
   type NativeSession
 } from "./compatibility.ts";
-import { findConfiguredModel, type CompactConfig } from "./config.ts";
+import { findConfiguredModel, selectRule, type CompactConfig } from "./config.ts";
 import type { SummaryModelEntry } from "./entry.ts";
 import { focusSplitTurn } from "./instructions.ts";
 
@@ -31,15 +31,17 @@ export async function summarizeWithOverrides(
   result: Awaited<ReturnType<DefaultCompaction>>;
   selection: Pick<SummaryModelEntry, "model" | "thinkingLevel">;
 }> {
-  const reference = overrides?.config.model;
-  const inputThinkingLevel = overrides?.config.thinkingLevel;
+  // Rules match the conversation model, including a virtual model's own ID.
+  const rule = overrides && selectRule(overrides.config, args[1]);
+  const reference = rule?.model;
+  const inputThinkingLevel = rule?.thinkingLevel;
   let selectedModel = args[1];
 
   if (overrides && reference !== undefined) {
     const model = findConfiguredModel(overrides.registry, reference);
     if (!model)
       throw new Error(
-        "The configured compaction model is unavailable. Check ext.pi-smart-compact.model."
+        "The configured compaction model is unavailable. Check ext.pi-smart-compact.rules."
       );
     selectedModel = model;
   }

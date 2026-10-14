@@ -14,6 +14,11 @@ import type { CompactSettings } from "../src/config.ts";
 import { summaryModelEntryType } from "../src/entry.ts";
 import { compactionResultType } from "../src/outcome.ts";
 
+/** The fields of the one rule that matches the CLI conversation model. */
+type SummaryRule = Omit<NonNullable<CompactSettings["rules"]>[number], "match">;
+
+const conversationMatch = "^native-compaction-fixture/scripted$";
+
 const traceSchema = z.object({
   type: z.string(),
   provider: z.string().optional(),
@@ -309,11 +314,7 @@ function checkAcknowledgements(
   }
 }
 
-function checkModelRouting(
-  trace: Trace,
-  config: CompactSettings | undefined,
-  manager: SessionManager
-) {
+function checkModelRouting(trace: Trace, config: SummaryRule | undefined, manager: SessionManager) {
   const nativeThinking = activeThinking(config !== undefined);
   const expectedThinking = config?.thinkingLevel ?? nativeThinking;
 
@@ -371,7 +372,7 @@ function checkModelRouting(
 /** Each default summary records its model in a context-free entry just before the compaction. */
 function checkSummaryModelEntries(
   manager: SessionManager,
-  config: CompactSettings | undefined,
+  config: SummaryRule | undefined,
   thinkingLevel: string,
   trigger: string
 ) {
@@ -414,7 +415,7 @@ const toolCases: {
   compactions: number;
   attempts: number;
   instructions?: string;
-  config?: CompactSettings;
+  config?: SummaryRule;
 }[] = [
   { mode: "text", scenario: "success", summaries: 1, compactions: 1, attempts: 1 },
   {
@@ -474,7 +475,7 @@ it.each(toolCases)(
       await writeFile(
         join(directory, "agent", "settings.json"),
         JSON.stringify({
-          "ext.pi-smart-compact": config,
+          "ext.pi-smart-compact": config && { rules: [{ match: conversationMatch, ...config }] },
           compaction: {
             enabled: false,
             reserveTokens: 777,
@@ -622,8 +623,7 @@ it.each([
         join(directory, "agent", "settings.json"),
         JSON.stringify({
           "ext.pi-smart-compact": {
-            model: summaryModel,
-            thinkingLevel: "low",
+            rules: [{ match: conversationMatch, model: summaryModel, thinkingLevel: "low" }],
             instructionsFile: "focus.txt",
             applyToManual: entry === "manual",
             applyToAuto: entry === "auto"

@@ -1,7 +1,12 @@
 import { Type } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import { findConfiguredModel, loadCompactConfig, type CompactConfig } from "./config.ts";
+import {
+  findConfiguredModel,
+  loadCompactConfig,
+  selectRule,
+  type CompactConfig
+} from "./config.ts";
 import { renderSummaryModel, summaryModelEntryType, type SummaryModelEntry } from "./entry.ts";
 import { bindNativeCompaction } from "./native.ts";
 import { compactionStatusKey, updateCompactionStatus } from "./status.ts";
@@ -81,12 +86,13 @@ export default function smartCompact(pi: ExtensionAPI) {
     async execute(_id, args, signal, _onUpdate, ctx) {
       if (!binding) throw new Error(unavailable);
       binding.request(args.instructions, signal);
-      const modelOverride = config.model;
-      let thinkingLevel = config.thinkingLevel ?? pi.getThinkingLevel();
+      const rule = ctx.model && selectRule(config, ctx.model);
+      const modelOverride = rule?.model;
+      let thinkingLevel = rule?.thinkingLevel ?? pi.getThinkingLevel();
 
       if (
         modelOverride &&
-        config.thinkingLevel === undefined &&
+        rule.thinkingLevel === undefined &&
         findConfiguredModel(ctx.modelRegistry, modelOverride)?.reasoning === false
       )
         thinkingLevel = "off";

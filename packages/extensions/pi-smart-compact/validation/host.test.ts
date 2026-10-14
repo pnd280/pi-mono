@@ -103,7 +103,15 @@ async function verifyNativeHost(configured: boolean) {
       await writeFile(
         join(agentDir, "settings.json"),
         JSON.stringify({
-          "ext.pi-smart-compact": { model: "smart-compact-fixture/summary", thinkingLevel: "off" }
+          "ext.pi-smart-compact": {
+            rules: [
+              {
+                match: "^smart-compact-fixture/",
+                model: "smart-compact-fixture/summary",
+                thinkingLevel: "off"
+              }
+            ]
+          }
         })
       );
     const faux = fauxProvider({

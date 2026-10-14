@@ -21,7 +21,8 @@ import smartCompact from "../index.ts";
 import type { CompactSettings } from "../src/config.ts";
 import { summaryModelEntryType } from "../src/entry.ts";
 
-const override = { model: "manual-fixture/summary", thinkingLevel: "low" } as const;
+const summaryRule = { model: "manual-fixture/summary", thinkingLevel: "low" } as const;
+const override = { rules: [{ match: "^manual-fixture/main$", ...summaryRule }] };
 const instructions = "Preserve MANUAL_FOCUS_MARKER.";
 const fileFocus = "Preserve FILE_FOCUS_MARKER.";
 const combinedFocus = "Preserve FILE_FOCUS_MARKER.\n\nPreserve MANUAL_FOCUS_MARKER.";
@@ -58,14 +59,18 @@ const cases: {
   },
   {
     name: "thinking only",
-    config: { thinkingLevel: "low", applyToManual: true, applyToAuto: true },
+    config: {
+      rules: [{ match: "", thinkingLevel: "low" }],
+      applyToManual: true,
+      applyToAuto: true
+    },
     manual: lowerThinking,
     automatic: lowerThinking,
     summaries: 1
   },
   {
     name: "automatic missing model",
-    config: { model: "missing/model", applyToAuto: true },
+    config: { rules: [{ match: "", model: "missing/model" }], applyToAuto: true },
     manual: nativeSummary,
     automatic: nativeSummary,
     automaticError: /model is unavailable/,
@@ -114,7 +119,7 @@ const cases: {
   },
   {
     name: "missing model",
-    config: { model: "missing/model", applyToManual: true },
+    config: { rules: [{ match: "", model: "missing/model" }], applyToManual: true },
     manual: nativeSummary,
     automatic: nativeSummary,
     error: /model is unavailable/,
@@ -122,7 +127,10 @@ const cases: {
   },
   {
     name: "unsupported thinking",
-    config: { ...override, thinkingLevel: "max", applyToManual: true },
+    config: {
+      rules: [{ match: "", ...summaryRule, thinkingLevel: "max" }],
+      applyToManual: true
+    },
     manual: nativeSummary,
     automatic: nativeSummary,
     error: /thinkingLevel is unsupported/,

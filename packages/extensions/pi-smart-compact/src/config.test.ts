@@ -5,14 +5,18 @@ import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, it } from "vite-plus/test";
 
-import { loadCompactConfig } from "./config.ts";
+import { loadCompactConfig, selectRule } from "./config.ts";
 
 const directories: string[] = [];
+const globalRule = { model: "provider/global", thinkingLevel: "off" };
 const globalConfig = {
-  model: "provider/global",
-  thinkingLevel: "off",
+  rules: [{ match: "^provider/", ...globalRule }],
   applyToManual: true,
   applyToAuto: true
+};
+const loadedGlobal = {
+  ...globalConfig,
+  rules: [{ match: new RegExp("^provider/"), ...globalRule }]
 };
 const section = (config: unknown) => JSON.stringify({ "ext.pi-smart-compact": config });
 
@@ -47,22 +51,47 @@ it.each([undefined, section({})])(
 it("ignores untrusted project settings, including malformed files, and does not search ancestors", () => {
   const { cwd, agentDir, projectPath } = settings(
     section(globalConfig),
-    section({ model: "other/id" })
+    section({ rules: [{ match: "", model: "other/id" }] })
   );
-  expect(loadCompactConfig(cwd, { agentDir })).toEqual(globalConfig);
+  expect(loadCompactConfig(cwd, { agentDir })).toEqual(loadedGlobal);
   writeFileSync(projectPath, "{malformed");
-  expect(loadCompactConfig(cwd, { agentDir, projectTrusted: false })).toEqual(globalConfig);
+  expect(loadCompactConfig(cwd, { agentDir, projectTrusted: false })).toEqual(loadedGlobal);
   const child = join(cwd, "child");
   mkdirSync(child);
-  expect(loadCompactConfig(child, { agentDir, projectTrusted: true })).toEqual(globalConfig);
+  expect(loadCompactConfig(child, { agentDir, projectTrusted: true })).toEqual(loadedGlobal);
+});
+
+it("selects the first matching rule as a unit, and a bare rule keeps native selection", () => {
+  const { cwd, agentDir } = settings(
+    section({
+      rules: [
+        { match: "^other/", model: "missing/model" },
+        { match: "/main$" },
+        { match: "", model: "provider/summary", thinkingLevel: "low" }
+      ]
+    })
+  );
+  const config = loadCompactConfig(cwd, { agentDir });
+  expect(selectRule(config, { provider: "provider", id: "main" })).toEqual({
+    match: new RegExp("/main$")
+  });
+  expect(selectRule(config, { provider: "provider", id: "nested/id" })).toEqual({
+    match: new RegExp(""),
+    model: "provider/summary",
+    thinkingLevel: "low"
+  });
+  expect(selectRule({}, { provider: "provider", id: "main" })).toBeUndefined();
 });
 
 it.each([
   "{malformed",
   "[]",
   section(null),
-  section({ model: "model-only" }),
-  section({ thinkingLevel: "automatic" }),
+  section({ model: "provider/id" }),
+  section({ rules: [{ model: "provider/id" }] }),
+  section({ rules: [{ match: "(" }] }),
+  section({ rules: [{ match: "", model: "model-only" }] }),
+  section({ rules: [{ match: "", thinkingLevel: "automatic" }] }),
   section({ applyToManual: "true" }),
   section({ applyToAuto: null }),
   section({ instructionsFile: "   " }),

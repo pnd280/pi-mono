@@ -20,22 +20,46 @@ export const thinkingLevelSchema = z.enum([
   "max"
 ]);
 
-const configSchema = z.strictObject({
+const ruleSchema = z.strictObject({
+  match: z.string().transform((source, ctx) => {
+    try {
+      return new RegExp(source);
+    } catch {
+      ctx.addIssue({ code: "custom", message: "Invalid regular expression." });
+
+      return z.NEVER;
+    }
+  }),
   model: z
     .string()
     .trim()
     .regex(/^[^/\s]+\/\S+$/u)
     .optional(),
-  thinkingLevel: thinkingLevelSchema.optional(),
+  thinkingLevel: thinkingLevelSchema.optional()
+});
+
+const configSchema = z.strictObject({
+  rules: z.array(ruleSchema).optional(),
   applyToManual: z.boolean().optional(),
   applyToAuto: z.boolean().optional(),
   instructionsFile: z.string().trim().min(1).optional()
 });
 const settingsSchema = z.object({ "ext.pi-smart-compact": configSchema.optional() });
 
-export type CompactSettings = z.output<typeof configSchema>;
+/** The `ext.pi-smart-compact` settings JSON. */
+export type CompactSettings = z.input<typeof configSchema>;
 
-export type CompactConfig = Omit<CompactSettings, "instructionsFile"> & { instructions?: string };
+type ParsedSettings = z.output<typeof configSchema>;
+
+export type CompactConfig = Omit<ParsedSettings, "instructionsFile"> & { instructions?: string };
+
+/** The first rule matching `provider/id` decides both fields; no match keeps native selection. */
+export function selectRule(
+  config: Pick<CompactConfig, "rules">,
+  model: { provider: string; id: string }
+) {
+  return config.rules?.find((rule) => rule.match.test(`${model.provider}/${model.id}`));
+}
 
 /** Resolve a validated `provider/model-id` reference; the model ID may contain slashes. */
 export function findConfiguredModel(registry: Pick<ModelRegistry, "find">, reference: string) {
@@ -44,7 +68,7 @@ export function findConfiguredModel(registry: Pick<ModelRegistry, "find">, refer
   return registry.find(reference.slice(0, slash), reference.slice(slash + 1));
 }
 
-function readSection(path: string): CompactSettings {
+function readSection(path: string): ParsedSettings {
   try {
     const parsed = settingsSchema.safeParse(readSettingsRecord(path));
 
