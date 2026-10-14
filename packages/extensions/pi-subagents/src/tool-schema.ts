@@ -32,11 +32,15 @@ export const toolInputSchema = z.strictObject({
     .string()
     .min(1)
     .optional()
-    .describe("A provider/id model. Defaults to your current model."),
+    .describe(
+      "A provider/id model. Defaults to the task's previously requested model on resume, and to your current model otherwise."
+    ),
   thinking: z
     .enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"])
     .optional()
-    .describe("Defaults to your current level.")
+    .describe(
+      "Defaults to the task's previously requested level on resume, and to your current level otherwise."
+    )
 });
 
 export type ToolInput = z.infer<typeof toolInputSchema>;

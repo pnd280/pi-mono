@@ -374,6 +374,35 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
     );
   }, 60_000);
 
+  test("resumes with the selection that the task's latest run on the selected ancestry requested", async () => {
+    await withFixture(async (_directory, start) => {
+      const host = await start();
+
+      /** The model and thinking level of the child's provider request. */
+      const selection = async (scenario: string) => {
+        await host.prompt(scenario);
+
+        return /Selection: (\S+)/.exec(contentText((await host.results()).at(-1)!.content))?.[1];
+      };
+
+      expect(await selection("delegate-reasoning")).toBe("subagents-fixture/reasoning:high");
+      const taskId = (await list(host))[0]!.task_id;
+      const launched = (await host.entries()).at(-1)!.id;
+      // The scripted model has no thinking levels, so this run applies `off` but requests `low`.
+      expect(await selection(`selection-id ${taskId} model=scripted thinking=low`)).toBe(
+        "subagents-fixture/scripted:off"
+      );
+      // The supervisor's own selection is `subagents-fixture/scripted:off`. A value in the call
+      // replaces only its own field.
+      expect(await selection(`selection-id ${taskId} model=reasoning`)).toBe(
+        "subagents-fixture/reasoning:low"
+      );
+      // The later runs stay at the end of the child file, but they are not on the selected ancestry.
+      await host.request({ type: "prompt", message: `/fixture-tree ${launched}` });
+      expect(await selection(`selection-id ${taskId}`)).toBe("subagents-fixture/reasoning:high");
+    });
+  }, 30_000);
+
   test.each([false, true])(
     "uses only trusted project settings and passes the chosen trust flag (%s)",
     async (trusted) => {

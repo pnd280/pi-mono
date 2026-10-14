@@ -13,7 +13,9 @@ Your current Pi session is the supervisor. Its model calls `subagent` with a sho
 - Set `task_id` to continue a task with its earlier conversation. An inactive task resumes; an active task receives input and returns immediately. IDs appear in tool results and `/subagents list`.
 - Use `delivery: "follow_up"` (the default) to add input after the current work, or `delivery: "steer"` to deliver it before the next model request. Active-task input uses the existing capacity slot and result destination, and reports no additional usage.
 - Active descendant input is routed to its supervisor. Only the supervisor that launched a task can resume it; inactive descendants are read-only.
-- Omit `model` and `thinking` to use the supervisor's current selection, including on resume. A model override uses `provider/id`; Pi resolves it and the provider validates availability. Cards, the panel, and the board show the requested selection while a task is queued, the child's resolved model and clamped thinking level from launch, and then the physical model and thinking level of its latest response.
+- Omit `model` and `thinking` to use the supervisor's current selection for a new task. A model override uses `provider/id`; Pi resolves it and the provider validates availability.
+- On resume, each omitted value repeats the value that the task's latest run requested, so later changes to the supervisor's selection do not apply. For example, a run that requested `high` on a model without thinking levels applies `off`, and a resume that selects a reasoning model requests `high` again.
+- Cards, the panel, and the board show the requested selection while a task is queued, the child's resolved model and clamped thinking level from launch, and then the physical model and thinking level of its latest response.
 - Aborting the supervisor's turn immediately force-stops its running foreground subtrees and cancels queued foreground calls.
 - Child dialogs appear with a `[subagent: <description>]` prefix. RPC clients answer them using Pi's [extension UI protocol](https://pi.dev/docs/latest/rpc-extension-ui).
 
@@ -59,7 +61,7 @@ List results contain `{ tasks, total, offset, next_offset }`. Offset defaults to
 The fields of a task item have different scopes:
 
 - `usage` adds the usage of all the task's runs with known usage. It includes the usage of descendants that their results reported to the task. Do not add `usage` across all items, because descendants are then counted more than once. To get a total, add only the direct tasks; in a top-level supervisor, their `parent_task_id` is `null`.
-- `run_id`, `description`, `model`, `thinking`, `background`, `started_at`, `ended_at`, `state`, `outcome`, and `error` describe the latest run on the selected ancestry.
+- `run_id`, `description`, `model`, `thinking`, `requested_model`, `requested_thinking`, `background`, `started_at`, `ended_at`, `state`, `outcome`, and `error` describe the latest run on the selected ancestry. `model` and `thinking` are the applied selection; `requested_model` and `requested_thinking` are the selection that the run requested, which a resume reuses for omitted values.
 - `context` is the latest known context use, and `cache_hit` is the cache hit rate of the latest model request that had a prompt. They can come from an earlier run.
 
 ### Branch history

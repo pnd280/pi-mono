@@ -25,6 +25,9 @@ export const FIXTURE_PROVIDER = "subagents-fixture";
 
 export const FIXTURE_MODEL = `${FIXTURE_PROVIDER}/scripted`;
 
+/** A model with thinking levels, unlike the supervisor's. */
+const REASONING_MODEL = `${FIXTURE_PROVIDER}/reasoning`;
+
 /** Each supervisor process fails its first `background-retry` reply once. */
 let retried = false;
 
@@ -35,6 +38,7 @@ type Call = {
   prompt: string;
   task_id?: string;
   model?: string;
+  thinking?: string;
   background?: boolean;
   delivery?: "steer" | "follow_up";
 };
@@ -90,8 +94,35 @@ function continuationPlan(scenario: string): Call[] | undefined {
     : undefined;
 }
 
+/** A launch on the reasoning model, then resumes that set only the given fixture model and level. */
+function selectionPlan(scenario: string): Call[] | undefined {
+  if (scenario === "delegate-reasoning")
+    return [
+      {
+        description: "Fixture selection task",
+        prompt: "report-selection",
+        model: REASONING_MODEL,
+        thinking: "high"
+      }
+    ];
+  const resumed = /^selection-id ([0-9a-f-]{36})(?: model=(\S+))?(?: thinking=(\S+))?$/.exec(
+    scenario
+  );
+  if (!resumed?.[1]) return;
+
+  return [
+    {
+      description: "Resume selection",
+      task_id: resumed[1],
+      prompt: "report-selection",
+      ...(resumed[2] ? { model: `${FIXTURE_PROVIDER}/${resumed[2]}` } : {}),
+      ...(resumed[3] ? { thinking: resumed[3] } : {})
+    }
+  ];
+}
+
 function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
-  const continuation = continuationPlan(scenario);
+  const continuation = continuationPlan(scenario) ?? selectionPlan(scenario);
   if (continuation) return continuation;
   if (scenario === "failure-then-reply")
     return supervisorPlan(completed === 0 ? "delegate-launch-error" : "delegate-reply");
@@ -259,8 +290,8 @@ function plainResponse(
     : "Choose a subagents fixture scenario.";
 }
 
-function createStream(dialogAnswer: () => boolean): ProviderStreams["stream"] {
-  return (model, context, { signal } = {}) => {
+function createStream(dialogAnswer: () => boolean): ProviderStreams["streamSimple"] {
+  return (model, context, { signal, reasoning } = {}) => {
     let userIndex = context.messages.length - 1;
 
     while (userIndex >= 0) {
@@ -286,6 +317,16 @@ function createStream(dialogAnswer: () => boolean): ProviderStreams["stream"] {
         model,
         signal,
         run: async (stream) => abortToolResponse(stream)
+      });
+    if (scenario === "report-selection")
+      return createFixtureStream({
+        model,
+        signal,
+        run: async ({ text }) => {
+          text(`Selection: ${model.provider}/${model.id}:${reasoning ?? "off"}`);
+
+          return "stop";
+        }
       });
     let requestSignal = signal;
     if (scenario === "ignore-abort") requestSignal = undefined;
@@ -576,6 +617,18 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
           provider: FIXTURE_PROVIDER,
           baseUrl: "http://localhost.invalid",
           reasoning: false,
+          input: ["text"],
+          contextWindow: 200000,
+          maxTokens: 4096,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+        },
+        {
+          id: "reasoning",
+          name: "Offline subagents reasoning fixture",
+          api: FIXTURE_PROVIDER,
+          provider: FIXTURE_PROVIDER,
+          baseUrl: "http://localhost.invalid",
+          reasoning: true,
           input: ["text"],
           contextWindow: 200000,
           maxTokens: 4096,

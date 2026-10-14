@@ -60,6 +60,9 @@ const fields = {
   session_id: id,
   model: z.string(),
   thinking: z.string(),
+  /** The latest run's requested selection; a resume that omits a value uses it again. */
+  requested_model: z.string(),
+  requested_thinking: z.string(),
   background: z.boolean(),
   /** The latest run's start and end. */
   started_at: z.number(),
@@ -115,6 +118,8 @@ export function startRun(
     session_id: run.session_id,
     model: launch?.model ?? run.model,
     thinking: launch?.thinking ?? run.thinking,
+    requested_model: run.model,
+    requested_thinking: run.thinking,
     background: run.background,
     started_at: run.started_at,
     ended_at: null,

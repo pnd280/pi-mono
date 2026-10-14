@@ -89,7 +89,7 @@ export type SubmitRequest = ToolInput;
 
 /** The supervisor's current selection and environment, read at each launch. */
 export type LaunchContext = {
-  /** The current model as `provider/id`; without one, a launch must name a model. */
+  /** The current model as `provider/id`; without one, a new task must name a model. */
   model: string | undefined;
   thinking: string;
   cwd: string;
@@ -383,13 +383,18 @@ export class Tasks {
     }
   }
 
-  /** The requested model and thinking level, or the supervisor's current ones. */
+  /**
+   * The requested model and thinking level. A resume reuses each omitted value from the task's
+   * latest run; a new task uses the supervisor's current one.
+   */
   private selection(request: SubmitRequest): Selection {
     const launch = this.options.launch();
-    const model = request.model ?? launch.model;
+    const previous = request.task_id === undefined ? undefined : this.owned(request.task_id);
+    const model = request.model ?? previous?.requested_model ?? launch.model;
     if (model === undefined) throw new Error("Select a model before launching a subagent");
+    const thinking = request.thinking ?? previous?.requested_thinking ?? launch.thinking;
 
-    return { launch, model, thinking: request.thinking ?? launch.thinking };
+    return { launch, model, thinking };
   }
 
   /**
