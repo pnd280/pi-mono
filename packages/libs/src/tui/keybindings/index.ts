@@ -3,13 +3,19 @@ import { z } from "zod";
 
 const baseKeys = new Set<string>(Object.values(Key).filter((key) => typeof key === "string"));
 const modifiers = ["ctrl", "shift", "alt", "super"];
+const symbolKeys = new Set([...baseKeys].filter((key) => /^[^a-z0-9]$/.test(key)));
+
+// Modifiers end in "+", so a final "+" names the plus key, as in "+" or "ctrl++".
+function splitKey(value: string): { parts: string[]; base: string } {
+  const [, prefix = "", base = ""] = /^((?:[a-z]+\+)*)(.+)$/.exec(value) ?? [];
+
+  return { parts: prefix.split("+").slice(0, -1), base };
+}
 
 function validKey(value: string): value is KeyId {
-  const parts = value.split("+");
-  const base = parts.pop();
+  const { parts, base } = splitKey(value);
 
   return (
-    base !== undefined &&
     (baseKeys.has(base) || /^[a-z0-9]$/.test(base)) &&
     parts.every((part) => modifiers.includes(part)) &&
     new Set(parts).size === parts.length
@@ -17,14 +23,14 @@ function validKey(value: string): value is KeyId {
 }
 
 function normalizeKey(value: string): KeyId | undefined {
-  const parts = value.toLowerCase().split("+");
-  let base = parts.pop() ?? "";
+  const { parts, base: typed } = splitKey(value.toLowerCase());
+  let base = typed;
 
   if (base === "esc") base = "escape";
   if (base === "return") base = "enter";
   if (base === "pageup") base = "pageUp";
   if (base === "pagedown") base = "pageDown";
-  // Pi 1.0.1 cannot dispatch literal plus, modified Escape or modified function keys.
+  // Pi 1.2.0 cannot dispatch modified Escape or modified function keys.
   if (!base || (parts.length > 0 && (base === "escape" || /^f\d+$/.test(base)))) return undefined;
   if (parts.some((part) => !modifiers.includes(part)) || new Set(parts).size !== parts.length)
     return undefined;
@@ -84,18 +90,42 @@ export type KeybindingCandidate<Action extends string = string> = {
   exclude?: (key: KeyId) => boolean;
 };
 
+/**
+ * Pi 1.2.0 matches a Shift press both as `shift+<key>` and as the symbol it types, so `ctrl++` and
+ * `ctrl+shift+=` can be one keypress. The layout decides which key types which symbol, so treat a
+ * symbol and any shifted digit or symbol with the same other modifiers as overlapping.
+ */
+function shiftOverlap(a: KeyId, b: KeyId): boolean {
+  const slot = (key: KeyId) => {
+    const { parts, base } = splitKey(key);
+    const shifted = parts.includes("shift");
+    if (!symbolKeys.has(base) && !(shifted && /^[0-9]$/.test(base))) return undefined;
+
+    return { shifted, others: parts.filter((part) => part !== "shift").join("+") };
+  };
+
+  const [first, second] = [slot(a), slot(b)];
+
+  return !!first && !!second && first.shifted !== second.shifted && first.others === second.others;
+}
+
 /** Claim alternatives in order so dispatch and user-facing hints share precedence. */
 export function resolveKeybindings<Action extends string>(
   candidates: readonly KeybindingCandidate<Action>[]
 ): Array<{ action: Action; key: KeyId }> {
-  const occupied = new Set<KeyId>();
+  const occupied: KeyId[] = [];
   const bindings: Array<{ action: Action; key: KeyId }> = [];
 
   for (const candidate of candidates) {
     for (const value of candidate.keys) {
       const key = canonicalKey(value);
-      if (!key || occupied.has(key) || candidate.exclude?.(key)) continue;
-      occupied.add(key);
+      if (
+        !key ||
+        occupied.some((other) => other === key || shiftOverlap(other, key)) ||
+        candidate.exclude?.(key)
+      )
+        continue;
+      occupied.push(key);
       bindings.push({ action: candidate.action, key });
     }
   }

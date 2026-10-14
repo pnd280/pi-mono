@@ -65,7 +65,8 @@ it("refuses oversized settings without overwriting unrelated fields", () => {
 
   expect(store.load()).toMatchObject({ global: undefined, warnings: [expect.any(String)] });
   expect(() => store.save("global", ["b"])).toThrow("Check access");
-  expect(readFileSync(store.paths.global)).toEqual(before);
+  // Buffer.equals: a deep toEqual over 1 MiB takes seconds and times out under load.
+  expect(readFileSync(store.paths.global).equals(before)).toBe(true);
 });
 
 it("does not save settings that would exceed the readable size after formatting", () => {
@@ -75,7 +76,7 @@ it("does not save settings that would exceed the readable size after formatting"
   expect(before.byteLength).toBeLessThanOrEqual(1024 * 1024);
 
   expect(() => store.save("global", ["a"])).toThrow("Check access");
-  expect(readFileSync(store.paths.global)).toEqual(before);
+  expect(readFileSync(store.paths.global).equals(before)).toBe(true);
 });
 
 it("preserves settings symlinks and refuses to replace a dangling link", () => {

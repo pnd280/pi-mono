@@ -42,6 +42,8 @@ it.each([
       expanded: false,
       showImages: false,
       isError: false,
+      durationMs: undefined,
+      outputPad: 1,
       invalidate() {}
     };
     const renderers = createTranscriptRenderers("read", selectiveReadDisplayAdapter, {
@@ -87,6 +89,8 @@ it("keeps a selected-source result unchanged through public cards", () => {
       expanded,
       showImages: false,
       isError: false,
+      durationMs: undefined,
+      outputPad: 1,
       invalidate() {}
     };
     const renderers = createToolDisplayRenderers("read", selectiveReadDisplayAdapter);

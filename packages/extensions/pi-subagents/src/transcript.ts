@@ -26,6 +26,7 @@ export interface ToolOutput {
   content: ToolResultMessage["content"];
   details: unknown;
   isError: boolean;
+  durationMs?: number;
 }
 
 export type TranscriptItem =
@@ -169,7 +170,10 @@ export class Transcript {
         else if (event.type === "tool_execution_update")
           this.executions.set(key, { output: output(event.partialResult, false), partial: true });
         else
-          this.executions.set(key, { output: output(event.result, event.isError), partial: false });
+          this.executions.set(key, {
+            output: output(event.result, event.isError, event.durationMs),
+            partial: false
+          });
         break;
       }
 
@@ -298,7 +302,8 @@ export class Transcript {
           item.output = {
             content: message.content,
             details: message.details,
-            isError: message.isError
+            isError: message.isError,
+            ...(message.durationMs === undefined ? {} : { durationMs: message.durationMs })
           };
           item.partial = false;
           open.delete(message.toolCallId);
@@ -370,10 +375,15 @@ function interrupted(partial: ToolOutput | undefined): ToolOutput {
   return result;
 }
 
-function output(value: unknown, isError: boolean): ToolOutput {
+function output(value: unknown, isError: boolean, durationMs?: number): ToolOutput {
   // Execution events carry AgentToolResult values, but Pi's event API erases their type.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const result = value as Partial<Pick<ToolOutput, "content" | "details">> | undefined;
 
-  return { content: result?.content ?? [], details: result?.details, isError };
+  return {
+    content: result?.content ?? [],
+    details: result?.details,
+    isError,
+    ...(durationMs === undefined ? {} : { durationMs })
+  };
 }

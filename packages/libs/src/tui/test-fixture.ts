@@ -49,7 +49,8 @@ function createTestTerminal() {
     clearFromCursor() {},
     clearScreen() {},
     setTitle() {},
-    setProgress() {}
+    setProgress() {},
+    setProgramStatus() {}
   };
 
   return { terminal, send: (data: string) => input(data) };

@@ -2,7 +2,7 @@
 
 [pi-read](../README.md)
 
-> Last verified against Pi 1.0.2 (package checks and native-read tests with a real typed tool context, the display adapter, and the installed-CLI suite; read tool unchanged, runtime delegation unchanged). Not covered: manual image and appearance checks, and schema checks with live providers.
+> Last verified against Pi 1.2.0 (package checks and native-read tests with a real typed tool context, the display adapter, and the installed-CLI suite; the read tool only adds an output schema and structured content, and a scratch run confirmed both pass through without the preview). Not covered: manual image and appearance checks, and schema checks with live providers.
 
 ## Upgrade procedure
 
@@ -19,7 +19,7 @@ Selection previews must preserve native file access, results, and rendering fall
 [Native delegation](../src/tool.ts):
 
 - [ ] The supplied tool definition owns the extended native schema and preserved prompt metadata, and the complete `ExtensionToolContext` still matches.
-- [ ] Execution arguments, cancellation, images, and the original content and details pass through. Files are never reread.
+- [ ] Execution arguments, cancellation, images, the output schema, and the original content, structured content, and details pass through. Files are never reread.
 
 ### Schema
 

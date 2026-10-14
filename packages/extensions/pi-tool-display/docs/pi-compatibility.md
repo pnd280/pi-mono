@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.0.2 on Linux with unchanged host fingerprints, and API and CLI suites. Not covered by this review: real-terminal behaviour, physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
+> Last verified against Pi 1.2.0 on Linux with unchanged host fingerprints, API and CLI suites, and a tmux smoke run of the terminal launcher: regular-mode cards, replay, reload, and mode cycling, and fullscreen summary lines, run open and close clicks, and thinking toggles. Not covered by this review: the full manual [terminal checks](validation.md), physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. When a fingerprint doesn't match, the matching hook stays uninstalled and the feature falls back as described in the [README](../README.md#compatibility).
 
@@ -50,6 +50,7 @@ Work through every section below when you bump the supported Pi version, checkin
 [Source](../src/host/row-layout.ts); row chrome is defined in the [glossary](../GLOSSARY.md#transcript-structure).
 
 - [ ] `ToolExecutionComponent.render` draws a margin, then `selfRenderHeight` rows, then images.
+- [ ] Self-rendered rows get no `outputPad` padding from Pi, so cards keep their own layout.
 - [ ] `handleMouse` subtracts the margin before routing to renderer slots, whose regions call `setExpanded`.
 - [ ] Native image components are still public `Image` children, so width constraints keep Pi's IDs, conversion, caching, and reserved rows.
 - [ ] Recheck both [fingerprints](../src/host/compatibility.ts) in the API and installed CLI builds. On mismatch, rows keep Pi's chrome (groups keep margin rows), summaries turn off, and the host warns once.
@@ -109,7 +110,8 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 ## Limitations and replacement opportunities
 
 - Public host and observation APIs could replace the private hooks if they keep the contracts above. Trace shared-library consumers before removing a hook.
-- `registerToolRenderer` (Pi 1.0.1) could replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. It doesn't replace it yet: Pi also calls resolvers for HTML export, resolvers run in extension load order, so an earlier resolver can hide this one, and a resolver receives no host to claim the row's call.
+- As of Pi 1.2.0, `registerToolRenderer` could replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. It doesn't replace it yet: Pi also calls resolvers for HTML export, resolvers run in extension load order, so an earlier resolver can hide this one, and a resolver receives no host to claim the row's call.
+- Pi records each final tool result's `durationMs` in the session and passes it to renderers and `tool_execution_end`. It could replace local shell and mutation timing, so durations would replay on other machines, and could give codemode cards the script's total time that Pi's own row shows. Pi measures the whole `execute()` call, not only the shell or file operation.
 - Recheck the [image-row limitation](validation.md#platform-limitations) for finalized-message image updates against each new Pi version. Compare live and replay, with and without this extension.
 
 ## Coverage notes

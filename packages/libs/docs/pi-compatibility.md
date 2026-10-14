@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.0.2 (workspace checks and offline tests, with all extension consumers; native-construction fingerprints unchanged in the API and bundled CLI). Not covered: live-provider schema acceptance, native clipboard delivery, and platform-specific checks.
+> Last verified against Pi 1.2.0 (package checks and offline tests, with the native-tools consumers in tool display and agent summary, and the shortcut consumers in todo and prompt manager; native-construction fingerprints for `_refreshToolRegistry` refreshed in the API and bundled CLI, where only the allowed-tool check changed; shortcut validation now accepts literal-plus keys, and shortcut resolution skips Shift spellings that overlap symbol bindings). Not covered: live-provider schema acceptance, native clipboard delivery, platform-specific checks, and terminal checks of literal-plus shortcuts and of the browser search cursor with `showHardwareCursor`.
 
 ## Upgrade procedure
 
@@ -36,7 +36,7 @@ Check both API and installed-CLI consumers wherever a library depends on Pi's ho
 ### TUI
 
 - [ ] [TUI](../src/tui/README.md) public exports, layout and keybindings, images, invalidation, responsive remounts, editor restoration, and disposal.
-- [ ] Recheck the [rejected shortcuts](../src/tui/keybindings/README.md#behaviour) against Pi's dispatcher before changing validation.
+- [ ] Recheck the [rejected shortcuts](../src/tui/keybindings/README.md#behaviour) and the Shift-symbol overlap rule against Pi's dispatcher before changing validation or resolution.
 - [ ] [Fullscreen routing](../src/tui/responsive-custom-ui/README.md#host-compatibility) needs an ordered `inputListeners` Set of callable entries, plus `getFocusedComponent()` and `getVisibleOverlayFocusRestore()` through the stable TUI proxy.
 - [ ] Deferred installation, renderer rebinding, focus handoff, and teardown that keeps listeners all work.
 - [ ] Unsupported routing is reported once per opening, without closing the view.

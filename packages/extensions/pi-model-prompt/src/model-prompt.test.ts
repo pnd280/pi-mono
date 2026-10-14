@@ -164,23 +164,25 @@ it("keeps the base for failed first selections without falling through to later 
   expect(snapshot.replacementFor("directory", "base")).toBeUndefined();
 });
 
-it.skipIf(process.platform === "win32")("rejects FIFO files without blocking startup", async () => {
-  const { agentDir, at } = await fixture({
-    agent: {
-      "APPEND_SYSTEM.md": "base",
-      "settings.json": withRules([{ match: ".", append: ["fifo.md"] }])
-    }
-  });
-  const fifo = at("fifo.md");
-  execFileSync("mkfifo", [fifo]);
+it.skipIf(process.platform === "win32")(
+  "rejects FIFO files without blocking startup",
+  async () => {
+    const { agentDir, at } = await fixture({
+      agent: {
+        "APPEND_SYSTEM.md": "base",
+        "settings.json": withRules([{ match: ".", append: ["fifo.md"] }])
+      }
+    });
+    const fifo = at("fifo.md");
+    execFileSync("mkfifo", [fifo]);
 
-  // Isolate the synchronous read so a blocking regression cannot hang the test runner.
-  const result = spawnSync(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      `
+    // Isolate the synchronous read so a blocking regression cannot hang the test runner.
+    const result = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
     import { loadModelPromptSnapshot } from ${JSON.stringify(new URL("./model-prompt.ts", import.meta.url).href)};
     const snapshot = loadModelPromptSnapshot({ agentDir: ${JSON.stringify(agentDir)}, projectDir: undefined });
     process.stdout.write(JSON.stringify({
@@ -188,19 +190,22 @@ it.skipIf(process.platform === "win32")("rejects FIFO files without blocking sta
       replacement: snapshot.replacementFor("p/model", "base") ?? null
     }));
   `
-    ],
-    { encoding: "utf8", timeout: 2000 }
-  );
+      ],
+      // The child loads Pi, which takes over 2 s while the full workspace suite runs.
+      { encoding: "utf8", timeout: 10_000 }
+    );
 
-  expect(result.error).toBeUndefined();
-  expect(result.status).toBe(0);
-  const output: unknown = JSON.parse(result.stdout);
-  expect(output).toHaveProperty(
-    "warnings",
-    expect.arrayContaining([expect.stringContaining(fifo)])
-  );
-  expect(output).toHaveProperty("replacement", null);
-});
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    const output: unknown = JSON.parse(result.stdout);
+    expect(output).toHaveProperty(
+      "warnings",
+      expect.arrayContaining([expect.stringContaining(fifo)])
+    );
+    expect(output).toHaveProperty("replacement", null);
+  },
+  15_000
+);
 
 it("disables replacement when the base file cannot be read, even with an empty selection", async () => {
   const { projectDir, agentDir } = await fixture({

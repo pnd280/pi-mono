@@ -2,7 +2,7 @@
 
 [pi-editor-widgets](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.0.2 (package checks and offline host tests, both renderers, selected-model compaction reserves with routed physical windows). Not covered: physical-terminal checks.
+> Last verified against Pi 1.2.0 (package checks and offline host tests, both renderers, selected-model compaction reserves with routed physical windows; the status, region, footer, mode-switch, metrics, and container mouse-dispatch sources are unchanged; no runtime changes needed). Not covered: physical-terminal checks.
 
 Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks. It needs no core or dependency edits.
 

@@ -15,7 +15,7 @@ export function createSubagentResultRenderer(
 ): MessageRenderer {
   const renderers = createToolDisplayRenderers("subagent", subagentDisplayAdapter);
 
-  return (message, { expanded }, theme) => {
+  return (message, { expanded, outputPad }, theme) => {
     const card = subagentResultCard(message);
     if (!card) return undefined;
     // A delivered result is final and has no live call.
@@ -31,7 +31,9 @@ export function createSubagentResultRenderer(
       isPartial: false,
       expanded,
       showImages: false,
-      isError: false
+      isError: false,
+      durationMs: undefined,
+      outputPad
     };
     const container = new Container();
     container.addChild(renderers.renderCall(card.args, theme, context));

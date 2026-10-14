@@ -4,7 +4,7 @@
 
 ## Compatibility and selection
 
-The adapter matches Pi's built-in `codemode` only: tool name `codemode`, `builtin` source with path `builtin:codemode`, and parameters with a required string `code`. Pi's own `isCodemodeTool` schema-identity check is not public, so provenance relies on the synthetic built-in source path.
+The adapter matches Pi's built-in `codemode` only: tool name `codemode`, `builtin` source with path `builtin:codemode`, and parameters with a required string `code`. Pi has no public schema-identity check for it, so provenance relies on the synthetic built-in source path.
 
 SDK registrations through `createCodemodeExtension()` get an unverifiable `<inline:…>` source and keep Pi's own renderer. Replacement extensions that register their own `codemode` are not specialised either. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 

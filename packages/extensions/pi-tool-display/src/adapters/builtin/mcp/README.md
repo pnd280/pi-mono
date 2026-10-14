@@ -8,7 +8,7 @@ The adapter matches MCP server tools registered by Pi's built-in MCP extension: 
 
 The extension's resource tools (`list_mcp_resources`, `list_mcp_resource_templates`, `read_mcp_resource`) have no namespace and stay unmatched; they use generic cards. [`pi-mcp-adapter`](../../pi-mcp-adapter/README.md) tools have their own adapter. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 
-Pi 1.0.1 replaces every character outside `[A-Za-z0-9_]` with `_` and adds a hash suffix to colliding or overlong tool names; exact-name override keys must use the registered names. Default MCP exposure is `codemode`, with tool discovery through `searchTools()` or `ALL_TOOLS` rather than inline declarations.
+Pi 1.2.0 replaces every character outside `[A-Za-z0-9_]` with `_` and adds a hash suffix to colliding or overlong tool names; exact-name override keys must use the registered names. Default MCP exposure is `codemode`, with tool discovery through `searchTools()` or `ALL_TOOLS` rather than inline declarations.
 
 ## Cards
 
@@ -28,4 +28,4 @@ The adapter never reads saved output or connects to servers. Calls made inside c
 
 ## Validation
 
-Run [package validation](../../../../README.md#validation). The [colocated fixture](index.test.ts) mirrors Pi 1.0.1's private `createMcpToolDefinition` projection without opening a connection. The [offline host test](../../../../validation/mcp.test.ts) loads `builtin:mcp` and discovers a local stdio server through codemode, checking selection and original identities for normalized, collision-suffixed names. Recheck both boundaries when upgrading Pi; neither establishes external-service compatibility.
+Run [package validation](../../../../README.md#validation). The [colocated fixture](index.test.ts) mirrors Pi 1.2.0's private `createMcpToolDefinition` projection without opening a connection. The [offline host test](../../../../validation/mcp.test.ts) loads `builtin:mcp` and discovers a local stdio server through codemode, checking selection and original identities for normalized, collision-suffixed names. Recheck both boundaries when upgrading Pi; neither establishes external-service compatibility.

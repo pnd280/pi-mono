@@ -37,7 +37,9 @@ function context(
     isPartial: false,
     expanded: true,
     showImages: true,
-    isError: false
+    isError: false,
+    durationMs: undefined,
+    outputPad: 1
   };
 }
 

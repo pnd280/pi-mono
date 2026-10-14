@@ -290,7 +290,10 @@ function plainResponse(
     : "Choose a subagents fixture scenario.";
 }
 
-function createStream(dialogAnswer: () => boolean): ProviderStreams["streamSimple"] {
+function createStream(
+  dialogAnswer: () => boolean,
+  idleWake: () => boolean
+): ProviderStreams["streamSimple"] {
   return (model, context, { signal, reasoning } = {}) => {
     let userIndex = context.messages.length - 1;
 
@@ -301,7 +304,8 @@ function createStream(dialogAnswer: () => boolean): ProviderStreams["streamSimpl
     }
 
     const user = context.messages[userIndex];
-    const scenario = user?.role === "user" ? contentText(user.content).trim() : "";
+    const prompt = user?.role === "user" ? contentText(user.content).trim() : "";
+    const scenario = idleWake() ? "idle-wake" : prompt;
     const plannedSteps = scenario === "failure-then-reply" ? 2 : 1;
     const pauseAfterPlan = ["background-busy", "owner-linger", "owner-linger-abort"].includes(
       scenario
@@ -430,7 +434,7 @@ function createStream(dialogAnswer: () => boolean): ProviderStreams["streamSimpl
 
         if (delay !== undefined) await setTimeout(delay, undefined, { signal });
 
-        if (scenario === "Background subagent finished.") {
+        if (scenario === "idle-wake") {
           text(
             `Idle continuation prepared: ${getCurrentSystemPrompt(context.messages).includes("SUBAGENTS_PREPARED_CONTEXT")}`
           );
@@ -543,17 +547,21 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
   let exitHold = false;
   let digestCompact = false;
   let digestHold = false;
+  let idleWake = false;
   pi.on("before_agent_start", async (event, ctx) => {
-    digestCompact = event.prompt === "digest-compact";
-    digestHold = event.prompt === "activity-digest";
-    settleHold = event.prompt === "settle-hold";
-    exitHold = event.prompt === "exit-hold";
-    ignoreShutdown = event.prompt === "ignore-abort" || event.prompt === "shutdown-blocked";
-    if (event.prompt === "dialog")
+    // Only delivery starts runs with a custom message: the idle wake with background results.
+    idleWake = event.messageType === "custom";
+    const prompt = event.messageType === "user" ? event.prompt : undefined;
+    digestCompact = prompt === "digest-compact";
+    digestHold = prompt === "activity-digest";
+    settleHold = prompt === "settle-hold";
+    exitHold = prompt === "exit-hold";
+    ignoreShutdown = prompt === "ignore-abort" || prompt === "shutdown-blocked";
+    if (prompt === "dialog")
       answer = await ctx.ui.confirm("Fixture question", "Continue this child task?", {
         timeout: 10_000
       });
-    if (event.prompt === "selection")
+    if (prompt === "selection")
       answer =
         (await ctx.ui.select("Fixture selection", ["Same", "\u001b[31mSame\u001b[0m"])) ===
         "\u001b[31mSame\u001b[0m";
@@ -599,7 +607,10 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
     // Keep a handle alive as well as ignoring EOF, so the forced-stop path is observable.
     while (ignoreShutdown) await setTimeout(60_000);
   });
-  const stream = createStream(() => answer);
+  const stream = createStream(
+    () => answer,
+    () => idleWake
+  );
   pi.registerProvider(
     createProvider({
       id: FIXTURE_PROVIDER,

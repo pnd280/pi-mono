@@ -41,7 +41,7 @@ It doesn't cover commands handled before the hook, text produced by prompt templ
 
 ## Compatibility
 
-The extension uses the public extension and autocomplete APIs of Pi 1.0.2. Maintainers checking another host version should follow the [compatibility checklist](docs/pi-compatibility.md).
+The extension uses the public extension and autocomplete APIs of Pi 1.2.0. Maintainers checking another host version should follow the [compatibility checklist](docs/pi-compatibility.md).
 
 ## Configuration
 

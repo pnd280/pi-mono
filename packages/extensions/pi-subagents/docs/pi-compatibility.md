@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.0.2 on Linux with offline suites and regular/fullscreen terminal checks of card expansion, resizing, and task-view opening. Not covered: terminal background waits and abort cards; changes to key-release handling, header space, and live titles; physical mouse and image protocols; macOS; Windows; competing [supervisors](../GLOSSARY.md#tasks-and-processes) that resume one [task](../GLOSSARY.md#tasks-and-processes); actual disk exhaustion; live providers.
+> Last verified against Pi 1.2.0 on Linux with offline suites, a source comparison with Pi 1.0.2, and a one-time SDK probe of the idle wake. Not covered: terminal checks, which last passed on Pi 1.0.2 for card expansion, resizing, and task-view opening; terminal background waits and abort cards; changes to key-release handling, header space, and live titles; physical mouse and image protocols; macOS; Windows; competing [supervisors](../GLOSSARY.md#tasks-and-processes) that resume one [task](../GLOSSARY.md#tasks-and-processes); actual disk exhaustion; live providers.
 
 ## Upgrade procedure
 
@@ -64,7 +64,7 @@ The offline tests exercise background waits in `agent_end`, slash commands durin
 - [ ] Slash commands sent through `prompt` execute while a supervisor waits in `agent_end` or `agent_before_settle`. A child waits in `agent_end` after a normal reply, and in `agent_before_settle` after a final error that Pi does not recover.
 - [ ] Terminal execution events precede `agent_end`, which can arrive before settle handlers finish. RPC `abort` can wait for those handlers; read the final statistics and close stdin after `agent_end` without waiting for the abort reply. A shared deadline still bounds abort, the statistics read, and shutdown.
 - [ ] Print and JSON modes await settle handlers and consume their continuation messages before exiting.
-- [ ] In Pi 1.0.2, queuing a `nextTurn` custom message and then sending a user message runs `before_agent_start` in all modes. An idle `sendMessage` with `triggerTurn` skips that hook. The idle wake in [delivery](../src/delivery.ts) depends on this; replace it with `sendMessage` and `triggerTurn` when [Pi issue 5581](https://github.com/earendil-works/pi/issues/5581), open on 5 October 2026, is fixed.
+- [ ] An idle `sendMessage` with `triggerTurn` runs `before_agent_start` with `messageType: "custom"` and adds pending `nextTurn` messages after its starting message, in one run, in all modes. The session is busy when the call returns. In an `agent_settled` handler, Pi starts the run after the handlers finish. The idle wake in [delivery](../src/delivery.ts) depends on this. Pi 1.0.2 skipped the hook for such runs ([Pi issue 5581](https://github.com/earendil-works/pi/issues/5581)), so the wake then sent an extra user message.
 - [ ] `parseSessionEntries` decodes child session files read into memory, without modifying them. Do not substitute `SessionManager.open`: Pi's loader appends a newline to a file that ends with a partial line.
 - [ ] Pi runs no tool call of an assistant response with `stopReason: "error"` or `"aborted"`. The resume warning ignores these calls, and the viewer shows the response's error for them.
 - [ ] Session projections associate each visible message with its source entry, so `show --last` returns the active conversation's text and cursor. The child file's ancestry of the selected run supplies digest paging, cursors, and cumulative usage; raw append-order entries from abandoned branches are excluded.
@@ -73,3 +73,11 @@ The offline tests exercise background waits in `agent_end`, slash commands durin
 - [ ] Inline and overlay custom UI, widgets, and fullscreen mouse regions support the viewer. Regular mode uses `ctx.ui.custom` with `overlay: false` at three-quarters of the terminal height. Fullscreen mode uses a full-terminal overlay. Host remounts preserve the logical task panel and transcript; closing the viewer restores the task list with its view and selection. Panel keys and expansion remain local to that presentation.
 
 The build phase 4 cases exercise running input, deferred settle-boundary input, input during exit and resume, owner-only resume of inactive descendants, and ancestry-scoped digest paging.
+
+## Replacement opportunities
+
+Pi 1.2.0 has no public API that replaces the only private hook. Extensions still cannot write usage entries, and Pi does not count usage on custom messages.
+
+| Private hook                                                                                                      | Features that depend on it                                                                                                | Parity | Public API Pi would need                                                          |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| `SessionManager.prototype.appendCustomMessageEntry` wrapper ([ADR 0002](adr/0002-count-late-background-usage.md)) | [Late usage](../GLOSSARY.md#results) in session totals, the footer, the cost breakdown, and nested supervisors' run usage | None   | A usage writer at custom-message persistence, or usage counted on custom messages |

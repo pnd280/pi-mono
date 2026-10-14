@@ -21,19 +21,16 @@ const WAITING_MESSAGE = "Waiting for background subagents";
 const INPUT_POLL_MS = 250;
 
 /**
- * Starts a turn on an idle supervisor with background results, and keeps Pi's prompt preparation.
+ * Starts one prepared turn on an idle supervisor for all ready background results.
  *
- * Workaround for [Pi issue 5581](https://github.com/earendil-works/pi/issues/5581), open in
- * Pi 1.0.2: an idle `sendMessage` with `triggerTurn` skips `before_agent_start`, so the turn
- * lacks the context that extensions prepare there. Queuing the results as `nextTurn` and then
- * sending a user message uses the prompt path, which runs the hook and adds the queued results
- * to the same turn. The transcript shows the extra user message. Make both calls in the same
- * synchronous block, so that no other prompt takes the queued results. When Pi fixes the issue,
- * use `sendMessage(message, { triggerTurn: true })`.
+ * The first result starts the run through `before_agent_start`, and Pi adds pending `nextTurn`
+ * messages after it. Queue the others first, in the same synchronous block, so that no other run
+ * takes them.
  */
-function wakeIdle(pi: ExtensionAPI, messages: readonly Completion[]): void {
-  for (const message of messages) pi.sendMessage(message, { deliverAs: "nextTurn" });
-  pi.sendUserMessage("Background subagent finished.");
+function wakeIdle(pi: ExtensionAPI, [first, ...rest]: readonly Completion[]): void {
+  if (!first) return;
+  for (const message of rest) pi.sendMessage(message, { deliverAs: "nextTurn" });
+  pi.sendMessage(first, { triggerTurn: true });
 }
 
 /** Owns background completions until the settlement or idle handoff. */

@@ -2,7 +2,7 @@
 
 [pi-model-prompt](../README.md)
 
-> Last verified against Pi 1.0.2 (package checks and offline host tests; no runtime changes needed). Not covered: live providers and manual checks.
+> Last verified against Pi 1.2.0 (package checks and offline host tests; no runtime changes needed; idle `sendMessage(..., { triggerTurn: true })` runs now also get the model's replacement). Not covered: live providers and manual checks.
 
 ## Upgrade procedure
 
@@ -24,7 +24,7 @@ Keep file discovery and prompt-section merging consistent with Pi when applying 
 
 ### Prompt and lifecycle
 
-- [ ] [Prompt adapter](../src/index.ts): `before_agent_start` exposes a writable `systemPromptOptions.appendSystemPrompt`, and `ctx.model` is the model for the run. Under a virtual model, it is the selected virtual model, and routing still happens later, per request.
+- [ ] [Prompt adapter](../src/index.ts): `before_agent_start`, for both user and custom-message runs, exposes a writable `systemPromptOptions.appendSystemPrompt`, and `ctx.model` is the model for the run. Under a virtual model, it is the selected virtual model, and routing still happens later, per request.
 - [ ] [Lifecycle](../src/index.ts): `session_start` fires after the resource loader rereads files on startup and `/reload`.
 - [ ] `ctx.isProjectTrusted()` matches the loader's trust decision.
 - [ ] [Agent directory](../src/index.ts): `getAgentDir()` honours `PI_CODING_AGENT_DIR`.

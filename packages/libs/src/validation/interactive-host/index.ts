@@ -94,6 +94,7 @@ export async function hostFixture(
     kittyProtocolActive: false,
     async drainInput() {},
     setProgress() {},
+    setProgramStatus() {},
     start() {},
     stop() {},
     write() {},

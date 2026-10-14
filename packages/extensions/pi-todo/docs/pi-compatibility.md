@@ -2,7 +2,7 @@
 
 [pi-todo](../README.md)
 
-> Last verified against Pi 1.0.2 (package checks and offline tests, including checks with real model-issued tool contexts: nested todo execution is unavailable and changes nothing, while a direct call keeps a replayable snapshot; activation and UI policy unchanged). Not covered: manual terminal checks.
+> Last verified against Pi 1.2.0 (package checks and offline tests, including checks with real model-issued tool contexts: nested todo execution is unavailable and changes nothing, while a direct call keeps a replayable snapshot; activation and UI policy unchanged). Not covered: manual terminal checks.
 
 ## Upgrade procedure
 

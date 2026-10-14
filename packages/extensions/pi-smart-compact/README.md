@@ -2,7 +2,7 @@
 
 Keep long tasks going before they reach the context limit by letting the model compact its own context mid-task. For example, after a large refactor the model can call `compact({ instructions: "Preserve modified files and remaining tests." })` and then carry on.
 
-_Compaction_ replaces older conversation history with a summary written by a model. Pi does the compaction itself; this extension adds a way for the model to request it, an optional dedicated summary model, and an optional instruction file. Requires Pi 1.0.2; see [compatibility](docs/pi-compatibility.md).
+_Compaction_ replaces older conversation history with a summary written by a model. Pi does the compaction itself; this extension adds a way for the model to request it, an optional dedicated summary model, and an optional instruction file. Requires Pi 1.2.0; see [compatibility](docs/pi-compatibility.md).
 
 ## Usage
 

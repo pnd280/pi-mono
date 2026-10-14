@@ -28,11 +28,11 @@ export const nativeSession = (session: AgentSession) => session as unknown as Se
 const constructionHashes = [
   {
     _buildRuntime: "a3ab89260460277fd6dff8c9f076bf16cf9e1a877ca5fbba63ac7f7cb93eb1d4",
-    _refreshToolRegistry: "c8fc5c0676127f609a70f01e5e89042567e51f2ebc74e66a97b8e48803b0aa8e"
+    _refreshToolRegistry: "03dee007ef4fbc859a9596b56ec850eb0a2f815aed5b65877019ec973ac95bc8"
   },
   {
     _buildRuntime: "57071583e66ab338901f8759fe368d077c7ebb5792ee6749a8a5954a6c5a6dd1",
-    _refreshToolRegistry: "077907f4b4abff6124b36fcb89dedc64e4a39ff834c4430909a34a92304c885c"
+    _refreshToolRegistry: "6e3083f2a01a3851bab834b03aba6ee927dba177205c57d3e2871767ed224a0e"
   }
 ];
 

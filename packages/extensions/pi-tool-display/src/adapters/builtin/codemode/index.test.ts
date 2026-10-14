@@ -58,6 +58,8 @@ function renderContext(
     expanded,
     showImages: false,
     isError: false,
+    durationMs: undefined,
+    outputPad: 1,
     invalidate() {},
     ...overrides
   };

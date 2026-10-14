@@ -202,8 +202,8 @@ test.skipIf(process.platform !== "linux")(
           ? [{ id: entry.id, message: entry.message }]
           : []
       );
-      // Pi 1.0.2 requests one more response after the aborted tool and records it as an empty
-      // error. Without that message, this test does not cover the skip.
+      // Pi 1.0.2 and 1.2.0 request one more response after the aborted tool and record it as an
+      // empty error. Without that message, this test does not cover the skip.
       expect(assistants.map(({ message }) => [message.stopReason, message.content.length])).toEqual(
         [
           ["toolUse", 2],

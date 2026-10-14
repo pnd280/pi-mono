@@ -24,6 +24,8 @@ function context(overrides: Partial<Context> = {}): Context {
     expanded: false,
     showImages: false,
     isError: false,
+    durationMs: undefined,
+    outputPad: 1,
     invalidate: () => {},
     ...overrides
   };

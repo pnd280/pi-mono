@@ -31,6 +31,8 @@ function renderContext(args: unknown, expanded: boolean) {
     expanded,
     showImages: false,
     isError: false,
+    durationMs: undefined,
+    outputPad: 1,
     invalidate() {}
   };
 }

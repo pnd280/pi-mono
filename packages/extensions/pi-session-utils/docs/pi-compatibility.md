@@ -2,7 +2,7 @@
 
 [pi-session-utils](../README.md)
 
-> Last verified against Pi 1.0.2 (package checks and offline tests, including API and process startup, persistence, the naming lifecycle, virtual-model requests routed to physical limits below and above the title budget, and offline payload probes for per-level sampling through physical and virtual title models; no runtime changes needed). Not covered: title quality with live providers, and manual checks of the session picker.
+> Last verified against Pi 1.2.0 (package checks and offline tests, including API and process startup, persistence, the naming lifecycle, virtual-model requests routed to physical limits below and above the title budget, and offline payload probes for per-level sampling through physical and virtual title models; no runtime changes needed). Not covered: title quality with live providers, and manual checks of the session picker.
 
 ## Upgrade procedure
 

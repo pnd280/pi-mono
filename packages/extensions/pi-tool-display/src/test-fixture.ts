@@ -21,7 +21,10 @@ export const plainTheme: DisplayTheme = {
 };
 
 export function renderingTui(mode: TUI["mode"] = "fullscreen"): TUI {
-  const terminal = { setProgress() {} } satisfies Pick<TUI["terminal"], "setProgress">;
+  const terminal = { setProgress() {}, setProgramStatus() {} } satisfies Pick<
+    TUI["terminal"],
+    "setProgress" | "setProgramStatus"
+  >;
   const tui = { requestRender() {}, terminal, mode } satisfies Pick<
     TUI,
     "requestRender" | "mode"
@@ -29,7 +32,7 @@ export function renderingTui(mode: TUI["mode"] = "fullscreen"): TUI {
     terminal: typeof terminal;
   };
 
-  // These row tests only request renders and update progress; they never start a terminal.
+  // These row tests only request renders and update progress and program status; they never start a terminal.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return tui as unknown as TUI;
 }
