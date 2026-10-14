@@ -119,14 +119,15 @@ The viewer shows the child's messages with Pi's chat components. Pi's built-in t
 
 ## Configuration
 
-Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `.pi/settings.json`. These are the default limits:
+Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `.pi/settings.json`. This example shows the default limits and one docs file:
 
 ```json
 {
   "ext.pi-subagents": {
     "maxDepth": 2,
     "maxConcurrent": 8,
-    "maxQueued": 8
+    "maxQueued": 8,
+    "docs": ["prompts/subagent.md"]
   }
 }
 ```
@@ -136,10 +137,29 @@ Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `
 | `maxDepth`      | A non-negative integer. `0` disables launches; `2` permits children and grandchildren.                                         |
 | `maxConcurrent` | A positive integer limiting the whole live task tree, including reserved launches and stopping processes.                      |
 | `maxQueued`     | A non-negative integer limiting launches waiting for capacity in FIFO order. `0` rejects a launch when all slots are occupied. |
+| `docs`          | An array of Markdown file paths. Their text is added to the `subagent` tool description. See [Docs](#docs).                    |
 
-Settings load at session start. Valid trusted-project values override global values; invalid values are ignored. See Pi's [settings reference](https://pi.dev/docs/latest/settings) for its own settings.
+Settings load at session start and `/reload`. Valid trusted-project values override global values; invalid values are ignored. See Pi's [settings reference](https://pi.dev/docs/latest/settings) for its own settings.
 
 Top-level launches queue FIFO when capacity is full. Nested launches fail immediately with the configured capacity in the error; a task never waits for capacity held by its own ancestors.
+
+### Docs
+
+Use `docs` to tell the model how to use the `subagent` tool, for example when to delegate or what each prompt must contain. The text goes into the tool's description, so it accompanies the current tool declaration:
+
+- When another extension defers the tool and loads it later, the docs arrive with the tool.
+- When the tool is hidden, for example at `maxDepth`, the current tools have no docs.
+- Hiding or replacing the tool does not erase descriptions already recorded in conversation history.
+- `subagent_abort` gets no docs.
+
+The files are read like this:
+
+- A leading `~` expands to the home directory. Other relative paths resolve against the directory of the settings file that lists them.
+- Each file is trimmed. The files follow the built-in description in list order, separated by a blank line.
+- Each file must be a regular file of at most 1 MiB. Run `/reload` after you edit one.
+- A trusted project's `docs` replaces the global list, and an empty array removes the docs.
+
+A file that cannot be read is left out, and the other files still apply. An invalid `docs` value is ignored for its settings file. Both problems produce UI warnings when settings load. Print and JSON modes show no warnings.
 
 ## Side effects
 

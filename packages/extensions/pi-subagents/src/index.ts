@@ -5,6 +5,7 @@ import type {
   ExtensionContext,
   ToolRenderers
 } from "@earendil-works/pi-coding-agent";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { counterChannel, type Counter } from "pi-agent-summary/counters";
 import { z } from "zod";
@@ -140,7 +141,11 @@ export default function subagents(pi: ExtensionAPI): void {
     unsubscribe = subscribe();
     if (lateUsageWarning) ctx.ui.notify(lateUsageWarning, "warning");
     lateUsageWarning = undefined;
-    const config = loadConfig(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
+    const { docs, warnings, ...config } = loadConfig(ctx.cwd, {
+      projectTrusted: ctx.isProjectTrusted()
+    });
+    for (const warning of warnings)
+      ctx.ui.notify(displayText(`pi-subagents: ${warning}`), "warning");
     // An inline or built-in source names no file that a child could load.
     const extension = pi
       .getCommands()
@@ -177,7 +182,7 @@ export default function subagents(pi: ExtensionAPI): void {
     if (depth >= config.maxDepth && !registered) return;
     const exposure = depth >= config.maxDepth ? "hidden" : "model-only";
     pi.registerTool({
-      ...createSubagentTool(tasks, emitOpen, () => pi.events.emit(counterChannel, delegated)),
+      ...createSubagentTool(tasks, emitOpen, () => pi.events.emit(counterChannel, delegated), docs),
       exposure
     });
     pi.registerTool({ ...createAbortTool(tasks, emitOpen), exposure });

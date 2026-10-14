@@ -39,14 +39,15 @@ function toolResult(result: Submission) {
 export function createSubagentTool(
   tasks: Tasks,
   open: (id: string, binding?: string) => void,
-  delegated: () => void
+  delegated: () => void,
+  docs: string
 ) {
   return {
     name: "subagent",
     label: "Subagent",
     exposure: "model-only",
     executionMode: "parallel",
-    description: toolGuidance(),
+    description: toolGuidance(docs),
     parameters: toolParameters,
     ...createRenderers(open),
     async execute(

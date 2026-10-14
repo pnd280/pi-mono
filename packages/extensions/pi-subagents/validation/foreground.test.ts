@@ -1,4 +1,4 @@
-import { readdir, readFile, rm, stat } from "node:fs/promises";
+import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 
@@ -404,10 +404,14 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
   }, 30_000);
 
   test.each([false, true])(
-    "uses only trusted project settings and passes the chosen trust flag (%s)",
+    "uses only trusted project settings for limits and docs, and passes the chosen trust flag (%s)",
     async (trusted) => {
       await withFixture(
-        async (_directory, start) => {
+        async (directory, start) => {
+          await Promise.all([
+            writeFile(join(directory, "agent", "docs.md"), "GLOBAL_SUBAGENT_DOCS\n"),
+            writeFile(join(directory, "work", ".pi", "docs.md"), "PROJECT_SUBAGENT_DOCS\n")
+          ]);
           const host = await start({ trusted });
           await host.prompt("delegate-trust");
           const result = (await host.results()).at(-1)!;
@@ -415,11 +419,24 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
           expect(contentText(result.content)).toContain(
             JSON.stringify({ approve: trusted, no_approve: !trusted })
           );
+          // A trusted project list replaces the global one; each path resolves in its own scope.
+          await host.prompt("report-docs");
+          const description = (await host.entries())
+            .flatMap((entry) =>
+              entry.type === "message" && entry.message.role === "assistant"
+                ? [contentText(entry.message.content)]
+                : []
+            )
+            .at(-1);
+          expect(description).toContain(trusted ? "PROJECT_SUBAGENT_DOCS" : "GLOBAL_SUBAGENT_DOCS");
+          expect(description).not.toContain(
+            trusted ? "GLOBAL_SUBAGENT_DOCS" : "PROJECT_SUBAGENT_DOCS"
+          );
         },
         {
           // In either direction, loading the wrong settings disables the tool and breaks this call.
-          settings: { "ext.pi-subagents": { maxDepth: trusted ? 0 : 2 } },
-          projectSettings: { "ext.pi-subagents": { maxDepth: trusted ? 2 : 0 } }
+          settings: { "ext.pi-subagents": { maxDepth: trusted ? 0 : 2, docs: ["docs.md"] } },
+          projectSettings: { "ext.pi-subagents": { maxDepth: trusted ? 2 : 0, docs: ["docs.md"] } }
         }
       );
     },

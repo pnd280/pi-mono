@@ -6,7 +6,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 ## Must not regress
 
-- **Critical, e2e:** Untrusted project settings cannot affect launch configuration, and children receive the supervisor's project-trust flag.
+- **Critical, e2e:** Untrusted project settings cannot affect launch configuration or the `subagent` description, and children receive the supervisor's project-trust flag.
 - **High, e2e:** Completed tasks, turn aborts, user aborts, session changes, and graceful supervisor exits leave no child processes, including children that block shutdown. After supervisor SIGKILL, cooperative children stop through stdin EOF.
 - **High, e2e:** Foreground calls report the child's final text and correct state; launch failures include the failed step, exit code, and stderr.
 - **High, e2e:** Navigation termination and replacement isolation: tree selection (including a same-path rewind), parent-session fork, and saved-session switch immediately stop owned running subtrees, including children that block shutdown and detached [descendants](../GLOSSARY.md#tasks-and-processes). Late captures, completions, and controls cannot affect the replacement binding. Ordinary foreground abort stops only its foreground subtree; new messages leave children running.

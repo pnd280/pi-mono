@@ -284,6 +284,10 @@ function plainResponse(
       approve: process.argv.includes("--approve"),
       no_approve: process.argv.includes("--no-approve")
     });
+  if (scenario === "report-docs")
+    return (
+      getCurrentTools(context.messages).find((tool) => tool.name === "subagent")?.description ?? ""
+    );
 
   return ["reply", "finite", "finite-late", "shutdown-blocked"].includes(scenario)
     ? "Fixture reply"
