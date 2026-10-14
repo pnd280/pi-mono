@@ -345,6 +345,16 @@ importers:
         specifier: 'catalog:'
         version: 4.6.5
 
+  packages/extensions/pi-null-args:
+    dependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: catalog:pi-host
+        version: 1.2.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(ws@8.22.0)(zod@4.6.5)
+    devDependencies:
+      '@pi-mono/libs':
+        specifier: workspace:*
+        version: link:../../libs
+
   packages/extensions/pi-prompt-manager:
     dependencies:
       '@earendil-works/pi-coding-agent':
