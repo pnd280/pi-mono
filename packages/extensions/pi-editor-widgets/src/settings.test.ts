@@ -63,20 +63,16 @@ it("ignores untrusted project files and ancestors, and refuses project writes", 
   expect(settings.load().project).toBeUndefined();
 });
 
-it("falls back for invalid layouts, retaining unknown IDs and an independently valid threshold", () => {
+it("falls back for invalid layouts, retaining unknown IDs", () => {
   const global = defaultLayout();
   global.hidden = ["widget:not-installed"];
   settings.save("global", global);
   write(settings.paths.project, {
-    "ext.pi-editor-widgets": {
-      layout: { ...global, hidden: ["builtin:cwd"] },
-      contextThreshold: 90000
-    }
+    "ext.pi-editor-widgets": { layout: { ...global, hidden: ["builtin:cwd"] } }
   });
   const loaded = settings.load();
   expect(loaded.global).toEqual(global);
   expect(loaded.project).toBeUndefined();
-  expect(loaded.contextThreshold).toBe(90000);
   expect(loaded.warnings).toHaveLength(1);
   settings.save("project", defaultLayout());
   expect(settings.load().project).toEqual(defaultLayout());

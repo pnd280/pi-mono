@@ -3,8 +3,7 @@ import { relative, resolve, sep } from "node:path";
 import type {
   AgentSession,
   ReadonlyFooterDataProvider,
-  Theme,
-  ThemeColor
+  Theme
 } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
@@ -62,33 +61,7 @@ function tokens(session: AgentSession, display: UsageDisplay): string {
   return parts.join(" ");
 }
 
-/** A token threshold splits usage into thirds; otherwise percentages of the window apply. */
-function contextColor(
-  tokens: number | null | undefined,
-  percent: number | null | undefined,
-  threshold: number | undefined
-): ThemeColor {
-  if (threshold !== undefined) {
-    if (tokens == null) return "dim";
-    if (tokens >= threshold) return "error";
-    if (tokens >= (threshold * 2) / 3) return "warning";
-    if (tokens >= threshold / 3) return "success";
-
-    return "dim";
-  }
-
-  if (percent != null && percent > 90) return "error";
-  if (percent != null && percent > 70) return "warning";
-
-  return "dim";
-}
-
-function context(
-  session: AgentSession,
-  theme: Theme,
-  threshold: number | undefined,
-  display: UsageDisplay
-): string {
+function context(session: AgentSession, theme: Theme, display: UsageDisplay): string {
   const usage = session.getContextUsage();
   const tokens = usage?.tokens;
   const percent = usage?.percent;
@@ -112,7 +85,7 @@ function context(
     auto = ` (auto ~${trigger})`;
   }
 
-  return theme.fg(contextColor(tokens, percent, threshold), `${used}/${total}${share}${auto}`);
+  return theme.fg("dim", `${used}/${total}${share}${auto}`);
 }
 
 export function builtinText(
@@ -120,11 +93,9 @@ export function builtinText(
   footer: ReadonlyFooterDataProvider,
   theme: Theme,
   {
-    contextThreshold,
     contextDisplay = "regular",
     tokensDisplay = "regular"
   }: {
-    contextThreshold?: number | undefined;
     contextDisplay?: UsageDisplay;
     tokensDisplay?: UsageDisplay;
   } = {}
@@ -146,7 +117,7 @@ export function builtinText(
       theme.fg("dim", compactDisplayText(session.sessionManager.getSessionName() ?? ""))
     ],
     ["builtin:tokens", theme.fg("dim", tokens(session, tokensDisplay))],
-    ["builtin:context", context(session, theme, contextThreshold, contextDisplay)],
+    ["builtin:context", context(session, theme, contextDisplay)],
     ["builtin:model", theme.fg("dim", compactDisplayText(modelText))]
   ]);
 }

@@ -2,7 +2,7 @@
 
 [pi-editor-widgets](../README.md)
 
-For most layout changes, use `/widgets`. To edit layouts as JSON or set context colours, add an `ext.pi-editor-widgets` key to one of these files:
+For most layout changes, use `/widgets`. To edit layouts as JSON, add an `ext.pi-editor-widgets` key to one of these files:
 
 | Scope   | File                                                                                                     |
 | ------- | -------------------------------------------------------------------------------------------------------- |
@@ -20,8 +20,7 @@ For most layout changes, use `/widgets`. To edit layouts as JSON or set context 
         ["builtin:tokens", "separator", "builtin:context", "flex", "builtin:model"]
       ],
       "hidden": ["builtin:session-title"]
-    },
-    "contextThreshold": 150000
+    }
   }
 }
 ```
@@ -54,14 +53,3 @@ A project layout replaces the entire global layout; the two are never merged.
 ### Invalid layouts
 
 Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections. See [settings persistence](../src/settings.ts) and the shared [atomic settings updates](../../../libs/src/settings-file/README.md#behaviour) for the implementation.
-
-## Context colours
-
-`contextThreshold` is a token count, a positive integer, used only to colour the context widget. It does not change when Pi compacts automatically.
-
-- Set it in JSON. Saving from `/widgets` keeps it.
-- Opening the menu or running `/reload` applies edits made outside the menu, with no save needed.
-- It resolves separately from the layout: a valid value in a trusted project overrides the global one.
-- Invalid values show a warning and fall back to the next scope. With no valid threshold, colours follow the percentage of the context window used.
-
-The exact colour bands and the token and context labels are defined by `contextColor` and the display functions in [builtins.ts](../src/builtins.ts).

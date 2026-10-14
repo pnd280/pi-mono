@@ -22,7 +22,7 @@ it("toggles a fullscreen usage widget on click without writing settings", async 
   const verbose = "75k/200k (37.5%) (auto ~150k)";
   const path = join(fixture.agentDir, "settings.json");
   mkdirSync(fixture.agentDir, { recursive: true });
-  const source = JSON.stringify({ "ext.pi-editor-widgets": { contextThreshold: 150000 } });
+  const source = JSON.stringify({ "ext.pi-editor-widgets": { layout: defaultLayout() } });
   writeFileSync(path, source);
   session.settingsManager.applyOverrides({ compaction: { enabled: true, reserveTokens: 50000 } });
 

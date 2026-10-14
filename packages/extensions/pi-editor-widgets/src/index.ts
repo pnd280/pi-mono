@@ -18,7 +18,7 @@ export default function editorWidgets(pi: ExtensionAPI): void {
 
   const apply = (ctx: ExtensionContext, preferences: Preferences) => {
     for (const warning of preferences.warnings) notify(ctx, warning);
-    coordinator?.apply(preferences.project ?? preferences.global, preferences.contextThreshold);
+    coordinator?.apply(preferences.project ?? preferences.global);
   };
 
   pi.on("session_start", (_event, ctx) => {
@@ -80,7 +80,7 @@ export default function editorWidgets(pi: ExtensionAPI): void {
       const preferences = settings.load();
 
       try {
-        current.apply(preferences.project ?? preferences.global, preferences.contextThreshold);
+        current.apply(preferences.project ?? preferences.global);
         await openResponsiveCustomUI({
           ui: ctx.ui,
           signal: ctx.signal ? AbortSignal.any([ctx.signal, lifetime.signal]) : lifetime.signal,

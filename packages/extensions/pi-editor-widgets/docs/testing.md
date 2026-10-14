@@ -16,8 +16,7 @@ This package tests settings trust and writes, layout menu state, and editor focu
 
 ## Not tested
 
-- Token and context widget formatting, colour thresholds, mouse toggling, shared-row wrapping and padding, mouse dispatch, region clipping, the above-editor blank line, menu hints and scope markers, and save-feedback text and timing: below the severity bar. Use the manual checks.
-- `contextThreshold` resolution and invalid-value fallback: they change only context colours, which are below the severity bar.
+- Token and context widget formatting, mouse toggling, shared-row wrapping and padding, mouse dispatch, region clipping, the above-editor blank line, menu hints and scope markers, and save-feedback text and timing: below the severity bar. Use the manual checks.
 - Refusal to overwrite malformed or oversized settings files: owned by the libs [settings-file](../../../libs/src/settings-file/README.md) tests. This package tests only its own section check.
 - The interactive session picker and physical-terminal behaviour: not driven by the host fixture.
 
@@ -70,15 +69,14 @@ Setup: hold a settings lock, or make the settings file malformed JSON.
 
 ### Context widget
 
-Setup: a session with known context usage. Compare the [context colour settings](settings.md#context-colours) in dark and light themes.
+Setup: a session with known context usage.
 
-| Do                                                                           | Expect                                                                                         |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Click the context widget in fullscreen                                       | Compact hides the percentage. Verbose shows it with the automatic compaction threshold.        |
-| Switch to regular mode, then back                                            | Regular keeps the original percentage and `(auto)`. Fullscreen restores the earlier choice.    |
-| Click copies in every region and on wrapped rows                             | Every copy updates, and the editor keeps focus.                                                |
-| Compare the threshold with Pi's effective model reserve; compact the session | The threshold matches. Usage shows as unknown after compaction.                                |
-| Change or remove `contextThreshold`, reopen `/widgets`, close without saving | The new colour applies at once and stays, without rewriting settings or changing display mode. |
+| Do                                                                           | Expect                                                                                      |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Click the context widget in fullscreen                                       | Compact hides the percentage. Verbose shows it with the automatic compaction threshold.     |
+| Switch to regular mode, then back                                            | Regular keeps the original percentage and `(auto)`. Fullscreen restores the earlier choice. |
+| Click copies in every region and on wrapped rows                             | Every copy updates, and the editor keeps focus.                                             |
+| Compare the threshold with Pi's effective model reserve; compact the session | The threshold matches. Usage shows as unknown after compaction.                             |
 
 ### Token widget
 

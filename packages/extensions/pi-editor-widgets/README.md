@@ -31,7 +31,7 @@ In fullscreen mode, click the token and context widget to switch between a compa
 
 ## Configuration
 
-To edit layouts as JSON, set up inheritance between global and project layouts, or change context colours, read [settings and layouts](docs/settings.md). Preferences are reloaded on session start, `/reload`, and when you open `/widgets`.
+To edit layouts as JSON or set up inheritance between global and project layouts, read [settings and layouts](docs/settings.md). Preferences are reloaded on session start, `/reload`, and when you open `/widgets`.
 
 ## Side effects
 

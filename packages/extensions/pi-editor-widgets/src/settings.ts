@@ -6,22 +6,14 @@ import {
   type SettingsScope
 } from "@pi-mono/libs/settings-file";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
-import { z } from "zod";
 
 import { layoutSchema, type Layout } from "./layout.ts";
 
 const key = "ext.pi-editor-widgets";
-const thresholdSchema = z.number().int().positive();
 
 export type Scope = SettingsScope;
 
-export type Preferences = Record<Scope, Layout | undefined> & {
-  /** Context token budget resolved per field: project value, then global. */
-  contextThreshold?: number;
-  warnings: string[];
-};
-
-type ScopePreferences = { layout?: Layout | undefined; contextThreshold?: number | undefined };
+export type Preferences = Record<Scope, Layout | undefined> & { warnings: string[] };
 
 export class WidgetSettings {
   readonly paths: Record<Scope, string>;
@@ -35,7 +27,7 @@ export class WidgetSettings {
   load(): Preferences {
     const warnings: string[] = [];
 
-    const loadScope = (scope: Scope): ScopePreferences => {
+    const loadScope = (scope: Scope): Layout | undefined => {
       const path = compactDisplayText(this.paths[scope]);
       const invalid = () =>
         warnings.push(
@@ -49,38 +41,24 @@ export class WidgetSettings {
       } catch {
         invalid();
 
-        return {};
+        return undefined;
       }
 
       if (!isSettingsRecord(section)) {
         invalid();
 
-        return {};
+        return undefined;
       }
 
-      // Preferences fall back independently: an invalid threshold keeps a valid layout.
       const layout = layoutSchema.optional().safeParse(section.layout);
       if (!layout.success) invalid();
-      const threshold = thresholdSchema.optional().safeParse(section.contextThreshold);
-      if (!threshold.success)
-        warnings.push(
-          `pi-editor-widgets: contextThreshold at ${path} must be a positive integer. Falling back to the next scope.`
-        );
 
-      return {
-        layout: layout.success ? layout.data : undefined,
-        contextThreshold: threshold.success ? threshold.data : undefined
-      };
+      return layout.success ? layout.data : undefined;
     };
 
-    const global = loadScope("global");
-    const project = this.projectTrusted ? loadScope("project") : {};
-    const contextThreshold = project.contextThreshold ?? global.contextThreshold;
-
     return {
-      global: global.layout,
-      project: project.layout,
-      ...(contextThreshold === undefined ? {} : { contextThreshold }),
+      global: loadScope("global"),
+      project: this.projectTrusted ? loadScope("project") : undefined,
       warnings
     };
   }

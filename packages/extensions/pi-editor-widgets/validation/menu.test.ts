@@ -26,7 +26,7 @@ function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>, global?: Layo
   const requestRender = vi.fn();
   const preferences = settings.load();
   if (global !== undefined) preferences.global = global;
-  coordinator.apply(preferences.project ?? preferences.global, preferences.contextThreshold);
+  coordinator.apply(preferences.project ?? preferences.global);
   const menu = new WidgetMenu({
     settings,
     preferences,

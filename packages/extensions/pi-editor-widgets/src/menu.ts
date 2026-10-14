@@ -171,10 +171,7 @@ export class WidgetMenu implements Component {
       );
       const preferences = this.options.settings.load();
       this.drafts.saved(preferences);
-      this.options.coordinator.apply(
-        preferences.project ?? preferences.global,
-        preferences.contextThreshold
-      );
+      this.options.coordinator.apply(preferences.project ?? preferences.global);
       this.warning = settingsLoadFeedback(preferences.warnings);
       const feedback = settingsSaveFeedback(false, preferences.warnings);
       // The saved project override takes effect on close; the global draft stays visible for now.
