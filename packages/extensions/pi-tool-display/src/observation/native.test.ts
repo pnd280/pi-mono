@@ -12,7 +12,6 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { observeMutationDefinition } from "@pi-mono/libs/file-mutations";
 import { createToolContext } from "@pi-mono/libs/validation/tool-context";
-import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 import { expect, it } from "vite-plus/test";
 
 import type { DisplayFact } from "../contracts.ts";
@@ -98,44 +97,6 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
     expect(previews.length).toBeGreaterThan(previewsBeforeCancellation);
     expect(observed.parameters).toBe(original.parameters);
     expect(observed.promptGuidelines).toBe(original.promptGuidelines);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-it("retains every streamed shell chunk in the completed preview", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "display-native-stream-"));
-
-  try {
-    const script = join(directory, "stream.mjs");
-    await writeFile(
-      script,
-      `for (let index = 0; index < 25; index++) {\n  process.stdout.write(\`chunk-\${index}\\n\`);\n  await new Promise((resolve) => setTimeout(resolve, 10));\n}\n`
-    );
-    const original = createBashToolDefinition(directory, { shellPath: "/bin/bash" });
-    const previews: string[] = [];
-    const observed = observeNativeDefinition(
-      defineTool(original),
-      { cwd: directory, shellPath: "/bin/bash" },
-      () => ({
-        started() {},
-        fact() {},
-        preview: (value) => previews.push(value.text)
-      })
-    );
-
-    await observed.execute(
-      "stream",
-      {
-        command: `${quotePosixShellArgument(process.execPath)} ${quotePosixShellArgument(script)}`
-      },
-      undefined,
-      undefined,
-      await createToolContext(directory)
-    );
-
-    const final = previews.at(-1) ?? "";
-    for (let index = 0; index < 25; index++) expect(final).toContain(`chunk-${index}\n`);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

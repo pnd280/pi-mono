@@ -20,7 +20,7 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 
 ### Limits
 
-- Inspection has a two-second deadline and limits on scope size. If inspection fails, the call is allowed and a diagnostic is shown in the UI or on stderr. If you cancel, the call is blocked.
+- Inspection has a two-second deadline and limits on scope size. If inspection fails and no other target is blocked, the call is allowed and a diagnostic is shown in the UI or on stderr. If you cancel, the call is blocked.
 - Tools that wrap FFF must dispatch child calls through Pi hooks; calling `execute()` directly skips the guard.
 - Slash commands and `@` autocomplete aren't checked.
 

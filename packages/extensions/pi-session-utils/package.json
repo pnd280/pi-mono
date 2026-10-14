@@ -2,13 +2,13 @@
   "name": "pi-session-utils",
   "version": "0.1.0",
   "private": true,
-  "description": "Persist Pi sessions, create parent-linked sub-sessions, and generate session names",
+  "description": "Persist Pi sessions, create empty child sessions, and generate session names",
   "keywords": [
     "pi-package"
   ],
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./index.ts"
   },
   "scripts": {
     "format": "vp fmt .",

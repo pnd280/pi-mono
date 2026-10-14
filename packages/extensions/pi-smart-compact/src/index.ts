@@ -1,7 +1,7 @@
 import { Type } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import { loadCompactConfig, type CompactConfig } from "./config.ts";
+import { findConfiguredModel, loadCompactConfig, type CompactConfig } from "./config.ts";
 import { renderSummaryModel, summaryModelEntryType, type SummaryModelEntry } from "./entry.ts";
 import { bindNativeCompaction } from "./native.ts";
 import { compactionStatusKey, updateCompactionStatus } from "./status.ts";
@@ -46,8 +46,9 @@ export default function smartCompact(pi: ExtensionAPI) {
     } catch (error) {
       unavailable =
         error instanceof Error ? error.message : "pi-smart-compact initialization failed.";
-      // Rethrowing makes Pi render the full stack; the message alone is actionable.
-      if (ctx.hasUI) ctx.ui.notify(`pi-smart-compact: ${unavailable}`, "error");
+      // Rethrowing makes Pi render the full stack; the message alone is actionable and already
+      // names the extension.
+      if (ctx.hasUI) ctx.ui.notify(unavailable, "error");
     }
   });
   // session_compact fires only after a compaction entry is persisted, so failures never count.
@@ -83,14 +84,12 @@ export default function smartCompact(pi: ExtensionAPI) {
       const modelOverride = config.model;
       let thinkingLevel = config.thinkingLevel ?? pi.getThinkingLevel();
 
-      if (modelOverride && config.thinkingLevel === undefined) {
-        const slash = modelOverride.indexOf("/");
-        const model = ctx.modelRegistry.find(
-          modelOverride.slice(0, slash),
-          modelOverride.slice(slash + 1)
-        );
-        if (model?.reasoning === false) thinkingLevel = "off";
-      }
+      if (
+        modelOverride &&
+        config.thinkingLevel === undefined &&
+        findConfiguredModel(ctx.modelRegistry, modelOverride)?.reasoning === false
+      )
+        thinkingLevel = "off";
 
       return {
         content: [

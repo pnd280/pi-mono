@@ -1,4 +1,4 @@
-# pi-subagents test coverage for maintainers
+# Subagent test coverage
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Glossary](../GLOSSARY.md)
 

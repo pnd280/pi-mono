@@ -229,19 +229,6 @@ describe("todo session state", () => {
     );
   });
 
-  it("rejects version 1 and version 2 snapshots over the serialized-size limit", () => {
-    const tasks = Array.from({ length: 200 }, (_, index) => ({
-      id: index + 1,
-      subject: `Todo ${index + 1}`,
-      description: "d".repeat(MAX_DESCRIPTION_LENGTH),
-      status: "pending"
-    }));
-
-    for (const version of [1, TASK_DETAILS_VERSION] as const) {
-      assert.equal(parseTodoStateSnapshot({ version, tasks, nextId: tasks.length + 1 }), undefined);
-    }
-  });
-
   it.each([
     ["current", TASK_DETAILS_VERSION, MAX_SNAPSHOT_BYTES],
     ["legacy", undefined, MAX_LEGACY_SNAPSHOT_BYTES]

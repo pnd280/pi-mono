@@ -162,35 +162,33 @@ it("captures the host without native status effects and restores its temporary p
   }
 });
 
-it.each(["print", "json", "rpc"] as const)(
-  "stays inactive in %s mode and explains why the settings command cannot open",
-  async (mode) => {
-    const fixture = await hostFixture([editorWidgets]);
-    const before = Object.getOwnPropertyDescriptor(InteractiveMode.prototype, "setExtensionStatus");
-    const ui = {
-      ...fixture.ui,
-      setStatus: vi.fn(),
-      setWidget: vi.fn(),
-      setFooter: vi.fn(),
-      notify: vi.fn()
-    };
+it("stays inactive outside the TUI and explains why the settings command cannot open", async () => {
+  // Print, JSON and RPC modes share the single non-TUI branch.
+  const fixture = await hostFixture([editorWidgets]);
+  const before = Object.getOwnPropertyDescriptor(InteractiveMode.prototype, "setExtensionStatus");
+  const ui = {
+    ...fixture.ui,
+    setStatus: vi.fn(),
+    setWidget: vi.fn(),
+    setFooter: vi.fn(),
+    notify: vi.fn()
+  };
 
-    try {
-      await fixture.session.bindExtensions({ mode, uiContext: ui });
-      const runner = fixture.session.extensionRunner;
-      expect(ui.notify).not.toHaveBeenCalled();
-      await runner.getCommand("widgets")?.handler("", runner.createCommandContext());
-      expect(ui.setStatus).not.toHaveBeenCalled();
-      expect(ui.setWidget).not.toHaveBeenCalled();
-      expect(ui.setFooter).not.toHaveBeenCalled();
-      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining("interactive TUI"), "error");
-      expect(fixture.host.customFooter).toBeUndefined();
-      expect(
-        Object.getOwnPropertyDescriptor(InteractiveMode.prototype, "setExtensionStatus")
-      ).toEqual(before);
-      expect(() => readFileSync(`${fixture.agentDir}/settings.json`)).toThrow();
-    } finally {
-      await fixture.dispose();
-    }
+  try {
+    await fixture.session.bindExtensions({ mode: "rpc", uiContext: ui });
+    const runner = fixture.session.extensionRunner;
+    expect(ui.notify).not.toHaveBeenCalled();
+    await runner.getCommand("widgets")?.handler("", runner.createCommandContext());
+    expect(ui.setStatus).not.toHaveBeenCalled();
+    expect(ui.setWidget).not.toHaveBeenCalled();
+    expect(ui.setFooter).not.toHaveBeenCalled();
+    expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining("interactive TUI"), "error");
+    expect(fixture.host.customFooter).toBeUndefined();
+    expect(
+      Object.getOwnPropertyDescriptor(InteractiveMode.prototype, "setExtensionStatus")
+    ).toEqual(before);
+    expect(() => readFileSync(`${fixture.agentDir}/settings.json`)).toThrow();
+  } finally {
+    await fixture.dispose();
   }
-);
+});

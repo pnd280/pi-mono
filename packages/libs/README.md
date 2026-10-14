@@ -10,7 +10,7 @@ For pure helpers with no side effects, use [utils](../utils/README.md). The [man
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | [tool-schema](src/tool-schema/README.md)               | Zod input projection into a limited Pi tool-schema profile                |
 | [working-message](src/working-message/README.md)       | Shared working-message contributions and saved ordering                   |
-| [settings-file](src/settings-file/README.md)           | Bounded settings reads and locked atomic JSON-record updates              |
+| [settings-file](src/settings-file/README.md)           | Bounded reads, trusted scopes, and locked atomic JSON-record updates      |
 | [native-clipboard](src/native-clipboard/README.md)     | Exact UTF-8 clipboard writes through local helpers                        |
 | [private-files](src/private-files/README.md)           | Permission and ACL enforcement, directory scopes, locks, atomic writes    |
 | [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |
@@ -49,7 +49,7 @@ Callers pass options per call. The [working-message coordinator](src/working-mes
 Each library has its own effects; none makes network requests.
 
 - Storage and observation libraries read and write local files.
-- Clipboard and diff helpers start local processes or workers.
+- Clipboard, Git-ignore, and diff helpers start local processes or workers. On macOS, private-file access runs `/bin/chmod` to remove ACLs.
 - TUI libraries and hooks modify Pi's host state.
 
 ## Validation

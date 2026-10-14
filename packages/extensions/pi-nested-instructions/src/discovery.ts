@@ -60,14 +60,15 @@ export async function refresh(
       visible.readUnchanged(file, stamp)
     );
 
+    const delivered = visible.delivered(directory);
+
     if (!selected) {
-      if (visible.delivered(directory))
-        entries.push(noticeEntry(directory, undefined, "removed", cwd));
+      if (delivered) entries.push(noticeEntry(directory, undefined, "removed", cwd));
     } else if (
       selected.content !== undefined &&
       !visible.current(directory, selected.path, selected.content)
     ) {
-      entries.push(noticeEntry(directory, selected, "updated", cwd));
+      entries.push(noticeEntry(directory, selected, delivered ? "updated" : "loaded", cwd));
     }
   }
 

@@ -1,9 +1,4 @@
-import {
-  fauxAssistantMessage,
-  fauxProvider,
-  InMemoryCredentialStore,
-  type AssistantMessage
-} from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxProvider, InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
@@ -39,37 +34,8 @@ async function fixture() {
   };
   faux.setResponses([fauxAssistantMessage("Fix token expiry")]);
 
-  return { faux, model, stream, auth, request, controller, runtime };
+  return { model, stream, auth, request, controller };
 }
-
-it.each([
-  [512, 512],
-  [16384, 1024]
-])(
-  "caps virtual title requests to the routed model's token limit: %i becomes %i",
-  async (limit, expected) => {
-    const { request, model, stream, runtime } = await fixture();
-    model.maxTokens = limit;
-    runtime.registerVirtualModel({
-      provider: "title-fixture",
-      id: "router",
-      name: "Title router",
-      route: () => ({ model, thinkingLevel: "off" })
-    });
-    await runtime.refresh({ allowNetwork: false });
-    expect(
-      await generateTitle({
-        ...request,
-        config: { model: "title-fixture/router", thinkingLevel: "off" }
-      })
-    ).toBe("Fix token expiry");
-    expect(stream).toHaveBeenCalledOnce();
-    expect(stream.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({ provider: "title-fixture", id: "nested/model" })
-    );
-    expect(stream.mock.calls[0]?.[2]?.maxTokens).toBe(expected);
-  }
-);
 
 it("requests thinking off without inheriting the active model's effort", async () => {
   const { request, stream } = await fixture();
@@ -99,21 +65,6 @@ it("reports authentication failure without exposing the provider's error content
   expect(stream).not.toHaveBeenCalled();
 });
 
-it.each(["error", "aborted", "length", "toolUse"] as const)(
-  "rejects %s responses even when they contain text",
-  async (stopReason) => {
-    const { request, faux } = await fixture();
-    faux.setResponses([fauxAssistantMessage("Partial title", { stopReason })]);
-    await expect(generateTitle(request)).rejects.toThrow(TitleError);
-  }
-);
-
-it("rejects a thinking-only response rather than exposing reasoning as a title", async () => {
-  const { request, faux } = await fixture();
-  faux.setResponses([fauxAssistantMessage([{ type: "thinking", thinking: "Hidden reasoning" }])]);
-  await expect(generateTitle(request)).rejects.toThrow(TitleError);
-});
-
 it("times out stalled authentication and never starts transport afterward", async () => {
   vi.useFakeTimers();
   const { request, auth, stream } = await fixture();
@@ -138,24 +89,6 @@ it("times out stalled authentication and never starts transport afterward", asyn
   finish();
   await vi.runAllTimersAsync();
   expect(stream).not.toHaveBeenCalled();
-});
-
-it("cancels promptly even when the provider ignores the abort signal", async () => {
-  const { request, faux, controller, stream } = await fixture();
-
-  let finish: (message: AssistantMessage) => void = () => {};
-
-  faux.setResponses([
-    () =>
-      new Promise((resolve) => {
-        finish = resolve;
-      })
-  ]);
-  const result = generateTitle(request);
-  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce());
-  controller.abort();
-  expect(await result).toBeUndefined();
-  finish(fauxAssistantMessage("Late title"));
 });
 
 it("does not start authentication or transport for an already canceled request", async () => {

@@ -17,7 +17,11 @@ import {
   type BoundedPatchResult,
   type PatchLimits
 } from "../bounded-diff/index.ts";
-import { observeTextFile, type FileObservation } from "../file-observation/index.ts";
+import {
+  decodeTextFile,
+  observeTextFile,
+  type FileObservation
+} from "../file-observation/index.ts";
 import { observeNativeTools } from "../native-tools/index.ts";
 
 export type MutationPatch = BoundedPatchResult | { status: "source-unavailable" };
@@ -65,19 +69,6 @@ async function canonicalPath(path: string): Promise<string> {
     if (parent === path) return path;
 
     return join(await canonicalPath(parent), basename(path));
-  }
-}
-
-function decode(bytes: Buffer, maxBytes: number): FileObservation {
-  if (bytes.length > maxBytes) return { status: "too-large" };
-
-  try {
-    return {
-      status: "ready",
-      text: new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes)
-    };
-  } catch {
-    return { status: "invalid-utf8" };
   }
 }
 
@@ -180,7 +171,7 @@ export function observeMutationDefinition(
                 access: (path) => access(path, constants.R_OK | constants.W_OK),
                 async readFile(path) {
                   const bytes = await readFile(path);
-                  before = decode(bytes, maxBytes);
+                  before = decodeTextFile(bytes, maxBytes);
 
                   return bytes;
                 },

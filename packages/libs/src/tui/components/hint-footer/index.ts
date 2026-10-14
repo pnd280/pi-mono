@@ -7,7 +7,7 @@ export type HintFooterOptions = {
   padding: string;
   separator: string;
   style(this: void, text: string): string;
-  message?: { text: string; style(text: string): string; overflowText: string };
+  message?: { text: string; style(this: void, text: string): string; overflowText: string };
 };
 
 /** Pack display-safe hints, or replace their row budget with feedback. Never deliver notifications. */

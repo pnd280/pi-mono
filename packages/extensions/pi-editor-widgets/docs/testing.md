@@ -16,7 +16,9 @@ This package tests settings trust and writes, layout menu state, and editor focu
 
 ## Not tested
 
-- Token and context widget formatting, colour thresholds, mouse toggling, shared-row wrapping and padding, mouse dispatch, the above-editor blank line, and save-feedback timing: below the severity bar. Use the manual checks.
+- Token and context widget formatting, colour thresholds, mouse toggling, shared-row wrapping and padding, mouse dispatch, region clipping, the above-editor blank line, menu hints and scope markers, and save-feedback text and timing: below the severity bar. Use the manual checks.
+- `contextThreshold` resolution and invalid-value fallback: they change only context colours, which are below the severity bar.
+- Refusal to overwrite malformed or oversized settings files: owned by the libs [settings-file](../../../libs/src/settings-file/README.md) tests. This package tests only its own section check.
 - The interactive session picker and physical-terminal behaviour: not driven by the host fixture.
 
 ## Manual checks

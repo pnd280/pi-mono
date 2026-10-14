@@ -10,15 +10,20 @@ import {
 } from "@earendil-works/pi-tui";
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
-import { resolveKeybindings, formatKeyLabel } from "@pi-mono/libs/tui/keybindings";
+import { formatKeyLabel, navigationHints, resolveKeybindings } from "@pi-mono/libs/tui/keybindings";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
-import { formatEmptyTodosMessage, formatTodosSummary } from "./format.ts";
-import { statusGlyph, TASK_STATUS_TEXT, TODO_TREE_GLYPH } from "./glyphs.ts";
+import { formatEmptyTodosMessage } from "./format.ts";
+import { statusGlyph, TODO_TREE_GLYPH } from "./glyphs.ts";
 import { deriveTaskHierarchy, projectTaskTreeEntries, type TaskTreeEntry } from "./hierarchy.ts";
 import { deriveBlocks } from "./reducer.ts";
 import { formatTaskLine, formatTaskSubject } from "./task-presentation.ts";
-import { presentCompactTaskText, presentTaskDescription } from "./text.ts";
+import {
+  formatTodosSummary,
+  presentCompactTaskText,
+  presentTaskDescription,
+  TASK_STATUS_TEXT
+} from "./text.ts";
 import type { Task } from "./types.ts";
 
 type ViewOptions = {
@@ -193,7 +198,12 @@ export class TodosView implements Component {
     const list = this.listRows(width);
     if (list.totalRows > 0) return list.totalRows;
 
-    return wrapRows(formatEmptyTodosMessage(), width).length;
+    return this.emptyRows(width).length;
+  }
+
+  /** Indented and dimmed like the empty states of the shared browser. */
+  private emptyRows(width: number): string[] {
+    return wrapRows(this.options.theme.fg("dim", `  ${formatEmptyTodosMessage()}`), width);
   }
 
   private selectionSummary(): string {
@@ -284,7 +294,7 @@ export class TodosView implements Component {
 
     if (layout.totalRows === 0) {
       this.scroll = 0;
-      const rows = wrapRows(formatEmptyTodosMessage(), width);
+      const rows = this.emptyRows(width);
       this.bodyLength = rows.length;
 
       return rows.slice(0, capacity);
@@ -389,17 +399,6 @@ export class TodosView implements Component {
     return key === undefined ? undefined : formatKeyLabel(key);
   }
 
-  private navigationHints(label: string): string {
-    const up = this.keyLabel("up");
-    const down = this.keyLabel("down");
-    if (up && down) return `${up === "Up" && down === "Down" ? "↑↓" : `${up}/${down}`} ${label}`;
-
-    return [
-      up ? `${up} ${label} up` : `${label} up unavailable`,
-      down ? `${down} ${label} down` : `${label} down unavailable`
-    ].join(" · ");
-  }
-
   private keyHint(action: TodoAction, label: string): string {
     const key = this.keyLabel(action);
 
@@ -407,25 +406,17 @@ export class TodosView implements Component {
   }
 
   private footerHints(bodyLength: number, capacity: number): string[] {
+    const arrows = navigationHints(
+      this.keyLabel("up"),
+      this.keyLabel("down"),
+      this.detail ? "scroll" : "select"
+    );
     const hints = this.detail
-      ? [this.navigationHints("scroll"), this.keyHint("cancel", "back")]
-      : [
-          this.navigationHints("select"),
-          this.keyHint("confirm", "details"),
-          this.keyHint("cancel", "close")
-        ];
+      ? [...arrows, this.keyHint("cancel", "back")]
+      : [...arrows, this.keyHint("confirm", "details"), this.keyHint("cancel", "close")];
 
     if (bodyLength > capacity) {
-      const up = this.keyLabel("pageUp");
-      const down = this.keyLabel("pageDown");
-      hints.push(
-        up && down
-          ? `${up}/${down} page`
-          : [
-              up ? `${up} page up` : "page up unavailable",
-              down ? `${down} page down` : "page down unavailable"
-            ].join(" · ")
-      );
+      hints.push(...navigationHints(this.keyLabel("pageUp"), this.keyLabel("pageDown"), "page"));
     }
 
     return hints;

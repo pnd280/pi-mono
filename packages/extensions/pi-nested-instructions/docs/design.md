@@ -12,7 +12,7 @@ Based on OpenCode v2 at [`39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49`](https://git
 - [Session instructions](https://github.com/anomalyco/opencode/blob/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49/packages/core/src/session/instructions.ts) records synthetic instruction messages and deduplicates against surviving context.
 - [v2 instructions documentation](https://github.com/anomalyco/opencode/blob/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49/services/www/src/docs/content/instructions.mdx) distinguishes ambient instructions from nested snapshots.
 
-Pi 1.0.1 is the host reference. Pi's startup loading, filename priority, broad-to-narrow ordering, and explicit reload behaviour take precedence. OpenCode's ambient watcher and startup search are not ported.
+Pi 1.0.2 is the host reference. Pi's startup loading, filename priority, broad-to-narrow ordering, and explicit reload behaviour take precedence. OpenCode's ambient watcher and startup search are not ported.
 
 FFF adapters reference [pi-fff source](https://github.com/dmtrKovalenko/fff/tree/89c19270ea2dfc20829a7429f72022571558093e/packages/pi-fff/src) at `89c19270ea2dfc20829a7429f72022571558093e`. Source schemas, rather than abbreviated README parameters, define the inputs.
 
@@ -55,7 +55,7 @@ The ledger accepts a notice only when its complete projected message matches `me
 
 If compaction, branch navigation, or context edits remove a notice or its originating read call from model-visible context, a later qualifying call can discover the file again. Metadata-only markers do not add instruction content.
 
-Refresh on startup, resume, and `/reload` uses only scopes still represented by canonical context. Unchanged direct-read revisions suppress content reads. A changed file, changed preferred candidate, or disappearance can produce an updated or removed notice. Normal invocations otherwise retain snapshots; compacted-away scopes are not eagerly restored.
+Refresh on startup, resume, and `/reload` uses only scopes still represented by canonical context. Unchanged direct-read revisions suppress content reads. A changed file, changed preferred candidate, or disappearance can produce an updated or removed notice. A direct read of a missing or unreadable file delivered nothing: if a file appears there later, refresh loads it, and if none appears, refresh adds no removal notice. Normal invocations otherwise retain snapshots; compacted-away scopes are not eagerly restored.
 
 Older notice formats do not represent scopes under the [version-2 persisted contract](pi-compatibility.md#persisted-notice-contract); their message text remains in the session.
 

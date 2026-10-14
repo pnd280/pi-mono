@@ -1,4 +1,4 @@
-# pi-smart-compact development
+# [pi-smart-compact](README.md) development
 
 Terms such as _fingerprint_ and _split turn_ are defined in the [compatibility guide](docs/pi-compatibility.md).
 

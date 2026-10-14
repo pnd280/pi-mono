@@ -4,8 +4,6 @@
 
 This package tests credential isolation, session ownership of compaction requests, the distinction between cancellation and failure, and ownership of the native hooks it replaces. Pi owns summarisation and provider behaviour. E2e checks use the installed CLI or a real SDK session with offline providers and disposable workspaces in the system temporary directory, never personal settings, credentials, or network calls.
 
-These guarantees do not undo Pi's earlier overflow-recovery edits or make metadata and compaction writes atomic; see the [compatibility limits](pi-compatibility.md#limitations).
-
 ## Must not regress
 
 Model and credential isolation
@@ -14,7 +12,7 @@ Model and credential isolation
 - **Critical, e2e:** A failed model lookup, authentication, or summary generation does not fall back to the conversation model.
 - **Critical, e2e:** Summary model and thinking overrides leave the conversation model and its thinking level unchanged.
 - **Critical, e2e:** An operation with a different abort signal receives neither the owning compaction's focus nor its model and thinking overrides.
-- **Critical, unit:** Temporary summarisation, event, and stream overrides stop applying when their scoped attempt exits, including on errors.
+- **Critical, e2e:** Temporary summarisation, event, and stream overrides stop applying when their scoped attempt exits, including on errors.
 
 Failure and abort
 
@@ -39,8 +37,10 @@ Hook ownership
 ## Not tested
 
 - Tool output wording, outcome status messages, summary-model metadata entries, footer status, settings merging, instruction-file loading, routing flags, and focus placement: below the severity bar.
+- Request timeout and retry policy on configured summary requests, several `compact` calls in one tool batch, and summaries supplied by `session_before_compact` hooks: below the severity bar.
 - Whether a real model follows the instructions, threshold detection, and the full overflow retry scheduler.
 - Interactive mounting, RPC display, and terminal appearance.
+- Undoing Pi's earlier overflow-recovery edits, and atomic metadata and compaction writes: not guaranteed; see the [compatibility limits](pi-compatibility.md#limitations).
 
 ## Manual checks
 

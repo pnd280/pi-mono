@@ -195,11 +195,11 @@ export class WidgetMenu implements Component {
       "Ctrl+S save",
       view.kind === "root" ? "Esc close" : "Esc back",
       ...(this.options.settings.projectTrusted ? ["Tab scope"] : []),
-      ...(item ? ["↑/↓ select"] : []),
+      ...(item ? ["↑↓ select"] : []),
       ...(item?.action && !item.disabled ? [`Enter ${item.action}`] : []),
       ...(view.kind === "rows" || view.kind === "contents" ? ["a add"] : []),
       ...(item?.editable
-        ? ["Shift+↑/↓ move", view.kind === "rows" ? "Del remove row" : "Del remove"]
+        ? ["Shift+↑↓ move", view.kind === "rows" ? "Del remove row" : "Del remove"]
         : [])
     ];
   }

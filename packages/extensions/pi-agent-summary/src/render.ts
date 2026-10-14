@@ -1,10 +1,11 @@
 import type { CustomEntry, EntryRenderOptions, Theme } from "@earendil-works/pi-coding-agent";
 import { MouseRegion, Text, truncateToWidth, type Component } from "@earendil-works/pi-tui";
 import { renderTree } from "@pi-mono/libs/tui/components/tree";
+import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
-import { formatDuration, summarySchema, type RunSummary } from "./summary.ts";
+import { summarySchema, type RunSummary } from "./summary.ts";
 
 type SummaryTheme = Pick<Theme, "fg" | "bold">;
 
@@ -18,7 +19,7 @@ const finishTimeFormatter = new Intl.DateTimeFormat("en-US", {
 function lineCounts(added: number, removed: number, theme: SummaryTheme): string {
   const parts: string[] = [];
   if (added) parts.push(theme.fg("toolDiffAdded", `+${added}`));
-  if (removed) parts.push(theme.fg("toolDiffRemoved", `−${removed}`));
+  if (removed) parts.push(theme.fg("toolDiffRemoved", `-${removed}`));
 
   return parts.join(" ");
 }
@@ -84,7 +85,7 @@ function summaryLines(
     parts.push(
       theme.fg(
         "muted",
-        `Statistics unavailable for ${unavailable} ${unavailable === 1 ? "file" : "files"}`
+        `statistics unavailable for ${unavailable} ${unavailable === 1 ? "file" : "files"}`
       )
     );
   const lines: [string, ...string[]] = [parts.join(separator)];

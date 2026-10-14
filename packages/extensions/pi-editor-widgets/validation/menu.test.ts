@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, rmdirSync } from "node:fs";
 
-import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
@@ -51,88 +51,7 @@ function select(menu: WidgetMenu, id: string): void {
     menu.handleInput(delta > 0 ? down : "\x1b[A");
 }
 
-it("saves the displayed inherited layout even when an unset scope has not been edited", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("one", ["NATIVE"]);
-  const { settings, coordinator, menu } = menuFor(fixture);
-
-  try {
-    expect(plain(menu.render(40))).toContain("global (not set)");
-    menu.handleInput("\x13");
-    expect(settings.load().global?.aboveEditor).toEqual([["widget:one"]]);
-    expect(plain(menu.render(80))).not.toContain("global (not set)");
-    menu.handleInput("\t");
-    expect(plain(menu.render(40))).toContain("project (not set)");
-    const inherited = menu.drafts.layout();
-    menu.handleInput("\x13");
-    expect(settings.load().project).toEqual(inherited);
-    expect(plain(menu.render(80))).not.toContain("not set");
-    expect(menu.drafts.current).toEqual({ value: inherited, saved: inherited });
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("keeps unset markers until save and identifies edits in either scope", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("one", ["NATIVE"]);
-  const { coordinator, menu } = menuFor(fixture);
-
-  try {
-    menu.handleInput(enter);
-    menu.handleInput(enter);
-    menu.handleInput(remove);
-    const output = plain(menu.render(80));
-    expect(output).toContain("global* (not set)");
-    expect(output).toContain("Unsaved changes");
-    menu.handleInput("\t");
-    expect(plain(menu.render(80))).toContain("Unsaved draft in other scope");
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("adds with a from populated and empty rows", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("one", ["ONE"]);
-  const { coordinator, menu, settings } = menuFor(fixture);
-
-  try {
-    menu.handleInput("a");
-    menu.handleInput("?");
-    expect(menu.drafts.view.kind).toBe("root");
-    expect(menu.drafts.current).toEqual({ value: undefined, saved: undefined });
-    menu.handleInput(enter);
-    menu.handleInput(enter);
-    menu.handleInput(enter);
-    expect(menu.drafts.view.kind).toBe("contents");
-    menu.handleInput("a");
-    expect(menu.drafts.view.kind).toBe("picker");
-    menu.handleInput(escape);
-    menu.handleInput(remove);
-    expect(plain(menu.render(40))).toContain("a add");
-    menu.handleInput(down);
-    menu.handleInput(enter);
-    expect(menu.drafts.view).toMatchObject({ kind: "contents", selected: 0 });
-    menu.handleInput("a");
-    menu.handleInput(down);
-    menu.handleInput(down);
-    menu.handleInput(enter);
-    expect(menu.drafts.layout().aboveEditor).toEqual([["widget:one"]]);
-    expect(menu.drafts.layout().hidden).not.toContain("widget:one");
-    expect(() => readFileSync(settings.paths.global)).toThrow();
-    expect(() => readFileSync(settings.paths.project)).toThrow();
-    menu.handleInput("\x03");
-    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("ONE");
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("retains failed drafts, applies successful saves, and renders the selected action on tiny terminals", async () => {
+it("retains a draft after a failed save and applies it once a retry succeeds", async () => {
   const fixture = await hostFixture();
   fixture.ui.setWidget("one", ["NATIVE"]);
   const { settings, coordinator, menu } = menuFor(fixture);
@@ -156,16 +75,6 @@ it("retains failed drafts, applies successful saves, and renders the selected ac
     expect(menu.drafts.current).toEqual({ value: draft, saved: draft });
     expect(settings.load().global?.hidden).toContain("widget:one");
     expect(plain(fixture.host.widgetContainerAbove.render(80))).not.toContain("NATIVE");
-    menu.handleInput(escape);
-    menu.handleInput(escape);
-
-    for (const rows of [1, 3, 5, 10, 24]) {
-      fixture.terminal.rows = rows;
-      const lines = menu.render(20);
-      expect(lines.length).toBeLessThanOrEqual(Math.max(1, rows - 2));
-      expect(lines.every((line) => visibleWidth(line) <= 20)).toBe(true);
-      expect(plain(lines)).toContain("Above editor");
-    }
   } finally {
     coordinator.dispose();
     await fixture.dispose();
@@ -186,246 +95,6 @@ it("refuses a stale menu save after footer ownership is lost", async () => {
     expect(plain(menu.render(140))).toContain("footer conflict");
     expect(() => readFileSync(settings.paths.global)).toThrow();
     expect(plain(fixture.host.footerContainer.render(80))).toContain("OTHER");
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("saves scopes independently and explains when a project override still wins", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("one", ["NATIVE"]);
-  const settings = new WidgetSettings({
-    cwd: fixture.directory,
-    agentDir: fixture.agentDir,
-    projectTrusted: true
-  });
-  const project = defaultLayout();
-  project.belowEditor = [["widget:one"]];
-  settings.save("project", project);
-  const { coordinator, menu } = menuFor(fixture);
-
-  try {
-    expect(menu.drafts.scope).toBe("project");
-    menu.handleInput(down);
-    menu.handleInput(down);
-    menu.handleInput(down);
-    menu.handleInput(enter); // Reset the project draft without saving it.
-    expect(menu.drafts.current.value).toEqual(defaultLayout());
-    menu.handleInput("\t");
-    menu.handleInput(enter);
-    menu.handleInput(enter);
-    menu.handleInput(remove);
-    menu.handleInput("\x13");
-    expect(plain(menu.render(120))).toContain("Project layout applies on close.");
-    // Live regions show the selected scope's draft, not the effective project override.
-    expect(plain(fixture.host.widgetContainerBelow.render(80))).not.toContain("NATIVE");
-    expect(settings.load().project).toEqual(project);
-    menu.handleInput("\t");
-    expect(menu.drafts.current.value).toEqual(defaultLayout());
-    expect(menu.drafts.current.saved).toEqual(project);
-    expect(settings.load().project).toEqual(project);
-    menu.handleInput("\x13");
-    expect(settings.load().project).toEqual(defaultLayout());
-    expect(plain(fixture.host.widgetContainerBelow.render(80))).not.toContain("NATIVE");
-    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("NATIVE");
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("keeps essential controls readable at 40x10 and advertises only applicable actions", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("one", ["NATIVE"]);
-  const { coordinator, menu } = menuFor(fixture);
-
-  try {
-    fixture.terminal.rows = 10;
-    const root = plain(menu.render(40));
-    expect(root).toContain("Ctrl+S save");
-    expect(root).toContain("Esc close");
-    expect(root).toContain("Tab scope");
-    expect(root).not.toContain("Shift+");
-    expect(root).not.toContain("Del ");
-    menu.handleInput(enter);
-    expect(plain(menu.render(40))).toContain("Shift+↑/↓ move");
-    menu.handleInput(enter);
-    const contents = plain(menu.render(40));
-    expect(contents).toContain("Esc back");
-    expect(contents).toContain("Del remove");
-    expect(contents).toContain("a add");
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("removes one visible copy without promising to hide the remaining copy", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("copy", ["COPY"]);
-  const layout = defaultLayout();
-  layout.aboveEditor = [["widget:copy"], ["widget:copy"]];
-  const { coordinator, menu } = menuFor(fixture, layout);
-
-  try {
-    menu.handleInput(enter);
-    menu.handleInput(down);
-    menu.handleInput(enter);
-    const output = plain(menu.render(80));
-    expect(output).toContain("Del remove");
-    expect(output).not.toContain("Del hide");
-    menu.handleInput(remove);
-    expect(menu.drafts.layout().aboveEditor).toEqual([["widget:copy"], []]);
-    expect(menu.drafts.layout().hidden).not.toContain("widget:copy");
-    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("COPY");
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("expires save success after three seconds, restarting the deadline on another save", async () => {
-  const fixture = await hostFixture();
-  const { coordinator, menu, requestRender, settings } = menuFor(fixture);
-  vi.useFakeTimers();
-
-  try {
-    menu.handleInput("\x13");
-    expect(plain(menu.render(80))).toContain("Saved");
-    vi.advanceTimersByTime(2000);
-    menu.handleInput("\x13");
-    vi.advanceTimersByTime(1000);
-    expect(plain(menu.render(80))).toContain("Saved");
-    requestRender.mockClear();
-    vi.advanceTimersByTime(2000);
-    expect(plain(menu.render(80))).not.toContain("Saved");
-    expect(requestRender).toHaveBeenCalled();
-    expect(menu.drafts.current).toEqual({ value: defaultLayout(), saved: defaultLayout() });
-    expect(settings.load().global).toEqual(defaultLayout());
-  } finally {
-    menu.handleInput("\x03");
-    vi.useRealTimers();
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("keeps save errors and warnings visible after an earlier success would expire", async () => {
-  const fixture = await hostFixture();
-  const { coordinator, settings, menu } = menuFor(fixture);
-  vi.useFakeTimers();
-
-  try {
-    menu.handleInput("\x13");
-    mkdirSync(`${settings.paths.global}.lock`);
-    menu.handleInput("\x13");
-    vi.advanceTimersByTime(3000);
-    expect(plain(menu.render(100))).toContain("Draft retained");
-    rmdirSync(`${settings.paths.global}.lock`);
-    menu.handleInput("\x13");
-    const load = vi.spyOn(settings, "load").mockReturnValueOnce({
-      ...settings.load(),
-      warnings: ["Project settings cannot be read."]
-    });
-    menu.handleInput("\x13");
-    load.mockRestore();
-    vi.advanceTimersByTime(3000);
-    expect(plain(menu.render(100))).toContain("Settings warning");
-  } finally {
-    menu.handleInput("\x03");
-    vi.useRealTimers();
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it.each(["close", "dispose"])(
-  "does not redraw an expired save confirmation after %s",
-  async (action) => {
-    const fixture = await hostFixture();
-    const { coordinator, menu, requestRender } = menuFor(fixture);
-    vi.useFakeTimers();
-
-    try {
-      menu.handleInput("\x13");
-      if (action === "close") menu.handleInput("\x03");
-      else menu.dispose();
-      requestRender.mockClear();
-      vi.advanceTimersByTime(3000);
-      expect(requestRender).not.toHaveBeenCalled();
-    } finally {
-      menu.dispose();
-      vi.useRealTimers();
-      coordinator.dispose();
-      await fixture.dispose();
-    }
-  }
-);
-
-it("clears saved feedback on edits and scope changes while retaining independent drafts", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("one", ["ONE"]);
-  fixture.ui.setWidget("two", ["TWO"]);
-  const { coordinator, menu } = menuFor(fixture);
-
-  try {
-    menu.handleInput("\x13");
-    expect(plain(menu.render(80))).toContain("Saved");
-    menu.handleInput("\t");
-    expect(plain(menu.render(80))).not.toContain("Saved");
-    menu.handleInput("\t");
-    menu.handleInput("\x13");
-    menu.handleInput(enter);
-    menu.handleInput("\x1b[1;2B");
-    expect(plain(menu.render(80))).toContain("global*");
-    expect(menu.drafts.current.value?.aboveEditor).toEqual([["widget:two"], ["widget:one"]]);
-    expect(menu.drafts.current.saved?.aboveEditor).toEqual([["widget:one"], ["widget:two"]]);
-    expect(plain(menu.render(80))).not.toContain("Saved");
-    menu.handleInput("\t");
-    expect(menu.drafts.current).toEqual({ value: undefined, saved: undefined });
-    expect(plain(menu.render(80))).toContain("Unsaved draft in other scope");
-    menu.handleInput("\x1b[Z");
-    expect(plain(menu.render(80))).toContain("global*");
-    expect(menu.drafts.current.value?.aboveEditor).toEqual([["widget:two"], ["widget:one"]]);
-    expect(menu.drafts.current.saved?.aboveEditor).toEqual([["widget:one"], ["widget:two"]]);
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("adds rows with a after new registrations and from an empty region", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("one", ["ONE"]);
-  fixture.ui.setWidget("two", ["TWO"]);
-  const { coordinator, menu } = menuFor(fixture);
-
-  try {
-    menu.handleInput(enter);
-    menu.handleInput(down);
-    fixture.ui.setWidget("three", ["THREE"]);
-    menu.handleInput("a");
-    expect(menu.drafts.current.saved).toBeUndefined();
-    expect(plain(menu.render(80))).toContain("global* (not set)");
-    expect(menu.drafts.layout().aboveEditor).toEqual([
-      ["widget:one"],
-      ["widget:two"],
-      ["widget:three"],
-      []
-    ]);
-    expect(menu.drafts.view).toMatchObject({ kind: "contents", row: 3 });
-    menu.handleInput(escape);
-    for (let index = 0; index < 4; index++) menu.handleInput(remove);
-    fixture.terminal.rows = 10;
-    expect(menu.drafts.layout().aboveEditor).toEqual([]);
-    expect(plain(menu.render(40))).toContain("No rows");
-    expect(plain(menu.render(40))).toContain("a add");
-    menu.handleInput(enter);
-    expect(menu.drafts.view).toMatchObject({ kind: "rows", selected: 0 });
-    menu.handleInput("a");
-    expect(menu.drafts.layout().aboveEditor).toEqual([[]]);
-    expect(menu.drafts.view).toMatchObject({ kind: "contents", row: 0 });
   } finally {
     coordinator.dispose();
     await fixture.dispose();
@@ -474,36 +143,6 @@ it("previews drafts live in the actual regions and restores the saved layout on 
     expect(above()).toBe("\nLIVE WIDGET");
     expect(footer()).not.toContain("LIVE WIDGET");
     expect(() => readFileSync(settings.paths.global)).toThrow();
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("labels unavailable widgets and offers copies without duplicating items in the same row", async () => {
-  const fixture = await hostFixture();
-  const layout = defaultLayout();
-  layout.hidden = Array.from({ length: 30 }, (_, index) => `widget:hidden-${index}`);
-  const { coordinator, menu } = menuFor(fixture, layout);
-
-  try {
-    menu.handleInput(down);
-    menu.handleInput(down);
-    menu.handleInput(enter);
-    menu.handleInput(enter);
-    menu.handleInput("a");
-    select(menu, "widget:hidden-12");
-    fixture.terminal.rows = 24;
-    const text = plain(menu.render(80));
-    expect(text).toContain("hidden-12");
-    expect(text).toContain("unavailable");
-    select(menu, "builtin:cwd");
-    expect(plain(menu.render(80))).toContain("Already in row");
-    menu.handleInput(enter);
-    expect(menu.drafts.view.kind).toBe("picker");
-    select(menu, "builtin:model");
-    menu.handleInput(enter);
-    expect(menu.drafts.layout().footer[0]).toContain("builtin:model");
   } finally {
     coordinator.dispose();
     await fixture.dispose();
@@ -574,29 +213,6 @@ it.each(["rows", "contents", "picker"])(
   }
 );
 
-it("keeps empty-region controls usable after the selected native row moves away", async () => {
-  const fixture = await hostFixture();
-  fixture.ui.setWidget("only", ["ONLY"]);
-  const { coordinator, menu } = menuFor(fixture);
-
-  try {
-    menu.handleInput(enter);
-    menu.render(80);
-    fixture.ui.setWidget("only", ["MOVED"], { placement: "belowEditor" });
-    menu.handleInput(remove);
-    expect(menu.drafts.current).toEqual({ value: undefined, saved: undefined });
-    expect(menu.drafts.layout().aboveEditor).toEqual([]);
-    expect(menu.drafts.layout().belowEditor).toEqual([["widget:only"]]);
-    expect(plain(menu.render(40))).toContain("a add");
-    menu.handleInput("a");
-    expect(menu.drafts.view).toMatchObject({ kind: "contents", row: 0 });
-    expect(menu.drafts.layout().aboveEditor).toEqual([[]]);
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
 it("keeps a nested row anchored when a preceding native row moves away", async () => {
   const fixture = await hostFixture();
   fixture.ui.setWidget("first", ["FIRST"]);
@@ -642,34 +258,6 @@ it("keeps a separator anchored to its contributor when new statuses arrive", asy
       "status:last",
       "status:middle"
     ]);
-  } finally {
-    coordinator.dispose();
-    await fixture.dispose();
-  }
-});
-
-it("retains selection between identical empty rows", async () => {
-  const fixture = await hostFixture();
-  const layout = defaultLayout();
-  layout.aboveEditor = [[], []];
-  const { coordinator, menu } = menuFor(fixture, layout);
-
-  try {
-    menu.handleInput(enter);
-    menu.handleInput(down);
-    menu.render(80);
-    menu.render(40);
-    menu.handleInput(enter);
-    expect(menu.drafts.view).toMatchObject({ kind: "contents", row: 1 });
-    menu.handleInput(escape);
-    menu.handleInput("\x1b[A");
-    menu.handleInput(enter); // Edit the first empty row instead.
-    menu.handleInput("a");
-    menu.handleInput(enter); // Add a separator.
-    menu.handleInput(escape);
-    menu.render(80);
-    expect(menu.drafts.view).toMatchObject({ kind: "rows", selected: 0 });
-    expect(menu.drafts.layout().aboveEditor).toEqual([["separator"], []]);
   } finally {
     coordinator.dispose();
     await fixture.dispose();

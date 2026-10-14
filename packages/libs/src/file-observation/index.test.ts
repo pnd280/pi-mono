@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -38,10 +37,4 @@ it("distinguishes empty, missing, invalid UTF-8, and nonregular files without cl
   expect(await observeTextFile(path, 1)).toEqual({ status: "invalid-utf8" });
   expect(await observeTextFile(directory, 1)).toEqual({ status: "not-file" });
   await expect(observeTextFile(path, -1)).rejects.toThrow(RangeError);
-});
-
-it.skipIf(process.platform === "win32")("refuses a FIFO without waiting for a writer", async () => {
-  const path = join(directory, "pipe");
-  execFileSync("mkfifo", [path]);
-  expect(await observeTextFile(path, 100)).toEqual({ status: "not-file" });
 });

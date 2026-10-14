@@ -31,4 +31,4 @@ Use [`OrderSettingsView`](index.ts) to edit item order with independent drafts, 
 
 ## Validation
 
-Use the [library checks](../../../../README.md#validation); [working-message command tests](../../../working-message/command.test.ts) exercise the editor through the installed host.
+Use the [library checks](../../../../README.md#validation) and the [pi-todo working-message fixture](../../../../../extensions/pi-todo/docs/validation.md#working-message-fixture), which exercises the editor in real Pi.

@@ -54,6 +54,20 @@ it("does not expose internal Git inspection failures", async () => {
   expect(decision.diagnostic).not.toContain("sensitive repository detail");
 });
 
+it("blocks an ignored target after another target's inspection fails", async () => {
+  vi.mocked(inspectGitIgnore)
+    .mockResolvedValueOnce({ status: "unavailable", cause: new Error("failed") })
+    .mockResolvedValueOnce({ status: "ignored" });
+
+  const decision = await evaluateSearch({
+    kind: "grep",
+    toolName: "ffgrep",
+    input: { path: "{src,node_modules}" },
+    cwd: directory.root
+  });
+  expect(decision.kind).toBe("block");
+});
+
 it.each(["scope extraction", "Git inspection"])(
   "settles at the deadline even when %s ignores cancellation",
   async (stage) => {

@@ -61,6 +61,23 @@ export function formatKeyLabel(key: string): string {
     .join("+");
 }
 
+/**
+ * Hint a paired up/down action from `formatKeyLabel` output; `undefined` marks a
+ * direction unavailable. Plain arrow keys share one `↑↓` label.
+ */
+export function navigationHints(
+  up: string | undefined,
+  down: string | undefined,
+  label: string
+): string[] {
+  if (up && down) return [`${up === "Up" && down === "Down" ? "↑↓" : `${up}/${down}`} ${label}`];
+
+  return [
+    up ? `${up} ${label} up` : `${label} up unavailable`,
+    down ? `${down} ${label} down` : `${label} down unavailable`
+  ];
+}
+
 export type KeybindingCandidate<Action extends string = string> = {
   action: Action;
   keys: readonly string[];

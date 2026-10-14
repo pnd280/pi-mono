@@ -7,7 +7,7 @@ Long agent runs scroll past what changed. pi-agent-summary shows how long the ag
 When the agent finishes, the transcript shows a summary such as:
 
 ```text
-• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · edited 3 files · +42 −11
+• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · edited 3 files · +42 -11
 ```
 
 A _run_ is everything from your prompt until the agent settles, including retries, follow-ups, and time spent waiting for your input. Cancelled and failed runs get summaries too, so a summary doesn't mean the run succeeded.

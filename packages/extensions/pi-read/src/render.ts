@@ -46,11 +46,15 @@ function readWindow(args: RenderArgs): string | undefined {
   return `lines ${first}-${last}`;
 }
 
-/** Compute styles on render so invalidation cannot retain colors from an old theme. */
+/** Style on first render and again after invalidation, so a theme change cannot retain old colors. */
 function themedText(content: () => string): Component {
+  let text: Text | undefined;
+
   return {
-    render: (width) => (width > 0 ? new Text(content(), 0, 0).render(width) : []),
-    invalidate() {}
+    render: (width) => (width > 0 ? (text ??= new Text(content(), 0, 0)).render(width) : []),
+    invalidate() {
+      text = undefined;
+    }
   };
 }
 

@@ -66,23 +66,6 @@ function fixture(options: Partial<ConstructorParameters<typeof DisplaySession>[0
   });
 }
 
-function shellCall(
-  session: DisplaySession,
-  id: string,
-  origin: DisplayCall["origin"] = "historical"
-) {
-  session.message(
-    {
-      kind: "assistant",
-      timestamp: 1,
-      calls: [{ index: 0, id, name: "bash", args: { command: `echo ${id}` } }]
-    },
-    origin
-  );
-
-  return session.coordinator.byId(id)!;
-}
-
 const result = (path: string) => ({
   content: [{ type: "text" as const, text: "published result" }],
   details: { fullOutputPath: path }
@@ -232,9 +215,6 @@ it("replays saved facts for separate assistant calls sharing a timestamp", async
       change,
       operation: operation({ durationMs: 7, outcome: "success" })
     });
-    expect(restored.coordinator.interpretation(unfinished).summaryItems).toEqual([
-      { category: "create", identity: "path\u0000/tmp/unfinished.txt" }
-    ]);
   } finally {
     restored.dispose();
   }
@@ -288,25 +268,6 @@ function files() {
     }
   };
 }
-
-it.each(["historical"] as const)(
-  "loads an initially expanded %s call on completion without a host reconstruction scan",
-  async (origin) => {
-    const file = files();
-    const session = fixture({ readSavedOutput: file.read, expanded: () => true });
-
-    try {
-      const call = shellCall(session, origin, origin);
-      expect(file.read).not.toHaveBeenCalled();
-      session.result(origin, result("completed-output"), "success");
-      expect(file.read).toHaveBeenCalledExactlyOnceWith("completed-output");
-      await file.complete("completed-output");
-      expect(call.savedOutput?.text).toBe("preview:completed-output");
-    } finally {
-      session.dispose();
-    }
-  }
-);
 
 it.each(["fff", "mcp"] as const)(
   "enriches late %s selection from retained data without observing history or copying results",

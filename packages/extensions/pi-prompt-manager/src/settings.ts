@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { readSettingsFile } from "@pi-mono/libs/settings-file";
+import { readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
 import { z } from "zod";
 
@@ -17,7 +17,6 @@ const settingsSchema = z.strictObject({
     .default(250),
   shortcuts: shortcutsSchema.prefault({})
 });
-const globalSettingsSchema = z.object({ "ext.pi-prompt-manager": z.unknown().optional() });
 
 export type Settings = z.output<typeof settingsSchema>;
 
@@ -27,13 +26,11 @@ export function parseSettings(value: unknown): { settings: Settings; warnings: s
   if (result.success) return resolveShortcuts(result.data, warnings);
 
   for (const issue of result.error.issues) {
-    if (issue.code === "unrecognized_keys")
-      warnings.push("Unknown pi-prompt-manager settings fields were ignored.");
-    else if (!issue.path.length)
-      warnings.push("Invalid pi-prompt-manager settings section; using defaults.");
+    if (issue.code === "unrecognized_keys") warnings.push("unknown settings fields were ignored.");
+    else if (!issue.path.length) warnings.push("invalid settings section; using defaults.");
     else if (issue.path[0] === "historyRetention")
-      warnings.push("Invalid historyRetention; using 250.");
-    else if (issue.path.length === 1) warnings.push("Invalid shortcuts object; using defaults.");
+      warnings.push("invalid historyRetention; using 250.");
+    else if (issue.path.length === 1) warnings.push("invalid shortcuts object; using defaults.");
   }
 
   // Recover fields independently; a bad action must not reset another action's bindings.
@@ -45,7 +42,7 @@ export function parseSettings(value: unknown): { settings: Settings; warnings: s
   const bindings = (action: "history" | "saveDraft") => {
     const parsed = shortcutsSchema.shape[action].safeParse(shortcuts[action]);
     if (parsed.success) return parsed.data;
-    warnings.push("Invalid launch shortcut list; using that action's default.");
+    warnings.push("invalid launch shortcut list; using that action's default.");
 
     return shortcutsSchema.shape[action].parse(undefined);
   };
@@ -62,7 +59,7 @@ export function parseSettings(value: unknown): { settings: Settings; warnings: s
 function resolveShortcuts(settings: Settings, warnings: string[]) {
   settings.shortcuts.saveDraft = settings.shortcuts.saveDraft.filter((key) => {
     if (!settings.shortcuts.history.includes(key)) return true;
-    warnings.push(`History owns launch shortcut ${key}; it will not save drafts.`);
+    warnings.push(`history owns launch shortcut ${key}; it will not save drafts.`);
 
     return false;
   });
@@ -72,20 +69,16 @@ function resolveShortcuts(settings: Settings, warnings: string[]) {
 
 /** The caller must establish TUI mode before calling this global-only reader. */
 export async function loadSettings(agentDir: string) {
+  let raw: Record<string, unknown>;
+
   try {
-    const content = readSettingsFile(join(agentDir, "settings.json"));
-    if (content === undefined) throw new Error("Invalid settings file.");
-    if (content === "") return parseSettings(undefined);
-    const raw: unknown = JSON.parse(content.startsWith("\uFEFF") ? content.slice(1) : content);
-    const parsed = globalSettingsSchema.safeParse(raw);
-
-    return parseSettings(parsed.success ? parsed.data["ext.pi-prompt-manager"] : null);
-  } catch (error) {
+    raw = readSettingsRecord(join(agentDir, "settings.json"));
+  } catch {
     const result = parseSettings(undefined);
-
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT"))
-      result.warnings.push("Global settings could not be read; using prompt-manager defaults.");
+    result.warnings.push("global settings could not be read; using defaults.");
 
     return result;
   }
+
+  return parseSettings(raw["ext.pi-prompt-manager"]);
 }

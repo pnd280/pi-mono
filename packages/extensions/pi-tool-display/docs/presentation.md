@@ -308,16 +308,16 @@ How work is bounded
 
 Current budgets live in the source:
 
-| Budget             | Source                                                |
-| ------------------ | ----------------------------------------------------- |
-| Parameter previews | [invocation.ts](../src/invocation.ts)                 |
-| Heading previews   | [headings.ts](../src/rendering/headings.ts)           |
-| Target layout      | [target-layout.ts](../src/rendering/target-layout.ts) |
-| Preview formatting | [format.ts](../src/rendering/format.ts)               |
-| Shell observation  | [observation/](../src/observation/)                   |
-| Saved previews     | [session.ts](../src/transcript/session.ts)            |
-| Patch limits       | [diff.ts](../src/diff.ts)                             |
-| Record validation  | [metadata.ts](../src/transcript/metadata.ts)          |
-| Local lines        | [store.ts](../src/transcript/store.ts)                |
+| Budget             | Source                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Parameter previews | [invocation.ts](../src/invocation.ts)                                                                                              |
+| Heading previews   | [headings.ts](../src/rendering/headings.ts)                                                                                        |
+| Target layout      | [target-layout.ts](../src/rendering/target-layout.ts)                                                                              |
+| Preview formatting | [format.ts](../src/rendering/format.ts)                                                                                            |
+| Shell observation  | [observation/](../src/observation/)                                                                                                |
+| Saved previews     | [observation/saved-output.ts](../src/observation/saved-output.ts), [transcript/saved-output.ts](../src/transcript/saved-output.ts) |
+| Patch limits       | [diff.ts](../src/diff.ts)                                                                                                          |
+| Record validation  | [metadata.ts](../src/transcript/metadata.ts)                                                                                       |
+| Local lines        | [store.ts](../src/transcript/store.ts)                                                                                             |
 
 [Automatic integration](../README.md#what-is-recorded) collects output and generates patches. The [standalone factory](renderers.md) only formats data it is given.

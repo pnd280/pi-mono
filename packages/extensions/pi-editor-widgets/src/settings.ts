@@ -1,10 +1,9 @@
-import { join } from "node:path";
-
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import {
   isSettingsRecord,
   readSettingsRecord,
-  updateSettingsRecord
+  settingsPaths,
+  updateSettingsRecord,
+  type SettingsScope
 } from "@pi-mono/libs/settings-file";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
@@ -14,7 +13,7 @@ import { layoutSchema, type Layout } from "./layout.ts";
 const key = "ext.pi-editor-widgets";
 const thresholdSchema = z.number().int().positive();
 
-export type Scope = "global" | "project";
+export type Scope = SettingsScope;
 
 export type Preferences = Record<Scope, Layout | undefined> & {
   /** Context token budget resolved per field: project value, then global. */
@@ -30,10 +29,7 @@ export class WidgetSettings {
 
   constructor(options: { cwd: string; projectTrusted: boolean; agentDir?: string }) {
     this.projectTrusted = options.projectTrusted;
-    this.paths = {
-      global: join(options.agentDir ?? getAgentDir(), "settings.json"),
-      project: join(options.cwd, CONFIG_DIR_NAME, "settings.json")
-    };
+    this.paths = settingsPaths(options);
   }
 
   load(): Preferences {
@@ -43,7 +39,7 @@ export class WidgetSettings {
       const path = compactDisplayText(this.paths[scope]);
       const invalid = () =>
         warnings.push(
-          `pi-editor-widgets: invalid or unreadable settings at ${path}. Check JSON, per-row and hidden ID uniqueness, hidden/placed overlap, one flex per row, and the 1 MiB limit. Falling back to the next scope.`
+          `pi-editor-widgets: cannot load layout settings from ${path}. Check access, syntax, and the 1 MiB regular-file limit. Layout IDs must be unique per row and in hidden, hidden IDs cannot be placed, and a row has at most one flex. Falling back to the next scope.`
         );
       let section: unknown;
 

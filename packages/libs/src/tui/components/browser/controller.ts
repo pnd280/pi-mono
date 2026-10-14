@@ -304,10 +304,10 @@ export class BrowserController<Item> {
       return;
     }
 
-    if (action === "switch" && !this.options.inspection) {
+    if ((action === "switch" || action === "switchBack") && !this.options.inspection) {
       const sections = this.options.sections;
-      const index = sections.indexOf(this.section);
-      const next = sections[(index + 1) % sections.length];
+      const step = action === "switch" ? 1 : sections.length - 1;
+      const next = sections[(sections.indexOf(this.section) + step) % sections.length];
       if (next && next !== this.section) void this.activate(next.id);
 
       return;

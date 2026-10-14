@@ -10,7 +10,7 @@ import { afterEach, expect, it, vi } from "vite-plus/test";
 import entry from "../index.ts";
 import { loadTodoConfig } from "./config.ts";
 import type { TodoExtensionAPI, TodoLifecycleContext } from "./index.ts";
-import type { TodoWidgetFactory } from "./todo-overlay.ts";
+import type { TodoWidgetFactory } from "./todo-widget.ts";
 
 vi.mock("./runtime.ts", () => ({ shouldActivate: vi.fn(() => true) }));
 vi.mock("./config.ts", () => ({
@@ -108,6 +108,7 @@ it("replays branch state and clears todo activity without clearing other contrib
   branch = [];
   dispatch("session_tree");
   expect(widget).toBeUndefined();
+  expect(setWidget.mock.lastCall?.[0]).toBe("pi-todo");
   expect(setWorkingMessage).toHaveBeenLastCalledWith("Other status");
   dispatch("session_shutdown");
   expect(setWorkingMessage).toHaveBeenLastCalledWith(undefined);

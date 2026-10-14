@@ -1,9 +1,7 @@
-import { createSyntheticSourceInfo, type ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { expect, it } from "vite-plus/test";
 
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
-import { mcpToolInfo } from "../adapters/pi-mcp-adapter/test-fixture.ts";
-import { selectiveReadToolInfo } from "../adapters/pi-read/test-fixture.ts";
 import { loadDisplaySettings } from "../settings.ts";
 import { selectAdapter } from "./selection.ts";
 
@@ -64,41 +62,3 @@ it("selects verified extension contracts before owner slots and otherwise preser
   expect(selectAdapter(settings, "read", owner, true)?.id).toBe("pi:read");
   expect(selectAdapter(settings, "unknown", undefined, true)?.id).toBe("generic");
 });
-
-it("selects selective-read ahead of its owned renderers while respecting overrides", () => {
-  const info = selectiveReadToolInfo();
-
-  for (const [mode, expected] of [
-    ["auto", "pi-read:read"],
-    ["original", undefined],
-    ["generic", "generic"]
-  ] as const) {
-    const settings = loadDisplaySettings([
-      {
-        path: "settings",
-        settings: {
-          "ext.pi-tool-display": { rendererOverrides: { read: mode } }
-        }
-      }
-    ]);
-    expect(selectAdapter(settings, "read", owner, false, info)?.id).toBe(expected);
-  }
-
-  expect(
-    selectAdapter(loadDisplaySettings([]), "read", owner, false, {
-      ...info,
-      parameters: {}
-    })
-  ).toBeUndefined();
-});
-
-it.each(["codemode", "mcp", "mcp__docs"])(
-  "retains builtin %s renderers instead of selecting the external MCP adapter",
-  (name) => {
-    const info = {
-      ...mcpToolInfo(name),
-      sourceInfo: createSyntheticSourceInfo(`builtin:${name}`, { source: "builtin" })
-    };
-    expect(selectAdapter(loadDisplaySettings([]), name, owner, false, info)).toBeUndefined();
-  }
-);

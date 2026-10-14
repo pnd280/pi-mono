@@ -5,6 +5,7 @@ import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
 import type { BorrowedToolResult, DisplayProgress, ToolDisplayAdapter } from "../../contracts.ts";
+import { registeredBy } from "../provenance.ts";
 
 const argsSchema = z.object({
   description: z.string().min(1),
@@ -267,15 +268,9 @@ export function piSubagentAdapter(tool: ToolInfo | undefined): ToolDisplayAdapte
   if (
     !tool ||
     (tool.name !== "subagent" && tool.name !== "subagent_abort") ||
-    ["builtin", "sdk"].includes(tool.sourceInfo.source)
+    !registeredBy(tool, "pi-subagents")
   )
     return;
-  const path = tool.sourceInfo.path.replaceAll("\\", "/");
-  const owned =
-    /^npm:pi-subagents(?:@[^/]+)?$/.test(tool.sourceInfo.source) ||
-    /(?:^|\/)pi-subagents\/(?:src\/)?index\.[cm]?[jt]s$/.test(path);
-
-  if (!owned) return;
   if (tool.name === "subagent_abort")
     return abortParametersSchema.safeParse(tool.parameters).success
       ? subagentAbortDisplayAdapter

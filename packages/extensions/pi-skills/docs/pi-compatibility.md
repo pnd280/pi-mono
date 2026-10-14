@@ -37,5 +37,6 @@ Input expansion and completion must compose with Pi's existing providers and reg
 
 ## Limitations
 
-- **Native expansion.** Pi expands only prompts that begin exactly with `/skill:`, and its input handler has no option to turn that off. On upgrades, check that the default leading Markdown link stays literal, and that custom formats starting with the command are still guarded.
-- **Composition.** Keep composing with native autocomplete rather than adding another matcher or file discovery.
+- Pi expands only prompts that begin exactly with `/skill:`, and its input handler has no option to turn that off. On upgrades, check that the default leading Markdown link stays literal, and that custom formats starting with the command are still guarded.
+- Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width.
+- Keep composing with native autocomplete rather than adding another matcher or file discovery.

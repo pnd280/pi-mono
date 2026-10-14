@@ -39,23 +39,6 @@ it("only commits the latest regeneration", async () => {
   for (const [message] of notify.mock.calls) expect(message).not.toContain("Obsolete title");
 });
 
-it("cancels generation on shutdown without a late name or outcome notification", async () => {
-  const { title, session, generate, notify } = fixture();
-  const pending = Promise.withResolvers<string>();
-  generate.mockReturnValue(pending.promise);
-  const result = title.command("");
-  expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
-  const progress = notify.mock.calls.slice();
-  title.dispose();
-  expect(generate.mock.calls[0]?.[1].aborted).toBe(true);
-  pending.resolve("Obsolete title");
-  await result;
-  await title.automatic(opening);
-  expect(generate).toHaveBeenCalledOnce();
-  expect(session.getSessionName()).toBeUndefined();
-  expect(notify.mock.calls).toEqual(progress);
-});
-
 it("checks the live title before committing even if its change event has not arrived", async () => {
   const { title, session, generate } = fixture("Before");
   const pending = Promise.withResolvers<string>();

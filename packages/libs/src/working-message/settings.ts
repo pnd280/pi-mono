@@ -1,12 +1,12 @@
-import { join } from "node:path";
-
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import {
   isSettingsRecord,
   readSettingsRecord,
-  updateSettingsRecord
+  settingsPaths,
+  updateSettingsRecord,
+  type SettingsScope,
+  type SettingsScopeOptions
 } from "../settings-file/index.ts";
 import { compactDisplayText } from "../tui/terminal-text/index.ts";
 
@@ -16,7 +16,7 @@ const orderSchema = z
   .transform((ids) => [...new Set(ids)]);
 const sectionSchema = z.object({ order: orderSchema.optional() }).passthrough();
 
-export type WorkingMessageScope = "global" | "project";
+export type WorkingMessageScope = SettingsScope;
 
 export type WorkingMessagePreferences = {
   global: string[] | undefined;
@@ -37,13 +37,8 @@ function readSection(record: Record<string, unknown>) {
 export class WorkingMessageSettings {
   readonly paths: Record<WorkingMessageScope, string>;
 
-  constructor(
-    private readonly options: { cwd: string; projectTrusted: boolean; agentDir?: string }
-  ) {
-    this.paths = {
-      global: join(options.agentDir ?? getAgentDir(), "settings.json"),
-      project: join(options.cwd, CONFIG_DIR_NAME, "settings.json")
-    };
+  constructor(private readonly options: SettingsScopeOptions) {
+    this.paths = settingsPaths(options);
   }
 
   load(): WorkingMessagePreferences {

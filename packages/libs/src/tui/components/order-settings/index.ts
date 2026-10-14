@@ -149,7 +149,7 @@ export class OrderSettingsView implements Component {
         "Ctrl+S save",
         "Esc close",
         ...(this.drafts.length > 1 ? ["Tab scope"] : []),
-        ...(draft.order.length ? ["↑/↓ select", "Shift+↑/↓ move"] : [])
+        ...(draft.order.length ? ["↑↓ select", "Shift+↑↓ move"] : [])
       ],
       feedback: this.feedback ?? this.warning
     });

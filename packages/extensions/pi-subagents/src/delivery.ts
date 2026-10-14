@@ -5,7 +5,6 @@ import type {
   ExtensionContext
 } from "@earendil-works/pi-coding-agent";
 import type { WorkingMessageHandle } from "@pi-mono/libs/working-message";
-import { wakeIdle } from "@pi-mono/utils/idle-wake";
 
 import { RESULT_MESSAGE } from "./constants.ts";
 import { taskResult } from "./result.ts";
@@ -20,6 +19,22 @@ const WAITING_MESSAGE = "Waiting for background subagents";
 
 /** New input arrives through Pi's queue, which has no event; poll it at this interval. */
 const INPUT_POLL_MS = 250;
+
+/**
+ * Starts a turn on an idle supervisor with background results, and keeps Pi's prompt preparation.
+ *
+ * Workaround for [Pi issue 5581](https://github.com/earendil-works/pi/issues/5581), open in
+ * Pi 1.0.2: an idle `sendMessage` with `triggerTurn` skips `before_agent_start`, so the turn
+ * lacks the context that extensions prepare there. Queuing the results as `nextTurn` and then
+ * sending a user message uses the prompt path, which runs the hook and adds the queued results
+ * to the same turn. The transcript shows the extra user message. Make both calls in the same
+ * synchronous block, so that no other prompt takes the queued results. When Pi fixes the issue,
+ * use `sendMessage(message, { triggerTurn: true })`.
+ */
+function wakeIdle(pi: ExtensionAPI, messages: readonly Completion[]): void {
+  for (const message of messages) pi.sendMessage(message, { deliverAs: "nextTurn" });
+  pi.sendUserMessage("Background subagent finished.");
+}
 
 /** Owns background completions until the settlement or idle handoff. */
 export class Delivery {
@@ -70,7 +85,7 @@ export class Delivery {
     }
 
     // Busy results stay owned here until Pi can commit them or the aborted run settles.
-    if (this.ctx.isIdle()) wakeIdle(this.pi, this.take(), "Background subagent finished.");
+    if (this.ctx.isIdle()) wakeIdle(this.pi, this.take());
   }
 
   private take(): Completion[] {
@@ -164,7 +179,7 @@ export class Delivery {
   /** Delivers results that arrived as a wait ended by an abort. */
   settled(ctx: ExtensionContext): void {
     if (this.closed || !this.pending.length || !ctx.isIdle()) return;
-    wakeIdle(this.pi, this.take(), "Background subagent finished.");
+    wakeIdle(this.pi, this.take());
   }
 
   shutdown(): void {

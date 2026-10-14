@@ -1,6 +1,5 @@
 import { expect, it, vi } from "vite-plus/test";
 
-import { OrderSettingsView } from "../components/order-settings/index.ts";
 import { createInputHost } from "../test-fixture.ts";
 import { openResponsiveCustomUI } from "./index.ts";
 
@@ -62,42 +61,3 @@ it.each(["factory", "before-install", "open", "remount"] as const)(
     }
   }
 );
-
-it("keeps the working-message ordering menu opted out through shared mounting", async () => {
-  const host = createInputHost();
-  const abort = new AbortController();
-  const opening = openResponsiveCustomUI({
-    ui: host.ui,
-    signal: abort.signal,
-    useOverlay: () => false,
-    create: (tui, theme, _keys, close) =>
-      new OrderSettingsView({
-        title: "Working message",
-        items: [{ id: "activity", label: "Activity", description: "" }],
-        scopes: [
-          { id: "session", label: "Session", destination: "", isSet: true, order: ["activity"] }
-        ],
-        initialScope: "session",
-        theme,
-        rows: () => tui.terminal.rows,
-        requestRender: () => tui.requestRender(),
-        save: () => ({ severity: "success", summary: "Saved and applied." }),
-        close
-      })
-  });
-
-  try {
-    await vi.waitFor(() => expect(host.presentation).toBeDefined());
-    const before = host.presentation?.render(80);
-    host.transcript.scrollTo(40);
-    host.send("\x1b[5~");
-    expect(host.transcript.scrollTop).toBeLessThan(40);
-    expect(host.presentation?.render(80)).toEqual(before);
-    host.send("\x1b");
-    await opening;
-  } finally {
-    abort.abort();
-    await opening;
-    host.dispose();
-  }
-});

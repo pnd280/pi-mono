@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
+import { registeredBy } from "../provenance.ts";
 
 const compactArgsSchema = z.strictObject({ instructions: z.string().nullish() });
 const compactParametersSchema = z.object({
@@ -108,13 +109,7 @@ export const contextWindowDisplayAdapter: ToolDisplayAdapter = {
 
 /** Match the owning extension and each tool's parameter contract, not names alone. */
 export function piSmartCompactAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
-  if (!tool || ["builtin", "sdk"].includes(tool.sourceInfo.source)) return undefined;
-  const path = tool.sourceInfo.path.replaceAll("\\", "/");
-  const owned =
-    /^npm:pi-smart-compact(?:@[^/]+)?$/.test(tool.sourceInfo.source) ||
-    /(?:^|\/)pi-smart-compact\/(?:src\/)?index\.[cm]?[jt]s$/.test(path);
-
-  if (!owned) return undefined;
+  if (!tool || !registeredBy(tool, "pi-smart-compact")) return undefined;
   if (tool.name === "compact" && compactParametersSchema.safeParse(tool.parameters).success)
     return smartCompactDisplayAdapter;
   if (tool.name === "context_window" && contextParametersSchema.safeParse(tool.parameters).success)

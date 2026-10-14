@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 
 import { AgentSession, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 
-// Private Pi 1.0.1 contracts, gated by both API and installed-CLI fingerprints.
+// Private Pi contracts, gated by both API and installed-CLI fingerprints.
+// docs/pi-compatibility.md records the last verified Pi version.
 export interface SessionInternals {
   _cwd: string;
   _baseToolsOverride?: unknown;

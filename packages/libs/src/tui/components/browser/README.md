@@ -13,7 +13,7 @@ Extensions that need searchable sections with selection, previews, and actions u
 
 ### Keys and cancellation
 
-Configured actions take precedence in this order: `copy`, `cancel`, `confirm`, `up`, `down`, `pageUp`, `pageDown`. Fixed controls are **Tab** and **Shift+Tab** (switch section), **Ctrl+P** (preview), **Delete** twice (remove), and **Alt+Enter** (alternate action).
+Configured actions take precedence in this order: `copy`, `cancel`, `confirm`, `up`, `down`, `pageUp`, `pageDown`. Fixed controls are **Tab** and **Shift+Tab** (next and previous section), **Ctrl+P** (preview), **Delete** twice (remove), and **Alt+Enter** (alternate action).
 
 - The [browser host](../../open-browser/README.md) routes eligible fullscreen paging ahead of transcript paging.
 - Keys assigned to higher-priority actions and release events are not claimed.
@@ -24,6 +24,8 @@ Configured actions take precedence in this order: `copy`, `cancel`, `confirm`, `
 - Cancel returns from preview to the list, or closes from the list.
 - While loading or an action is pending, cancel closes immediately.
 - Closing does not undo effects already started by consumer callbacks.
+
+Edge cases:
 
 - Inspection mode uses a one-based item index and permits copying, scrolling, and closure, not selection actions.
 - Below 40 columns or 10 rows, only cancellation is available.
@@ -90,4 +92,4 @@ await openBrowser({
 
 ## Validation
 
-Use the [package checks](../../../../README.md#validation). Tests cover multiple sections, action availability, dimensions, cancellation, and input routing between the list and preview.
+Use the [package checks](../../../../README.md#validation). The browser has no component tests; the [browser host tests](../../open-browser/index.test.ts) exercise list and preview paging, remounts, and cancellation through Pi's renderer. Check sections, actions, and layout with prompt manager's [presentation scenarios](../../../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting).

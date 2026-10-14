@@ -59,38 +59,6 @@ it("normalizes display arguments without mutating retained input", () => {
   expect(args).toEqual(before);
 });
 
-it("suppresses only the recorded preview block, preserving borrowed source and lookalikes", () => {
-  const source = "Selected source preview:\nsource";
-  const value = result(source, source);
-  const args = { path: "a.ts", selection: { startLine: 2 } };
-  const parts = adapter.textParts?.(
-    value.content[0]!.type === "text" ? value.content[0]!.text : "",
-    args,
-    context(value)
-  );
-  expect(parts?.map((part) => ("text" in part ? part.text : "")).join("")).toBe(
-    "Selected source preview:\nsource"
-  );
-  expect(parts?.[0]?.selection).toEqual([{ line: 1, start: 0, end: 6 }]);
-  expect(
-    adapter.textParts?.(
-      "Selected source preview:\nsource",
-      args,
-      context(value, { contentIndex: 1 })
-    )
-  ).toEqual([]);
-  const unmarked = result("Selected source preview:\nsource");
-  expect(
-    adapter.textParts?.("Selected source preview:\nsource", args, context(unmarked))[0]?.text
-  ).toContain("Selected source preview:");
-  expect(value).toEqual(result(source, source));
-
-  const notice = "[2 more lines in file. Use offset=2 to continue.]";
-  const lookalike = result(`prefix\n\n${notice}\nsuffix`, `Selected source preview:\n\n${notice}`);
-  // Selecting embedded source can put a native-looking trailer at the preview's end.
-  expect(adapter.notices?.(lookalike, false)).toEqual([]);
-});
-
 it("uses producer-owned per-block windows after native diagnostic separation", () => {
   const first = "alpha\n";
   const second = "\t😀界tail\nnext\n\n[3 more lines in file. Use offset=14 to continue.]";

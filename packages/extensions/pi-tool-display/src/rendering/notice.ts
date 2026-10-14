@@ -99,7 +99,7 @@ export function createNoticeRenderer() {
 
           if (expansion.expanded) {
             if (body) child = markdown.render(innerWidth);
-            else if (!explanation)
+            else if (notice?.action !== "removed")
               child = new Text(theme.fg("dim", "Empty instruction file."), 0, 0).render(innerWidth);
           }
 

@@ -5,7 +5,7 @@
 // Usage: node .agents/skills/pi-update/scripts/fingerprints.ts
 // Keep this file TypeScript: the bundled CLI maps Pi imports in .ts extensions to
 // its bundled classes, but loads .mjs natively, which would hash the API build twice.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -106,18 +106,15 @@ function cliFingerprints(): Fingerprints {
   const env = { ...process.env, HOME: home, PI_CODING_AGENT_DIR: join(home, "agent"), PI_OFFLINE: "1" };
 
   try {
-    execFileSync(process.execPath, [cli, "-e", fileURLToPath(import.meta.url), "--no-session", "-p", "probe"], {
+    // The offline prompt fails after extensions load; the hashes are already on stderr.
+    const probe = spawnSync(process.execPath, [cli, "-e", fileURLToPath(import.meta.url), "--no-session", "-p", "probe"], {
       encoding: "utf8",
       env,
       stdio: ["ignore", "ignore", "pipe"],
       timeout: 60_000
     });
-    throw new Error("The offline probe prompt unexpectedly succeeded.");
-  } catch (error) {
-    // The offline prompt fails after extensions load; the hashes are already on stderr.
-    const stderr: unknown = Reflect.get(Object(error), "stderr");
 
-    return parse(typeof stderr === "string" ? stderr : String(error));
+    return parse(probe.error ? `${probe.stderr}\n${String(probe.error)}` : probe.stderr);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

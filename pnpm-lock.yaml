@@ -245,9 +245,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.4
-      '@types/proper-lockfile':
-        specifier: 'catalog:'
-        version: 4.1.4
       eslint-import-resolver-typescript:
         specifier: 'catalog:'
         version: 4.4.5(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)
@@ -296,6 +293,9 @@ importers:
       '@pi-mono/libs':
         specifier: workspace:*
         version: link:../../libs
+      '@pi-mono/utils':
+        specifier: workspace:*
+        version: link:../../utils
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -497,6 +497,9 @@ importers:
       pi-read:
         specifier: workspace:*
         version: link:../pi-read
+      pi-todo:
+        specifier: workspace:*
+        version: link:../pi-todo
       zod:
         specifier: 'catalog:'
         version: 4.6.5
@@ -527,6 +530,10 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.5
+    devDependencies:
+      '@types/proper-lockfile':
+        specifier: 'catalog:'
+        version: 4.1.4
 
   packages/utils:
     dependencies:

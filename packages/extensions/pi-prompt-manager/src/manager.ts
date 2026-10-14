@@ -60,7 +60,7 @@ export class PromptManager {
     if (this.warned || !this.isActive()) return;
     this.warned = true;
     this.notify(
-      "Some prompt history could not be recorded this session. Check collection access, capacity, and lock contention.",
+      "pi-prompt-manager: some prompt history could not be recorded this session. Check collection access, capacity, and lock contention.",
       "warning"
     );
   }

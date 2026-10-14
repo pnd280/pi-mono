@@ -84,7 +84,7 @@ export default function promptManager(pi: ExtensionAPI): void {
         description: "Save exact editor draft",
         handler: () => current.saveEditor()
       });
-    for (const warning of warnings) current.notify(warning, "warning");
+    for (const warning of warnings) current.notify(`pi-prompt-manager: ${warning}`, "warning");
   });
   pi.on("input", (event, ctx) => {
     if (ctx.mode !== "tui" || event.source !== "interactive") return;

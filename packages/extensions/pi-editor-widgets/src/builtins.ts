@@ -1,4 +1,4 @@
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { relative, resolve, sep } from "node:path";
 
 import type {
   AgentSession,
@@ -8,14 +8,16 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
+import { containsPath } from "@pi-mono/utils/paths";
 
 export function formatCwd(cwd: string, home = process.env.HOME || process.env.USERPROFILE): string {
   if (!home) return compactDisplayText(cwd);
-  const path = relative(resolve(home), resolve(cwd));
-  const inside =
-    path === "" || (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path));
+  const root = resolve(home);
+  const absolute = resolve(cwd);
+  if (!containsPath(root, absolute)) return compactDisplayText(cwd);
+  const path = relative(root, absolute);
 
-  return compactDisplayText(inside ? `~${path ? sep + path : ""}` : cwd);
+  return compactDisplayText(`~${path ? sep + path : ""}`);
 }
 
 type UsageDisplay = "regular" | "compact" | "verbose";

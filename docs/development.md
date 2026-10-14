@@ -20,7 +20,7 @@ Fix implementation diagnostics without weakening shared checks; explain narrow e
 
 ## Focused validation
 
-Run checks from the repository root. Tests require Bash and Git; Unix file-preview and Linux prompt-storage tests also require `mkfifo`. Linux ACL tests require `getfacl` and `setfacl`.
+Run checks from the repository root. Tests require Bash and Git. FIFO tests on Unix also require `mkfifo`, and Linux ACL tests require `getfacl` and `setfacl`.
 
 Use `vpr` (`vp run`) with the package's `package.json` name:
 
@@ -103,7 +103,7 @@ Emphasis convention: bold for keys (**Ctrl+O**), code for setting names and valu
 
 Each package README is written for users. Open with the problem it solves in one sentence, then one concrete example (output, a screenshot, or a command); put feature links after that. Include `Usage` for actual package steps, `Configuration` for choices not obvious from source, `Side effects` for important writes or requests, and `Validation` for package-specific checks or manual prerequisites, only when there is substantive content. Do not repeat generic extension-loading commands or workspace checks in every package. Move tool-author and implementation detail to `docs/`, or label the section by its audience.
 
-Optional headings exist for substantive content only; omit a heading rather than fill it with boilerplate. In `docs/testing.md`, the coverage-boundary section names only what this package tests and links to the [workspace ownership rules](agents/testing.md#ownership) instead of restating them.
+Optional headings exist for substantive content only; omit a heading rather than fill it with boilerplate. Package `docs/testing.md` files follow the [package testing guide](agents/testing.md#package-testing-guide).
 
 ### Package instructions
 
@@ -138,8 +138,10 @@ Schemas are unnecessary for control-flow narrowing, host capability checks, or i
 
 ## Pi APIs
 
-Implement Pi changes through workspace extensions, preferring public APIs. Runtime monkey-patches may work around API limits. When you add, move, or remove a SHA-256 fingerprint of a private Pi method, update `owners` in the [fingerprint script](../.agents/skills/pi-update/scripts/fingerprints.ts) and the [host fingerprints table](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints); `vpr check` fails until they match. Never suggest or edit Pi core or upstream package files, including installed dependencies.
+Implement Pi changes through workspace extensions, preferring public APIs. Runtime monkey-patches may work around API limits. Patches of private Pi methods are gated by SHA-256 [host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints); follow that section when you add, move, or remove one. `vpr check` fails until `owners` in the [fingerprint script](../.agents/skills/pi-update/scripts/fingerprints.ts) and the hashes listed in workspace source match the installed Pi. It does not check the host fingerprints table. Never suggest or edit Pi core or upstream package files, including installed dependencies.
 
 Namespace persisted custom entry and custom message `customType` identifiers as `<extension-package>.<entry-name>`, for example `pi-agent-summary.summary`. Define each identifier in its owning module and reuse it for writes, reads, and renderer registration. These identifiers are distinct from Pi-generated session record `id` values.
+
+Start a `ctx.ui.notify` message with the package name and a colon, for example `pi-model-prompt: rules[0] skipped: …`, when the user didn't request it: startup, settings loading, host compatibility, or background work. Pi shows notices without a source. A message that answers the user's own command or an open view needs no prefix.
 
 Find installed documentation and examples in [Pi API references](pi-docs.md).

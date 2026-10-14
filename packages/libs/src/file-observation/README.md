@@ -8,6 +8,8 @@ Read a complete file as UTF-8 when a bounded preview is not enough.
 
 [`observeTextFile`](index.ts) (`@pi-mono/libs/file-observation`) reads complete UTF-8, preserving BOMs and rejecting invalid, nonregular, or oversized input. It follows symlinks without permission repair. Size and timestamp checks are not atomic snapshots.
 
+`decodeTextFile` applies the same size and UTF-8 rules to bytes that the caller already read.
+
 ## Caller responsibilities
 
 Authorise paths, supply nonnegative safe-integer `maxBytes` (otherwise `RangeError`), and translate statuses into diagnostics.

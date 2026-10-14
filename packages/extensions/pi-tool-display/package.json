@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
+    ".": "./index.ts",
     "./renderers": "./src/rendering/api.ts",
     "./adapters": "./src/adapters/index.ts"
   },
@@ -24,6 +24,7 @@
     "@pi-mono/utils": "workspace:*",
     "pi-nested-instructions": "workspace:*",
     "pi-read": "workspace:*",
+    "pi-todo": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {

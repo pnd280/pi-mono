@@ -1,7 +1,4 @@
-import { join } from "node:path";
-
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readSettingsRecord } from "@pi-mono/libs/settings-file";
+import { readScopedSettings, readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
 
 const sectionSchema = z.object({
@@ -22,13 +19,9 @@ function readSection(path: string): z.output<typeof sectionSchema> {
 /** Only the current directory's trusted project settings participate. */
 export function loadTodoConfig(
   cwd: string,
-  {
-    projectTrusted = false,
-    agentDir = getAgentDir()
-  }: { projectTrusted?: boolean; agentDir?: string } = {}
+  { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): TodoConfig {
-  const global = readSection(join(agentDir, "settings.json"));
-  const project = projectTrusted ? readSection(join(cwd, CONFIG_DIR_NAME, "settings.json")) : {};
+  const [global, project = {}] = readScopedSettings({ cwd, projectTrusted, agentDir }, readSection);
 
   return {
     collapseWidgetByDefault:

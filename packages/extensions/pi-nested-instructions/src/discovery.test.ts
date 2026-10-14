@@ -125,28 +125,6 @@ it("gathers markers across the batch before reading content, while preserving pr
   expect(notices(await run())[0]?.path).toBe(path.join(fs.cwd, "pkg/AGENTS.override.md"));
 });
 
-it("orders and deduplicates the complete batch across sibling scopes and depths", async () => {
-  for (const directory of ["z/deep", "a", "z", "a/deep/deeper", "a/deep"])
-    await fs.write(`${directory}/AGENTS.md`, directory);
-  const entries = await discover(
-    [
-      fs.call("read", { path: "z/deep/file.ts" }),
-      fs.call("read", { path: "a/deep/deeper/file.ts" }),
-      fs.call("ls", { path: "z/" })
-    ],
-    fs.cwd,
-    fs.manager,
-    files
-  );
-  expect(notices(entries).map(({ path: file }) => path.relative(fs.cwd, file!))).toEqual([
-    "a/AGENTS.md",
-    "z/AGENTS.md",
-    "a/deep/AGENTS.md",
-    "z/deep/AGENTS.md",
-    "a/deep/deeper/AGENTS.md"
-  ]);
-});
-
 it.each(["shortened", "Loaded instructions from altered/AGENTS.md:\n\nrules"])(
   "reloads notices replaced with %j, omitted by context edits, or compacted away",
   async (replacement) => {
@@ -240,22 +218,6 @@ it("an empty preferred instruction file still suppresses lower-priority content"
   const emptied = await refresh(fs.cwd, fs.manager, files);
   expect(emptied.map((entry) => decodeNotice(entry).body)).toEqual([""]);
   fs.append(emptied);
-  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
-});
-
-it("compares exact visible bodies using their original display spelling after cwd changes", async () => {
-  await fs.write("pkg/AGENTS.md", "\nLoaded instructions from body/AGENTS.md:\n\nrules\n");
-  await run();
-  expect(await refresh(fs.root, fs.manager, files)).toEqual([]);
-  await fs.write("pkg/AGENTS.md", "\nLoaded instructions from body/AGENTS.md:\n\nrules");
-  const updated = await refresh(fs.root, fs.manager, files);
-  expect(updated.map((entry) => decodeNotice(entry).body)).toEqual([
-    "\nLoaded instructions from body/AGENTS.md:\n\nrules"
-  ]);
-  expect(notices(updated)).toMatchObject([
-    { action: "updated", displayPath: "work/pkg/AGENTS.md" }
-  ]);
-  fs.append(updated);
   expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
 });
 

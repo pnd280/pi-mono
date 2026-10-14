@@ -17,7 +17,7 @@ See the [glossary](GLOSSARY.md) for domain terms, and [session lifetime](docs/de
 
 ## Validation
 
-| When you ...                              | Read                                                |
+| When you…                                 | Read                                                |
 | ----------------------------------------- | --------------------------------------------------- |
 | Change discovery, persistence, or notices | [package validation](README.md#validation)          |
 | Upgrade Pi                                | [compatibility checklist](docs/pi-compatibility.md) |

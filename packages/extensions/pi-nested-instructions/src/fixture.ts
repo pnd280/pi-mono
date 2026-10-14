@@ -51,5 +51,3 @@ export async function fixture() {
     dispose: () => rm(root, { recursive: true, force: true })
   };
 }
-
-export const fffSource = { source: "npm:@ff-labs/pi-fff", path: "/unused/index.ts" };

@@ -1,5 +1,5 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { compactDisplayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
+import { formatTodosSummary, presentCompactTaskText, TASK_STATUS_TEXT } from "pi-todo/text";
 import { z } from "zod";
 
 import type {
@@ -9,20 +9,12 @@ import type {
   Outcome,
   ToolDisplayAdapter
 } from "../../contracts.ts";
+import { registeredBy } from "../provenance.ts";
 
 const TASK_ACTIONS = ["create", "update", "list", "get", "delete", "clear"] as const;
 const TASK_STATUSES = ["pending", "in_progress", "completed", "deleted"] as const;
 
 type TaskAction = (typeof TASK_ACTIONS)[number];
-
-type TaskStatus = (typeof TASK_STATUSES)[number];
-
-const STATUS_TEXT = {
-  pending: "pending",
-  in_progress: "in progress",
-  completed: "completed",
-  deleted: "deleted"
-} satisfies Record<TaskStatus, string>;
 
 const argsSchema = z.object({
   action: z.enum(TASK_ACTIONS),
@@ -98,19 +90,8 @@ function idPart(id: number | undefined): InvocationPart {
 
 function subjectPart(subject: string | undefined): InvocationPart {
   return subject
-    ? { kind: "value", text: presentTaskText(subject) }
+    ? { kind: "value", text: presentCompactTaskText(subject) }
     : { kind: "annotation", text: "…" };
-}
-
-/** Match the extension's compact todo subject budget before terminal wrapping. */
-function presentTaskText(text: string): string {
-  const compact = compactDisplayText(text).trim();
-  const points = Array.from(compact);
-
-  if (points.length <= 200) return compact;
-  const end = points.slice(0, 199).join("").length;
-
-  return sliceTerminalText(compact, 0, end).text + "…";
 }
 
 function taskSubject(
@@ -125,7 +106,7 @@ function taskSubject(
 
 function changeSummary(args: NonNullable<ReturnType<typeof parseArgs>>): string {
   const changes: string[] = [];
-  if (args.status !== undefined) changes.push(`status → ${STATUS_TEXT[args.status]}`);
+  if (args.status !== undefined) changes.push(`status → ${TASK_STATUS_TEXT[args.status]}`);
   if (args.subject !== undefined) changes.push("subject");
   if (args.description !== undefined) changes.push("description");
   if (args.inProgressLabel !== undefined) changes.push("activity");
@@ -183,7 +164,7 @@ function invocation(args: unknown, result?: BorrowedToolResult): InvocationPart[
         parsed.status === undefined
           ? [{ kind: "annotation", text: "all todos" }]
           : [
-              { kind: "value", text: STATUS_TEXT[parsed.status] },
+              { kind: "value", text: TASK_STATUS_TEXT[parsed.status] },
               { kind: "annotation", text: " todos" }
             ];
       if (parsed.includeDeleted) parts.push({ kind: "annotation", text: " including deleted" });
@@ -198,21 +179,6 @@ function invocation(args: unknown, result?: BorrowedToolResult): InvocationPart[
     case "clear":
       return [];
   }
-}
-
-function progressSummary(tasks: readonly { status: TaskStatus }[]): string {
-  const visible = tasks.filter((task) => task.status !== "deleted");
-  if (!visible.length)
-    return tasks.length ? `${tasks.length} deleted · no active todos` : "No todos";
-  const completed = visible.filter((task) => task.status === "completed").length;
-  const inProgress = visible.filter((task) => task.status === "in_progress").length;
-  const pending = visible.filter((task) => task.status === "pending").length;
-  const header: string[] = [];
-  if (completed > 0) header.push(`${completed}/${visible.length} completed`);
-  if (inProgress > 0) header.push(`${inProgress} in progress`);
-  if (pending > 0) header.push(`${pending} pending`);
-
-  return header.join(" · ");
 }
 
 /**
@@ -252,12 +218,12 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
     const parsed = parseArgs(args);
     if (!parsed || !details?.tasks || details.error) return undefined;
     const tasks = details.tasks;
-    const progress = progressSummary(tasks);
+    const progress = formatTodosSummary(tasks);
     const id =
       parsed.action === "create" && details.nextId !== undefined ? details.nextId - 1 : parsed.id;
     const task = tasks.find((task) => task.id === id);
     if (task && ["create", "update", "get", "delete"].includes(parsed.action))
-      return { text: `#${task.id} ${STATUS_TEXT[task.status]} · ${progress}` };
+      return { text: `#${task.id} ${TASK_STATUS_TEXT[task.status]} · ${progress}` };
 
     if (parsed.action === "list" && (parsed.status !== undefined || parsed.includeDeleted)) {
       const matching = tasks.filter(
@@ -275,13 +241,12 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
 
 /** pi-todo registers this tool; resolve its adapter only for verified provenance. */
 export function piTodoAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
-  if (!tool || tool.name !== "todo") return undefined;
-  if (["builtin", "sdk"].includes(tool.sourceInfo.source)) return undefined;
-  const path = tool.sourceInfo.path.replaceAll("\\", "/");
-  const owned =
-    /^npm:pi-todo(?:@[^/]+)?$/.test(tool.sourceInfo.source) ||
-    /(?:^|\/)pi-todo\/(?:src\/)?index\.[cm]?[jt]s$/.test(path);
-  if (!owned || !parametersSchema.safeParse(tool.parameters).success) return undefined;
+  if (
+    tool?.name !== "todo" ||
+    !registeredBy(tool, "pi-todo") ||
+    !parametersSchema.safeParse(tool.parameters).success
+  )
+    return undefined;
 
   return todoDisplayAdapter;
 }

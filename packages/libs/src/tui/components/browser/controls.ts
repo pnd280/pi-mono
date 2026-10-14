@@ -8,6 +8,7 @@ import {
 
 import {
   formatKeyLabel,
+  navigationHints,
   resolveKeybindings,
   type KeybindingCandidate
 } from "../../keybindings/index.ts";
@@ -21,6 +22,7 @@ export type BrowserAction =
   | "pageUp"
   | "pageDown"
   | "switch"
+  | "switchBack"
   | "preview"
   | "alternate"
   | "delete"
@@ -44,7 +46,7 @@ const fixed = [
   ["alternate", "alt+enter"],
   ["delete", "delete"],
   ["switch", "tab"],
-  ["switch", "shift+tab"]
+  ["switchBack", "shift+tab"]
 ] as const;
 
 export type BrowserKeys = Pick<KeybindingsManager, "getKeys">;
@@ -93,10 +95,6 @@ export class BrowserControls {
   }
 
   navigationHints(label: string): string[] {
-    const up = this.key("up");
-    const down = this.key("down");
-    if (up && down) return [`${up === "Up" && down === "Down" ? "↑↓" : `${up}/${down}`} ${label}`];
-
-    return [this.hint("up", `${label} up`), this.hint("down", `${label} down`)];
+    return navigationHints(this.key("up"), this.key("down"), label);
   }
 }

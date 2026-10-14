@@ -30,11 +30,8 @@ export default function offlineFixture(pi: ExtensionAPI) {
   let hadOwnStream = false;
   let hadOwnDefault = false;
   let hadOwnEmit = false;
-  const suppliesInstructions = !["success", "no-request"].includes(scenario);
   const instructions =
-    scenario === "empty-instructions"
-      ? ""
-      : "Preserve NATIVE_FOCUS_MARKER and the remaining tests.";
+    scenario === "success" ? undefined : "Preserve NATIVE_FOCUS_MARKER and the remaining tests.";
   // The original method is invoked with its original session receiver via apply().
   // oxlint-disable-next-line typescript/unbound-method
   const originalPrompt = AgentSession.prototype.prompt;
@@ -77,39 +74,23 @@ export default function offlineFixture(pi: ExtensionAPI) {
     hadOwnDefault = Object.hasOwn(this, "_runDefaultCompaction");
     hadOwnEmit = Object.hasOwn(runner, "emit");
 
-    if (["instructions-history", "instructions-boundary"].includes(scenario)) {
+    if (scenario === "instructions-history") {
       this.sessionManager.appendMessage({
         role: "user",
         content: "Previously completed work.",
         timestamp: Date.now()
       });
-      this.sessionManager.appendMessage(
-        fauxAssistantMessage(
-          scenario === "instructions-boundary"
-            ? "OLD_FIXTURE_PAYLOAD ".repeat(1500)
-            : "Previous task completed."
-        )
-      );
+      this.sessionManager.appendMessage(fauxAssistantMessage("Previous task completed."));
       this.agent.state.messages = this.sessionManager.buildSessionProjection().messages;
     }
 
-    if (scenario === "manual" || scenario === "manual-split") {
+    if (scenario === "manual-split") {
       this.sessionManager.appendMessage({
         role: "user",
         content: "OLD_FIXTURE_PAYLOAD ".repeat(1500),
         timestamp: Date.now()
       });
-      this.sessionManager.appendMessage(
-        fauxAssistantMessage(
-          scenario === "manual-split" ? "RECENT_PROGRESS ".repeat(100) : "Previous task completed."
-        )
-      );
-      if (scenario !== "manual-split")
-        this.sessionManager.appendMessage({
-          role: "user",
-          content: "CURRENT_REQUEST ".repeat(100),
-          timestamp: Date.now()
-        });
+      this.sessionManager.appendMessage(fauxAssistantMessage("RECENT_PROGRESS ".repeat(100)));
     }
 
     unsubscribe ??= this.subscribe((event) => {
@@ -142,7 +123,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
       reason: event.reason,
       customInstructions: event.customInstructions,
       isSplitTurn: event.preparation.isSplitTurn,
-      historyMessages: event.preparation.messagesToSummarize.length,
       settings: event.preparation.settings,
       branch: event.branchEntries.map((entry) =>
         entry.type === "message"
@@ -157,15 +137,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
     await delay(10);
     trace("hook:before:awaited", { ctxIdle: ctx.isIdle() });
     if (scenario === "cancel") return { cancel: true };
-    if (scenario === "custom-summary")
-      return {
-        compaction: {
-          summary: "NATIVE_FIXTURE_CHECKPOINT: Hook-supplied summary.",
-          firstKeptEntryId: event.preparation.firstKeptEntryId,
-          tokensBefore: event.preparation.tokensBefore,
-          details: { custom: true }
-        }
-      };
 
     return undefined;
   });
@@ -296,12 +267,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
         let calls: string[] = [];
 
         if (mainRequests === 1) calls = ["fixture_work"];
-        else if (mainRequests === 2 && scenario !== "no-request") {
-          calls =
-            scenario === "duplicate"
-              ? ["compact", "compact", "fixture_work"]
-              : ["compact", "fixture_work"];
-        }
+        else if (mainRequests === 2) calls = ["compact", "fixture_work"];
 
         if (calls.length === 0) {
           text("TASK_FINISHED");
@@ -310,15 +276,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
         }
 
         for (const [index, name] of calls.entries()) {
-          const arguments_ =
-            name === "compact" && suppliesInstructions
-              ? {
-                  instructions:
-                    scenario === "duplicate" && index === 0
-                      ? "SUPERSEDED_INSTRUCTIONS"
-                      : instructions
-                }
-              : {};
+          const arguments_ = name === "compact" && instructions ? { instructions } : {};
           const call = fauxToolCall(name, arguments_, { id: `call-${mainRequests}-${index}` });
           const contentIndex = message.content.length;
           message.content.push(call);
@@ -368,8 +326,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
             api: provider,
             provider,
             baseUrl: "http://localhost.invalid",
-            reasoning:
-              scenario !== "unsupported-thinking" && (!dedicated || scenario !== "no-reasoning"),
+            reasoning: true,
             input: ["text"],
             contextWindow: 200000,
             maxTokens: dedicated ? 128 : 4096,
@@ -394,10 +351,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
         content: [
           {
             type: "text",
-            text:
-              workCalls === 1 && scenario !== "instructions-boundary"
-                ? "OLD_FIXTURE_PAYLOAD ".repeat(1500)
-                : "Recent work completed."
+            text: workCalls === 1 ? "OLD_FIXTURE_PAYLOAD ".repeat(1500) : "Recent work completed."
           }
         ],
         details: undefined

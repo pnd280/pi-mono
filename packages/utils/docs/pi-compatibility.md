@@ -10,7 +10,7 @@
 2. Run the affected libs and extensions whose input or output assumptions changed. This package needs no standalone terminal scenario.
 3. Work through the checklist below, then update the "Last verified" line.
 
-Cooperative search owns the [fuzzy-score differential checks](../../libs/src/text-search/README.md#validation) against Pi. They are no longer utility-package checks.
+Cooperative search owns the [fuzzy-score differential checks](../../libs/docs/pi-compatibility.md#cooperative-search) against Pi.
 
 ## Checklist
 

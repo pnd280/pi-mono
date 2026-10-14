@@ -10,7 +10,7 @@ import {
 } from "./constants.ts";
 import type { TodoController } from "./controller.ts";
 import { formatTodosCommandOutput } from "./format.ts";
-import type { TodoOverlay } from "./todo-overlay.ts";
+import type { TodoWidget } from "./todo-widget.ts";
 import { TodosView } from "./todos-view.ts";
 
 const actions = ["collapse", "expand", "toggle"] as const;
@@ -55,7 +55,7 @@ export function todosArgumentAutocompleteProvider(
 
 export class TodosCustomViewHost {
   private session = new AbortController();
-  constructor(private readonly widget: Pick<TodoOverlay, "suppress">) {}
+  constructor(private readonly widget: Pick<TodoWidget, "suppress">) {}
   start(): void {
     this.shutdown();
     this.session = new AbortController();
@@ -104,7 +104,7 @@ export async function runTodosCommand(
   controller: Pick<TodoController, "getTodos">,
   options: {
     customViewHost: TodosCustomViewHost;
-    widgetStateHost: Pick<TodoOverlay, "canCollapse" | "toggleCollapsed" | "setCollapsed">;
+    widgetStateHost: Pick<TodoWidget, "canCollapse" | "toggleCollapsed" | "setCollapsed">;
     writeOutput?: (text: string) => void;
   }
 ): Promise<void> {

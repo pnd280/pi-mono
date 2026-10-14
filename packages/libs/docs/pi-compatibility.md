@@ -43,7 +43,7 @@ Check both API and installed-CLI consumers wherever a library depends on Pi's ho
 
 ### Cooperative search
 
-- [ ] [Internal ranking](../src/text-search/README.md#validation) retains Pi-compatible fuzzy scores, including Unicode positions and letter/digit transposition fallback. Run the differential checks against the installed Pi TUI version.
+- [ ] [Internal ranking](../src/text-search/README.md#validation) retains Pi-compatible fuzzy scores, including Unicode positions and letter/digit transposition fallback. Compare `fuzzyScore` in [ranking](../src/text-search/ranking.ts) with `fuzzyMatch` in the installed `@earendil-works/pi-tui` (`dist/fuzzy.js`).
 
 ### Working message
 

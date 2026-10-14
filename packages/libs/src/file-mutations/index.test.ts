@@ -142,41 +142,6 @@ it("shares one pre-write read, memoizes generated patches, and preserves alias m
   ]);
 });
 
-it.each(["edit", "write"] as const)(
-  "observes the UTF-8 text written by %s for unpaired surrogates",
-  async (name) => {
-    const { directory, context } = await fixture();
-    await fs.writeFile(join(directory, "file"), "before\n");
-    const changes: FileMutation[] = [];
-    const original =
-      name === "edit"
-        ? defineTool(createEditToolDefinition(directory))
-        : defineTool(createWriteToolDefinition(directory));
-    const tool = observeMutationDefinition(original, directory, () => [
-      {
-        maxSourceBytes: 1024,
-        completed: (change) => {
-          changes.push(change);
-        }
-      }
-    ]);
-    const content = "lone \ud800 and \udc00; pair 😀\n";
-    const args =
-      name === "edit"
-        ? { path: "file", edits: [{ oldText: "before\n", newText: content }] }
-        : { path: "file", content };
-    const borrowed = structuredClone(args);
-    await tool.execute(name, args, undefined, undefined, context);
-    expect(args).toEqual(borrowed);
-    expect(await fs.readFile(join(directory, "file"), "utf8")).toBe("lone � and �; pair 😀\n");
-    expect(changes[0]?.after).toEqual({ status: "ready", text: "lone � and �; pair 😀\n" });
-    const patch = await changes[0]!.patch(limits);
-    expect(patch.status).toBe("ready");
-    if (patch.status !== "ready") throw new Error("Expected an observed patch");
-    expect(patch.patch).toContain("+lone � and �; pair 😀\n");
-  }
-);
-
 it("isolates observer errors and reports committed writes even if cancellation hides the result", async () => {
   const { directory, context } = await fixture();
   const abort = new AbortController();

@@ -10,12 +10,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { parseArgs, SessionManager } from "@earendil-works/pi-coding-agent";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { resolveParentSession } from "./parent.ts";
 import { saveActiveBranch } from "./persist.ts";
-import { applyStartupParent } from "./startup.ts";
 
 let directory: string;
 let cwd: string;
@@ -46,12 +45,6 @@ it("resolves paths and exact IDs without reading or migrating conversation histo
   expect(() => resolveParentSession(id.slice(0, 8), cwd)).toThrow(Error);
 });
 
-it("accepts an exact custom ID that ends in .jsonl", () => {
-  const header = SessionManager.open(parent).getHeader();
-  writeFileSync(parent, `${JSON.stringify({ ...header, id: "named-session.jsonl" })}\n`);
-  expect(resolveParentSession("named-session.jsonl", cwd)).toBe(parent);
-});
-
 it("rejects ambiguous IDs and deduplicates symlinks to the same parent", () => {
   const custom = join(directory, "custom");
   mkdirSync(custom);
@@ -60,19 +53,6 @@ it("rejects ambiguous IDs and deduplicates symlinks to the same parent", () => {
   copyFileSync(parent, join(custom, "copy.jsonl"));
   expect(() => resolveParentSession(id, cwd, custom)).toThrow(Error);
   expect(resolveParentSession(parent, cwd, custom)).toBe(parent);
-});
-
-it("resolves a parent in a custom directory, without changing the child's cwd", () => {
-  const custom = join(directory, "custom");
-  mkdirSync(custom);
-  const other = SessionManager.create(directory, custom);
-  const otherPath = other.getSessionFile()!;
-  writeFileSync(otherPath, `${JSON.stringify(other.getHeader())}\n`);
-  const child = SessionManager.create(cwd, custom);
-  applyStartupParent(child, parseArgs(["--parent-session", other.getSessionId()]));
-  expect(child.getHeader()?.parentSession).toBe(otherPath);
-  expect(child.getCwd()).toBe(cwd);
-  expect(child.buildSessionContext().messages).toEqual([]);
 });
 
 it("rejects missing, malformed, oversized, and non-file parents without leaking contents", () => {

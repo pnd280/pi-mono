@@ -5,7 +5,16 @@ import {
   styledOutput
 } from "@pi-mono/libs/tui/terminal-text";
 
-import type { TaskMutationParams } from "./types.ts";
+import type { Task, TaskMutationParams, TaskStatus } from "./types.ts";
+
+// pi-tool-display imports this module (`pi-todo/text`) for todo cards; keep it free of runtime host imports.
+
+export const TASK_STATUS_TEXT = {
+  pending: "pending",
+  in_progress: "in progress",
+  completed: "completed",
+  deleted: "deleted"
+} satisfies Record<TaskStatus, string>;
 
 export function sanitizeTaskDescription(text: string): string {
   return displayText(styledOutput(text.replaceAll("\r", "").replaceAll("\t", "  ")));
@@ -22,6 +31,22 @@ function excerpt(text: string, maximum: number): string {
 
 export function presentCompactTaskText(text: string): string {
   return excerpt(compactDisplayText(text).trim(), 200);
+}
+
+/** Progress over todos that are not deleted, such as `1/3 completed · 1 in progress · 1 pending`. */
+export function formatTodosSummary(tasks: readonly Pick<Task, "status">[]): string {
+  const visible = tasks.filter((task) => task.status !== "deleted");
+  if (!visible.length)
+    return tasks.length ? `${tasks.length} deleted · no active todos` : "No todos";
+  const completed = visible.filter((task) => task.status === "completed").length;
+  const inProgress = visible.filter((task) => task.status === "in_progress").length;
+  const pending = visible.filter((task) => task.status === "pending").length;
+  const header: string[] = [];
+  if (completed > 0) header.push(`${completed}/${visible.length} completed`);
+  if (inProgress > 0) header.push(`${inProgress} ${TASK_STATUS_TEXT.in_progress}`);
+  if (pending > 0) header.push(`${pending} ${TASK_STATUS_TEXT.pending}`);
+
+  return header.join(" · ");
 }
 
 export function presentTaskDescription(text: string): string {

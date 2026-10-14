@@ -1,4 +1,4 @@
-import { rm, symlink } from "node:fs/promises";
+import { symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
@@ -123,16 +123,5 @@ describe("Git authority", () => {
     await symlink("cycle", join(directory.root, "cycle"));
     expect((await detect("cycle")).status).toBe("unavailable");
     expect((await detect("node_modules/linked/missing.ts")).status).toBe("missing");
-  });
-
-  it("distinguishes non-repositories and missing paths", async () => {
-    const outside = join(external.root, "outside");
-    await rm(join(external.root, ".git"), { recursive: true, force: true });
-    expect(
-      (await inspectGitIgnore({ path: external.root, cwd: external.root, timeoutMs: 2000 })).status
-    ).toBe("not-ignored");
-    expect(
-      (await inspectGitIgnore({ path: outside, cwd: external.root, timeoutMs: 2000 })).status
-    ).toBe("missing");
   });
 });

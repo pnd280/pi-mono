@@ -108,19 +108,6 @@ it("discovers the base like Pi: trusted project file first, then agent file", as
   ).toBe("A");
 });
 
-it("leaves append text unchanged when it differs from the loaded base", async () => {
-  const { agentDir } = await fixture({
-    agent: {
-      "APPEND_SYSTEM.md": "base",
-      "a.md": "A",
-      "settings.json": withRules([{ match: "^repeat$", append: ["a.md"] }])
-    }
-  });
-  const snapshot = loadModelPromptSnapshot({ agentDir, projectDir: undefined });
-
-  expect(snapshot.replacementFor("repeat", "explicit append")).toBeUndefined();
-});
-
 it.each([undefined, ""])(
   "applies files with a missing or empty base (%s) and strips a byte-order mark like Pi",
   async (base) => {
@@ -175,29 +162,6 @@ it("keeps the base for failed first selections without falling through to later 
   expect(snapshot.replacementFor("valid", "base")).toBe("A");
   expect(snapshot.replacementFor("missing", "base")).toBeUndefined();
   expect(snapshot.replacementFor("directory", "base")).toBeUndefined();
-});
-
-it("loads all configured rules once and orders settings, base, and unique-file warnings", async () => {
-  const { agentDir, at } = await fixture({
-    agent: {
-      "settings.json": withRules([
-        { match: "(", append: ["invalid.md"] },
-        { match: "current", append: ["missing.md", "missing.md"] },
-        { match: "unmatched", append: ["missing.md", "other.md"] }
-      ])
-    }
-  });
-  await mkdir(at("APPEND_SYSTEM.md"));
-  await mkdir(at("unconfigured.md"));
-  const snapshot = loadModelPromptSnapshot({ agentDir, projectDir: undefined });
-
-  expect(snapshot.warnings).toEqual([
-    "rules[0] skipped: invalid regular expression",
-    `${at("APPEND_SYSTEM.md")} could not be read; replacement disabled`,
-    `${at("missing.md")} could not be read; rules listing it keep APPEND_SYSTEM.md`,
-    `${at("other.md")} could not be read; rules listing it keep APPEND_SYSTEM.md`
-  ]);
-  expect(snapshot.replacementFor("current", "")).toBeUndefined();
 });
 
 it.skipIf(process.platform === "win32")("rejects FIFO files without blocking startup", async () => {

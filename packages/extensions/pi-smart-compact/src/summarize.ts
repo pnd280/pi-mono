@@ -12,7 +12,7 @@ import {
   type DefaultCompaction,
   type NativeSession
 } from "./compatibility.ts";
-import type { CompactConfig } from "./config.ts";
+import { findConfiguredModel, type CompactConfig } from "./config.ts";
 import type { SummaryModelEntry } from "./entry.ts";
 import { focusSplitTurn } from "./instructions.ts";
 
@@ -36,8 +36,7 @@ export async function summarizeWithOverrides(
   let selectedModel = args[1];
 
   if (overrides && reference !== undefined) {
-    const slash = reference.indexOf("/");
-    const model = overrides.registry.find(reference.slice(0, slash), reference.slice(slash + 1));
+    const model = findConfiguredModel(overrides.registry, reference);
     if (!model)
       throw new Error(
         "The configured compaction model is unavailable. Check ext.pi-smart-compact.model."

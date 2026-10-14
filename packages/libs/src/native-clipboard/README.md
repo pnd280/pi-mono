@@ -14,7 +14,7 @@ import { copyNative } from "@pi-mono/libs/native-clipboard";
 await copyNative(exactText, signal);
 ```
 
-The default 5,000 ms timeout covers all attempts. Cancellation may throw the signal reason. Only `NativeClipboardError` messages are display-safe.
+The default 5,000 ms timeout covers all attempts and throws `NativeClipboardError` when it expires. Cancellation may throw the signal reason. Only `NativeClipboardError` messages are display-safe.
 
 ## Caller responsibilities
 

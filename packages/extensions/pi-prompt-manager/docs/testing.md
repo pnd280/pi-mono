@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests collection formats, retention and recovery, activation, and privacy of its notifications. Libs owns private-file protocols, the shared browser, and native clipboard delivery.
+This package tests collection formats, retention and recovery, activation, and privacy of its notifications. Libs owns private-file protocols, the shared browser, and native clipboard helper selection; delivery to the OS clipboard is a [manual check](#manual-checks) here.
 
 ## Must not regress
 
@@ -16,6 +16,7 @@ This package tests collection formats, retention and recovery, activation, and p
 ## Not tested
 
 - Capture ordering, history deduplication, search preparation, browser rows, command syntax, and editor restore timing: below the severity bar. Use the [manual validation checks](validation.md).
+- Settings parsing and fallback: below the severity bar.
 - Shared browser geometry, the search-score matrix, and native editor history: owned by libs and Pi.
 
 ## Manual checks

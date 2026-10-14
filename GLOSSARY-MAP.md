@@ -5,7 +5,7 @@ The [workspace architecture](docs/architecture.md) assigns discovery and present
 ## Contexts
 
 - [pi-tool-display](./packages/extensions/pi-tool-display/GLOSSARY.md) presents Pi tool calls as cards, exploration groups, and run summaries.
-- [Nested instructions](./packages/extensions/pi-nested-instructions/GLOSSARY.md) loads instruction files from directories that tool inputs reach into.
+- [pi-nested-instructions](./packages/extensions/pi-nested-instructions/GLOSSARY.md) loads instruction files from directories that tool inputs reach into.
 
 ## Relationships
 

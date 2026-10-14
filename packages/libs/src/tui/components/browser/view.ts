@@ -185,7 +185,8 @@ export class Browser<Item> implements Component, Focusable {
     const state = this.controller;
     if (this.options.inspection) return [];
     const hints: (string | undefined)[] = [];
-    if (this.options.sections.length > 1) hints.push(this.controls.hint("switch", "view"));
+    if (this.options.sections.length > 1)
+      hints.push(this.controls.hint("switch", "view") ?? this.controls.hint("switchBack", "view"));
     const selected = state.selected;
     if (state.status !== "ready" || selected === undefined) return hints;
     if (!state.preview) hints.push(this.controls.hint("preview", "preview"));

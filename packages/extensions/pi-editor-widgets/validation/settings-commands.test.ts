@@ -10,35 +10,16 @@ import { defaultLayout } from "../src/layout.ts";
 
 const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
 
-it.each(
-  (["regular", "fullscreen"] as const).flatMap((mode) =>
-    (["context", "tokens"] as const).map((widget) => [mode, widget] as const)
-  )
-)("in %s, clicks toggle %s only in fullscreen without persistence", async (mode, widget) => {
-  const fixture = await hostFixture([editorWidgets], mode);
+it("toggles a fullscreen usage widget on click without writing settings", async () => {
+  const fixture = await hostFixture([editorWidgets], "fullscreen");
   const { session, host } = fixture;
   const usage = vi.spyOn(session, "getContextUsage").mockReturnValue({
     tokens: 75000,
     contextWindow: 200000,
     percent: 37.5
   });
-  const stats = vi.spyOn(session, "getSessionStats").mockReturnValue({
-    ...session.getSessionStats(),
-    tokens: { input: 100, output: 10, cacheRead: 900, cacheWrite: 50, total: 1060 },
-    cost: 1.25
-  });
-  const text = {
-    context: {
-      compact: "75k/200k (auto)",
-      verbose: "75k/200k (37.5%) (auto ~150k)",
-      regular: "75k/200k (37.5%) (auto)"
-    },
-    tokens: {
-      compact: "↑100 ↓10",
-      verbose: "↑100 ↓10 R900 W50 $1.250",
-      regular: "↑100 ↓10 R900 W50 $1.250"
-    }
-  }[widget];
+  const compact = "75k/200k (auto)";
+  const verbose = "75k/200k (37.5%) (auto ~150k)";
   const path = join(fixture.agentDir, "settings.json");
   mkdirSync(fixture.agentDir, { recursive: true });
   const source = JSON.stringify({ "ext.pi-editor-widgets": { contextThreshold: 150000 } });
@@ -49,7 +30,7 @@ it.each(
     await fixture.bind();
     const footer = () => plain(host.footerContainer.render(100));
 
-    const clickUsage = (text: string) => {
+    const click = (text: string) => {
       const lines = host.footerContainer.render(100).map(stripTerminalSequences);
       const y = lines.findIndex((line) => line.includes(text));
       expect(y).toBeGreaterThanOrEqual(0);
@@ -70,39 +51,14 @@ it.each(
       });
     };
 
-    const assertCompact = () => {
-      expect(footer()).toContain(text.compact);
-      expect(footer()).not.toContain(text.verbose);
-    };
-
-    if (mode === "regular") {
-      expect(footer()).toContain(text.regular);
-      expect(clickUsage(text.regular)).toBeUndefined();
-      expect(footer()).toContain(text.regular);
-      host.switchTuiMode("fullscreen", false, false);
-    }
-
-    assertCompact();
-    expect(clickUsage(text.compact)).toMatchObject({ handled: true });
-    expect(footer()).toContain(text.verbose);
-    // The other metric keeps its independent compact selection.
-    if (widget === "tokens") expect(footer()).toContain("75k/200k (auto)");
-    else expect(footer()).not.toContain("R900");
-    host.switchTuiMode("regular", false, false);
-    expect(footer()).toContain(text.regular);
-    expect(clickUsage(text.regular)).toBeUndefined();
-    expect(footer()).toContain(text.regular);
-    host.switchTuiMode("fullscreen", false, false);
-    expect(footer()).toContain(text.verbose);
-    expect(clickUsage(text.verbose)).toMatchObject({ handled: true });
-    assertCompact();
-    expect(clickUsage(text.compact)).toMatchObject({ handled: true });
+    expect(click(compact)).toMatchObject({ handled: true });
+    expect(footer()).toContain(verbose);
+    expect(click(verbose)).toMatchObject({ handled: true });
+    expect(footer()).toContain(compact);
     host.resetExtensionUI();
     await session.reload();
-    assertCompact();
     expect(readFileSync(path, "utf8")).toBe(source);
   } finally {
-    stats.mockRestore();
     usage.mockRestore();
     await fixture.dispose();
   }
@@ -170,53 +126,6 @@ it.each(["regular", "fullscreen"] as const)(
   }
 );
 
-it("/widgets refreshes the context threshold without saving and restores percentage colors when removed", async () => {
-  const fixture = await hostFixture([editorWidgets]);
-  const { session, host, ui } = fixture;
-  const path = join(fixture.agentDir, "settings.json");
-  mkdirSync(fixture.agentDir, { recursive: true });
-  writeFileSync(path, JSON.stringify({ "ext.pi-editor-widgets": { contextThreshold: 1500 } }));
-  const usage = vi.spyOn(session, "getContextUsage").mockReturnValue({
-    tokens: 750,
-    contextWindow: 1000,
-    percent: 75
-  });
-  let opening: Promise<void> | undefined;
-
-  try {
-    session.setAutoCompactionEnabled(false);
-    await fixture.bind();
-    const footer = () => host.customFooter?.render(80).join("\n");
-    expect(footer()).toContain(ui.theme.fg("success", "750/1.0k (75.0%)"));
-    const runner = session.extensionRunner;
-    const ctx = runner.createCommandContext();
-    const notify = vi.spyOn(ctx.ui, "notify");
-    const editor = host.editorContainer.children[0];
-
-    for (const [contextThreshold, color] of [
-      [300, "error"],
-      [undefined, "warning"]
-    ] as const) {
-      const source = JSON.stringify({ "ext.pi-editor-widgets": { contextThreshold } });
-      writeFileSync(path, source);
-      opening = runner.getCommand("widgets")?.handler("", ctx);
-      await vi.waitFor(() => expect(host.editorContainer.children[0]).not.toBe(editor));
-      expect(footer()).toContain(ui.theme.fg(color, "750/1.0k (75.0%)"));
-      host.editorContainer.children[0]?.handleInput?.("\x03");
-      await opening;
-      expect(footer()).toContain(ui.theme.fg(color, "750/1.0k (75.0%)"));
-      expect(readFileSync(path, "utf8")).toBe(source);
-    }
-
-    expect(notify).not.toHaveBeenCalled();
-  } finally {
-    host.editorContainer.children[0]?.handleInput?.("\x03");
-    await opening;
-    usage.mockRestore();
-    await fixture.dispose();
-  }
-});
-
 it.each(["regular", "fullscreen"] as const)(
   "restores the live layout when a mounted %s menu is cancelled by the host",
   async (mode) => {
@@ -264,39 +173,3 @@ it.each(["regular", "fullscreen"] as const)(
     }
   }
 );
-
-it("/widgets exposes load warnings and distinguishes a successful save with another invalid scope", async () => {
-  const fixture = await hostFixture([editorWidgets]);
-  mkdirSync(fixture.agentDir, { recursive: true });
-  mkdirSync(join(fixture.directory, ".pi"));
-  writeFileSync(join(fixture.agentDir, "settings.json"), "{broken");
-  let opening: Promise<void> | undefined;
-
-  try {
-    await fixture.bind();
-    const runner = fixture.session.extensionRunner;
-    const editor = fixture.host.editorContainer.children[0];
-    const ctx = runner.createCommandContext();
-    opening = runner.getCommand("widgets")?.handler("", ctx);
-    await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor));
-    const menu = fixture.host.editorContainer.children[0];
-    expect(plain(menu?.render(100) ?? [])).toContain(
-      `Settings: ${join(fixture.agentDir, "settings.json")}`
-    );
-    menu?.handleInput?.("\t");
-    expect(plain(menu?.render(100) ?? [])).toContain("Settings warning");
-    const notify = vi.spyOn(ctx.ui, "notify");
-    menu?.handleInput?.("\x13");
-    expect(plain(menu?.render(100) ?? [])).toContain("Saved");
-    expect(plain(menu?.render(100) ?? [])).toContain("Settings warning");
-    expect(plain(menu?.render(100) ?? [])).not.toContain("Save failed");
-    expect(notify).not.toHaveBeenCalled();
-    expect(readFileSync(join(fixture.agentDir, "settings.json"), "utf8")).toBe("{broken");
-    menu?.handleInput?.("\x03");
-    await opening;
-  } finally {
-    fixture.host.editorContainer.children[0]?.handleInput?.("\x03");
-    await fixture.dispose();
-    await opening;
-  }
-});

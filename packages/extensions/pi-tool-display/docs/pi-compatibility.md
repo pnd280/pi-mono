@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.0.2 on Linux with unchanged host fingerprints, and API and CLI suites. Earlier tmux smoke checks covered regular/fullscreen `summary`, **Ctrl+O**, two reloads, `explore`, and byte-preserving saved-session replay; they predate the current UI revisions. Not covered by this review: real-terminal behaviour, physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
+> Last verified against Pi 1.0.2 on Linux with unchanged host fingerprints, and API and CLI suites. Not covered by this review: real-terminal behaviour, physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. When a fingerprint doesn't match, the matching hook stays uninstalled and the feature falls back as described in the [README](../README.md#compatibility).
 

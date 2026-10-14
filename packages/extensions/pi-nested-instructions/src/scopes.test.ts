@@ -4,7 +4,7 @@ import path from "node:path";
 import type { JsonObject } from "@earendil-works/pi-ai";
 import { afterEach, beforeEach, expect, it } from "vite-plus/test";
 
-import { fffSource, fixture } from "./fixture.ts";
+import { fixture } from "./fixture.ts";
 import { inferScope } from "./scopes.ts";
 
 let fs: Awaited<ReturnType<typeof fixture>>;
@@ -15,11 +15,8 @@ afterEach(async () => {
   await fs.dispose();
 });
 
-const scopes = async (name: string, input: JsonObject, fff = false) => {
-  const result = await inferScope(
-    { toolCallId: "scope", toolName: name, input, ...(fff ? { sourceInfo: fffSource } : {}) },
-    fs.cwd
-  );
+const scopes = async (name: string, input: JsonObject) => {
+  const result = await inferScope({ toolCallId: "scope", toolName: name, input }, fs.cwd);
 
   // Scope membership matters here; discovery tests cover broad-to-narrow delivery.
   return {
@@ -58,14 +55,6 @@ it("does not traverse symlink destinations' ancestor chains", async () => {
   await symlink(path.join(fs.root, "outside/deep"), path.join(fs.cwd, "alias"));
   expect(await scopes("read", { path: "alias/file.ts" })).toEqual({
     directories: ["alias"],
-    reads: []
-  });
-});
-
-it("preserves existing FFF filename-query paths with spaces", async () => {
-  await fs.write("pkg space/deep/file.ts");
-  expect(await scopes("fffind", { pattern: "pkg space/deep/file.ts" }, true)).toEqual({
-    directories: ["pkg space", "pkg space/deep"],
     reads: []
   });
 });

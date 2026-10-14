@@ -1,7 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
-import { statusGlyph, TASK_STATUS_TEXT, TODO_DEPENDENCY_GLYPH } from "./glyphs.ts";
-import { presentCompactTaskText } from "./text.ts";
+import { statusGlyph, TODO_DEPENDENCY_GLYPH } from "./glyphs.ts";
+import { presentCompactTaskText, TASK_STATUS_TEXT } from "./text.ts";
 import type { Task } from "./types.ts";
 
 type TaskTheme = Pick<Theme, "fg" | "strikethrough">;

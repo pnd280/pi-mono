@@ -2,11 +2,17 @@
 
 [@pi-mono/libs](../../README.md)
 
-Reads and updates JSON settings files such as Pi's `settings.json`. Used by [working-message ordering](../working-message/README.md#persistence) and [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration).
+Reads and updates JSON settings files such as Pi's `settings.json`. Used by [working-message ordering](../working-message/README.md#persistence), [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration), and the `ext.<package>` settings of other extensions.
 
 ## Behaviour
 
 Reads return current content without changing the file. Updates apply one locked change.
+
+### Scopes
+
+[`settingsPaths`](scopes.ts) returns the global path, `<agentDir>/settings.json`, and the project path, `<cwd>/.pi/settings.json`. Settings in parent directories never apply. `agentDir` defaults to Pi's agent directory.
+
+[`readScopedSettings`](scopes.ts) calls your reader for the global path, then for the project path only when `projectTrusted` is true. It returns `[global, project]`; `project` is absent for an untrusted project. Your reader decides how to parse, validate, and handle failures, and you decide how the project result overrides the global one.
 
 ### Reads
 
@@ -38,10 +44,10 @@ Reads and serialised writes are limited to 1 MiB.
 ## Caller responsibilities
 
 - Validate the parsed settings section, and decide whether an invalid file is ignored or disables the feature.
-- Access project settings only after establishing project trust. These helpers don't enforce scope or trust.
+- Pass `ctx.isProjectTrusted()` as `projectTrusted`. Other helpers don't check trust, so open project settings with them only after you establish project trust.
 - Mutators own their section's schema, and decide whether invalid preferences can be replaced.
 - Show sanitised read and write diagnostics specific to your feature, without exposing settings contents.
 
 ## Validation
 
-Use [package validation](../../README.md#validation) and check affected consumers. Edge cases are tested in the [reader tests](index.test.ts), [transaction tests](transaction.test.ts), [working-message settings tests](../working-message/settings.test.ts), and [widget settings tests](../../../extensions/pi-editor-widgets/src/settings.test.ts).
+Use [package validation](../../README.md#validation) and check affected consumers. Edge cases are tested in the [transaction tests](transaction.test.ts), [working-message settings tests](../working-message/settings.test.ts), and [widget settings tests](../../../extensions/pi-editor-widgets/src/settings.test.ts).

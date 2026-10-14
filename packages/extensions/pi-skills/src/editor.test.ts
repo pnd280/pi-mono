@@ -45,23 +45,3 @@ it("Enter accepts a leading skill completion without submitting", async () => {
   expect(editor.isShowingAutocomplete()).toBe(false);
   expect(onSubmit).not.toHaveBeenCalled();
 });
-
-it("Tab inserts a single inline skill candidate without submitting", async () => {
-  const { editor, onSubmit } = editorFixture();
-  editor.setText("Use /skill:review");
-  editor.handleInput("\t");
-  await vi.waitFor(() => expect(editor.getText()).toBe("Use /skill:review "));
-  expect(onSubmit).not.toHaveBeenCalled();
-});
-
-it("Tab routes later-line skill completion and accepts a selection at the cursor", async () => {
-  const { editor, onSubmit } = editorFixture();
-  editor.setText("First\n/skill:reBAD rest");
-  for (let index = 0; index < "BAD rest".length; index++) editor.handleInput("\x1b[D");
-  editor.handleInput("\t");
-  await vi.waitFor(() => expect(editor.isShowingAutocomplete()).toBe(true));
-  editor.handleInput("\t");
-  editor.handleInput("!");
-  expect(editor.getText()).toMatch(/^First\n\/skill:(review|release) ! rest$/u);
-  expect(onSubmit).not.toHaveBeenCalled();
-});

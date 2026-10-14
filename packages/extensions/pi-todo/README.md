@@ -12,6 +12,7 @@ The model manages todos through the `todo` tool; you follow along in the `/todos
 
 The model calls the `todo` tool with one of these actions: `create`, `update`, `list`, `get`, `delete`, and `clear`. The tool can only be called by the model directly, not through other tools, so every change leaves a snapshot that can be replayed.
 
+- A todo's subject can't be empty.
 - New todos start as `pending`. Completed todos can't go back to `pending` or `in_progress`.
 - Todos can be nested. On `update`, `parentId: null` moves a todo and its children to the top level.
 - A todo can be _blocked by_ others. Cycles of blocking todos aren't allowed.
@@ -21,6 +22,8 @@ The model calls the `todo` tool with one of these actions: `create`, `update`, `
 - `clear` removes everything and resets IDs.
 - `list` shortens its displayed output, but the result details keep the full snapshot.
 - [Limits](src/constants.ts) on input and state also apply when results are replayed.
+
+The extension draws no tool cards. [pi-tool-display](../pi-tool-display/src/adapters/pi-todo/README.md) draws them with the shortened subjects, status words, and progress summary from the pure [`pi-todo/text`](src/text.ts) export.
 
 ### The `/todos` browser
 
@@ -72,7 +75,7 @@ Working-message order is a separate setting, [`workingMessage.order`](../../libs
 
 ### Replay
 
-On branch changes and compaction, the latest valid result is replayed. Malformed snapshots and host errors are skipped.
+When a session starts or reloads, on branch changes, and after compaction, the latest valid `todo` result on the current branch is replayed. Malformed snapshots and host errors are skipped.
 
 | Snapshot format     | Replayed as                                                                                             |
 | ------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -82,7 +85,7 @@ On branch changes and compaction, the latest valid result is replayed. Malformed
 
 ## Validation
 
-| When you ...                                      | Read                                                                          |
+| When you…                                         | Read                                                                          |
 | ------------------------------------------------- | ----------------------------------------------------------------------------- |
 | Change paging, the widget, or the working message | [offline terminal checks](docs/validation.md) in regular and fullscreen modes |
 | Decide where a test belongs                       | [testing](docs/testing.md) for what is tested here versus in shared libraries |

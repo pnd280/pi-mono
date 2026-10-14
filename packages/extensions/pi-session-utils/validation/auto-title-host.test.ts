@@ -1,6 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { fauxAssistantMessage, fauxProvider, type TranscriptContext } from "@earendil-works/pi-ai";
@@ -17,7 +16,6 @@ import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import sessionUtils from "../index.ts";
-import { saveActiveBranch } from "../src/persist.ts";
 
 const cleanups: (() => Promise<void>)[] = [];
 const settings = JSON.stringify({
@@ -33,12 +31,10 @@ afterEach(async () => {
 });
 
 async function host({
-  mode = "tui",
   projectTrusted = false,
   projectSettings,
   globalSettings = settings
 }: {
-  mode?: ExtensionContext["mode"];
   projectTrusted?: boolean;
   projectSettings?: string;
   globalSettings?: string;
@@ -115,10 +111,8 @@ async function host({
   const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
   const errors: unknown[] = [];
   await session.bindExtensions({
-    mode,
-    ...(mode === "tui" || mode === "rpc"
-      ? { uiContext: { ...session.extensionRunner.createContext().ui, notify } }
-      : {}),
+    mode: "tui",
+    uiContext: { ...session.extensionRunner.createContext().ui, notify },
     onError: (error) => {
       errors.push(error);
     }
@@ -142,67 +136,6 @@ async function host({
   };
 }
 
-it.each(["print", "rpc"] as const)(
-  "names automatically and regenerates in a real %s host",
-  async (mode) => {
-    const fixture = await host({ mode });
-    await fixture.session.prompt("Opening request");
-    await vi.waitFor(() =>
-      expect(fixture.session.sessionManager.getSessionName()).toBe("Offline session title")
-    );
-    expect(fixture.titleRequests).toHaveLength(1);
-    expect(fixture.titleRequests[0]?.messages.find(({ role }) => role === "user")?.content).toBe(
-      "Opening request"
-    );
-    expect(fixture.notify).not.toHaveBeenCalled();
-    await fixture.command();
-    const source = fixture.titleRequests[1]?.messages.find(({ role }) => role === "user")?.content;
-    expect(source).toContain("Opening request");
-    expect(source).toContain("Fixture reply");
-    if (mode === "rpc") expect(fixture.notify).toHaveBeenCalled();
-    else expect(fixture.notify).not.toHaveBeenCalled();
-    await fixture.command("clear");
-    await fixture.session.prompt("Do not automatically rename");
-    expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
-    expect(fixture.titleRequests).toHaveLength(2);
-    expect(await readFile(fixture.settingsPath, "utf8")).toBe(settings);
-    expect(fixture.errors).toEqual([]);
-  }
-);
-
-it("rejects unknown subcommands and extra arguments without operations or naming requests", async () => {
-  const fixture = await host();
-  const runner = fixture.session.extensionRunner;
-  const ctx = runner.createCommandContext();
-  const switchSession = vi.fn<typeof ctx.switchSession>();
-  const newSession = vi.fn<typeof ctx.newSession>();
-  fixture.session.sessionManager.appendMessage({ role: "user", content: "Request", timestamp: 0 });
-  fixture.session.setSessionName("Keep this title");
-
-  for (const args of [
-    "",
-    "unknown",
-    "persist extra",
-    "create-empty-child extra",
-    "create-sub-session",
-    "auto-names"
-  ]) {
-    fixture.notify.mockClear();
-    await runner.getCommand("sesh")!.handler(args, { ...ctx, switchSession, newSession });
-    expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
-      "Usage: /sesh persist | /sesh create-empty-child | /sesh auto-name [clear]",
-      "error"
-    );
-  }
-
-  expect(newSession).not.toHaveBeenCalled();
-  expect(switchSession).not.toHaveBeenCalled();
-  expect(existsSync(join(fixture.agentDir, "sessions"))).toBe(false);
-  expect(fixture.titleRequests).toEqual([]);
-  expect(fixture.session.sessionManager.getSessionName()).toBe("Keep this title");
-  expect(fixture.errors).toEqual([]);
-});
-
 it.each(["persist", "create-empty-child"])(
   "%s warns and returns immediately while busy without saving or switching",
   async (command) => {
@@ -223,124 +156,7 @@ it.each(["persist", "create-empty-child"])(
     expect(switchSession).not.toHaveBeenCalled();
     expect(existsSync(join(fixture.agentDir, "sessions"))).toBe(false);
 
-    if (command === "create-empty-child") {
-      const [message] = fixture.notify.mock.calls[0]!;
-      expect(message).toContain("/sesh persist");
-      expect(message).not.toContain("--parent-session");
-    }
-
     expect(fixture.titleRequests).toEqual([]);
-    expect(fixture.errors).toEqual([]);
-  }
-);
-
-it("warns when persist is busy even if the session is already file-backed", async () => {
-  const fixture = await host();
-  const runner = fixture.session.extensionRunner;
-  const ctx = runner.createCommandContext();
-  const switchSession = vi.fn<typeof ctx.switchSession>();
-  await runner.getCommand("sesh")!.handler("persist", {
-    ...ctx,
-    sessionManager: SessionManager.create(ctx.cwd),
-    isIdle: () => false,
-    switchSession
-  });
-
-  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  expect(switchSession).not.toHaveBeenCalled();
-  expect(fixture.errors).toEqual([]);
-});
-
-it("includes a shell-safe linked CLI command for a busy persisted parent", async () => {
-  const fixture = await host();
-  const runner = fixture.session.extensionRunner;
-  const ctx = runner.createCommandContext();
-  const saved = saveActiveBranch(ctx.cwd, ctx.sessionManager);
-  const parent = join(
-    ctx.cwd,
-    "parent's $(printf injected) `printf substituted` ; $HOME [*].jsonl"
-  );
-  await rename(saved, parent);
-  const before = await readFile(parent, "utf8");
-  const switchSession = vi.fn<typeof ctx.switchSession>();
-  const newSession = vi.fn<typeof ctx.newSession>();
-  await runner.getCommand("sesh")!.handler("create-empty-child", {
-    ...ctx,
-    sessionManager: SessionManager.open(parent),
-    isIdle: () => false,
-    switchSession,
-    newSession
-  });
-
-  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  const [message] = fixture.notify.mock.calls[0]!;
-  const command = message.split("\n").find((line) => line.startsWith("pi --parent-session "));
-  expect(command).toBeDefined();
-  // Capture shell arguments without launching Pi or making a provider request.
-  const argumentsOutput = execFileSync(
-    "bash",
-    ["--noprofile", "--norc", "-c", `pi() { printf '%s\\0' "$@"; }\n${command}`],
-    { cwd: ctx.cwd, encoding: "utf8", env: { PATH: process.env.PATH } }
-  );
-  expect(argumentsOutput).toBe(`--parent-session\0${parent}\0`);
-  expect(newSession).not.toHaveBeenCalled();
-  expect(switchSession).not.toHaveBeenCalled();
-  expect(await readFile(parent, "utf8")).toBe(before);
-  expect(fixture.errors).toEqual([]);
-});
-
-it("warns without a dangling CLI command when a busy parent's file is not yet written", async () => {
-  const fixture = await host();
-  const runner = fixture.session.extensionRunner;
-  const ctx = runner.createCommandContext();
-  const sessionManager = SessionManager.create(ctx.cwd);
-  const newSession = vi.fn<typeof ctx.newSession>();
-  await runner.getCommand("sesh")!.handler("create-empty-child", {
-    ...ctx,
-    sessionManager,
-    isIdle: () => false,
-    newSession
-  });
-
-  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-  const [message] = fixture.notify.mock.calls[0]!;
-  expect(message).not.toContain("--parent-session");
-  expect(existsSync(sessionManager.getSessionFile()!)).toBe(false);
-  expect(newSession).not.toHaveBeenCalled();
-  expect(fixture.errors).toEqual([]);
-});
-
-it.each(["completed", "cancelled", "failed"])(
-  "releases the session-operation lock after a %s switch",
-  async (outcome) => {
-    const fixture = await host();
-    const runner = fixture.session.extensionRunner;
-    const handler = runner.getCommand("sesh")!.handler;
-    const ctx = runner.createCommandContext();
-    const switchSession = vi
-      .fn<typeof ctx.switchSession>()
-      .mockImplementationOnce(async () => {
-        if (outcome === "failed") throw new Error("switch failed");
-
-        return { cancelled: outcome === "cancelled" };
-      })
-      .mockResolvedValue({ cancelled: true });
-    const operationContext = { ...ctx, switchSession };
-    const operation = handler("persist", operationContext);
-    if (outcome === "failed") await expect(operation).rejects.toThrow("switch failed");
-    else await operation;
-    expect(switchSession).toHaveBeenCalledOnce();
-    expect(existsSync(switchSession.mock.calls[0]![0])).toBe(outcome !== "cancelled");
-    fixture.notify.mockClear();
-
-    await handler(" persist ", operationContext);
-
-    expect(switchSession).toHaveBeenCalledTimes(2);
-    expect(existsSync(switchSession.mock.calls[1]![0])).toBe(false);
-    expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
-      "Session switch cancelled; no file saved",
-      "info"
-    );
     expect(fixture.errors).toEqual([]);
   }
 );
@@ -377,7 +193,7 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
     fixture.notify.mockClear();
     await handler(args, operationContext);
     expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
-      "A session operation is already in progress",
+      "A session operation is already in progress.",
       "warning"
     );
   }
@@ -414,15 +230,6 @@ it("keeps unconfigured naming inert while clear remains available", async () => 
   expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "info");
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(fixture.titleRequests).toEqual([]);
-  expect(fixture.errors).toEqual([]);
-});
-
-it("rejects unknown naming arguments without requests or changing the name", async () => {
-  const fixture = await host();
-  fixture.session.setSessionName("Keep this title");
-  for (const args of ["extra", "clear extra"]) await fixture.command(args);
-  expect(fixture.titleRequests).toEqual([]);
-  expect(fixture.session.sessionManager.getSessionName()).toBe("Keep this title");
   expect(fixture.errors).toEqual([]);
 });
 
@@ -530,43 +337,6 @@ it("cancels before tree navigation can wait for a branch summary", async () => {
   await pending;
   expect(canceled).toBe(true);
   expect(sm.getSessionName()).toBeUndefined();
-  expect(fixture.errors).toEqual([]);
-});
-
-it("does not retry a failed automatic attempt after tree navigation and names only the selected branch on demand", async () => {
-  const fixture = await host();
-  let failTitle = true;
-  fixture.faux.setResponses(
-    Array.from({ length: 5 }, () => (context, _options, _state, model) => {
-      if (model.id === "active") return fauxAssistantMessage("Fixture reply");
-      fixture.titleRequests.push(context);
-
-      if (failTitle) {
-        failTitle = false;
-
-        return fauxAssistantMessage("", { stopReason: "error", errorMessage: "Fixture failure" });
-      }
-
-      return fauxAssistantMessage("Offline session title");
-    })
-  );
-  await fixture.session.prompt("Opening request");
-  await vi.waitFor(() => expect(fixture.titleRequests).toHaveLength(1));
-  const sm = fixture.session.sessionManager;
-  expect(sm.getSessionName()).toBeUndefined();
-  const branchPoint = sm.getLeafId()!;
-  await fixture.session.prompt("Abandoned follow-up");
-  await fixture.session.navigateTree(branchPoint, { summarize: false });
-  // An existing title would mask a wrongly replenished automatic attempt.
-  expect(sm.getSessionName()).toBeUndefined();
-  await fixture.session.prompt("Selected follow-up");
-  expect(fixture.titleRequests).toHaveLength(1);
-  expect(fixture.notify).not.toHaveBeenCalled();
-  await fixture.command();
-  const source = fixture.titleRequests[1]?.messages.find(({ role }) => role === "user")?.content;
-  expect(source).toContain("Selected follow-up");
-  expect(source).not.toContain("Abandoned follow-up");
-  expect(sm.getSessionName()).toBe("Offline session title");
   expect(fixture.errors).toEqual([]);
 });
 

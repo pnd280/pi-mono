@@ -15,5 +15,7 @@ This package tests session persistence, parent lookup, the startup flag, and nam
 
 ## Not tested
 
-- Busy-agent warnings, command surface and completion, child creation guidance, title formatting, and request text limits: below the severity bar.
+- Busy-agent warnings, command surface and completion, child creation guidance, notification text, title formatting, and request text limits: below the severity bar.
+- Rejection of incomplete or thinking-only title responses, title token budgets for virtual models, and the retry policy after tree navigation: below the severity bar. The token budget is a [compatibility check](pi-compatibility.md#generation).
+- Settings file encoding and size limits: owned by the [settings-file library](../../../libs/src/settings-file/README.md).
 - Paid model requests, title quality, exporting other branches, terminal rendering, and provider authentication: out of scope or owned by Pi.

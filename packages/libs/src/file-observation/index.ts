@@ -9,6 +9,20 @@ export type FileObservation =
   | { status: "ready"; text: string }
   | { status: "missing" | "not-file" | "too-large" | "changed" | "invalid-utf8" | "unavailable" };
 
+/** Decode bytes the caller already read with the same complete-or-refuse rules. */
+export function decodeTextFile(bytes: Uint8Array, maxBytes: number): FileObservation {
+  if (bytes.length > maxBytes) return { status: "too-large" };
+
+  try {
+    return {
+      status: "ready",
+      text: new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes)
+    };
+  } catch {
+    return { status: "invalid-utf8" };
+  }
+}
+
 /** Read complete UTF-8 source or refuse. Follows symlinks, without permission repair or clipping. */
 export async function observeTextFile(path: string, maxBytes: number): Promise<FileObservation> {
   if (!sizeSchema.safeParse(maxBytes).success)
@@ -43,16 +57,7 @@ export async function observeTextFile(path: string, maxBytes: number): Promise<F
     if (bytesRead !== before.size || before.size !== after.size || before.mtimeMs !== after.mtimeMs)
       return { status: "changed" };
 
-    try {
-      return {
-        status: "ready",
-        text: new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
-          buffer.subarray(0, bytesRead)
-        )
-      };
-    } catch {
-      return { status: "invalid-utf8" };
-    }
+    return decodeTextFile(buffer.subarray(0, bytesRead), maxBytes);
   } catch {
     return { status: "unavailable" };
   } finally {

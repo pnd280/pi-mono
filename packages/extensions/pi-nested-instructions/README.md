@@ -1,8 +1,8 @@
 # pi-nested-instructions
 
-Load `AGENTS.md` files from subdirectories as the model starts working in them. For example, when the model reads `packages/api/src/server.ts`, the instructions in `packages/api/AGENTS.md` are added before its next request. Pi on its own loads instruction files only from the working directory and its parents, at startup.
+Pi on its own loads instruction files only from the working directory and its parents, at startup. pi-nested-instructions loads `AGENTS.md` files from subdirectories as the model starts working in them. For example, when the model reads `packages/api/src/server.ts`, the instructions in `packages/api/AGENTS.md` are added before its next request.
 
-Pi's startup loading of global, cwd, and parent instructions, and its reload behaviour, are unchanged.
+Pi's startup loading of global, cwd, and parent instructions, and its reload behaviour, are unchanged. Pi's `--no-context-files` option does not stop nested discovery; to disable it, do not load this extension.
 
 ## Usage
 
@@ -23,6 +23,7 @@ Only directories below the session's working directory are searched. In each dir
 - Accessing a file searches from its parent directory upward. Accessing a directory includes that directory.
 - Scope follows the path as written, not the ancestors of a symlink's target.
 - Paths outside the working directory are ignored.
+- Git-ignored directories, such as `node_modules`, are searched like any other directory, so reading a dependency's files can load its instructions.
 - If the model reads an instruction file directly, no second copy is added, even if the read fails.
 - Calls made by other tools, such as codemode scripts, still trigger discovery, and their instructions are always delivered, because the parent tool may hide what they read.
 
@@ -42,7 +43,7 @@ Display extensions can decode notices with the `pi-nested-instructions/notices` 
 
 ## Validation
 
-| When you ...                                 | Read                                                                                                                   |
+| When you…                                    | Read                                                                                                                   |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Change any behaviour                         | [workspace checks](../../../docs/development.md#focused-validation)                                                    |
 | Change adapter policy, selection, or refresh | [coverage specification](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md)                             |

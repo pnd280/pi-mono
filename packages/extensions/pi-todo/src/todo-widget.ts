@@ -31,7 +31,7 @@ export type TodoWidgetTui = Pick<TUI, "requestRender" | "mode">;
 
 export type TodoWidgetFactory = (tui: TodoWidgetTui, theme: TodoWidgetTheme) => Component;
 
-export type TodoOverlayUI = {
+export type TodoWidgetUI = {
   setWidget(
     key: string,
     content: TodoWidgetFactory | undefined,
@@ -44,9 +44,9 @@ type TodoWidgetRenderOptions = {
   collapsed?: boolean;
 };
 
-export class TodoOverlay {
+export class TodoWidget {
   private tui: TodoWidgetTui | undefined;
-  private uiCtx: TodoOverlayUI | undefined;
+  private uiCtx: TodoWidgetUI | undefined;
   private widgetRegistered = false;
   private collapsed = false;
   /** Last mode seen through Pi's live TUI reference; collapse applies only in fullscreen. */
@@ -61,7 +61,7 @@ export class TodoOverlay {
 
   constructor(private readonly controller: Pick<TodoController, "getTodos" | "getRevision">) {}
 
-  setUICtx(ctx: TodoOverlayUI): void {
+  setUICtx(ctx: TodoWidgetUI): void {
     if (ctx === this.uiCtx && this.live) return;
 
     this.clearRegisteredWidget();

@@ -17,17 +17,16 @@ it("segments only generated notices without losing source or Unicode offsets", (
 });
 
 it("rejects overlapping omission ranges rather than duplicating or dropping output", () => {
-  for (const omissions of [
-    [
+  const invalid = {
+    text: "abc",
+    omissions: [
       { start: 0, end: 2 },
       { start: 1, end: 3 }
     ]
-  ]) {
-    const invalid = { text: "abc", omissions };
-    expect(() => splitOutputText(invalid)).toThrow(RangeError);
-    expect(() => joinOutputText(["prefix", invalid])).toThrow(RangeError);
-    expect(() => sliceOutputText(invalid, 0)).toThrow(RangeError);
-  }
+  };
+  expect(() => splitOutputText(invalid)).toThrow(RangeError);
+  expect(() => joinOutputText(["prefix", invalid])).toThrow(RangeError);
+  expect(() => sliceOutputText(invalid, 0)).toThrow(RangeError);
 });
 
 it("tracks only inserted notices through UTF-16 joins and partially overlapping slices", () => {

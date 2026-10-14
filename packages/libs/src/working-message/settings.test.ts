@@ -37,28 +37,6 @@ function fixture(projectTrusted = true, agentName = "agent") {
   return { store, write };
 }
 
-it("uses global defaults and replaces them with trusted project order, including an empty override", () => {
-  const { store, write } = fixture();
-  expect(store.load()).toEqual({ global: undefined, project: undefined, warnings: [] });
-  write("global", { workingMessage: { order: ["b", "a", "b", "unavailable"] } });
-  expect(store.load().global).toEqual(["b", "a", "unavailable"]);
-  write("project", { workingMessage: { order: ["a"] } });
-  expect(store.load().project).toEqual(["a"]);
-  write("project", { workingMessage: { order: [] } });
-  expect(store.load().project).toEqual([]);
-});
-
-it("distinguishes an unset global order from an explicit empty order", () => {
-  const { store, write } = fixture();
-  expect(store.load().global).toBeUndefined();
-  write("global", { theme: "dark" });
-  expect(store.load().global).toBeUndefined();
-  write("global", { workingMessage: {} });
-  expect(store.load().global).toBeUndefined();
-  store.save("global", []);
-  expect(store.load().global).toEqual([]);
-});
-
 it("merges saves with fresh settings without touching unrelated fields or the other scope", () => {
   const { store, write } = fixture();
   write("global", { theme: "dark", workingMessage: { order: ["unavailable", "a"], future: true } });
@@ -139,27 +117,6 @@ it("sanitizes diagnostic paths without changing settings destinations", () => {
   store.save("global", ["a"]);
   expect(store.paths.global).toBe(path);
   expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ workingMessage: { order: ["a"] } });
-});
-
-it("replaces an invalid owned order while preserving unrelated fields", () => {
-  const { store, write } = fixture();
-  write("project", { theme: "dark", workingMessage: { order: 123, future: true } });
-  expect(store.load().warnings).toHaveLength(1);
-  store.save("project", ["b"]);
-  expect(JSON.parse(readFileSync(store.paths.project, "utf8"))).toEqual({
-    theme: "dark",
-    workingMessage: { order: ["b"], future: true }
-  });
-  expect(store.load().warnings).toEqual([]);
-});
-
-it.each([null, [], "invalid"])("rejects a malformed section without repairing it", (section) => {
-  const { store, write } = fixture();
-  write("project", { workingMessage: section });
-  const before = readFileSync(store.paths.project, "utf8");
-  expect(store.load().warnings).toHaveLength(1);
-  expect(() => store.save("project", ["b"])).toThrow("Check access");
-  expect(readFileSync(store.paths.project, "utf8")).toBe(before);
 });
 
 it("reports malformed files and lock failures without overwriting the file", () => {

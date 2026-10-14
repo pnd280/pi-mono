@@ -21,16 +21,12 @@ function signalProcess(pid: number, signal: NodeJS.Signals): void {
 }
 
 /** Freeze the live owned tree before discovery, including separately detached descendants. */
-export function terminateTree(
-  child: ChildProcess,
-  report: (step: string) => void,
-  onError: (error: Error) => void
-): void {
+export function terminateTree(child: ChildProcess, onError: (error: Error) => void): void {
   const root = child.pid;
   if (root === undefined || !isAlive(child)) return;
 
   if (process.platform === "win32") {
-    forceStop(child, report, onError);
+    forceStop(child, onError);
 
     return;
   }
@@ -68,8 +64,6 @@ export function terminateTree(
   } catch (error) {
     onError(error instanceof Error ? error : new Error(String(error)));
   } finally {
-    report("SIGKILL");
-
     // Kill descendants first. All targets came from this live handle, never saved records.
     for (const pid of [...owned].reverse()) {
       try {
@@ -83,17 +77,12 @@ export function terminateTree(
 }
 
 /** Begin the platform's forced stop; the caller already waited the stdin grace period. */
-export function forceStop(
-  child: ChildProcess,
-  report: (step: string) => void,
-  onError: (error: Error) => void
-): () => void {
+export function forceStop(child: ChildProcess, onError: (error: Error) => void): () => void {
   const pid = child.pid;
 
   if (pid === undefined || !isAlive(child)) return () => {};
 
   if (process.platform === "win32") {
-    report("taskkill");
     const killer = spawn(
       join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe"),
       ["/F", "/T", "/PID", String(pid)],
@@ -109,7 +98,6 @@ export function forceStop(
 
   const send = (signal: NodeJS.Signals) => {
     if (!isAlive(child)) return;
-    report(signal);
 
     try {
       signalProcess(-pid, signal);

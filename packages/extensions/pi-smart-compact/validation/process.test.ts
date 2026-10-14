@@ -46,7 +46,6 @@ const traceSchema = z.object({
   reason: z.string().optional(),
   customInstructions: z.string().optional(),
   isSplitTurn: z.boolean().optional(),
-  historyMessages: z.number().optional(),
   summaryKind: z.enum(["history", "prefix"]).optional(),
   additionalFocusCount: z.number().optional(),
   focus: z.string().optional(),
@@ -116,22 +115,16 @@ function checkCompactionLifecycle(trace: Trace) {
     assert.equal(entry.idle, true);
 }
 
-function retentionBudget(scenario: string) {
-  if (scenario === "small") return 1000000;
-  if (scenario === "instructions-boundary") return 2000;
-
-  return 256;
-}
-
 const requestedInstructions = "Preserve NATIVE_FOCUS_MARKER and the remaining tests.";
 const fileInstructions = "Preserve FILE_FOCUS_MARKER.";
 const combinedInstructions =
   "Preserve FILE_FOCUS_MARKER.\n\nPreserve NATIVE_FOCUS_MARKER and the remaining tests.";
 
-function checkEntryFocus(trace: Trace, expectedFocus: string | undefined, split: boolean) {
-  const request = trace.find((item) => item.type === "provider:summary");
-  assert.equal(request?.focus, expectedFocus);
-  assert.equal(request?.summaryKind, split ? "prefix" : "history");
+function checkEntryFocus(trace: Trace, expectedFocus: string) {
+  assert.partialDeepStrictEqual(
+    trace.find((item) => item.type === "provider:summary"),
+    { focus: expectedFocus, summaryKind: "prefix" }
+  );
   assert.equal(
     trace.find((item) => item.type === "hook:before")?.customInstructions,
     expectedFocus
@@ -152,20 +145,16 @@ function checkInstructionPrompts(
     trace.filter((entry) => entry.type === "public:summarization_retry_attempt_start").length,
     scenario === "retry" ? 1 : 0
   );
-  if (!scenario.startsWith("instructions-")) return;
-  const requests = trace
-    .filter((entry) => entry.type === "provider:summary")
-    .map((entry) => ({
-      kind: entry.summaryKind,
-      focused: entry.focus === expectedFocus
-    }));
-  const expected = [];
-  if (scenario !== "instructions-split") expected.push({ kind: "history", focused: true });
-  if (scenario !== "instructions-boundary") expected.push({ kind: "prefix", focused: true });
-  assert.deepEqual(requests, expected);
-  const historyMessages = trace.find((entry) => entry.type === "hook:before")?.historyMessages;
-  if (scenario === "instructions-split") assert.equal(historyMessages, 0);
-  else assert.ok(historyMessages !== undefined && historyMessages > 0);
+  if (scenario !== "instructions-history") return;
+  assert.deepEqual(
+    trace
+      .filter((entry) => entry.type === "provider:summary")
+      .map((entry) => ({ kind: entry.summaryKind, focused: entry.focus === expectedFocus })),
+    [
+      { kind: "history", focused: true },
+      { kind: "prefix", focused: true }
+    ]
+  );
 }
 
 function checkOutput(stdout: string, mode: string, scenario: string, attempts: number) {
@@ -227,9 +216,7 @@ function checkOutput(stdout: string, mode: string, scenario: string, attempts: n
 }
 
 function expectedOutcomeStatus(scenario: string) {
-  if (scenario === "small") return "skipped";
-  if (["failure", "missing-model", "auth-failure", "unsupported-thinking"].includes(scenario))
-    return "failed";
+  if (["failure", "auth-failure"].includes(scenario)) return "failed";
   if (["cancel", "abort", "escape"].includes(scenario)) return "cancelled";
 
   return undefined;
@@ -259,19 +246,15 @@ function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
     assert.partialDeepStrictEqual(outcome.details, { status });
     assert.ok(typeof outcome.content === "string");
     if (status === "cancelled") assert.match(outcome.content, /cancelled/i);
-    if (scenario === "small") assert.match(outcome.content, /Pi did not start compaction/);
     if (scenario === "failure") assert.match(outcome.content, /Offline summary failure/);
-    if (scenario === "missing-model") assert.match(outcome.content, /model is unavailable/);
     if (scenario === "auth-failure")
       assert.match(outcome.content, /Offline summary authentication failed/);
-    if (scenario === "unsupported-thinking")
-      assert.match(outcome.content, /thinkingLevel is unsupported/);
   }
 
   assert.equal(
     manager.getBranch().filter((entry) => entry.type === "message" && entry.message.role === "user")
       .length,
-    ["instructions-history", "instructions-boundary"].includes(scenario) ? 2 : 1
+    scenario === "instructions-history" ? 2 : 1
   );
 
   for (const request of trace.filter((event) => event.type === "provider:main")) {
@@ -291,15 +274,14 @@ function checkOutcome(manager: SessionManager, trace: Trace, scenario: string) {
   );
 }
 
-function activeThinking(scenario: string, configured: boolean) {
-  return configured && scenario !== "unsupported-thinking" ? "high" : "off";
+function activeThinking(configured: boolean) {
+  return configured ? "high" : "off";
 }
 
 function checkAcknowledgements(
   manager: SessionManager,
   modelOverride: string | undefined,
-  thinkingLevel: string,
-  expectedCount: number
+  thinkingLevel: string
 ) {
   const results = manager
     .getBranch()
@@ -311,7 +293,7 @@ function checkAcknowledgements(
         : []
     );
 
-  assert.equal(results.length, expectedCount);
+  assert.equal(results.length, 1);
 
   for (const result of results) {
     assert.deepEqual(result.content, [
@@ -329,18 +311,15 @@ function checkAcknowledgements(
 
 function checkModelRouting(
   trace: Trace,
-  scenario: string,
   config: CompactSettings | undefined,
   manager: SessionManager
 ) {
-  const nativeThinking = activeThinking(scenario, config !== undefined);
-  const expectedThinking =
-    config?.thinkingLevel ?? (scenario === "no-reasoning" ? "off" : nativeThinking);
-  const idleTimeout = scenario === "no-idle-timeout" ? 2147483647 : 4321;
+  const nativeThinking = activeThinking(config !== undefined);
+  const expectedThinking = config?.thinkingLevel ?? nativeThinking;
 
   for (const entry of trace.filter((event) => event.type === "provider:summary")) {
     assert.deepEqual(entry.requestPolicy, {
-      timeoutMs: scenario === "provider-timeout" ? 1234 : idleTimeout,
+      timeoutMs: 4321,
       websocketConnectTimeoutMs: 2345,
       maxRetries: 2,
       maxRetryDelayMs: 3456
@@ -384,10 +363,7 @@ function checkModelRouting(
       ).length
     );
 
-  let expectedAcknowledgements = 1;
-  if (scenario === "no-request") expectedAcknowledgements = 0;
-  if (scenario === "duplicate") expectedAcknowledgements = 2;
-  checkAcknowledgements(manager, config?.model, expectedThinking, expectedAcknowledgements);
+  checkAcknowledgements(manager, config?.model, expectedThinking);
 
   return expectedThinking;
 }
@@ -429,6 +405,8 @@ function checkSummaryModelEntries(
 
 const summaryModel = "summary-compaction-fixture/nested/summary";
 
+// Each row is a distinct failure mode of credential isolation, no fallback, cancellation,
+// run abort, or ordinary continuation through the bundled CLI.
 const toolCases: {
   mode: string;
   scenario: string;
@@ -438,41 +416,7 @@ const toolCases: {
   instructions?: string;
   config?: CompactSettings;
 }[] = [
-  {
-    mode: "json",
-    scenario: "provider-timeout",
-    instructions: requestedInstructions,
-    summaries: 1,
-    compactions: 1,
-    attempts: 1,
-    config: { model: summaryModel }
-  },
-  {
-    mode: "json",
-    scenario: "no-idle-timeout",
-    instructions: requestedInstructions,
-    summaries: 1,
-    compactions: 1,
-    attempts: 1,
-    config: { model: summaryModel }
-  },
-  {
-    mode: "json",
-    scenario: "no-reasoning",
-    instructions: requestedInstructions,
-    summaries: 1,
-    compactions: 1,
-    attempts: 1,
-    config: { model: summaryModel }
-  },
-  {
-    mode: "json",
-    scenario: "success",
-    summaries: 1,
-    compactions: 1,
-    attempts: 1,
-    config: { applyToManual: true }
-  },
+  { mode: "text", scenario: "success", summaries: 1, compactions: 1, attempts: 1 },
   {
     mode: "json",
     scenario: "instructions-history",
@@ -491,86 +435,24 @@ const toolCases: {
     attempts: 1,
     config: { model: summaryModel, thinkingLevel: "off" }
   },
-  {
+  ...["failure", "auth-failure"].map((scenario) => ({
     mode: "json",
-    scenario: "failure",
+    scenario,
     instructions: requestedInstructions,
-    summaries: 1,
+    summaries: scenario === "failure" ? 1 : 0,
     compactions: 0,
     attempts: 1,
     config: { model: summaryModel }
-  },
-  {
+  })),
+  ...["escape", "cancel"].map((scenario) => ({
     mode: "json",
-    scenario: "escape",
+    scenario,
     instructions: requestedInstructions,
-    summaries: 1,
+    summaries: scenario === "escape" ? 1 : 0,
     compactions: 0,
     attempts: 1,
     config: { model: summaryModel }
-  },
-  {
-    mode: "json",
-    scenario: "cancel",
-    instructions: requestedInstructions,
-    summaries: 0,
-    compactions: 0,
-    attempts: 1,
-    config: { model: summaryModel }
-  },
-  {
-    mode: "json",
-    scenario: "custom-summary",
-    instructions: requestedInstructions,
-    summaries: 0,
-    compactions: 1,
-    attempts: 1,
-    config: { model: "missing/model" }
-  },
-  {
-    mode: "json",
-    scenario: "missing-model",
-    instructions: requestedInstructions,
-    summaries: 0,
-    compactions: 0,
-    attempts: 1,
-    config: { model: "missing/model" }
-  },
-  {
-    mode: "json",
-    scenario: "auth-failure",
-    instructions: requestedInstructions,
-    summaries: 0,
-    compactions: 0,
-    attempts: 1,
-    config: { model: summaryModel }
-  },
-  {
-    mode: "json",
-    scenario: "unsupported-thinking",
-    instructions: requestedInstructions,
-    summaries: 0,
-    compactions: 0,
-    attempts: 1,
-    config: { model: summaryModel, thinkingLevel: "low" }
-  },
-  {
-    mode: "json",
-    scenario: "success",
-    summaries: 1,
-    compactions: 1,
-    attempts: 1,
-    config: { thinkingLevel: "off" }
-  },
-  { mode: "text", scenario: "success", summaries: 1, compactions: 1, attempts: 1 },
-  {
-    mode: "json",
-    scenario: "failure",
-    summaries: 1,
-    compactions: 0,
-    attempts: 1,
-    instructions: requestedInstructions
-  },
+  })),
   {
     mode: "json",
     scenario: "abort",
@@ -578,51 +460,7 @@ const toolCases: {
     compactions: 0,
     attempts: 1,
     instructions: requestedInstructions
-  },
-  {
-    mode: "text",
-    scenario: "small",
-    summaries: 0,
-    compactions: 0,
-    attempts: 0,
-    instructions: requestedInstructions
-  },
-  { mode: "text", scenario: "no-request", summaries: 0, compactions: 0, attempts: 0 },
-  {
-    mode: "json",
-    scenario: "instructions-history",
-    summaries: 2,
-    compactions: 1,
-    attempts: 1,
-    instructions: requestedInstructions
-  },
-  {
-    mode: "text",
-    scenario: "empty-instructions",
-    summaries: 1,
-    compactions: 1,
-    attempts: 1,
-    instructions: ""
-  },
-  ...[
-    { scenario: "success", summaries: 1, instructions: fileInstructions },
-    { scenario: "empty-instructions", summaries: 1, instructions: fileInstructions },
-    { scenario: "duplicate", summaries: 1, instructions: combinedInstructions },
-    { scenario: "instructions-split", summaries: 1, instructions: combinedInstructions },
-    { scenario: "instructions-history", summaries: 2, instructions: combinedInstructions },
-    { scenario: "instructions-boundary", summaries: 1, instructions: combinedInstructions },
-    { scenario: "retry", summaries: 2, instructions: combinedInstructions },
-    { scenario: "cancel", summaries: 0, instructions: combinedInstructions },
-    { scenario: "custom-summary", summaries: 0, instructions: combinedInstructions }
-  ].map(({ scenario, summaries, instructions }) => ({
-    mode: "json",
-    scenario,
-    summaries,
-    compactions: scenario === "cancel" ? 0 : 1,
-    attempts: 1,
-    instructions,
-    config: { instructionsFile: "focus.txt" }
-  }))
+  }
 ];
 
 it.each(toolCases)(
@@ -633,8 +471,6 @@ it.each(toolCases)(
     try {
       const tracePath = join(directory, "trace.jsonl");
       const sessionPath = join(directory, "session.jsonl");
-      const keepRecentTokens = retentionBudget(scenario);
-      await writeFile(join(directory, "agent", "focus.txt"), "Preserve FILE_FOCUS_MARKER.\n");
       await writeFile(
         join(directory, "agent", "settings.json"),
         JSON.stringify({
@@ -646,18 +482,17 @@ it.each(toolCases)(
             modelOverrides: {
               "native-compaction-fixture/scripted": {
                 reserveTokens: 512,
-                keepRecentTokens
+                keepRecentTokens: 256
               }
             }
           },
-          httpIdleTimeoutMs: scenario === "no-idle-timeout" ? 0 : 4321,
+          httpIdleTimeoutMs: 4321,
           websocketConnectTimeoutMs: 2345,
           retry: {
             enabled: scenario === "retry",
             maxRetries: 1,
             baseDelayMs: 1,
             provider: {
-              timeoutMs: scenario === "provider-timeout" ? 1234 : undefined,
               maxRetries: 2,
               maxRetryDelayMs: 3456
             }
@@ -684,16 +519,13 @@ it.each(toolCases)(
           "--model",
           "scripted",
           "--thinking",
-          activeThinking(scenario, config !== undefined),
+          activeThinking(config !== undefined),
           "--session",
           sessionPath,
           "--print",
           "--mode",
           mode,
-          "Do the fixture work, compact using the tool, and finish the task." +
-            (scenario === "instructions-boundary"
-              ? ` ${"CURRENT_REQUEST_PAYLOAD ".repeat(500)}`
-              : "")
+          "Do the fixture work, compact using the tool, and finish the task."
         ]
       });
       const child = promisify(execFile)(launch.command, launch.args, {
@@ -720,44 +552,33 @@ it.each(toolCases)(
 
       for (const entry of ofType("hook:before")) {
         assert.equal(entry.customInstructions, instructions);
-        assert.equal(entry.isSplitTurn, scenario !== "instructions-boundary");
+        assert.equal(entry.isSplitTurn, true);
         assert.deepEqual(entry.settings, {
           enabled: false,
-          keepRecentTokens,
+          keepRecentTokens: 256,
           reserveTokens: 512
         });
         const toolResults = entry.branch
           ?.filter((item) => item.role === "toolResult")
           .map((item) => item.toolName);
-        assert.deepEqual(
-          toolResults?.sort(),
-          scenario === "duplicate"
-            ? ["compact", "compact", "fixture_work", "fixture_work"]
-            : ["compact", "fixture_work", "fixture_work"]
-        );
+        assert.deepEqual(toolResults?.sort(), ["compact", "fixture_work", "fixture_work"]);
       }
 
-      checkInstructionPrompts(trace, scenario, instructions || undefined);
+      checkInstructionPrompts(trace, scenario, instructions);
 
       const manager = SessionManager.open(sessionPath);
-      const thinkingLevel = checkModelRouting(trace, scenario, config, manager);
+      const thinkingLevel = checkModelRouting(trace, config, manager);
       checkSummaryModelEntries(manager, config, thinkingLevel, "tool");
       const savedCompactions = manager.getBranch().filter((entry) => entry.type === "compaction");
       assert.equal(savedCompactions.length, compactions);
       checkOutcome(manager, trace, scenario);
 
       if (compactions) {
-        assert.equal(ofType("hook:success")[0]?.fromExtension, scenario === "custom-summary");
+        assert.equal(ofType("hook:success")[0]?.fromExtension, false);
         const saved = savedCompactions[0];
         assert.ok(saved);
         assert.ok(saved.summary.includes("NATIVE_FIXTURE_CHECKPOINT"));
-
-        if (scenario === "custom-summary") {
-          assert.equal(saved.usage, undefined);
-          assert.deepEqual(saved.details, { custom: true });
-        } else {
-          assert.ok(saved.usage && saved.usage.totalTokens > 0);
-        }
+        assert.ok(saved.usage && saved.usage.totalTokens > 0);
 
         assert.partialDeepStrictEqual(ofType("provider:main").at(-1), {
           request: 3,
@@ -773,7 +594,7 @@ it.each(toolCases)(
         assert.ok(!stdout.includes("TASK_FINISHED"));
         assert.equal(ofType("hook:failed")[0]?.aborted, true);
       } else {
-        assert.equal(ofType("provider:main").length, scenario === "no-request" ? 2 : 3);
+        assert.equal(ofType("provider:main").length, 3);
       }
 
       checkFailure(trace, scenario);
@@ -784,32 +605,13 @@ it.each(toolCases)(
   20000
 );
 
-it.each(
-  (["manual", "auto"] as const).flatMap((entry) => {
-    const focus = entry === "manual" ? requestedInstructions : undefined;
-    const focused = entry === "manual" ? combinedInstructions : fileInstructions;
-
-    return [
-      ...[undefined, true].map((enabled) => ({
-        entry,
-        enabled,
-        fileFocus: false,
-        split: false,
-        focus
-      })),
-      ...[false, true].map((split) => ({
-        entry,
-        enabled: false,
-        fileFocus: true,
-        split,
-        focus: focused
-      })),
-      { entry, enabled: true, fileFocus: true, split: true, focus: focused }
-    ];
-  })
-)(
-  "bundled CLI $entry compaction (opt-in: $enabled, file focus: $fileFocus, split: $split)",
-  async ({ entry, enabled, fileFocus, split, focus }) => {
+// The SDK suite covers routing flags; these rows prove the bundled CLI routes credentials.
+it.each([
+  { entry: "manual", focus: combinedInstructions },
+  { entry: "auto", focus: fileInstructions }
+] as const)(
+  "bundled CLI $entry compaction routes to the configured summary model",
+  async ({ entry, focus }) => {
     const directory = await createValidationWorkspace("pi-manual-compact-cli-");
 
     try {
@@ -822,10 +624,9 @@ it.each(
           "ext.pi-smart-compact": {
             model: summaryModel,
             thinkingLevel: "low",
-            instructionsFile: fileFocus ? "focus.txt" : undefined,
-            // The other entry point's opt-in must not route this operation.
-            applyToManual: entry === "manual" ? enabled : true,
-            applyToAuto: entry === "auto" ? enabled : true
+            instructionsFile: "focus.txt",
+            applyToManual: entry === "manual",
+            applyToAuto: entry === "auto"
           },
           compaction: { enabled: false, reserveTokens: 512, keepRecentTokens: 256 },
           retry: { enabled: false }
@@ -835,7 +636,7 @@ it.each(
         directory,
         env: {
           PI_NATIVE_COMPACTION_TRACE: tracePath,
-          PI_NATIVE_COMPACTION_CASE: split ? "manual-split" : "manual"
+          PI_NATIVE_COMPACTION_CASE: "manual-split"
         },
         args: [
           "--no-extensions",
@@ -874,12 +675,12 @@ it.each(
         .split("\n")
         .map((line) => traceSchema.parse(JSON.parse(line)));
       const requests = trace.filter((entry) => entry.type === "provider:summary");
-      const provider = enabled ? "summary-compaction-fixture" : "native-compaction-fixture";
+      const provider = "summary-compaction-fixture";
       assert.equal(requests.length, 1);
       assert.partialDeepStrictEqual(requests[0], {
         provider,
-        model: enabled ? "nested/summary" : "scripted",
-        reasoning: enabled ? "low" : "high",
+        model: "nested/summary",
+        reasoning: "low",
         apiKey: provider,
         authEnv: provider,
         baseUrl: `http://${provider}.invalid`,
@@ -887,8 +688,8 @@ it.each(
         sessionModel: "scripted",
         sessionThinking: "high"
       });
-      if (enabled) assert.equal(requests[0]?.maxTokens, 128);
-      checkEntryFocus(trace, focus, split);
+      assert.equal(requests[0]?.maxTokens, 128);
+      checkEntryFocus(trace, focus);
       assert.equal(
         trace.find((item) => item.type === "hook:before")?.reason,
         entry === "manual" ? "manual" : "threshold"
@@ -904,8 +705,8 @@ it.each(
       assert.ok(!branch.some((entry) => entry.type === "custom_message"));
       checkSummaryModelEntries(
         SessionManager.open(sessionPath),
-        enabled ? { model: summaryModel } : undefined,
-        enabled ? "low" : "high",
+        { model: summaryModel },
+        "low",
         entry === "manual" ? "manual" : "threshold"
       );
     } finally {

@@ -43,7 +43,7 @@ export class SessionTitle {
     } else if (action === "") {
       await this.run(conversationSource(this.host.getBranch()), true);
     } else {
-      this.host.notify("Usage: /sesh auto-name [clear]", "warning");
+      this.host.notify("Usage: /sesh auto-name [clear]", "error");
     }
   }
 

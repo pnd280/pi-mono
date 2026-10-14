@@ -22,7 +22,7 @@ export default function fffGuardExtension(pi: ExtensionAPI): void {
     if (decision.diagnostic) {
       // OS errors can include terminal controls from file names.
       const text = displayText(
-        `FFF ignored-path detection unavailable: ${decision.diagnostic}. Allowing the FFF call.`
+        `pi-fff-guard: ignored-path detection unavailable: ${decision.diagnostic}. Allowing the FFF call.`
       );
       if (ctx.hasUI) ctx.ui.notify(text, "warning");
       else console.error(text);

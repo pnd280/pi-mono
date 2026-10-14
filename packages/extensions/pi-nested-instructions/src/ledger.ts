@@ -40,7 +40,7 @@ export interface Ledger {
   readUnchanged(file: string, stamp: string): boolean;
   /** A visible notice currently supplies this directory's instructions. */
   announced(directory: string): boolean;
-  /** Instructions for this directory reached the model by notice or direct read. */
+  /** Instructions for this directory reached the model by notice or a direct read of an existing file. */
   delivered(directory: string): boolean;
   /** The visible notice already carries this instruction file and content. */
   current(directory: string, file: string, content: string): boolean;
@@ -128,7 +128,10 @@ export function ledger(session: SessionView): Ledger {
     delivered(directory) {
       return (
         Boolean(scopes.get(directory)?.path) ||
-        [...reads.keys()].some((file) => path.dirname(file) === directory)
+        // A null stamp means the attempted file was missing or unreadable, so nothing was delivered.
+        [...reads.values()].some(
+          (marker) => marker.stamp !== null && path.dirname(marker.path) === directory
+        )
       );
     },
     current(directory, file, content) {

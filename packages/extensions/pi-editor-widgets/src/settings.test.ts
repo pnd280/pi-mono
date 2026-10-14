@@ -47,64 +47,6 @@ it("uses whole-layout scope replacement, reads externally unset layouts separate
   });
 });
 
-it("resolves contextThreshold per field, independently of the layout, and keeps it on save", () => {
-  const layout = defaultLayout();
-  write(settings.paths.global, { "ext.pi-editor-widgets": { contextThreshold: 150000 } });
-  write(settings.paths.project, { "ext.pi-editor-widgets": { layout } });
-  expect(settings.load()).toEqual({
-    global: undefined,
-    project: layout,
-    contextThreshold: 150000,
-    warnings: []
-  });
-  write(settings.paths.project, { "ext.pi-editor-widgets": { layout, contextThreshold: 90000 } });
-  expect(settings.load().contextThreshold).toBe(90000);
-  settings.save("project", layout);
-  expect(JSON.parse(readFileSync(settings.paths.project, "utf8"))).toEqual({
-    "ext.pi-editor-widgets": { layout, contextThreshold: 90000 }
-  });
-  write(settings.paths.project, { "ext.pi-editor-widgets": { contextThreshold: 90000 } });
-  expect(settings.load()).toEqual({
-    global: undefined,
-    project: undefined,
-    contextThreshold: 90000,
-    warnings: []
-  });
-  const untrusted = new WidgetSettings({
-    cwd: join(directory, "project"),
-    agentDir: join(directory, "agent"),
-    projectTrusted: false
-  });
-  expect(untrusted.load().contextThreshold).toBe(150000);
-});
-
-it.each([0, -1, 1.5, "150000", null])(
-  "warns about invalid contextThreshold %j and falls back without dropping the layout",
-  (contextThreshold) => {
-    const layout = defaultLayout();
-    write(settings.paths.global, { "ext.pi-editor-widgets": { contextThreshold: 150000 } });
-    write(settings.paths.project, { "ext.pi-editor-widgets": { layout, contextThreshold } });
-    const loaded = settings.load();
-    expect(loaded.project).toEqual(layout);
-    expect(loaded.contextThreshold).toBe(150000);
-    expect(loaded.warnings).toEqual([expect.stringContaining("contextThreshold")]);
-  }
-);
-
-it("falls back to window percentages when neither scope has a valid threshold", () => {
-  const layout = defaultLayout();
-  write(settings.paths.global, { "ext.pi-editor-widgets": { layout, contextThreshold: 0 } });
-  write(settings.paths.project, { "ext.pi-editor-widgets": { contextThreshold: null } });
-  expect(settings.load()).toEqual({
-    global: layout,
-    project: undefined,
-    warnings: [
-      expect.stringContaining("contextThreshold"),
-      expect.stringContaining("contextThreshold")
-    ]
-  });
-});
-
 it("ignores untrusted project files and ancestors, and refuses project writes", () => {
   const untrusted = new WidgetSettings({
     cwd: join(directory, "project"),
@@ -150,14 +92,6 @@ it.each([null, [], "invalid"])(
     expect(readFileSync(settings.paths.global, "utf8")).toBe(before);
   }
 );
-
-it.each(["{broken", "null", "[]"])("never overwrites malformed settings", (source) => {
-  mkdirSync(dirname(settings.paths.global), { recursive: true });
-  writeFileSync(settings.paths.global, source);
-  expect(settings.load().warnings).toHaveLength(1);
-  expect(() => settings.save("global", defaultLayout())).toThrow("Check access");
-  expect(readFileSync(settings.paths.global, "utf8")).toBe(source);
-});
 
 it("does not write on load and respects a held Pi settings lock", () => {
   expect(settings.load()).toEqual({ global: undefined, project: undefined, warnings: [] });

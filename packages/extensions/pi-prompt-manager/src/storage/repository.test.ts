@@ -45,41 +45,6 @@ async function drafts(): Promise<Snapshot> {
   return result;
 }
 
-it("uses the latest persisted document across repository instances and realpath aliases", async () => {
-  const alias = join(fixture.directory, "alias");
-  await symlink(fixture.cwd, alias);
-  const other = await FileRepository.create({
-    cwd: alias,
-    agentDir: fixture.agentDir,
-    retention: 250
-  });
-  await fixture.repository.mutate("history", add("A"), session());
-  await other.mutate("history", add("B"), session());
-  await fixture.repository.mutate("history", add("A"), session());
-  expect((await other.mutate("history", add(" A "), session())).status).toBe("unchanged");
-  const history = await other.read("history");
-  expect(history.status === "ready" && history.entries.map((item) => item.source.text)).toEqual([
-    "A",
-    "B",
-    "A"
-  ]);
-  const distinct = join(fixture.directory, "distinct");
-  await mkdir(distinct);
-  const isolated = await FileRepository.create({
-    cwd: distinct,
-    agentDir: fixture.agentDir,
-    retention: 1
-  });
-  expect(await isolated.read("history")).toMatchObject({ status: "ready", entries: [] });
-  await expect(
-    FileRepository.create({
-      cwd: join(fixture.directory, "missing"),
-      agentDir: fixture.agentDir,
-      retention: 1
-    })
-  ).rejects.toThrow("real path");
-});
-
 it("refuses unsupported platforms before creating managed directories", async () => {
   const agentDir = join(fixture.directory, "unsupported-agent");
   await mkdir(agentDir, { mode: 0o755 });

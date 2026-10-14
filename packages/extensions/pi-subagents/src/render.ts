@@ -72,10 +72,12 @@ const PROMPT_LINES = 10;
 /** Collapsed cards show this many characters of a task ID. */
 const SHORT_ID = 8;
 
-export function duration(milliseconds: number): string {
-  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+/** A recorded duration, or a running timer in whole seconds while `endedAt` is null. */
+export function elapsed(startedAt: number, endedAt: number | null): string {
+  if (endedAt !== null) return formatDuration(endedAt - startedAt);
+  const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
 
-  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return seconds ? formatDuration(seconds * 1000) : "0s";
 }
 
 function clean(text: string): string {
@@ -264,11 +266,10 @@ class CardRow {
     if (!view || width < 1) return [];
     const details = detailsSchema.safeParse(view.result?.details).data;
     // Only a running card's clock changes between renders, once a second.
-    let time = "";
-    if (details && !details.returned && details.ended_at !== null)
-      time = formatDuration(details.ended_at - details.started_at);
-    else if (details && !details.returned && view.partial)
-      time = duration(Date.now() - details.started_at);
+    const time =
+      details && !details.returned && (details.ended_at !== null || view.partial)
+        ? elapsed(details.started_at, details.ended_at)
+        : "";
     const key = `${width}:${time}`;
 
     if (this.cache?.key !== key) {

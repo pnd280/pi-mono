@@ -1,6 +1,6 @@
 # @pi-mono/utils
 
-Extensions in this workspace share pure functions for transforming source text, paths, and patches. For example, `parsePatch` validates a unified patch and returns its hunks, with no file access.
+Extensions and shared libraries in this workspace share pure functions for transforming source text, paths, and patches. For example, `parsePatch` validates a unified patch and returns its hunks, with no file access.
 
 The helpers hold no state: callers supply inputs and policy. The [manifest](package.json) lists the supported imports.
 
@@ -13,8 +13,6 @@ Choose the [exported module](package.json) for your task:
 - Commands: [POSIX argument quoting](src/shell.ts).
 
 Use [task envelopes](src/task-envelope.ts) to format subagent task results and extract their bodies.
-
-Use [idle wake](src/idle-wake.ts) to start a turn on an idle agent with custom messages. It is a workaround for [Pi issue 5581](https://github.com/earendil-works/pi/issues/5581); see [idle-wake caller boundaries](docs/caller-boundaries.md#idle-wake).
 
 For terminal text sanitisation and shortcut normalisation, use [terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md).
 

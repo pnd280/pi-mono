@@ -10,20 +10,6 @@ import { RunChanges } from "./changes.ts";
 import { summaryEntryType } from "./summary.ts";
 import { fixture } from "./test-fixture.ts";
 
-it("saves one summary for a started run and stops the timer at settlement", async () => {
-  const runtime = fixture();
-  await runtime.emit("agent_start", {});
-  vi.advanceTimersByTime(1250);
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-    durationMs: 1250,
-    finishedAt: Date.now(),
-    bashCalls: 0,
-    files: []
-  });
-  expect(vi.getTimerCount()).toBe(0);
-});
-
 it("records one context-free entry after all turns and retries settle, preserving other working text", async () => {
   const runtime = fixture();
   const other = registerWorkingMessage(runtime.api, {

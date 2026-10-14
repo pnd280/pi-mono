@@ -1,6 +1,6 @@
 # pi-skills
 
-Mention skills anywhere in a prompt, rather than only at the start. Pi on its own recognises `/skill:<name>` only at the very start of a prompt, where it pastes in the whole skill. With this extension, `/skill:<name>` anywhere becomes a link to the skill's file, and **Tab** completes skill names mid-prompt.
+Pi on its own recognises `/skill:<name>` only at the very start of a prompt, where it pastes in the whole skill. With this extension, you can mention skills anywhere in a prompt: `/skill:<name>` anywhere becomes a link to the skill's file, and **Tab** completes skill names mid-prompt.
 
 ## Usage
 
@@ -35,13 +35,13 @@ In the TUI, type `/skill:` at the start of any token, including mid-prompt or on
 
 ### What gets expanded
 
-Expansion runs in Pi's input hook. It covers what you type, and extension `sendUserMessage()` calls with `expandPromptTemplates: false`.
+Expansion runs in Pi's input hook. It covers what you type and extension `sendUserMessage()` calls.
 
 It doesn't cover commands handled before the hook, text produced by prompt templates, or custom `sendMessage()` messages.
 
 ## Compatibility
 
-The extension uses the public extension and autocomplete APIs of Pi 1.0.1. Maintainers checking another host version should follow the [compatibility checklist](docs/pi-compatibility.md).
+The extension uses the public extension and autocomplete APIs of Pi 1.0.2. Maintainers checking another host version should follow the [compatibility checklist](docs/pi-compatibility.md).
 
 ## Configuration
 

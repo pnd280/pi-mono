@@ -46,4 +46,4 @@ Keep handles runtime-local. Session start clears text. Republish restored state 
 
 ## Validation
 
-Use [library checks](../../README.md#validation). [Settings](settings.test.ts) and [command](command.test.ts) tests exercise filesystem and installed-host integration. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) for real Pi checks in regular and fullscreen modes.
+Use [library checks](../../README.md#validation). [Settings tests](settings.test.ts) exercise filesystem integration. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) to check `/working-message` and the published text in real Pi, in regular and fullscreen modes.

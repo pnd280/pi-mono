@@ -74,7 +74,7 @@ While deleting:
 
 ## Copying
 
-You can keep browsing while a copy is in progress, but another copy has to wait. Closing the browser doesn't cancel the write; ending the session does.
+You can keep browsing while a copy is in progress, but another copy is refused with a warning until the first finishes. Closing the browser doesn't cancel the write; ending the session does.
 
 ## Presentation
 

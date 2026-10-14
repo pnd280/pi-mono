@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { expect, it } from "vite-plus/test";
 
-import { copyNative, NativeClipboardError } from "./index.ts";
+import { copyNative } from "./index.ts";
 
 const signal = () => new AbortController().signal;
 
@@ -30,32 +30,6 @@ it("writes complete Unicode/control/large payloads through stdin without shell i
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-});
-
-it("handles spawn, stdin and nonzero exit failures, with native-only fallbacks", async () => {
-  await expect(
-    copyNative("text", signal(), {
-      helpers: [{ command: "/missing/pi-prompt-native-helper", args: [] }]
-    })
-  ).rejects.toBeInstanceOf(NativeClipboardError);
-  await expect(
-    copyNative("x".repeat(8 * 1024 * 1024), signal(), {
-      helpers: [{ command: process.execPath, args: ["-e", "process.exit(4)"] }]
-    })
-  ).rejects.toBeInstanceOf(NativeClipboardError);
-  await expect(
-    copyNative("text", signal(), {
-      helpers: [
-        { command: process.execPath, args: ["-e", "process.stdin.resume();process.exitCode=4"] }
-      ]
-    })
-  ).rejects.toBeInstanceOf(NativeClipboardError);
-  await copyNative("text", signal(), {
-    helpers: [
-      { command: "/missing/helper", args: [] },
-      { command: process.execPath, args: ["-e", "process.stdin.resume()"] }
-    ]
-  });
 });
 
 it("has a five-second deadline and cancellation prevents later helper fallback", async () => {

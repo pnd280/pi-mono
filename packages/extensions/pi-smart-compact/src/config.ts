@@ -1,8 +1,12 @@
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readSettingsFile, readSettingsRecord } from "@pi-mono/libs/settings-file";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+import {
+  readScopedSettings,
+  readSettingsFile,
+  readSettingsRecord
+} from "@pi-mono/libs/settings-file";
 import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
@@ -33,6 +37,13 @@ export type CompactSettings = z.output<typeof configSchema>;
 
 export type CompactConfig = Omit<CompactSettings, "instructionsFile"> & { instructions?: string };
 
+/** Resolve a validated `provider/model-id` reference; the model ID may contain slashes. */
+export function findConfiguredModel(registry: Pick<ModelRegistry, "find">, reference: string) {
+  const slash = reference.indexOf("/");
+
+  return registry.find(reference.slice(0, slash), reference.slice(slash + 1));
+}
+
 function readSection(path: string): CompactSettings {
   try {
     const parsed = settingsSchema.safeParse(readSettingsRecord(path));
@@ -59,13 +70,9 @@ function readSection(path: string): CompactSettings {
 /** Only absent fields inherit; invalid settings must not silently select another model. */
 export function loadCompactConfig(
   cwd: string,
-  {
-    projectTrusted = false,
-    agentDir = getAgentDir()
-  }: { projectTrusted?: boolean; agentDir?: string } = {}
+  { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): CompactConfig {
-  const global = readSection(join(agentDir, "settings.json"));
-  const project = projectTrusted ? readSection(join(cwd, CONFIG_DIR_NAME, "settings.json")) : {};
+  const [global, project] = readScopedSettings({ cwd, projectTrusted, agentDir }, readSection);
 
   const { instructionsFile, ...config } = { ...global, ...project };
   if (instructionsFile === undefined) return config;

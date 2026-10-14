@@ -45,6 +45,7 @@ export type BrowserOptions<Item> = {
   ): ReturnType<WindowedListOptions<Item>["format"]>;
   preview(item: Item): { text: string; metadata?: string };
   inspection?: { index: number; title: string; missingMessage: string };
+  /** Shown when `load` rejects with a non-Error value; Error messages are shown directly. */
   loadError?: string;
   /** Caller-owned diagnostic when no usable cancel binding exists. */
   cancelError?: Error;

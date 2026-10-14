@@ -1,7 +1,7 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteItem, AutocompleteProvider } from "@earendil-works/pi-tui";
 
-function getCompletableSkillNames(commands: ReturnType<ExtensionAPI["getCommands"]>): Set<string> {
+function getCompletableSkillNames(commands: SlashCommandInfo[]): Set<string> {
   const collisions = new Set(
     commands.filter((command) => command.source !== "skill").map((command) => command.name)
   );

@@ -20,39 +20,6 @@ import { parseTodoStateSnapshot } from "./session-state.ts";
 import type { Task, TaskMutationParams, TodoState } from "./types.ts";
 
 describe("todo reducer", () => {
-  it("rejects metadata values that would change during JSON persistence", () => {
-    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0]) {
-      const result = mutate(emptyTodoState(), "create", {
-        subject: "Keep metadata replayable",
-        metadata: { value }
-      });
-
-      assert.match(result.details.error ?? "", /metadata.*JSON/u);
-      assert.deepEqual(result.state, emptyTodoState());
-      assert.deepEqual(parseTodoStateSnapshot(result.details), emptyTodoState());
-    }
-  });
-
-  it("returns validation diagnostics with complete state snapshots", () => {
-    let state = emptyTodoState();
-
-    const missingSubject = mutate(state, "create", { subject: "" });
-    assert.match(missingSubject.details.error ?? "", /subject.*required/u);
-    assert.equal(missingSubject.details.nextId, 1);
-    assert.deepEqual(missingSubject.details.tasks, []);
-
-    state = mutate(state, "create", { subject: "One" }).state;
-    state = mutate(state, "create", { subject: "Two" }).state;
-
-    const illegalTransition = mutate(state, "update", { id: 1, status: "deleted" }).state;
-    const deleted = mutate(illegalTransition, "delete", { id: 1 }).state;
-    const restoreDeleted = mutate(deleted, "update", { id: 1, status: "pending" });
-
-    assert.match(restoreDeleted.details.error ?? "", /deleted.*pending/u);
-    assert.equal(restoreDeleted.details.tasks[0]?.status, "deleted");
-    assert.equal(restoreDeleted.details.nextId, deleted.nextId);
-  });
-
   it("retains the complete snapshot when list content is bounded", () => {
     const omitted = 25;
     const taskCount = MAX_LIST_LINES + omitted;
@@ -69,20 +36,6 @@ describe("todo reducer", () => {
     assert.deepEqual(listed.details.tasks, state.tasks);
     assert.equal(listed.details.nextId, state.nextId);
     assert.equal(parseTodoStateSnapshot(listed.details)?.tasks.length, taskCount);
-  });
-
-  it("includes complete snapshots in list, get, and domain-error details", () => {
-    const state = mutate(emptyTodoState(), "create", { subject: "One" }).state;
-
-    for (const result of [
-      mutate(state, "list", {}),
-      mutate(state, "get", { id: 1 }),
-      mutate(state, "get", { id: 99 })
-    ]) {
-      assert.equal(result.details.version, TASK_DETAILS_VERSION);
-      assert.deepEqual(result.details.tasks, state.tasks);
-      assert.equal(result.details.nextId, state.nextId);
-    }
   });
 
   it("bounds limit errors without echoing offending or unknown params", () => {

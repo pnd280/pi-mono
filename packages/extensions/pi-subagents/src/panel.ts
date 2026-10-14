@@ -247,12 +247,13 @@ class TranscriptView implements Component {
         "Esc back",
         ...(this.working ? ["Ctrl+D abort"] : []),
         `Ctrl+O ${this.expanded ? "collapse" : "expand"}`,
-        "↑↓/PgUp/PgDn scroll",
+        "↑↓ scroll",
+        "PageUp/PageDown page",
         "Home/End first/last"
       ],
       padding: "",
       separator: " · ",
-      style: (text) => this.theme.fg("muted", text)
+      style: (text) => this.theme.fg("dim", text)
     });
     // The title sits directly above the hints, with diagnostics above it.
     const info = wrapRows(title, width).slice(0, Math.max(0, footerRows - help.length));
@@ -282,7 +283,7 @@ class TranscriptView implements Component {
       body = [
         this.source?.unavailable
           ? this.theme.fg("error", compactDisplayText(this.source.unavailable))
-          : this.theme.fg("muted", "Loading transcript…")
+          : this.theme.fg("dim", "Loading transcript…")
       ].slice(0, height);
 
     this.bodyRows = body.length;
@@ -543,7 +544,7 @@ class TaskPanel implements Component {
       maxRows: Math.max(1, this.tui.terminal.rows - 13),
       hints: [
         "↑↓ select",
-        "Enter view",
+        "Enter inspect",
         "Esc close",
         "Tab view",
         // Offer actions only when they apply to the selected task.

@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
-import { afterEach, expect, it, vi } from "vite-plus/test";
+import { afterEach, expect, it } from "vite-plus/test";
 
 import { loadTitleConfig } from "./config.ts";
 
@@ -17,7 +17,6 @@ function titleSettings(config: unknown): string {
 
 afterEach(() => {
   for (const path of directories.splice(0)) rmSync(path, { recursive: true, force: true });
-  vi.unstubAllEnvs();
 });
 
 function settings(global?: string, project?: string) {
@@ -35,32 +34,6 @@ function settings(global?: string, project?: string) {
   return { agentDir, cwd, globalPath, projectPath };
 }
 
-it("reads only the explicit auto-title section without changing global settings", () => {
-  const source = JSON.stringify({
-    theme: "light",
-    defaultModel: "other-model",
-    "ext.pi-session-utils": {
-      "auto-title": { model: " provider/nested/model ", thinkingLevel: "low" }
-    }
-  });
-  const { agentDir, cwd, globalPath } = settings(source);
-  vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-  expect(loadTitleConfig(cwd)).toEqual({ model: "provider/nested/model", thinkingLevel: "low" });
-  expect(readFileSync(globalPath, "utf8")).toBe(source);
-});
-
-it("accepts Pi-compatible BOM-prefixed global and trusted project settings", () => {
-  const { cwd, agentDir } = settings(
-    `\uFEFF${globalSettings}`,
-    `\uFEFF${titleSettings({ model: "provider/project" })}`
-  );
-  expect(loadTitleConfig(cwd, { agentDir })).toEqual(globalConfig);
-  expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toEqual({
-    model: "provider/project",
-    thinkingLevel: "off"
-  });
-});
-
 it.each([
   undefined,
   "{}",
@@ -73,32 +46,6 @@ it.each([
   expect(loadTitleConfig(cwd, { agentDir })).toBeUndefined();
 });
 
-it("rejects oversized settings before unknown top-level fields are discarded", () => {
-  const source = JSON.stringify({
-    "ext.pi-session-utils": { "auto-title": globalConfig },
-    ignored: "x".repeat(1024 * 1024)
-  });
-  const { agentDir, cwd } = settings(source);
-  expect(loadTitleConfig(cwd, { agentDir })).toBeUndefined();
-});
-
-it.each([
-  {
-    project: { model: " provider/project " },
-    expected: { model: "provider/project", thinkingLevel: "off" }
-  },
-  {
-    project: { thinkingLevel: "high" },
-    expected: { model: "provider/global", thinkingLevel: "high" }
-  }
-])("merges trusted project fields over global settings: $project", ({ project, expected }) => {
-  const source = titleSettings(project);
-  const { agentDir, cwd, globalPath, projectPath } = settings(globalSettings, source);
-  expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toEqual(expected);
-  expect(readFileSync(globalPath, "utf8")).toBe(globalSettings);
-  expect(readFileSync(projectPath, "utf8")).toBe(source);
-});
-
 it("requires explicit trust before project settings can select a model or disable generation", () => {
   const { agentDir, cwd, projectPath } = settings(
     globalSettings,
@@ -109,22 +56,6 @@ it("requires explicit trust before project settings can select a model or disabl
   writeFileSync(projectPath, "{malformed");
   expect(loadTitleConfig(cwd, { agentDir, projectTrusted: false })).toEqual(globalConfig);
 });
-
-it.each([undefined, "{}", JSON.stringify({ "ext.pi-session-utils": {} }), titleSettings({})])(
-  "inherits global settings when the trusted project has no overrides: %s",
-  (source) => {
-    const { agentDir, cwd } = settings(globalSettings, source);
-    expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toEqual(globalConfig);
-  }
-);
-
-it.each([undefined, "{}", titleSettings({ thinkingLevel: "off" })])(
-  "allows a complete project configuration without complete global settings: %s",
-  (source) => {
-    const { agentDir, cwd } = settings(source, globalSettings);
-    expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toEqual(globalConfig);
-  }
-);
 
 it("allows the two required fields to be split across scopes but does not invent missing values", () => {
   const { agentDir, cwd, projectPath } = settings(

@@ -1,8 +1,8 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 
 export const defaultExpansionFormat = "[{command}]({path})";
 
-function getSkillPaths(commands: ReturnType<ExtensionAPI["getCommands"]>): Map<string, string> {
+function getSkillPaths(commands: SlashCommandInfo[]): Map<string, string> {
   return new Map(
     commands
       .filter((command) => command.source === "skill")
@@ -18,7 +18,7 @@ function formatReference(format: string, command: string, path: string): string 
 
 export function expandSkillInput(
   text: string,
-  commands: ReturnType<ExtensionAPI["getCommands"]>,
+  commands: SlashCommandInfo[],
   format = defaultExpansionFormat
 ): string {
   const paths = getSkillPaths(commands);

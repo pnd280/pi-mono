@@ -1,7 +1,4 @@
-import { join } from "node:path";
-
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readSettingsRecord } from "@pi-mono/libs/settings-file";
+import { readScopedSettings, readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
 
 import { defaultExpansionFormat } from "./tokens.ts";
@@ -21,15 +18,12 @@ function readExpansionFormat(path: string): string | undefined {
 /** Only the current directory's trusted project settings can override global settings. */
 export function loadExpansionFormat(
   cwd: string,
-  {
-    projectTrusted = false,
-    agentDir = getAgentDir()
-  }: { projectTrusted?: boolean; agentDir?: string } = {}
+  { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): string {
-  const global = readExpansionFormat(join(agentDir, "settings.json"));
-  const project = projectTrusted
-    ? readExpansionFormat(join(cwd, CONFIG_DIR_NAME, "settings.json"))
-    : undefined;
+  const [global, project] = readScopedSettings(
+    { cwd, projectTrusted, agentDir },
+    readExpansionFormat
+  );
 
   return project ?? global ?? defaultExpansionFormat;
 }

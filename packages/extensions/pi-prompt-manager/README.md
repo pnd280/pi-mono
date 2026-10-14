@@ -83,7 +83,7 @@ The extension writes only to its own per-directory storage, and to the system cl
 - Collections persist even with `--no-session`. Symlink aliases of a directory share storage; different directories and worktrees don't.
 - Prompt text is stored unencrypted, protected by file permissions. See [storage and recovery](docs/storage.md) for paths, capacities, and repair.
 - Browsing may create directories and repair permissions and ACLs. Saving, capturing, and deleting write collections.
-- Notifications never include prompt text. No copies go to the transcript, and no network requests are made.
+- Notifications never include prompt text.
 
 ### Clipboard
 

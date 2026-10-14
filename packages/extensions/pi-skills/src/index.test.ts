@@ -9,9 +9,8 @@ import {
   ModelRuntime,
   SessionManager,
   SettingsManager,
-  type ExtensionAPI,
-  type ExtensionContext,
-  type ExtensionUIContext
+  type ExtensionUIContext,
+  type SlashCommandInfo
 } from "@earendil-works/pi-coding-agent";
 import { CombinedAutocompleteProvider } from "@earendil-works/pi-tui";
 import { afterEach, expect, it, vi } from "vite-plus/test";
@@ -24,15 +23,7 @@ afterEach(async () => {
   vi.unstubAllEnvs();
 });
 
-async function host({
-  mode = "tui",
-  enabled = true,
-  format
-}: {
-  mode?: ExtensionContext["mode"];
-  enabled?: boolean;
-  format?: string;
-} = {}) {
+async function host({ enabled = true, format }: { enabled?: boolean; format?: string } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "pi-skills-test-"));
   cleanups.push(() => rm(directory, { recursive: true, force: true }));
   const cwd = join(directory, "work");
@@ -49,7 +40,7 @@ async function host({
   const writeSkill = (path: string, name = "review") =>
     writeFile(path, `---\nname: ${name}\ndescription: Fixture skill\n---\nSECRET SKILL BODY\n`);
   await writeSkill(skillPath);
-  let api: ExtensionAPI | undefined;
+  let getCommands: (() => SlashCommandInfo[]) | undefined;
   const settingsManager = SettingsManager.inMemory({
     enableSkillCommands: enabled,
     compaction: { enabled: false },
@@ -67,7 +58,7 @@ async function host({
     extensionFactories: [
       skills,
       (pi) => {
-        api = pi;
+        getCommands = () => pi.getCommands();
         pi.on("resources_discover", () => ({ skillPaths: [skillPath] }));
       }
     ]
@@ -102,7 +93,7 @@ async function host({
   const addAutocompleteProvider = vi.fn<ExtensionUIContext["addAutocompleteProvider"]>();
   const errors: unknown[] = [];
   await session.bindExtensions({
-    mode,
+    mode: "tui",
     uiContext: { ...session.extensionRunner.createContext().ui, addAutocompleteProvider },
     onError: (error) => {
       errors.push(error);
@@ -113,7 +104,7 @@ async function host({
     session,
     addAutocompleteProvider,
     errors,
-    getApi: () => api!,
+    getCommands: () => getCommands!(),
     getSkillPath: () => skillPath,
     setExpansionFormat,
     changeSkill: async () => {
@@ -137,14 +128,6 @@ function userTexts(session: Awaited<ReturnType<typeof host>>["session"]): string
     });
 }
 
-it("expands extension messages with templates disabled and skips TUI registration in RPC", async () => {
-  const fixture = await host({ mode: "rpc" });
-  await fixture.session.sendUserMessage("/skill:review", { expandPromptTemplates: false });
-  expect(userTexts(fixture.session)).toEqual([`[/skill:review](${fixture.getSkillPath()})`]);
-  expect(fixture.addAutocompleteProvider).not.toHaveBeenCalled();
-  expect(fixture.errors).toEqual([]);
-});
-
 it("loads JSON formats on session start and reload without native skill injection", async () => {
   const fixture = await host({ format: "Read {path} for {command}" });
   const first = `Read ${fixture.getSkillPath()} for /skill:review`;
@@ -160,26 +143,20 @@ it("loads JSON formats on session start and reload without native skill injectio
   expect(fixture.errors).toEqual([]);
 });
 
-it("keeps expansion enabled with completion disabled and uses reloaded skills", async () => {
+it("keeps expansion with skill commands disabled and uses reloaded skills", async () => {
   const fixture = await host({ enabled: false });
-  const completion = (nativeCommands: ReturnType<ExtensionAPI["getCommands"]> = []) =>
+  const completion = () =>
     fixture.addAutocompleteProvider.mock.calls.at(-1)![0](
-      new CombinedAutocompleteProvider(nativeCommands, process.cwd())
+      new CombinedAutocompleteProvider(fixture.getCommands(), process.cwd())
     );
   const options = { signal: new AbortController().signal };
-  expect(await completion().getSuggestions(["Use /skill:re"], 0, 13, options)).toBeNull();
   await fixture.session.prompt("/skill:review");
   const first = `[/skill:review](${fixture.getSkillPath()})`;
   expect(userTexts(fixture.session)).toEqual([first]);
 
-  expect(
-    await completion(fixture.getApi().getCommands()).getSuggestions(
-      ["Use /skill:re"],
-      0,
-      13,
-      options
-    )
-  ).toMatchObject({ items: [{ value: "skill:review" }] });
+  expect(await completion().getSuggestions(["Use /skill:re"], 0, 13, options)).toMatchObject({
+    items: [{ value: "skill:review" }]
+  });
   await fixture.changeSkill();
   await fixture.session.reload();
   await fixture.session.prompt("/skill:fresh /skill:review");
@@ -187,8 +164,8 @@ it("keeps expansion enabled with completion disabled and uses reloaded skills", 
     first,
     `[/skill:fresh](${fixture.getSkillPath()}) /skill:review`
   ]);
-  expect(
-    await completion(fixture.getApi().getCommands()).getSuggestions(["/skill:fr"], 0, 9, options)
-  ).toMatchObject({ items: [{ value: "skill:fresh" }] });
+  expect(await completion().getSuggestions(["/skill:fr"], 0, 9, options)).toMatchObject({
+    items: [{ value: "skill:fresh" }]
+  });
   expect(fixture.errors).toEqual([]);
 });

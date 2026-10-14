@@ -126,16 +126,21 @@ export function sliceTerminalText(
   };
 }
 
+/** Normalise line endings and tabs; C0/C1 bytes outside recognised sequences must not control the terminal. */
+function literal(text: string): string {
+  return (
+    text
+      .replace(/\r\n?/g, "\n")
+      .replace(/\t/g, "    ")
+      // oxlint-disable-next-line no-control-regex
+      .replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, "")
+  );
+}
+
 /** Allow SGR only. OSC/DCS/APC and cursor/screen controls never reach the terminal.
  * Pass complete snapshots, not independently sanitized stream chunks.
  */
 export function styledOutput(text: string): string {
-  const literal = (value: string) =>
-    value
-      .replace(/\r\n?/g, "\n")
-      .replace(/\t/g, "    ")
-      // oxlint-disable-next-line no-control-regex
-      .replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, "");
   // Copy literal runs rather than building a character-by-character rope for
   // every live snapshot. Escape parsing still sees the complete source.
   // oxlint-disable-next-line no-control-regex
@@ -155,14 +160,7 @@ export function styledOutput(text: string): string {
 
 /** Untrusted content is plain text. Apply trusted styling only after normalization. */
 export function displayText(text: string): string {
-  return (
-    stripTerminalSequences(text)
-      .replace(/\r\n?/g, "\n")
-      .replace(/\t/g, "    ")
-      // C0/C1 bytes outside recognized sequences must not control the terminal.
-      // oxlint-disable-next-line no-control-regex
-      .replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, "")
-  );
+  return literal(stripTerminalSequences(text));
 }
 
 /** Flatten untrusted labels to one line before tab/CR expansion, then collapse spaces. */

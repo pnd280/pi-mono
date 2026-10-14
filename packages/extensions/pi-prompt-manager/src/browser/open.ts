@@ -165,7 +165,6 @@ export async function openBrowser(
             missingMessage: "Draft number is outside the current collection."
           }
         }),
-    loadError: "Collection could not be read.",
     cancelError: new PromptError(
       "Prompt browser requires an unshadowed cancel binding other than Ctrl+C. Fix tui.select.cancel / tui.input.copy and reload."
     )

@@ -28,12 +28,13 @@ async function fixture(
   const directory = await createFixtureWorkspace({
     settings: { "ext.pi-subagents": { maxConcurrent, maxDepth }, ...settings }
   });
-  const host = await Supervisor.start(directory);
+  let host: Supervisor | undefined;
 
   try {
+    host = await Supervisor.start(directory);
     await body(host, directory);
   } finally {
-    await host.stop();
+    await host?.stop();
     const leaked = await remainingProcesses(directory);
     await killFixtureProcesses(directory);
     await rm(directory, { recursive: true, force: true });

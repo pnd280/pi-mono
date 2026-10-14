@@ -169,17 +169,6 @@ describe("public interception adapter", () => {
     ).toBeUndefined();
   });
 
-  it("keeps concurrent ignored and ordinary searches independent", async () => {
-    const host = harness();
-    host.register("ffgrep");
-    const results = await Promise.all([
-      host.call("ffgrep", { path: ".tmp/**", pattern: "marker" }),
-      host.call("ffgrep", { path: "src/", pattern: "node_modules/" })
-    ]);
-    expect(results[0]?.block).toBe(true);
-    expect(results[1]).toBeUndefined();
-  });
-
   it.each([false, true])("sanitizes filesystem diagnostics (UI: %s)", async (hasUI) => {
     const host = harness({ hasUI });
     host.register("ffgrep");

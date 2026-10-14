@@ -14,11 +14,11 @@ import {
 import { loadTodoConfig } from "./config.ts";
 import { TodoController } from "./controller.ts";
 import { shouldActivate } from "./runtime.ts";
-import { TodoOverlay, type TodoOverlayUI } from "./todo-overlay.ts";
+import { TodoWidget, type TodoWidgetUI } from "./todo-widget.ts";
 import { createTodoTool } from "./tool.ts";
 
 export type TodoLifecycleContext = Pick<ExtensionContext, "cwd" | "isProjectTrusted" | "mode"> & {
-  ui: Omit<TodoOverlayUI, "setActivity"> &
+  ui: Omit<TodoWidgetUI, "setActivity"> &
     Pick<ExtensionUIContext, "addAutocompleteProvider"> &
     WorkingMessageContext["ui"];
   sessionManager: { getBranch(): readonly object[] };
@@ -62,7 +62,7 @@ export default function piTodo(pi: TodoExtensionAPI): void {
     contributor: "pi-todo"
   });
   const controller = new TodoController();
-  const widget = new TodoOverlay(controller);
+  const widget = new TodoWidget(controller);
   const views = new TodosCustomViewHost(widget);
   pi.registerTool(createTodoTool(controller));
   pi.registerCommand("todos", {

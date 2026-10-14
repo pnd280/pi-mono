@@ -7,7 +7,7 @@ A [display adapter](../GLOSSARY.md#interpretation) tells this extension how to r
 ## Add an adapter
 
 1. Create `src/adapters/<extension-package>/index.ts` using the registering extension's full package name, including its scope. For example, use `src/adapters/@ff-labs/pi-fff/index.ts`. Pi's built-in extensions use `src/adapters/builtin/<extension-name>/`, matching their `builtin:<extension-name>` source path.
-2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts); verify provenance and the [required structural contract](#recognise-tool-contracts), not names alone. Return `undefined` for unsupported definitions.
+2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts); verify provenance and the [required structural contract](#recognise-tool-contracts), not names alone. [`registeredBy`](../src/adapters/provenance.ts) checks an extension package's registration. Return `undefined` for unsupported definitions.
 3. Colocate [Zod schemas](../../../../docs/development.md#runtime-validation), presentation, and tests. Write argument schemas for the [arguments that callbacks receive](#callback-arguments). Use `supports(args, result)` to reject uninterpretable CLI input; before results exist, `exploration` must reject unparseable partial arguments.
 4. Document compatibility, contracts, display behaviour, limitations, and extension-specific validation in the adapter's `README.md`.
 5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).

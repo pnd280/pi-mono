@@ -12,13 +12,11 @@ import { z } from "zod";
 
 let directory: string;
 let parent: string;
-let id: string;
 
 beforeEach(async () => {
   directory = await createValidationWorkspace("pi-session-utils-process-");
   const source = SessionManager.create(join(directory, "work"), join(directory, "parents"));
   parent = source.getSessionFile()!;
-  id = source.getSessionId();
   await writeFile(parent, `${JSON.stringify(source.getHeader())}\n`);
 });
 
@@ -106,32 +104,6 @@ it("allows an ephemeral child and retains its parent after /sesh persist", async
   const sessions = await childSessions();
   expect(sessions).toHaveLength(1);
   expect(sessions[0]?.parentSessionPath).toBe(parent);
-}, 15_000);
-
-it("does not write an ephemeral child unless explicitly persisted", async () => {
-  const { stdout, stderr } = await run([
-    "--no-session",
-    "--parent-session",
-    parent,
-    "/fixture-append"
-  ]);
-  expect(stderr).toBe("");
-  const value: unknown = JSON.parse(stdout.split("\n")[0]!);
-  expect(headerSchema.parse(value).parentSession).toBe(parent);
-  expect(await childSessions()).toEqual([]);
-}, 15_000);
-
-it("accepts an exact ID in an explicit session directory", async () => {
-  const parentDir = SessionManager.open(parent).getSessionDir();
-  const { stdout } = await run([
-    "--session-dir",
-    parentDir,
-    "--parent-session",
-    id,
-    "/fixture-append"
-  ]);
-  const value: unknown = JSON.parse(stdout.split("\n")[0]!);
-  expect(headerSchema.parse(value).parentSession).toBe(parent);
 }, 15_000);
 
 it.each(

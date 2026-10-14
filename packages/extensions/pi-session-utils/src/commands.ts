@@ -21,7 +21,7 @@ export async function persistSession(
   }
 
   if (ctx.sessionManager.getSessionFile()) {
-    ctx.ui.notify("This session is already file-backed", "info");
+    ctx.ui.notify("This session is already saved to a file.", "info");
 
     return;
   }
@@ -35,24 +35,24 @@ export async function persistSession(
 
   if (result.cancelled) {
     unlinkSync(path);
-    ctx.ui.notify("Session switch cancelled; no file saved", "info");
+    ctx.ui.notify("Session switch cancelled; no file saved.", "info");
   }
 }
 
 function busyChildGuidance(parentSession: string | undefined): string {
   if (!parentSession) {
-    return "This session is ephemeral. Once idle, run /sesh persist before creating a linked session.";
+    return "This session is ephemeral. Once idle, run /sesh persist before creating a child session.";
   }
 
   if (!existsSync(parentSession)) {
-    return "The parent session has not been saved yet. Wait for an assistant response before creating a linked session.";
+    return "The parent session has not been saved yet. Once idle, send a message before creating a child session.";
   }
 
   // Sanitizing a copyable command would silently point it at a different file.
   if (hasUnsafeTerminalControls(parentSession) || /[\r\n\t]/.test(parentSession))
     return "The parent path contains control characters. Once idle, run /sesh create-empty-child.";
 
-  return `To create a linked session in another terminal, run:\npi --parent-session ${quotePosixShellArgument(parentSession)}`;
+  return `To create a child session in another terminal, run:\npi --parent-session ${quotePosixShellArgument(parentSession)}`;
 }
 
 export async function createEmptyChild(ctx: SessionCommandContext): Promise<void> {
@@ -68,7 +68,7 @@ export async function createEmptyChild(ctx: SessionCommandContext): Promise<void
   const parentSession = ctx.sessionManager.getSessionFile();
 
   if (!parentSession) {
-    ctx.ui.notify("Run /sesh persist before creating a sub-session", "error");
+    ctx.ui.notify("Run /sesh persist before creating a child session.", "error");
 
     return;
   }
@@ -76,7 +76,7 @@ export async function createEmptyChild(ctx: SessionCommandContext): Promise<void
   // Pi assigns a file path before writing it. A child must not point to a nonexistent parent.
   if (!existsSync(parentSession)) {
     ctx.ui.notify(
-      "The parent session has not been saved yet. Wait for an assistant response.",
+      "The parent session has not been saved yet. Send a message before creating a child session.",
       "error"
     );
 
@@ -86,17 +86,17 @@ export async function createEmptyChild(ctx: SessionCommandContext): Promise<void
   const result = await ctx.newSession({
     parentSession,
     withSession: async (replacementCtx) => {
-      replacementCtx.ui.notify("Created an empty sub-session", "info");
+      replacementCtx.ui.notify("Created an empty child session.", "info");
     }
   });
-  if (result.cancelled) ctx.ui.notify("Sub-session creation cancelled", "info");
+  if (result.cancelled) ctx.ui.notify("Child session creation cancelled.", "info");
 }
 
 const subcommands = [
   { value: "persist", description: "Save this ephemeral session to disk" },
   {
     value: "create-empty-child",
-    description: "Start an empty session linked to this saved session"
+    description: "Start an empty child of this saved session"
   },
   { value: "auto-name", description: "Regenerate the session title" }
 ];
@@ -108,7 +108,8 @@ export function registerSessionCommand(
 ): void {
   let running = false;
   pi.registerCommand("sesh", {
-    description: "Persist sessions, create empty sub-sessions, or generate and clear titles",
+    description:
+      "Save ephemeral sessions, create empty child sessions, or generate and clear titles",
     getArgumentCompletions: (prefix) => {
       const choices = prefix.startsWith("auto-name ") ? titleSubcommands : subcommands;
       const matches = choices.filter(({ value }) => value.startsWith(prefix) && value !== prefix);
@@ -128,7 +129,7 @@ export function registerSessionCommand(
       }
 
       if (running) {
-        ctx.ui.notify("A session operation is already in progress", "warning");
+        ctx.ui.notify("A session operation is already in progress.", "warning");
 
         return;
       }

@@ -43,6 +43,7 @@ Naming needs [configuration](#configuration); saving and child sessions don't.
 - `/sesh auto-name` and `clear` work while the agent is running. A new generation replaces any earlier one.
 - Setting or clearing a name cancels generation, and stops automatic naming until the session is loaded or reloaded.
 - Navigating the session tree cancels generation without allowing another automatic attempt. Use `/sesh auto-name` for the selected branch.
+- Aborting the agent run also cancels its automatic attempt, without another attempt.
 - Generation times out after 15 seconds and isn't retried. If it fails, the name is unchanged.
 - In interactive and RPC modes, `/sesh auto-name` reports progress and results through Pi notifications.
 

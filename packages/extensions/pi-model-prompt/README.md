@@ -1,6 +1,6 @@
 # pi-model-prompt
 
-Pi appends one shared `APPEND_SYSTEM.md` for every model, even when models need different guidance. pi-model-prompt gives each model its own appended system instructions. For example, Claude models can get `prompts/ant.md` while GPT models get `prompts/gpt.md` in place of that shared text. The extension uses the public `before_agent_start` prompt sections of Pi 1.0.1.
+Pi appends one shared `APPEND_SYSTEM.md` for every model, even when models need different guidance. pi-model-prompt gives each model its own appended system instructions. For example, Claude models can get `prompts/ant.md` while GPT models get `prompts/gpt.md` in place of that shared text. The extension uses the public `before_agent_start` prompt sections of Pi 1.0.2.
 
 ## Usage
 
@@ -57,7 +57,7 @@ Pi builds the prompt once per run, before routing, and offers extensions no prov
 
 ### Errors
 
-Problems are shown as UI warnings when settings load.
+Problems are shown as UI warnings when settings load. Modes without a UI, such as print mode, show no warnings.
 
 | Problem                                                     | Result                                                       |
 | ----------------------------------------------------------- | ------------------------------------------------------------ |

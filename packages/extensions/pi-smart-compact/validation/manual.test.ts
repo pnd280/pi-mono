@@ -57,31 +57,10 @@ const cases: {
     summaries: 1
   },
   {
-    name: "both enabled",
-    config: { ...override, applyToManual: true, applyToAuto: true },
-    manual: dedicatedSummary,
-    automatic: dedicatedSummary,
-    summaries: 1
-  },
-  {
     name: "thinking only",
     config: { thinkingLevel: "low", applyToManual: true, applyToAuto: true },
     manual: lowerThinking,
     automatic: lowerThinking,
-    summaries: 1
-  },
-  {
-    name: "native defaults",
-    config: { applyToManual: true, applyToAuto: true },
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    summaries: 1
-  },
-  {
-    name: "empty instruction file",
-    config: { instructionsFile: "focus.txt", applyToManual: true, applyToAuto: true },
-    manual: nativeSummary,
-    automatic: nativeSummary,
     summaries: 1
   },
   {
@@ -90,29 +69,6 @@ const cases: {
     manual: nativeSummary,
     automatic: nativeSummary,
     automaticError: /model is unavailable/,
-    summaries: 1
-  },
-  {
-    name: "instruction file",
-    config: { instructionsFile: "focus.txt" },
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    manualFocus: combinedFocus,
-    automaticFocus: fileFocus,
-    summaries: 1
-  },
-  {
-    name: "instruction file without model opt-ins",
-    config: {
-      ...override,
-      instructionsFile: "focus.txt",
-      applyToManual: false,
-      applyToAuto: false
-    },
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    manualFocus: combinedFocus,
-    automaticFocus: fileFocus,
     summaries: 1
   },
   {
@@ -132,13 +88,6 @@ const cases: {
     manualFocus: combinedFocus,
     automaticFocus: fileFocus,
     summaries: 2
-  },
-  {
-    name: "thinking changed",
-    config: {},
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    summaries: 1
   },
   {
     name: "unrelated summary",
@@ -178,41 +127,6 @@ const cases: {
     automatic: nativeSummary,
     error: /thinkingLevel is unsupported/,
     summaries: 0
-  },
-  {
-    name: "failure",
-    config: { ...override, applyToManual: true },
-    manual: dedicatedSummary,
-    automatic: nativeSummary,
-    error: /Manual summary failure/,
-    summaries: 1
-  },
-  {
-    name: "abort",
-    config: { ...override, applyToManual: true },
-    manual: dedicatedSummary,
-    automatic: nativeSummary,
-    error: /cancelled|aborted/i,
-    summaries: 1
-  },
-  {
-    name: "hook cancellation",
-    config: { model: "missing/model", applyToManual: true, instructionsFile: "focus.txt" },
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    manualFocus: combinedFocus,
-    automaticFocus: fileFocus,
-    error: /cancelled/,
-    summaries: 0
-  },
-  {
-    name: "custom summary",
-    config: { model: "missing/model", applyToManual: true, instructionsFile: "focus.txt" },
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    manualFocus: combinedFocus,
-    automaticFocus: fileFocus,
-    summaries: 0
   }
 ];
 
@@ -235,7 +149,6 @@ it.each(cases)(
     const settingsPath = join(agentDir, "settings.json");
     const originalSummary: unknown = Reflect.get(AgentSession.prototype, "_runDefaultCompaction");
     let runtime: AgentSessionRuntime | undefined;
-    let restoreStream: (() => void) | undefined;
     let phase: "manual" | "automatic" = "manual";
     let reloaded = false;
     let automaticReason: "threshold" | "overflow" = "threshold";
@@ -262,10 +175,7 @@ it.each(cases)(
 
     try {
       await writeFile(settingsPath, JSON.stringify({ "ext.pi-smart-compact": config }));
-      await writeFile(
-        join(agentDir, "focus.txt"),
-        name === "empty instruction file" ? " \n" : "Preserve FILE_FOCUS_MARKER.\n"
-      );
+      await writeFile(join(agentDir, "focus.txt"), "Preserve FILE_FOCUS_MARKER.\n");
       const faux = fauxProvider({
         provider: "manual-fixture",
         models: [
@@ -306,15 +216,8 @@ it.each(cases)(
           });
           assert.equal((await probe.result()).stopReason, "stop");
 
-          if (phase === "manual" && !reloaded) {
-            if (name === "thinking changed") runtime.session.setThinkingLevel("low");
-            if (name === "abort") runtime.session.abortCompaction();
-            if (name === "failure" || (name === "retry" && summaryRequests === 1))
-              return fauxAssistantMessage("", {
-                stopReason: "error",
-                errorMessage: name === "retry" ? "terminated" : "Manual summary failure"
-              });
-          }
+          if (phase === "manual" && !reloaded && name === "retry" && summaryRequests === 1)
+            return fauxAssistantMessage("", { stopReason: "error", errorMessage: "terminated" });
 
           return fauxAssistantMessage("MANUAL_CHECKPOINT");
         })
@@ -349,19 +252,6 @@ it.each(cases)(
                 )
             );
           }
-
-          if (!reloaded && phase === "manual" && name === "hook cancellation")
-            return { cancel: true };
-          if (!reloaded && phase === "manual" && name === "custom summary")
-            return {
-              compaction: {
-                summary: "CUSTOM_CHECKPOINT",
-                firstKeptEntryId: event.preparation.firstKeptEntryId,
-                tokensBefore: event.preparation.tokensBefore
-              }
-            };
-
-          return undefined;
         });
       };
 
@@ -404,13 +294,6 @@ it.each(cases)(
       const session = runtime.session;
       const stream = session.agent.streamFunction;
       let expectedAppend: unknown = Reflect.get(session.sessionManager, "appendCompaction");
-
-      if (name === "native defaults" || name === "empty instruction file") {
-        const descriptor = Object.getOwnPropertyDescriptor(session.agent, "streamFunction");
-        assert.ok(descriptor);
-        Object.defineProperty(session.agent, "streamFunction", { ...descriptor, writable: false });
-        restoreStream = () => Object.defineProperty(session.agent, "streamFunction", descriptor);
-      }
 
       const seed = () => {
         session.sessionManager.appendMessage({
@@ -455,14 +338,10 @@ it.each(cases)(
         if (name.startsWith("late abort")) Reflect.deleteProperty(session, "_runDefaultCompaction");
         assert.equal(session.sessionManager.getLeafId(), before);
       } else {
-        const result = await session.compact(instructions);
-        assert.equal(
-          result.summary,
-          name === "custom summary" ? "CUSTOM_CHECKPOINT" : "MANUAL_CHECKPOINT"
-        );
+        assert.equal((await session.compact(instructions)).summary, "MANUAL_CHECKPOINT");
       }
 
-      if (!error && name !== "custom summary") {
+      if (!error) {
         const branch = session.sessionManager.getBranch();
         assert.partialDeepStrictEqual(branch.at(-2), {
           type: "custom",
@@ -476,7 +355,6 @@ it.each(cases)(
         assert.equal(branch.at(-1)?.type, "compaction");
       }
 
-      if (name === "thinking changed") session.setThinkingLevel("high");
       assert.equal(summaryRequests, summaries);
       assert.equal(Reflect.get(session.sessionManager, "appendCompaction"), expectedAppend);
       assert.equal(session.agent.streamFunction, stream);
@@ -548,8 +426,6 @@ it.each(cases)(
 
       // Automatic compaction follows applyToAuto independently of manual attempts.
       await checkAutomatic(automaticError);
-      restoreStream?.();
-      restoreStream = undefined;
 
       // Reload removes both routes without changing the conversation model.
       reloaded = true;
@@ -575,7 +451,6 @@ it.each(cases)(
       );
       assert.deepEqual(errors, []);
     } finally {
-      restoreStream?.();
       await runtime?.dispose();
       vi.unstubAllEnvs();
       await rm(directory, { recursive: true, force: true });

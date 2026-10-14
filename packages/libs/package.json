@@ -59,6 +59,9 @@
     "proper-lockfile": "catalog:",
     "zod": "catalog:"
   },
+  "devDependencies": {
+    "@types/proper-lockfile": "catalog:"
+  },
   "peerDependencies": {
     "@earendil-works/pi-ai": "catalog:pi-host",
     "@earendil-works/pi-coding-agent": "catalog:pi-host",

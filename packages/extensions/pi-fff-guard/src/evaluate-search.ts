@@ -33,7 +33,7 @@ function settleOnAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T
   });
 }
 
-function inspectionDecision(result: GitIgnoreResult, toolName: string): SearchDecision | undefined {
+function inspectionDecision(result: GitIgnoreResult, toolName: string): SearchDecision {
   switch (result.status) {
     case "cancelled":
     case "timed-out":
@@ -50,7 +50,7 @@ function inspectionDecision(result: GitIgnoreResult, toolName: string): SearchDe
         reason: `${toolName} does not work with Git-ignored paths. Retry with rg or another available tool.`
       };
     case "not-ignored":
-      return undefined;
+      return { kind: "allow" };
 
     default:
       result satisfies never;
@@ -77,13 +77,15 @@ export async function evaluateSearch({
     ? AbortSignal.any([signal, controller.signal])
     : controller.signal;
 
+  let diagnostic: string | undefined;
+
   try {
     const scope = await settleOnAbort(
       extractScope(kind, input, cwd, inspectionSignal),
       inspectionSignal
     );
     inspectionSignal.throwIfAborted();
-    if (scope.missing) return { kind: "block" as const, reason: "No such file or directory" };
+    if (scope.missing) return { kind: "block", reason: "No such file or directory" };
 
     for (const targetPath of scope.paths) {
       inspectionSignal.throwIfAborted();
@@ -98,21 +100,22 @@ export async function evaluateSearch({
       );
       if (signal?.aborted) return cancelled;
       const decision = inspectionDecision(result, toolName);
+      if (decision.kind === "block") return decision;
 
-      if (decision) return decision;
+      // One failed inspection must not hide another target's definite block.
+      diagnostic ??= decision.diagnostic;
     }
   } catch (error) {
     if (signal?.aborted) return cancelled;
 
-    let diagnostic = "inspection failed";
-    if (controller.signal.aborted) diagnostic = "inspection timed out";
-    else if (error instanceof Error)
-      diagnostic = error.message.replace(/[\r\n]/g, " ").slice(0, 180);
+    let failure = "inspection failed";
+    if (controller.signal.aborted) failure = "inspection timed out";
+    else if (error instanceof Error) failure = error.message.replace(/[\r\n]/g, " ").slice(0, 180);
 
-    return { kind: "allow", diagnostic };
+    return { kind: "allow", diagnostic: failure };
   } finally {
     clearTimeout(timeout);
   }
 
-  return { kind: "allow" };
+  return diagnostic ? { kind: "allow", diagnostic } : { kind: "allow" };
 }

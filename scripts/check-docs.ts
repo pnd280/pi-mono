@@ -24,12 +24,17 @@ function markdownFiles(): string[] {
     .map((file) => join(root, file));
 }
 
-// Fenced blocks and inline code hold examples, not links.
-function prose(text: string): string {
-  return text.replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "").replace(/`[^`\n]*`/g, "");
+// Fenced blocks, including indented ones in list items, hold examples, not headings or links.
+function withoutFences(text: string): string {
+  return text.replace(/^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[`~]*[ \t]*$/gm, "");
 }
 
-// GitHub-style heading slugs, numbered on repeats.
+// Inline code holds examples, not links.
+function prose(text: string): string {
+  return withoutFences(text).replace(/`[^`\n]*`/g, "");
+}
+
+// GitHub-style heading slugs, numbered on repeats. Inline code text stays in the slug.
 const anchorCache = new Map<string, Set<string>>();
 
 function anchors(file: string): Set<string> {
@@ -40,7 +45,7 @@ function anchors(file: string): Set<string> {
   const found = new Set<string>();
   const seen = new Map<string, number>();
 
-  for (const [, heading = ""] of prose(readFileSync(file, "utf8")).matchAll(
+  for (const [, heading = ""] of withoutFences(readFileSync(file, "utf8")).matchAll(
     /^#{1,6}\s+(.+?)\s*#*$/gm
   )) {
     const slug = heading

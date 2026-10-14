@@ -16,6 +16,7 @@ import {
   readSummaryItems,
   readTextParts
 } from "../native/read.ts";
+import { registeredBy } from "../provenance.ts";
 import { argsSchema, parametersSchema, resultSchema } from "./schema.ts";
 
 function supports(args: unknown, result: BorrowedToolResult): boolean {
@@ -89,14 +90,9 @@ export const selectiveReadDisplayAdapter: ToolDisplayAdapter = {
 
 /** Select only the workspace extension's current read contract, never an arbitrary read override. */
 export function piSelectiveReadAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
-  if (!tool || tool.name !== "read" || ["builtin", "sdk"].includes(tool.sourceInfo.source))
-    return undefined;
-  const path = tool.sourceInfo.path.replaceAll("\\", "/");
-  const owned =
-    /^npm:pi-read(?:@[^/]+)?$/.test(tool.sourceInfo.source) ||
-    /(?:^|\/)pi-read\/(?:src\/)?index\.[cm]?[jt]s$/.test(path);
-
-  return owned && parametersSchema.safeParse(tool.parameters).success
+  return tool?.name === "read" &&
+    registeredBy(tool, "pi-read") &&
+    parametersSchema.safeParse(tool.parameters).success
     ? selectiveReadDisplayAdapter
     : undefined;
 }

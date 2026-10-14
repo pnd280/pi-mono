@@ -60,15 +60,3 @@ export const summarySchema = z.object({
 export type FileChange = z.infer<typeof fileChangeSchema>;
 
 export type RunSummary = z.infer<typeof summarySchema>;
-
-export function formatDuration(durationMs: number): string {
-  const totalSeconds = Math.floor(durationMs / 1000);
-  const seconds = totalSeconds % 60;
-  const minutes = Math.floor(totalSeconds / 60) % 60;
-  const hours = Math.floor(totalSeconds / 3600);
-
-  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
-  if (totalSeconds >= 60) return `${minutes}m ${seconds}s`;
-
-  return `${seconds}s`;
-}

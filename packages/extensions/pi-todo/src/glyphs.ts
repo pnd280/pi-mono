@@ -10,13 +10,6 @@ export const TASK_STATUS_COLOR = {
   deleted: "muted"
 } satisfies Record<TaskStatus, Parameters<Theme["fg"]>[0]>;
 
-export const TASK_STATUS_TEXT = {
-  pending: "pending",
-  in_progress: "in progress",
-  completed: "completed",
-  deleted: "deleted"
-} satisfies Record<TaskStatus, string>;
-
 export const TODO_TREE_GLYPH = {
   guide: TUI_GLYPHS.tree.guide,
   branch: `${TUI_GLYPHS.tree.branch}${TUI_GLYPHS.tree.horizontal}`,

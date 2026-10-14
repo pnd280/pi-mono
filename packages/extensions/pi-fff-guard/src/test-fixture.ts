@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { devNull, tmpdir } from "node:os";
 import path from "node:path";
 
 export async function fixture() {
@@ -13,7 +13,7 @@ export async function fixture() {
     execFileSync("git", args, {
       cwd: root,
       encoding: "utf8",
-      env: { ...env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" }
+      env: { ...env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_NOSYSTEM: "1" }
     });
 
   const write = async (name: string, text = "fixture_marker\n") => {
@@ -24,12 +24,18 @@ export async function fixture() {
     return absolute;
   };
 
-  git("init", "-q");
-  git("config", "core.excludesFile", await write("global-excludes", ""));
-  await write(".gitignore", "node_modules/\n.tmp/\n");
-  await write("src/main.ts");
-  await write("node_modules/dependency/package.json", '{"name":"fixture_marker"}\n');
-  await write(".tmp/page.html");
+  try {
+    git("init", "-q");
+    git("config", "core.excludesFile", await write("global-excludes", ""));
+    await write(".gitignore", "node_modules/\n.tmp/\n");
+    await write("src/main.ts");
+    await write("node_modules/dependency/package.json", '{"name":"fixture_marker"}\n');
+    await write(".tmp/page.html");
+  } catch (error) {
+    // Callers receive no root to clean up when setup fails.
+    await rm(root, { recursive: true, force: true });
+    throw error;
+  }
 
   return { root, git, write };
 }

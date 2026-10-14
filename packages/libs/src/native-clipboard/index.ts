@@ -51,9 +51,9 @@ function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Pro
 
 /**
  * Replace the native clipboard with exact UTF-8 text, without an OSC 52 fallback.
- * The timeout is in milliseconds and covers all helper attempts (default: 5,000).
- * Cancellation can throw the signal's reason; only NativeClipboardError messages
- * are safe for user-facing diagnostics.
+ * The timeout is in milliseconds and covers all helper attempts (default: 5,000);
+ * expiry throws NativeClipboardError. Cancellation can throw the signal's reason;
+ * only NativeClipboardError messages are safe for user-facing diagnostics.
  */
 export async function copyNative(
   text: string,
@@ -64,7 +64,10 @@ export async function copyNative(
   if (!timeoutSchema.safeParse(timeout).success)
     throw new RangeError("Clipboard timeout must be a supported nonnegative timer duration.");
   const deadline = new AbortController();
-  const timer = setTimeout(() => deadline.abort(), timeout);
+  const timer = setTimeout(
+    () => deadline.abort(new NativeClipboardError("Native clipboard helper timed out.")),
+    timeout
+  );
   const operationSignal = AbortSignal.any([signal, deadline.signal]);
 
   try {

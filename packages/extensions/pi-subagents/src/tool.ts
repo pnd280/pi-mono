@@ -23,16 +23,17 @@ function toolResult(result: Submission) {
       undefined,
       result.details.background ? "Background task updated" : "Foreground task updated"
     );
-  const warning = result.interrupted ? `${INTERRUPTED_WARNING}\n\n` : "";
+  const warning = result.interrupted ? INTERRUPTED_WARNING : undefined;
 
   return result.kind === "background"
     ? taskResult(
         result.details,
-        `${warning}${BACKGROUND_STARTED}`,
+        BACKGROUND_STARTED,
         result.usage,
-        "Background task started"
+        "Background task started",
+        warning
       )
-    : taskResult(result.details, `${warning}${result.text}`, result.usage);
+    : taskResult(result.details, result.text, result.usage, undefined, warning);
 }
 
 export function createSubagentTool(tasks: Tasks, open: (id: string, binding?: string) => void) {

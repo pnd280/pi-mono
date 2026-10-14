@@ -618,18 +618,8 @@ function applyUpdateTaskMutation(state: TodoState, params: TaskMutationParams): 
     return errorResult(state, "update", params, `#${params.id} not found`);
   }
 
-  if (!hasUpdateMutation(params)) {
-    return errorResult(state, "update", params, "update requires at least one mutable field");
-  }
-
-  if (params.parentId !== undefined && params.status === "deleted") {
-    return errorResult(
-      state,
-      "update",
-      params,
-      "parentId and status deleted must be separate updates"
-    );
-  }
+  const shapeError = updateShapeError(params);
+  if (shapeError !== undefined) return errorResult(state, "update", params, shapeError);
 
   let nextStatus = current.status;
 
@@ -694,6 +684,15 @@ function applyUpdateTaskMutation(state: TodoState, params: TaskMutationParams): 
     params,
     `Updated #${updated.id}${transition}${placement}`
   );
+}
+
+function updateShapeError(params: TaskMutationParams): string | undefined {
+  if (!hasUpdateMutation(params)) return "update requires at least one mutable field";
+  if (params.subject !== undefined && !params.subject.trim()) return "subject must not be empty";
+
+  return params.parentId !== undefined && params.status === "deleted"
+    ? "parentId and status deleted must be separate updates"
+    : undefined;
 }
 
 function hasUpdateMutation(params: TaskMutationParams): boolean {

@@ -1,7 +1,4 @@
-import { join } from "node:path";
-
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readSettingsRecord } from "@pi-mono/libs/settings-file";
+import { readScopedSettings, readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { z } from "zod";
 
 const configSchema = z.strictObject({
@@ -32,15 +29,12 @@ function readSection(path: string) {
 /** Merge trusted cwd overrides without writing settings or choosing fallback models. */
 export function loadTitleConfig(
   cwd: string,
-  {
-    projectTrusted = false,
-    agentDir = getAgentDir()
-  }: { projectTrusted?: boolean; agentDir?: string } = {}
+  { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
 ): TitleConfig | undefined {
-  const global = readSection(join(agentDir, "settings.json"));
-  const project = projectTrusted ? readSection(join(cwd, CONFIG_DIR_NAME, "settings.json")) : {};
+  const sections = readScopedSettings({ cwd, projectTrusted, agentDir }, readSection);
   // Invalid settings must not silently route conversation text to a different model.
-  if (!global || !project) return undefined;
+  if (sections.includes(undefined)) return undefined;
+  const [global, project] = sections;
 
   return configSchema.safeParse({ ...global, ...project }).data;
 }

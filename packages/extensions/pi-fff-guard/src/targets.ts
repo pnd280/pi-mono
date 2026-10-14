@@ -105,7 +105,8 @@ async function fileInfo(absolute: string) {
     if (
       error instanceof Error &&
       "code" in error &&
-      (error.code === "ENOENT" || error.code === "ENOTDIR")
+      // A name too long to create cannot exist, so FFF cannot find it either.
+      (error.code === "ENOENT" || error.code === "ENOTDIR" || error.code === "ENAMETOOLONG")
     )
       return undefined;
     throw error;

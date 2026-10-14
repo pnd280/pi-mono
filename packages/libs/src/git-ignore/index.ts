@@ -203,11 +203,13 @@ export async function inspectGitIgnore({
   } catch (error) {
     if (signal?.aborted) return { status: "cancelled" };
     if (controller.signal.aborted) return { status: "timed-out" };
+    // Only probes of the inspected path mean missing; a failed Git spawn is unavailable.
     if (
       error instanceof Error &&
       "code" in error &&
       (error.code === "ENOENT" || error.code === "ENOTDIR") &&
-      !String(error).includes("spawn")
+      "syscall" in error &&
+      (error.syscall === "lstat" || error.syscall === "readlink")
     )
       return { status: "missing" };
 

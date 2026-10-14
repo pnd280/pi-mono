@@ -1,12 +1,10 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-type Command = ReturnType<ExtensionAPI["getCommands"]>[number];
+import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 
 export function command(
   name: string,
-  source: Command["source"] = "skill",
+  source: SlashCommandInfo["source"] = "skill",
   path = `/skills/${name}/SKILL.md`
-): Command {
+): SlashCommandInfo {
   return {
     name,
     source,

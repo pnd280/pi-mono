@@ -6,7 +6,7 @@
 
 `piTodoAdapter(toolInfo)` requires workspace [`pi-todo`](../../../../pi-todo/README.md) provenance (`npm:pi-todo` or its entry path) and a string `action` schema. SDK, built-in, and unrelated `todo` tools do not qualify.
 
-`pi-todo` has no renderers or display dependency. This extension selects, renders, and groups its cards; inactive display or `todo: original` uses Pi defaults.
+`pi-todo` has no renderers or display dependency; this extension imports only its pure `pi-todo/text` module, never its extension factory. This extension selects, renders, and groups its cards; inactive display or `todo: original` uses Pi defaults.
 
 ## Arguments and results
 
@@ -16,7 +16,7 @@ After a result exists, incompatible arguments use ungrouped generic cards, for e
 
 ## Display
 
-Supported cards start with `Todos` and the action. Subject previews use a 200-code-point budget, including any omission mark, and keep whole graphemes.
+Supported cards start with `Todos` and the action. Subject previews, status words, and progress summaries come from the [`pi-todo/text`](../../../../pi-todo/src/text.ts) contract, so cards match the widget and browser: subjects use a 200-code-point budget, including any omission mark, and keep whole graphemes.
 
 Compact cards replace successful output with confirmed status and progress:
 

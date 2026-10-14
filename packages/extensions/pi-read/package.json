@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
+    ".": "./index.ts",
     "./result": "./src/result.ts"
   },
   "scripts": {

@@ -71,7 +71,6 @@ export type ChildOptions = ChildSelection & {
   onActivity?: (activity: string) => void;
   onEvent?: (event: JsonAgentSessionEvent) => void;
   onUIRequest?: (request: RpcExtensionUIRequest) => void;
-  onStep?: (step: string) => void;
 };
 
 /** One process lifetime, including the wait for exit after EOF or cancellation. */
@@ -106,7 +105,6 @@ export class ChildRun {
   private listeners = new Set<(message: ChildMessage) => void>();
 
   constructor(private readonly options: ChildOptions) {
-    options.onStep?.("spawn");
     const child = spawn(
       options.invocation.command,
       [...options.invocation.args, ...childArgs(options)],
@@ -177,13 +175,9 @@ export class ChildRun {
       this.closing = true;
       clearTimeout(this.stopTimer);
       this.clearForceStop?.();
-      terminateTree(
-        this.connection.process,
-        (step) => this.options.onStep?.(step),
-        (error) => {
-          this.failure ??= { step: "terminate_tree", message: error.message };
-        }
-      );
+      terminateTree(this.connection.process, (error) => {
+        this.failure ??= { step: "terminate_tree", message: error.message };
+      });
     }
 
     return this.done;
@@ -191,7 +185,6 @@ export class ChildRun {
 
   private async request(command: RpcCommand): Promise<Extract<RpcResponse, { success: true }>> {
     this.step = command.type;
-    this.options.onStep?.(this.step);
     const response = await this.connection.request(command);
     if (!response.success) throw new Error(response.error);
     if (response.command !== command.type) throw new Error("Mismatched Pi RPC response");
@@ -308,7 +301,6 @@ export class ChildRun {
     )
       throw new Error("Child did not load pi-subagents");
     this.step = "begin";
-    this.options.onStep?.(this.step);
     const reply = await this.ask(
       "begin",
       {
@@ -453,7 +445,6 @@ export class ChildRun {
     } else if (event.type === "agent_settled") {
       this.settled = true;
       this.epoch++;
-      this.options.onStep?.("agent_settled");
     } else if (event.type === "message_end" && event.message.role === "assistant") {
       this.lastAssistant = event.message;
     } else if (event.type === "tool_execution_start" && !event.parentToolCallId) {
@@ -523,9 +514,7 @@ export class ChildRun {
     this.closing = true;
     if (this.stopTimer !== undefined || this.finished) return;
 
-    this.options.onStep?.("clear_queue");
     void this.connection.request({ type: "clear_queue" }).catch(() => {});
-    this.options.onStep?.("abort");
     // EOF disposes collectors. Read final statistics first, without waiting for settle hooks.
     void this.connection.request({ type: "abort" }).then(
       () => this.statsAndClose(),
@@ -554,7 +543,6 @@ export class ChildRun {
     if (this.inputClosed || this.finished) return;
     this.inputClosed = true;
     this.step = "close_stdin";
-    this.options.onStep?.(this.step);
     this.connection.closeInput();
     this.scheduleStop();
   }
@@ -565,13 +553,9 @@ export class ChildRun {
     this.stopTimer = setTimeout(() => {
       if (!isAlive(this.connection.process)) return;
       this.closeInput();
-      this.clearForceStop = forceStop(
-        this.connection.process,
-        (step) => this.options.onStep?.(step),
-        (error) => {
-          this.failure ??= { step: "force_stop", message: error.message };
-        }
-      );
+      this.clearForceStop = forceStop(this.connection.process, (error) => {
+        this.failure ??= { step: "force_stop", message: error.message };
+      });
     }, this.options.shutdownGraceMs ?? STOP_GRACE_MS);
   }
 

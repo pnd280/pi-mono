@@ -8,7 +8,7 @@ Showing a patch inside Pi needs rows that fit the terminal and respect expansion
 
 `renderDiffPanel` aligns replacements within change blocks, never across context or hunk separators. It renders responsive unified/split views from parsed patches and sanitises text before highlighting. Compact budgets count changed rows, not context or structural markers; expansion includes all supplied hunks. Patches remain unmodified.
 
-Panel layout
+### Panel layout
 
 - Every row is exactly the supplied width. The `toolPendingBg` surface covers context rows, gaps, and separators. When the width exceeds two columns, the panel has one column of padding on each side.
 - Strip, added-row, and removed-row backgrounds mix the surface toward `toolDiffContext`, `toolDiffAdded`, and `toolDiffRemoved`. The resulting contrast depends on those colours and the terminal's colour mode. A changed row's background also colours the adjacent padding column.

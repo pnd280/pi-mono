@@ -2,7 +2,9 @@ import type { SelectedSource } from "@pi-mono/utils/source-selection";
 
 export function selectionPreview(source: SelectedSource): string {
   if (!source.lines.some((line) => line.text.length > 0))
-    return "The selection contains no text in this read window. Adjust offset and limit to include it.";
+    return source.partial
+      ? "The selection contains no text in this read window. Adjust offset and limit to include it."
+      : "The selection contains no text: its lines are empty or its columns are past the line end.";
   const selected = source.lines.map((line) => line.text);
   let truncated = selected.length > 5;
   const excerpt = truncated ? [...selected.slice(0, 2), "…", ...selected.slice(-2)] : selected;

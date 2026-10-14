@@ -122,7 +122,8 @@ export function sumUsage(a: ToolDetails["usage"], b: ToolDetails["usage"]): Tool
 
 const ERROR_LINE_MAX = 512;
 
-function firstLine(text: string): string {
+/** The first non-empty line of a result, as a failed or cancelled run's error. */
+export function firstLine(text: string): string {
   const line =
     text
       .split("\n")
@@ -133,7 +134,14 @@ function firstLine(text: string): string {
   return kept.length < line.length ? `${kept}…` : line;
 }
 
-export function taskResult(input: ToolDetails, body: string, usage?: Usage, summary?: string) {
+/** A call or message result. `notice` precedes the body; the error comes from the body alone. */
+export function taskResult(
+  input: ToolDetails,
+  body: string,
+  usage?: Usage,
+  summary?: string,
+  notice?: string
+) {
   const error = input.state === "failed" || input.state === "cancelled";
   const reason = error ? firstLine(body) : "";
   const details = reason ? { ...input, error: reason } : input;
@@ -146,7 +154,7 @@ export function taskResult(input: ToolDetails, body: string, usage?: Usage, summ
           id: details.task_id,
           state: details.state,
           summary: summary && boundedText(summary),
-          body: boundedText(body)
+          body: boundedText(notice ? `${notice}\n\n${body}` : body)
         })
       }
     ],

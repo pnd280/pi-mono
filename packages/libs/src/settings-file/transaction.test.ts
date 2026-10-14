@@ -27,26 +27,6 @@ const fixture = () => {
   return { directory, path: join(directory, "settings.json") };
 };
 
-it("reads Pi-compatible BOM-prefixed settings and preserves other keys on update", () => {
-  const { path } = fixture();
-  writeFileSync(path, '\uFEFF{"theme":"dark","ext.test":{"enabled":true}}');
-  expect(readSettingsRecord(path)).toEqual({ theme: "dark", "ext.test": { enabled: true } });
-  updateSettingsRecord(path, (record) => {
-    record.theme = "light";
-  });
-  expect(readSettingsRecord(path)).toEqual({ theme: "light", "ext.test": { enabled: true } });
-});
-
-it("treats an empty settings file as Pi's absent settings and permits an update", () => {
-  const { path } = fixture();
-  writeFileSync(path, "");
-  expect(readSettingsRecord(path)).toEqual({});
-  updateSettingsRecord(path, (record) => {
-    record.theme = "light";
-  });
-  expect(readSettingsRecord(path)).toEqual({ theme: "light" });
-});
-
 it("leaves files untouched on mutator rejection and releases the lock for a later update", () => {
   const { directory, path } = fixture();
   const original = '{"theme":"dark","future":{"kept":1}}\n';

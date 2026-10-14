@@ -7,7 +7,7 @@ import type {
 import { z } from "zod";
 
 import { END_ENTRY, RECORD_MAX_BYTES, RESULT_MESSAGE, RUN_ENTRY } from "./constants.ts";
-import { boundedText, detailsSchema, detailsUsage, sumUsage, usageSchema } from "./result.ts";
+import { detailsSchema, detailsUsage, firstLine, sumUsage, usageSchema } from "./result.ts";
 
 const id = z.string().min(1).max(1024);
 const outcome = z.enum(["completed", "failed", "cancelled"]);
@@ -184,10 +184,7 @@ export function endRecord(
   usage: TaskRecord["usage"],
   endedAt: number
 ): EndRecord {
-  const error =
-    result.outcome === "completed"
-      ? undefined
-      : boundedText(result.text.split("\n", 1)[0] ?? "", 1).slice(0, 1024) || undefined;
+  const error = result.outcome === "completed" ? undefined : firstLine(result.text) || undefined;
   const context = contextOf(result.usageEnd).context ?? record.context;
 
   return {

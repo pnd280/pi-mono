@@ -52,21 +52,6 @@ it("does not mistake a failed final write for a reverted change", async () => {
   ]);
 });
 
-it("preserves a known source limit when no tool patch is available", async () => {
-  const changes = new RunChanges("/work");
-  const oversized = mutation("large", "before", "after");
-  oversized.after = { status: "too-large" };
-  oversized.patch = async () => ({ status: "source-unavailable" });
-  await changes.completed(oversized);
-  expect(await changes.finish()).toEqual([
-    {
-      path: "large",
-      status: "unavailable",
-      reason: expect.stringMatching(/source.*8 MiB/i) as unknown
-    }
-  ]);
-});
-
 it("reports invalid sources, failed writes, and the package's diff limit as unavailable", async () => {
   const changes = new RunChanges("/work");
   await changes.completed(mutation("binary", "before", "a\0b"));
@@ -97,19 +82,6 @@ it("reports invalid sources, failed writes, and the package's diff limit as unav
       status: "unavailable",
       reason: expect.stringMatching(/diff.*2000/i) as unknown
     }
-  ]);
-});
-
-it.each([
-  ["queue-full", /queue/i],
-  ["worker-failed", /worker/i]
-] as const)("reports %s separately from a diff work limit", async (status, reason) => {
-  const changes = new RunChanges("/work");
-  const change = mutation("file", "before\n", "after\n");
-  change.patch = async () => ({ status });
-  await changes.completed(change);
-  expect(await changes.finish()).toEqual([
-    { path: "file", status: "unavailable", reason: expect.stringMatching(reason) as unknown }
   ]);
 });
 

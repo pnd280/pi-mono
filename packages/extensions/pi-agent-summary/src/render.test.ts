@@ -37,7 +37,7 @@ it("distinguishes unavailable statistics from no changes without adding them to 
     ]
   };
   expect(text(mixed)).toMatch(/edited 1 file/);
-  expect(text(mixed)).toContain("+2 −1");
+  expect(text(mixed)).toContain("+2 -1");
   expect(text(mixed)).toMatch(/unavailable.*2 files/i);
   expect(text(mixed, true)).toMatch(/large\.txt[^\n]*Source too large\./);
   expect(text(mixed, true)).toMatch(/other\.txt[^\n]*Source too large\./);

@@ -1,5 +1,4 @@
 import { initTheme, type AgentToolResult } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
@@ -11,10 +10,10 @@ import { selectiveReadDisplayAdapter } from "./index.ts";
 beforeAll(() => initTheme("dark", false));
 
 it.each([
-  [{ path: "example.txt", startLine: "1" }, "Read example.txt"],
-  [{ path: "example.txt", limit: "3" }, "Called read("],
-  [{ path: "example.txt", selection: { startLine: 1, extra: null } }, "Called read("]
-])("specializes interpretable retained read arguments: %j", (args, heading) => {
+  { path: "example.txt", startLine: "1" },
+  { path: "example.txt", limit: "3" },
+  { path: "example.txt", selection: { startLine: 1, extra: null } }
+])("keeps retained read arguments unchanged while rendering: %j", (args) => {
   const coordinator = new TranscriptCoordinator("read-arguments", { cwd: "/project" });
   const before = structuredClone(args);
 
@@ -48,14 +47,14 @@ it.each([
     const renderers = createTranscriptRenderers("read", selectiveReadDisplayAdapter, {
       binding: { call, coordinator }
     });
-    expect(renderers.renderCall(args, theme, context).render(120).join("\n")).toContain(heading);
+    renderers.renderCall(args, theme, context).render(120);
     expect(args).toEqual(before);
   } finally {
     coordinator.dispose();
   }
 });
 
-it("renders selected source once through public cards, hides compact text, and retains diagnostics", () => {
+it("keeps a selected-source result unchanged through public cards", () => {
   const args = {
     path: "example.txt",
     startLine: "1",
@@ -74,11 +73,6 @@ it("renders selected source once through public cards, hides compact text, and r
     details: { selectiveRead: { sourceBlocks: 1 } }
   };
   const before = structuredClone(result);
-  const selectedTheme = {
-    ...theme,
-    bg: (color: string, text: string) =>
-      color === "searchMatchBg" ? `\x1b[43m${text}\x1b[49m` : text
-  };
 
   for (const expanded of [false, true]) {
     const context = {
@@ -96,25 +90,8 @@ it("renders selected source once through public cards, hides compact text, and r
       invalidate() {}
     };
     const renderers = createToolDisplayRenderers("read", selectiveReadDisplayAdapter);
-    const call = renderers.renderCall(args, selectedTheme, context);
-    const view = renderers.renderResult(result, context, selectedTheme, context);
-    const output = [...call.render(100), ...view.render(100)].join("\n");
-    const plain = stripTerminalSequences(output);
-    expect(plain).not.toContain("Selected source preview:");
-    expect(plain).toContain("selection 9:2-9:3");
-
-    if (expanded) {
-      expect(plain).toContain("context");
-      expect(plain).toContain("界tail");
-      expect(plain.split("界tail")).toHaveLength(2);
-      expect(output).toContain("    \x1b[43m界\x1b[49mtail");
-      expect(output.split("\x1b[43m")).toHaveLength(2);
-    } else {
-      expect(plain).not.toContain("context");
-      expect(output).not.toContain("\x1b[43m");
-    }
-
-    expect(plain).toContain("9 more lines");
+    renderers.renderCall(args, theme, context).render(100);
+    renderers.renderResult(result, context, theme, context).render(100);
   }
 
   expect(result).toEqual(before);

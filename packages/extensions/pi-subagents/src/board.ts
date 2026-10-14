@@ -6,7 +6,7 @@ import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 
 import type { TaskRecord } from "./records.ts";
-import { duration } from "./render.ts";
+import { elapsed } from "./render.ts";
 import type { Tasks } from "./tasks.ts";
 
 /** Panel views, in Tab order. The last three also order the list. */
@@ -83,7 +83,10 @@ const BACKGROUND_GLYPH = "◐";
 
 type Status = { glyph: string; color: Parameters<Theme["fg"]>[0]; label: string };
 
-/** Completed tasks need no label: the check mark carries the outcome. */
+/**
+ * Completed tasks need no label: the check mark carries the outcome. Outcome glyphs name a
+ * cancellation in `error`, like pi-tool-display headings; card status details use `warning`.
+ */
 function status(task: TaskRecord): Status {
   if (task.state === "active")
     return task.background
@@ -119,8 +122,10 @@ export function taskMetadata(
   { full = false, context = false } = {}
 ): string[] {
   const { label } = status(task);
-  const end = task.state === "active" ? Date.now() : task.ended_at;
-  const time = end === null ? "" : duration(end - task.started_at);
+  // A run without an `end` has no recorded duration.
+  let time = "";
+  if (task.state === "active") time = elapsed(task.started_at, null);
+  else if (task.ended_at !== null) time = elapsed(task.started_at, task.ended_at);
   const activity = task.state === "active" ? tasks.activity(task.task_id) : "";
   const live = context && task.state === "active" ? contextLabel(task) : "";
   const cost = !full && task.usage && task.usage.cost > 0 ? `$${task.usage.cost.toFixed(2)}` : "";
