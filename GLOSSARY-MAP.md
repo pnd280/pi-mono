@@ -6,6 +6,7 @@ The [workspace architecture](docs/architecture.md) assigns discovery and present
 
 - [pi-tool-display](./packages/extensions/pi-tool-display/GLOSSARY.md) presents Pi tool calls as cards, exploration groups, and run summaries.
 - [pi-nested-instructions](./packages/extensions/pi-nested-instructions/GLOSSARY.md) loads instruction files from directories that tool inputs reach into.
+- [pi-agent-summary](./packages/extensions/pi-agent-summary/GLOSSARY.md) times runs and summarises each finished run, including counters and milestones that other extensions report.
 
 ## Relationships
 

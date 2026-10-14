@@ -452,6 +452,9 @@ importers:
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils
+      pi-agent-summary:
+        specifier: workspace:*
+        version: link:../pi-agent-summary
       zod:
         specifier: 'catalog:'
         version: 4.6.5

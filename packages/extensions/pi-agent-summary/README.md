@@ -1,6 +1,6 @@
 # pi-agent-summary
 
-Long agent runs scroll past what changed. pi-agent-summary shows how long the agent has been working and how fast it streams output, and after each run adds a one-line summary of what it did: which models answered, how long it took, commands run, and files changed. Summaries are saved in the session but never sent to the model.
+Long agent runs scroll past what changed. pi-agent-summary shows how long the agent has been working and how fast it streams output, and after each run adds a short summary of what it did: which models answered, how long it took, commands run, files changed, and counters and milestones that other extensions report. Summaries are saved in the session but never sent to the model.
 
 ## Usage
 
@@ -49,6 +49,54 @@ File statistics come from Pi's native `edit` and `write` tools only; changes mad
 - Statistics are unavailable, not zero, for binary or unreadable files, files that changed during observation, failed writes, and files over the [diff limits](../../libs/src/bounded-diff/README.md#behaviour). Expand the summary to see why.
 - Totals include only files with available statistics.
 
+### Milestones
+
+Other extensions can declare a _milestone_, such as a published release or an opened pull request, for the active run. Each milestone shows as its own `◆` line above the summary line:
+
+```text
+◆ Published v1.2.0
+◆ Opened PR #42: Release v1.2.0
+• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands
+```
+
+To declare one, emit `{ text }` on Pi's event bus. With this extension not loaded, nothing happens.
+
+```ts
+pi.events.emit("pi-agent-summary:milestone", { text: "Published v1.2.0" });
+```
+
+Workspace packages can import `milestoneChannel` and the `Milestone` type from `pi-agent-summary/milestones`.
+
+- A milestone joins only the active run. Milestones declared before the first `agent_start`, or after pi-agent-summary clears the run in its `agent_settled` handler, are dropped.
+- Text is trimmed and must have 1 to 200 characters; other payloads are ignored. Whitespace is collapsed for display, and long text wraps with a two-column indent.
+- Repeated text in one run is kept once. A run keeps its first 20 milestones and drops the rest.
+
+### Counters
+
+Other extensions can add to a _counter_, such as delegated tasks, during the active run. Each counter shows as a segment of the summary line, after the command count and before the file changes:
+
+```text
+• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · delegated 3 tasks · edited 3 files · +42 -11
+```
+
+Each emit adds 1. With this extension not loaded, nothing happens.
+
+```ts
+pi.events.emit("pi-agent-summary:counter", {
+  id: "pi-subagents.delegated",
+  verb: "delegated",
+  singular: "task",
+  plural: "tasks"
+});
+```
+
+Workspace packages can import `counterChannel` and the `Counter` type from `pi-agent-summary/counters`. [pi-subagents](../pi-subagents/README.md#usage) counts delegated tasks this way.
+
+- A counter adds only to the run that is active when it is emitted, with the same rule as milestones.
+- Emits with the same `id` share one count. The labels of the first emit in the run stay.
+- `id` must have 1 to 64 characters, and `verb`, `singular`, and `plural` must have 1 to 32 characters after trimming; other payloads are ignored.
+- Segments follow the order of each counter's first emit. A run keeps its first 10 counters and ignores new ids after that.
+
 ### Other modes
 
 RPC, JSON, and print modes save summaries without the live timer and rate. Shutdown or reload discards an unfinished run.
@@ -59,7 +107,7 @@ There are no options or environment variables. The live timer and rate are shown
 
 ## Side effects
 
-- Appends one `pi-agent-summary.summary` entry per run, hidden from the model. It stores timing, answering models and throughput when known, the command count, and file statistics or why they're unavailable. Entries don't start turns.
+- Appends one `pi-agent-summary.summary` entry per run, hidden from the model. It stores timing, answering models and throughput when known, milestones, counters, the command count, and file statistics or why they're unavailable. Entries don't start turns.
 - May read a file before a native write, to compare contents. [Shared file-mutation observation](../../libs/src/file-mutations/README.md) avoids reading twice when pi-tool-display is also loaded. Contents and patches stay in memory.
 - Never scans directories, writes extra files, runs Git, or makes network requests.
 - When a run finishes or Pi shuts down, it clears only its own timer and rate from the working message.
@@ -77,6 +125,8 @@ Setup: load this extension with `pi-todo` and `pi-tool-display`, in regular and 
 | Watch the working message during a long response | `n/s` estimates the response while text streams. After the response, it shows the run rate.                |
 | Click a summary in fullscreen; press **Ctrl+O**  | Clicking toggles one summary; **Ctrl+O** toggles all of them. Expanded summaries show statistics per file. |
 | Narrow the terminal                              | The summary wraps with a two-column indent.                                                                |
+| Emit a long milestone during a run               | Its line shows above the summary, wraps with a two-column indent, and shows again after resume.            |
+| Emit one counter twice during a run              | The summary line shows its segment with count 2 after the command count, and shows again after resume.     |
 | Abort a run, then resume the session             | The timer and rate are gone, and saved summaries show again.                                               |
 
 See the maintainer guides [testing](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md).

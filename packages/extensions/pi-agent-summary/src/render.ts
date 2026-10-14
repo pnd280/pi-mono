@@ -9,6 +9,8 @@ import { summarySchema, type RunSummary } from "./summary.ts";
 
 type SummaryTheme = Pick<Theme, "fg" | "bold">;
 
+const milestoneMarker = "◆";
+
 const finishTimeFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
   minute: "2-digit",
@@ -22,6 +24,18 @@ function lineCounts(added: number, removed: number, theme: SummaryTheme): string
   if (removed) parts.push(theme.fg("toolDiffRemoved", `-${removed}`));
 
   return parts.join(" ");
+}
+
+function countSegment(
+  { verb, singular, plural, count }: Omit<NonNullable<RunSummary["counters"]>[number], "id">,
+  theme: SummaryTheme
+): string {
+  // Bold's reset also ends dim, so the noun takes its own dim style.
+  return [
+    theme.fg("dim", verb),
+    theme.bold(theme.fg("dim", String(count))),
+    theme.fg("dim", count === 1 ? singular : plural)
+  ].join(" ");
 }
 
 function summaryLines(
@@ -62,16 +76,28 @@ function summaryLines(
 
   if (summary.bashCalls)
     parts.push(
-      theme.fg(
-        "dim",
-        `ran ${theme.bold(String(summary.bashCalls))} ${summary.bashCalls === 1 ? "command" : "commands"}`
+      countSegment(
+        { verb: "ran", singular: "command", plural: "commands", count: summary.bashCalls },
+        theme
+      )
+    );
+  for (const { verb, singular, plural, count } of summary.counters ?? [])
+    parts.push(
+      countSegment(
+        {
+          verb: compactDisplayText(verb),
+          singular: compactDisplayText(singular),
+          plural: compactDisplayText(plural),
+          count
+        },
+        theme
       )
     );
   if (available.length)
     parts.push(
-      theme.fg(
-        "dim",
-        `edited ${theme.bold(String(available.length))} ${available.length === 1 ? "file" : "files"}`
+      countSegment(
+        { verb: "edited", singular: "file", plural: "files", count: available.length },
+        theme
       )
     );
   const counts = lineCounts(
@@ -130,20 +156,28 @@ export function createSummaryRenderer() {
 
           const [heading, ...files] = summaryLines(parsed.data, expansion.expanded, theme);
           const marker = expansion.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
-          const rows = new Text(heading, 0, 0).render(Math.max(1, width - 2)).map((line, index) => {
-            const prefix = index === 0 ? `${theme.fg("dim", marker)} ` : "  ";
+          const markedRows = (text: string, glyph: string) =>
+            new Text(text, 0, 0).render(Math.max(1, width - 2)).map((line, index) => {
+              const prefix = index === 0 ? `${glyph} ` : "  ";
 
-            return truncateToWidth(prefix + line, width, "");
-          });
+              return truncateToWidth(prefix + line, width, "");
+            });
 
-          return rows.concat(
-            renderTree(
+          return [
+            ...(parsed.data.milestones ?? []).flatMap((text) =>
+              markedRows(
+                theme.fg("text", compactDisplayText(text)),
+                theme.fg("accent", milestoneMarker)
+              )
+            ),
+            ...markedRows(heading, theme.fg("dim", marker)),
+            ...renderTree(
               files.map((file) => ({
                 rows: new Text(file, 0, 0).render(Math.max(1, width - 4))
               })),
               { width, indent: 2, style: (text) => theme.fg("dim", text) }
             )
-          );
+          ];
         },
         invalidate() {}
       },

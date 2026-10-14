@@ -20,6 +20,7 @@ Recheck lifecycle boundaries, attribution, and native file observations against 
 
 - [ ] A run lasts from the first `agent_start` to `agent_settled`, through retries, queued follow-ups, and cancellation, and the timer is cleaned up.
 - [ ] Direct and nested agent `bash` calls count once per call ID. Manual shell input is excluded.
+- [ ] [Milestones](../src/milestones.ts) and [counters](../src/counters.ts) emitted on `pi.events` reach the active run synchronously, and reload removes the old subscriptions.
 
 ### Answering models
 

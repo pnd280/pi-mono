@@ -16,6 +16,7 @@ Your current Pi session is the supervisor. Its model calls `subagent` with a sho
 - Omit `model` and `thinking` to use the supervisor's current selection for a new task. A model override uses `provider/id`; Pi resolves it and the provider validates availability.
 - On resume, each omitted value repeats the value that the task's latest run requested, so later changes to the supervisor's selection do not apply. For example, a run that requested `high` on a model without thinking levels applies `off`, and a resume that selects a reasoning model requests `high` again.
 - Cards, the panel, and the board show the requested selection while a task is queued, the child's resolved model and clamped thinking level from launch, and then the physical model and thinking level of its latest response.
+- With [pi-agent-summary](../pi-agent-summary/README.md#counters), the run summary shows `delegated N tasks`. Each call that starts a task run, new or resumed, counts once; input to an active task, rejected calls, and queued calls cancelled before they start do not. Each descendant counts only in its own session.
 - Aborting the supervisor's turn immediately force-stops its running foreground subtrees and cancels queued foreground calls.
 - Child dialogs appear with a `[subagent: <description>]` prefix. RPC clients answer them using Pi's [extension UI protocol](https://pi.dev/docs/latest/rpc-extension-ui).
 

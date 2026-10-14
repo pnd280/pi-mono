@@ -1,6 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
+import { counterSchema, maxCounters } from "./counters.ts";
+import { maxMilestones, milestoneSchema } from "./milestones.ts";
+
 export const summaryEntryType = "pi-agent-summary.summary";
 
 const countSchema = z.int().nonnegative();
@@ -53,6 +56,14 @@ export const summarySchema = z.object({
       })
     )
     .min(1)
+    .optional(),
+  // Milestones other extensions declared, in order of first declaration.
+  milestones: z.array(milestoneSchema.shape.text).min(1).max(maxMilestones).optional(),
+  // Counters other extensions added to, in order of first addition.
+  counters: z
+    .array(counterSchema.extend({ count: countSchema.positive() }))
+    .min(1)
+    .max(maxCounters)
     .optional(),
   files: z.array(fileChangeSchema)
 });

@@ -17,6 +17,7 @@ Time a run from the first `agent_start` to `agent_settled`, not to `turn_end` or
 - Don't reread targets, scan repositories, or infer changes from bash commands.
 - Use [bounded-diff](../../libs/src/bounded-diff/README.md) for net comparisons.
 - Clear live intervals on shutdown.
+- Accept [milestones and counters](GLOSSARY.md) only through their public channels, checked against the saved schema's limits, so saved summaries stay renderable.
 
 ## Validation
 

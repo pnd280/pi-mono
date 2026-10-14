@@ -10,6 +10,8 @@ import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/libs/working-message";
 
 import { RunChanges } from "./changes.ts";
+import { counterChannel, counterSchema, maxCounters } from "./counters.ts";
+import { maxMilestones, milestoneChannel, milestoneSchema } from "./milestones.ts";
 import { createSummaryRenderer } from "./render.ts";
 import { summaryEntryType, type RunSummary } from "./summary.ts";
 import { RunThroughput } from "./throughput.ts";
@@ -58,6 +60,8 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
         changes: RunChanges;
         bashCalls: Set<string>;
         models: NonNullable<RunSummary["models"]>;
+        milestones: string[];
+        counters: NonNullable<RunSummary["counters"]>;
         throughput: RunThroughput;
       }
     | undefined;
@@ -98,6 +102,20 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
   };
 
   pi.registerEntryRenderer(summaryEntryType, createSummaryRenderer());
+  pi.events.on(milestoneChannel, (data) => {
+    const parsed = milestoneSchema.safeParse(data);
+    if (!run || !parsed.success) return;
+    const { text } = parsed.data;
+    if (run.milestones.length < maxMilestones && !run.milestones.includes(text))
+      run.milestones.push(text);
+  });
+  pi.events.on(counterChannel, (data) => {
+    const parsed = counterSchema.safeParse(data);
+    if (!run || !parsed.success) return;
+    const counter = run.counters.find(({ id }) => id === parsed.data.id);
+    if (counter) counter.count++;
+    else if (run.counters.length < maxCounters) run.counters.push({ ...parsed.data, count: 1 });
+  });
   pi.on("session_start", (_event, ctx) => {
     reset();
     bind(ctx);
@@ -107,7 +125,9 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
       changes: new RunChanges(ctx.cwd),
       bashCalls: new Set(),
       throughput: new RunThroughput(),
-      models: []
+      models: [],
+      milestones: [],
+      counters: []
     };
     if (manager !== ctx.sessionManager) bind(ctx);
     timer.start(ctx.mode === "tui");
@@ -153,6 +173,8 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
       finishedAt,
       ...(finished.models.length > 0 && { models: finished.models }),
       ...(throughput && { throughput }),
+      ...(finished.milestones.length > 0 && { milestones: finished.milestones }),
+      ...(finished.counters.length > 0 && { counters: finished.counters }),
       bashCalls: finished.bashCalls.size,
       files
     });

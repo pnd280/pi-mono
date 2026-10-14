@@ -15,7 +15,7 @@ This package tests what saved run summaries contain, when they are saved, and ru
 
 ## Not tested
 
-- Run timing, answering-model lists, throughput calculations, live-rate formatting, command counts, file-statistic deduplication, and rendering: below the severity bar. The listed scenarios compare whole saved summaries, so they also fail when these fields change.
+- Run timing, answering-model lists, throughput calculations, live-rate formatting, command counts, file-statistic deduplication, milestone limits and deduplication, counter limits and merging, and rendering: below the severity bar. The listed scenarios compare whole saved summaries, so they also fail when these fields change.
 - Inferring file changes from bash, and the correctness of native operations: out of scope or owned by Pi.
 - Shared [tree-row layout](../../../libs/src/tui/components/tree/README.md): owned by libs.
 

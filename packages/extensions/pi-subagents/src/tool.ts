@@ -36,7 +36,11 @@ function toolResult(result: Submission) {
     : taskResult(result.details, result.text, result.usage, undefined, warning);
 }
 
-export function createSubagentTool(tasks: Tasks, open: (id: string, binding?: string) => void) {
+export function createSubagentTool(
+  tasks: Tasks,
+  open: (id: string, binding?: string) => void,
+  delegated: () => void
+) {
   return {
     name: "subagent",
     label: "Subagent",
@@ -75,8 +79,14 @@ export function createSubagentTool(tasks: Tasks, open: (id: string, binding?: st
             ...(signal ? { signal } : {}),
             onChange: (next) => {
               details = next;
-              // A running call also shows its elapsed time.
-              if (next.state !== "queued") timer ??= setInterval(update, PROGRESS_INTERVAL_MS);
+
+              // The first update after queueing means the call started a task run. A running call
+              // also shows its elapsed time.
+              if (next.state !== "queued" && !timer) {
+                delegated();
+                timer = setInterval(update, PROGRESS_INTERVAL_MS);
+              }
+
               update();
             },
             onUIRequest: (request, description, dialogSignal) =>

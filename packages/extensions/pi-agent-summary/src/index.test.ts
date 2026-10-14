@@ -7,6 +7,8 @@ import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { expect, it, vi } from "vite-plus/test";
 
 import { RunChanges } from "./changes.ts";
+import { counterChannel } from "./counters.ts";
+import { milestoneChannel } from "./milestones.ts";
 import { summaryEntryType } from "./summary.ts";
 import { fixture } from "./test-fixture.ts";
 
@@ -48,6 +50,14 @@ it("records one context-free entry after all turns and retries settle, preservin
   vi.advanceTimersByTime(1000);
   await runtime.emit("agent_start", {});
   await runtime.tool("bash", { command: "false" });
+  runtime.api.events.emit(milestoneChannel, { text: "Published v1.2.0" });
+  for (const verb of ["delegated", "ignored"])
+    runtime.api.events.emit(counterChannel, {
+      id: "tasks",
+      verb,
+      singular: "task",
+      plural: "tasks"
+    });
   vi.advanceTimersByTime(1500);
   expect(runtime.api.appendEntry).not.toHaveBeenCalled();
   await runtime.emit("agent_settled", {});
@@ -57,6 +67,8 @@ it("records one context-free entry after all turns and retries settle, preservin
     finishedAt: Date.now(),
     models: [{ provider: "faux", id: "faux-1" }],
     throughput: { outputTokens: 50, durationMs: 2000 },
+    milestones: ["Published v1.2.0"],
+    counters: [{ id: "tasks", verb: "delegated", singular: "task", plural: "tasks", count: 2 }],
     bashCalls: 2,
     files: []
   });
@@ -87,7 +99,7 @@ function assistantMessage(
 }
 
 it.each(["session_start", "session_shutdown"] as const)(
-  "discards throughput on %s",
+  "discards throughput, milestones, and counters on %s",
   async (event) => {
     const runtime = fixture();
     await runtime.emit("agent_start", {});
@@ -97,6 +109,8 @@ it.each(["session_start", "session_shutdown"] as const)(
     vi.advanceTimersByTime(1000);
     await runtime.emit("message_end", end);
     await runtime.emit("message_start", start);
+    runtime.api.events.emit(milestoneChannel, { text: "Discarded milestone" });
+    runtime.api.events.emit(counterChannel, { id: "x", verb: "did", singular: "x", plural: "xs" });
     vi.advanceTimersByTime(1000);
     await runtime.emit(event, {});
     await runtime.emit("agent_start", {});

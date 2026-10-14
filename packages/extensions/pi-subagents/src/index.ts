@@ -6,6 +6,7 @@ import type {
   ToolRenderers
 } from "@earendil-works/pi-coding-agent";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
+import { counterChannel, type Counter } from "pi-agent-summary/counters";
 import { z } from "zod";
 
 import { createAbortTool } from "./abort-tool.ts";
@@ -26,6 +27,13 @@ import { createRenderers } from "./render.ts";
 import { Tasks } from "./tasks.ts";
 import { createSubagentTool } from "./tool.ts";
 import { taskWidget } from "./widget.ts";
+
+const delegated: Counter = {
+  id: "pi-subagents.delegated",
+  verb: "delegated",
+  singular: "task",
+  plural: "tasks"
+};
 
 export default function subagents(pi: ExtensionAPI): void {
   const depth = getDepth();
@@ -168,7 +176,10 @@ export default function subagents(pi: ExtensionAPI): void {
     disposeWidget = taskWidget(tasks, ctx, () => open());
     if (depth >= config.maxDepth && !registered) return;
     const exposure = depth >= config.maxDepth ? "hidden" : "model-only";
-    pi.registerTool({ ...createSubagentTool(tasks, emitOpen), exposure });
+    pi.registerTool({
+      ...createSubagentTool(tasks, emitOpen, () => pi.events.emit(counterChannel, delegated)),
+      exposure
+    });
     pi.registerTool({ ...createAbortTool(tasks, emitOpen), exposure });
     registered = true;
   };
