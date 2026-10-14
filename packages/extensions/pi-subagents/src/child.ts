@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 
-import type { AssistantMessage } from "@earendil-works/pi-ai";
+import { contentText, type AssistantMessage } from "@earendil-works/pi-ai";
 import {
   truncateHead,
   type JsonAgentSessionEvent,
@@ -86,6 +86,10 @@ export class ChildRun {
   private replies = new Set<(message: ChildMessage) => boolean>();
   private usageEnd: SessionStats | undefined;
   private lastAssistant: AssistantMessage | undefined;
+  /** The latest final reply that no input has followed yet. */
+  private reply = "";
+  /** Final replies that later input in this run followed; the result keeps them in order. */
+  private earlier: string[] = [];
   private text = "";
   private activity = "";
   private step = "spawn";
@@ -447,6 +451,13 @@ export class ChildRun {
       this.epoch++;
     } else if (event.type === "message_end" && event.message.role === "assistant") {
       this.lastAssistant = event.message;
+      // Pi's last-assistant text joins text blocks without a separator.
+      this.reply =
+        event.message.stopReason === "stop" ? contentText(event.message.content, "").trim() : "";
+    } else if (event.type === "message_end" && event.message.role === "user") {
+      // Input after a final reply continues the run, and its reply would replace that one.
+      if (this.reply) this.earlier.push(this.reply);
+      this.reply = "";
     } else if (event.type === "tool_execution_start" && !event.parentToolCallId) {
       // Calls that another tool made are part of that tool's activity.
       this.setActivity(
@@ -491,7 +502,8 @@ export class ChildRun {
         this.connection.pendingCount === 0 &&
         !this.closing
       ) {
-        if (text.command === "get_last_assistant_text") this.text = text.data.text ?? "";
+        if (text.command === "get_last_assistant_text")
+          this.text = [...this.earlier, text.data.text].filter(Boolean).join("\n\n");
         if (usage.command === "get_session_stats") this.usageEnd = usage.data;
         this.closeInput();
       }

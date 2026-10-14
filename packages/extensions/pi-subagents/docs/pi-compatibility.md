@@ -32,6 +32,7 @@ The backend depends on Pi's public lifecycle and RPC ordering, while task owners
 - [ ] `agent_settled`, pending command replies, and `disposition: "started"` permit the child to collect a stable final result before closing stdin.
 - [ ] Input arriving during `agent_settled` is deferred until its handlers finish. A pending prompt prevents collection from closing stdin; input after closing resumes the task in its child file.
 - [ ] `get_last_assistant_text` and `message_end` distinguish successful text, provider errors, and child-side cancellation. `get_session_stats` exposes cumulative tokens and total cost for every entry in the session file, including earlier runs and abandoned branches. A baseline read after `begin` gives each run's usage.
+- [ ] When a run takes a prompt, steering, or follow-up message, Pi emits its user `message_end` after the `message_end` of the reply that it follows. Background results use the `custom` role, so they do not keep the child's earlier reply in its result.
 - [ ] Tool-result `usage` contributes once to session totals; `cost.total` is sufficient. `details` stays outside model context.
 - [ ] `SessionManager` is exported, and extension imports resolve to the running class in both the Node alias and compiled virtual-module modes.
 - [ ] `SessionManager.appendCustomMessageEntry(customType, content, display, details)` persists every custom message, including deferred, `nextTurn`, and settle-boundary messages.

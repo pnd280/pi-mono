@@ -34,7 +34,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 ### Input and transcript digests (build phase 4)
 
-- **High, e2e (R1):** Active-task input reaches the same conversation once across running, settling, and exit races, without another capacity slot or duplicate usage or completion.
+- **High, e2e (R1):** Active-task input reaches the same conversation once across running, settling, and exit races, without another capacity slot or duplicate usage or completion. The result keeps the final reply that the input followed, before the input's reply.
 - **Critical, e2e (R2):** Only owned tasks receive input. Descendant routing preserves the result destination. Only the supervisor that launched a task resumes it after it stops; ancestors and foreign supervisors cannot.
 - **High, e2e (R3):** Read-only `show` paging covers eligible items on the selected run's ancestry once, including tool summaries that complete after a cursor was given out, with correct cursors and ancestry-scoped cumulative usage. Thinking, arguments, and outputs are excluded.
 - **High, e2e (R4):** After an abort during a tool call, `show --last` returns the text and cursor of the latest assistant message with content. It skips the empty `error` message that Pi 1.0.2 and 1.2.0 add after the aborted tool. The test also asserts that Pi adds this message, because without it the skip has no coverage.

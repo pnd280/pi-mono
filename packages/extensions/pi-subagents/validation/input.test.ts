@@ -69,10 +69,13 @@ test.skipIf(process.platform !== "linux").each(["follow_up", "steer", "settling"
           : undefined
       ).toMatchObject({ input: mode === "exiting" ? 10 : 20, output: mode === "exiting" ? 5 : 10 });
       if (mode === "exiting") expect(update.usage).toMatchObject({ input: 10, output: 5 });
+      // The reply that the input followed stays in the result, before the input's reply.
       if (mode !== "exiting")
         expect(
           completions[0]?.type === "custom_message" ? contentText(completions[0].content) : ""
-        ).toContain("Input occurrences: 1; earlier context: true");
+        ).toMatch(
+          /Choose a subagents fixture scenario\.\s+Input occurrences: 1; earlier context: true/
+        );
       const page = z
         .object({ tasks: z.array(taskRecordSchema) })
         .parse(JSON.parse((await host.command("list")).message));
