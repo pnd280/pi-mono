@@ -22,11 +22,27 @@ it("records one context-free entry after all turns and retries settle, preservin
   await runtime.emit("session_start", {});
   other.setText("Checking files");
   await runtime.emit("agent_start", {});
-  await runtime.tool("bash", { command: "true" });
-  vi.advanceTimersByTime(2000);
+  const message = assistantMessage(0, "pending");
+  await runtime.emit("message_start", { type: "message_start", message });
+
+  for (const delta of ["first visible output", "later visible output"]) {
+    await runtime.emit("message_update", {
+      type: "message_update",
+      message,
+      assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta, partial: message }
+    });
+    vi.advanceTimersByTime(1000);
+  }
+
   const workingText: unknown = runtime.setWorkingMessage.mock.lastCall?.[0];
   expect(workingText).toContain("Checking files");
   expect(workingText).toContain("2s");
+  expect(workingText).toMatch(/\d+\/s/);
+  await runtime.emit("message_end", {
+    type: "message_end",
+    message: assistantMessage(50, "stop")
+  });
+  await runtime.tool("bash", { command: "true" });
   await runtime.emit("turn_end", {});
   await runtime.emit("agent_end", {});
   vi.advanceTimersByTime(1000);
@@ -39,6 +55,8 @@ it("records one context-free entry after all turns and retries settle, preservin
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 4500,
     finishedAt: Date.now(),
+    models: [{ provider: "faux", id: "faux-1" }],
+    throughput: { outputTokens: 50, durationMs: 2000 },
     bashCalls: 2,
     files: []
   });

@@ -1,6 +1,6 @@
 # pi-agent-summary
 
-Long agent runs scroll past what changed. pi-agent-summary shows how long the agent has been working, and after each run adds a one-line summary of what it did: which models answered, how long it took, commands run, and files changed. Summaries are saved in the session but never sent to the model.
+Long agent runs scroll past what changed. pi-agent-summary shows how long the agent has been working and how fast it streams output, and after each run adds a one-line summary of what it did: which models answered, how long it took, commands run, and files changed. Summaries are saved in the session but never sent to the model.
 
 ## Usage
 
@@ -31,6 +31,11 @@ The prefix lists each model that answered, with the thinking level Pi requested,
 
 It's an approximate rate seen from the client, not the provider's generation speed. Responses with no output usage or no streaming time are left out, and a run with nothing to measure shows no rate.
 
+While the agent works, the working message refreshes the rate once a second in whole tokens per second, such as `160/s`:
+
+- While a response streams text or tool input, it estimates that response at four characters per token, because most providers report output usage only at completion. The first non-empty update starts the clock; later updates supply the count. Thinking is excluded because providers hide or summarise it differently. During pauses, the estimate decreases until more visible output arrives or the response ends.
+- Before a live estimate is available and between responses, it shows the run rate from completed responses, rounded to a whole number. If no response has reported measurable usage, no rate appears until a live estimate is available. The saved summary shows the final run rate to one decimal place.
+
 ### Commands
 
 `ran N commands` counts each `bash` call the agent made once, including failed, cancelled, or blocked calls. Commands inside a script don't count separately, and commands you run yourself with `!` or `!!` are excluded.
@@ -46,31 +51,32 @@ File statistics come from Pi's native `edit` and `write` tools only; changes mad
 
 ### Other modes
 
-RPC, JSON, and print modes save summaries without the live timer. Shutdown or reload discards an unfinished run.
+RPC, JSON, and print modes save summaries without the live timer and rate. Shutdown or reload discards an unfinished run.
 
 ## Configuration
 
-There are no options or environment variables. The live timer is shown through the shared [working-message coordinator](../../libs/src/working-message/README.md) as `pi-agent-summary.elapsed`, alongside other contributions such as `pi-todo` activity. Reorder them with `/working-message`.
+There are no options or environment variables. The live timer and rate are shown through the shared [working-message coordinator](../../libs/src/working-message/README.md) as `pi-agent-summary.elapsed` and `pi-agent-summary.throughput`, alongside other contributions such as `pi-todo` activity. Reorder them with `/working-message`.
 
 ## Side effects
 
 - Appends one `pi-agent-summary.summary` entry per run, hidden from the model. It stores timing, answering models and throughput when known, the command count, and file statistics or why they're unavailable. Entries don't start turns.
 - May read a file before a native write, to compare contents. [Shared file-mutation observation](../../libs/src/file-mutations/README.md) avoids reading twice when pi-tool-display is also loaded. Contents and patches stay in memory.
 - Never scans directories, writes extra files, runs Git, or makes network requests.
-- When a run finishes or Pi shuts down, it clears only its own timer from the working message.
+- When a run finishes or Pi shuts down, it clears only its own timer and rate from the working message.
 - Saving an order in `/working-message` writes the coordinator's settings.
 
 ## Validation
 
 Run the [package checks](../../../docs/development.md#focused-validation). For TUI changes, also check by hand.
 
-Setup: load this extension with `pi-todo` and `pi-tool-display`.
+Setup: load this extension with `pi-todo` and `pi-tool-display`, in regular and fullscreen modes.
 
 | Do                                               | Expect                                                                                                     |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | Ask the agent to run `bash`, `edit`, and `write` | The timer counts up live, and a summary appears when it settles.                                           |
+| Watch the working message during a long response | `n/s` estimates the response while text streams. After the response, it shows the run rate.                |
 | Click a summary in fullscreen; press **Ctrl+O**  | Clicking toggles one summary; **Ctrl+O** toggles all of them. Expanded summaries show statistics per file. |
 | Narrow the terminal                              | The summary wraps with a two-column indent.                                                                |
-| Abort a run, then resume the session             | The timer is gone, and saved summaries show again.                                                         |
+| Abort a run, then resume the session             | The timer and rate are gone, and saved summaries show again.                                               |
 
 See the maintainer guides [testing](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md).

@@ -2,7 +2,7 @@
 
 [pi-editor-widgets](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.0.2 (package checks and offline host tests, both renderers, selected-model compaction reserves with routed physical windows; no runtime changes needed). Not covered: physical-terminal checks.
+> Last verified against Pi 1.0.2 (package checks and offline host tests, both renderers, selected-model compaction reserves with routed physical windows). Not covered: physical-terminal checks.
 
 Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks. It needs no core or dependency edits.
 
@@ -34,7 +34,8 @@ Verify `extensionWidgetsAbove`, `extensionWidgetsBelow`, `footerDataProvider`, t
 
 Verify `renderer`, the stable `ui` proxy, and `switchTuiMode`.
 
-- The coordinator hooks the real renderer's `requestRender`, restores it when Pi replaces the renderer, and rebinds after mode switches.
+- The coordinator hooks the real renderer's `requestRender` and protected `doRender` methods, restores owned hooks when Pi replaces the renderer, and rebinds after mode switches.
+- Keyboard input can bypass `requestRender`. The `doRender` hook clears cached measurements once per frame so dynamic widget content stays current across all regions.
 - The public `mode` property gates fullscreen toggling of the usage widgets, and restores the original regular-mode displays.
 - Region invalidation still reaches borrowed native components.
 - Verify that native `Image` output still uses Kitty (`\x1b_G`) or iTerm2 (`\x1b]1337;File=`) sequences. The compositor recognises these prefixes before text measurement and preserves complete output under the [image placement policy](../README.md#usage). Image geometry, identifiers, and terminal placement remain Pi-owned.

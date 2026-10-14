@@ -206,6 +206,15 @@ export class WidgetCoordinator {
     this.renderer = this.host.renderer;
     this.invalidateCache();
     const renderer = this.renderer;
+    // Keyboard redraws bypass requestRender; refresh once at the actual frame boundary.
+    const target: object = renderer;
+    if (!("doRender" in target) || typeof target.doRender !== "function")
+      throw new Error("pi-editor-widgets: renderer has no doRender method.");
+    const render = target.doRender;
+    this.rendererHooks.replace(target, "doRender", () => {
+      if (this.active) this.invalidateCache();
+      Reflect.apply(render, renderer, []);
+    });
     const request = renderer.requestRender.bind(renderer);
     this.rendererHooks.replace(renderer, "requestRender", (...args) => {
       if (this.active) this.invalidateCache();

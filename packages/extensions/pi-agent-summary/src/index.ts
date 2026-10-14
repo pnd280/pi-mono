@@ -3,6 +3,7 @@ import type {
   ExtensionContext,
   MessageEndEvent,
   MessageStartEvent,
+  MessageUpdateEvent,
   ToolExecutionStartEvent
 } from "@earendil-works/pi-coding-agent";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
@@ -23,6 +24,7 @@ export type SummaryEvents = {
   agent_start: unknown;
   agent_settled: unknown;
   message_start: MessageStartEvent;
+  message_update: MessageUpdateEvent;
   message_end: MessageEndEvent;
   tool_execution_start: Pick<ToolExecutionStartEvent, "type" | "toolName" | "toolCallId" | "args">;
 };
@@ -41,14 +43,16 @@ export type SummaryExtensionAPI = Pick<
 const virtualModelApi = "pi-virtual";
 
 export default function piAgentSummary(pi: SummaryExtensionAPI): void {
-  const workingMessage = registerWorkingMessage(pi, {
+  const elapsed = registerWorkingMessage(pi, {
     id: "pi-agent-summary.elapsed",
     label: "Elapsed time",
     contributor: "pi-agent-summary"
   });
-  // The coordinator returns an arrow that captures its entry, not a receiver-dependent method.
-  // oxlint-disable-next-line typescript/unbound-method
-  const timer = new AgentTimer(workingMessage.setText);
+  const rate = registerWorkingMessage(pi, {
+    id: "pi-agent-summary.throughput",
+    label: "Output rate",
+    contributor: "pi-agent-summary"
+  });
   let run:
     | {
         changes: RunChanges;
@@ -57,6 +61,11 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
         throughput: RunThroughput;
       }
     | undefined;
+  const timer = new AgentTimer((text) => {
+    elapsed.setText(text);
+    // The rate shares the timer's interval, so it refreshes and clears with the timer.
+    rate.setText(text === undefined ? undefined : run?.throughput.text());
+  });
   let manager: SummaryContext["sessionManager"] | undefined;
   let generation = 0;
   const connect = () =>
@@ -106,6 +115,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
   pi.on("message_start", (event) => {
     if (event.message.role === "assistant") run?.throughput.start();
   });
+  pi.on("message_update", (event) => run?.throughput.update(event));
   pi.on("message_end", (event) => {
     const message = event.message;
     if (message.role !== "assistant" || !run) return;
