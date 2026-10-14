@@ -113,7 +113,7 @@ Completed cards preview the first three reply lines, or all four when there are 
 
 Pi shows a delivered background result in its default message box, including the model-facing `<task>` envelope. [pi-tool-display](../pi-tool-display/src/adapters/pi-subagents/README.md) replaces these cards and the background result box in the main chat with its own subagent cards.
 
-The `↓ N subagents` widget counts active tasks throughout the tree and alternates between `muted` and `dim` every 600 ms. It disappears when no tasks remain active. Fullscreen clicks on the widget open the panel; tool cards with a task ID open the corresponding viewer.
+The `N subagents` widget counts active tasks throughout the tree and alternates between `muted` and `dim` every 600 ms. It disappears when no tasks remain active. Fullscreen clicks on the widget open the panel; tool cards with a task ID open the corresponding viewer.
 
 The viewer shows the child's messages with Pi's chat components. Pi's built-in tools use their own renderers, `subagent` and `subagent_abort` calls use the cards above, other tools use Pi's generic card, and background results use Pi's default message box. Images are not shown. A failed or aborted response supplies an error for calls without a saved result. Other calls without a final result show “Interrupted” after any partial output when the task stops or an earlier run left them unfinished. Removing a saved result from model context does not change its recorded completion. Viewing uses only recorded content: it never executes tools, reads the files that calls or results name, or rewrites child sessions.
 

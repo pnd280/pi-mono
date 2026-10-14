@@ -29,7 +29,7 @@ export function taskWidget(tasks: Tasks, ctx: ExtensionContext, open: () => void
                   new Text(
                     theme.fg(
                       dim ? "dim" : "muted",
-                      `↓ ${count} ${count === 1 ? "subagent" : "subagents"}`
+                      `${count} ${count === 1 ? "subagent" : "subagents"}`
                     ),
                     0,
                     0
