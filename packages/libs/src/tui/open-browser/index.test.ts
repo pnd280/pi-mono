@@ -30,7 +30,9 @@ it.each([24, 18])(
     });
 
     try {
-      await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Item 0"));
+      await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Item 0"), {
+        interval: 1
+      });
       host.send("\r");
       expect(selected).toEqual(["0"]);
       host.transcript.scrollTo(40);
@@ -78,7 +80,9 @@ it.each([false, true])(
     });
 
     try {
-      await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"));
+      await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"), {
+        interval: 1
+      });
       if (!inspection) host.send("\x10");
 
       const firstVisibleDetail = () =>
@@ -93,8 +97,10 @@ it.each([false, true])(
         Object.defineProperty(host.terminal, "rows", { value: rows, configurable: true });
         previous?.render(80);
         if (oldOverlay !== rows < 19)
-          await vi.waitFor(() => expect(host.presentation).not.toBe(previous));
-        await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"));
+          await vi.waitFor(() => expect(host.presentation).not.toBe(previous), { interval: 1 });
+        await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"), {
+          interval: 1
+        });
         host.transcript.scrollTo(40);
         host.render();
         expect(firstVisibleDetail()).toBe("Detail 0");

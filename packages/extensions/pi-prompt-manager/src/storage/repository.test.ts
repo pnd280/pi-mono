@@ -14,7 +14,7 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import type { Snapshot } from "../model.ts";
 import {
@@ -279,7 +279,17 @@ it("refuses a mutation without reclaiming an abandoned lock", async () => {
   const lock = join(fixture.storage, "drafts.json.lock");
   await writeFile(lock, "abandoned-token", { mode: 0o600 });
   await utimes(lock, new Date(0), new Date(0));
-  const result = await fixture.repository.mutate("drafts", add("must not commit"), session());
-  expect(result.status).toBe("failed");
+  // Each clock reading jumps ahead, so the real retry loop reaches the lock deadline sooner.
+  const now = performance.now.bind(performance);
+  let skipped = 0;
+  const clock = vi.spyOn(performance, "now").mockImplementation(() => now() + (skipped += 200));
+  const result = await fixture.repository
+    .mutate("drafts", add("must not commit"), session())
+    .finally(() => clock.mockRestore());
+
+  expect(result).toMatchObject({
+    status: "failed",
+    message: expect.stringContaining("busy") as unknown
+  });
   expect(await readFile(lock, "utf8")).toBe("abandoned-token");
-}, 15000);
+});

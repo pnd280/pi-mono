@@ -2,7 +2,7 @@ import { readFile, rm } from "node:fs/promises";
 import { setTimeout } from "node:timers/promises";
 
 import { contentText } from "@earendil-works/pi-ai";
-import { expect, test } from "vite-plus/test";
+import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
 import { RESULT_MESSAGE } from "../src/constants.ts";
@@ -11,6 +11,9 @@ import { detailsSchema } from "../src/result.ts";
 import { remainingProcesses, killFixtureProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace } from "./workspace.ts";
+
+// Each test owns its workspace and processes.
+const test = caseTest.skipIf(process.platform !== "linux").concurrent;
 
 async function ready(path: string): Promise<void> {
   for (let index = 0; index < 200; index++) {
@@ -26,7 +29,7 @@ async function ready(path: string): Promise<void> {
   throw new Error("Fixture boundary was not reached");
 }
 
-test.skipIf(process.platform !== "linux").each(["follow_up", "steer", "settling", "exiting"])(
+test.each(["follow_up", "steer", "settling", "exiting"])(
   "preserves input and usage through %s delivery",
   async (mode) => {
     const directory = await createFixtureWorkspace({
@@ -110,9 +113,10 @@ test.skipIf(process.platform !== "linux").each(["follow_up", "steer", "settling"
   30_000
 );
 
-test.skipIf(process.platform !== "linux").each(["stopped", "live"])(
+test.for(["stopped", "live"])(
   "routes input to its owner, and only the owner resumes an inactive descendant of a %s owner",
-  async (mode) => {
+  { timeout: 40_000 },
+  async (mode, { expect }) => {
     const directory = await createFixtureWorkspace();
     let host = await Supervisor.start(directory);
     const page = async () =>
@@ -123,10 +127,16 @@ test.skipIf(process.platform !== "linux").each(["stopped", "live"])(
     try {
       await host.reply(mode === "live" ? "background-owner-live" : "background-owner");
       await expect
-        .poll(async () => (await page()).find((task) => task.parent_task_id !== null)?.state, {
-          timeout: 10_000
-        })
-        .toBe(mode === "live" ? "inactive" : "active");
+        .poll(
+          async () => {
+            const descendant = (await page()).find((task) => task.parent_task_id !== null);
+
+            // A starting descendant reads as cancelled from its owner's file until its record arrives.
+            return descendant?.state === "inactive" ? descendant.outcome : descendant?.state;
+          },
+          { timeout: 10_000 }
+        )
+        .toBe(mode === "live" ? "completed" : "active");
       const [owner, child] = await page();
       expect(child?.parent_task_id).toBe(owner!.task_id);
       if (mode === "stopped") {
@@ -190,6 +200,5 @@ test.skipIf(process.platform !== "linux").each(["stopped", "live"])(
       await rm(directory, { recursive: true, force: true });
       expect(leaked).toEqual([]);
     }
-  },
-  40_000
+  }
 );

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { copyNative } from "./index.ts";
 
@@ -44,16 +44,24 @@ it("has a five-second deadline and cancellation prevents later helper fallback",
   ];
 
   try {
-    const start = performance.now();
-    await expect(copyNative("payload", signal(), { helpers })).rejects.toThrow();
-    expect(performance.now() - start).toBeGreaterThanOrEqual(4900);
-    expect(performance.now() - start).toBeLessThan(6500);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let settled = false;
+    const timed = copyNative("payload", signal(), { helpers }).finally(() => {
+      settled = true;
+    });
+    const timedResult = expect(timed).rejects.toThrow("Native clipboard helper timed out.");
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await timedResult;
+    vi.useRealTimers();
     const controller = new AbortController();
     const pending = copyNative("payload", controller.signal, { helpers });
     controller.abort();
     await expect(pending).rejects.toThrow();
     await expect(readFile(path)).rejects.toMatchObject({ code: "ENOENT" });
   } finally {
+    vi.useRealTimers();
     await rm(directory, { recursive: true, force: true });
   }
-}, 8000);
+});

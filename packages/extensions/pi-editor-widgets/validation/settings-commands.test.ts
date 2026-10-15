@@ -97,7 +97,9 @@ it.each(["regular", "fullscreen"] as const)(
       }
 
       opening = command?.handler("", ctx);
-      await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor));
+      await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor), {
+        interval: 1
+      });
       const menu = fixture.host.editorContainer.children[0]!;
       expect(plain(menu.render(100))).toContain(
         `Settings: ${join(fixture.directory, ".pi/settings.json")}`
@@ -142,7 +144,9 @@ it.each(["regular", "fullscreen"] as const)(
         ...runner.createCommandContext(),
         signal: abort.signal
       });
-      await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor));
+      await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor), {
+        interval: 1
+      });
       const menu = fixture.host.editorContainer.children[0]!;
       menu.handleInput?.("\r");
       menu.handleInput?.("\r");

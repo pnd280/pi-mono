@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,11 +13,29 @@ export type PiLaunch = {
   options: { cwd: string; env: NodeJS.ProcessEnv };
 };
 
+/** Pi's content-keyed compiled-code caches under `TMPDIR`: jiti transpiles and Node's code cache. */
+const compileCaches = ["jiti", "node-compile-cache"];
+
+/** Names the directory from `createCompileCaches` that new workspaces link; see the README. */
+export const COMPILE_CACHES_ENV = "PI_MONO_VALIDATION_COMPILE_CACHES";
+
+/** Creates a private directory for `COMPILE_CACHES_ENV`; the caller removes it. */
+export async function createCompileCaches(): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), "pi-validation-caches-"));
+  for (const name of compileCaches) await mkdir(join(directory, name), { mode: 0o700 });
+
+  return directory;
+}
+
 /** Creates only the private directory skeleton; consumers own fixtures and cleanup. */
 export async function createValidationWorkspace(prefix: string): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), prefix));
   for (const name of ["work", "home", "agent", "tmp"])
     await mkdir(join(directory, name), { mode: 0o700 });
+  const caches = process.env[COMPILE_CACHES_ENV];
+  if (caches)
+    for (const name of compileCaches)
+      await symlink(join(caches, name), join(directory, "tmp", name));
 
   return directory;
 }

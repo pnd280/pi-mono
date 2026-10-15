@@ -13,7 +13,7 @@ it("runs fixed plans through the installed CLI and resumes without replaying mut
   const directory = await createFixtureWorkspace();
 
   try {
-    const launch = await fixtureLaunch(directory);
+    const launch = await fixtureLaunch(directory, { paced: false });
 
     const run = async (prompt: string) => {
       const execution = promisify(execFile)(launch.command, [...launch.args, "--print", prompt], {

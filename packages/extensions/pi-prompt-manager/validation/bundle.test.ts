@@ -3,11 +3,13 @@ import { access, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { expect, it } from "vite-plus/test";
+import { it } from "vite-plus/test";
 
 import { createWorkspace, launch } from "./workspace.ts";
 
-it("keeps feature registration and storage passive in the installed CLI's print mode", async () => {
+it.concurrent("keeps feature registration and storage passive in the installed CLI's print mode", async ({
+  expect
+}) => {
   const directory = await createWorkspace();
 
   try {
@@ -40,7 +42,9 @@ it("keeps feature registration and storage passive in the installed CLI's print 
   }
 }, 20000);
 
-it("processes large collections through the installed CLI and exits with an idle worker", async () => {
+it.concurrent("processes large collections through the installed CLI and exits with an idle worker", async ({
+  expect
+}) => {
   const directory = await createWorkspace();
 
   try {

@@ -123,8 +123,14 @@ function addSerializedBytes(context: SerializationSizeContext, count: number): b
   return context.bytes <= context.maximumBytes;
 }
 
+// Printable ASCII other than `"` and `\` serialises to one byte per code unit.
+const NEEDS_PER_UNIT_SIZE = /[^\x20\x21\x23-\x5b\x5d-\x7f]/u;
+
 function serializedStringFitsLimit(text: string, context: SerializationSizeContext): boolean {
   if (!addSerializedBytes(context, 2)) return false;
+  // Every code unit serialises to at least one byte.
+  if (text.length > context.maximumBytes - context.bytes) return false;
+  if (!NEEDS_PER_UNIT_SIZE.test(text)) return addSerializedBytes(context, text.length);
 
   for (let index = 0; index < text.length; index += 1) {
     const unit = serializedStringUnit(text, index);

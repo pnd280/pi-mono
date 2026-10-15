@@ -39,7 +39,7 @@ it.each(["factory", "before-install", "open", "remount"] as const)(
 
     try {
       if (phase === "open" || phase === "remount") {
-        await vi.waitFor(() => expect(host.presentation).toBeDefined());
+        await vi.waitFor(() => expect(host.presentation).toBeDefined(), { interval: 1 });
         if (phase === "remount") {
           Object.defineProperty(host.terminal, "rows", { value: 18 });
           host.presentation?.render(80);

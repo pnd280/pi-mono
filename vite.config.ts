@@ -350,6 +350,8 @@ export default defineConfig({
     "*": String.raw`sh -c 'git --literal-pathspecs grep --cached -n -I -F -- "$(printf "\342\200\224")" "$@"; [ "$?" -eq 1 ]' sh`
   },
   test: {
+    // Absolute: package `test` scripts load this config with the package as the root.
+    globalSetup: [`${import.meta.dirname}/packages/libs/src/validation/pi-process/global-setup.ts`],
     include: [
       "src/**/*.test.ts",
       "validation/**/*.test.ts",

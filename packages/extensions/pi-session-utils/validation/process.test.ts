@@ -7,24 +7,21 @@ import { promisify } from "node:util";
 
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
-import { afterEach, beforeEach, expect, it } from "vite-plus/test";
+import { it, type TestContext } from "vite-plus/test";
 import { z } from "zod";
 
-let directory: string;
-let parent: string;
-
-beforeEach(async () => {
-  directory = await createValidationWorkspace("pi-session-utils-process-");
+/** Each test owns its workspace and process, so the CLI launches can overlap. */
+async function createWorkspace({ onTestFinished }: TestContext) {
+  const directory = await createValidationWorkspace("pi-session-utils-process-");
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
   const source = SessionManager.create(join(directory, "work"), join(directory, "parents"));
-  parent = source.getSessionFile()!;
+  const parent = source.getSessionFile()!;
   await writeFile(parent, `${JSON.stringify(source.getHeader())}\n`);
-});
 
-afterEach(async () => {
-  await rm(directory, { recursive: true, force: true });
-});
+  return { directory, parent };
+}
 
-async function run(args: string[]) {
+async function run(directory: string, args: string[]) {
   const launch = await createPiLaunch({
     directory,
     args: [
@@ -53,7 +50,7 @@ async function run(args: string[]) {
   return execution;
 }
 
-async function childSessions() {
+async function childSessions(directory: string) {
   const root = join(directory, "agent", "sessions");
   if (!existsSync(root)) return [];
   const groups = await readdir(root);
@@ -69,9 +66,11 @@ const headerSchema = z.object({
   cwd: z.string()
 });
 
-it("sets the parent before JSON output, preserves it across reload, and does not reapply it to a new child", async () => {
+it.concurrent("sets the parent before JSON output, preserves it across reload, and does not reapply it to a new child", async (context) => {
+  const { expect } = context;
+  const { directory, parent } = await createWorkspace(context);
   const before = await readFile(parent, "utf8");
-  const { stdout, stderr } = await run([
+  const { stdout, stderr } = await run(directory, [
     "--parent-session",
     parent,
     "/fixture-append",
@@ -82,7 +81,7 @@ it("sets the parent before JSON output, preserves it across reload, and does not
   expect(stderr).toBe("");
   const value: unknown = JSON.parse(stdout.split("\n")[0]!);
   expect(headerSchema.parse(value).parentSession).toBe(parent);
-  const sessions = await childSessions();
+  const sessions = await childSessions(directory);
   expect(sessions).toHaveLength(2);
   const firstChild = sessions.find((session) => session.parentSessionPath === parent)!;
   expect(firstChild).toBeDefined();
@@ -90,8 +89,10 @@ it("sets the parent before JSON output, preserves it across reload, and does not
   expect(await readFile(parent, "utf8")).toBe(before);
 }, 15_000);
 
-it("allows an ephemeral child and retains its parent after /sesh persist", async () => {
-  const { stdout, stderr } = await run([
+it.concurrent("allows an ephemeral child and retains its parent after /sesh persist", async (context) => {
+  const { expect } = context;
+  const { directory, parent } = await createWorkspace(context);
+  const { stdout, stderr } = await run(directory, [
     "--no-session",
     "--parent-session",
     parent,
@@ -101,12 +102,12 @@ it("allows an ephemeral child and retains its parent after /sesh persist", async
   expect(stderr).toBe("");
   const value: unknown = JSON.parse(stdout.split("\n")[0]!);
   expect(headerSchema.parse(value).parentSession).toBe(parent);
-  const sessions = await childSessions();
+  const sessions = await childSessions(directory);
   expect(sessions).toHaveLength(1);
   expect(sessions[0]?.parentSessionPath).toBe(parent);
 }, 15_000);
 
-it.each(
+it.concurrent.for(
   [
     ["--parent-session"],
     ["--parent-session", "missing.jsonl"],
@@ -116,13 +117,15 @@ it.each(
   ].map((args) => ({ args }))
 )(
   "fails startup instead of executing the prompt: $args",
-  async ({ args }) => {
+  { timeout: 15_000 },
+  async ({ args }, context) => {
+    const { expect } = context;
+    const { directory, parent } = await createWorkspace(context);
     const before = await readFile(parent, "utf8");
     await expect(
-      run(args.map((arg) => (arg === "PARENT" ? parent : arg)).concat("/fixture-append"))
+      run(directory, args.map((arg) => (arg === "PARENT" ? parent : arg)).concat("/fixture-append"))
     ).rejects.toMatchObject({ code: 1 });
     expect(await readFile(parent, "utf8")).toBe(before);
-    expect(await childSessions()).toEqual([]);
-  },
-  15_000
+    expect(await childSessions(directory)).toEqual([]);
+  }
 );

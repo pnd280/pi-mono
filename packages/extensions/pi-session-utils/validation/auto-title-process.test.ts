@@ -6,17 +6,19 @@ import { promisify } from "node:util";
 
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
-import { expect, it } from "vite-plus/test";
+import { it } from "vite-plus/test";
 import { z } from "zod";
 
-it.each([
+// Each row owns its workspace and process, so the CLI launches can overlap.
+it.concurrent.for([
   { mode: "text", prompt: "Opening request", name: "Offline session title", state: "completed" },
   { mode: "json", prompt: "Opening request", name: "Offline session title", state: "completed" },
   { mode: "text", prompt: "stall-title", name: undefined, state: "pending" },
   { mode: "json", prompt: "stall-title", name: undefined, state: "pending" }
 ])(
   "keeps $mode output clean and exits with $state naming",
-  async ({ mode, prompt, name }) => {
+  { timeout: 10_000 },
+  async ({ mode, prompt, name }, { expect }) => {
     const directory = await createValidationWorkspace("pi-session-utils-auto-title-process-");
     const sessionPath = join(directory, "session.jsonl");
 
@@ -85,6 +87,5 @@ it.each([
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
-  },
-  10_000
+  }
 );

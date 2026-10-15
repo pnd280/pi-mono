@@ -33,7 +33,7 @@ async function open(host = createInputHost(), claims = true) {
         }
       : { ...common, create: () => view }
   );
-  await vi.waitFor(() => expect(host.presentation).toBeDefined());
+  await vi.waitFor(() => expect(host.presentation).toBeDefined(), { interval: 1 });
 
   return {
     host,

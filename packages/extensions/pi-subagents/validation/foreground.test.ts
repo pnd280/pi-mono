@@ -83,7 +83,7 @@ async function waitForBash(host: Supervisor): Promise<void> {
   );
 }
 
-describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
+describe.skipIf(process.platform !== "linux").concurrent("foreground subagents", () => {
   test("returns the child's text and state, including provider and launch failures", async () => {
     await withFixture(async (_directory, start) => {
       const host = await start();
@@ -115,7 +115,7 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
     });
   }, 30_000);
 
-  test.each([
+  test.for([
     "completed task",
     "turn abort",
     "user abort",
@@ -123,89 +123,83 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
     "graceful exit",
     "SIGKILL",
     "queued turn abort"
-  ])(
-    "cleans up children on %s",
-    async (action) => {
-      await withFixture(
-        async (directory, start) => {
-          const host = await start();
-          const stubborn = ["turn abort", "user abort", "session change", "graceful exit"].includes(
-            action
-          );
-          let singleScenario = stubborn ? "delegate-stubborn" : "delegate-slow";
-          if (action === "completed task") singleScenario = "delegate-shutdown-blocked";
-          const scenario = action === "queued turn abort" ? "capacity" : singleScenario;
-          const work = host.prompt(scenario).catch((error: unknown) => error);
-          const child = await activeTask(host);
-          if (stubborn) await waitForBash(host);
+  ])("cleans up children on %s", { timeout: 45_000 }, async (action, { expect }) => {
+    await withFixture(
+      async (directory, start) => {
+        const host = await start();
+        const stubborn = ["turn abort", "user abort", "session change", "graceful exit"].includes(
+          action
+        );
+        let singleScenario = stubborn ? "delegate-stubborn" : "delegate-slow";
+        if (action === "completed task") singleScenario = "delegate-shutdown-blocked";
+        const scenario = action === "queued turn abort" ? "capacity" : singleScenario;
+        const work = host.prompt(scenario).catch((error: unknown) => error);
+        const child = await activeTask(host);
+        if (stubborn) await waitForBash(host);
 
-          if (action === "turn abort") {
-            await expect
-              .poll(async () => {
-                const task = (await list(host))[0]!;
+        if (action === "turn abort") {
+          await expect
+            .poll(async () => {
+              const task = (await list(host))[0]!;
 
-                return (await readTaskSnapshot(task)).entries.some(
-                  (entry) =>
-                    entry.type === "message" &&
-                    entry.message.role === "assistant" &&
-                    entry.message.content.some(
-                      (block) => block.type === "toolCall" && block.id === "fixture-sleep"
-                    )
-                );
-              })
-              .toBe(true);
-          }
-
-          const sessionFile = (await host.state()).sessionFile!;
-
-          if (action === "completed task") {
-            expect(await work).toBeUndefined();
-            expect(detailsSchema.parse((await host.results()).at(-1)!.details).state).toBe(
-              "failed"
-            );
-          } else if (action === "user abort") {
-            const notification = await host.command(`abort ${child.task_id}`);
-            expect(JSON.parse(notification.message)).toMatchObject({
-              state: "inactive",
-              outcome: "cancelled"
-            });
-          } else if (action === "session change") {
-            await host.request({ type: "new_session" });
-            expect(await list(host)).toEqual([]);
-            // A run without an end entry stays cancelled in the saved session.
-            const records = SessionManager.open(sessionFile).getEntries().filter(isRunEntry);
-            expect(records.at(-1)).toMatchObject({
-              customType: RUN_ENTRY,
-              data: { task_id: child.task_id }
-            });
-          } else if (action === "graceful exit") {
-            host.connection.closeInput();
-            await host.connection.closed;
-          } else if (action === "SIGKILL") {
-            host.connection.process.kill("SIGKILL");
-            await host.connection.closed;
-          } else {
-            await host.request({ type: "abort" });
-          }
-
-          await work;
-
-          if (action === "SIGKILL" || action === "graceful exit")
-            expect(await remainingProcesses(directory)).toEqual([]);
-          else {
-            const tasks = await list(host);
-            expect(tasks.every((task) => task.state === "inactive")).toBe(true);
-            expect(await fixtureProcesses(directory)).toHaveLength(1);
-            if (action === "queued turn abort") expect(tasks).toHaveLength(1);
-          }
-        },
-        {
-          settings: { "ext.pi-subagents": { maxConcurrent: 1, maxQueued: 2 } }
+              return (await readTaskSnapshot(task)).entries.some(
+                (entry) =>
+                  entry.type === "message" &&
+                  entry.message.role === "assistant" &&
+                  entry.message.content.some(
+                    (block) => block.type === "toolCall" && block.id === "fixture-sleep"
+                  )
+              );
+            })
+            .toBe(true);
         }
-      );
-    },
-    45_000
-  );
+
+        const sessionFile = (await host.state()).sessionFile!;
+
+        if (action === "completed task") {
+          expect(await work).toBeUndefined();
+          expect(detailsSchema.parse((await host.results()).at(-1)!.details).state).toBe("failed");
+        } else if (action === "user abort") {
+          const notification = await host.command(`abort ${child.task_id}`);
+          expect(JSON.parse(notification.message)).toMatchObject({
+            state: "inactive",
+            outcome: "cancelled"
+          });
+        } else if (action === "session change") {
+          await host.request({ type: "new_session" });
+          expect(await list(host)).toEqual([]);
+          // A run without an end entry stays cancelled in the saved session.
+          const records = SessionManager.open(sessionFile).getEntries().filter(isRunEntry);
+          expect(records.at(-1)).toMatchObject({
+            customType: RUN_ENTRY,
+            data: { task_id: child.task_id }
+          });
+        } else if (action === "graceful exit") {
+          host.connection.closeInput();
+          await host.connection.closed;
+        } else if (action === "SIGKILL") {
+          host.connection.process.kill("SIGKILL");
+          await host.connection.closed;
+        } else {
+          await host.request({ type: "abort" });
+        }
+
+        await work;
+
+        if (action === "SIGKILL" || action === "graceful exit")
+          expect(await remainingProcesses(directory)).toEqual([]);
+        else {
+          const tasks = await list(host);
+          expect(tasks.every((task) => task.state === "inactive")).toBe(true);
+          expect(await fixtureProcesses(directory)).toHaveLength(1);
+          if (action === "queued turn abort") expect(tasks).toHaveLength(1);
+        }
+      },
+      {
+        settings: { "ext.pi-subagents": { maxConcurrent: 1, maxQueued: 2 } }
+      }
+    );
+  });
 
   test.each(["tree", "fork", "switch"])(
     "isolates the replacement binding and immediately stops owned subtrees on %s",
@@ -512,7 +506,9 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
     });
   }, 30_000);
 
-  test("lets one process at a time write a task's child file, also after its supervisor is killed", async () => {
+  test("lets one process at a time write a task's child file, also after its supervisor is killed", async ({
+    expect
+  }) => {
     await withFixture(async (directory, start) => {
       const first = await start();
       await first.prompt("delegate-remember");
@@ -539,7 +535,11 @@ describe.skipIf(process.platform !== "linux")("foreground subagents", () => {
 
       const work = first.prompt(`stubborn-id ${task.task_id}`).catch((error: unknown) => error);
       await expect
-        .poll(async () => (await others()).some(({ command }) => command.includes("sleep 600")))
+        .poll(async () => (await others()).some(({ command }) => command.includes("sleep 600")), {
+          // The resumed child starts a new Pi process, which takes seconds under full load.
+          timeout: 10_000,
+          interval: 25
+        })
         .toBe(true);
       await rejected();
 

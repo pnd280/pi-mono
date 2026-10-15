@@ -1,15 +1,17 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { resolvePiExecutable } from "@pi-mono/libs/validation/pi-process";
+import {
+  createValidationWorkspace,
+  resolvePiExecutable
+} from "@pi-mono/libs/validation/pi-process";
 import { expect, it } from "vite-plus/test";
 
 it("recognizes native construction through the installed pi executable, not just its unbundled API", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "display-cli-contract-"));
+  const directory = await createValidationWorkspace("display-cli-contract-");
 
   try {
     const executable = await resolvePiExecutable();
@@ -24,7 +26,7 @@ it("recognizes native construction through the installed pi executable, not just
     const boundedDiff = fileURLToPath(
       new URL("../../../../libs/src/bounded-diff/index.ts", import.meta.url)
     );
-    const fixture = join(directory, "verify-display.ts");
+    const fixture = join(directory, "work", "verify-display.ts");
     await writeFile(
       fixture,
       `
@@ -91,12 +93,13 @@ it("recognizes native construction through the installed pi executable, not just
         "/verify-display"
       ],
       {
-        cwd: directory,
+        cwd: join(directory, "work"),
         env: {
           PATH: process.env.PATH,
-          HOME: directory,
-          USERPROFILE: directory,
+          HOME: join(directory, "home"),
+          USERPROFILE: join(directory, "home"),
           PI_CODING_AGENT_DIR: join(directory, "agent"),
+          TMPDIR: join(directory, "tmp"),
           PI_OFFLINE: "1"
         },
         timeout: 15_000

@@ -32,13 +32,13 @@ For pure helpers with no side effects, use [utils](../utils/README.md). The [man
 
 Validation-only entry points:
 
-| Library                                                                    | Responsibility                                                  |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| [validation/interactive-host](src/validation/interactive-host/README.md)   | Installed interactive host for isolated in-process tests        |
-| [validation/pi-process](src/validation/pi-process/README.md)               | Private workspace directories and isolated launch configuration |
-| [validation/provider](src/validation/provider/README.md)                   | Scripted assistant messages and event streams                   |
-| [validation/terminal-launcher](src/validation/terminal-launcher/README.md) | Interactive fixture launches and exit status                    |
-| [validation/tool-context](src/validation/tool-context/README.md)           | Complete native tool contexts for isolated unit fixtures        |
+| Library                                                                    | Responsibility                                                                          |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [validation/interactive-host](src/validation/interactive-host/README.md)   | Installed interactive host for isolated in-process tests                                |
+| [validation/pi-process](src/validation/pi-process/README.md)               | Private workspace directories, isolated launch configuration, and shared compile caches |
+| [validation/provider](src/validation/provider/README.md)                   | Scripted assistant messages and event streams                                           |
+| [validation/terminal-launcher](src/validation/terminal-launcher/README.md) | Interactive fixture launches and exit status                                            |
+| [validation/tool-context](src/validation/tool-context/README.md)           | Complete native tool contexts for isolated unit fixtures                                |
 
 ## Configuration
 

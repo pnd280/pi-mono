@@ -15,9 +15,13 @@ import { createFixtureStream, type FixtureStreamContext } from "@pi-mono/libs/va
 import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 
-import { assertFixtureWorkspace } from "./workspace.ts";
+import { assertFixtureWorkspace, UNPACED_ENV } from "./workspace.ts";
 
 type PlannedCall = { name: string; args: JsonObject };
+
+/** Pauses keep streaming states visible; unpaced tests still yield between events. */
+const pause = (ms: number, signal: AbortSignal | undefined) =>
+  setTimeout(process.env[UNPACED_ENV] === "1" ? 0 : ms, undefined, { signal });
 
 /** Summary turns: optional prose starts a new run; turns without prose extend it. */
 const SUMMARY_TURNS: readonly { calls: number; text?: string }[] = [
@@ -216,12 +220,12 @@ async function streamCalls(
   for (const planned of calls) {
     // Queue shared partials without yielding to expose calls in earlier
     // thinking/tool events, as a buffered provider response can do.
-    if (!options.buffered) await setTimeout(120, undefined, { signal: options.signal });
+    if (!options.buffered) await pause(120, options.signal);
     const contentIndex = message.content.length;
     const call = fauxToolCall(planned.name, {}, { id: randomUUID() });
     message.content.push(call);
     events.push({ type: "toolcall_start", contentIndex, partial: message });
-    if (!options.buffered) await setTimeout(120, undefined, { signal: options.signal });
+    if (!options.buffered) await pause(120, options.signal);
     call.arguments = planned.args;
     events.push({
       type: "toolcall_delta",
@@ -311,7 +315,7 @@ export function createDisplayFixtureStream(cwd: string): ProviderStreams["stream
             output.content.push({ type: "thinking", thinking: thought });
             events.push({ type: "thinking_start", contentIndex, partial: output });
             events.push({ type: "thinking_delta", contentIndex, delta: thought, partial: output });
-            await setTimeout(1000, undefined, { signal });
+            await pause(1000, signal);
             events.push({ type: "thinking_end", contentIndex, content: thought, partial: output });
             if (prompt === "thinking" && completed === 2)
               appendText(

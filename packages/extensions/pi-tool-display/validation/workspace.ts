@@ -8,6 +8,8 @@ import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validat
 
 const marker = ".pi-tool-display-fixture";
 
+export const UNPACED_ENV = "PI_TOOL_DISPLAY_FIXTURE_UNPACED";
+
 export async function assertFixtureWorkspace(cwd: string): Promise<void> {
   if ((await readFile(join(cwd, marker), "utf8")) !== "disposable tool-display workspace\n")
     throw new Error("Use the terminal fixture launcher to create a disposable workspace.");
@@ -75,12 +77,14 @@ export async function createFixtureWorkspace(): Promise<string> {
   return directory;
 }
 
-export async function fixtureLaunch(directory: string) {
+/** Unpaced launches skip the streaming pauses that make rows observable during manual checks. */
+export async function fixtureLaunch(directory: string, { paced = true }: { paced?: boolean } = {}) {
   const cwd = join(directory, "work");
   await assertFixtureWorkspace(cwd);
 
   return createPiLaunch({
     directory,
+    ...(paced ? {} : { env: { [UNPACED_ENV]: "1" } }),
     args: [
       "--offline",
       "--no-extensions",

@@ -464,7 +464,8 @@ const toolCases: {
   }
 ];
 
-it.each(toolCases)(
+// Each row owns its workspace and process, so the CLI launches can overlap.
+it.concurrent.each(toolCases)(
   "native compaction in $mode mode: $scenario ($config)",
   async ({ mode, scenario, summaries, compactions, attempts, instructions, config }) => {
     const directory = await createValidationWorkspace("pi-native-compaction-");
@@ -607,7 +608,7 @@ it.each(toolCases)(
 );
 
 // The SDK suite covers routing flags; these rows prove the bundled CLI routes credentials.
-it.each([
+it.concurrent.each([
   { entry: "manual", focus: combinedInstructions },
   { entry: "auto", focus: fileInstructions }
 ] as const)(

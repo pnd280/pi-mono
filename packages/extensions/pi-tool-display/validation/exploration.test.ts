@@ -12,7 +12,7 @@ it("executes native reads, a missing-file failure, and an image through the inst
   const directory = await createFixtureWorkspace();
 
   try {
-    const launch = await fixtureLaunch(directory);
+    const launch = await fixtureLaunch(directory, { paced: false });
 
     const execution = promisify(execFile)(
       launch.command,

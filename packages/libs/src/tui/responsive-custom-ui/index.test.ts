@@ -26,7 +26,7 @@ it("pages a focused inline view through regular terminal input", async () => {
   });
 
   try {
-    await vi.waitFor(() => expect(host.presentation).toBeDefined());
+    await vi.waitFor(() => expect(host.presentation).toBeDefined(), { interval: 1 });
     host.transcript.scrollTo(40);
     host.render();
     host.send("\x1b[6~");

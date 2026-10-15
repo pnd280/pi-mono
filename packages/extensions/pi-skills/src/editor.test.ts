@@ -39,7 +39,7 @@ it("Enter accepts a leading skill completion without submitting", async () => {
   const { editor, onSubmit } = editorFixture();
   editor.setText("/skill:re");
   editor.handleInput("\t");
-  await vi.waitFor(() => expect(editor.isShowingAutocomplete()).toBe(true));
+  await vi.waitFor(() => expect(editor.isShowingAutocomplete()).toBe(true), { interval: 1 });
   editor.handleInput("\r");
   expect(editor.getText()).toMatch(/^\/skill:(review|release) $/u);
   expect(editor.isShowingAutocomplete()).toBe(false);

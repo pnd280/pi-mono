@@ -14,17 +14,17 @@ catalog:
   "@earendil-works/pi-tui": ^1.2.0
   "@git-diff-view/core": ^0.1.7
   "@stylistic/eslint-plugin": ^5.10.0
-  "@types/node": ^26.6.4
+  "@types/node": ^26.6.5
   "@types/proper-lockfile": 4.1.4
   diff: 9.0.0
   eslint-import-resolver-typescript: ^4.4.5
   eslint-plugin-boundaries: ^7.2.0
   proper-lockfile: ^4.1.2
   typescript: ^7.0.2
-  unbash: ^5.0.0
-  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
-  vite-plus: 1.1.0
-  zod: ^4.6.5
+  unbash: ^5.1.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.2.0
+  vite-plus: 1.2.0
+  zod: ^4.6.7
 
 catalogs:
   pi-host:
