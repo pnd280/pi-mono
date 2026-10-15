@@ -4,7 +4,7 @@ import { highlightCodeBounded } from "@pi-mono/libs/tui/components/code-highligh
 import { renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
-import { textPrefix, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { textPrefix, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import {
   isLive,
@@ -268,7 +268,9 @@ function scopeHeading(
       expanded: p.expanded
     }) ?? previewRows(wrapRows(genericDetail().text, bodyWidth(p.width)), p, genericDetail());
 
-  return [...wrapRows(title + suffix, p.width), ...headingContinuation(scope, p, true)];
+  const [titleRow = "", ...wrapped] = wrapHangingRows(title + suffix, p.width, bodyWidth(p.width));
+
+  return [titleRow, ...headingContinuation([...wrapped, ...scope], p, true)];
 }
 
 function explorationVerbs(p: PreparedCard): HeadingVerbs {
@@ -324,12 +326,12 @@ function groupHeading(group: PreparedGroup, p: PreparedCard): string[] {
       // Adapter-defined groups use a title instead of exposing their literal scope.
       const badge = summary ? `${p.theme.fg("dim", " · ")}${summary}` : "";
 
-      rows.push(
-        ...wrapRows(
-          `${p.theme.fg(titleColor, marker)} ${p.theme.fg(titleColor, p.theme.bold(compactDisplayText(group.title)))}${badge}`,
-          p.width
-        )
+      const [titleRow = "", ...wrapped] = wrapHangingRows(
+        `${p.theme.fg(titleColor, marker)} ${p.theme.fg(titleColor, p.theme.bold(compactDisplayText(group.title)))}${badge}`,
+        p.width,
+        bodyWidth(p.width)
       );
+      rows.push(titleRow, ...headingContinuation(wrapped, p, true));
     } else {
       const scopeVerbs =
         group.scope.kind === "filter"

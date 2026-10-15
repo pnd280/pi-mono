@@ -6,7 +6,8 @@ import {
   type Component,
   type KeybindingsManager,
   type KeyId,
-  type TUI
+  type TUI,
+  visibleWidth
 } from "@earendil-works/pi-tui";
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
@@ -319,8 +320,8 @@ export class TodosView implements Component {
     const rowStart: number[] = [];
     let totalRows = 0;
 
-    for (const entry of this.entries) {
-      const entryRows = this.entryRows(entry, width, "  ");
+    for (const index of this.entries.keys()) {
+      const entryRows = this.entryRows(index, width, "  ");
       rowStart.push(totalRows);
       rows.push(entryRows);
       totalRows += entryRows.length;
@@ -346,7 +347,7 @@ export class TodosView implements Component {
       if (entryStart === undefined || entry === undefined || entryStart >= end) break;
       const entryRows =
         index === this.selected
-          ? this.entryRows(entry, width, getSettingsListTheme().cursor)
+          ? this.entryRows(index, width, getSettingsListTheme().cursor)
           : (layout.rows[index] ?? []);
       const from = Math.max(0, start - entryStart);
       const to = Math.min(entryRows.length, end - entryStart);
@@ -360,15 +361,34 @@ export class TodosView implements Component {
     return rows;
   }
 
-  private entryRows(entry: TaskTreeEntry, width: number, marker: string): string[] {
+  /**
+   * Children hang from the status glyph, so wrapped rows align after it and carry a stem down to
+   * the children, after the ancestors' guides and this todo's own sibling guide.
+   */
+  private entryRows(index: number, width: number, marker: string): string[] {
     const { theme } = this.options;
-    const tree =
-      entry.ancestorHasFollowingSibling
-        .map((next) => (next ? `${TODO_TREE_GLYPH.guide}  ` : "   "))
-        .join("") + (entry.isLastSibling ? TODO_TREE_GLYPH.lastBranch : TODO_TREE_GLYPH.branch);
-    const content = formatTaskLine(entry.task, theme, { showId: true, showStatus: true });
+    const entry = this.entries[index];
+    if (!entry) return [];
+    const { guide, branch, lastBranch } = TODO_TREE_GLYPH;
+    const ancestors = entry.ancestorHasFollowingSibling
+      .map((next) => (next ? `${guide}  ` : "   "))
+      .join("");
+    // Pre-order entries put a todo's first child directly after it.
+    const hasChildren = this.entries[index + 1]?.task.parentId === entry.task.id;
+    const glyph = statusGlyph(entry.task.status, theme);
+    // The line starts with the status glyph and a space.
+    const content = formatTaskLine(entry.task, theme, { showId: true, showStatus: true }).slice(
+      glyph.length + 1
+    );
+    const first = `${marker}${theme.fg("dim", `${ancestors}${entry.isLastSibling ? lastBranch : branch}`)} ${glyph} `;
+    const rest = `${" ".repeat(visibleWidth(marker))}${theme.fg(
+      "dim",
+      `${ancestors}${entry.isLastSibling ? "   " : `${guide}  `}${hasChildren ? guide : " "} `
+    )}`;
 
-    return wrapRows(`${marker}${theme.fg("dim", tree)} ${content}`, width);
+    return wrapRows(content, Math.max(1, width - visibleWidth(first))).map((row, line) =>
+      truncateToWidth(`${line ? rest : first}${row}`, width, "")
+    );
   }
 
   private bindings(): TodoBinding[] {

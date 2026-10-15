@@ -1,7 +1,7 @@
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
-import { textPrefix, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { textPrefix, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import type { DisplayProgress, DisplayProgressStatus } from "../contracts.ts";
 import type { Projection } from "./types.ts";
@@ -108,9 +108,13 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
   const separator = theme.fg("dim", " · ");
   // Style the status before wrapping so continuation rows keep its colour.
   const title = `${theme.fg(colors.label, theme.bold(clean(progress.label)))} ${clean(progress.description)}${separator}${theme.fg(state.color, state.text)}`;
-  const bodyWidth = Math.max(1, p.width - 2);
-  const rows = wrapRows(title, bodyWidth).map(
-    (row, index) => `${index ? "  " : `${theme.fg(colors.marker, marker)} `}${row}`
+  // Wrapped title rows, metadata, and details lead into the result branch with a guide;
+  // without a body, they use a plain indent. A collapsed card shows a body only for a result preview.
+  const hasBody = p.result !== undefined && (p.expanded || progress.resultPreview === true);
+  const indent = hasBody ? `  ${theme.fg("dim", TUI_GLYPHS.tree.guide)} ` : "    ";
+  const detailWidth = Math.max(1, p.width - 4);
+  const rows = wrapHangingRows(title, Math.max(1, p.width - 2), detailWidth).map(
+    (row, index) => `${index ? indent : `${theme.fg(colors.marker, marker)} `}${row}`
   );
   const identity = clean(progress.identity);
   const secondaryText = clean(progress.secondary);
@@ -118,11 +122,6 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
     ...(identity ? [theme.fg("dim", identity)] : []),
     ...(secondaryText ? [theme.fg(colors.secondary, secondaryText)] : [])
   ].join(separator);
-  // Metadata and details lead into the result branch with a guide; without a body, they use a plain indent.
-  // A collapsed card shows a body only for a result preview.
-  const hasBody = p.result !== undefined && (p.expanded || progress.resultPreview === true);
-  const indent = hasBody ? `  ${theme.fg("dim", TUI_GLYPHS.tree.guide)} ` : "    ";
-  const detailWidth = Math.max(1, p.width - 4);
   rows.push(...wrapRows(secondary, detailWidth).map((row) => `${indent}${row}`));
 
   if (!p.expanded) return { rows, stale };

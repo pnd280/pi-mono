@@ -1,4 +1,10 @@
-import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import {
+  sliceByColumn,
+  stripTerminalSequences,
+  truncateToWidth,
+  visibleWidth,
+  wrapTextWithAnsi
+} from "@earendil-works/pi-tui";
 import { z } from "zod";
 
 import { sliceTerminalText } from "../terminal-text/index.ts";
@@ -14,6 +20,21 @@ export function wrapRows(text: string, width: number): string[] {
   return wrapTextWithAnsi(text, width).map((row) =>
     visibleWidth(row) > width ? truncateToWidth(row, width, "") : row
   );
+}
+
+/** Wraps the first row at `firstWidth` and the remaining text at `restWidth`. */
+export function wrapHangingRows(text: string, firstWidth: number, restWidth: number): string[] {
+  const [first, ...wrapped] = wrapRows(text, firstWidth);
+  if (first === undefined) return [];
+  if (!wrapped.length) return [first];
+  const start = visibleWidth(first);
+  // Wrapping drops the space at the break; the remainder keeps earlier styles.
+  const space = stripTerminalSequences(sliceByColumn(text, start, 1)) === " ";
+
+  return [
+    first,
+    ...wrapRows(sliceByColumn(text, start + (space ? 1 : 0), visibleWidth(text)), restWidth)
+  ];
 }
 
 export type RowBudgetOptions = {

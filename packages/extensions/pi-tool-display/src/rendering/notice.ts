@@ -12,6 +12,7 @@ import {
 } from "@pi-mono/libs/tui/components/tree";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { wrapHangingRows } from "@pi-mono/libs/tui/text-budget";
 import { decodeNotice } from "pi-nested-instructions/notices";
 
 import { pathRows } from "./target-layout.ts";
@@ -41,15 +42,17 @@ function headerRows(
 ): string[] {
   const marker = expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
   const title = `${theme.fg("accent", marker)} ${theme.fg("accent", theme.bold(label))}`;
-  if (!file) return new Text(title, 0, 0).render(width);
-  const indent = visibleWidth(title) + 1;
-  const path = displayText(file);
   const continuation = {
     width,
     indent: 2,
     style: (text: string) => theme.fg("dim", text),
     hasChildren
   };
+  // A title wider than the row continues in the body column, like its path.
+  const [first = "", ...wrapped] = wrapHangingRows(title, width, Math.max(1, width - 4));
+  if (!file) return [first, ...renderTreeContinuation(wrapped, continuation)];
+  const indent = visibleWidth(title) + 1;
+  const path = displayText(file);
   // Paths wrap like tool-card targets, beside the label when at least four columns remain.
   const inline = pathRows(path, { width: width - indent, theme, expanded });
   if (inline)
@@ -64,7 +67,7 @@ function headerRows(
     pathRows(path, { width: width - 4, theme, expanded }) ??
     new Text(theme.fg("text", path), 0, 0).render(Math.max(1, width - 4));
 
-  return [...new Text(title, 0, 0).render(width), ...renderTreeContinuation(rows, continuation)];
+  return [first, ...renderTreeContinuation([...wrapped, ...rows], continuation)];
 }
 
 export function createNoticeRenderer() {

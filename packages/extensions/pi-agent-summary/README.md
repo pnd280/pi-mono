@@ -124,7 +124,7 @@ Setup: load this extension with `pi-todo` and `pi-tool-display`, in regular and 
 | Ask the agent to run `bash`, `edit`, and `write` | The timer counts up live, and a summary appears when it settles.                                           |
 | Watch the working message during a long response | `n/s` estimates the response while text streams. After the response, it shows the run rate.                |
 | Click a summary in fullscreen; press **Ctrl+O**  | Clicking toggles one summary; **Ctrl+O** toggles all of them. Expanded summaries show statistics per file. |
-| Narrow the terminal                              | The summary wraps with a two-column indent.                                                                |
+| Narrow the terminal                              | The summary wraps with a four-column indent, behind a `│` guide when the expanded file tree follows.       |
 | Emit a long milestone during a run               | Its line shows above the summary, wraps with a two-column indent, and shows again after resume.            |
 | Emit one counter twice during a run              | The summary line shows its segment with count 2 after the command count, and shows again after resume.     |
 | Abort a run, then resume the session             | The timer and rate are gone, and saved summaries show again.                                               |

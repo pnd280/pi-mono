@@ -7,6 +7,7 @@
 Use [`text-budget`](index.ts) to wrap text synchronously and produce excerpts within row and character budgets.
 
 - `wrapRows` wraps ANSI-styled text and clamps wide graphemes that cannot fit.
+- `wrapHangingRows` wraps a first row beside a marker at one width and the remaining text at another, so continuation rows can take a tree prefix.
 - `compactRows` retains head and tail rows, reserving one budgeted row for the caller's omission notice.
 - `textPrefix` clips a UTF-16 prefix without cutting a grapheme or SGR sequence.
 - `compactText` limits text passed to wrapping, keeping excerpts from the start and end and SGR state.

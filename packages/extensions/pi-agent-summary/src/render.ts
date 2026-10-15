@@ -1,9 +1,10 @@
 import type { CustomEntry, EntryRenderOptions, Theme } from "@earendil-works/pi-coding-agent";
 import { MouseRegion, Text, truncateToWidth, type Component } from "@earendil-works/pi-tui";
-import { renderTree } from "@pi-mono/libs/tui/components/tree";
+import { renderTree, renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+import { wrapHangingRows } from "@pi-mono/libs/tui/text-budget";
 
 import { summarySchema, type RunSummary } from "./summary.ts";
 
@@ -156,6 +157,14 @@ export function createSummaryRenderer() {
 
           const [heading, ...files] = summaryLines(parsed.data, expansion.expanded, theme);
           const marker = expansion.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
+          const style = (text: string) => theme.fg("dim", text);
+          // The first row fits beside the marker; the rest wrap in the tree body.
+          const [first = "", ...wrapped] = wrapHangingRows(
+            heading,
+            Math.max(1, width - 2),
+            Math.max(1, width - 4)
+          );
+
           const markedRows = (text: string, glyph: string) =>
             new Text(text, 0, 0).render(Math.max(1, width - 2)).map((line, index) => {
               const prefix = index === 0 ? `${glyph} ` : "  ";
@@ -170,12 +179,18 @@ export function createSummaryRenderer() {
                 theme.fg("accent", milestoneMarker)
               )
             ),
-            ...markedRows(heading, theme.fg("dim", marker)),
+            truncateToWidth(`${theme.fg("dim", marker)} ${first}`, width, ""),
+            ...renderTreeContinuation(wrapped, {
+              width,
+              indent: 2,
+              style,
+              hasChildren: files.length > 0
+            }),
             ...renderTree(
               files.map((file) => ({
                 rows: new Text(file, 0, 0).render(Math.max(1, width - 4))
               })),
-              { width, indent: 2, style: (text) => theme.fg("dim", text) }
+              { width, indent: 2, style }
             )
           ];
         },
