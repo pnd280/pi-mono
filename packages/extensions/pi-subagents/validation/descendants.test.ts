@@ -6,8 +6,8 @@ import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
-import { RESULT_MESSAGE } from "../src/constants.ts";
-import { taskRecordSchema } from "../src/records.ts";
+import { DEPTH_ENV, RESULT_MESSAGE, RUN_ENTRY, TASK_ID_ENV } from "../src/constants.ts";
+import { runRecordSchema, taskRecordSchema } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
 import {
   descendantStarted,
@@ -15,12 +15,26 @@ import {
   fixture,
   taskList
 } from "./background-fixture.ts";
-import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
+import { fixtureProcesses, killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace } from "./workspace.ts";
 
 // Each test owns its workspace and processes.
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
+
+/** The PIDs of fixture processes whose environment sets `name` to `value`. */
+async function processesWith(directory: string, name: string, value: string): Promise<number[]> {
+  const found = await Promise.all(
+    (await fixtureProcesses(directory)).map(async ({ pid }) => {
+      // A process can exit after the listing.
+      const environment = await readFile(`/proc/${pid}/environ`, "utf8").catch(() => "");
+
+      return environment.split("\0").includes(`${name}=${value}`) ? [pid] : [];
+    })
+  );
+
+  return found.flat();
+}
 
 test("delivers background results in a child after a final error without retry", async () => {
   await fixture(async (host) => {
@@ -199,6 +213,71 @@ test("routes nested dialogs and reconstructs descendant ownership after restart"
       await resumed.stop();
     }
   });
+}, 30_000);
+
+test("keeps earlier descendants and shows no starting descendant as stopped while its owner runs", async ({
+  expect
+}) => {
+  await fixture(
+    async (host, directory) => {
+      await host.prompt("nested-background");
+      const { sessionId } = await host.state();
+      await host.stop();
+      // After a restart, the supervisor knows the earlier descendant only from the owner's file.
+      const restarted = await Supervisor.start(directory, { sessionId });
+
+      try {
+        const [owner, earlier] = await taskList(restarted);
+        expect(earlier).toMatchObject({ parent_task_id: owner!.task_id, outcome: "completed" });
+        // The resumed owner starts a child, and the child starts a grandchild.
+        const work = restarted.prompt(`extend-id ${owner!.task_id}`);
+        while ((await processesWith(directory, DEPTH_ENV, "3")).length === 0) await setTimeout(5);
+        // The grandchild's live record can reach the supervisor only through the owner.
+        const [pid] = await processesWith(directory, TASK_ID_ENV, owner!.task_id);
+        process.kill(pid!, "SIGSTOP");
+        let childId: string | undefined;
+        let grandchild: string | undefined;
+
+        try {
+          const child = (await taskList(restarted)).find(
+            (task) => task.parent_task_id === owner!.task_id && task.state === "active"
+          )!;
+          childId = child.task_id;
+
+          while (!grandchild) {
+            const run = parseSessionEntries(await readFile(child.session_file, "utf8")).find(
+              (entry) => entry.type === "custom" && entry.customType === RUN_ENTRY
+            );
+            grandchild =
+              run?.type === "custom" ? runRecordSchema.parse(run.data).task_id : undefined;
+            if (!grandchild) await setTimeout(10);
+          }
+
+          // The child's file names the grandchild before the grandchild's live record arrives.
+          const tasks = await taskList(restarted);
+          expect(
+            tasks.filter((task) => task.state === "inactive" && task.ended_at === null)
+          ).toEqual([]);
+          expect(tasks.find((task) => task.task_id === earlier!.task_id)).toEqual(earlier);
+          expect(tasks.some((task) => task.task_id === grandchild)).toBe(false);
+        } finally {
+          process.kill(pid!, "SIGCONT");
+        }
+
+        await work;
+        const tasks = await taskList(restarted);
+        expect(tasks.find((task) => task.task_id === earlier!.task_id)).toEqual(earlier);
+        expect(tasks.find((task) => task.task_id === grandchild)).toMatchObject({
+          parent_task_id: childId,
+          outcome: "completed"
+        });
+      } finally {
+        await restarted.stop();
+      }
+    },
+    4,
+    3
+  );
 }, 30_000);
 
 test("routes promotion to the owner and frees subtree capacity for queued top-level work", async ({

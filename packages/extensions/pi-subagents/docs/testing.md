@@ -29,6 +29,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e (S7):** Compaction retains direct task IDs in model context without starting a new turn.
 - **High, e2e (S8):** New follow-up or steering input and an abort end a background wait without cancelling tasks; after an abort, the later result arrives when idle. A retryable failure retries without a wait.
 - **High, e2e (S9):** `subagent_abort` stops an owned active task, releases its capacity, and keeps it resumable. It rejects foreign and inactive tasks, returns a successful confirmation, and delivers no separate `cancelled` result; the supervisor stops waiting when no task remains.
+- **High, e2e (S10):** While a task runs, also after a restart, `list` still shows the descendants of the task's earlier runs, and it never shows a descendant that is starting or running as stopped.
 - **High, e2e (T2):** Activity names only the connected child's own tool calls and resets when a task resumes.
 - **High, e2e (T5):** Late updates from a disposed task view or connection cannot affect a replacement task view or session.
 

@@ -185,7 +185,11 @@ export async function readTaskSnapshot(task: TaskRecord): Promise<TranscriptSnap
   return { ...snapshot, cwd: session.cwd, entries: session.entries, leafId };
 }
 
-/** Each run's ancestry names its child's tasks. An unreadable file adds no descendants. */
+/**
+ * Each run's ancestry names its child's tasks. An unreadable file adds no descendants. An active
+ * task's file names a run before the run's live record arrives, so the read of an active task
+ * stops at its run's marker: the run's own descendants come only from live records.
+ */
 export async function descendantRecords(roots: readonly TaskRecord[]): Promise<TaskRecord[]> {
   const seen = new Set(roots.map((task) => task.task_id));
   const found: TaskRecord[] = [];
@@ -195,8 +199,12 @@ export async function descendantRecords(roots: readonly TaskRecord[]): Promise<T
     let branch: SessionEntry[];
 
     try {
-      const snapshot = await readTaskSnapshot(task);
-      branch = branchTo(snapshot.entries, snapshot.leafId);
+      const { entries, leafId } = await readTaskSnapshot(task);
+      const leaf =
+        task.state === "active"
+          ? (entries.find((entry) => isMarker(entry, task.run_id))?.parentId ?? null)
+          : leafId;
+      branch = branchTo(entries, leaf);
     } catch {
       continue;
     }

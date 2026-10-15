@@ -127,16 +127,10 @@ test.for(["stopped", "live"])(
     try {
       await host.reply(mode === "live" ? "background-owner-live" : "background-owner");
       await expect
-        .poll(
-          async () => {
-            const descendant = (await page()).find((task) => task.parent_task_id !== null);
-
-            // A starting descendant reads as cancelled from its owner's file until its record arrives.
-            return descendant?.state === "inactive" ? descendant.outcome : descendant?.state;
-          },
-          { timeout: 10_000 }
-        )
-        .toBe(mode === "live" ? "completed" : "active");
+        .poll(async () => (await page()).find((task) => task.parent_task_id !== null)?.state, {
+          timeout: 10_000
+        })
+        .toBe(mode === "live" ? "inactive" : "active");
       const [owner, child] = await page();
       expect(child?.parent_task_id).toBe(owner!.task_id);
       if (mode === "stopped") {
