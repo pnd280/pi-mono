@@ -123,7 +123,7 @@ type Status = { glyph: string; color: Parameters<Theme["fg"]>[0]; label: string 
  * Completed tasks need no label: the check mark carries the outcome. Outcome glyphs name a
  * cancellation in `error`, like pi-tool-display headings; card status details use `warning`.
  */
-function status(task: Pick<TaskRecord, "state" | "outcome" | "background">): Status {
+export function status(task: Pick<TaskRecord, "state" | "outcome" | "background">): Status {
   if (task.state === "active")
     return task.background
       ? { glyph: BACKGROUND_GLYPH, color: "warning", label: "" }
@@ -147,29 +147,25 @@ export function contextLabel(task: TaskRecord): string {
 }
 
 /**
- * Status label with the latest run's duration, the current tool of a direct child, and total
- * usage. `full` adds cache reads, writes, and the latest hit rate, and joins a three-decimal
- * cost to the tokens. `context` shows an active task's context use in place of its tokens.
- * Missing and zero values are left out.
+ * Status label with the latest run's duration, the current tool of a direct child, the context
+ * use of an active task or the tokens of an inactive one, and the cost. Missing and zero values
+ * are left out.
  */
-export function taskMetadata(
-  tasks: Tasks,
-  task: TaskRecord,
-  { full = false, context = false } = {}
-): string[] {
+function taskMetadata(tasks: Tasks, task: TaskRecord): string[] {
   const { label } = status(task);
   // A run without an `end` has no recorded duration.
   let time = "";
   if (task.state === "active") time = elapsed(task.started_at, null);
   else if (task.ended_at !== null) time = elapsed(task.started_at, task.ended_at);
   const activity = task.state === "active" ? tasks.activity(task.task_id) : "";
-  const live = context && task.state === "active" ? contextLabel(task) : "";
-  const cost = !full && task.usage && task.usage.cost > 0 ? `$${task.usage.cost.toFixed(2)}` : "";
+  const live = task.state === "active" ? contextLabel(task) : "";
+  const cost = task.usage && task.usage.cost > 0 ? `$${task.usage.cost.toFixed(2)}` : "";
 
   return [
     [label, time].filter(Boolean).join(" "),
     compactDisplayText(activity),
-    live || usageLabel(task, full),
+    // Non-breaking spaces keep the group on one row when it fits.
+    live || usageParts(task, false).join("\u00a0"),
     cost
   ].filter(Boolean);
 }
@@ -183,7 +179,7 @@ const jobStatus = (job: JobRecord) =>
   });
 
 /** Status label with the elapsed time or duration, and the exit code when there is one. */
-export function jobMetadata(job: JobRecord): string[] {
+function jobMetadata(job: JobRecord): string[] {
   let time = "";
   if (job.state === "active") time = elapsed(job.started_at, null);
   else if (job.ended_at !== null) time = elapsed(job.started_at, job.ended_at);
@@ -194,10 +190,10 @@ export function jobMetadata(job: JobRecord): string[] {
   ].filter(Boolean);
 }
 
-/** Tokens, with cache use, the hit rate, and the cost when `full`. */
-function usageLabel(task: TaskRecord, full: boolean): string {
+/** Tokens, with cache use, the hit rate, and the three-decimal cost when `full`. */
+export function usageParts(task: TaskRecord, full: boolean): string[] {
   const usage = task.usage;
-  if (!usage) return "";
+  if (!usage) return [];
   const counts: (readonly [string, number])[] = [
     ["↑", usage.input],
     ["↓", usage.output],
@@ -213,18 +209,13 @@ function usageLabel(task: TaskRecord, full: boolean): string {
     full && cached && task.cache_hit !== undefined ? `CH${task.cache_hit.toFixed(1)}%` : "";
   const cost = full && usage.cost > 0 ? `$${usage.cost.toFixed(3)}` : "";
 
-  return (
-    [
-      ...counts
-        .filter(([, count]) => count > 0)
-        .map(([prefix, count]) => `${prefix}${formatTokenCount(count)}`),
-      hit,
-      cost
-    ]
-      .filter(Boolean)
-      // Non-breaking spaces keep the group on one row when it fits.
-      .join("\u00a0")
-  );
+  return [
+    ...counts
+      .filter(([, count]) => count > 0)
+      .map(([prefix, count]) => `${prefix}${formatTokenCount(count)}`),
+    hit,
+    cost
+  ].filter(Boolean);
 }
 
 /**
@@ -256,10 +247,7 @@ export function renderBoard(
         : "job";
     const metadata = theme.fg(
       "muted",
-      (entry.kind === "task"
-        ? taskMetadata(tasks, entry.task, { context: true })
-        : jobMetadata(entry.job)
-      ).join(" · ")
+      (entry.kind === "task" ? taskMetadata(tasks, entry.task) : jobMetadata(entry.job)).join(" · ")
     );
     const first = `${cursor}${theme.fg("dim", lead)}${theme.fg(color, glyph)} `;
     const rest = `  ${theme.fg("dim", guides)}`;

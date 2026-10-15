@@ -13,9 +13,9 @@ import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview"
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
-import { jobMetadata } from "./board.ts";
 import { readLogTail } from "./job-log.ts";
 import type { Jobs } from "./jobs.ts";
+import { fitViewer, jobRows, metadataTable, Spinner, titleBorder } from "./viewer-frame.ts";
 
 /** A live log follows its file at this interval. */
 const LOG_REFRESH_MS = 1000;
@@ -25,6 +25,9 @@ export class JobLogView implements Component {
   /** Display lines of the latest read; prepared outside render. */
   private lines: string[] = [];
   private wrapped: { width: number; rows: string[] } | undefined;
+  /** Display lines of the command; prepared outside render. */
+  private command: string[];
+  private working: Spinner | undefined;
   private loaded = false;
   private unavailable = "";
   private error = "";
@@ -47,14 +50,29 @@ export class JobLogView implements Component {
     private theme: Theme,
     private close: () => void
   ) {
-    jobs.owned(jobId);
+    this.command = displayText(jobs.owned(jobId).command).split("\n");
     // The last read after the exit shows the complete end of the log.
-    this.unsubscribe = jobs.subscribe(() => void this.read());
+    this.unsubscribe = jobs.subscribe(() => {
+      this.updateWorking();
+      void this.read();
+    });
     this.timer = setInterval(() => {
       if (this.record()?.state === "active") void this.read();
       tui.requestRender();
     }, LOG_REFRESH_MS);
+    this.updateWorking();
     void this.read();
+  }
+
+  /** Animate the status while the job is active. */
+  private updateWorking(): void {
+    const working = this.active && this.record()?.state === "active";
+
+    if (working && !this.working) this.working = new Spinner(this.tui);
+    else if (!working && this.working) {
+      this.working.stop();
+      this.working = undefined;
+    }
   }
 
   private record() {
@@ -137,21 +155,6 @@ export class JobLogView implements Component {
     );
     const record = this.record();
     const active = record?.state === "active";
-    const info = record
-      ? compactDisplayText(
-          [
-            record.description,
-            record.command.split("\n")[0] ?? "",
-            ...jobMetadata(record),
-            record.log_file
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        )
-      : "";
-    const innerRows = Math.max(0, rows - 2);
-    // Reserve a log row before allocating the footer.
-    const footerRows = Math.max(0, innerRows - 1);
     const lines = this.scroll.render(width);
     // With no log rows, the reserved body row tells why the log is unavailable.
     const unavailableInBody = !lines.length && this.loaded && Boolean(this.unavailable);
@@ -159,9 +162,9 @@ export class JobLogView implements Component {
       ...(this.unavailable && !unavailableInBody ? [this.unavailable] : []),
       ...(this.error ? [this.error] : [])
     ].map((text) => this.theme.fg("error", compactDisplayText(text)));
-    const help = renderHintFooter({
+    const hints = renderHintFooter({
       width,
-      maxRows: Math.min(footerRows, Math.max(1, footerRows - 1 - diagnostics.length)),
+      maxRows: rows,
       hints: [
         "Esc back",
         ...(active ? ["Ctrl+D abort"] : []),
@@ -173,15 +176,20 @@ export class JobLogView implements Component {
       separator: " · ",
       style: (text) => this.theme.fg("dim", text)
     });
-    // Diagnostics take their rows before the title.
-    const shown = diagnostics.slice(0, Math.max(0, footerRows - help.length));
-    const title = wrapRows(this.theme.fg("accent", this.theme.bold(info)), width).slice(
-      0,
-      Math.max(0, footerRows - help.length - shown.length)
-    );
-    const footer = [...shown, ...title, ...help];
-    if (footer.length < footerRows) footer.unshift("");
-    const height = Math.max(0, innerRows - footer.length);
+    const { header, footer, height } = fitViewer(rows, {
+      title: record
+        ? titleBorder(this.theme, "job", record.description, record.job_id, width)
+        : this.theme.fg("border", "─".repeat(width)),
+      metadata: record
+        ? metadataTable(
+            this.theme,
+            jobRows(this.theme, record, this.command, this.working?.frame()),
+            width
+          )
+        : [],
+      diagnostics,
+      hints
+    });
     this.scroll.updateLayout(lines.length, height, () => this.tui.requestRender());
     const above = this.scroll.scrollTop;
     let body = lines.slice(above, above + height).map((row) => this.theme.fg("toolOutput", row));
@@ -198,6 +206,7 @@ export class JobLogView implements Component {
     const color = (text: string) => this.theme.fg("border", text);
 
     return [
+      ...header,
       renderOverflowBorder(width, { color, direction: "↑", hidden: above }),
       ...body,
       ...padding,
@@ -221,6 +230,7 @@ export class JobLogView implements Component {
 
   dispose(): void {
     this.active = false;
+    this.updateWorking();
     clearInterval(this.timer);
     this.unsubscribe();
   }

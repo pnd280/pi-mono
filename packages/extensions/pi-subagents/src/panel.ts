@@ -1,7 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
   isKeyRelease,
-  Loader,
   matchesKey,
   ScrollView,
   truncateToWidth,
@@ -13,23 +12,15 @@ import {
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
-import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
-import {
-  boardEntries,
-  contextLabel,
-  entryId,
-  renderBoard,
-  taskMetadata,
-  views,
-  type BoardEntry
-} from "./board.ts";
+import { boardEntries, entryId, renderBoard, views, type BoardEntry } from "./board.ts";
 import { JobLogView } from "./job-viewer.ts";
 import type { Jobs } from "./jobs.ts";
 import type { RunReader, TaskView } from "./reader.ts";
 import { createRenderers } from "./render.ts";
 import type { Tasks } from "./tasks.ts";
 import type { Transcript } from "./transcript.ts";
+import { fitViewer, metadataTable, Spinner, taskRows, titleBorder } from "./viewer-frame.ts";
 import { TranscriptViewer } from "./viewer.ts";
 
 const keys = [
@@ -44,14 +35,6 @@ const keys = [
   "ctrl+b",
   "ctrl+d"
 ] as const;
-const BACKGROUND_BADGE = "background";
-
-/** A Loader whose animated frame is drawn inline, without its own row. */
-class Spinner extends Loader {
-  frame(): string {
-    return this.getRenderedIndicator();
-  }
-}
 
 /** A scrollable transcript, inline in regular mode and overlaid in fullscreen mode. */
 class TranscriptView implements Component {
@@ -66,6 +49,8 @@ class TranscriptView implements Component {
   private expanded = false;
   private active = true;
   private bodyRows = 0;
+  /** The first body row, below the title, the metadata, and the top overflow border. */
+  private bodyTop = 1;
   /** The viewer's rendered size, which its mouse layout and row targets use. */
   private content = { width: 0, height: 0 };
   private scrollbar: { height: number; content: number } | undefined;
@@ -86,20 +71,14 @@ class TranscriptView implements Component {
     });
   }
 
-  /** Animate the heading while the viewed task is active, as Pi does while its session streams. */
+  /** Animate the status while the viewed task is active, as Pi does while its session streams. */
   private updateWorking(): void {
     const working =
       this.active &&
       this.viewing !== undefined &&
       this.tasks.list().some((task) => task.task_id === this.viewing && task.state === "active");
 
-    if (working && !this.working)
-      this.working = new Spinner(
-        this.tui,
-        (text) => this.theme.fg("accent", text),
-        (text) => text,
-        ""
-      );
+    if (working && !this.working) this.working = new Spinner(this.tui);
     else if (!working && this.working) {
       this.working.stop();
       this.working = undefined;
@@ -207,37 +186,17 @@ class TranscriptView implements Component {
       1,
       Math.floor(this.tui.terminal.rows * (this.tui.mode === "fullscreen" ? 1 : 3 / 4))
     );
-    // Keep the title and background badge current with the task's live record.
-    const record = this.tasks.list().find((task) => task.task_id === this.viewing);
-    const name = record
-      ? compactDisplayText(
-          [
-            record.description,
-            `${record.model}:${record.thinking}`,
-            contextLabel(record),
-            ...taskMetadata(this.tasks, record, { full: true })
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        )
-      : "";
-    const spinner = this.working ? `${this.working.frame()} ` : "";
-    const title = `${spinner}${this.theme.fg("accent", this.theme.bold(name))}${
-      record?.state === "active" && record.background
-        ? this.theme.fg("warning", ` · ${BACKGROUND_BADGE}`)
-        : ""
-    }`;
-    const innerRows = Math.max(0, rows - 2);
-    // Reserve a transcript row before allocating the footer.
-    const footerRows = Math.max(0, innerRows - 1);
+    // Keep the header current with the task's live record.
+    const tasks = this.tasks.list();
+    const record = tasks.find((task) => task.task_id === this.viewing);
+    const parent = record && tasks.find((task) => task.task_id === record.parent_task_id);
     const diagnostics = [
       ...(this.viewer && this.source?.unavailable ? [this.source.unavailable] : []),
       ...(this.error ? [this.error] : [])
     ].map((text) => this.theme.fg("error", compactDisplayText(text)));
-    const help = renderHintFooter({
+    const hints = renderHintFooter({
       width,
-      // Keep the back control visible before the title, diagnostics, and spacing.
-      maxRows: Math.min(footerRows, Math.max(1, footerRows - 1 - diagnostics.length)),
+      maxRows: rows,
       hints: [
         "Esc back",
         ...(this.working ? ["Ctrl+D abort"] : []),
@@ -250,15 +209,21 @@ class TranscriptView implements Component {
       separator: " · ",
       style: (text) => this.theme.fg("dim", text)
     });
-    // The title sits directly above the hints, with diagnostics above it.
-    const info = wrapRows(title, width).slice(0, Math.max(0, footerRows - help.length));
-    const footer = [
-      ...diagnostics.slice(0, Math.max(0, footerRows - help.length - info.length)),
-      ...info,
-      ...help
-    ];
-    if (footer.length < footerRows) footer.unshift("");
-    const height = Math.max(0, innerRows - footer.length);
+    const { header, footer, height } = fitViewer(rows, {
+      title: record
+        ? titleBorder(this.theme, "task", record.description, record.task_id, width)
+        : this.theme.fg("border", "─".repeat(width)),
+      metadata: record
+        ? metadataTable(
+            this.theme,
+            taskRows(this.theme, record, parent, this.working?.frame()),
+            width
+          )
+        : [],
+      diagnostics,
+      hints
+    });
+    this.bodyTop = header.length + 1;
     let body: string[];
     let above = 0;
     let below = 0;
@@ -287,6 +252,7 @@ class TranscriptView implements Component {
     const color = (text: string) => this.theme.fg("border", text);
 
     return [
+      ...header,
       renderOverflowBorder(width, { color, direction: "↑", hidden: above }),
       ...body,
       ...padding,
@@ -341,8 +307,7 @@ class TranscriptView implements Component {
       return { handled: true };
     }
 
-    // The transcript starts below the top border.
-    const row = event.y - 1;
+    const row = event.y - this.bodyTop;
     const scrollbar = this.scrollbarMouse(event, row);
     if (scrollbar) return scrollbar;
     if (row < 0 || row >= this.bodyRows || event.x < 0 || event.x >= this.content.width) return;
