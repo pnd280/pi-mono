@@ -125,7 +125,10 @@ it("gathers markers across the batch before reading content, while preserving pr
   expect(notices(await run())[0]?.path).toBe(path.join(fs.cwd, "pkg/AGENTS.override.md"));
 });
 
-it.each(["shortened", "Loaded instructions from altered/AGENTS.md:\n\nrules"])(
+it.each([
+  "shortened",
+  noticeEntry("/altered", { path: "/altered/AGENTS.md", content: "rules" }, "loaded", "/").content
+])(
   "reloads notices replaced with %j, omitted by context edits, or compacted away",
   async (replacement) => {
     await fs.write("pkg/AGENTS.md", "rules");
@@ -147,7 +150,7 @@ it.each(["shortened", "Loaded instructions from altered/AGENTS.md:\n\nrules"])(
 );
 
 it.each([
-  ["version 1", { version: 1, stamp: "legacy", fileDigest: digest("rules") }],
+  ["version 2", { version: 2 }],
   ["removed stamp", { stamp: "legacy" }],
   ["removed fileDigest", { fileDigest: digest("rules") }]
 ])("ignores %s notice metadata without deleting its original text", async (_name, invalid) => {
@@ -162,7 +165,7 @@ it.each([
   fs.append([legacy]);
   expect(decodeNotice(legacy)).toEqual({ notice: undefined, body: current.content });
   expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
-  expect(notices(await run())).toMatchObject([{ version: 2, path: file }]);
+  expect(notices(await run())).toMatchObject([{ version: 3, path: file }]);
   expect(fs.manager.getBranch()).toContainEqual(
     expect.objectContaining({ content: current.content, details: legacy.details })
   );

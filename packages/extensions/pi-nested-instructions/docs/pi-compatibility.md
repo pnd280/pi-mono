@@ -38,11 +38,11 @@ Nested discovery must preserve Pi's native instruction loading and deduplicate a
 
 ## Persisted notice contract
 
-The [notice interface](../src/notices.ts) writes version 2, removing the unused notice `stamp` and the separate `fileDigest`. It retains `messageDigest` to validate the full canonical model-facing message before the ledger decodes and compares its instruction body.
+The [notice interface](../src/notices.ts) writes version 3. Version 3 changes only the model-facing text: a note says that Pi sent the notice, not the user, and loaded and updated notices wrap the instruction body in a `<project_instructions path="…">` tag. It retains `messageDigest` to validate the full canonical model-facing message before the ledger decodes and compares its instruction body.
 
 This is a breaking replay change with no compatibility reader or automatic migration:
 
-- Version-1 notices no longer validate. Version-2 details containing either removed key also fail strict validation.
+- Version-1 and version-2 notices no longer validate. Strict validation also rejects the version-1 `stamp` and `fileDigest` keys.
 - Invalid notices provide no deduplication or refresh scope tracking, no structured notice rendering, and no run-summary counts. Their original model-facing content is not deleted; display falls back to the supplied text.
 - Resume and reload do not eagerly restore scopes represented only by old notices. A later qualifying tool input can load those instructions again, even while the old message text remains in context.
 - Direct-read markers remain version 1 and retain their filesystem revision stamps, originating-call identity, and call fingerprints.

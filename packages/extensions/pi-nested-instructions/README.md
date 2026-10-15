@@ -8,6 +8,8 @@ Pi's startup loading of global, cwd, and parent instructions, and its reload beh
 
 Use the native `read`, `ls`, `grep`, `find`, and `bash` tools, or the official FFF search tools, as usual. After each tool batch, newly found instructions are added as notices for the next model request, from the broadest directory to the narrowest. The calls that triggered them aren't interrupted.
 
+The model receives each notice as a user message. The message starts with a note that Pi sent it automatically, not the user, and then gives the file in a `<project_instructions path="…">` tag, as Pi does for startup instructions.
+
 With [pi-tool-display](../pi-tool-display/README.md) loaded, notices show as compact cards you can expand; otherwise Pi shows the full messages.
 
 ### Which files load
@@ -29,7 +31,7 @@ Only directories below the session's working directory are searched. In each dir
 
 For the tool inputs that are recognised and the limits of Bash inference, see [input discovery](docs/design.md#input-discovery). For compaction, branching, and reload, see [session lifetime](docs/design.md#session-lifetime).
 
-Notices use persisted format version 2. Older notices keep their original text but no longer suppress rediscovery or provide structured display and summary counts. See the [persisted notice contract](docs/pi-compatibility.md#persisted-notice-contract) before resuming older sessions.
+Notices use persisted format version 3. Older notices keep their original text but no longer suppress rediscovery or provide structured display and summary counts. See the [persisted notice contract](docs/pi-compatibility.md#persisted-notice-contract) before resuming older sessions.
 
 ## Side effects
 

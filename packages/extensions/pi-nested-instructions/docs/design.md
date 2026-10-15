@@ -43,7 +43,7 @@ Pending inputs are cleared at turn and session boundaries. Handling the whole ba
 
 Nested calls contribute scope but never direct-read suppression: codemode or another parent can filter their output before the model sees it. A direct sibling read can still suppress the matching file for the whole batch. Unknown nested tool schemas and opaque parent code provide no scope unless a supported child input is observed.
 
-Direct-read markers contain a lexical path, filesystem revision, and the identity of the entry and call that created it. They contain no instruction text. A fingerprint of the projected call prevents a context replacement from preserving stale suppression. Auto-loaded messages contain full selected instructions plus structured metadata and a `messageDigest` of the entire model-facing message, including its preamble. That fingerprint detects context replacements which retain source details but change the delivered text.
+Direct-read markers contain a lexical path, filesystem revision, and the identity of the entry and call that created it. They contain no instruction text. A fingerprint of the projected call prevents a context replacement from preserving stale suppression. Auto-loaded messages contain full selected instructions plus structured metadata and a `messageDigest` of the entire model-facing message, including the note and tag around the instructions. That fingerprint detects context replacements which retain source details but change the delivered text.
 
 Markers are per file: reading `AGENTS.md` does not suppress a preferred `AGENTS.override.md`. Listing a filename is not a content read. Failed and blocked read attempts count; results are not inspected.
 
@@ -57,7 +57,7 @@ If compaction, branch navigation, or context edits remove a notice or its origin
 
 Refresh on startup, resume, and `/reload` uses only scopes still represented by canonical context. Unchanged direct-read revisions suppress content reads. A changed file, changed preferred candidate, or disappearance can produce an updated or removed notice. A direct read of a missing or unreadable file delivered nothing: if a file appears there later, refresh loads it, and if none appears, refresh adds no removal notice. Normal invocations otherwise retain snapshots; compacted-away scopes are not eagerly restored.
 
-Older notice formats do not represent scopes under the [version-2 persisted contract](pi-compatibility.md#persisted-notice-contract); their message text remains in the session.
+Older notice formats do not represent scopes under the [version-3 persisted contract](pi-compatibility.md#persisted-notice-contract); their message text remains in the session.
 
 ## Shared scope extraction
 
