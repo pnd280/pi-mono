@@ -6,7 +6,7 @@ import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import { WidgetCoordinator } from "../src/coordinator.ts";
 import { defaultLayout, type Layout } from "../src/layout.ts";
-import { WidgetMenu } from "../src/menu.ts";
+import { WidgetMenu } from "../src/menu/widget-menu.ts";
 import { WidgetSettings } from "../src/settings.ts";
 
 const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");

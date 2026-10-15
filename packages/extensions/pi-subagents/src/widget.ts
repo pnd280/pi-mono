@@ -1,8 +1,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { MouseRegion, Text } from "@earendil-works/pi-tui";
 
-import type { Jobs } from "./jobs.ts";
-import type { Tasks } from "./tasks.ts";
+import type { Jobs } from "./jobs/registry.ts";
+import type { Tasks } from "./tasks/registry.ts";
 
 const WIDGET_KEY = "pi-subagents";
 

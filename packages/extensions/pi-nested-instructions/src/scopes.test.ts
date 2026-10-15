@@ -4,8 +4,8 @@ import path from "node:path";
 import type { JsonObject } from "@earendil-works/pi-ai";
 import { afterEach, beforeEach, expect, it } from "vite-plus/test";
 
-import { fixture } from "./fixture.ts";
 import { inferScope } from "./scopes.ts";
+import { fixture } from "./test-fixture.ts";
 
 let fs: Awaited<ReturnType<typeof fixture>>;
 beforeEach(async () => {

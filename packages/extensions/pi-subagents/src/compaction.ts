@@ -2,8 +2,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { escapeAttribute as attribute } from "@pi-mono/utils/task-envelope";
 
 import { TASKS_MESSAGE } from "./constants.ts";
-import type { Jobs } from "./jobs.ts";
-import type { Tasks } from "./tasks.ts";
+import type { Jobs } from "./jobs/registry.ts";
+import type { Tasks } from "./tasks/registry.ts";
 
 /** Direct tasks, and the jobs on this ancestry when `jobs` is set. */
 export function remindTasks(

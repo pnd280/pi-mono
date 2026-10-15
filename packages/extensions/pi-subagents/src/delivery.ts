@@ -10,10 +10,10 @@ import type { WorkingMessageHandle } from "@pi-mono/libs/working-message";
 
 import type { ResultDelivery } from "./config.ts";
 import { JOB_RESULT_MESSAGE, RESULT_MESSAGE } from "./constants.ts";
-import { jobText } from "./job-records.ts";
-import type { JobEvent, Jobs } from "./jobs.ts";
+import { jobText } from "./jobs/records.ts";
+import type { JobEvent, Jobs } from "./jobs/registry.ts";
 import { taskResult } from "./result.ts";
-import type { TaskEvent, Tasks } from "./tasks.ts";
+import type { TaskEvent, Tasks } from "./tasks/registry.ts";
 
 type Completion = Parameters<ExtensionAPI["sendMessage"]>[0];
 

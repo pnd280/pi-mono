@@ -7,8 +7,8 @@ import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
 import { DEPTH_ENV, RESULT_MESSAGE, RUN_ENTRY, TASK_ID_ENV } from "../src/constants.ts";
-import { runRecordSchema, taskRecordSchema } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
+import { runRecordSchema, taskRecordSchema } from "../src/tasks/records.ts";
 import {
   descendantStarted,
   expectChildUsageOnce,

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import type { ToolFamily } from "../../contracts.ts";
 import type { SummaryItem, SummaryItemContext, ToolDisplayAdapter } from "../../contracts.ts";
-import { pathSummaryItem, writeCategory } from "../../summary/items.ts";
+import { pathSummaryItem, writeCategory } from "../../summary-items.ts";
 import { nativeFilePath, nativeInvocationParts, normalizeNativePathSpaces } from "./invocation.ts";
 import { nativeReadAdapter } from "./read.ts";
 import { nativeResultParts, nativeResultNotices } from "./result-presentation.ts";

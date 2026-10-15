@@ -21,7 +21,7 @@ The model calls the `todo` tool with one of these actions: `create`, `update`, `
 - A todo with children that are not deleted can be moved but not deleted.
 - `clear` removes everything and resets IDs.
 - `list` shortens its displayed output, but the result details keep the full snapshot.
-- [Limits](src/constants.ts) on input and state also apply when results are replayed.
+- [Limits](src/state/limits.ts) on input and state also apply when results are replayed.
 
 The extension draws no tool cards. [pi-tool-display](../pi-tool-display/src/adapters/pi-todo/README.md) draws them with the shortened subjects, status words, and progress summary from the pure [`pi-todo/text`](src/text.ts) export.
 

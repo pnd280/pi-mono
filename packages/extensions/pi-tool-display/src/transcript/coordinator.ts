@@ -31,7 +31,7 @@ import {
   type DisplayFailureHandler,
   type GroupKey
 } from "../interpretation.ts";
-import { buildRunSummary, type RunSummary } from "../summary/model.ts";
+import { buildRunSummary, type RunSummary } from "../run-summary.ts";
 
 export interface RowHandle {
   invalidate(): void;

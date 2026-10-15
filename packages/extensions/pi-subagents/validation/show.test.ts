@@ -6,8 +6,8 @@ import { test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
 import { END_ENTRY, RESULT_MESSAGE } from "../src/constants.ts";
-import { taskRecordSchema } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
+import { taskRecordSchema } from "../src/tasks/records.ts";
 import { fixtureProcesses, killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace } from "./workspace.ts";

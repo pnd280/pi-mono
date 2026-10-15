@@ -2,12 +2,12 @@ import { DEFAULT_MAX_BYTES, type ExtensionUIContext } from "@earendil-works/pi-c
 import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
-import { readLogTail } from "./job-log.ts";
-import type { JobRecord } from "./job-records.ts";
-import type { Jobs } from "./jobs.ts";
-import type { RunReader } from "./reader.ts";
+import type { RunReader } from "./history/reader.ts";
+import { readLogTail } from "./jobs/log.ts";
+import type { JobRecord } from "./jobs/records.ts";
+import type { Jobs } from "./jobs/registry.ts";
 import { showTask } from "./show.ts";
-import type { Tasks } from "./tasks.ts";
+import type { Tasks } from "./tasks/registry.ts";
 
 const USAGE =
   "Usage: /subagents list [--offset <n>] [--limit <n>] | jobs [--offset <n>] [--limit <n>] | show <task_id> [--since <cursor>] [--limit <n>] | show <task_id> --last | show <job_id> | abort <task_id|job_id> | background [task_id]";

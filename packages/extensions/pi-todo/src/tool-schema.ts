@@ -7,9 +7,9 @@ import {
   MAX_DESCRIPTION_LENGTH,
   MAX_OWNER_LENGTH,
   MAX_SUBJECT_LENGTH
-} from "./constants.ts";
-import { jsonMetadataSchema } from "./metadata.ts";
-import { TASK_ACTIONS, TASK_STATUSES } from "./types.ts";
+} from "./state/limits.ts";
+import { jsonMetadataSchema } from "./state/metadata.ts";
+import { TASK_ACTIONS, TASK_STATUSES } from "./state/model.ts";
 
 const fields = {
   subject: z.string().describe("Todo subject line (required for create)"),

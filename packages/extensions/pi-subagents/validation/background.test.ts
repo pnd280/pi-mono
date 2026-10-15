@@ -5,8 +5,8 @@ import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
 import { LATE_USAGE_KIND, RESULT_MESSAGE, RUN_ENTRY, TASKS_MESSAGE } from "../src/constants.ts";
-import { runRecordSchema, taskRecordSchema } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
+import { runRecordSchema, taskRecordSchema } from "../src/tasks/records.ts";
 import {
   expectChildUsageOnce,
   fixture,

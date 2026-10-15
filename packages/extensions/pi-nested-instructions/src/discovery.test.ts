@@ -6,10 +6,10 @@ import type { SessionBoundaryDraft } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { discover, refresh } from "./discovery.ts";
-import { fixture } from "./fixture.ts";
 import { readType } from "./ledger.ts";
 import { decodeNotice, digest, noticeEntry } from "./notices.ts";
 import { instructionFiles, type InstructionFiles } from "./storage.ts";
+import { fixture } from "./test-fixture.ts";
 
 let fs: Awaited<ReturnType<typeof fixture>>;
 let files: InstructionFiles;

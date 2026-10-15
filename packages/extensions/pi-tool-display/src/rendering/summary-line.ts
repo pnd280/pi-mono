@@ -2,7 +2,7 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
-import type { RunSummary, SummarySegment } from "../summary/model.ts";
+import type { RunSummary, SummarySegment } from "../run-summary.ts";
 import type { DisplayTheme } from "./types.ts";
 
 const SEPARATOR = " · ";

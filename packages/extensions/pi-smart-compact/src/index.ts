@@ -7,9 +7,13 @@ import {
   selectRule,
   type CompactConfig
 } from "./config.ts";
-import { renderSummaryModel, summaryModelEntryType, type SummaryModelEntry } from "./entry.ts";
 import { bindNativeCompaction } from "./native.ts";
 import { compactionStatusKey, updateCompactionStatus } from "./status.ts";
+import {
+  renderSummaryModel,
+  summaryModelEntryType,
+  type SummaryModelEntry
+} from "./summary-model-entry.ts";
 
 export default function smartCompact(pi: ExtensionAPI) {
   pi.registerEntryRenderer(summaryModelEntryType, renderSummaryModel);

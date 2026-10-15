@@ -11,8 +11,8 @@ import { it } from "vite-plus/test";
 import { z } from "zod";
 
 import type { CompactSettings } from "../src/config.ts";
-import { summaryModelEntryType } from "../src/entry.ts";
 import { compactionResultType } from "../src/outcome.ts";
+import { summaryModelEntryType } from "../src/summary-model-entry.ts";
 
 /** The fields of the one rule that matches the CLI conversation model. */
 type SummaryRule = Omit<NonNullable<CompactSettings["rules"]>[number], "match">;

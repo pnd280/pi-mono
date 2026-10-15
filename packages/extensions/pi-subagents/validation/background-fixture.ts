@@ -5,10 +5,10 @@ import type { FileEntry } from "@earendil-works/pi-coding-agent";
 import { expect, type ExpectStatic } from "vite-plus/test";
 import { z } from "zod";
 
-import type { RpcRecord } from "../src/connection.ts";
+import type { RpcRecord } from "../src/child/connection.ts";
 import { LATE_USAGE_KIND, RESULT_MESSAGE } from "../src/constants.ts";
-import { taskRecordSchema } from "../src/records.ts";
 import { detailsSchema, type ToolDetails } from "../src/result.ts";
+import { taskRecordSchema } from "../src/tasks/records.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace } from "./workspace.ts";

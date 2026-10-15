@@ -19,7 +19,7 @@ import { it, vi } from "vite-plus/test";
 
 import smartCompact from "../index.ts";
 import type { CompactSettings } from "../src/config.ts";
-import { summaryModelEntryType } from "../src/entry.ts";
+import { summaryModelEntryType } from "../src/summary-model-entry.ts";
 
 const summaryRule = { model: "manual-fixture/summary", thinkingLevel: "low" } as const;
 const override = { rules: [{ match: "^manual-fixture/main$", ...summaryRule }] };

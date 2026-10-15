@@ -30,7 +30,7 @@ Model-only execution must keep mutations atomic and results replayable across se
 
 ### Session state and UI
 
-- [ ] [Session state](../src/session-state.ts): rebuilding after branch changes and compaction, handling of malformed and error results, and bounded snapshots.
+- [ ] [Session state](../src/state/session-state.ts): rebuilding after branch changes and compaction, handling of malformed and error results, and bounded snapshots.
 - [ ] [UI integration](../src/index.ts): widget and browser lifecycle, remapped navigation, session cleanup, and working-message contributions owned independently.
 - [ ] [Fullscreen paging](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): `/todos` is never an overlay, at any size. Paging the list or details leaves the transcript still, but only while focused.
 - [ ] If routing is unsupported, a warning appears once per opening and the view stays open. Arrow keys and widget restoration still work.

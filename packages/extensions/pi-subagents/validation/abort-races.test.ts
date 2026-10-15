@@ -22,16 +22,16 @@ import {
 import { expect, test as caseTest, vi } from "vite-plus/test";
 import { z } from "zod";
 
-import { ChildRun } from "../src/child.ts";
+import * as invocation from "../src/child/invocation.ts";
+import { ChildRun } from "../src/child/run.ts";
 import { DEPTH_ENV, RESULT_MESSAGE, TASK_ID_ENV } from "../src/constants.ts";
+import type { ChildMessage } from "../src/coordination/protocol.ts";
+import { WriterLease } from "../src/history/lease.ts";
+import { branchTo } from "../src/history/sessions.ts";
 import subagents from "../src/index.ts";
-import * as invocation from "../src/invocation.ts";
-import { WriterLease } from "../src/lease.ts";
-import type { ChildMessage } from "../src/protocol.ts";
-import { taskHistory, taskRecordSchema, type TaskRecord } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
-import { branchTo } from "../src/sessions.ts";
-import { Tasks, type TaskEvent } from "../src/tasks.ts";
+import { taskHistory, taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
+import { Tasks, type TaskEvent } from "../src/tasks/registry.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 

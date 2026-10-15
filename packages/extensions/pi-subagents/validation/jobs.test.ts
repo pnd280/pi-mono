@@ -9,9 +9,9 @@ import { contentText } from "@earendil-works/pi-ai";
 import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
-import type { RpcRecord } from "../src/connection.ts";
+import type { RpcRecord } from "../src/child/connection.ts";
 import { JOB_END_ENTRY, JOB_RESULT_MESSAGE, TASKS_MESSAGE } from "../src/constants.ts";
-import { jobDetailsSchema } from "../src/job-records.ts";
+import { jobDetailsSchema } from "../src/jobs/records.ts";
 import { detailsSchema } from "../src/result.ts";
 import { replies, withFixture } from "./background-fixture.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";

@@ -10,25 +10,30 @@ import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { counterChannel, type Counter } from "pi-agent-summary/counters";
 import { z } from "zod";
 
-import { createAbortTool } from "./abort-tool.ts";
-import { begin, currentRun, send } from "./begin.ts";
+import { getDepth, getTaskId } from "./child/depth.ts";
+import { forwardDialog } from "./child/dialogs.ts";
+import { getPiInvocation } from "./child/invocation.ts";
 import type * as CommandsModule from "./commands.ts";
 import { remindTasks } from "./compaction.ts";
 import { loadConfig } from "./config.ts";
 import { OPEN_EVENT } from "./constants.ts";
+import { begin, currentRun, send } from "./coordination/begin.ts";
+import {
+  controlSchema,
+  decode,
+  slotReplySchema,
+  type ChildMessage
+} from "./coordination/protocol.ts";
 import { Delivery } from "./delivery.ts";
-import { getDepth, getTaskId } from "./depth.ts";
-import { forwardDialog } from "./dialogs.ts";
-import { getPiInvocation } from "./invocation.ts";
-import { createJobAbortTool, createJobRenderers, createJobTool } from "./job-tool.ts";
-import { Jobs, shellOptions } from "./jobs.ts";
+import { RunReader } from "./history/reader.ts";
+import { Jobs, shellOptions } from "./jobs/registry.ts";
+import { createJobAbortTool, createJobRenderers, createJobTool } from "./jobs/tool.ts";
 import { installLateUsagePatch } from "./late-usage.ts";
-import { Panels } from "./panels.ts";
-import { controlSchema, decode, slotReplySchema, type ChildMessage } from "./protocol.ts";
-import { RunReader } from "./reader.ts";
-import { createRenderers } from "./render.ts";
-import { Tasks } from "./tasks.ts";
-import { createSubagentTool } from "./tool.ts";
+import { Panels } from "./task-panel/panels.ts";
+import { createAbortTool } from "./tasks/abort-tool.ts";
+import { Tasks } from "./tasks/registry.ts";
+import { createRenderers } from "./tasks/render.ts";
+import { createSubagentTool } from "./tasks/tool.ts";
 import { taskWidget } from "./widget.ts";
 
 // Commands load at first use. Concurrent calls share one import.

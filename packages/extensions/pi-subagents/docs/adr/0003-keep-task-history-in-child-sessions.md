@@ -110,7 +110,7 @@ The README must state these contract changes:
 Maintainers must also make these changes:
 
 - Remove `checkpoints.ts`, task records, transfers, receipts, adoption locks, persisted relay and control replies, and the matching rules in `AGENTS.md`.
-- In `child.ts`, separate administrative subcommands from work prompts.
+- In `child/run.ts`, separate administrative subcommands from work prompts.
 - Bind readers to the task, run, and leaf, and drop asynchronous results for any other run. The session ID no longer changes between runs.
 - Treat custom-message targets like user-message targets in the supervisor's `session_before_tree` handler.
 - Parse child files in memory. Pi's own loader appends a newline to a file that ends with a partial line.

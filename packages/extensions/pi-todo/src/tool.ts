@@ -1,11 +1,11 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 
-import type { TodoController } from "./controller.ts";
-import { metadataLimitError } from "./limits.ts";
-import { jsonMetadataSchema } from "./metadata.ts";
-import { errorResult } from "./reducer.ts";
+import type { TodoController } from "./state/controller.ts";
+import { metadataLimitError } from "./state/limits.ts";
+import { jsonMetadataSchema } from "./state/metadata.ts";
+import type { TaskDetails } from "./state/model.ts";
+import { errorResult } from "./state/reducer.ts";
 import { todoInputSchema, TodoParamsSchema } from "./tool-schema.ts";
-import type { TaskDetails } from "./types.ts";
 
 export function createTodoTool(controller: TodoController) {
   return {

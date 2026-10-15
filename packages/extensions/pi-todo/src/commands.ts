@@ -1,14 +1,16 @@
 import type { ExtensionCommandContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteProvider } from "@earendil-works/pi-tui";
 
-import {
-  ERR_COLLAPSE_REQUIRES_FULLSCREEN,
-  ERR_REQUIRES_INTERACTIVE,
-  ERR_TODOS_USAGE
-} from "./constants.ts";
-import type { TodoController } from "./controller.ts";
-import { formatTodosCommandOutput } from "./format.ts";
-import type { TodoWidget } from "./todo-widget.ts";
+import type { TodoController } from "./state/controller.ts";
+import { formatTodosCommandOutput } from "./ui/format.ts";
+import type { TodoWidget } from "./ui/todo-widget.ts";
+
+const ERR_REQUIRES_INTERACTIVE = "/todos requires interactive mode";
+
+const ERR_COLLAPSE_REQUIRES_FULLSCREEN =
+  "Todo widget collapse is only available in fullscreen mode";
+
+const ERR_TODOS_USAGE = "Usage: /todos [collapse|expand|toggle]";
 
 // The browser view and its shared TUI components load on first use, not at startup.
 // Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
@@ -16,7 +18,7 @@ const importBrowserModules = () =>
   Promise.all([
     import("@pi-mono/libs/tui/components/browser"),
     import("@pi-mono/libs/tui/responsive-custom-ui"),
-    import("./todos-view.ts")
+    import("./ui/todos-view.ts")
   ]);
 let browserModules: ReturnType<typeof importBrowserModules> | undefined;
 const loadBrowserModules = () => (browserModules ??= importBrowserModules());

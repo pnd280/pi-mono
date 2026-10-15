@@ -15,7 +15,7 @@ import {
   type ToolDisplayAdapter
 } from "./contracts.ts";
 import { resolveInvocationPath } from "./invocation.ts";
-import { fallbackItems } from "./summary/model.ts";
+import { fallbackItems } from "./run-summary.ts";
 
 /** Standalone owners assert adapter compatibility and supply Pi's flags. */
 export type CardInterpretationInput = {

@@ -5,7 +5,7 @@ import {
   styledOutput
 } from "@pi-mono/libs/tui/terminal-text";
 
-import type { Task, TaskMutationParams, TaskStatus } from "./types.ts";
+import type { Task, TaskMutationParams, TaskStatus } from "./state/model.ts";
 
 // pi-tool-display imports this module (`pi-todo/text`) for todo cards; keep it free of runtime host imports.
 

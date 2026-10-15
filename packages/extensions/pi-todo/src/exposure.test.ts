@@ -2,7 +2,7 @@ import { fauxAssistantMessage, fauxProvider, fauxToolCall, Type } from "@earendi
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it } from "vite-plus/test";
 
-import { TodoController } from "./controller.ts";
+import { TodoController } from "./state/controller.ts";
 import { createTodoTool } from "./tool.ts";
 
 it("keeps todo model-issued and replayable while rejecting nested mutations", async () => {

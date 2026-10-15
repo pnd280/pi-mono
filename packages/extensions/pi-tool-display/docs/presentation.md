@@ -174,7 +174,7 @@ Outcomes
 
 Categories
 
-- Built-in categories cover creations, edits, shell commands, MCP calls, searches, listings, reads, and unmatched tool names. The current labels are in [summary wording](../src/summary/model.ts).
+- Built-in categories cover creations, edits, shell commands, MCP calls, searches, listings, reads, and unmatched tool names. The current labels are in [summary wording](../src/run-summary.ts).
 - Pi's built-in [codemode](../src/adapters/builtin/codemode/README.md#summary-mode) counts each script once as `ran 1 script`. Nested calls never count.
 - Pi's built-in [tool search](../src/adapters/builtin/tool-search/README.md#summary-mode) adds a loaded-tools category, deduplicated by tool name across the run. Calls without valid, nonempty loaded-name details count individually as `tool_search`.
 - [Instruction notices](../src/adapters/pi-nested-instructions/README.md#display) count once per persisted file path and action, or per directory for removals. These counts stay separate from tool outcomes and file-read counts.

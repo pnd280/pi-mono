@@ -12,9 +12,9 @@ import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
 import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY } from "../src/constants.ts";
-import { endRecordSchema, runRecordSchema, taskRecordSchema } from "../src/records.ts";
+import { readTaskSnapshot } from "../src/history/sessions.ts";
 import { detailsSchema } from "../src/result.ts";
-import { readTaskSnapshot } from "../src/sessions.ts";
+import { endRecordSchema, runRecordSchema, taskRecordSchema } from "../src/tasks/records.ts";
 import { withFixture } from "./background-fixture.ts";
 import { fixtureProcesses, remainingProcesses } from "./processes.ts";
 import type { Supervisor } from "./supervisor.ts";

@@ -3,9 +3,9 @@ import { spawn } from "node:child_process";
 import type { RpcCommand, RpcExtensionUIRequest } from "@earendil-works/pi-coding-agent";
 import { createPiLaunch } from "@pi-mono/libs/validation/pi-process";
 
-import { ChildConnection, type RpcRecord } from "../src/connection.ts";
+import { ChildConnection, type RpcRecord } from "../src/child/connection.ts";
+import { processOptions } from "../src/child/platform.ts";
 import { DEPTH_ENV, JOB_RESULT_MESSAGE } from "../src/constants.ts";
-import { processOptions } from "../src/platform.ts";
 import { FIXTURE_PROVIDER } from "./provider.ts";
 
 export class Supervisor {

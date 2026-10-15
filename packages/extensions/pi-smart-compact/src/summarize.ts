@@ -13,8 +13,8 @@ import {
   type NativeSession
 } from "./compatibility.ts";
 import { findConfiguredModel, selectRule, type CompactConfig } from "./config.ts";
-import type { SummaryModelEntry } from "./entry.ts";
 import { focusSplitTurn } from "./instructions.ts";
+import type { SummaryModelEntry } from "./summary-model-entry.ts";
 
 export type CompactionModelOptions = {
   config: CompactConfig;

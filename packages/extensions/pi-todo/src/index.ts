@@ -12,10 +12,10 @@ import {
   todosArgumentAutocompleteProvider
 } from "./commands.ts";
 import { loadTodoConfig } from "./config.ts";
-import { TodoController } from "./controller.ts";
 import { shouldActivate } from "./runtime.ts";
-import { TodoWidget, type TodoWidgetUI } from "./todo-widget.ts";
+import { TodoController } from "./state/controller.ts";
 import { createTodoTool } from "./tool.ts";
+import { TodoWidget, type TodoWidgetUI } from "./ui/todo-widget.ts";
 
 export type TodoLifecycleContext = Pick<ExtensionContext, "cwd" | "isProjectTrusted" | "mode"> & {
   ui: Omit<TodoWidgetUI, "setActivity"> &

@@ -10,7 +10,7 @@ import { afterEach, expect, it, vi } from "vite-plus/test";
 import entry from "../index.ts";
 import { loadTodoConfig } from "./config.ts";
 import type { TodoExtensionAPI, TodoLifecycleContext } from "./index.ts";
-import type { TodoWidgetFactory } from "./todo-widget.ts";
+import type { TodoWidgetFactory } from "./ui/todo-widget.ts";
 
 vi.mock("./runtime.ts", () => ({ shouldActivate: vi.fn(() => true) }));
 vi.mock("./config.ts", () => ({

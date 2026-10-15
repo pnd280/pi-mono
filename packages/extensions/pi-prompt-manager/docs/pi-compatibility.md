@@ -12,8 +12,8 @@
 ## Checklist
 
 - [ ] [Lifecycle and capture](../src/index.ts): activates only after TUI startup. Input order, capture exclusions, and reload cleanup are kept. Settings and storage aren't touched outside the TUI.
-- [ ] [Editor host mapping](../src/index.ts) and [source refusal](../src/host/editor.ts): pastes are expanded, restoring is safe and neither submits nor adds to history, and concurrent edits are protected.
-- [ ] [Browser](../src/browser/open.ts): Pi keybindings work, the view remounts at the boundary between 19-row inline and 18-row overlay, cancellation works, and restoring happens only after the final close.
+- [ ] [Editor host mapping](../src/index.ts) and [source refusal](../src/editor.ts): pastes are expanded, restoring is safe and neither submits nor adds to history, and concurrent edits are protected.
+- [ ] [Browser](../src/browser.ts): Pi keybindings work, the view remounts at the boundary between 19-row inline and 18-row overlay, cancellation works, and restoring happens only after the final close.
 - [ ] [Fullscreen paging](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): paging the list, preview, or inspection leaves the transcript still, and respects focus in search and dialogs. If routing is unsupported, a warning appears once per opening and the view stays open.
 
 ## Limitations

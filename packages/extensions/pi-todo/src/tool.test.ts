@@ -1,8 +1,8 @@
 import { expect, it } from "vite-plus/test";
 
-import { MAX_METADATA_BYTES, MAX_METADATA_DEPTH } from "./constants.ts";
-import { TodoController } from "./controller.ts";
-import { parseTodoStateSnapshot } from "./session-state.ts";
+import { TodoController } from "./state/controller.ts";
+import { MAX_METADATA_BYTES, MAX_METADATA_DEPTH } from "./state/limits.ts";
+import { parseTodoStateSnapshot } from "./state/session-state.ts";
 import { createTodoTool } from "./tool.ts";
 
 it("rejects out-of-range parent IDs without mutating state after schema projection", async () => {

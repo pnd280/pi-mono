@@ -19,9 +19,9 @@ import {
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import nestedInstructions from "../index.ts";
-import { fixture } from "./fixture.ts";
 import { readType } from "./ledger.ts";
 import { decodeNotice, noticeType } from "./notices.ts";
+import { fixture } from "./test-fixture.ts";
 
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => {

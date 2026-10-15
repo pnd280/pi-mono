@@ -4,11 +4,11 @@ import { copyFile, readFile, rm } from "node:fs/promises";
 import { expect, test } from "vite-plus/test";
 import { z } from "zod";
 
-import { ChildRun } from "../src/child.ts";
-import { RunReader } from "../src/reader.ts";
-import { taskRecordSchema, type TaskRecord } from "../src/records.ts";
+import { ChildRun } from "../src/child/run.ts";
+import { RunReader } from "../src/history/reader.ts";
 import { detailsSchema } from "../src/result.ts";
-import type { TaskEvent } from "../src/tasks.ts";
+import { taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
+import type { TaskEvent } from "../src/tasks/registry.ts";
 import { remainingProcesses, killFixtureProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";

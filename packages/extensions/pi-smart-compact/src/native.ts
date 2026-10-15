@@ -9,7 +9,6 @@ import {
   type NativeSession,
   type Prepare
 } from "./compatibility.ts";
-import type { SummaryModelEntry } from "./entry.ts";
 import { combineInstructions } from "./instructions.ts";
 import { compactionResultType, describeOutcome, runRequestedCompaction } from "./outcome.ts";
 import {
@@ -17,6 +16,7 @@ import {
   withCompactionInstructions,
   type CompactionModelOptions
 } from "./summarize.ts";
+import type { SummaryModelEntry } from "./summary-model-entry.ts";
 
 type Registration = {
   active: boolean;

@@ -1,9 +1,13 @@
 import {
   CombinedAutocompleteProvider,
+  Editor,
+  ProcessTerminal,
+  TuiMainScreen,
   type AutocompleteProvider,
-  type AutocompleteSuggestions
+  type AutocompleteSuggestions,
+  type EditorTheme
 } from "@earendil-works/pi-tui";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { createSkillAutocompleteProvider } from "./autocomplete.ts";
 import { command } from "./test-fixture.ts";
@@ -58,4 +62,40 @@ it("does not claim a borrowed item reused by a delegated provider", async () => 
   expect(provider.applyCompletion(["#issue"], 0, 6, delegated.items[0]!, delegated.prefix)).toEqual(
     { lines: ["skill:review"], cursorLine: 0, cursorCol: 12 }
   );
+});
+
+const plain = (text: string) => text;
+const theme: EditorTheme = {
+  borderColor: plain,
+  selectList: {
+    selectedPrefix: plain,
+    selectedText: plain,
+    description: plain,
+    scrollInfo: plain,
+    noMatch: plain
+  }
+};
+const editorCommands = [command("skill:review"), command("skill:release")];
+
+function editorFixture() {
+  const current = new CombinedAutocompleteProvider(editorCommands, process.cwd());
+  const tui = new TuiMainScreen(new ProcessTerminal());
+  vi.spyOn(tui, "requestRender").mockImplementation(() => {});
+  const editor = new Editor(tui, theme);
+  const onSubmit = vi.fn();
+  editor.onSubmit = onSubmit;
+  editor.setAutocompleteProvider(createSkillAutocompleteProvider(current, () => editorCommands));
+
+  return { editor, onSubmit };
+}
+
+it("Enter accepts a leading skill completion without submitting", async () => {
+  const { editor, onSubmit } = editorFixture();
+  editor.setText("/skill:re");
+  editor.handleInput("\t");
+  await vi.waitFor(() => expect(editor.isShowingAutocomplete()).toBe(true), { interval: 1 });
+  editor.handleInput("\r");
+  expect(editor.getText()).toMatch(/^\/skill:(review|release) $/u);
+  expect(editor.isShowingAutocomplete()).toBe(false);
+  expect(onSubmit).not.toHaveBeenCalled();
 });

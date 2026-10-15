@@ -3,8 +3,8 @@ import { WriteLifetime } from "@pi-mono/libs/private-files";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { parseCommand, usage, type NumberedAction } from "./commands.ts";
+import { assertRestorable, type EditorPort } from "./editor.ts";
 import { captureText } from "./history.ts";
-import { assertRestorable, type EditorPort } from "./host/editor.ts";
 import {
   errorMessage,
   limits,
