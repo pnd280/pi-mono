@@ -30,7 +30,7 @@ Summary lines need Pi's fullscreen mode. In regular mode, `summary` renders as `
 
 In fullscreen, clicking a card, group, or summary line expands it. Clicking the horizontal rule above or below an opened run collapses it again. Regular mode leaves mouse input to the terminal.
 
-In fullscreen, click a subagent card or background result with a task ID to open its transcript. pi-subagents checks that the card is current and that it owns the task. Use **Ctrl+O** to expand its details.
+In fullscreen, click a subagent card or background result with a task ID to open its transcript. Click a job card or job result to open the job. pi-subagents checks that the card is current and that it owns the task or job. Use **Ctrl+O** to expand its details.
 
 ### Assistant text and thinking
 
@@ -48,9 +48,9 @@ These tools get dedicated cards:
 
 - Pi's [native tools](src/adapters/native/README.md): read, bash, PowerShell, edit, write, and the search and listing tools.
 - Pi's built-in [codemode](src/adapters/builtin/codemode/README.md), [MCP](src/adapters/builtin/mcp/README.md), and [tool search](src/adapters/builtin/tool-search/README.md).
-- Extensions: [FFF](src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](src/adapters/pi-mcp-adapter/README.md), [todo](src/adapters/pi-todo/README.md), [selective read](src/adapters/pi-read/README.md), [smart compact](src/adapters/pi-smart-compact/README.md), and [subagents](src/adapters/pi-subagents/README.md).
+- Extensions: [FFF](src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](src/adapters/pi-mcp-adapter/README.md), [todo](src/adapters/pi-todo/README.md), [selective read](src/adapters/pi-read/README.md), [smart compact](src/adapters/pi-smart-compact/README.md), and [subagents](src/adapters/pi-subagents/README.md), including [background jobs](src/adapters/pi-subagents/README.md#background-jobs).
 - [Nested-instruction notices](src/adapters/pi-nested-instructions/README.md), which also count toward run summaries.
-- [Subagent background results](src/adapters/pi-subagents/README.md#background-results).
+- [Subagent background results](src/adapters/pi-subagents/README.md#background-results) and [job results](src/adapters/pi-subagents/README.md#background-jobs).
 
 A dedicated card replaces any renderer the tool supplies. Other tools keep their own renderer if they have one, including renderers that extensions supply through `registerToolRenderer`; otherwise they get a generic card. Calls to tools that are not loaded, such as old calls or MCP calls before the server reconnects, get a generic card. It switches to the dedicated card if the tool registers later.
 
@@ -87,7 +87,7 @@ Mode changes made with **Ctrl+O** last through `/reload` and session switches in
 
 Trusted project settings merge over global settings key by key. Untrusted project settings are ignored.
 
-> Any invalid applicable section, even one a later file overrides, restores original tool rendering and stops native observation. Message cards for nested instructions and subagent background results remain registered. The terminal warning names the file and key. Fix the setting, then run `/reload`.
+> Any invalid applicable section, even one a later file overrides, restores original tool rendering and stops native observation. Message cards for nested instructions, subagent background results, and job results remain registered. The terminal warning names the file and key. Fix the setting, then run `/reload`.
 
 The extension has no environment variables or CLI flags, and never writes settings.
 

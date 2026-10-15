@@ -90,7 +90,7 @@ pi.events.emit("pi-agent-summary:counter", {
 });
 ```
 
-Workspace packages can import `counterChannel` and the `Counter` type from `pi-agent-summary/counters`. [pi-subagents](../pi-subagents/README.md#usage) counts delegated tasks this way.
+Workspace packages can import `counterChannel` and the `Counter` type from `pi-agent-summary/counters`. [pi-subagents](../pi-subagents/README.md#usage) counts delegated tasks this way. It also counts [started jobs](../pi-subagents/README.md#background-jobs) with the `pi-subagents.jobs` counter, shown as `started N jobs`.
 
 - A counter adds only to the run that is active when it is emitted, with the same rule as milestones.
 - Emits with the same `id` share one count. The labels of the first emit in the run stay.

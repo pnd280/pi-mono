@@ -16,6 +16,8 @@ export async function createFixtureWorkspace(
   options: {
     settings?: Record<string, unknown>;
     projectSettings?: Record<string, unknown>;
+    /** Fixture extensions that load after pi-subagents and the provider. */
+    extensions?: string[];
   } = {}
 ): Promise<string> {
   const directory = await createValidationWorkspace("pi-subagents-");
@@ -29,7 +31,8 @@ export async function createFixtureWorkspace(
         ...options.settings,
         extensions: [
           fileURLToPath(new URL("../index.ts", import.meta.url)),
-          fileURLToPath(new URL("./provider.ts", import.meta.url))
+          fileURLToPath(new URL("./provider.ts", import.meta.url)),
+          ...(options.extensions ?? [])
         ]
       })
     )

@@ -2,19 +2,25 @@ import { DEFAULT_MAX_BYTES, type ExtensionUIContext } from "@earendil-works/pi-c
 import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
+import { readLogTail } from "./job-log.ts";
+import type { JobRecord } from "./job-records.ts";
+import type { Jobs } from "./jobs.ts";
 import type { RunReader } from "./reader.ts";
-import type { TaskRecord } from "./records.ts";
 import { showTask } from "./show.ts";
 import type { Tasks } from "./tasks.ts";
+
+const USAGE =
+  "Usage: /subagents list [--offset <n>] [--limit <n>] | jobs [--offset <n>] [--limit <n>] | show <task_id> [--since <cursor>] [--limit <n>] | show <task_id> --last | show <job_id> | abort <task_id|job_id> | background [task_id]";
 
 const pageSchema = z.object({
   offset: z.coerce.number().int().nonnegative(),
   limit: z.coerce.number().int().min(1).max(LIST_MAX_LIMIT)
 });
 
-type TaskPage = { tasks: TaskRecord[]; total: number; offset: number; next_offset: number | null };
+type Page<T> = { items: T[]; total: number; offset: number; next_offset: number | null };
 
-function listPage(records: TaskRecord[], tokens: string[]): TaskPage {
+/** One page of `records` within the output budget, as `{ <key>, total, offset, next_offset }`. */
+function listPage<T>(key: "tasks" | "jobs", records: T[], tokens: string[]): unknown {
   const values: { offset: string | number; limit: string | number } = {
     offset: 0,
     limit: LIST_DEFAULT_LIMIT
@@ -26,7 +32,9 @@ function listPage(records: TaskRecord[], tokens: string[]): TaskPage {
     const value = tokens[i + 1];
 
     if ((flag !== "--offset" && flag !== "--limit") || value === undefined || seen.has(flag)) {
-      throw new Error("Usage: /subagents list [--offset <n>] [--limit <n>]");
+      throw new Error(
+        `Usage: /subagents ${key === "tasks" ? "list" : "jobs"} [--offset <n>] [--limit <n>]`
+      );
     }
 
     seen.add(flag);
@@ -39,49 +47,128 @@ function listPage(records: TaskRecord[], tokens: string[]): TaskPage {
       `offset must be a non-negative safe integer; limit must be 1 to ${LIST_MAX_LIMIT}`
     );
   const { offset, limit } = parsed.data;
-  const page: TaskPage = { tasks: [], total: records.length, offset, next_offset: null };
+  const page: Page<T> = { items: [], total: records.length, offset, next_offset: null };
+
+  const output = () => {
+    const { items, ...rest } = page;
+
+    return { [key]: items, ...rest };
+  };
 
   for (const record of records.slice(offset, offset + limit)) {
-    page.tasks.push(record);
-    const next = offset + page.tasks.length;
+    page.items.push(record);
+    const next = offset + page.items.length;
     page.next_offset = next < records.length ? next : null;
-    if (Buffer.byteLength(JSON.stringify(page)) <= DEFAULT_MAX_BYTES) continue;
-    page.tasks.pop();
-    if (page.tasks.length === 0) throw new Error("Task item exceeds the list output budget");
-    page.next_offset = offset + page.tasks.length;
+    if (Buffer.byteLength(JSON.stringify(output())) <= DEFAULT_MAX_BYTES) continue;
+    page.items.pop();
+    if (page.items.length === 0)
+      throw new Error(`${key === "tasks" ? "Task" : "Job"} item exceeds the list output budget`);
+    page.next_offset = offset + page.items.length;
     break;
   }
 
-  return page;
+  return output();
+}
+
+function jobItem(job: JobRecord) {
+  return {
+    job_id: job.job_id,
+    description: job.description,
+    command: job.command,
+    state: job.state,
+    outcome: job.state === "inactive" ? job.outcome : null,
+    exit_code: job.exit_code,
+    started_at: job.started_at,
+    ended_at: job.ended_at,
+    log_file: job.log_file
+  };
+}
+
+/** The job's state and the end of its log, shortened until the reply fits the output budget. */
+async function showJob(job: JobRecord): Promise<unknown> {
+  const result = (text: string | null) => ({
+    job_id: job.job_id,
+    state: job.state,
+    outcome: job.state === "inactive" ? job.outcome : null,
+    exit_code: job.exit_code,
+    log_file: job.log_file,
+    text
+  });
+  let maxBytes = DEFAULT_MAX_BYTES;
+  let text: string | null;
+
+  for (;;) {
+    try {
+      text = await readLogTail(job.log_file, { maxBytes });
+    } catch {
+      // A removed or unreadable log has no text.
+      text = null;
+    }
+
+    // Escaped control characters can make the JSON text larger than the log text.
+    if (Buffer.byteLength(JSON.stringify(result(text))) <= DEFAULT_MAX_BYTES || maxBytes < 1024)
+      return result(text);
+    maxBytes = Math.floor(maxBytes / 2);
+  }
+}
+
+/** `jobs`, and `show` or `abort` with the ID of a job of this session; otherwise undefined. */
+async function jobCommand(
+  jobs: Jobs,
+  command: string,
+  tokens: string[]
+): Promise<{ result: unknown } | undefined> {
+  if (command === "jobs") return { result: listPage("jobs", jobs.list().map(jobItem), tokens) };
+  const job =
+    tokens.length === 1 ? jobs.list().find((item) => item.job_id === tokens[0]) : undefined;
+  if (!job) return undefined;
+  if (command === "show") return { result: await showJob(job) };
+  if (command !== "abort") return undefined;
+  // The user cancelled the job, so its result is still delivered.
+  const record = await jobs.abort(job.job_id);
+
+  return {
+    result: {
+      job_id: record.job_id,
+      state: record.state,
+      outcome: record.state === "inactive" ? record.outcome : null,
+      exit_code: record.exit_code
+    }
+  };
+}
+
+async function taskCommand(
+  tasks: Tasks,
+  reader: RunReader,
+  command: string,
+  tokens: string[]
+): Promise<unknown> {
+  if (command === "list" || command === "show") await tasks.readDescendants();
+  if (command === "list") return listPage("tasks", tasks.list(), tokens);
+  if (command === "show" && tokens[0]) return showTask(reader, tokens[0], tokens.slice(1));
+
+  if (command === "abort" && tokens.length === 1 && tokens[0]) {
+    const { record } = await tasks.abort(tokens[0]);
+
+    return { task_id: record.task_id, state: record.state, outcome: record.outcome };
+  }
+
+  if (command === "background" && tokens.length <= 1)
+    return { tasks: await tasks.background(tokens[0]) };
+  throw new Error(USAGE);
 }
 
 export async function runCommand(
   args: string,
-  session: { tasks: Tasks; reader: RunReader } | undefined,
+  session: { tasks: Tasks; jobs: Jobs; reader: RunReader } | undefined,
   ui: Pick<ExtensionUIContext, "notify">
 ): Promise<void> {
   try {
     if (!session) throw new Error("Subagent session has not started");
-    const { tasks, reader } = session;
+    const { tasks, jobs, reader } = session;
     const [command = "list", ...tokens] = args.trim() ? args.trim().split(/\s+/) : [];
-    let result: unknown;
-    if (command === "list" || command === "show") await tasks.readDescendants();
-
-    if (command === "list") {
-      result = listPage(tasks.list(), tokens);
-    } else if (command === "show" && tokens[0]) {
-      result = await showTask(reader, tokens[0], tokens.slice(1));
-    } else if (command === "abort" && tokens.length === 1 && tokens[0]) {
-      const { record } = await tasks.abort(tokens[0]);
-      result = { task_id: record.task_id, state: record.state, outcome: record.outcome };
-    } else if (command === "background" && tokens.length <= 1) {
-      result = { tasks: await tasks.background(tokens[0]) };
-    } else {
-      throw new Error(
-        "Usage: /subagents list [--offset <n>] [--limit <n>] | show <task_id> [--since <cursor>] [--limit <n>] | show <task_id> --last | abort <task_id> | background [task_id]"
-      );
-    }
-
+    const job = await jobCommand(jobs, command, tokens);
+    const result = job ? job.result : await taskCommand(tasks, reader, command, tokens);
     const json = JSON.stringify(result);
     if (Buffer.byteLength(json) > DEFAULT_MAX_BYTES)
       throw new Error("Command result exceeds the output budget");

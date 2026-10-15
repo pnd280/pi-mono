@@ -80,7 +80,8 @@ export function elapsed(startedAt: number, endedAt: number | null): string {
   return seconds ? formatDuration(seconds * 1000) : "0s";
 }
 
-function clean(text: string): string {
+/** One display line of at most 2048 characters of `text`. */
+export function clean(text: string): string {
   const retained = textPrefix(text, 2048);
 
   return compactDisplayText(retained) + (retained.length < text.length ? "…" : "");

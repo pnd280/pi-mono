@@ -13,6 +13,7 @@ const sectionSchema = z.object({
   maxDepth: z.int().nonnegative().optional().catch(undefined),
   maxConcurrent: z.int().positive().optional().catch(undefined),
   maxQueued: z.int().nonnegative().optional().catch(undefined),
+  jobs: z.boolean().optional().catch(undefined),
   docs: z.unknown().optional()
 });
 const docsSchema = z.array(z.string().trim().min(1));
@@ -21,6 +22,8 @@ export type SubagentsConfig = {
   maxDepth: number;
   maxConcurrent: number;
   maxQueued: number;
+  /** Registers the `job` and `job_abort` tools. */
+  jobs: boolean;
 };
 
 type ScopeSettings = Omit<z.output<typeof sectionSchema>, "docs"> & {
@@ -88,6 +91,7 @@ export function loadConfig(
     maxDepth: project.maxDepth ?? global.maxDepth ?? 2,
     maxConcurrent: project.maxConcurrent ?? global.maxConcurrent ?? 8,
     maxQueued: project.maxQueued ?? global.maxQueued ?? 8,
+    jobs: project.jobs ?? global.jobs ?? false,
     docs: docs.join("\n\n"),
     warnings
   };

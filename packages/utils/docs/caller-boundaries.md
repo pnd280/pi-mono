@@ -32,6 +32,8 @@ Callers own input validation, existing-path detection and error handling, scope 
 
 Supply the expected task ID and state to `parseTaskEnvelope` from validated result details, not from the text. The parser returns the unchanged body when the envelope framing and expected values match, or `undefined` when they do not. Edits within an otherwise valid body or escaped summary are accepted.
 
+`formatJobEnvelope` and `parseJobEnvelope` apply the same rules to background job results, with a `<job>` frame. Supply the expected job ID, state, outcome, and exit code from validated job details. An active job has no outcome, and a `null` exit code has no attribute. A `failed` or `cancelled` outcome frames the body as `<job_error>`, and the other outcomes as `<job_result>`.
+
 ## Patches
 
 [`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers. Invalid or oversized patches return `undefined`. Pass parsed results to the [diff renderer](../../libs/src/tui/components/diff-view/README.md).

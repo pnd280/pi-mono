@@ -44,6 +44,25 @@ A successful call returns a confirmation, and the model receives no separate `ca
 
 If the task finished before cancellation, the call reports an inactive task and preserves its actual result. Descendant cancellation is confirmed by the owning supervisor; its errors reach the caller.
 
+### Background jobs
+
+Set [`jobs`](#configuration) to `true` to give the model the `job` and `job_abort` tools. A [job](GLOSSARY.md#tasks-and-processes) runs one shell command in the background, for example a build, a test run, a server, or a watcher. A job is not a task: it has no child, no capacity slot, no model, and no usage. There is no limit on the number of jobs.
+
+The model calls `job` with a `command`, a short `description`, and an optional `timeout` in seconds. The call returns immediately with the job ID and the path of the job's log file. The command runs with Pi's built-in `bash` implementation in the session's working directory, and it uses Pi's `shellPath` and `shellCommandPrefix` settings. At the timeout or at an abort, Pi stops the process group of the command's shell.
+
+- The supervisor does not wait for jobs: a run settles while its jobs run. When a job exits, its background result arrives as a `pi-subagents.job-result` message. If the supervisor is busy, the result continues the same run. If the supervisor is idle, the result starts a new turn. See [ADR 0005](docs/adr/0005-background-jobs.md).
+- The result contains a `<job>` envelope with the job ID, the outcome, and the exit code. Then it contains the last 2,000 lines or 50 KiB of output, an `Error:` line when the job has an error, and the log file path. Exit code 0 gives `completed`. Another exit code or a timeout gives `failed`, with an error such as `exit code 2`, `exit code 143 (SIGTERM)`, or `timed out after 60 s`. A shell reports a signal as 128 plus the signal number. Thus the error names the signal, but the command can also exit with that code itself.
+- A turn abort does not stop jobs. The model calls `job_abort` with a `job_id` when it does not need the result. The call stops the job's process group, and the model receives no separate `cancelled` result. If the job exited first, the call says so, and the actual result arrives separately. Unknown and inactive jobs give an error.
+- **Ctrl+D** in the panel and `/subagents abort <job_id>` also stop a job. Then the `cancelled` result is delivered.
+- Tree navigation to a different entry, parent-session fork, session switch, `/new`, `/resume`, `/reload`, and exit stop all jobs of the session. These jobs deliver no result. Jobs stop only when the change is final: if another extension cancels a navigation, the jobs continue.
+- Print and JSON supervisors and children do not wait for jobs. Their jobs stop when the run ends, and the results are lost. In these modes, the `job` description tells the model to use jobs only for processes that it needs during the run, such as a server that it tests, and to run finite commands in the foreground.
+- A job belongs to the session that started it. A supervisor does not see the jobs of its descendants.
+- `jobs` applies at all depths: `maxDepth` does not hide the job tools. The tools are model-only, so codemode scripts cannot call them.
+- If another extension registers `bash`, for example a sandbox, `job` and `job_abort` are hidden and a warning appears. Otherwise a job would run its command outside that extension.
+- With [pi-agent-summary](../pi-agent-summary/README.md#counters), the run summary shows `started N jobs`. Each accepted `job` call counts once, also when the command then fails to start.
+
+The supervisor saves a `pi-subagents.job` entry when a job starts and a `pi-subagents.job-end` entry when the job ends. The jobs on the selected ancestry come from these entries. A job without an end entry, such as a job that stopped at exit, shows as `cancelled`. Jobs never restart.
+
 ### Commands
 
 | Command                                                      | Result                                                                                                                  |
@@ -53,6 +72,9 @@ If the task finished before cancellation, the call reports an inactive task and 
 | `/subagents show <task_id> [--since <cursor>] [--limit <n>]` | A compact transcript digest with cumulative child usage.                                                                |
 | `/subagents show <task_id> --last`                           | The latest assistant text and its entry cursor, or `null` when absent.                                                  |
 | `/subagents abort <task_id>`                                 | Cancel an active task; its session remains resumable.                                                                   |
+| `/subagents jobs [--offset <n>] [--limit <n>]`               | A JSON page of the jobs on the selected ancestry, in start order.                                                       |
+| `/subagents show <job_id>`                                   | The job's state and the end of its log file.                                                                            |
+| `/subagents abort <job_id>`                                  | Stop an active job; its `cancelled` result is delivered.                                                                |
 | `/subagents background [task_id]`                            | Move foreground work to the background. Without an ID, move all direct foreground children of the top-level supervisor. |
 
 Commands produce one JSON notification outside model context. RPC clients send slash commands through `prompt`, including while the supervisor is working. Errors return `{ "error": "…" }`.
@@ -64,6 +86,10 @@ The fields of a task item have different scopes:
 - `usage` adds the usage of all the task's runs with known usage. It includes the usage of descendants that their results reported to the task. Do not add `usage` across all items, because descendants are then counted more than once. To get a total, add only the direct tasks; in a top-level supervisor, their `parent_task_id` is `null`.
 - `run_id`, `description`, `model`, `thinking`, `requested_model`, `requested_thinking`, `background`, `started_at`, `ended_at`, `state`, `outcome`, and `error` describe the latest run on the selected ancestry. `model` and `thinking` are the applied selection; `requested_model` and `requested_thinking` are the selection that the run requested, which a resume reuses for omitted values.
 - `context` is the latest known context use, and `cache_hit` is the cache hit rate of the latest model request that had a prompt. They can come from an earlier run.
+
+`jobs` pages contain `{ jobs, total, offset, next_offset }` and use the same rules. A job item has `job_id`, `description`, `command`, `state` (`active` or `inactive`), `outcome` (`completed`, `failed`, `cancelled`, or `null` while active), `exit_code`, `started_at`, `ended_at`, and `log_file`. `exit_code` is `null` after a timeout, a cancellation, or a start failure, and while the job is active.
+
+`show <job_id>` returns `{ job_id, state, outcome, exit_code, log_file, text }`. `text` is the end of the log file, at most 2,000 lines, and short enough for the reply to fit 50 KiB. It is `null` when the log file cannot be read.
 
 ### Branch history
 
@@ -95,9 +121,13 @@ Reading a digest never modifies the child session. `session_file` from `list` is
 
 Press **Ctrl+Alt+S** or run `/subagents` to open the task panel in TUI mode.
 
-The panel uses the layout of the shared collection browser. A `View:` row lists the **all**, **running**, **background**, and **finished** views with their task counts; **Tab** and **Shift+Tab** change the view, and each view keeps its own selection. Task trees are listed running first, then background, then finished. A tree goes in the place of its most active task, so a finished parent with a running background child is listed with the background tasks. In a view that excludes a parent, its listed children are roots. Nested tasks hang from their parent's status glyph with `├─`, `└─`, and `│` guides, and each task keeps its own status glyph: `•` running, `◐` background, `✓` completed, `✗` failed, or `⊘` cancelled. Each task has one row: the glyph, the description, and then, muted, `provider/model:thinking`. The other muted details are aligned to the right edge: `failed` or `cancelled` for those outcomes, the latest run's elapsed time or duration, the current tool of an active direct child, total tokens such as `↑12k ↓3.0k`, and the total cost. While a task is active, its context use such as `48k/200k` (used/total, `?` when unknown after compaction) replaces the tokens; the tokens return when it settles. Usage goes up while a task runs and adds up across resumes. Values that are zero or unknown are left out. When a row is wider than the panel, the model and the details move to their own rows, and the details stay aligned to the right edge. Long text wraps under the description. Wrapped rows continue the tree guides, and a parent's wrapped rows carry a `│` stem down to its children. A `(n/m)` line under the list shows the selection position. Use **PageUp/PageDown** or the fullscreen mouse wheel to scroll the list.
+The panel uses the layout of the shared collection browser. A `View:` row lists the "all", "running", "background", and "finished" views with their counts of tasks and jobs; **Tab** and **Shift+Tab** change the view, and each view keeps its own selection. Task trees are listed running first, then background, then finished. A tree goes in the place of its most active task, so a finished parent with a running background child is listed with the background tasks. In a view that excludes a parent, its listed children are roots. Nested tasks hang from their parent's status glyph with `├─`, `└─`, and `│` guides, and each task keeps its own status glyph: `•` running, `◐` background, `✓` completed, `✗` failed, or `⊘` cancelled. Each task has one row: the glyph, the description, and then, muted, `provider/model:thinking`. The other muted details are aligned to the right edge: `failed` or `cancelled` for those outcomes, the latest run's elapsed time or duration, the current tool of an active direct child, total tokens such as `↑12k ↓3.0k`, and the total cost. While a task is active, its context use such as `48k/200k` (used/total, `?` when unknown after compaction) replaces the tokens; the tokens return when it settles. Usage goes up while a task runs and adds up across resumes. Values that are zero or unknown are left out. When a row is wider than the panel, the model and the details move to their own rows, and the details stay aligned to the right edge. Long text wraps under the description. Wrapped rows continue the tree guides, and a parent's wrapped rows carry a `│` stem down to its children. A `(n/m)` line under the list shows the selection position. Use **PageUp/PageDown** or the fullscreen mouse wheel to scroll the list.
 
 The panel has top and bottom borders, like the other custom views. They do not count hidden rows: the `(n/m)` line shows the position. A `→` cursor and the accent colour mark the selected task. The viewer title shows a `background` badge for active background tasks. Use **Up/Down** to select, **Enter** to inspect, **Ctrl+D** to abort an active task, and **Ctrl+B** to move foreground work to the background. The footer shows **Ctrl+D** and **Ctrl+B** only when they apply to the selected task. In regular mode, the transcript viewer replaces the task list inline and uses three-quarters of the terminal height. In fullscreen mode, it opens as a full-terminal overlay. Both presentations have top and bottom borders that show the number of transcript rows hidden above and below. The borders fit within the height limit; there are no outer margins. **Esc** returns to the task list with its view and selection preserved; press it again to close the panel. These keys belong to the panel only while it has focus.
+
+Jobs are root rows. An active job is in the "background" view with the `◐` glyph, and an ended job is in the "finished" view with its outcome glyph. In each group, jobs follow the task trees. A job row shows the description, the muted word `job` in place of the model, and then the same right-aligned details as a task: `failed` or `cancelled`, the elapsed time or duration, and the exit code such as `exit 2`. **Enter** opens the job's log viewer. **Ctrl+D** aborts an active job, and its `cancelled` result is delivered. **Ctrl+B** does not apply to jobs.
+
+The log viewer shows the end of the job's log file: at most 2,000 lines or 50 KiB. While the job is active, the viewer reads the file again every second and follows new output. It reads the file once more when the job ends. Its info line shows the description, the first line of the command, the row details, and the log file path. Use **Up/Down**, **PageUp/PageDown**, **Home**, and **End** to scroll; in fullscreen mode, the mouse wheel also scrolls. **Ctrl+D** aborts an active job, and **Esc** returns to the list. A missing or unreadable log file shows a diagnostic.
 
 The read-only viewer follows the selected task's live branch or the history of its selected run. Its info line, directly above the key hints, shows the current task description, model, and thinking level, the latest context use such as `48k/200k`, and the same details as the list row with the full usage, such as `↑30 ↓7.4k R325k W42k CH98.5% $0.552`: cache reads (`R`) and writes (`W`), the latest request's cache hit rate (`CH`), and the cost to three decimals. It wraps within the space left after reserving the key hints and at least one transcript row when the screen has room inside the borders. **Ctrl+O** expands and collapses tool calls and other expandable messages. Use **Up/Down**, **PageUp/PageDown**, **Home**, and **End** to scroll within the viewer's bounded transcript area; its info line and key hints stay in place. In fullscreen mode, the mouse wheel also scrolls, and you can click or drag the scrollbar. A spinner animates in the info line while the task is active, and **Ctrl+D** aborts it. Active direct children stream live; deeper children refresh at completed-message boundaries. A missing, invalid, or too large child file shows an unavailable-history diagnostic.
 
@@ -111,15 +141,17 @@ Tool cards use Pi's tool box, whose background shows a pending, successful, or f
 
 Completed cards preview the first three reply lines, or all four when there are exactly four, after a blank row, with an expansion hint for the rest. A rejected call shows its error text in the same way. Long lines wrap, and labelled rows wrap under their values. When the label column would leave fewer than two columns for a value, labels appear above their values. Expansion adds `background` and `delivery` rows for non-default options, the first ten prompt lines, and retained output. A call that returns before its task finishes shows the fixed `↗ returned; task waits for capacity in background`, `↗ returned; task continues in background`, `↪ input queued for the running task`, or `↪ steered the running task`; use the panel or widget for live state. A successful `subagent_abort` card uses the same layout with the aborted task's description, `⊘ aborted after` its time, and its usage; the call itself is not shown as failed.
 
-Pi shows a delivered background result in its default message box, including the model-facing `<task>` envelope. [pi-tool-display](../pi-tool-display/src/adapters/pi-subagents/README.md) replaces these cards and the background result box in the main chat with its own subagent cards.
+A `job` card names the tool and the description on its first line. The `command` row shows the first line of the command; expansion shows the first ten lines. The `status` row shows `↗ returned; job continues in background`, and the `job` row shows the first eight characters of the job ID. Expansion shows the full ID, a `log` row with the log file path, and the returned text. A `job_abort` card names the job ID and shows `⊘ aborted after` the job's time, or `already completed` or `already failed` when the job exited first.
 
-The `N subagents` widget counts active tasks throughout the tree and alternates between `muted` and `dim` every 600 ms. It disappears when no tasks remain active. Fullscreen clicks on the widget open the panel; tool cards with a task ID open the corresponding viewer.
+Pi shows a delivered background result in its default message box, including the model-facing `<task>` or `<job>` envelope. [pi-tool-display](../pi-tool-display/src/adapters/pi-subagents/README.md) replaces these cards and the background result box in the main chat with its own subagent and job cards.
+
+The widget counts active tasks throughout the tree and the session's active jobs, such as `2 subagents · 1 job`; a zero count is left out. It alternates between `muted` and `dim` every 600 ms. It disappears when no tasks or jobs remain active. Fullscreen clicks on the widget open the panel. Tool cards with a task ID open the corresponding viewer, and cards with a job ID open the job's log viewer.
 
 The viewer shows the child's messages with Pi's chat components. Pi's built-in tools use their own renderers, `subagent` and `subagent_abort` calls use the cards above, other tools use Pi's generic card, and background results use Pi's default message box. Images are not shown. A failed or aborted response supplies an error for calls without a saved result. Other calls without a final result show “Interrupted” after any partial output when the task stops or an earlier run left them unfinished. Removing a saved result from model context does not change its recorded completion. Viewing uses only recorded content: it never executes tools, reads the files that calls or results name, or rewrites child sessions.
 
 ## Configuration
 
-Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `.pi/settings.json`. This example shows the default limits and one docs file:
+Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `.pi/settings.json`. This example shows the default limits, jobs turned off, and one docs file:
 
 ```json
 {
@@ -127,17 +159,19 @@ Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `
     "maxDepth": 2,
     "maxConcurrent": 8,
     "maxQueued": 8,
+    "jobs": false,
     "docs": ["prompts/subagent.md"]
   }
 }
 ```
 
-| Setting         | Meaning                                                                                                                        |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `maxDepth`      | A non-negative integer. `0` disables launches; `2` permits children and grandchildren.                                         |
-| `maxConcurrent` | A positive integer limiting the whole live task tree, including reserved launches and stopping processes.                      |
-| `maxQueued`     | A non-negative integer limiting launches waiting for capacity in FIFO order. `0` rejects a launch when all slots are occupied. |
-| `docs`          | An array of Markdown file paths. Their text is added to the `subagent` tool description. See [Docs](#docs).                    |
+| Setting         | Meaning                                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `maxDepth`      | A non-negative integer. `0` disables launches; `2` permits children and grandchildren.                                              |
+| `maxConcurrent` | A positive integer limiting the whole live task tree, including reserved launches and stopping processes.                           |
+| `maxQueued`     | A non-negative integer limiting launches waiting for capacity in FIFO order. `0` rejects a launch when all slots are occupied.      |
+| `jobs`          | A boolean. `true` gives the model the `job` and `job_abort` tools. The default is `false`. See [Background jobs](#background-jobs). |
+| `docs`          | An array of Markdown file paths. Their text is added to the `subagent` tool description. See [Docs](#docs).                         |
 
 Settings load at session start and `/reload`. Valid trusted-project values override global values; invalid values are ignored. See Pi's [settings reference](https://pi.dev/docs/latest/settings) for its own settings.
 
@@ -167,11 +201,19 @@ A file that cannot be read is left out, and the other files still apply. An inva
 - Each task saves one Pi session for the child. The child adds a `pi-subagents.marker` entry at the start of each run. The supervisor adds two small entries for each run, whatever the child writes. Child session files are not automatically deleted.
 - While a run is live, a `<session_file>.lease/` directory names its supervisor and child processes. A resume fails with "Task is running in another process" while a process named in the lease is live, such as a child that outlived its supervisor. The supervisor removes the directory when the child exits.
 - Child model calls can incur provider charges. Usage until the tool call returns contributes through the tool result. When a background result is delivered, the later usage is added to supervisor totals as a hidden Pi `usage` entry attributed to the child's last reported model; completion details show the full run usage. Usage after the call returns is not counted if its result is never delivered, such as a cancellation after `subagent_abort` or a result pending at shutdown. If a stopped child cannot report usage, that call reports none.
-- Successful compaction adds a hidden reminder of direct task IDs without starting a new turn.
+- Successful compaction adds a hidden reminder of direct task IDs without starting a new turn. When `jobs` is on, the reminder also lists the jobs on the selected ancestry with their IDs, states, outcomes, and exit codes.
+- Each job writes all its output to `pi-job-<job_id>.log` in the OS temporary directory. Only the owner can read and write the file. The file has no size limit and is not automatically deleted, so a job with much output can fill a small temporary file system, such as a tmpfs. When the output is larger than Pi's `bash` output limits, Pi also writes all of the output to its own `pi-bash-*.log` file, which is not automatically deleted. Such a job uses the disk space two times. If the file cannot be created, the `job` call fails and no command starts. A later write error stops the job and makes it `failed`.
+- The supervisor adds two small entries for each job, whatever the command writes.
 - Children inherit the environment, working directory, and project-trust decision. They load their own configured extensions and tools, and they also load this package through `-e` from the path that Pi reports for it. A child whose settings load another copy of the package fails to launch. Other supervisor CLI flags, including the supervisor's own `-e`, `--tools`, `--session-dir`, and `--no-session`, are not forwarded.
 - Completion closes child stdin; cancellation also clears queued input and requests abort. Explicit task cancellation reads the final usage before closing stdin, without waiting for blocked settle handlers. Cancellation, the usage read, and shutdown share the same grace period. The grace period is 5 seconds plus 7 seconds per possible remaining descendant level, bounded by `maxDepth` and `maxConcurrent`. With default limits, children receive 12 seconds and grandchildren 5 seconds. On Linux and macOS, a live supervisor then sends SIGTERM to the child process group, followed by SIGKILL after 2 more seconds if needed. Graceful exit waits for cleanup. Navigation and foreground abort use a separate immediate path: Unix stops the live owned tree during process discovery, then sends SIGKILL to its groups and descendants; Windows uses forced tree termination. Capacity remains reserved until process exit is observed.
 
 ### Limits
+
+The check for another `bash` runs when settings load. An extension that registers `bash` later is not detected, and jobs continue to use Pi's built-in shell.
+
+A job stops only the process group of its shell. A process that leaves the group, for example with `setsid`, `nohup … &`, or a launcher that becomes a daemon, continues after its job stops. Its later output does not go to the log. Keep each process in the foreground of its command.
+
+Log writes cannot slow down a command. When a command writes faster than the disk accepts, the unwritten output stays in memory.
 
 After supervisor SIGKILL, children rely on cooperative stdin-EOF shutdown. A child that blocks shutdown can remain alive with its commands; there is no independent watchdog.
 
@@ -179,9 +221,9 @@ Force-kill does not reverse file changes and can bypass child cleanup. After a c
 
 A crash can leave a `<session_file>.lease/` directory behind. A later resume removes it when no process that it names is live. On Linux, an exited process that its parent has not reaped is not live. A reused process ID can block a resume until that process exits. The lease protects only cooperating supervisors; a manual `pi --session` on a child file is not covered.
 
-Linux has automated coverage. macOS uses the same process-group path but has not been verified. Windows code paths are untested and not officially supported. A model can bypass extension depth limits by running Pi itself through `bash`.
+Linux has automated coverage. macOS uses the same process-group path but has not been verified. Windows code paths, including the conversion of Git Bash, MSYS, Cygwin, and WSL `shellPath` forms for jobs, are untested and not officially supported. A model can bypass extension depth limits by running Pi itself through `bash`.
 
-Tool output is truncated using Pi's 2,000-line and 50 KiB defaults. Task entries over 1 MiB are ignored during recovery. History reads are limited to 64 MiB for each child file. The full child session path is available in the list response.
+Tool output is truncated using Pi's 2,000-line and 50 KiB defaults. Task and job entries over 1 MiB are ignored during recovery. History reads are limited to 64 MiB for each child file. The full child session path is available in the list response.
 
 ## Validation
 
@@ -193,4 +235,4 @@ For manual terminal checks, run from the repository root:
 vpr 'pi-subagents#validate:terminal' regular
 ```
 
-Use `fullscreen` for Pi's fullscreen mode. The launcher prints a disposable workspace path and retains it for replay with `--reuse <directory>`. Exit Pi and check that its processes have stopped before removing that directory.
+Use `fullscreen` for Pi's fullscreen mode. The launcher turns on `jobs`. It prints a disposable workspace path and retains it for replay with `--reuse <directory>`. Exit Pi and check that its processes have stopped before removing that directory.

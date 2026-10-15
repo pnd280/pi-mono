@@ -34,6 +34,17 @@ export const UPDATE_DEBOUNCE_MS = 100;
 
 export const RESULT_MESSAGE = "pi-subagents.result";
 
+/** Supervisor entry when a job starts. */
+export const JOB_ENTRY = "pi-subagents.job";
+
+/** Supervisor entry after a job's command exits. */
+export const JOB_END_ENTRY = "pi-subagents.job-end";
+
+export const JOB_RESULT_MESSAGE = "pi-subagents.job-result";
+
+/** Job log files are `<prefix><job_id>.log` in the OS temporary directory. */
+export const JOB_LOG_PREFIX = "pi-job-";
+
 export const LATE_USAGE_KIND = "pi-subagents.late";
 
 export const TASKS_MESSAGE = "pi-subagents.tasks";

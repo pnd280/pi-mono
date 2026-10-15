@@ -1,4 +1,4 @@
-import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 
@@ -15,35 +15,9 @@ import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY } from "../src/constants.ts";
 import { endRecordSchema, runRecordSchema, taskRecordSchema } from "../src/records.ts";
 import { detailsSchema } from "../src/result.ts";
 import { readTaskSnapshot } from "../src/sessions.ts";
-import { fixtureProcesses, killFixtureProcesses, remainingProcesses } from "./processes.ts";
-import { Supervisor } from "./supervisor.ts";
-import { createFixtureWorkspace } from "./workspace.ts";
-
-async function withFixture(
-  body: (
-    directory: string,
-    start: (options?: Parameters<typeof Supervisor.start>[1]) => Promise<Supervisor>
-  ) => Promise<void>,
-  options: Parameters<typeof createFixtureWorkspace>[0] = {}
-): Promise<void> {
-  const directory = await createFixtureWorkspace(options);
-  const hosts: Supervisor[] = [];
-
-  try {
-    await body(directory, async (launchOptions) => {
-      const host = await Supervisor.start(directory, launchOptions);
-      hosts.push(host);
-
-      return host;
-    });
-  } finally {
-    await Promise.all(hosts.map((host) => host.stop()));
-    const leaked = await remainingProcesses(directory);
-    await killFixtureProcesses(directory);
-    await rm(directory, { recursive: true, force: true });
-    expect(leaked, "Processes leaked after the supervisor exited").toEqual([]);
-  }
-}
+import { withFixture } from "./background-fixture.ts";
+import { fixtureProcesses, remainingProcesses } from "./processes.ts";
+import type { Supervisor } from "./supervisor.ts";
 
 async function list(host: Supervisor) {
   const notification = await host.command("list");
@@ -426,11 +400,19 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           expect(description).not.toContain(
             trusted ? "GLOBAL_SUBAGENT_DOCS" : "PROJECT_SUBAGENT_DOCS"
           );
+          // Only a trusted project turns on jobs.
+          await host.prompt("report-job-tools");
+          const tools = await host.request({ type: "get_last_assistant_text" });
+          expect(tools.command === "get_last_assistant_text" ? tools.data.text : "").toBe(
+            `job tools: ${trusted} ${trusted}`
+          );
         },
         {
           // In either direction, loading the wrong settings disables the tool and breaks this call.
           settings: { "ext.pi-subagents": { maxDepth: trusted ? 0 : 2, docs: ["docs.md"] } },
-          projectSettings: { "ext.pi-subagents": { maxDepth: trusted ? 2 : 0, docs: ["docs.md"] } }
+          projectSettings: {
+            "ext.pi-subagents": { maxDepth: trusted ? 2 : 0, docs: ["docs.md"], jobs: true }
+          }
         }
       );
     },

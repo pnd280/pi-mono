@@ -19,13 +19,15 @@ import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import {
   boardEntries,
   contextLabel,
+  entryId,
   renderBoard,
   taskMetadata,
   views,
   type BoardEntry
 } from "./board.ts";
+import { JobLogView } from "./job-viewer.ts";
+import type { Jobs } from "./jobs.ts";
 import type { RunReader, TaskView } from "./reader.ts";
-import type { TaskRecord } from "./records.ts";
 import { createRenderers } from "./render.ts";
 import type { Tasks } from "./tasks.ts";
 import type { Transcript } from "./transcript.ts";
@@ -400,11 +402,10 @@ class TranscriptView implements Component {
 
 class TaskPanel implements Component {
   private view = 0;
-  /** The selected task of each view, restored when the view returns. */
+  /** The selected task or job of each view, restored when the view returns. */
   private selections = new Map<number, string>();
   private selected = 0;
   private entries: BoardEntry[] = [];
-  private rows: TaskRecord[] = [];
   private rowTargets: (number | undefined)[] = [];
   private selectionLayout = "";
   private listScroll = new ScrollView(
@@ -412,20 +413,24 @@ class TaskPanel implements Component {
     { scrollbar: "hidden" }
   );
   private bodyRows = 0;
-  private transcript: TranscriptView | undefined;
+  /** A task's transcript or a job's log. */
+  private transcript: TranscriptView | JobLogView | undefined;
   private active = true;
   private error = "";
   private unsubscribe: () => void;
+  private unsubscribeJobs: () => void;
   private timer: ReturnType<typeof setInterval>;
 
   constructor(
     private tasks: Tasks,
+    private jobs: Jobs,
     private reader: RunReader,
     private tui: TUI,
     private theme: Theme,
     private close: () => void
   ) {
     this.unsubscribe = tasks.subscribe(() => this.update());
+    this.unsubscribeJobs = jobs.subscribe(() => this.update());
     // A read that changes the tasks emits an update.
     this.timer = setInterval(() => {
       void tasks.readDescendants();
@@ -439,25 +444,62 @@ class TaskPanel implements Component {
     return this.transcript !== undefined;
   }
 
-  private update(id = this.rows[this.selected]?.task_id): void {
-    this.entries = boardEntries(this.tasks.list().filter((views[this.view] ?? views[0]).match));
-    this.rows = this.entries.map((entry) => entry.task);
-    const index = this.rows.findIndex((task) => task.task_id === id);
-    this.selected = Math.max(0, Math.min(this.rows.length - 1, index < 0 ? this.selected : index));
+  private update(id = this.selectedEntry && entryId(this.selectedEntry)): void {
+    const view = views[this.view] ?? views[0];
+    this.entries = boardEntries(
+      this.tasks.list().filter(view.match),
+      this.jobs.list().filter(view.matchJob)
+    );
+    const index = this.entries.findIndex((entry) => entryId(entry) === id);
+    this.selected = Math.max(
+      0,
+      Math.min(this.entries.length - 1, index < 0 ? this.selected : index)
+    );
     this.tui.requestRender();
   }
+
+  private get selectedEntry(): BoardEntry | undefined {
+    return this.entries[this.selected];
+  }
+
+  private closeDetail = () => {
+    this.transcript?.dispose();
+    this.transcript = undefined;
+    this.tui.requestRender();
+  };
 
   open(id: string): void {
     if (!this.active) return;
     this.tasks.owned(id);
     this.error = "";
-    this.transcript ??= new TranscriptView(this.tasks, this.reader, this.tui, this.theme, () => {
+
+    if (!(this.transcript instanceof TranscriptView)) {
       this.transcript?.dispose();
-      this.transcript = undefined;
-      this.tui.requestRender();
-    });
+      this.transcript = new TranscriptView(
+        this.tasks,
+        this.reader,
+        this.tui,
+        this.theme,
+        this.closeDetail
+      );
+    }
+
     this.transcript.open(id);
     this.tui.requestRender();
+  }
+
+  openJob(id: string): void {
+    if (!this.active) return;
+    const view = new JobLogView(this.jobs, id, this.tui, this.theme, this.closeDetail);
+    this.error = "";
+    this.transcript?.dispose();
+    this.transcript = view;
+    this.tui.requestRender();
+  }
+
+  private openEntry(entry: BoardEntry): void {
+    if (entry.kind === "task") this.open(entry.task.task_id);
+    else this.openJob(entry.job.job_id);
   }
 
   ownsFullscreenInput(data: string): boolean {
@@ -473,13 +515,14 @@ class TaskPanel implements Component {
   }
 
   private listInput(data: string): void {
-    const task = this.rows[this.selected];
+    const entry = this.selectedEntry;
+    const task = entry?.kind === "task" ? entry.task : undefined;
     let step = 0;
     if (matchesKey(data, "shift+tab")) step = views.length - 1;
     else if (matchesKey(data, "tab")) step = 1;
 
     if (step) {
-      if (task) this.selections.set(this.view, task.task_id);
+      if (entry) this.selections.set(this.view, entryId(entry));
       this.view = (this.view + step) % views.length;
       this.selected = 0;
       this.selectionLayout = "";
@@ -492,13 +535,16 @@ class TaskPanel implements Component {
       this.selected = Math.max(0, this.selected - 1);
       this.selectionLayout = "";
     } else if (matchesKey(data, "down")) {
-      this.selected = Math.min(this.rows.length - 1, this.selected + 1);
+      this.selected = Math.min(this.entries.length - 1, this.selected + 1);
       this.selectionLayout = "";
     } else if (matchesKey(data, "pageUp")) this.listScroll.scrollBy(-this.bodyRows);
     else if (matchesKey(data, "pageDown")) this.listScroll.scrollBy(this.bodyRows);
-    else if (task && matchesKey(data, "enter")) this.open(task.task_id);
+    else if (entry && matchesKey(data, "enter")) this.openEntry(entry);
     else if (task && matchesKey(data, "ctrl+d"))
       void this.effect(() => this.tasks.abort(task.task_id));
+    // The user cancelled the job, so its result is still delivered.
+    else if (entry?.kind === "job" && matchesKey(data, "ctrl+d"))
+      void this.effect(() => this.jobs.abort(entry.job.job_id));
     else if (task && matchesKey(data, "ctrl+b"))
       void this.effect(() => this.tasks.background(task.task_id));
   }
@@ -528,35 +574,46 @@ class TaskPanel implements Component {
     return lines;
   }
 
+  /** Actions that apply to the selected task or job. A job has no foreground. */
+  private actionHints(): string[] {
+    const entry = this.selectedEntry;
+    if (!entry) return [];
+    if (entry.kind === "job") return entry.job.state === "active" ? ["Ctrl+D abort"] : [];
+    if (entry.task.state !== "active") return [];
+
+    return entry.task.background ? ["Ctrl+D abort"] : ["Ctrl+D abort", "Ctrl+B background"];
+  }
+
+  /** Each view with its number of tasks and jobs. */
+  private tabs(): string {
+    const tasks = this.tasks.list();
+    const jobs = this.jobs.list();
+
+    return views
+      .map(({ label, match, matchJob }, index) =>
+        this.theme.fg(
+          index === this.view ? "accent" : "muted",
+          `${label} ${tasks.filter(match).length + jobs.filter(matchJob).length}`
+        )
+      )
+      .join(this.theme.fg("muted", " | "));
+  }
+
   render(width: number): string[] {
     if (this.transcript) return this.transcript.render(width);
 
     const { theme } = this;
-    const selected = this.rows[this.selected];
-    const all = this.tasks.list();
-    const tabs = views
-      .map(({ label, match }, index) =>
-        theme.fg(index === this.view ? "accent" : "muted", `${label} ${all.filter(match).length}`)
-      )
-      .join(theme.fg("muted", " | "));
+    const tabs = this.tabs();
     const help = renderHintFooter({
       width,
       maxRows: Math.max(1, this.tui.terminal.rows - 13),
-      hints: [
-        "↑↓ select",
-        "Enter inspect",
-        "Esc close",
-        "Tab view",
-        // Offer actions only when they apply to the selected task.
-        ...(selected?.state === "active" ? ["Ctrl+D abort"] : []),
-        ...(selected?.state === "active" && !selected.background ? ["Ctrl+B background"] : [])
-      ],
+      hints: ["↑↓ select", "Enter inspect", "Esc close", "Tab view", ...this.actionHints()],
       padding: "  ",
       separator: " · ",
       style: (text) => theme.fg("dim", text)
     });
-    const position = this.rows.length
-      ? [theme.fg("dim", `  (${this.selected + 1}/${this.rows.length})`)]
+    const position = this.entries.length
+      ? [theme.fg("dim", `  (${this.selected + 1}/${this.entries.length})`)]
       : [];
     const diagnostics = (this.error ? [this.error] : []).map((text) =>
       this.theme.fg("error", compactDisplayText(text))
@@ -620,10 +677,10 @@ class TaskPanel implements Component {
     if (event.type === "click" && event.button === "left") {
       const index = this.rowTargets[this.listScroll.scrollTop + event.y - 5];
       if (index === undefined) return;
-      const task = this.rows[index];
-      if (!task) return;
+      const entry = this.entries[index];
+      if (!entry) return;
       this.selected = index;
-      this.open(task.task_id);
+      this.openEntry(entry);
 
       return { handled: true };
     }
@@ -640,6 +697,7 @@ class TaskPanel implements Component {
     this.transcript?.dispose();
     clearInterval(this.timer);
     this.unsubscribe();
+    this.unsubscribeJobs();
   }
 }
 
@@ -650,16 +708,29 @@ export class Panels {
 
   constructor(
     private tasks: Tasks,
+    private jobs: Jobs,
     private reader: RunReader,
     private ctx: ExtensionContext
   ) {}
 
   open(taskId?: string): Promise<void> {
-    if (this.controller.signal.aborted || this.ctx.mode !== "tui") return Promise.resolve();
     if (taskId) this.tasks.owned(taskId);
 
+    return this.show(taskId ? (panel) => panel.open(taskId) : undefined);
+  }
+
+  /** Opens the panel at a job's log. */
+  openJob(jobId: string): Promise<void> {
+    this.jobs.owned(jobId);
+
+    return this.show((panel) => panel.openJob(jobId));
+  }
+
+  private show(select?: (panel: TaskPanel) => void): Promise<void> {
+    if (this.controller.signal.aborted || this.ctx.mode !== "tui") return Promise.resolve();
+
     if (this.opened) {
-      if (taskId) this.panel?.open(taskId);
+      if (this.panel) select?.(this.panel);
 
       return this.opened;
     }
@@ -672,8 +743,8 @@ export class Panels {
       onInputRoutingUnavailable: () =>
         this.ctx.ui.notify("Subagent panel key routing unavailable", "warning"),
       create: (tui, theme, _keys, close) => {
-        this.panel = new TaskPanel(this.tasks, this.reader, tui, theme, close);
-        if (taskId) this.panel.open(taskId);
+        this.panel = new TaskPanel(this.tasks, this.jobs, this.reader, tui, theme, close);
+        select?.(this.panel);
 
         return this.panel;
       }

@@ -36,6 +36,33 @@ export async function fixture(
   }
 }
 
+/** Starts supervisors on demand in one workspace; all stop, and no fixture process may remain. */
+export async function withFixture(
+  body: (
+    directory: string,
+    start: (options?: Parameters<typeof Supervisor.start>[1]) => Promise<Supervisor>
+  ) => Promise<void>,
+  options: Parameters<typeof createFixtureWorkspace>[0] = {}
+): Promise<void> {
+  const directory = await createFixtureWorkspace(options);
+  const hosts: Supervisor[] = [];
+
+  try {
+    await body(directory, async (launchOptions) => {
+      const host = await Supervisor.start(directory, launchOptions);
+      hosts.push(host);
+
+      return host;
+    });
+  } finally {
+    await Promise.all(hosts.map((host) => host.stop()));
+    const leaked = await remainingProcesses(directory);
+    await killFixtureProcesses(directory);
+    await rm(directory, { recursive: true, force: true });
+    expect(leaked, "Processes leaked after the supervisor exited").toEqual([]);
+  }
+}
+
 function tokens(usage: ToolDetails["usage"]): number {
   return usage.input + usage.output + usage.cache_read + usage.cache_write;
 }

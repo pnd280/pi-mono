@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import type { BorrowedToolResult, DisplayProgress, ToolDisplayAdapter } from "../../contracts.ts";
 import { registeredBy } from "../provenance.ts";
+import { jobAdapter } from "./jobs.ts";
 
 const argsSchema = z.object({
   description: z.string().min(1),
@@ -267,10 +268,11 @@ export function subagentResultCard(
 export function piSubagentAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
   if (
     !tool ||
-    (tool.name !== "subagent" && tool.name !== "subagent_abort") ||
+    !["subagent", "subagent_abort", "job", "job_abort"].includes(tool.name) ||
     !registeredBy(tool, "pi-subagents")
   )
     return;
+  if (tool.name === "job" || tool.name === "job_abort") return jobAdapter(tool);
   if (tool.name === "subagent_abort")
     return abortParametersSchema.safeParse(tool.parameters).success
       ? subagentAbortDisplayAdapter

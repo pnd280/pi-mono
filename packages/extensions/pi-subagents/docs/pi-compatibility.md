@@ -52,6 +52,17 @@ The backend depends on Pi's public lifecycle and RPC ordering, while task owners
 - [ ] RPC `select`, `confirm`, `input`, and `editor` requests and replies still map to `ctx.ui`; supported dialog timeouts pass through. Fire-and-forget child UI is dropped.
 - [ ] The exported terminal components, theme tokens, and truncation helpers retain their contracts.
 
+### Background jobs
+
+[Jobs](../GLOSSARY.md#tasks-and-processes) use Pi's public bash tool without overriding `bash`. See [ADR 0005](adr/0005-background-jobs.md).
+
+- [ ] `createBashToolDefinition(cwd, { operations, commandPrefix })` and `createLocalBashOperations({ shellPath })` are exported. Without `commandPrefix`, and without `shellPath` in the operations, the tool ignores the user's settings.
+- [ ] The tool's `execute` reads only `command` and `timeout` (in seconds) and ignores its tool-call ID. It resolves with `structuredContent.exit_code`. It throws `Command aborted` at an abort and `Command timed out after N seconds` at a timeout; the error text holds the partial output. A null exit code is a failure.
+- [ ] Local bash operations give every output chunk to `onData`, spawn the shell detached in its own process group, and kill that group at an abort or a timeout. A signal-stopped shell reports `128 + signal`. Pi's exit cleanup stops the tracked commands. With the tool context that `job` passes, the command gets the session and model environment variables of Pi's own `bash`.
+- [ ] `getShellConfig(shellPath)` selects the shell from the resolved `shellPath`. `pi.getSettings()` returns the raw `shellPath` and `shellCommandPrefix` settings. Pi's settings manager expands `~` and `file://` in `shellPath` and converts Git Bash, MSYS, Cygwin, and WSL drive paths on Windows; `shellOptions` in [jobs](../src/jobs.ts) copies these rules. Pi passes `shellCommandPrefix` unchanged.
+- [ ] `pi.getAllTools()` returns `sourceInfo.source === "builtin"` for Pi's own `bash`, and another source when an extension registers `bash`.
+- [ ] `DEFAULT_MAX_LINES`, `DEFAULT_MAX_BYTES`, and `truncateTail` keep the 2,000-line and 50 KiB tail limits of job results and log reads.
+
 ## Background and viewer contracts
 
 The offline tests exercise background waits in `agent_end`, slash commands during settle waits, abort and stdin-EOF cleanup, print and JSON settling, and prepared idle RPC context. The [SDK race cases](../validation/abort-races.test.ts) cover background results at abort boundaries, aborts after process exit, and descendant cancellation acknowledgements. Use the manual checks for the TUI path. Recheck these contracts on upgrade:

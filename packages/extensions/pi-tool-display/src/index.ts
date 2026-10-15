@@ -2,16 +2,21 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { noticeType } from "pi-nested-instructions/notices";
 
 import { subagentResultType } from "./adapters/pi-subagents/index.ts";
+import { jobResultType } from "./adapters/pi-subagents/jobs.ts";
 import type { DisplayAction } from "./contracts.ts";
 import { DisplayCollectors } from "./host/collection.ts";
 import { installHostIntegration } from "./host/install.ts";
 import { createNoticeRenderer } from "./rendering/notice.ts";
-import { createSubagentResultRenderer } from "./rendering/subagent-result.ts";
+import {
+  createJobResultRenderer,
+  createSubagentResultRenderer
+} from "./rendering/subagent-result.ts";
 
 export default function toolDisplay(pi: ExtensionAPI): void {
   const emit = (action: DisplayAction) => pi.events.emit(action.event, action.data);
   pi.registerMessageRenderer(noticeType, createNoticeRenderer());
   pi.registerMessageRenderer(subagentResultType, createSubagentResultRenderer(emit));
+  pi.registerMessageRenderer(jobResultType, createJobResultRenderer(emit));
   const warnings: string[] = [];
   let notify: ((message: string) => void) | undefined;
   const stderr = (message: string) => process.stderr.write(`${message}\n`);

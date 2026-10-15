@@ -5,6 +5,21 @@ export const BACKGROUND_STARTED = [
   "Work on non-overlapping tasks, or briefly tell the user what you launched and end your response."
 ].join("\n");
 
+/** Where job results go: a supervisor that waits for results, or a run whose end stops its jobs. */
+export function jobDelivery(delivers: boolean): string {
+  return delivers
+    ? "The result arrives automatically when the command exits; do not sleep or poll."
+    : "Jobs stop when your final reply ends this run. Use them only for processes you need during the run, such as a server you test. Run finite commands in the foreground.";
+}
+
+export function jobStarted(logFile: string, delivers: boolean): string {
+  return [
+    `The job is running in the background. Its output goes to the log file ${logFile}`,
+    jobDelivery(delivers),
+    "Read the log file to check output while it runs. Stop the job with job_abort."
+  ].join("\n");
+}
+
 export const BACKGROUND_UPDATED = [
   "Additional context sent to the running background task.",
   "The task is still working in the background. You will be notified automatically when it finishes.",

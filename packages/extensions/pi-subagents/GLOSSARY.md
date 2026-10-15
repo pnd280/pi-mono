@@ -32,6 +32,10 @@ _Avoid_: subtask, grandchild for any depth
 One place in the whole live task tree. A run holds its slot until its child exits.
 _Avoid_: permit, token
 
+**Job**:
+A shell command that a supervisor runs in the background with the `job` tool. A job has no child and no capacity slot. It stops when the supervisor's session binding ends.
+_Avoid_: background bash, background task
+
 **Promotion**:
 Moving foreground work to the background, so that its call returns while the run continues.
 _Avoid_: backgrounding, detach
@@ -57,7 +61,7 @@ _Avoid_: lock
 ### Results
 
 **Background result**:
-The message that delivers a finished background task to its supervisor.
+The message that delivers a finished background task or job to its supervisor.
 _Avoid_: completion, notification
 
 **Late usage**:

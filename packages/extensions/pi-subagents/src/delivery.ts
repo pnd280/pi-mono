@@ -6,7 +6,9 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import type { WorkingMessageHandle } from "@pi-mono/libs/working-message";
 
-import { RESULT_MESSAGE } from "./constants.ts";
+import { JOB_RESULT_MESSAGE, RESULT_MESSAGE } from "./constants.ts";
+import { jobText } from "./job-records.ts";
+import type { JobEvent, Jobs } from "./jobs.ts";
 import { taskResult } from "./result.ts";
 import type { TaskEvent, Tasks } from "./tasks.ts";
 
@@ -33,22 +35,52 @@ function wakeIdle(pi: ExtensionAPI, [first, ...rest]: readonly Completion[]): vo
   pi.sendMessage(first, { triggerTurn: true });
 }
 
-/** Owns background completions until the settlement or idle handoff. */
+/**
+ * Owns background completions of tasks and jobs until the settlement or idle handoff. Only
+ * background tasks hold a run; job results join the next handoff. See ADR 0001 and ADR 0005.
+ */
 export class Delivery {
   private pending: Completion[] = [];
   private waiting = false;
   private wake: (() => void) | undefined;
   private closed = false;
+  /** A session change is pending: tasks stopped, and job results wait for the next run. */
+  private suspended = false;
+  /** Pi emits no event when a manual compaction ends; results queued during one recheck. */
+  private recheck: ReturnType<typeof setInterval> | undefined;
   private unsubscribe: () => void;
+  private unsubscribeJobs: () => void;
 
   constructor(
     private tasks: Tasks,
+    jobs: Jobs,
     private pi: ExtensionAPI,
     private ctx: ExtensionContext,
     private depth: number,
     private message: WorkingMessageHandle
   ) {
     this.unsubscribe = tasks.subscribe((event) => this.completed(event));
+    this.unsubscribeJobs = jobs.subscribe((event) => this.jobCompleted(event));
+  }
+
+  private jobCompleted(event: JobEvent): void {
+    if (this.closed || event.kind !== "completed" || event.dropped) return;
+    const { details } = event;
+    this.queue({
+      customType: JOB_RESULT_MESSAGE,
+      display: true,
+      content: [
+        {
+          type: "text",
+          text: jobText(
+            details,
+            event.text,
+            `Background job ${details.outcome}: ${details.description}`
+          )
+        }
+      ],
+      details
+    });
   }
 
   private completed(event: TaskEvent): void {
@@ -67,13 +99,17 @@ export class Delivery {
       undefined,
       `Background task ${event.outcome}: ${event.details.description}`
     );
-    this.pending.push({
+    this.queue({
       customType: RESULT_MESSAGE,
       display: true,
       content: result.content,
       // `late_usage` becomes a hidden usage entry when Pi persists this message.
       details: { ...result.details, ...(event.lateUsage ? { late_usage: event.lateUsage } : {}) }
     });
+  }
+
+  private queue(message: Completion): void {
+    this.pending.push(message);
 
     if (this.waiting) {
       this.wake?.();
@@ -81,8 +117,31 @@ export class Delivery {
       return;
     }
 
-    // Busy results stay owned here until Pi can commit them or the aborted run settles.
-    if (this.ctx.isIdle()) wakeIdle(this.pi, this.take());
+    this.handoff();
+  }
+
+  /**
+   * Starts a turn for pending results on an idle supervisor. Busy results stay owned here until Pi
+   * can commit them, the aborted run settles, or Pi becomes idle without a run.
+   */
+  private handoff(): void {
+    if (this.closed || this.suspended || !this.pending.length) return this.stopRecheck();
+    if (this.waiting) return;
+
+    if (this.ctx.isIdle()) {
+      this.stopRecheck();
+      wakeIdle(this.pi, this.take());
+
+      return;
+    }
+
+    this.recheck ??= setInterval(() => this.handoff(), INPUT_POLL_MS);
+    this.recheck.unref();
+  }
+
+  private stopRecheck(): void {
+    clearInterval(this.recheck);
+    this.recheck = undefined;
   }
 
   private take(): Completion[] {
@@ -137,6 +196,8 @@ export class Delivery {
 
   /** A direct task runs in the background; descendants report to their own supervisors. */
   private hasBackground(): boolean {
+    // Stopped tasks keep their last records.
+    if (!this.tasks.activeBinding) return false;
     const records = this.tasks.list();
     const ids = new Set(records.map((record) => record.task_id));
 
@@ -175,14 +236,33 @@ export class Delivery {
 
   /** Delivers results that arrived as a wait ended by an abort. */
   settled(ctx: ExtensionContext): void {
-    if (this.closed || !this.pending.length || !ctx.isIdle()) return;
+    if (this.closed || this.suspended || !this.pending.length || !ctx.isIdle()) return;
     wakeIdle(this.pi, this.take());
+  }
+
+  /**
+   * Before a session change: drop task results and stop waiting for tasks. Job results stay
+   * pending without starting a turn, because a later extension can still cancel the change.
+   */
+  suspend(): void {
+    this.suspended = true;
+    this.unsubscribe();
+    this.pending = this.pending.filter((message) => message.customType !== RESULT_MESSAGE);
+    this.stopRecheck();
+    this.wake?.();
+  }
+
+  /** A run started after a cancelled session change; its settlement takes pending job results. */
+  resume(): void {
+    this.suspended = false;
   }
 
   shutdown(): void {
     this.closed = true;
     this.unsubscribe();
+    this.unsubscribeJobs();
     this.pending = [];
+    this.stopRecheck();
     this.wake?.();
   }
 }

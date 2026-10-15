@@ -4,7 +4,7 @@ import type { RpcCommand, RpcExtensionUIRequest } from "@earendil-works/pi-codin
 import { createPiLaunch } from "@pi-mono/libs/validation/pi-process";
 
 import { ChildConnection, type RpcRecord } from "../src/connection.ts";
-import { DEPTH_ENV } from "../src/constants.ts";
+import { DEPTH_ENV, JOB_RESULT_MESSAGE } from "../src/constants.ts";
 import { processOptions } from "../src/platform.ts";
 import { FIXTURE_PROVIDER } from "./provider.ts";
 
@@ -85,6 +85,13 @@ export class Supervisor {
       entry.message.toolName === "subagent"
         ? [entry.message]
         : []
+    );
+  }
+
+  /** Delivered job results in the session. */
+  async jobResults() {
+    return (await this.entries()).flatMap((entry) =>
+      entry.type === "custom_message" && entry.customType === JOB_RESULT_MESSAGE ? [entry] : []
     );
   }
 

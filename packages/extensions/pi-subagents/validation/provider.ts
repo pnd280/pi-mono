@@ -31,17 +31,54 @@ const REASONING_MODEL = `${FIXTURE_PROVIDER}/reasoning`;
 /** Each supervisor process fails its first `background-retry` reply once. */
 let retried = false;
 
-type Call = {
-  /** The called tool; `subagent` when omitted. */
-  tool?: "subagent_abort";
-  description: string;
-  prompt: string;
-  task_id?: string;
-  model?: string;
-  thinking?: string;
-  background?: boolean;
-  delivery?: "steer" | "follow_up";
-};
+type Call =
+  | {
+      /** The called tool; `subagent` when omitted. */
+      tool?: "subagent_abort";
+      description: string;
+      prompt: string;
+      task_id?: string;
+      model?: string;
+      thinking?: string;
+      background?: boolean;
+      delivery?: "steer" | "follow_up";
+    }
+  | { tool: "job"; description: string; command: string; timeout?: number }
+  | { tool: "job_abort"; job_id: string };
+
+/**
+ * Fixed job commands; prompt text never becomes a command. They run in the supervisor's working
+ * directory, where the tests create the barrier files.
+ */
+const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
+  ["fast", { command: "printf 'Fixture job output'" }],
+  [
+    "barrier",
+    { command: "while [ ! -e job-release ]; do sleep 0.05; done; printf 'Fixture job output'" }
+  ],
+  // Field 5 of the stat line is the process group. Both sleeps fork into it before the marker, so a
+  // stop of the shell alone leaves the group alive.
+  ["group", { command: "sleep 600 & sleep 600 & cut -d ' ' -f 5 /proc/$$/stat > job-group; wait" }],
+  // A numbered line five times a second until `job-release` exists, for the manual log viewer checks.
+  [
+    "stream",
+    {
+      command: `i=0; while [ ! -e job-release ]; do i=$((i + 1)); printf 'Fixture job line %s\\n' "$i"; sleep 0.2; done`
+    }
+  ],
+  ["shell", { command: `printf '%s %s' "$FIXTURE_JOB_SHELL" "$FIXTURE_JOB_PREFIX"` }],
+  ["timeout", { command: "sleep 600", timeout: 1 }]
+]);
+
+/** `job-<kind>`, also with `-hold`, starts one job; `job-abort-id <job_id>` aborts one. */
+function jobPlan(scenario: string): Call[] | undefined {
+  const abort = /^job-abort-id (\S+)$/.exec(scenario)?.[1];
+  if (abort) return [{ tool: "job_abort", job_id: abort }];
+  const kind = /^job-(\w+?)(?:-hold)?$/.exec(scenario)?.[1];
+  const job = kind ? JOB_COMMANDS.get(kind) : undefined;
+
+  return job && [{ tool: "job", description: `Fixture ${kind} job`, ...job }];
+}
 
 function continuationPlan(scenario: string): Call[] | undefined {
   const abort = /^abort-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
@@ -122,7 +159,7 @@ function selectionPlan(scenario: string): Call[] | undefined {
 }
 
 function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
-  const continuation = continuationPlan(scenario) ?? selectionPlan(scenario);
+  const continuation = continuationPlan(scenario) ?? selectionPlan(scenario) ?? jobPlan(scenario);
   if (continuation) return continuation;
   if (scenario === "failure-then-reply")
     return supervisorPlan(completed === 0 ? "delegate-launch-error" : "delegate-reply");
@@ -188,7 +225,8 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     ["delegate-dialog", "dialog"],
     ["delegate-selection", "selection"],
     ["delegate-trust", "report-trust"],
-    ["delegate-tools", "report-tools"]
+    ["delegate-tools", "report-tools"],
+    ["delegate-job", "job-group-hold"]
   ]).get(scenario);
   if (child) return [{ description: `Fixture ${child} task`, prompt: child }];
   if (scenario === "delegate-display")
@@ -223,11 +261,28 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     : undefined;
 }
 
-function planCall({ tool, ...args }: Call, id: string) {
+function planCall(call: Call, id: string) {
+  if (call.tool === "job" || call.tool === "job_abort") {
+    const { tool, ...args } = call;
+
+    return fauxToolCall(tool, args, { id });
+  }
+
+  const { tool, ...args } = call;
   const arguments_: JsonObject =
     tool === "subagent_abort" ? { task_id: args.task_id ?? "" } : { ...args };
 
   return fauxToolCall(tool ?? "subagent", arguments_, { id });
+}
+
+/** Keeps the run busy before a final reply without background results. */
+async function holdFinalReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
+  if (["background-busy", "owner-linger", "owner-linger-abort"].includes(scenario))
+    await setTimeout(3000, undefined, { signal });
+  // Until the test creates the file or aborts the run.
+  if (/^job-\w+-hold$/.test(scenario))
+    while (!existsSync(join(process.cwd(), "run-release")))
+      await setTimeout(25, undefined, { signal });
 }
 
 /** A final reply without results fails: once without retry, or once with a retryable error. */
@@ -303,7 +358,7 @@ function createStream(
 
     while (userIndex >= 0) {
       const candidate = context.messages[userIndex];
-      if (candidate?.role === "user" && !contentText(candidate.content).includes("<task")) break;
+      if (candidate?.role === "user" && !/<task|<job/.test(contentText(candidate.content))) break;
       userIndex--;
     }
 
@@ -311,9 +366,6 @@ function createStream(
     const prompt = user?.role === "user" ? contentText(user.content).trim() : "";
     const scenario = idleWake() ? "idle-wake" : prompt;
     const plannedSteps = scenario === "failure-then-reply" ? 2 : 1;
-    const pauseAfterPlan = ["background-busy", "owner-linger", "owner-linger-abort"].includes(
-      scenario
-    );
     const activityDelay = ["activity-promote", "activity-digest"].includes(scenario) ? 4000 : 1200;
     const delay = new Map([
       ["finite", 1500],
@@ -361,12 +413,11 @@ function createStream(
             const completions = context.messages.filter(
               (item) =>
                 item.role === "user" &&
-                /<summary>Background task (completed|failed|cancelled):/.test(
+                /<summary>Background (task|job) (completed|failed|cancelled):/.test(
                   contentText(item.content)
                 )
             );
-            if (pauseAfterPlan && !completions.length)
-              await setTimeout(3000, undefined, { signal });
+            if (!completions.length) await holdFinalReply(scenario, signal);
             failFinalReply(scenario, completions.length);
             text(
               `Supervisor finished; background results ${completions.length}\n${results.map((item) => contentText(item.content)).join("\n")}\n${completions.map((item) => contentText(item.content)).join("\n")}`
@@ -450,6 +501,13 @@ function createStream(
           text(
             `subagent available: ${getCurrentTools(context.messages).some((tool) => tool.name === "subagent")}`
           );
+
+          return "stop";
+        }
+
+        if (scenario === "report-job-tools") {
+          const names = getCurrentTools(context.messages).map((tool) => tool.name);
+          text(`job tools: ${names.includes("job")} ${names.includes("job_abort")}`);
 
           return "stop";
         }

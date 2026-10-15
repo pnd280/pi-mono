@@ -83,7 +83,7 @@ export const taskRecordSchema = z.discriminatedUnion("state", [
 export type TaskRecord = z.infer<typeof taskRecordSchema>;
 
 /** Check the original payload before stripping unknown fields from received data. */
-function withinRecordLimit(value: unknown): boolean {
+export function withinRecordLimit(value: unknown): boolean {
   try {
     return Buffer.byteLength(JSON.stringify(value)) <= RECORD_MAX_BYTES;
   } catch {

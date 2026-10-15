@@ -2,7 +2,7 @@
 
 [Adapter development](../../../docs/adapters.md)
 
-The adapter recognises the `pi-subagents` registering package and the projected `subagent` parameter structure, or the `subagent_abort` structure with a required `task_id` string. Arguments and result details are validated separately, including queued calls with no task ID. It has no runtime dependency on pi-subagents. Without pi-tool-display, pi-subagents draws its own cards in Pi's tool box.
+The adapter recognises the `pi-subagents` registering package and the projected `subagent` parameter structure, or the `subagent_abort` structure with a required `task_id` string. It recognises [job tools](#background-jobs) in the same way. Arguments and result details are validated separately, including queued calls with no task ID. It has no runtime dependency on pi-subagents. Without pi-tool-display, pi-subagents draws its own cards in Pi's tool box.
 
 ## Action ownership
 
@@ -30,8 +30,22 @@ The adapter also renders the `pi-subagents.result` session message through Pi's 
 
 Without pi-tool-display, pi-subagents registers no message renderer, so Pi shows its default message box. Background results separate exploration groups and runs like other visible messages, and add no summary counts.
 
+## Background jobs
+
+[jobs.ts](jobs.ts) recognises `job` by the projected `command` and `description` strings, the `timeout` number, and the required `command` and `description`. It recognises `job_abort` by a required `job_id` string. Strict Zod schemas validate the arguments. A separate schema validates the job details: active details have `exit_code` and `ended_at` set to `null`, and inactive details have an `outcome` of `completed`, `failed`, or `cancelled`.
+
+A `job` call returns at once. Its card shows the description, `↗ returned; job continues in background`, and then the command and the first eight characters of the job ID. Expansion shows the full job ID and the timeout, when the call sets one. The card does not show the later state of the job. If the job cannot start, the call has an error result without details, and the card is generic.
+
+A `job_abort` card uses the layout of a `subagent_abort` card. Before details exist, the description is the job ID. After that, the card shows the job description, `⊘ aborted` with the job's run time, the command, and the exit code when it is known. If the command ended before the abort, the card shows the real outcome. The call itself succeeded, so the card has no failure state.
+
+The `pi-subagents.job-result` message has a card with the outcome, the run time from `started_at` to `ended_at`, the command, the exit code, any recorded error, and the log path. A failed or cancelled job colours the card like a failed or cancelled call. Collapsed cards preview the first output lines. Expansion shows the job ID and the full retained output. Invalid details keep Pi's default message box.
+
+Results and messages show the body without the [`<job>` envelope](../../../../../utils/src/task-envelope.ts). The envelope is removed only when its job ID, state, outcome, and exit code equal the validated details. Other text is shown unchanged. The display uses only the retained content and details. It never reads the log file.
+
+A fullscreen click on a job card or job result emits `pi-subagents:open` with the validated `job_id` and `binding_id`. pi-subagents checks the binding and the job ownership.
+
 ## Run summaries
 
-Summary mode counts validated task IDs once per run under “ran {n} subagent(s)”, and aborted task IDs under “aborted {n} subagent(s)”. Calls without an ID count individually. Incompatible results fall back to generic cards and counts.
+Summary mode counts validated task IDs once per run under “ran {n} subagent(s)”, and aborted task IDs under “aborted {n} subagent(s)”. Calls without an ID count individually. Job and job abort calls have no summary category, so each call counts once under its tool name. Job results add no summary counts. Incompatible results fall back to generic cards and counts.
 
-Check appearance and actions with the subagent terminal fixture in regular and fullscreen modes. Producer execution, ownership, and transport coverage belong to pi-subagents; display replay and provenance validation belong to pi-tool-display.
+Check appearance and actions, including job cards and job results, with the subagent terminal fixture in regular and fullscreen modes. Producer execution, ownership, and transport coverage belong to pi-subagents; display replay and provenance validation belong to pi-tool-display.
