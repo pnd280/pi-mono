@@ -38,15 +38,23 @@ export function registerWorkingMessage(
   pi: WorkingMessageAPI,
   component: WorkingMessageComponent
 ): WorkingMessageHandle {
+  return sharedCoordinator(pi).register(component);
+}
+
+/** Call during the extension factory. While its text is set, it replaces the whole message. */
+export function overrideWorkingMessage(pi: WorkingMessageAPI): WorkingMessageHandle {
+  return sharedCoordinator(pi).registerOverride();
+}
+
+function sharedCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
   let shared: WorkingMessageCoordinator | undefined;
   // Pi dispatches bus listeners synchronously, even though it catches async handler failures.
   // A callback rendezvous also works when Pi loads separate copies of this library via jiti.
   pi.events.emit(discoveryChannel, (coordinator: WorkingMessageCoordinator) => {
     shared = coordinator;
   });
-  const coordinator = shared ?? installCoordinator(pi);
 
-  return coordinator.register(component);
+  return shared ?? installCoordinator(pi);
 }
 
 function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {

@@ -42,6 +42,7 @@ Published Pi links point to the latest documentation, which may describe a newer
 | [pi-model-prompt](packages/extensions/pi-model-prompt/README.md)               | Appends different system instructions depending on the model.                                         |
 | [pi-skills](packages/extensions/pi-skills/README.md)                           | Turns `/skill:<name>` anywhere in a prompt into a file link, with **Tab** completion.                 |
 | [pi-null-args](packages/extensions/pi-null-args/README.md)                     | Drops optional tool arguments that a model sent as the text `"null"`, so Pi doesn't reject the call.  |
+| [pi-abort-guard](packages/extensions/pi-abort-guard/README.md)                 | Stops a running agent only on a second **Escape**, so one stray press doesn't end the turn.           |
 
 ## Development
 
