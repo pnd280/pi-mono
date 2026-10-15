@@ -56,8 +56,21 @@ export function ledger(session: SessionView): Ledger {
   );
   const reads = new Map<string, ReadMarker>();
   const scopes = new Map<string, { path: string | null; body: string }>();
-  const calls = new Map<string, { entryId: string; digest: string }>();
-  const visibleCalls = new Map<string, string>();
+  const calls = new Map<string, { entryId: string; part: object }>();
+  const visibleCalls = new Map<string, object>();
+  // Hash calls only when a marker needs them, not every call in the session on each turn.
+  const digests = new WeakMap<object, string>();
+
+  const callDigest = (part: object) => {
+    let value = digests.get(part);
+
+    if (value === undefined) {
+      value = digest(JSON.stringify(part));
+      digests.set(part, value);
+    }
+
+    return value;
+  };
 
   for (const entry of projection.entries) {
     for (const message of entry.messages) {
@@ -65,9 +78,8 @@ export function ledger(session: SessionView): Ledger {
 
       for (const part of message.content) {
         if (part.type !== "toolCall") continue;
-        const callDigest = digest(JSON.stringify(part));
-        calls.set(part.id, { entryId: entry.sourceEntry.id, digest: callDigest });
-        visibleCalls.set(JSON.stringify([entry.sourceEntry.id, part.id]), callDigest);
+        calls.set(part.id, { entryId: entry.sourceEntry.id, part });
+        visibleCalls.set(JSON.stringify([entry.sourceEntry.id, part.id]), part);
       }
     }
   }
@@ -77,11 +89,8 @@ export function ledger(session: SessionView): Ledger {
       const parsed = readSchema.safeParse(entry.data);
       if (!parsed.success) continue;
       const marker = parsed.data;
-      if (
-        visibleCalls.get(JSON.stringify([marker.callEntryId, marker.toolCallId])) ===
-        marker.callDigest
-      )
-        reads.set(marker.path, marker);
+      const call = visibleCalls.get(JSON.stringify([marker.callEntryId, marker.toolCallId]));
+      if (call && callDigest(call) === marker.callDigest) reads.set(marker.path, marker);
     } else if (entry.type === "custom_message" && entry.customType === noticeType) {
       const parsed = noticeSchema.safeParse(entry.details);
       if (!parsed.success) continue;
@@ -115,7 +124,7 @@ export function ledger(session: SessionView): Ledger {
         path: file,
         toolCallId,
         callEntryId: origin.entryId,
-        callDigest: origin.digest,
+        callDigest: callDigest(origin.part),
         stamp: stamp ?? null
       };
       reads.set(file, marker);

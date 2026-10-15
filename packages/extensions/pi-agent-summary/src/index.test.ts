@@ -2,6 +2,7 @@ import { symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { fauxAssistantMessage, type AssistantMessage } from "@earendil-works/pi-ai";
+import * as boundedDiff from "@pi-mono/libs/bounded-diff";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { expect, it, vi } from "vite-plus/test";
@@ -132,41 +133,73 @@ it("aggregates native edit/write aliases and large files without scanning bash-o
   const unchanged = "unchanged content\n".repeat(6000);
   writeFileSync(path, `original\nkeep\n${unchanged}`);
   symlinkSync(path, join(runtime.ctx.cwd, "alias.txt"));
-  await runtime.emit("agent_start", {});
-  await runtime.tool("edit", {
-    path: "alias.txt",
-    edits: [{ oldText: "original", newText: "intermediate\nfrom-edit" }]
-  });
-  await runtime.tool("write", { path, content: `final\nfrom-edit\nkeep\nextra\n${unchanged}` });
-  await runtime.tool("write", { path: "@./new.txt", content: "new\n" });
-  await runtime.emit("tool_execution_start", {
-    type: "tool_execution_start",
-    toolName: "bash",
-    toolCallId: "shell-only",
-    args: { command: "generate files" }
-  });
-  writeFileSync(join(runtime.ctx.cwd, "shell-only.txt"), "not counted\n");
-  writeFileSync(path, "later shell change, not counted\n");
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-    durationMs: 0,
-    finishedAt: Date.now(),
-    bashCalls: 1,
-    files: [
-      { path: "existing.txt", status: "available", added: 3, removed: 1 },
-      { path: "new.txt", status: "available", added: 1, removed: 0 }
-    ]
-  });
-  vi.advanceTimersByTime(1000);
-  await runtime.emit("agent_start", {});
-  vi.advanceTimersByTime(250);
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
-    durationMs: 250,
-    finishedAt: Date.now(),
-    bashCalls: 0,
-    files: []
-  });
+  // Bounded diffs have wall-clock deadlines that a loaded machine can miss; libs tests them.
+  const patch = vi
+    .spyOn(boundedDiff, "createBoundedPatch")
+    .mockResolvedValueOnce({ status: "ready", patch: "@@ -0,0 +1 @@\n+new\n" })
+    .mockResolvedValueOnce({
+      status: "ready",
+      patch: "@@ -1,2 +1,4 @@\n-original\n+final\n+from-edit\n keep\n+extra\n"
+    });
+
+  try {
+    await runtime.emit("agent_start", {});
+    await runtime.tool("edit", {
+      path: "alias.txt",
+      edits: [{ oldText: "original", newText: "intermediate\nfrom-edit" }]
+    });
+    await runtime.tool("write", { path, content: `final\nfrom-edit\nkeep\nextra\n${unchanged}` });
+    await runtime.tool("write", { path: "@./new.txt", content: "new\n" });
+    await runtime.emit("tool_execution_start", {
+      type: "tool_execution_start",
+      toolName: "bash",
+      toolCallId: "shell-only",
+      args: { command: "generate files" }
+    });
+    writeFileSync(join(runtime.ctx.cwd, "shell-only.txt"), "not counted\n");
+    writeFileSync(path, "later shell change, not counted\n");
+    await runtime.emit("agent_settled", {});
+    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
+      durationMs: 0,
+      finishedAt: Date.now(),
+      bashCalls: 1,
+      files: [
+        { path: "existing.txt", status: "available", added: 3, removed: 1 },
+        { path: "new.txt", status: "available", added: 1, removed: 0 }
+      ]
+    });
+    vi.advanceTimersByTime(1000);
+    await runtime.emit("agent_start", {});
+    vi.advanceTimersByTime(250);
+    await runtime.emit("agent_settled", {});
+    expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
+      durationMs: 250,
+      finishedAt: Date.now(),
+      bashCalls: 0,
+      files: []
+    });
+    expect(patch).toHaveBeenCalledTimes(2);
+    expect(patch).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        path: join(runtime.ctx.cwd, "new.txt"),
+        before: "",
+        after: "new\n",
+        timeoutMs: 50
+      })
+    );
+    expect(patch).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        path: "file",
+        before: `original\nkeep\n${unchanged}`,
+        after: `final\nfrom-edit\nkeep\nextra\n${unchanged}`,
+        timeoutMs: 50
+      })
+    );
+  } finally {
+    patch.mockRestore();
+  }
 });
 
 it("waits if another extension has already started a run during settlement", async () => {

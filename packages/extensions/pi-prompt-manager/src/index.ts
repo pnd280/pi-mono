@@ -1,12 +1,17 @@
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { copyNative } from "@pi-mono/libs/native-clipboard";
 
-import { openBrowser } from "./browser/open.ts";
+import type * as BrowserModule from "./browser/open.ts";
 import { completions } from "./commands.ts";
 import { PromptManager } from "./manager.ts";
 import { errorMessage, type Repository } from "./model.ts";
 import { loadSettings } from "./settings.ts";
 import { FileRepository } from "./storage/repository.ts";
+
+// The browser and its shared TUI components load on first use, not at session start.
+// Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
+let browserModule: Promise<typeof BrowserModule> | undefined;
+const loadBrowser = () => (browserModule ??= import("./browser/open.ts"));
 
 export default function promptManager(pi: ExtensionAPI): void {
   let manager: PromptManager | undefined;
@@ -54,9 +59,13 @@ export default function promptManager(pi: ExtensionAPI): void {
       },
       copy: copyNative,
       notify: (message, severity) => ctx.ui.notify(message, severity),
-      open: (request) =>
-        openBrowser(
-          ctx.ui,
+      open: async (request) => {
+        // Read the host context before the browser loads; the session can end during the import.
+        const ui = ctx.ui;
+        const { openBrowser } = await loadBrowser();
+
+        return openBrowser(
+          ui,
           {
             read: (collection, signal) => repository.read(collection, signal),
             copy: (target) => current.copy(target),
@@ -64,7 +73,8 @@ export default function promptManager(pi: ExtensionAPI): void {
             notify: (message, severity) => current.notify(message, severity)
           },
           request
-        ),
+        );
+      },
       now: () => new Date()
     });
     manager = current;

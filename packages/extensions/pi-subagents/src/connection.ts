@@ -153,19 +153,33 @@ export class ChildConnection {
   }
 
   private ingest(text: string): void {
-    this.buffered += text;
-    let newline: number;
+    // Search only new text, so a record split over many chunks is scanned once.
+    let newline = text.indexOf("\n");
 
-    while ((newline = this.buffered.indexOf("\n")) !== -1) {
-      const line = this.buffered.slice(0, newline).replace(/\r$/, "");
-      this.buffered = this.buffered.slice(newline + 1);
+    if (newline === -1) {
+      this.buffered += text;
+
+      return;
+    }
+
+    const data = this.buffered + text;
+    newline += this.buffered.length;
+    let start = 0;
+
+    while (newline !== -1) {
+      const line = data.slice(start, newline).replace(/\r$/, "");
+      start = newline + 1;
 
       try {
         this.dispatch(decodeRecord(line));
       } catch (error) {
         this.fail(error instanceof Error ? error : new Error(String(error)));
       }
+
+      newline = data.indexOf("\n", start);
     }
+
+    this.buffered = data.slice(start);
   }
 
   private dispatch(record: RpcRecord): void {

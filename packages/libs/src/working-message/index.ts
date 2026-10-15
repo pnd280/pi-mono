@@ -4,12 +4,7 @@ import type {
   ExtensionUIContext
 } from "@earendil-works/pi-coding-agent";
 
-import {
-  OrderSettingsView,
-  type OrderSettingsScope
-} from "../tui/components/order-settings/index.ts";
-import { settingsSaveFeedback } from "../tui/components/settings-menu/index.ts";
-import { openResponsiveCustomUI } from "../tui/responsive-custom-ui/index.ts";
+import type { OrderSettingsScope } from "../tui/components/order-settings/index.ts";
 import {
   WorkingMessageCoordinator,
   completeOrder,
@@ -32,6 +27,17 @@ export type WorkingMessageAPI = Pick<ExtensionAPI, "events" | "registerCommand">
 };
 
 const discoveryChannel = "pi-mono:working-message:coordinator";
+
+// Every participant evaluates this module at startup; only the command needs the menu.
+let menuModules: ReturnType<typeof importMenuModules> | undefined;
+
+function importMenuModules() {
+  return Promise.all([
+    import("../tui/components/order-settings/index.ts"),
+    import("../tui/components/settings-menu/index.ts"),
+    import("../tui/responsive-custom-ui/index.ts")
+  ]);
+}
 
 /** Call during the extension factory. All participants on Pi's event bus share one owner. */
 export function registerWorkingMessage(
@@ -132,12 +138,19 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
 
       let stopUpdates = () => {};
 
+      // Read the host context before the menu loads; it can end or change during the import.
+      const ui = ctx.ui;
+      const signal = ctx.signal ? AbortSignal.any([ctx.signal, lifetime.signal]) : lifetime.signal;
+
       menuOpen = true;
 
       try {
+        const [{ OrderSettingsView }, { settingsSaveFeedback }, { openResponsiveCustomUI }] =
+          await (menuModules ??= importMenuModules());
+        if (signal.aborted || settings !== store) return;
         await openResponsiveCustomUI({
-          ui: ctx.ui,
-          signal: ctx.signal ? AbortSignal.any([ctx.signal, lifetime.signal]) : lifetime.signal,
+          ui,
+          signal,
           useOverlay: () => false,
           create: (tui, theme, _keys, close) => {
             const view = new OrderSettingsView({

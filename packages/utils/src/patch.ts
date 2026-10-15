@@ -1,4 +1,3 @@
-import { DiffLineType, DiffParser, type DiffHunk } from "@git-diff-view/core";
 import { z } from "zod";
 
 const byteLimitSchema = z.int().nonnegative();
@@ -28,23 +27,80 @@ export type ParsedPatch = {
   removed: number;
 };
 
-function validHunk(hunk: DiffHunk): boolean {
-  const { oldStartLine, oldLineCount, newStartLine, newLineCount } = hunk.header;
+type Hunk = PatchHunk & {
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
+};
 
+/** GNU diff omits a range's count when it is one. Text after the second `@@` is a heading. */
+const hunkHeader = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
+
+/** Index after the first `+++` line. An empty line before it means the patch has no hunks. */
+function headerEnd(lines: readonly string[]): number | undefined {
+  for (const [index, line] of lines.entries()) {
+    if (!line || (line.startsWith("Binary files ") && line.endsWith("differ"))) return undefined;
+    if (line.startsWith("+++")) return index + 1;
+  }
+
+  return undefined;
+}
+
+/** Split hunks without checking their counts. Any other line between hunks is invalid. */
+function readHunks(lines: readonly string[], start: number): Hunk[] | undefined {
+  const hunks: Hunk[] = [];
+  let index = start;
+
+  while (index < lines.length) {
+    const match = hunkHeader.exec(lines[index] ?? "");
+    if (!match) return undefined;
+    const hunk: Hunk = {
+      oldStart: Number(match[1]),
+      oldCount: Number(match[2] ?? 1),
+      newStart: Number(match[3]),
+      newCount: Number(match[4] ?? 1),
+      lines: []
+    };
+    let oldLine = hunk.oldStart,
+      newLine = hunk.newStart;
+
+    for (index++; index < lines.length; index++) {
+      const line = lines[index] ?? "";
+      const text = line.slice(1);
+
+      if (line.startsWith("\\")) {
+        // A missing-newline marker must follow a source line, not the hunk header.
+        const previous = hunk.lines.at(-1);
+        if (!previous) return undefined;
+        previous.noNewline = true;
+      } else if (line.startsWith("+")) hunk.lines.push({ kind: "added", text, newLine: newLine++ });
+      else if (line.startsWith("-")) hunk.lines.push({ kind: "removed", text, oldLine: oldLine++ });
+      // An empty line is a context line whose leading space was stripped.
+      else if (line === "" || line.startsWith(" "))
+        hunk.lines.push({ kind: "context", text, oldLine: oldLine++, newLine: newLine++ });
+      else break;
+    }
+
+    if (!hunk.lines.length) return undefined;
+    hunks.push(hunk);
+  }
+
+  return hunks;
+}
+
+function validHunk({ oldStart, oldCount, newStart, newCount, lines }: Hunk): boolean {
   for (const [start, count] of [
-    [oldStartLine, oldLineCount],
-    [newStartLine, newLineCount]
+    [oldStart, oldCount],
+    [newStart, newCount]
   ] as const) {
     if (!hunkRangeSchema.safeParse({ start, count, end: start + count }).success) return false;
   }
 
-  const content = hunk.lines.slice(1);
-
   return (
-    !hunk.lines[0]?.noTrailingNewLine &&
-    content.some((line) => line.type === DiffLineType.Add || line.type === DiffLineType.Delete) &&
-    content.filter((line) => line.type !== DiffLineType.Add).length === oldLineCount &&
-    content.filter((line) => line.type !== DiffLineType.Delete).length === newLineCount
+    lines.some((line) => line.kind !== "context") &&
+    lines.filter((line) => line.kind !== "added").length === oldCount &&
+    lines.filter((line) => line.kind !== "removed").length === newCount
   );
 }
 
@@ -55,15 +111,15 @@ function hunkRange(start: number, count: number): { start: number; end: number }
   return { start: first, end: first + count };
 }
 
-function validHunks(hunks: readonly DiffHunk[]): boolean {
+function validHunks(hunks: readonly Hunk[]): boolean {
   let oldEnd = 0,
     newEnd = 0;
 
   for (const hunk of hunks) {
-    // Upstream deliberately tolerates mismatched counts; callers must not trust them.
+    // Header counts are untrusted until they match the hunk's lines.
     if (!validHunk(hunk)) return false;
-    const oldRange = hunkRange(hunk.header.oldStartLine, hunk.header.oldLineCount);
-    const newRange = hunkRange(hunk.header.newStartLine, hunk.header.newLineCount);
+    const oldRange = hunkRange(hunk.oldStart, hunk.oldCount);
+    const newRange = hunkRange(hunk.newStart, hunk.newCount);
     if (oldRange.start < oldEnd || newRange.start < newEnd) return false;
     oldEnd = oldRange.end;
     newEnd = newRange.end;
@@ -82,51 +138,22 @@ export function parsePatch(patch: string, maxBytes: number): ParsedPatch | undef
     throw new RangeError("Patch byte limit must be a nonnegative safe integer.");
   if (Buffer.byteLength(patch) > maxBytes) return undefined;
   const normalized = patch.replaceAll("\r\n", "\n").replace(/\n+$/, "");
-  if (
-    normalized
-      .split("\n")
-      .some((line) => line.startsWith("\\") && line !== "\\ No newline at end of file")
-  )
+  const lines = normalized.split("\n");
+  if (lines.some((line) => line.startsWith("\\") && line !== "\\ No newline at end of file"))
     return undefined;
-  // Synthetic names satisfy the parser only; they never identify real files.
-  const source = (normalized.startsWith("@@ ") ? "--- a\n+++ b\n" : "") + normalized + "\n";
+  if (/^--- [^\n]*\n\+\+\+ [^\n]*$/.test(normalized)) return { hunks: [], added: 0, removed: 0 };
+  const start = normalized.startsWith("@@ ") ? 0 : headerEnd(lines);
+  const hunks = start === undefined ? undefined : readHunks(lines, start);
+  if (hunks === undefined || hunks.length === 0 || !validHunks(hunks)) return undefined;
+  let added = 0,
+    removed = 0;
 
-  try {
-    // DiffFile allocates placeholders up to the largest line number. Use only the parser.
-    const parsed = new DiffParser().parse(source);
-    if (
-      parsed.isBinary ||
-      !validHunks(parsed.hunks) ||
-      (!parsed.hunks.length && !/^--- [^\n]*\n\+\+\+ [^\n]*$/.test(normalized))
-    )
-      return undefined;
-    const hunks: PatchHunk[] = [];
-    let added = 0,
-      removed = 0;
-
-    for (const hunk of parsed.hunks) {
-      const lines: PatchLine[] = [];
-
-      for (const line of hunk.lines.slice(1)) {
-        let kind: PatchLine["kind"] = "context";
-        if (line.type === DiffLineType.Add) kind = "added";
-        else if (line.type === DiffLineType.Delete) kind = "removed";
-        if (kind === "added") added++;
-        if (kind === "removed") removed++;
-        lines.push({
-          kind,
-          text: line.text.replace(/\n$/, ""),
-          ...(line.oldLineNumber !== null ? { oldLine: line.oldLineNumber } : {}),
-          ...(line.newLineNumber !== null ? { newLine: line.newLineNumber } : {}),
-          ...(line.noTrailingNewLine ? { noNewline: true } : {})
-        });
-      }
-
-      hunks.push({ lines });
+  for (const { lines } of hunks) {
+    for (const { kind } of lines) {
+      if (kind === "added") added++;
+      if (kind === "removed") removed++;
     }
-
-    return { hunks, added, removed };
-  } catch {
-    return undefined;
   }
+
+  return { hunks: hunks.map(({ lines }) => ({ lines })), added, removed };
 }

@@ -25,12 +25,10 @@ export class DisplayHistory {
   /** Validated only when a retained call asks, so compacted-away patches are never parsed. */
   private records = new Map<string, unknown>();
   private parsed = new Map<string, CallRecord | undefined>();
-  private indexedLeaf: string | null;
+  /** Undefined until first use: the TUI replaces the session-start display before it reads history. */
+  private indexedLeaf: string | null | undefined;
 
-  constructor(private source: HistorySource) {
-    for (const entry of source.getBranch()) this.index(entry);
-    this.indexedLeaf = source.getLeafId();
-  }
+  constructor(private source: HistorySource) {}
 
   private index(entry: SessionEntry): void {
     if (entry.type === "custom" && entry.customType === WRITER_TYPE) {
@@ -76,6 +74,14 @@ export class DisplayHistory {
 
   private sync(): void {
     const manager = this.source;
+
+    if (this.indexedLeaf === undefined) {
+      for (const entry of manager.getBranch()) this.index(entry);
+      this.indexedLeaf = manager.getLeafId();
+
+      return;
+    }
+
     const leaf = manager.getLeafId();
     if (leaf === this.indexedLeaf) return;
     const added: SessionEntry[] = [];

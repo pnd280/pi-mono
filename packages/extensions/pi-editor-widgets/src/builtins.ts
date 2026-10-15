@@ -42,12 +42,16 @@ function tokens(session: AgentSession, display: UsageDisplay): string {
   }
 
   let hit: number | undefined;
+  const entries = session.sessionManager.getEntries();
 
-  for (const entry of session.sessionManager.getEntries()) {
-    if (entry.type !== "message" || entry.message.role !== "assistant") continue;
+  // Renders run per frame: scan back to the latest assistant message only.
+  for (let index = entries.length - 1; index >= 0; index--) {
+    const entry = entries[index];
+    if (entry?.type !== "message" || entry.message.role !== "assistant") continue;
     const latest = entry.message.usage;
     const prompt = latest.input + latest.cacheRead + latest.cacheWrite;
     hit = prompt > 0 ? (latest.cacheRead / prompt) * 100 : undefined;
+    break;
   }
 
   if ((usage.cacheRead || usage.cacheWrite) && hit !== undefined)

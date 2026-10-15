@@ -60,11 +60,18 @@ function harness({ hasUI = false }: { hasUI?: boolean } = {}) {
         }
       ];
     },
-    async call(name: string, input: Record<string, unknown>, signal?: AbortSignal) {
+    async call(
+      name: string,
+      input: Record<string, unknown>,
+      // Pi's `ctx.signal` is a getter that follows the active run.
+      signal?: AbortSignal | (() => AbortSignal | undefined)
+    ) {
       const original = structuredClone(input);
       const context = {
         cwd: directory.root,
-        signal,
+        get signal() {
+          return typeof signal === "function" ? signal() : signal;
+        },
         hasUI,
         ui: { notify }
       } satisfies Pick<ExtensionContext, "cwd" | "signal" | "hasUI"> & {
@@ -202,6 +209,22 @@ describe("public interception adapter", () => {
       { path: "node_modules/", pattern: "marker" },
       controller.signal
     );
+    expect(result?.block).toBe(true);
+    expect(result?.reason).toMatch(/cancel/i);
+    expect(diagnostic).not.toHaveBeenCalled();
+    expect(host.notify).not.toHaveBeenCalled();
+  });
+
+  it("blocks a call whose run is cancelled and cleared while it is evaluated", async () => {
+    const host = harness();
+    host.register("ffgrep");
+    const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
+    const controller = new AbortController();
+    let signal: AbortSignal | undefined = controller.signal;
+    const pending = host.call("ffgrep", { path: "node_modules/", pattern: "marker" }, () => signal);
+    controller.abort();
+    signal = undefined;
+    const result = await pending;
     expect(result?.block).toBe(true);
     expect(result?.reason).toMatch(/cancel/i);
     expect(diagnostic).not.toHaveBeenCalled();

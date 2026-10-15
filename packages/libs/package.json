@@ -53,9 +53,9 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@git-diff-view/core": "catalog:",
     "@pi-mono/utils": "workspace:*",
     "diff": "catalog:",
+    "fast-diff": "catalog:",
     "proper-lockfile": "catalog:",
     "zod": "catalog:"
   },

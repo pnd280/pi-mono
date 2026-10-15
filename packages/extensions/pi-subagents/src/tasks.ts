@@ -11,7 +11,8 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 
 import { Capacity } from "./capacity.ts";
-import { ChildRun, type ChildResult, type ChildStart } from "./child.ts";
+import type * as ChildModule from "./child.ts";
+import type { ChildResult, ChildRun, ChildStart } from "./child.ts";
 import type { SubagentsConfig } from "./config.ts";
 import {
   END_ENTRY,
@@ -47,6 +48,11 @@ import {
 } from "./result.ts";
 import { checkSession, descendantRecords } from "./sessions.ts";
 import type { ToolInput } from "./tool-schema.ts";
+
+// Process machinery loads at the first launch, not at startup. Concurrent launches share one
+// import, because Pi's loader can return a module that is still evaluating.
+let child: Promise<typeof ChildModule> | undefined;
+const loadChild = () => (child ??= import("./child.ts"));
 
 /** A direct task's process lifetime and the details of the call that started it. */
 type ManagedTask = {
@@ -353,12 +359,21 @@ export class Tasks {
 
     try {
       change();
+      const { ChildRun } = await loadChild();
       reservation = await this.relay.acquire(signal);
       if (signal?.aborted) throw new Error("Cancelled by turn abort");
       resumed = await this.resume(request.task_id);
       signal?.throwIfAborted();
       details = { ...details, state: "running", started_at: Date.now() };
-      task = this.start(request, selection, reservation, resumed, change, handlers.onUIRequest);
+      task = this.start(
+        ChildRun,
+        request,
+        selection,
+        reservation,
+        resumed,
+        change,
+        handlers.onUIRequest
+      );
       details = task.details;
       change();
       signal?.addEventListener("abort", abort, { once: true });
@@ -540,6 +555,7 @@ export class Tasks {
   }
 
   private start(
+    Run: typeof ChildRun,
     request: SubmitRequest,
     { launch, model, thinking }: Selection,
     reservation: Reservation,
@@ -615,7 +631,7 @@ export class Tasks {
       this.changed(taskId);
     };
 
-    const run = new ChildRun({
+    const run = new Run({
       invocation: this.options.invocation,
       cwd: launch.cwd,
       depth,

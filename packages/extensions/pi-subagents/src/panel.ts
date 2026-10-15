@@ -1,4 +1,4 @@
-import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
   isKeyRelease,
   Loader,
@@ -12,7 +12,6 @@ import {
 } from "@earendil-works/pi-tui";
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
-import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
@@ -45,12 +44,6 @@ const keys = [
   "ctrl+b",
   "ctrl+d"
 ] as const;
-const transcriptOverlay = {
-  anchor: "center",
-  width: "100%",
-  maxHeight: "100%"
-} as const;
-
 const BACKGROUND_BADGE = "background";
 
 /** A Loader whose animated frame is drawn inline, without its own row. */
@@ -400,7 +393,7 @@ class TranscriptView implements Component {
   }
 }
 
-class TaskPanel implements Component {
+export class TaskPanel implements Component {
   private view = 0;
   /** The selected task or job of each view, restored when the view returns. */
   private selections = new Map<number, string>();
@@ -698,65 +691,5 @@ class TaskPanel implements Component {
     clearInterval(this.timer);
     this.unsubscribe();
     this.unsubscribeJobs();
-  }
-}
-
-export class Panels {
-  private controller = new AbortController();
-  private panel: TaskPanel | undefined;
-  private opened: Promise<void> | undefined;
-
-  constructor(
-    private tasks: Tasks,
-    private jobs: Jobs,
-    private reader: RunReader,
-    private ctx: ExtensionContext
-  ) {}
-
-  open(taskId?: string): Promise<void> {
-    if (taskId) this.tasks.owned(taskId);
-
-    return this.show(taskId ? (panel) => panel.open(taskId) : undefined);
-  }
-
-  /** Opens the panel at a job's log. */
-  openJob(jobId: string): Promise<void> {
-    this.jobs.owned(jobId);
-
-    return this.show((panel) => panel.openJob(jobId));
-  }
-
-  private show(select?: (panel: TaskPanel) => void): Promise<void> {
-    if (this.controller.signal.aborted || this.ctx.mode !== "tui") return Promise.resolve();
-
-    if (this.opened) {
-      if (this.panel) select?.(this.panel);
-
-      return this.opened;
-    }
-
-    this.opened = openResponsiveCustomUI({
-      ui: this.ctx.ui,
-      signal: this.controller.signal,
-      useOverlay: (tui) => tui.mode === "fullscreen" && !!this.panel?.viewingTranscript,
-      overlayOptions: transcriptOverlay,
-      onInputRoutingUnavailable: () =>
-        this.ctx.ui.notify("Subagent panel key routing unavailable", "warning"),
-      create: (tui, theme, _keys, close) => {
-        this.panel = new TaskPanel(this.tasks, this.jobs, this.reader, tui, theme, close);
-        select?.(this.panel);
-
-        return this.panel;
-      }
-    }).finally(() => {
-      this.opened = undefined;
-      this.panel = undefined;
-    });
-
-    return this.opened;
-  }
-
-  dispose(): void {
-    this.controller.abort();
   }
 }

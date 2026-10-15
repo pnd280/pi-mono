@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { createAbortTool } from "./abort-tool.ts";
 import { begin, currentRun, send } from "./begin.ts";
-import { runCommand } from "./commands.ts";
+import type * as CommandsModule from "./commands.ts";
 import { remindTasks } from "./compaction.ts";
 import { loadConfig } from "./config.ts";
 import { OPEN_EVENT } from "./constants.ts";
@@ -23,13 +23,17 @@ import { getPiInvocation } from "./invocation.ts";
 import { createJobAbortTool, createJobRenderers, createJobTool } from "./job-tool.ts";
 import { Jobs, shellOptions } from "./jobs.ts";
 import { installLateUsagePatch } from "./late-usage.ts";
-import { Panels } from "./panel.ts";
+import { Panels } from "./panels.ts";
 import { controlSchema, decode, slotReplySchema, type ChildMessage } from "./protocol.ts";
 import { RunReader } from "./reader.ts";
 import { createRenderers } from "./render.ts";
 import { Tasks } from "./tasks.ts";
 import { createSubagentTool } from "./tool.ts";
 import { taskWidget } from "./widget.ts";
+
+// Commands load at first use. Concurrent calls share one import.
+let commands: Promise<typeof CommandsModule> | undefined;
+const loadCommands = () => (commands ??= import("./commands.ts"));
 
 const delegated: Counter = {
   id: "pi-subagents.delegated",
@@ -148,10 +152,14 @@ export default function subagents(pi: ExtensionAPI): void {
 
       const current = tasks;
       const currentJobs = jobs;
+      const currentReader = reader;
+      const { runCommand } = await loadCommands();
 
       return runCommand(
         args,
-        current && currentJobs && reader && { tasks: current, jobs: currentJobs, reader },
+        current &&
+          currentJobs &&
+          currentReader && { tasks: current, jobs: currentJobs, reader: currentReader },
         {
           notify: (message, type) => {
             if (current?.activeBinding && tasks === current) ctx.ui.notify(message, type);

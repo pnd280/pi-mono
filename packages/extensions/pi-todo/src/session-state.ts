@@ -122,6 +122,16 @@ export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefin
 
 function parseTodoStateSnapshotEntry<Entry>(entry: Entry): TodoState | undefined {
   try {
+    // Replay scans the whole branch; skip other entries before the costlier schema parse.
+    const message =
+      typeof entry === "object" && entry !== null && "message" in entry ? entry.message : undefined;
+    if (
+      typeof message !== "object" ||
+      message === null ||
+      !("toolName" in message) ||
+      message.toolName !== "todo"
+    )
+      return undefined;
     const parsed = todoSnapshotEntrySchema.safeParse(entry);
     if (!parsed.success) return undefined;
 

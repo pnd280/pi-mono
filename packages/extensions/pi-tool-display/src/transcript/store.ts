@@ -3,15 +3,14 @@ import { constants, writeSync } from "node:fs";
 import { lstat, open, realpath, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 
-import {
-  boundedRead,
-  checkHandle,
-  privateScopedDirectory,
-  ReadLimitError
-} from "@pi-mono/libs/private-files";
+import type * as PrivateFiles from "@pi-mono/libs/private-files";
 import { z } from "zod";
 
 import { idSchema } from "./metadata.ts";
+
+// Load private-file helpers at the first local write or saved-detail read.
+let privateFiles: Promise<typeof PrivateFiles> | undefined;
+const loadPrivateFiles = () => (privateFiles ??= import("@pi-mono/libs/private-files"));
 
 export const LOCAL_READ_BYTES = 8 * 1024 * 1024;
 
@@ -122,7 +121,9 @@ export class LocalStore {
 
   constructor(private options: LocalStoreOptions) {}
 
-  private directory(): Promise<string> {
+  private async directory(): Promise<string> {
+    const { privateScopedDirectory } = await loadPrivateFiles();
+
     return privateScopedDirectory({
       root: this.options.root,
       namespace: "pi-tool-display",
@@ -162,6 +163,7 @@ export class LocalStore {
   }
 
   private async create(): Promise<void> {
+    const { checkHandle } = await loadPrivateFiles();
     const path = this.path(await this.directory(), this.writer);
     const handle = await open(
       path,
@@ -260,6 +262,8 @@ export class LocalStore {
   }
 
   private async load(writer: string): Promise<LocalRead> {
+    const { boundedRead, ReadLimitError } = await loadPrivateFiles();
+
     try {
       const directory = await this.existingDirectory();
       const bytes =

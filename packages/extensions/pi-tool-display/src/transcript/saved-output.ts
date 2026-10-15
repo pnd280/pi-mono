@@ -1,11 +1,16 @@
 import { AsyncCache } from "@pi-mono/libs/async-cache";
 
 import type { BorrowedToolResult, DisplayCall, SavedOutput } from "../contracts.ts";
-import { readSavedOutput } from "../observation/saved-output.ts";
+import type * as SavedOutputReader from "../observation/saved-output.ts";
 import { record } from "../values.ts";
 import type { TranscriptCoordinator } from "./coordinator.ts";
 
 const CACHE_ENTRIES = 8;
+
+// Only expanding a completed call reads saved output, so load the reader then.
+let reader: Promise<typeof SavedOutputReader> | undefined;
+const loadReader = () => (reader ??= import("../observation/saved-output.ts"));
+const readSavedOutput = async (path: string) => (await loadReader()).readSavedOutput(path);
 
 /**
  * The saved output of transcript calls. A complete, expanded call with a saved

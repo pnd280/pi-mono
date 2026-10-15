@@ -14,8 +14,14 @@ import {
 } from "@pi-mono/utils/search-scopes";
 import { z } from "zod";
 
-import { bashHints, type PathHint } from "./bash.ts";
+import type * as BashModule from "./bash.ts";
+import type { PathHint } from "./bash.ts";
 import { instructionNames } from "./storage.ts";
+
+// The shell parser loads on the first Bash call instead of at startup.
+// Parallel calls share one import: under jiti a concurrent import can return a partly evaluated module.
+let bashModule: Promise<typeof BashModule> | undefined;
+const loadBash = () => (bashModule ??= import("./bash.ts"));
 
 export interface Invocation {
   toolCallId: string;
@@ -96,7 +102,7 @@ function nativePath(value: string | null | undefined): string | undefined {
   return normalized.startsWith("file://") ? fileURLToPath(normalized) : normalized;
 }
 
-function nativeHints(name: string, input: Input, cwd: string): PathHint[] {
+async function nativeHints(name: string, input: Input, cwd: string): Promise<PathHint[]> {
   const output: PathHint[] = [];
   const searchPath = nativePath(input.path);
   const base = resolveInput(searchPath ?? ".", cwd);
@@ -131,8 +137,12 @@ function nativeHints(name: string, input: Input, cwd: string): PathHint[] {
         add(input.glob, "auto", true, true, base);
       break;
 
-    case "bash":
+    case "bash": {
+      const { bashHints } = await loadBash();
+
       return bashHints(input.command ?? "", cwd, homedir());
+    }
+
     default:
       break;
   }

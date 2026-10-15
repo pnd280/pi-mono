@@ -21,7 +21,6 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@git-diff-view/core": "catalog:",
     "zod": "catalog:"
   }
 }

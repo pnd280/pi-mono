@@ -9,14 +9,25 @@ import {
   statSync,
   writeFileSync
 } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname } from "node:path";
 
-import { lockSync } from "proper-lockfile";
+import type * as ProperLockfile from "proper-lockfile";
 import { z } from "zod";
 
 import { MAX_SETTINGS_FILE_BYTES, readSettingsFile } from "./read.ts";
 
 const recordSchema = z.record(z.string(), z.unknown());
+
+let lockfile: typeof ProperLockfile | undefined;
+
+// Every settings reader evaluates this module at startup; only writes need the lock library,
+// which also installs process exit handlers when loaded. Updates are synchronous, so require it.
+function loadLockfile(): typeof ProperLockfile {
+  const load: (id: string) => typeof ProperLockfile = createRequire(import.meta.url);
+
+  return (lockfile ??= load("proper-lockfile"));
+}
 
 /** Validate without replacing the record: schema output can omit reserved own keys. */
 export function isSettingsRecord(value: unknown): value is Record<string, unknown> {
@@ -68,7 +79,7 @@ export function updateSettingsRecord(
 
   try {
     mkdirSync(dirname(path), { recursive: true });
-    release = lockSync(path, { realpath: false });
+    release = loadLockfile().lockSync(path, { realpath: false });
     const target = writeTarget(path);
     const record = readSettingsRecord(path);
     // A void callback type also accepts async functions. Never commit a

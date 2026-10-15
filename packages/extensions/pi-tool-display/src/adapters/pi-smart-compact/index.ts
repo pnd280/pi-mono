@@ -35,7 +35,10 @@ const usageSchema = z.object({
   contextWindow: z.number().positive(),
   percent: z.number().nonnegative().nullable()
 });
-const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+// The first NumberFormat loads locale data (~2 ms), so build it at the first summary, not at startup.
+let numberFormat: Intl.NumberFormat | undefined;
+const formatNumber = (value: number) =>
+  (numberFormat ??= new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 })).format(value);
 
 export const smartCompactDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-smart-compact:compact",
@@ -96,12 +99,12 @@ export const contextWindowDisplayAdapter: ToolDisplayAdapter = {
     if (outcome !== "success" || !contextArgsSchema.safeParse(args).success) return undefined;
     const usage = usageSchema.safeParse(result.details).data;
     if (!usage) return undefined;
-    const capacity = numberFormat.format(usage.contextWindow);
+    const capacity = formatNumber(usage.contextWindow);
     const tokens =
       usage.tokens === null
         ? `Usage unknown · ${capacity}-token window`
-        : `${numberFormat.format(usage.tokens)} / ${capacity} tokens`;
-    const percent = usage.percent === null ? "" : ` · ${numberFormat.format(usage.percent)}% used`;
+        : `${formatNumber(usage.tokens)} / ${capacity} tokens`;
+    const percent = usage.percent === null ? "" : ` · ${formatNumber(usage.percent)}% used`;
 
     return { text: tokens + percent };
   }

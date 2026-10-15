@@ -6,8 +6,8 @@ import {
   visibleWidth,
   type Color
 } from "@earendil-works/pi-tui";
-import { DiffLine, DiffLineType, diffChanges, type DiffRange } from "@git-diff-view/core";
 import type { ParsedPatch, PatchLine } from "@pi-mono/utils/patch";
+import fastDiff from "fast-diff";
 import { z } from "zod";
 
 import { displayText } from "../../terminal-text/index.ts";
@@ -22,6 +22,9 @@ const CHANGE_TINT = 0.2;
 
 // oxlint-disable-next-line no-control-regex -- Split styled text at full and background resets.
 const RESET = /(\x1b\[0?m|\x1b\[49m)/;
+
+/** Changed characters on one side of a line pair, as inclusive UTF-16 offsets. */
+type ChangedSpans = readonly { startIndex: number; endIndex: number }[];
 
 interface PatchRow {
   old?: PatchLine | undefined;
@@ -104,8 +107,41 @@ function pairPatchLines(lines: readonly PatchLine[]): PatchRow[] {
   return rows;
 }
 
-function changeRanges(rows: readonly PatchRow[]): Map<PatchLine, DiffRange> {
-  const ranges = new Map<PatchLine, DiffRange>();
+/**
+ * Character changes between a removed and an added line. A trailing newline on only one side
+ * is not compared, and a blank side gets no spans. Cursor 0 reports a pure edit at the line
+ * start as one span; cleanup merges fragments into readable spans.
+ */
+function lineChanges(
+  before: string,
+  after: string
+): { removed: ChangedSpans; added: ChangedSpans } {
+  const unequalEnds = before.endsWith("\n") !== after.endsWith("\n");
+  const removedText = unequalEnds && before.endsWith("\n") ? before.slice(0, -1) : before;
+  const addedText = unequalEnds && after.endsWith("\n") ? after.slice(0, -1) : after;
+  const removed: { startIndex: number; endIndex: number }[] = [];
+  const added: { startIndex: number; endIndex: number }[] = [];
+  if (!removedText.trim() || !addedText.trim()) return { removed, added };
+  let removedAt = 0,
+    addedAt = 0;
+
+  // fast-diff recurses without end on lone surrogates. One replacement unit keeps the offsets.
+  const wellFormed = (text: string) => text.replace(/\p{Surrogate}/gu, "\uFFFD");
+
+  for (const [kind, text] of fastDiff(wellFormed(removedText), wellFormed(addedText), 0, true)) {
+    if (kind === fastDiff.DELETE)
+      removed.push({ startIndex: removedAt, endIndex: removedAt + text.length - 1 });
+    if (kind === fastDiff.INSERT)
+      added.push({ startIndex: addedAt, endIndex: addedAt + text.length - 1 });
+    if (kind !== fastDiff.INSERT) removedAt += text.length;
+    if (kind !== fastDiff.DELETE) addedAt += text.length;
+  }
+
+  return { removed, added };
+}
+
+function changeRanges(rows: readonly PatchRow[]): Map<PatchLine, ChangedSpans> {
+  const ranges = new Map<PatchLine, ChangedSpans>();
   let remaining = INLINE_DIFF_WORK_LIMIT;
 
   for (const row of rows) {
@@ -121,12 +157,9 @@ function changeRanges(rows: readonly PatchRow[]): Map<PatchLine, DiffRange> {
     )
       continue;
     remaining -= work;
-    const { addRange, delRange } = diffChanges(
-      new DiffLine(after, DiffLineType.Add, null, null, null),
-      new DiffLine(before, DiffLineType.Delete, null, null, null)
-    );
-    ranges.set(row.old, delRange);
-    ranges.set(row.new, addRange);
+    const { removed, added } = lineChanges(before, after);
+    ranges.set(row.old, removed);
+    ranges.set(row.new, added);
   }
 
   return ranges;
@@ -137,10 +170,9 @@ const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 function emphasizeChanges(
   source: string,
   styled: string,
-  changes: DiffRange | undefined,
+  changed: ChangedSpans = [],
   emphasize: (text: string) => string
 ): string {
-  const changed = changes?.range.filter((range) => range.type !== 0) ?? [];
   if (!changed.length) return styled;
   let column = 0,
     start = 0,
@@ -205,9 +237,12 @@ function changeBackground(line: PatchLine, palette: Palette): Color | undefined 
 
 /** Clip and pad to exactly `width` columns, ending styles before the padding. */
 function padRow(row: string, width: number): string {
-  const clipped = truncateToWidth(row, width, "");
+  // visibleWidth has an ASCII fast path and a cache; truncation segments every row.
+  const rowWidth = visibleWidth(row);
+  const clipped = rowWidth <= width ? row : truncateToWidth(row, width, "");
+  const clippedWidth = clipped === row ? rowWidth : visibleWidth(clipped);
 
-  return clipped + "\x1b[0m" + " ".repeat(Math.max(0, width - visibleWidth(clipped)));
+  return clipped + "\x1b[0m" + " ".repeat(Math.max(0, width - clippedWidth));
 }
 
 /** Apply a background to styled text. Each span between inline resets is styled separately. */
@@ -357,7 +392,7 @@ export function renderDiffPanel(parsed: ParsedPatch, options: DiffViewOptions): 
     lines.reduce((maximum, line) => Math.max(maximum, line.oldLine ?? 0, line.newLine ?? 0), 1)
   ).length;
   const hunks = parsed.hunks.map((hunk) => pairPatchLines(hunk.lines));
-  let ranges = new Map<PatchLine, DiffRange>();
+  let ranges = new Map<PatchLine, ChangedSpans>();
   const leftWidth = Math.floor((available - 3) / 2),
     rightWidth = available - 3 - leftWidth;
   const split = parsed.added > 0 && parsed.removed > 0 && leftWidth - digits - 2 >= 40;

@@ -1,7 +1,5 @@
 import type { ExtensionCommandContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteProvider } from "@earendil-works/pi-tui";
-import { browserLayout } from "@pi-mono/libs/tui/components/browser";
-import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
 
 import {
   ERR_COLLAPSE_REQUIRES_FULLSCREEN,
@@ -11,7 +9,17 @@ import {
 import type { TodoController } from "./controller.ts";
 import { formatTodosCommandOutput } from "./format.ts";
 import type { TodoWidget } from "./todo-widget.ts";
-import { TodosView } from "./todos-view.ts";
+
+// The browser view and its shared TUI components load on first use, not at startup.
+// Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
+const importBrowserModules = () =>
+  Promise.all([
+    import("@pi-mono/libs/tui/components/browser"),
+    import("@pi-mono/libs/tui/responsive-custom-ui"),
+    import("./todos-view.ts")
+  ]);
+let browserModules: ReturnType<typeof importBrowserModules> | undefined;
+const loadBrowserModules = () => (browserModules ??= importBrowserModules());
 
 const actions = ["collapse", "expand", "toggle"] as const;
 
@@ -70,18 +78,22 @@ export class TodosCustomViewHost {
     },
     controller: Pick<TodoController, "getTodos">
   ): Promise<void> {
+    // Read the host context before the view loads; the invocation can end during the import.
     const signal = ctx.signal
       ? AbortSignal.any([ctx.signal, this.session.signal])
       : this.session.signal;
+    const ui = ctx.ui;
+    const [{ browserLayout }, { openResponsiveCustomUI }, { TodosView }] =
+      await loadBrowserModules();
     if (signal.aborted) return;
     const suppression = this.widget.suppress();
 
     try {
       await openResponsiveCustomUI({
-        ui: ctx.ui,
+        ui,
         signal,
         onInputRoutingUnavailable: () =>
-          ctx.ui.notify(
+          ui.notify(
             "Todo fullscreen paging is unavailable on this host. Use arrow keys to navigate.",
             "warning"
           ),

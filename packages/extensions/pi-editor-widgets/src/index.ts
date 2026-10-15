@@ -1,10 +1,15 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
 
 import { WidgetCoordinator } from "./coordinator.ts";
 import { findWidgetHost } from "./host.ts";
-import { WidgetMenu } from "./menu.ts";
 import { WidgetSettings, type Preferences } from "./settings.ts";
+
+// The menu loads on first use to keep it out of startup. Sessions share one import: under jiti
+// a concurrent import can return a partly evaluated module.
+const importMenu = () =>
+  Promise.all([import("@pi-mono/libs/tui/responsive-custom-ui"), import("./menu.ts")]);
+let menu: ReturnType<typeof importMenu> | undefined;
+const loadMenu = () => (menu ??= importMenu());
 
 export default function editorWidgets(pi: ExtensionAPI): void {
   let binding: ReturnType<typeof findWidgetHost>;
@@ -79,18 +84,25 @@ export default function editorWidgets(pi: ExtensionAPI): void {
       const settings = settingsFor(ctx);
       const preferences = settings.load();
 
+      // Read the host context before the menu loads; a new session can start during the import.
+      const ui = ctx.ui;
+      const signal = ctx.signal ? AbortSignal.any([ctx.signal, lifetime.signal]) : lifetime.signal;
+      const theme = binding?.theme ?? (() => ui.theme);
+
       try {
         current.apply(preferences.project ?? preferences.global);
+        const [{ openResponsiveCustomUI }, { WidgetMenu }] = await loadMenu();
+        if (signal.aborted || coordinator !== current) return;
         await openResponsiveCustomUI({
-          ui: ctx.ui,
-          signal: ctx.signal ? AbortSignal.any([ctx.signal, lifetime.signal]) : lifetime.signal,
+          ui,
+          signal,
           useOverlay: () => false,
           create: (tui, _theme, _keys, close) =>
             new WidgetMenu({
               settings,
               preferences,
               coordinator: current,
-              theme: binding?.theme ?? (() => ctx.ui.theme),
+              theme,
               rows: () => tui.terminal.rows,
               requestRender: () => tui.requestRender(),
               close

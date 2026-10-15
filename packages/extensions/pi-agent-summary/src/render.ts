@@ -148,12 +148,14 @@ export function createSummaryRenderer() {
     const expansion =
       previous?.globalExpanded === expanded ? previous : { expanded, globalExpanded: expanded };
     states.set(entry, expansion);
+    // Each TUI frame renders every chat entry; theme changes clear the cache through invalidate().
+    let cache: { width: number; expanded: boolean; lines: string[] } | undefined;
 
     return new MouseRegion(
       {
-        // Rebuild styles on every render so theme changes do not retain old colors.
         render: (width) => {
           if (width < 1) return [];
+          if (cache?.width === width && cache.expanded === expansion.expanded) return cache.lines;
 
           const [heading, ...files] = summaryLines(parsed.data, expansion.expanded, theme);
           const marker = expansion.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
@@ -172,7 +174,7 @@ export function createSummaryRenderer() {
               return truncateToWidth(prefix + line, width, "");
             });
 
-          return [
+          const lines = [
             ...(parsed.data.milestones ?? []).flatMap((text) =>
               markedRows(
                 theme.fg("text", compactDisplayText(text)),
@@ -193,8 +195,13 @@ export function createSummaryRenderer() {
               { width, indent: 2, style }
             )
           ];
+          cache = { width, expanded: expansion.expanded, lines };
+
+          return lines;
         },
-        invalidate() {}
+        invalidate() {
+          cache = undefined;
+        }
       },
       (event) => {
         if (event.type !== "click" || event.button !== "left") return;
