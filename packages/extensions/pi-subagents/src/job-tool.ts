@@ -264,7 +264,11 @@ export function createJobTool(
       ctx: ExtensionToolContext
     ) {
       const parsed = jobInputSchema.safeParse(raw);
-      if (!parsed.success) throw new Error("Invalid job parameters");
+      // Pi's schema check does not see the timeout refinement; its message names the limit.
+      if (!parsed.success)
+        throw new Error(
+          `Invalid job parameters: ${parsed.error.issues.map((issue) => issue.message).join("; ")}`
+        );
       // The job owns its abort controller, so a turn abort does not stop it.
       const details = await jobs.start(parsed.data, ctx);
 

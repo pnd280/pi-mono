@@ -52,7 +52,13 @@ type LiveJob = {
   done: Promise<JobRecord>;
 };
 
-type Ended = { outcome: JobEndEntry["outcome"]; exit_code: number | null; error?: string };
+type Ended = {
+  outcome: JobEndEntry["outcome"];
+  exit_code: number | null;
+  error?: string;
+  /** Pi's text already states the error, so the result adds no `Error:` line. */
+  stated?: true;
+};
 
 /** Pi converts these Git Bash, MSYS, Cygwin, and WSL drive paths on Windows. */
 function windowsShellPath(path: string): string {
@@ -86,13 +92,10 @@ export function shellOptions(
 }
 
 /** Names the signal of a shell's `128 + signal` exit code; the command can also exit so itself. */
-function exitReason(code: number): string {
-  const signal =
-    code > 128
-      ? Object.entries(constants.signals).find(([, number]) => number === code - 128)?.[0]
-      : undefined;
-
-  return signal ? `exit code ${code} (${signal})` : `exit code ${code}`;
+function exitSignal(code: number): string | undefined {
+  return code > 128
+    ? Object.entries(constants.signals).find(([, number]) => number === code - 128)?.[0]
+    : undefined;
 }
 
 const exitSchema = z.object({ exit_code: z.number() });
@@ -100,6 +103,8 @@ const exitSchema = z.object({ exit_code: z.number() });
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 const TIMEOUT = /Command timed out after (\S+) seconds$/;
+
+const ABORTED = /Command aborted$/;
 
 /** A log write error fails the job, whatever the command did. */
 function writeFailure(live: Omit<LiveJob, "done">, exit_code: number | null): Ended | undefined {
@@ -111,22 +116,42 @@ function writeFailure(live: Omit<LiveJob, "done">, exit_code: number | null): En
 /** The outcome of a command that exited with `code`. */
 function exited(live: Omit<LiveJob, "done">, code: number): Ended {
   if (code === 0) return writeFailure(live, 0) ?? { outcome: "completed", exit_code: 0 };
+  const signal = exitSignal(code);
 
+  // Pi's text ends with "Command exited with code <code>"; only a signal name adds to it.
   return (
-    writeFailure(live, code) ?? { outcome: "failed", exit_code: code, error: exitReason(code) }
+    writeFailure(live, code) ??
+    (signal
+      ? { outcome: "failed", exit_code: code, error: `exit code ${code} (${signal})` }
+      : { outcome: "failed", exit_code: code, error: `exit code ${code}`, stated: true })
   );
 }
 
-/** Pi throws for an abort, a timeout, or a start failure; the text holds the partial output. */
+/** Pi throws for an abort, a timeout, or a start failure; the text holds the output and reason. */
 function thrown(live: Omit<LiveJob, "done">, text: string): Ended {
   const failure = writeFailure(live, null);
   if (failure) return failure;
+  // A timeout can stop the command just before the abort; then Pi's text names only the timeout.
   if (live.controller.signal.aborted)
-    return { outcome: "cancelled", exit_code: null, error: "Cancelled" };
+    return {
+      outcome: "cancelled",
+      exit_code: null,
+      error: "Cancelled",
+      ...(ABORTED.test(text) ? { stated: true as const } : {})
+    };
   const timeout = TIMEOUT.exec(text)?.[1];
-  if (timeout) return { outcome: "failed", exit_code: null, error: `timed out after ${timeout} s` };
+  if (timeout)
+    return {
+      outcome: "failed",
+      exit_code: null,
+      error: `timed out after ${timeout} s`,
+      stated: true
+    };
+  const line = firstLine(text);
 
-  return { outcome: "failed", exit_code: null, error: firstLine(text) || "Job failed" };
+  return line
+    ? { outcome: "failed", exit_code: null, error: line, stated: true }
+    : { outcome: "failed", exit_code: null, error: "Job failed" };
 }
 
 /**
@@ -170,7 +195,8 @@ export class Jobs {
   owned(jobId: string): JobRecord {
     if (this.closed) throw new Error("Job session ended");
     const record = this.records.get(jobId);
-    if (!record) throw new Error("Job does not belong to this session");
+    // The registry knows only the jobs on the selected ancestry.
+    if (!record) throw new Error("Unknown job");
 
     return record;
   }
@@ -356,7 +382,11 @@ export class Jobs {
       kind: "completed",
       details: this.details(done),
       // Pi gives details only to the UI; the model learns the reason from this text.
-      text: [text, done.error && `Error: ${done.error}`, `Log file: ${done.log_file}`]
+      text: [
+        text,
+        !ended.stated && done.error && `Error: ${done.error}`,
+        `Log file: ${done.log_file}`
+      ]
         .filter(Boolean)
         .join("\n\n"),
       dropped: live.drop && done.outcome === "cancelled"

@@ -230,7 +230,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
       );
       await host.prompt("job-abort-id 00000000-0000-0000-0000-000000000000");
       expect(contentText((await toolResults(host, "job_abort")).at(-1)?.content ?? "")).toContain(
-        "Job does not belong to this session"
+        "Unknown job"
       );
     });
   }, 30_000);

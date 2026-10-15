@@ -8,7 +8,7 @@ A model needs long commands, such as builds, test runs, servers, and watchers, t
 
 - `job` runs the command with Pi's public `createBashToolDefinition` and a wrapper of `createLocalBashOperations`. The wrapper also writes the output to the job's log file. The job owns its abort controller, so a turn abort does not stop it. `job_abort` aborts that controller, and Pi then stops the shell's process group.
 - Jobs do not hold the run. [ADR 0001](0001-hold-run-for-background-results.md) keeps a supervisor busy while its background tasks run. A job is not a task: `Delivery.hasBackground()` counts only background tasks, and the working message does not show jobs. A job result uses the same delivery queue as a task result. While the supervisor is busy, the result continues the run at `agent_before_settle`. While the supervisor is idle, the result starts a new turn.
-- The result body names the job's error, such as `exit code 143 (SIGTERM)` or a log write failure, before the log file path. Pi gives the result's details only to the interface. Without this line, the model sees a log write failure only as `failed` with exit code 0.
+- The result body names the job's error, such as `exit code 143 (SIGTERM)` or a log write failure, before the log file path. Pi gives the result's details only to the interface. Without this line, the model sees a log write failure only as `failed` with exit code 0. Pi's text already names a plain exit code, a timeout, an abort, or a start failure, so the body does not repeat these.
 - Jobs stop only when a session change is final: at `session_tree` with a changed leaf and at `session_shutdown`. The pre-events do not stop jobs, because a later extension can cancel them.
 
 ## Considered options
