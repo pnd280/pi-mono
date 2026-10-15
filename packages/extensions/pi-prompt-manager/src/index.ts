@@ -1,7 +1,7 @@
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { copyNative } from "@pi-mono/libs/native-clipboard";
 
 import type * as BrowserModule from "./browser.ts";
+import { copyNative } from "./clipboard.ts";
 import { completions } from "./commands.ts";
 import { PromptManager } from "./manager.ts";
 import { errorMessage, type Repository } from "./model.ts";

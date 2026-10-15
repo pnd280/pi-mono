@@ -2,6 +2,8 @@
 
 [Shared TUI](../../README.md#usage)
 
+This internal component has no package entry. The [browser](../browser/README.md) and [settings menu](../settings-menu/README.md) import it directly.
+
 ## Behaviour
 
 Long lists render faster when Pi only sees the visible window. [`renderWindowedList`](index.ts) uses Pi's `SelectList` to render a window centred on the selected item where possible.

@@ -1,4 +1,3 @@
-import { searchText } from "../../../text-search/index.ts";
 import { displayText } from "../../terminal-text/index.ts";
 import type { BrowserOptions } from "./types.ts";
 
@@ -34,7 +33,8 @@ export function browserOptions(values = items()): BrowserOptions<TestItem> {
       }
     })),
     key: (item) => item.id,
-    search: searchText,
+    search: async (visible, query) =>
+      visible.filter((item) => item.normalized.includes(query.trim().toLowerCase())),
     format: (visible) => ({
       items: visible.map((item) => ({ value: item.id, label: item.label }))
     }),

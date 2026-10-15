@@ -7,7 +7,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { z } from "zod";
 
-import { sliceTerminalText } from "../terminal-text/index.ts";
+import { compactDisplayText, sliceTerminalText } from "../terminal-text/index.ts";
 
 const characterLimitSchema = z.int().min(2);
 
@@ -60,9 +60,11 @@ export function compactRows(rows: readonly string[], options: RowBudgetOptions):
   ];
 }
 
-/** Bound normalized text before styling, preserving whole graphemes and SGR. */
-export function textPrefix(text: string, maximum: number): string {
-  return sliceTerminalText(text, 0, maximum).text;
+/** One display line from at most `maxCharacters` of `text`, with `…` when clipped. */
+export function displayLine(text: string, maxCharacters = 2048): string {
+  const retained = sliceTerminalText(text, 0, maxCharacters).text;
+
+  return compactDisplayText(retained) + (retained.length < text.length ? "…" : "");
 }
 
 export type TextBudgetOptions = {
@@ -85,7 +87,7 @@ export function compactText(text: string, options: TextBudgetOptions): string[] 
   if (maxRows === 1) return [omission];
   const head = Math.ceil((maxRows - 1) / 2),
     tail = Math.floor((maxRows - 1) / 2);
-  const prefix = textPrefix(text, Math.ceil(maxCharacters / 2));
+  const prefix = sliceTerminalText(text, 0, Math.ceil(maxCharacters / 2)).text;
   const suffix = tail
     ? sliceTerminalText(text, text.length - Math.floor(maxCharacters / 2), text.length, {
         preserveSgr: true

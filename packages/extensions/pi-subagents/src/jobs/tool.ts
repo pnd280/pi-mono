@@ -1,12 +1,19 @@
 import type { ExtensionToolContext, Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { MouseRegion, truncateToWidth, type Component } from "@earendil-works/pi-tui";
+import { truncateToWidth, type Component } from "@earendil-works/pi-tui";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
-import { displayText } from "@pi-mono/libs/tui/terminal-text";
-import { textPrefix, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
+import { displayLine, wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { parseJobEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
-import { clean, elapsed } from "../tasks/render.ts";
+import {
+  clickable,
+  elapsed,
+  field,
+  shortId,
+  type CardState,
+  type Result
+} from "../tasks/render.ts";
 import {
   jobAbortInputSchema,
   jobAbortParameters,
@@ -20,16 +27,12 @@ import {
 } from "./records.ts";
 import type { Jobs } from "./registry.ts";
 
-export type JobCardState = { jobId?: string | undefined; bindingId?: string | undefined };
-
 type Kind = "job" | "job_abort";
 
 // Untyped arguments: Pi also draws replayed calls before the tool registers.
-type Definition = ToolDefinition<ToolDefinition["parameters"], JobDetails, JobCardState>;
+type Definition = ToolDefinition<ToolDefinition["parameters"], JobDetails, CardState>;
 
 type Renderers = Required<Pick<Definition, "renderCall" | "renderResult">>;
-
-type Result = { content: ReadonlyArray<{ type: string; text?: string }>; details?: unknown };
 
 // Streamed and replayed arguments can be partial; unknown fields are ignored.
 const argsSchema = z.object({
@@ -40,7 +43,6 @@ const argsSchema = z.object({
 
 const LABEL_WIDTH = 9;
 const COMMAND_LINES = 10;
-const SHORT_ID = 8;
 
 /** Rows built at each render from prepared text; builders fit each row to the width. */
 class Rows implements Component {
@@ -72,16 +74,6 @@ class Wrapped {
   }
 }
 
-function field(theme: Theme, label: string, value: string, width: number): string[] {
-  const labelWidth = width >= LABEL_WIDTH + 2 ? LABEL_WIDTH : 0;
-  const rows = value ? wrapRows(value, width - labelWidth) : [""];
-  const pad = " ".repeat(labelWidth);
-
-  return labelWidth
-    ? rows.map((row, index) => `${index ? pad : theme.fg("dim", label.padEnd(labelWidth))}${row}`)
-    : [...wrapRows(theme.fg("dim", label), width), ...rows];
-}
-
 const fit = (rows: string[], width: number) => rows.map((row) => truncateToWidth(row, width, ""));
 
 /** The abort call succeeded; a job that ended first keeps its own outcome. */
@@ -104,10 +96,10 @@ function callRows(
   theme: Theme
 ): (width: number) => string[] {
   const parsed = argsSchema.safeParse(args).data ?? {};
-  const label = clean((kind === "job" ? parsed.description : parsed.job_id) ?? "") || "…";
+  const label = displayLine((kind === "job" ? parsed.description : parsed.job_id) ?? "") || "…";
   const lines =
     kind === "job" && parsed.command
-      ? displayText(textPrefix(parsed.command, 16 * 1024)).split("\n")
+      ? displayText(sliceTerminalText(parsed.command, 0, 16 * 1024).text).split("\n")
       : [];
   const shown = lines.slice(0, expanded ? COMMAND_LINES : 1);
   const rest = new Wrapped(shown.slice(1));
@@ -119,7 +111,7 @@ function callRows(
       width
     );
     if (shown[0] !== undefined)
-      rows.push(...field(theme, "command", theme.fg("toolOutput", shown[0]), width));
+      rows.push(...field(theme, "command", theme.fg("toolOutput", shown[0]), width, LABEL_WIDTH));
     rows.push(
       ...rest
         .rows(Math.max(1, width - LABEL_WIDTH))
@@ -145,7 +137,7 @@ function resultRows(
     .join("\n");
 
   if (!details) {
-    const reason = error ? clean(text.split("\n")[0] ?? "") : undefined;
+    const reason = error ? displayLine(text.split("\n")[0] ?? "") : undefined;
 
     return (width) =>
       reason === undefined
@@ -156,18 +148,19 @@ function resultRows(
                 theme,
                 "status",
                 theme.fg("error", `${TUI_GLYPHS.outcome.failure} failed`),
-                width
+                width,
+                LABEL_WIDTH
               ),
-              ...field(theme, "error", theme.fg("error", reason), width)
+              ...field(theme, "error", theme.fg("error", reason), width, LABEL_WIDTH)
             ],
             width
           );
   }
 
   const { text: label, color } = status(kind, details);
-  const id = clean(details.job_id);
-  const shownId = expanded || id.length <= SHORT_ID + 1 ? id : `${id.slice(0, SHORT_ID)}…`;
-  const log = clean(details.log_file);
+  const id = displayLine(details.job_id);
+  const shownId = shortId(id, expanded);
+  const log = displayLine(details.log_file);
   const body = expanded
     ? displayText(
         parseJobEnvelope(text, {
@@ -183,26 +176,13 @@ function resultRows(
 
   return (width) => {
     const rows = [
-      ...field(theme, "status", theme.fg(color, label), width),
-      ...field(theme, "job", theme.fg("muted", shownId), width)
+      ...field(theme, "status", theme.fg(color, label), width, LABEL_WIDTH),
+      ...field(theme, "job", theme.fg("muted", shownId), width, LABEL_WIDTH)
     ];
-    if (expanded) rows.push(...field(theme, "log", theme.fg("muted", log), width));
+    if (expanded) rows.push(...field(theme, "log", theme.fg("muted", log), width, LABEL_WIDTH));
 
     return body ? [...fit(rows, width), "", ...bodyRows.rows(width)] : fit(rows, width);
   };
-}
-
-function clickable(
-  rows: Component,
-  state: JobCardState,
-  open: (id: string, binding?: string) => void
-): Component {
-  return new MouseRegion(rows, (event) => {
-    if (!state.jobId || event.type !== "click" || event.button !== "left") return;
-    open(state.jobId, state.bindingId);
-
-    return { handled: true };
-  });
 }
 
 /** Cards in Pi's default tool box. A click on a card with a job opens its log. */
@@ -221,7 +201,7 @@ export function createJobRenderers(
     renderResult(result, options, theme, context) {
       const details = jobDetailsSchema.safeParse(result.details).data;
       // Both slots read the latest identity, including when Pi retains the call component.
-      context.state.jobId = details?.job_id;
+      context.state.id = details?.job_id;
       context.state.bindingId = details?.binding_id;
 
       return clickable(
@@ -296,7 +276,7 @@ export function createJobTool(
         details
       };
     }
-  } satisfies ToolDefinition<typeof jobParameters, JobDetails, JobCardState>;
+  } satisfies ToolDefinition<typeof jobParameters, JobDetails, CardState>;
 }
 
 export function createJobAbortTool(jobs: Jobs, open: (id: string, binding?: string) => void) {
@@ -321,5 +301,5 @@ export function createJobAbortTool(jobs: Jobs, open: (id: string, binding?: stri
 
       return { content: [{ type: "text" as const, text: jobText(details, body) }], details };
     }
-  } satisfies ToolDefinition<typeof jobAbortParameters, JobDetails, JobCardState>;
+  } satisfies ToolDefinition<typeof jobAbortParameters, JobDetails, CardState>;
 }

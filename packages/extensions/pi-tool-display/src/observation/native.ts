@@ -8,13 +8,12 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { MutationSink } from "@pi-mono/libs/file-mutations";
 import type { NativeSettings } from "@pi-mono/libs/native-tools";
-import { OutputBuffer } from "@pi-mono/libs/output-buffer";
-import type { OutputText } from "@pi-mono/utils/output-text";
+import { OutputBuffer, type OutputBufferOptions } from "@pi-mono/libs/output-buffer";
+import { joinOutputText, outputOmission, type OutputText } from "@pi-mono/utils/output-text";
 
 import type { DisplayFact, Outcome } from "../contracts.ts";
 import { mutationChange, OBSERVATION_BYTES } from "../diff.ts";
 import { record } from "../values.ts";
-import { liveOutputOptions } from "./output-policy.ts";
 
 export interface ObservationSink {
   started(): void;
@@ -31,6 +30,18 @@ const ignoreFailure = (action: () => void): void => {
 };
 
 const PREVIEW_UPDATE_INTERVAL_MS = 100;
+
+const liveOutputOptions = {
+  maxBytes: 1024 * 1024,
+  edgeLines: 50,
+  lineBytes: 10_280,
+  formatOmission: ({ count, unit }) =>
+    joinOutputText([
+      // Long-line clipping may leave a process style active at the inserted notice.
+      ...(unit === "bytes" ? ["\x1b[0m"] : []),
+      outputOmission(`… ${count} ${unit} omitted …`)
+    ])
+} satisfies OutputBufferOptions;
 
 function previewPublisher(buffer: OutputBuffer, publish: (output: OutputText) => void) {
   let dirty = false;

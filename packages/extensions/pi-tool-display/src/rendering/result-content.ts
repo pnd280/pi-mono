@@ -26,9 +26,9 @@ import type {
   ResultTextPart
 } from "../contracts.ts";
 import { changeReasonText, parseRetainedPatch } from "../diff.ts";
-import { stringField } from "../terminal-text.ts";
-import { record } from "../values.ts";
+import { record, stringField } from "../values.ts";
 import {
+  bodyWidth,
   COMPACT_OUTPUT_CHARACTERS,
   expansionHint,
   codeHighlightLimits,
@@ -37,7 +37,6 @@ import {
   reference,
   tree
 } from "./format.ts";
-import { bodyWidth } from "./layout.ts";
 import type { Projection } from "./types.ts";
 
 // Mutable only while preparing a body; placements read measured items.

@@ -8,7 +8,7 @@ import { expect, it, vi } from "vite-plus/test";
 import { findWidgetHost } from "../src/host.ts";
 import editorWidgets from "../src/index.ts";
 import { defaultLayout } from "../src/layout.ts";
-import { WidgetSettings } from "../src/settings.ts";
+import { widgetSettings } from "../src/settings.ts";
 
 const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
 
@@ -20,7 +20,7 @@ it("discovers preexisting native closures when enabled on reload, then survives 
     }
   ]);
   const { host, ui, session } = fixture;
-  const settings = new WidgetSettings({
+  const settings = widgetSettings({
     cwd: fixture.directory,
     agentDir: fixture.agentDir,
     projectTrusted: true

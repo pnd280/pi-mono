@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.2.0 (package checks and offline tests, with the native-tools consumers in tool display and agent summary, the shortcut consumers in todo and prompt manager, and refreshed native-construction fingerprints for `_refreshToolRegistry` in the API and bundled CLI). Not covered: live-provider schema acceptance, native clipboard delivery, platform-specific checks, and terminal checks of literal-plus shortcuts and of the browser search cursor with `showHardwareCursor`.
+> Last verified against Pi 1.2.0 (package checks and offline tests, with the native-tools consumers in tool display and agent summary, the shortcut consumers in todo and prompt manager, and refreshed native-construction fingerprints for `_refreshToolRegistry` in the API and bundled CLI). Not covered: live-provider schema acceptance, platform-specific checks, and terminal checks of literal-plus shortcuts and of the browser search cursor with `showHardwareCursor`.
 
 ## Upgrade procedure
 
@@ -41,10 +41,6 @@ Check both API and installed-CLI consumers wherever a library depends on Pi's ho
 - [ ] Deferred installation, renderer rebinding, focus handoff, and teardown that keeps listeners all work.
 - [ ] Unsupported routing is reported once per opening, without closing the view.
 
-### Cooperative search
-
-- [ ] [Internal ranking](../src/text-search/README.md#validation) retains Pi-compatible fuzzy scores, including Unicode positions and letter/digit transposition fallback. Compare `fuzzyScore` in [ranking](../src/text-search/ranking.ts) with `fuzzyMatch` in the installed `@earendil-works/pi-tui` (`dist/fuzzy.js`).
-
 ### Working message
 
 - [ ] [Working message](../src/working-message/README.md) event-bus ownership, stale handles, and defaults.
@@ -64,4 +60,4 @@ These private dependencies could be replaced by public Pi APIs:
 - Revisit public contribution APIs for working-message [overwrites by non-participants](../src/working-message/README.md#behaviour).
 - Adopt public TUI components that can replace a local implementation without losing controlled state or cancellation.
 
-New clipboard and storage helpers must keep [native-only transport](../src/native-clipboard/README.md) and the [private-file guarantees](../src/private-files/README.md).
+New storage helpers must keep the [private-file guarantees](../src/private-files/README.md).

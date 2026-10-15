@@ -11,7 +11,23 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createFixtureStream } from "@pi-mono/libs/validation/provider";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 
-import { pagingPlan, pagingTranscript } from "./paging.ts";
+/** Long, deterministic todo content for installed-terminal paging checks. */
+const pagingPlan = [
+  { action: "clear" },
+  ...Array.from({ length: 40 }, (_, index) => ({
+    action: "create",
+    subject: `Paging todo ${index + 1}`,
+    description: Array.from(
+      { length: 80 },
+      (_, line) => `Todo ${index + 1} detail line ${line + 1}`
+    ).join("\n")
+  }))
+];
+
+const pagingTranscript = Array.from(
+  { length: 100 },
+  (_, index) => `Transcript line ${index + 1}`
+).join("\n");
 
 export default function workingMessageFixture(pi: ExtensionAPI): void {
   const status = registerWorkingMessage(pi, {

@@ -40,8 +40,6 @@ export const controlSchema = z.intersection(controlRequestSchema, z.object({ req
 
 export type ControlRequest = z.infer<typeof controlRequestSchema>;
 
-export type Begin = z.infer<typeof beginSchema>;
-
 export type SlotReply = z.infer<typeof slotReplySchema>;
 
 export type Control = z.infer<typeof controlSchema>;

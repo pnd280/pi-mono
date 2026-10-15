@@ -10,7 +10,6 @@ import type {
   ToolFamily
 } from "./contracts.ts";
 import type { CallInterpretation } from "./interpretation.ts";
-import { writeCategory } from "./summary-items.ts";
 
 /** Category IDs with this prefix count calls per tool name. */
 const TOOL_PREFIX = "other:";
@@ -26,6 +25,11 @@ const builtinCategories: ReadonlyMap<string, SummaryCategory> = new Map(
     { id: "read", count: { one: "read {n} file", other: "read {n} files" } }
   ].map((category) => [category.id, category])
 );
+
+/** Observed creation counts as created; modifications and unknown history count as edits. */
+export function writeCategory(change: ChangeFact | undefined): "create" | "edit" {
+  return change?.change === "creation" ? "create" : "edit";
+}
 
 /** Adapters without summary items count each call once in their family's category. */
 export function fallbackItems(

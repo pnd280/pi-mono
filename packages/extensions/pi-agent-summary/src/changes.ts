@@ -2,10 +2,10 @@ import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
 import {
   observedSource,
   type FileMutation,
+  type FileObservation,
   type MutationPatch,
   type MutationSink
 } from "@pi-mono/libs/file-mutations";
-import type { FileObservation } from "@pi-mono/libs/file-observation";
 import { parsePatch } from "@pi-mono/utils/patch";
 import { relativeDisplayPath } from "@pi-mono/utils/paths";
 import { z } from "zod";

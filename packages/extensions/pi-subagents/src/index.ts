@@ -30,10 +30,9 @@ import { Jobs, shellOptions } from "./jobs/registry.ts";
 import { createJobAbortTool, createJobRenderers, createJobTool } from "./jobs/tool.ts";
 import { installLateUsagePatch } from "./late-usage.ts";
 import { Panels } from "./task-panel/panels.ts";
-import { createAbortTool } from "./tasks/abort-tool.ts";
 import { Tasks } from "./tasks/registry.ts";
 import { createRenderers } from "./tasks/render.ts";
-import { createSubagentTool } from "./tasks/tool.ts";
+import { createAbortTool, createSubagentTool } from "./tasks/tool.ts";
 import { taskWidget } from "./widget.ts";
 
 // Commands load at first use. Concurrent calls share one import.
@@ -338,7 +337,7 @@ export default function subagents(pi: ExtensionAPI): void {
   pi.on("agent_settled", (_event, ctx) => delivery?.settled(ctx));
   pi.on("agent_before_settle", () => delivery?.settle());
   pi.on("session_compact", () => {
-    if (tasks?.activeBinding) remindTasks(pi, tasks, depth, jobsOn ? jobs : undefined);
+    if (tasks?.activeBinding) remindTasks(pi, tasks, jobsOn ? jobs : undefined);
   });
   pi.on("session_shutdown", async (event) => {
     await shutdown(event.reason === "new" || event.reason === "resume" || event.reason === "fork");

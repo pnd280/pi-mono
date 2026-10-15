@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { BorrowedToolResult, InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
 import { record } from "../../values.ts";
+import { registeredBy } from "../provenance.ts";
 import {
   mcpCallFacts,
   mcpCallIdentity,
@@ -144,11 +145,8 @@ function toolKind(tool: ToolInfo): ToolKind | undefined {
 
 /** pi-mcp-adapter 2.33.0: registration provenance, then each public tool schema. */
 export function piMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
-  if (!tool || ["builtin", "sdk"].includes(tool.sourceInfo.source)) return undefined;
-  const owned =
-    /^npm:pi-mcp-adapter(?:@[^/]+)?$/.test(tool.sourceInfo.source) ||
-    /(?:^|\/)pi-mcp-adapter\/index\.[cm]?[jt]s$/.test(tool.sourceInfo.path.replaceAll("\\", "/"));
-  const kind = owned ? toolKind(tool) : undefined;
+  if (!tool || !registeredBy(tool, "pi-mcp-adapter")) return undefined;
+  const kind = toolKind(tool);
   if (!kind) return undefined;
 
   return {

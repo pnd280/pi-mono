@@ -2,11 +2,11 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests the selection guard around Pi's native `read`, preview bounds, and the [`pi-read/result` contract](result.md). Utils owns coordinate validation and slicing; [tool display](../../pi-tool-display/docs/testing.md) owns adapter recognition and grouped rendering; Pi owns file access and images.
+This package tests selection validation and the guard around Pi's native `read`, preview bounds, and the [`pi-read/result` contract](result.md). [Tool display](../../pi-tool-display/docs/testing.md) owns adapter recognition and grouped rendering; Pi owns file access and images.
 
 ## Must not regress
 
-- **High, unit:** Positive safe integers and ordered selection ranges are enforced before native execution.
+- **High, unit:** Selections require positive safe integers and ordered ranges, and reject unknown fields, before native execution.
 - **High, unit:** The native tool executes once with the independent read window and the caller's cancellation signal and update callback, without a second read. Native failures propagate to the caller.
 - **High, unit:** Adding a preview preserves native content blocks and unrelated details.
 - **High, unit:** Preview bounds come from the source actually returned, not the requested limits, and exclude native continuation and truncation notices.
@@ -15,8 +15,8 @@ This package tests the selection guard around Pi's native `read`, preview bounds
 
 ## Not tested
 
-- Schema projection, preview formatting, empty-selection notices, and highlight rendering: below the severity bar.
-- Pi's filesystem implementation and the utility's coordinate matrix: owned by Pi and utils.
+- Schema projection, source clipping, preview formatting, empty-selection notices, and highlight rendering: below the severity bar.
+- Pi's filesystem implementation: owned by Pi.
 
 ## Manual checks
 

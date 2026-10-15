@@ -1,7 +1,12 @@
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { sanitizeTaskDescription, sanitizeTaskMutationParams } from "../text.ts";
-import { deriveTaskHierarchy, subtreeHeight, type TaskHierarchyEntry } from "./hierarchy.ts";
+import {
+  deriveTaskHierarchy,
+  isTaskId,
+  subtreeHeight,
+  type TaskHierarchyEntry
+} from "./hierarchy.ts";
 import {
   MAX_IN_PROGRESS_LABEL_LENGTH,
   MAX_DEPENDENCIES,
@@ -14,12 +19,7 @@ import {
   MAX_SUBJECT_LENGTH,
   MAX_TASKS
 } from "./limits.ts";
-import {
-  metadataLimitError,
-  serializedValueFitsLimit,
-  snapshotDetailsFitLimit,
-  snapshotFitsLimit
-} from "./limits.ts";
+import { metadataLimitError, serializedValueFitsLimit, snapshotDetailsFitLimit } from "./limits.ts";
 import {
   type Task,
   type TaskAction,
@@ -177,8 +177,7 @@ function boundedListLines(
   if (omitted === 0) return lines;
   let notice = omittedTasksNotice(omitted);
 
-  // Keep the notice inside the same model-output budget. A legacy first line may
-  // itself exceed the budget and is deliberately retained by contract.
+  // Keep the notice inside the same model-output budget, retaining at least the first line.
   while (lines.length > 1 && characters + 1 + notice.length > MAX_LIST_CHARACTERS) {
     const removed = lines.pop();
     if (removed === undefined) break;
@@ -293,28 +292,21 @@ function detailsFor(
   error?: string,
   offendingParam?: KnownTaskMutationParam
 ): TaskDetails {
-  const baseDetails = {
+  if (!stateFitsCurrentLimits(state)) {
+    throw new Error("todo result details cannot be emitted as a valid version 2 snapshot");
+  }
+
+  const details: TaskDetails = {
+    version: TASK_DETAILS_VERSION,
     action,
     params: sanitizedParams(params, offendingParam),
     tasks: state.tasks.map(cloneTask),
     nextId: state.nextId
-  } satisfies Omit<TaskDetails, "version" | "error">;
-
-  if (stateFitsCurrentLimits(state)) {
-    const details: TaskDetails = { version: TASK_DETAILS_VERSION, ...baseDetails };
-    if (error !== undefined) details.error = error;
-    // The structural check already sized the todo snapshot at this budget.
-    if (snapshotDetailsFitLimit(details, MAX_SNAPSHOT_BYTES)) return details;
-    throw new Error(`todo result snapshot exceeds ${MAX_SNAPSHOT_BYTES} serialized bytes`);
-  }
-
-  if (!state.tasks.some((task) => task.parentId !== undefined)) {
-    const details: TaskDetails = { ...baseDetails };
-    if (error !== undefined) details.error = error;
-    if (snapshotFitsLimit(details)) return details;
-  }
-
-  throw new Error("todo result details cannot be emitted without losing hierarchy");
+  };
+  if (error !== undefined) details.error = error;
+  // The structural check already sized the todo snapshot at this budget.
+  if (snapshotDetailsFitLimit(details)) return details;
+  throw new Error(`todo result snapshot exceeds ${MAX_SNAPSHOT_BYTES} serialized bytes`);
 }
 
 function minimalCurrentErrorDetails(
@@ -335,7 +327,7 @@ function minimalCurrentErrorDetails(
     error
   };
 
-  if (!snapshotDetailsFitLimit(details, MAX_SNAPSHOT_BYTES)) {
+  if (!snapshotDetailsFitLimit(details)) {
     throw new Error("todo result details exceed the bounded version 2 emission ceiling");
   }
 
@@ -395,10 +387,12 @@ function mutationResult(
   params: TaskMutationParams,
   text: string
 ): TaskMutationResult {
-  let details: TaskDetails;
-
   try {
-    details = detailsFor(nextState, action, params);
+    return {
+      state: nextState,
+      details: detailsFor(nextState, action, params),
+      content: [{ type: "text", text }]
+    };
   } catch {
     return errorResult(
       previousState,
@@ -407,17 +401,6 @@ function mutationResult(
       `result snapshot exceeds ${MAX_SNAPSHOT_BYTES} serialized bytes`
     );
   }
-
-  if (details.version !== TASK_DETAILS_VERSION) {
-    return errorResult(
-      previousState,
-      action,
-      params,
-      `result snapshot exceeds ${MAX_SNAPSHOT_BYTES} serialized bytes`
-    );
-  }
-
-  return { state: nextState, details, content: [{ type: "text", text }] };
 }
 
 export function applyTaskMutation(
@@ -466,7 +449,7 @@ function applyCreateTaskMutation(state: TodoState, params: TaskMutationParams): 
     return errorResult(state, "create", params, `todo limit of ${MAX_TASKS} reached`);
   }
 
-  if (!isValidTaskId(state.nextId) || state.nextId >= Number.MAX_SAFE_INTEGER) {
+  if (!isTaskId(state.nextId) || state.nextId >= Number.MAX_SAFE_INTEGER) {
     return errorResult(state, "create", params, "todo id limit reached");
   }
 
@@ -507,7 +490,7 @@ function validateCreatedParent(
     return { ok: true, value: undefined };
   }
 
-  if (!isValidTaskId(params.parentId)) {
+  if (!isTaskId(params.parentId)) {
     return {
       ok: false,
       result: errorResult(state, "create", params, `parentId: invalid todo id ${params.parentId}`)
@@ -607,7 +590,7 @@ function applyUpdateTaskMutation(state: TodoState, params: TaskMutationParams): 
   if (params.id === undefined)
     return errorResult(state, "update", params, "id required for update");
 
-  if (!isValidTaskId(params.id)) {
+  if (!isTaskId(params.id)) {
     return errorResult(state, "update", params, `invalid todo id ${params.id}`);
   }
 
@@ -727,7 +710,7 @@ function validateUpdatedParent(
 
   const parentId = params.parentId ?? undefined;
 
-  if (parentId !== undefined && !isValidTaskId(parentId)) {
+  if (parentId !== undefined && !isTaskId(parentId)) {
     return {
       ok: false,
       result: errorResult(state, "update", params, `parentId: invalid todo id ${parentId}`)
@@ -958,7 +941,7 @@ function buildUpdatedTask(
 function applyGetTaskMutation(state: TodoState, params: TaskMutationParams): TaskMutationResult {
   if (params.id === undefined) return errorResult(state, "get", params, "id required for get");
 
-  if (!isValidTaskId(params.id)) {
+  if (!isTaskId(params.id)) {
     return errorResult(state, "get", params, `invalid todo id ${params.id}`);
   }
 
@@ -972,7 +955,7 @@ function applyDeleteTaskMutation(state: TodoState, params: TaskMutationParams): 
   if (params.id === undefined)
     return errorResult(state, "delete", params, "id required for delete");
 
-  if (!isValidTaskId(params.id)) {
+  if (!isTaskId(params.id)) {
     return errorResult(state, "delete", params, `invalid todo id ${params.id}`);
   }
 
@@ -1009,12 +992,12 @@ function applyDeleteTaskMutation(state: TodoState, params: TaskMutationParams): 
 }
 
 export function stateFitsCurrentLimits(state: TodoState): boolean {
-  if (state.tasks.length > MAX_TASKS || !isValidTaskId(state.nextId)) return false;
+  if (state.tasks.length > MAX_TASKS || !isTaskId(state.nextId)) return false;
 
   for (const task of state.tasks) {
     if (
-      !isValidTaskId(task.id) ||
-      (task.parentId !== undefined && !isValidTaskId(task.parentId)) ||
+      !isTaskId(task.id) ||
+      (task.parentId !== undefined && !isTaskId(task.parentId)) ||
       task.subject.length > MAX_SUBJECT_LENGTH ||
       (task.description !== undefined && task.description.length > MAX_DESCRIPTION_LENGTH) ||
       (task.inProgressLabel !== undefined &&
@@ -1022,7 +1005,7 @@ export function stateFitsCurrentLimits(state: TodoState): boolean {
       (task.owner !== undefined && task.owner.length > MAX_OWNER_LENGTH) ||
       (task.blockedBy !== undefined &&
         (task.blockedBy.length > MAX_DEPENDENCIES ||
-          task.blockedBy.some((dependency) => !isValidTaskId(dependency)))) ||
+          task.blockedBy.some((dependency) => !isTaskId(dependency)))) ||
       (task.metadata !== undefined && metadataLimitError(task.metadata) !== undefined)
     ) {
       return false;
@@ -1133,10 +1116,6 @@ function metadataFitsEmissionLimit(value: unknown): boolean {
   );
 }
 
-function isValidTaskId(value: number): boolean {
-  return Number.isSafeInteger(value) && value > 0;
-}
-
 function firstInvalidTaskId(values: readonly number[]): number | undefined {
-  return values.find((value) => !isValidTaskId(value));
+  return values.find((value) => !isTaskId(value));
 }

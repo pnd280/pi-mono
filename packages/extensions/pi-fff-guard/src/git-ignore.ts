@@ -7,10 +7,6 @@ import { absolutePathSchema, containsPath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 const pathsSchema = z.object({ path: absolutePathSchema, cwd: absolutePathSchema });
-const deadlineSchema = z
-  .int()
-  .positive()
-  .max(2 ** 31 - 1);
 
 const ignoreResponseSchema = z.tuple([
   z.string(),
@@ -22,28 +18,24 @@ const ignoreResponseSchema = z.tuple([
 const ignoreLocationSchema = z.tuple([z.string().min(1), z.string().regex(/^\d+$/)]);
 
 export type GitIgnoreResult =
-  | { status: "ignored" | "not-ignored" | "missing" | "cancelled" | "timed-out" }
+  | { status: "ignored" | "not-ignored" | "missing" | "cancelled" }
   | { status: "unavailable"; cause: unknown };
 
-export type GitIgnoreOptions = {
+type GitIgnoreOptions = {
   path: string;
   cwd: string;
-  timeoutMs: number;
-  signal?: AbortSignal | undefined;
-  git?: GitCommand;
+  signal: AbortSignal;
 };
 
 type GitOutput = Pick<ExecResult, "code" | "stdout" | "stderr">;
 
-export type GitCommand = (
+function runGit(
   cwd: string,
   args: string[],
   input: string | undefined,
   signal: AbortSignal
-) => Promise<GitOutput>;
-
-const runGit: GitCommand = (cwd, args, input, signal) =>
-  new Promise((resolve, reject) => {
+): Promise<GitOutput> {
+  return new Promise((resolve, reject) => {
     signal.throwIfAborted();
     const env: NodeJS.ProcessEnv = {
       ...process.env,
@@ -83,13 +75,10 @@ const runGit: GitCommand = (cwd, args, input, signal) =>
     });
     child.stdin?.end(input);
   });
+}
 
-async function repository(
-  directory: string,
-  signal: AbortSignal,
-  git: GitCommand
-): Promise<string | undefined> {
-  const result = await git(directory, ["rev-parse", "--show-toplevel"], undefined, signal);
+async function repository(directory: string, signal: AbortSignal): Promise<string | undefined> {
+  const result = await runGit(directory, ["rev-parse", "--show-toplevel"], undefined, signal);
   if (result.code === 128 && result.stderr.includes("not a git repository")) return undefined;
   if (result.code !== 0) throw new Error("Git repository discovery failed");
   const root = result.stdout.replace(/\r?\n$/, "");
@@ -102,12 +91,11 @@ async function repository(
 async function ignoredIn(
   root: string | undefined,
   absolute: string,
-  signal: AbortSignal,
-  git: GitCommand
+  signal: AbortSignal
 ): Promise<boolean> {
   if (!root || absolute === root || !containsPath(root, absolute)) return false;
   const relative = path.relative(root, absolute);
-  const result = await git(
+  const result = await runGit(
     root,
     ["check-ignore", "--verbose", "--non-matching", "-z", "--stdin"],
     `${relative}\0`,
@@ -144,7 +132,6 @@ async function inspect(
   absolute: string,
   workspace: string | undefined,
   signal: AbortSignal,
-  git: GitCommand,
   seen: Set<string>
 ): Promise<boolean> {
   signal.throwIfAborted();
@@ -156,10 +143,8 @@ async function inspect(
   const info = await lstat(lexical);
   const directory = info.isDirectory() ? lexical : path.dirname(lexical);
   const root =
-    workspace && containsPath(workspace, lexical)
-      ? workspace
-      : await repository(directory, signal, git);
-  if (await ignoredIn(root, lexical, signal, git)) return true;
+    workspace && containsPath(workspace, lexical) ? workspace : await repository(directory, signal);
+  if (await ignoredIn(root, lexical, signal)) return true;
   if (!link) return false;
   const destination = path.resolve(
     path.dirname(link),
@@ -168,41 +153,32 @@ async function inspect(
   );
 
   // Keep workspace authority for local destinations; external paths use their own repository.
-  return inspect(destination, workspace, signal, git, seen);
+  return inspect(destination, workspace, signal, seen);
 }
 
 /** Inspect existing paths using Git's rules, including lexical and resolved link targets.
- * One caller-supplied deadline includes repository discovery and link traversal.
+ * The caller's signal carries the deadline for repository discovery and link traversal.
  * No allow/block decision or user-facing diagnostic is made here.
  */
 export async function inspectGitIgnore({
   path: absolute,
   cwd,
-  timeoutMs,
-  signal,
-  git = runGit
+  signal
 }: GitIgnoreOptions): Promise<GitIgnoreResult> {
   if (!pathsSchema.safeParse({ path: absolute, cwd }).success)
     throw new TypeError("Git inspection requires absolute paths.");
-  if (!deadlineSchema.safeParse(timeoutMs).success)
-    throw new RangeError("Git inspection deadline must be a positive 32-bit integer.");
-  if (signal?.aborted) return { status: "cancelled" };
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
 
   try {
-    const workspace = await repository(cwd, combined, git);
+    const workspace = await repository(cwd, signal);
     // Validate final existence before considering lexical link parents. Missing
     // targets must not be blocked merely because an existing parent is ignored.
     await lstat(absolute);
-    const ignored = await inspect(absolute, workspace, combined, git, new Set());
-    combined.throwIfAborted();
+    const ignored = await inspect(absolute, workspace, signal, new Set());
+    signal.throwIfAborted();
 
     return { status: ignored ? "ignored" : "not-ignored" };
   } catch (error) {
-    if (signal?.aborted) return { status: "cancelled" };
-    if (controller.signal.aborted) return { status: "timed-out" };
+    if (signal.aborted) return { status: "cancelled" };
     // Only probes of the inspected path mean missing; a failed Git spawn is unavailable.
     if (
       error instanceof Error &&
@@ -214,7 +190,5 @@ export async function inspectGitIgnore({
       return { status: "missing" };
 
     return { status: "unavailable", cause: error };
-  } finally {
-    clearTimeout(timeout);
   }
 }

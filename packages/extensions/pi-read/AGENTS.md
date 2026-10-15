@@ -9,7 +9,7 @@ Keep Pi's content blocks and details unchanged when adding selection previews.
 ## Constraints
 
 - Keep truncation and continuation notices out of the selected source.
-- Use the shared [source-selection helpers](../../utils/README.md#source-selections) to validate coordinates and slice source.
+- Validate coordinates and slice raw source in the [selection module](src/selection.ts), following the [coordinate rules](README.md#coordinates).
 - Keep source coordinates independent of terminal width. Sanitise only display text.
 - Keep preview provenance and native source-window interpretation in the pure [`pi-read/result` contract](docs/result.md), shared with the display adapter.
 

@@ -7,12 +7,10 @@ import {
   MAX_DEPENDENCIES,
   MAX_DESCRIPTION_LENGTH,
   MAX_DETAILS_OVERHEAD_BYTES,
-  MAX_LEGACY_SNAPSHOT_BYTES,
   MAX_LIST_LINES,
   MAX_OWNER_LENGTH,
   MAX_SNAPSHOT_BYTES,
-  MAX_SUBJECT_LENGTH,
-  MAX_TASKS
+  MAX_SUBJECT_LENGTH
 } from "./limits.ts";
 import {
   TASK_DETAILS_VERSION,
@@ -62,29 +60,6 @@ describe("todo reducer", () => {
     assert.ok(Buffer.byteLength(JSON.stringify(result.details), "utf8") <= MAX_SNAPSHOT_BYTES);
   });
 
-  it("does not version or mutate legacy state beyond current limits", () => {
-    const legacyState: TodoState = {
-      tasks: Array.from({ length: MAX_TASKS + 1 }, (_, index) => ({
-        id: index + 1,
-        subject: `Todo ${index + 1}`,
-        status: "pending"
-      })),
-      nextId: MAX_TASKS + 2
-    };
-
-    const listed = mutate(legacyState, "list", {});
-    assert.equal(listed.details.version, undefined);
-    assert.equal(listed.details.tasks.length, legacyState.tasks.length);
-    const updated = mutate(legacyState, "update", { id: 1, subject: "Changed" });
-    assert.match(updated.details.error ?? "", /snapshot.*bytes/u);
-    assert.deepEqual(updated.state, legacyState);
-    assert.equal(updated.details.version, undefined);
-
-    const cleared = mutate(legacyState, "clear", {});
-    assert.equal(cleared.details.version, TASK_DETAILS_VERSION);
-    assert.deepEqual(cleared.state, emptyTodoState());
-  });
-
   it("returns replayable errors after a successful result fills the snapshot ceiling", () => {
     const tasks: Task[] = Array.from({ length: 128 }, (_, index) => ({
       id: index + 1,
@@ -130,60 +105,6 @@ describe("todo reducer", () => {
         Buffer.byteLength(JSON.stringify(result.details)) <=
           MAX_SNAPSHOT_BYTES + MAX_DETAILS_OVERHEAD_BYTES
       );
-    }
-  });
-
-  it("keeps full legacy snapshots replayable at the size ceiling across repeated results", () => {
-    const task: Task = { id: 1, subject: "Legacy", status: "pending", description: "" };
-    const snapshot = { tasks: [task], nextId: 2 };
-    task.description = "d".repeat(
-      MAX_LEGACY_SNAPSHOT_BYTES - Buffer.byteLength(JSON.stringify(snapshot))
-    );
-    const state = parseTodoStateSnapshot(snapshot);
-    assert.ok(state);
-    let restored = state;
-
-    for (const [action, params] of [
-      ["list", {}],
-      ["get", { id: 1 }],
-      ["update", { id: 99, status: "completed" }],
-      ["list", {}]
-    ] as const) {
-      const result = mutate(restored, action, params);
-      assert.equal(result.details.version, undefined);
-      if (action === "update") assert.match(result.details.error ?? "", /#99/u);
-      else assert.equal(result.details.error, undefined);
-      const replayed = parseTodoStateSnapshot(result.details);
-      assert.ok(replayed);
-      assert.deepEqual(replayed, state);
-      assert.ok(
-        Buffer.byteLength(JSON.stringify(result.details)) <=
-          MAX_LEGACY_SNAPSHOT_BYTES + MAX_DETAILS_OVERHEAD_BYTES
-      );
-      restored = replayed;
-    }
-  });
-
-  it("preserves oversized legacy state even when each todo fits the current field limits", () => {
-    const state: TodoState = {
-      tasks: Array.from({ length: 200 }, (_, index) => ({
-        id: index + 1,
-        subject: "Todo",
-        status: "pending",
-        description: "d".repeat(MAX_DESCRIPTION_LENGTH)
-      })),
-      nextId: 201
-    };
-    assert.deepEqual(parseTodoStateSnapshot(state), state);
-    const listed = mutate(state, "list", {});
-    assert.equal(listed.details.error, undefined);
-    const rejected = mutate(state, "update", { id: 1, subject: "Changed" });
-    assert.match(rejected.details.error ?? "", /snapshot.*bytes/u);
-
-    for (const result of [listed, rejected]) {
-      assert.deepEqual(result.state, state);
-      assert.equal(result.details.version, undefined);
-      assert.deepEqual(parseTodoStateSnapshot(result.details), state);
     }
   });
 

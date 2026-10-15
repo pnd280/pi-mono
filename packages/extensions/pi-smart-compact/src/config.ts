@@ -1,24 +1,18 @@
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 
+import { MODEL_THINKING_LEVELS } from "@earendil-works/pi-ai/providers/model-schema";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
   readScopedSettings,
   readSettingsFile,
   readSettingsRecord
 } from "@pi-mono/libs/settings-file";
+import { modelReferenceSchema, splitModelReference } from "@pi-mono/utils/model-reference";
 import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
-export const thinkingLevelSchema = z.enum([
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max"
-]);
+export const thinkingLevelSchema = z.enum(MODEL_THINKING_LEVELS);
 
 const ruleSchema = z.strictObject({
   match: z.string().transform((source, ctx) => {
@@ -30,11 +24,7 @@ const ruleSchema = z.strictObject({
       return z.NEVER;
     }
   }),
-  model: z
-    .string()
-    .trim()
-    .regex(/^[^/\s]+\/\S+$/u)
-    .optional(),
+  model: modelReferenceSchema.optional(),
   thinkingLevel: thinkingLevelSchema.optional()
 });
 
@@ -63,9 +53,9 @@ export function selectRule(
 
 /** Resolve a validated `provider/model-id` reference; the model ID may contain slashes. */
 export function findConfiguredModel(registry: Pick<ModelRegistry, "find">, reference: string) {
-  const slash = reference.indexOf("/");
+  const { provider, id } = splitModelReference(reference);
 
-  return registry.find(reference.slice(0, slash), reference.slice(slash + 1));
+  return registry.find(provider, id);
 }
 
 function readSection(path: string): ParsedSettings {

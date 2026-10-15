@@ -14,4 +14,4 @@ Temporarily replace object properties and restore only replacements this library
 
 Verify host compatibility before replacement. Existing own properties must be writable data properties; otherwise `replace()` throws `TypeError`.
 
-Deactivate retained callbacks before calling `restore()`. Tool display's [installer](../../../extensions/pi-tool-display/src/host/install.ts) and [native registry](../../../extensions/pi-tool-display/src/host/native-registry.ts) manage this teardown order.
+Deactivate retained callbacks before calling `restore()`. Tool display's [installer](../../../extensions/pi-tool-display/src/host/install.ts) and [display collectors](../../../extensions/pi-tool-display/src/host/collection.ts) manage this teardown order.

@@ -3,19 +3,16 @@ import {
   isKeyRelease,
   matchesKey,
   ScrollView,
-  truncateToWidth,
   type Component,
   type TUI,
   type TuiMouseEvent
 } from "@earendil-works/pi-tui";
-import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
-import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import { readLogTail } from "../jobs/log.ts";
 import type { Jobs } from "../jobs/registry.ts";
-import { fitViewer, jobRows, metadataTable, Spinner, titleBorder } from "./viewer-frame.ts";
+import { jobRows, renderViewer, Spinner, type ViewerBody } from "./viewer-frame.ts";
 
 /** A live log follows its file at this interval. */
 const LOG_REFRESH_MS = 1000;
@@ -149,22 +146,26 @@ export class JobLogView implements Component {
   }
 
   render(width: number): string[] {
-    const rows = Math.max(
-      1,
-      Math.floor(this.tui.terminal.rows * (this.tui.mode === "fullscreen" ? 1 : 3 / 4))
-    );
     const record = this.record();
     const active = record?.state === "active";
     const lines = this.scroll.render(width);
     // With no log rows, the reserved body row tells why the log is unavailable.
     const unavailableInBody = !lines.length && this.loaded && Boolean(this.unavailable);
-    const diagnostics = [
-      ...(this.unavailable && !unavailableInBody ? [this.unavailable] : []),
-      ...(this.error ? [this.error] : [])
-    ].map((text) => this.theme.fg("error", compactDisplayText(text)));
-    const hints = renderHintFooter({
+
+    return renderViewer({
+      tui: this.tui,
+      theme: this.theme,
       width,
-      maxRows: rows,
+      kind: "job",
+      subject: record && {
+        description: record.description,
+        id: record.job_id,
+        metadata: jobRows(this.theme, record, this.command, this.working?.frame())
+      },
+      diagnostics: [
+        ...(this.unavailable && !unavailableInBody ? [this.unavailable] : []),
+        ...(this.error ? [this.error] : [])
+      ],
       hints: [
         "Esc back",
         ...(active ? ["Ctrl+D abort"] : []),
@@ -172,24 +173,12 @@ export class JobLogView implements Component {
         "PageUp/PageDown page",
         "Home/End first/last"
       ],
-      padding: "",
-      separator: " · ",
-      style: (text) => this.theme.fg("dim", text)
-    });
-    const { header, footer, height } = fitViewer(rows, {
-      title: record
-        ? titleBorder(this.theme, "job", record.description, record.job_id, width)
-        : this.theme.fg("border", "─".repeat(width)),
-      metadata: record
-        ? metadataTable(
-            this.theme,
-            jobRows(this.theme, record, this.command, this.working?.frame()),
-            width
-          )
-        : [],
-      diagnostics,
-      hints
-    });
+      body: (height) => this.body(lines, unavailableInBody, height)
+    }).rows;
+  }
+
+  /** The visible log rows, or the loading, empty, or unavailable text. */
+  private body(lines: string[], unavailableInBody: boolean, height: number): ViewerBody {
     this.scroll.updateLayout(lines.length, height, () => this.tui.requestRender());
     const above = this.scroll.scrollTop;
     let body = lines.slice(above, above + height).map((row) => this.theme.fg("toolOutput", row));
@@ -202,19 +191,8 @@ export class JobLogView implements Component {
     }
 
     this.bodyRows = body.length;
-    const padding = Array.from({ length: Math.max(0, height - body.length) }, () => "");
-    const color = (text: string) => this.theme.fg("border", text);
 
-    return [
-      ...header,
-      renderOverflowBorder(width, { color, direction: "↑", hidden: above }),
-      ...body,
-      ...padding,
-      ...footer,
-      renderOverflowBorder(width, { color, direction: "↓", hidden: below })
-    ]
-      .slice(0, rows)
-      .map((row) => truncateToWidth(row, width, ""));
+    return { lines: body, above, below };
   }
 
   handleMouse(event: TuiMouseEvent): ReturnType<NonNullable<Component["handleMouse"]>> {

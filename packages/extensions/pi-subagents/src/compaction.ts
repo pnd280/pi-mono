@@ -6,23 +6,13 @@ import type { Jobs } from "./jobs/registry.ts";
 import type { Tasks } from "./tasks/registry.ts";
 
 /** Direct tasks, and the jobs on this ancestry when `jobs` is set. */
-export function remindTasks(
-  pi: ExtensionAPI,
-  tasks: Tasks,
-  depth: number,
-  jobs: Jobs | undefined
-): void {
-  const direct = tasks
-    .list()
-    .filter((task) =>
-      depth === 0
-        ? task.parent_task_id === null
-        : !tasks.list().some((parent) => parent.task_id === task.parent_task_id)
+export function remindTasks(pi: ExtensionAPI, tasks: Tasks, jobs: Jobs | undefined): void {
+  const items = tasks
+    .direct()
+    .map(
+      (task) =>
+        `<task id="${attribute(task.task_id)}" state="${task.state}" outcome="${task.outcome ?? ""}" background="${task.background}">${attribute(task.description)}</task>`
     );
-  const items = direct.map(
-    (task) =>
-      `<task id="${attribute(task.task_id)}" state="${task.state}" outcome="${task.outcome ?? ""}" background="${task.background}">${attribute(task.description)}</task>`
-  );
   const jobItems = (jobs?.list() ?? []).map(
     (job) =>
       `<job id="${attribute(job.job_id)}" state="${job.state}" outcome="${job.state === "inactive" ? job.outcome : ""}" exit_code="${job.exit_code ?? ""}">${attribute(job.description)}</job>`

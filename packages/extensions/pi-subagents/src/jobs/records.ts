@@ -36,7 +36,7 @@ export type JobAbortInput = z.infer<typeof jobAbortInputSchema>;
 export const jobAbortParameters = toToolSchema(jobAbortInputSchema);
 
 /** The supervisor appends one when a job starts. */
-export const jobEntrySchema = z.object({
+const jobEntrySchema = z.object({
   job_id: id,
   description: z.string(),
   command: z.string(),
@@ -45,7 +45,7 @@ export const jobEntrySchema = z.object({
 });
 
 /** The supervisor appends one after a job's command exits. */
-export const jobEndEntrySchema = z.object({
+const jobEndEntrySchema = z.object({
   job_id: id,
   outcome,
   /** Null after a timeout, a cancellation, or a start failure. */
@@ -80,10 +80,7 @@ const inactive = {
 const active = { ...fields, state: z.literal("active"), exit_code: z.null(), ended_at: z.null() };
 
 /** A job as derived from its entries and live state. It is never persisted. */
-export const jobRecordSchema = z.discriminatedUnion("state", [
-  z.object(active),
-  z.object(inactive)
-]);
+const jobRecordSchema = z.discriminatedUnion("state", [z.object(active), z.object(inactive)]);
 
 export type JobRecord = z.infer<typeof jobRecordSchema>;
 

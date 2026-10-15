@@ -6,8 +6,6 @@ import {
   MAX_DEPENDENCIES,
   MAX_DESCRIPTION_LENGTH,
   MAX_DETAILS_OVERHEAD_BYTES,
-  MAX_LEGACY_SNAPSHOT_BYTES,
-  MAX_LEGACY_TASKS,
   MAX_OWNER_LENGTH,
   MAX_SNAPSHOT_BYTES,
   MAX_SUBJECT_LENGTH,
@@ -26,43 +24,23 @@ import {
 const taskStatusSchema = z.enum(TASK_STATUSES);
 const taskIdSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 
-const legacyTaskSchema = z.object({
+const taskSchema = z.object({
   id: taskIdSchema,
-  subject: z.string(),
-  description: z.string().optional(),
-  inProgressLabel: z.string().optional(),
-  status: taskStatusSchema,
-  blockedBy: z.array(taskIdSchema).optional(),
-  owner: z.string().optional(),
-  metadata: jsonMetadataSchema.optional()
-});
-const versionOneTaskSchema = legacyTaskSchema.extend({
   subject: z.string().max(MAX_SUBJECT_LENGTH),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   inProgressLabel: z.string().max(MAX_IN_PROGRESS_LABEL_LENGTH).optional(),
+  status: taskStatusSchema,
   blockedBy: z.array(taskIdSchema).max(MAX_DEPENDENCIES).optional(),
-  owner: z.string().max(MAX_OWNER_LENGTH).optional()
-});
-const versionTwoTaskSchema = versionOneTaskSchema.extend({
+  owner: z.string().max(MAX_OWNER_LENGTH).optional(),
+  metadata: jsonMetadataSchema.optional(),
   parentId: taskIdSchema.optional()
 });
-const legacySnapshotSchema = z.object({
-  tasks: z.array(legacyTaskSchema).max(MAX_LEGACY_TASKS),
-  nextId: taskIdSchema
-});
-const versionOneSnapshotSchema = z.object({
-  version: z.literal(1),
-  tasks: z.array(versionOneTaskSchema).max(MAX_TASKS),
-  nextId: taskIdSchema
-});
-const versionTwoSnapshotSchema = z.object({
+const snapshotSchema = z.object({
   version: z.literal(TASK_DETAILS_VERSION),
-  tasks: z.array(versionTwoTaskSchema).max(MAX_TASKS),
+  tasks: z.array(taskSchema).max(MAX_TASKS),
   nextId: taskIdSchema
 });
-const versionEnvelopeSchema = z.object({
-  version: z.union([z.literal(1), z.literal(TASK_DETAILS_VERSION)]).optional()
-});
+const versionEnvelopeSchema = z.object({ version: z.literal(TASK_DETAILS_VERSION) });
 const todoSnapshotEntrySchema = z.object({
   type: z.literal("message"),
   message: z.object({
@@ -84,25 +62,19 @@ export function todoStateFromBranch<Entry>(entries: readonly Entry[]): TodoState
 }
 
 export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefined {
-  const version = detailsVersion(value);
-  if (version === "unknown") return undefined;
-
-  const current = version !== undefined;
-  const maximumBytes = current ? MAX_SNAPSHOT_BYTES : MAX_LEGACY_SNAPSHOT_BYTES;
-  // Keep this budgeted preflight ahead of Zod cloning and metadata traversal.
-  if (!serializedValueFitsLimit(value, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES)) return undefined;
-
   try {
-    const schemas = {
-      legacy: legacySnapshotSchema,
-      1: versionOneSnapshotSchema,
-      2: versionTwoSnapshotSchema
-    };
-    const parsed = schemas[version ?? "legacy"].safeParse(value);
+    if (!versionEnvelopeSchema.safeParse(value).success) return undefined;
+
+    // Keep this budgeted preflight ahead of Zod cloning and metadata traversal.
+    if (!serializedValueFitsLimit(value, MAX_SNAPSHOT_BYTES + MAX_DETAILS_OVERHEAD_BYTES)) {
+      return undefined;
+    }
+
+    const parsed = snapshotSchema.safeParse(value);
     if (!parsed.success) return undefined;
     const snapshot = { tasks: parsed.data.tasks, nextId: parsed.data.nextId };
     // Envelope headroom cannot become additional todo capacity on repeated replay.
-    if (!serializedValueFitsLimit(snapshot, maximumBytes)) return undefined;
+    if (!serializedValueFitsLimit(snapshot, MAX_SNAPSHOT_BYTES)) return undefined;
 
     const state: TodoState = {
       tasks: snapshot.tasks.map(cloneTask),
@@ -110,8 +82,8 @@ export function parseTodoStateSnapshot<Value>(value: Value): TodoState | undefin
     };
 
     // Sanitization can expand descriptions (tabs become spaces). Replayed state
-    // must still meet the same limits as newly emitted versioned snapshots.
-    if (current && !stateFitsCurrentLimits(state)) return undefined;
+    // must still meet the same limits as newly emitted snapshots.
+    if (!stateFitsCurrentLimits(state)) return undefined;
 
     return isSemanticallyValidSnapshot(state) ? state : undefined;
   } catch {
@@ -137,17 +109,6 @@ function parseTodoStateSnapshotEntry<Entry>(entry: Entry): TodoState | undefined
     return parseTodoStateSnapshot(parsed.data.message.details);
   } catch {
     return undefined;
-  }
-}
-
-function detailsVersion<Value>(value: Value): 1 | 2 | undefined | "unknown" {
-  try {
-    const parsed = versionEnvelopeSchema.safeParse(value);
-    if (!parsed.success) return "unknown";
-
-    return parsed.data.version;
-  } catch {
-    return "unknown";
   }
 }
 

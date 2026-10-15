@@ -314,6 +314,9 @@ importers:
 
   packages/extensions/pi-fff-guard:
     dependencies:
+      '@earendil-works/pi-ai':
+        specifier: catalog:pi-host
+        version: 1.2.0(@aws-sdk/credential-provider-node@3.972.86)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(undici@8.10.2)(ws@8.22.0)(zod@4.6.7)
       '@earendil-works/pi-coding-agent':
         specifier: catalog:pi-host
         version: 1.2.0(@aws-sdk/credential-provider-node@3.972.86)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(ws@8.22.0)(zod@4.6.7)
@@ -396,9 +399,6 @@ importers:
       '@pi-mono/libs':
         specifier: workspace:*
         version: link:../../libs
-      '@pi-mono/utils':
-        specifier: workspace:*
-        version: link:../../utils
       zod:
         specifier: 'catalog:'
         version: 4.6.7

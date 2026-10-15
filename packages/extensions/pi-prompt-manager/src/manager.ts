@@ -1,11 +1,10 @@
-import { NativeClipboardError } from "@pi-mono/libs/native-clipboard";
 import { WriteLifetime } from "@pi-mono/libs/private-files";
-import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { displayText, hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
 
+import { NativeClipboardError } from "./clipboard.ts";
 import { parseCommand, usage, type NumberedAction } from "./commands.ts";
-import { assertRestorable, type EditorPort } from "./editor.ts";
-import { captureText } from "./history.ts";
 import {
+  captureText,
   errorMessage,
   limits,
   PromptError,
@@ -26,6 +25,8 @@ export type ViewRequest = {
   afterClose(restoration: RestorationRequest | undefined): Promise<void>;
 };
 
+export type EditorPort = { read(): string; write(text: string): void };
+
 export type ManagerPorts = {
   repository: Repository;
   editor: EditorPort;
@@ -34,6 +35,14 @@ export type ManagerPorts = {
   open(request: ViewRequest): Promise<void>;
   now(): Date;
 };
+
+/** Source is refused, never sanitized. Pi still normalizes tabs and line endings. */
+export function assertRestorable(text: string): void {
+  if (hasUnsafeTerminalControls(text))
+    throw new PromptError(
+      "Restoration refused: source contains unsafe terminal controls. Inspection and native copying remain available."
+    );
+}
 
 export class PromptManager {
   private readonly lifetime = new WriteLifetime();

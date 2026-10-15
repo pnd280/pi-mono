@@ -1,4 +1,3 @@
-import { selectionSchema } from "@pi-mono/utils/source-selection";
 import {
   appendPreview,
   interpretReadResult,
@@ -6,6 +5,8 @@ import {
   type ReadResultView
 } from "pi-read/result";
 import { describe, expect, it } from "vite-plus/test";
+
+import { selectionSchema } from "./selection.ts";
 
 const span = (startLine: number, endLine = startLine) =>
   selectionSchema.parse({ startLine, endLine });

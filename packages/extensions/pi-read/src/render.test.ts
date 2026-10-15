@@ -1,9 +1,9 @@
 import { createReadToolDefinition, initTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
-import { selectionSchema } from "@pi-mono/utils/source-selection";
 import { beforeAll, expect, it } from "vite-plus/test";
 
 import { appendPreview, type ReadResult } from "./result.ts";
+import { selectionSchema } from "./selection.ts";
 import {
   createSelectiveReadTool,
   type SelectiveReadParams,

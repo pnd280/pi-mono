@@ -20,7 +20,7 @@ Use trusted private parents on local Linux, macOS, or WSL storage with POSIX own
 
 ### Mutation protocol
 
-Use [serialised transactions](transactions.md#serialised-transactions) or the [lower-level mutation protocol](transactions.md#mutation-protocol). Never retry a committed write solely because cleanup failed.
+Mutate records through [serialised transactions](transactions.md#serialised-transactions). Never retry a committed write solely because cleanup failed.
 
 ## Validation
 

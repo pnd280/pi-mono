@@ -1,5 +1,5 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { textPrefix } from "@pi-mono/libs/tui/text-budget";
+import { sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 
 import type { InvocationPart } from "../contracts.ts";
 import { invocationPartText } from "../invocation.ts";
@@ -17,7 +17,7 @@ function boundedTarget(text: string, maximum: number): string {
   const tail = graphemes.segment(text).containing(text.length - half);
   const tailStart = tail ? tail.index + tail.segment.length : text.length;
 
-  return `${textPrefix(text, half)}…${text.slice(tailStart)}`;
+  return `${sliceTerminalText(text, 0, half).text}…${text.slice(tailStart)}`;
 }
 
 type TargetOptions = { width: number; theme: Pick<DisplayTheme, "fg">; expanded: boolean };

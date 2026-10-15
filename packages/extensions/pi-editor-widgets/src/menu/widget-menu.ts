@@ -1,6 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, type Component } from "@earendil-works/pi-tui";
-import { ExpiringNotice } from "@pi-mono/libs/expiring-notice";
+import type { SettingsScope } from "@pi-mono/libs/settings-file";
 import {
   renderSettingsMenu,
   settingsLoadFeedback,
@@ -12,11 +12,12 @@ import {
 
 import type { WidgetCoordinator } from "../coordinator.ts";
 import { regions } from "../layout.ts";
-import type { Preferences, Scope, WidgetSettings } from "../settings.ts";
+import type { Preferences, WidgetSettings } from "../settings.ts";
 import { WidgetDrafts, type Navigation } from "./drafts.ts";
 import { itemLabel, regionLabel, rowSummary, viewTitle } from "./labels.ts";
 
 const minimumHeight = 10;
+const successDurationMs = 3000;
 const navigationKeys = [
   ["escape", "back"],
   ["ctrl+c", "close"],
@@ -40,7 +41,7 @@ type Item = SettingsMenuItem & {
 export class WidgetMenu implements Component {
   readonly drafts: WidgetDrafts;
   private feedback: SettingsFeedback | undefined;
-  private readonly success: ExpiringNotice<SettingsFeedback>;
+  private successExpiry: ReturnType<typeof setTimeout> | undefined;
   private warning: SettingsFeedback | undefined;
   private closed = false;
 
@@ -57,10 +58,6 @@ export class WidgetMenu implements Component {
   ) {
     this.drafts = new WidgetDrafts(options.preferences, () => options.coordinator.contributions());
     this.warning = settingsLoadFeedback(options.preferences.warnings);
-    this.success = new ExpiringNotice({
-      durationMs: 3000,
-      changed: () => this.options.requestRender()
-    });
     this.showDraft();
   }
 
@@ -146,7 +143,7 @@ export class WidgetMenu implements Component {
 
   dispose(): void {
     this.closed = true;
-    this.success.dispose();
+    clearTimeout(this.successExpiry);
   }
 
   private close(): void {
@@ -156,9 +153,14 @@ export class WidgetMenu implements Component {
   }
 
   private setFeedback(feedback: SettingsFeedback | undefined): void {
-    this.success.clear();
-    this.feedback = feedback?.severity === "success" ? undefined : feedback;
-    if (feedback?.severity === "success") this.success.set(feedback);
+    clearTimeout(this.successExpiry);
+    this.feedback = feedback;
+    // Success clears itself; warnings and errors stay until replaced.
+    if (feedback?.severity === "success")
+      this.successExpiry = setTimeout(() => {
+        this.feedback = undefined;
+        this.options.requestRender();
+      }, successDurationMs);
   }
 
   private save(): void {
@@ -216,7 +218,7 @@ export class WidgetMenu implements Component {
     const view = snapshot.view;
     const item = items[view.selected];
 
-    const scopes: Scope[] = this.options.settings.projectTrusted
+    const scopes: SettingsScope[] = this.options.settings.projectTrusted
       ? ["global", "project"]
       : ["global"];
 
@@ -241,7 +243,7 @@ export class WidgetMenu implements Component {
       selected: view.selected,
       emptyLabel: `${view.kind === "rows" ? "No rows" : "Empty row"}. Press a to add.`,
       hints: this.hints(item),
-      feedback: this.success.value ?? this.feedback ?? this.warning
+      feedback: this.feedback ?? this.warning
     });
   }
 

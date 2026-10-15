@@ -73,6 +73,12 @@ export const draftTextSchema = storedEntrySchema.shape.text.refine(
   (text) => Buffer.byteLength(text) <= limits.draftText
 );
 
+export function captureText(source: string): string | undefined {
+  const text = source.trim();
+
+  return historyTextSchema.safeParse(text).data;
+}
+
 export class PromptError extends Error {}
 
 /** Never expose arbitrary exception messages: JSON/host errors can include source text. */

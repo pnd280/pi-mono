@@ -230,15 +230,8 @@ export class Delivery {
   private hasBackground(): boolean {
     // Stopped tasks keep their last records.
     if (!this.tasks.activeBinding) return false;
-    const records = this.tasks.list();
-    const ids = new Set(records.map((record) => record.task_id));
 
-    return records.some(
-      (record) =>
-        record.state === "active" &&
-        record.background &&
-        (record.parent_task_id === null || !ids.has(record.parent_task_id))
-    );
+    return this.tasks.direct().some((record) => record.state === "active" && record.background);
   }
 
   /** Commits ready results in all modes; print, JSON, and nested supervisors can also wait. */

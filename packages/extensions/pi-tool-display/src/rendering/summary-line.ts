@@ -1,5 +1,4 @@
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import type { RunSummary, SummarySegment } from "../run-summary.ts";
@@ -95,9 +94,4 @@ export function renderRunSummary(summary: RunSummary, options: SummaryLineOption
   if (current) rows.push(current);
 
   return rows.map((row) => truncateToWidth(`${INDENT}${row}`, width, ""));
-}
-
-/** Pure: an opened run's collapse action, a rule that spans the row. */
-export function renderCollapseRow(options: SummaryLineOptions): string {
-  return options.theme.fg("dim", TUI_GLYPHS.tree.horizontal.repeat(Math.max(0, options.width)));
 }

@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { expect, it, vi } from "vite-plus/test";
 
-import { copyNative } from "./index.ts";
+import { copyNative } from "./clipboard.ts";
 
 const signal = () => new AbortController().signal;
 

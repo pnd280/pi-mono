@@ -2,7 +2,6 @@ import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import type { DisplayAction, DisplayMode } from "../contracts.ts";
-import type { DisplayFailure } from "../interpretation.ts";
 import type { DisplaySettings } from "../settings.ts";
 import { TranscriptMessages } from "../transcript/messages.ts";
 import type { DisplaySession } from "../transcript/session.ts";
@@ -52,7 +51,6 @@ function shownMode(mode: DisplayMode, summarized: boolean): DisplayMode {
 
 export function installHostIntegration(
   collection: DisplayCollectors,
-  warn: (message: string) => void = () => {},
   action: (action: DisplayAction) => void = () => {}
 ): (() => void) | undefined {
   const prototype = interactivePrototype();
@@ -71,18 +69,6 @@ export function installHostIntegration(
   let modeWarning = false;
   let rowWarning = false;
   let active = true;
-
-  const warning = (text: string) => {
-    try {
-      warn(`pi-tool-display: ${text}`);
-    } catch {
-      /* UI may already be disposed. */
-    }
-  };
-
-  const failure = (failed: DisplayFailure) => {
-    collection.failure(failed);
-  };
 
   function rowsFor(host: Host): TranscriptRows {
     let rows = hostRows.get(host);
@@ -120,12 +106,14 @@ export function installHostIntegration(
 
     if (!modeHooks && configuration.valid && !modeWarning) {
       modeWarning = true;
-      warning(`mode cycling unavailable; Ctrl+O toggles ${configuration.collapsedMode} ↔ verbose.`);
+      collection.warning(
+        `mode cycling unavailable; Ctrl+O toggles ${configuration.collapsedMode} ↔ verbose.`
+      );
     }
 
     if (!rowChrome && !rowWarning) {
       rowWarning = true;
-      warning("row contract unavailable; summaries disabled.");
+      collection.warning("row contract unavailable; summaries disabled.");
     }
 
     const display = reset ? collector.reconstruct() : collector.display;
@@ -211,7 +199,7 @@ export function installHostIntegration(
 
       return rowsFor(this).definition(definition, name, selected, {
         showParameters: configuration.showParameters,
-        onFailure: failure
+        onFailure: (failed) => collection.failure(failed)
       });
     } catch {
       return definition;
@@ -339,7 +327,7 @@ export function installHostIntegration(
 
         await rowsFor(this).handleEvent(event.type, () => handle.call(this, event));
       });
-    } else warning("transcript row contract unavailable; grouping disabled.");
+    } else collection.warning("transcript row contract unavailable; grouping disabled.");
     prototype[hostHook] = dispose;
 
     return dispose;

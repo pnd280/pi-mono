@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 
-import { selectionSchema } from "./source-selection.ts";
+import { selectionSchema } from "./selection.ts";
 
 it("rejects unknown fields and invalid coordinates or ranges", () => {
   for (const input of [

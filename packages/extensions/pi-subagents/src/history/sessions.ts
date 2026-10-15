@@ -3,7 +3,7 @@ import { open } from "node:fs/promises";
 import { parseSessionEntries, type SessionEntry } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
-import { MARKER_ENTRY, SESSION_MAX_BYTES } from "../constants.ts";
+import { MARKER_ENTRY } from "../constants.ts";
 import { taskHistory, type TaskRecord } from "../tasks/records.ts";
 import type { TranscriptSnapshot } from "./transcript.ts";
 
@@ -15,7 +15,10 @@ const headerSchema = z.object({
 
 const markerSchema = z.object({ run_id: z.string().min(1) });
 
-export const UNAVAILABLE = "Subagent session history is unavailable";
+const UNAVAILABLE = "Subagent session history is unavailable";
+
+/** The largest child session file that readers parse. */
+const SESSION_MAX_BYTES = 64 * 1024 * 1024;
 
 type Parsed = { size: number; mtimeMs: number; id: string; cwd: string; entries: SessionEntry[] };
 
@@ -45,7 +48,7 @@ function isMarker(entry: SessionEntry, runId?: string): boolean {
  * A run's final leaf: the last appended entry whose nearest marker ancestor is the run's marker.
  * A manual continuation of the file's last run therefore extends that run.
  */
-export function runLeaf(entries: readonly SessionEntry[], runId: string): string | undefined {
+function runLeaf(entries: readonly SessionEntry[], runId: string): string | undefined {
   const start = entries.findIndex((entry) => isMarker(entry, runId));
   const marker = entries[start];
   if (!marker) return undefined;

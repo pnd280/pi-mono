@@ -29,7 +29,7 @@ The two source views are interpreted on demand, so provenance recognition and no
 
 For per-block highlighting, pass the source part after native presentation has separated its diagnostic trailer, never styled or sanitised text. Original preceding blocks contribute their complete split-line counts, including empty blocks, trailing newlines, and diagnostic lines. Aggregate and per-block coordinates therefore preserve block joins without flattening the displayed blocks. A trailing newline is not an additional selectable line within a single block, but can contribute an empty line in the aggregate join.
 
-Display callers validate retained selections with `retainedSelectionSchema` from `pi-read/result`. It treats optional coordinate `null` values as omitted, matching Pi's execution normalisation, then uses the shared source-selection schema. Required coordinates and unknown fields remain strict. Terminal sanitisation, tab expansion, themes, diagnostic styling, partial and failed-result eligibility, and grouping remain renderer policy.
+Display callers validate retained selections with `retainedSelectionSchema` from `pi-read/result`. It treats optional coordinate `null` values as omitted, matching Pi's execution normalisation, then applies the extension's [selection schema](../src/selection.ts). Required coordinates and unknown fields remain strict. `selectionLabel` formats a parsed `Selection` as a compact range such as `12:4-15:9`. Terminal sanitisation, tab expansion, themes, diagnostic styling, partial and failed-result eligibility, and grouping remain renderer policy.
 
 ## Native provenance limits
 

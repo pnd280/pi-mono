@@ -10,7 +10,6 @@ import {
   type TuiMouseEvent
 } from "@earendil-works/pi-tui";
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
-import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import type { RunReader, TaskView } from "../history/reader.ts";
@@ -20,7 +19,7 @@ import type { Tasks } from "../tasks/registry.ts";
 import { createRenderers } from "../tasks/render.ts";
 import { boardEntries, entryId, renderBoard, views, type BoardEntry } from "./board.ts";
 import { JobLogView } from "./job-viewer.ts";
-import { fitViewer, metadataTable, Spinner, taskRows, titleBorder } from "./viewer-frame.ts";
+import { renderViewer, Spinner, taskRows, type ViewerBody } from "./viewer-frame.ts";
 import { TranscriptViewer } from "./viewer.ts";
 
 const keys = [
@@ -182,21 +181,24 @@ class TranscriptView implements Component {
   }
 
   render(width: number): string[] {
-    const rows = Math.max(
-      1,
-      Math.floor(this.tui.terminal.rows * (this.tui.mode === "fullscreen" ? 1 : 3 / 4))
-    );
     // Keep the header current with the task's live record.
     const tasks = this.tasks.list();
     const record = tasks.find((task) => task.task_id === this.viewing);
     const parent = record && tasks.find((task) => task.task_id === record.parent_task_id);
-    const diagnostics = [
-      ...(this.viewer && this.source?.unavailable ? [this.source.unavailable] : []),
-      ...(this.error ? [this.error] : [])
-    ].map((text) => this.theme.fg("error", compactDisplayText(text)));
-    const hints = renderHintFooter({
+    const { rows, bodyTop } = renderViewer({
+      tui: this.tui,
+      theme: this.theme,
       width,
-      maxRows: rows,
+      kind: "task",
+      subject: record && {
+        description: record.description,
+        id: record.task_id,
+        metadata: taskRows(this.theme, record, parent, this.working?.frame())
+      },
+      diagnostics: [
+        ...(this.viewer && this.source?.unavailable ? [this.source.unavailable] : []),
+        ...(this.error ? [this.error] : [])
+      ],
       hints: [
         "Esc back",
         ...(this.working ? ["Ctrl+D abort"] : []),
@@ -205,25 +207,15 @@ class TranscriptView implements Component {
         "PageUp/PageDown page",
         "Home/End first/last"
       ],
-      padding: "",
-      separator: " · ",
-      style: (text) => this.theme.fg("dim", text)
+      body: (height) => this.body(width, height)
     });
-    const { header, footer, height } = fitViewer(rows, {
-      title: record
-        ? titleBorder(this.theme, "task", record.description, record.task_id, width)
-        : this.theme.fg("border", "─".repeat(width)),
-      metadata: record
-        ? metadataTable(
-            this.theme,
-            taskRows(this.theme, record, parent, this.working?.frame()),
-            width
-          )
-        : [],
-      diagnostics,
-      hints
-    });
-    this.bodyTop = header.length + 1;
+    this.bodyTop = bodyTop;
+
+    return rows;
+  }
+
+  /** The transcript beside its scrollbar, or the loading or unavailable text. */
+  private body(width: number, height: number): ViewerBody {
     let body: string[];
     let above = 0;
     let below = 0;
@@ -247,20 +239,8 @@ class TranscriptView implements Component {
       ].slice(0, height);
 
     this.bodyRows = body.length;
-    const padding = Array.from({ length: Math.max(0, height - body.length) }, () => "");
 
-    const color = (text: string) => this.theme.fg("border", text);
-
-    return [
-      ...header,
-      renderOverflowBorder(width, { color, direction: "↑", hidden: above }),
-      ...body,
-      ...padding,
-      ...footer,
-      renderOverflowBorder(width, { color, direction: "↓", hidden: below })
-    ]
-      .slice(0, rows)
-      .map((row) => truncateToWidth(row, width, ""));
+    return { lines: body, above, below };
   }
 
   /** Thumb geometry follows Pi's fullscreen scrollbar. */

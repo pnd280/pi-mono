@@ -17,7 +17,7 @@ const referenceSchema = z
   .refine((value) => value.trim().length > 0);
 const startupClaim = Symbol.for("pi-session-utils.parent-session-startup");
 
-export function applyStartupParent(manager: SessionManager, args: Args): void {
+function applyStartupParent(manager: SessionManager, args: Args): void {
   if (
     args.continue ||
     args.resume ||

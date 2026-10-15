@@ -5,8 +5,7 @@ import { z } from "zod";
 import { type InvocationPart } from "../../../contracts.ts";
 import type { BorrowedToolResult, ToolDisplayAdapter } from "../../../contracts.ts";
 import { invocationParts } from "../../../invocation.ts";
-import { stringField } from "../../../terminal-text.ts";
-import { record } from "../../../values.ts";
+import { record, stringField } from "../../../values.ts";
 import { fffResultParts, fffTextNotices } from "./result-presentation.ts";
 
 const patternsSchema = z.array(z.string());

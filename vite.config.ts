@@ -310,6 +310,7 @@ export default defineConfig({
       "boundaries/files": [
         { pattern: "packages/**/*.ts", category: "source" },
         { pattern: "packages/libs/src/tui/components/**", category: "tui-component" },
+        { pattern: "packages/libs/src/working-message/order-view.ts", category: "tui-component" },
         {
           pattern: "packages/libs/src/tui/{open-browser,responsive-custom-ui}/**",
           category: "tui-host"

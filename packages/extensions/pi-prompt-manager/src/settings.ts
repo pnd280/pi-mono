@@ -20,7 +20,7 @@ const settingsSchema = z.strictObject({
 
 export type Settings = z.output<typeof settingsSchema>;
 
-export function parseSettings(value: unknown): { settings: Settings; warnings: string[] } {
+function parseSettings(value: unknown): { settings: Settings; warnings: string[] } {
   const result = settingsSchema.safeParse(value === undefined ? {} : value);
   const warnings: string[] = [];
   if (result.success) return resolveShortcuts(result.data, warnings);

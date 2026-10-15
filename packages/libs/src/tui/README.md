@@ -11,17 +11,15 @@ Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [packag
 | Module                                                   | Responsibility                                                           |
 | -------------------------------------------------------- | ------------------------------------------------------------------------ |
 | [Browser](components/browser/README.md)                  | Searchable sections, selection, previews, actions, and responsive layout |
+| [Browser layout](components/browser/layout.ts)           | Inline or overlay sizing, importable without loading the browser         |
 | [Browser host](open-browser/README.md)                   | Mount a browser and apply effects after final closure                    |
 | [Responsive custom UI](responsive-custom-ui/README.md)   | Preserve a logical component across inline and overlay remounts          |
-| [Order settings](components/order-settings/README.md)    | Independent ordering drafts with save and cancel controls                |
 | [Settings menu](components/settings-menu/README.md)      | Shared scoped settings frame, dirty state, feedback, and controls        |
-| [Windowed list](components/windowed-list/README.md)      | Visible item window with caller-controlled selection                     |
 | [Text preview](components/text-preview/README.md)        | Cached preview viewport and overflow borders                             |
 | [Hint footer](components/hint-footer/README.md)          | Width-aware hints and feedback                                           |
 | [Tree](components/tree/README.md)                        | Connectors for measured rows                                             |
 | [Diff view](components/diff-view/README.md)              | Display of parsed patches                                                |
 | [Code highlighting](components/code-highlight/README.md) | Bounded syntax highlighting                                              |
-| [Text layout](text-layout/README.md)                     | Cooperative full-text wrapping                                           |
 | [Text budgets](text-budget/README.md)                    | Synchronous wrapping and bounded excerpts                                |
 | [Terminal text](terminal-text/README.md)                 | Display sanitisation and unsafe-control detection                        |
 | [Glyphs](glyphs/README.md)                               | Shared activity markers and tree connector glyphs                        |

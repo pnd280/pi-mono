@@ -2,15 +2,16 @@ import { keyHint, type Theme, type ToolDefinition } from "@earendil-works/pi-cod
 import { MouseRegion, truncateToWidth, type Component } from "@earendil-works/pi-tui";
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
-import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
-import { textPrefix, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
+import { displayLine, wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
 import { detailsSchema, type ToolDetails } from "../result.ts";
 
-export type CardState = { taskId?: string | undefined; bindingId?: string | undefined };
+/** The task or job that a click on a card opens. */
+export type CardState = { id?: string | undefined; bindingId?: string | undefined };
 
 // Untyped arguments: Pi also draws replayed calls before the tool registers.
 type Definition = ToolDefinition<ToolDefinition["parameters"], ToolDetails, CardState>;
@@ -19,7 +20,10 @@ type Renderers = Required<Pick<Definition, "renderCall" | "renderResult">>;
 
 type Kind = "subagent" | "subagent_abort";
 
-type Result = { content: ReadonlyArray<{ type: string; text?: string }>; details?: unknown };
+export type Result = {
+  content: ReadonlyArray<{ type: string; text?: string }>;
+  details?: unknown;
+};
 
 /** The latest values Pi passed to either slot of one row. */
 type View = {
@@ -69,7 +73,7 @@ const argsSchema = z.object({
 const LABEL_WIDTH = 11;
 const PREVIEW_LINES = 3;
 const PROMPT_LINES = 10;
-/** Collapsed cards show this many characters of a task ID. */
+/** Collapsed cards show this many characters of an ID. */
 const SHORT_ID = 8;
 
 /** A recorded duration, or a running timer in whole seconds while `endedAt` is null. */
@@ -80,11 +84,43 @@ export function elapsed(startedAt: number, endedAt: number | null): string {
   return seconds ? formatDuration(seconds * 1000) : "0s";
 }
 
-/** One display line of at most 2048 characters of `text`. */
-export function clean(text: string): string {
-  const retained = textPrefix(text, 2048);
+/** An ID as a collapsed card shows it; the cut must save more than the ellipsis. */
+export function shortId(id: string, expanded: boolean): string {
+  return expanded || id.length <= SHORT_ID + 1 ? id : `${id.slice(0, SHORT_ID)}…`;
+}
 
-  return compactDisplayText(retained) + (retained.length < text.length ? "…" : "");
+/**
+ * A dim label in a column of `labelWidth`, beside its wrapped value. Labels stack above their
+ * values when the column would leave no room for a wide character.
+ */
+export function field(
+  theme: Theme,
+  label: string,
+  value: string,
+  width: number,
+  labelWidth: number
+): string[] {
+  const column = width >= labelWidth + 2 ? labelWidth : 0;
+  const rows = value ? wrapRows(value, width - column) : [""];
+  const pad = " ".repeat(column);
+
+  return column
+    ? rows.map((row, index) => `${index ? pad : theme.fg("dim", label.padEnd(column))}${row}`)
+    : [...wrapRows(theme.fg("dim", label), width), ...rows];
+}
+
+/** A card that opens its task or job on a left click. */
+export function clickable(
+  card: Component,
+  state: CardState,
+  open: (id: string, binding?: string) => void
+): Component {
+  return new MouseRegion(card, (event) => {
+    if (!state.id || event.type !== "click" || event.button !== "left") return;
+    open(state.id, state.bindingId);
+
+    return { handled: true };
+  });
 }
 
 /** Non-breaking spaces keep the group on one row when it fits. */
@@ -288,46 +324,37 @@ class CardRow {
   /** The title, then one labelled row per fact. */
   private headingRows(view: View, card: Facts, width: number): string[] {
     const { theme } = view;
-    // Stack labels when the column would leave no room for a wide character.
+    // Prompt continuation rows follow the value column, which `field` drops when labels stack.
     const labelWidth = width >= LABEL_WIDTH + 2 ? LABEL_WIDTH : 0;
     const valueWidth = width - labelWidth;
     const pad = " ".repeat(labelWidth);
+    const labelled = (label: string, value: string) =>
+      field(theme, label, value, width, LABEL_WIDTH);
 
-    const field = (label: string, value: string) => {
-      const rows = value ? wrapRows(value, valueWidth) : [""];
-
-      return labelWidth
-        ? rows.map(
-            (row, index) => `${index ? pad : theme.fg("dim", label.padEnd(labelWidth))}${row}`
-          )
-        : [...wrapRows(theme.fg("dim", label), width), ...rows];
-    };
-
-    const title = `${theme.fg("toolTitle", theme.bold(this.kind))} ${theme.fg("toolTitle", clean(card.description) || "…")}`;
-    const activity = card.activity ? theme.fg("muted", ` · now ${clean(card.activity)}`) : "";
+    const title = `${theme.fg("toolTitle", theme.bold(this.kind))} ${theme.fg("toolTitle", displayLine(card.description) || "…")}`;
+    const activity = card.activity ? theme.fg("muted", ` · now ${displayLine(card.activity)}`) : "";
     // Style values before wrapping so continuation rows keep their colour.
     const rows = [
       ...wrapRows(title, width),
-      ...field("status", theme.fg(card.color, clean(card.status)) + activity)
+      ...labelled("status", theme.fg(card.color, displayLine(card.status)) + activity)
     ];
-    const identity = clean(card.identity);
-    if (identity) rows.push(...field("model", theme.fg("muted", identity)));
-    if (card.usage) rows.push(...field("usage", theme.fg("muted", card.usage)));
+    const identity = displayLine(card.identity);
+    if (identity) rows.push(...labelled("model", theme.fg("muted", identity)));
+    if (card.usage) rows.push(...labelled("usage", theme.fg("muted", card.usage)));
     if (card.error)
-      rows.push(...field("error", theme.fg(card.error.color, clean(card.error.text))));
+      rows.push(...labelled("error", theme.fg(card.error.color, displayLine(card.error.text))));
 
     if (card.taskId) {
-      const id = clean(card.taskId);
-      const shown = view.expanded || id.length <= SHORT_ID + 1 ? id : `${id.slice(0, SHORT_ID)}…`;
-      rows.push(...field("task", theme.fg("muted", shown)));
+      const id = displayLine(card.taskId);
+      rows.push(...labelled("task", theme.fg("muted", shortId(id, view.expanded))));
     }
 
     if (view.expanded) {
       for (const [name, value] of card.options)
-        rows.push(...field(name, theme.fg("muted", clean(value))));
+        rows.push(...labelled(name, theme.fg("muted", displayLine(value))));
 
       if (card.prompt) {
-        const retained = textPrefix(card.prompt, 16 * 1024);
+        const retained = sliceTerminalText(card.prompt, 0, 16 * 1024).text;
         const lines = displayText(retained).split("\n");
         lines
           .slice(0, PROMPT_LINES)
@@ -337,7 +364,7 @@ class CardRow {
                 ? (line ? wrapRows(line, valueWidth) : [""]).map(
                     (row) => `${pad}${theme.fg("toolOutput", row)}`
                   )
-                : field("prompt", line && theme.fg("toolOutput", line)))
+                : labelled("prompt", line && theme.fg("toolOutput", line)))
             )
           );
         if (retained.length < card.prompt.length || lines.length > PROMPT_LINES)
@@ -414,19 +441,6 @@ class CardSlot implements Component {
   }
 }
 
-function clickable(
-  card: Component,
-  state: CardState,
-  open: (id: string, binding?: string) => void
-): Component {
-  return new MouseRegion(card, (event) => {
-    if (!state.taskId || event.type !== "click" || event.button !== "left") return;
-    open(state.taskId, state.bindingId);
-
-    return { handled: true };
-  });
-}
-
 /** Cards in Pi's default tool box. A click on a card with a task opens it. */
 export function createRenderers(
   open: (id: string, binding?: string) => void,
@@ -466,7 +480,7 @@ export function createRenderers(
     renderResult(result, options, theme, context) {
       const details = detailsSchema.safeParse(result.details).data;
       // Both slots read the latest identity, including when Pi retains the call component.
-      context.state.taskId = details?.task_id;
+      context.state.id = details?.task_id;
       context.state.bindingId = details?.binding_id;
 
       return slot(

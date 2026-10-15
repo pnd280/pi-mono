@@ -52,12 +52,12 @@ Choose the layer in this order:
 
 Test each invariant once, at the layer that owns it. Consumers test local policy and the integration risks of their adapters, wrappers, or monkey-patches, not unchanged Pi behaviour or shared-library algorithms.
 
-| Layer                                                                     | Owns invariants for                                                                                                                  |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [Utils](../../packages/utils/docs/testing.md)                             | Pure validation and parsing: paths, patches, selections, search scopes, and FFF provenance.                                          |
-| [Libs](../../packages/libs/docs/testing.md)                               | Reusable protocols with I/O or scheduling: search ranking, files, locks, Git, caches, cancellation, terminal safety, and shared TUI. |
-| Extensions                                                                | Feature policy: schemas, activation, persistence, and the wiring of shared helpers.                                                  |
-| [Tool display](../../packages/extensions/pi-tool-display/docs/testing.md) | Rendering of other extensions' tool cards through its adapters.                                                                      |
+| Layer                                                                     | Owns invariants for                                                                                               |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| [Utils](../../packages/utils/docs/testing.md)                             | Pure validation and parsing: paths, patches, model references, search scopes, and FFF provenance.                 |
+| [Libs](../../packages/libs/docs/testing.md)                               | Reusable protocols with I/O or scheduling: files, locks, settings, cancellation, terminal safety, and shared TUI. |
+| Extensions                                                                | Feature policy: schemas, activation, persistence, and the wiring of shared helpers.                               |
+| [Tool display](../../packages/extensions/pi-tool-display/docs/testing.md) | Rendering of other extensions' tool cards through its adapters.                                                   |
 
 A consumer lists an invariant for a shared helper only where it could omit a safety option or misread a shared result. It does not repeat the shared failure matrix.
 

@@ -10,14 +10,16 @@ import {
   type ExtensionAPI,
   type ToolInfo
 } from "@earendil-works/pi-coding-agent";
+import { observeFileMutations } from "@pi-mono/libs/file-mutations";
+import { observeNativeTools } from "@pi-mono/libs/native-tools";
 
 import type { DisplayFailure } from "../interpretation.ts";
+import { displayMutationSink, observeNativeDefinition } from "../observation/native.ts";
 import type { DisplaySettings } from "../settings.ts";
 import { executionOutcome, hostToolResult, TranscriptMessages } from "../transcript/messages.ts";
 import { DisplaySession, type ToolSnapshot } from "../transcript/session.ts";
 import { LocalStore } from "../transcript/store.ts";
 import { displaySettings } from "./configuration.ts";
-import { NativeRegistry } from "./native-registry.ts";
 import { selectAdapter } from "./selection.ts";
 
 /** Collection belongs to the session, including when no terminal is attached. */
@@ -182,7 +184,7 @@ function validatedArgs(tool: ToolInfo, args: unknown): unknown {
   }
 }
 
-/** The existing native registry discovers runtimes; only lifecycle or transcript mounting starts collection. */
+/** Native tool observation discovers runtimes; only lifecycle or transcript mounting starts collection. */
 export class DisplayCollectors {
   private active = true;
   private runtimes = new WeakMap<object, AgentSession>();
@@ -190,7 +192,9 @@ export class DisplayCollectors {
   /** Disposal of collectors replaced after a session ID change; final disposal waits for it. */
   private retired = new Set<Promise<void>>();
   private disposal: Promise<void> | undefined;
-  private native: NativeRegistry;
+  /** Display policy only; native provenance and mutation I/O are shared with other observers. */
+  private native;
+  private mutations;
   /** Failure kinds and adapter IDs already reported. */
   private failures = new Set<string>();
 
@@ -198,10 +202,36 @@ export class DisplayCollectors {
     private append?: ExtensionAPI["appendEntry"],
     private warn: (message: string) => void = () => {}
   ) {
-    this.native = new NativeRegistry(
-      (session) => this.collectors.get(session)?.display,
-      (text) => this.warning(text),
-      (session) => this.runtimes.set(session.sessionManager, session)
+    this.native = observeNativeTools({
+      names: ["bash", "powershell"],
+      eligible: (session, name) => this.eligible(session, name),
+      wrap: (session, original, settings) =>
+        observeNativeDefinition(original, settings, (id) =>
+          this.collectors.get(session)?.display.beginObservation(id, `pi:${original.name}`)
+        ),
+      refreshed: (session) => {
+        this.runtimes.set(session.sessionManager, session);
+        this.collectors.get(session)?.display.refreshAdapters();
+      },
+      warning: (text) => this.warning(text)
+    });
+    this.mutations = observeFileMutations({
+      eligible: (session, name) => this.eligible(session, name),
+      begin: (session, name, id) => {
+        const sink = this.collectors.get(session)?.display.beginObservation(id, `pi:${name}`);
+
+        return sink ? displayMutationSink(sink, name) : undefined;
+      }
+    });
+  }
+
+  private eligible(session: AgentSession, name: string): boolean {
+    const display = this.collectors.get(session)?.display;
+
+    return (
+      this.active &&
+      !!display?.settings.valid &&
+      (display.settings.rendererOverrides[name] ?? "auto") === "auto"
     );
   }
 
@@ -266,13 +296,13 @@ export class DisplayCollectors {
     if (collector) return collector;
     collector = new DisplayCollector(session, this, this.append);
     this.collectors.set(session, collector);
-    this.native.bind(session, () => {
-      const tools = this.tools(session, collector.settings);
-
-      return ["bash", "powershell", "edit", "write"].some(
+    const tools = this.tools(session, collector.settings);
+    if (
+      ["bash", "powershell", "edit", "write"].some(
         (name) => tools.adapter(name)?.id === `pi:${name}`
-      );
-    });
+      )
+    )
+      this.native.bind(session);
 
     return collector;
   }
@@ -288,6 +318,7 @@ export class DisplayCollectors {
     this.active = false;
     const flushed = [...this.collectors.values()].map((collector) => collector.dispose());
     this.collectors.clear();
+    this.mutations.dispose();
     this.native.dispose();
     this.disposal = Promise.all([...this.retired, ...flushed]).then(() => {});
 

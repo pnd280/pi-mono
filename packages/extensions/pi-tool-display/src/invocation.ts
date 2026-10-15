@@ -2,8 +2,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { displayText } from "@pi-mono/libs/tui/terminal-text";
-import { textPrefix } from "@pi-mono/libs/tui/text-budget";
+import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { expandHomePath, relativeDisplayPath } from "@pi-mono/utils/paths";
 
 import type { ToolFamily, InvocationPart } from "./contracts.ts";
@@ -51,7 +50,7 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
 
   const append = (value: string): boolean => {
     if (truncated) return false;
-    const prefix = textPrefix(value, Math.max(0, maximum - text.length));
+    const prefix = sliceTerminalText(value, 0, Math.max(0, maximum - text.length)).text;
     text += prefix;
     truncated = prefix.length < value.length;
 
@@ -60,7 +59,7 @@ function parameterPreview(input: unknown, maximum: number): { text: string; trun
 
   const quoted = (value: string) => {
     const remaining = Math.max(0, maximum - text.length);
-    const prefix = textPrefix(value.slice(0, remaining + 1), remaining);
+    const prefix = sliceTerminalText(value.slice(0, remaining + 1), 0, remaining).text;
     const serialized = JSON.stringify(prefix);
 
     if (prefix.length < value.length) {

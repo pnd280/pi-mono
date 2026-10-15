@@ -50,4 +50,4 @@ export default function activityExtension(pi: ExtensionAPI) {
 
 ## Validation
 
-Use [library checks](../../README.md#validation). [Settings tests](settings.test.ts) exercise filesystem integration. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) to check `/working-message` and the published text in real Pi, in regular and fullscreen modes.
+Use [library checks](../../README.md#validation). [Settings tests](settings.test.ts) check the saved key and order schema; the [settings-file tests](../settings-file/README.md#validation) cover trust and file handling. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) to check `/working-message` and the published text in real Pi, in regular and fullscreen modes.

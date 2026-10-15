@@ -1,4 +1,6 @@
+import { MODEL_THINKING_LEVELS } from "@earendil-works/pi-ai/providers/model-schema";
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
+import { modelReferenceSchema } from "@pi-mono/utils/model-reference";
 import { z } from "zod";
 
 import type { InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
@@ -14,11 +16,8 @@ const compactParametersSchema = z.object({
 const compactDetailsSchema = z
   .object({
     scheduled: z.literal(true),
-    modelOverride: z
-      .string()
-      .regex(/^[^/\s]+\/\S+$/u)
-      .optional(),
-    thinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"]).optional()
+    modelOverride: modelReferenceSchema.optional(),
+    thinkingLevel: z.enum(MODEL_THINKING_LEVELS).optional()
   })
   .refine(
     (details) => (details.modelOverride === undefined) === (details.thinkingLevel === undefined)

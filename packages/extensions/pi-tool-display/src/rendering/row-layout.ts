@@ -2,7 +2,6 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import type { DisplayCall, DisplayGroup, DisplayRun, SummaryRole } from "../contracts.ts";
-import { renderCollapseRow } from "./summary-line.ts";
 import type { DisplayTheme } from "./types.ts";
 
 /** Chrome around one Pi transcript row. */
@@ -100,6 +99,13 @@ export function rowChrome(
       Math.max(0, width - 1),
       ""
     ),
-    collapse: collapsible ? { top, bottom, rule: renderCollapseRow({ width, theme }) } : undefined
+    collapse: collapsible
+      ? {
+          top,
+          bottom,
+          // An opened run's collapse action, a rule that spans the row.
+          rule: theme.fg("dim", TUI_GLYPHS.tree.horizontal.repeat(Math.max(0, width)))
+        }
+      : undefined
   };
 }

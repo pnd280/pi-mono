@@ -14,7 +14,7 @@ Keep one logical browser, and don't install a custom editor.
 ## Constraints
 
 - Before changing filesystem code, read the shared [mutation protocol](../../libs/src/private-files/README.md#mutation-protocol).
-- Use the native-only clipboard library, not Pi's general helper.
+- Use the native-only [clipboard module](src/clipboard.ts), not Pi's general helper.
 - Restore selections only in the [browser host's](../../libs/src/tui/open-browser/README.md) `afterClose`, before any requested removal, and never during a responsive remount.
 - Keep recovery manual.
 - Report cleanup warnings after a commit separately from failed writes.

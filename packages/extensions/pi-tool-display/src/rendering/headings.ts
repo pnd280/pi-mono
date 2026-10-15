@@ -3,8 +3,12 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { highlightCodeBounded } from "@pi-mono/libs/tui/components/code-highlight";
 import { renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
-import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
-import { textPrefix, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import {
+  compactDisplayText,
+  displayText,
+  sliceTerminalText
+} from "@pi-mono/libs/tui/terminal-text";
+import { wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import {
   isLive,
@@ -22,8 +26,7 @@ import {
   parametersText,
   serializeParameters
 } from "../invocation.ts";
-import { expansionHint, codeHighlightLimits, tree, styleParameters } from "./format.ts";
-import { bodyWidth } from "./layout.ts";
+import { bodyWidth, expansionHint, codeHighlightLimits, tree, styleParameters } from "./format.ts";
 import { targetRows } from "./target-layout.ts";
 import type { PreparedCard, PreparedGroup } from "./types.ts";
 
@@ -58,9 +61,9 @@ function formatParts(
           ? invocationPartText(part, p.call?.cwd ?? p.context.cwd, relativeTo)
           : part.text;
     // Bound source work before terminal normalization can discard or expand it.
-    const retained = textPrefix(source, remaining);
+    const retained = sliceTerminalText(source, 0, remaining).text;
     const normalized = displayText(retained);
-    const prefix = textPrefix(normalized, remaining);
+    const prefix = sliceTerminalText(normalized, 0, remaining).text;
     if (prefix) text += style(part, prefix);
     if (excerpt || retained.length < source.length || prefix.length < normalized.length)
       return { text, truncated: true };

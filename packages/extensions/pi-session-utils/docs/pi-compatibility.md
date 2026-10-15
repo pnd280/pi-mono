@@ -57,6 +57,7 @@ Session replacement must preserve saved data and parent links while giving namin
 - [ ] Registry normalisation, authentication, supported thinking levels, complete responses, safe errors, and bounded request and cache defaults.
 - [ ] Pi applies the title model's `samplingParamsByThinkingLevel` using its effective physical level, including `off`. The extension leaves sampling selection to the registry and keeps its token budget, disabled cache retention, and no-retry policy.
 - [ ] The configured model is validated, with no fallback and no retries.
+- [ ] `MODEL_THINKING_LEVELS` from `@earendil-works/pi-ai/providers/model-schema` lists every level that the `thinkingLevel` setting accepts, including `off`, and matches the levels in the [README](../README.md#configuration).
 - [ ] A virtual model's unknown output limit never becomes a zero-token request. The extension supplies the 1,024-token title budget, registry dispatch caps it to the routed physical model, and any smaller known limit is kept.
 
 ### Naming

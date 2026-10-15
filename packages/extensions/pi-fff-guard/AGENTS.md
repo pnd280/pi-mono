@@ -4,11 +4,12 @@ Block with `{ block: true, reason }`, never `terminate`.
 
 ## Code navigation
 
-| Area                 | Files                                                                                                                  |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Interception         | [src/index.ts](src/index.ts). Official FFF provenance is shared in [utils](../../utils/src/fff-tools.ts).              |
-| Decisions and scopes | [src/evaluate-search.ts](src/evaluate-search.ts) and [src/targets.ts](src/targets.ts).                                 |
-| Shared helpers       | [Scope parsing](../../utils/README.md#search-scopes) and [Git ignore inspection](../../libs/src/git-ignore/README.md). |
+| Area                  | Files                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| Interception          | [src/index.ts](src/index.ts). Official FFF provenance is shared in [utils](../../utils/src/fff-tools.ts). |
+| Decisions and scopes  | [src/evaluate-search.ts](src/evaluate-search.ts) and [src/targets.ts](src/targets.ts).                    |
+| Git ignore inspection | [src/git-ignore.ts](src/git-ignore.ts) and its [contract](docs/search-scopes.md#inspection-contract).     |
+| Shared helpers        | [Scope parsing](../../utils/README.md#search-scopes).                                                     |
 
 ## Constraints
 

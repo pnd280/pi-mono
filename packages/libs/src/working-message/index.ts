@@ -4,14 +4,14 @@ import type {
   ExtensionUIContext
 } from "@earendil-works/pi-coding-agent";
 
-import type { OrderSettingsScope } from "../tui/components/order-settings/index.ts";
 import {
   WorkingMessageCoordinator,
   completeOrder,
   type WorkingMessageComponent,
   type WorkingMessageHandle
 } from "./coordinator.ts";
-import { WorkingMessageSettings } from "./settings.ts";
+import type { OrderSettingsScope } from "./order-view.ts";
+import { workingMessageSettings, type WorkingMessageSettings } from "./settings.ts";
 
 export type { WorkingMessageComponent, WorkingMessageHandle } from "./coordinator.ts";
 
@@ -33,7 +33,7 @@ let menuModules: ReturnType<typeof importMenuModules> | undefined;
 
 function importMenuModules() {
   return Promise.all([
-    import("../tui/components/order-settings/index.ts"),
+    import("./order-view.ts"),
     import("../tui/components/settings-menu/index.ts"),
     import("../tui/responsive-custom-ui/index.ts")
   ]);
@@ -67,7 +67,6 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
   const coordinator = new WorkingMessageCoordinator();
   const lifetime = new AbortController();
   let settings: WorkingMessageSettings | undefined;
-  let projectTrusted = false;
   let menuOpen = false;
   const unsubscribe = pi.events.on(discoveryChannel, (request: unknown) => {
     // This private channel carries callbacks created by registerWorkingMessage,
@@ -76,8 +75,7 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
   });
 
   pi.on("session_start", (_event, ctx) => {
-    projectTrusted = ctx.isProjectTrusted();
-    settings = new WorkingMessageSettings({ cwd: ctx.cwd, projectTrusted });
+    settings = workingMessageSettings({ cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted() });
     const preferences = settings.load();
     coordinator.start(
       ctx.mode === "tui" ? (text) => ctx.ui.setWorkingMessage(text) : undefined,
@@ -120,7 +118,7 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
           order: completeOrder(preferences.global ?? [], ids)
         }
       ];
-      if (projectTrusted)
+      if (store.projectTrusted)
         scopes.push({
           id: "project",
           label: "project",

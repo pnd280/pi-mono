@@ -10,6 +10,8 @@ Observe what verified native `edit` and `write` calls changed on disk, without r
 
 Writes take a bounded pre-read inside Pi's mutation queue. There is no post-write read, so `after` excludes later external changes. Canonical paths resolve symlink aliases.
 
+`before` and `after` are [`FileObservation`](observation.ts) values: complete UTF-8 source or a refusal. A `ready` observation holds the whole file and preserves BOMs. Invalid UTF-8, nonregular, oversized, changed, missing, and unreadable files return a status without text. Source reads follow symlinks without permission repair, and nonregular files such as FIFOs are refused without blocking. Size and timestamp checks are not atomic snapshots.
+
 Only attempted disk writes produce mutations. A successful disk write keeps its success outcome even if Pi cancellation or middleware intervenes later. For a failed write, `after` is the proposed content, not confirmed content. `durationMs` excludes source capture and patch generation.
 
 `patch(limits)` accepts `PatchLimits` from [bounded-diff](../bounded-diff/README.md) and throws `RangeError` for invalid limits. A valid native edit patch can be reused despite source or generation limits, but must fit the requested patch limit. Without a native patch, `patch()` returns `source-unavailable` when either observation is neither `ready` nor `missing`.

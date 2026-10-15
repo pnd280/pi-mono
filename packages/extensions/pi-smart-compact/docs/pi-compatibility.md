@@ -89,6 +89,7 @@ The status counts entries rather than events, so resumed sessions and tree navig
 
 - [ ] `ctx.isProjectTrusted()` gates cwd configuration.
 - [ ] `ctx.modelRegistry.find()` resolves exact provider and model IDs, including nested IDs.
+- [ ] `MODEL_THINKING_LEVELS` from `@earendil-works/pi-ai/providers/model-schema` lists every level that rules accept, including `off`, and matches the levels in [configuration](configuration.md).
 - [ ] `getSupportedThinkingLevels()` validates explicit thinking without provider-specific mappings.
 - [ ] When thinking isn't configured, `pi.getThinkingLevel()` supplies the session's level for acknowledgements. Non-reasoning summary models default to `off`.
 - [ ] For a virtual summary model with an explicit thinking override, the override reaches `session.modelRuntime.resolveModel()` before native generation, with `reason: "direct"`, the current converted transcript, and the owning abort signal.

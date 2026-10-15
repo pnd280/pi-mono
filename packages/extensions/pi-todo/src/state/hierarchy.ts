@@ -177,6 +177,6 @@ export function subtreeHeight(hierarchy: TaskHierarchy, taskId: number): number 
   return height;
 }
 
-function isTaskId(value: number): boolean {
+export function isTaskId(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
 }

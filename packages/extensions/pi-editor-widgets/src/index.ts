@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 import { WidgetCoordinator } from "./coordinator.ts";
 import { findWidgetHost } from "./host.ts";
-import { WidgetSettings, type Preferences } from "./settings.ts";
+import { widgetSettings, type Preferences } from "./settings.ts";
 
 // The menu loads on first use to keep it out of startup. Sessions share one import: under jiti
 // a concurrent import can return a partly evaluated module.
@@ -19,7 +19,7 @@ export default function editorWidgets(pi: ExtensionAPI): void {
 
   const notify = (ctx: ExtensionContext, message: string) => ctx.ui.notify(message, "warning");
   const settingsFor = (ctx: ExtensionContext) =>
-    new WidgetSettings({ cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted() });
+    widgetSettings({ cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted() });
 
   const apply = (ctx: ExtensionContext, preferences: Preferences) => {
     for (const warning of preferences.warnings) notify(ctx, warning);

@@ -4,16 +4,18 @@ import type {
   ReadToolDetails,
   ReadToolInput
 } from "@earendil-works/pi-coding-agent";
+import { z } from "zod";
+
 import {
   selectionInputSchema,
+  selectionPreview,
   selectionSchema,
   selectSource,
   type SelectedSource,
   type Selection
-} from "@pi-mono/utils/source-selection";
-import { z } from "zod";
+} from "./selection.ts";
 
-import { selectionPreview } from "./selection.ts";
+export { selectionLabel, type Selection } from "./selection.ts";
 
 const optionalCoordinate = z.preprocess(
   (value) => (value === null ? undefined : value),

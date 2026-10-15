@@ -6,7 +6,7 @@ import {
   settingsLoadFeedback,
   settingsSaveFailure,
   type SettingsFeedback
-} from "../settings-menu/index.ts";
+} from "../tui/components/settings-menu/index.ts";
 
 export type OrderSettingsItem = { id: string; label: string; description: string };
 

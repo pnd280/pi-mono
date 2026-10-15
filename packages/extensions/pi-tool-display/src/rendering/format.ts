@@ -4,7 +4,6 @@ import { renderTree, type TreeItem } from "@pi-mono/libs/tui/components/tree";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { compactText, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
-import { bodyWidth } from "./layout.ts";
 import type { Projection, DisplayTheme } from "./types.ts";
 
 const MAX_HIGHLIGHT_BYTES = 512 * 1024;
@@ -18,6 +17,10 @@ export const codeHighlightLimits = {
   maxLines: 10_000,
   maxLineBytes: 4096
 } satisfies CodeHighlightOptions;
+
+export function bodyWidth(width: number): number {
+  return Math.max(1, width - 4);
+}
 
 export function tree(
   items: readonly TreeItem[],

@@ -9,6 +9,8 @@ import type { Task, TaskMutationParams, TaskStatus } from "./state/model.ts";
 
 // pi-tool-display imports this module (`pi-todo/text`) for todo cards; keep it free of runtime host imports.
 
+export { TASK_ACTIONS, TASK_STATUSES } from "./state/model.ts";
+
 export const TASK_STATUS_TEXT = {
   pending: "pending",
   in_progress: "in progress",

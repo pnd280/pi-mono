@@ -8,23 +8,20 @@ The helpers hold no state: callers supply inputs and policy. The [manifest](pack
 
 Choose the [exported module](package.json) for your task:
 
-- File and display text: [source selections](src/source-selection.ts), [patches](src/patch.ts), [output notices](src/output-text.ts), [UTF-8 windows](src/utf8.ts).
+- File and display text: [patches](src/patch.ts), [output notices](src/output-text.ts), [UTF-8 windows](src/utf8.ts).
 - Discovery: [FFF provenance](src/fff-tools.ts), [search scopes](src/search-scopes.ts), [lexical paths](src/paths.ts).
 - Commands: [POSIX argument quoting](src/shell.ts).
+- Model settings: [`provider/model-id` references](src/model-reference.ts).
 
 Use [task envelopes](src/task-envelope.ts) to format subagent task and job results and extract their bodies.
 
 For terminal text sanitisation and shortcut normalisation, use [terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md).
 
-Before using a helper, read its [caller boundaries](docs/caller-boundaries.md). For text ranking and cancellable event-loop scheduling, use [cooperative search](../libs/src/text-search/README.md).
+Before using a helper, read its [caller boundaries](docs/caller-boundaries.md).
 
 ### Search scopes
 
 For FFF provenance or static prefix discovery, see [search-scope caller boundaries](docs/caller-boundaries.md#search-scopes).
-
-### Source selections
-
-For line and column coordinates and raw source slicing, see [selection caller boundaries](docs/caller-boundaries.md#source-selections).
 
 ## Validation
 

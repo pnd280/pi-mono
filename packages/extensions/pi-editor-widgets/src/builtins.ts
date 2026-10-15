@@ -9,7 +9,7 @@ import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { containsPath } from "@pi-mono/utils/paths";
 
-export function formatCwd(cwd: string, home = process.env.HOME || process.env.USERPROFILE): string {
+function formatCwd(cwd: string, home = process.env.HOME || process.env.USERPROFILE): string {
   if (!home) return compactDisplayText(cwd);
   const root = resolve(home);
   const absolute = resolve(cwd);

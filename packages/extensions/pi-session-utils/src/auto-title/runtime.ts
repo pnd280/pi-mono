@@ -4,7 +4,6 @@ import type {
   ExtensionUIContext,
   SessionEntry
 } from "@earendil-works/pi-coding-agent";
-import { LatestTask } from "@pi-mono/libs/latest-task";
 
 import { TitleError } from "./generate.ts";
 import { conversationSource, firstRequestSource, requestSource } from "./source.ts";
@@ -16,7 +15,6 @@ export type TitleHost = Pick<ExtensionAPI, "getSessionName" | "setSessionName"> 
 };
 
 export class SessionTitle {
-  private readonly task = new LatestTask({ changed() {} });
   private controller: AbortController | undefined;
   private attempted: boolean;
   private disposed = false;
@@ -53,7 +51,6 @@ export class SessionTitle {
   }
 
   cancel(): void {
-    this.task.cancel();
     this.controller?.abort();
     this.controller = undefined;
   }
@@ -61,7 +58,6 @@ export class SessionTitle {
   dispose(): void {
     this.disposed = true;
     this.cancel();
-    this.task.dispose();
   }
 
   private async run(source: string, manual: boolean, parentSignal?: AbortSignal): Promise<void> {
@@ -76,15 +72,12 @@ export class SessionTitle {
     if (manual) this.host.notify("Generating session title…", "info");
 
     try {
-      await this.task.run(
-        () => this.host.generate(source, signal),
-        (title) => {
-          if (!title || signal.aborted || this.host.getSessionName() !== originalName) return;
-          this.controller = undefined;
-          this.host.setSessionName(title);
-          if (manual) this.host.notify(`Session title: ${title}`, "info");
-        }
-      );
+      const title = await this.host.generate(source, signal);
+      // A superseded or cancelled run always has an aborted signal.
+      if (!title || signal.aborted || this.host.getSessionName() !== originalName) return;
+      this.controller = undefined;
+      this.host.setSessionName(title);
+      if (manual) this.host.notify(`Session title: ${title}`, "info");
     } catch (error) {
       if (manual && !signal.aborted)
         this.host.notify(

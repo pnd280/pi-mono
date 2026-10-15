@@ -5,7 +5,7 @@ import {
   truncateHead,
   type SessionStats
 } from "@earendil-works/pi-coding-agent";
-import { textPrefix } from "@pi-mono/libs/tui/text-budget";
+import { sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { formatTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
@@ -79,7 +79,7 @@ export function usageDifference(start: SessionStats, end: SessionStats): Usage {
 }
 
 /** Splits `provider/model` at the first `/`; model IDs can contain `/`. */
-export function splitModel(model: string): { provider: string; model: string } {
+function splitModel(model: string): { provider: string; model: string } {
   const index = model.indexOf("/");
 
   return index < 0
@@ -129,7 +129,7 @@ export function firstLine(text: string): string {
       .split("\n")
       .find((part) => part.trim())
       ?.trim() ?? "";
-  const kept = textPrefix(line, ERROR_LINE_MAX);
+  const kept = sliceTerminalText(line, 0, ERROR_LINE_MAX).text;
 
   return kept.length < line.length ? `${kept}…` : line;
 }

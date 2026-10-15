@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests collection formats, retention and recovery, activation, and privacy of its notifications. Libs owns private-file protocols, the shared browser, and native clipboard helper selection; delivery to the OS clipboard is a [manual check](#manual-checks) here.
+This package tests collection formats, retention and recovery, activation, clipboard helper transport, and privacy of its notifications. Libs owns private-file protocols and the shared browser; delivery to the OS clipboard is a [manual check](#manual-checks).
 
 ## Must not regress
 
@@ -11,13 +11,15 @@ This package tests collection formats, retention and recovery, activation, and p
 - **Critical, integration:** Draft additions that exceed capacity are refused without evicting existing drafts.
 - **Critical, integration:** Deletion requires the selected UUID to stay unique in the latest locked collection, compared without regard to case, with the exact text and original `recordedAt` value and presence unchanged.
 - **High, integration:** Cleanup warnings after a commit stay committed outcomes, not failed writes that the extension retries.
+- **High, integration:** Copying passes the complete text, including Unicode, terminal controls, and large payloads, to the native helper's stdin without shell interpretation.
+- **High, integration:** The five-second clipboard deadline and cancellation reject the copy and prevent fallback to later helpers.
 - **High, e2e:** The extension reads settings and initialises storage only after `session_start` in TUI mode. Print, JSON, and RPC modes stay inactive. The installed-CLI check also covers worker and module loading and process exit.
 
 ## Not tested
 
-- Capture ordering, history deduplication, search preparation, browser rows, command syntax, and editor restore timing: below the severity bar. Use the [manual validation checks](validation.md).
+- Capture ordering, history deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing: below the severity bar. Use the [manual validation checks](validation.md).
 - Settings parsing and fallback: below the severity bar.
-- Shared browser geometry, the search-score matrix, and native editor history: owned by libs and Pi.
+- Shared browser geometry and native editor history: owned by libs and Pi.
 
 ## Manual checks
 

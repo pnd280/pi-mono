@@ -12,17 +12,17 @@ Callers own input validation, existing-path detection and error handling, scope 
 
 [`paths`](../src/paths.ts) works lexically, without symlink resolution or filesystem checks. Supply absolute paths where required; these helpers do not interpret tool prefixes, file URLs, or glob syntax.
 
+## Model references
+
+[`modelReferenceSchema`](../src/model-reference.ts) trims and validates a `provider/model-id` setting; the model ID may contain slashes. `splitModelReference` splits a valid reference at its first slash and throws `TypeError` otherwise. Callers own registry lookup, availability errors, and thinking-level support.
+
 ## Shell arguments
 
 [`quotePosixShellArgument`](../src/shell.ts) quotes one NUL-free POSIX-shell argument, not whole commands or Windows shell syntax.
 
-## Source selections
-
-[`selectionSchema`](../src/source-selection.ts) uses 1-based file lines and Unicode code point columns. End columns are exclusive, and omission selects through the final line's end. Pass parsed selections to `selectSource` with the line number of the first supplied line. Returned text preserves tabs and controls; sanitise only for display.
-
 ## Output text and UTF-8
 
-[`splitOutputText`](../src/output-text.ts) distinguishes generated omissions by recorded UTF-16 ranges even when source resembles a notice. Preserve those ranges across transformations. Consumers style and sanitise for display. For stream retention or file previews, use [bounded stream output](../../libs/src/output-buffer/README.md) or [bounded file output](../../libs/src/bounded-output/README.md).
+[`splitOutputText`](../src/output-text.ts) distinguishes generated omissions by recorded UTF-16 ranges even when source resembles a notice. Preserve those ranges across transformations. Consumers style and sanitise for display. For stream retention, use [bounded stream output](../../libs/src/output-buffer/README.md).
 
 [`decodeUtf8Window`](../src/utf8.ts) counts discarded source bytes in `omittedBytes`, not replacement characters for invalid interior bytes. UTF-8 clipping preserves code-point boundaries.
 

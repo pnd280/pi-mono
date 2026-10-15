@@ -27,7 +27,7 @@ export default function toolDisplay(pi: ExtensionAPI): void {
   };
 
   const collection = new DisplayCollectors((type, data) => pi.appendEntry(type, data), warning);
-  const dispose = installHostIntegration(collection, warning, emit);
+  const dispose = installHostIntegration(collection, emit);
   // Pi awaits this handler, so lines queued during local file setup reach the file.
   // The session context stays valid until the handler ends, so flush warnings still show.
   pi.on("session_shutdown", async (event, context) => {

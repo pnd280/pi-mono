@@ -9,7 +9,7 @@ import {
 import { decodeUtf8Window } from "@pi-mono/utils/utf8";
 
 /** Marks a tail that starts after the beginning of the log. */
-export const EARLIER_OUTPUT = "[Earlier output omitted]";
+const EARLIER_OUTPUT = "[Earlier output omitted]";
 
 /**
  * The end of a job's log file, at most `maxBytes` and `maxLines`. It reads only the file's last

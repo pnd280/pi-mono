@@ -27,9 +27,12 @@ import {
   presentTaskDescription,
   TASK_STATUS_TEXT
 } from "../text.ts";
-import { formatEmptyTodosMessage } from "./format.ts";
-import { statusGlyph, TODO_TREE_GLYPH } from "./glyphs.ts";
-import { formatTaskLine, formatTaskSubject } from "./task-presentation.ts";
+import {
+  formatTaskLine,
+  formatTaskSubject,
+  statusGlyph,
+  TODO_TREE_GLYPH
+} from "./task-presentation.ts";
 
 type ViewOptions = {
   tasks: readonly Task[];
@@ -58,6 +61,8 @@ type ViewLayout = {
   capacity: number;
   footer: string[];
 };
+
+const EMPTY_TODOS_MESSAGE = "○ No todos yet. Ask the agent to add some!";
 
 const configuredActions = [
   ["cancel", "tui.select.cancel"],
@@ -208,7 +213,7 @@ export class TodosView implements Component {
 
   /** Indented and dimmed like the empty states of the shared browser. */
   private emptyRows(width: number): string[] {
-    return wrapRows(this.options.theme.fg("dim", `  ${formatEmptyTodosMessage()}`), width);
+    return wrapRows(this.options.theme.fg("dim", `  ${EMPTY_TODOS_MESSAGE}`), width);
   }
 
   private selectionSummary(): string {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { Capacity } from "../tasks/capacity.ts";
+import { Capacity } from "../tasks/capacity.ts";
 import type { TaskRecord } from "../tasks/records.ts";
 import type { ChildMessage, SlotReply } from "./protocol.ts";
 
@@ -9,8 +9,6 @@ export type Reservation = { release(): void };
 interface RelayHost {
   /** This supervisor's task ID; a root supervisor has none. */
   self: string | undefined;
-  maxConcurrent: number;
-  capacity: Capacity;
   /** Send a message to this process's supervisor. */
   send(message: ChildMessage): void;
   /** Send a slot reply to a direct child. */
@@ -23,6 +21,7 @@ interface RelayHost {
 /** Only adjacent processes exchange messages. The root alone grants whole-tree capacity. */
 export class Relay {
   private active = true;
+  private capacity: Capacity;
   private routes = new Map<string, { child: string; owner: string }>();
   private grants = new Map<string, { child: string; owner: string; release(): void }>();
   private pending = new Map<
@@ -30,14 +29,18 @@ export class Relay {
     { resolve(value: Reservation): void; reject(error: Error): void; dispose(): void }
   >();
 
-  constructor(private host: RelayHost) {}
+  constructor(
+    private host: RelayHost,
+    private limits: { maxConcurrent: number; maxQueued: number }
+  ) {
+    this.capacity = new Capacity(limits.maxConcurrent, limits.maxQueued);
+  }
 
   acquire(signal?: AbortSignal): Promise<Reservation> {
     if (!this.active || signal?.aborted)
       return Promise.reject(new Error("Subagent launch cancelled"));
     const owner = this.host.self;
-    if (owner === undefined)
-      return this.host.capacity.acquire(signal).then((release) => ({ release }));
+    if (owner === undefined) return this.capacity.acquire(signal).then((release) => ({ release }));
     const requestId = randomUUID();
 
     return new Promise((resolve, reject) => {
@@ -112,7 +115,7 @@ export class Relay {
   }
 
   private grant(child: string, requestId: string, owner: string): void {
-    const release = this.host.capacity.tryAcquire();
+    const release = this.capacity.tryAcquire();
     if (release) this.grants.set(requestId, { child, owner, release });
     else this.routes.delete(requestId);
     const reply: SlotReply = {
@@ -121,7 +124,7 @@ export class Relay {
       granted: !!release,
       ...(!release
         ? {
-            error: `capacity reached (${this.host.maxConcurrent} subagents running); do the work yourself`
+            error: `capacity reached (${this.limits.maxConcurrent} subagents running); do the work yourself`
           }
         : {})
     };
@@ -191,6 +194,7 @@ export class Relay {
 
   invalidate(): void {
     this.active = false;
+    this.capacity.shutdown();
 
     for (const pending of this.pending.values()) {
       pending.dispose();

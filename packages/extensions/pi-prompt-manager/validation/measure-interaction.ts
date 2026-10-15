@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { searchText } from "@pi-mono/libs/text-search";
-import { layoutPreview } from "@pi-mono/libs/tui/text-layout";
+import { layoutPreview } from "@pi-mono/libs/tui/components/text-preview";
 
-import { prepareItems } from "../src/search.ts";
+import { prepareItems, searchText } from "../src/search.ts";
 import { readCollectionAsync, updateCollectionAsync } from "../src/storage/processing.ts";
 
 const samples = [

@@ -1,11 +1,9 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
-import { searchText } from "@pi-mono/libs/text-search";
 import type { BrowserOptions, BrowserSnapshot } from "@pi-mono/libs/tui/components/browser";
 import { openBrowser as openSharedBrowser } from "@pi-mono/libs/tui/open-browser";
 
-import { assertRestorable } from "./editor.ts";
-import type { RestorationRequest, ViewRequest } from "./manager.ts";
+import { assertRestorable, type RestorationRequest, type ViewRequest } from "./manager.ts";
 import {
   errorMessage,
   PromptError,
@@ -15,7 +13,7 @@ import {
   type Repository,
   type Snapshot
 } from "./model.ts";
-import { initialHistoryQuery, prepareItems, type SearchItem } from "./search.ts";
+import { initialHistoryQuery, prepareItems, searchText, type SearchItem } from "./search.ts";
 
 type PromptItem = SearchItem & { removable: boolean };
 

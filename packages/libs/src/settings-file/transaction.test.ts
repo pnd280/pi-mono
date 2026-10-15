@@ -1,10 +1,12 @@
 import {
   chmodSync,
+  lstatSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -82,6 +84,44 @@ it("preserves unrelated JSON keys, including names inherited by ordinary objects
   expect(JSON.parse(readFileSync(path, "utf8"))).toEqual(
     JSON.parse('{"__proto__":{"kept":true},"constructor":"kept","theme":"light"}')
   );
+});
+
+it.each([
+  ["oversized input", JSON.stringify({ unused: "x".repeat(1024 * 1024) })],
+  ["malformed input", "{broken"],
+  // The input and the compact output with the change fit; only the formatted output does not.
+  ["output above 1 MiB after formatting", JSON.stringify({ unused: "x".repeat(1024 * 1024 - 64) })]
+])("refuses %s without replacing the file", (_case, content) => {
+  const { directory, path } = fixture();
+  writeFileSync(path, content);
+  const before = readFileSync(path);
+  expect(() =>
+    updateSettingsRecord(path, (record) => {
+      record.added = { order: ["a"] };
+    })
+  ).toThrow();
+  // Buffer.equals: a deep toEqual over 1 MiB takes seconds and times out under load.
+  expect(readFileSync(path).equals(before)).toBe(true);
+  expect(readdirSync(directory)).toEqual(["settings.json"]);
+});
+
+it("follows an existing settings symlink and refuses to replace a dangling link", () => {
+  const { directory, path } = fixture();
+  const target = join(directory, "target.json");
+  writeFileSync(target, '{"theme":"dark"}');
+  symlinkSync(target, path);
+  updateSettingsRecord(path, (record) => {
+    record.theme = "light";
+  });
+  expect(lstatSync(path).isSymbolicLink()).toBe(true);
+  expect(readSettingsRecord(target)).toEqual({ theme: "light" });
+  rmSync(target);
+  expect(() =>
+    updateSettingsRecord(path, (record) => {
+      record.theme = "dark";
+    })
+  ).toThrow();
+  expect(lstatSync(path).isSymbolicLink()).toBe(true);
 });
 
 it.runIf(process.platform !== "win32")(

@@ -3,8 +3,7 @@ import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
 import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../contracts.ts";
-import { stringField } from "../../terminal-text.ts";
-import { record } from "../../values.ts";
+import { record, stringField } from "../../values.ts";
 
 const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultTextPart => ({
   text,

@@ -4,8 +4,8 @@ import { isDeepStrictEqual } from "node:util";
 import type { PrivateFileUpdate } from "@pi-mono/libs/private-files";
 import { z } from "zod";
 
-import { captureText } from "../history.ts";
 import {
+  captureText,
   documentSchema,
   draftTextSchema,
   historyTextSchema,

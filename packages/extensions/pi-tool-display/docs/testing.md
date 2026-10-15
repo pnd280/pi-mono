@@ -41,7 +41,7 @@ Reload and disposal
 
 ## Not tested
 
-- Call interpretation, adapter recognition and fallback, exploration groups and runs, cards, labels, pending markers, diffs and previews, saved-output read budgets, and nested-instruction notice cards: below the severity bar. Use the manual checks.
+- Call interpretation, adapter recognition and fallback, exploration groups and runs, cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks) and preview caching, and nested-instruction notice cards: below the severity bar. Use the manual checks.
 - Shared algorithms and budgets: owned by libs and utils.
 - Paid or live MCP and FFF search requests, upstream tool execution matrices, and native persistence internals.
 

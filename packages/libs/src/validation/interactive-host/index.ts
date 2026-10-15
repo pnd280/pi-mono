@@ -19,9 +19,9 @@ import {
 import { type Component, type Container, type TUI, type Terminal } from "@earendil-works/pi-tui";
 import { vi } from "vite-plus/test";
 
-export type NativeComponent = Component & { dispose?(): void };
+type NativeComponent = Component & { dispose?(): void };
 
-export interface FixtureHost {
+interface FixtureHost {
   session: AgentSession;
   ui: TUI;
   renderer: TUI;

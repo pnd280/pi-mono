@@ -7,7 +7,7 @@ import { expect, it, onTestFinished, vi } from "vite-plus/test";
 import { WidgetCoordinator } from "../src/coordinator.ts";
 import { defaultLayout, type Layout } from "../src/layout.ts";
 import { WidgetMenu } from "../src/menu/widget-menu.ts";
-import { WidgetSettings } from "../src/settings.ts";
+import { widgetSettings } from "../src/settings.ts";
 
 const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
 const enter = "\r";
@@ -16,7 +16,7 @@ const escape = "\x1b";
 const remove = "\x1b[3~";
 
 function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>, global?: Layout) {
-  const settings = new WidgetSettings({
+  const settings = widgetSettings({
     cwd: fixture.directory,
     agentDir: fixture.agentDir,
     projectTrusted: true

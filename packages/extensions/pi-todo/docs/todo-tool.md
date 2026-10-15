@@ -42,14 +42,8 @@ The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and
 
 ## Tool cards
 
-The extension draws no tool cards. [pi-tool-display](../../pi-tool-display/src/adapters/pi-todo/README.md) draws them with the shortened subjects, status words, and progress summary from the pure [`pi-todo/text`](../src/text.ts) export.
+The extension draws no tool cards. [pi-tool-display](../../pi-tool-display/src/adapters/pi-todo/README.md) draws them with the action and status names, shortened subjects, status words, and progress summary from the pure [`pi-todo/text`](../src/text.ts) export.
 
 ## Replay
 
-When a session starts or reloads, on branch changes, and after compaction, the latest valid `todo` result on the current branch is replayed. Malformed snapshots and host errors are skipped.
-
-| Snapshot format     | Replayed as                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------- |
-| Version 2           | A nested list.                                                                                          |
-| Version 1           | A flat list.                                                                                            |
-| Unversioned (older) | A flat list. Readable under larger replay limits, but an oversized list can't grow past current limits. |
+When a session starts or reloads, on branch changes, and after compaction, the latest valid `todo` result on the current branch is replayed as a nested list. Only version 2 snapshots within the current limits are replayed; other formats, malformed snapshots, and host errors are skipped.

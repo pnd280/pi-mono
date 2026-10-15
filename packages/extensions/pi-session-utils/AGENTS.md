@@ -27,7 +27,8 @@ Use fresh session contexts after replacement and restore startup hooks only whil
 ### Naming
 
 - Use Pi's authentication and session-name metadata. Never send conversation messages or write custom stdout.
-- Reuse [LatestTask](../../libs/src/latest-task/README.md) to discard stale results, and [terminal-text](../../libs/src/tui/terminal-text/README.md) for terminal safety and Unicode-safe boundaries. Cancel the underlying I/O separately.
+- Abort the underlying I/O of a superseded or cancelled title request, and discard its result.
+- Use [terminal-text](../../libs/src/tui/terminal-text/README.md) for terminal safety and Unicode-safe boundaries.
 
 ## Validation
 

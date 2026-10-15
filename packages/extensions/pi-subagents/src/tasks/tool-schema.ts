@@ -1,3 +1,4 @@
+import { MODEL_THINKING_LEVELS } from "@earendil-works/pi-ai/providers/model-schema";
 import { toToolSchema } from "@pi-mono/libs/tool-schema";
 import { z } from "zod";
 
@@ -36,7 +37,7 @@ export const toolInputSchema = z.strictObject({
       "A provider/id model. Defaults to the task's previously requested model on resume, and to your current model otherwise."
     ),
   thinking: z
-    .enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"])
+    .enum(MODEL_THINKING_LEVELS)
     .optional()
     .describe(
       "Defaults to the task's previously requested level on resume, and to your current level otherwise."

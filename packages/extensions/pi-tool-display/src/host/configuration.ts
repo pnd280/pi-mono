@@ -1,6 +1,5 @@
-import { join } from "node:path";
-
-import { CONFIG_DIR_NAME, getAgentDir, type AgentSession } from "@earendil-works/pi-coding-agent";
+import type { AgentSession } from "@earendil-works/pi-coding-agent";
+import { settingsPaths } from "@pi-mono/libs/settings-file";
 
 import { loadDisplaySettings, type DisplaySettings } from "../settings.ts";
 import { record } from "../values.ts";
@@ -9,13 +8,12 @@ import { record } from "../values.ts";
 export function displaySettings(session: AgentSession): DisplaySettings {
   const manager = session.settingsManager;
   const storage = record(record(manager).storage);
+  const paths = settingsPaths({ cwd: session.sessionManager.getCwd() });
 
   return loadDisplaySettings([
     {
       path:
-        typeof storage.globalSettingsPath === "string"
-          ? storage.globalSettingsPath
-          : join(getAgentDir(), "settings.json"),
+        typeof storage.globalSettingsPath === "string" ? storage.globalSettingsPath : paths.global,
       settings: manager.getGlobalSettings()
     },
     ...(manager.isProjectTrusted()
@@ -24,7 +22,7 @@ export function displaySettings(session: AgentSession): DisplaySettings {
             path:
               typeof storage.projectSettingsPath === "string"
                 ? storage.projectSettingsPath
-                : join(session.sessionManager.getCwd(), CONFIG_DIR_NAME, "settings.json"),
+                : paths.project,
             settings: manager.getProjectSettings()
           }
         ]

@@ -1,8 +1,8 @@
-import { closeSync, constants, existsSync, fstatSync, openSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { readSettingsRecord } from "@pi-mono/libs/settings-file";
+import { readSettingsFile, readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
@@ -178,16 +178,10 @@ function selectAppendFiles(
 }
 
 function readPrompt(path: string): string {
-  // A FIFO at a configured path must not block session startup, even before the type check.
-  const descriptor = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
+  // The shared reader opens without blocking, so a FIFO cannot stall session startup.
+  const text = readSettingsFile(path);
+  if (text === undefined) throw new Error("Prompt must be a regular file up to 1 MiB.");
 
-  try {
-    if (!fstatSync(descriptor).isFile()) throw new Error("Prompt must be a regular file.");
-    const text = readFileSync(descriptor, "utf8");
-
-    // Matches Pi's own loader so unchanged base text compares equal.
-    return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
-  } finally {
-    closeSync(descriptor);
-  }
+  // Matches Pi's own loader so unchanged base text compares equal.
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }

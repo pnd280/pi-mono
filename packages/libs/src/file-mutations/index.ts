@@ -17,12 +17,10 @@ import {
   type BoundedPatchResult,
   type PatchLimits
 } from "../bounded-diff/index.ts";
-import {
-  decodeTextFile,
-  observeTextFile,
-  type FileObservation
-} from "../file-observation/index.ts";
 import { observeNativeTools } from "../native-tools/index.ts";
+import { decodeTextFile, observeTextFile, type FileObservation } from "./observation.ts";
+
+export type { FileObservation } from "./observation.ts";
 
 export type MutationPatch = BoundedPatchResult | { status: "source-unavailable" };
 

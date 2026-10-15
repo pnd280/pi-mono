@@ -1,3 +1,5 @@
+import type { SettingsScope } from "@pi-mono/libs/settings-file";
+
 import {
   defaultLayout,
   isWidget,
@@ -7,7 +9,7 @@ import {
   type Placement,
   type Region
 } from "../layout.ts";
-import type { Preferences, Scope } from "../settings.ts";
+import type { Preferences } from "../settings.ts";
 
 export type View =
   | Readonly<{ kind: "root"; selected: number }>
@@ -51,8 +53,8 @@ function hideUnplaced(layout: Layout, ids: readonly string[]): void {
 }
 
 export class WidgetDrafts {
-  private readonly drafts: Record<Scope, Draft>;
-  private activeScope: Scope;
+  private readonly drafts: Record<SettingsScope, Draft>;
+  private activeScope: SettingsScope;
   private persistedGlobal: Layout | undefined;
 
   constructor(
@@ -69,10 +71,10 @@ export class WidgetDrafts {
     this.activeScope = preferences.project === undefined ? "global" : "project";
   }
 
-  get scope(): Scope {
+  get scope(): SettingsScope {
     return this.activeScope;
   }
-  draft(scope: Scope): Readonly<Pick<Draft, "value" | "saved">> {
+  draft(scope: SettingsScope): Readonly<Pick<Draft, "value" | "saved">> {
     const { value, saved } = this.drafts[scope];
 
     return { value, saved };

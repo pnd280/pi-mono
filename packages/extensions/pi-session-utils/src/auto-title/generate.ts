@@ -7,6 +7,7 @@ import {
 import { raceWithAbortSignal } from "@earendil-works/pi-ai/utils/abort";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
+import { splitModelReference } from "@pi-mono/utils/model-reference";
 
 import type { TitleConfig } from "./config.ts";
 
@@ -21,9 +22,9 @@ const systemPrompt = [
 
 export class TitleError extends Error {}
 
-export type TitleRegistry = Pick<ModelRegistry, "find" | "streamSimple">;
+type TitleRegistry = Pick<ModelRegistry, "find" | "streamSimple">;
 
-export function cleanTitle(text: string): string {
+function cleanTitle(text: string): string {
   const title = displayText(text)
     .replace(/\s+/gu, " ")
     .trim()
@@ -48,8 +49,8 @@ async function completeTitle({ config, registry, source, signal }: GenerationReq
       "Configure model and thinkingLevel under ext.pi-session-utils.auto-title in global or trusted project settings.json, then /reload."
     );
   if (!source.trim()) throw new TitleError("No conversation text to name.");
-  const slash = config.model.indexOf("/");
-  const model = registry.find(config.model.slice(0, slash), config.model.slice(slash + 1));
+  const { provider, id } = splitModelReference(config.model);
+  const model = registry.find(provider, id);
   if (!model)
     throw new TitleError(
       "The configured title model is unavailable. Check ext.pi-session-utils.auto-title.model."

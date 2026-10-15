@@ -1,5 +1,11 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { formatTodosSummary, presentCompactTaskText, TASK_STATUS_TEXT } from "pi-todo/text";
+import {
+  formatTodosSummary,
+  presentCompactTaskText,
+  TASK_ACTIONS,
+  TASK_STATUS_TEXT,
+  TASK_STATUSES
+} from "pi-todo/text";
 import { z } from "zod";
 
 import type {
@@ -10,9 +16,6 @@ import type {
   ToolDisplayAdapter
 } from "../../contracts.ts";
 import { registeredBy } from "../provenance.ts";
-
-const TASK_ACTIONS = ["create", "update", "list", "get", "delete", "clear"] as const;
-const TASK_STATUSES = ["pending", "in_progress", "completed", "deleted"] as const;
 
 type TaskAction = (typeof TASK_ACTIONS)[number];
 

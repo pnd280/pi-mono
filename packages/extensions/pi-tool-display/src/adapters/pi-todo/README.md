@@ -12,7 +12,7 @@ Todo calls from [`pi-todo`](../../../../pi-todo/README.md) appear as `Todos` car
 
 ## Arguments and results
 
-A validated snapshot in retained `details.tasks` supplies todo subjects, confirmed statuses, and progress summaries. For a successful create call, `details.nextId - 1` identifies the new todo when that ID exists in the snapshot. A nonempty `details.error` marks the call as a failure even when Pi's error flag is false.
+Argument and snapshot validation uses the action and status vocabularies from `pi-todo/text`, so they track the tool; a new action fails type checking until it has heading verbs. A validated snapshot in retained `details.tasks` supplies todo subjects, confirmed statuses, and progress summaries. For a successful create call, `details.nextId - 1` identifies the new todo when that ID exists in the snapshot. A nonempty `details.error` marks the call as a failure even when Pi's error flag is false.
 
 After a result exists, incompatible arguments use ungrouped generic cards, for example `Call failed todo({})`. Unrecognised details do not force fallback, but subjects, progress, and outcomes require validated details.
 

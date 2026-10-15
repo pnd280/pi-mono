@@ -1,5 +1,5 @@
 import { Type } from "@earendil-works/pi-ai";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import {
   findConfiguredModel,
@@ -8,12 +8,27 @@ import {
   type CompactConfig
 } from "./config.ts";
 import { bindNativeCompaction } from "./native.ts";
-import { compactionStatusKey, updateCompactionStatus } from "./status.ts";
 import {
   renderSummaryModel,
   summaryModelEntryType,
   type SummaryModelEntry
 } from "./summary-model-entry.ts";
+
+const compactionStatusKey = "pi-smart-compact.compactions";
+
+function updateCompactionStatus(ctx: ExtensionContext) {
+  // Headless hosts expose a no-op UI whose theme is uninitialized outside the CLI.
+  if (!ctx.hasUI) return;
+
+  const count = ctx.sessionManager
+    .getBranch()
+    .filter((entry) => entry.type === "compaction").length;
+
+  ctx.ui.setStatus(
+    compactionStatusKey,
+    count > 0 ? ctx.ui.theme.fg("dim", `compacted ${count}×`) : undefined
+  );
+}
 
 export default function smartCompact(pi: ExtensionAPI) {
   pi.registerEntryRenderer(summaryModelEntryType, renderSummaryModel);

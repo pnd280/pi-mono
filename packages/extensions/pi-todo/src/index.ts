@@ -1,8 +1,4 @@
-import type {
-  ExtensionAPI,
-  ExtensionContext,
-  ExtensionUIContext
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/libs/working-message";
 
 import {
@@ -17,10 +13,9 @@ import { TodoController } from "./state/controller.ts";
 import { createTodoTool } from "./tool.ts";
 import { TodoWidget, type TodoWidgetUI } from "./ui/todo-widget.ts";
 
-export type TodoLifecycleContext = Pick<ExtensionContext, "cwd" | "isProjectTrusted" | "mode"> & {
-  ui: Omit<TodoWidgetUI, "setActivity"> &
-    Pick<ExtensionUIContext, "addAutocompleteProvider"> &
-    WorkingMessageContext["ui"];
+/** The shared working-message coordinator also handles these events, so extend its context. */
+export type TodoLifecycleContext = WorkingMessageContext & {
+  ui: Omit<TodoWidgetUI, "setActivity"> & Pick<ExtensionUIContext, "addAutocompleteProvider">;
   sessionManager: { getBranch(): readonly object[] };
 };
 
@@ -75,19 +70,13 @@ export default function piTodo(pi: TodoExtensionAPI): void {
     const config = loadTodoConfig(ctx.cwd, { projectTrusted: ctx.isProjectTrusted() });
 
     controller.reconstructFromBranch(ctx.sessionManager.getBranch());
-
-    if (ctx.mode === "tui") {
-      ctx.ui.addAutocompleteProvider(todosArgumentAutocompleteProvider);
-      views.start();
-      widget.setUICtx({
-        setWidget: (key, content, options) => ctx.ui.setWidget(key, content, options),
-        setActivity: (text) => activity.setText(text)
-      });
-      widget.setCollapsed(config.collapseWidgetByDefault);
-    } else {
-      views.shutdown();
-      widget.dispose();
-    }
+    ctx.ui.addAutocompleteProvider(todosArgumentAutocompleteProvider);
+    views.start();
+    widget.setUICtx({
+      setWidget: (key, content, options) => ctx.ui.setWidget(key, content, options),
+      setActivity: (text) => activity.setText(text)
+    });
+    widget.setCollapsed(config.collapseWidgetByDefault);
   });
   pi.on("session_compact", (_event, ctx) => {
     controller.reconstructFromBranch(ctx.sessionManager.getBranch());

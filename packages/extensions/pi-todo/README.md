@@ -61,7 +61,7 @@ Working-message order is a separate setting, [`workingMessage.order`](../../libs
 - Todo state is stored only in the `todo` tool's result details, as full snapshots in Pi sessions. The `todo` tool and `/todos` write no other files, and make no network requests.
 - Saving in `/working-message` writes the order to the global or trusted project `settings.json` shown in the menu, keeping other settings.
 - Terminal control characters are removed from todo text shown in the widget, the browser, and the working message.
-- When a session starts or reloads, on branch changes, and after compaction, the list is restored from the latest valid `todo` result on the current branch. To see how older snapshot formats are restored, read [replay](docs/todo-tool.md#replay).
+- When a session starts or reloads, on branch changes, and after compaction, the list is restored from the latest valid `todo` result on the current branch, as described in [replay](docs/todo-tool.md#replay).
 
 ## Validation
 

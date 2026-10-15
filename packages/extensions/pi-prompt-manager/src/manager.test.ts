@@ -1,6 +1,6 @@
-import { NativeClipboardError } from "@pi-mono/libs/native-clipboard";
 import { expect, it, vi } from "vite-plus/test";
 
+import { NativeClipboardError } from "./clipboard.ts";
 import type { ManagerPorts } from "./manager.ts";
 import type { MutationResult, Repository } from "./model.ts";
 import { collection, entry, managerFixture } from "./test-fixture.ts";

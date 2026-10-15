@@ -42,6 +42,6 @@ Consult [`patchLimitsSchema`](index.ts) for accepted limits. Invalid limits thro
 
 `PatchLimits` also applies to [file mutation observation](../file-mutations/README.md). Consumers own budget values and diagnostics.
 
-The library does not read files. Use [file observation](../file-observation/README.md) to load complete UTF-8 source from disk.
+The library does not read files; callers supply complete source text.
 
 Classify the change and translate result statuses into diagnostics in the consumer. Patch parsing belongs to [`@pi-mono/utils/patch`](../../../utils/src/patch.ts), and rendering belongs to the [diff view](../tui/components/diff-view/README.md).

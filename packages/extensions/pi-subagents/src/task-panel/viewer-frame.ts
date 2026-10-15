@@ -1,5 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Loader, truncateToWidth, visibleWidth, type TUI } from "@earendil-works/pi-tui";
+import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
+import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
@@ -32,7 +34,7 @@ const MIN_DESCRIPTION_WIDTH = 16;
  * in `─ TASK  Fix login ───── task 8f3a2c1e ─`. At least three border columns follow the
  * description; the ID drops out first.
  */
-export function titleBorder(
+function titleBorder(
   theme: Theme,
   kind: "task" | "job",
   description: string,
@@ -103,7 +105,7 @@ function pack(values: readonly string[], separator: string | undefined, width: n
  * Label/value rows with one dim label column. Long values wrap under the value column. When the
  * column leaves no room for a wide character, each label stands above its values, as on the cards.
  */
-export function metadataTable(theme: Theme, rows: readonly MetadataRow[], width: number): string[] {
+function metadataTable(theme: Theme, rows: readonly MetadataRow[], width: number): string[] {
   const shown = rows
     .map((row) => ({ ...row, values: row.values.filter(Boolean) }))
     .filter((row) => row.values.length);
@@ -223,7 +225,7 @@ export function jobRows(
 }
 
 /** A viewer's rows around its body, each already fitted to the width. */
-export type ViewerParts = {
+type ViewerParts = {
   title: string;
   metadata: readonly string[];
   diagnostics: readonly string[];
@@ -236,7 +238,7 @@ export type ViewerParts = {
  * the other hint rows, and a blank row above the footer take the free rows in that order. The
  * body takes `height`, the rows that remain.
  */
-export function fitViewer(
+function fitViewer(
   rows: number,
   { title, metadata, diagnostics, hints }: ViewerParts
 ): { header: string[]; footer: string[]; height: number } {
@@ -256,4 +258,71 @@ export function fitViewer(
   const footer = [...take([""]), ...shown, ...first, ...rest];
 
   return { header, footer, height: Math.max(0, rows - 2 - header.length - footer.length) };
+}
+
+/** A viewer's body rows at its height, and the numbers of rows hidden above and below them. */
+export type ViewerBody = { lines: string[]; above: number; below: number };
+
+/** A task or job viewer; each view supplies its body and its hints. */
+export type ViewerFrame = {
+  tui: TUI;
+  theme: Theme;
+  width: number;
+  kind: "task" | "job";
+  /** The viewed task or job; without one, a plain border is the title and no metadata shows. */
+  subject: { description: string; id: string; metadata: readonly MetadataRow[] } | undefined;
+  /** Error texts above the hints. */
+  diagnostics: readonly string[];
+  /** The first hint is `Esc back`. */
+  hints: readonly string[];
+  body: (height: number) => ViewerBody;
+};
+
+/**
+ * A viewer in three quarters of the terminal's rows, or all of them in fullscreen mode: the
+ * header, the body between its overflow borders, and the footer. `bodyTop` is the body's first row.
+ */
+export function renderViewer({
+  tui,
+  theme,
+  width,
+  kind,
+  subject,
+  diagnostics,
+  hints,
+  body
+}: ViewerFrame): { rows: string[]; bodyTop: number } {
+  const rows = Math.max(1, Math.floor(tui.terminal.rows * (tui.mode === "fullscreen" ? 1 : 3 / 4)));
+  const { header, footer, height } = fitViewer(rows, {
+    title: subject
+      ? titleBorder(theme, kind, subject.description, subject.id, width)
+      : theme.fg("border", "─".repeat(width)),
+    metadata: subject ? metadataTable(theme, subject.metadata, width) : [],
+    diagnostics: diagnostics.map((text) => theme.fg("error", compactDisplayText(text))),
+    hints: renderHintFooter({
+      width,
+      maxRows: rows,
+      hints,
+      padding: "",
+      separator: " · ",
+      style: (text) => theme.fg("dim", text)
+    })
+  });
+  const { lines, above, below } = body(height);
+  const padding = Array.from({ length: Math.max(0, height - lines.length) }, () => "");
+  const color = (text: string) => theme.fg("border", text);
+
+  return {
+    rows: [
+      ...header,
+      renderOverflowBorder(width, { color, direction: "↑", hidden: above }),
+      ...lines,
+      ...padding,
+      ...footer,
+      renderOverflowBorder(width, { color, direction: "↓", hidden: below })
+    ]
+      .slice(0, rows)
+      .map((row) => truncateToWidth(row, width, "")),
+    bodyTop: header.length + 1
+  };
 }

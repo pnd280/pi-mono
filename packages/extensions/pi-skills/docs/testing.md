@@ -22,8 +22,10 @@ This package tests format trust, skill-reference expansion, and completion routi
 For changes to completion, formats, or host integration, launch an isolated offline Pi session from the repository root:
 
 ```sh
-vpr 'pi-skills#validate:terminal'
+vpr 'pi-skills#validate:terminal' regular
 ```
+
+Use `fullscreen` instead of `regular` to check the fullscreen TUI, and add `--reuse <fixture-directory>` after the mode to reopen a kept fixture.
 
 Setup: the launcher provides `review` and `release` skills and `sample.txt`. Submissions are written to `work/inputs.jsonl` in the printed fixture directory, without model requests. The fixture is kept after exit.
 

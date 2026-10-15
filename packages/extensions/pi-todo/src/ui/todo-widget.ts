@@ -17,8 +17,7 @@ import {
 } from "../state/hierarchy.ts";
 import type { Task, TaskStatus } from "../state/model.ts";
 import { presentCompactTaskText } from "../text.ts";
-import { TASK_STATUS_COLOR, TODO_TREE_GLYPH } from "./glyphs.ts";
-import { formatTaskLine } from "./task-presentation.ts";
+import { formatTaskLine, TASK_STATUS_COLOR, TODO_TREE_GLYPH } from "./task-presentation.ts";
 
 const WIDGET_KEY = "pi-todo";
 
@@ -231,7 +230,7 @@ export class TodoWidget {
 }
 
 /** Own hierarchy selection and activity; styling and width stay live at render time. */
-export function prepareTodoPresentation(tasks: readonly Task[]) {
+function prepareTodoPresentation(tasks: readonly Task[]) {
   const hierarchy = deriveTaskHierarchy(tasks);
   if (!hierarchy) return undefined;
   const all = hierarchy.entries.filter((entry) => entry.task.status !== "deleted");
@@ -266,7 +265,7 @@ export function prepareTodoPresentation(tasks: readonly Task[]) {
   if (hiddenActive > 0) overflowParts.push(`${hiddenActive} active`);
   const overflowText = `+${hidden.length} more (${overflowParts.join(", ")})`;
 
-  // Retain only selected presentation fields, not descriptions or metadata from legacy snapshots.
+  // Retain only selected presentation fields, not descriptions or metadata.
   const entries = projectTaskTreeEntries(visible, { hasTrailingRoot: overflowing }).map((entry) => {
     const task: Task = {
       id: entry.task.id,

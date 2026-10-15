@@ -1,11 +1,9 @@
 import type { ExtensionCommandContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { AutocompleteProvider } from "@earendil-works/pi-tui";
+import { browserLayout } from "@pi-mono/libs/tui/components/browser/layout";
 
 import type { TodoController } from "./state/controller.ts";
-import { formatTodosCommandOutput } from "./ui/format.ts";
 import type { TodoWidget } from "./ui/todo-widget.ts";
-
-const ERR_REQUIRES_INTERACTIVE = "/todos requires interactive mode";
 
 const ERR_COLLAPSE_REQUIRES_FULLSCREEN =
   "Todo widget collapse is only available in fullscreen mode";
@@ -15,11 +13,7 @@ const ERR_TODOS_USAGE = "Usage: /todos [collapse|expand|toggle]";
 // The browser view and its shared TUI components load on first use, not at startup.
 // Concurrent opens share one import: under jiti a concurrent import can return a partly evaluated module.
 const importBrowserModules = () =>
-  Promise.all([
-    import("@pi-mono/libs/tui/components/browser"),
-    import("@pi-mono/libs/tui/responsive-custom-ui"),
-    import("./ui/todos-view.ts")
-  ]);
+  Promise.all([import("@pi-mono/libs/tui/responsive-custom-ui"), import("./ui/todos-view.ts")]);
 let browserModules: ReturnType<typeof importBrowserModules> | undefined;
 const loadBrowserModules = () => (browserModules ??= importBrowserModules());
 
@@ -85,8 +79,7 @@ export class TodosCustomViewHost {
       ? AbortSignal.any([ctx.signal, this.session.signal])
       : this.session.signal;
     const ui = ctx.ui;
-    const [{ browserLayout }, { openResponsiveCustomUI }, { TodosView }] =
-      await loadBrowserModules();
+    const [{ openResponsiveCustomUI }, { TodosView }] = await loadBrowserModules();
     if (signal.aborted) return;
     const suppression = this.widget.suppress();
 
@@ -112,31 +105,19 @@ export class TodosCustomViewHost {
 
 export async function runTodosCommand(
   args: string,
-  ctx: Pick<ExtensionCommandContext, "mode" | "hasUI" | "signal"> & {
+  ctx: Pick<ExtensionCommandContext, "signal"> & {
     ui: Pick<ExtensionUIContext, "custom" | "notify">;
   },
   controller: Pick<TodoController, "getTodos">,
   options: {
     customViewHost: TodosCustomViewHost;
     widgetStateHost: Pick<TodoWidget, "canCollapse" | "toggleCollapsed" | "setCollapsed">;
-    writeOutput?: (text: string) => void;
   }
 ): Promise<void> {
-  const notify = (text: string, type: "info" | "error" = "info") => {
-    if (ctx.hasUI) ctx.ui.notify(text, type);
-    else (options.writeOutput ?? console.log)(text);
-  };
-
   const command = args.trim();
   if (command === "collapse" || command === "expand" || command === "toggle") {
-    if (ctx.mode !== "tui") {
-      notify(ERR_REQUIRES_INTERACTIVE, "error");
-
-      return;
-    }
-
     if (!options.widgetStateHost.canCollapse()) {
-      notify(ERR_COLLAPSE_REQUIRES_FULLSCREEN, "error");
+      ctx.ui.notify(ERR_COLLAPSE_REQUIRES_FULLSCREEN, "error");
 
       return;
     }
@@ -145,12 +126,7 @@ export async function runTodosCommand(
       command === "toggle"
         ? options.widgetStateHost.toggleCollapsed()
         : options.widgetStateHost.setCollapsed(command === "collapse");
-    notify(collapsed ? "Todo widget collapsed" : "Todo widget expanded");
-  } else if (command) notify(ERR_TODOS_USAGE, "error");
-  else if (ctx.mode === "tui") await options.customViewHost.show(ctx, controller);
-  else
-    notify(
-      ctx.hasUI ? formatTodosCommandOutput(controller.getTodos()) : ERR_REQUIRES_INTERACTIVE,
-      ctx.hasUI ? "info" : "error"
-    );
+    ctx.ui.notify(collapsed ? "Todo widget collapsed" : "Todo widget expanded");
+  } else if (command) ctx.ui.notify(ERR_TODOS_USAGE, "error");
+  else await options.customViewHost.show(ctx, controller);
 }

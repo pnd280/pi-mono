@@ -14,13 +14,7 @@ import type { PiInvocation } from "../child/invocation.ts";
 import type * as ChildModule from "../child/run.ts";
 import type { ChildResult, ChildRun, ChildStart } from "../child/run.ts";
 import type { SubagentsConfig } from "../config.ts";
-import {
-  END_ENTRY,
-  KILL_GRACE_MS,
-  RUN_ENTRY,
-  STOP_GRACE_MS,
-  UPDATE_DEBOUNCE_MS
-} from "../constants.ts";
+import { END_ENTRY, KILL_GRACE_MS, RUN_ENTRY, STOP_GRACE_MS } from "../constants.ts";
 import { requestControl } from "../coordination/control.ts";
 import {
   errorText,
@@ -40,12 +34,10 @@ import {
   type LateUsage,
   type ToolDetails
 } from "../result.ts";
-import { Capacity } from "./capacity.ts";
 import {
   applyEvent,
   endRecord,
   endRun,
-  promoteRun,
   startRun,
   stopRun,
   taskHistory,
@@ -88,6 +80,9 @@ export type TaskEvent =
       /** `subagent_abort` cancelled the task, so its result goes to nobody. */
       dropped: boolean;
     };
+
+/** Debounce for nested task updates; a run's exit sends its update at once. */
+const UPDATE_DEBOUNCE_MS = 100;
 
 export const INTERRUPTED_WARNING =
   "The resumed history ends with an incomplete tool cycle. Old calls are not replayed automatically. Completed effects remain; the model can request the operation again.";
@@ -177,7 +172,6 @@ function failure(details: ToolDetails, error: unknown, aborted: boolean): Submis
 
 /** Process-owned children and branch-owned history; neither depends on terminal mounting. */
 export class Tasks {
-  private readonly capacity: Capacity;
   private readonly relay: Relay;
   /** The parent of this supervisor's direct tasks: its own task ID in a child. */
   private readonly parent: string | null;
@@ -219,30 +213,30 @@ export class Tasks {
   ) {
     this.bindingId = options.sessionId;
     this.parent = options.depth === 0 ? null : (options.taskId ?? null);
-    this.capacity = new Capacity(config.maxConcurrent, config.maxQueued);
     this.records = taskHistory(entries, this.parent);
-    this.relay = new Relay({
-      self: this.parent ?? undefined,
-      maxConcurrent: config.maxConcurrent,
-      capacity: this.capacity,
-      send: (message) => this.send(message),
-      reply: async (child, message) => this.reply(child, message),
-      belongsTo: (parent, id) => this.belongsTo(parent, id),
-      accepts: (child, record) => {
-        const previous = this.records.get(record.task_id);
+    this.relay = new Relay(
+      {
+        self: this.parent ?? undefined,
+        send: (message) => this.send(message),
+        reply: async (child, message) => this.reply(child, message),
+        belongsTo: (parent, id) => this.belongsTo(parent, id),
+        accepts: (child, record) => {
+          const previous = this.records.get(record.task_id);
 
-        return (
-          record.task_id !== this.parent &&
-          !this.belongsTo(record.task_id, child) &&
-          (!previous || previous.parent_task_id === record.parent_task_id)
-        );
+          return (
+            record.task_id !== this.parent &&
+            !this.belongsTo(record.task_id, child) &&
+            (!previous || previous.parent_task_id === record.parent_task_id)
+          );
+        },
+        record: (record) => {
+          this.remember(record);
+          this.changed(record.task_id);
+          this.publish(record.task_id, true);
+        }
       },
-      record: (record) => {
-        this.remember(record);
-        this.changed(record.task_id);
-        this.publish(record.task_id, true);
-      }
-    });
+      { maxConcurrent: config.maxConcurrent, maxQueued: config.maxQueued }
+    );
   }
 
   /**
@@ -298,6 +292,11 @@ export class Tasks {
     visit(this.parent);
 
     return result;
+  }
+
+  /** The tasks this supervisor launched; descendants report to their own supervisors. */
+  direct(): TaskRecord[] {
+    return this.list().filter((record) => record.parent_task_id === this.parent);
   }
 
   subscribe(listener: (event: TaskEvent) => void): () => void {
@@ -705,7 +704,7 @@ export class Tasks {
         details.background = true;
 
         if (record?.state === "active") {
-          record = promoteRun(record);
+          record = { ...record, background: true };
           this.remember(record);
           this.publish(taskId, true);
         }
@@ -985,7 +984,6 @@ export class Tasks {
   invalidate(): void {
     this.closed = true;
     this.lifetime.abort();
-    this.capacity.shutdown();
     this.relay.invalidate();
     for (const timer of this.updates.values()) clearTimeout(timer);
     this.updates.clear();

@@ -92,7 +92,7 @@ export function withinRecordLimit(value: unknown): boolean {
 }
 
 /** The record field for the child's reported context use, if any. */
-export function contextOf(stats: SessionStats | undefined): Pick<TaskRecord, "context"> {
+function contextOf(stats: SessionStats | undefined): Pick<TaskRecord, "context"> {
   const usage = stats?.contextUsage;
 
   return usage ? { context: { tokens: usage.tokens, window: usage.contextWindow } } : {};
@@ -168,10 +168,6 @@ export function applyEvent(record: TaskRecord, event: JsonAgentSessionEvent): Ta
       ? { cache_hit: (usage.cacheRead / prompt) * 100 }
       : {})
   };
-}
-
-export function promoteRun(record: TaskRecord): TaskRecord {
-  return { ...record, background: true };
 }
 
 /** A run that stopped without an `end` on this ancestry, such as a descendant of an exited run. */

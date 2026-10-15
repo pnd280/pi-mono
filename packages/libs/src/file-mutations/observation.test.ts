@@ -4,11 +4,11 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, expect, it } from "vite-plus/test";
 
-import { observeTextFile } from "./index.ts";
+import { observeTextFile } from "./observation.ts";
 
 let directory: string;
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), "file-observation-"));
+  directory = await mkdtemp(join(tmpdir(), "file-mutations-observation-"));
 });
 afterEach(async () => {
   await rm(directory, { recursive: true, force: true });

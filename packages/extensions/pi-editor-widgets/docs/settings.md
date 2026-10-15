@@ -53,4 +53,4 @@ A project layout replaces the entire global layout; the two are never merged.
 
 ### Invalid layouts
 
-Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections. See [settings persistence](../src/settings.ts) and the shared [atomic settings updates](../../../libs/src/settings-file/README.md#behaviour) for the implementation.
+Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections. See [settings persistence](../src/settings.ts) and the shared [settings section saves](../../../libs/src/settings-file/README.md#sections) for the implementation.

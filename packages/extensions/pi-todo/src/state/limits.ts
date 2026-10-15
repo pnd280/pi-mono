@@ -25,10 +25,6 @@ export const MAX_METADATA_BYTES = 16 * 1_024;
 
 export const MAX_SNAPSHOT_BYTES = 512 * 1_024;
 
-export const MAX_LEGACY_TASKS = 10_000;
-
-export const MAX_LEGACY_SNAPSHOT_BYTES = 8 * 1_024 * 1_024;
-
 // Result parameters and errors must still fit when the stored todo state is full.
 export const MAX_DETAILS_OVERHEAD_BYTES = 64 * 1_024;
 
@@ -272,19 +268,9 @@ function startArraySizeFrame(
   return true;
 }
 
-/** Details preflight for callers that already validated the todo snapshot at the same budget. */
-export function snapshotDetailsFitLimit(details: TaskDetails, maximumBytes: number): boolean {
-  return serializedValueFitsLimit(details, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES);
-}
-
-export function snapshotFitsLimit(details: TaskDetails): boolean {
-  const maximumBytes =
-    details.version === undefined ? MAX_LEGACY_SNAPSHOT_BYTES : MAX_SNAPSHOT_BYTES;
-
-  return (
-    serializedValueFitsLimit({ tasks: details.tasks, nextId: details.nextId }, maximumBytes) &&
-    serializedValueFitsLimit(details, maximumBytes + MAX_DETAILS_OVERHEAD_BYTES)
-  );
+/** Details preflight for callers that already validated the todo snapshot at `MAX_SNAPSHOT_BYTES`. */
+export function snapshotDetailsFitLimit(details: TaskDetails): boolean {
+  return serializedValueFitsLimit(details, MAX_SNAPSHOT_BYTES + MAX_DETAILS_OVERHEAD_BYTES);
 }
 
 function isJsonOmittedValue<Value>(value: Value): boolean {

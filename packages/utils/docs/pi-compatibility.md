@@ -10,11 +10,9 @@
 2. Run the checks of the libs modules and extensions whose input or output assumptions changed. This package needs no standalone terminal scenario.
 3. Work through the checklist below, then update the "Last verified" line.
 
-Cooperative search owns the [fuzzy-score differential checks](../../libs/docs/pi-compatibility.md#cooperative-search) against Pi.
-
 ## Checklist
 
-- [ ] Trace the [direct and indirect consumers](../AGENTS.md#code-navigation). FFF provenance and scope normalisation, source coordinates, omission ranges, patches, and UTF-8 boundaries must still match the target tool and result contracts.
+- [ ] Trace the [direct and indirect consumers](../AGENTS.md#code-navigation). FFF provenance and scope normalisation, omission ranges, patches, and UTF-8 boundaries must still match the target tool and result contracts.
 - [ ] Keep helpers pure; do not introduce Pi runtime state, I/O, scheduling, or consumer policy.
 
 ## Limitations

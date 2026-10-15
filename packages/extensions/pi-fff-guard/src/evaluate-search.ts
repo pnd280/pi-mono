@@ -1,6 +1,7 @@
-import { inspectGitIgnore, type GitIgnoreResult } from "@pi-mono/libs/git-ignore";
+import { raceWithAbortSignal } from "@earendil-works/pi-ai/utils/abort";
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 
+import { inspectGitIgnore, type GitIgnoreResult } from "./git-ignore.ts";
 import { extractScope } from "./targets.ts";
 
 type SearchDecision = { kind: "block"; reason: string } | { kind: "allow"; diagnostic?: string };
@@ -13,30 +14,9 @@ type SearchRequest = {
   signal?: AbortSignal | undefined;
 };
 
-function settleOnAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(signal.reason);
-
-  return new Promise((resolve, reject) => {
-    const onAbort = () => reject(signal.reason);
-
-    signal.addEventListener("abort", onAbort, { once: true });
-    void operation.then(
-      (value) => {
-        signal.removeEventListener("abort", onAbort);
-        resolve(value);
-      },
-      (error: unknown) => {
-        signal.removeEventListener("abort", onAbort);
-        reject(error);
-      }
-    );
-  });
-}
-
 function inspectionDecision(result: GitIgnoreResult, toolName: string): SearchDecision {
   switch (result.status) {
     case "cancelled":
-    case "timed-out":
       return { kind: "allow", diagnostic: "Git inspection timed out" };
     case "missing":
       return { kind: "block", reason: "No such file or directory" };
@@ -80,7 +60,7 @@ export async function evaluateSearch({
   let diagnostic: string | undefined;
 
   try {
-    const scope = await settleOnAbort(
+    const scope = await raceWithAbortSignal(
       extractScope(kind, input, cwd, inspectionSignal),
       inspectionSignal
     );
@@ -89,13 +69,8 @@ export async function evaluateSearch({
 
     for (const targetPath of scope.paths) {
       inspectionSignal.throwIfAborted();
-      const result = await settleOnAbort(
-        inspectGitIgnore({
-          path: targetPath,
-          cwd,
-          signal: inspectionSignal,
-          timeoutMs: 2000
-        }),
+      const result = await raceWithAbortSignal(
+        inspectGitIgnore({ path: targetPath, cwd, signal: inspectionSignal }),
         inspectionSignal
       );
       if (signal?.aborted) return cancelled;

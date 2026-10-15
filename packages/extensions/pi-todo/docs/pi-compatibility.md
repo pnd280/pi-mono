@@ -17,7 +17,7 @@ Model-only execution must keep mutations atomic and results replayable across se
 
 [Activation](../src/runtime.ts) and [tool](../src/tool.ts):
 
-- [ ] Only interactive TTY sessions activate the extension, using Pi's public `parseArgs` to distinguish flags from option values.
+- [ ] Only interactive TTY sessions activate the extension, using Pi's public `parseArgs` to distinguish flags from option values. Handlers assume TUI mode with a UI, so no other mode may reach them.
 - [ ] The model-facing schema, atomic mutations, and fully replayable result details still work, with no custom tool renderers.
 - [ ] `exposure: "model-only"` keeps direct calls replayable, and prevents nested changes through `ctx.tools` or `ctx.executeTool()`.
 

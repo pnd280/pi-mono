@@ -41,3 +41,11 @@ Repository-root `.` searches, bare fuzzy queries, generic filters such as `*.ts`
 ## Git ignore rules
 
 The guard uses effective Git ignore rules, local and global exclusions, and tracked-file exceptions, supporting worktrees and external repositories. Workspace paths use workspace rules even inside nested repositories; external paths use their own repositories. Non-ignored symlinks are also checked under their destinations' rules.
+
+Inspection runs `git` from `PATH` and never enumerates directories. A target that no longer exists is reported as missing, even when an existing parent is ignored. Symbolic-link cycles and very long link chains count as failed inspections. The [two-second deadline](../README.md#limits) also covers repository discovery and link traversal.
+
+### Inspection contract
+
+This contract is for maintainers. [`inspectGitIgnore`](../src/git-ignore.ts) takes absolute `path` and `cwd` values and the caller's signal, which carries the deadline. Relative paths throw `TypeError`. The result status is `ignored`, `not-ignored`, `missing`, `cancelled` (the signal aborted), or `unavailable`.
+
+The function makes no allow or block decision; the [search policy](../src/evaluate-search.ts) does. Never display an `unavailable` result's internal `cause`.

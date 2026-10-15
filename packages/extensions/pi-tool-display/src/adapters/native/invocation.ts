@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import type { InvocationPart, ToolFamily } from "../../contracts.ts";
-import { invocationParts } from "../../invocation.ts";
+import type { InvocationPart, SummaryItem, ToolFamily } from "../../contracts.ts";
+import { invocationParts, resolveInvocationPath } from "../../invocation.ts";
 
 /** Pi 1.2.0 replaces these spaces before lexical path resolution. Its helper is
  * not publicly exported by coding-agent; keep this native policy out of custom paths and filters.
@@ -18,6 +18,15 @@ const filePathSchema = z
 /** The file of a native read, edit, or write call. */
 export function nativeFilePath(args: unknown): string | undefined {
   return filePathSchema.safeParse(args).data;
+}
+
+/** Files and directories are identified by their lexically resolved path, never by lookup. */
+export function pathSummaryItem(
+  category: string,
+  path: string,
+  cwd: string
+): SummaryItem & { identity: string } {
+  return { category, identity: `path\0${resolveInvocationPath(path, cwd) ?? path}` };
 }
 
 export function nativeInvocationParts(

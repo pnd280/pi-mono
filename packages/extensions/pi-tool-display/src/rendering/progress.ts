@@ -1,7 +1,7 @@
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
-import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
-import { textPrefix, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
+import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
+import { displayLine, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import type { DisplayProgress, DisplayProgressStatus } from "../contracts.ts";
 import type { Projection } from "./types.ts";
@@ -44,7 +44,6 @@ function elapsed(progress: DisplayProgress, now: number, final: boolean): Elapse
 function status(
   progress: DisplayProgress,
   p: Projection,
-  clean: (text: string) => string,
   time: string
 ): { text: string; color: StatusColor } {
   if (!p.context.isPartial && p.outcome === "unavailable")
@@ -72,7 +71,7 @@ function status(
   }
 
   const text = [reported.glyph, reported.text]
-    .map((part) => (part ? clean(part) : ""))
+    .map((part) => (part ? displayLine(part) : ""))
     .concat(time)
     .filter(Boolean)
     .join(" ");
@@ -96,18 +95,12 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
   const stale = () => Date.now() >= time.staleAt;
   const theme = p.theme;
 
-  const clean = (text: string) => {
-    const retained = textPrefix(text, 2048);
-
-    return compactDisplayText(retained) + (retained.length < text.length ? "…" : "");
-  };
-
   const colors = cardColors(p);
   const marker = p.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
-  const state = status(progress, p, clean, time.text);
+  const state = status(progress, p, time.text);
   const separator = theme.fg("dim", " · ");
   // Style the status before wrapping so continuation rows keep its colour.
-  const title = `${theme.fg(colors.label, theme.bold(clean(progress.label)))} ${clean(progress.description)}${separator}${theme.fg(state.color, state.text)}`;
+  const title = `${theme.fg(colors.label, theme.bold(displayLine(progress.label)))} ${displayLine(progress.description)}${separator}${theme.fg(state.color, state.text)}`;
   // Wrapped title rows, metadata, and details lead into the result branch with a guide;
   // without a body, they use a plain indent. A collapsed card shows a body only for a result preview.
   const hasBody = p.result !== undefined && (p.expanded || progress.resultPreview === true);
@@ -116,8 +109,8 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
   const rows = wrapHangingRows(title, Math.max(1, p.width - 2), detailWidth).map(
     (row, index) => `${index ? indent : `${theme.fg(colors.marker, marker)} `}${row}`
   );
-  const identity = clean(progress.identity);
-  const secondaryText = clean(progress.secondary);
+  const identity = displayLine(progress.identity);
+  const secondaryText = displayLine(progress.secondary);
   const secondary = [
     ...(identity ? [theme.fg("dim", identity)] : []),
     ...(secondaryText ? [theme.fg(colors.secondary, secondaryText)] : [])
@@ -129,13 +122,13 @@ export function progressHeading(progress: DisplayProgress, p: Projection): Progr
   for (const field of progress.fields)
     rows.push(
       ...wrapRows(
-        `${theme.fg("dim", `${clean(field.label)}:`)} ${clean(field.value)}`,
+        `${theme.fg("dim", `${displayLine(field.label)}:`)} ${displayLine(field.value)}`,
         detailWidth
       ).map((row) => `${indent}${row}`)
     );
 
   if (progress.prompt !== undefined) {
-    const retained = textPrefix(progress.prompt, 16 * 1024);
+    const retained = sliceTerminalText(progress.prompt, 0, 16 * 1024).text;
     const prompt = displayText(retained).split("\n");
     rows.push(`${indent}${theme.fg("dim", "Prompt:")}`);
     for (const line of prompt.slice(0, 10))

@@ -10,8 +10,7 @@ import type {
   SummaryItem,
   ToolDisplayAdapter
 } from "../../contracts.ts";
-import { pathSummaryItem } from "../../summary-items.ts";
-import { nativeFilePath, nativeInvocationParts } from "./invocation.ts";
+import { nativeFilePath, nativeInvocationParts, pathSummaryItem } from "./invocation.ts";
 import {
   nativeImageCaption,
   nativeResultNotices,

@@ -1,12 +1,12 @@
 import * as fs from "node:fs/promises";
 
-import { inspectGitIgnore } from "@pi-mono/libs/git-ignore";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { evaluateSearch } from "./evaluate-search.ts";
+import { inspectGitIgnore } from "./git-ignore.ts";
 import { fixture } from "./test-fixture.ts";
 
-vi.mock("@pi-mono/libs/git-ignore", () => ({ inspectGitIgnore: vi.fn() }));
+vi.mock("./git-ignore.ts", () => ({ inspectGitIgnore: vi.fn() }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof fs>();
 

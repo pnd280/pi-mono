@@ -1,4 +1,4 @@
-export { MAX_SETTINGS_FILE_BYTES, readSettingsFile } from "./read.ts";
+export { readSettingsFile } from "./read.ts";
 
 export {
   readScopedSettings,
@@ -7,4 +7,11 @@ export {
   type SettingsScopeOptions
 } from "./scopes.ts";
 
-export { isSettingsRecord, readSettingsRecord, updateSettingsRecord } from "./transaction.ts";
+export {
+  settingsSection,
+  type SettingsSection,
+  type SettingsSectionOptions,
+  type SettingsSectionValues
+} from "./section.ts";
+
+export { readSettingsRecord } from "./transaction.ts";

@@ -11,8 +11,6 @@ import type {
 import { OutputBuffer } from "@pi-mono/libs/output-buffer";
 import { z } from "zod";
 
-import { STDERR_EDGE_LINES, STDERR_LINE_BYTES, STDERR_MAX_BYTES } from "../constants.ts";
-
 export type RpcRecord = RpcResponse | RpcExtensionUIRequest | JsonAgentSessionEvent;
 
 export type ProcessExit = {
@@ -25,6 +23,12 @@ type PendingCommand = {
   resolve: (response: RpcResponse) => void;
   reject: (error: Error) => void;
 };
+
+const STDERR_MAX_BYTES = 16 * 1024;
+
+const STDERR_EDGE_LINES = 20;
+
+const STDERR_LINE_BYTES = 512;
 
 const envelopeSchema = z.looseObject({ type: z.string() });
 

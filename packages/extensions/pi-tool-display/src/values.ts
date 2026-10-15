@@ -1,3 +1,5 @@
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+
 export function record(value: unknown): Readonly<Record<string, unknown>> {
   if (value === null || typeof value !== "object") return {};
 
@@ -5,4 +7,8 @@ export function record(value: unknown): Readonly<Record<string, unknown>> {
   // is guaranteed: consumers must validate each unknown value before using it.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return value as Readonly<Record<string, unknown>>;
+}
+
+export function stringField(value: unknown): string {
+  return typeof value === "string" ? displayText(value) : "";
 }

@@ -7,7 +7,6 @@ import {
 import { Container, Text, type Component } from "@earendil-works/pi-tui";
 import { highlightCodeSelection } from "@pi-mono/libs/tui/components/code-highlight";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
-import { selectionLabel, type Selection } from "@pi-mono/utils/source-selection";
 import { z } from "zod";
 
 import {
@@ -16,6 +15,7 @@ import {
   type ReadDocument,
   type SelectiveReadDetails
 } from "./result.ts";
+import { selectionLabel, type Selection } from "./selection.ts";
 
 type NativeRead = ReturnType<typeof createReadToolDefinition>;
 

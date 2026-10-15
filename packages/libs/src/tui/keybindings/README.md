@@ -4,7 +4,7 @@
 
 ## Behaviour
 
-Extension settings accept user-typed shortcuts that must match Pi's canonical form. [`canonicalKeySchema` and `canonicalKey`](index.ts) validate and normalise Pi shortcuts, aliases, and modifier order. Invalid input makes `canonicalKey` return `undefined`.
+Extension settings accept user-typed shortcuts that must match Pi's canonical form. [`canonicalKeySchema`](index.ts) validates and normalises Pi shortcuts, aliases, and modifier order. Invalid input fails validation.
 
 `resolveKeybindings` assigns keys to actions in candidate order, so dispatch and hints share one precedence. Each action gets those of its keys that are valid, not excluded by its `exclude` callback, and not taken by an earlier action.
 

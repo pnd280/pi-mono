@@ -16,7 +16,7 @@ import {
 import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
-import { JOB_END_ENTRY, JOB_ENTRY, JOB_LOG_PREFIX } from "../constants.ts";
+import { JOB_END_ENTRY, JOB_ENTRY } from "../constants.ts";
 import { boundedText, firstLine } from "../result.ts";
 import {
   jobHistory,
@@ -38,6 +38,9 @@ export type JobEvent =
       /** `job_abort` cancelled the job, so its result goes to nobody. */
       dropped: boolean;
     };
+
+/** Job log files are `<prefix><job_id>.log` in the OS temporary directory. */
+const JOB_LOG_PREFIX = "pi-job-";
 
 /** The shell settings that Pi's own `bash` applies. */
 export type ShellOptions = { shellPath?: string; commandPrefix?: string };

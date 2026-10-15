@@ -2,8 +2,7 @@ import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
 import { instructionNotice } from "../adapters/pi-nested-instructions/notices.ts";
 import type { Outcome } from "../contracts.ts";
-import { stringField } from "../terminal-text.ts";
-import { record } from "../values.ts";
+import { record, stringField } from "../values.ts";
 import type { TranscriptMessage } from "./session.ts";
 
 export function hostToolResult(value: unknown): AgentToolResult<unknown> {
