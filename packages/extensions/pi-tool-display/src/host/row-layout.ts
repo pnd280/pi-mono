@@ -6,6 +6,7 @@ import { Image, visibleWidth, type TuiMouseEvent } from "@earendil-works/pi-tui"
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import type { DisplayAction, DisplayCall } from "../contracts.ts";
+import { modifierHeld } from "../rendering/mouse.ts";
 import { layoutRow, rowChrome, type RowLayout } from "../rendering/row-layout.ts";
 import { renderRunSummary } from "../rendering/summary-line.ts";
 import type { DisplayTheme } from "../rendering/types.ts";
@@ -127,6 +128,8 @@ export function bindRowChrome(
     if (!options.active()) return previousMouse.call(this, event);
     const target = targets[event.y];
     if (!target) return undefined;
+    // Pi's own regions would still expand the card, so a modified click stops here.
+    if (event.type === "click" && modifierHeld(event)) return undefined;
     const click = event.type === "click" && event.button === "left";
 
     if (target.kind === "collapse")

@@ -52,6 +52,7 @@ Work through every section below when you bump the supported Pi version, checkin
 - [ ] `ToolExecutionComponent.render` draws a margin, then `selfRenderHeight` rows, then images.
 - [ ] Self-rendered rows get no `outputPad` padding from Pi, so cards keep their own layout.
 - [ ] `handleMouse` subtracts the margin before routing to renderer slots, whose regions call `setExpanded`.
+- [ ] Fullscreen `click` events report held Shift, Alt, and Ctrl, so cards can ignore modified clicks.
 - [ ] Native image components are still public `Image` children, so width constraints keep Pi's IDs, conversion, caching, and reserved rows.
 - [ ] Recheck both [fingerprints](../src/host/compatibility.ts) in the API and installed CLI builds. On mismatch, rows keep Pi's chrome (groups keep margin rows), summaries turn off, and the host warns once.
 

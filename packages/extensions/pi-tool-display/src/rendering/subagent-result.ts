@@ -5,6 +5,7 @@ import { subagentDisplayAdapter, subagentResultCard } from "../adapters/pi-subag
 import { jobResultCard, jobResultDisplayAdapter } from "../adapters/pi-subagents/jobs.ts";
 import type { BorrowedToolResult, DisplayAction, ToolDisplayAdapter } from "../contracts.ts";
 import { createToolDisplayRenderers } from "./cards.ts";
+import { modifierHeld } from "./mouse.ts";
 import type { DisplayContext } from "./types.ts";
 
 type ResultCard = (
@@ -51,7 +52,8 @@ function createResultRenderer(
     const action = adapter.action?.(card.args, card.result);
 
     return new MouseRegion(container, (event) => {
-      if (!action || event.type !== "click" || event.button !== "left") return;
+      if (!action || event.type !== "click" || event.button !== "left" || modifierHeld(event))
+        return;
       emit(action);
 
       return { handled: true };

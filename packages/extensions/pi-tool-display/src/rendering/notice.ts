@@ -15,6 +15,7 @@ import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { wrapHangingRows } from "@pi-mono/libs/tui/text-budget";
 import { decodeNotice } from "pi-nested-instructions/notices";
 
+import { modifierHeld } from "./mouse.ts";
 import { pathRows } from "./target-layout.ts";
 
 type NoticeMessage = Parameters<MessageRenderer>[0];
@@ -139,7 +140,13 @@ export function createNoticeRenderer() {
       },
       (event) => {
         // Leave instruction selection and scrolling alone; only the header toggles.
-        if (event.type !== "click" || event.button !== "left" || event.y >= headerHeight) return;
+        if (
+          event.type !== "click" ||
+          event.button !== "left" ||
+          modifierHeld(event) ||
+          event.y >= headerHeight
+        )
+          return;
         expansion.expanded = !expansion.expanded;
 
         return { handled: true };
