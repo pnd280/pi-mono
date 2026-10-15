@@ -383,7 +383,8 @@ export class Jobs {
       details: this.details(done),
       // Pi gives details only to the UI; the model learns the reason from this text.
       text: [
-        text,
+        // Pi keeps the output's final newline; the join adds the blank line.
+        text.trimEnd(),
         !ended.stated && done.error && `Error: ${done.error}`,
         `Log file: ${done.log_file}`
       ]

@@ -301,7 +301,7 @@ export function createJobAbortTool(jobs: Jobs, open: (id: string, binding?: stri
       // The model gave up this job's result; a job that already exited keeps its result.
       const record = await jobs.abort(parsed.data.job_id, { drop: true });
       const details = jobs.details(record);
-      let body = "The job is stopped.";
+      let body = `The job is stopped.\n\nLog file: ${record.log_file}`;
       if (record.state === "inactive" && record.outcome !== "cancelled")
         body = `The job exited before the abort${record.error ? ` (${record.error})` : ""}. Its result arrives separately.`;
 
