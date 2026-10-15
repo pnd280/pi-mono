@@ -12,7 +12,7 @@ The preview calls `changed` when current work completes. Text changes reset scro
 
 - Supply terminal-safe text, for example from [`displayText`](../../terminal-text/index.ts), and retain exact source separately.
 - Handle navigation keys, viewport dimensions, and loading presentation.
-- Use one instance per logical view; `current` becomes false and `dispose()` runs only at final closure, never [responsive remounts](../../responsive-custom-ui/README.md).
+- Use one instance per logical view. Make `current` return false and call `dispose()` only at final closure, not on [responsive remounts](../../responsive-custom-ui/README.md).
 
 ## Usage
 

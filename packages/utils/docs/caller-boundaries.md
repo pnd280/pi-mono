@@ -4,7 +4,7 @@
 
 ## Search scopes
 
-[`search-scopes`](../src/search-scopes.ts) derives static prefixes without enumerating files. `parseFffScopes` interprets verified FFF path fields, filename queries, and multi-search constraints, returning positive expressions and negative query terms. Expressions retain their path-field or query origin: discovery ignores recursive filename path fields before expanding patterns. Supply whether the full filename query names an existing path so paths containing spaces remain intact.
+[`search-scopes`](../src/search-scopes.ts) derives static prefixes without enumerating files. `parseFffScopes` interprets verified FFF path fields, filename queries, and multi-search constraints, returning positive expressions and negative query terms. Expressions retain their path-field or query origin in `source`, so nested-instruction discovery can ignore recursive filename path fields before it expands patterns. Supply whether the full filename query names an existing path so paths containing spaces remain intact.
 
 Callers own input validation, existing-path detection and error handling, scope limits, filesystem checks, exclusion application, intersections, and blocking policy. The guard propagates unexpected access failures; nested discovery can retain lexical hints. [`fff-tools`](../src/fff-tools.ts) classifies provenance and names only, not tool schemas or policy.
 
@@ -36,4 +36,4 @@ Supply the expected task ID and state to `parseTaskEnvelope` from validated resu
 
 ## Patches
 
-[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers. Invalid or oversized patches return `undefined`. Pass parsed results to the [diff renderer](../../libs/src/tui/components/diff-view/README.md).
+[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers, within a byte limit that the caller supplies. Invalid patches and patches over the limit return `undefined`; a limit that is not a nonnegative safe integer throws `RangeError`. Pass parsed results to the [diff renderer](../../libs/src/tui/components/diff-view/README.md).

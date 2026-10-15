@@ -50,5 +50,12 @@ Recheck lifecycle boundaries, attribution, and native file observations against 
 
 ## Limitations
 
-- **Throughput.** Saved [output throughput](../README.md#output-throughput) is measured by the client, so it depends on when the provider's stream starts and on reported usage. Keep live estimates out of saved summaries. If Pi adds a public timing or throughput API, use it.
-- **File coverage.** [Observation skips bash changes, overrides, and custom tools](../README.md#file-changes). Revisit public mutation or run-summary APIs that report trustworthy outcomes and ordering, while keeping bounded retention and saving outside model context. Changes to shared observation belong in libs.
+These limits come from missing Pi APIs. Revisit them when Pi adds one.
+
+### Throughput
+
+The client measures saved [output throughput](summary-fields.md#output-throughput), so it depends on when the provider's stream starts and on reported usage. Keep live estimates out of saved summaries. If Pi adds a public timing or throughput API, use it.
+
+### File coverage
+
+[Observation skips bash changes, overrides, and custom tools](summary-fields.md#file-changes). Revisit public mutation or run-summary APIs that report trustworthy outcomes and ordering, while keeping bounded retention and saving outside model context. Changes to shared observation belong in libs.

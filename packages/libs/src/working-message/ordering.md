@@ -4,7 +4,7 @@
 
 ## Settings menu
 
-`/working-message` takes no arguments and requires interactive TUI mode. It opens the project scope when an override exists, otherwise the global scope. Switch scopes inside the menu with **Tab**; project scope requires a trusted project.
+`/working-message` takes no arguments and requires interactive TUI mode. It opens the project scope when project settings set an `order`, otherwise the global scope. Switch scopes inside the menu with **Tab**; project scope requires a trusted project.
 
 An unset project draft inherits saved global ordering. An unset global draft sorts IDs. Inheritance does not write settings. An explicit empty order is set and uses sorted ID order.
 

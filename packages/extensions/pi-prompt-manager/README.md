@@ -89,7 +89,7 @@ The extension writes only to its own per-directory storage, and to the system cl
 
 Copying replaces the system clipboard with the complete text, including whitespace and control characters. It times out after five seconds, and is cancelled if the session ends.
 
-Requires macOS `pbcopy`, Wayland `wl-copy`, X11 `xclip` or `xsel`, or WSL `powershell.exe` with Windows Forms clipboard support. SSH and native Windows aren't supported, and there's no OSC 52 fallback.
+Requires macOS `pbcopy`, Wayland `wl-copy`, X11 `xclip` or `xsel`, or WSL `powershell.exe` with Windows Forms clipboard support. SSH and native Windows aren't supported, and there's no OSC 52 fallback, even when Pi's `PI_CLIPBOARD_OSC52` is set.
 
 ## Validation
 

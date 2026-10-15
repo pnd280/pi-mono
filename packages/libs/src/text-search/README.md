@@ -14,7 +14,7 @@ Search orders phrase matches before matches containing every literal term, then 
 
 ## Caller responsibilities
 
-Populate items' `normalized` fields before searching. `normalizeSearchAsync(text, signal)` rejects with the signal reason on cancellation.
+Populate items' `normalized` fields with `normalizeSearchAsync` output before searching. `normalizeSearchAsync(text, signal)` rejects with the signal reason on cancellation.
 
 Pass `searchText` a `current` callback that returns `false` when results are no longer relevant. A [latest task](../latest-task/README.md) can supply this callback and prevent stale results from being applied.
 
@@ -24,6 +24,6 @@ Choose which text to search and keep exact source separate from terminal-safe di
 
 Query preparation, categories, scores, and checkpoint accounting belong to the internal [ranking implementation](ranking.ts), not package exports.
 
-- Search has no listed [library invariant](../../docs/testing.md#must-not-regress), so it has no automated tests.
+Search has no listed [library invariant](../../docs/testing.md#must-not-regress), so it has no automated tests.
 
 For changes to cooperative search or item preparation, use prompt manager's [interaction measurement and responsiveness check](../../../extensions/pi-prompt-manager/docs/validation.md#interaction-measurement).

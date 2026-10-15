@@ -2,11 +2,11 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package has no listed invariants yet. Pi owns the abort itself. The shared [timed confirmation](../../../libs/src/timed-confirmation/README.md) owns the confirmation window, and the [working-message coordinator](../../../libs/src/working-message/README.md) owns the hint's display.
+This package has no automated tests. Pi owns the abort itself. The shared [timed confirmation](../../../libs/src/timed-confirmation/README.md) owns the confirmation window, and the [working-message coordinator](../../../libs/src/working-message/README.md) owns the hint's display.
 
 ## Must not regress
 
-No invariants are listed.
+No automated test covers the [package invariants](../AGENTS.md#must-not-regress). The manual checks below cover each of them.
 
 ## Not tested
 

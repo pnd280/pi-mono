@@ -23,7 +23,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output. 
 ## Not tested
 
 - Model-facing schema projection: consumers reject invalid domain input before side effects, and only live provider checks prove that providers accept a schema.
-- Output retention, bounded diffs, Git inspection, cooperative search ranking, caches, working messages, and offline fixtures: below the severity bar.
+- Output retention, cooperative search ranking, caches, working-message contributions, scripted provider streams, and the interactive host fixture: below the severity bar.
 - Reusable TUI selection, navigation, layout, settings frames, and diff rows: below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation).
 - Extension-specific collection formats and tool-card policies: owned by extensions.
 

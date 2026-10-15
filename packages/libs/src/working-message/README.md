@@ -2,14 +2,14 @@
 
 [Library index](../../README.md#usage)
 
-`@pi-mono/libs/working-message` combines extension contributions in Pi's working message. First registration installs the coordinator and `/working-message`; no separate extension needed.
+`@pi-mono/libs/working-message` combines extension contributions in Pi's working message. The first registration installs the coordinator and the `/working-message` command, so no separate extension is needed.
 
 ## Behaviour
 
 - Nonempty contributions are joined with `·` in the configured order. Unlisted components follow in sorted ID order.
-- Empty contributions stay registered and in settings; no active text restores Pi's default message.
+- Empty contributions stay registered and listed in settings. When no component has text, Pi's default message returns.
 - An override from `overrideWorkingMessage` replaces the whole message while it has text. The most recently set override wins. Clearing it restores the combined message. Overrides do not appear in the settings menu.
-- Text is terminal-sanitised and whitespace collapsed to one line. Overrides keep SGR styling, such as theme colours; contributions are plain text.
+- Text is terminal-sanitised, and whitespace is collapsed to one line. Overrides keep SGR styling, such as theme colours; contributions are plain text.
 - Pi's event bus shares one owner across library instances. Shutdown removes it and invalidates handles. New sessions and reloads register fresh components.
 - Nonparticipants can overwrite the message without interception. The indicator's content and visibility are unchanged.
 
@@ -41,11 +41,12 @@ export default function activityExtension(pi: ExtensionAPI) {
 
 ## Caller responsibilities
 
-Register once during the extension factory, before installing handlers that publish text. Use a globally unique, stable ID such as `extension-name.component-name`; consult the [component schema](coordinator.ts) for character and length limits.
-
-Register overrides in the extension factory too, and use them only for short, urgent text that must hide all contributions.
-
-Keep handles runtime-local. Session start clears text. Republish restored state in `session_start` and update on state changes. `setText()` or `setText("")` clears only that component. `dispose()` unregisters it. Stale or disposed handles cannot mutate replacements. Clear text for temporary inactivity to retain settings visibility.
+- Register once during the extension factory, before installing handlers that publish text.
+- Use a globally unique, stable ID such as `extension-name.component-name`. The [component schema](coordinator.ts) sets the character and length limits. Invalid components, duplicate IDs, and registration after shutdown throw.
+- Register overrides in the extension factory too. Use them only for short, urgent text that must hide all contributions.
+- Keep handles runtime-local. Session start clears text, so republish restored state in `session_start` and update it on state changes.
+- `setText()` or `setText("")` clears only that component, and `dispose()` unregisters it. Stale or disposed handles cannot mutate replacements.
+- For temporary inactivity, clear the text instead of disposing the handle, so the component stays visible in settings.
 
 ## Validation
 

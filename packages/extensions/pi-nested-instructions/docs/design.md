@@ -2,8 +2,6 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-How discovery decides which instruction files to load, and where the design comes from.
-
 ## Source behaviour
 
 Based on OpenCode v2 at [`39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49`](https://github.com/anomalyco/opencode/tree/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49):
@@ -43,7 +41,7 @@ Pending inputs are cleared at turn and session boundaries. Handling the whole ba
 
 Nested calls contribute scope but never direct-read suppression: codemode or another parent can filter their output before the model sees it. A direct sibling read can still suppress the matching file for the whole batch. Unknown nested tool schemas and opaque parent code provide no scope unless a supported child input is observed.
 
-Direct-read markers contain a lexical path, filesystem revision, and the identity of the entry and call that created it. They contain no instruction text. A fingerprint of the projected call prevents a context replacement from preserving stale suppression. Auto-loaded messages contain full selected instructions plus structured metadata and a `messageDigest` of the entire model-facing message, including the note and tag around the instructions. That fingerprint detects context replacements which retain source details but change the delivered text.
+Direct-read markers contain a lexical path, filesystem revision, and the identity of the entry and call that created it. They contain no instruction text. A fingerprint of the projected call prevents a context replacement from preserving stale suppression. Notices contain the full selected instructions plus structured metadata and a `messageDigest` of the entire model-facing message, including the note and tag around the instructions. The `messageDigest` detects context replacements which retain source details but change the delivered text.
 
 Markers are per file: reading `AGENTS.md` does not suppress a preferred `AGENTS.override.md`. Listing a filename is not a content read. Failed and blocked read attempts count; results are not inspected.
 

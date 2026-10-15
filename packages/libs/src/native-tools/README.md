@@ -8,7 +8,9 @@ React to native tool definitions from one shared observation instead of each con
 
 [`@pi-mono/libs/native-tools`](index.ts) shares observation of verified native Pi tool definitions, from both the API and the CLI, across independently loaded consumers. SDK overrides, custom tools, and changed definitions are excluded.
 
-Observation preserves active tool selection. Disposal restores only replacements still owned by this library. Retained wrappers call the original tool. Subscriptions have independent lifetimes.
+Each tool gets at most one wrapper, from the first eligible subscriber that lists its name. Observation preserves active tool selection. Disposal restores only replacements still owned by this library. Retained wrappers call the original tool. Subscriptions have independent lifetimes.
+
+If Pi's construction contract is not recognised, or an observer callback throws, tools keep their original execution and subscribers receive `warning()`.
 
 ## Caller responsibilities
 

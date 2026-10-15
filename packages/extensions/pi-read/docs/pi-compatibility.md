@@ -6,7 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [package and appearance checks](../README.md#validation).
+1. Run the [package checks](../README.md#validation) and the [manual appearance checks](testing.md#manual-checks).
 2. When tool schemas, shared arguments and results, or renderer integration change, also check `pi-tool-display`, including its installed-CLI test.
 3. Work through the checklist below, then update the "Last verified" line.
 
@@ -43,5 +43,5 @@ Selection previews must preserve native file access, results, and rendering fall
 
 ## Limitations
 
-- **Image failures.** Pi reports a failed image conversion as text, without typed image metadata. The extension recognises Pi's `Read image file [image/` prefix, so a text file that starts with exactly that prefix looks the same. This lasts until Pi exposes a way to tell the results apart.
-- **Replacement.** The extension replaces `read`, and [can't run alongside another replacement](../README.md#compatibility). Revisit native selection support, or public decoration APIs, that could remove the replacement while keeping the source and window behaviour and the display integration.
+- Pi reports a failed image conversion as text, without typed image metadata. The extension recognises Pi's `Read image file [image/` prefix, so a text file that starts with exactly that prefix looks the same. This lasts until Pi exposes a way to tell the results apart.
+- The extension replaces `read`, and [can't run alongside another replacement](../README.md#compatibility). Revisit native selection support, or public decoration APIs, that could remove the replacement while keeping the source and window behaviour and the display integration.

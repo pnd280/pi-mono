@@ -1,6 +1,8 @@
 # Built-in codemode adapter
 
-[Adapter development](../../../../docs/adapters.md)
+[pi-tool-display](../../../../README.md) · [Adapter development](../../../../docs/adapters.md)
+
+Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted script and a list of the calls it made. This page documents the adapter contract for its maintainers; if you use `codemode`, read [Display](#display) for how its calls appear.
 
 ## Compatibility and selection
 
@@ -8,7 +10,7 @@ The adapter matches Pi's built-in `codemode` only: tool name `codemode`, `builti
 
 SDK registrations through `createCodemodeExtension()` get an unverifiable `<inline:…>` source and keep Pi's own renderer. Replacement extensions that register their own `codemode` are not specialised either. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 
-## Cards
+## Display
 
 Headings read "Running script", "Ran script", or "Script failed". The script follows as JavaScript-highlighted code; compact cards show up to 10 rows, or all 11 when only one row would be omitted, within the [heading formatting limit](../../../../docs/presentation.md#resource-limits), with an expansion hint for omitted source.
 

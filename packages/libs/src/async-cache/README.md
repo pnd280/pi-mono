@@ -12,6 +12,6 @@ Disposal does not abort underlying I/O or invoke `onEvict`.
 
 ## Caller responsibilities
 
-Supply a loader and positive safe-integer limits for cached and pending entries. `onBusy` and `onEvict` must not throw. Own retries, diagnostics, and I/O cleanup. Call `dispose()` on closure.
+Supply a loader and positive safe-integer `capacity` and `maxPending` limits; other limits throw `RangeError`. `onBusy` and `onEvict` must not throw. Own retries, diagnostics, and I/O cleanup. Call `dispose()` on closure.
 
-See tool display's [saved-output loader](../../../extensions/pi-tool-display/src/observation/saved-output.ts) for a consumer.
+See tool display's [saved-output cache](../../../extensions/pi-tool-display/src/transcript/saved-output.ts) for a consumer.

@@ -6,6 +6,8 @@
 
 Extension settings accept user-typed shortcuts that must match Pi's canonical form. [`canonicalKeySchema` and `canonicalKey`](index.ts) validate and normalise Pi shortcuts, aliases, and modifier order. Invalid input makes `canonicalKey` return `undefined`.
 
+`resolveKeybindings` assigns keys to actions in candidate order, so dispatch and hints share one precedence. Each action gets those of its keys that are valid, not excluded by its `exclude` callback, and not taken by an earlier action.
+
 Pi 1.2.0 cannot dispatch modified Escape or modified function keys. Validation rejects these bindings. `resolveKeybindings` skips them when choosing alternatives, so hints do not advertise unusable keys.
 
 A final `+` names the plus key, as in `+` or `ctrl++`. Pi 1.2.0 dispatches these bindings; `ctrl++` needs the Kitty keyboard protocol or modifyOtherKeys.
@@ -18,4 +20,4 @@ Pi 1.2.0 matches a symbol binding such as `ctrl++` against the Shift press that 
 
 ## Caller responsibilities
 
-Own actions, defaults, diagnostics, precedence, and Pi keybinding changes.
+Callers own actions, defaults, diagnostics, precedence, and Pi keybinding changes.

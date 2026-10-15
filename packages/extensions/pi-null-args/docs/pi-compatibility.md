@@ -20,4 +20,4 @@
 
 ## Limitations
 
-- **Retirement.** If Pi's argument validation starts to treat the text `"null"` in optional arguments like a real `null`, remove this extension.
+- If Pi's argument validation starts to treat the text `"null"` in optional arguments like a real `null`, remove this extension.

@@ -1,6 +1,8 @@
 # Built-in tool-search adapter
 
-[Adapter development](../../../../docs/adapters.md)
+[pi-tool-display](../../../../README.md) · [Adapter development](../../../../docs/adapters.md)
+
+Calls to Pi's built-in `tool_search` appear as cards that name the tools each search loaded. This page documents the adapter contract for its maintainers; if you use `tool_search`, read [Display](#display) for how its calls appear.
 
 ## Compatibility and selection
 
@@ -8,7 +10,7 @@ The adapter matches Pi's built-in `tool_search` only: tool name `tool_search`, `
 
 SDK registrations through `createToolSearchExtension()` get an unverifiable `<inline:…>` source and keep generic cards. Replacement extensions that register their own `tool_search` are not specialised either. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 
-## Cards
+## Display
 
 Cards read "Searching tools" while pending and "Searched tools" afterward, followed by the query after a spaced em dash. Raw parameters, including `limit`, stay hidden unless `showParameters: true`.
 

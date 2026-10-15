@@ -15,9 +15,7 @@ The listed files replace Pi's append text; they don't add to it.
 - An empty list, or empty files, remove the append text.
 - Models with no matching rule keep Pi's normal `APPEND_SYSTEM.md`. Pi looks for it in the project's `.pi/` first, in [trusted](https://pi.dev/docs/latest/security#understand-project-trust) projects only, then in the agent directory.
 
-### Explicit append text
-
-The extension replaces the append text only when it equals Pi's discovered `APPEND_SYSTEM.md` (or is empty when there is none). Text from `--append-system-prompt` or another extension is left alone when it differs. If it happens to be identical, it can't be told apart and may be replaced.
+Append text from `--append-system-prompt` or another extension is normally left alone. Rules for a [virtual model](https://pi.dev/docs/latest/virtual-models) match its own ID, not the model it routes to. To see exactly when the replacement applies in these cases, read [when the replacement applies](docs/replacement.md).
 
 ## Configuration
 
@@ -45,16 +43,6 @@ Add an `ext.pi-model-prompt` key to Pi's global `~/.pi/agent/settings.json` (or 
 - Listed files can live anywhere, including inside projects. Project trust affects only the discovery of Pi's own `APPEND_SYSTEM.md`.
 - Settings and files are loaded on session start and `/reload`, like Pi's own `APPEND_SYSTEM.md`, so run `/reload` after editing them.
 
-### Virtual models
-
-Rules match the selected model. For a [virtual model](https://pi.dev/docs/latest/virtual-models), that is its own `provider/id`, such as `router/auto`, never the physical model it routes to.
-
-- A rule matching the virtual ID applies its files to every request, whichever model the router picks.
-- Rules for physical models, such as `^anthropic/`, don't apply under a virtual model.
-- The prompt stays the same for the whole run, even when the router switches models between requests.
-
-Pi builds the prompt once per run, before routing, and offers extensions no provider-neutral way to change it per request afterwards.
-
 ### Errors
 
 Problems are shown as UI warnings when settings load. Modes without a UI, such as print mode, show no warnings.
@@ -63,6 +51,7 @@ Problems are shown as UI warnings when settings load. Modes without a UI, such a
 | ----------------------------------------------------------- | ------------------------------------------------------------ |
 | Invalid rule, including an unknown field in a rule          | That rule is skipped.                                        |
 | Invalid section, including an unknown field in it           | All rules are disabled.                                      |
+| `settings.json` can't be read                               | All rules are disabled.                                      |
 | A listed file is missing, unreadable, or not a regular file | The rule keeps Pi's text instead of applying a partial list. |
 | Pi's own `APPEND_SYSTEM.md` is unreadable                   | No replacement happens.                                      |
 
@@ -74,4 +63,9 @@ Problems are shown as UI warnings when settings load. Modes without a UI, such a
 
 ## Validation
 
-Use the [focused checks](../../../docs/development.md#focused-validation) for `pi-model-prompt`. Tests run offline; the Unix FIFO test needs `mkfifo`. See the maintainer [testing](docs/testing.md) coverage, and [Pi compatibility](docs/pi-compatibility.md) for SDK directory overrides and upgrades.
+Use the [focused checks](../../../docs/development.md#focused-validation) for `pi-model-prompt`. Tests run offline; the Unix FIFO test needs `mkfifo`.
+
+| When you…                              | Read                                         |
+| -------------------------------------- | -------------------------------------------- |
+| Decide where a test belongs            | [testing](docs/testing.md)                   |
+| Override SDK directories or upgrade Pi | [Pi compatibility](docs/pi-compatibility.md) |

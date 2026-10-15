@@ -17,8 +17,7 @@
 
 ## Limitations
 
-- **Direct calls.** [Calling `execute()` directly skips hooks](../README.md#limits). Pi's public `ctx.executeTool()` dispatches nested calls through hooks (observed in Pi 0.99.2), but that doesn't show how an external FFF wrapper runs its calls. Recheck the installed wrapper before changing this limitation.
-- **Upstream fix.** If FFF supports ignored paths, the guard may no longer be needed. Follow the [retirement checks](#retirement-checks) against the installed FFF release, not Pi alone.
+- [Calling `execute()` directly skips hooks](../README.md#limits). Pi's public `ctx.executeTool()` dispatches nested calls through hooks (observed in Pi 0.99.2), but that doesn't show how an external FFF wrapper runs its calls. Recheck the installed wrapper before changing this limitation.
 
 ## Retirement checks
 

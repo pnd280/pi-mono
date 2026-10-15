@@ -10,20 +10,9 @@ The model manages todos through the `todo` tool; you follow along in the `/todos
 
 ### The `todo` tool
 
-The model calls the `todo` tool with one of these actions: `create`, `update`, `list`, `get`, `delete`, and `clear`. The tool can only be called by the model directly, not through other tools, so every change leaves a snapshot that can be replayed.
+The model calls the `todo` tool to create, update, list, get, delete, and clear todos. Todos can be nested and blocked by other todos, and a completed todo can't be reopened. Each call saves a full snapshot of the list in the session.
 
-- A todo's subject can't be empty.
-- New todos start as `pending`. Completed todos can't go back to `pending` or `in_progress`.
-- Todos can be nested. On `update`, `parentId: null` moves a todo and its children to the top level.
-- A todo can be _blocked by_ others. Cycles of blocking todos aren't allowed.
-- A parent's status and blockers don't affect its children.
-- `delete` leaves a hidden marker (a _tombstone_). `list` hides deleted todos unless `includeDeleted: true`.
-- A todo with children that are not deleted can be moved but not deleted.
-- `clear` removes everything and resets IDs.
-- `list` shortens its displayed output, but the result details keep the full snapshot.
-- [Limits](src/state/limits.ts) on input and state also apply when results are replayed.
-
-The extension draws no tool cards. [pi-tool-display](../pi-tool-display/src/adapters/pi-todo/README.md) draws them with the shortened subjects, status words, and progress summary from the pure [`pi-todo/text`](src/text.ts) export.
+The extension draws no tool cards; [pi-tool-display](../pi-tool-display/src/adapters/pi-todo/README.md) draws them. To see the exact rules, limits, and card text that the tool uses, read [the todo tool](docs/todo-tool.md).
 
 ### The `/todos` browser
 
@@ -72,16 +61,7 @@ Working-message order is a separate setting, [`workingMessage.order`](../../libs
 - Todo state is stored only in the `todo` tool's result details, as full snapshots in Pi sessions. The `todo` tool and `/todos` write no other files, and make no network requests.
 - Saving in `/working-message` writes the order to the global or trusted project `settings.json` shown in the menu, keeping other settings.
 - Terminal control characters are removed from todo text shown in the widget, the browser, and the working message.
-
-### Replay
-
-When a session starts or reloads, on branch changes, and after compaction, the latest valid `todo` result on the current branch is replayed. Malformed snapshots and host errors are skipped.
-
-| Snapshot format     | Replayed as                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------- |
-| Version 2           | A nested list.                                                                                          |
-| Version 1           | A flat list.                                                                                            |
-| Unversioned (older) | A flat list. Readable under larger replay limits, but an oversized list can't grow past current limits. |
+- When a session starts or reloads, on branch changes, and after compaction, the list is restored from the latest valid `todo` result on the current branch. To see how older snapshot formats are restored, read [replay](docs/todo-tool.md#replay).
 
 ## Validation
 

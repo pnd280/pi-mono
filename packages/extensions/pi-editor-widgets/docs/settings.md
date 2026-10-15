@@ -48,7 +48,8 @@ A project layout replaces the entire global layout; the two are never merged.
 - To hide something, list it in `hidden`. An empty region doesn't hide unlisted or future registrations.
 - Unknown IDs keep their positions, so a widget reappears where you put it once its extension loads.
 - In `aboveEditor`, shorter widgets in a multiline row align to the bottom, next to the editor. Other regions align them to the top.
-- Row constraints and defaults are defined in the [layout schema](../src/layout.ts).
+- A row can contain each ID once and at most one `flex`. The same ID can appear in several rows, but an ID in `hidden` can't also be placed.
+- The [layout schema](../src/layout.ts) defines the size limits and the default layout.
 
 ### Invalid layouts
 

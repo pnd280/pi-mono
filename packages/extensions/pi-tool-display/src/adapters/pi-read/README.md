@@ -1,6 +1,8 @@
-# pi-read integration
+# pi-read adapter
 
-[Supported tools](../../../README.md#supported-tools) · [Adapter development](../../../docs/adapters.md)
+[pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
+
+Selective reads from [`pi-read`](../../../../pi-read/README.md) group like native reads, and expanded cards highlight the selected lines. This page documents the adapter contract for its maintainers; if you use `pi-read`, read [Display](#display) for how its calls appear.
 
 ## Compatibility and selection
 
@@ -12,7 +14,7 @@ Schema recognition checks integer coordinate types, required fields, and selecti
 
 ## Arguments and results
 
-Use [read arguments](../../../../pi-read/README.md#usage); optional `null` values, including selection coordinates, count as omitted to match Pi normalization. Unknown top-level fields are ignored for display, matching read execution, without changing retained arguments. Known fields and nested `selection` remain validated; unknown selection fields are rejected.
+Use [read arguments](../../../../pi-read/README.md#usage); optional `null` values, including selection coordinates, count as omitted to match Pi normalisation. Unknown top-level fields are ignored for display, matching read execution, without changing retained arguments. Known fields and nested `selection` remain validated; unknown selection fields are rejected.
 
 Result provenance and native source windows use the producer-owned [`pi-read/result` contract](../../../../pi-read/docs/result.md). Display requires a selection when a validated preview is present, rejects invalid contracts rather than recovering them, and hides only the recorded preview.
 
@@ -22,9 +24,9 @@ In automatic mode, incompatible arguments or results use the shared [invalid-inp
 
 Headings separate read windows and selection ranges. Compatible reads [group](../../../docs/presentation.md#groups); expansion highlights selections without repeating the model preview.
 
-Targets share [native path normalization](../native/README.md#arguments-and-results) for headings, grouping, and summary deduplication without rewriting retained arguments.
+Targets share [native path normalisation](../native/README.md#arguments-and-results) for headings, grouping, and summary deduplication without rewriting retained arguments.
 
-The shared interpretation supplies per-block highlights from the raw source part after native diagnostics are separated. Terminal sanitization and tab expansion remain display policy. Notices remain visible but outside selections. Trailer recognition has the native [text-envelope provenance limits](../native/README.md#text-envelope-provenance).
+The shared interpretation supplies per-block highlights from the raw source part after native diagnostics are separated. Terminal sanitisation and tab expansion remain display policy. Notices remain visible but outside selections. Trailer recognition has the native [text-envelope provenance limits](../native/README.md#text-envelope-provenance).
 
 Other result presentation follows the [native adapter](../native/README.md#display). Images, errors, cancellations, and partial results do not receive selection highlighting.
 

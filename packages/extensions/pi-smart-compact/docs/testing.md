@@ -40,8 +40,8 @@ Hook ownership
 - Request timeout and retry policy on configured summary requests, several `compact` calls in one tool batch, and summaries supplied by `session_before_compact` hooks: below the severity bar.
 - Whether a real model follows the instructions, threshold detection, and the full overflow retry scheduler.
 - Interactive mounting, RPC display, and terminal appearance.
-- Undoing Pi's earlier overflow-recovery edits, and atomic metadata and compaction writes: not guaranteed; see the [compatibility limits](pi-compatibility.md#limitations).
+- Undoing Pi's earlier overflow-recovery edits, atomic metadata and compaction writes, and combinations of third-party patches and reloads: not guaranteed; see the [compatibility limits](pi-compatibility.md#limitations).
 
 ## Manual checks
 
-Use the [compatibility checklist](pi-compatibility.md) for interactive progress, **Escape** behaviour, real-provider quality, and concurrent third-party patches.
+Use the [compatibility manual checks](pi-compatibility.md#manual-checks) for interactive progress, **Escape** behaviour, and real-provider summary quality.

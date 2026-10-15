@@ -1,6 +1,6 @@
 # Run background jobs beside Pi's bash, without holding the run
 
-[pi-subagents](../../README.md#background-jobs)
+[pi-subagents](../../README.md) · [Background jobs](../jobs.md)
 
 A model needs long commands, such as builds, test runs, servers, and watchers, to run while it continues its work. A [job](../../GLOSSARY.md#tasks-and-processes) is such a command. It has its own `job` and `job_abort` tools, its own registry, and its own session entries. Built-in `bash` does not change.
 
@@ -32,5 +32,5 @@ Rejected. A server or a watcher does not exit, so the supervisor would stay busy
 - A run settles while its jobs run, and each job result can start one more model request.
 - Print and JSON supervisors and children do not wait for jobs. Pi exits after their final reply, the jobs stop, and their results are lost. In these modes, the `job` description tells the model to use jobs only for processes that it needs during the run.
 - A job that ends between a pre-event and its final event adds its end entry to the old branch. If the change becomes final, its pending result is dropped. If an extension cancels the change, the result waits for the next run.
-- Pi stops only the shell's process group. A process that leaves the group continues after its job stops; see [limits](../../README.md#limits).
+- Pi stops only the shell's process group. A process that leaves the group continues after its job stops; see [job limits](../jobs.md#limits).
 - A `bash` override that another extension registers after settings load is not detected.

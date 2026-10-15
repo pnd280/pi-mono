@@ -8,11 +8,11 @@ Retain bounded output from a byte stream that arrives in chunks.
 
 [`@pi-mono/libs/output-buffer`](index.ts) exports `OutputBuffer`, which accepts byte chunks and decodes UTF-8 across chunk boundaries.
 
-Retains full output through `maxBytes` raw bytes, then bounded excerpts from the start and end. Excerpt limits are independent of `maxBytes`. Generated notices add to source limits. `finish()` flushes incomplete UTF-8.
+The buffer retains full output through `maxBytes` raw bytes. Beyond that, it keeps `edgeLines` completed lines at each end and clips each line to `lineBytes`, split between its head and tail. Excerpt limits are independent of `maxBytes`. Generated notices add to source limits. `finish()` flushes incomplete UTF-8.
 
 ## Caller responsibilities
 
-Use one instance per stream. Append new chunks, never replacement snapshots. End with `finish()`, then `snapshot()`. Supply omission messages and positive safe-integer `maxBytes`, `edgeLines`, and `lineBytes`.
+Use one instance per stream. Append new chunks, never replacement snapshots. End with `finish()`, then `snapshot()`. Supply omission messages and positive safe-integer `maxBytes`, `edgeLines`, and `lineBytes`; other limits throw `RangeError`.
 
 Preserve the notice ranges in `OutputText` to distinguish notices from identical process output. Sanitise each complete snapshot for terminal display.
 

@@ -24,8 +24,6 @@ This package tests settings trust and writes, layout menu state, and editor focu
 
 Setup: workspace Pi with this extension and a native widget contributor such as `pi-todo`. The menu needs no model call.
 
-Check the [image placement policy](../README.md#usage) with native `Image` output for Kitty and iTerm2: image-only output, a captioned container, shared-row neighbours, repeated placements, exact payload and blank-row preservation, and whole-widget clipping with matching mouse cells.
-
 ### Menu
 
 | Do                                                                                          | Expect                                                                                                                                               |
@@ -59,6 +57,16 @@ Setup: hold a settings lock, or make the settings file malformed JSON.
 | Watch notifications                         | Load and save warnings never show as success or appear twice.                                     |
 | Wait, edit, or switch scope after a success | Success clears after three seconds, an edit, or a scope change. Warnings and errors don't expire. |
 | Fix the file and reopen                     | Load warnings clear.                                                                              |
+
+### Images
+
+Setup: widgets with native `Image` output, in a Kitty terminal and an iTerm2 terminal. The expected results follow the [image placement policy](../README.md#usage).
+
+| Do                                                                | Expect                                                                            |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Place image-only output and a captioned container in shared rows  | Each image widget takes a full-width row. Its neighbours wrap to other lines.     |
+| Place one image widget in several regions                         | Every copy shows the complete image, with its payload and blank rows unchanged.   |
+| Shrink the terminal until the height limit falls inside the image | Clipping stops before the image widget, and mouse cells match the visible output. |
 
 ### Lifecycle
 

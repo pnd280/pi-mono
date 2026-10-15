@@ -67,9 +67,28 @@ Session replacement must preserve saved data and parent links while giving namin
 
 ## Limitations
 
-- **Startup parent.** Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
-- **Option order.** Pi resolves its built-in session-selection options before extensions load. A conflicting option may open or migrate a session, or show the `--resume` picker, before the extension rejects it.
-- **Custom directories.** In-memory session managers don't remember a custom directory. `/sesh persist` uses the default directory. Parent ID lookup can also use directory overrides from the CLI or the environment.
-- **Copying JSONL.** If Pi adds a public API to save in-memory sessions, use it instead of copying JSONL. Keep the branch state, the current session-wide name, lineage, and cleanup after a cancelled switch.
-- **Cancellation.** [Authentication and providers may ignore cancellation](../src/auto-title/generate.ts). Revisit request cancellation before simplifying the outer deadline, and keep bounded waiting and stale-result protection.
-- **Naming APIs.** Compare any new naming APIs with the [source selection and naming policy](../README.md#automatic-session-names). Adopting one must keep the text limits, the explicit model choice, and the request side effects.
+These limits come from current Pi behaviour. Recheck each one when Pi changes the behaviour it describes.
+
+### Startup parent
+
+Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
+
+### Option order
+
+Pi resolves its built-in session-selection options before extensions load. A conflicting option may open or migrate a session, or show the `--resume` picker, before the extension rejects it.
+
+### Custom directories
+
+In-memory session managers don't remember a custom directory. `/sesh persist` uses the default directory. Parent ID lookup can also use directory overrides from the CLI or the environment.
+
+### Copying JSONL
+
+If Pi adds a public API to save in-memory sessions, use it instead of copying JSONL. Keep the branch state, the current session-wide name, lineage, and cleanup after a cancelled switch.
+
+### Cancellation
+
+[Authentication and providers may ignore cancellation](../src/auto-title/generate.ts). Revisit request cancellation before simplifying the outer deadline, and keep bounded waiting and stale-result protection.
+
+### Naming APIs
+
+Compare any new naming APIs with the [source selection and naming policy](../README.md#automatic-session-names). Adopting one must keep the text limits, the explicit model choice, and the request side effects.

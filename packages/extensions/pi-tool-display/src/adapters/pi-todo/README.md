@@ -1,6 +1,8 @@
-# pi-todo integration
+# pi-todo adapter
 
-[Supported tools](../../../README.md#supported-tools) · [Adapter development](../../../docs/adapters.md)
+[pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
+
+Todo calls from [`pi-todo`](../../../../pi-todo/README.md) appear as `Todos` cards with confirmed statuses and progress. This page documents the adapter contract for its maintainers; if you use `pi-todo`, read [Display](#display) for how its calls appear.
 
 ## Compatibility and selection
 
@@ -28,5 +30,7 @@ Compact cards replace successful output with confirmed status and progress:
 Expansion restores full result text. API labels remain literal because unstructured output cannot reliably distinguish them from task content; friendly labels apply only to generated headings and summaries.
 
 Adjacent `todo` calls form a collapsed `Todos` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
+
+## Summary mode
 
 Calls using this adapter are omitted from [run summary lines](../../../docs/presentation.md#summary-mode), including incompatible calls using generic fallback. They contribute no counts; a todo-only run shows no line.

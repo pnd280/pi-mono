@@ -1,6 +1,6 @@
 # Deliver background results at the end of each turn
 
-[pi-subagents](../../README.md#background-tasks)
+[pi-subagents](../../README.md) · [Background results](../background-results.md)
 
 A busy [supervisor](../../GLOSSARY.md#tasks-and-processes) received each [background result](../../GLOSSARY.md#results) only after the model's final reply, at `agent_before_settle` ([ADR 0001](0001-hold-run-for-background-results.md)). A model that works for many turns continued on old information until then, for example after a job's build failed or its server stopped.
 
@@ -25,12 +25,12 @@ Rejected. Pi commits boundary drafts with an `entry_appended` event only, and no
 
 ### Deliver only at `agent_before_settle`
 
-Kept as the `settle` option, for users who want the model to finish its current work before it receives background results. See the [configuration trade-off](../../README.md#configuration).
+Kept as the `settle` option, for users who want the model to finish its current work before it receives background results. See the [delivery trade-off](../background-results.md#delivery-timing).
 
 ## Consequences
 
 - A result can arrive while the model works on something else, and the model can change direction.
-- Earlier delivery can increase [input-token use](../../README.md#configuration).
+- Earlier delivery can increase [input-token use](../background-results.md#delivery-timing).
 - Delivery needs no extra model request when tool calls or queued input already need one. Otherwise, it requests one more response, for example after a final reply or after a tool batch that ends the loop.
 - An abort after the handler sent results can end the run after Pi saves them but before the model reads them. The idle wake handles only the results that the delivery component still holds.
 - A long tool call, such as a foreground subagent, delays delivery until its turn ends.

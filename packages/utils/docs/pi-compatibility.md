@@ -7,7 +7,7 @@
 ## Upgrade procedure
 
 1. Run the [package checks](../README.md#validation).
-2. Run the affected libs and extensions whose input or output assumptions changed. This package needs no standalone terminal scenario.
+2. Run the checks of the libs modules and extensions whose input or output assumptions changed. This package needs no standalone terminal scenario.
 3. Work through the checklist below, then update the "Last verified" line.
 
 Cooperative search owns the [fuzzy-score differential checks](../../libs/docs/pi-compatibility.md#cooperative-search) against Pi.

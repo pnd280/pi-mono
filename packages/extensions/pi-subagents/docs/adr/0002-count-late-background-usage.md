@@ -1,6 +1,6 @@
 # Count late background usage with a session-manager patch
 
-[pi-subagents](../../README.md#side-effects)
+[pi-subagents](../../README.md) · [Usage accounting](../background-results.md#usage-accounting)
 
 A background or promoted call returns before its child finishes, so its tool result carries only the usage until the return. The rest reached the supervisor only in the details of the result custom message, which Pi does not count in session totals. Nested supervisors read child totals through `get_session_stats`, so the loss also propagated up the chain.
 

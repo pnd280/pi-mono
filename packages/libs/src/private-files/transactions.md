@@ -16,7 +16,7 @@ Use [`resolveDirectoryScope`](scoped-directory.ts) for a canonical directory sto
 
 [`PrivateFileTransactions`](transaction.ts) serialises by key, locks, reads bounded latest bytes, and applies updates. Within a consumer, mutations of one file must share one instance and key. Cooperating instances and processes share `<path>.lock`.
 
-Supply a resolver establishing trusted private parents, read limit, contention timeout, and `update(raw)`. Missing files give `undefined`. Validate schema, identity, and capacity, and return `unchanged` or `replace` with a result. Only `replace` writes.
+Supply a `path()` resolver that establishes trusted private parents, a `maxReadBytes` read limit, a contention `timeoutMs`, and `update(raw)`. Missing files give `undefined`. Validate schema, identity, and capacity, and return `unchanged` or `replace` with a result. Only `replace` writes.
 
 Use [`WriteLifetime`](lifetime.ts) for `scope`. `dispose()` aborts its signal and waits for started atomic writes and lock cleanup, not resolution, reads, or `update`. Cancellation is checked before replacement. Long callbacks should observe the signal cooperatively. A custom `WriteScope` must check cancellation synchronously before invoking its atomic callback and track the entire returned promise.
 

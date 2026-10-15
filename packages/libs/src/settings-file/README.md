@@ -1,8 +1,8 @@
 # Settings-file access
 
-[@pi-mono/libs](../../README.md)
+[Library index](../../README.md#usage)
 
-Reads and updates JSON settings files such as Pi's `settings.json`. Used by [working-message ordering](../working-message/README.md#persistence), [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration), and the `ext.<package>` settings of other extensions.
+Read and update JSON settings files such as Pi's `settings.json`. The library is used by [working-message ordering](../working-message/README.md#persistence), [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration), and the `ext.<package>` settings of other extensions.
 
 ## Behaviour
 
@@ -32,6 +32,8 @@ Reads return current content without changing the file. Updates apply one locked
 3. Runs your synchronous change.
 4. Replaces the file atomically.
 
+- If another writer holds the lock, the update throws without retrying.
+- If your change throws or returns a promise, nothing is written and the update throws.
 - Existing settings symlinks are followed, not replaced.
 - Unrelated fields and existing mode bits are kept.
 - Malformed JSON and dangling links are refused, never repaired.

@@ -1,12 +1,12 @@
-# @ff-labs/pi-fff integration
+# @ff-labs/pi-fff adapter
 
-[Supported tools](../../../../README.md#supported-tools) · [Adapter development](../../../../docs/adapters.md)
+[pi-tool-display](../../../../README.md) · [Adapter development](../../../../docs/adapters.md)
+
+FFF searches appear as compact cards with match counts, grouped by search filter. This page documents the adapter contract for its maintainers; if you use `@ff-labs/pi-fff`, read [Display](#display) for how its calls appear.
 
 ## Compatibility and selection
 
-FFF searches appear as compact cards with match counts, grouped by search filter.
-
-`piFffAdapter(toolInfo)` checks the provenance and schemas of the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff) 0.10.6 for its `fffind`, `ffgrep`, and `fff-multi-grep` tools and overridden `find`, `grep`, and `multi_grep` names. See [name classification](../../../../../../utils/src/fff-tools.ts) and the [resolver](index.ts) for current contracts.
+`piFffAdapter(toolInfo)` checks the provenance and schemas of the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff) for its `fffind`, `ffgrep`, and `fff-multi-grep` tools and overridden `find`, `grep`, and `multi_grep` names. Provenance accepts any package version; the schemas and result text were inspected in 0.10.6. See [name classification](../../../../../../utils/src/fff-tools.ts) and the [resolver](index.ts) for current contracts.
 
 See [automatic selection](../../../../docs/adapters.md#automatic-selection) for renderer overrides and fallback policy.
 
@@ -34,29 +34,4 @@ Pagination, limit, query, and fallback notices remain visible in compact and exp
 
 ## Validation
 
-The [terminal fixture](../../../../docs/validation.md#terminal-launcher) uses nonignored files in disposable Git for `fff`. Install official `@ff-labs/pi-fff` separately; it is not a workspace dependency.
-
-1. From the repository root, launch the fixture with the extension's `src/index.ts` and its tool names enabled:
-
-   ```sh
-   vpr 'pi-tool-display#validate:terminal' fullscreen \
-     -e /absolute/path/to/@ff-labs/pi-fff/src/index.ts \
-     --fff-mode tools-only --tools read,ls,grep,ffgrep,fffind
-   ```
-
-2. Press **Ctrl+O** for compact mode, then enter `fff`. Wait for `Fixture finished: fff`. If any required tools are unavailable, the scenario reports a skip and issues no calls instead.
-3. When replaying with `--reuse`, include the same extension and flags.
-
-Enable multi-search with `env: { PI_FFF_MULTIGREP: "1" }` in `fixtureLaunch`'s `createPiLaunch` in [workspace.ts](../../../../validation/workspace.ts). The launcher filters environment variables; a shell prefix does not work.
-
-Before and after reload, check the completed scenario:
-
-| Do                                  | Expect                                                         |
-| ----------------------------------- | -------------------------------------------------------------- |
-| Inspect the filter groups.          | `a/**` and `./a/**` form two separate groups.                  |
-| Inspect each filter group.          | It contains two searches and one empty-pattern listing.        |
-| Inspect the `a/` FFF search.        | It remains standalone.                                         |
-| Inspect the native calls.           | The list and read share a directory group.                     |
-| Inspect compact cards and groups.   | They show match counts instead of index counts or excerpts.    |
-| Compare compact and expanded cards. | Pagination, limit, query, and fallback notices remain visible. |
-| Expand a card.                      | Index counts and retained matches appear beside the summaries. |
+The manual check needs official `@ff-labs/pi-fff` installed separately, because it is not a workspace dependency. Follow the [FFF terminal check](../../../../docs/validation.md#fff) for the launch flags, the multi-search setting, and the expected groups.

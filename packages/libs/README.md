@@ -2,7 +2,7 @@
 
 Extensions in this workspace share code for work that touches files, processes, Pi hooks, or the terminal. For example, `settings-file` lets an extension update one key in `settings.json` under Pi's lock without losing unrelated keys.
 
-For pure helpers with no side effects, use [utils](../utils/README.md). The [manifest](package.json) lists the supported imports.
+For pure helpers with no side effects, use [utils](../utils/README.md). Import each library through its entry point, such as `@pi-mono/libs/settings-file` or `@pi-mono/libs/tui/open-browser`. The [manifest](package.json) lists the supported imports.
 
 ## Usage
 
@@ -30,7 +30,7 @@ For pure helpers with no side effects, use [utils](../utils/README.md). The [man
 
 ### Offline validation
 
-Validation-only entry points:
+Use these entry points only in validation code:
 
 | Library                                                                    | Responsibility                                                                          |
 | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |

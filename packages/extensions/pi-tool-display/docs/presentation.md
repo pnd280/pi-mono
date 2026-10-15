@@ -69,7 +69,7 @@ Preview rules:
 
 ## Groups
 
-An _exploration group_ is a set of adjacent read, search, or listing calls in the same scope, shown under one heading.
+An [exploration group](../GLOSSARY.md#transcript-structure) collects adjacent read, search, or listing calls in the same scope under one heading.
 
 - Calls group by scope and custom title, in source order, including repeated reads.
 - A change of scope or title starts a new group, even when returning to an earlier directory.
@@ -77,11 +77,10 @@ An _exploration group_ is a set of adjacent read, search, or listing calls in th
 
 ### Matching scopes
 
-These rules apply live and on replay:
+Adapters supply scopes under the [exploration scope contract](renderers.md#exploration-scopes). These rules apply live and on replay:
 
-- Native reads use the parent directory. Native searches and listings use the supplied directory, defaulting to `.`. Paths are compared lexically against the session cwd, using the summary path rules.
+- Native reads use the parent directory. Native searches and listings use the supplied directory, defaulting to `.`. Paths are compared lexically against the session cwd, using the [target path rules](#target-paths).
 - Literal filters, including FFF scopes, match exactly and never match a directory.
-- Every item in a call must resolve to the same directory or filter. A missing or invalid scope prevents grouping.
 
 ### Headings and members
 
@@ -90,7 +89,7 @@ These rules apply live and on replay:
 | Directory  | "Exploring" or "Explored" `<path>`   |
 | Filter     | "Filtering" or "Filtered" `<filter>` |
 
-Headings never include a scope-kind noun or call and operation counts.
+Headings never include a scope-kind noun such as `directory`, or call and operation counts, which member rows already show. Search and listing headings follow the [display conventions](conventions.md#action-headings).
 
 - Collapsed directory members keep their ranges, and use paths relative to the group (absolute outside it).
 - FFF members show their pattern or `files`, not the repeated filter.
@@ -102,7 +101,7 @@ Headings never include a scope-kind noun or call and operation counts.
 Separate groups:
 
 - visible assistant content and diagnostics (assistant content separates its message's tools even when it arrives later);
-- cache-miss notices, compaction summaries, and compaction notices;
+- cache-miss, cache-warming, and dropped-thinking notices, compaction summaries, and compaction notices;
 - custom entries and non-exploration tools;
 - public extension notifications (`ctx.ui.notify`) of any severity, but only when Pi inserts a visible component.
 
@@ -121,8 +120,6 @@ Notices, images, and failure diagnostics stay beneath their call. Notices follow
   └ Read renderers.ts
 ```
 
-Standalone and expanded searches separate pattern and scope with an em dash (U+2014): Searched renderers &#x2014; src/.
-
 ## Summary mode
 
 In [summary mode](../README.md#usage), each ended run becomes one line, placed in its first call's Pi row. `compact` and `verbose` modes keep groups and cards unchanged.
@@ -133,7 +130,7 @@ In [summary mode](../README.md#usage), each ended run becomes one line, placed i
 
 ### What a run is
 
-A _run_ is the longest sequence of this extension's calls between visible non-thinking boundaries. These boundaries split runs:
+A [run](../GLOSSARY.md#transcript-structure) is the longest sequence of this extension's calls between visible non-thinking boundaries. These boundaries split runs:
 
 - assistant prose or diagnostics;
 - an unrelated visible message, notice, or custom entry;
@@ -156,7 +153,7 @@ A run collapses only when both are true:
 
 History is always ended. Until a run collapses, it shows compact cards, so its line only ever describes finished calls. Clicking a card before the run ends keeps the run open afterwards, as if you had clicked its line.
 
-Summary lines need Pi's fullscreen mode, and never rewrite rows already in terminal scrollback. In regular mode, `summary` renders as `compact`, and the mode cycle toggles `compact` and `verbose`. Switching Pi's TUI mode re-renders the transcript.
+Summary lines [need fullscreen mode](../README.md#mouse-and-terminal-modes) and never rewrite rows already in terminal scrollback. Switching Pi's TUI mode re-renders the transcript.
 
 ### Counting
 
@@ -170,7 +167,7 @@ Identity
 Outcomes
 
 - Only the latest outcome per file or directory counts; a later successful edit clears an earlier failed one.
-- Items with unresolved calls append `(n failed)` or `(n cancelled)` in `error`, and unknown historical outcomes append `(n unavailable)` in `muted`.
+- Items with unresolved calls append `(n failed)` or `(n cancelled)`, and unknown historical outcomes append `(n unavailable)`.
 
 Categories
 
@@ -191,7 +188,6 @@ Order and wording
 - Wrapping happens only between items, with no row limit. An item wider than the line is truncated.
 - Colours: a leading verb uses `accent` (bold for the first item), counts use `text`, other words use `muted`, and separators use `dim`. Failed and cancelled counts use `error`; unavailable counts use `muted`.
 - Calls with images, and failed or cancelled calls, add to the counts; their images and diagnostic text stay hidden. Error text appears only in opened runs.
-- Transcript search cannot find hidden output.
 
 ### Opening and closing a run
 
@@ -223,7 +219,7 @@ Failed, cancelled, and unknown-history headings keep the action name: `Write fai
 Cancellation:
 
 - The CLI records cancellation for an unsuccessful result that arrives after a live abort. Earlier failures and successful results keep their outcomes.
-- Cancellation outranks failure. Success and unavailable metadata override neither.
+- Cancellation and failure follow the [outcome precedence](renderers.md#outcomes).
 - Once cancellation is confirmed, compact native cards may omit the exact known cancellation message while keeping process output and extra diagnostics. Expansion restores the full diagnostics. Similar ordinary output without confirmation stays visible.
 
 Local details on replay:

@@ -67,38 +67,22 @@ By default, compaction uses the session's current model and Pi's native thinking
 
 All fields are optional.
 
-| Field              | Default | Effect                                                                                                          |
-| ------------------ | ------- | --------------------------------------------------------------------------------------------------------------- |
-| `rules`            | None    | Summary model and thinking level for `compact`, chosen by conversation model. See [rules](#rules).              |
-| `applyToManual`    | `false` | Also use the matching rule for `/compact`, including manual compaction through RPC and the SDK.                 |
-| `applyToAuto`      | `false` | Also use the matching rule for automatic compaction at the threshold or on overflow.                            |
-| `instructionsFile` | None    | UTF-8 file of extra focus for every compaction route, whatever `rules`, `applyToManual`, and `applyToAuto` say. |
+| Field              | Default | Effect                                                                                                                  |
+| ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `rules`            | None    | Summary model and thinking level for `compact`, chosen by conversation model. See [rules](docs/configuration.md#rules). |
+| `applyToManual`    | `false` | Also use the matching rule for `/compact`, including manual compaction through RPC and the SDK.                         |
+| `applyToAuto`      | `false` | Also use the matching rule for automatic compaction at the threshold or on overflow.                                    |
+| `instructionsFile` | None    | UTF-8 file of extra focus for every compaction route, whatever `rules`, `applyToManual`, and `applyToAuto` say.         |
 
-### Rules
+When compaction starts, each rule's `match` is tested in order against the conversation model as `provider/id`. The first matching rule chooses the summary `model` and `thinkingLevel`, and when no rule matches, compaction uses native selection. A rule with only `match`, like `^local/` above, keeps native selection for its models.
 
-When compaction starts, each rule is tested in order against the conversation model as `provider/id`. The first matching rule decides both of its fields, and later rules are ignored. When no rule matches, compaction uses native selection.
+For the example `instructionsFile`, create `compaction-instructions.txt` beside the settings file containing the focus you want, such as `Preserve outstanding decisions and remaining tests.` Its text comes before any `/compact <instructions>` or tool instructions.
 
-| Field           | Default            | Effect                                                                                                                                         |
-| --------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `match`         | Required           | JavaScript regular expression tested against `provider/id`. Unanchored and case-sensitive; add `^` or `$` as needed. `""` matches every model. |
-| `model`         | Conversation model | Summary model. Must be a model Pi knows; the ID may contain slashes.                                                                           |
-| `thinkingLevel` | Native             | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. A level the model doesn't support is rejected, not adjusted.                     |
-
-- A rule with only `match` keeps native selection for its models and stops later rules from matching, like `^local/` above.
-- After a `/model` change, the next compaction uses the rule that matches the new model.
-- A trusted project's `rules` replace the global list instead of adding to it.
-- For a virtual conversation model, rules match its own ID, such as `router/auto`, not the physical model it routes to.
-- For a virtual summary model, the rule's thinking level is passed to the router, which picks the physical model and its level. Saved metadata records the virtual model and level.
-
-### Instruction file
-
-For the example above, create `compaction-instructions.txt` beside the settings file containing the focus you want, such as `Preserve outstanding decisions and remaining tests.`
-
-- The file's text comes first, then a blank line, then any `/compact <instructions>` or tool instructions.
-- `session_before_compact` handlers receive the combined focus. Custom summarizers must apply it themselves.
-- Relative paths resolve from the directory of the settings file that set them: the agent directory for global settings, or `<cwd>/.pi` for project settings. Absolute and `~/` paths also work.
-- A trusted project can override an inherited file, including with an empty file to turn the focus off.
-- Only the selected file is read, at startup or `/reload`, up to 1 MiB.
+| When you…                                                                            | Read                                                       |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Write rule patterns, choose thinking levels, or route through virtual models         | [Rules](docs/configuration.md#rules)                       |
+| Place the instruction file, override it per project, or use `session_before_compact` | [Instruction file](docs/configuration.md#instruction-file) |
+| Pick a summary model for overflow recovery or check what metadata is saved           | [Edge cases](docs/configuration.md#edge-cases)             |
 
 ### Where settings live
 
@@ -120,13 +104,6 @@ Project settings override global fields only in [trusted projects](https://pi.de
 `context_window` and Pi's native compaction keep working.
 
 An unavailable model, unsupported thinking level, authentication error, or failed summary never falls back silently to another model. During overflow recovery, Pi may already have removed the failed request from model context; that removal stays if compaction fails.
-
-### Edge cases
-
-- Custom summaries from `session_before_compact` handlers ignore `rules`.
-- The conversation model and its thinking level never change.
-- Pi keeps its native retries and the conversation model's retention budgets. Output is capped by the summary model's limit, so pick a summary model large enough for Pi's requests, including overflow recovery.
-- Successful default summaries from any route save a `pi-smart-compact.model` entry recording the summary model, thinking level, and trigger. The model never sees it. Custom and failed summaries save no entry.
 
 ## Side effects
 

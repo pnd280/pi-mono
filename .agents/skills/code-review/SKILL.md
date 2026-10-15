@@ -33,7 +33,7 @@ Execute these phases sequentially. Resolve relative skill links from this file a
    Audit and apply verified substitutions and justified shared extractions. Preserve consumer policy and ownership; do not introduce abstractions merely because code looks similar.
 
 3. [TypeScript review](~/.agents/skills/_router/typescript-review/SKILL.md)
-   Review runtime correctness and type contracts together using both companions named by the skill. Reconcile findings by root cause and apply evidence-backed fixes. If no TypeScript is relevant, record why this phase is not applicable.
+   Review runtime correctness and type contracts together, using the main skill and both companions that the skill names. Reconcile findings by root cause and apply evidence-backed fixes. If no TypeScript is relevant, record why this phase is not applicable.
 
 4. [Coding style](../_aux/audit-coding-style/SKILL.md)
    Audit and normalise the resulting implementation using established conventions. Preserve behaviour and avoid cosmetic churn without maintenance benefit.

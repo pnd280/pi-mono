@@ -1,6 +1,6 @@
 # pi-mono
 
-Extensions for the [Pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent)
+This workspace contains extensions for the [Pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent). Each extension is a separate package that you can load on its own.
 
 ## Setup
 
@@ -22,7 +22,7 @@ vp exec pi -e ./packages/extensions/pi-tool-display
 
 Repeat `-e` to load more extensions. To keep extensions loaded across launches, use Pi's [package installation](https://pi.dev/docs/latest/packages#install-and-manage-packages).
 
-Published Pi links point to the latest documentation, which may describe a newer version than this workspace uses. Maintainers can check the [installed API references](docs/pi-docs.md) for the pinned version.
+Links to published Pi documentation point to the latest version, which can be newer than the version that this workspace uses. Maintainers can check the [installed API references](docs/pi-docs.md) for the pinned version.
 
 ## Extensions
 
@@ -46,4 +46,7 @@ Published Pi links point to the latest documentation, which may describe a newer
 
 ## Development
 
-See [development setup and commands](docs/development.md) and [package architecture](docs/architecture.md).
+| When you…                                | Read                                 |
+| ---------------------------------------- | ------------------------------------ |
+| Run checks, edit tooling, or use Pi APIs | [Development](docs/development.md)   |
+| Find the package that owns a feature     | [Architecture](docs/architecture.md) |

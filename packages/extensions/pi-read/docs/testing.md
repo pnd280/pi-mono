@@ -20,4 +20,10 @@ This package tests the selection guard around Pi's native `read`, preview bounds
 
 ## Manual checks
 
-Themes and terminal widths: use the [manual appearance checks](../README.md#validation).
+Check appearance changes by hand. Setup: in Pi, read a file with a multiline selection that includes tabs and wide characters.
+
+| Do                                    | Expect                                                    |
+| ------------------------------------- | --------------------------------------------------------- |
+| View the read collapsed and expanded. | Context stays visible, and the preview isn't shown twice. |
+| Narrow the terminal.                  | Highlighting stays on the selected span.                  |
+| Switch between light and dark themes. | The highlight is readable in both.                        |

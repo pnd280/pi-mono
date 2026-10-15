@@ -1,6 +1,6 @@
 # Keep task history only in child sessions
 
-[pi-subagents](../../README.md#branch-history)
+[pi-subagents](../../README.md) · [Task history](../history.md)
 
 The Pi behaviours that this decision depends on were checked against Pi 1.0.2; see [Runtime checks](#runtime-checks). This decision replaces checkpoints, resume copies, ownership transfer, and persisted relay records, and it keeps no reader for the earlier records.
 

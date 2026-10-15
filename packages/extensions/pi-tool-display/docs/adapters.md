@@ -9,7 +9,7 @@ A [display adapter](../GLOSSARY.md#interpretation) tells this extension how to r
 1. Create `src/adapters/<extension-package>/index.ts` using the registering extension's full package name, including its scope. For example, use `src/adapters/@ff-labs/pi-fff/index.ts`. Pi's built-in extensions use `src/adapters/builtin/<extension-name>/`, matching their `builtin:<extension-name>` source path.
 2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts); verify provenance and the [required structural contract](#recognise-tool-contracts), not names alone. [`registeredBy`](../src/adapters/provenance.ts) checks an extension package's registration. Return `undefined` for unsupported definitions.
 3. Colocate [Zod schemas](../../../../docs/development.md#runtime-validation), presentation, and tests. Write argument schemas for the [arguments that callbacks receive](#callback-arguments). Use `supports(args, result)` to reject uninterpretable CLI input; before results exist, `exploration` must reject unparseable partial arguments.
-4. Document compatibility, contracts, display behaviour, limitations, and extension-specific validation in the adapter's `README.md`.
+4. Document compatibility, contracts, display behaviour, limitations, and extension-specific validation in the adapter's `README.md`. Write it for the adapter's maintainers, and open it with one sentence on what users of the adapted extension see. Use these sections in order, and omit any that has no content: "Compatibility and selection", "Arguments and results", "Display", "Summary mode", "Limitations", and "Validation". Session-message adapters use "Compatibility and registration" for the first section. Put long manual procedures under [adapter validation](validation.md#adapter-validation) and link to them.
 5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).
 
 To expose an adapter factory to tool authors, export it from [`src/adapters/index.ts`](../src/adapters/index.ts).
@@ -83,7 +83,7 @@ The [subagent adapter](../src/adapters/pi-subagents/README.md) demonstrates stru
 
 ## Built-in adapters
 
-Each adapter documents its contract in its own README. The [resolver list](../src/host/selection.ts) is the authoritative list for automatic tool selection.
+Each adapter documents its contract in its own README, written for its maintainers. Its "Display" section also tells users of the adapted extension how calls appear. The [resolver list](../src/host/selection.ts) is the authoritative list for automatic tool selection.
 
 | Source           | Adapters                                                                                                                                                                                                                                                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -12,7 +12,7 @@ Accept a target version; when none is supplied, use the latest stable release an
 
 ## Workflow
 
-Follow the six stages in order; audit and planning requests stop at the handoff without applying changes.
+Follow the six stages in order. Audit and planning requests skip stages 4 and 5: they go from stage 3 to the handoff without applying changes.
 
 ### 1. Establish the baseline
 

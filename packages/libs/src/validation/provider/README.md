@@ -1,6 +1,6 @@
 # Scripted validation streams
 
-[Library index](../../../README.md#offline-validation)
+[Offline validation](../../../README.md#offline-validation)
 
 Drive validation scenarios with scripted assistant messages and event streams.
 
@@ -12,4 +12,4 @@ Validation-only [`@pi-mono/libs/validation/provider`](index.ts) builds scripted 
 
 Supply the fixture model, register the offline provider, and define scenarios, delays, and tool calls in the consumer. Pass the stream signal to scenario waits and I/O for cooperative cancellation.
 
-The [prompt-manager](../../../../extensions/pi-prompt-manager/validation/workspace.ts) and [tool-display](../../../../extensions/pi-tool-display/validation/workspace.ts) fixtures select their own offline providers and Pi resource flags.
+The [prompt-manager](../../../../extensions/pi-prompt-manager/validation/provider.ts) and [tool-display](../../../../extensions/pi-tool-display/validation/provider.ts) fixtures register offline providers that use these streams. Their workspace fixtures select those providers and Pi resource flags.

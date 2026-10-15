@@ -2,7 +2,7 @@
 
 [pi-smart-compact](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.2.0 (API modules with unchanged fingerprints; installed bundled CLI with `_runAutoCompaction` and `AgentSession.compact` fingerprints replaced after a minifier-only rename; version pin moved to 1.2.0; offline tests). Not covered: interactive progress, **Escape** behaviour, and real-provider summary quality.
+> Last verified against Pi 1.2.0 with offline API and installed-CLI tests. Not covered: interactive progress, **Escape** behaviour, and real-provider summary quality.
 
 For maintainers upgrading Pi. Terms used below:
 
@@ -17,6 +17,8 @@ At session binding, the [compatibility checks](../src/compatibility.ts) require 
 
 - five prototype methods: `_compactBeforeNextAssistantResponse`, `_runAutoCompaction`, `_runDefaultCompaction`, `_appendCustomMessage`, and `compact`;
 - the exported lower-level `compact` implementation.
+
+The checks hold one fingerprint set for the API modules and one for the installed bundled CLI, because the CLI bundle is minified. A minifier rename changes only the CLI set.
 
 Unknown versions, unknown fingerprints, and conflicting replacements of the boundary are rejected. Calling the unavailable tool shows the initialization error.
 
@@ -156,14 +158,16 @@ Setup: an interactive Pi session with the extension loaded and a configured prov
 
 These are known gaps. [Replacement opportunities](#replacement-opportunities) lists the private hooks that a public Pi API could replace.
 
-- **No public API.** There is no public way to run native compaction and then continue. `ctx.compact()` aborts the current run, and boundary entries would need summaries written by the extension rather than Pi. Replace the private patches if Pi adds a public API with the same lifecycle guarantees.
-- **`manual` reason.** Passing `manual` is outside `_runAutoCompaction`'s declared contract, which expects automatic reasons only. Native failure text may still say `Auto-compaction failed` (observed in Pi 0.99.2, still in the Pi 1.2.0 source); the outcome message removes that misleading prefix.
-- **Acknowledgement only.** The tool result confirms only that compaction was scheduled. A separate `pi-smart-compact.result` message records skipped attempts and the cancellations or failures Pi reports. Unexpected exceptions can stop continuation, and aborting the whole run prevents it.
-- **Override scope.** Model and thinking overrides apply to the tool's default summaries, and optionally to manual (`applyToManual`) and automatic (`applyToAuto`) summaries. File focus applies to every route and combines with per-call instructions. Custom handlers receive the combined instructions but control their own requests and output.
-- **Overflow recovery.** Automatic recovery keeps Pi's native preparation and serialisation. `overflow` can mean a recoverable length stop, not only an exceeded context window. Content removed before recovery stays removed if summarisation fails.
-- **Authentication.** Pi resolves summarisation authentication inside the default summarizer, after hooks, so summaries from hooks skip it. Configured requests use the registry stream with isolated credentials, not private authentication helpers or arbitrary stream overrides. Unrelated operations use the original stream.
-- **Not a transaction.** Summary-model metadata and native compaction are separate session writes. A storage error can leave one without the other. The cancellation guarantee applies only before native persistence starts.
-- **Late patches.** Fingerprint checks don't inspect overrides on session instances, and don't detect patches installed after binding. Combinations of third-party patches and reloads aren't guaranteed to work. Cleanup deactivates retained wrappers and leaves later replacements alone.
+| Gap                  | Effect                                                                                                                                                                                                                                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No public API        | There is no public way to run native compaction and then continue. `ctx.compact()` aborts the current run, and boundary entries would need summaries written by the extension rather than Pi. Replace the private patches if Pi adds a public API with the same lifecycle guarantees.                                           |
+| `manual` reason      | Passing `manual` is outside `_runAutoCompaction`'s declared contract, which expects automatic reasons only. Native failure text may still say `Auto-compaction failed` (observed in Pi 0.99.2, still in the Pi 1.2.0 source). The outcome message removes that misleading prefix.                                               |
+| Acknowledgement only | The tool result confirms only that compaction was scheduled. A separate `pi-smart-compact.result` message records skipped attempts and the cancellations or failures Pi reports. Unexpected exceptions can stop continuation, and aborting the whole run prevents it.                                                           |
+| Override scope       | Model and thinking overrides apply to the tool's default summaries, and optionally to manual (`applyToManual`) and automatic (`applyToAuto`) summaries. File focus applies to every route and combines with per-call instructions. Custom handlers receive the combined instructions but control their own requests and output. |
+| Overflow recovery    | Automatic recovery keeps Pi's native preparation and serialisation. `overflow` can mean a recoverable length stop, not only an exceeded context window. Content removed before recovery stays removed if summarisation fails.                                                                                                   |
+| Authentication       | Pi resolves summarisation authentication inside the default summarizer, after hooks, so summaries from hooks skip it. Configured requests use the registry stream with isolated credentials, not private authentication helpers or arbitrary stream overrides. Unrelated operations use the original stream.                    |
+| Not a transaction    | Summary-model metadata and native compaction are separate session writes. A storage error can leave one without the other. The cancellation guarantee applies only before native persistence starts.                                                                                                                            |
+| Late patches         | Fingerprint checks don't inspect overrides on session instances, and don't detect patches installed after binding. Combinations of third-party patches and reloads aren't guaranteed to work. Cleanup deactivates retained wrappers and leaves later replacements alone.                                                        |
 
 ## Replacement opportunities
 

@@ -1,14 +1,20 @@
-# Subagent display adapter
+# pi-subagents adapter
 
-[Adapter development](../../../docs/adapters.md)
+[pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
+
+Subagent tasks from [`pi-subagents`](../../../../pi-subagents/README.md) appear as progress cards with status, model, and usage, and background jobs appear as cards with the command and job ID. In fullscreen, a click opens the task or job. This page documents the adapter contract for its maintainers; if you use `pi-subagents`, read [Display](#display) for how its calls appear.
+
+## Compatibility and selection
 
 The adapter recognises the `pi-subagents` registering package and the projected `subagent` parameter structure, or the `subagent_abort` structure with a required `task_id` string. It recognises [job tools](#background-jobs) in the same way. Arguments and result details are validated separately, including queued calls with no task ID. It has no runtime dependency on pi-subagents. Without pi-tool-display, pi-subagents draws its own cards in Pi's tool box.
 
-## Action ownership
-
 Validated `task_id` and `binding_id` fields supply the `pi-subagents:open` action. The receiving host checks the current parent binding and task ownership; a matching logical ID alone cannot authorise an old card.
 
-## Card layout
+## Display
+
+Task, abort, and job cards use the shared [progress card](../../../docs/adapters.md#progress-cards-and-actions).
+
+### Card layout
 
 Cards put the description and a structured status on the first line. The adapter reports queued, running, completed, failed, cancelled, and returned states. The shared renderer adds elapsed time only when the adapter supplies a start time, and shows `preparing`, `waiting to run`, or `starting` before details exist.
 
@@ -16,11 +22,11 @@ The second line shows the explicitly requested `model:thinking` before details, 
 
 A call that returned while its task keeps running shows a fixed `in background`, `steered`, or `input queued` status. Its task ID appears only when expanded.
 
-## Abort cards
+### Abort cards
 
 `subagent_abort` arguments are exactly `{ task_id }`. Successful calls return details with the same structure as `subagent` details and the aborted task's `cancelled` state. Their cards use the same layout: the task description, `⊘ aborted` with the task's elapsed time, the identity, and usage. Before details exist, the description is the task ID. The call itself succeeded, so the adapter reports no `cancelled` outcome and the card has no failure state. The result removes the task envelope, and a click opens the task with the same `pi-subagents:open` action.
 
-## Results and expansion
+### Results and expansion
 
 Results show the child's reply without the model-facing [`<task>` envelope](../../../../../utils/src/task-envelope.ts) and its summary. The envelope is removed only when its task ID and state equal the validated details; other text is shown unchanged. Collapsed completed cards preview three reply lines, or all four when there are exactly four, under a `└` branch. Long lines end with `…`. Expanded cards show the task ID, non-default options, a ten-line prompt preview, and retained results.
 
@@ -44,8 +50,10 @@ Results and messages show the body without the [`<job>` envelope](../../../../..
 
 A fullscreen click on a job card or job result emits `pi-subagents:open` with the validated `job_id` and `binding_id`. pi-subagents checks the binding and the job ownership.
 
-## Run summaries
+## Summary mode
 
-Summary mode counts validated task IDs once per run under “ran {n} subagent(s)”, and aborted task IDs under “aborted {n} subagent(s)”. Calls without an ID count individually. Job and job abort calls have no summary category, so each call counts once under its tool name. Job results add no summary counts. Incompatible results fall back to generic cards and counts.
+Summary mode counts validated task IDs once per run (`ran 1 subagent`, `ran 3 subagents`), and aborted task IDs separately (`aborted 1 subagent`). Calls without an ID count individually. Job and job abort calls have no summary category, so each call counts once under its tool name. Job results add no summary counts. Incompatible results fall back to generic cards and counts.
 
-Check appearance and actions, including job cards and job results, with the subagent terminal fixture in regular and fullscreen modes. Producer execution, ownership, and transport coverage belong to pi-subagents; display replay and provenance validation belong to pi-tool-display.
+## Validation
+
+Check appearance and actions, including job cards and job results, with the [subagent fixture rows of the terminal checks](../../../docs/validation.md#expansion-layout-and-diffs) in regular and fullscreen modes. Producer execution, ownership, and transport coverage belong to pi-subagents; display replay and provenance validation belong to pi-tool-display.

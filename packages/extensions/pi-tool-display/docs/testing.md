@@ -18,7 +18,7 @@ Execution and borrowed data
 - **Critical, e2e:** Failures in observation callbacks, session entry writes, or local-store writes do not replace a delegated tool result or error.
 - **Critical, unit:** Borrowed arguments, results, and messages stay unchanged during argument validation, rendering, expansion, and row reuse.
 - **Critical, e2e:** Observed native calls keep their construction settings, including the shell path and command prefix.
-- **Critical, e2e (T1):** Collection in TUI, RPC, print, and JSON preserves execution, trusted settings, verified native selection, renderer overrides, and middleware. Native observation requires verified native provenance and selection of the specialised native adapter.
+- **Critical, e2e:** Collection in TUI, RPC, print, and JSON preserves execution, trusted settings, verified native selection, renderer overrides, and middleware. Native observation requires verified native provenance and selection of the specialised native adapter.
 - **High, e2e:** Display integration preserves tool parameter schemas and results produced through Pi's middleware, registers no tools, and leaves the active tool selection unchanged.
 - **High, integration:** File mutation observation uses the shared capture rather than rereading targets for display.
 
@@ -37,7 +37,7 @@ Reload and disposal
 - **High, e2e:** Reload and removal restore only hooks and definitions still owned by this extension, and keep wrappers installed later.
 - **High, integration:** Disposing display observation leaves other mutation subscribers active, and retained observation callbacks cannot update calls or persist facts after their display session is disposed.
 - **High, e2e:** Pending host-event continuations cannot reattach assistant decoration after disposal or take row ownership from a replacement transcript binding.
-- **High, e2e (T5):** Disposed collectors cannot update or persist into replacement sessions; disposal preserves other mutation subscribers and later wrappers.
+- **High, e2e:** Disposed collectors cannot update or persist into replacement sessions; disposal preserves other mutation subscribers and later wrappers.
 
 ## Not tested
 

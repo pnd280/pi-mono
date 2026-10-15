@@ -12,12 +12,12 @@
 - Below that size, resize if controls or recovery no longer fit.
 - `settingsLoadFeedback`, `settingsSaveFeedback`, and `settingsSaveFailure` distinguish warnings, overridden saves, and failures.
 - Labels, destinations, and feedback are terminal-sanitised; caller-owned values are unchanged.
+- The frame performs no I/O and never applies a draft.
 
 ## Caller responsibilities
 
 - Own input, selection, drafts, persistence, and domain-specific actions.
 - Supply only available hints, with **Ctrl+S** save and the actual **Escape** action first.
-- The frame performs no I/O and never applies a draft.
 - Keep scope `isSet` tied to successful persistence and `dirty` tied to the saved baseline.
 - Clear stale success on actual edits or scope switches.
 - Keep failures actionable until retry or a scope switch, and retain load warnings until settings reload successfully.

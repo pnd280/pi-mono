@@ -2,7 +2,7 @@
 
 [Workspace development](development.md#pi-apis)
 
-Agents and maintainers checking Pi contracts should use the workspace's installed documentation below. For installed-CLI behaviour, also check the documentation and examples shipped with that CLI if its version differs.
+To check Pi contracts, use the workspace's installed documentation below. For installed-CLI behaviour, also check the documentation and examples shipped with that CLI if its version differs.
 
 | When you…                                       | Read                                                                                                                                                                            |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

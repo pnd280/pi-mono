@@ -1,12 +1,13 @@
 # [pi-tool-display](README.md) development
 
-| When you…                      | Read                                                                                       |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| meet an unfamiliar term        | [GLOSSARY.md](GLOSSARY.md)                                                                 |
-| add or change an adapter       | [Adapters](docs/adapters.md)                                                               |
-| change clicks, keys, or layout | [Terminal checks](docs/validation.md)                                                      |
-| bump the supported Pi version  | [Compatibility](docs/pi-compatibility.md), then update both host fixtures below.           |
-| update host fixtures           | [API](src/host/install.test.ts) and [installed-CLI](src/host/install-cli.test.ts) fixtures |
+| When you…                        | Read                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------ |
+| meet an unfamiliar term          | [GLOSSARY.md](GLOSSARY.md)                                                                 |
+| add or change an adapter         | [Adapters](docs/adapters.md)                                                               |
+| change clicks, keys, or layout   | [Terminal checks](docs/validation.md)                                                      |
+| change what is saved or replayed | [Recorded data and replay](docs/recording.md)                                              |
+| bump the supported Pi version    | [Compatibility](docs/pi-compatibility.md), then update both host fixtures below.           |
+| update host fixtures             | [API](src/host/install.test.ts) and [installed-CLI](src/host/install-cli.test.ts) fixtures |
 
 ## Constraints
 

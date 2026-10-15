@@ -23,23 +23,23 @@ Setup: complete [workspace setup](../../../../README.md#setup). The offline fixt
    vpr 'pi-tool-display#validate:terminal' fullscreen
    ```
 
-| Prompt          | Expect                                                                                                                                                                                                                                  |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `summary`       | In fullscreen summary mode, three summary lines. Run once per fresh workspace; see [summary mode](#summary-mode).                                                                                                                       |
-| `explore`       | Repeated reads, a missing-file diagnostic, and a listing, in source order.                                                                                                                                                              |
-| `scopes`        | A three-call `.` group, a four-call `src` group, and a standalone read of `b.ts`, with mixed actions, repeated reads, and a failed read.                                                                                                |
-| `native-mixed`  | One native group with one list, one search, and three reads, including repeated ranges.                                                                                                                                                 |
-| `normalization` | One four-call native group using relative, absolute, `./`, `../`, and trailing-slash paths.                                                                                                                                             |
-| `exceptions`    | One four-read group with a missing-file failure and a PNG image.                                                                                                                                                                        |
-| `filenames`     | Spaces, Unicode, and a long filename. Targets wrap without truncation and keep `:15-16` ranges intact.                                                                                                                                  |
-| `thinking`      | Four reads with thinking between calls and a visible explanation before the third read. Collapsed thinking gives two two-read groups; visible thinking gives four standalone cards.                                                     |
-| `buffered`      | Buffered thinking and tool events, then repeated tool names. In order: `shell one`, `shell two`, a two-read group, `shell three`, `shell four`, a standalone read.                                                                      |
-| `fff`           | Two literal-filter groups, a standalone FFF search, then a native group with a list and a read. Needs the [FFF extension and launch flags](../src/adapters/@ff-labs/pi-fff/README.md#validation); skipped if the tools are unavailable. |
-| `diff`          | A creation and edits, including separated hunks. Run once per fresh workspace; repeating the exact-match edits fails on purpose.                                                                                                        |
-| `output`        | Live output over the retention budget, saved-file expansion, and a separate nonzero exit.                                                                                                                                               |
-| `cancel`        | A long-running shell call. Press **Esc** while it runs.                                                                                                                                                                                 |
-| `images`        | A native image read between text reads.                                                                                                                                                                                                 |
-| `public`        | A `display_fixture_read` card drawn by the standalone renderer factory.                                                                                                                                                                 |
+| Prompt          | Expect                                                                                                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `summary`       | In fullscreen summary mode, three summary lines. Run once per fresh workspace; see [summary mode](#summary-mode).                                                                       |
+| `explore`       | Repeated reads, a missing-file diagnostic, and a listing, in source order.                                                                                                              |
+| `scopes`        | A three-call `.` group, a four-call `src` group, and a standalone read of `b.ts`, with mixed actions, repeated reads, and a failed read.                                                |
+| `native-mixed`  | One native group with one list, one search, and three reads, including repeated ranges.                                                                                                 |
+| `normalization` | One four-call native group using relative, absolute, `./`, `../`, and trailing-slash paths.                                                                                             |
+| `exceptions`    | One four-read group with a missing-file failure and a PNG image.                                                                                                                        |
+| `filenames`     | Spaces, Unicode, and a long filename. Targets wrap without truncation and keep `:15-16` ranges intact.                                                                                  |
+| `thinking`      | Four reads with thinking between calls and a visible explanation before the third read. Collapsed thinking gives two two-read groups; visible thinking gives four standalone cards.     |
+| `buffered`      | Buffered thinking and tool events, then repeated tool names. In order: `shell one`, `shell two`, a two-read group, `shell three`, `shell four`, a standalone read.                      |
+| `fff`           | Two literal-filter groups, a standalone FFF search, then a native group with a list and a read. Needs the [FFF extension and launch flags](#fff); skipped if the tools are unavailable. |
+| `diff`          | A creation and edits, including separated hunks. Run once per fresh workspace; repeating the exact-match edits fails on purpose.                                                        |
+| `output`        | Live output over the retention budget, saved-file expansion, and a separate nonzero exit.                                                                                               |
+| `cancel`        | A long-running shell call. Press **Esc** while it runs.                                                                                                                                 |
+| `images`        | A native image read between text reads.                                                                                                                                                 |
+| `public`        | A `display_fixture_read` card drawn by the standalone renderer factory.                                                                                                                 |
 
 ### Replay and launch options
 
@@ -178,8 +178,88 @@ Run these when you change the matching integration.
 
 ## Adapter validation
 
-- [@ff-labs/pi-fff checks](../src/adapters/@ff-labs/pi-fff/README.md#validation)
-- [pi-mcp-adapter fixture](../src/adapters/pi-mcp-adapter/README.md#validation)
+Run these checks after changing the matching adapter. The adapter contracts they check are in the [FFF](../src/adapters/@ff-labs/pi-fff/README.md) and [pi-mcp-adapter](../src/adapters/pi-mcp-adapter/README.md) adapter READMEs.
+
+### FFF
+
+The [terminal fixture](#terminal-launcher) uses nonignored files in disposable Git for `fff`. Install official `@ff-labs/pi-fff` separately; it is not a workspace dependency.
+
+1. From the repository root, launch the fixture with the extension's `src/index.ts` and its tool names enabled:
+
+   ```sh
+   vpr 'pi-tool-display#validate:terminal' fullscreen \
+     -e /absolute/path/to/@ff-labs/pi-fff/src/index.ts \
+     --fff-mode tools-only --tools read,ls,grep,ffgrep,fffind
+   ```
+
+2. Press **Ctrl+O** for compact mode, then enter `fff`. Wait for `Fixture finished: fff`. If any required tools are unavailable, the scenario reports a skip and issues no calls instead.
+3. When replaying with `--reuse`, include the same extension and flags.
+
+Enable multi-search with `env: { PI_FFF_MULTIGREP: "1" }` in `fixtureLaunch`'s `createPiLaunch` in [workspace.ts](../validation/workspace.ts). The launcher filters environment variables; a shell prefix does not work.
+
+Before and after reload, check the completed scenario:
+
+| Do                                  | Expect                                                         |
+| ----------------------------------- | -------------------------------------------------------------- |
+| Inspect the filter groups.          | `a/**` and `./a/**` form two separate groups.                  |
+| Inspect each filter group.          | It contains two searches and one empty-pattern listing.        |
+| Inspect the `a/` FFF search.        | It remains standalone.                                         |
+| Inspect the native calls.           | The list and read share a directory group.                     |
+| Inspect compact cards and groups.   | They show match counts instead of index counts or excerpts.    |
+| Compare compact and expanded cards. | Pagination, limit, query, and fallback notices remain visible. |
+| Expand a card.                      | Index counts and retained matches appear beside the summaries. |
+
+### pi-mcp-adapter
+
+Install `pi-mcp-adapter` separately for `mcp`; it is not a workspace dependency. The offline [stdio backend](../validation/mcp-server.ts) does no network or filesystem work. MCP caches and output stay inside the fixture.
+
+1. Create a [terminal fixture using the shared launcher](#terminal-launcher), then exit.
+2. In the printed fixture directory, create `agent/mcp.json` with the following configuration. Replace `/absolute/path/to/pi-mono` with your checkout path:
+
+   ```json
+   {
+     "mcpServers": {
+       "display": {
+         "command": "node",
+         "args": [
+           "/absolute/path/to/pi-mono/packages/extensions/pi-tool-display/validation/mcp-server.ts"
+         ],
+         "lifecycle": "eager"
+       },
+       "direct": {
+         "command": "node",
+         "args": [
+           "/absolute/path/to/pi-mono/packages/extensions/pi-tool-display/validation/mcp-server.ts"
+         ],
+         "lifecycle": "eager",
+         "directTools": true
+       }
+     }
+   }
+   ```
+
+3. Reopen that fixture from the workspace root, using its printed path and the installed package entry point:
+
+   ```sh
+   vpr 'pi-tool-display#validate:terminal' regular --reuse /tmp/pi-tool-display-terminal-EXAMPLE \
+     -e /absolute/path/to/node_modules/pi-mcp-adapter/index.ts \
+     --tools 'mcp,mcpScript,mcp__display,direct_echo'
+   ```
+
+4. Press **Ctrl+O** for compact cards, then enter `mcp` and wait for `Fixture finished: mcp`. Check collapsed and expanded cards against the expectations below, then run `/reload`.
+5. Exit, then repeat the command with `fullscreen` instead of `regular` to check replay. Keep the `--reuse`, `-e`, and `--tools` arguments. Press **Ctrl+O** for compact cards.
+
+| Do                                                                                                          | Expect                                                        |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Inspect resolved echo calls.                                                                                | Headings show `display.echo` or `direct.echo`.                |
+| Inspect connection and description calls.                                                                   | Headings keep their action and target.                        |
+| Inspect images, resources, and returned errors.                                                             | They stay visible beneath their call.                         |
+| Inspect large output in both card modes.                                                                    | The saved-output reference stays visible.                     |
+| Omit [`showParameters`](../README.md#configuration), then try `false` and `true`, with `/reload` each time. | Arguments and script code stay visible in each configuration. |
+| Expand a card with long parameters.                                                                         | The compact preview expands to the full parameters.           |
+| Set an exact-name [`original` override](../README.md#configuration).                                        | The card uses the tool owner's renderer.                      |
+
+These checks inspect retained output; the display adapter never reads the saved file.
 
 ## Platform limitations
 

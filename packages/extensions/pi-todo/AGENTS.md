@@ -15,7 +15,7 @@ Leave tool cards to the host; attach no renderer fields to the tool definition.
 
 ## Validation
 
-| When you ...                                      | Read                                                                      |
+| When you…                                         | Read                                                                      |
 | ------------------------------------------------- | ------------------------------------------------------------------------- |
 | Change the widget, browser, or working-message UI | [interactive checks](docs/validation.md)                                  |
 | Add tests                                         | [testing](docs/testing.md) first, to avoid repeating shared-library tests |

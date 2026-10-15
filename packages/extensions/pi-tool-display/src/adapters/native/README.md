@@ -1,10 +1,10 @@
 # Native adapter
 
-[Supported tools](../../../README.md#supported-tools) · [Adapter development](../../../docs/adapters.md)
+[pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
+
+Specialised cards cover Pi's own tools: shell previews with status and duration, file diffs, and grouped reads and searches. This page documents the adapter contract for its maintainers; if you use Pi's own tools, read [Display](#display) for how their calls appear.
 
 ## Compatibility and selection
-
-Specialised cards cover Pi's own tools: shell previews with status and duration, file diffs, and grouped reads and searches.
 
 `nativeAdapter(name)` supports `read`, `grep`, `find`, `ls`, `bash`, `powershell`, `edit`, and `write`. [Standalone use](../../../docs/renderers.md#explicit-contracts) asserts compatibility without verifying provenance or observing execution.
 
@@ -14,7 +14,7 @@ Specialised cards cover Pi's own tools: shell previews with status and duration,
 
 Successful edits use `details.patch` in unified format. Numbered `details.diff` is not interpreted. Write arguments alone do not establish creation, previous contents, or a successful change.
 
-Concrete targets use Pi's Unicode-space normalization before lexical resolution for headings, exploration scopes, and summary identities. Arguments remain unchanged; search patterns and globs remain literal. Selective-read shares this native path policy; custom adapters and FFF filters do not inherit it.
+Concrete targets use Pi's Unicode-space normalisation before lexical resolution for headings, exploration scopes, and summary identities. Arguments remain unchanged; search patterns and globs remain literal. Selective-read shares this native path policy; custom adapters and FFF filters do not inherit it.
 
 ## Display
 
@@ -24,7 +24,7 @@ Observed shells show the recorded status and duration; missing codes stay unknow
 
 Image omission warnings and fallbacks remain available when Pi cannot display images.
 
-Recognised read continuation and byte-limit fallback instructions remain visible in compact cards and groups. This includes fractional, negative and exponent-form continuation values. Expansion restores them once in the retained text.
+Recognised read continuation and byte-limit fallback instructions remain visible in compact cards and groups. This includes fractional, negative, and exponent-form continuation values. Expansion restores them once in the retained text.
 
 Diagnostic bodies and failure markers use error styling without recolouring preceding process output.
 

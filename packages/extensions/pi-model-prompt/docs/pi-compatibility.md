@@ -31,7 +31,7 @@ Keep file discovery and prompt-section merging consistent with Pi when applying 
 
 ## Limitations
 
-- **Unknown source.** Extensions can't see which file produced the append text, so the extension works it out again and compares contents. Explicit CLI text or earlier extension edits identical to the base can still be replaced. If Pi exposes append sources to extensions, use them instead.
-- **Virtual models.** Rules match the selected virtual model, not the physical model it routes to; see [virtual models](../README.md#virtual-models). The `context` and `context_with_system` hooks run before routing, and only `before_provider_request` runs after it, with a provider-specific payload. If Pi adds a provider-neutral prompt hook after routing, reconsider this, keeping in mind that per-request prompts lose prompt caching.
-- **SDK hosts.** The extension uses `getAgentDir()`, not the SDK resource loader's directory override, so SDK hosts with a custom `agentDir` must set `PI_CODING_AGENT_DIR` to match.
-- **Retirement.** If Pi adds native model-specific prompt files, remove this extension.
+- Extensions can't see which file produced the append text, so the extension works it out again and compares contents. Explicit CLI text or earlier extension edits identical to the base can still be replaced. If Pi exposes append sources to extensions, use them instead.
+- Rules match the selected virtual model, not the physical model it routes to; see [virtual models](replacement.md#virtual-models). The `context` and `context_with_system` hooks run before routing, and only `before_provider_request` runs after it, with a provider-specific payload. If Pi adds a provider-neutral prompt hook after routing, reconsider this, keeping in mind that per-request prompts lose prompt caching.
+- The extension uses `getAgentDir()`, not the SDK resource loader's directory override, so SDK hosts with a custom `agentDir` must set `PI_CODING_AGENT_DIR` to match.
+- If Pi adds native model-specific prompt files, remove this extension.

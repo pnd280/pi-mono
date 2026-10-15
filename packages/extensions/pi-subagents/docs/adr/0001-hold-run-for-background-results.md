@@ -1,6 +1,6 @@
 # Hold the supervisor's run until the first background result
 
-[pi-subagents](../../README.md#background-tasks)
+[pi-subagents](../../README.md) · [Background results](../background-results.md)
 
 A supervisor that went idle received each background result through `wakeIdle()`, a workaround for [Pi issue #5581](https://github.com/earendil-works/pi/issues/5581) that added a synthetic user message to the transcript in Pi 1.0.2. To deliver results within the prepared run instead, the `agent_end` handler waits after a `stop` or `toolUse` reply until the first direct background task finishes, new input arrives, the run is aborted, or no background task remains; ready results then continue the same prepared run. This applies in all modes and at all depths.
 

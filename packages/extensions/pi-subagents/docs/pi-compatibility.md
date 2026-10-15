@@ -86,7 +86,7 @@ The offline tests exercise background waits in `agent_end`, slash commands durin
 - [ ] The exported chat components, `ToolExecutionComponent`, and the individual built-in `create*ToolDefinition` renderers support the viewer. Without `setArgsComplete`, those renderers read no files, as in Pi's own history.
 - [ ] Inline and overlay custom UI, widgets, and fullscreen mouse regions support the viewer. Regular mode uses `ctx.ui.custom` with `overlay: false` at three-quarters of the terminal height. Fullscreen mode uses a full-terminal overlay. Host remounts preserve the logical task panel and transcript; closing the viewer restores the task list with its view and selection. Panel keys and expansion remain local to that presentation.
 
-The build phase 4 cases exercise running input, deferred settle-boundary input, input during exit and resume, owner-only resume of inactive descendants, and ancestry-scoped digest paging.
+The [input and digest cases](testing.md#input-and-transcript-digests) exercise running input, deferred settle-boundary input, input during exit and resume, owner-only resume of inactive descendants, and ancestry-scoped digest paging.
 
 ## Replacement opportunities
 

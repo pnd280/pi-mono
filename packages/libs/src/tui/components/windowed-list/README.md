@@ -10,6 +10,7 @@ Long lists render faster when Pi only sees the visible window. [`renderWindowedL
 - Rows fit the requested width, including viewports narrower than Pi's selection marker.
 - `format` receives only visible items and must keep their count and order; custom Pi column options are allowed.
 - The native list sees only the window, so no full-collection counter is generated.
+- The result has the rendered `lines` and the window's `start` index and item `count`.
 
 ## Caller responsibilities
 

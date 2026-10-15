@@ -76,4 +76,9 @@ Only prompt text changes. Pi saves the changed prompt in its normal session stor
 
 ## Validation
 
-Use the [workspace checks](../../../docs/development.md#focused-validation). For changes to completion, formats, or host integration, also run the [terminal checks](docs/testing.md#manual-checks). For what is tested where, see [testing](docs/testing.md).
+Use the [workspace checks](../../../docs/development.md#focused-validation) for `pi-skills`.
+
+| When you…                                       | Read                                                         |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| Change completion, formats, or host integration | the [terminal checks](docs/testing.md#manual-checks) as well |
+| Decide where a test belongs                     | [Testing](docs/testing.md)                                   |

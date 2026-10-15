@@ -2,7 +2,9 @@
 
 [pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
 
-## Contract
+Instruction notices from [`pi-nested-instructions`](../../../../pi-nested-instructions/README.md) appear as compact cards that expand to the instruction text. This page documents the adapter contract for its maintainers; if you use `pi-nested-instructions`, read [Display](#display) for how its notices appear.
+
+## Compatibility and registration
 
 The adapter renders `pi-nested-instructions.notice` session messages using the identifier and decoder exported by `pi-nested-instructions/notices`. The producer owns the persisted schema and model-facing preamble; this adapter owns presentation only and performs no discovery, filesystem access, or persistence. Its [card renderer](../../rendering/notice.ts) lives with the shared card layout.
 
@@ -24,9 +26,9 @@ Tool-specific `rendererOverrides` and `showParameters` do not apply. Custom rend
 
 ## Validation
 
-Run the [package checks](../../../README.md#validation). Adapter, summary coordinator, and host integration tests cover notice rendering, counts, and replay.
+Run the [package checks](../../../README.md#validation). Adapter, summary coordinator, and host integration tests cover notice rendering, counts, and replay without a paid model request.
 
-For manual terminal validation, load both extensions in a disposable workspace. Use compact mode so run summaries do not hide the notices. No paid model request is needed for automated tests.
+For manual terminal validation, load both extensions in a disposable workspace. Use compact mode so run summaries do not hide the notices.
 
 | Do                                                                                                                      | Expect                                                                                                                |
 | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |

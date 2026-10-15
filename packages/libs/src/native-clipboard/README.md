@@ -18,7 +18,7 @@ The default 5,000 ms timeout covers all attempts and throws `NativeClipboardErro
 
 ## Caller responsibilities
 
-Requires a local clipboard session and helper:
+`copyNative` requires a local clipboard session and one of these helpers:
 
 | Platform        | Helper                                                |
 | --------------- | ----------------------------------------------------- |
@@ -29,9 +29,9 @@ Requires a local clipboard session and helper:
 
 SSH sessions and native Windows are unsupported.
 
-Supply exact source and a signal; choose safe messages for non-`NativeClipboardError` exceptions.
+Supply the exact source text and a signal. Choose display-safe messages for exceptions other than `NativeClipboardError`.
 
-Override the timeout with `copyNative(exactText, signal, { timeout: 10000 })`. Timeout overrides must be integers from 0 through 2,147,483,647 milliseconds.
+Override the timeout with `copyNative(exactText, signal, { timeout: 10000 })`. Timeout overrides must be integers from 0 through 2,147,483,647 milliseconds; other values throw `RangeError`.
 
 ## Validation
 

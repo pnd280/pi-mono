@@ -8,7 +8,7 @@ A _fingerprint_ is a hash of an inspected private Pi method's source. When a fin
 
 ## Upgrade procedure
 
-1. Work through every item in the checklist below, inspecting both the API build and the installed CLI build.
+1. Work through every item under [contracts to verify](#contracts-to-verify).
 2. Update fingerprints only after the matching contract is confirmed.
 3. Run the [package checks](../README.md#validation), the [API](../src/host/install.test.ts) and [CLI](../src/host/install-cli.test.ts) suites, and the [terminal and adapter checks](validation.md). Include regular mode, fullscreen, reload, and replay.
 4. Update the "Last verified" line at the top of this file. Record what was not covered there, not in a separate log.

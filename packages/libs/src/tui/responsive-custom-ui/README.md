@@ -14,17 +14,9 @@ Regular mode, overlays, and components without ownership use ordinary host routi
 
 ### Host compatibility
 
-The private [adapter](fullscreen-input.ts) depends on Pi 0.87's renderer contract:
-
-- An ordered `inputListeners` Set with callable entries. Installation must not reorder the Set during traversal (which could deliver input twice).
-- `getFocusedComponent()` and `getVisibleOverlayFocusRestore()` to avoid intercepting dialog input, including during focus restoration.
-- Property reads through the stable TUI proxy, whose descriptors may be replaced independently of the current renderer.
-
-Registrations belong to host presentations, not the logical component retained across remounts; cleanup must preserve unrelated listeners.
+Priority routing uses a private [adapter](fullscreen-input.ts) that depends on internal Pi renderer properties, because public terminal listeners cannot preempt Pi's transcript listener. When you change the adapter or upgrade Pi, check the [renderer contract and registration lifetime](../../../docs/tui-fullscreen-input.md).
 
 Missing capabilities or detected interference disable routing and call `onInputRoutingUnavailable` once per opening. The view stays open with ordinary host delivery. Arbitrary third-party input patches are unsupported.
-
-Public terminal listeners append after Pi's fullscreen transcript listener and cannot preempt it. Replace this adapter when a public API provides equivalent focus-scoped priority.
 
 ## Caller responsibilities
 

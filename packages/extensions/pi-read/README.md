@@ -61,12 +61,10 @@ With [pi-tool-display](../pi-tool-display/README.md#configuration), choose how r
 
 ## Validation
 
-See the [coverage specification](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md). For appearance changes, check by hand.
+Run the [focused checks](../../../docs/development.md#focused-validation) for `pi-read`.
 
-Setup: in Pi, read a file with a multiline selection that includes tabs and wide characters.
-
-| Do                                    | Expect                                                    |
-| ------------------------------------- | --------------------------------------------------------- |
-| View the read collapsed and expanded. | Context stays visible, and the preview isn't shown twice. |
-| Narrow the terminal.                  | Highlighting stays on the selected span.                  |
-| Switch between light and dark themes. | The highlight is readable in both.                        |
+| When you…                         | Read                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| Change selection or preview logic | The [coverage specification](docs/testing.md).                               |
+| Change how reads look             | The [manual appearance checks](docs/testing.md#manual-checks), done by hand. |
+| Upgrade Pi                        | [Pi compatibility](docs/pi-compatibility.md).                                |

@@ -4,12 +4,12 @@ Keep domain policy and I/O in consumers; reusable components receive effect call
 
 ## Code navigation
 
-| When you …                              | Read                                                               |
-| --------------------------------------- | ------------------------------------------------------------------ |
-| Pick a component or helper              | [Component and helper index](README.md#usage)                      |
-| Change browser options or actions       | [Browser contracts](components/browser/types.ts)                   |
-| Change mounting or post-closure effects | [Host mounting](open-browser/index.ts)                             |
-| Change focused-input routing            | [Priority input adapter](responsive-custom-ui/fullscreen-input.ts) |
+| When you…                               | Read                                                                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Pick a component or helper              | [Component and helper index](README.md#usage)                                                                                  |
+| Change browser options or actions       | [Browser contracts](components/browser/types.ts)                                                                               |
+| Change mounting or post-closure effects | [Host mounting](open-browser/index.ts)                                                                                         |
+| Change focused-input routing            | [Priority input adapter](responsive-custom-ui/fullscreen-input.ts) and its [host contract](../../docs/tui-fullscreen-input.md) |
 
 ## Constraints
 

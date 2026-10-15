@@ -79,7 +79,7 @@ Summaries precede output. Nonempty compact summaries replace successful text unl
 
 Missing summaries, including those that display as blank after terminal-control sanitization, use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
 
-Use `notices` for diagnostics and references that must remain visible when a summary replaces output. Notice severity controls styling, not visibility. Compact groups retain `info` notices.
+Use `notices` for diagnostics and references that must remain visible when a summary replaces output. [Severity changes styling, never visibility](presentation.md#notices-and-colours): compact groups keep `info` notices.
 
 ### Result text
 

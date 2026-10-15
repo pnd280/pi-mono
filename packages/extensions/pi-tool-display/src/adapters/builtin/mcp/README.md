@@ -1,6 +1,8 @@
 # Built-in MCP adapter
 
-[Adapter development](../../../../docs/adapters.md)
+[pi-tool-display](../../../../README.md) · [Adapter development](../../../../docs/adapters.md)
+
+MCP server tools from Pi's built-in MCP extension appear as cards with the server and tool name, the arguments, and an output preview. This page documents the adapter contract for its maintainers; if you use Pi's MCP support, read [Display](#display) for how its calls appear.
 
 ## Compatibility and selection
 
@@ -10,9 +12,9 @@ The extension's resource tools (`list_mcp_resources`, `list_mcp_resource_templat
 
 Pi 1.2.0 replaces every character outside `[A-Za-z0-9_]` with `_` and adds a hash suffix to colliding or overlong tool names; exact-name override keys must use the registered names. Default MCP exposure is `codemode`, with tool discovery through `searchTools()` or `ALL_TOOLS` rather than inline declarations.
 
-## Cards
+## Display
 
-The adapter replaces Pi's own MCP renderer. Pending calls show Pi's tool name, such as `mcp__exa__web_search_exa`, because sanitized names may end in a hash and are never decoded. Results and progress updates carry `details.server` and `details.tool`, which switch the heading to the unsanitized `server.tool`, even when the result has no content. Arguments always stay visible, regardless of `showParameters`.
+The adapter replaces Pi's own MCP renderer. Pending calls show Pi's tool name, such as `mcp__exa__web_search_exa`, because sanitised names may end in a hash and are never decoded. Results and progress updates carry `details.server` and `details.tool`, which switch the heading to the unsanitised `server.tool`, even when the result has no content. Arguments always stay visible, regardless of `showParameters`.
 
 Output uses the ordinary [MCP facts](../../../../docs/renderers.md#mcp-facts) preview. Pi's error flag marks returned MCP errors and thrown calls as failures. Thrown or blocked calls have no details and keep Pi's tool name. Other detail shapes fall back to generic cards.
 
@@ -28,4 +30,4 @@ The adapter never reads saved output or connects to servers. Calls made inside c
 
 ## Validation
 
-Run [package validation](../../../../README.md#validation). The [colocated fixture](index.test.ts) mirrors Pi 1.2.0's private `createMcpToolDefinition` projection without opening a connection. The [offline host test](../../../../validation/mcp.test.ts) loads `builtin:mcp` and discovers a local stdio server through codemode, checking selection and original identities for normalized, collision-suffixed names. Recheck both boundaries when upgrading Pi; neither establishes external-service compatibility.
+Run [package validation](../../../../README.md#validation). The [colocated fixture](index.test.ts) mirrors Pi 1.2.0's private `createMcpToolDefinition` projection without opening a connection. The [offline host test](../../../../validation/mcp.test.ts) loads `builtin:mcp` and discovers a local stdio server through codemode, checking selection and original identities for normalised, collision-suffixed names. Recheck both boundaries when upgrading Pi; neither establishes external-service compatibility.

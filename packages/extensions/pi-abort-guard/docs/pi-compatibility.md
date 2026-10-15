@@ -23,4 +23,4 @@
 
 ## Limitations
 
-- **Retirement.** If Pi adds a setting that requires a double press to interrupt, remove this extension.
+- If Pi adds a setting that requires a double press to interrupt, remove this extension.

@@ -19,9 +19,15 @@ To name a session by hand, use Pi's native `/name My session`.
 
 An _ephemeral_ session is one that isn't saved to a file, such as one started with `--no-session`.
 
+| When you…                                                                | Read                                                        |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| Run a session command while the agent is busy, or look up a parent by ID | [Session operations](docs/sessions.md)                      |
+| Use a custom session directory                                           | [Session directories](docs/sessions.md#session-directories) |
+| Want to know what cancels naming, or use print, JSON, or RPC mode        | [Automatic naming](docs/naming.md)                          |
+
 ### Session operations
 
-`persist` and `create-empty-child` work only while the agent is idle. If it's busy they fail straight away instead of queueing. In that case `create-empty-child` may suggest running `pi --parent-session` in another terminal, if the parent file exists. When the path contains control characters it asks you to retry once idle instead, rather than offering a command that would be unsafe to copy.
+`persist` and `create-empty-child` work only while the agent is idle. If it's busy they fail straight away instead of queueing.
 
 `persist`:
 
@@ -40,12 +46,9 @@ An _ephemeral_ session is one that isn't saved to a file, such as one started wi
 Naming needs [configuration](#configuration); saving and child sessions don't.
 
 - An unnamed session gets at most one automatic attempt per load, made silently when a user message with non-empty text arrives. Loading or reloading allows another attempt, at the next user message.
-- `/sesh auto-name` and `clear` work while the agent is running. A new generation replaces any earlier one.
-- Setting or clearing a name cancels generation, and stops automatic naming until the session is loaded or reloaded.
-- Navigating the session tree cancels generation without allowing another automatic attempt. Use `/sesh auto-name` for the selected branch.
-- Aborting the agent run also cancels its automatic attempt, without another attempt.
+- `/sesh auto-name` generates a new title at any time, even while the agent is running.
+- Setting or clearing a name yourself stops automatic naming until the session is loaded or reloaded. Other events that cancel naming are listed in the [naming guide](docs/naming.md#cancellation-and-retries).
 - Generation times out after 15 seconds and isn't retried. If it fails, the name is unchanged.
-- In interactive and RPC modes, `/sesh auto-name` reports progress and results through Pi notifications.
 
 | Trigger           | Text from the current branch sent to the model                                  |
 | ----------------- | ------------------------------------------------------------------------------- |
@@ -53,8 +56,6 @@ Naming needs [configuration](#configuration); saving and child sessions don't.
 | `/sesh auto-name` | The newest 4,000 characters of user and assistant text, in chronological order. |
 
 Images, tool output, and thinking are never sent. Titles are at most 80 characters.
-
-Naming also works in print, JSON, and RPC modes. Print and JSON modes don't wait for automatic naming on exit, so the title may not be saved.
 
 ### Start a child from the CLI
 
@@ -66,13 +67,10 @@ pi --parent-session SESSION_ID
 pi --no-session --parent-session /path/to/parent.jsonl
 ```
 
-- Paths resolve from the launch directory, and `~/` is supported.
-- IDs must be exact, not prefixes. They're looked up in Pi's default session directories and the active custom session directory. A missing or ambiguous ID stops startup; for a parent elsewhere, pass its path.
-- Lookup never modifies parent files.
-- The child starts empty, in the launch directory, even when the parent belongs to another project.
+- The child starts empty, in the launch directory. Pass the parent as a path or an exact session ID; [parent lookup](docs/sessions.md#parent-lookup-from-the-cli) explains how both are resolved.
 - With `--no-session` the child is ephemeral. Saving it later with `/sesh persist` keeps its parent link.
 
-`--parent-session` can't be combined with `--continue` (`-c`), `--resume` (`-r`), `--session`, `--session-id`, or `--fork`. Pi picks the session before extensions load, so a conflicting option may still open or migrate a session, or show the `--resume` picker, before it's rejected.
+`--parent-session` can't be combined with `--continue` (`-c`), `--resume` (`-r`), `--session`, `--session-id`, or `--fork`.
 
 ## Configuration
 
@@ -102,21 +100,9 @@ To turn on naming, add `auto-title` under an `ext.pi-session-utils` key in globa
 - Only [trusted projects](https://pi.dev/docs/latest/security#understand-project-trust) can override global fields. Fields a project leaves out are inherited.
 - Both fields are required after merging. There are no defaults, no environment variables, and no fallback to the active model.
 - Run `/reload` to apply changes.
+- Invalid settings turn off naming, but not saving or child sessions. [Settings errors](docs/naming.md#settings-errors) lists what counts as invalid.
 
-### Errors
-
-Any of these turn off naming, but not saving or child sessions: an unreadable or malformed settings file, one over 1 MiB, an invalid value, or an unknown key in `ext.pi-session-utils` or `auto-title`. Automatic naming fails silently; `/sesh auto-name` reports the error. Clearing still works.
-
-### Turning it off
-
-- To turn off naming only, remove `auto-title` from the global settings and from the settings of every project that sets it, then reload.
-- To turn off the whole extension, use Pi's [extension configuration](https://pi.dev/docs/latest/packages#select-package-resources).
-
-### Session directories
-
-- Saved child sessions go in Pi's current session directory.
-- `/sesh persist` uses the default directory for the working directory, even when the ephemeral session was started with a custom directory.
-- For ephemeral children, CLI parent lookup honors `--session-dir` and `PI_CODING_AGENT_SESSION_DIR`. For a parent in a custom directory set only in settings, pass its path.
+To turn off naming only, remove `auto-title` from the global settings and from the settings of every project that sets it, then reload. To turn off the whole extension, use Pi's [extension configuration](https://pi.dev/docs/latest/packages#select-package-resources).
 
 ## Side effects
 

@@ -99,19 +99,19 @@ Warnings appear as Pi notifications in TUI and RPC sessions. Print and JSON sess
 
 ### What is recorded
 
-In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, timing, outcomes, and file contents from before each write. These observations are shared with `pi-agent-summary` through [file observations](../../libs/src/file-mutations/README.md), so files are not read twice. Another process writing the same file can race with the observation. Display failures never change a tool's outcome.
-
-Session history stores only facts that Pi's own entries lack: cancellation, a shell exit code or timeout when the call did not succeed, a change applied although Pi reported failure, an operation failure that Pi's result or call cancellation cannot preserve, and bounded patches. When collection stops before Pi saves a call's result, such as at shutdown, the observed outcome and exit code are saved, because replay cannot rely on that result. They are kept in `pi-tool-display.call` custom entries, outside the model's context. A `pi-tool-display.writer` entry names the local file for subsequent saved call facts and results, and the directory where those calls ran. `write` saves its patch only when replay cannot derive the same patch from the written content. `edit` diffs come from Pi's result: the extension saves its own diff when the edit did not succeed, ended without a result, or Pi's patch is missing, invalid, or has different hunks.
-
-Timing, saved-output references, and diagnostics stay on this machine, in `pi-tool-display/calls/<writer>.jsonl` under Pi's agent directory. The file is created at the first live tool start or local-detail write, including after a reload. Folders and files are owner-only, and linked files are refused. A failed write or close of this file shows a warning, also during shutdown. The extension never deletes these files, because copied or moved sessions can still name them. Sessions that Pi does not save keep these details in memory. Live shell previews stay in memory only.
-
-> **Patches can keep deleted text.** Removed and context lines from overwritten files may remain in session history.
+In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, timing, outcomes, and file contents from before each write. Display failures never change a tool's outcome.
 
 Native observation excludes SDK tool overrides, custom tools, and manual `!` and `!!` commands. Verified extension adapters can still contribute call provenance and summaries.
 
+Session history stores only facts that Pi's own entries lack, such as cancellation, a failed shell's exit code, and bounded patches. They are kept in `pi-tool-display.call` and `pi-tool-display.writer` entries, outside the model's context. Timing, saved-output references, and diagnostics stay on this machine, in `pi-tool-display/calls/<writer>.jsonl` under Pi's agent directory.
+
+> **Patches can keep deleted text.** Removed and context lines from overwritten files may remain in session history.
+
+The extension never deletes its local files, because copied or moved sessions can still name them. Sessions that Pi does not save keep these details in memory. Live shell previews stay in memory only. For the exact facts saved and when the local files are created, read [recorded data and replay](docs/recording.md).
+
 ### Replay and saved output
 
-Reopening a session restores matching facts for calls on the selected branch without rerunning tools or observing source files again. Published results still supply their outcomes. Replay finds local details through the nearest writer entry before a call's saved facts or result, so forks and copies keep them on the same machine. When that file is not on this machine, shell cards show `Timing not on this machine`, and expanded cards say that local details are missing. Missing facts are never guessed from output text. See [outcomes](docs/presentation.md#outcomes).
+Reopening a session restores matching facts without rerunning tools or observing source files again. Missing facts are never guessed from output text. When the local details are on another machine, shell cards show `Timing not on this machine`.
 
 Expanding a finished shell card reads a bounded preview from Pi's temporary output file. See [saved-output previews](docs/presentation.md#saved-output-previews) for loading and retry. The extension keeps no durable output archive and makes no network requests.
 
@@ -143,3 +143,4 @@ To give your own tool a custom card, use the [standalone renderer API](docs/rend
 | change tested behaviour               | [Coverage specification](docs/testing.md)                             |
 | run package checks                    | [Focused validation](../../../docs/development.md#focused-validation) |
 | check clicks, keys, or layout by hand | [Terminal checks](docs/validation.md)                                 |
+| check the FFF or MCP adapter by hand  | [Adapter validation](docs/validation.md#adapter-validation)           |
