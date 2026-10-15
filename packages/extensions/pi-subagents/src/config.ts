@@ -9,11 +9,17 @@ import {
 import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
+const resultDeliverySchema = z.enum(["turn_end", "settle"]);
+
+/** When a busy supervisor receives background results: after each turn, or after its final reply. */
+export type ResultDelivery = z.output<typeof resultDeliverySchema>;
+
 const sectionSchema = z.object({
   maxDepth: z.int().nonnegative().optional().catch(undefined),
   maxConcurrent: z.int().positive().optional().catch(undefined),
   maxQueued: z.int().nonnegative().optional().catch(undefined),
   jobs: z.boolean().optional().catch(undefined),
+  resultDelivery: resultDeliverySchema.optional().catch(undefined),
   docs: z.unknown().optional()
 });
 const docsSchema = z.array(z.string().trim().min(1));
@@ -24,6 +30,7 @@ export type SubagentsConfig = {
   maxQueued: number;
   /** Registers the `job` and `job_abort` tools. */
   jobs: boolean;
+  resultDelivery: ResultDelivery;
 };
 
 type ScopeSettings = Omit<z.output<typeof sectionSchema>, "docs"> & {
@@ -92,6 +99,7 @@ export function loadConfig(
     maxConcurrent: project.maxConcurrent ?? global.maxConcurrent ?? 8,
     maxQueued: project.maxQueued ?? global.maxQueued ?? 8,
     jobs: project.jobs ?? global.jobs ?? false,
+    resultDelivery: project.resultDelivery ?? global.resultDelivery ?? "turn_end",
     docs: docs.join("\n\n"),
     warnings
   };

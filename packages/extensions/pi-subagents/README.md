@@ -26,6 +26,9 @@ The tools are model-only: codemode scripts cannot invoke them. At `maxDepth`, bo
 
 Background tasks survive turn aborts. Use them only for independent work; wait for their automatic result instead of polling or duplicating their work.
 
+- With [`resultDelivery`](#configuration) set to `turn_end`, a ready result joins the run after the model's reply and its tool calls, before the next model request.
+- With `resultDelivery` set to `settle`, a ready result waits for the model's final reply.
+- Delivery at the end of a turn skips failed, aborted, and length-truncated replies, so that Pi can retry or recover first.
 - In all modes, a supervisor stays busy after a normal reply while its direct background tasks run. Each time a task finishes, its result continues the same run before the supervisor waits for the next task.
 - New input or an abort ends the wait after a normal reply. The tasks continue, and a later result starts a new turn when the supervisor is idle.
 - A child consumes the results of its background descendants before returning.
@@ -50,7 +53,7 @@ Set [`jobs`](#configuration) to `true` to give the model the `job` and `job_abor
 
 The model calls `job` with a `command`, a short `description`, and an optional `timeout` in seconds. The call returns immediately with the job ID and the path of the job's log file. The command runs with Pi's built-in `bash` implementation in the session's working directory, and it uses Pi's `shellPath` and `shellCommandPrefix` settings. At the timeout or at an abort, Pi stops the process group of the command's shell.
 
-- The supervisor does not wait for jobs: a run settles while its jobs run. When a job exits, its background result arrives as a `pi-subagents.job-result` message. If the supervisor is busy, the result continues the same run. If the supervisor is idle, the result starts a new turn. See [ADR 0005](docs/adr/0005-background-jobs.md).
+- The supervisor does not wait for jobs: a run settles while its jobs run. When a job exits, its background result arrives as a `pi-subagents.job-result` message. If the supervisor is busy, the result joins the run in the same way as a [task result](#background-tasks). If the supervisor is idle, the result starts a new turn. See [ADR 0005](docs/adr/0005-background-jobs.md).
 - The result contains a `<job>` envelope with the job ID, the outcome, and the exit code. Then it contains the last 2,000 lines or 50 KiB of output. After a failure, Pi's status line follows, such as `Command exited with code 2` or `Command timed out after 60 seconds`. An `Error:` line follows when the job's error adds to that text, such as a signal name or a log write failure. The log file path comes last. Exit code 0 gives `completed`. Another exit code or a timeout gives `failed`, with an error such as `exit code 2`, `exit code 143 (SIGTERM)`, or `timed out after 60 s`. A shell reports a signal as 128 plus the signal number. Thus the error names the signal, but the command can also exit with that code itself.
 - A turn abort does not stop jobs. The model calls `job_abort` with a `job_id` when it does not need the result. The call stops the job's process group and returns the log file path. The model receives no separate `cancelled` result. If the job exited first, the call says so, and the actual result arrives separately. Unknown and inactive jobs give an error.
 - **Ctrl+D** in the panel and `/subagents abort <job_id>` also stop a job. Then the `cancelled` result is delivered.
@@ -151,7 +154,7 @@ The viewer shows the child's messages with Pi's chat components. Pi's built-in t
 
 ## Configuration
 
-Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `.pi/settings.json`. This example shows the default limits, jobs turned off, and one docs file:
+Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `.pi/settings.json`. This example shows the default limits, jobs turned off, the default result delivery, and one docs file:
 
 ```json
 {
@@ -160,20 +163,24 @@ Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `
     "maxConcurrent": 8,
     "maxQueued": 8,
     "jobs": false,
+    "resultDelivery": "turn_end",
     "docs": ["prompts/subagent.md"]
   }
 }
 ```
 
-| Setting         | Meaning                                                                                                                             |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `maxDepth`      | A non-negative integer. `0` disables launches; `2` permits children and grandchildren.                                              |
-| `maxConcurrent` | A positive integer limiting the whole live task tree, including reserved launches and stopping processes.                           |
-| `maxQueued`     | A non-negative integer limiting launches waiting for capacity in FIFO order. `0` rejects a launch when all slots are occupied.      |
-| `jobs`          | A boolean. `true` gives the model the `job` and `job_abort` tools. The default is `false`. See [Background jobs](#background-jobs). |
-| `docs`          | An array of Markdown file paths. Their text is added to the `subagent` tool description. See [Docs](#docs).                         |
+| Setting          | Meaning                                                                                                                                  |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxDepth`       | A non-negative integer. `0` disables launches; `2` permits children and grandchildren.                                                   |
+| `maxConcurrent`  | A positive integer limiting the whole live task tree, including reserved launches and stopping processes.                                |
+| `maxQueued`      | A non-negative integer limiting launches waiting for capacity in FIFO order. `0` rejects a launch when all slots are occupied.           |
+| `jobs`           | A boolean. `true` gives the model the `job` and `job_abort` tools. The default is `false`. See [Background jobs](#background-jobs).      |
+| `resultDelivery` | `turn_end` (the default) or `settle`. Sets when task and job results reach a busy supervisor; see [Background tasks](#background-tasks). |
+| `docs`           | An array of Markdown file paths. Their text is added to the `subagent` tool description. See [Docs](#docs).                              |
 
 Settings load at session start and `/reload`. Valid trusted-project values override global values; invalid values are ignored. See Pi's [settings reference](https://pi.dev/docs/latest/settings) for its own settings.
+
+With `resultDelivery` set to `turn_end`, a result is part of more model requests than with `settle`. A large result, such as a 50 KiB job tail, then uses more input tokens and can make compaction start earlier.
 
 Top-level launches queue FIFO when capacity is full. Nested launches fail immediately with the configured capacity in the error; a task never waits for capacity held by its own ancestors.
 

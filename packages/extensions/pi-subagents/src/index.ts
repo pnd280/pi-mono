@@ -251,7 +251,7 @@ export default function subagents(pi: ExtensionAPI): void {
 
     reader = new RunReader(tasks);
     await tasks.readDescendants();
-    delivery = new Delivery(tasks, jobs, pi, ctx, depth, waiting);
+    delivery = new Delivery(tasks, jobs, pi, ctx, depth, waiting, config.resultDelivery);
     panels = new Panels(tasks, jobs, reader, ctx);
     const widget = taskWidget(tasks, jobs, ctx, () => open());
     disposeWidget = () => widget.dispose();
@@ -320,6 +320,7 @@ export default function subagents(pi: ExtensionAPI): void {
   });
   // A run after a cancelled session change takes the job results that waited.
   pi.on("agent_start", () => delivery?.resume());
+  pi.on("turn_end", (event) => delivery?.turn(event));
   pi.on("agent_end", (event, ctx) => delivery?.end(event, ctx));
   pi.on("agent_settled", (_event, ctx) => delivery?.settled(ctx));
   pi.on("agent_before_settle", () => delivery?.settle());

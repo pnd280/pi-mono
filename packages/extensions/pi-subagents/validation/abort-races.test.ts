@@ -372,7 +372,7 @@ test("rejects abort after process exit and retains the real failed completion", 
               { stopReason: "toolUse" }
             );
           },
-          fauxAssistantMessage("Abort result received"),
+          // The task failed before the abort, so its result joins the run when the abort turn ends.
           (context) => {
             expect(completionCount(context)).toBe(1);
             expect(contentText(context.messages.at(-1)!.content)).toContain(

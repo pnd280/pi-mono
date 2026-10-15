@@ -2,10 +2,13 @@ import type {
   AgentBeforeSettleEventResult,
   AgentEndEvent,
   ExtensionAPI,
-  ExtensionContext
+  ExtensionContext,
+  TurnEndEvent,
+  TurnEndEventResult
 } from "@earendil-works/pi-coding-agent";
 import type { WorkingMessageHandle } from "@pi-mono/libs/working-message";
 
+import type { ResultDelivery } from "./config.ts";
 import { JOB_RESULT_MESSAGE, RESULT_MESSAGE } from "./constants.ts";
 import { jobText } from "./job-records.ts";
 import type { JobEvent, Jobs } from "./jobs.ts";
@@ -22,6 +25,14 @@ const WAITING_MESSAGE = "Waiting for background subagents";
 /** New input arrives through Pi's queue, which has no event; poll it at this interval. */
 const INPUT_POLL_MS = 250;
 
+/** Pi retries or recovers other replies first: failed, aborted, and length-truncated ones. */
+function isNormalReply(message: TurnEndEvent["message"] | undefined): boolean {
+  return (
+    message?.role === "assistant" &&
+    (message.stopReason === "stop" || message.stopReason === "toolUse")
+  );
+}
+
 /**
  * Starts one prepared turn on an idle supervisor for all ready background results.
  *
@@ -36,8 +47,9 @@ function wakeIdle(pi: ExtensionAPI, [first, ...rest]: readonly Completion[]): vo
 }
 
 /**
- * Owns background completions of tasks and jobs until the settlement or idle handoff. Only
- * background tasks hold a run; job results join the next handoff. See ADR 0001 and ADR 0005.
+ * Owns background completions of tasks and jobs until a turn end, the settlement, or the idle
+ * handoff. Only background tasks hold a run; job results join the next handoff. See ADR 0001,
+ * ADR 0005, and ADR 0006.
  */
 export class Delivery {
   private pending: Completion[] = [];
@@ -57,7 +69,8 @@ export class Delivery {
     private pi: ExtensionAPI,
     private ctx: ExtensionContext,
     private depth: number,
-    private message: WorkingMessageHandle
+    private message: WorkingMessageHandle,
+    private resultDelivery: ResultDelivery
   ) {
     this.unsubscribe = tasks.subscribe((event) => this.completed(event));
     this.unsubscribeJobs = jobs.subscribe((event) => this.jobCompleted(event));
@@ -125,7 +138,7 @@ export class Delivery {
    * can commit them, the aborted run settles, or Pi becomes idle without a run.
    */
   private handoff(): void {
-    if (this.closed || this.suspended || !this.pending.length) return this.stopRecheck();
+    if (!this.ready()) return this.stopRecheck();
     if (this.waiting) return;
 
     if (this.ctx.isIdle()) {
@@ -142,6 +155,11 @@ export class Delivery {
   private stopRecheck(): void {
     clearInterval(this.recheck);
     this.recheck = undefined;
+  }
+
+  /** Pending results can go to Pi: delivery is open and no session change is pending. */
+  private ready(): boolean {
+    return !this.closed && !this.suspended && this.pending.length > 0;
   }
 
   private take(): Completion[] {
@@ -175,12 +193,26 @@ export class Delivery {
     }
   }
 
+  /**
+   * With `turn_end` delivery, commits ready results after a normal turn, so the model's next
+   * request includes them. Results that arrive after the final turn wait for `end` and `settle`.
+   */
+  turn(event: TurnEndEvent): TurnEndEventResult | undefined {
+    if (this.resultDelivery !== "turn_end" || !this.ready() || !isNormalReply(event.message))
+      return;
+
+    // Pi flushes these into the transcript after the turn_end handlers, before the next request.
+    for (const message of this.take()) this.pi.sendMessage(message, { triggerTurn: false });
+
+    // Ask for another response; tools or queued input can already require it.
+    return { continue: true };
+  }
+
   /** Keeps the supervisor busy until its first background result, so the result continues this run. */
   async end(event: AgentEndEvent, ctx: ExtensionContext): Promise<void> {
     if (this.closed) return;
     const last = [...event.messages].reverse().find((message) => message.role === "assistant");
-    if (last?.role !== "assistant" || (last.stopReason !== "stop" && last.stopReason !== "toolUse"))
-      return;
+    if (!isNormalReply(last)) return;
     this.waiting = true;
     // Pi keeps the TUI loader until `agent_end` handlers finish; the coordinator writes only in TUI mode.
     if (this.hasBackground()) this.message.setText(WAITING_MESSAGE);
@@ -213,6 +245,7 @@ export class Delivery {
   async settle(): Promise<AgentBeforeSettleEventResult | undefined> {
     if (
       this.closed ||
+      this.suspended ||
       (!this.pending.length &&
         this.depth === 0 &&
         this.ctx.mode !== "print" &&
@@ -222,8 +255,8 @@ export class Delivery {
     this.waiting = true;
 
     try {
-      // Pi has no abort signal at this point.
-      if ((await this.next()) !== "result") return;
+      // Pi has no abort signal at this point. A session change can begin during the wait.
+      if ((await this.next()) !== "result" || !this.ready()) return;
 
       // Pi flushes these into the transcript before continuation or aborted settlement.
       for (const message of this.take()) this.pi.sendMessage(message, { triggerTurn: false });
@@ -236,7 +269,7 @@ export class Delivery {
 
   /** Delivers results that arrived as a wait ended by an abort. */
   settled(ctx: ExtensionContext): void {
-    if (this.closed || this.suspended || !this.pending.length || !ctx.isIdle()) return;
+    if (!this.ready() || !ctx.isIdle()) return;
     wakeIdle(this.pi, this.take());
   }
 
@@ -252,7 +285,7 @@ export class Delivery {
     this.wake?.();
   }
 
-  /** A run started after a cancelled session change; its settlement takes pending job results. */
+  /** Resumes delivery of pending job results in a run after a cancelled session change. */
   resume(): void {
     this.suspended = false;
   }

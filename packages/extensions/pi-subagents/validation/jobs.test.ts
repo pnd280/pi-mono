@@ -63,6 +63,13 @@ function isJobResult(record: RpcRecord): boolean {
   );
 }
 
+function isToolResult(tool: string): (record: RpcRecord) => boolean {
+  return (record) =>
+    record.type === "message_end" &&
+    record.message.role === "toolResult" &&
+    record.message.toolName === tool;
+}
+
 function isJobEnd(record: RpcRecord): boolean {
   return (
     record.type === "entry_appended" &&
@@ -181,6 +188,50 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
 
         expect(await host.jobResults()).toHaveLength(1);
       });
+    },
+    30_000
+  );
+
+  test.each(["turn_end", "settle"] as const)(
+    "J1: with resultDelivery %s, delivers a job result that arrives during a tool turn once in the same run",
+    async (resultDelivery) => {
+      await withJobs(
+        async (directory, start) => {
+          const host = await start();
+          const after = host.records.length;
+          const work = host.prompt("job-turn");
+          // Pi emits the RPC turn_end after the turn_end handlers, so the job ends in the next turn.
+          const started = await host.wait(isToolResult("job"), after);
+          await host.wait((record) => record.type === "turn_end", host.records.indexOf(started));
+          await release(directory, "job-release");
+          // The model holds its second tool turn until the job has ended.
+          await host.wait(isJobEnd, after);
+          await release(directory, "run-release");
+          await work;
+
+          const records = host.records.slice(after);
+          const read = records.findIndex(isToolResult("read"));
+          const result = records.findIndex(isJobResult);
+          const early = records.findIndex(replies("background results 0"));
+          expect(read).toBeGreaterThan(-1);
+          expect(result).toBeGreaterThan(read);
+          expect(records.filter(isJobResult)).toHaveLength(1);
+
+          if (resultDelivery === "turn_end") {
+            // The request after the tool turn already contains the result.
+            expect(early).toBe(-1);
+          } else {
+            // The result waits for the final reply.
+            expect(early).toBeGreaterThan(read);
+            expect(early).toBeLessThan(result);
+          }
+
+          expect(records.findIndex(replies("background results 1"))).toBeGreaterThan(result);
+          expect(records.filter((record) => record.type === "agent_settled")).toHaveLength(1);
+          expect(await host.jobResults()).toHaveLength(1);
+        },
+        { settings: { "ext.pi-subagents": { jobs: true, resultDelivery } } }
+      );
     },
     30_000
   );

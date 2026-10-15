@@ -18,38 +18,46 @@ import {
 // Each test owns its workspace and processes.
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
 
-test.each(["idle", "busy"])(
-  "delivers one background completion with prepared %s context",
-  async (mode) => {
-    await fixture(async (host) => {
-      await host.prompt(`background-${mode}`);
-      const initial = (await host.results())[0]!;
-      expect(detailsSchema.parse(initial.details)).toMatchObject({
-        background: true,
-        state: "running"
-      });
-      const completion = await host.wait(
-        (record) =>
-          record.type === "message_end" &&
-          record.message.role === "custom" &&
-          record.message.customType === RESULT_MESSAGE
-      );
-      expect(completion.type).toBe("message_end");
-      // The supervisor waits for the result, so both cases continue the same run.
-      await host.wait(
-        (record) =>
-          record.type === "message_end" &&
-          record.message.role === "assistant" &&
-          contentText(record.message.content).includes("background results 1")
-      );
-      const entries = await host.entries();
-      expect(
-        entries.filter(
-          (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
-        )
-      ).toHaveLength(1);
-      expectChildUsageOnce(entries, 1);
-    });
+test.each([
+  ["idle", "turn_end"],
+  ["busy", "settle"]
+] as const)(
+  "delivers one background completion with prepared %s context and %s delivery",
+  async (mode, resultDelivery) => {
+    await fixture(
+      async (host) => {
+        await host.prompt(`background-${mode}`);
+        const initial = (await host.results())[0]!;
+        expect(detailsSchema.parse(initial.details)).toMatchObject({
+          background: true,
+          state: "running"
+        });
+        const completion = await host.wait(
+          (record) =>
+            record.type === "message_end" &&
+            record.message.role === "custom" &&
+            record.message.customType === RESULT_MESSAGE
+        );
+        expect(completion.type).toBe("message_end");
+        // Both cases continue the same run: idle after the `agent_end` wait, busy at settlement.
+        await host.wait(
+          (record) =>
+            record.type === "message_end" &&
+            record.message.role === "assistant" &&
+            contentText(record.message.content).includes("background results 1")
+        );
+        const entries = await host.entries();
+        expect(
+          entries.filter(
+            (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
+          )
+        ).toHaveLength(1);
+        expectChildUsageOnce(entries, 1);
+      },
+      4,
+      2,
+      { "ext.pi-subagents": { maxConcurrent: 4, maxDepth: 2, resultDelivery } }
+    );
   },
   30_000
 );

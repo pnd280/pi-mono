@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { promisify } from "node:util";
 
+import { contentText } from "@earendil-works/pi-ai";
 import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import { expect, test as caseTest } from "vite-plus/test";
 
@@ -19,7 +20,10 @@ test.each([
   ["print", "background-pair", 2],
   ["json", "background-pair", 2],
   ["print", "background-error", 1],
-  ["json", "background-error", 1]
+  ["json", "background-error", 1],
+  // The result is ready when the final reply fails, so the failed turn must not take it.
+  ["print", "background-busy-error", 1],
+  ["json", "background-busy-error", 1]
 ] as const)(
   "consumes each background completion before %s exits after %s",
   async (mode, scenario, count) => {
@@ -43,11 +47,23 @@ test.each([
       const { stdout } = await child;
       expect(stdout).toContain(`background results ${count}`);
       const entries = parseSessionEntries(await readFile(`${directory}/supervisor.jsonl`, "utf8"));
-      expect(
-        entries.filter(
-          (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
-        )
-      ).toHaveLength(count);
+      const results = entries.flatMap((entry, index) =>
+        entry.type === "custom_message" && entry.customType === RESULT_MESSAGE ? [index] : []
+      );
+      expect(results).toHaveLength(count);
+
+      // Each result continues the run before the next result arrives.
+      for (const [index, result] of results.entries()) {
+        const reply = entries.findIndex(
+          (entry) =>
+            entry.type === "message" &&
+            entry.message.role === "assistant" &&
+            contentText(entry.message.content).includes(`background results ${index + 1}`)
+        );
+        expect(reply).toBeGreaterThan(result);
+        expect(reply).toBeLessThan(results[index + 1] ?? entries.length);
+      }
+
       expectChildUsageOnce(entries, count);
       expect(await remainingProcesses(directory)).toEqual([]);
     } finally {

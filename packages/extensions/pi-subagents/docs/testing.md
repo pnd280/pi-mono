@@ -20,7 +20,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 ### Background and display integration (build phase 3)
 
-- **High, e2e (S1):** Background runs deliver exactly one background result to their owning supervisor while busy, waiting, idle, or settling in print/JSON mode; idle delivery uses prepared model context. In RPC, print, and JSON modes, a waiting supervisor continues after the first result while slower tasks run.
+- **High, e2e (S1):** Background runs deliver exactly one background result to their owning supervisor while busy, waiting, idle, or settling in print/JSON mode; idle delivery uses prepared model context. In RPC, print, and JSON modes, a waiting supervisor continues after the first result while slower tasks run. In print and JSON modes, a result that is ready when the final reply fails without recovery still reaches the model.
 - **High, e2e (S2):** [Promotion](../GLOSSARY.md#tasks-and-processes) of foreground work releases the call and preserves the task across turn abort. The call reports work before it returns; the delivered background result adds only the late usage.
 - **High, e2e (S3):** Descendants respect configured depth and whole-tree capacity. Full nested launches fail immediately, and failed or exited subtree slots let the top-level FIFO continue.
 - **High, e2e (S4):** A child's final result reaches its supervisor only after its background descendants finish and their results reach the child, also after a final error without retry.
@@ -35,7 +35,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 ### Background jobs
 
-- **High, e2e (J1):** A [job](../GLOSSARY.md#tasks-and-processes) delivers exactly one [background result](../GLOSSARY.md#results) to its supervisor when the supervisor is busy, idle, or settling after an abort. The supervisor settles while a job runs. A timeout gives a `failed` result. After compaction, the reminder keeps the job IDs in model context.
+- **High, e2e (J1):** A [job](../GLOSSARY.md#tasks-and-processes) delivers exactly one [background result](../GLOSSARY.md#results) to its supervisor when the supervisor is busy, idle, or settling after an abort. The supervisor settles while a job runs. A timeout gives a `failed` result. After compaction, the reminder keeps the job IDs in model context. A result that arrives during a turn with tool calls follows the configured [delivery timing](../README.md#background-tasks) within the same run.
 - **High, e2e (J2):** `job_abort` stops the whole process group of an owned active job and delivers no separate result. It rejects unknown and inactive jobs. A turn abort leaves jobs running. Tree navigation, fork, session switch, reload, graceful exit, and the end of a print, JSON, or child run leave no process of the job's process group.
 - **High, e2e (J3):** The jobs on the selected ancestry come from the `job` and `job-end` entries. A job without an end entry shows as cancelled after a restart.
 - **Critical, e2e (J4):** `job` uses the `shellPath` and `shellCommandPrefix` settings. When another extension owns `bash`, `job` and `job_abort` are hidden.

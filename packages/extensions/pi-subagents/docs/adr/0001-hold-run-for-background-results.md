@@ -4,7 +4,7 @@
 
 A supervisor that went idle received each background result through `wakeIdle()`, a workaround for [Pi issue #5581](https://github.com/earendil-works/pi/issues/5581) that added a synthetic user message to the transcript in Pi 1.0.2. To deliver results within the prepared run instead, the `agent_end` handler waits after a `stop` or `toolUse` reply until the first direct background task finishes, new input arrives, the run is aborted, or no background task remains; ready results then continue the same prepared run. This applies in all modes and at all depths.
 
-Results remain in the delivery component until `agent_before_settle`, which publishes them with `sendMessage(message, { triggerTurn: false })` and returns `continue: true`. Pi flushes these custom messages before continuation, so the transcript receives their message events. A follow-up queued in `agent_end` can remain unconsumed after an abort. If an abort skips the settlement boundary, delivery retains the result for the idle handoff at `agent_settled`.
+Results still pending when the `agent_end` wait ends remain in the delivery component until `agent_before_settle`, which publishes them with `sendMessage(message, { triggerTurn: false })` and returns `continue: true`. Pi flushes these custom messages before continuation, so the transcript receives their message events. A follow-up queued in `agent_end` can remain unconsumed after an abort. If an abort skips the settlement boundary, delivery retains the result for the idle handoff at `agent_settled`. Earlier delivery while the supervisor is busy follows [ADR 0006](0006-deliver-background-results-at-turn-end.md).
 
 ## Considered options
 

@@ -8,7 +8,7 @@ Use only public Pi APIs and RPC; the one exception is the [late-usage](GLOSSARY.
 - `ChildRun` spawns Pi, owns the RPC connection and timers, and stops the process tree directly, without a transport port. See [ADR 0004](docs/adr/0004-no-child-transport-seam.md).
 - Keep entry identifiers in `src/constants.ts`, shared by readers and writers.
 - Preserve the [supervisor](GLOSSARY.md#tasks-and-processes)'s project-trust decision, and pass only the explicitly selected child arguments.
-- Before changing when [background results](GLOSSARY.md#results) are delivered, read [ADR 0001](docs/adr/0001-hold-run-for-background-results.md), and for [jobs](GLOSSARY.md#tasks-and-processes), [ADR 0005](docs/adr/0005-background-jobs.md).
+- Before changing when [background results](GLOSSARY.md#results) are delivered, read [ADR 0001](docs/adr/0001-hold-run-for-background-results.md) and [ADR 0006](docs/adr/0006-deliver-background-results-at-turn-end.md), and for [jobs](GLOSSARY.md#tasks-and-processes), [ADR 0005](docs/adr/0005-background-jobs.md).
 - Hold [capacity](GLOSSARY.md#tasks-and-processes) until a child exits, including during forced shutdown. Claim inactive tasks before waiting for capacity to prevent concurrent resumes.
 - Claim a live connection before sending input; retry only when no prompt was sent.
 - A task keeps one [child file](GLOSSARY.md#history). Only a child holding the task's [writer lease](GLOSSARY.md#history) writes it; readers keep it in memory and never repair it. See [ADR 0003](docs/adr/0003-keep-task-history-in-child-sessions.md).

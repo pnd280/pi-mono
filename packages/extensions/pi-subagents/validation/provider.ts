@@ -44,7 +44,8 @@ type Call =
       delivery?: "steer" | "follow_up";
     }
   | { tool: "job"; description: string; command: string; timeout?: number }
-  | { tool: "job_abort"; job_id: string };
+  | { tool: "job_abort"; job_id: string }
+  | { tool: "read"; path: string };
 
 /**
  * Fixed job commands; prompt text never becomes a command. They run in the supervisor's working
@@ -163,6 +164,11 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
   if (continuation) return continuation;
   if (scenario === "failure-then-reply")
     return supervisorPlan(completed === 0 ? "delegate-launch-error" : "delegate-reply");
+  // A job, then a tool turn that the model holds until the test creates `run-release`.
+  if (scenario === "job-turn")
+    return completed === 0
+      ? jobPlan("job-barrier")
+      : [{ tool: "read", path: ".pi-subagents-fixture" }];
   if (scenario === "promote-pair")
     return [
       { description: "Promote after usage", prompt: "activity-promote" },
@@ -183,6 +189,7 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     ["background-busy", "finite"],
     ["background-late", "finite-late"],
     ["background-error", "finite"],
+    ["background-busy-error", "finite"],
     ["background-retry", "finite-late"],
     ["background-slow", "slow"],
     ["background-stubborn", "ignore-abort"],
@@ -262,7 +269,7 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
 }
 
 function planCall(call: Call, id: string) {
-  if (call.tool === "job" || call.tool === "job_abort") {
+  if (call.tool === "job" || call.tool === "job_abort" || call.tool === "read") {
     const { tool, ...args } = call;
 
     return fauxToolCall(tool, args, { id });
@@ -277,17 +284,35 @@ function planCall(call: Call, id: string) {
 
 /** Keeps the run busy before a final reply without background results. */
 async function holdFinalReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
-  if (["background-busy", "owner-linger", "owner-linger-abort"].includes(scenario))
+  if (
+    ["background-busy", "background-busy-error", "owner-linger", "owner-linger-abort"].includes(
+      scenario
+    )
+  )
     await setTimeout(3000, undefined, { signal });
-  // Until the test creates the file or aborts the run.
-  if (/^job-\w+-hold$/.test(scenario))
-    while (!existsSync(join(process.cwd(), "run-release")))
-      await setTimeout(25, undefined, { signal });
+  if (/^job-\w+-hold$/.test(scenario)) await runRelease(signal);
+}
+
+/** Keeps the second `job-turn` tool turn busy until the test releases it. */
+async function holdToolTurn(
+  scenario: string,
+  completed: number,
+  signal: AbortSignal | undefined
+): Promise<void> {
+  if (scenario === "job-turn" && completed === 1) await runRelease(signal);
+}
+
+/** Waits until the test creates `run-release` or aborts the run. */
+async function runRelease(signal: AbortSignal | undefined): Promise<void> {
+  while (!existsSync(join(process.cwd(), "run-release")))
+    await setTimeout(25, undefined, { signal });
 }
 
 /** A final reply without results fails: once without retry, or once with a retryable error. */
 function failFinalReply(scenario: string, completions: number): void {
-  if (scenario === "background-error" && !completions) throw new Error("Fixture provider error");
+  // `background-busy-error` fails after its held reply, when the result is already ready.
+  if (["background-error", "background-busy-error"].includes(scenario) && !completions)
+    throw new Error("Fixture provider error");
 
   if (scenario === "background-retry" && !retried) {
     retried = true;
@@ -365,7 +390,7 @@ function createStream(
     const user = context.messages[userIndex];
     const prompt = user?.role === "user" ? contentText(user.content).trim() : "";
     const scenario = idleWake() ? "idle-wake" : prompt;
-    const plannedSteps = scenario === "failure-then-reply" ? 2 : 1;
+    const plannedSteps = ["failure-then-reply", "job-turn"].includes(scenario) ? 2 : 1;
     const activityDelay = ["activity-promote", "activity-digest"].includes(scenario) ? 4000 : 1200;
     const delay = new Map([
       ["finite", 1500],
@@ -425,6 +450,8 @@ function createStream(
 
             return "stop";
           }
+
+          await holdToolTurn(scenario, results.length, signal);
 
           for (const [index, args] of plan.entries()) {
             const call = planCall(args, `fixture-subagent-${userIndex}-${results.length}-${index}`);
