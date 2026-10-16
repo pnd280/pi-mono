@@ -465,6 +465,5 @@ it.each(cases)(
     }
 
     assert.equal(Reflect.get(AgentSession.prototype, "_runDefaultCompaction"), originalSummary);
-  },
-  20000
+  }
 );

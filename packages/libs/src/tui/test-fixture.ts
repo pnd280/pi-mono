@@ -88,12 +88,14 @@ export function createInputHost(mode: TuiMode = "fullscreen") {
       new Promise((resolve, reject) => {
         let closed = false;
         let current: typeof presentation;
+        let overlayHandle: ReturnType<typeof tui.showOverlay> | undefined;
 
         const done = (result: Parameters<Parameters<typeof factory>[3]>[0]) => {
           if (closed) return;
           closed = true;
 
-          if (options?.overlay) tui.hideOverlay();
+          // Pi hides this overlay's own handle, not the topmost overlay.
+          if (options?.overlay) overlayHandle?.hide();
           else {
             dock.clear();
             dock.addChild(editor);
@@ -109,8 +111,10 @@ export function createInputHost(mode: TuiMode = "fullscreen") {
           current = component;
           presentation = component;
 
-          if (options?.overlay) options.onHandle?.(tui.showOverlay(component));
-          else {
+          if (options?.overlay) {
+            overlayHandle = tui.showOverlay(component);
+            options.onHandle?.(overlayHandle);
+          } else {
             dock.clear();
             dock.addChild(component);
             tui.setFocus(component);

@@ -18,7 +18,7 @@ The caller supplies typed, borrowed text and image blocks through `ReadResultVie
 
 Pass the independent native `offset` and `limit`, with omitted fields and explicit `undefined` treated identically. Native fractional and negative windows retain their native slicing arithmetic; selection-coordinate restrictions do not apply to these arguments. A validated native `truncation.outputLines` takes precedence over the requested limit, including zero source lines for a byte-limit diagnostic.
 
-In Pi 1.2.0, an untruncated read with a negative slice end appends a blank line and one continuation-notice line. Both views exclude those two lines from the source limit without matching their prose. An empty slice therefore looks like one empty source line.
+In Pi 1.3.0, an untruncated read with a negative slice end appends a blank line and one continuation-notice line. Both views exclude those two lines from the source limit without matching their prose. An empty slice therefore looks like one empty source line.
 
 The two source views are interpreted on demand, so provenance recognition and notice handling do not join or split source bodies:
 

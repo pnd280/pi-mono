@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.2.0 on Linux with offline suites, a source comparison with Pi 1.0.2, and a one-time SDK probe of the idle wake. Not covered: terminal checks, which last passed on Pi 1.0.2 for card expansion, resizing, and task-view opening; terminal background waits and abort cards; changes to key-release handling, header space, and live titles; physical mouse and image protocols; macOS; Windows; competing [supervisors](../GLOSSARY.md#tasks-and-processes) that resume one [task](../GLOSSARY.md#tasks-and-processes); actual disk exhaustion; live providers.
+> Last verified against Pi 1.3.0 on Linux with offline suites, a source comparison with Pi 1.2.0, and a one-time offline probe of resumed tool loadouts. The SDK probe of the idle wake last ran on Pi 1.2.0; its Pi source is unchanged. Not covered: terminal checks, which last passed on Pi 1.0.2 for card expansion, resizing, and task-view opening; terminal background waits and abort cards; changes to key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; competing [supervisors](../GLOSSARY.md#tasks-and-processes) that resume one [task](../GLOSSARY.md#tasks-and-processes); actual disk exhaustion; live providers.
 
 ## Upgrade procedure
 
@@ -20,6 +20,7 @@ The backend depends on Pi's public lifecycle and RPC ordering, while task owners
 - [ ] `--model provider/id`, `--thinking`, `--session`, `--approve`, and `--no-approve` retain their meanings. Unknown providers fail launch; an unlisted ID under a known provider may reach that provider. Invalid thinking levels warn and use Pi's default. With `--session`, `--model` and `--thinking` replace the selection that Pi restores from the session file.
 - [ ] `get_state` returns the resolved model and the thinking level clamped to it. Assistant `message_end` events carry the physical `provider`, `model`, and Pi `thinkingLevel` of each response, failed virtual-model routing names the virtual model with `stopReason: "error"`, and `thinking_level_changed` reports later level changes.
 - [ ] `new_session` accepts `parentSession`; `set_session_name` names the new session with the task description and rejects blank names; `get_state` returns the full session ID and session-file path. A new session writes no file until Pi persists the first prompt. Resume opens the task's [child file](../GLOSSARY.md#history) with `--session` and checks its session ID before `begin`.
+- [ ] Children receive no `--tools`, so Pi restores a resumed child's tool loadout from its child file instead of the `defaultTools` setting. The package's tools register again at `session_start` and stay active. A recorded tool that the child does not register, such as `subagent` at `maxDepth`, stays inactive. [S3](testing.md#background-and-display-integration) covers both cases.
 - [ ] `clear_queue` followed by `abort` prevents queued input from continuing. Closing stdin disposes the collectors and RPC event stream, then awaits `session_shutdown`; read the final text and statistics before EOF.
 - [ ] Pi awaits `session_shutdown` for session replacement, reload, and graceful exit. Its SIGTERM handler stops its tracked detached commands.
 - [ ] Process depth and logical task identity survive extension reload and session replacement without leaking their environment variables to shell tools.
@@ -90,7 +91,7 @@ The [input and digest cases](testing.md#input-and-transcript-digests) exercise r
 
 ## Replacement opportunities
 
-Pi 1.2.0 has no public API that replaces the only private hook. Extensions still cannot write usage entries, and Pi does not count usage on custom messages.
+Pi 1.3.0 has no public API that replaces the only private hook. Its extension types, extension runner, and session manager are unchanged from Pi 1.2.0, so extensions still cannot write usage entries, and Pi does not count usage on custom messages.
 
 | Private hook                                                                                                      | Features that depend on it                                                                                                | Parity | Public API Pi would need                                                          |
 | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------- |

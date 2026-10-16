@@ -54,7 +54,7 @@ export type AutoCompaction = NativeSession["_runAutoCompaction"];
 
 export type ManualCompaction = AgentSession["compact"];
 
-// Reviewed Pi 1.2.0 API modules and installed bundled CLI, respectively. Never
+// Reviewed Pi 1.3.0 API modules and installed bundled CLI, respectively. Never
 // learn fingerprints from the running host: an unknown implementation must fail closed.
 // Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const fingerprints = [
@@ -104,9 +104,9 @@ export function assertCompatible(
     })
   );
 
-  if (VERSION !== "1.2.0" || !inspected) {
+  if (VERSION !== "1.3.0" || !inspected) {
     throw new Error(
-      "pi-smart-compact requires the inspected Pi 1.2.0 compaction implementation; unsupported version or conflicting runtime patch."
+      "pi-smart-compact requires the inspected Pi 1.3.0 compaction implementation; unsupported version or conflicting runtime patch."
     );
   }
 }

@@ -8,7 +8,7 @@ Compare two file versions without blocking the main thread, within caller-chosen
 
 [`createBoundedPatch`](index.ts) (`@pi-mono/libs/bounded-diff`) asynchronously generates unified patches, normalising CRLF to LF and returning `binary` for NULs.
 
-One shared off-main-thread worker serialises requests. Request timeouts exclude queue wait; startup has a separate deadline. An idle worker does not keep the process alive.
+One shared off-main-thread worker serialises requests. Request timeouts exclude queue wait. Worker startup has a separate 5-second deadline, so a request that starts a worker can wait that long before its own timeout begins. An idle worker does not keep the process alive.
 
 Active and waiting inputs share a bounded accounting budget, not a process-memory bound. Results use these statuses:
 

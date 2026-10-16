@@ -2,7 +2,7 @@
 
 [pi-smart-compact](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.2.0 with offline API and installed-CLI tests. Not covered: interactive progress, **Escape** behaviour, and real-provider summary quality.
+> Last verified against Pi 1.3.0 with a source review of the release changes, unchanged fingerprints, and offline API and installed-CLI tests. Not covered: interactive progress, **Escape** behaviour, and real-provider summary quality.
 
 For maintainers upgrading Pi. Terms used below:
 
@@ -13,7 +13,7 @@ For maintainers upgrading Pi. Terms used below:
 
 ## Supported boundary
 
-At session binding, the [compatibility checks](../src/compatibility.ts) require Pi 1.2.0 and reviewed fingerprints for:
+At session binding, the [compatibility checks](../src/compatibility.ts) require Pi 1.3.0 and reviewed fingerprints for:
 
 - five prototype methods: `_compactBeforeNextAssistantResponse`, `_runAutoCompaction`, `_runDefaultCompaction`, `_appendCustomMessage`, and `compact`;
 - the exported lower-level `compact` implementation.
@@ -162,7 +162,7 @@ These are known gaps. [Replacement opportunities](#replacement-opportunities) li
 | Gap                  | Effect                                                                                                                                                                                                                                                                                                                          |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No public API        | There is no public way to run native compaction and then continue. `ctx.compact()` aborts the current run, and boundary entries would need summaries written by the extension rather than Pi. Replace the private patches if Pi adds a public API with the same lifecycle guarantees.                                           |
-| `manual` reason      | Passing `manual` is outside `_runAutoCompaction`'s declared contract, which expects automatic reasons only. Native failure text may still say `Auto-compaction failed` (observed in Pi 0.99.2, still in the Pi 1.2.0 source). The outcome message removes that misleading prefix.                                               |
+| `manual` reason      | Passing `manual` is outside `_runAutoCompaction`'s declared contract, which expects automatic reasons only. Native failure text may still say `Auto-compaction failed` (observed in Pi 0.99.2, still in the Pi 1.3.0 source). The outcome message removes that misleading prefix.                                               |
 | Acknowledgement only | The tool result confirms only that compaction was scheduled. A separate `pi-smart-compact.result` message records skipped attempts and the cancellations or failures Pi reports. Unexpected exceptions can stop continuation, and aborting the whole run prevents it.                                                           |
 | Override scope       | Model and thinking overrides apply to the tool's default summaries, and optionally to manual (`applyToManual`) and automatic (`applyToAuto`) summaries. File focus applies to every route and combines with per-call instructions. Custom handlers receive the combined instructions but control their own requests and output. |
 | Overflow recovery    | Automatic recovery keeps Pi's native preparation and serialisation. `overflow` can mean a recoverable length stop, not only an exceeded context window. Content removed before recovery stays removed if summarisation fails.                                                                                                   |
@@ -172,7 +172,7 @@ These are known gaps. [Replacement opportunities](#replacement-opportunities) li
 
 ## Replacement opportunities
 
-No public API in Pi 1.2.0 keeps all the features of any private hook below, so every hook stays. `ctx.compact()` still aborts the run, `session_before_compact` can cancel or replace a summary but can't change its instructions or model, and `compaction.modelOverrides` sets only token budgets.
+No public API in Pi 1.3.0 keeps all the features of any private hook below, so every hook stays. `ctx.compact()` still aborts the run, `session_before_compact` can cancel or replace a summary but can't change its instructions or model, and `compaction.modelOverrides` sets only token budgets.
 
 | Private hook                                                                        | Features that depend on it                                                                 | Parity  | Public API Pi would need                                                                                            |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------- |

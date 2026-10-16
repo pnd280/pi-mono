@@ -2,7 +2,7 @@
 
 [pi-model-prompt](../README.md)
 
-> Last verified against Pi 1.2.0 (package checks and offline host tests; no runtime changes needed; idle `sendMessage(..., { triggerTurn: true })` runs now also get the model's replacement). Not covered: live providers and manual checks.
+> Last verified against Pi 1.3.0 (package checks and offline host tests; resource loader, system prompt, and extension runner unchanged; the new `--model` provider resolution only changes which model `ctx.model` reports; no runtime changes needed). Not covered: live providers and manual checks.
 
 ## Upgrade procedure
 

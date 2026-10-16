@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it } from "vite-plus/test";
 
 import { CALL_TYPE, parseWriterRecord, WRITER_TYPE } from "../src/transcript/metadata.ts";
@@ -18,7 +19,7 @@ it("runs fixed plans through the installed CLI and resumes without replaying mut
     const run = async (prompt: string) => {
       const execution = promisify(execFile)(launch.command, [...launch.args, "--print", prompt], {
         ...launch.options,
-        timeout: 15000
+        timeout: STEP_TIMEOUT_MS
       });
       execution.child.stdin?.end();
       const { stdout, stderr } = await execution;
@@ -99,4 +100,4 @@ it("runs fixed plans through the installed CLI and resumes without replaying mut
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-}, 45000);
+});

@@ -148,4 +148,4 @@ it("recognizes discovered MCP tools with normalized and colliding names without 
     vi.unstubAllEnvs();
     await rm(directory, { recursive: true, force: true });
   }
-}, 20000);
+});

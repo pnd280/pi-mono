@@ -3,6 +3,7 @@ import { access, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { it } from "vite-plus/test";
 
 import { createWorkspace, launch } from "./workspace.ts";
@@ -29,7 +30,7 @@ it.concurrent("keeps feature registration and storage passive in the installed C
     const execution = promisify(execFile)(
       command.command,
       [...command.args, "-e", extension, "--print", "/fixture-verify"],
-      { ...command.options, timeout: 15000 }
+      { ...command.options, timeout: STEP_TIMEOUT_MS }
     );
     execution.child.stdin?.end();
     const { stdout, stderr } = await execution;
@@ -40,7 +41,7 @@ it.concurrent("keeps feature registration and storage passive in the installed C
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-}, 20000);
+});
 
 it.concurrent("processes large collections through the installed CLI and exits with an idle worker", async ({
   expect
@@ -76,7 +77,7 @@ it.concurrent("processes large collections through the installed CLI and exits w
     const execution = promisify(execFile)(
       command.command,
       [...command.args, "-e", extension, "--print", "/fixture-worker"],
-      { ...command.options, timeout: 15000 }
+      { ...command.options, timeout: STEP_TIMEOUT_MS }
     );
     execution.child.stdin?.end();
     const { stdout, stderr } = await execution;
@@ -84,4 +85,4 @@ it.concurrent("processes large collections through the installed CLI and exits w
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-}, 20000);
+});

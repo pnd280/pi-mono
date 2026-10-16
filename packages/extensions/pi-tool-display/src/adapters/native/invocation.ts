@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { InvocationPart, SummaryItem, ToolFamily } from "../../contracts.ts";
 import { invocationParts, resolveInvocationPath } from "../../invocation.ts";
 
-/** Pi 1.2.0 replaces these spaces before lexical path resolution. Its helper is
+/** Pi 1.3.0 replaces these spaces before lexical path resolution. Its helper is
  * not publicly exported by coding-agent; keep this native policy out of custom paths and filters.
  */
 export function normalizeNativePathSpaces(path: string): string {

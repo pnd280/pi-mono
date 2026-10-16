@@ -5,9 +5,17 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import {
+  createPiLaunch,
+  createValidationWorkspace,
+  STEP_TIMEOUT_MS
+} from "@pi-mono/libs/validation/pi-process";
 import { it } from "vite-plus/test";
 import { z } from "zod";
+
+// Only host cancellation or the 15 s title deadline in `src/auto-title/generate.ts` releases a
+// stalled title. A pending row must exit before that deadline, so its limit stays below 15 s.
+const pendingExitMs = 14_000;
 
 // Each row owns its workspace and process, so the CLI launches can overlap.
 it.concurrent.for([
@@ -17,8 +25,7 @@ it.concurrent.for([
   { mode: "json", prompt: "stall-title", name: undefined, state: "pending" }
 ])(
   "keeps $mode output clean and exits with $state naming",
-  { timeout: 10_000 },
-  async ({ mode, prompt, name }, { expect }) => {
+  async ({ mode, prompt, name, state }, { expect }) => {
     const directory = await createValidationWorkspace("pi-session-utils-auto-title-process-");
     const sessionPath = join(directory, "session.jsonl");
 
@@ -60,7 +67,7 @@ it.concurrent.for([
       });
       const execution = promisify(execFile)(launch.command, launch.args, {
         ...launch.options,
-        timeout: 8_000
+        timeout: state === "pending" ? pendingExitMs : STEP_TIMEOUT_MS
       });
       execution.child.stdin?.end();
       const { stdout, stderr } = await execution;

@@ -10,7 +10,7 @@ Based on OpenCode v2 at [`39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49`](https://git
 - [Session instructions](https://github.com/anomalyco/opencode/blob/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49/packages/core/src/session/instructions.ts) records synthetic instruction messages and deduplicates against surviving context.
 - [v2 instructions documentation](https://github.com/anomalyco/opencode/blob/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49/services/www/src/docs/content/instructions.mdx) distinguishes ambient instructions from nested snapshots.
 
-Pi 1.2.0 is the host reference. Pi's startup loading, filename priority, broad-to-narrow ordering, and explicit reload behaviour take precedence. OpenCode's ambient watcher and startup search are not ported.
+Pi 1.3.0 is the host reference. Pi's startup loading, filename priority, broad-to-narrow ordering, and explicit reload behaviour take precedence. OpenCode's ambient watcher and startup search are not ported.
 
 FFF adapters reference [pi-fff source](https://github.com/dmtrKovalenko/fff/tree/89c19270ea2dfc20829a7429f72022571558093e/packages/pi-fff/src) at `89c19270ea2dfc20829a7429f72022571558093e`. Source schemas, rather than abbreviated README parameters, define the inputs.
 

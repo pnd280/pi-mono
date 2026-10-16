@@ -2,7 +2,7 @@
 
 [pi-null-args](../README.md)
 
-> Last verified against Pi 1.2.0 (offline host test). Not covered: live providers.
+> Last verified against Pi 1.3.0 (offline host test; source check that agent-core still validates after `message_end` and that the handler keeps the new `argumentsError` field, which Pi sets with empty arguments for malformed JSON; no runtime changes needed). Not covered: live providers, including their malformed-argument and `\u` escape repair paths.
 
 ## Upgrade procedure
 

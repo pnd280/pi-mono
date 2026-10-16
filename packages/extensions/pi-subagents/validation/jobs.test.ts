@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { contentText } from "@earendil-works/pi-ai";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
@@ -93,7 +94,7 @@ async function release(directory: string, name: "job-release" | "run-release") {
 
 /** The process group of the `group` fixture job, which holds its shell and two sleeps. */
 async function jobGroup(directory: string): Promise<number> {
-  for (let index = 0; index < 400; index++) {
+  for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
     const text = (
       await readFile(join(directory, "work", "job-group"), "utf8").catch(() => "")
     ).trim();
@@ -117,7 +118,8 @@ function groupAlive(group: number): boolean {
 
 /** Checked before `Supervisor.stop()`, which can force-kill the supervisor and hide a leak. */
 async function groupGone(group: number): Promise<boolean> {
-  for (let index = 0; index < 400 && groupAlive(group); index++) await setTimeout(25);
+  for (let index = 0; index < STEP_TIMEOUT_MS / 25 && groupAlive(group); index++)
+    await setTimeout(25);
 
   return !groupAlive(group);
 }
@@ -159,7 +161,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
         job.job_id
       );
     });
-  }, 30_000);
+  });
 
   test.each(["busy", "settling after an abort"])(
     "J1: delivers one job result while %s",
@@ -188,8 +190,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
 
         expect(await host.jobResults()).toHaveLength(1);
       });
-    },
-    30_000
+    }
   );
 
   test.each(["turn_end", "settle"] as const)(
@@ -232,8 +233,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
         },
         { settings: { "ext.pi-subagents": { jobs: true, resultDelivery } } }
       );
-    },
-    30_000
+    }
   );
 
   test("J1: delivers a timed-out job as failed", async () => {
@@ -250,7 +250,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
         exit_code: null
       });
     });
-  }, 30_000);
+  });
 
   test("J2: a turn abort leaves a job running; job_abort stops its process group without a result", async () => {
     await withJobs(async (directory, start) => {
@@ -284,7 +284,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
         "Unknown job"
       );
     });
-  }, 30_000);
+  });
 
   test.each(["tree", "fork", "switch", "reload", "graceful exit"])(
     "J2: %s stops the job's process group without a result",
@@ -315,8 +315,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
         expect(await groupGone(group)).toBe(true);
         expect(host.records.some(isJobResult)).toBe(false);
       });
-    },
-    30_000
+    }
   );
 
   test("J2: a child's exit stops its job's process group", async () => {
@@ -330,7 +329,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
       expect(detailsSchema.parse((await host.results()).at(-1)?.details).state).toBe("completed");
       expect(await groupGone(group)).toBe(true);
     });
-  }, 30_000);
+  });
 
   test.each(["print", "json"])(
     "J2: %s mode stops the job's process group at exit",
@@ -347,7 +346,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
             ...(mode === "json" ? ["--mode", "json"] : []),
             "job-group-hold"
           ],
-          { ...launch.options, timeout: 15000 }
+          { ...launch.options, timeout: STEP_TIMEOUT_MS }
         );
         child.child.stdin?.end();
         // The run ends only after the job has written its group.
@@ -361,8 +360,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
         await killFixtureProcesses(directory);
         await rm(directory, { recursive: true, force: true });
       }
-    },
-    30_000
+    }
   );
 
   test("J3: restores jobs on the selected ancestry, and a job without an end entry as cancelled", async () => {
@@ -410,7 +408,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
         )
       ).toEqual([]);
     });
-  }, 40_000);
+  });
 
   test("J4: runs jobs with the shell path and command prefix", async () => {
     await withJobs(async (directory, start) => {
@@ -440,7 +438,7 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
         "shell-applied prefix-applied"
       );
     });
-  }, 30_000);
+  });
 
   test("J4: hides job tools when another extension owns bash", async () => {
     await withJobs(
@@ -460,5 +458,5 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
       },
       { extensions: [fileURLToPath(new URL("./foreign-bash.ts", import.meta.url))] }
     );
-  }, 30_000);
+  });
 });

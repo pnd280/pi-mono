@@ -2,6 +2,7 @@ import { rm } from "node:fs/promises";
 
 import { contentText } from "@earendil-works/pi-ai";
 import type { FileEntry } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, type ExpectStatic } from "vite-plus/test";
 import { z } from "zod";
 
@@ -116,7 +117,7 @@ export async function taskList(host: Supervisor) {
 export async function descendantStarted(host: Supervisor, expect: ExpectStatic): Promise<void> {
   await expect
     .poll(async () => (await taskList(host)).some((task) => task.parent_task_id !== null), {
-      timeout: 10_000,
+      timeout: STEP_TIMEOUT_MS,
       interval: 25
     })
     .toBe(true);

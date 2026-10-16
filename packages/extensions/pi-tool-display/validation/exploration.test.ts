@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it } from "vite-plus/test";
 
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
@@ -19,7 +20,7 @@ it("executes native reads, a missing-file failure, and an image through the inst
       [...launch.args, "--print", "exceptions"],
       {
         ...launch.options,
-        timeout: 15000
+        timeout: STEP_TIMEOUT_MS
       }
     );
     execution.child.stdin?.end();
@@ -42,4 +43,4 @@ it("executes native reads, a missing-file failure, and an image through the inst
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-}, 20000);
+});

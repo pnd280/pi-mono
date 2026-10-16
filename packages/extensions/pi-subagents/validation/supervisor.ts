@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 
 import type { RpcCommand, RpcExtensionUIRequest } from "@earendil-works/pi-coding-agent";
-import { createPiLaunch } from "@pi-mono/libs/validation/pi-process";
+import { createPiLaunch, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 
 import { ChildConnection, type RpcRecord } from "../src/child/connection.ts";
 import { processOptions } from "../src/child/platform.ts";
@@ -144,7 +144,7 @@ export class Supervisor {
         reject(
           new Error(`Timed out waiting for supervisor event; stderr: ${this.connection.stderrTail}`)
         );
-      }, 15_000);
+      }, STEP_TIMEOUT_MS);
       const unsubscribe = this.connection.subscribe((record) => {
         if (!predicate(record)) return;
         clearTimeout(timer);
@@ -161,7 +161,7 @@ export class Supervisor {
 
   async stop(): Promise<void> {
     this.connection.closeInput();
-    const timer = setTimeout(() => this.connection.process.kill("SIGKILL"), 30_000);
+    const timer = setTimeout(() => this.connection.process.kill("SIGKILL"), STEP_TIMEOUT_MS);
 
     try {
       await this.connection.closed;

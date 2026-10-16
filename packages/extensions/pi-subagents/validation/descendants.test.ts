@@ -3,6 +3,7 @@ import { setTimeout } from "node:timers/promises";
 
 import { contentText } from "@earendil-works/pi-ai";
 import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
@@ -13,7 +14,8 @@ import {
   descendantStarted,
   expectChildUsageOnce,
   fixture,
-  taskList
+  taskList,
+  withFixture
 } from "./background-fixture.ts";
 import { fixtureProcesses, killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
@@ -43,7 +45,7 @@ test("delivers background results in a child after a final error without retry",
     expect(detailsSchema.parse(result.details).state).toBe("completed");
     expect(contentText(result.content)).toContain("background results 1");
   });
-}, 30_000);
+});
 
 test("settles a child only after its background grandchild result is consumed", async () => {
   await fixture(async (host) => {
@@ -75,7 +77,7 @@ test("settles a child only after its background grandchild result is consumed", 
       cost: 0.004
     });
   });
-}, 30_000);
+});
 
 test("rejects nested capacity immediately and observes registration depth", async () => {
   await fixture(async (host) => {
@@ -97,7 +99,7 @@ test("rejects nested capacity immediately and observes registration depth", asyn
     expect(recovered).toContain("Fixture reply");
     expect(recovered).not.toContain("capacity reached");
   }, 2);
-}, 30_000);
+});
 
 test("retains the child depth limit after reloading extensions", async () => {
   const directory = await createFixtureWorkspace();
@@ -118,11 +120,32 @@ test("retains the child depth limit after reloading extensions", async () => {
     await rm(directory, { recursive: true, force: true });
     expect(leaked).toEqual([]);
   }
-}, 30_000);
+});
+
+test("retains the child depth limit when a child session resumes", async () => {
+  await withFixture(async (_directory, start) => {
+    const subagentTools = async (host: Supervisor) => {
+      await host.prompt("report-subagent-tools");
+      const response = await host.request({ type: "get_last_assistant_text" });
+
+      return response.command === "get_last_assistant_text" ? response.data.text : "";
+    };
+
+    const first = await start({ depth: 1 });
+    expect(await subagentTools(first)).toBe("subagent tools: true true");
+    const { sessionId } = await first.state();
+    await first.stop();
+    // Children resume with `--session` and no `--tools`, so Pi restores the recorded tools.
+    const below = await start({ sessionId, depth: 1 });
+    expect(await subagentTools(below)).toBe("subagent tools: true true");
+    await below.stop();
+    const atLimit = await start({ sessionId, depth: 2 });
+    expect(await subagentTools(atLimit)).toBe("subagent tools: false false");
+  });
+});
 
 test.for(["user abort", "turn abort", "shutdown", "SIGKILL", "blocked shutdown"])(
   "stops a settling subtree on %s",
-  { timeout: 30_000 },
   async (action, { expect }) => {
     await fixture(async (host, directory) => {
       const work = host
@@ -136,10 +159,11 @@ test.for(["user abort", "turn abort", "shutdown", "SIGKILL", "blocked shutdown"]
 
       if (action === "blocked shutdown" || action === "turn abort") {
         // Wait until the grandchild has started its shutdown-blocking scenario.
-        for (let index = 0; index < 200; index++) {
+        for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
           const processes = await remainingProcesses(directory, 0);
           if (processes.some((process) => process.command.includes("sleep 600"))) break;
-          if (index === 199) throw new Error("Stubborn descendant did not start");
+          if (index === STEP_TIMEOUT_MS / 25 - 1)
+            throw new Error("Stubborn descendant did not start");
           await setTimeout(25);
         }
       }
@@ -213,7 +237,7 @@ test("routes nested dialogs and reconstructs descendant ownership after restart"
       await resumed.stop();
     }
   });
-}, 30_000);
+});
 
 test("keeps earlier descendants and shows no starting descendant as stopped while its owner runs", async ({
   expect
@@ -278,7 +302,7 @@ test("keeps earlier descendants and shows no starting descendant as stopped whil
     4,
     3
   );
-}, 30_000);
+});
 
 test("routes promotion to the owner and frees subtree capacity for queued top-level work", async ({
   expect
@@ -320,4 +344,4 @@ test("routes promotion to the owner and frees subtree capacity for queued top-le
     expect(records.tasks).toHaveLength(3);
     expect(records.tasks.every((task) => task.state === "inactive")).toBe(true);
   }, 2);
-}, 30_000);
+});

@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 
 import { contentText } from "@earendil-works/pi-ai";
 import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest } from "vite-plus/test";
 
 import { RESULT_MESSAGE } from "../src/constants.ts";
@@ -41,7 +42,7 @@ test.each([
           `${directory}/supervisor.jsonl`,
           scenario
         ],
-        { ...launch.options, timeout: 15000 }
+        { ...launch.options, timeout: STEP_TIMEOUT_MS }
       );
       child.child.stdin?.end();
       const { stdout } = await child;
@@ -70,6 +71,5 @@ test.each([
       await killFixtureProcesses(directory);
       await rm(directory, { recursive: true, force: true });
     }
-  },
-  30_000
+  }
 );

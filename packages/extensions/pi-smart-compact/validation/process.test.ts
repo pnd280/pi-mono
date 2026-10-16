@@ -6,7 +6,11 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import {
+  createPiLaunch,
+  createValidationWorkspace,
+  STEP_TIMEOUT_MS
+} from "@pi-mono/libs/validation/pi-process";
 import { it } from "vite-plus/test";
 import { z } from "zod";
 
@@ -532,7 +536,7 @@ it.concurrent.each(toolCases)(
       });
       const child = promisify(execFile)(launch.command, launch.args, {
         ...launch.options,
-        timeout: 15000,
+        timeout: STEP_TIMEOUT_MS,
         maxBuffer: 2 * 1024 * 1024
       });
       child.child.stdin?.end();
@@ -603,8 +607,7 @@ it.concurrent.each(toolCases)(
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
-  },
-  20000
+  }
 );
 
 // The SDK suite covers routing flags; these rows prove the bundled CLI routes credentials.
@@ -665,7 +668,7 @@ it.concurrent.each([
       });
       const child = promisify(execFile)(launch.command, launch.args, {
         ...launch.options,
-        timeout: 15000,
+        timeout: STEP_TIMEOUT_MS,
         maxBuffer: 2 * 1024 * 1024
       });
       child.child.stdin?.end();
@@ -713,6 +716,5 @@ it.concurrent.each([
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
-  },
-  20000
+  }
 );

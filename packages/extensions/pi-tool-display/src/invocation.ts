@@ -2,19 +2,12 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { formatReadLineRange } from "@earendil-works/pi-coding-agent";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { expandHomePath, relativeDisplayPath } from "@pi-mono/utils/paths";
 
 import type { ToolFamily, InvocationPart } from "./contracts.ts";
 import { record } from "./values.ts";
-
-function readRange(args: Record<string, unknown>): string {
-  if (args.offset === undefined && args.limit === undefined) return "";
-  const offset = typeof args.offset === "number" ? args.offset : 1;
-  const end = typeof args.limit === "number" ? `-${offset + args.limit - 1}` : "";
-
-  return `:${offset}${end}`;
-}
 
 const value = (text: string): InvocationPart => ({ kind: "value", text });
 const annotation = (text: string): InvocationPart => ({ kind: "annotation", text });
@@ -230,7 +223,10 @@ export function invocationParts(
     case "list":
       return [target(path || ".")];
     case "read":
-      return [path ? target(path) : annotation("…"), { kind: "range", text: readRange(args) }];
+      return [
+        path ? target(path) : annotation("…"),
+        { kind: "range", text: formatReadLineRange(args.offset, args.limit) }
+      ];
     case "edit":
     case "write":
       return [path ? target(path) : annotation("…")];

@@ -177,7 +177,7 @@ test("pages tool summaries on the selected ancestry once without modifying the c
     await rm(directory, { recursive: true, force: true });
     expect(leaked).toEqual([]);
   }
-}, 40_000);
+});
 
 test("returns the latest assistant text after an abort during a tool call", async ({ expect }) => {
   const directory = await createFixtureWorkspace();
@@ -201,8 +201,8 @@ test("returns the latest assistant text after an abort during a tool call", asyn
         ? [{ id: entry.id, message: entry.message }]
         : []
     );
-    // Pi 1.0.2 and 1.2.0 request one more response after the aborted tool and record it as an
-    // empty error. Without that message, this test does not cover the skip.
+    // Pi 1.0.2, 1.2.0, and 1.3.0 request one more response after the aborted tool and record it
+    // as an empty error. Without that message, this test does not cover the skip.
     expect(assistants.map(({ message }) => [message.stopReason, message.content.length])).toEqual([
       ["toolUse", 2],
       ["error", 0]
@@ -220,4 +220,4 @@ test("returns the latest assistant text after an abort during a tool call", asyn
     await rm(directory, { recursive: true, force: true });
     expect(leaked).toEqual([]);
   }
-}, 40_000);
+});

@@ -2,7 +2,7 @@
 
 [pi-abort-guard](../README.md)
 
-> Last verified against Pi 1.2.0 (package checks, a source review of the installed interactive mode, and a temporary offline host run of hold, expiry, abort, and idle presses, with the hint replacing and then restoring another extension's working message). Not covered: a physical terminal, dialogs during a run, and compaction or retry presses.
+> Last verified against Pi 1.3.0 (package checks and a source review: against Pi 1.2.0, the custom editor, keybindings, extension runner, and session idle state are unchanged, the bundled editor-replacement code is identical, and interactive mode changes only the overlay close path and the `/share` destination setting). Not covered: an offline host run, a physical terminal, dialogs during a run, and compaction or retry presses.
 
 ## Upgrade procedure
 

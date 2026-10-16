@@ -532,9 +532,16 @@ function createStream(
           return "stop";
         }
 
-        if (scenario === "report-job-tools") {
+        const reported = new Map([
+          ["report-subagent-tools", "subagent"],
+          ["report-job-tools", "job"]
+        ]).get(scenario);
+
+        if (reported) {
           const names = getCurrentTools(context.messages).map((tool) => tool.name);
-          text(`job tools: ${names.includes("job")} ${names.includes("job_abort")}`);
+          text(
+            `${reported} tools: ${names.includes(reported)} ${names.includes(`${reported}_abort`)}`
+          );
 
           return "stop";
         }

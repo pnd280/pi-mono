@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.2.0 (package checks and offline tests, with the native-tools consumers in tool display and agent summary, the shortcut consumers in todo and prompt manager, and refreshed native-construction fingerprints for `_refreshToolRegistry` in the API and bundled CLI). Not covered: live-provider schema acceptance, platform-specific checks, and terminal checks of literal-plus shortcuts and of the browser search cursor with `showHardwareCursor`.
+> Last verified against Pi 1.3.0 (package checks and offline tests, with the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager; source diffs against 1.2.0: unchanged native-construction fingerprints, unchanged extension types and pi-tui, and native observation independent of the new transcript tool-loadout restoration on resume; the custom-UI fixtures now hide only their own overlay handle, as Pi 1.3.0 does, so responsive custom UI no longer defers `done()` until its overlay mounts). Not covered: live-provider schema acceptance, platform-specific checks, a resumed session with tool modifiers and native observation, and terminal checks of overlay closure, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
 
 ## Upgrade procedure
 
@@ -53,7 +53,7 @@ Check both API and installed-CLI consumers wherever a library depends on Pi's ho
 
 ## Limitations
 
-These private dependencies could be replaced by public Pi APIs:
+These private dependencies could be replaced by public Pi APIs. Pi 1.3.0 adds none: its extension types, extension and TUI docs, and pi-tui are unchanged from 1.2.0.
 
 - Replace the [private native-observation hooks](../src/native-tools/compatibility.ts) when Pi offers public native-observation APIs, and validate both the display and summary consumers.
 - Replace private fullscreen routing when a public API offers input priority scoped to focus. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.

@@ -6,7 +6,8 @@ import { promisify } from "node:util";
 
 import {
   createValidationWorkspace,
-  resolvePiExecutable
+  resolvePiExecutable,
+  STEP_TIMEOUT_MS
 } from "@pi-mono/libs/validation/pi-process";
 import { expect, it } from "vite-plus/test";
 
@@ -69,10 +70,10 @@ it("recognizes native construction through the installed pi executable, not just
           const proseRestored = !prose.render(80).join(" ").includes("•") && prose.render(80).join(" ").includes("Retained prose");
           const selectiveReadRecognized = piSelectiveReadAdapter(pi.getAllTools().find(tool => tool.name === "read"))?.id === "pi-read:read";
           const patch = await createBoundedPatch({ path: "file", before: "before\\n", after: "after\\n", maxSourceBytes: 1024, maxPatchBytes: 1024, maxEditLength: 2000, timeoutMs: 1000, contextLines: 4 });
-          const generatedPatch = patch.status === "ready";
+          const patchStatus = patch.status;
           const modeHooks = modeHooksCompatible(interactivePrototype());
           const rowContract = rowContractCompatible();
-          process.stdout.write(JSON.stringify({ recognized, restored, thinkingLive, suppressed, revealed, thinkingBoundary, thinkingRestored, proseMarked, proseBoundary, proseRestored, selectiveReadRecognized, generatedPatch, modeHooks, rowContract }) + "\\n");
+          process.stdout.write(JSON.stringify({ recognized, restored, thinkingLive, suppressed, revealed, thinkingBoundary, thinkingRestored, proseMarked, proseBoundary, proseRestored, selectiveReadRecognized, patchStatus, modeHooks, rowContract }) + "\\n");
         } });
       }
     `
@@ -102,7 +103,7 @@ it("recognizes native construction through the installed pi executable, not just
           TMPDIR: join(directory, "tmp"),
           PI_OFFLINE: "1"
         },
-        timeout: 15_000
+        timeout: STEP_TIMEOUT_MS
       }
     );
     execution.child.stdin?.end();
@@ -122,11 +123,11 @@ it("recognizes native construction through the installed pi executable, not just
       proseBoundary: "run",
       proseRestored: true,
       selectiveReadRecognized: true,
-      generatedPatch: true,
+      patchStatus: "ready",
       modeHooks: true,
       rowContract: true
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-}, 20_000);
+});

@@ -1,6 +1,7 @@
 import { parsePatch } from "@pi-mono/utils/patch";
 import { expect, it } from "vite-plus/test";
 
+import { STEP_TIMEOUT_MS } from "../validation/pi-process/index.ts";
 import { createBoundedPatch, type BoundedPatchOptions } from "./index.ts";
 
 const budgets = {
@@ -33,8 +34,8 @@ it("survives worker heap exhaustion and starts a healthy worker for the next req
   const before = "a\n".repeat(2_000_000) + "before\n";
   const exhausted = change(before, before.replace("before\n", "after\n"), {
     maxSourceBytes: 8 * 1024 * 1024,
-    // Give the worker enough time to hit its heap limit instead of the 50 ms deadline.
-    timeoutMs: 5000
+    // Give the worker enough time to hit its heap limit, even under suite load.
+    timeoutMs: STEP_TIMEOUT_MS
   });
   const queued = change("before", "after", { timeoutMs: 50 });
   expect(await exhausted).toEqual({ status: "worker-failed" });

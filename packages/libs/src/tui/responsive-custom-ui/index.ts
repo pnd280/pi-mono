@@ -62,27 +62,21 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
         remount: false,
         nextOverlay: overlay
       };
-      let mounted = !overlay;
-      let pendingClose = false;
       let settled = false;
       let focused = false;
       let routing: ReturnType<typeof fullscreenInputRouting> | undefined;
-
-      let finishMounted = () => {};
 
       await options.ui.custom<void>(
         (tui, theme, keys, done) => {
           const finish = () => {
             routing?.dispose();
-            pendingClose = true;
-            // Pi would pop an unrelated overlay if done() ran before mounting ours.
-            if (!mounted || settled) return;
+            // Safe before mounting: Pi hides only this overlay's own handle and skips a closed mount.
+            if (settled) return;
             settled = true;
             done();
           };
 
           finishPresentation = finish;
-          finishMounted = finish;
           view ??= options.create(tui, theme, keys, close);
           const currentView = view;
           if (currentView.ownsFullscreenInput && !options.onInputRoutingUnavailable)
@@ -144,7 +138,7 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
             routing = fullscreenInputRouting({
               tui,
               presentation: adapter,
-              eligible: () => mounted && !overlay && !settled && !closed && !presentation.remount,
+              eligible: () => !overlay && !settled && !closed && !presentation.remount,
               owns: (data) => currentView.ownsFullscreenInput?.(data) ?? false,
               onUnavailable: () => {
                 if (reportedUnavailable) return;
@@ -163,12 +157,7 @@ export async function openResponsiveCustomUI(options: ResponsiveCustomUIOptions)
           ...(options.overlayOptions === undefined
             ? {}
             : { overlayOptions: options.overlayOptions }),
-          onHandle: () => {
-            mounted = true;
-            // Retained handles from an older presentation cannot finish its replacement.
-            if (pendingClose) finishMounted();
-            else routing?.reconcile();
-          }
+          onHandle: () => routing?.reconcile()
         }
       );
       routing?.dispose();

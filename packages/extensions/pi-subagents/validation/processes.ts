@@ -1,6 +1,8 @@
 import { readdir, readFile, readlink } from "node:fs/promises";
 import { setTimeout } from "node:timers/promises";
 
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+
 export async function fixtureProcesses(
   directory: string
 ): Promise<{ pid: number; command: string }[]> {
@@ -31,7 +33,7 @@ export async function fixtureProcesses(
   return found.flat();
 }
 
-export async function remainingProcesses(directory: string, timeout = 10_000) {
+export async function remainingProcesses(directory: string, timeout = STEP_TIMEOUT_MS) {
   const deadline = Date.now() + timeout;
   let remaining = await fixtureProcesses(directory);
 

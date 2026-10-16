@@ -19,6 +19,7 @@ import {
   type AgentSession,
   type ExtensionFactory
 } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest, vi } from "vite-plus/test";
 import { z } from "zod";
 
@@ -36,7 +37,7 @@ import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
 const test = caseTest.skipIf(process.platform !== "linux");
-const WAIT_MS = 15_000;
+const WAIT_MS = STEP_TIMEOUT_MS;
 
 async function bounded<T>(promise: Promise<T>, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -348,8 +349,7 @@ test.each(["release then abort", "abort after end", "release after aborted end"]
       completion.release();
       leaveEnd.resolve();
     }
-  },
-  45_000
+  }
 );
 
 // S9/S1: the process has failed, but a held lease release keeps its managed record active.
@@ -446,7 +446,7 @@ test("rejects abort after process exit and retains the real failed completion", 
     releaseLease.resolve();
     abortReady.resolve();
   }
-}, 45_000);
+});
 
 // S9: the owner confirms cancellation, then rejects a stale ancestor's second abort.
 test("confirms descendant cancellation and propagates the owner's inactive error", async () => {
@@ -550,4 +550,4 @@ test("confirms descendant cancellation and propagates the owner's inactive error
     abortTarget.resolve("00000000-0000-0000-0000-000000000000");
     staleTarget.resolve("00000000-0000-0000-0000-000000000000");
   }
-}, 45_000);
+});

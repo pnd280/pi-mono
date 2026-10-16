@@ -9,7 +9,8 @@ export type WorkerResponse = BoundedPatchResult | { status: "online" };
 const MAX_RETAINED_BYTES = 64 * 1024 * 1024;
 // Charge bookkeeping as well as strings so even empty requests have a bounded queue.
 const REQUEST_OVERHEAD_BYTES = 1024;
-const STARTUP_MS = 1000;
+// A loaded machine can take seconds to start a worker; the first request waits for it.
+const STARTUP_MS = 5000;
 const IDLE_MS = 30000;
 
 /** Serializes bounded work across consumers, including independently loaded extensions. */

@@ -2,7 +2,7 @@
 
 [pi-read](../README.md)
 
-> Last verified against Pi 1.2.0 (package checks and native-read tests with a real typed tool context, the display adapter, and the installed-CLI suite; the read tool only adds an output schema and structured content, and a scratch run confirmed both pass through without the preview). Not covered: manual image and appearance checks, and schema checks with live providers.
+> Last verified against Pi 1.3.0 (package checks and native-read tests with a real typed tool context, the display adapter, and the installed-CLI suite; a source diff showed the native read tool, extension types, and runner unchanged from 1.2.0, and only the read range label of Pi's read renderer changed). Not covered: manual image and appearance checks, and schema checks with live providers.
 
 ## Upgrade procedure
 
@@ -44,4 +44,5 @@ Selection previews must preserve native file access, results, and rendering fall
 ## Limitations
 
 - Pi reports a failed image conversion as text, without typed image metadata. The extension recognises Pi's `Read image file [image/` prefix, so a text file that starts with exactly that prefix looks the same. This lasts until Pi exposes a way to tell the results apart.
-- The extension replaces `read`, and [can't run alongside another replacement](../README.md#compatibility). Revisit native selection support, or public decoration APIs, that could remove the replacement while keeping the source and window behaviour and the display integration.
+- The extension replaces `read`, and [can't run alongside another replacement](../README.md#compatibility). Revisit native selection support, or public decoration APIs, that could remove the replacement while keeping the source and window behaviour and the display integration. Pi 1.3.0 adds neither.
+- Pi 1.3.0 exports `formatReadLineRange`, but it formats `:start-end` suffixes, not the clamped "lines" and "from line" labels of the [renderer](../src/render.ts), so the renderer keeps its own window label.

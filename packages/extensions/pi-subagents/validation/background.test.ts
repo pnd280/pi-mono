@@ -58,8 +58,7 @@ test.each([
       2,
       { "ext.pi-subagents": { maxConcurrent: 4, maxDepth: 2, resultDelivery } }
     );
-  },
-  30_000
+  }
 );
 
 test("counts late usage once after reloading extensions", async () => {
@@ -74,7 +73,7 @@ test("counts late usage once after reloading extensions", async () => {
     );
     expectChildUsageOnce(await host.entries(), 1);
   });
-}, 30_000);
+});
 
 test("continues after the first background result while a slower task runs", async () => {
   await fixture(async (host) => {
@@ -94,7 +93,7 @@ test("continues after the first background result while a slower task runs", asy
       )
     ).toHaveLength(2);
   });
-}, 30_000);
+});
 
 test("ends a background wait on abort and delivers the later result when idle", async () => {
   await fixture(async (host) => {
@@ -107,7 +106,7 @@ test("ends a background wait on abort and delivers the later result when idle", 
     await host.wait(replies("Idle continuation prepared: true"), start);
     expectChildUsageOnce(await host.entries(), 1);
   });
-}, 30_000);
+});
 
 test.each(["followUp", "steer"] as const)(
   "processes %s input during a background wait at once",
@@ -126,8 +125,7 @@ test.each(["followUp", "steer"] as const)(
         )
       ).toHaveLength(1);
     });
-  },
-  30_000
+  }
 );
 
 test("retries a failed reply without waiting for background tasks", async () => {
@@ -147,7 +145,7 @@ test("retries a failed reply without waiting for background tasks", async () => 
     2,
     { retry: { enabled: true, maxRetries: 1, baseDelayMs: 10 } }
   );
-}, 30_000);
+});
 
 test("aborts an owned task without its result and resumes it later", async () => {
   await fixture(async (host) => {
@@ -185,7 +183,7 @@ test("aborts an owned task without its result and resumes it later", async () =>
       state: "completed"
     });
   }, 1);
-}, 30_000);
+});
 
 test("promotes foreground work, retains it across turn abort, and counts late usage once", async () => {
   await fixture(async (host) => {
@@ -264,7 +262,7 @@ test("promotes foreground work, retains it across turn abort, and counts late us
     // Supervisor 30 + returned 15 + late 15.
     expect((await host.stats()).tokens.total).toBe(60);
   });
-}, 30_000);
+});
 
 test("keeps direct task identities in context after compaction without a new turn", async () => {
   await fixture(async (host) => {
@@ -285,4 +283,4 @@ test("keeps direct task identities in context after compaction without a new tur
     const text = await host.request({ type: "get_last_assistant_text" });
     expect(text.command === "get_last_assistant_text" ? text.data.text : "").toContain(taskId);
   });
-}, 30_000);
+});

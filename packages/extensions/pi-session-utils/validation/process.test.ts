@@ -6,7 +6,11 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import {
+  createPiLaunch,
+  createValidationWorkspace,
+  STEP_TIMEOUT_MS
+} from "@pi-mono/libs/validation/pi-process";
 import { it, type TestContext } from "vite-plus/test";
 import { z } from "zod";
 
@@ -43,7 +47,7 @@ async function run(directory: string, args: string[]) {
   });
   const execution = promisify(execFile)(launch.command, launch.args, {
     ...launch.options,
-    timeout: 10_000
+    timeout: STEP_TIMEOUT_MS
   });
   execution.child.stdin?.end();
 
@@ -87,7 +91,7 @@ it.concurrent("sets the parent before JSON output, preserves it across reload, a
   expect(firstChild).toBeDefined();
   expect(sessions.some((session) => session.parentSessionPath === firstChild.path)).toBe(true);
   expect(await readFile(parent, "utf8")).toBe(before);
-}, 15_000);
+});
 
 it.concurrent("allows an ephemeral child and retains its parent after /sesh persist", async (context) => {
   const { expect } = context;
@@ -105,7 +109,7 @@ it.concurrent("allows an ephemeral child and retains its parent after /sesh pers
   const sessions = await childSessions(directory);
   expect(sessions).toHaveLength(1);
   expect(sessions[0]?.parentSessionPath).toBe(parent);
-}, 15_000);
+});
 
 it.concurrent.for(
   [
@@ -115,17 +119,13 @@ it.concurrent.for(
     ["--parent-session", "PARENT", "--session", "PARENT"],
     ["--parent-session", "PARENT", "--session-id", "new-id"]
   ].map((args) => ({ args }))
-)(
-  "fails startup instead of executing the prompt: $args",
-  { timeout: 15_000 },
-  async ({ args }, context) => {
-    const { expect } = context;
-    const { directory, parent } = await createWorkspace(context);
-    const before = await readFile(parent, "utf8");
-    await expect(
-      run(directory, args.map((arg) => (arg === "PARENT" ? parent : arg)).concat("/fixture-append"))
-    ).rejects.toMatchObject({ code: 1 });
-    expect(await readFile(parent, "utf8")).toBe(before);
-    expect(await childSessions(directory)).toEqual([]);
-  }
-);
+)("fails startup instead of executing the prompt: $args", async ({ args }, context) => {
+  const { expect } = context;
+  const { directory, parent } = await createWorkspace(context);
+  const before = await readFile(parent, "utf8");
+  await expect(
+    run(directory, args.map((arg) => (arg === "PARENT" ? parent : arg)).concat("/fixture-append"))
+  ).rejects.toMatchObject({ code: 1 });
+  expect(await readFile(parent, "utf8")).toBe(before);
+  expect(await childSessions(directory)).toEqual([]);
+});

@@ -2,7 +2,7 @@
 
 [pi-session-utils](../README.md)
 
-> Last verified against Pi 1.2.0 (package checks and offline tests, including API and process startup, persistence, the naming lifecycle, virtual-model requests routed to physical limits below and above the title budget, and offline payload probes for per-level sampling through physical and virtual title models; no runtime changes needed). Not covered: title quality with live providers, and manual checks of the session picker.
+> Last verified against Pi 1.3.0 (package checks and offline tests, including API and process startup, persistence, the naming lifecycle, and title requests; a source diff against Pi 1.2.0 shows the session manager, session runtime, session picker, model registry, and thinking-level sources unchanged; title requests send one user message, so the change to drop thinking from other models doesn't apply, and they keep `maxRetries: 0`, so the wider retry matching doesn't apply; no runtime changes needed). Not covered: the Pi 1.2.0 offline payload probes for per-level sampling and routed title budgets were not repeated, title quality with live providers, and manual checks of the session picker.
 
 ## Upgrade procedure
 
@@ -72,7 +72,7 @@ These limits come from current Pi behaviour. Recheck each one when Pi changes th
 
 ### Startup parent
 
-Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
+Pi has no public way to set the parent at startup (still true in Pi 1.3.0), so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
 
 ### Option order
 

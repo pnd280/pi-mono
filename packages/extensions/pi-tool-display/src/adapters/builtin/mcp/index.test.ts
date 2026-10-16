@@ -5,7 +5,7 @@ import { beforeAll, expect, it } from "vite-plus/test";
 import { plainTheme as theme } from "../../../test-fixture.ts";
 import { mcpToolDisplayAdapter as adapter } from "./index.ts";
 
-// Mirrors Pi 1.2.0 `createMcpToolDefinition` for a server that omits `properties`.
+// Mirrors Pi 1.3.0 `createMcpToolDefinition` for a server that omits `properties`.
 const info: ToolInfo = {
   name: "mcp__exa__web_search_exa",
   exposure: "direct",

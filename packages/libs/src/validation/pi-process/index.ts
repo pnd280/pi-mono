@@ -13,6 +13,12 @@ export type PiLaunch = {
   options: { cwd: string; env: NodeJS.ProcessEnv };
 };
 
+/**
+ * Hang guard for one process run or one awaited fixture step. A full suite starts many Pi
+ * processes at once, so a step can take several times as long as it does alone.
+ */
+export const STEP_TIMEOUT_MS = 60_000;
+
 /** Pi's content-keyed compiled-code caches under `TMPDIR`: jiti transpiles and Node's code cache. */
 const compileCaches = ["jiti", "node-compile-cache"];
 

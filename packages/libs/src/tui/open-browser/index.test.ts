@@ -141,9 +141,13 @@ it("expires an inspection before its overlay mounts without popping an unrelated
   const ui: OpenBrowserOptions<TestItem>["ui"] = {
     custom: (factory, settings) =>
       new Promise((resolve, reject) => {
+        // Pi hides only this overlay's own handle and skips mounting after closure.
+        let closed = false;
+        let handle: ReturnType<typeof tui.showOverlay> | undefined;
         void Promise.resolve(
           factory(tui, testTheme, testKeys, (result) => {
-            if (settings?.overlay) tui.hideOverlay();
+            closed = true;
+            if (settings?.overlay) handle?.hide();
             resolve(result);
           })
         )
@@ -151,7 +155,9 @@ it("expires an inspection before its overlay mounts without popping an unrelated
             if (!settings?.overlay) return;
             entered.resolve();
             await mount.promise;
-            settings.onHandle?.(tui.showOverlay(component));
+            if (closed) return;
+            handle = tui.showOverlay(component);
+            settings.onHandle?.(handle);
           })
           .catch(reject);
       })

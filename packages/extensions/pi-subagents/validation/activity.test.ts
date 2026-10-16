@@ -159,7 +159,8 @@ test.skipIf(process.platform !== "linux")(
           expect(replacementMessages).not.toContain("activity-read");
 
           run.connection.process.stdout.resume();
-          await expect.poll(() => snapshots).toBe(1);
+          // The reader's live source can read again after the first view is disposed.
+          await expect.poll(() => snapshots).toBeGreaterThanOrEqual(1);
           // A subsequent round trip also lets the earlier snapshot continuation finish.
           await run.connection.request({ type: "get_state" });
           expect(first.transcript).toBeUndefined();
@@ -184,6 +185,5 @@ test.skipIf(process.platform !== "linux")(
       await rm(directory, { recursive: true, force: true });
       expect(leaked).toEqual([]);
     }
-  },
-  30_000
+  }
 );

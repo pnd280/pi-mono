@@ -8,6 +8,7 @@ import {
   SessionManager,
   type SessionEntry
 } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
@@ -87,7 +88,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         "cancelled"
       ]);
     });
-  }, 30_000);
+  });
 
   test.for([
     "completed task",
@@ -97,7 +98,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     "graceful exit",
     "SIGKILL",
     "queued turn abort"
-  ])("cleans up children on %s", { timeout: 45_000 }, async (action, { expect }) => {
+  ])("cleans up children on %s", async (action, { expect }) => {
     await withFixture(
       async (directory, start) => {
         const host = await start();
@@ -191,14 +192,15 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           const background = (await list(host))[0]!;
           const work = host.prompt("nested-stubborn").catch((error: unknown) => error);
 
-          for (let index = 0; index < 200; index++) {
+          for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
             if (
               (await fixtureProcesses(directory)).some(({ command }) =>
                 command.includes("sleep 600")
               )
             )
               break;
-            if (index === 199) throw new Error("Detached descendant did not start");
+            if (index === STEP_TIMEOUT_MS / 25 - 1)
+              throw new Error("Detached descendant did not start");
             await setTimeout(25);
           }
 
@@ -229,8 +231,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         },
         { settings: { "ext.pi-subagents": { maxDepth: 2, maxConcurrent: 4 } } }
       );
-    },
-    40_000
+    }
   );
 
   test("resumes stopped tasks in their child file from the selected ancestry with stable IDs", async () => {
@@ -283,10 +284,11 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         const interrupted = await activeTask(host, after);
         await waitForBash(host);
 
-        for (let index = 0; index < 200; index++) {
+        for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
           if ((await fixtureProcesses(directory)).some(({ command }) => command === "sleep 600"))
             break;
-          if (index === 199) throw new Error("Interrupted effect did not finish");
+          if (index === STEP_TIMEOUT_MS / 25 - 1)
+            throw new Error("Interrupted effect did not finish");
           await setTimeout(25);
         }
 
@@ -340,7 +342,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       },
       { settings: { "ext.pi-subagents": { maxDepth: 3, maxConcurrent: 6 } } }
     );
-  }, 60_000);
+  });
 
   test("resumes with the selection that the task's latest run on the selected ancestry requested", async () => {
     await withFixture(async (_directory, start) => {
@@ -369,7 +371,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       await host.request({ type: "prompt", message: `/fixture-tree ${launched}` });
       expect(await selection(`selection-id ${taskId}`)).toBe("subagents-fixture/reasoning:high");
     });
-  }, 30_000);
+  });
 
   test.each([false, true])(
     "uses only trusted project settings for limits and docs, and passes the chosen trust flag (%s)",
@@ -415,8 +417,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           }
         }
       );
-    },
-    30_000
+    }
   );
 
   test("recovers task ownership and context across restart, and counts each call's usage once", async () => {
@@ -444,7 +445,11 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
 
       const resumed = await start({ sessionId });
       expect(await list(resumed)).toContainEqual(
-        expect.objectContaining({ task_id: stale.task_id, state: "inactive", outcome: "cancelled" })
+        expect.objectContaining({
+          task_id: stale.task_id,
+          state: "inactive",
+          outcome: "cancelled"
+        })
       );
       const before = await resumed.stats();
       await resumed.prompt(`resume-id ${taskId}`);
@@ -467,7 +472,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       const restored = await start({ sessionId });
       expect((await list(restored)).find((task) => task.task_id === taskId)?.usage).toEqual(total);
     });
-  }, 30_000);
+  });
 
   test("rejects resume and abort for tasks owned by another supervisor", async () => {
     await withFixture(async (_directory, start) => {
@@ -482,11 +487,13 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       expect(contentText(result.content)).toContain("Task does not belong to this session");
       const notice = await other.command(`abort ${child.task_id}`);
       expect(notice.notifyType).toBe("error");
-      expect(JSON.parse(notice.message)).toEqual({ error: "Task does not belong to this session" });
+      expect(JSON.parse(notice.message)).toEqual({
+        error: "Task does not belong to this session"
+      });
       expect(await list(other)).toEqual([]);
       expect(await readFile(child.session_file, "utf8")).toBe(before);
     });
-  }, 30_000);
+  });
 
   test("lets one process at a time write a task's child file, also after its supervisor is killed", async ({
     expect
@@ -519,7 +526,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       await expect
         .poll(async () => (await others()).some(({ command }) => command.includes("sleep 600")), {
           // The resumed child starts a new Pi process, which takes seconds under full load.
-          timeout: 10_000,
+          timeout: STEP_TIMEOUT_MS,
           interval: 25
         })
         .toBe(true);
@@ -548,7 +555,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         (await readdir(dirname(task.session_file))).filter((name) => name.endsWith(".lease"))
       ).toEqual([]);
     });
-  }, 45_000);
+  });
 
   test.each(["confirm", "select"] as const)(
     "forwards a child %s dialog and delivers its answer",
@@ -586,8 +593,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           method === "confirm" ? "Dialog accepted" : "Selected second option"
         );
       });
-    },
-    30_000
+    }
   );
 
   test("respects capacity, admits queued launches FIFO, and rejects a full queue", async () => {
@@ -626,5 +632,5 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       },
       { settings: { "ext.pi-subagents": { maxConcurrent: 1, maxQueued: 2 } } }
     );
-  }, 30_000);
+  });
 });

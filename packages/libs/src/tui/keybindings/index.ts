@@ -30,7 +30,7 @@ function normalizeKey(value: string): KeyId | undefined {
   if (base === "return") base = "enter";
   if (base === "pageup") base = "pageUp";
   if (base === "pagedown") base = "pageDown";
-  // Pi 1.2.0 cannot dispatch modified Escape or modified function keys.
+  // Pi 1.3.0 cannot dispatch modified Escape or modified function keys.
   if (!base || (parts.length > 0 && (base === "escape" || /^f\d+$/.test(base)))) return undefined;
   if (parts.some((part) => !modifiers.includes(part)) || new Set(parts).size !== parts.length)
     return undefined;
@@ -91,7 +91,7 @@ export type KeybindingCandidate<Action extends string = string> = {
 };
 
 /**
- * Pi 1.2.0 matches a Shift press both as `shift+<key>` and as the symbol it types, so `ctrl++` and
+ * Pi 1.3.0 matches a Shift press both as `shift+<key>` and as the symbol it types, so `ctrl++` and
  * `ctrl+shift+=` can be one keypress. The layout decides which key types which symbol, so treat a
  * symbol and any shifted digit or symbol with the same other modifiers as overlapping.
  */

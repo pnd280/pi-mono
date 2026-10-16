@@ -60,7 +60,7 @@ type LookupSession = Pick<AgentSession, "getAllTools" | "settingsManager" | "ses
   extensionRunner: Pick<AgentSession["extensionRunner"], "resolveToolRenderers">;
 };
 
-// Pi 1.2.0's lookup is private; exercise its actual implementation without starting a terminal.
+// Pi 1.3.0's lookup is private; exercise its actual implementation without starting a terminal.
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const host = InteractiveMode.prototype as unknown as {
   getRegisteredToolDefinition: (this: { session: LookupSession }, name: string) => RenderDefinition;
@@ -116,7 +116,7 @@ function interactiveHost(session: AgentSession, tuiMode: TUI["mode"] = "fullscre
   // Construction only reads the session and registers these lifecycle callbacks.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mode = new InteractiveMode(runtime as AgentSessionRuntime);
-  // Exercise Pi 1.2.0's private reconstruction/event paths without terminal startup.
+  // Exercise Pi 1.3.0's private reconstruction/event paths without terminal startup.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const boundary = mode as unknown as Host & {
     ui: TUI;

@@ -2,6 +2,7 @@ import { readFile, rm } from "node:fs/promises";
 import { setTimeout } from "node:timers/promises";
 
 import { contentText } from "@earendil-works/pi-ai";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
@@ -16,7 +17,7 @@ import { createFixtureWorkspace } from "./workspace.ts";
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
 
 async function ready(path: string): Promise<void> {
-  for (let index = 0; index < 200; index++) {
+  for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
     try {
       await readFile(path);
 
@@ -109,13 +110,11 @@ test.each(["follow_up", "steer", "settling", "exiting"])(
       await rm(directory, { recursive: true, force: true });
       expect(leaked).toEqual([]);
     }
-  },
-  30_000
+  }
 );
 
 test.for(["stopped", "live"])(
   "routes input to its owner, and only the owner resumes an inactive descendant of a %s owner",
-  { timeout: 40_000 },
   async (mode, { expect }) => {
     const directory = await createFixtureWorkspace();
     let host = await Supervisor.start(directory);
@@ -128,7 +127,7 @@ test.for(["stopped", "live"])(
       await host.reply(mode === "live" ? "background-owner-live" : "background-owner");
       await expect
         .poll(async () => (await page()).find((task) => task.parent_task_id !== null)?.state, {
-          timeout: 10_000
+          timeout: STEP_TIMEOUT_MS
         })
         .toBe(mode === "live" ? "inactive" : "active");
       const [owner, child] = await page();

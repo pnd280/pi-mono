@@ -273,7 +273,7 @@ it("preserves unrelated mutations from two real processes", async () => {
     left.child.kill();
     right.child.kill();
   }
-}, 15000);
+});
 
 it("refuses a mutation without reclaiming an abandoned lock", async () => {
   const lock = join(fixture.storage, "drafts.json.lock");
