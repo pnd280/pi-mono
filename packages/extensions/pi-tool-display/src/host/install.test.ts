@@ -218,7 +218,8 @@ async function withSession(
 
   try {
     const settingsManager = SettingsManager.inMemory({
-      shellPath: "/bin/bash",
+      // Windows has no /bin/bash; Pi finds Git Bash there when shellPath is unset.
+      ...(process.platform === "win32" ? {} : { shellPath: "/bin/bash" }),
       shellCommandPrefix: "export TOOL_DISPLAY_TEST=preserved",
       images: { autoResize: false },
       ...display

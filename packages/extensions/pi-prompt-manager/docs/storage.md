@@ -10,12 +10,13 @@
   drafts.json
 ```
 
-`PI_CODING_AGENT_DIR`, when set, replaces `~/.pi/agent`. Use a trusted local Linux, macOS, or WSL filesystem with POSIX owner checks and enforced permissions. Network filesystems and coordination across machines aren't supported.
+`PI_CODING_AGENT_DIR`, when set, replaces `~/.pi/agent`. Use a trusted local Linux, macOS, or WSL filesystem with POSIX owner checks and enforced permissions, or, on native Windows, an agent directory inside the user profile. Network filesystems and coordination across machines aren't supported.
 
 - The agent root may be a symlink.
 - Opening collections may create the directories the extension manages and repair their permissions and ACLs. Other Pi directories are left alone.
 - Directories use `0700`. Data, temporary files, and locks use `0600`.
 - Storage owned by another user, symlinks below the agent root, hard-linked data, and data files that aren't regular files are refused.
+- On native Windows, storage relies on the user profile's inherited ACL: owners aren't checked, and permissions aren't changed. Storage outside the profile is refused before any directory is created. Links and junctions below the agent root are refused. See the [Windows storage decision](../../../libs/docs/adr/0001-windows-private-storage.md).
 
 ## Manual backup and repair
 

@@ -6,7 +6,7 @@ import { z } from "zod";
 /** Safe diagnostics never include clipboard contents or helper output. */
 export class NativeClipboardError extends Error {}
 
-type NativeHelper = { command: string; args: string[] };
+type NativeHelper = { command: string; args: string[]; env?: NodeJS.ProcessEnv };
 
 const timeoutSchema = z.int().nonnegative().max(2_147_483_647);
 
@@ -19,7 +19,9 @@ function nativeHelpers(
     throw new NativeClipboardError(
       "Remote clipboard access is unsupported. Use a local native clipboard session."
     );
-  if (platform === "darwin") return [{ command: "pbcopy", args: [] }];
+  // pbcopy decodes stdin by locale; without a UTF-8 locale (LANG unset, LC_ALL=C) it garbles non-ASCII text.
+  if (platform === "darwin")
+    return [{ command: "pbcopy", args: [], env: { ...env, LC_ALL: "en_US.UTF-8" } }];
   if (platform !== "linux")
     throw new NativeClipboardError("Native clipboard supports Linux, macOS, and WSL only.");
 
@@ -62,7 +64,10 @@ function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Pro
   signal.throwIfAborted();
 
   return new Promise((resolve, reject) => {
-    const child = spawn(helper.command, helper.args, { stdio: ["pipe", "ignore", "ignore"] });
+    const child = spawn(helper.command, helper.args, {
+      stdio: ["pipe", "ignore", "ignore"],
+      ...(helper.env ? { env: helper.env } : {})
+    });
     let settled = false;
 
     const finish = (error?: Error) => {

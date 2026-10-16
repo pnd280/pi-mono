@@ -47,7 +47,8 @@ const inputSchema = z.object({
 type Input = z.infer<typeof inputSchema>;
 
 export function nestedPath(cwd: string, target: string): boolean {
-  return target !== cwd && containsPath(cwd, target);
+  // Compare through path.relative so case-insensitive Windows paths equal to cwd stay excluded.
+  return containsPath(cwd, target) && path.relative(cwd, target) !== "";
 }
 
 function resolveInput(value: string, base: string, expandHome = true): string {

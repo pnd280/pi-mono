@@ -13,7 +13,7 @@ Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; 
    | ---------------------------- | ---------------------------------------------------------------------------------- |
    | **a**                        | Add a placement.                                                                   |
    | **Shift+Up**, **Shift+Down** | Move a placement.                                                                  |
-   | **Delete**                   | Remove a placement. Removing the last copy hides that widget.                      |
+   | **Delete**, **Backspace**    | Remove a placement. Removing the last copy hides that widget.                      |
    | **Tab**                      | Switch between global and project layouts. Project layouts need a trusted project. |
 
    Edits preview live but aren't saved yet.

@@ -104,14 +104,18 @@ it("writes nothing on load or invalid saves, and reports lock and file failures 
   expect(readFileSync(section.paths.project, "utf8")).toBe("{broken");
 });
 
-it("sanitises diagnostic paths without changing settings destinations", () => {
-  const { section, write } = fixture(true, "agent\x1b[2J\x07");
-  const path = section.paths.global;
-  write("global", { "ext.test": { order: 123 } });
-  expect(section.load().warnings).toEqual([expect.stringContaining("agent/settings.json.")]);
-  write("global", { "ext.test": null });
-  expect(() => section.save("global", ["a"])).toThrow("File: " + path.replace("\x1b[2J\x07", ""));
-  write("global", {});
-  section.save("global", ["a"]);
-  expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ "ext.test": { order: ["a"] } });
-});
+// Windows file names cannot contain control characters.
+it.runIf(process.platform !== "win32")(
+  "sanitises diagnostic paths without changing settings destinations",
+  () => {
+    const { section, write } = fixture(true, "agent\x1b[2J\x07");
+    const path = section.paths.global;
+    write("global", { "ext.test": { order: 123 } });
+    expect(section.load().warnings).toEqual([expect.stringContaining("agent/settings.json.")]);
+    write("global", { "ext.test": null });
+    expect(() => section.save("global", ["a"])).toThrow("File: " + path.replace("\x1b[2J\x07", ""));
+    write("global", {});
+    section.save("global", ["a"]);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ "ext.test": { order: ["a"] } });
+  }
+);

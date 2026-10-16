@@ -115,15 +115,25 @@ Run these on real operating systems and filesystems. Fixture stdin and Linux-onl
 
 ### Native clipboard
 
-On **Linux, macOS, and WSL**, use isolated clipboards, never someone's live clipboard. Check delivery of complete Unicode, large text, and terminal controls, plus missing dependencies, cancellation, and timeout. Capturing fixture stdin doesn't test the OS clipboard.
+On **Linux, macOS, and WSL**, use isolated clipboards, never someone's live clipboard. Check delivery of complete Unicode, large text, and terminal controls, plus missing dependencies, cancellation, and timeout. On macOS, also check Unicode delivery with `LANG` unset and with `LC_ALL=C`. Capturing fixture stdin doesn't test the OS clipboard.
 
 ### Storage permissions and writes
 
-On each supported local filesystem, including the filesystem holding the agent directory on WSL:
+On each supported Linux, macOS, and WSL filesystem, including the filesystem holding the agent directory on WSL:
 
 - Check that modes and ACLs are repaired, lock files behave, and renames are atomic.
 - Check that paths owned by another user, unsafe file types, and links are refused.
 - Check refusal when the [filesystem assumptions](../../../libs/src/private-files/README.md#filesystem-assumptions) aren't met.
+
+On **native Windows**, with the default system temporary directory:
+
+- Check that history and drafts save and reload with an agent directory inside the user profile, that lock files behave, and that saves still succeed while another process reads the collection.
+- Check that an agent directory outside the profile, such as a `PI_CODING_AGENT_DIR` on another drive, makes storage unavailable, and that no `pi-prompt-manager` directory is created there.
+- Check that a junction in place of a managed directory and a hard-linked data file are refused.
+- Check that a managed directory that is a mounted folder of another volume, and a mounted folder of the profile's own volume, are refused without new files on the mounted volume.
+- Set `USERPROFILE` to a test profile in a case-sensitive folder (`fsutil file setCaseSensitiveInfo <folder> enable`). Check that an agent directory in a sibling folder whose name differs only in case is refused.
+
+The terminal launcher sets the profile to the fixture's `home` directory. Its agent directory is outside that profile, so storage is unavailable there on native Windows.
 
 ## Interaction measurement
 

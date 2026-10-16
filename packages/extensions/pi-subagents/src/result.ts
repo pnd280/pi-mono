@@ -122,14 +122,14 @@ export function sumUsage(a: ToolDetails["usage"], b: ToolDetails["usage"]): Tool
 
 const ERROR_LINE_MAX = 512;
 
-/** The first non-empty line of a result, as a failed or cancelled run's error. */
-export function firstLine(text: string): string {
+/** The first non-empty line of a result, as a failed or cancelled run's error, at most `max` long. */
+export function firstLine(text: string, max = ERROR_LINE_MAX): string {
   const line =
     text
       .split("\n")
       .find((part) => part.trim())
       ?.trim() ?? "";
-  const kept = sliceTerminalText(line, 0, ERROR_LINE_MAX).text;
+  const kept = sliceTerminalText(line, 0, max).text;
 
   return kept.length < line.length ? `${kept}…` : line;
 }

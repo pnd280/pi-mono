@@ -11,6 +11,7 @@
     "./output-buffer": "./src/output-buffer/index.ts",
     "./bounded-diff": "./src/bounded-diff/index.ts",
     "./file-mutations": "./src/file-mutations/index.ts",
+    "./file-rename": "./src/file-rename/index.ts",
     "./native-tools": "./src/native-tools/index.ts",
     "./timed-confirmation": "./src/timed-confirmation/index.ts",
     "./private-files": "./src/private-files/index.ts",

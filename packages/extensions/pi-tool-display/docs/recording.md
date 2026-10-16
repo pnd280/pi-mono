@@ -34,6 +34,7 @@ Local details (timing, saved-output references, and diagnostics) go to `pi-tool-
 
 - The file is created at the first live tool start or local-detail write, including after a reload.
 - Folders and files are owner-only, and linked files are refused.
+- On native Windows, the folders rely on the user profile's ACL instead of owner and mode checks, so the agent directory must be inside the user profile. Outside it, the extension warns once and keeps local details in memory, as for sessions that Pi does not save. See the [Windows storage decision](../../../libs/docs/adr/0001-windows-private-storage.md).
 - A failed write or close of this file shows a warning, also during shutdown.
 - Line and file size limits are listed under [resource limits](presentation.md#resource-limits).
 

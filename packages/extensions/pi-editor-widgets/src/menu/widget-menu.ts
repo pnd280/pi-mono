@@ -28,6 +28,8 @@ const navigationKeys = [
   ["shift+up", "moveUp"],
   ["shift+down", "moveDown"],
   ["delete", "remove"],
+  // The Mac key labelled Delete sends Backspace; forward Delete needs Fn.
+  ["backspace", "remove"],
   ["up", "up"],
   ["down", "down"],
   ["enter", "open"]

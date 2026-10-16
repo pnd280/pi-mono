@@ -1,4 +1,8 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { contentText } from "@earendil-works/pi-ai";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
@@ -13,6 +17,7 @@ import {
   replies,
   taskList
 } from "./background-fixture.ts";
+import { processStat } from "./processes.ts";
 
 // Each test owns its workspace and processes.
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
@@ -187,6 +192,58 @@ test("aborts an owned task without its result and resumes it later", async () =>
     // The abort returned after the task's completion; a result would reach the following runs.
     expect(host.records.some(isResult)).toBe(false);
   }, 1);
+});
+
+test("reports a descendant's failed process cleanup in the cancelled result and the abort reply", async ({
+  expect
+}) => {
+  await fixture(async (host, directory) => {
+    const recorded = () => readFile(join(directory, "work", "zombie-pids"), "utf8").catch(() => "");
+
+    try {
+      // The child supervisor's grandchild leaves a zombie; the child writes other stderr around the
+      // failure that it forwards.
+      await host.reply("background-nested-zombie");
+      const [task] = await taskList(host);
+      await expect.poll(recorded, { timeout: STEP_TIMEOUT_MS }).not.toBe("");
+      const [parent, zombie] = (await recorded()).split(" ").map(Number);
+
+      // The parent's parent is the grandchild, so the zombie must be in its process group.
+      const inGroup = async () => {
+        const [owner, member] = await Promise.all([processStat(parent!), processStat(zombie!)]);
+        const child = owner && (await processStat(owner.ppid));
+
+        return member?.state === "Z" && member.pgrp === child?.pgrp;
+      };
+
+      await expect.poll(inGroup, { timeout: STEP_TIMEOUT_MS }).toBe(true);
+      await host.prompt(`abort-id ${task!.task_id}`);
+      const aborted = (await host.entries())
+        .flatMap((entry) =>
+          entry.type === "message" &&
+          entry.message.role === "toolResult" &&
+          entry.message.toolName === "subagent_abort"
+            ? [entry.message]
+            : []
+        )
+        .at(-1)!;
+      const failure = /force_stop failed: Process group \d+ still has members after SIGKILL/;
+      expect(aborted.isError).toBe(true);
+      expect(contentText(aborted.content)).toMatch(failure);
+      const [record] = await taskList(host);
+      expect(record).toMatchObject({ state: "inactive", outcome: "cancelled" });
+      expect(record!.error).toMatch(failure);
+    } finally {
+      // Before the fixture's cleanup: the zombie's parent is outside the group; on SIGTERM, it reaps
+      // the zombie and exits. Setup can fail before the PIDs are recorded.
+      const pids = (await recorded()).split(" ").filter(Boolean).map(Number);
+      if (pids[0] !== undefined && (await processStat(pids[0]))) process.kill(pids[0], "SIGTERM");
+      // A scan of working directories cannot find a zombie, so check the recorded PIDs.
+      await expect
+        .poll(() => Promise.all(pids.map((pid) => processStat(pid))), { timeout: STEP_TIMEOUT_MS })
+        .toEqual(pids.map(() => undefined));
+    }
+  });
 });
 
 test("promotes foreground work, retains it across turn abort, and counts late usage once", async () => {

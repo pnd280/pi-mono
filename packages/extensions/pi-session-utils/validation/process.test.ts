@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -19,10 +19,11 @@ async function createWorkspace({ onTestFinished }: TestContext) {
   const directory = await createValidationWorkspace("pi-session-utils-process-");
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
   const source = SessionManager.create(join(directory, "work"), join(directory, "parents"));
-  const parent = source.getSessionFile()!;
-  await writeFile(parent, `${JSON.stringify(source.getHeader())}\n`);
+  const file = source.getSessionFile()!;
+  await writeFile(file, `${JSON.stringify(source.getHeader())}\n`);
 
-  return { directory, parent };
+  // Lookup records the real path; on macOS the temporary directory is below the /var symlink.
+  return { directory, parent: await realpath(file) };
 }
 
 async function run(directory: string, args: string[]) {

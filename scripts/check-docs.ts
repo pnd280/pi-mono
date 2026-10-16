@@ -2,8 +2,8 @@
 // every "Last verified against Pi x.y.z" line must name the installed Pi version.
 // Usage: node scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 const piManifest: unknown = JSON.parse(
@@ -22,6 +22,30 @@ function markdownFiles(): string[] {
     .split("\n")
     .filter((file) => file !== "" && existsSync(join(root, file)))
     .map((file) => join(root, file));
+}
+
+// Git for Windows checks out CRLF by default; the line-anchored patterns below expect LF.
+function readMarkdown(file: string): string {
+  return readFileSync(file, "utf8").replace(/\r\n?/g, "\n");
+}
+
+// macOS and Windows file systems ignore case, but Linux and GitHub links do not. Inside the
+// workspace, each path segment must match a directory entry exactly. Both sides use NFC because
+// HFS+ lists names in decomposed form.
+function exists(path: string): boolean {
+  if (!existsSync(path)) return false;
+  const local = relative(root, path);
+  if (local === "" || isAbsolute(local) || local === ".." || local.startsWith(`..${sep}`))
+    return true;
+  let directory = root;
+
+  for (const segment of local.split(sep)) {
+    const name = segment.normalize("NFC");
+    if (!readdirSync(directory).some((entry) => entry.normalize("NFC") === name)) return false;
+    directory = join(directory, segment);
+  }
+
+  return true;
 }
 
 // Fenced blocks, including indented ones in list items, hold examples, not headings or links.
@@ -45,7 +69,7 @@ function anchors(file: string): Set<string> {
   const found = new Set<string>();
   const seen = new Map<string, number>();
 
-  for (const [, heading = ""] of withoutFences(readFileSync(file, "utf8")).matchAll(
+  for (const [, heading = ""] of withoutFences(readMarkdown(file)).matchAll(
     /^#{1,6}\s+(.+?)\s*#*$/gm
   )) {
     const slug = heading
@@ -65,7 +89,7 @@ function anchors(file: string): Set<string> {
 }
 
 function checkFile(file: string): string[] {
-  const text = readFileSync(file, "utf8");
+  const text = readMarkdown(file);
   const problems: string[] = [];
   const name = relative(root, file);
 
@@ -78,7 +102,7 @@ function checkFile(file: string): string[] {
     const [path = "", anchor] = target.split("#", 2);
     const destination = path ? resolve(dirname(file), decodeURI(path)) : file;
 
-    if (!existsSync(destination)) {
+    if (!exists(destination)) {
       problems.push(`${name}: missing link target ${target}`);
       continue;
     }

@@ -87,6 +87,7 @@ it("keeps sessions that Pi does not save in memory only", async () => {
   await expect(stat(join(root, "pi-tool-display"))).rejects.toMatchObject({ code: "ENOENT" });
 });
 
+// Windows file symlinks need Developer Mode or elevation.
 it.skipIf(process.platform === "win32")(
   "refuses a planted symlink for writing and warns once",
   async () => {
@@ -104,6 +105,7 @@ it.skipIf(process.platform === "win32")(
   }
 );
 
+// Windows file symlinks need Developer Mode or elevation.
 it.skipIf(process.platform === "win32")(
   "refuses symlinked and hard-linked files for reading",
   async () => {

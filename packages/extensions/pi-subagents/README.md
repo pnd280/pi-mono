@@ -100,6 +100,7 @@ Top-level launches queue FIFO when capacity is full. Nested launches fail immedi
 - A model can bypass extension depth limits by running Pi itself through `bash`.
 - Tool output is truncated using Pi's 2,000-line and 50 KiB defaults.
 - Linux has automated coverage. macOS uses the same process-group path but has not been verified. Windows code paths are untested and not officially supported.
+- When a Node or Bun SDK host has no script file, children start with the `pi` command and without a shell. On Windows, this finds only a `pi.com` or `pi.exe`, not npm's `pi.cmd` shim.
 
 ## Validation
 

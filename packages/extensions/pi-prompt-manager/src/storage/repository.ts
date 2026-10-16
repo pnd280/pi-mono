@@ -82,11 +82,6 @@ export class FileRepository implements Repository {
   }
 
   private async path(collection: Collection) {
-    if (process.platform !== "linux" && process.platform !== "darwin")
-      throw new PromptError(
-        "Prompt storage supports Linux, macOS, and WSL local filesystems only."
-      );
-
     return join(
       await privateScopedDirectory({
         root: this.options.agentDir,

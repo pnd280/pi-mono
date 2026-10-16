@@ -6,6 +6,9 @@ export const STOP_GRACE_MS = 5_000;
 
 export const KILL_GRACE_MS = 2_000;
 
+/** Starts a child supervisor's stderr line that names a failed process cleanup of its own task. */
+export const STOP_FAILURE_PREFIX = "pi-subagents: owned-process cleanup failed: ";
+
 /** Supervisor entry at the start of each run. */
 export const RUN_ENTRY = "pi-subagents.run";
 

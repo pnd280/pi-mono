@@ -1,10 +1,10 @@
 # pi-fff-guard
 
-The guard stops FFF searches that would silently return nothing because their target is missing or Git-ignored. For example, `ffgrep` with `path: "node_modules/zod"` finds no matches, because FFF's index leaves out ignored paths ([FFF #714](https://github.com/dmtrKovalenko/fff/issues/714)). With this guard the model is told why, and can retry with another tool.
+The guard stops FFF searches that would silently return nothing, or only matches from other files, because their target is missing or Git-ignored. For example, `ffgrep` with `path: "node_modules/zod"` finds no matches, because FFF's index leaves out ignored paths ([FFF #714](https://github.com/dmtrKovalenko/fff/issues/714)). With this guard the model is told why, and can retry with another tool.
 
 ## Compatibility
 
-The guard requires Node.js 24+, Git, and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 0.85.1 and FFF 0.10.6.
+The guard requires Node.js 24+, Git, and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 1.3.0 and FFF 0.11.0.
 
 The guard checks FFF's search tools, and its overrides of native tool names, only when Pi attributes them to the official package. Built-in tools and unrecognised forks are left alone.
 

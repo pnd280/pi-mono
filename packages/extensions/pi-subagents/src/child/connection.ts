@@ -30,6 +30,9 @@ const STDERR_EDGE_LINES = 20;
 
 const STDERR_LINE_BYTES = 512;
 
+/** How long pending requests wait after Pi's exit for responses that its output still holds. */
+const EXIT_RESPONSE_MS = 1_000;
+
 const envelopeSchema = z.looseObject({ type: z.string() });
 
 /** Pi owns payload schemas. Validate the envelope and use its public wire union. */
@@ -52,6 +55,7 @@ export class ChildConnection {
   private inputClosed = false;
   private failure: Error | undefined;
   private exit: ProcessExit | undefined;
+  private exitTimer: NodeJS.Timeout | undefined;
   private writes: Promise<void> = Promise.resolve();
   private decoder = new StringDecoder("utf8");
   private buffered = "";
@@ -71,12 +75,18 @@ export class ChildConnection {
     process.stdout.on("error", (error: Error) => this.fail(error));
     process.stderr.on("error", (error: Error) => this.fail(error));
     process.once("error", (error) => this.fail(error));
+    // Output can still hold responses after the exit. Another process can hold the pipes open, so
+    // the wait for them is bounded.
     process.once("exit", (code, signal) => {
       this.exit = { code, signal };
-      this.rejectPending(new Error(`Pi exited (code ${code}, signal ${signal})`));
+      this.exitTimer = setTimeout(
+        () => this.rejectPending(new Error(`Pi exited (code ${code}, signal ${signal})`)),
+        EXIT_RESPONSE_MS
+      ).unref();
     });
     this.closed = new Promise((resolve) => {
       process.once("close", (code, signal) => {
+        clearTimeout(this.exitTimer);
         this.stderr.finish();
         this.exit = { code, signal, ...(this.failure ? { error: this.failure } : {}) };
         this.rejectPending(new Error(`Pi closed (code ${code}, signal ${signal})`));

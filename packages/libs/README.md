@@ -12,6 +12,7 @@ For pure helpers with no side effects, use [utils](../utils/README.md). Import e
 | [working-message](src/working-message/README.md)       | Shared working-message contributions and saved ordering                   |
 | [settings-file](src/settings-file/README.md)           | Bounded reads, trusted scopes, and locked settings-section saves          |
 | [private-files](src/private-files/README.md)           | Permission and ACL enforcement, directory scopes, locks, atomic writes    |
+| [file-rename](src/file-rename/README.md)               | File replacement by rename, with bounded retries on Windows               |
 | [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |
 | [timed-confirmation](src/timed-confirmation/README.md) | Target comparison and confirmation deadline                               |
 | [owned-hooks](src/owned-hooks/README.md)               | Property replacement and conditional restoration                          |

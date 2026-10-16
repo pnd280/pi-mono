@@ -51,6 +51,8 @@ function busyChildGuidance(parentSession: string | undefined): string {
   // Sanitizing a copyable command would silently point it at a different file.
   if (hasUnsafeTerminalControls(parentSession) || /[\r\n\t]/.test(parentSession))
     return "The parent path contains control characters. Once idle, run /sesh create-empty-child.";
+  // POSIX quoting is wrong for cmd.exe and PowerShell.
+  if (process.platform === "win32") return "Once idle, run /sesh create-empty-child.";
 
   return `To create a child session in another terminal, run:\npi --parent-session ${quotePosixShellArgument(parentSession)}`;
 }

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { lstat, readlink } from "node:fs/promises";
+import { lstat, readlink, realpath } from "node:fs/promises";
 import path from "node:path";
 
 import type { ExecResult } from "@earendil-works/pi-coding-agent";
@@ -93,8 +93,13 @@ async function ignoredIn(
   absolute: string,
   signal: AbortSignal
 ): Promise<boolean> {
-  if (!root || absolute === root || !containsPath(root, absolute)) return false;
-  const relative = path.relative(root, absolute);
+  if (!root) return false;
+  // A repository found from the path's own directory must contain it. Otherwise an
+  // unresolved alias would silently report the path as not ignored.
+  if (!containsPath(root, absolute)) throw new Error("unexpected Git repository response");
+  // Git pathspecs use `/` separators, and check-ignore echoes the pathname it was given.
+  const relative = path.relative(root, absolute).split(path.sep).join("/");
+  if (!relative) return false;
   const result = await runGit(
     root,
     ["check-ignore", "--verbose", "--non-matching", "-z", "--stdin"],
@@ -142,9 +147,17 @@ async function inspect(
   const lexical = link ?? absolute;
   const info = await lstat(lexical);
   const directory = info.isDirectory() ? lexical : path.dirname(lexical);
+  // Without the link itself, `lexical` has no link components, so realpath resolves only aliases
+  // such as Windows short names or letter case, matching the canonical roots that Git reports.
+  // A link is resolved through its parent so that check-ignore still sees the link's own name.
+  const canonical = link
+    ? path.join(await realpath(path.dirname(link)), path.basename(link))
+    : await realpath(lexical);
   const root =
-    workspace && containsPath(workspace, lexical) ? workspace : await repository(directory, signal);
-  if (await ignoredIn(root, lexical, signal)) return true;
+    workspace && containsPath(workspace, canonical)
+      ? workspace
+      : await repository(directory, signal);
+  if (await ignoredIn(root, canonical, signal)) return true;
   if (!link) return false;
   const destination = path.resolve(
     path.dirname(link),

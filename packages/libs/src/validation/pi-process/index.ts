@@ -41,7 +41,8 @@ export async function createValidationWorkspace(prefix: string): Promise<string>
   const caches = process.env[COMPILE_CACHES_ENV];
   if (caches)
     for (const name of compileCaches)
-      await symlink(join(caches, name), join(directory, "tmp", name));
+      // Other platforms ignore the type; Windows junctions need no symlink privilege.
+      await symlink(join(caches, name), join(directory, "tmp", name), "junction");
 
   return directory;
 }
@@ -78,6 +79,8 @@ export async function createPiLaunch(options: {
         TERM: process.env.TERM ?? "xterm-256color",
         COLORTERM: process.env.COLORTERM,
         LANG: process.env.LANG ?? "en_US.UTF-8",
+        // Node on Windows requires SystemRoot; other platforms omit the undefined value.
+        SystemRoot: process.env.SystemRoot,
         ...options.env,
         // Keep storage and offline isolation authoritative even with helper overrides.
         HOME: join(directory, "home"),

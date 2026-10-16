@@ -51,7 +51,8 @@ describe("Git authority", () => {
     await directory.write("global-only");
     expect((await detect("local-only")).status).toBe("ignored");
     expect((await detect("global-only")).status).toBe("ignored");
-    const name = "node_modules/-quote'\n,$(command).json";
+    // Windows file names cannot contain a newline.
+    const name = `node_modules/-quote'${process.platform === "win32" ? "" : "\n"},$(command).json`;
     await directory.write(name);
     expect((await detect(name)).status).toBe("ignored");
   });

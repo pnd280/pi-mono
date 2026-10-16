@@ -2,7 +2,7 @@
 
 Prompts you submit in Pi's TUI scroll out of reach just when you want to reuse one. pi-prompt-manager keeps a private history of those prompts and lets you save drafts to come back to. Press **Ctrl+R** to search past prompts and put one back in the editor; it is never submitted for you.
 
-It runs only in a trusted agent directory on local Linux, macOS, or WSL storage with POSIX owner checks and enforced permissions. In RPC, print, and JSON modes the extension stays inactive and reads neither settings nor storage.
+It runs only in a trusted agent directory on local storage: on Linux, macOS, or WSL with POSIX owner checks and enforced permissions, or on native Windows inside the user profile. In RPC, print, and JSON modes the extension stays inactive and reads neither settings nor storage.
 
 ## Usage
 

@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { open, rename, unlink } from "node:fs/promises";
+import { open, unlink } from "node:fs/promises";
 
+import { renameWithRetry } from "../file-rename/index.ts";
 import { checkHandle, sameFile } from "./privacy.ts";
 
 /** Tests use hooks around real I/O; production callers omit them. */
@@ -40,7 +41,7 @@ export async function atomicReplace(
     await handle.writeFile(content, "utf8");
     await handle.sync();
     await hooks.beforeRename?.();
-    await rename(temporary, path);
+    await renameWithRetry(temporary, path);
     committed = true;
     await hooks.afterRename?.();
   } catch (error) {

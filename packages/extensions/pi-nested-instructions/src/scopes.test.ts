@@ -19,9 +19,11 @@ const scopes = async (name: string, input: JsonObject) => {
   const result = await inferScope({ toolCallId: "scope", toolName: name, input }, fs.cwd);
 
   // Scope membership matters here; discovery tests cover broad-to-narrow delivery.
+  const relative = (value: string) => path.relative(fs.cwd, value).split(path.sep).join("/");
+
   return {
-    directories: result.directories.map((value) => path.relative(fs.cwd, value)).sort(),
-    reads: result.reads.map((value) => path.relative(fs.cwd, value)).sort()
+    directories: result.directories.map(relative).sort(),
+    reads: result.reads.map(relative).sort()
   };
 };
 

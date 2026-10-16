@@ -1,15 +1,8 @@
 import { randomUUID } from "node:crypto";
-import {
-  mkdir,
-  readdir,
-  readFile,
-  realpath,
-  rename,
-  rmdir,
-  unlink,
-  writeFile
-} from "node:fs/promises";
+import { mkdir, readdir, readFile, realpath, rmdir, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+
+import { renameWithRetry } from "@pi-mono/libs/file-rename";
 
 function hasCode(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && error.code === code;
@@ -152,7 +145,9 @@ export class WriterLease {
       try {
         await mkdir(this.directory, { recursive: true, mode: 0o700 });
         await writeFile(temporary, this.processes.join(" "), { flag: "wx", mode: 0o600 });
-        await rename(temporary, this.entry);
+        // Windows refuses to replace a file while another process, such as a contender reading
+        // it or a virus scanner, has it open. A final failure keeps the previous entry published.
+        await renameWithRetry(temporary, this.entry);
 
         return;
       } catch (error) {

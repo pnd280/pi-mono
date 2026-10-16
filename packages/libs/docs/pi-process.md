@@ -6,7 +6,7 @@ Pi keeps two content-keyed caches of compiled code under its `TMPDIR`: jiti's ex
 
 ## How launches share the caches
 
-When `PI_MONO_VALIDATION_COMPILE_CACHES` names a directory from `createCompileCaches`, `createValidationWorkspace` links both caches into the new workspace's `tmp` directory. Launches still get their own `HOME`, `TMPDIR`, and agent directory, so they share only compiled code, never settings, sessions, or other temporary files.
+When `PI_MONO_VALIDATION_COMPILE_CACHES` names a directory from `createCompileCaches`, `createValidationWorkspace` links both caches into the new workspace's `tmp` directory. On Windows the links are directory junctions, which need no symlink privilege. Launches still get their own `HOME`, `TMPDIR`, and agent directory, so they share only compiled code, never settings, sessions, or other temporary files.
 
 The [Vitest global setup](../src/validation/pi-process/global-setup.ts) in the root [vite.config.ts](../../../vite.config.ts) creates one cache directory under the system temporary directory for each test run, sets the variable for the workers, and removes the directory at teardown. Launches from other processes, such as manual launchers, start with empty caches.
 

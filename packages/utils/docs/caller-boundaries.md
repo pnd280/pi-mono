@@ -4,7 +4,7 @@
 
 ## Search scopes
 
-[`search-scopes`](../src/search-scopes.ts) derives static prefixes without enumerating files. `parseFffScopes` interprets verified FFF path fields, filename queries, and multi-search constraints, returning positive expressions and negative query terms. Expressions retain their path-field or query origin in `source`, so nested-instruction discovery can ignore recursive filename path fields before it expands patterns. Supply whether the full filename query names an existing path so paths containing spaces remain intact.
+[`search-scopes`](../src/search-scopes.ts) derives static prefixes without enumerating files. `parseFffScopes` interprets verified FFF path fields, filename queries, and multi-search constraints, returning positive expressions and negative query terms. Expressions retain their path-field or query origin in `source`, so nested-instruction discovery can ignore recursive filename path fields before it expands patterns. Supply whether the full filename query names an existing path so paths containing spaces remain intact. Like FFF, `normalizeFffPath` gives absolute path fields `/` separators, so Windows paths classify as paths and globs; relative values keep their separators.
 
 Callers own input validation, existing-path detection and error handling, scope limits, filesystem checks, exclusion application, intersections, and blocking policy. The guard propagates unexpected access failures; nested discovery can retain lexical hints. [`fff-tools`](../src/fff-tools.ts) classifies provenance and names only, not tool schemas or policy.
 

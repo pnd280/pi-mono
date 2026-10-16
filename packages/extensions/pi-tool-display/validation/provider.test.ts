@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile, rm } from "node:fs/promises";
+import { readFile, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -76,9 +76,12 @@ it("runs fixed plans through the installed CLI and resumes without replaying mut
     ).toBe(false);
     // Only the first process collects calls; the public fixture tool renders itself.
     const writers = custom(WRITER_TYPE).map(parseWriterRecord);
+    // Pi records process.cwd(), which resolves macOS /var to /private/var.
     expect(writers).toEqual([
-      { writer: expect.any(String) as unknown, cwd: join(directory, "work") }
+      { writer: expect.any(String) as unknown, cwd: await realpath(join(directory, "work")) }
     ]);
+    // The fixture agent directory is outside the fixture profile, so Windows keeps these details in memory.
+    if (process.platform === "win32") return;
     const local = await readFile(
       join(directory, "agent", "pi-tool-display", "calls", `${writers[0]!.writer}.jsonl`),
       "utf8"

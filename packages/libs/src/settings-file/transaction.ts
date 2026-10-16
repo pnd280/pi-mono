@@ -4,7 +4,6 @@ import {
   lstatSync,
   mkdirSync,
   realpathSync,
-  renameSync,
   rmSync,
   statSync,
   writeFileSync
@@ -15,6 +14,7 @@ import { dirname } from "node:path";
 import type * as ProperLockfile from "proper-lockfile";
 import { z } from "zod";
 
+import { renameWithRetrySync } from "../file-rename/index.ts";
 import { MAX_SETTINGS_FILE_BYTES, readSettingsFile } from "./read.ts";
 
 const recordSchema = z.record(z.string(), z.unknown());
@@ -113,7 +113,7 @@ export function updateSettingsRecord(
     writeFileSync(temporary, content, { flag: "wx", mode });
     // Creation applies the process umask; replacement must retain the original permissions.
     chmodSync(temporary, mode);
-    renameSync(temporary, target);
+    renameWithRetrySync(temporary, target);
   } finally {
     try {
       if (temporary) rmSync(temporary, { force: true });

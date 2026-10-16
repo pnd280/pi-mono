@@ -34,74 +34,78 @@ function observeMutation(
   ]);
 }
 
-it("preserves shell settings, environment, bytes, errors and structured operation outcomes", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "display-native-shell-"));
+// The fixture runs POSIX commands through /bin/bash.
+it.skipIf(process.platform === "win32")(
+  "preserves shell settings, environment, bytes, errors and structured operation outcomes",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "display-native-shell-"));
 
-  try {
-    const original = createBashToolDefinition(directory, {
-      shellPath: "/bin/bash",
-      commandPrefix: "export DISPLAY_TEST=preserved"
-    });
-    const facts: DisplayFact[] = [];
-    const previews: string[] = [];
-    const observed = observeNativeDefinition(
-      defineTool(original),
-      { cwd: directory, shellPath: "/bin/bash", commandPrefix: "export DISPLAY_TEST=preserved" },
-      () => ({
-        started() {},
-        fact: (value) => facts.push(value),
-        preview: (value) => previews.push(value.text)
-      })
-    );
-    const context = await createToolContext(directory);
-    const params = { command: 'printf "α\\r\\n%s\\n%s" "$DISPLAY_TEST" "$PI_SESSION_ID"' };
-    const expected = await original.execute("plain", params, undefined, undefined, context);
-    const updates: unknown[] = [];
-    const result = await observed.execute(
-      "observed",
-      params,
-      undefined,
-      (value) => updates.push(value),
-      context
-    );
-    // Each execution measures its own wall time, rounded to 0.1 s.
-    const untimed = (value: { structuredContent?: unknown }) => ({
-      ...value,
-      structuredContent: { ...record(value.structuredContent), wall_time_seconds: 0 }
-    });
-    expect(record(result.structuredContent).wall_time_seconds).toBeTypeOf("number");
-    expect(untimed(result)).toEqual(untimed(expected));
-    expect(updates.length).toBeGreaterThan(0);
-    expect(previews.at(-1)).toContain("α\r\npreserved");
-    expect(facts).toContainEqual(
-      expect.objectContaining({ kind: "operation", outcome: "success", exitCode: 0 })
-    );
-    await expect(
-      observed.execute("error", { command: "exit 7" }, undefined, undefined, context)
-    ).resolves.toMatchObject({ isError: true, structuredContent: { exit_code: 7 } });
-    expect(facts.at(-1)).toMatchObject({ outcome: "failure", exitCode: 7 });
-    await expect(
-      observed.execute(
-        "timeout",
-        { command: "sleep 3", timeout: 0.01 },
+    try {
+      const original = createBashToolDefinition(directory, {
+        shellPath: "/bin/bash",
+        commandPrefix: "export DISPLAY_TEST=preserved"
+      });
+      const facts: DisplayFact[] = [];
+      const previews: string[] = [];
+      const observed = observeNativeDefinition(
+        defineTool(original),
+        { cwd: directory, shellPath: "/bin/bash", commandPrefix: "export DISPLAY_TEST=preserved" },
+        () => ({
+          started() {},
+          fact: (value) => facts.push(value),
+          preview: (value) => previews.push(value.text)
+        })
+      );
+      const context = await createToolContext(directory);
+      const params = { command: 'printf "α\\r\\n%s\\n%s" "$DISPLAY_TEST" "$PI_SESSION_ID"' };
+      const expected = await original.execute("plain", params, undefined, undefined, context);
+      const updates: unknown[] = [];
+      const result = await observed.execute(
+        "observed",
+        params,
         undefined,
-        undefined,
+        (value) => updates.push(value),
         context
-      )
-    ).rejects.toThrow("timed out");
-    expect(facts.at(-1)).toMatchObject({ timedOut: true, outcome: "failure" });
-    const previewsBeforeCancellation = previews.length;
-    await expect(
-      observed.execute("cancel", { command: "sleep 3" }, AbortSignal.abort(), undefined, context)
-    ).rejects.toThrow("aborted");
-    expect(facts.at(-1)).toMatchObject({ outcome: "cancelled" });
-    expect(previews.length).toBeGreaterThan(previewsBeforeCancellation);
-    expect(observed.parameters).toBe(original.parameters);
-    expect(observed.promptGuidelines).toBe(original.promptGuidelines);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
+      );
+      // Each execution measures its own wall time, rounded to 0.1 s.
+      const untimed = (value: { structuredContent?: unknown }) => ({
+        ...value,
+        structuredContent: { ...record(value.structuredContent), wall_time_seconds: 0 }
+      });
+      expect(record(result.structuredContent).wall_time_seconds).toBeTypeOf("number");
+      expect(untimed(result)).toEqual(untimed(expected));
+      expect(updates.length).toBeGreaterThan(0);
+      expect(previews.at(-1)).toContain("α\r\npreserved");
+      expect(facts).toContainEqual(
+        expect.objectContaining({ kind: "operation", outcome: "success", exitCode: 0 })
+      );
+      await expect(
+        observed.execute("error", { command: "exit 7" }, undefined, undefined, context)
+      ).resolves.toMatchObject({ isError: true, structuredContent: { exit_code: 7 } });
+      expect(facts.at(-1)).toMatchObject({ outcome: "failure", exitCode: 7 });
+      await expect(
+        observed.execute(
+          "timeout",
+          { command: "sleep 3", timeout: 0.01 },
+          undefined,
+          undefined,
+          context
+        )
+      ).rejects.toThrow("timed out");
+      expect(facts.at(-1)).toMatchObject({ timedOut: true, outcome: "failure" });
+      const previewsBeforeCancellation = previews.length;
+      await expect(
+        observed.execute("cancel", { command: "sleep 3" }, AbortSignal.abort(), undefined, context)
+      ).rejects.toThrow("aborted");
+      expect(facts.at(-1)).toMatchObject({ outcome: "cancelled" });
+      expect(previews.length).toBeGreaterThan(previewsBeforeCancellation);
+      expect(observed.parameters).toBe(original.parameters);
+      expect(observed.promptGuidelines).toBe(original.promptGuidelines);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   }
-});
+);
 
 it.each(["edit", "write"] as const)(
   "preserves BOM-bearing files during observed %s",
@@ -294,7 +298,11 @@ it("preserves edit aliases, CRLF, cancellation, and write change facts", async (
     );
     const context = await createToolContext(directory);
     await writeFile(join(directory, "file"), "alpha\r\nbeta\r\n");
-    await symlink("file", join(directory, "alias"));
+    // Windows file symlinks need extra privilege; a directory junction aliases the same file.
+    const alias = process.platform === "win32" ? join("linked", "file") : "alias";
+    if (process.platform === "win32")
+      await symlink(directory, join(directory, "linked"), "junction");
+    else await symlink("file", join(directory, "alias"));
     const outputs = await Promise.all([
       edit.execute(
         "first",
@@ -305,7 +313,7 @@ it("preserves edit aliases, CRLF, cancellation, and write change facts", async (
       ),
       edit.execute(
         "second",
-        { path: "alias", edits: [{ oldText: "beta", newText: "BETA" }] },
+        { path: alias, edits: [{ oldText: "beta", newText: "BETA" }] },
         undefined,
         undefined,
         context

@@ -107,7 +107,7 @@ Session history stores only facts that Pi's own entries lack, such as cancellati
 
 > **Patches can keep deleted text.** Removed and context lines from overwritten files may remain in session history.
 
-The extension never deletes its local files, because copied or moved sessions can still name them. Sessions that Pi does not save keep these details in memory. Live shell previews stay in memory only. For the exact facts saved and when the local files are created, read [recorded data and replay](docs/recording.md).
+The extension never deletes its local files, because copied or moved sessions can still name them. Sessions that Pi does not save keep these details in memory. On native Windows, an agent directory outside the user profile also keeps them in memory. Live shell previews stay in memory only. For the exact facts saved and when the local files are created, read [recorded data and replay](docs/recording.md).
 
 ### Replay and saved output
 

@@ -116,7 +116,8 @@ it("shares one pre-write read, memoizes generated patches, and preserves alias m
   expect(open).toHaveBeenCalledTimes(1);
   expect(read).not.toHaveBeenCalled();
   expect(observations[0]?.before.status).toBe("missing");
-  expect(observations[0]?.path).toBe(join(directory, "real/nested/file"));
+  // Observed paths are canonical; macOS temporary paths resolve /var to /private/var.
+  expect(observations[0]?.path).toBe(join(await fs.realpath(directory), "real/nested/file"));
   const patch = observations[0]!.patch(limits);
   expect(observations[1]!.patch(limits)).toBe(patch);
   expect((await patch).status).toBe("ready");

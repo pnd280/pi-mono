@@ -179,6 +179,32 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     );
   });
 
+  test("kills a process-group member that ignores SIGTERM after its child exits on SIGTERM", async ({
+    expect
+  }) => {
+    await withFixture(
+      async (directory, start) => {
+        const host = await start();
+        const work = host.prompt("delegate-group-survivor");
+        await expect
+          .poll(
+            async () =>
+              (await fixtureProcesses(directory)).some(({ command }) => command === "sleep 600"),
+            { timeout: STEP_TIMEOUT_MS }
+          )
+          .toBe(true);
+        await work;
+        // The child exited on SIGTERM, before the grace period for SIGKILL ended.
+        const text = contentText((await host.results()).at(-1)!.content);
+        expect(text).toContain("signal SIGTERM");
+        expect(text).not.toContain("force_stop failed");
+        // The call returns after the forced stop, so only the supervisor remains.
+        expect(await fixtureProcesses(directory)).toHaveLength(1);
+      },
+      { settings: { "ext.pi-subagents": { maxDepth: 1 } } }
+    );
+  });
+
   test.for(["tree", "fork", "switch"])(
     "isolates the replacement binding and immediately stops owned subtrees on %s",
     async (transition, { expect }) => {

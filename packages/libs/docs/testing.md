@@ -10,6 +10,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output. 
 - **Critical, integration:** Private-file access rejects final-path symlinks, hard-linked files, and nonregular files without changing their permissions or contents.
 - **Critical, integration:** Private-file lock acquisition does not reclaim an existing lock, regardless of its age or the owning process's liveness.
 - **Critical, integration:** Private-file transactions acquire the data path's lock before reading the bytes supplied to the update callback.
+- **Critical, integration:** Without POSIX owner IDs, private storage refuses a directory outside the user profile before it creates it, and works inside the profile without owner or mode checks.
 - **Critical, integration:** Settings updates preserve JSON keys that the synchronous mutator leaves untouched, including `__proto__` and `constructor`.
 - **Critical, integration:** Settings updates follow an existing symlink without replacing the link itself.
 - **Critical, integration:** On POSIX filesystems, settings updates preserve existing permission bits even when the writer's umask would mask them.
@@ -22,6 +23,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output. 
 - **High, unit:** `highlightCodeBounded` returns its input unchanged when language detection or input limits prevent highlighting, so callers must supply display-safe text.
 - **High, unit:** Native hook disposal leaves later replacements by other owners intact.
 - **High, integration:** Disposing a native-tool or file-mutation subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
+- **High, integration:** File renames retry only on Windows and only for `EPERM`, `EACCES`, and `EBUSY`, stop after 10 attempts, and keep the previous target when they fail.
 
 ## Not tested
 

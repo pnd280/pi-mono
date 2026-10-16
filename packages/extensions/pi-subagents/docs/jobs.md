@@ -46,7 +46,7 @@ Successful compaction adds a hidden reminder that lists the jobs on the selected
 
 ## Log files
 
-Each job writes all its output to `pi-job-<job_id>.log` in the OS temporary directory. Only the owner can read and write the file.
+Each job writes all its output to `pi-job-<job_id>.log` in the OS temporary directory. On Linux and macOS, only the owner can read and write the file. Windows ignores the file mode, so the file gets the access rules of the temporary directory.
 
 - The file has no size limit and is not automatically deleted, so a job with much output can fill a small temporary file system, such as a tmpfs.
 - When the output is larger than Pi's `bash` output limits, Pi also writes all of the output to its own `pi-bash-*.log` file, which is not automatically deleted. Such a job uses the disk space two times.

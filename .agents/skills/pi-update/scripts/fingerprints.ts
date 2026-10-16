@@ -7,7 +7,7 @@
 // its bundled classes, but loads .mjs natively, which would hash the API build twice.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -103,7 +103,8 @@ function parse(stderr: string): Fingerprints {
 function cliFingerprints(): Fingerprints {
   const cli = "node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js";
   const home = mkdtempSync(join(tmpdir(), "pi-fingerprints-"));
-  const env = { ...process.env, HOME: home, PI_CODING_AGENT_DIR: join(home, "agent"), PI_OFFLINE: "1" };
+  // os.homedir() reads USERPROFILE on Windows.
+  const env = { ...process.env, HOME: home, USERPROFILE: home, PI_CODING_AGENT_DIR: join(home, "agent"), PI_OFFLINE: "1" };
 
   try {
     // The offline prompt fails after extensions load; the hashes are already on stderr.
@@ -120,7 +121,9 @@ function cliFingerprints(): Fingerprints {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// The module URL is a real path; argv[1] keeps symlinks such as macOS /tmp -> /private/tmp.
+// Without realpath the check would print nothing and pass.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const builds = { api: fingerprints(), cli: cliFingerprints() };
   const listed = listedHashes();
   let changed = 0;

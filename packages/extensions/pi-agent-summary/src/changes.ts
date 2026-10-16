@@ -1,3 +1,5 @@
+import { realpathSync } from "node:fs";
+
 import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
 import {
   observedSource,
@@ -105,13 +107,22 @@ export class RunChanges implements MutationSink {
   readonly maxSourceBytes = PATCH_LIMITS.maxSourceBytes;
   private files = new Map<string, ObservedFile>();
   private retainedBytes = 0;
+  private cwd: string;
 
   constructor(
-    private cwd: string,
+    cwd: string,
     private maxRetainedBytes = RETAINED_BYTES
   ) {
     if (!z.int().nonnegative().safeParse(maxRetainedBytes).success)
       throw new RangeError("Retained source budget must be a nonnegative safe integer.");
+
+    // Mutation paths are canonical. Canonicalise cwd the same way, so a symlinked cwd (macOS
+    // /var -> /private/var) or a Windows 8.3 short name still displays files relative to it.
+    try {
+      this.cwd = realpathSync.native(cwd);
+    } catch {
+      this.cwd = cwd;
+    }
   }
 
   async completed(mutation: FileMutation): Promise<void> {

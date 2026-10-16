@@ -1,4 +1,4 @@
-import { symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { fauxAssistantMessage, type AssistantMessage } from "@earendil-works/pi-ai";
@@ -130,10 +130,13 @@ it.each(["session_start", "session_shutdown"] as const)(
 
 it("aggregates native edit/write aliases and large files without scanning bash-only changes", async () => {
   const runtime = fixture();
-  const path = join(runtime.ctx.cwd, "existing.txt");
+  const directory = join(runtime.ctx.cwd, "real");
+  const path = join(directory, "existing.txt");
   const unchanged = "unchanged content\n".repeat(6000);
+  mkdirSync(directory);
   writeFileSync(path, `original\nkeep\n${unchanged}`);
-  symlinkSync(path, join(runtime.ctx.cwd, "alias.txt"));
+  // A directory junction needs no symlink privilege on Windows; other platforms create a symlink.
+  symlinkSync(directory, join(runtime.ctx.cwd, "alias"), "junction");
   // Bounded diffs have wall-clock deadlines that a loaded machine can miss; libs tests them.
   const patch = vi
     .spyOn(boundedDiff, "createBoundedPatch")
@@ -146,7 +149,7 @@ it("aggregates native edit/write aliases and large files without scanning bash-o
   try {
     await runtime.emit("agent_start", {});
     await runtime.tool("edit", {
-      path: "alias.txt",
+      path: "alias/existing.txt",
       edits: [{ oldText: "original", newText: "intermediate\nfrom-edit" }]
     });
     await runtime.tool("write", { path, content: `final\nfrom-edit\nkeep\nextra\n${unchanged}` });
@@ -165,8 +168,8 @@ it("aggregates native edit/write aliases and large files without scanning bash-o
       finishedAt: Date.now(),
       bashCalls: 1,
       files: [
-        { path: "existing.txt", status: "available", added: 3, removed: 1 },
-        { path: "new.txt", status: "available", added: 1, removed: 0 }
+        { path: "new.txt", status: "available", added: 1, removed: 0 },
+        { path: "real/existing.txt", status: "available", added: 3, removed: 1 }
       ]
     });
     vi.advanceTimersByTime(1000);
@@ -183,7 +186,8 @@ it("aggregates native edit/write aliases and large files without scanning bash-o
     expect(patch).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        path: join(runtime.ctx.cwd, "new.txt"),
+        // File mutations report canonical paths; macOS temporary directories are under /private.
+        path: join(realpathSync(runtime.ctx.cwd), "new.txt"),
         before: "",
         after: "new\n",
         timeoutMs: 50

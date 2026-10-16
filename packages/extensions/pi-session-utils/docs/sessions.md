@@ -8,6 +8,7 @@
 
 - If the parent file exists, `create-empty-child` may suggest running `pi --parent-session` in another terminal.
 - When the parent path contains control characters, it asks you to retry once idle instead, rather than offering a command that would be unsafe to copy.
+- On native Windows it also asks you to retry once idle, because the suggested command uses POSIX shell quoting.
 
 ## Parent lookup from the CLI
 

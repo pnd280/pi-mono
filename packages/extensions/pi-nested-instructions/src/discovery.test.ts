@@ -47,10 +47,9 @@ it("loads Pi's first readable regular filename per directory, broad to narrow, w
   await fs.write("pkg/deep/AGENTS.MD", "uppercase");
   await fs.write("pkg/deep/AGENTS.override.md", "\uFEFFpreferred");
   const loaded = notices(await run());
-  expect(loaded.map(({ path: file }) => path.relative(fs.cwd, file!))).toEqual([
-    "pkg/AGENTS.md",
-    "pkg/deep/AGENTS.override.md"
-  ]);
+  expect(
+    loaded.map(({ path: file }) => path.relative(fs.cwd, file!).split(path.sep).join("/"))
+  ).toEqual(["pkg/AGENTS.md", "pkg/deep/AGENTS.override.md"]);
   expect(loaded[0]?.content).toContain("parent rules");
   expect(loaded[1]?.content).toContain("preferred");
   expect(loaded[1]?.content).not.toContain("\uFEFF");
@@ -60,14 +59,20 @@ it("loads Pi's first readable regular filename per directory, broad to narrow, w
 it("falls back after directories, broken symlinks, or failed content reads", async () => {
   await mkdir(path.join(fs.cwd, "pkg/AGENTS.override.md"), { recursive: true });
   await symlink("missing", path.join(fs.cwd, "pkg/AGENTS.md"));
-  const upper = await fs.write("pkg/AGENTS.MD");
   await fs.write("pkg/CLAUDE.md", "usable");
+  // A separate directory keeps every name distinct on case-insensitive file systems.
+  const unreadable = await fs.write("pkg/deep/AGENTS.md");
+  await fs.write("pkg/deep/CLAUDE.md", "usable");
   files.read = vi.fn(async (file: string) => {
-    if (file === upper) throw new Error("unreadable");
+    // Case-insensitive file systems also open this file as `AGENTS.MD`.
+    if (file.toLowerCase() === unreadable.toLowerCase()) throw new Error("unreadable");
 
     return instructionFiles.read(file);
   });
-  expect(notices(await run())[0]?.path).toBe(path.join(fs.cwd, "pkg/CLAUDE.md"));
+  expect(notices(await run()).map(({ path: file }) => file)).toEqual([
+    path.join(fs.cwd, "pkg/CLAUDE.md"),
+    path.join(fs.cwd, "pkg/deep/CLAUDE.md")
+  ]);
 });
 
 it("follows instruction symlinks but not their destination ancestors", async () => {

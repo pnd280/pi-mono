@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync
@@ -22,7 +23,8 @@ let parent: string;
 let id: string;
 
 beforeEach(() => {
-  directory = mkdtempSync(join(tmpdir(), "pi-session-utils-parent-"));
+  // Lookup returns real paths; on macOS the temporary directory is below the /var symlink.
+  directory = realpathSync(mkdtempSync(join(tmpdir(), "pi-session-utils-parent-")));
   cwd = join(directory, "work");
   mkdirSync(cwd);
   vi.stubEnv("PI_CODING_AGENT_DIR", join(directory, "agent"));
@@ -45,15 +47,19 @@ it("resolves paths and exact IDs without reading or migrating conversation histo
   expect(() => resolveParentSession(id.slice(0, 8), cwd)).toThrow(Error);
 });
 
-it("rejects ambiguous IDs and deduplicates symlinks to the same parent", () => {
-  const custom = join(directory, "custom");
-  mkdirSync(custom);
-  symlinkSync(parent, join(custom, "link.jsonl"));
-  expect(resolveParentSession(id, cwd, custom)).toBe(parent);
-  copyFileSync(parent, join(custom, "copy.jsonl"));
-  expect(() => resolveParentSession(id, cwd, custom)).toThrow(Error);
-  expect(resolveParentSession(parent, cwd, custom)).toBe(parent);
-});
+// Creating symlinks on Windows needs Developer Mode or administrator rights.
+it.skipIf(process.platform === "win32")(
+  "rejects ambiguous IDs and deduplicates symlinks to the same parent",
+  () => {
+    const custom = join(directory, "custom");
+    mkdirSync(custom);
+    symlinkSync(parent, join(custom, "link.jsonl"));
+    expect(resolveParentSession(id, cwd, custom)).toBe(parent);
+    copyFileSync(parent, join(custom, "copy.jsonl"));
+    expect(() => resolveParentSession(id, cwd, custom)).toThrow(Error);
+    expect(resolveParentSession(parent, cwd, custom)).toBe(parent);
+  }
+);
 
 it("rejects missing, malformed, oversized, and non-file parents without leaking contents", () => {
   const invalid = join(directory, "invalid.jsonl");

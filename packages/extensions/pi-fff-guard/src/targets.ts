@@ -116,15 +116,22 @@ async function fileInfo(absolute: string) {
 function exclusionTokens(exclude: SearchInput["exclude"], cwd: string): string[] {
   const list = typeof exclude === "string" ? [exclude] : (exclude ?? []);
 
-  // This is pi-fff 0.10.6 normalizeExcludes syntax, including splitting array entries.
-  return list
-    .flatMap((entry) => entry.split(/[,\s]+/))
-    .filter(Boolean)
-    .map((entry) => normalizeFffPath(entry.replace(/^!/, ""), cwd))
-    .map(({ value, directoryOnly }) =>
-      directoryOnly && !value.endsWith("/") ? `${value}/` : value
-    )
-    .filter((entry) => !["**", "**/", "**/*"].includes(entry) && resolvePath(entry, cwd) !== cwd);
+  // This is pi-fff 0.11.0 normalizeExcludes syntax, including splitting array entries.
+  return (
+    list
+      .flatMap((entry) => entry.split(/[,\s]+/))
+      .filter(Boolean)
+      .map((entry) => normalizeFffPath(entry.replace(/^!/, ""), cwd))
+      .map(({ value, directoryOnly }) =>
+        directoryOnly && !value.endsWith("/") ? `${value}/` : value
+      )
+      // Like upstream, compare with path.relative, which ignores letter case on Windows.
+      .filter(
+        (entry) =>
+          !["**", "**/", "**/*"].includes(entry) &&
+          path.relative(cwd, resolvePath(entry, cwd)) !== ""
+      )
+  );
 }
 
 /** Translate a filter into the target directory's coordinate system. */
@@ -188,7 +195,8 @@ function matchesFilter(value: string, expression: string): boolean {
       else
         result =
           segment !== undefined &&
-          path.matchesGlob(`component${segment}`, `component${filter}`) &&
+          // Scope values use `/` separators on every platform.
+          path.posix.matchesGlob(`component${segment}`, `component${filter}`) &&
           match(segmentIndex + 1, filterIndex + 1);
       memo.set(key, result);
 
@@ -201,7 +209,7 @@ function matchesFilter(value: string, expression: string): boolean {
 
 function workspaceFilter(expression: string, cwd: string): string {
   if (path.isAbsolute(expression) || expression.startsWith("~/"))
-    return path.relative(cwd, resolvePath(expression, cwd));
+    return path.relative(cwd, resolvePath(expression, cwd)).split(path.sep).join("/");
 
   return expression.replace(/^\.\//, "");
 }

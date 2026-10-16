@@ -29,7 +29,7 @@ A task that a child launches, at any depth below the supervisor's direct tasks.
 _Avoid_: subtask, grandchild for any depth
 
 **Capacity slot**:
-One place in the whole live task tree. A run holds its slot until its child exits.
+One place in the whole live task tree. A run holds its slot until its child exits and any forced stop of the child's process group ends.
 _Avoid_: permit, token
 
 **Job**:

@@ -8,6 +8,8 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 - **Critical, e2e:** Untrusted project settings cannot affect launch configuration or the `subagent` description, and cannot turn on `jobs`. Children receive the supervisor's project-trust flag.
 - **High, e2e:** Completed tasks, turn aborts, user aborts, session changes, and graceful supervisor exits leave no child processes, including children that block shutdown. After supervisor SIGKILL, cooperative children stop through stdin EOF.
+- **High, e2e:** A [forced stop](shutdown.md) continues after the child exits until the child's process group is gone: a member of the group that ignores SIGTERM and outlives the child receives SIGKILL after the grace period, before the call returns.
+- **High, e2e:** A forced stop that leaves the child's process group is reported, also when another process holds the child's output pipes. A child supervisor forwards the failure among its other stderr output, so a descendant's failure reaches the task above it. A cancelled task stays cancelled, and its result names the failure; `subagent_abort` returns the error instead of a confirmation.
 - **High, e2e:** Foreground calls report the child's final text and correct state; launch failures include the failed step, exit code, and stderr.
 - **High, e2e:** Navigation termination and replacement isolation: tree selection (including a same-path rewind), parent-session fork, and saved-session switch immediately stop owned running subtrees, including children that block shutdown and detached [descendants](../GLOSSARY.md#tasks-and-processes). Late captures, completions, and controls cannot affect the replacement binding. Ordinary foreground abort stops only its foreground subtree; new messages leave children running.
 - **High, e2e:** [Run](../GLOSSARY.md#tasks-and-processes) history and explicit resume: the [selected parent ancestry](../GLOSSARY.md#history) supplies each task's latest run and its descendants. Running tasks recover stopped, including after restart or fork, and a run without an `end` entry shows as cancelled. Explicit resume keeps the task ID, session ID, and session file, continues the selected run in the same [child file](../GLOSSARY.md#history), excludes later runs, and warns about incomplete tool cycles without replaying old calls. A resume that omits `model` or `thinking` sends the child's provider requests with the value that the task's latest run on the selected ancestry requested, not the applied value, the supervisor's current selection, or the selection of a later run; a value in the call replaces only its own field. Historical views leave child files unchanged.
@@ -39,6 +41,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e (J2):** `job_abort` stops the whole process group of an owned active job and delivers no separate result. It rejects unknown and inactive jobs. A turn abort leaves jobs running. Tree navigation, fork, session switch, reload, graceful exit, and the end of a print, JSON, or child run leave no process of the job's process group.
 - **High, e2e (J3):** The jobs on the selected ancestry come from the `job` and `job-end` entries. A job without an end entry shows as cancelled after a restart.
 - **Critical, e2e (J4):** `job` uses the `shellPath` and `shellCommandPrefix` settings. When another extension owns `bash`, `job` and `job_abort` are hidden.
+- **Critical, unit (J5):** The job log reader refuses a symbolic link, a special file, and a file that replaced the log path after the reader checked it.
 
 ### Input and transcript digests
 
@@ -51,7 +54,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 - The [activity test](../validation/activity.test.ts) covers T5 only at the connection boundary. It does not replace a terminal task view, delay a filesystem read, inject a failed response, or exercise every late event kind. A delayed file read of an earlier run is below the bar: the run reader discards it, and without that check it would show for one refresh only, because each read ends by starting the next pending read.
 - RPC framing, prompt-disposition semantics, lineage, and Pi's internal trust enforcement belong to Pi. Shared libraries own their algorithms.
-- macOS and Windows have no automated coverage. Tests run on Linux.
+- macOS and Windows have no automated coverage. Tests run on Linux, and the forced-stop failure test needs `perl` to put a process into another process group.
 - Coordination-protocol races during settlement and stdin EOF, and reads of large branched child files have no automated coverage. [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) records the one-time probes and the open checks.
 - A child that blocks shutdown can survive supervisor SIGKILL; there is no independent watchdog.
 - Card appearance and task-list pagination are below the automated coverage bar.

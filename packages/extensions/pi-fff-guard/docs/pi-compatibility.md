@@ -2,7 +2,7 @@
 
 [pi-fff-guard](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline interception and scope tests, with explicit `ToolInfo.exposure`, and an unchanged extension API declaration; no runtime changes needed). Not covered: live calls to installed FFF, and the retirement checks. The FFF version in the README comes from earlier external testing.
+> Last verified against Pi 1.3.0 and FFF 0.11.0 (package checks, offline interception and scope tests, and live calls on Linux to installed FFF through an offline scripted provider, in the default and `override` modes). Compared with 0.10.6, FFF 0.11.0 registers its tools when it loads and again at session start, and changes rendering and SDK loading. Its tool schemas, `query.ts`, and `aux-finders.ts` are unchanged. No runtime changes were needed.
 
 ## Upgrade procedure
 
@@ -27,4 +27,4 @@ After a released FFF version implements [FFF #714](https://github.com/dmtrKovale
 2. For every tool in use, search an ignored file, an ignored directory, and a linked dependency.
 3. If those pass, check missing explicit paths before retiring the guard. Keep a separate path check if needed.
 
-The [FFF 0.11.0 routing implementation](https://github.com/dmtrKovalenko/fff/blob/95fd777c2529fc7b4d7572dabff64cc07268f2c5/packages/pi-fff/src/aux-finders.ts#L167-L184) still leaves in-workspace paths on the workspace finder, including ignored paths. This is not a released fix for the retirement precondition; keep the guard until the procedure above passes. Source inspection alone does not establish live search compatibility.
+The [FFF 0.11.0 routing implementation](https://github.com/dmtrKovalenko/fff/blob/95fd777c2529fc7b4d7572dabff64cc07268f2c5/packages/pi-fff/src/aux-finders.ts#L167-L184) still leaves in-workspace paths on the workspace finder, including ignored paths. A live check of FFF 0.11.0 without the guard confirms this: searches of an ignored file and a linked dependency returned only matches from another file, with no notice, and searches of an ignored directory returned nothing. Keep the guard until the procedure above passes.

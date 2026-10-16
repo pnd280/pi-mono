@@ -8,7 +8,7 @@ How the guard decides which paths a search targets. The pure prefix and normalis
 
 The guard checks explicit `path` values and multi-grep constraints for missing or ignored targets, including broken links. Exclusions are handled differently; see [globs and exclusions](#globs-and-exclusions). Relative paths resolve from the session cwd, and `~/` expands to the home directory.
 
-In `path` and `exclude`, FFF strips `./` and absolute prefixes inside the workspace:
+In `path` and `exclude`, FFF strips `./` and absolute prefixes inside the workspace. Absolute paths with Windows `\` separators are read with `/` separators, as FFF does; relative paths are not converted:
 
 | Value                      | Treated as                                                              |
 | -------------------------- | ----------------------------------------------------------------------- |
@@ -42,7 +42,7 @@ Repository-root `.` searches, bare fuzzy queries, generic filters such as `*.ts`
 
 The guard uses effective Git ignore rules, local and global exclusions, and tracked-file exceptions, supporting worktrees and external repositories. Workspace paths use workspace rules even inside nested repositories; external paths use their own repositories. Non-ignored symlinks are also checked under their destinations' rules.
 
-Inspection runs `git` from `PATH` and never enumerates directories. A target that no longer exists is reported as missing, even when an existing parent is ignored. Symbolic-link cycles and very long link chains count as failed inspections. The [two-second deadline](../README.md#limits) also covers repository discovery and link traversal.
+Inspection runs `git` from `PATH` and never enumerates directories. Before it compares a path with a repository root, the guard resolves aliases that are not symbolic links, such as Windows short names or letter case, because Git reports canonical roots. A symbolic link keeps its own name, and only its parent directory is resolved. If the repository found from that directory still does not contain the path, inspection fails instead of reporting the path as not ignored. A target that no longer exists is reported as missing, even when an existing parent is ignored. Symbolic-link cycles and very long link chains count as failed inspections. The [two-second deadline](../README.md#limits) also covers repository discovery and link traversal.
 
 ### Inspection contract
 

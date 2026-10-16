@@ -1,4 +1,7 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import type { Readable } from "node:stream";
+import { StringDecoder } from "node:string_decoder";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { contentText, type AssistantMessage } from "@earendil-works/pi-ai";
 import {
@@ -16,15 +19,41 @@ import {
   DEPTH_ENV,
   PROTOCOL_KEY,
   PROTOCOL_VERSION,
+  STOP_FAILURE_PREFIX,
   STOP_GRACE_MS,
   TASK_ID_ENV
 } from "../constants.ts";
 import { childMessageSchema, decode, encode, type ChildMessage } from "../coordination/protocol.ts";
+import { firstLine } from "../result.ts";
 import { ChildConnection, type ProcessExit, type RpcRecord } from "./connection.ts";
 import { childArgs, type ChildSelection, type PiInvocation } from "./invocation.ts";
-import { forceStop, isAlive, processOptions, terminateTree } from "./platform.ts";
+import {
+  forceStop,
+  isAlive,
+  processOptions,
+  stopRemainingGroup,
+  terminateTree
+} from "./platform.ts";
 
 type Begun = Extract<ChildMessage, { kind: "begun" }>;
+
+/** The longest cleanup failure that one stderr record of a child supervisor gives. */
+const STOP_FAILURE_MAX = 4_096;
+
+/** The longest cleanup failure that a failed run's first line gives before its other failure. */
+const CLEANUP_SUMMARY_MAX = 256;
+
+/** The interval of checks for output after a stop; each check follows a poll for input. */
+const OUTPUT_CHECK_MS = 10;
+
+/** Checks without data after which the supervisor closes output pipes that another process holds. */
+const OUTPUT_IDLE_CHECKS = 10;
+
+/** How long the supervisor reads output after a stop before it closes the pipes anyway. */
+const OUTPUT_DRAIN_MS = 2_000;
+
+/** Starts the result of a run whose output pipes the supervisor closed before EOF. */
+const OUTPUT_INCOMPLETE = "Output can be incomplete: the supervisor closed it before EOF";
 
 export type ChildStart = {
   taskId: string;
@@ -46,6 +75,8 @@ export type ChildResult = {
   usageStart?: SessionStats;
   usageEnd?: SessionStats;
   exit: ProcessExit;
+  /** A stop of the child's processes failed, so they can still run; the text names it. */
+  stopError?: string;
 };
 
 export type ChildOptions = ChildSelection & {
@@ -94,6 +125,10 @@ export class ChildRun {
   private activity = "";
   private step = "spawn";
   private failure: { step: string; message: string } | undefined;
+  /** A failed stop of the child's processes; the result's text also names it. */
+  private stopError: string | undefined;
+  /** The supervisor closed the output pipes before EOF, so later records can be missing. */
+  private outputIncomplete = false;
   private cancellation: string | undefined;
   private initialised = false;
   private agentEnded = true;
@@ -105,7 +140,11 @@ export class ChildRun {
   private stopping = false;
   private finished = false;
   private stopTimer: ReturnType<typeof setTimeout> | undefined;
-  private clearForceStop: (() => void) | undefined;
+  /**
+   * The forced stop, or after the child's exit, the stop of its remaining process group. It ends
+   * when the group is gone or its failure was reported.
+   */
+  private forced: Promise<void> | undefined;
   private listeners = new Set<(message: ChildMessage) => void>();
 
   constructor(private readonly options: ChildOptions) {
@@ -128,14 +167,20 @@ export class ChildRun {
     this.connection.subscribe((record) => this.observe(record));
     this.connection.onDrain(() => this.scheduleCollection());
     this.connection.onError((error) => this.fail(error));
-    this.done = this.connection.closed.then((exit) => {
+    this.readStopFailures(child.stderr);
+    // A member of the child's process group can outlive the child and hold the output pipes.
+    child.once("exit", () => {
+      this.forced ??= stopRemainingGroup(child, (error) => this.stopFailed("force_stop", error));
+      if (this.forced) void this.closeOutput(child, this.forced);
+    });
+    this.done = this.connection.closed.then(async (exit) => {
       this.finished = true;
       this.ready.resolve(undefined);
       clearTimeout(this.stopTimer);
-      this.clearForceStop?.();
       this.setActivity("");
+      await this.forced;
 
-      return this.result(exit);
+      return this.noteOutput(this.result(exit));
     });
     void this.launch().catch((error: unknown) => this.fail(error));
   }
@@ -178,10 +223,7 @@ export class ChildRun {
       this.cancellation ??= reason;
       this.closing = true;
       clearTimeout(this.stopTimer);
-      this.clearForceStop?.();
-      terminateTree(this.connection.process, (error) => {
-        this.failure ??= { step: "terminate_tree", message: error.message };
-      });
+      terminateTree(this.connection.process, (error) => this.stopFailed("terminate_tree", error));
     }
 
     return this.done;
@@ -565,35 +607,109 @@ export class ChildRun {
     this.stopTimer = setTimeout(() => {
       if (!isAlive(this.connection.process)) return;
       this.closeInput();
-      this.clearForceStop = forceStop(this.connection.process, (error) => {
-        this.failure ??= { step: "force_stop", message: error.message };
-      });
+      this.forced = forceStop(this.connection.process, (error) =>
+        this.stopFailed("force_stop", error)
+      );
     }, this.options.shutdownGraceMs ?? STOP_GRACE_MS);
   }
 
+  /**
+   * After the stop of the child's process group, EOF normally closes the output pipes. When another
+   * process still holds them, the supervisor closes them once no data arrived over several checks,
+   * or at the bound. Without EOF, more output could follow, so the result notes it.
+   */
+  private async closeOutput(
+    child: ChildProcessWithoutNullStreams,
+    stop: Promise<void>
+  ): Promise<void> {
+    let chunks = 0;
+
+    const receive = () => {
+      chunks++;
+    };
+
+    child.stdout.on("data", receive);
+    child.stderr.on("data", receive);
+    await stop;
+    const end = Date.now() + OUTPUT_DRAIN_MS;
+    let idle = 0;
+
+    const ended = () => child.stdout.closed && child.stderr.closed;
+
+    while (!ended() && idle < OUTPUT_IDLE_CHECKS && Date.now() < end) {
+      const before = chunks;
+      await delay(OUTPUT_CHECK_MS);
+      idle = chunks === before ? idle + 1 : 0;
+    }
+
+    this.outputIncomplete = !ended();
+    child.stdout.off("data", receive);
+    child.stderr.off("data", receive);
+    child.stdout.destroy();
+    child.stderr.destroy();
+  }
+
+  /**
+   * Records the failed process cleanups that a child supervisor writes to stderr, one per line. It
+   * reads the whole stream, so other output and the bounded stderr excerpt cannot hide them.
+   */
+  private readStopFailures(stderr: Readable): void {
+    const decoder = new StringDecoder("utf8");
+    // The current line while it can still be a record.
+    let line: string | undefined = "";
+
+    const add = (text: string) => {
+      if (line === undefined) return;
+      line = (line + text).slice(0, STOP_FAILURE_PREFIX.length + STOP_FAILURE_MAX);
+      if (!line.startsWith(STOP_FAILURE_PREFIX) && !STOP_FAILURE_PREFIX.startsWith(line))
+        line = undefined;
+    };
+
+    const end = () => {
+      if (line?.startsWith(STOP_FAILURE_PREFIX))
+        this.stopFailed("descendant_stop", new Error(line.slice(STOP_FAILURE_PREFIX.length)));
+      line = "";
+    };
+
+    stderr.on("data", (chunk: Buffer) => {
+      const [first = "", ...rest] = decoder.write(chunk).split("\n");
+      add(first);
+
+      for (const part of rest) {
+        end();
+        add(part);
+      }
+    });
+    stderr.once("close", () => {
+      add(decoder.end());
+      end();
+    });
+  }
+
+  private stopFailed(step: string, error: Error): void {
+    this.failure ??= { step, message: error.message };
+    this.stopError ??= `${step} failed: ${error.message}`;
+  }
+
   private result(exit: ProcessExit): ChildResult {
+    const { stopError } = this;
     const common = {
       ...(this.start ? { usageStart: this.start.usageStart } : {}),
       ...(this.start && this.usageEnd ? { usageEnd: this.usageEnd } : {}),
-      exit
+      exit,
+      ...(stopError ? { stopError } : {})
     };
 
     if (this.cancellation !== undefined) {
-      return { ...common, outcome: "cancelled", text: this.cancellation };
-    }
-
-    if (this.failure || !this.closing || exit.code !== 0 || exit.error) {
-      const failed = this.failure ?? {
-        step: this.step,
-        message: exit.error?.message ?? "Child exited before completion"
-      };
-
       return {
         ...common,
-        outcome: "failed",
-        text: `${failed.step} failed (exit code ${exit.code}, signal ${exit.signal}): ${failed.message}\n${this.connection.stderrTail}`.trimEnd()
+        outcome: "cancelled",
+        text: stopError ? `${this.cancellation}; ${stopError}` : this.cancellation
       };
     }
+
+    if (this.failure || !this.closing || exit.code !== 0 || exit.error)
+      return { ...common, outcome: "failed", text: this.failedText(exit) };
 
     if (this.lastAssistant?.stopReason === "error") {
       return {
@@ -612,5 +728,34 @@ export class ChildRun {
     }
 
     return { ...common, outcome: "completed", text: this.text };
+  }
+
+  /**
+   * Output closed before EOF can miss the records that decide the result, so a completed run fails.
+   * The note starts the first line, before the original text, so bounded error lines keep it.
+   */
+  private noteOutput(result: ChildResult): ChildResult {
+    if (!this.outputIncomplete) return result;
+    if (result.outcome !== "completed")
+      return { ...result, text: `${OUTPUT_INCOMPLETE}; ${result.text}` };
+
+    return { ...result, outcome: "failed", text: `${OUTPUT_INCOMPLETE}\n${result.text}`.trimEnd() };
+  }
+
+  /** A distinct cleanup failure starts the first line, so bounded error lines keep it. */
+  private failedText(exit: ProcessExit): string {
+    const failed = this.failure ?? {
+      step: this.step,
+      message: exit.error?.message ?? "Child exited before completion"
+    };
+    const error = `${failed.step} failed (exit code ${exit.code}, signal ${exit.signal}): ${failed.message}`;
+    const { stopError } = this;
+    if (!stopError || stopError === `${failed.step} failed: ${failed.message}`)
+      return `${error}\n${this.connection.stderrTail}`.trimEnd();
+    const summary = firstLine(stopError, CLEANUP_SUMMARY_MAX);
+    // The body keeps the complete failure when the summary shortens it.
+    const full = summary === stopError ? "" : `\n${stopError}`;
+
+    return `${summary}; ${error}${full}\n${this.connection.stderrTail}`.trimEnd();
   }
 }

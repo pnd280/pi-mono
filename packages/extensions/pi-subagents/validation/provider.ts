@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -41,6 +42,13 @@ let resultPending = false;
 
 /** A `background-idle` supervisor creates this file after its final turn for its child. */
 const IDLE_RELEASE = "idle-release";
+
+/** More stderr output than the 16 KiB and 20 edge lines that a supervisor keeps. */
+const STDERR_NOISE = `${"fixture stderr noise ".repeat(30)}\n`.repeat(30);
+
+function writeStderr(text: string): Promise<void> {
+  return new Promise((resolve) => process.stderr.write(text, () => resolve()));
+}
 
 type Call =
   | {
@@ -204,6 +212,8 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     ["background-retry", "finite-late"],
     ["background-slow", "slow"],
     ["background-stubborn", "ignore-abort"],
+    ["background-group-zombie", "group-zombie"],
+    ["background-nested-zombie", "background-group-zombie"],
     ["background-abort-tool", "abort-tool"],
     ["background-input", "input-hold"],
     ["background-settling", "settle-hold"],
@@ -237,6 +247,7 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     ["delegate-error", "error"],
     ["delegate-cancelled", "cancelled"],
     ["delegate-shutdown-blocked", "shutdown-blocked"],
+    ["delegate-group-survivor", "group-survivor"],
     ["delegate-slow", "slow"],
     ["delegate-stubborn", "ignore-abort"],
     ["delegate-remember", "remember"],
@@ -431,7 +442,14 @@ function plainResponse(
       getCurrentTools(context.messages).find((tool) => tool.name === "subagent")?.description ?? ""
     );
 
-  return ["reply", "finite", "finite-idle", "finite-late", "shutdown-blocked"].includes(scenario)
+  return [
+    "reply",
+    "finite",
+    "finite-idle",
+    "finite-late",
+    "shutdown-blocked",
+    "group-survivor"
+  ].includes(scenario)
     ? "Fixture reply"
     : "Choose a subagents fixture scenario.";
 }
@@ -615,7 +633,7 @@ function createStream(
           return "stop";
         }
 
-        if (scenario === "slow") {
+        if (scenario === "slow" || scenario === "group-zombie") {
           for (let i = 0; i < 60; i++) await setTimeout(1_000, undefined, { signal });
           text("Fixture slow reply");
 
@@ -696,6 +714,7 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
     }
   });
   let ignoreShutdown = false;
+  let noisyShutdown = false;
   let answer = false;
   let settleHold = false;
   let exitHold = false;
@@ -716,7 +735,39 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
     digestHold = prompt === "activity-digest";
     settleHold = prompt === "settle-hold";
     exitHold = prompt === "exit-hold";
-    ignoreShutdown = prompt === "ignore-abort" || prompt === "shutdown-blocked";
+    ignoreShutdown = [
+      "ignore-abort",
+      "shutdown-blocked",
+      "group-survivor",
+      "group-zombie"
+    ].includes(prompt ?? "");
+    // A member of this child's process group that ignores SIGTERM and has its own standard
+    // streams, so the child's exit on SIGTERM closes the connection while the member runs.
+    if (prompt === "group-survivor")
+      spawn("sh", ["-c", "trap '' TERM; exec sleep 600"], { cwd: ctx.cwd, stdio: "ignore" });
+
+    // Ordinary stderr output of a child supervisor before its tasks' cleanup failures: more than
+    // the kept stderr excerpt, then an unfinished line. Its shutdown writes more output after them.
+    if (prompt === "background-group-zombie") {
+      noisyShutdown = true;
+      await writeStderr(`${STDERR_NOISE}fixture progress 50%`);
+    }
+
+    // A zombie in this child's process group whose parent, in its own group, reaps it only on
+    // SIGTERM. Signals still reach the group, so a forced stop cannot end it. The parent holds the
+    // child's output pipes and records both PIDs in `zombie-pids`; the test stops it.
+    if (prompt === "group-zombie")
+      spawn(
+        "perl",
+        [
+          "-MPOSIX",
+          "-e",
+          "$g = getpgrp; setpgid(0, 0); $c = fork; if (!$c) { setpgid(0, $g); exit } " +
+            "$SIG{TERM} = sub { waitpid($c, 0); exit }; open F, '>', 'zombie-pids.tmp'; " +
+            "print F join(' ', $$, $c); close F; rename 'zombie-pids.tmp', 'zombie-pids'; sleep 600"
+        ],
+        { cwd: ctx.cwd, stdio: ["ignore", "inherit", "inherit"] }
+      );
     if (prompt === "dialog")
       // A shorter limit would decline the dialog when a loaded host answers late.
       answer = await ctx.ui.confirm("Fixture question", "Continue this child task?", {
@@ -774,6 +825,9 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       await writeFile(join(process.cwd(), "exit-ready"), "ready");
       await setTimeout(1500);
     }
+
+    // pi-subagents loads first, so its handler has written the cleanup failures.
+    if (noisyShutdown) await writeStderr(STDERR_NOISE);
 
     // Keep a handle alive as well as ignoring EOF, so the forced-stop path is observable.
     while (ignoreShutdown) await setTimeout(60_000);

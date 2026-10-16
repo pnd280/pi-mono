@@ -2,7 +2,6 @@ import { fork } from "node:child_process";
 import { once } from "node:events";
 import {
   chmod,
-  mkdir,
   readFile,
   readdir,
   rm,
@@ -28,6 +27,9 @@ import {
 } from "../test-fixture.ts";
 import { FileRepository } from "./repository.ts";
 
+// These tests check POSIX modes or symlinks, which native Windows lacks or restricts.
+const posixIt = it.runIf(process.platform !== "win32");
+
 let fixture: Awaited<ReturnType<typeof workspace>>;
 beforeEach(async () => {
   fixture = await workspace();
@@ -44,28 +46,6 @@ async function drafts(): Promise<Snapshot> {
 
   return result;
 }
-
-it("refuses unsupported platforms before creating managed directories", async () => {
-  const agentDir = join(fixture.directory, "unsupported-agent");
-  await mkdir(agentDir, { mode: 0o755 });
-  const repository = await FileRepository.create({ cwd: fixture.cwd, agentDir, retention: 250 });
-  const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
-  const message = "Prompt storage supports Linux, macOS, and WSL local filesystems only.";
-
-  try {
-    Object.defineProperty(process, "platform", { value: "win32" });
-    expect(await repository.read("drafts")).toEqual({ status: "unavailable", message });
-    expect(await repository.mutate("history", add("must not save"), session())).toEqual({
-      status: "failed",
-      message
-    });
-  } finally {
-    Object.defineProperty(process, "platform", platform);
-  }
-
-  expect(await readdir(agentDir)).toEqual([]);
-  expect((await stat(agentDir)).mode & 0o777).toBe(0o755);
-});
 
 it("does not prune on opening and commits repeated exact drafts with different UUIDs", async () => {
   await fixture.repository.mutate("history", add("first"), session());
@@ -89,37 +69,43 @@ it("does not prune on opening and commits repeated exact drafts with different U
   expect(current.entries[0]?.source.id).not.toBe(current.entries[1]?.source.id);
 });
 
-it("repairs owned permissions even when capacity rejects the save, without changing stored bytes", async () => {
-  const path = join(fixture.storage, "drafts.json");
-  await fixture.repository.mutate("drafts", add("saved"), session());
-  const before = await readFile(path);
-  await chmod(path, 0o666);
-  await chmod(fixture.storage, 0o777);
-  const result = await fixture.repository.mutate(
-    "drafts",
-    add("x".repeat(limits.draftText + 1)),
-    session()
-  );
-  expect(result.status).toBe("failed");
-  expect(await readFile(path)).toEqual(before);
-  expect((await stat(path)).mode & 0o777).toBe(0o600);
-  expect((await stat(fixture.storage)).mode & 0o777).toBe(0o700);
-  expect((await stat(join(fixture.agentDir, "pi-prompt-manager"))).mode & 0o777).toBe(0o700);
-});
+posixIt(
+  "repairs owned permissions even when capacity rejects the save, without changing stored bytes",
+  async () => {
+    const path = join(fixture.storage, "drafts.json");
+    await fixture.repository.mutate("drafts", add("saved"), session());
+    const before = await readFile(path);
+    await chmod(path, 0o666);
+    await chmod(fixture.storage, 0o777);
+    const result = await fixture.repository.mutate(
+      "drafts",
+      add("x".repeat(limits.draftText + 1)),
+      session()
+    );
+    expect(result.status).toBe("failed");
+    expect(await readFile(path)).toEqual(before);
+    expect((await stat(path)).mode & 0o777).toBe(0o600);
+    expect((await stat(fixture.storage)).mode & 0o777).toBe(0o700);
+    expect((await stat(join(fixture.agentDir, "pi-prompt-manager"))).mode & 0o777).toBe(0o700);
+  }
+);
 
-it("applies private-file and private-directory refusal independently to collections", async () => {
-  const path = join(fixture.storage, "drafts.json");
-  const source = join(fixture.directory, "unrelated");
-  await writeFile(source, "not ours", { mode: 0o644 });
-  await symlink(source, path);
-  expect((await fixture.repository.read("drafts")).status).toBe("unavailable");
-  expect((await fixture.repository.read("history")).status).toBe("ready");
-  expect(await readFile(source, "utf8")).toBe("not ours");
-  expect((await stat(source)).mode & 0o777).toBe(0o644);
-  await rm(fixture.storage, { recursive: true });
-  await symlink(fixture.cwd, fixture.storage);
-  expect((await fixture.repository.read("history")).status).toBe("unavailable");
-});
+posixIt(
+  "applies private-file and private-directory refusal independently to collections",
+  async () => {
+    const path = join(fixture.storage, "drafts.json");
+    const source = join(fixture.directory, "unrelated");
+    await writeFile(source, "not ours", { mode: 0o644 });
+    await symlink(source, path);
+    expect((await fixture.repository.read("drafts")).status).toBe("unavailable");
+    expect((await fixture.repository.read("history")).status).toBe("ready");
+    expect(await readFile(source, "utf8")).toBe("not ours");
+    expect((await stat(source)).mode & 0o777).toBe(0o644);
+    await rm(fixture.storage, { recursive: true });
+    await symlink(fixture.cwd, fixture.storage);
+    expect((await fixture.repository.read("history")).status).toBe("unavailable");
+  }
+);
 
 it("bounds file reads before parsing and never overwrites corruption", async () => {
   const path = join(fixture.storage, "drafts.json");

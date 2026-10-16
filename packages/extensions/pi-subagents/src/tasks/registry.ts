@@ -14,7 +14,13 @@ import type { PiInvocation } from "../child/invocation.ts";
 import type * as ChildModule from "../child/run.ts";
 import type { ChildResult, ChildRun, ChildStart } from "../child/run.ts";
 import type { SubagentsConfig } from "../config.ts";
-import { END_ENTRY, KILL_GRACE_MS, RUN_ENTRY, STOP_GRACE_MS } from "../constants.ts";
+import {
+  END_ENTRY,
+  KILL_GRACE_MS,
+  RUN_ENTRY,
+  STOP_FAILURE_PREFIX,
+  STOP_GRACE_MS
+} from "../constants.ts";
 import { requestControl } from "../coordination/control.ts";
 import {
   errorText,
@@ -83,6 +89,30 @@ export type TaskEvent =
 
 /** Debounce for nested task updates; a run's exit sends its update at once. */
 const UPDATE_DEBOUNCE_MS = 100;
+
+/** How long a child supervisor waits for stderr to take its forwarded cleanup failures. */
+const FORWARD_MS = 1_000;
+
+/** Writes to stderr before the process exits. When no reader remains (EPIPE), nothing reports it. */
+function forwardStderr(text: string): Promise<void> {
+  // A failed write also emits an error after its callback; without a listener, it ends the process.
+  // Other errors keep that default: with no other listener, this one throws them again.
+  const onError = (error: NodeJS.ErrnoException) => {
+    if (error.code !== "EPIPE" && process.stderr.listenerCount("error") === 1) throw error;
+  };
+
+  process.stderr.on("error", onError);
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, FORWARD_MS);
+    // The listener stays until this write ends, also after the timeout, because it can still fail.
+    process.stderr.write(text, () => {
+      clearTimeout(timer);
+      setImmediate(() => process.stderr.off("error", onError));
+      resolve();
+    });
+  });
+}
 
 export const INTERRUPTED_WARNING =
   "The resumed history ends with an incomplete tool cycle. Old calls are not replayed automatically. Completed effects remain; the model can request the operation again.";
@@ -908,7 +938,8 @@ export class Tasks {
 
   /**
    * Cancel an active task of this subtree. With `drop`, a direct task's cancellation result goes
-   * to nobody; a task that finished before the abort keeps its result.
+   * to nobody; a task that finished before the abort keeps its result. A failed cleanup of the
+   * task's processes throws after the task stops.
    */
   async abort(
     taskId: string,
@@ -936,6 +967,9 @@ export class Tasks {
       record = this.owned(taskId);
       // Process exit can precede managed-task cleanup, leaving an already finished run in live.
       if (result.outcome !== "cancelled") throw new Error("Task is inactive");
+      // The task stopped, but its processes can still run, so the abort did not succeed.
+      if (result.stopError)
+        throw new Error(`Task cancelled, but owned-process cleanup failed: ${result.stopError}`);
     }
 
     if (record.state !== "inactive" || record.outcome !== "cancelled")
@@ -998,9 +1032,22 @@ export class Tasks {
       else void task.run.cancel("Cancelled by session shutdown");
     }
 
-    await Promise.all(tasks.map((task) => task.done));
+    const failures = await Promise.all(
+      tasks.map(async (task) => {
+        const { stopError } = await task.done;
+
+        // Each record starts a line, also after other output without a final newline.
+        return stopError
+          ? `\n${STOP_FAILURE_PREFIX}task ${task.details.task_id}: ${stopError}\n`
+          : "";
+      })
+    );
     this.relay.shutdown();
     this.listeners.clear();
+    const forwarded = failures.join("");
+
+    // The supervisor of this child supervisor reads the failures from its stderr.
+    if (this.options.depth > 0 && forwarded) await forwardStderr(forwarded);
   }
 
   owned(taskId: string): TaskRecord {

@@ -19,14 +19,15 @@ export function isFilenameFilter(expression: string): boolean {
 
 /** FFF strips local anchors; bare filenames remain recursive filters. */
 export function normalizeFffPath(expression: string, cwd: string) {
+  // FFF gives absolute paths `/` separators, as on Windows, before it classifies them.
+  const absolute = path.isAbsolute(expression);
+  const portable = absolute ? expression.split(path.sep).join("/") : expression;
   const value =
-    path.isAbsolute(expression) && containsPath(cwd, expression)
-      ? relativeDisplayPath(expression, cwd)
-      : expression;
+    absolute && containsPath(cwd, expression) ? relativeDisplayPath(expression, cwd) : portable;
   const normalized = value.replace(/^\.\//, "");
 
   return {
-    value: isFilenameFilter(normalized) ? normalized : expression,
+    value: isFilenameFilter(normalized) ? normalized : portable,
     // FFF appends a slash to extensionless non-glob path fields, so a regular
     // file with that name is not a viable search root.
     directoryOnly: normalized !== "." && !hasGlob(normalized) && !hasFilenameExtension(normalized)

@@ -44,7 +44,7 @@ function harness({ hasUI = false }: { hasUI?: boolean } = {}) {
 
   return {
     notify,
-    register(name: string, source = "npm:@ff-labs/pi-fff@0.10.6") {
+    register(name: string, source = "npm:@ff-labs/pi-fff@0.11.0") {
       tools = [
         {
           name,

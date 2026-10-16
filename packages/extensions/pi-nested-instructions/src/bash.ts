@@ -202,6 +202,17 @@ function wordPattern(word: Word): boolean {
     : unescapedGlob(word.text);
 }
 
+/**
+ * On Windows, Pi's Bash can be Git Bash, MSYS2, Cygwin, or WSL. Map the Git Bash and MSYS2 drive
+ * path `/c/dir` to `c:/dir`, and skip other POSIX-rooted paths, whose mount root is unknown.
+ */
+function nativeHint(hint: PathHint): PathHint | undefined {
+  if (path.sep !== "\\" || !hint.value.startsWith("/")) return hint;
+  const drive = /^\/([a-zA-Z])(?:\/|$)/.exec(hint.value)?.[1];
+
+  return drive ? { ...hint, value: `${drive.toUpperCase()}:/${hint.value.slice(3)}` } : undefined;
+}
+
 function wordHint(word: Word, cwd: string): PathHint {
   return {
     value: word.value,
@@ -334,7 +345,7 @@ function commandHints(name: string, command: Command, cwd: string): PathHint[] {
     }
   }
 
-  return hints;
+  return hints.flatMap((hint) => nativeHint(hint) ?? []);
 }
 
 export function bashHints(source: string, cwd: string, home: string): PathHint[] {
@@ -349,7 +360,7 @@ export function bashHints(source: string, cwd: string, home: string): PathHint[]
     if (name === "cd") {
       const args = commandWords(command).map((word) => wordHint(word, base));
       if (args[0]?.value === "--") args.shift();
-      const target = args[0];
+      const target = args[0] && nativeHint(args[0]);
       if (piped || !target || args.length !== 1 || target.value.startsWith("-") || target.pattern)
         return false;
       base = path.resolve(

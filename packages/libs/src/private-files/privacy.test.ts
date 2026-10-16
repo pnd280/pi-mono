@@ -19,6 +19,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { PrivateFileError, ReadLimitError } from "./errors.ts";
 import { boundedRead, checkHandle } from "./privacy.ts";
 
+// These tests check POSIX owners, modes, or symlinks, which native Windows lacks or restricts.
+const posixIt = it.runIf(process.platform !== "win32");
+
 let directory: string;
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), "private-files-test-"));
@@ -42,7 +45,7 @@ it("honors caller byte limits, including empty and missing files, and preserves 
     await expect(boundedRead(path, limit)).rejects.toBeInstanceOf(RangeError);
 });
 
-it("refuses a final-file symlink without changing the target", async () => {
+posixIt("refuses a final-file symlink without changing the target", async () => {
   const path = join(directory, "data");
   const target = join(directory, "unrelated");
   const bytes = Buffer.from("unrelated symlink target\0");
@@ -55,7 +58,7 @@ it("refuses a final-file symlink without changing the target", async () => {
   expect((await stat(target)).mode & 0o777).toBe(0o640);
 });
 
-it("refuses a hard link without changing the shared source", async () => {
+posixIt("refuses a hard link without changing the shared source", async () => {
   const path = join(directory, "data");
   const source = join(directory, "unrelated");
   const bytes = Buffer.from("unrelated hard-link source\0");
@@ -104,7 +107,7 @@ it.runIf(process.platform === "linux")(
   }
 );
 
-it("checks descriptor ownership before permission repair", async () => {
+posixIt("checks descriptor ownership before permission repair", async () => {
   const path = join(directory, "owner-check");
   await writeFile(path, "untouched", { mode: 0o644 });
   const handle = await open(path, "r");

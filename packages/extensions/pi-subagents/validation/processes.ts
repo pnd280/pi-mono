@@ -33,6 +33,27 @@ export async function fixtureProcesses(
   return found.flat();
 }
 
+/** The state, parent, and process group of a process, or undefined when no process has its PID. */
+export async function processStat(
+  pid: number
+): Promise<{ state: string; ppid: number; pgrp: number } | undefined> {
+  try {
+    const stat = await readFile(`/proc/${pid}/stat`, "utf8");
+    // The command name in parentheses can contain spaces and parentheses.
+    const [state = "", ppid, pgrp] = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+
+    return { state, ppid: Number(ppid), pgrp: Number(pgrp) };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      ["ENOENT", "ESRCH"].includes(String(error.code))
+    )
+      return undefined;
+    throw error;
+  }
+}
+
 export async function remainingProcesses(directory: string, timeout = STEP_TIMEOUT_MS) {
   const deadline = Date.now() + timeout;
   let remaining = await fixtureProcesses(directory);
@@ -48,10 +69,13 @@ export async function remainingProcesses(directory: string, timeout = STEP_TIMEO
 /** Failure cleanup only. Assertions inspect the leaked list before using this fallback. */
 export async function killFixtureProcesses(directory: string): Promise<void> {
   for (const { pid } of await fixtureProcesses(directory)) {
-    try {
-      process.kill(-pid, "SIGKILL");
-    } catch (error) {
-      if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) throw error;
+    // A process is a group leader only when it started the group, and its PID then names it.
+    for (const target of [-pid, pid]) {
+      try {
+        process.kill(target, "SIGKILL");
+      } catch (error) {
+        if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) throw error;
+      }
     }
   }
 
