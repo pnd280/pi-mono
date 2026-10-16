@@ -26,6 +26,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { type Container, stripTerminalSequences, Text, type TUI } from "@earendil-works/pi-tui";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
+import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import toolDisplay from "../index.ts";
@@ -798,11 +800,13 @@ it.each(["observation", "session-entry", "local-store"] as const)(
           }
 
           if (failure === "local-store")
-            await vi.waitFor(() =>
-              expect(notify).toHaveBeenCalledWith(
-                expect.stringContaining("local call details cannot be saved"),
-                "warning"
-              )
+            await vi.waitFor(
+              () =>
+                expect(notify).toHaveBeenCalledWith(
+                  expect.stringContaining("local call details cannot be saved"),
+                  "warning"
+                ),
+              { timeout: STEP_TIMEOUT_MS }
             );
           assertNoRegistration();
         } finally {
@@ -1004,6 +1008,7 @@ it("preserves later in-place native wrappers when removing observation", async (
 });
 
 it("leaves another mutation subscriber active after display shutdown", async () => {
+  useStepPatchDeadline();
   await withSession(async ({ session }) => {
     const tui = interactiveHost(session);
     const changes: string[] = [];
@@ -1313,6 +1318,7 @@ it.each([
 ])(
   "uses finalized $name result outcome $isError in live and replayed rows",
   async ({ name, isError }) => {
+    useStepPatchDeadline();
     await withSession(async ({ session }) => {
       const tui = interactiveHost(session);
 
@@ -1631,20 +1637,26 @@ it("replays session facts and local timing after a fork and reload, and reports 
         };
 
         const matching = await replayed();
-        await vi.waitFor(() => expect(text(matching)).toMatch(/Exit 3 · \d+ms/));
+        await vi.waitFor(() => expect(text(matching)).toMatch(/Exit 3 · \d+ms/), {
+          timeout: STEP_TIMEOUT_MS
+        });
         const file = manager.getSessionFile();
         // Like /fork and /clone: a new session file with the same selected entry IDs.
         manager.createBranchedSession(manager.getLeafId()!);
         expect(manager.getSessionFile()).not.toBe(file);
         const forked = await replayed();
-        await vi.waitFor(() => expect(text(forked)).toMatch(/Exit 3 · \d+ms/));
+        await vi.waitFor(() => expect(text(forked)).toMatch(/Exit 3 · \d+ms/), {
+          timeout: STEP_TIMEOUT_MS
+        });
         expect(text(forked)).not.toContain("Local details");
         await rm(join(agentDir, "pi-tool-display"), { recursive: true });
         const moved = await replayed();
-        await vi.waitFor(() =>
-          expect(text(moved)).toContain(
-            "Local details for this part of the session are not on this machine."
-          )
+        await vi.waitFor(
+          () =>
+            expect(text(moved)).toContain(
+              "Local details for this part of the session are not on this machine."
+            ),
+          { timeout: STEP_TIMEOUT_MS }
         );
         expect(text(moved)).toContain("Exit 3 · Timing not on this machine");
       } finally {

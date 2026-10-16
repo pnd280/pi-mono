@@ -351,7 +351,6 @@ export class TaskPanel implements Component {
     { scrollbar: "hidden" }
   );
   private bodyRows = 0;
-  /** A task's transcript or a job's log. */
   private transcript: TranscriptView | JobLogView | undefined;
   private active = true;
   private error = "";

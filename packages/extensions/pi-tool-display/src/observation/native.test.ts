@@ -11,6 +11,7 @@ import {
   type ToolDefinition
 } from "@earendil-works/pi-coding-agent";
 import { observeMutationDefinition } from "@pi-mono/libs/file-mutations";
+import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { createToolContext } from "@pi-mono/libs/validation/tool-context";
 import { expect, it } from "vite-plus/test";
 
@@ -105,6 +106,7 @@ it("preserves shell settings, environment, bytes, errors and structured operatio
 it.each(["edit", "write"] as const)(
   "preserves BOM-bearing files during observed %s",
   async (name) => {
+    useStepPatchDeadline();
     const directory = await mkdtemp(join(tmpdir(), "display-native-bom-"));
 
     try {
@@ -186,6 +188,7 @@ it("reuses the native edit patch even when the file exceeds the observation limi
 });
 
 it("retains a failed edit proposal and preserves the native filesystem error", async () => {
+  useStepPatchDeadline();
   const directory = await mkdtemp(join(tmpdir(), "display-native-failed-edit-"));
 
   try {
@@ -227,6 +230,7 @@ it("retains a failed edit proposal and preserves the native filesystem error", a
 it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   "retains proposed failed writes and distinguishes unreadability from absence",
   async () => {
+    useStepPatchDeadline();
     const directory = await mkdtemp(join(tmpdir(), "display-native-permissions-"));
 
     try {
@@ -268,6 +272,7 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
 );
 
 it("preserves edit aliases, CRLF, cancellation, and write change facts", async () => {
+  useStepPatchDeadline();
   const directory = await mkdtemp(join(tmpdir(), "display-native-change-"));
 
   try {

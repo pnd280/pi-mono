@@ -12,7 +12,7 @@ import {
   SettingsManager,
   type ExtensionContext
 } from "@earendil-works/pi-coding-agent";
-import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import sessionUtils from "../index.ts";
@@ -174,7 +174,7 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
   fixture.faux.setResponses([() => first.promise, () => second.promise]);
   const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
   const old = handler("auto-name", busy);
-  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce());
+  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce(), { timeout: STEP_TIMEOUT_MS });
   const replacement = Promise.withResolvers<{ cancelled: boolean }>();
   const switchSession = vi.fn<typeof ctx.switchSession>(() => replacement.promise);
   const operationContext = { ...ctx, switchSession };
@@ -199,7 +199,7 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
   }
 
   const latest = handler("auto-name", busy);
-  await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(2));
+  await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(2), { timeout: STEP_TIMEOUT_MS });
   expect(stream.mock.calls[0]?.[2]?.signal?.aborted).toBe(true);
   await handler(" auto-name clear ", busy);
   expect(stream.mock.calls[1]?.[2]?.signal?.aborted).toBe(true);
@@ -239,10 +239,12 @@ it.each([false, true])("honors Pi's project trust decision: %s", async (projectT
   });
   const fixture = await host({ projectTrusted, projectSettings });
   await fixture.session.prompt("Opening request");
-  await vi.waitFor(() =>
-    expect(fixture.session.sessionManager.getSessionName()).toBe(
-      projectTrusted ? "Project session title" : "Offline session title"
-    )
+  await vi.waitFor(
+    () =>
+      expect(fixture.session.sessionManager.getSessionName()).toBe(
+        projectTrusted ? "Project session title" : "Offline session title"
+      ),
+    { timeout: STEP_TIMEOUT_MS }
   );
   await fixture.command();
   expect(fixture.titleRequests).toHaveLength(2);
@@ -258,8 +260,9 @@ it("applies project settings edits and removal only after /reload", async () => 
     })
   });
   await fixture.session.prompt("Opening request");
-  await vi.waitFor(() =>
-    expect(fixture.session.sessionManager.getSessionName()).toBe("Project session title")
+  await vi.waitFor(
+    () => expect(fixture.session.sessionManager.getSessionName()).toBe("Project session title"),
+    { timeout: STEP_TIMEOUT_MS }
   );
   await writeFile(
     fixture.projectSettingsPath,
@@ -293,7 +296,7 @@ it("cancels when native /name changes or clears the title, even back to its orig
       })
   ]);
   const pending = fixture.command();
-  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce());
+  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce(), { timeout: STEP_TIMEOUT_MS });
   expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "info");
   const progress = fixture.notify.mock.calls.slice();
   fixture.session.setSessionName("Manual title");
@@ -320,7 +323,7 @@ it("cancels before tree navigation can wait for a branch summary", async () => {
       })
   ]);
   const pending = fixture.command();
-  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce());
+  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce(), { timeout: STEP_TIMEOUT_MS });
   await fixture.session.extensionRunner.emit({
     type: "session_before_tree",
     preparation: {
@@ -343,7 +346,9 @@ it("cancels before tree navigation can wait for a branch summary", async () => {
 it("reads settings only on load, leaves old callbacks inert, and applies fixes on /reload", async () => {
   const fixture = await host();
   await fixture.session.prompt("Opening request");
-  await vi.waitFor(() => expect(fixture.titleRequests).toHaveLength(1));
+  await vi.waitFor(() => expect(fixture.titleRequests).toHaveLength(1), {
+    timeout: STEP_TIMEOUT_MS
+  });
   const oldRunner = fixture.session.extensionRunner;
   const oldCommand = oldRunner.getCommand("sesh")!;
   const oldContext = oldRunner.createCommandContext();

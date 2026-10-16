@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
+import { STEP_TIMEOUT_MS } from "../validation/pi-process/index.ts";
 import { WriteLifetime } from "./lifetime.ts";
 import { PrivateFileTransactions, type PrivateTransactionOptions } from "./transaction.ts";
 
@@ -23,7 +24,8 @@ function fixture() {
     path: async () => path,
     scope,
     maxReadBytes: 100,
-    timeoutMs: 2000,
+    // Lock waits are wall-clock time that suite load can stretch; no test here asserts them.
+    timeoutMs: STEP_TIMEOUT_MS,
     update: (raw) => {
       const value = Number(raw?.toString() ?? "0") + 1;
 

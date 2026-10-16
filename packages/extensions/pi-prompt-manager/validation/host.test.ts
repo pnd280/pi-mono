@@ -10,6 +10,7 @@ import {
   type ExtensionAPI,
   type ExtensionContext
 } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import promptManager from "../index.ts";
@@ -155,12 +156,15 @@ it("captures only interactive input after transforms, without replay across relo
   await runner.emitInput("rpc input", undefined, "rpc");
   await runner.emitInput("follow-up", undefined, "interactive", "followUp");
   const expected = ["follow-up", "steering", "after"];
-  await vi.waitFor(async () => {
-    const history = await fixture.repository.read("history");
-    expect(history.status === "ready" && history.entries.map((item) => item.source.text)).toEqual(
-      expected
-    );
-  });
+  await vi.waitFor(
+    async () => {
+      const history = await fixture.repository.read("history");
+      expect(history.status === "ready" && history.entries.map((item) => item.source.text)).toEqual(
+        expected
+      );
+    },
+    { timeout: STEP_TIMEOUT_MS }
+  );
   await fixture.session.reload();
   const history = await fixture.repository.read("history");
   expect(history.status === "ready" && history.entries.map((item) => item.source.text)).toEqual(

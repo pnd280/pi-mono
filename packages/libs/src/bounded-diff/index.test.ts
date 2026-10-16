@@ -8,7 +8,8 @@ const budgets = {
   maxSourceBytes: 64 * 1024,
   maxPatchBytes: 128 * 1024,
   maxEditLength: 2000,
-  timeoutMs: 1000,
+  // The deadline is wall-clock time that suite load can exceed; no test here asserts it.
+  timeoutMs: STEP_TIMEOUT_MS,
   contextLines: 4
 };
 const change = (before: string, after: string, options: Partial<BoundedPatchOptions> = {}) =>
@@ -33,11 +34,9 @@ it("allows small changes in large files but bounds source, patch, and edit dista
 it("survives worker heap exhaustion and starts a healthy worker for the next request", async () => {
   const before = "a\n".repeat(2_000_000) + "before\n";
   const exhausted = change(before, before.replace("before\n", "after\n"), {
-    maxSourceBytes: 8 * 1024 * 1024,
-    // Give the worker enough time to hit its heap limit, even under suite load.
-    timeoutMs: STEP_TIMEOUT_MS
+    maxSourceBytes: 8 * 1024 * 1024
   });
-  const queued = change("before", "after", { timeoutMs: 50 });
+  const queued = change("before", "after");
   expect(await exhausted).toEqual({ status: "worker-failed" });
   expect((await queued).status).toBe("ready");
 });

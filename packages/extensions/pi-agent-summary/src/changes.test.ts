@@ -1,5 +1,6 @@
 import { createBoundedPatch, type PatchLimits } from "@pi-mono/libs/bounded-diff";
 import type { FileMutation } from "@pi-mono/libs/file-mutations";
+import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { expect, it } from "vite-plus/test";
 
 import { RunChanges } from "./changes.ts";
@@ -23,6 +24,7 @@ function mutation(
 }
 
 it("bounds aggregate retained strings but preserves single-patch statistics", async () => {
+  useStepPatchDeadline();
   const changes = new RunChanges("/work", 90);
   await changes.completed(mutation("one", "old long line\n", "new long line\n"));
   await changes.completed(mutation("two", "old long line\n", "new long line\n"));

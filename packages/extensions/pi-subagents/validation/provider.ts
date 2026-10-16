@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { setTimeout } from "node:timers/promises";
 
 import {
@@ -13,6 +14,7 @@ import {
   type ProviderStreams
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import {
   createFixtureStream,
   zeroUsage,
@@ -30,6 +32,15 @@ const REASONING_MODEL = `${FIXTURE_PROVIDER}/reasoning`;
 
 /** Each supervisor process fails its first `background-retry` reply once. */
 let retried = false;
+
+/** The `pi.events` channel on which `extension.ts` reports each pending background result. */
+export const PENDING_RESULT_CHANNEL = "pi-subagents-fixture:pending-result";
+
+/** A background result is pending in this supervisor process. */
+let resultPending = false;
+
+/** A `background-idle` supervisor creates this file after its final turn for its child. */
+const IDLE_RELEASE = "idle-release";
 
 type Call =
   | {
@@ -185,7 +196,7 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
       { description: "Write activity task", prompt: "activity-write" }
     ];
   const nested = new Map([
-    ["background-idle", "finite"],
+    ["background-idle", "finite-idle"],
     ["background-busy", "finite"],
     ["background-late", "finite-late"],
     ["background-error", "finite"],
@@ -284,13 +295,11 @@ function planCall(call: Call, id: string) {
 
 /** Keeps the run busy before a final reply without background results. */
 async function holdFinalReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
-  if (
-    ["background-busy", "background-busy-error", "owner-linger", "owner-linger-abort"].includes(
-      scenario
-    )
-  )
-    await setTimeout(3000, undefined, { signal });
-  if (/^job-\w+-hold$/.test(scenario)) await runRelease(signal);
+  // The final reply ends only after the result is pending, so the result arrives while busy.
+  if (["background-busy", "background-busy-error"].includes(scenario))
+    while (!resultPending) await setTimeout(25, undefined, { signal });
+  if (/^job-\w+-hold$/.test(scenario) || ["owner-linger", "owner-linger-abort"].includes(scenario))
+    await runRelease(signal);
 }
 
 /** Keeps the second `job-turn` tool turn busy until the test releases it. */
@@ -302,10 +311,63 @@ async function holdToolTurn(
   if (scenario === "job-turn" && completed === 1) await runRelease(signal);
 }
 
-/** Waits until the test creates `run-release` or aborts the run. */
-async function runRelease(signal: AbortSignal | undefined): Promise<void> {
-  while (!existsSync(join(process.cwd(), "run-release")))
-    await setTimeout(25, undefined, { signal });
+/**
+ * Keeps a child running: `finite` briefly; `finite-idle` also until `idle-release`;
+ * `finite-late` and `input-hold` until `run-release`.
+ */
+async function holdChildReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
+  if (["finite", "finite-idle"].includes(scenario)) await setTimeout(1500, undefined, { signal });
+  // The result reaches the supervisor only after its final turn, so that turn cannot take it.
+  if (scenario === "finite-idle") await runRelease(signal, IDLE_RELEASE);
+  if (["finite-late", "input-hold"].includes(scenario)) await runRelease(signal);
+}
+
+/** `background-pair` lets its late task finish once the first result has continued the run. */
+async function releaseLateTask(scenario: string, completions: number): Promise<void> {
+  if (scenario === "background-pair" && completions === 1)
+    await writeFile(join(process.cwd(), "run-release"), "");
+}
+
+/**
+ * Waits until `file` exists or the run is aborted. The test creates `run-release`, except in
+ * `background-pair`, whose supervisor creates it for its late task.
+ */
+async function runRelease(signal: AbortSignal | undefined, file = "run-release"): Promise<void> {
+  while (!existsSync(join(process.cwd(), file))) await setTimeout(25, undefined, { signal });
+}
+
+/** Resolves when an RPC `prompt` command reaches this child's stdin, or stdin ends. */
+function nextPromptCommand(): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  const decoder = new StringDecoder("utf8");
+  let buffer = "";
+
+  const done = () => {
+    process.stdin.off("data", onData);
+    process.stdin.off("end", done);
+    resolve();
+  };
+
+  const onData = (chunk: Buffer | string) => {
+    buffer += typeof chunk === "string" ? chunk : decoder.write(chunk);
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    if (
+      lines.some((line) => {
+        const command: unknown = JSON.parse(line);
+
+        return typeof command === "object" && command !== null && "type" in command
+          ? command.type === "prompt"
+          : false;
+      })
+    )
+      done();
+  };
+
+  process.stdin.on("data", onData);
+  process.stdin.once("end", done);
+
+  return promise;
 }
 
 /** A final reply without results fails: once without retry, or once with a retryable error. */
@@ -369,7 +431,7 @@ function plainResponse(
       getCurrentTools(context.messages).find((tool) => tool.name === "subagent")?.description ?? ""
     );
 
-  return ["reply", "finite", "finite-late", "shutdown-blocked"].includes(scenario)
+  return ["reply", "finite", "finite-idle", "finite-late", "shutdown-blocked"].includes(scenario)
     ? "Fixture reply"
     : "Choose a subagents fixture scenario.";
 }
@@ -392,11 +454,6 @@ function createStream(
     const scenario = idleWake() ? "idle-wake" : prompt;
     const plannedSteps = ["failure-then-reply", "job-turn"].includes(scenario) ? 2 : 1;
     const activityDelay = ["activity-promote", "activity-digest"].includes(scenario) ? 4000 : 1200;
-    const delay = new Map([
-      ["finite", 1500],
-      ["finite-late", 4000],
-      ["input-hold", 3000]
-    ]).get(scenario);
     if (scenario === "abort-tool")
       return createFixtureStream({
         model,
@@ -444,6 +501,7 @@ function createStream(
             );
             if (!completions.length) await holdFinalReply(scenario, signal);
             failFinalReply(scenario, completions.length);
+            await releaseLateTask(scenario, completions.length);
             text(
               `Supervisor finished; background results ${completions.length}\n${results.map((item) => contentText(item.content)).join("\n")}\n${completions.map((item) => contentText(item.content)).join("\n")}`
             );
@@ -514,7 +572,7 @@ function createStream(
           return "toolUse";
         }
 
-        if (delay !== undefined) await setTimeout(delay, undefined, { signal });
+        await holdChildReply(scenario, signal);
 
         if (scenario === "idle-wake") {
           text(
@@ -644,18 +702,25 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
   let digestCompact = false;
   let digestHold = false;
   let idleWake = false;
+  let idleRelease = false;
+  pi.events.on(PENDING_RESULT_CHANNEL, () => {
+    resultPending = true;
+  });
   pi.on("before_agent_start", async (event, ctx) => {
     // Only delivery starts runs with a custom message: the idle wake with background results.
     idleWake = event.messageType === "custom";
     const prompt = event.messageType === "user" ? event.prompt : undefined;
+    idleRelease = prompt === "background-idle";
+    if (idleRelease) await rm(join(ctx.cwd, IDLE_RELEASE), { force: true });
     digestCompact = prompt === "digest-compact";
     digestHold = prompt === "activity-digest";
     settleHold = prompt === "settle-hold";
     exitHold = prompt === "exit-hold";
     ignoreShutdown = prompt === "ignore-abort" || prompt === "shutdown-blocked";
     if (prompt === "dialog")
+      // A shorter limit would decline the dialog when a loaded host answers late.
       answer = await ctx.ui.confirm("Fixture question", "Continue this child task?", {
-        timeout: 10_000
+        timeout: STEP_TIMEOUT_MS
       });
     if (prompt === "selection")
       answer =
@@ -669,6 +734,13 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
     if (!digestHold) return;
     await writeFile(join(ctx.cwd, "digest-ready"), "ready");
     while (!existsSync(join(ctx.cwd, "digest-release"))) await setTimeout(25);
+  });
+  // pi-subagents loads first, so its `turn_end` handler has run and cannot take the result.
+  pi.on("turn_end", async (event, ctx) => {
+    if (!idleRelease || event.message.role !== "assistant" || event.message.stopReason !== "stop")
+      return;
+    idleRelease = false;
+    await writeFile(join(ctx.cwd, IDLE_RELEASE), "");
   });
   pi.on("agent_before_settle", async () => {
     if (digestCompact) {
@@ -691,8 +763,11 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
   pi.on("agent_settled", async (_event, ctx) => {
     if (!settleHold) return;
     settleHold = false;
+    // Pi defers input that arrives during this hook. The hook ends only after the input arrives,
+    // so the supervisor sends it before it sees `agent_settled` and cannot collect the run first.
+    const input = nextPromptCommand();
     await writeFile(join(ctx.cwd, "settle-ready"), ctx.sessionManager.getSessionId());
-    await setTimeout(3000);
+    await input;
   });
   pi.on("session_shutdown", async () => {
     if (exitHold) {

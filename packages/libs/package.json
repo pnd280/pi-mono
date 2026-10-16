@@ -30,6 +30,7 @@
     "./tui/components/text-preview": "./src/tui/components/text-preview/index.ts",
     "./tui/components/tree": "./src/tui/components/tree/index.ts",
     "./owned-hooks": "./src/owned-hooks/index.ts",
+    "./validation/bounded-diff": "./src/validation/bounded-diff/index.ts",
     "./validation/interactive-host": "./src/validation/interactive-host/index.ts",
     "./validation/pi-process": "./src/validation/pi-process/index.ts",
     "./validation/terminal-launcher": "./src/validation/terminal-launcher/index.ts",
@@ -40,7 +41,7 @@
     "format": "vp fmt .",
     "lint": "vp lint --format stylish .",
     "check": "vp fmt --check . && vp run lint",
-    "test": "vp test run"
+    "test": "vp test run --config ../../vite.config.ts"
   },
   "dependencies": {
     "@pi-mono/utils": "workspace:*",

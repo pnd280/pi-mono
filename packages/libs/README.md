@@ -26,6 +26,7 @@ Use these entry points only in validation code:
 
 | Library                                                                    | Responsibility                                                                          |
 | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [validation/bounded-diff](src/validation/bounded-diff/README.md)           | Step deadline for bounded patches in tests that expect a generated patch                |
 | [validation/interactive-host](src/validation/interactive-host/README.md)   | Installed interactive host for isolated in-process tests                                |
 | [validation/pi-process](src/validation/pi-process/README.md)               | Private workspace directories, isolated launch configuration, and shared compile caches |
 | [validation/provider](src/validation/provider/README.md)                   | Scripted assistant messages and event streams                                           |

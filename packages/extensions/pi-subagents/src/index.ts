@@ -57,7 +57,8 @@ const startedJobs: Counter = {
 const FOREIGN_BASH_WARNING =
   "pi-subagents: job and job_abort are off because another extension owns bash";
 
-export default function subagents(pi: ExtensionAPI): void {
+/** Pi passes only `pi`; validation fixtures pass `onPending` to observe pending background results. */
+export default function subagents(pi: ExtensionAPI, onPending?: () => void): void {
   const depth = getDepth();
   const taskId = getTaskId();
   let lateUsageWarning = installLateUsagePatch();
@@ -263,7 +264,7 @@ export default function subagents(pi: ExtensionAPI): void {
 
     reader = new RunReader(tasks);
     await tasks.readDescendants();
-    delivery = new Delivery(tasks, jobs, pi, ctx, depth, waiting, config.resultDelivery);
+    delivery = new Delivery(tasks, jobs, pi, ctx, depth, waiting, config.resultDelivery, onPending);
     panels = new Panels(tasks, jobs, reader, ctx);
     const widget = taskWidget(tasks, jobs, ctx, () => open());
     disposeWidget = () => widget.dispose();

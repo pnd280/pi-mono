@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -13,9 +13,7 @@ import {
 import { it } from "vite-plus/test";
 import { z } from "zod";
 
-// Only host cancellation or the 15 s title deadline in `src/auto-title/generate.ts` releases a
-// stalled title. A pending row must exit before that deadline, so its limit stays below 15 s.
-const pendingExitMs = 14_000;
+import { stallAbortFile } from "./auto-title-provider.ts";
 
 // Each row owns its workspace and process, so the CLI launches can overlap.
 it.concurrent.for([
@@ -67,7 +65,7 @@ it.concurrent.for([
       });
       const execution = promisify(execFile)(launch.command, launch.args, {
         ...launch.options,
-        timeout: state === "pending" ? pendingExitMs : STEP_TIMEOUT_MS
+        timeout: STEP_TIMEOUT_MS
       });
       execution.child.stdin?.end();
       const { stdout, stderr } = await execution;
@@ -91,6 +89,11 @@ it.concurrent.for([
       }
 
       expect(SessionManager.open(sessionPath).getSessionName()).toBe(name);
+      // Host cancellation, not the title deadline, released the stalled request.
+      if (state === "pending")
+        expect(JSON.parse(await readFile(join(directory, "work", stallAbortFile), "utf8"))).toEqual(
+          { name: "AbortError", message: "This operation was aborted" }
+        );
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

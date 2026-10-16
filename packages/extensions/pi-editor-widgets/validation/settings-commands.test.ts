@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import editorWidgets from "../src/index.ts";
@@ -98,7 +99,8 @@ it.each(["regular", "fullscreen"] as const)(
 
       opening = command?.handler("", ctx);
       await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor), {
-        interval: 1
+        interval: 1,
+        timeout: STEP_TIMEOUT_MS
       });
       const menu = fixture.host.editorContainer.children[0]!;
       expect(plain(menu.render(100))).toContain(
@@ -145,7 +147,8 @@ it.each(["regular", "fullscreen"] as const)(
         signal: abort.signal
       });
       await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor), {
-        interval: 1
+        interval: 1,
+        timeout: STEP_TIMEOUT_MS
       });
       const menu = fixture.host.editorContainer.children[0]!;
       menu.handleInput?.("\r");

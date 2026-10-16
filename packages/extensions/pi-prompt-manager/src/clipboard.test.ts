@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import { copyNative } from "./clipboard.ts";
@@ -15,6 +16,8 @@ it("writes complete Unicode/control/large payloads through stdin without shell i
 
   try {
     await copyNative(text, signal(), {
+      // The deadline has its own test; a loaded suite can slow this helper past five seconds.
+      timeout: STEP_TIMEOUT_MS,
       helpers: [
         {
           command: process.execPath,

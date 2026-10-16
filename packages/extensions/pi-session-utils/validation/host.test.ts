@@ -11,7 +11,7 @@ import {
   SessionManager,
   SettingsManager
 } from "@earendil-works/pi-coding-agent";
-import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import piSessionUtils from "../index.ts";
@@ -191,7 +191,7 @@ it("cancels naming across persistence and child creation, preserving only the pa
   const first = Promise.withResolvers<ReturnType<typeof fauxAssistantMessage>>();
   faux.setResponses([() => first.promise]);
   const pendingPersistTitle = runtime.session.prompt("/sesh auto-name");
-  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce());
+  await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce(), { timeout: STEP_TIMEOUT_MS });
   await runtime.session.prompt("/sesh persist");
   await pendingPersistTitle;
   expect(stream.mock.calls[0]?.[2]?.signal?.aborted).toBe(true);
@@ -203,7 +203,7 @@ it("cancels naming across persistence and child creation, preserving only the pa
   const second = Promise.withResolvers<ReturnType<typeof fauxAssistantMessage>>();
   faux.setResponses([() => second.promise]);
   const pendingParentTitle = runtime.session.prompt("/sesh auto-name");
-  await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(2));
+  await vi.waitFor(() => expect(stream).toHaveBeenCalledTimes(2), { timeout: STEP_TIMEOUT_MS });
   await runtime.session.prompt("/sesh create-empty-child");
   await pendingParentTitle;
   expect(stream.mock.calls[1]?.[2]?.signal?.aborted).toBe(true);
@@ -220,8 +220,9 @@ it("cancels naming across persistence and child creation, preserving only the pa
     )
   );
   await runtime.session.prompt("Child request");
-  await vi.waitFor(() =>
-    expect(runtime.session.sessionManager.getSessionName()).toBe("Child title")
+  await vi.waitFor(
+    () => expect(runtime.session.sessionManager.getSessionName()).toBe("Child title"),
+    { timeout: STEP_TIMEOUT_MS }
   );
   const childTitleRequest = stream.mock.calls.find(
     ([model, context]) =>

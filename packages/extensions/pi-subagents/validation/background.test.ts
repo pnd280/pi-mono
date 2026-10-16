@@ -1,5 +1,3 @@
-import { setTimeout } from "node:timers/promises";
-
 import { contentText } from "@earendil-works/pi-ai";
 import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
@@ -11,6 +9,7 @@ import {
   expectChildUsageOnce,
   fixture,
   isResult,
+  release,
   replies,
   taskList
 } from "./background-fixture.ts";
@@ -96,12 +95,13 @@ test("continues after the first background result while a slower task runs", asy
 });
 
 test("ends a background wait on abort and delivers the later result when idle", async () => {
-  await fixture(async (host) => {
+  await fixture(async (host, directory) => {
     await host.reply("background-late");
     const start = host.records.length;
     await host.request({ type: "abort" });
     await host.wait((record) => record.type === "agent_settled", start);
     expect((await taskList(host))[0]?.state).toBe("active");
+    await release(directory, "run-release");
     await host.wait(isResult, start);
     await host.wait(replies("Idle continuation prepared: true"), start);
     expectChildUsageOnce(await host.entries(), 1);
@@ -111,12 +111,13 @@ test("ends a background wait on abort and delivers the later result when idle", 
 test.each(["followUp", "steer"] as const)(
   "processes %s input during a background wait at once",
   async (streamingBehavior) => {
-    await fixture(async (host) => {
+    await fixture(async (host, directory) => {
       await host.reply("background-late");
       const start = host.records.length;
       await host.request({ type: "prompt", message: "reply", streamingBehavior });
       await host.wait(replies("Fixture reply"), start);
       expect(host.records.slice(start).some(isResult)).toBe(false);
+      await release(directory, "run-release");
       await host.wait(isResult, start);
       await host.wait((record) => record.type === "agent_settled", start);
       expect(
@@ -130,9 +131,12 @@ test.each(["followUp", "steer"] as const)(
 
 test("retries a failed reply without waiting for background tasks", async () => {
   await fixture(
-    async (host) => {
+    async (host, directory) => {
       const start = host.records.length;
-      await host.prompt("background-retry");
+      const work = host.prompt("background-retry");
+      await host.wait(replies("background results 0"), start);
+      await release(directory, "run-release");
+      await work;
       const records = host.records.slice(start);
       const retry = records.findIndex((record) => record.type === "auto_retry_start");
       const reply = records.findIndex(replies("background results 0"));
@@ -168,8 +172,6 @@ test("aborts an owned task without its result and resumes it later", async () =>
       state: "cancelled"
     });
     expect((await taskList(host))[0]).toMatchObject({ state: "inactive", outcome: "cancelled" });
-    await setTimeout(500);
-    expect(host.records.some(isResult)).toBe(false);
     await host.prompt(`abort-id ${task!.task_id}`);
     expect(contentText((await aborts()).at(-1)!.content)).toContain("Task is inactive");
     await host.prompt("abort-id 00000000-0000-0000-0000-000000000000");
@@ -182,6 +184,8 @@ test("aborts an owned task without its result and resumes it later", async () =>
       task_id: task!.task_id,
       state: "completed"
     });
+    // The abort returned after the task's completion; a result would reach the following runs.
+    expect(host.records.some(isResult)).toBe(false);
   }, 1);
 });
 

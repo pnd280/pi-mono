@@ -1,5 +1,11 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { contentText, fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+/** File in the working directory that records why the stalled title request was aborted. */
+export const stallAbortFile = "stall-title-abort.json";
 
 /** Offline CLI fixture. No credentials, catalog requests, or model transport. */
 export default function fixtureProvider(pi: ExtensionAPI): void {
@@ -27,10 +33,22 @@ export default function fixtureProvider(pi: ExtensionAPI): void {
       titleStarted.resolve();
 
       if (stalled) {
-        // No live timer: only host cancellation can release this response.
+        // No live timer: only host cancellation or the title deadline can release this response.
+        // Record why it was released, so the test does not have to time the whole process.
         await new Promise<void>((resolve) => {
-          if (options?.signal?.aborted) resolve();
-          else options?.signal?.addEventListener("abort", () => resolve(), { once: true });
+          const release = () => {
+            const reason: unknown = options?.signal?.reason;
+            writeFileSync(
+              join(process.cwd(), stallAbortFile),
+              JSON.stringify(
+                reason instanceof Error ? { name: reason.name, message: reason.message } : reason
+              )
+            );
+            resolve();
+          };
+
+          if (options?.signal?.aborted) release();
+          else options?.signal?.addEventListener("abort", release, { once: true });
         });
 
         return fauxAssistantMessage("", { stopReason: "aborted" });

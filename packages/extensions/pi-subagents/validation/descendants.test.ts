@@ -4,7 +4,7 @@ import { setTimeout } from "node:timers/promises";
 import { contentText } from "@earendil-works/pi-ai";
 import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
-import { expect, test as caseTest } from "vite-plus/test";
+import { expect, test as caseTest, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { DEPTH_ENV, RESULT_MESSAGE, RUN_ENTRY, TASK_ID_ENV } from "../src/constants.ts";
@@ -14,6 +14,7 @@ import {
   descendantStarted,
   expectChildUsageOnce,
   fixture,
+  LONG_GRACE_LIMIT,
   taskList,
   withFixture
 } from "./background-fixture.ts";
@@ -147,57 +148,68 @@ test("retains the child depth limit when a child session resumes", async () => {
 test.for(["user abort", "turn abort", "shutdown", "SIGKILL", "blocked shutdown"])(
   "stops a settling subtree on %s",
   async (action, { expect }) => {
-    await fixture(async (host, directory) => {
-      const work = host
-        .prompt(
-          action === "blocked shutdown" || action === "turn abort"
-            ? "nested-stubborn"
-            : "nested-slow"
-        )
-        .catch((error: unknown) => error);
-      await descendantStarted(host, expect);
-
-      if (action === "blocked shutdown" || action === "turn abort") {
-        // Wait until the grandchild has started its shutdown-blocking scenario.
-        for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
-          const processes = await remainingProcesses(directory, 0);
-          if (processes.some((process) => process.command.includes("sleep 600"))) break;
-          if (index === STEP_TIMEOUT_MS / 25 - 1)
-            throw new Error("Stubborn descendant did not start");
-          await setTimeout(25);
-        }
-      }
-
-      if (action === "turn abort") {
-        const abort = host.request({ type: "abort" });
-        // The old grace period exceeds five seconds. Observe exit, not only a kill request.
-        expect(
-          (await remainingProcesses(directory, 2000)).filter(
-            ({ pid }) => pid !== host.connection.process.pid
+    // With these limits, a graceful stop of the stubborn grandchild outlasts a step.
+    const limit = action === "turn abort" ? LONG_GRACE_LIMIT : undefined;
+    await fixture(
+      async (host, directory) => {
+        const work = host
+          .prompt(
+            action === "blocked shutdown" || action === "turn abort"
+              ? "nested-stubborn"
+              : "nested-slow"
           )
-        ).toEqual([]);
-        await abort;
-      } else if (action === "SIGKILL") host.connection.process.kill("SIGKILL");
-      else if (action === "shutdown") host.connection.closeInput();
-      else {
-        const page = z
-          .object({ tasks: z.array(taskRecordSchema) })
-          .parse(JSON.parse((await host.command("list")).message));
-        await host.command(`abort ${page.tasks[0]!.task_id}`);
-      }
+          .catch((error: unknown) => error);
+        await descendantStarted(host, expect);
 
-      await work;
+        if (action === "blocked shutdown" || action === "turn abort") {
+          // Wait until the grandchild has started its shutdown-blocking scenario.
+          for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
+            const processes = await remainingProcesses(directory, 0);
+            if (processes.some((process) => process.command.includes("sleep 600"))) break;
+            if (index === STEP_TIMEOUT_MS / 25 - 1)
+              throw new Error("Stubborn descendant did not start");
+            await setTimeout(25);
+          }
+        }
 
-      if (action === "shutdown" || action === "SIGKILL") {
-        await host.connection.closed;
-        expect(await remainingProcesses(directory)).toEqual([]);
-      } else {
-        const page = z
-          .object({ tasks: z.array(taskRecordSchema) })
-          .parse(JSON.parse((await host.command("list")).message));
-        expect(page.tasks.every((task) => task.state === "inactive")).toBe(true);
-      }
-    });
+        if (action === "turn abort") {
+          const abort = host.request({ type: "abort" });
+          // Only an immediate stop ends the subtree within this wait. Observe exit, not only a kill
+          // request.
+          await expect
+            .poll(
+              async () =>
+                (await fixtureProcesses(directory)).filter(
+                  ({ pid }) => pid !== host.connection.process.pid
+                ),
+              { timeout: STEP_TIMEOUT_MS }
+            )
+            .toEqual([]);
+          await abort;
+        } else if (action === "SIGKILL") host.connection.process.kill("SIGKILL");
+        else if (action === "shutdown") host.connection.closeInput();
+        else {
+          const page = z
+            .object({ tasks: z.array(taskRecordSchema) })
+            .parse(JSON.parse((await host.command("list")).message));
+          await host.command(`abort ${page.tasks[0]!.task_id}`);
+        }
+
+        await work;
+
+        if (action === "shutdown" || action === "SIGKILL") {
+          await host.connection.closed;
+          expect(await remainingProcesses(directory)).toEqual([]);
+        } else {
+          const page = z
+            .object({ tasks: z.array(taskRecordSchema) })
+            .parse(JSON.parse((await host.command("list")).message));
+          expect(page.tasks.every((task) => task.state === "inactive")).toBe(true);
+        }
+      },
+      limit ?? 4,
+      limit ?? 2
+    );
   }
 );
 
@@ -255,7 +267,12 @@ test("keeps earlier descendants and shows no starting descendant as stopped whil
         expect(earlier).toMatchObject({ parent_task_id: owner!.task_id, outcome: "completed" });
         // The resumed owner starts a child, and the child starts a grandchild.
         const work = restarted.prompt(`extend-id ${owner!.task_id}`);
-        while ((await processesWith(directory, DEPTH_ENV, "3")).length === 0) await setTimeout(5);
+        await expect
+          .poll(async () => (await processesWith(directory, DEPTH_ENV, "3")).length, {
+            timeout: STEP_TIMEOUT_MS,
+            interval: 5
+          })
+          .toBeGreaterThan(0);
         // The grandchild's live record can reach the supervisor only through the owner.
         const [pid] = await processesWith(directory, TASK_ID_ENV, owner!.task_id);
         process.kill(pid!, "SIGSTOP");
@@ -268,14 +285,17 @@ test("keeps earlier descendants and shows no starting descendant as stopped whil
           )!;
           childId = child.task_id;
 
-          while (!grandchild) {
-            const run = parseSessionEntries(await readFile(child.session_file, "utf8")).find(
-              (entry) => entry.type === "custom" && entry.customType === RUN_ENTRY
-            );
-            grandchild =
-              run?.type === "custom" ? runRecordSchema.parse(run.data).task_id : undefined;
-            if (!grandchild) await setTimeout(10);
-          }
+          grandchild = await vi.waitFor(
+            async () => {
+              const run = parseSessionEntries(await readFile(child.session_file, "utf8")).find(
+                (entry) => entry.type === "custom" && entry.customType === RUN_ENTRY
+              );
+              if (run?.type !== "custom") throw new Error("The child file names no grandchild");
+
+              return runRecordSchema.parse(run.data).task_id;
+            },
+            { timeout: STEP_TIMEOUT_MS, interval: 10 }
+          );
 
           // The child's file names the grandchild before the grandchild's live record arrives.
           const tasks = await taskList(restarted);

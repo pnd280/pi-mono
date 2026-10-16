@@ -10,6 +10,7 @@ import {
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import type { PatchLimits } from "../bounded-diff/index.ts";
+import { STEP_TIMEOUT_MS } from "../validation/pi-process/index.ts";
 import { createToolContext } from "../validation/tool-context/index.ts";
 import { observeMutationDefinition, type FileMutation } from "./index.ts";
 
@@ -33,7 +34,8 @@ const limits: PatchLimits = {
   maxSourceBytes: 1024 * 1024,
   maxPatchBytes: 128 * 1024,
   maxEditLength: 2000,
-  timeoutMs: 50,
+  // These tests expect ready patches; the deadline is wall-clock time that suite load can exceed.
+  timeoutMs: STEP_TIMEOUT_MS,
   contextLines: 4
 };
 

@@ -1,6 +1,6 @@
-import { setImmediate } from "node:timers/promises";
+import { Worker } from "node:worker_threads";
 
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { entry, recordedAt } from "../test-fixture.ts";
 import { readCollectionAsync, updateCollectionAsync } from "./processing.ts";
@@ -45,19 +45,29 @@ it("cancels active and queued processing, then accepts another operation", async
   const bytes = raw();
   const first = new AbortController();
   const second = new AbortController();
+  // The spy calls the real method with the worker as its receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const post = Worker.prototype.postMessage;
+  const posted = vi.spyOn(Worker.prototype, "postMessage").mockImplementationOnce(function (
+    this: Worker,
+    ...request
+  ) {
+    post.apply(this, request);
+    // The first request is active, and its reply cannot arrive before this turn ends.
+    first.abort();
+    second.abort();
+  });
   const pending = readCollectionAsync({ ...options, raw: bytes, signal: first.signal });
   const queued = readCollectionAsync({ ...options, raw: bytes, signal: second.signal });
   const cancelled = Promise.allSettled([
     pending.then(() => "completed"),
     queued.then(() => "completed")
   ]);
-  await setImmediate();
-  first.abort();
-  second.abort();
   expect(await cancelled).toMatchObject([
     { status: "rejected", reason: { name: "AbortError" } },
     { status: "rejected", reason: { name: "AbortError" } }
   ]);
+  posted.mockRestore();
   expect(await readCollectionAsync({ ...options, raw: bytes })).toMatchObject({ status: "ready" });
 });
 

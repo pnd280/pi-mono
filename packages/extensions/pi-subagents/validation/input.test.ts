@@ -9,6 +9,7 @@ import { z } from "zod";
 import { RESULT_MESSAGE } from "../src/constants.ts";
 import { detailsSchema } from "../src/result.ts";
 import { taskRecordSchema } from "../src/tasks/records.ts";
+import { release } from "./background-fixture.ts";
 import { remainingProcesses, killFixtureProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace } from "./workspace.ts";
@@ -30,6 +31,24 @@ async function ready(path: string): Promise<void> {
   throw new Error("Fixture boundary was not reached");
 }
 
+/**
+ * Sends an update, then creates `run-release` when its result arrives. Held children and owners
+ * keep running until then, so the update reaches them while they run or settle.
+ */
+async function sendUpdate(host: Supervisor, directory: string, message: string): Promise<void> {
+  const after = host.records.length;
+  const work = host.prompt(message);
+  await host.wait(
+    (record) =>
+      record.type === "message_end" &&
+      record.message.role === "toolResult" &&
+      record.message.toolName === "subagent",
+    after
+  );
+  await release(directory, "run-release");
+  await work;
+}
+
 test.each(["follow_up", "steer", "settling", "exiting"])(
   "preserves input and usage through %s delivery",
   async (mode) => {
@@ -45,7 +64,10 @@ test.each(["follow_up", "steer", "settling", "exiting"])(
       const id = detailsSchema.parse(initial.details).task_id!;
       if (mode === "settling") await ready(`${directory}/work/settle-ready`);
       if (mode === "exiting") await ready(`${directory}/work/exit-ready`);
-      await host.prompt(`update-id ${id} ${mode === "steer" ? "steer" : "follow_up"}`);
+      const message = `update-id ${id} ${mode === "steer" ? "steer" : "follow_up"}`;
+      // The settling child holds its settle hook until the input arrives.
+      if (mode === "settling" || mode === "exiting") await host.prompt(message);
+      else await sendUpdate(host, directory, message);
       const update = (await host.results()).at(-1)!;
       expect(detailsSchema.parse(update.details).task_id).toBe(id);
       if (mode !== "exiting") {
@@ -133,7 +155,7 @@ test.for(["stopped", "live"])(
       const [owner, child] = await page();
       expect(child?.parent_task_id).toBe(owner!.task_id);
       if (mode === "stopped") {
-        await host.prompt(`update-id ${child!.task_id} follow_up`);
+        await sendUpdate(host, directory, `update-id ${child!.task_id} follow_up`);
         const update = (await host.results()).at(-1)!;
         expect(contentText(update.content)).toContain("Background task updated");
         expect(update.usage).toBeUndefined();
@@ -150,10 +172,13 @@ test.for(["stopped", "live"])(
         expect(
           completion[0]?.type === "custom_message" ? contentText(completion[0].content) : ""
         ).toContain("Input occurrences: 1; earlier context: true");
-        await expect.poll(async () => (await page())[0]?.state).toBe("inactive");
+        await expect
+          .poll(async () => (await page())[0]?.state, { timeout: STEP_TIMEOUT_MS })
+          .toBe("inactive");
       } else expect((await page())[0]?.state).toBe("active");
       const saved = await readFile(child!.session_file, "utf8");
-      await host.prompt(`update-id ${child!.task_id} follow_up`);
+      // A live owner stays active until this update's result arrives.
+      await sendUpdate(host, directory, `update-id ${child!.task_id} follow_up`);
       const rejected = (await host.results()).at(-1)!;
       expect(rejected.isError).toBe(true);
       expect(contentText(rejected.content)).toContain("Only direct tasks can be resumed");

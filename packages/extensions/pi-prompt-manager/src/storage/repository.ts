@@ -50,6 +50,7 @@ export class FileRepository implements Repository {
       hash: string;
       retention: number;
       hooks: WriteHooks;
+      lockTimeoutMs: number;
     }
   ) {}
 
@@ -58,6 +59,8 @@ export class FileRepository implements Repository {
     agentDir: string;
     retention: number;
     hooks?: WriteHooks;
+    /** Lock deadline for each mutation (default: 2,000). */
+    lockTimeoutMs?: number;
   }): Promise<FileRepository> {
     let scope: DirectoryScope;
 
@@ -73,7 +76,8 @@ export class FileRepository implements Repository {
       ...options,
       cwd: scope.path,
       hash: scope.key,
-      hooks: options.hooks ?? {}
+      hooks: options.hooks ?? {},
+      lockTimeoutMs: options.lockTimeoutMs ?? 2000
     });
   }
 
@@ -118,7 +122,7 @@ export class FileRepository implements Repository {
       path: () => this.path(collection),
       scope: session,
       maxReadBytes: limits.read,
-      timeoutMs: 2000,
+      timeoutMs: this.options.lockTimeoutMs,
       hooks: this.options.hooks,
       update: (raw) =>
         updateCollectionAsync({

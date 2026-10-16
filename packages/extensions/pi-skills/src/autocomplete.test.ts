@@ -7,6 +7,7 @@ import {
   type AutocompleteSuggestions,
   type EditorTheme
 } from "@earendil-works/pi-tui";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import { createSkillAutocompleteProvider } from "./autocomplete.ts";
@@ -93,7 +94,10 @@ it("Enter accepts a leading skill completion without submitting", async () => {
   const { editor, onSubmit } = editorFixture();
   editor.setText("/skill:re");
   editor.handleInput("\t");
-  await vi.waitFor(() => expect(editor.isShowingAutocomplete()).toBe(true), { interval: 1 });
+  await vi.waitFor(() => expect(editor.isShowingAutocomplete()).toBe(true), {
+    interval: 1,
+    timeout: STEP_TIMEOUT_MS
+  });
   editor.handleInput("\r");
   expect(editor.getText()).toMatch(/^\/skill:(review|release) $/u);
   expect(editor.isShowingAutocomplete()).toBe(false);

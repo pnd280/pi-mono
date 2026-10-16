@@ -1,5 +1,6 @@
 import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
 import type { FileMutation, MutationPatch } from "@pi-mono/libs/file-mutations";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import { creationPatch, mutationChange, parseRetainedPatch, sameRetainedHunks } from "./diff.ts";
@@ -56,7 +57,8 @@ it.each([
     maxPatchBytes: 128 * 1024,
     maxEditLength: 2000,
     contextLines: 3,
-    timeoutMs: 1000
+    // The deadline is wall-clock time that suite load can exceed; libs tests it.
+    timeoutMs: STEP_TIMEOUT_MS
   });
   expect(observed.status).toBe("ready");
   if (observed.status !== "ready") return;

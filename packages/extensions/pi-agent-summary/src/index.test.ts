@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fauxAssistantMessage, type AssistantMessage } from "@earendil-works/pi-ai";
 import * as boundedDiff from "@pi-mono/libs/bounded-diff";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
+import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -250,6 +251,7 @@ it("cleans up unfinished runs on shutdown without appending a partial summary", 
 it.each(["session_start", "session_shutdown"] as const)(
   "ignores native completion captured before %s, including after another run starts",
   async (event) => {
+    useStepPatchDeadline();
     const runtime = fixture();
     let previous: RunChanges | undefined;
     // The captured method is called below with the observed run as its explicit receiver.
@@ -330,6 +332,7 @@ it.each(["session_shutdown", "session_start"] as const)(
 );
 
 it("saves summaries outside TUI mode without touching the working UI", async () => {
+  useStepPatchDeadline();
   const runtime = fixture("rpc");
   await runtime.emit("session_start", {});
   await runtime.emit("agent_start", {});

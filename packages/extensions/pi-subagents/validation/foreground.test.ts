@@ -16,7 +16,7 @@ import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY } from "../src/constants.ts";
 import { readTaskSnapshot } from "../src/history/sessions.ts";
 import { detailsSchema } from "../src/result.ts";
 import { endRecordSchema, runRecordSchema, taskRecordSchema } from "../src/tasks/records.ts";
-import { withFixture } from "./background-fixture.ts";
+import { LONG_GRACE_LIMIT, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses, remainingProcesses } from "./processes.ts";
 import type { Supervisor } from "./supervisor.ts";
 
@@ -114,18 +114,21 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
 
         if (action === "turn abort") {
           await expect
-            .poll(async () => {
-              const task = (await list(host))[0]!;
+            .poll(
+              async () => {
+                const task = (await list(host))[0]!;
 
-              return (await readTaskSnapshot(task)).entries.some(
-                (entry) =>
-                  entry.type === "message" &&
-                  entry.message.role === "assistant" &&
-                  entry.message.content.some(
-                    (block) => block.type === "toolCall" && block.id === "fixture-sleep"
-                  )
-              );
-            })
+                return (await readTaskSnapshot(task)).entries.some(
+                  (entry) =>
+                    entry.type === "message" &&
+                    entry.message.role === "assistant" &&
+                    entry.message.content.some(
+                      (block) => block.type === "toolCall" && block.id === "fixture-sleep"
+                    )
+                );
+              },
+              { timeout: STEP_TIMEOUT_MS }
+            )
             .toBe(true);
         }
 
@@ -176,9 +179,9 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     );
   });
 
-  test.each(["tree", "fork", "switch"])(
+  test.for(["tree", "fork", "switch"])(
     "isolates the replacement binding and immediately stops owned subtrees on %s",
-    async (transition) => {
+    async (transition, { expect }) => {
       await withFixture(
         async (directory, start) => {
           const host = await start();
@@ -190,6 +193,8 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           const oldSession = (await host.state()).sessionId;
           await host.reply("background-slow");
           const background = (await list(host))[0]!;
+          // The supervisor and the background task's processes.
+          const retained = new Set((await fixtureProcesses(directory)).map(({ pid }) => pid));
           const work = host.prompt("nested-stubborn").catch((error: unknown) => error);
 
           for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
@@ -207,7 +212,20 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           expect(
             (await list(host)).find((task) => task.task_id === background.task_id)?.state
           ).toBe("active");
-          if (transition === "tree") await host.request({ type: "abort" });
+
+          if (transition === "tree") {
+            const abort = host.request({ type: "abort" });
+            // A turn abort stops the stubborn subtree; a graceful stop would outlast this wait.
+            await expect
+              .poll(
+                async () =>
+                  (await fixtureProcesses(directory)).filter(({ pid }) => !retained.has(pid)),
+                { timeout: STEP_TIMEOUT_MS }
+              )
+              .toEqual([]);
+            await abort;
+          }
+
           const navigation =
             transition === "switch"
               ? host.request({ type: "switch_session", sessionPath: savedSession })
@@ -215,11 +233,16 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
                   type: "prompt",
                   message: `/fixture-${transition === "tree" ? "tree" : "parent-fork"} ${anchor}`
                 });
-          expect(
-            (await remainingProcesses(directory, 2000)).filter(
-              ({ pid }) => pid !== host.connection.process.pid
+          // A graceful stop of the stubborn grandchild would outlast this wait.
+          await expect
+            .poll(
+              async () =>
+                (await fixtureProcesses(directory)).filter(
+                  ({ pid }) => pid !== host.connection.process.pid
+                ),
+              { timeout: STEP_TIMEOUT_MS }
             )
-          ).toEqual([]);
+            .toEqual([]);
           await navigation;
           await work;
           expect(await list(host)).toEqual([]);
@@ -229,7 +252,11 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           expect(await list(host)).toEqual([]);
           expect((await host.entries()).filter(isRunEntry)).toHaveLength(count);
         },
-        { settings: { "ext.pi-subagents": { maxDepth: 2, maxConcurrent: 4 } } }
+        {
+          settings: {
+            "ext.pi-subagents": { maxDepth: LONG_GRACE_LIMIT, maxConcurrent: LONG_GRACE_LIMIT }
+          }
+        }
       );
     }
   );
@@ -546,7 +573,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         }
       }
 
-      await expect.poll(others).toEqual([]);
+      await expect.poll(others, { timeout: STEP_TIMEOUT_MS }).toEqual([]);
       await second.prompt(`history-id ${task.task_id}`);
       expect(detailsSchema.parse((await second.results()).at(-1)!.details).state).toBe("completed");
       expect(await runs()).toBe(3);
@@ -572,7 +599,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           expect(request).toMatchObject({
             title: "[subagent: Fixture dialog task] Fixture question",
             message: "Continue this child task?",
-            timeout: 10_000
+            timeout: STEP_TIMEOUT_MS
           });
           await host.connection.respond({
             type: "extension_ui_response",

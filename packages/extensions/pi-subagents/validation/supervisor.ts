@@ -88,7 +88,6 @@ export class Supervisor {
     );
   }
 
-  /** Delivered job results in the session. */
   async jobResults() {
     return (await this.entries()).flatMap((entry) =>
       entry.type === "custom_message" && entry.customType === JOB_RESULT_MESSAGE ? [entry] : []

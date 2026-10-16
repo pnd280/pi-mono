@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile, rm, writeFile } from "node:fs/promises";
 
 import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
@@ -41,7 +42,9 @@ test("pages tool summaries on the selected ancestry once without modifying the c
       return pageSchema.parse(JSON.parse(notification.message));
     };
 
-    await expect.poll(() => existsSync(`${directory}/work/digest-ready`)).toBe(true);
+    await expect
+      .poll(() => existsSync(`${directory}/work/digest-ready`), { timeout: STEP_TIMEOUT_MS })
+      .toBe(true);
     const early = await show();
     expect(early.items).toEqual([{ type: "user", text: "activity-digest" }]);
     const file = z
@@ -187,14 +190,18 @@ test("returns the latest assistant text after an abort during a tool call", asyn
     await host.reply("background-abort-tool");
     const id = detailsSchema.parse((await host.results())[0]!.details).task_id!;
     await expect
-      .poll(async () => (await fixtureProcesses(directory)).map(({ command }) => command))
+      .poll(async () => (await fixtureProcesses(directory)).map(({ command }) => command), {
+        timeout: STEP_TIMEOUT_MS
+      })
       .toContainEqual(expect.stringContaining("sleep 600"));
     await host.command(`abort ${id}`);
     const listed = async () =>
       z
         .object({ tasks: z.array(taskRecordSchema) })
         .parse(JSON.parse((await host.command("list")).message)).tasks[0]!;
-    await expect.poll(async () => (await listed()).state).toBe("inactive");
+    await expect
+      .poll(async () => (await listed()).state, { timeout: STEP_TIMEOUT_MS })
+      .toBe("inactive");
     const entries = parseSessionEntries(await readFile((await listed()).session_file, "utf8"));
     const assistants = entries.flatMap((entry) =>
       entry.type === "message" && entry.message.role === "assistant"

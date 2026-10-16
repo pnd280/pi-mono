@@ -1,6 +1,7 @@
 import { initTheme } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
+import { STEP_TIMEOUT_MS } from "../../validation/pi-process/index.ts";
 import { browserOptions, items, type TestItem } from "../components/browser/test-fixture.ts";
 import { createInputHost, createTestTui, testKeys, testTheme } from "../test-fixture.ts";
 import { openBrowser, type OpenBrowserOptions } from "./index.ts";
@@ -31,7 +32,8 @@ it.each([24, 18])(
 
     try {
       await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Item 0"), {
-        interval: 1
+        interval: 1,
+        timeout: STEP_TIMEOUT_MS
       });
       host.send("\r");
       expect(selected).toEqual(["0"]);
@@ -81,7 +83,8 @@ it.each([false, true])(
 
     try {
       await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"), {
-        interval: 1
+        interval: 1,
+        timeout: STEP_TIMEOUT_MS
       });
       if (!inspection) host.send("\x10");
 
@@ -97,9 +100,13 @@ it.each([false, true])(
         Object.defineProperty(host.terminal, "rows", { value: rows, configurable: true });
         previous?.render(80);
         if (oldOverlay !== rows < 19)
-          await vi.waitFor(() => expect(host.presentation).not.toBe(previous), { interval: 1 });
+          await vi.waitFor(() => expect(host.presentation).not.toBe(previous), {
+            interval: 1,
+            timeout: STEP_TIMEOUT_MS
+          });
         await vi.waitFor(() => expect(host.presentation?.render(80).join()).toContain("Detail 0"), {
-          interval: 1
+          interval: 1,
+          timeout: STEP_TIMEOUT_MS
         });
         host.transcript.scrollTo(40);
         host.render();

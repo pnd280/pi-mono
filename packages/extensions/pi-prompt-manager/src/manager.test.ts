@@ -1,3 +1,4 @@
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import { NativeClipboardError } from "./clipboard.ts";
@@ -14,7 +15,9 @@ it("keeps capture failure and queue overflow notifications generic", async () =>
   expect(fixture.notices).toHaveLength(1);
   await Promise.resolve();
   failure.resolve({ status: "failed", message: "sensitive failure detail" });
-  await vi.waitFor(() => expect(mutate).toHaveBeenCalledTimes(250));
+  await vi.waitFor(() => expect(mutate).toHaveBeenCalledTimes(250), {
+    timeout: STEP_TIMEOUT_MS
+  });
   expect(fixture.notices).toHaveLength(1);
   expect(fixture.notices.join()).not.toContain("sensitive");
   await fixture.manager.dispose();

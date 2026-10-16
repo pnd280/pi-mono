@@ -96,7 +96,7 @@ Create mutable filesystem fixtures with `mkdtemp` or `mkdtempSync` under `tmpdir
 
 Colocate unit and integration `*.test.ts` files with their behaviour. Extensions can keep e2e tests and their host fixtures in `validation/`. Import explicitly from `vite-plus/test` and use `vp test run` with missing-test failures visible.
 
-The root `vite.config.ts` sets one hang guard for each test, so do not give a test its own limit. The full suite runs many processes at once, and a test can take several times as long as it does alone. Guard process runs and fixture waits with [`STEP_TIMEOUT_MS`](../../packages/libs/src/validation/pi-process/README.md). Assert a time limit only when the limit is the behaviour under test.
+The root `vite.config.ts` sets one hang guard for each test, so do not give a test its own limit. Vitest does not search parent directories for it, so each package `test` script passes it with `--config`. The full suite runs many processes at once, and a test can take several times as long as it does alone. Guard process runs and fixture waits with [`STEP_TIMEOUT_MS`](../../packages/libs/src/validation/pi-process/README.md). Assert a time limit only when the limit is the behaviour under test.
 
 Use the whole package suite when the change spans its behaviour. For a single file, pass its path to the [package script](../development.md#focused-validation):
 

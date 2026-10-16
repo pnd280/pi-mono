@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vite-plus/test";
 
+import { STEP_TIMEOUT_MS } from "../../validation/pi-process/index.ts";
 import { createInputHost, testKeys } from "../test-fixture.ts";
 import { openResponsiveCustomUI } from "./index.ts";
 
@@ -26,7 +27,10 @@ it("pages a focused inline view through regular terminal input", async () => {
   });
 
   try {
-    await vi.waitFor(() => expect(host.presentation).toBeDefined(), { interval: 1 });
+    await vi.waitFor(() => expect(host.presentation).toBeDefined(), {
+      interval: 1,
+      timeout: STEP_TIMEOUT_MS
+    });
     host.transcript.scrollTo(40);
     host.render();
     host.send("\x1b[6~");

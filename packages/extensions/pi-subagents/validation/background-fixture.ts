@@ -1,4 +1,5 @@
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import { contentText } from "@earendil-works/pi-ai";
 import type { FileEntry } from "@earendil-works/pi-coding-agent";
@@ -7,12 +8,25 @@ import { expect, type ExpectStatic } from "vite-plus/test";
 import { z } from "zod";
 
 import type { RpcRecord } from "../src/child/connection.ts";
-import { LATE_USAGE_KIND, RESULT_MESSAGE } from "../src/constants.ts";
+import { KILL_GRACE_MS, LATE_USAGE_KIND, RESULT_MESSAGE, STOP_GRACE_MS } from "../src/constants.ts";
 import { detailsSchema, type ToolDetails } from "../src/result.ts";
 import { taskRecordSchema } from "../src/tasks/records.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace } from "./workspace.ts";
+
+/**
+ * A `maxDepth` and `maxConcurrent` value that gives a stopping descendant at depth 2 more than
+ * `STEP_TIMEOUT_MS` of grace: each level below the smaller limit adds `STOP_GRACE_MS +
+ * KILL_GRACE_MS` to its supervisor's wait. Within a step, only an immediate stop then ends a
+ * subtree that blocks shutdown.
+ */
+export const LONG_GRACE_LIMIT = 3 + Math.ceil(STEP_TIMEOUT_MS / (STOP_GRACE_MS + KILL_GRACE_MS));
+
+/** Creates a barrier file that a fixture command, child, or scripted model waits for. */
+export async function release(directory: string, name: "job-release" | "run-release") {
+  await writeFile(join(directory, "work", name), "");
+}
 
 export async function fixture(
   body: (host: Supervisor, directory: string) => Promise<void>,

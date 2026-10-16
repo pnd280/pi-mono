@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { copyFile, readFile, rm } from "node:fs/promises";
 
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test } from "vite-plus/test";
 import { z } from "zod";
 
@@ -109,7 +110,7 @@ test.skipIf(process.platform !== "linux")(
       try {
         expect(await run.started).toMatchObject({ sessionId: task.session_id });
         await run.connection.request({ type: "get_state" });
-        await expect.poll(() => run.connection.pendingCount).toBe(0);
+        await expect.poll(() => run.connection.pendingCount, { timeout: STEP_TIMEOUT_MS }).toBe(0);
         // The reader follows this run as `Tasks` would report it; the run itself is real.
         const live: TaskRecord = { ...stopped, session_file: sessionFile, run_id: runId };
         const records = new Map([
@@ -147,12 +148,16 @@ test.skipIf(process.platform !== "linux")(
           first.subscribe(() => {
             disposedUpdates++;
           });
-          await expect.poll(() => run.connection.pendingCount).toBe(1);
+          await expect
+            .poll(() => run.connection.pendingCount, { timeout: STEP_TIMEOUT_MS })
+            .toBe(1);
           expect(snapshots).toBe(0);
           first.dispose();
           const replacement = reader.observe(replacementTask.task_id);
           views.push(replacement);
-          await expect.poll(() => replacement.transcript?.items().length ?? 0).toBeGreaterThan(0);
+          await expect
+            .poll(() => replacement.transcript?.items().length ?? 0, { timeout: STEP_TIMEOUT_MS })
+            .toBeGreaterThan(0);
           expect(replacement.unavailable).toBeUndefined();
           const replacementMessages = JSON.stringify(replacement.transcript?.items());
           expect(replacementMessages).toContain("activity-write");
@@ -160,7 +165,9 @@ test.skipIf(process.platform !== "linux")(
 
           run.connection.process.stdout.resume();
           // The reader's live source can read again after the first view is disposed.
-          await expect.poll(() => snapshots).toBeGreaterThanOrEqual(1);
+          await expect
+            .poll(() => snapshots, { timeout: STEP_TIMEOUT_MS })
+            .toBeGreaterThanOrEqual(1);
           // A subsequent round trip also lets the earlier snapshot continuation finish.
           await run.connection.request({ type: "get_state" });
           expect(first.transcript).toBeUndefined();

@@ -33,6 +33,7 @@ import subagents from "../src/index.ts";
 import { detailsSchema } from "../src/result.ts";
 import { taskHistory, taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
 import { Tasks, type TaskEvent } from "../src/tasks/registry.ts";
+import { release as releaseBarrier } from "./background-fixture.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
@@ -95,6 +96,8 @@ function launchCall(prompt: string) {
 }
 
 type SDKFixture = {
+  /** The fixture workspace, whose `work` directory holds the barrier files. */
+  directory: string;
   session: AgentSession;
   /** The first child run of the supervisor. */
   started: Promise<ChildRun>;
@@ -187,6 +190,7 @@ async function fixture(
     });
     const requests: TranscriptContext[] = [];
     await body({
+      directory,
       session,
       started: started.promise,
       requests,
@@ -227,7 +231,7 @@ async function fixture(
       session?.dispose();
 
       try {
-        const leaked = await remainingProcesses(directory, 5_000);
+        const leaked = await remainingProcesses(directory);
         await killFixtureProcesses(directory);
         expect(leaked).toEqual([]);
       } finally {
@@ -535,6 +539,8 @@ test("confirms descendant cancellation and propagates the owner's inactive error
         expect(detailsSchema.safeParse(result.details).data?.state).not.toBe("cancelled");
         expect(await history("unchanged descendant in the real owner")).toEqual(before);
         expect(await record(ownerId)).toMatchObject({ state: "active" });
+        // The owner holds its final reply until now.
+        await releaseBarrier(host.directory, "run-release");
         await bounded(prompt, "owner completion settlement");
         expect(savedResults(host.session)).toHaveLength(1);
         expect(contentText(savedResults(host.session)[0]!.content)).toContain(

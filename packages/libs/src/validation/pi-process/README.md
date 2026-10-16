@@ -24,6 +24,6 @@ During a Vitest run of the root config, every new workspace links the same compi
 - Wait for fixture processes to exit before removing the workspace.
 - Guard each process run and each awaited fixture step with `STEP_TIMEOUT_MS`. Do not give a test its own limit; the root `vite.config.ts` sets one for all tests. These limits only stop a stuck test. A full suite starts many Pi processes at once, so a step can take several times as long as it does alone. Do not use shorter limits to detect hangs.
 
-Vitest 5 does not search parent directories for a config. A package whose tests launch Pi passes the root config in its `test` script, `vp test run --config ../../../vite.config.ts`, so that package runs also get the global setup.
+Vitest 5 does not search parent directories for a config. Every package passes the root config in its `test` script, for example `vp test run --config ../../../vite.config.ts`, so that package runs also get the hang guard and the global setup.
 
 The [prompt-manager](../../../../extensions/pi-prompt-manager/validation/workspace.ts) and [tool-display](../../../../extensions/pi-tool-display/validation/workspace.ts) fixtures prepare launches. Use the [terminal launcher](../terminal-launcher/README.md) for interactive validation.

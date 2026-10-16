@@ -15,7 +15,7 @@
     "format": "vp fmt .",
     "lint": "vp lint --format stylish .",
     "check": "vp fmt --check . && vp run lint",
-    "test": "vp test run"
+    "test": "vp test run --config ../../../vite.config.ts"
   },
   "dependencies": {
     "@pi-mono/libs": "workspace:*",

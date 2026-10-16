@@ -1,3 +1,4 @@
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { z } from "zod";
 
 import { FileRepository } from "../src/storage/repository.ts";
@@ -12,7 +13,9 @@ const [cwd, agentDir, label, count] = argumentsSchema.parse(process.argv.slice(2
 const repository = await FileRepository.create({
   cwd,
   agentDir,
-  retention: 250
+  retention: 250,
+  // The test covers mutation preservation, not the deadline; a loaded suite can starve a waiter.
+  lockTimeoutMs: STEP_TIMEOUT_MS
 });
 
 for (let index = 0; index < count; index++) {

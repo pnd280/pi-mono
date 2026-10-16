@@ -1,6 +1,7 @@
 import { matchesKey, type TUI, type TuiInputListener } from "@earendil-works/pi-tui";
 import { expect, it, vi } from "vite-plus/test";
 
+import { STEP_TIMEOUT_MS } from "../../validation/pi-process/index.ts";
 import { createInputHost } from "../test-fixture.ts";
 import { fullscreenInputRouting } from "./fullscreen-input.ts";
 import { openResponsiveCustomUI } from "./index.ts";
@@ -33,7 +34,10 @@ async function open(host = createInputHost(), claims = true) {
         }
       : { ...common, create: () => view }
   );
-  await vi.waitFor(() => expect(host.presentation).toBeDefined(), { interval: 1 });
+  await vi.waitFor(() => expect(host.presentation).toBeDefined(), {
+    interval: 1,
+    timeout: STEP_TIMEOUT_MS
+  });
 
   return {
     host,

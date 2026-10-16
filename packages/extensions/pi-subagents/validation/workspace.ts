@@ -30,7 +30,7 @@ export async function createFixtureWorkspace(
         retry: { enabled: false },
         ...options.settings,
         extensions: [
-          fileURLToPath(new URL("../index.ts", import.meta.url)),
+          fileURLToPath(new URL("./extension.ts", import.meta.url)),
           fileURLToPath(new URL("./provider.ts", import.meta.url)),
           ...(options.extensions ?? [])
         ]

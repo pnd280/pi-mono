@@ -1,5 +1,6 @@
 import { fauxAssistantMessage, fauxProvider, fauxToolCall, Type } from "@earendil-works/pi-ai";
 import { createCodemodeExtension } from "@earendil-works/pi-coding-agent";
+import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { zeroUsage } from "@pi-mono/libs/validation/provider";
 import { expect, it } from "vite-plus/test";
@@ -8,6 +9,7 @@ import agentSummary from "./index.ts";
 import { summaryEntryType, summarySchema } from "./summary.ts";
 
 it("counts nested execution once and excludes child usage while recording the routed physical model", async () => {
+  useStepPatchDeadline();
   const fixture = await hostFixture([
     agentSummary,
     createCodemodeExtension({ mode: "on" }),

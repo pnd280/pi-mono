@@ -69,7 +69,7 @@ it("recognizes native construction through the installed pi executable, not just
           releaseProse?.();
           const proseRestored = !prose.render(80).join(" ").includes("•") && prose.render(80).join(" ").includes("Retained prose");
           const selectiveReadRecognized = piSelectiveReadAdapter(pi.getAllTools().find(tool => tool.name === "read"))?.id === "pi-read:read";
-          const patch = await createBoundedPatch({ path: "file", before: "before\\n", after: "after\\n", maxSourceBytes: 1024, maxPatchBytes: 1024, maxEditLength: 2000, timeoutMs: 1000, contextLines: 4 });
+          const patch = await createBoundedPatch({ path: "file", before: "before\\n", after: "after\\n", maxSourceBytes: 1024, maxPatchBytes: 1024, maxEditLength: 2000, timeoutMs: ${STEP_TIMEOUT_MS}, contextLines: 4 });
           const patchStatus = patch.status;
           const modeHooks = modeHooksCompatible(interactivePrototype());
           const rowContract = rowContractCompatible();

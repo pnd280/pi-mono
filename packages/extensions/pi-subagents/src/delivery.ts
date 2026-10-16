@@ -70,7 +70,9 @@ export class Delivery {
     private ctx: ExtensionContext,
     private depth: number,
     private message: WorkingMessageHandle,
-    private resultDelivery: ResultDelivery
+    private resultDelivery: ResultDelivery,
+    /** Observes each result that becomes pending here; only validation fixtures pass it. */
+    private onPending?: () => void
   ) {
     this.unsubscribe = tasks.subscribe((event) => this.completed(event));
     this.unsubscribeJobs = jobs.subscribe((event) => this.jobCompleted(event));
@@ -123,6 +125,7 @@ export class Delivery {
 
   private queue(message: Completion): void {
     this.pending.push(message);
+    this.onPending?.();
 
     if (this.waiting) {
       this.wake?.();

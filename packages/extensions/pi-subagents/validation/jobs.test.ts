@@ -14,7 +14,7 @@ import type { RpcRecord } from "../src/child/connection.ts";
 import { JOB_END_ENTRY, JOB_RESULT_MESSAGE, TASKS_MESSAGE } from "../src/constants.ts";
 import { jobDetailsSchema } from "../src/jobs/records.ts";
 import { detailsSchema } from "../src/result.ts";
-import { replies, withFixture } from "./background-fixture.ts";
+import { release, replies, withFixture } from "./background-fixture.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import type { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
@@ -85,11 +85,6 @@ async function settledAfterJobResult(host: Supervisor, after: number) {
   await host.wait((record) => record.type === "agent_settled", host.records.indexOf(result));
 
   return result;
-}
-
-/** Creates a barrier file that a fixture command or the scripted model waits for. */
-async function release(directory: string, name: "job-release" | "run-release") {
-  await writeFile(join(directory, "work", name), "");
 }
 
 /** The process group of the `group` fixture job, which holds its shell and two sleeps. */

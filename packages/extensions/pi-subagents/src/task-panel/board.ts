@@ -48,7 +48,6 @@ export type BoardEntry = { group: number; lead: string; guides: string } & (
   | { kind: "job"; job: JobRecord }
 );
 
-/** The task or job ID of a row. */
 export const entryId = (entry: BoardEntry): string =>
   entry.kind === "task" ? entry.task.task_id : entry.job.job_id;
 
