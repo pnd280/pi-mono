@@ -21,7 +21,7 @@ class AbortGuardEditor extends CustomEditor {
     private readonly holdInterrupt: () => boolean
   ) {
     // Pi's default editor draws the working status in its top border.
-    super(tui, theme, keys, { embedWorkingStatus: true });
+    super(tui, theme, keys, { embedWorkingStatus: false });
   }
 
   override handleInput(data: string): void {
