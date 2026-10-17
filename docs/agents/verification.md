@@ -4,13 +4,15 @@
 
 1. Identify changed files, affected packages, and [shared-code consumers](architecture.md#reuse-decision).
 2. Run the checks for the kind of change:
-   - For docs-only changes, check the changed Markdown files with `vp fmt --check <files>` and `node scripts/check-docs.ts <files>`. Vite+ formatting ignores `.agents/`, so leave those files out of `vp fmt --check`. No application tests are needed.
+   - When you change Markdown, check the changed files with `vp fmt --check <files>` and `node scripts/check-docs.ts <files>`. Vite+ formatting ignores `.agents/`, so leave those files out of `vp fmt --check`. Docs-only changes need no application tests.
    - For code or tooling changes, run these from the repository root with each affected package's `package.json` name, then follow the [testing convention](testing.md):
 
      ```sh
      vpr '<package-name>#check'
      vpr '<package-name>#test'
      ```
+
+     `#check` runs the format check and type-aware lint, which type-checks the package. It does not run `check-docs.ts`.
 
      For workspace-wide and partial commands, see [focused validation](../development.md#focused-validation).
 3. Review the final diff for correctness and scope.

@@ -36,7 +36,7 @@ Workspace commands:
 | Command                  | Scope                                                                                                                       |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | `vpr check`              | Formatting, linting, type checking, `docs:check`, and `fingerprints:check`                                                  |
-| `vpr docs:check`         | Markdown links, anchors, and "Last verified" Pi versions                                                                    |
+| `vpr docs:check`         | Markdown links, anchors, inline prototype member names, and "Last verified" Pi versions                                     |
 | `vpr fingerprints:check` | [Host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) of private Pi methods |
 | `vpr test`               | All tests in one Vitest invocation                                                                                          |
 | `vpr lint`               | Linting and type checking                                                                                                   |

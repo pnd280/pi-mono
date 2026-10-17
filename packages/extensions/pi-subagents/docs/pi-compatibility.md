@@ -6,7 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the package checks and [manual checks](testing.md#manual-checks).
+1. Run the package checks and [manual checks](validation.md).
 2. Compare the installed contracts through the workspace's [Pi API references](../../../../docs/pi-docs.md).
 3. Recheck the checklist below and update the verification line. The only Pi prototype patch records [late usage](../GLOSSARY.md#results) ([ADR 0002](adr/0002-count-late-background-usage.md)); recheck its items below.
 
@@ -66,7 +66,7 @@ The backend depends on Pi's public lifecycle and RPC ordering, while task owners
 
 ## Background and viewer contracts
 
-The offline tests exercise background waits in `agent_end`, slash commands during settle waits, abort and stdin-EOF cleanup, print and JSON settling, and prepared idle RPC context. The [SDK race cases](../validation/abort-races.test.ts) cover background results at abort boundaries, aborts after process exit, and descendant cancellation acknowledgements. Use the manual checks for the TUI path. Recheck these contracts on upgrade:
+The offline tests exercise background waits in `agent_end`, slash commands during settle waits, abort and stdin-EOF cleanup, print and JSON settling, and prepared idle RPC context. The [SDK race cases](../validation/abort-races.test.ts) cover background results at abort boundaries, aborts after process exit, and descendant cancellation acknowledgements. Use the [manual checks](validation.md) for the TUI path. Recheck these contracts on upgrade:
 
 - [ ] Pi awaits `agent_end` handlers before its post-run processing, and the RPC `agent_end` event is sent only after they finish.
 - [ ] The TUI working loader stays visible until `agent_end` handlers finish, and working-message changes apply during that time.

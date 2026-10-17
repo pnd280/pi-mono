@@ -19,9 +19,15 @@ To check Pi contracts, use the workspace's installed documentation below. For in
 | Edit manifests or host dependencies             | [Packages](../node_modules/@earendil-works/pi-coding-agent/docs/packages.md)                                                                                                    |
 | Configure Pi through the environment            | [Environment variables](../node_modules/@earendil-works/pi-coding-agent/docs/environment-variables.md)                                                                          |
 | Connect MCP tools                               | [MCP servers](../node_modules/@earendil-works/pi-coding-agent/docs/mcp.md)                                                                                                      |
+| Drive Pi as an RPC subprocess                   | [RPC mode](../node_modules/@earendil-works/pi-coding-agent/docs/rpc.md) and [RPC commands](../node_modules/@earendil-works/pi-coding-agent/docs/rpc-commands.md)                |
+| Forward extension UI over RPC                   | [RPC extension UI](../node_modules/@earendil-works/pi-coding-agent/docs/rpc-extension-ui.md)                                                                                    |
+| Read session entries, branches, or leaves       | [Session file format](../node_modules/@earendil-works/pi-coding-agent/docs/session-format.md)                                                                                   |
 | Check a field the docs don't cover              | [Extension types](../node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/types.d.ts) and [pi-ai types](../node_modules/@earendil-works/pi-ai/dist/types.d.ts)     |
+| Check runtime order that no doc or type states  | The [compiled core](../node_modules/@earendil-works/pi-coding-agent/dist/core/), as described below the table                                                                   |
 
 When changing a Pi integration, read the relevant installed API documentation and examples, including linked contracts needed by the change. The Markdown docs omit some contracts, such as `ToolDefinition.constrainedSampling` for grammar tools. Before you state that Pi lacks a capability, read the type declarations. Resolve links inside installed documentation relative to that document, not the workspace root.
+
+In the compiled core, `extensions/runner.js` emits events in load order and ends a `session_before_*` event at the first cancel. `agent-session.js` and `agent-session-runtime.js` run prompts, commands, and session changes.
 
 ## Linking Pi documentation
 

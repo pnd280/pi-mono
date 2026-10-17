@@ -6,7 +6,7 @@ When choosing an owner or changing package boundaries, start with the [workspace
 
 - Keep extension registration and event handlers as Pi adapters; put substantial behaviour in modules callable without Pi.
 - Keep domain policy and action effects in consumers of shared UI. Put host mounting outside `packages/libs/src/tui/components/`.
-- Preserve the import boundaries enforced by [vite.config.ts](../../vite.config.ts).
+- Preserve the import boundaries enforced by [vite.config.ts](../../vite.config.ts). Lint rejects an import cycle that has a value import in each direction. A cycle closed by an `import type` passes.
 
 ## Reuse decision
 

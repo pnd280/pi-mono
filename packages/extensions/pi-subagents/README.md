@@ -106,7 +106,7 @@ Top-level launches queue FIFO when capacity is full. Nested launches fail immedi
 
 The offline e2e suite uses real Pi processes and Linux `/proc` to check cleanup. See [coverage](docs/testing.md) and the [maintainer compatibility checklist](docs/pi-compatibility.md).
 
-For manual terminal checks, run from the repository root:
+For the [manual terminal checks](docs/validation.md), run from the repository root:
 
 ```sh
 vpr 'pi-subagents#validate:terminal' regular

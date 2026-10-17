@@ -1,5 +1,6 @@
-// Check workspace Markdown: relative links and heading anchors must resolve, and
-// every "Last verified against Pi x.y.z" line must name the installed Pi version.
+// Check workspace Markdown: relative links and heading anchors must resolve, inline
+// `Class.prototype.member` names must exist, and every "Last verified against Pi x.y.z"
+// line must name the installed Pi version.
 // Usage: node scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -88,10 +89,133 @@ function anchors(file: string): Set<string> {
   return found;
 }
 
+// Docs name test seams and patched host methods as `Class.prototype.member`. The class must exist
+// in the Markdown file's package source or in the installed Pi declarations, and declare the member.
+const prototypeName = /`([A-Za-z_$][\w$]*)\.prototype(?:\.([A-Za-z_$][\w$]*))?(?:\(\))?`/g;
+const memberName =
+  /(?:^|[;\n])\s*(?:(?:public|private|protected|static|readonly|declare|abstract|override|async|accessor|get|set)\s+)*\*?([A-Za-z_$][\w$]*)\s*[?!]?\s*[(<:=;]/g;
+const typeScriptCache = new Map<string, string[]>();
+
+function typeScriptFiles(directory: string, pattern: RegExp): string[] {
+  const key = `${directory}\0${pattern.source}`;
+  const cached = typeScriptCache.get(key);
+
+  if (cached) return cached;
+
+  const files = existsSync(directory)
+    ? readdirSync(directory, { recursive: true, encoding: "utf8" })
+        .filter((file) => pattern.test(file) && !file.split(sep).includes("node_modules"))
+        .map((file) => join(directory, file))
+    : [];
+  typeScriptCache.set(key, files);
+
+  return files;
+}
+
+// The package source, then the Pi host declarations.
+function declarationFiles(file: string): string[] {
+  const files: string[] = [];
+
+  for (let directory = dirname(file); directory.startsWith(`${root}${sep}`);) {
+    if (existsSync(join(directory, "package.json"))) {
+      files.push(...typeScriptFiles(join(directory, "src"), /(?<!\.test)\.ts$/));
+      break;
+    }
+
+    directory = dirname(directory);
+  }
+
+  const hosts = join(root, "node_modules/@earendil-works");
+
+  for (const host of readdirSync(hosts)) {
+    files.push(...typeScriptFiles(join(hosts, host, "dist"), /\.d\.ts$/));
+  }
+
+  return files;
+}
+
+// Index just past the closing quote of the string or template literal that starts at `start`.
+function stringEnd(text: string, start: number): number {
+  const quote = text[start];
+  let index = start + 1;
+
+  while (index < text.length && text[index] !== quote) index += text[index] === "\\" ? 2 : 1;
+
+  return index + 1;
+}
+
+// The member names of `class name` in `text`, read from the class body at its own nesting level,
+// without strings or comments. Undefined when the text declares no such class.
+function classMembers(text: string, name: string): Set<string> | undefined {
+  const declaration = new RegExp(String.raw`\bclass ${name}\b[^{]*\{`).exec(text);
+
+  if (!declaration) return undefined;
+
+  let outline = "";
+  let depth = 1;
+  let index = declaration.index + declaration[0].length;
+
+  while (index < text.length && depth > 0) {
+    const character = text[index];
+    const pair = text.slice(index, index + 2);
+
+    if (pair === "//") {
+      const end = text.indexOf("\n", index);
+      index = end < 0 ? text.length : end;
+    } else if (pair === "/*") {
+      const end = text.indexOf("*/", index + 2);
+      index = end < 0 ? text.length : end + 2;
+    } else if (character === '"' || character === "'" || character === "`") {
+      index = stringEnd(text, index);
+    } else {
+      if (character === "{") depth++;
+      else if (character === "}") depth--;
+      else if (depth === 1) outline += character;
+      index++;
+    }
+  }
+
+  return new Set(Array.from(outline.matchAll(memberName), ([, member = ""]) => member));
+}
+
+const textCache = new Map<string, string>();
+
+function findClass(files: string[], name: string): Set<string> | undefined {
+  const declaration = new RegExp(String.raw`\bclass ${name}\b`);
+
+  for (const path of files) {
+    const text = textCache.get(path) ?? readFileSync(path, "utf8");
+    textCache.set(path, text);
+
+    if (!declaration.test(text)) continue;
+
+    const members = classMembers(text, name);
+
+    if (members) return members;
+  }
+
+  return undefined;
+}
+
+function checkPrototypeNames(file: string, text: string, name: string): string[] {
+  const problems: string[] = [];
+  let files: string[] | undefined;
+
+  for (const [reference, className = "", member] of withoutFences(text).matchAll(prototypeName)) {
+    files ??= declarationFiles(file);
+    const members = findClass(files, className);
+
+    if (!members) problems.push(`${name}: missing class for ${reference}`);
+    else if (member && !members.has(member)) problems.push(`${name}: missing member ${reference}`);
+  }
+
+  return problems;
+}
+
 function checkFile(file: string): string[] {
   const text = readMarkdown(file);
-  const problems: string[] = [];
   const name = relative(root, file);
+  const problems = checkPrototypeNames(file, text, name);
 
   for (const [, target = ""] of prose(text).matchAll(
     /\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g

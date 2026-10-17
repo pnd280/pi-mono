@@ -159,6 +159,7 @@ export default function subagents(pi: ExtensionAPI): void {
 
       return runCommand(args, bound, {
         notify: (message, type) => {
+          // Stopped bindings write nothing, so a command that outlives its session shows no output.
           if (binding.isCurrent(bound)) ctx.ui.notify(message, type);
         }
       });

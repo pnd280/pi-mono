@@ -83,7 +83,7 @@ Each package's `docs/testing.md` uses this shape and nothing else:
 
 ## Manual checks
 
-<Optional: launch command and a table of change, action, and expected result.>
+<Optional: launch command and a table of change, action, and expected result. Put a long table in `docs/validation.md`, and link it here.>
 ```
 
 State each invariant as an observable outcome, not as a test name or an implementation detail. Packages with no invariants say so, and use `vp test run --passWithNoTests`.

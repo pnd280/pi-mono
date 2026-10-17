@@ -116,19 +116,23 @@ export class Supervisor {
     );
   }
 
+  /**
+   * Pi answers a handled command after its handler returns, so the notification arrives first.
+   * pi-subagents sends none from a session binding that is no longer current.
+   */
   async command(command: string): Promise<Extract<RpcExtensionUIRequest, { method: "notify" }>> {
     const after = this.records.length;
-    await this.request({
+    const response = await this.request({
       type: "prompt",
       message: `/subagents ${command}`,
       streamingBehavior: "followUp"
     });
-    const record = await this.wait(
-      (value) => value.type === "extension_ui_request" && value.method === "notify",
-      after
-    );
-    if (record.type !== "extension_ui_request" || record.method !== "notify")
-      throw new Error("Missing command notification");
+    if (response.command !== "prompt" || response.data.disposition !== "handled")
+      throw new Error("The command was not handled");
+    const record = this.records
+      .slice(after)
+      .find((value) => value.type === "extension_ui_request" && value.method === "notify");
+    if (!record) throw new Error("The command returned without a notification");
 
     return record;
   }

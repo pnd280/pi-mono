@@ -1,0 +1,28 @@
+# pi-subagents test fixtures
+
+[Package](../README.md) · [Test coverage](../docs/testing.md) · [Testing policy](../../../../docs/agents/testing.md)
+
+This guide is for maintainers who write or change the e2e tests in this directory. Each test starts real offline Pi [supervisors](../GLOSSARY.md#tasks-and-processes) in a disposable workspace, and a scripted model answers each prompt.
+
+## Files
+
+| File                                                                                                     | Use                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [workspace.ts](workspace.ts)                                                                             | `createFixtureWorkspace` creates a workspace with `work/`, the Pi working directory, and `agent/`, which holds the settings. Its `extensions` option adds extensions that load after pi-subagents and the provider.                                 |
+| [background-fixture.ts](background-fixture.ts)                                                           | `fixture` runs one supervisor, and `withFixture` starts several in one workspace. Both stop each supervisor and fail when a fixture process remains. `release` creates a barrier file in `work/`.                                                   |
+| [supervisor.ts](supervisor.ts)                                                                           | `Supervisor` drives one supervisor over RPC: `prompt`, `reply`, `command`, `entries`, `results`, `jobResults`, and `wait`.                                                                                                                          |
+| [provider.ts](provider.ts)                                                                               | The scripted model. The prompt text names the scenario: `supervisorPlan` gives the supervisor's tool calls, and `createStream` gives the replies. It also registers `/fixture-tree`, `/fixture-parent-fork`, `/fixture-reload`, and `/fixture-run`. |
+| [extension.ts](extension.ts)                                                                             | Loads pi-subagents, and reports each pending background result to the provider through a spy on `ResultSource.prototype.subscribe`.                                                                                                                 |
+| [processes.ts](processes.ts)                                                                             | Lists and stops the processes whose working directory is in a fixture workspace. It reads Linux `/proc`.                                                                                                                                            |
+| [foreign-bash.ts](foreign-bash.ts), [cancel-change.ts](cancel-change.ts), [hold-start.ts](hold-start.ts) | Extensions for the `extensions` option: another owner of `bash`, a cancelled tree navigation and fork, and a held child start. Start a new one from a copy of these.                                                                                |
+| [launch-terminal.ts](launch-terminal.ts)                                                                 | The terminal launcher for the [manual checks](../docs/validation.md).                                                                                                                                                                               |
+
+## Rules
+
+- Write an added extension as a file with a default export, and give its path in `extensions`. Start it with `assertFixtureWorkspace(process.cwd())`.
+- Read the process depth with `getDepth()` from [depth.ts](../src/child/depth.ts). pi-subagents removes the depth environment variable when it loads.
+- Hold a child with a loop that polls a barrier file in `work/`, as `hold-start.ts` does. A child that waits on a promise that never settles during its session start can exit with code 0.
+- `results()` returns only `subagent` tool results. For `subagent_abort` and other tools, filter `entries()`.
+- `command()` returns the notification of a `/subagents` command. pi-subagents drops the notification of a session binding that is no longer current, and `command()` then fails at once.
+- Race tests hold their windows with prototype spies. [ADR 0004](../docs/adr/0004-no-child-transport-seam.md) lists the seams; move a spy with its seam.
+- Guard waits with `STEP_TIMEOUT_MS`, and give a test no time limit of its own. See the workspace [runner rules](../../../../docs/agents/testing.md#runner).
