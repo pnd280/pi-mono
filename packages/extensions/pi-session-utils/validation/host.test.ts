@@ -12,19 +12,24 @@ import {
   SettingsManager
 } from "@earendil-works/pi-coding-agent";
 import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
-import { afterEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import piSessionUtils from "../index.ts";
 
-const cleanups: (() => Promise<void>)[] = [];
-
-afterEach(async () => {
-  for (const cleanup of cleanups.splice(0)) await cleanup();
-  vi.unstubAllEnvs();
-});
-
 async function host(settings: string) {
   const directory = await createValidationWorkspace("pi-session-utils-host-");
+  const resources: { runtime?: Awaited<ReturnType<typeof createAgentSessionRuntime>> } = {};
+  onTestFinished(async () => {
+    try {
+      await resources.runtime?.dispose();
+    } finally {
+      try {
+        rmSync(directory, { recursive: true, force: true });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    }
+  });
   const cwd = join(directory, "work");
   const agentDir = join(directory, "agent");
   writeFileSync(join(agentDir, "settings.json"), settings);
@@ -36,9 +41,6 @@ async function host(settings: string) {
     models: [{ id: "active" }, { id: "title" }]
   });
   const errors: unknown[] = [];
-  cleanups.push(async () => {
-    rmSync(directory, { recursive: true, force: true });
-  });
 
   const createRuntime: CreateAgentSessionRuntimeFactory = async ({
     cwd: sessionCwd,
@@ -92,9 +94,7 @@ async function host(settings: string) {
     agentDir,
     sessionManager: SessionManager.inMemory(cwd)
   });
-  cleanups.unshift(async () => {
-    await runtime.dispose();
-  });
+  resources.runtime = runtime;
 
   const bind = async (session: AgentSession) => {
     await session.bindExtensions({

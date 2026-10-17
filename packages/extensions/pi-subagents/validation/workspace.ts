@@ -20,33 +20,32 @@ export async function createFixtureWorkspace(
     extensions?: string[];
   } = {}
 ): Promise<string> {
-  const directory = await createValidationWorkspace("pi-subagents-");
-  await Promise.all([
-    writeFile(join(directory, "work", marker), "disposable subagents workspace\n"),
-    writeFile(
-      join(directory, "agent", "settings.json"),
-      JSON.stringify({
-        compaction: { enabled: false, keepRecentTokens: 1 },
-        retry: { enabled: false },
-        ...options.settings,
-        extensions: [
-          fileURLToPath(new URL("./extension.ts", import.meta.url)),
-          fileURLToPath(new URL("./provider.ts", import.meta.url)),
-          ...(options.extensions ?? [])
-        ]
-      })
-    )
-  ]);
+  return createValidationWorkspace("pi-subagents-", async (directory) => {
+    await Promise.all([
+      writeFile(join(directory, "work", marker), "disposable subagents workspace\n"),
+      writeFile(
+        join(directory, "agent", "settings.json"),
+        JSON.stringify({
+          compaction: { enabled: false, keepRecentTokens: 1 },
+          retry: { enabled: false },
+          ...options.settings,
+          extensions: [
+            fileURLToPath(new URL("./extension.ts", import.meta.url)),
+            fileURLToPath(new URL("./provider.ts", import.meta.url)),
+            ...(options.extensions ?? [])
+          ]
+        })
+      )
+    ]);
 
-  if (options.projectSettings) {
-    await mkdir(join(directory, "work", ".pi"));
-    await writeFile(
-      join(directory, "work", ".pi", "settings.json"),
-      JSON.stringify(options.projectSettings)
-    );
-  }
-
-  return directory;
+    if (options.projectSettings) {
+      await mkdir(join(directory, "work", ".pi"));
+      await writeFile(
+        join(directory, "work", ".pi", "settings.json"),
+        JSON.stringify(options.projectSettings)
+      );
+    }
+  });
 }
 
 export async function fixtureLaunch(directory: string) {

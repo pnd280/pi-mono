@@ -98,6 +98,8 @@ describe("Git authority", () => {
     await symlink("cycle", join(directory.root, "cycle"));
     expect((await detect("cycle")).status).toBe("unavailable");
     expect((await detect("node_modules/linked/missing.ts")).status).toBe("missing");
+    await symlink("missing", join(directory.root, "node_modules/broken"));
+    expect((await detect("node_modules/broken")).status).toBe("missing");
   });
 
   it("reports cancellation when the caller's signal aborts during inspection", async () => {

@@ -16,10 +16,10 @@ Reads return current content without writes; section saves make one locked chang
 
 ### Reads
 
-| Function                               | Returns                                                          | Missing file | Empty file | Unreadable | Nonregular, over 1 MiB, or read length differs from initial size | Malformed JSON |
-| -------------------------------------- | ---------------------------------------------------------------- | ------------ | ---------- | ---------- | ---------------------------------------------------------------- | -------------- |
-| [`readSettingsFile`](read.ts)          | Bounded UTF-8 text from a regular file, not parsed or defaulted. | Throws       | `""`       | Throws     | `undefined`                                                      | Not parsed     |
-| [`readSettingsRecord`](transaction.ts) | A parsed JSON object. Pi's leading BOM is accepted.              | `{}`         | `{}`       | Throws     | Throws                                                           | Throws         |
+| Function                               | Returns                                                          | Missing file | Empty file | Unreadable | Nonregular, invalid UTF-8, over 1 MiB, or read length differs from initial size | Malformed JSON |
+| -------------------------------------- | ---------------------------------------------------------------- | ------------ | ---------- | ---------- | ------------------------------------------------------------------------------- | -------------- |
+| [`readSettingsFile`](read.ts)          | Bounded UTF-8 text from a regular file, not parsed or defaulted. | Throws       | `""`       | Throws     | `undefined`                                                                     | Not parsed     |
+| [`readSettingsRecord`](transaction.ts) | A parsed JSON object. Pi's leading BOM is accepted.              | `{}`         | `{}`       | Throws     | Throws                                                                          | Throws         |
 
 ### Sections
 
@@ -45,7 +45,7 @@ A section save runs one locked update:
 - If another writer holds the lock, the save throws without retrying.
 - Existing settings symlinks are followed, not replaced.
 - Unrelated fields and existing mode bits are kept.
-- Malformed JSON and dangling links are refused, never repaired.
+- Malformed JSON, invalid UTF-8, and dangling links are refused, never repaired.
 - Parent directories can be created. New files use mode `0600`, subject to the platform.
 
 ### Limits

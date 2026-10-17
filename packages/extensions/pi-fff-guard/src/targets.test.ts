@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
@@ -120,7 +121,7 @@ describe("FFF search scopes", () => {
 
   it("does not mistake existing unsupported targets for missing files", async () => {
     const fifo = path.join(directory.root, "src/pipe.ts");
-    execFileSync("mkfifo", [fifo]);
+    execFileSync("mkfifo", [fifo], { timeout: STEP_TIMEOUT_MS });
 
     await expectAllowed("grep", { path: "src/pipe.ts" });
     await expectAllowed("grep", { path: "{src/pipe.ts,missing/absent.ts}" });

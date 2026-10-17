@@ -1,7 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
   isKeyRelease,
-  matchesKey,
   ScrollView,
   truncateToWidth,
   visibleWidth,
@@ -17,22 +16,10 @@ import type { Jobs } from "../jobs/registry.ts";
 import type { Tasks } from "../tasks/registry.ts";
 import { createRenderers } from "../tasks/render.ts";
 import { boardEntries, entryId, renderBoard, views, type BoardEntry } from "./board.ts";
+import { PanelControls, type PanelAction, type PanelKeys } from "./controls.ts";
 import { JobLogView } from "./job-viewer.ts";
 import { renderViewer, Spinner, taskRows, type ViewerBody } from "./viewer-frame.ts";
 import { TranscriptViewer } from "./viewer.ts";
-
-const keys = [
-  "up",
-  "down",
-  "pageUp",
-  "pageDown",
-  "enter",
-  "escape",
-  "tab",
-  "shift+tab",
-  "ctrl+b",
-  "ctrl+d"
-] as const;
 
 /** A scrollable transcript, inline in regular mode and overlaid in fullscreen mode. */
 class TranscriptView implements Component {
@@ -49,19 +36,22 @@ class TranscriptView implements Component {
   /** The first body row, below the title, the metadata, and the top overflow border. */
   private bodyTop = 1;
   /** The viewer's rendered size, which its mouse layout and row targets use. */
-  private content = { width: 0, height: 0 };
+  private content = { width: 0, height: 0, top: 0 };
   private scrollbar: { height: number; content: number } | undefined;
   private dragging = false;
   private error = "";
   private unsubscribe: () => void;
+  private controls: PanelControls;
 
   constructor(
     private tasks: Tasks,
     private reader: RunReader,
     private tui: TUI,
     private theme: Theme,
+    keys: PanelKeys,
     private close: () => void
   ) {
+    this.controls = new PanelControls(keys, "task");
     this.unsubscribe = tasks.subscribe(() => {
       this.updateWorking();
       this.tui.requestRender();
@@ -134,24 +124,29 @@ class TranscriptView implements Component {
     this.scroll = undefined;
     this.viewing = undefined;
     this.expanded = false;
+    this.dragging = false;
+    this.scrollbar = undefined;
     this.updateWorking();
+  }
+
+  ownsFullscreenInput(data: string): boolean {
+    return this.active && this.controls.actionFor(data) !== undefined;
   }
 
   handleInput(data: string): void {
     if (!this.active || isKeyRelease(data)) return;
-    if (matchesKey(data, "escape")) this.close();
-    else if (matchesKey(data, "ctrl+d")) void this.abort();
-    else if (matchesKey(data, "ctrl+o")) {
+    const action = this.controls.actionFor(data);
+    if (action === "cancel") this.close();
+    else if (action === "abort") void this.abort();
+    else if (action === "expand") {
       this.expanded = !this.expanded;
       this.viewer?.setExpanded(this.expanded);
-    } else if (matchesKey(data, "up")) this.scroll?.scrollBy(-1);
-    else if (matchesKey(data, "down")) this.scroll?.scrollBy(1);
-    else if (matchesKey(data, "pageUp"))
-      this.scroll?.scrollBy(-Math.max(1, this.scroll.viewportHeight));
-    else if (matchesKey(data, "pageDown"))
-      this.scroll?.scrollBy(Math.max(1, this.scroll.viewportHeight));
-    else if (matchesKey(data, "home")) this.scroll?.scrollToStart();
-    else if (matchesKey(data, "end")) this.scroll?.scrollToEnd();
+    } else if (action === "up") this.scroll?.scrollBy(-1);
+    else if (action === "down") this.scroll?.scrollBy(1);
+    else if (action === "pageUp") this.scroll?.scrollBy(-Math.max(1, this.scroll.viewportHeight));
+    else if (action === "pageDown") this.scroll?.scrollBy(Math.max(1, this.scroll.viewportHeight));
+    else if (action === "first") this.scroll?.scrollToStart();
+    else if (action === "last") this.scroll?.scrollToEnd();
     this.tui.requestRender();
   }
 
@@ -190,12 +185,10 @@ class TranscriptView implements Component {
         ...(this.error ? [this.error] : [])
       ],
       hints: [
-        "Esc back",
-        ...(this.working ? ["Ctrl+D abort"] : []),
-        `Ctrl+O ${this.expanded ? "collapse" : "expand"}`,
-        "↑↓ scroll",
-        "PageUp/PageDown page",
-        "Home/End first/last"
+        this.controls.hint("cancel", "back"),
+        ...(this.working ? [this.controls.hint("abort", "abort")] : []),
+        this.controls.hint("expand", this.expanded ? "collapse" : "expand"),
+        ...this.controls.scrollHints()
       ],
       body: (height) => this.body(width, height)
     });
@@ -215,9 +208,9 @@ class TranscriptView implements Component {
       // Reserve the last column for the scrollbar, as Pi's transcript does.
       const contentWidth = width > 1 ? width - 1 : width;
       const lines = this.scroll.render(contentWidth);
-      this.content = { width: contentWidth, height: lines.length };
       this.scroll.updateLayout(lines.length, height, () => this.tui.requestRender());
       above = this.scroll.scrollTop;
+      this.content = { width: contentWidth, height: lines.length, top: above };
       body = lines.slice(above, above + height);
       below = Math.max(0, lines.length - above - body.length);
       if (contentWidth < width) body = this.paintScrollbar(body, contentWidth, lines.length);
@@ -269,7 +262,7 @@ class TranscriptView implements Component {
   }
 
   handleMouse(event: TuiMouseEvent): ReturnType<NonNullable<Component["handleMouse"]>> {
-    if (!this.viewer || !this.scroll) return;
+    if (!this.active || !this.viewer || !this.scroll) return;
 
     if (event.type === "wheel") {
       this.scroll.scrollBy(event.wheelDelta ?? 0);
@@ -286,7 +279,7 @@ class TranscriptView implements Component {
     // below the first screen and re-measure rows at the scrollbar's extra column.
     return this.viewer.handleMouse({
       ...event,
-      y: row + this.scroll.scrollTop,
+      y: row + this.content.top,
       width: this.content.width,
       height: this.content.height
     });
@@ -335,6 +328,9 @@ export class TaskPanel implements Component {
   private selected = 0;
   private entries: BoardEntry[] = [];
   private rowTargets: (number | undefined)[] = [];
+  /** Mouse targets belong to the entries last drawn, even if a live update reorders the list. */
+  private renderedEntries: readonly BoardEntry[] = [];
+  private renderedTop = 0;
   private selectionLayout = "";
   private listScroll = new ScrollView(
     { render: (width) => this.renderRows(width), invalidate: () => {} },
@@ -348,6 +344,7 @@ export class TaskPanel implements Component {
   private unsubscribeJobs: () => void;
   private timer: ReturnType<typeof setInterval>;
   private unobserve: () => void;
+  private controls: PanelControls;
 
   constructor(
     private tasks: Tasks,
@@ -355,8 +352,10 @@ export class TaskPanel implements Component {
     private reader: RunReader,
     private tui: TUI,
     private theme: Theme,
+    private keys: PanelKeys,
     private close: () => void
   ) {
+    this.controls = new PanelControls(keys, "panel");
     this.unsubscribe = tasks.subscribe(() => this.update());
     this.unsubscribeJobs = jobs.subscribe(() => this.update());
     // Elapsed times advance every second.
@@ -406,6 +405,7 @@ export class TaskPanel implements Component {
         this.reader,
         this.tui,
         this.theme,
+        this.keys,
         this.closeDetail
       );
     }
@@ -416,7 +416,7 @@ export class TaskPanel implements Component {
 
   openJob(id: string): void {
     if (!this.active) return;
-    const view = new JobLogView(this.jobs, id, this.tui, this.theme, this.closeDetail);
+    const view = new JobLogView(this.jobs, id, this.tui, this.theme, this.keys, this.closeDetail);
     this.error = "";
     this.transcript?.dispose();
     this.transcript = view;
@@ -429,23 +429,32 @@ export class TaskPanel implements Component {
   }
 
   ownsFullscreenInput(data: string): boolean {
-    return keys.some((key) => matchesKey(data, key));
+    if (!this.active) return false;
+
+    return this.transcript
+      ? this.transcript.ownsFullscreenInput(data)
+      : this.controls.actionFor(data) !== undefined;
   }
 
   handleInput(data: string): void {
     if (!this.active || isKeyRelease(data)) return;
+
     if (this.transcript) this.transcript.handleInput(data);
-    else if (matchesKey(data, "escape")) this.close();
-    else this.listInput(data);
+    else {
+      const action = this.controls.actionFor(data);
+      if (action === "cancel") this.close();
+      else if (this.tui.terminal.rows >= 10) this.listInput(action);
+    }
+
     this.tui.requestRender();
   }
 
-  private listInput(data: string): void {
+  private listInput(action: PanelAction | undefined): void {
     const entry = this.selectedEntry;
     const task = entry?.kind === "task" ? entry.task : undefined;
     let step = 0;
-    if (matchesKey(data, "shift+tab")) step = views.length - 1;
-    else if (matchesKey(data, "tab")) step = 1;
+    if (action === "previousView") step = views.length - 1;
+    else if (action === "nextView") step = 1;
 
     if (step) {
       if (entry) this.selections.set(this.view, entryId(entry));
@@ -457,21 +466,20 @@ export class TaskPanel implements Component {
       return;
     }
 
-    if (matchesKey(data, "up")) {
+    if (action === "up") {
       this.selected = Math.max(0, this.selected - 1);
       this.selectionLayout = "";
-    } else if (matchesKey(data, "down")) {
+    } else if (action === "down") {
       this.selected = Math.min(this.entries.length - 1, this.selected + 1);
       this.selectionLayout = "";
-    } else if (matchesKey(data, "pageUp")) this.listScroll.scrollBy(-this.bodyRows);
-    else if (matchesKey(data, "pageDown")) this.listScroll.scrollBy(this.bodyRows);
-    else if (entry && matchesKey(data, "enter")) this.openEntry(entry);
-    else if (task && matchesKey(data, "ctrl+d"))
-      void this.effect(() => this.tasks.abort(task.task_id));
+    } else if (action === "pageUp") this.listScroll.scrollBy(-this.bodyRows);
+    else if (action === "pageDown") this.listScroll.scrollBy(this.bodyRows);
+    else if (entry && action === "confirm") this.openEntry(entry);
+    else if (task && action === "abort") void this.effect(() => this.tasks.abort(task.task_id));
     // The user cancelled the job, so its result is still delivered.
-    else if (entry?.kind === "job" && matchesKey(data, "ctrl+d"))
+    else if (entry?.kind === "job" && action === "abort")
       void this.effect(() => this.jobs.abort(entry.job.job_id));
-    else if (task && matchesKey(data, "ctrl+b"))
+    else if (task && action === "background")
       void this.effect(() => this.tasks.background(task.task_id));
   }
 
@@ -496,6 +504,7 @@ export class TaskPanel implements Component {
       width
     );
     this.rowTargets = targets;
+    this.renderedEntries = this.entries;
 
     return lines;
   }
@@ -504,10 +513,14 @@ export class TaskPanel implements Component {
   private actionHints(): string[] {
     const entry = this.selectedEntry;
     if (!entry) return [];
-    if (entry.kind === "job") return entry.job.state === "active" ? ["Ctrl+D abort"] : [];
+    if (entry.kind === "job")
+      return entry.job.state === "active" ? [this.controls.hint("abort", "abort")] : [];
     if (entry.task.state !== "active") return [];
 
-    return entry.task.background ? ["Ctrl+D abort"] : ["Ctrl+D abort", "Ctrl+B background"];
+    return [
+      this.controls.hint("abort", "abort"),
+      ...(entry.task.background ? [] : [this.controls.hint("background", "background")])
+    ];
   }
 
   /** Each view with its number of tasks and jobs. */
@@ -529,11 +542,26 @@ export class TaskPanel implements Component {
     if (this.transcript) return this.transcript.render(width);
 
     const { theme } = this;
+
+    if (this.tui.terminal.rows < 10) {
+      this.bodyRows = 0;
+
+      return [this.controls.hint("cancel", "close"), "Resize to at least 10 rows."]
+        .slice(0, Math.max(0, this.tui.terminal.rows))
+        .map((row) => truncateToWidth(row, width));
+    }
+
     const tabs = this.tabs();
     const help = renderHintFooter({
       width,
       maxRows: Math.max(1, this.tui.terminal.rows - 13),
-      hints: ["↑↓ select", "Enter inspect", "Esc close", "Tab view", ...this.actionHints()],
+      hints: [
+        this.controls.hint("cancel", "close"),
+        ...this.controls.navigationHints("select"),
+        this.controls.hint("confirm", "inspect"),
+        this.controls.hint("nextView", "view"),
+        ...this.actionHints()
+      ],
       padding: "  ",
       separator: " · ",
       style: (text) => theme.fg("dim", text)
@@ -565,6 +593,7 @@ export class TaskPanel implements Component {
 
     this.selectionLayout = layout;
     const above = this.listScroll.scrollTop;
+    this.renderedTop = above;
     const label = views[this.view]?.label ?? "all";
     const body = lines.length
       ? lines.slice(above, above + height)
@@ -589,6 +618,7 @@ export class TaskPanel implements Component {
   }
 
   handleMouse(event: TuiMouseEvent): ReturnType<NonNullable<Component["handleMouse"]>> {
+    if (!this.active) return;
     if (this.transcript) return this.transcript.handleMouse(event);
 
     // Rows 0 to 4 are the top border, the title, the view row, and two blank rows.
@@ -601,11 +631,13 @@ export class TaskPanel implements Component {
     }
 
     if (event.type === "click" && event.button === "left") {
-      const index = this.rowTargets[this.listScroll.scrollTop + event.y - 5];
+      const index = this.rowTargets[this.renderedTop + event.y - 5];
       if (index === undefined) return;
-      const entry = this.entries[index];
+      const entry = this.renderedEntries[index];
       if (!entry) return;
-      this.selected = index;
+      const current = this.entries.findIndex((item) => entryId(item) === entryId(entry));
+      if (current < 0) return;
+      this.selected = current;
       this.openEntry(entry);
 
       return { handled: true };

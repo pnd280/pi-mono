@@ -89,7 +89,7 @@ export class TodosCustomViewHost {
         signal,
         onInputRoutingUnavailable: () =>
           ui.notify(
-            "Todo fullscreen paging is unavailable on this host. Use arrow keys to navigate.",
+            "Todo fullscreen input routing is unavailable on this host. Use regular mode if controls do not respond.",
             "warning"
           ),
         useOverlay: (tui) => tui.mode !== "fullscreen" && browserLayout(tui.terminal.rows).overlay,

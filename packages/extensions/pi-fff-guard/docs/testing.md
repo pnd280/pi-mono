@@ -6,6 +6,7 @@ This package tests interception, the missing-target and ignore policy, and allow
 
 ## Must not regress
 
+- **Critical, integration:** Fixture Git commands never write to a repository, index, or configuration selected by inherited `GIT_*` environment variables.
 - **High, unit:** Only official FFF registrations are intercepted, including override names and tools registered after startup. Built-ins and lookalikes pass through.
 - **High, unit:** The guard leaves arguments, registrations, and active tools unchanged, and runs no replacement search.
 - **High, integration:** Missing explicit targets are blocked before ignore inspection, even when the search is fully excluded.

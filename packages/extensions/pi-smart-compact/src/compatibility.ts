@@ -106,7 +106,7 @@ export function assertCompatible(
 
   if (VERSION !== "1.3.0" || !inspected) {
     throw new Error(
-      "pi-smart-compact requires the inspected Pi 1.3.0 compaction implementation; unsupported version or conflicting runtime patch."
+      "pi-smart-compact: requires the inspected Pi 1.3.0 compaction implementation; unsupported version or conflicting runtime patch."
     );
   }
 }

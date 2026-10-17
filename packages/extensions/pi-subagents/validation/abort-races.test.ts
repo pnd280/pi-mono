@@ -228,16 +228,21 @@ async function fixture(
         );
       }
     } finally {
-      session?.dispose();
-
       try {
-        const leaked = await remainingProcesses(directory);
-        await killFixtureProcesses(directory);
-        expect(leaked).toEqual([]);
+        session?.dispose();
       } finally {
-        await rm(directory, { recursive: true, force: true });
-        vi.restoreAllMocks();
-        vi.unstubAllEnvs();
+        try {
+          const leaked = await remainingProcesses(directory);
+          await killFixtureProcesses(directory);
+          expect(leaked).toEqual([]);
+        } finally {
+          try {
+            await rm(directory, { recursive: true, force: true });
+          } finally {
+            vi.restoreAllMocks();
+            vi.unstubAllEnvs();
+          }
+        }
       }
     }
   }

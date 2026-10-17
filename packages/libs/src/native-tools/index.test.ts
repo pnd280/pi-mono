@@ -20,6 +20,38 @@ import {
 } from "../file-mutations/index.ts";
 import { observeNativeTools } from "./index.ts";
 
+async function createSession(directory: string, manager: SessionManager): Promise<AgentSession> {
+  const settingsManager = SettingsManager.create(directory, directory);
+  const resourceLoader = new DefaultResourceLoader({
+    cwd: directory,
+    agentDir: directory,
+    settingsManager,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true
+  });
+  await resourceLoader.reload();
+  const modelRuntime = await ModelRuntime.create({
+    authPath: join(directory, "auth.json"),
+    modelsPath: null,
+    modelsStorePath: join(directory, "models-store.json"),
+    refreshOnCreate: false,
+    allowModelNetwork: false
+  });
+  const { session } = await createAgentSession({
+    cwd: directory,
+    agentDir: directory,
+    settingsManager,
+    resourceLoader,
+    modelRuntime,
+    sessionManager: manager
+  });
+
+  return session;
+}
+
 it.each([0, 1])(
   "shares wrappers through default-tool reloads and restores after subscriber %s is removed last",
   async (last) => {
@@ -74,33 +106,7 @@ it.each([0, 1])(
     vi.stubEnv("PI_OFFLINE", "1");
 
     try {
-      const settingsManager = SettingsManager.create(directory, directory);
-      const resourceLoader = new DefaultResourceLoader({
-        cwd: directory,
-        agentDir: directory,
-        settingsManager,
-        noExtensions: true,
-        noSkills: true,
-        noPromptTemplates: true,
-        noThemes: true,
-        noContextFiles: true
-      });
-      await resourceLoader.reload();
-      const modelRuntime = await ModelRuntime.create({
-        authPath: join(directory, "auth.json"),
-        modelsPath: null,
-        modelsStorePath: join(directory, "models-store.json"),
-        refreshOnCreate: false,
-        allowModelNetwork: false
-      });
-      ({ session } = await createAgentSession({
-        cwd: directory,
-        agentDir: directory,
-        settingsManager,
-        resourceLoader,
-        modelRuntime,
-        sessionManager: manager
-      }));
+      session = await createSession(directory, manager);
 
       const execute = (content: string) => {
         const tool = session?.agent.state.tools.find((tool) => tool.name === "write");
@@ -183,3 +189,93 @@ it.each([0, 1])(
     }
   }
 );
+
+it("deactivates subscribers disposed by another callback during dispatch", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "native-tools-disposal-"));
+  const manager = SessionManager.inMemory(directory);
+  const eligible = (candidate: AgentSession) => candidate.sessionManager === manager;
+  let retireNative: (() => void) | undefined;
+  let retireMutation: (() => void) | undefined;
+  const firstNative = observeNativeTools({
+    names: ["read"],
+    eligible() {
+      const retire = retireNative;
+      retireNative = undefined;
+      retire?.();
+
+      return false;
+    },
+    wrap: (_session, original) => original
+  });
+  const retiredEligible = vi.fn(eligible);
+  const retiredWrap = vi.fn((_session: AgentSession, original: ToolDefinition) => original);
+  const retiredNative = observeNativeTools({
+    names: ["read"],
+    eligible: retiredEligible,
+    wrap: retiredWrap
+  });
+  const reads = vi.fn();
+  const survivingNative = observeNativeTools({
+    names: ["read"],
+    eligible,
+    wrap: (_session, original) => ({
+      ...original,
+      execute(...args) {
+        reads();
+
+        return original.execute(...args);
+      }
+    })
+  });
+  const changes: FileMutation[] = [];
+  const firstMutation = observeFileMutations({
+    eligible,
+    begin() {
+      const retire = retireMutation;
+      retireMutation = undefined;
+      retire?.();
+
+      return {
+        maxSourceBytes: 1024,
+        completed: (mutation) => {
+          changes.push(mutation);
+        }
+      };
+    }
+  });
+  const retiredBegin = vi.fn(() => ({ maxSourceBytes: 1024, completed: vi.fn() }));
+  const retiredMutation = observeFileMutations({ eligible, begin: retiredBegin });
+  let session: AgentSession | undefined;
+  vi.stubEnv("PI_OFFLINE", "1");
+
+  try {
+    session = await createSession(directory, manager);
+    retireNative = () => retiredNative.dispose();
+    retiredEligible.mockClear();
+    retiredWrap.mockClear();
+    firstNative.bind(session);
+    expect(retiredEligible.mock.calls.length).toBe(0);
+    expect(retiredWrap.mock.calls.length).toBe(0);
+
+    retireMutation = () => retiredMutation.dispose();
+    const write = session.agent.state.tools.find((tool) => tool.name === "write");
+    const read = session.agent.state.tools.find((tool) => tool.name === "read");
+    if (!write || !read) throw new Error("Missing native tools");
+    await write.execute("write", { path: "file", content: "written\n" });
+    expect(retiredBegin.mock.calls.length).toBe(0);
+    expect(changes.map((mutation) => mutation.after)).toEqual([
+      { status: "ready", text: "written\n" }
+    ]);
+    await read.execute("read", { path: "file" });
+    expect(reads).toHaveBeenCalledOnce();
+  } finally {
+    firstNative.dispose();
+    retiredNative.dispose();
+    survivingNative.dispose();
+    firstMutation.dispose();
+    retiredMutation.dispose();
+    session?.dispose();
+    vi.unstubAllEnvs();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

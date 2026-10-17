@@ -295,7 +295,7 @@ Install `pi-mcp-adapter` separately for `mcp`; it is not a workspace dependency.
      --tools 'mcp,mcpScript,mcp__display,direct_echo'
    ```
 
-4. Press **Ctrl+O** for compact cards, then enter `mcp` and wait for `Fixture finished: mcp`. Check collapsed and expanded cards against the expectations below, then run `/reload`.
+4. The regular-mode fixture starts with compact cards. Enter `mcp` and wait for `Fixture finished: mcp`. Check collapsed and expanded cards against the expectations below, then run `/reload`.
 5. Exit, then repeat the command with `fullscreen` instead of `regular` to check replay. Keep the `--reuse`, `-e`, and `--tools` arguments. Press **Ctrl+O** for compact cards.
 
 | Do                                                                                                          | Expect                                                        |

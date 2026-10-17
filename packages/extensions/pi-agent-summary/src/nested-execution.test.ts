@@ -64,12 +64,8 @@ it("counts nested execution once and excludes child usage while recording the ro
     expect(entries).toHaveLength(1);
     const entry = entries[0];
     if (entry?.type !== "custom") throw new Error("Missing summary");
-    const summary = summarySchema.parse(entry.data);
-    expect(summary).toMatchObject({
-      bashCalls: 1,
-      models: [{ provider: "summary-nested", id: "physical", thinkingLevel: "off" }],
-      files: [{ path: "created.txt", status: "available", added: 1, removed: 0 }]
-    });
+    // Keep the raw entry for the exact check below; parsing strips unknown fields.
+    summarySchema.parse(entry.data);
     const messages = session.sessionManager
       .getBranch()
       .flatMap((saved) => (saved.type === "message" ? [saved.message] : []));
@@ -78,7 +74,14 @@ it("counts nested execution once and excludes child usage while recording the ro
       0
     );
     expect(assistantTokens).toBeGreaterThan(0);
-    expect(summary.throughput?.outputTokens).toBe(assistantTokens);
+    expect(entry.data).toEqual({
+      durationMs: expect.any(Number) as unknown,
+      finishedAt: expect.any(Number) as unknown,
+      bashCalls: 1,
+      models: [{ provider: "summary-nested", id: "physical", thinkingLevel: "off" }],
+      throughput: { outputTokens: assistantTokens, durationMs: expect.any(Number) as unknown },
+      files: [{ path: "created.txt", status: "available", added: 1, removed: 0 }]
+    });
     expect(messages.find((message) => message.role === "toolResult")?.usage?.output).toBe(9000);
     expect(JSON.stringify(session.sessionManager.buildSessionContext().messages)).not.toContain(
       summaryEntryType

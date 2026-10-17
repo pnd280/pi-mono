@@ -8,6 +8,8 @@ Extension settings accept user-typed shortcuts that must match Pi's canonical fo
 
 `resolveKeybindings` assigns keys to actions in candidate order, so dispatch and hints share one precedence. Each action gets those of its keys that are valid, not excluded by its `exclude` callback, and not taken by an earlier action.
 
+It also checks Pi's legacy input aliases against the active terminal protocol and platform. For example, **Escape** and **Ctrl+[** both match an Escape byte, so assigning **Ctrl+[** to an earlier action makes **Escape** unavailable to later actions. This prevents hints from advertising keys that dispatch to an earlier action.
+
 Pi 1.3.0 cannot dispatch modified Escape or modified function keys. Validation rejects these bindings. `resolveKeybindings` skips them when choosing alternatives, so hints do not advertise unusable keys.
 
 A final `+` names the plus key, as in `+` or `ctrl++`. Pi 1.3.0 dispatches these bindings; `ctrl++` needs the Kitty keyboard protocol or modifyOtherKeys.

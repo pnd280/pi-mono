@@ -27,13 +27,11 @@ afterEach(async () => {
 });
 
 async function host({
-  mode = "rpc",
   cliAppend,
   earlierAppend,
   projectFiles = {},
   projectTrusted = false
 }: {
-  mode?: ExtensionContext["mode"];
   cliAppend?: string;
   earlierAppend?: string;
   projectFiles?: Record<string, string>;
@@ -51,14 +49,15 @@ async function host({
   }
 
   const write = (name: string, text: string) => writeFile(join(agentDir, name), text);
-  await write("APPEND_SYSTEM.md", "BASE-APPEND");
-  await write("ant.md", "ANT-APPEND");
-  await write("shared.md", "SHARED-APPEND");
+  await write("APPEND_SYSTEM.md", "\uFEFFBASE-APPEND\r\n");
+  await write("ant.md", "\uFEFFANT-APPEND");
+  const sharedPath = join(cwd, ".pi", "shared.md");
+  await writeFile(sharedPath, "SHARED-APPEND");
   await write(
     "settings.json",
     JSON.stringify({
       "ext.pi-model-prompt": {
-        rules: [{ match: "^faux/claude-", append: ["ant.md", join(agentDir, "shared.md")] }]
+        rules: [{ match: "^faux/claude-", append: ["ant.md", sharedPath] }]
       }
     })
   );
@@ -132,10 +131,8 @@ async function host({
   const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
   const errors: unknown[] = [];
   await session.bindExtensions({
-    mode,
-    ...(mode === "print"
-      ? {}
-      : { uiContext: { ...session.extensionRunner.createContext().ui, notify } }),
+    mode: "rpc",
+    uiContext: { ...session.extensionRunner.createContext().ui, notify },
     onError: (error) => {
       errors.push(error);
     }
@@ -163,19 +160,27 @@ it("replaces the base append text for matching models and restores it after swit
   expect(fixture.errors).toEqual([]);
 });
 
-it.each(["CLI", "earlier extension"] as const)(
-  "keeps different append text from %s",
-  async (source) => {
-    const fixture = await host(
-      source === "CLI" ? { cliAppend: "EXPLICIT-APPEND" } : { earlierAppend: "EXPLICIT-APPEND" }
-    );
+it.each([
+  ["different CLI text", { cliAppend: "EXPLICIT-APPEND" }, false],
+  ["different earlier-extension text", { earlierAppend: "EXPLICIT-APPEND" }, false],
+  ["identical CLI text", { cliAppend: "BASE-APPEND\r\n" }, true],
+  ["BOM-bearing CLI text", { cliAppend: "\uFEFFBASE-APPEND\r\n" }, false]
+] as const)("keeps the append replacement contract for %s", async (_name, options, replaced) => {
+  const fixture = await host(options);
 
-    await fixture.session.prompt("first");
-    expect(fixture.requests[0]).toContain("EXPLICIT-APPEND");
+  await fixture.session.prompt("first");
+
+  if (replaced) {
+    expect(fixture.requests[0]).toContain("ANT-APPEND\n\nSHARED-APPEND");
+    expect(fixture.requests[0]).not.toContain("BASE-APPEND");
+  } else {
+    const append = "cliAppend" in options ? options.cliAppend : options.earlierAppend;
+    expect(fixture.requests[0]).toContain(append);
     expect(fixture.requests[0]).not.toContain("ANT-APPEND");
-    expect(fixture.errors).toEqual([]);
   }
-);
+
+  expect(fixture.errors).toEqual([]);
+});
 
 it.each([true, false])(
   "follows Pi's base discovery for project trust (%s) but ignores project settings",
@@ -196,47 +201,40 @@ it.each([true, false])(
   }
 );
 
-it.each(["rpc", "print"] as const)(
-  "reloads snapshots and gates warnings in %s mode",
-  async (mode) => {
-    const fixture = await host({ mode });
-    expect(fixture.notify).not.toHaveBeenCalled();
+it("reloads snapshots and sanitises file warnings", async () => {
+  const fixture = await host();
+  expect(fixture.notify).not.toHaveBeenCalled();
 
-    await fixture.write("ant.md", "ANT-RELOADED");
-    await fixture.write(
-      "settings.json",
-      JSON.stringify({
-        "ext.pi-model-prompt": {
-          rules: [
-            { match: "gpt", append: ["ant.md"] },
-            { match: "unused", append: ["missing\x1b]52;c;Zml4dHVyZQ==\x07.md"] }
-          ]
-        }
-      })
-    );
-    await fixture.session.prompt("before reload");
-    expect(fixture.requests[0]).toContain("ANT-APPEND");
-    expect(fixture.requests[0]).not.toContain("ANT-RELOADED");
+  await fixture.write("ant.md", "ANT-RELOADED");
+  await fixture.write(
+    "settings.json",
+    JSON.stringify({
+      "ext.pi-model-prompt": {
+        rules: [
+          { match: "gpt", append: ["ant.md"] },
+          { match: "unused", append: ["missing\x1b]52;c;Zml4dHVyZQ==\x07.md"] }
+        ]
+      }
+    })
+  );
+  await fixture.session.prompt("before reload");
+  expect(fixture.requests[0]).toContain("ANT-APPEND");
+  expect(fixture.requests[0]).not.toContain("ANT-RELOADED");
 
-    await fixture.session.reload();
-    await fixture.session.prompt("after reload");
-    expect(fixture.requests[1]).toContain("BASE-APPEND");
-    expect(fixture.requests[1]).not.toContain("ANT-APPEND");
+  await fixture.session.reload();
+  await fixture.session.prompt("after reload");
+  expect(fixture.requests[1]).toContain("BASE-APPEND");
+  expect(fixture.requests[1]).not.toContain("ANT-APPEND");
 
-    await fixture.session.setModel(fixture.gpt);
-    await fixture.session.prompt("new rule");
-    expect(fixture.requests[2]).toContain("ANT-RELOADED");
-    expect(fixture.requests[2]).not.toContain("BASE-APPEND");
+  await fixture.session.setModel(fixture.gpt);
+  await fixture.session.prompt("new rule");
+  expect(fixture.requests[2]).toContain("ANT-RELOADED");
+  expect(fixture.requests[2]).not.toContain("BASE-APPEND");
 
-    if (mode === "print") {
-      expect(fixture.notify).not.toHaveBeenCalled();
-    } else {
-      expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
-        expect.stringContaining(join(fixture.agentDir, "missing.md")),
-        "warning"
-      );
-    }
+  expect(fixture.notify).toHaveBeenCalledExactlyOnceWith(
+    expect.stringContaining(join(fixture.agentDir, "missing.md")),
+    "warning"
+  );
 
-    expect(fixture.errors).toEqual([]);
-  }
-);
+  expect(fixture.errors).toEqual([]);
+});

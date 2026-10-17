@@ -15,7 +15,6 @@ import {
   AgentSession,
   createAgentSessionFromServices,
   createAgentSessionRuntime,
-  createAgentSessionServices,
   SessionManager,
   SettingsManager,
   type AgentSessionRuntime,
@@ -23,11 +22,12 @@ import {
   type CreateAgentSessionRuntimeFactory,
   type ExtensionAPI
 } from "@earendil-works/pi-coding-agent";
-import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
+import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { it, vi } from "vite-plus/test";
 
 import smartCompact from "../index.ts";
 import { compactionResultType } from "../src/outcome.ts";
+import { sdkSessionServices } from "./sdk-session.ts";
 
 function withoutFocus(context: TranscriptContext, focus: string): TranscriptContext {
   return {
@@ -211,24 +211,17 @@ async function verifyNativeHost(configured: boolean) {
       sessionManager,
       sessionStartEvent
     }) => {
-      const services = await createAgentSessionServices({
+      const services = await sdkSessionServices({
         cwd: sessionCwd,
         agentDir,
+        factories: [smartCompact, fixture],
         settingsManager: SettingsManager.inMemory({
           defaultProvider: "smart-compact-fixture",
           defaultModel: "scripted",
           defaultThinkingLevel: "off",
           compaction: { enabled: false, reserveTokens: 512, keepRecentTokens: 256 },
           retry: { enabled: false }
-        }),
-        resourceLoaderOptions: {
-          noExtensions: true,
-          noSkills: true,
-          noThemes: true,
-          noContextFiles: true,
-          noPromptTemplates: true,
-          extensionFactories: [smartCompact, fixture]
-        }
+        })
       });
 
       return {
@@ -267,7 +260,9 @@ async function verifyNativeHost(configured: boolean) {
         .spyOn(runtime.session, "getContextUsage")
         .mockReturnValue(contextUsage);
       await runtime.session.prompt("Inspect context usage, do the work, compact, and finish.");
-      await runtime.session.waitForIdle();
+      await vi.waitFor(() => assert.equal(runtime?.session.isIdle, true), {
+        timeout: STEP_TIMEOUT_MS
+      });
       getContextUsage.mockRestore();
       assert.equal(mainRequests, 3);
       assert.equal(runtime.session.isIdle, true);
@@ -315,10 +310,13 @@ async function verifyNativeHost(configured: boolean) {
       assert.equal(request.split(`Additional focus: ${instructions}`).length - 1, 1);
     assert.deepEqual(errors, []);
   } finally {
-    await runtime?.dispose();
-    vi.restoreAllMocks();
-    vi.unstubAllEnvs();
-    await rm(directory, { recursive: true, force: true });
+    try {
+      await runtime?.dispose();
+    } finally {
+      vi.restoreAllMocks();
+      vi.unstubAllEnvs();
+      await rm(directory, { recursive: true, force: true });
+    }
   }
 
   assert.equal(
@@ -329,6 +327,5 @@ async function verifyNativeHost(configured: boolean) {
 
 it.each([false, true])(
   "continues through native SDK compaction, replacement, and reload (configured: %s)",
-  verifyNativeHost,
-  20000
+  verifyNativeHost
 );

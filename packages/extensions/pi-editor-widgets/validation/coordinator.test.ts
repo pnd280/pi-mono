@@ -3,7 +3,6 @@ import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, vi } from "vite-plus/test";
 
 import { WidgetCoordinator } from "../src/coordinator.ts";
-import editorWidgets from "../src/index.ts";
 import { defaultLayout } from "../src/layout.ts";
 
 const plain = (lines: string[]) => lines.map(stripTerminalSequences).join("\n");
@@ -76,31 +75,6 @@ it("keeps typing in the editor after a native click toggles a wrapped usage widg
   }
 });
 
-it("discovers before/after startup registrations through real extension binding", async () => {
-  const fixture = await hostFixture([
-    (pi) =>
-      pi.on("session_start", (_, ctx) => {
-        ctx.ui.setWidget("before", ["BEFORE"]);
-        ctx.ui.setStatus("before", "STATUS");
-      }),
-    editorWidgets,
-    (pi) =>
-      pi.on("session_start", (_, ctx) =>
-        ctx.ui.setWidget("after", ["AFTER"], { placement: "belowEditor" })
-      )
-  ]);
-
-  try {
-    await fixture.bind();
-    expect(plain(fixture.host.widgetContainerAbove.render(80))).toContain("BEFORE");
-    expect(plain(fixture.host.widgetContainerBelow.render(80))).toContain("AFTER");
-    expect(plain(fixture.host.footerContainer.render(80))).toContain("STATUS");
-    expect(fixture.host.customFooter).toBeDefined();
-  } finally {
-    await fixture.dispose();
-  }
-});
-
 it("moves/hides intact native instances without taking over replacement, removal, or disposal", async () => {
   const fixture = await hostFixture();
   const { host, ui } = fixture;
@@ -134,6 +108,15 @@ it("moves/hides intact native instances without taking over replacement, removal
     expect(host.extensionWidgetsAbove.get("native")).toBe(component);
     expect(factory).toHaveBeenCalledTimes(1);
     expect(disposal).not.toHaveBeenCalled();
+
+    for (const mode of ["fullscreen", "regular"] as const) {
+      expect(host.switchTuiMode(mode, false, false)).toBe(true);
+      expect(plain(host.footerContainer.render(80))).toContain("ONE");
+      expect(host.extensionWidgetsAbove.get("native")).toBe(component);
+      expect(factory).toHaveBeenCalledOnce();
+      expect(disposal).not.toHaveBeenCalled();
+    }
+
     layout.footer = [];
     layout.hidden.push("widget:native", "status:native");
     coordinator.apply(layout);
@@ -187,7 +170,15 @@ it("leaves later hooks installed while retained coordinator callbacks return to 
   fixture.host.renderWidgets = laterOwner;
 
   try {
+    fixture.ui.setWidget("before", ["NATIVE BEFORE TEARDOWN"]);
+    fixture.host.widgetContainerAbove.addChild({ render: () => ["LATER ABOVE"], invalidate() {} });
+    fixture.host.widgetContainerBelow.clear();
+    fixture.host.widgetContainerBelow.addChild({ render: () => ["LATER BELOW"], invalidate() {} });
     coordinator.dispose();
+    const above = plain(fixture.host.widgetContainerAbove.render(80));
+    expect(above).toContain("NATIVE BEFORE TEARDOWN");
+    expect(above).toContain("LATER ABOVE");
+    expect(plain(fixture.host.widgetContainerBelow.render(80))).toBe("LATER BELOW");
     fixture.ui.setWidget("after", ["NATIVE AFTER TEARDOWN"]);
     expect(Object.getOwnPropertyDescriptor(fixture.host, "renderWidgets")?.value).toBe(laterOwner);
     expect(laterOwner).toHaveBeenCalled();

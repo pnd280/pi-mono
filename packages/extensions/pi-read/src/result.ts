@@ -196,7 +196,7 @@ export function appendPreview(
 ): ReadResult {
   const interpreted = interpretReadResult(result, args);
   const document = interpreted.document;
-  if (!document || interpreted.preview.kind === "invalid") return result;
+  if (!document || !interpreted.valid) return result;
   const preview = selectionPreview(document.select(selection));
 
   return {

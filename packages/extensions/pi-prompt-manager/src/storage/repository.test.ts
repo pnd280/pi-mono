@@ -13,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import type { Snapshot } from "../model.ts";
@@ -222,7 +223,8 @@ function worker(label: string, count: number) {
     [fixture.cwd, fixture.agentDir, label, String(count)],
     {
       execArgv: ["--experimental-transform-types", "--disable-warning=ExperimentalWarning"],
-      stdio: ["ignore", "ignore", "pipe", "ipc"]
+      stdio: ["ignore", "ignore", "pipe", "ipc"],
+      timeout: STEP_TIMEOUT_MS
     }
   );
   let stderr = "";

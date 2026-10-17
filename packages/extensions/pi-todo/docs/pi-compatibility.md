@@ -2,7 +2,7 @@
 
 [pi-todo](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline tests, including checks with real model-issued tool contexts: nested todo execution is unavailable and changes nothing, while a direct call keeps a replayable snapshot; a source review shows that malformed final tool-call JSON now fails validation before execution, so it changes nothing and replay skips its error result, and that closing the regular-mode overlay now hides only that overlay; activation and UI policy unchanged). Not covered: manual terminal checks.
+> Last verified against Pi 1.3.0 (package checks and offline tests). Not covered: manual terminal checks.
 
 ## Upgrade procedure
 
@@ -20,6 +20,7 @@ Model-only execution must keep mutations atomic and results replayable across se
 - [ ] Only interactive TTY sessions activate the extension, using Pi's public `parseArgs` to distinguish flags from option values. Handlers assume TUI mode with a UI, so no other mode may reach them.
 - [ ] The model-facing schema, atomic mutations, and fully replayable result details still work, with no custom tool renderers.
 - [ ] `exposure: "model-only"` keeps direct calls replayable, and prevents nested changes through `ctx.tools` or `ctx.executeTool()`.
+- [ ] Malformed final tool-call JSON fails host validation before execution, changes nothing, and produces a host error result that replay skips.
 
 ### Schema projection
 
@@ -32,8 +33,9 @@ Model-only execution must keep mutations atomic and results replayable across se
 
 - [ ] [Session state](../src/state/session-state.ts): rebuilding after branch changes and compaction, handling of malformed and error results, and bounded snapshots.
 - [ ] [UI integration](../src/index.ts): widget and browser lifecycle, remapped navigation, session cleanup, and working-message contributions owned independently.
-- [ ] [Fullscreen paging](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): `/todos` is never an overlay, at any size. Paging the list or details leaves the transcript still, but only while focused.
-- [ ] If routing is unsupported, a warning appears once per opening and the view stays open. Arrow keys and widget restoration still work.
+- [ ] [Fullscreen input routing](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): `/todos` is never an overlay, at any size. Focused browser actions, including remapped cancel and confirm, take priority over transcript controls as described in the [browser controls](../README.md#the-todos-browser).
+- [ ] If routing is unsupported, a warning appears once per opening and the view stays open. The warning suggests regular mode if controls do not respond. Closing the view restores the widget.
+- [ ] Closing a regular-mode overlay hides only that overlay.
 
 ## Limitations
 

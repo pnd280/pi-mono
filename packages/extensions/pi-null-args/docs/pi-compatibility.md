@@ -2,7 +2,7 @@
 
 [pi-null-args](../README.md)
 
-> Last verified against Pi 1.3.0 (offline host test; source check that agent-core still validates after `message_end` and that the handler keeps the new `argumentsError` field, which Pi sets with empty arguments for malformed JSON; no runtime changes needed). Not covered: live providers, including their malformed-argument and `\u` escape repair paths.
+> Last verified against Pi 1.3.0 with the offline host test and source inspection. Not covered: live providers, including their malformed-argument and `\u` escape repair paths.
 
 ## Upgrade procedure
 
@@ -15,8 +15,10 @@
 
 - [ ] A `message_end` replacement still updates the finished assistant message in place, and the agent loop reads tool calls from that message after `message_end`.
 - [ ] Pi still runs `prepareArguments` and validation after `message_end`, and the `tool_call` event after validation.
-- [ ] `pi.getAllTools()` still returns each tool's `parameters` with the top-level `required` names.
-- [ ] Pi's validation still removes a real `null` from optional arguments, so the handler needs only the text form.
+- [ ] Each `message_end` handler still receives the previous handler's replacement.
+- [ ] Tool-call replacement preserves metadata such as `argumentsError`, which Pi sets with empty arguments for malformed JSON.
+- [ ] `pi.getAllTools()` still returns each tool's `parameters`, including `required` lists and object-composition keywords.
+- [ ] Pi's real-`null` normalisation still matches the [documented behaviour](../README.md#behaviour).
 
 ## Limitations
 

@@ -18,7 +18,8 @@ During a Vitest run of the root config, every new workspace links the same compi
 
 ## Caller responsibilities
 
-- Create fixture contents under `createValidationWorkspace`'s `work`, `home`, `agent`, and `tmp` directories.
+- Create fixture contents under `createValidationWorkspace`'s `work`, `home`, `agent`, and `tmp` directories. Pass an async `prepare(directory)` callback as its second argument to seed consumer-specific files. The workspace is returned only after that callback succeeds; setup failure removes it.
+- Once a constructor returns, register cleanup before starting other fallible work. `createCompileCaches` also removes its directory if setup fails before returning.
 - Select offline providers and resource flags explicitly, and start the process through the chosen runner.
 - Supply fixture-only environment additions, not `process.env`.
 - Wait for fixture processes to exit before removing the workspace.

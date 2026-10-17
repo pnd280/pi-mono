@@ -8,6 +8,7 @@
 
 - `*` marks an edited draft; `(not set)` refers to persisted state, not whether the draft has been edited.
 - Overflowing lists show `(selected/total)` below the last visible item rather than in the border; border overflow labels are reserved for prose previews.
+- The list budgets group gaps only within the visible window. Hidden groups do not reduce the number of visible items.
 - At 40×10, selection, save and exit controls, and inline recovery take priority over paths and secondary draft context.
 - Below that size, resize if controls or recovery no longer fit.
 - `settingsLoadFeedback`, `settingsSaveFeedback`, and `settingsSaveFailure` distinguish warnings, overridden saves, and failures.

@@ -1,6 +1,7 @@
+import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 
-import { parseSessionEntries, type SessionEntry } from "@earendil-works/pi-coding-agent";
+import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import { MARKER_ENTRY } from "../constants.ts";
@@ -12,6 +13,12 @@ const headerSchema = z.object({
   cwd: z.string().min(1)
 });
 
+const entrySchema = z.object({
+  type: z.string().min(1),
+  id: z.string().min(1),
+  parentId: z.string().min(1).nullable()
+});
+
 const markerSchema = z.object({ run_id: z.string().min(1) });
 
 const UNAVAILABLE = "Subagent session history is unavailable";
@@ -19,7 +26,16 @@ const UNAVAILABLE = "Subagent session history is unavailable";
 /** The largest child session file that readers parse. */
 const SESSION_MAX_BYTES = 64 * 1024 * 1024;
 
-type Parsed = { size: number; mtimeMs: number; id: string; cwd: string; entries: SessionEntry[] };
+type Parsed = {
+  size: number;
+  mtimeMs: number;
+  ctimeMs: number;
+  dev: number;
+  ino: number;
+  id: string;
+  cwd: string;
+  entries: SessionEntry[];
+};
 
 /** Parsed files by path, evicted oldest first when their total size exceeds the read limit. */
 const cache = new Map<string, Parsed>();
@@ -128,6 +144,40 @@ export function resumePoint(
   return { leafId: last.id, interrupted: pending.size > 0 };
 }
 
+/** Reject damaged complete records instead of silently building a different ancestry. */
+function parseSession(buffer: Buffer) {
+  // Cut at a byte boundary before decoding: an unfinished line can end inside a UTF-8 character.
+  const complete = buffer.subarray(0, buffer.lastIndexOf(0x0a) + 1);
+  let records: unknown[];
+
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(complete);
+    records = text
+      .split("\n")
+      .filter((line) => line.trim())
+      .map((line): unknown => JSON.parse(line));
+  } catch {
+    // Decoder and JSON errors can include stored content.
+    throw new Error(UNAVAILABLE);
+  }
+
+  const [first, ...entries] = records;
+  const header = headerSchema.safeParse(first).data;
+  if (!header) throw new Error(UNAVAILABLE);
+  const ids = new Set<string>();
+
+  for (const value of entries) {
+    const entry = entrySchema.safeParse(value).data;
+    if (!entry || ids.has(entry.id) || (entry.parentId !== null && !ids.has(entry.parentId)))
+      throw new Error(UNAVAILABLE);
+    ids.add(entry.id);
+  }
+
+  // The tree structure is checked above. Pi owns the entry payloads; retain their full source.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return { ...header, entries: entries as SessionEntry[] };
+}
+
 /**
  * Read a child session into owned memory; undefined when the file does not exist. Its writer can
  * be appending, so a partial final line is ignored. Readers never open the file for writing.
@@ -136,26 +186,35 @@ async function readSession(file: string): Promise<Parsed | undefined> {
   let handle;
 
   try {
-    handle = await open(file, "r");
+    handle = await open(file, constants.O_RDONLY | constants.O_NONBLOCK);
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
     throw error;
   }
 
   try {
-    const { size, mtimeMs } = await handle.stat();
+    const stat = await handle.stat();
+    const { size, mtimeMs, ctimeMs, dev, ino } = stat;
+    if (!stat.isFile() || size > SESSION_MAX_BYTES) throw new Error(UNAVAILABLE);
     const cached = cache.get(file);
-    if (cached?.size === size && cached.mtimeMs === mtimeMs) return cached;
-    if (size > SESSION_MAX_BYTES) throw new Error(UNAVAILABLE);
+    if (
+      cached?.size === size &&
+      cached.mtimeMs === mtimeMs &&
+      cached.ctimeMs === ctimeMs &&
+      cached.dev === dev &&
+      cached.ino === ino
+    )
+      return cached;
     const buffer = Buffer.alloc(size);
-    const { bytesRead } = await handle.read(buffer, 0, size, 0);
-    const text = buffer.subarray(0, bytesRead).toString("utf8");
-    const [first, ...entries] = parseSessionEntries(text.slice(0, text.lastIndexOf("\n") + 1));
-    const header = headerSchema.safeParse(first).data;
-    if (!header) throw new Error(UNAVAILABLE);
-    // Pi validated the entries when it wrote them; display code treats them as read-only data.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const parsed = { size, mtimeMs, ...header, entries: entries as SessionEntry[] };
+    let offset = 0;
+
+    while (offset < size) {
+      const { bytesRead } = await handle.read(buffer, offset, size - offset, offset);
+      if (bytesRead === 0) throw new Error(UNAVAILABLE);
+      offset += bytesRead;
+    }
+
+    const parsed = { size, mtimeMs, ctimeMs, dev, ino, ...parseSession(buffer) };
     remember(file, parsed);
 
     return parsed;

@@ -293,8 +293,9 @@ export class WidgetDrafts {
     else if (view.kind === "picker") this.add(choice.id);
   }
 
-  /** Stale input is consumed here, before it can edit a newly discovered target or trigger an effect. */
+  /** Closing is unconditional; stale input cannot edit a newly discovered target or save. */
   navigate(action: Navigation): "save" | "close" | undefined {
+    if (action === "close") return action;
     const previous = this.currentView;
     const selection = previous.selection;
     const { choices } = this.snapshot();
@@ -304,7 +305,7 @@ export class WidgetDrafts {
     )
       return undefined;
 
-    if (action === "save" || action === "close") return action;
+    if (action === "save") return action;
     if (action === "back") return this.back() ? undefined : "close";
 
     if (action === "switchScope") {

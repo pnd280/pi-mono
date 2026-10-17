@@ -43,7 +43,7 @@ The model calls `subagent_abort` with a `task_id` when an active owned task's re
 
 Set [`jobs`](#configuration) to `true` to give the model the `job` and `job_abort` tools. A job runs one shell command in the background, such as a build, a test run, a server, or a watcher. It is not a task: it has no child, no capacity slot, no model, and no usage.
 
-The `job` call returns immediately with the job ID and the log file path. When the command exits, its result arrives like a task result, with the exit code and the end of the output. A turn abort does not stop jobs, but session changes and exit stop them without a result, and print mode, JSON mode, and child runs lose their results. See [background jobs](docs/jobs.md) for the result envelope, exit codes, and stop conditions.
+The `job` call returns immediately with the job ID and the log file path. When the command exits, its result arrives like a task result, with the exit code and the end of the output. A turn abort does not stop jobs, but session changes and exit request a stop without a result, and print mode, JSON mode, and child runs lose their results. See [background jobs](docs/jobs.md) for the result envelope, exit codes, and stop conditions.
 
 ### Commands and task panel
 
@@ -89,12 +89,12 @@ Top-level launches queue FIFO when capacity is full. Nested launches fail immedi
 - While a run is live, a `<session_file>.lease/` directory blocks other resumes of the task. See [writer lease](docs/history.md#writer-lease).
 - Child model calls can incur provider charges. Usage after a background call returns reaches supervisor totals only when its result is delivered; see [usage accounting](docs/background-results.md#usage-accounting).
 - Successful compaction adds a hidden reminder of direct task IDs without starting a new turn. When `jobs` is on, the reminder also lists the jobs on the selected ancestry with their IDs, states, outcomes, and exit codes.
-- Each job writes all its output to `pi-job-<job_id>.log` in the OS temporary directory. The file has no size limit and is not automatically deleted; see [log files](docs/jobs.md#log-files). The supervisor adds two small entries for each job, whatever the command writes.
+- Each job writes to `pi-job-<job_id>.log` in the OS temporary directory. The file keeps at most 16 MiB and marks omitted output. Files are not automatically deleted; see [log files](docs/jobs.md#log-files). The supervisor adds two small entries for each job, whatever the command writes.
 
 ### Limits
 
 - Force-kill does not reverse file changes and can bypass child cleanup. After supervisor SIGKILL, a child that blocks shutdown can remain alive; see [process shutdown](docs/shutdown.md).
-- A job stops only the process group of its shell. A process that leaves the group continues after its job stops, so keep each process in the foreground of its command. See [job limits](docs/jobs.md#limits).
+- Keep each process in the foreground of its command. On Linux and macOS, a job cleans up its process group even after its shell exits. A process that leaves the group is outside that cleanup; Windows has a parent-exit limit. See [job limits](docs/jobs.md#limits).
 - A model can bypass extension depth limits by running Pi itself through `bash`.
 - Tool output is truncated using Pi's 2,000-line and 50 KiB defaults.
 - Linux has automated coverage. macOS uses the same process-group path but has not been verified. Windows code paths are untested and not officially supported.

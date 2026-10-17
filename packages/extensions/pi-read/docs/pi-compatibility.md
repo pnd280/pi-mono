@@ -2,7 +2,7 @@
 
 [pi-read](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and native-read tests with a real typed tool context, the display adapter, and the installed-CLI suite; a source diff showed the native read tool, extension types, and runner unchanged from 1.2.0, and only the read range label of Pi's read renderer changed). Not covered: manual image and appearance checks, and schema checks with live providers.
+> Last verified against Pi 1.3.0 (package checks and native-read tests with a real typed tool context, the display adapter, and the installed-CLI suite). Not covered: manual image and appearance checks, and schema checks with live providers.
 
 ## Upgrade procedure
 

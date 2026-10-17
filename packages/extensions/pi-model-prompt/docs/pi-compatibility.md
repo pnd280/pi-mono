@@ -2,7 +2,7 @@
 
 [pi-model-prompt](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline host tests; resource loader, system prompt, and extension runner unchanged; the new `--model` provider resolution only changes which model `ctx.model` reports; no runtime changes needed). Not covered: live providers and manual checks.
+> Last verified against Pi 1.3.0 (package checks and offline host tests). Not covered: live providers and manual terminal checks.
 
 ## Upgrade procedure
 

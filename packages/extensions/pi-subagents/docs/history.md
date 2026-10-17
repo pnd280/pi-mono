@@ -32,7 +32,8 @@ An interrupted tool cycle produces a warning: old calls are not replayed automat
 
 While a run is live, a `<session_file>.lease/` directory names its supervisor and child processes. A resume fails with "Task is running in another process" while a process named in the lease is live, such as a child that outlived its supervisor. The supervisor removes the directory when the child exits.
 
-- A crash can leave a `<session_file>.lease/` directory behind. A later resume removes it when no process that it names is live.
+- A crash can leave a `<session_file>.lease/` directory behind. A later resume removes stale entries when all the processes they name are dead. An entry replaced during this check prevents that resume, so the check cannot remove a newer entry that names a live child.
+- An unreadable or malformed lease entry prevents resume. Lease entries must be regular files of at most 1 KiB.
 - On Linux, an exited process that its parent has not reaped is not live.
 - A reused process ID can block a resume until that process exits.
 - If the supervisor cannot remove its lease entry when the child exits, its own next resume of the task removes it. A resume from another supervisor fails until this supervisor exits.
@@ -42,8 +43,10 @@ While a run is live, a `<session_file>.lease/` directory names its supervisor an
 
 Editing or deleting a child file changes or removes the task's history. Continuing a child file manually extends the run that wrote its last entry. User-requested branch summaries can carry information from the branch being left, but summaries never supply task ownership.
 
+History reads and resume check that the file's session ID matches the task. Invalid UTF-8 or malformed JSON in a complete line, duplicate entry IDs, and missing or forward parent links make the history unavailable. An unfinished final line is ignored because a live child can still be writing it. Readers never repair or write the child file.
+
 ## Limits
 
 - Task entries over 1 MiB are ignored during recovery.
-- History reads are limited to 64 MiB for each child file.
+- History reads accept only regular files and are limited to 64 MiB for each child file.
 - The full child session path is available in the list response.

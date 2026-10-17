@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
-import { initTheme, InteractiveMode } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { InteractiveMode } from "@earendil-works/pi-coding-agent";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -51,39 +51,6 @@ it("discovers preexisting native closures when enabled on reload, then survives 
     await fixture.dispose();
   }
 });
-
-it.each(["regular", "fullscreen"] as const)(
-  "updates through the real %s renderer proxy, mode switches, resizing and themes",
-  async (mode) => {
-    const fixture = await hostFixture([editorWidgets], mode);
-    const { host, ui, terminal } = fixture;
-
-    try {
-      await fixture.bind();
-      ui.setStatus("live", "FIRST");
-      expect(plain(host.footerContainer.render(80))).toContain("FIRST");
-      ui.setStatus("live", "SECOND");
-      expect(plain(host.footerContainer.render(80))).toContain("SECOND");
-      initTheme("light");
-      host.ui.invalidate();
-      expect(plain(host.footerContainer.render(80))).toContain("SECOND");
-      host.switchTuiMode(mode === "regular" ? "fullscreen" : "regular", false, false);
-      ui.setStatus("live", "SWITCHED");
-      expect(plain(host.footerContainer.render(80))).toContain("SWITCHED");
-      terminal.columns = 12;
-      terminal.rows = 10;
-      host.ui.requestRender();
-      const lines = host.renderer.render(12);
-      expect(lines.every((line) => visibleWidth(line) <= 12)).toBe(true);
-      host.switchTuiMode(mode, false, false);
-      ui.setStatus("live", "BACK");
-      expect(plain(host.footerContainer.render(30))).toContain("BACK");
-    } finally {
-      initTheme("dark");
-      await fixture.dispose();
-    }
-  }
-);
 
 it("releases borrowed instances at shutdown and reacquires a clean registry for a new session", async () => {
   const instances: {

@@ -1,7 +1,8 @@
 // Hash every fingerprinted private Pi method in the workspace API build and the
 // bundled CLI build, then report whether each owner file already lists the hash.
 // It also fails when a workspace source file lists a hash that no method in
-// `owners` produces, so a new or stale fingerprint cannot go unnoticed.
+// `owners` produces, so a new or stale fingerprint cannot go unnoticed. Version-
+// aware hook owners must also pin the public version reported by both builds.
 // Usage: node .agents/skills/pi-update/scripts/fingerprints.ts
 // Keep this file TypeScript: the bundled CLI maps Pi imports in .ts extensions to
 // its bundled classes, but loads .mjs natively, which would hash the API build twice.
@@ -13,6 +14,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as pi from "@earendil-works/pi-coding-agent";
+import { TuiAltScreen, TuiMainScreen } from "@earendil-works/pi-tui";
+
+import { inspectedPiVersion as widgetVersion } from "../../../../packages/extensions/pi-editor-widgets/src/host.ts";
+import { inspectedPiVersion as displayVersion } from "../../../../packages/extensions/pi-tool-display/src/host/compatibility.ts";
 
 type Methods = Record<string, unknown>;
 
@@ -37,7 +42,29 @@ const owners: Record<string, () => Methods> = {
     compact: pi.compact,
     manualCompact: session("compact")
   }),
+  "packages/extensions/pi-editor-widgets/src/host.ts": () => ({
+    switchTuiMode: mode("switchTuiMode"),
+    setExtensionStatus: mode("setExtensionStatus"),
+    renderWidgets: mode("renderWidgets"),
+    setExtensionFooter: mode("setExtensionFooter"),
+    createExtensionUIContext: mode("createExtensionUIContext"),
+    mainScreenDoRender: Reflect.get(TuiMainScreen.prototype, "doRender"),
+    altScreenDoRender: Reflect.get(TuiAltScreen.prototype, "doRender")
+  }),
   "packages/extensions/pi-tool-display/src/host/compatibility.ts": () => ({
+    getRegisteredToolDefinition: mode("getRegisteredToolDefinition"),
+    renderSessionItems: mode("renderSessionItems"),
+    handleEvent: mode("handleEvent"),
+    addMessageToChat: mode("addMessageToChat"),
+    addCustomEntryToChat: mode("addCustomEntryToChat"),
+    maybeShowThinkingDropNotice: mode("maybeShowThinkingDropNotice"),
+    addCacheMissNotice: mode("addCacheMissNotice"),
+    addCacheWarmingUsage: mode("addCacheWarmingUsage"),
+    showExtensionNotify: mode("showExtensionNotify"),
+    switchTuiMode: mode("switchTuiMode"),
+    updateThinkingBlockVisibility: mode("updateThinkingBlockVisibility"),
+    getStartupExpansionState: mode("getStartupExpansionState"),
+    showStatus: mode("showStatus"),
     toggleToolOutputExpansion: mode("toggleToolOutputExpansion"),
     setToolsExpanded: mode("setToolsExpanded"),
     render: row("render"),
@@ -46,6 +73,11 @@ const owners: Record<string, () => Methods> = {
   "packages/extensions/pi-tool-display/src/host/assistant.ts": () => ({
     updateContent: assistant("updateContent")
   })
+};
+
+const inspectedVersions: Partial<Record<string, string>> = {
+  "packages/extensions/pi-editor-widgets/src/host.ts": widgetVersion,
+  "packages/extensions/pi-tool-display/src/host/compatibility.ts": displayVersion
 };
 
 // Every 64-hex string literal in non-test workspace TypeScript, by file.
@@ -100,22 +132,47 @@ function parse(stderr: string): Fingerprints {
   return JSON.parse(line.slice("FINGERPRINTS ".length)) as Fingerprints;
 }
 
+/** Build an inspection-only invocation without inheriting credentials or project resources. */
+export function fingerprintProbe(
+  cli: string,
+  extension: string,
+  home: string,
+  parentEnv: Readonly<NodeJS.ProcessEnv>
+) {
+  return {
+    args: [cli, "--no-extensions", "-e", extension, "--help"],
+    cwd: home,
+    // os.homedir() reads USERPROFILE on Windows; Node also requires SystemRoot there.
+    env: {
+      PATH: parentEnv.PATH,
+      SystemRoot: parentEnv.SystemRoot,
+      HOME: home,
+      USERPROFILE: home,
+      PI_CODING_AGENT_DIR: join(home, "agent"),
+      PI_OFFLINE: "1",
+      PI_TELEMETRY: "0"
+    }
+  };
+}
+
 function cliFingerprints(): Fingerprints {
-  const cli = "node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js";
+  const cli = fileURLToPath(new URL("../../../../node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js", import.meta.url));
   const home = mkdtempSync(join(tmpdir(), "pi-fingerprints-"));
-  // os.homedir() reads USERPROFILE on Windows.
-  const env = { ...process.env, HOME: home, USERPROFILE: home, PI_CODING_AGENT_DIR: join(home, "agent"), PI_OFFLINE: "1" };
 
   try {
-    // The offline prompt fails after extensions load; the hashes are already on stderr.
-    const probe = spawnSync(process.execPath, [cli, "-e", fileURLToPath(import.meta.url), "--no-session", "-p", "probe"], {
+    // Help loads explicit extensions, then exits without sending a model request.
+    const { args, ...options } = fingerprintProbe(cli, fileURLToPath(import.meta.url), home, process.env);
+    const probe = spawnSync(process.execPath, args, {
+      ...options,
       encoding: "utf8",
-      env,
       stdio: ["ignore", "ignore", "pipe"],
       timeout: 60_000
     });
 
-    return parse(probe.error ? `${probe.stderr}\n${String(probe.error)}` : probe.stderr);
+    if (probe.error) throw probe.error;
+    if (probe.status !== 0) throw new Error(`The bundled CLI failed (${probe.status}):\n${probe.stderr}`);
+
+    return parse(probe.stderr);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -129,6 +186,7 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
   let changed = 0;
   let unclaimed = 0;
   let missing = 0;
+  let versionMismatches = 0;
 
   console.log(`Pi API ${builds.api.version}, bundled CLI ${builds.cli.version}`);
 
@@ -144,7 +202,14 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
       continue;
     }
 
-    for (const [build, { hashes }] of Object.entries(builds)) {
+    for (const [build, { version, hashes }] of Object.entries(builds)) {
+      const pin = inspectedVersions[owner];
+
+      if (pin !== undefined && pin !== version) {
+        versionMismatches++;
+        console.log(`  VERSION   ${build.padEnd(3)} inspected ${pin}, installed ${version}: review the version pin and fingerprints.`);
+      }
+
       for (const [name, hash] of Object.entries(hashes[owner] ?? {})) {
         const known = inFile.has(hash);
 
@@ -165,12 +230,12 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
   }
 
   console.log(
-    `\n${changed} changed, ${unclaimed} unclaimed fingerprint(s), ${missing} missing owner file(s).`
+    `\n${changed} changed, ${unclaimed} unclaimed fingerprint(s), ${missing} missing owner file(s), ${versionMismatches} version mismatch(es).`
   );
 
   if (unclaimed) {
     console.log("Unclaimed: add the hooked method to `owners`, or remove the stale hash.");
   }
 
-  process.exitCode = changed || unclaimed || missing ? 1 : 0;
+  process.exitCode = changed || unclaimed || missing || versionMismatches ? 1 : 0;
 }

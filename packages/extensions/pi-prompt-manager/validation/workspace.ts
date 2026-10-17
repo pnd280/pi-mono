@@ -4,32 +4,40 @@ import { fileURLToPath } from "node:url";
 
 import { createPiLaunch, createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 
-export async function createWorkspace(): Promise<string> {
-  const directory = await createValidationWorkspace("pi-prompt-manager-terminal-");
-  await mkdir(join(directory, "bin"), { mode: 0o700 });
-  await writeFile(join(directory, ".prompt-manager-fixture"), "offline prompt-manager fixture\n", {
-    mode: 0o600
+import { seedPagingCollections } from "./paging.ts";
+
+export async function createWorkspace({
+  paging = false
+}: { paging?: boolean } = {}): Promise<string> {
+  return createValidationWorkspace("pi-prompt-manager-terminal-", async (directory) => {
+    await mkdir(join(directory, "bin"), { mode: 0o700 });
+    await writeFile(
+      join(directory, ".prompt-manager-fixture"),
+      "offline prompt-manager fixture\n",
+      {
+        mode: 0o600
+      }
+    );
+    await mkdir(join(directory, "agent", "prompts"), { mode: 0o700 });
+    await writeFile(
+      join(directory, "agent", "prompts", "raw-template.md"),
+      "Expanded template content for offline validation."
+    );
+    await writeFile(
+      join(directory, "agent", "settings.json"),
+      JSON.stringify({
+        compaction: { enabled: false },
+        retry: { enabled: false }
+      }),
+      { mode: 0o600 }
+    );
+    // These isolated helpers never contact the user's real clipboard server.
+    const helper = `#!${process.execPath}\nconst{writeFileSync}=require('node:fs');const chunks=[];process.stdin.on('data',c=>chunks.push(c));process.stdin.on('end',()=>writeFileSync(${JSON.stringify(join(directory, "clipboard.txt"))},Buffer.concat(chunks),{mode:0o600}));\n`;
+
+    for (const name of ["wl-copy", "xclip", "xsel", "pbcopy", "powershell.exe"])
+      await writeFile(join(directory, "bin", name), helper, { mode: 0o700 });
+    if (paging) await seedPagingCollections(directory);
   });
-  await mkdir(join(directory, "agent", "prompts"), { mode: 0o700 });
-  await writeFile(
-    join(directory, "agent", "prompts", "raw-template.md"),
-    "Expanded template content for offline validation."
-  );
-  await writeFile(
-    join(directory, "agent", "settings.json"),
-    JSON.stringify({
-      compaction: { enabled: false },
-      retry: { enabled: false }
-    }),
-    { mode: 0o600 }
-  );
-  // These isolated helpers never contact the user's real clipboard server.
-  const helper = `#!${process.execPath}\nconst{writeFileSync}=require('node:fs');const chunks=[];process.stdin.on('data',c=>chunks.push(c));process.stdin.on('end',()=>writeFileSync(${JSON.stringify(join(directory, "clipboard.txt"))},Buffer.concat(chunks),{mode:0o600}));\n`;
-
-  for (const name of ["wl-copy", "xclip", "xsel", "pbcopy", "powershell.exe"])
-    await writeFile(join(directory, "bin", name), helper, { mode: 0o700 });
-
-  return directory;
 }
 
 export async function launch(directory: string) {

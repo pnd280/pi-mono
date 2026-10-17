@@ -7,7 +7,6 @@ import {
   AgentSession,
   createAgentSessionFromServices,
   createAgentSessionRuntime,
-  createAgentSessionServices,
   SessionManager,
   SettingsManager,
   type AgentSessionEvent,
@@ -20,6 +19,7 @@ import { it, vi } from "vite-plus/test";
 import smartCompact from "../index.ts";
 import type { CompactSettings } from "../src/config.ts";
 import { summaryModelEntryType } from "../src/summary-model-entry.ts";
+import { sdkSessionServices } from "./sdk-session.ts";
 
 const summaryRule = { model: "manual-fixture/summary", thinkingLevel: "low" } as const;
 const override = { rules: [{ match: "^manual-fixture/main$", ...summaryRule }] };
@@ -265,21 +265,14 @@ it.each(cases)(
 
       runtime = await createAgentSessionRuntime(
         async ({ sessionManager }) => {
-          const services = await createAgentSessionServices({
+          const services = await sdkSessionServices({
             cwd,
             agentDir,
+            factories: [smartCompact, fixture],
             settingsManager: SettingsManager.inMemory({
               compaction: { enabled: false, reserveTokens: 512, keepRecentTokens: 256 },
               retry: { enabled: name === "retry", maxRetries: 1, baseDelayMs: 1 }
-            }),
-            resourceLoaderOptions: {
-              noExtensions: true,
-              noSkills: true,
-              noThemes: true,
-              noContextFiles: true,
-              noPromptTemplates: true,
-              extensionFactories: [smartCompact, fixture]
-            }
+            })
           });
 
           return {
@@ -459,9 +452,12 @@ it.each(cases)(
       );
       assert.deepEqual(errors, []);
     } finally {
-      await runtime?.dispose();
-      vi.unstubAllEnvs();
-      await rm(directory, { recursive: true, force: true });
+      try {
+        await runtime?.dispose();
+      } finally {
+        vi.unstubAllEnvs();
+        await rm(directory, { recursive: true, force: true });
+      }
     }
 
     assert.equal(Reflect.get(AgentSession.prototype, "_runDefaultCompaction"), originalSummary);

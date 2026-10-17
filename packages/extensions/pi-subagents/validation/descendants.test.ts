@@ -1,4 +1,4 @@
-import { readFile, rm } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { setTimeout } from "node:timers/promises";
 
 import { contentText } from "@earendil-works/pi-ai";
@@ -18,9 +18,8 @@ import {
   taskList,
   withFixture
 } from "./background-fixture.ts";
-import { fixtureProcesses, killFixtureProcesses, remainingProcesses } from "./processes.ts";
+import { fixtureProcesses, remainingProcesses } from "./processes.ts";
 import { Supervisor } from "./supervisor.ts";
-import { createFixtureWorkspace } from "./workspace.ts";
 
 // Each test owns its workspace and processes.
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
@@ -103,10 +102,8 @@ test("rejects nested capacity immediately and observes registration depth", asyn
 });
 
 test("retains the child depth limit after reloading extensions", async () => {
-  const directory = await createFixtureWorkspace();
-  const host = await Supervisor.start(directory, { depth: 2 });
-
-  try {
+  await withFixture(async (_directory, start) => {
+    const host = await start({ depth: 2 });
     await host.prompt("report-tools");
     await host.request({ type: "prompt", message: "/fixture-reload" });
     await host.prompt("report-tools");
@@ -114,13 +111,7 @@ test("retains the child depth limit after reloading extensions", async () => {
     expect(response.command === "get_last_assistant_text" ? response.data.text : "").toBe(
       "subagent available: false"
     );
-  } finally {
-    await host.stop();
-    const leaked = await remainingProcesses(directory);
-    await killFixtureProcesses(directory);
-    await rm(directory, { recursive: true, force: true });
-    expect(leaked).toEqual([]);
-  }
+  });
 });
 
 test("retains the child depth limit when a child session resumes", async () => {

@@ -2,7 +2,7 @@
 
 [Library index](../../README.md#usage)
 
-Describe tool input once in Zod and give Pi parameters in a schema profile that providers accept.
+Describe tool input once in Zod and project model-facing parameters into a limited schema profile for Pi.
 
 ## Behaviour
 

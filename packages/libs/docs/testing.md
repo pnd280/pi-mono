@@ -6,6 +6,10 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 
 ## Must not regress
 
+- **Critical, integration:** Private reads return exact bytes within the caller limit and reject larger files.
+- **Critical, integration:** Private reads and atomic writes restrict effective POSIX ACL access.
+- **Critical, integration:** Atomic replacement leaves the previous destination unchanged on every pre-commit failure.
+- **Critical, integration:** Validation launches inherit no user credentials or settings, and enforce private storage and offline environment values even when caller additions disagree.
 - **Critical, integration:** Under caller-established trusted parents, private-file access rejects foreign ownership before repairing permissions or ACLs.
 - **Critical, integration:** Private-file access rejects final-path symlinks, hard-linked files, and nonregular files without changing their permissions or contents.
 - **Critical, integration:** Private-file lock acquisition does not reclaim an existing lock, regardless of its age or the owning process's liveness.
@@ -21,6 +25,10 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **Critical, integration:** Settings section diagnostics show terminal-safe paths, while loads and saves still use the real paths.
 - **Critical, unit:** For complete input snapshots, `displayText` removes terminal escape and control bytes other than normalised whitespace.
 - **Critical, unit:** For complete input snapshots, `styledOutput` retains only SGR styling from source terminal controls.
+- **High, e2e:** A shared custom view receives each owned input once while focused, including controls remapped to transcript paging. Close, abort, and remount make old callbacks inert, restore host input, and preserve unrelated overlays. After-close effects run once, after final closure only.
+- **High, integration:** A configured FIFO cannot block `readSettingsFile` or session startup.
+- **High, integration:** Mutation observations preserve native write outcomes and queue order, distinguish unavailable source from complete UTF-8 source, and add no post-write reads.
+- **High, integration:** Bounded patch requests refuse oversized inputs and results, and recover after worker failure without blocking later requests or retaining unbounded queued source.
 - **High, integration:** Disposing a private-write lifetime cancels unstarted transactions and waits for started commits and lock cleanup.
 - **High, integration:** A private-file transaction whose post-commit cleanup or lock release fails still reports `committed`, with the warnings and cleanup errors separate.
 - **High, unit:** `highlightCodeBounded` returns its input unchanged when language detection or input limits prevent highlighting, so callers must supply display-safe text.
@@ -31,8 +39,8 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 ## Not tested
 
 - Model-facing schema projection: consumers reject invalid domain input before side effects, and only live provider checks prove that providers accept a schema.
-- Output retention, working-message contributions, scripted provider streams, and the interactive host fixture: below the severity bar.
-- Reusable TUI selection, navigation, layout, settings frames, and diff rows: below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation).
+- Output retention, working-message contributions and ordering, scripted provider streams, and the interactive host fixture are below the severity bar.
+- TUI layout, settings-frame presentation, and diff-row appearance are below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation).
 - Extension-specific collection formats and tool-card policies: owned by extensions.
 
 ## Manual checks

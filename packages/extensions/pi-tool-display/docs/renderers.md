@@ -91,6 +91,12 @@ Missing summaries, including those that display as blank after terminal-control 
 
 Use `notices` for diagnostics and references that must remain visible when a summary replaces output. [Severity changes styling, never visibility](presentation.md#notices-and-colours): compact groups keep `info` notices.
 
+### Result patches
+
+Set `patch: true` only when a successful result's `details.patch` contains a unified patch for one file. Headerless hunks are accepted. When file headers are present, the `--- ` and `+++ ` lines must be adjacent, in that order.
+
+Patches use the [retention limit](presentation.md#resource-limits). Invalid or oversized patches follow the [unavailable-patch rules](presentation.md#unavailable-patches), and a valid observed patch remains usable when the result supplies an invalid replacement.
+
 ### Result text
 
 `textParts` interprets a known text envelope. Use result identity and content index to distinguish generated blocks from similar source headings; do not infer provenance from phrases alone. For expanded read cards, an `output` part can supply ordered, nonoverlapping `selection` ranges using zero-based lines and UTF-16 offsets.

@@ -32,4 +32,4 @@ Besides the shared [prohibited actions](../../../docs/adapters.md#prohibited-act
 
 ## Validation
 
-Run [package validation](../../../README.md#validation); colocated tests cover selection and presentation. The compaction package's SDK and CLI tests own persistence and model-facing content.
+Run [package validation](../../../README.md#validation); colocated tests check that rendering leaves borrowed arguments and results unchanged. Selection and presentation use the [manual checks](../../../docs/testing.md#manual-checks). The compaction package's SDK and CLI tests own persistence and model-facing content.

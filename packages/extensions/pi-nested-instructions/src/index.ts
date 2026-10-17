@@ -35,13 +35,28 @@ export default function nestedInstructions(pi: ExtensionAPI) {
 
         calls.push({
           toolCallId: call.id,
+          callEntryId: event.messageEntryId,
           toolName: call.name,
           input: call.arguments,
           ...(tool ? { sourceInfo: tool.sourceInfo } : {})
         });
       }
 
-      return { entries: await discover(calls, ctx.cwd, ctx.sessionManager) };
+      // Earlier boundary handlers can add notices or edit context before drafts are committed.
+      const branch = ctx.sessionManager.getBranch();
+      const projected = event.context.contextEntries;
+      const entries = new Map(
+        [...branch, ...projected.map((entry) => entry.sourceEntry)].map((entry) => [
+          entry.id,
+          entry
+        ])
+      );
+      const discovered = await discover(calls, ctx.cwd, {
+        buildSessionProjection: () => ({ entries: projected }),
+        getBranch: () => [...entries.values()]
+      });
+
+      return { entries: [...event.entries, ...discovered] };
     } catch {
       return undefined;
     }

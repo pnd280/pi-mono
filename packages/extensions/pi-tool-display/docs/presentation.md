@@ -56,20 +56,21 @@ When validated result metadata allows it, successful text can be replaced with a
 | Inspect todo summaries       | [Todo display](../src/adapters/pi-todo/README.md#display)              |
 | Inspect MCP script summaries | [MCP script display](../src/adapters/pi-mcp-adapter/README.md#display) |
 
-| Call                    | Collapsed result                            |
-| ----------------------- | ------------------------------------------- |
-| Observed shell          | Preview, with status and duration beside it |
-| Successful read         | Hidden until expansion                      |
-| Edit or write           | Diff                                        |
-| Failure or cancellation | Output stays visible                        |
-| Notices and images      | Stay visible                                |
+| Call                                 | Collapsed result                            |
+| ------------------------------------ | ------------------------------------------- |
+| Observed shell                       | Preview, with status and duration beside it |
+| Successful read                      | Hidden until expansion                      |
+| Edit or write                        | Diff                                        |
+| Non-progress failure or cancellation | Output stays visible                        |
+| Notices and images                   | Stay visible                                |
 
 Shell status, operation rows, nested calls, and progress cards use one duration format: milliseconds below one second, tenths of a second below one minute, then minutes and seconds, such as `1m 5s`, with hours for durations of an hour or more. A running progress timer counts whole seconds.
 
 Preview rules:
 
 - Consecutive text blocks in one result share a single preview, so output split across blocks shows one omission.
-- Previews keep the first and last rows, whole graphemes, and ANSI styling. Exceeding the [formatting limits](#resource-limits) adds `… more output`.
+- Ordinary output previews keep the first and last rows. Previews preserve whole graphemes and ANSI styling. Exceeding the [formatting limits](#resource-limits) adds `… more output`.
+- Progress result previews keep the first logical lines, following the [subagent preview rule](../src/adapters/pi-subagents/README.md#results-and-expansion). Failed or cancelled subagent cards show recorded errors instead of reply previews.
 - Shell cards drop trailing blank output rows. Internal blank lines and stored output are unchanged.
 - Expansion shows summaries and retained output, within the live and saved retention limits.
 
@@ -224,7 +225,7 @@ With collapsed thinking (default **Ctrl+T**), a placeholder is hidden as soon as
 
 ## Outcomes
 
-Pending covers argument streaming, queueing, and execution. It is not proof that a call ran or changed anything. Adapter outcomes need completed results.
+Pending covers argument streaming, queueing, and execution. It is not proof that a call ran or changed anything. Adapter outcomes need completed results. A successful progress call without an adapter-reported status shows `completed`.
 
 Failed, cancelled, and unknown-history headings keep the action name: `Write failed`, `Edit cancelled`, `Read outcome unavailable`.
 
@@ -312,7 +313,7 @@ Limits affect display only, never execution or Pi's saved arguments and results.
 
 ### What is kept
 
-- Collapsed output previews keep the head and tail. Source-code previews keep the first rows. Nested-call lists keep the latest calls.
+- Collapsed output previews follow the [preview rules](#results). Source-code previews keep the first rows. Nested-call lists keep the latest calls.
 - Expansion restores only what Pi retained or what the bounded observation captured.
 - Exceeded limits make a patch unavailable; they never make an edit or write unsuccessful.
 - Saved facts and local details follow the [record size limits](recording.md#record-size-limits).
@@ -320,7 +321,7 @@ Limits affect display only, never execution or Pi's saved arguments and results.
 ### How work is bounded
 
 - Oversized highlighting falls back to readable unstyled text.
-- Compact invocation values, patterns, and source-code previews are bounded before terminal normalisation.
+- Compact invocation values, patterns, source-code previews, and progress result previews are bounded before terminal normalisation.
 - Generic parameter previews bound JSON serialisation by text size, values visited, and nesting depth. An incomplete preview shows a "more details" notice. Expansion serialises all retained arguments.
 
 ### For renderer authors

@@ -40,11 +40,12 @@ Other behaviour:
 - Pressing **Escape** during compaction cancels the compaction, not the agent run.
 - An explicit request ignores the automatic token threshold and `compaction.enabled`, without changing them.
 - `session_before_compact` handlers from other extensions can still cancel compaction or supply their own summaries.
+- SDK callers must await each manual compaction before they start another. Concurrent calls can fail in Pi's native compaction state.
 
 ### What you see
 
 - When [pi-tool-display](../pi-tool-display/README.md) is loaded, `compact` calls show as a "Requested compaction" card with the focus and summary model, and context usage shows as readable totals. The model never sees the summary-model selection.
-- The interactive footer shows `compacted N×`, counting successful compactions on the active branch, including those from other extensions. RPC clients receive this status as `pi-smart-compact.compactions`.
+- The interactive terminal footer shows `compacted N×`, counting successful compactions on the active branch, including those from other extensions. Print, JSON, and RPC modes do not publish this decorative status.
 
 ## Configuration
 
@@ -109,7 +110,7 @@ An unavailable model, unsupported thinking level, authentication error, or faile
 - It saves native compaction entries, `pi-smart-compact.model` entries for default summaries, and status messages for skipped, cancelled, or failed requested attempts to the current session. Raw history stays in the session file.
 - Metadata and native compaction are separate writes. A storage error can leave one without the other. Cancellation protects them only before native persistence starts.
 - It patches private Pi methods in memory for the session. On shutdown it restores only the hooks it still owns, leaving later replacements by other extensions in place.
-- It sets and clears one footer status, `pi-smart-compact.compactions`.
+- In interactive terminal mode, it sets and clears one footer status, `pi-smart-compact.compactions`.
 - It does not modify installed Pi files, create configuration, send user prompts, or invent continuation requests.
 
 ## Validation

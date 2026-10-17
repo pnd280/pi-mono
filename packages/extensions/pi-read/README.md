@@ -36,7 +36,7 @@ The preview is appended after the file content, which is left unchanged.
 
 - It shows at most five lines, and 500 code points per line, with `…` marking omissions.
 - If the selection extends beyond the read window, the preview may be partial.
-- If the selected span has no text, the preview says whether a different read window could help.
+- If the selected span has no text, check its coordinates and the read window before another read.
 - For exact edits, use the original read content, not the preview.
 
 Expand a successful text read to see the selection highlighted in context. Pi's image handling and truncation limits still apply.

@@ -16,5 +16,5 @@ This package tests mutation atomicity, replayable snapshots, tool exposure, and 
 
 ## Not tested
 
-- Schema projection, hierarchy and dependency rules, field limits, model-facing list bounds, activation rules, widget layout, and the read-only browser: below the severity bar.
+- Schema projection, hierarchy and dependency rules, field limits, model-facing list bounds, activation rules, widget collapse settings, widget layout, and the read-only browser: below the severity bar.
 - Full snapshots of shared tree and layout output, and Pi's session persistence internals: owned by libs and Pi.

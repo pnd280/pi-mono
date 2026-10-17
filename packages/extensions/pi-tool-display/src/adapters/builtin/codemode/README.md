@@ -28,4 +28,4 @@ The adapter never runs scripts, reads saved output, or parses argument previews.
 
 ## Validation
 
-Run [package validation](../../../../README.md#validation); colocated tests build the fixture from Pi's registered `codemode` definition, and the [install suite](../../../host/install.test.ts) loads `builtin:codemode` in a real session.
+Run [package validation](../../../../README.md#validation). The [colocated test](index.test.ts) checks that standalone rendering leaves script arguments unchanged. The [install suite](../../../host/install.test.ts) loads `builtin:codemode` in a real session and checks delegated execution.

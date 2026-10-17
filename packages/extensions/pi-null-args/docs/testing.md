@@ -6,8 +6,9 @@ This package tests which arguments reach the tool after cleaning; Pi owns argume
 
 ## Must not regress
 
-- **High, e2e:** An optional top-level tool argument sent as the text `"null"` is removed before validation, and required arguments and other values reach the tool unchanged.
+- **High, e2e:** An optional top-level tool argument sent as the text `"null"` is removed before validation for [supported schemas](../README.md#behaviour); required arguments and other values reach the tool unchanged.
+- **High, e2e:** Nested object and array argument values, including the literal text `"null"`, reach tools unchanged.
 
 ## Not tested
 
-- Calls to unknown tools, nested arguments, and non-assistant messages pass through unchanged; a defect there leaves Pi's normal validation error, which is below the severity bar.
+- Calls to unknown tools and non-assistant messages are outside the listed automated coverage.

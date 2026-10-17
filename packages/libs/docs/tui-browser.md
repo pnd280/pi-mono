@@ -18,7 +18,7 @@ Configured actions take precedence over the fixed keys below, in this order: `co
 
 ### Input routing
 
-- The [browser host](../src/tui/open-browser/README.md) routes eligible fullscreen paging ahead of transcript paging.
+- The [browser host](../src/tui/open-browser/README.md) routes resolved browser actions ahead of transcript controls while the inline browser has focus.
 - A key already bound to a higher-priority action does not trigger a lower-priority action.
 - The browser ignores key release events.
 - The browser component installs no listeners.

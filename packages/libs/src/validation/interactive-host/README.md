@@ -8,13 +8,21 @@ Import `hostFixture` from `@pi-mono/libs/validation/interactive-host` in Vite+ t
 
 Creates an offline `AgentSession` with Pi's real interactive containers, renderer, input dock, and UI proxy against a no-op 80×24 terminal. It loads only supplied extension factories, not workspace extensions.
 
-Mutable settings and model-runtime files live in a system temporary directory. The fixture disables model-network access and user resource discovery; it does not send model requests.
+Mutable settings and model-runtime files live in a system temporary directory. The fixture disables model-network access and user resource discovery; it does not send model requests. If setup fails, it releases the acquired host and session resources, removes the temporary directory, and restores the environment before it rejects.
 
 ## Caller responsibilities
 
 Pass extension factories and optionally `"regular"` or `"fullscreen"`. Create feature-specific settings under the returned `directory` and `agentDir`, then call `bind()` to emit session startup against the real UI. `host`, `ui`, `session`, and `terminal` expose the installed boundary for consumer assertions.
 
-Always close custom UI and await `dispose()` in `finally`. Do not run fixtures concurrently in the same test context: environment stubs and Pi's theme are process-local.
+Always close custom UI and await `dispose()` in `finally`. If a widget or footer disposer throws, `dispose()` still releases the host and session resources. Directory removal and environment restoration also run if host or session cleanup throws.
+
+Do not run fixtures concurrently in the same test context: environment stubs and Pi's theme are process-local.
+
+## Terminal input tests
+
+Use `inputHostFixture("fullscreen")` for focused-input and custom-view lifetime tests. It adds an offline faux provider, binds the session, starts the real renderer, and registers teardown with Vite+. The default mode is `"fullscreen"`; pass `"regular"` to test regular-mode mounting.
+
+Send terminal bytes with `send(data)` and force a render with `render()`. The returned `presentation`, `editor`, `dock`, and `transcript` expose the active host components for assertions. The fixture supplies a 100-line transcript so paging has an observable target. Always close custom views in `finally`; fixture teardown releases the host after the test.
 
 ## Validation
 

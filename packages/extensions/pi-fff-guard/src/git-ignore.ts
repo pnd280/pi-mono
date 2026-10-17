@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { lstat, readlink, realpath } from "node:fs/promises";
+import { lstat, readlink, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 import type { ExecResult } from "@earendil-works/pi-coding-agent";
@@ -185,7 +185,7 @@ export async function inspectGitIgnore({
     const workspace = await repository(cwd, signal);
     // Validate final existence before considering lexical link parents. Missing
     // targets must not be blocked merely because an existing parent is ignored.
-    await lstat(absolute);
+    await stat(absolute);
     const ignored = await inspect(absolute, workspace, signal, new Set());
     signal.throwIfAborted();
 
@@ -198,7 +198,7 @@ export async function inspectGitIgnore({
       "code" in error &&
       (error.code === "ENOENT" || error.code === "ENOTDIR") &&
       "syscall" in error &&
-      (error.syscall === "lstat" || error.syscall === "readlink")
+      (error.syscall === "stat" || error.syscall === "lstat" || error.syscall === "readlink")
     )
       return { status: "missing" };
 

@@ -7,6 +7,7 @@ import {
   ModelRuntime,
   SessionManager,
   SettingsManager,
+  type AgentSession,
   type ExtensionAPI,
   type ExtensionContext
 } from "@earendil-works/pi-coding-agent";
@@ -18,12 +19,27 @@ import { workspace } from "../src/test-fixture.ts";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
-  for (const cleanup of cleanups.splice(0)) await cleanup();
-  vi.unstubAllEnvs();
+  try {
+    for (const cleanup of cleanups.splice(0)) await cleanup();
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });
 
 async function host(mode: ExtensionContext["mode"], before?: (pi: ExtensionAPI) => void) {
   const fixture = await workspace();
+  const resources: { session?: AgentSession } = {};
+  cleanups.push(async () => {
+    try {
+      await resources.session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+    } finally {
+      try {
+        resources.session?.dispose();
+      } finally {
+        await rm(fixture.directory, { recursive: true, force: true });
+      }
+    }
+  });
   // Remove storage made by the test helper so mode guards can prove no feature I/O.
   await rm(join(fixture.agentDir, "pi-prompt-manager"), { recursive: true });
   if (mode !== "tui")
@@ -71,11 +87,7 @@ async function host(mode: ExtensionContext["mode"], before?: (pi: ExtensionAPI) 
     sessionManager: SessionManager.inMemory(fixture.cwd),
     noTools: "all"
   });
-  cleanups.push(async () => {
-    await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
-    session.dispose();
-    await rm(fixture.directory, { recursive: true, force: true });
-  });
+  resources.session = session;
   let editor = "exact draft";
   const notify = vi.fn();
   const ui = {

@@ -1,6 +1,6 @@
 # pi-agent-summary
 
-Long agent runs scroll past what changed. pi-agent-summary shows how long the agent has been working and how fast it streams output, and after each run adds a short summary of what it did: which models answered, how long it took, commands run, files changed, and counters and milestones that other extensions report. Summaries are saved in the session but never sent to the model.
+Long agent runs scroll past what changed, so pi-agent-summary shows a live timer and output rate and saves a summary after each run.
 
 ## Usage
 
@@ -9,6 +9,8 @@ When the agent finishes, the transcript shows a summary such as:
 ```text
 • anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s · ran 4 commands · edited 3 files · +42 -11
 ```
+
+Summaries are saved in the session but never sent to the model.
 
 A _run_ is everything from your prompt until the agent settles, including retries, follow-ups, and time spent waiting for your input. Cancelled and failed runs get summaries too, so a summary doesn't mean the run succeeded.
 

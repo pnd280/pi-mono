@@ -207,18 +207,25 @@ class SharedMutations {
   private native = observeNativeTools({
     names: ["edit", "write"],
     eligible: (session, name) =>
-      [...this.observers].some(({ observer }) => safely(() => observer.eligible(session, name))),
+      [...this.observers].some(
+        (subscription) =>
+          this.observers.has(subscription) &&
+          safely(() => subscription.observer.eligible(session, name)) &&
+          this.observers.has(subscription)
+      ),
     wrap: (session, original, settings) =>
       observeMutationDefinition(original, settings.cwd, (id) =>
         [...this.observers].flatMap((subscription) => {
+          // An earlier eligibility or begin callback can dispose a later subscription.
+          if (!this.observers.has(subscription)) return [];
           const { observer } = subscription;
           const sink = safely(() =>
-            observer.eligible(session, original.name)
+            observer.eligible(session, original.name) && this.observers.has(subscription)
               ? observer.begin(session, original.name, id)
               : undefined
           );
 
-          if (!sink) return [];
+          if (!sink || !this.observers.has(subscription)) return [];
 
           return [
             {

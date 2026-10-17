@@ -1,4 +1,4 @@
-import { Key, type KeyId } from "@earendil-works/pi-tui";
+import { Key, matchesKey, type KeyId } from "@earendil-works/pi-tui";
 import { z } from "zod";
 
 const baseKeys = new Set<string>(Object.values(Key).filter((key) => typeof key === "string"));
@@ -109,6 +109,33 @@ function shiftOverlap(a: KeyId, b: KeyId): boolean {
   return !!first && !!second && first.shifted !== second.shifted && first.others === second.others;
 }
 
+// Pi accepts these legacy sequences for more than one key ID. Ask its matcher
+// about both IDs so protocol and platform rules stay with the host.
+const legacyInputs = new Map<string, readonly string[]>([
+  ["escape", ["\x1b"]],
+  ["enter", ["\r", "\n"]],
+  ["shift+enter", ["\x1b\r", "\n"]],
+  ["tab", ["\t"]],
+  ["backspace", ["\b", "\x7f"]],
+  ["ctrl+backspace", ["\b"]],
+  ["ctrl+-", ["\x1f"]],
+  ["ctrl+alt+-", ["\x1b\x1f"]],
+  ["alt+enter", ["\x1b\r"]],
+  ["alt+backspace", ["\x1b\b", "\x1b\x7f"]],
+  ["alt+up", ["\x1bp"]],
+  ["alt+down", ["\x1bn"]],
+  ["alt+left", ["\x1bb", "\x1bB"]],
+  ["alt+right", ["\x1bf", "\x1bF"]]
+]);
+
+function legacyOverlap(a: KeyId, b: KeyId): boolean {
+  const overlaps = (data: string) => matchesKey(data, a) && matchesKey(data, b);
+
+  return (
+    (legacyInputs.get(a)?.some(overlaps) ?? false) || (legacyInputs.get(b)?.some(overlaps) ?? false)
+  );
+}
+
 /** Claim alternatives in order so dispatch and user-facing hints share precedence. */
 export function resolveKeybindings<Action extends string>(
   candidates: readonly KeybindingCandidate<Action>[]
@@ -121,7 +148,9 @@ export function resolveKeybindings<Action extends string>(
       const key = canonicalKey(value);
       if (
         !key ||
-        occupied.some((other) => other === key || shiftOverlap(other, key)) ||
+        occupied.some(
+          (other) => other === key || shiftOverlap(other, key) || legacyOverlap(other, key)
+        ) ||
         candidate.exclude?.(key)
       )
         continue;

@@ -136,6 +136,12 @@ it("reports absent and oversized files, skips invalid lines, and ignores an unte
       "not json",
       JSON.stringify({ type: "call", entry: "e", toolCallId: "t" }),
       JSON.stringify({ type: "call", ...call }),
+      JSON.stringify({
+        type: "call",
+        ...call,
+        toolCallId: "oversized",
+        extra: "é".repeat(16 * 1024)
+      }),
       JSON.stringify({ type: "call", ...call, toolCallId: "partial" }).slice(0, -1)
     ].join("\n"),
     { mode: 0o600 }
@@ -150,7 +156,7 @@ it("reports absent and oversized files, skips invalid lines, and ignores an unte
     calls: new Map([[localKey(call.entry, call.toolCallId), call]])
   });
   expect(warn).toHaveBeenCalledExactlyOnceWith(
-    `skipped 2 invalid local detail lines of writer ${valid}.`
+    `skipped 3 invalid local detail lines of writer ${valid}.`
   );
   await reader.dispose();
 });

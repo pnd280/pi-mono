@@ -82,7 +82,8 @@ function installCoordinator(pi: WorkingMessageAPI): WorkingMessageCoordinator {
       preferences.project ?? preferences.global ?? []
     );
     if (ctx.mode === "tui")
-      for (const warning of preferences.warnings) ctx.ui.notify(warning, "warning");
+      for (const warning of preferences.warnings)
+        ctx.ui.notify(`@pi-mono/libs: ${warning}`, "warning");
   });
   pi.on("session_shutdown", () => {
     lifetime.abort();

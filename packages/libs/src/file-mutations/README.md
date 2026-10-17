@@ -22,7 +22,7 @@ Completion callbacks run outside Pi's mutation queue and settle before the tool 
 
 1. Subscribe with `observeFileMutations()` during extension loading, before Pi builds the runtime. Choose eligible sessions and return a `MutationSink` for each call to observe.
 2. Once the session is eligible, call `bind(sessionManager)`.
-3. Dispose the subscription on shutdown. Disposal stops notifications to that consumer without disabling other subscriptions.
+3. Dispose the subscription on shutdown. Disposal stops callbacks to that consumer, including eligibility and `begin`, without disabling other subscriptions.
 
 Supply a nonnegative safe integer `maxSourceBytes`; a sink with any other value is not observed. Capture uses the largest consumer request. Enforce your own retention and patch limits. Source observations require complete, valid UTF-8; distinguish missing files from unavailable snapshots.
 

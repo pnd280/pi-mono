@@ -234,7 +234,7 @@ type ViewerParts = {
 
 /**
  * Fits a viewer in `rows`. The title, the two overflow borders, one body row, and the first hint
- * row, which starts with `Esc back`, come first. Then diagnostics, metadata rows from the top,
+ * row, which starts with the back action, come first. Then diagnostics, metadata rows from the top,
  * the other hint rows, and a blank row above the footer take the free rows in that order. The
  * body takes `height`, the rows that remain.
  */
@@ -273,7 +273,7 @@ export type ViewerFrame = {
   subject: { description: string; id: string; metadata: readonly MetadataRow[] } | undefined;
   /** Error texts above the hints. */
   diagnostics: readonly string[];
-  /** The first hint is `Esc back`. */
+  /** The first hint is the back action with its current binding. */
   hints: readonly string[];
   body: (height: number) => ViewerBody;
 };

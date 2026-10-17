@@ -4,25 +4,30 @@
 
 For settings-write changes, also run `vpr '@pi-mono/libs#check'` and `vpr '@pi-mono/libs#test'`.
 
-Setup: use workspace Pi with this extension and a native widget contributor such as `pi-todo`. The menu needs no model call.
+Setup: use workspace Pi with this extension and a native widget contributor such as `pi-todo`. The menu needs no model call. For remapping checks, edit Pi's `keybindings.json` and run `/reload` after each change. Restore the original bindings and reload after the checks.
 
 ## Menu
 
-| Do                                                                                           | Expect                                                                                               |
-| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Open `/widgets` in regular mode, then in fullscreen mode.                                    | The menu is not an overlay.                                                                          |
-| Resize the terminal while editing.                                                           | The selection stays on the intended item.                                                            |
-| Inspect the draft after resizing.                                                            | The draft is kept.                                                                                   |
-| Use the menu controls after resizing.                                                        | The controls work.                                                                                   |
-| Close the menu.                                                                              | The editor has focus.                                                                                |
-| Make edits.                                                                                  | They show in the real regions.                                                                       |
-| Look for duplicates of an edited widget.                                                     | No extra live widget instance is created.                                                            |
-| Make edits while the terminal has enough room.                                               | The regions stay visible.                                                                            |
-| Close without saving.                                                                        | The saved layout is restored.                                                                        |
-| Reorder, hide, re-add, and copy widgets with **a**; click each copy of a mouse-aware widget. | Every copy responds.                                                                                 |
-| Leave rows and regions empty, and include unavailable saved IDs.                             | One blank line separates chat from the above-editor region, even when all its widgets are empty.     |
-| Register widgets while editing.                                                              | New registrations don't change the selected widget.                                                  |
-| Change a native placement while a nested row is open.                                        | The nested row keeps its identity, or the menu returns to the row list without applying stale input. |
+| Do                                                                                                             | Expect                                                                                               |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Open `/widgets` in regular mode, then in fullscreen mode.                                                      | The menu is not an overlay.                                                                          |
+| Resize the terminal while editing.                                                                             | The selection stays on the intended item.                                                            |
+| Inspect the draft after resizing.                                                                              | The draft is kept.                                                                                   |
+| Use the menu controls after resizing.                                                                          | The controls work.                                                                                   |
+| Close the menu.                                                                                                | The editor has focus.                                                                                |
+| Make edits.                                                                                                    | They show in the real regions.                                                                       |
+| Look for duplicates of an edited widget.                                                                       | No extra live widget instance is created.                                                            |
+| Make edits while the terminal has enough room.                                                                 | The regions stay visible.                                                                            |
+| Close without saving.                                                                                          | The saved layout is restored.                                                                        |
+| Reorder, hide, re-add, and copy widgets with **a**; click each copy of a mouse-aware widget.                   | Every copy responds.                                                                                 |
+| Leave rows and regions empty, and include unavailable saved IDs.                                               | One blank line separates chat from the above-editor region, even when all its widgets are empty.     |
+| Register widgets while editing.                                                                                | New registrations don't change the selected widget.                                                  |
+| Change a native placement while a nested row is open.                                                          | The nested row keeps its identity, or the menu returns to the row list without applying stale input. |
+| Open a native row's contents, move its widget to another region, then press **Ctrl+C** before the next render. | The menu closes on the first press and restores the effective saved layout.                          |
+| In fullscreen mode, map `tui.altScreen.pageDown` to **Down**, open `/widgets`, and press **Down**.             | The menu selects the next item without scrolling the transcript.                                     |
+| Map `tui.altScreen.pageDown` to **Ctrl+S**, open `/widgets`, and press **Ctrl+S**.                             | The displayed scope is saved without scrolling the transcript.                                       |
+| Map `tui.altScreen.pageDown` to **Ctrl+C**, open `/widgets`, and press **Ctrl+C**.                             | The menu closes without scrolling the transcript, and the editor regains focus.                      |
+| After closing the menu, press the remapped transcript paging key.                                              | Transcript paging works again.                                                                       |
 
 ## Layout and scopes
 

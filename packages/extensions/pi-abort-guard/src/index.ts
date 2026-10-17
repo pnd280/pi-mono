@@ -17,7 +17,7 @@ class AbortGuardEditor extends CustomEditor {
   constructor(
     tui: TUI,
     theme: EditorTheme,
-    private readonly keys: KeybindingsManager,
+    keys: KeybindingsManager,
     private readonly holdInterrupt: () => boolean
   ) {
     // Pi's default editor draws the working status in its top border.
@@ -25,10 +25,19 @@ class AbortGuardEditor extends CustomEditor {
   }
 
   override handleInput(data: string): void {
-    // While autocomplete shows, the interrupt key only closes it.
-    if (this.keys.matches(data, interrupt) && !this.isShowingAutocomplete() && this.holdInterrupt())
-      return;
-    super.handleInput(data);
+    // Let Pi resolve shortcuts, paste bindings, and autocomplete before guarding an interrupt.
+    const onEscape = this.onEscape;
+
+    if (onEscape)
+      this.onEscape = () => {
+        if (!this.holdInterrupt()) onEscape();
+      };
+
+    try {
+      super.handleInput(data);
+    } finally {
+      if (onEscape) this.onEscape = onEscape;
+    }
   }
 }
 
@@ -76,12 +85,17 @@ export default function abortGuard(pi: ExtensionAPI): void {
     );
   });
 
-  // A press near the end of one run must not count toward the next run.
-  pi.on("agent_settled", () => {
+  // A press near the end of one operation must not count toward the next one.
+  const clearConfirmation = () => {
     if (!confirmation?.armed) return;
     confirmation.cancel();
     hint.setText();
-  });
+  };
+
+  pi.on("agent_settled", clearConfirmation);
+  pi.on("session_compact", clearConfirmation);
+  pi.on("session_compact_failed", clearConfirmation);
+  pi.on("session_tree", clearConfirmation);
 
   pi.on("session_shutdown", () => {
     confirmation?.dispose();

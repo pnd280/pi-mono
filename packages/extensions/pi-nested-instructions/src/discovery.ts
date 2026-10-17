@@ -26,7 +26,7 @@ export async function discover(
 
       for (const file of scope.reads) {
         const stamp = await files.stamp(file).catch(() => undefined);
-        const entry = visible.markRead(call.toolCallId, file, stamp);
+        const entry = visible.markRead(call, file, stamp);
         if (entry) entries.push(entry);
       }
     } catch {

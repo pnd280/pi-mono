@@ -143,9 +143,15 @@ it("recognizes discovered MCP tools with normalized and colliding names without 
     expect(new Set(names).size).toBe(2);
     expect(identities.sort()).toEqual(["echo-value", "echo_value"]);
   } finally {
-    await session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
-    session?.dispose();
-    vi.unstubAllEnvs();
-    await rm(directory, { recursive: true, force: true });
+    try {
+      await session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+    } finally {
+      try {
+        session?.dispose();
+      } finally {
+        vi.unstubAllEnvs();
+        await rm(directory, { recursive: true, force: true });
+      }
+    }
   }
 });

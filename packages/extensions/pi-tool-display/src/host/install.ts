@@ -9,6 +9,7 @@ import { trackThinkingCompletion } from "./assistant.ts";
 import type { DisplayCollector, DisplayCollectors } from "./collection.ts";
 import {
   hostHook,
+  hostHooksCompatible,
   hostMode,
   interactivePrototype,
   modeHooksCompatible,
@@ -55,8 +56,8 @@ export function installHostIntegration(
 ): (() => void) | undefined {
   const prototype = interactivePrototype();
   prototype[hostHook]?.();
+  if (!hostHooksCompatible(prototype)) return undefined;
   const previousLookup = prototype.getRegisteredToolDefinition;
-  if (typeof previousLookup !== "function") return undefined;
   const hooks = new OwnedHooks();
   const bindings = new Set<Binding>();
   const hosts = new WeakMap<Host, Binding>();

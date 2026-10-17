@@ -119,6 +119,8 @@ it("leaves already file-backed sessions unchanged", async () => {
 it("removes the new file when the switch is cancelled", async () => {
   const source = SessionManager.inMemory(cwd);
   source.appendMessage(user("keep in memory"));
+  const existingPath = saveActiveBranch(cwd, source);
+  const existingContents = readFileSync(existingPath, "utf8");
   let path: string | undefined;
   const switchSession = vi.fn(async (sessionPath: string) => {
     path = sessionPath;
@@ -138,30 +140,39 @@ it("removes the new file when the switch is cancelled", async () => {
 
   expect(path).toBeDefined();
   expect(existsSync(path!)).toBe(false);
+  expect(readFileSync(existingPath, "utf8")).toBe(existingContents);
   expect(userContent(source)).toEqual(["keep in memory"]);
   expect(notify).toHaveBeenCalledWith(expect.any(String), "info");
 });
 
-it("keeps the saved file for recovery when switching fails", async () => {
-  const source = SessionManager.inMemory(cwd);
-  source.appendMessage(user("recoverable"));
-  let path: string | undefined;
+it.each(["before", "after"])(
+  "keeps the saved file for recovery when switching fails %s replacement",
+  async (stage) => {
+    const source = SessionManager.inMemory(cwd);
+    source.appendMessage(user("recoverable"));
+    let current = source;
+    let path: string | undefined;
 
-  await expect(
-    persistSession({
-      cwd,
-      sessionManager: source,
-      isIdle: () => true,
-      switchSession: async (sessionPath) => {
-        path = sessionPath;
-        throw new Error("switch failed");
-      },
-      ui: { notify: vi.fn() }
-    })
-  ).rejects.toThrow("switch failed");
+    await expect(
+      persistSession({
+        cwd,
+        get sessionManager() {
+          return current;
+        },
+        isIdle: () => true,
+        switchSession: async (sessionPath) => {
+          path = sessionPath;
+          if (stage === "after") current = SessionManager.open(sessionPath);
+          throw new Error("switch failed");
+        },
+        ui: { notify: vi.fn() }
+      })
+    ).rejects.toThrow("switch failed");
 
-  expect(path).toBeDefined();
-  expect(SessionManager.open(path!).buildSessionContext().messages).toEqual([
-    expect.objectContaining({ role: "user", content: "recoverable" })
-  ]);
-});
+    expect(current.getSessionFile()).toBe(stage === "after" ? path : undefined);
+    expect(path).toBeDefined();
+    expect(SessionManager.open(path!).buildSessionContext().messages).toEqual([
+      expect.objectContaining({ role: "user", content: "recoverable" })
+    ]);
+  }
+);

@@ -26,4 +26,4 @@ The adapter never activates tools or reads the tool registry; loaded names come 
 
 ## Validation
 
-Run [package validation](../../../../README.md#validation); colocated tests build the fixture from Pi's registered `tool_search` definition.
+Run [package validation](../../../../README.md#validation). The [colocated test](index.test.ts) checks that standalone rendering leaves arguments and results unchanged; it does not verify the registered `tool_search` schema.

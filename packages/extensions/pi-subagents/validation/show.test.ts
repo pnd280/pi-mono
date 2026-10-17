@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 
 import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
@@ -9,9 +9,8 @@ import { z } from "zod";
 import { END_ENTRY, RESULT_MESSAGE } from "../src/constants.ts";
 import { detailsSchema } from "../src/result.ts";
 import { taskRecordSchema } from "../src/tasks/records.ts";
-import { fixtureProcesses, killFixtureProcesses, remainingProcesses } from "./processes.ts";
-import { Supervisor } from "./supervisor.ts";
-import { createFixtureWorkspace } from "./workspace.ts";
+import { withFixture } from "./background-fixture.ts";
+import { fixtureProcesses } from "./processes.ts";
 
 // Each test owns its workspace and processes.
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
@@ -28,10 +27,8 @@ const pageSchema = z.object({
 test("pages tool summaries on the selected ancestry once without modifying the child", async ({
   expect
 }) => {
-  const directory = await createFixtureWorkspace();
-  const host = await Supervisor.start(directory);
-
-  try {
+  await withFixture(async (directory, start) => {
+    const host = await start();
     await host.reply("background-digest");
     const id = detailsSchema.parse((await host.results())[0]!.details).task_id!;
 
@@ -173,20 +170,12 @@ test("pages tool summaries on the selected ancestry once without modifying the c
       /DO_NOT_SHOW_THINKING|\.pi-subagents-fixture|disposable subagents workspace/
     );
     expect(await readFile(task.session_file, "utf8")).toBe(before);
-  } finally {
-    await host.stop();
-    const leaked = await remainingProcesses(directory);
-    await killFixtureProcesses(directory);
-    await rm(directory, { recursive: true, force: true });
-    expect(leaked).toEqual([]);
-  }
+  });
 });
 
 test("returns the latest assistant text after an abort during a tool call", async ({ expect }) => {
-  const directory = await createFixtureWorkspace();
-  const host = await Supervisor.start(directory);
-
-  try {
+  await withFixture(async (directory, start) => {
+    const host = await start();
     await host.reply("background-abort-tool");
     const id = detailsSchema.parse((await host.results())[0]!.details).task_id!;
     await expect
@@ -220,11 +209,5 @@ test("returns the latest assistant text after an abort during a tool call", asyn
       cursor: assistants[0]!.id,
       text: "Fixture text before the tool"
     });
-  } finally {
-    await host.stop();
-    const leaked = await remainingProcesses(directory);
-    await killFixtureProcesses(directory);
-    await rm(directory, { recursive: true, force: true });
-    expect(leaked).toEqual([]);
-  }
+  });
 });

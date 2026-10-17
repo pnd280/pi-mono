@@ -288,10 +288,16 @@ async function withSession(
       }
     });
   } finally {
-    await session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
-    session?.dispose();
-    vi.unstubAllEnvs();
-    await rm(directory, { recursive: true, force: true });
+    try {
+      await session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+    } finally {
+      try {
+        session?.dispose();
+      } finally {
+        vi.unstubAllEnvs();
+        await rm(directory, { recursive: true, force: true });
+      }
+    }
   }
 }
 

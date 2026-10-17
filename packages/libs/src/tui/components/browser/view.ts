@@ -81,7 +81,7 @@ export class Browser<Item> implements Component, Focusable {
   ownsFullscreenInput(data: string): boolean {
     const action = this.controls.actionFor(data);
 
-    return action === "pageUp" || action === "pageDown";
+    return !this.controller.closed && action !== "search" && action !== "ignore";
   }
 
   handleInput(data: string): void {
@@ -150,7 +150,6 @@ export class Browser<Item> implements Component, Focusable {
     else if (hasSelection && state.section.confirm)
       primary.push(this.controls.hint("confirm", state.section.confirm.label));
     if (hasSelection && state.section.copy) primary.push(this.controls.hint("copy", "copy"));
-    primary.push(this.controls.hint("cancel", state.canReturnToList ? "back" : "close"));
 
     if (!compact) {
       if (hasSelection)
@@ -158,6 +157,7 @@ export class Browser<Item> implements Component, Focusable {
       if (!state.preview && !inspection) primary.unshift("Type to search");
     }
 
+    primary.unshift(this.controls.hint("cancel", state.canReturnToList ? "back" : "close"));
     const messageText = message && displayText(message.text);
 
     return renderHintFooter({
@@ -292,6 +292,7 @@ export class Browser<Item> implements Component, Focusable {
     const { theme } = this.environment;
     const selected = state.selected;
     if (state.status === "loading") lines.push(theme.fg("dim", "  Loading collection…"));
+    else if (state.searching) lines.push(theme.fg("dim", "  Searching collection…"));
     else if (state.status === "unavailable")
       lines.push(
         ...wrapTextWithAnsi(`Unavailable: ${displayText(state.error)}`, width - 4)

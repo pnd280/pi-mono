@@ -8,6 +8,7 @@ This package tests credential isolation, session ownership of compaction request
 
 Model and credential isolation
 
+- **Critical, e2e:** Only valid settings from global or trusted project scopes select the summary provider and model. Invalid participating settings disable requested compaction.
 - **Critical, e2e:** Configured summary requests use the selected provider's key, headers, environment, and base URL, not conversation-provider credentials.
 - **Critical, e2e:** A failed model lookup, authentication, or summary generation does not fall back to the conversation model.
 - **Critical, e2e:** Summary model and thinking overrides leave the conversation model and its thinking level unchanged.
@@ -23,6 +24,7 @@ Failure and abort
 
 Session isolation
 
+- **High, e2e:** Only direct model calls can schedule compaction, after their whole tool batch is persisted.
 - **High, unit:** A pending request can be consumed only by its owning session, and a consumed request is not retried at a later boundary, including after a skip, cancellation, failure, or exception.
 - **High, unit:** Settlement, binding disposal, or an abort detected before the boundary discards the pending request.
 - **High, e2e:** Session replacement and reload dispose the old binding before binding the new session state.
@@ -36,7 +38,7 @@ Hook ownership
 
 ## Not tested
 
-- Tool output wording, outcome status messages, summary-model metadata entries, footer status, settings merging, instruction-file loading, routing flags, and focus placement: below the severity bar.
+- Tool output wording, outcome status messages, summary-model metadata entries, footer status, instruction-file loading, routing flags, and focus placement: below the severity bar.
 - Request timeout and retry policy on configured summary requests, several `compact` calls in one tool batch, and summaries supplied by `session_before_compact` hooks: below the severity bar.
 - Whether a real model follows the instructions, threshold detection, and the full overflow retry scheduler.
 - Interactive mounting, RPC display, and terminal appearance.

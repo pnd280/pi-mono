@@ -68,8 +68,8 @@ export class Panels {
           overlayOptions: transcriptOverlay,
           onInputRoutingUnavailable: () =>
             this.ctx.ui.notify("Subagent panel key routing unavailable", "warning"),
-          create: (tui, theme, _keys, close) => {
-            this.panel = new TaskPanel(this.tasks, this.jobs, this.reader, tui, theme, close);
+          create: (tui, theme, keys, close) => {
+            this.panel = new TaskPanel(this.tasks, this.jobs, this.reader, tui, theme, keys, close);
             this.select?.(this.panel);
             this.select = undefined;
 

@@ -36,4 +36,4 @@ Supply the expected task ID and state to `parseTaskEnvelope` from validated resu
 
 ## Patches
 
-[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers, within a byte limit that the caller supplies. Invalid patches and patches over the limit return `undefined`; a limit that is not a nonnegative safe integer throws `RangeError`. Pass parsed results to the [diff renderer](../../libs/src/tui/components/diff-view/README.md).
+[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers, within a byte limit that the caller supplies. When present, file headers must be an adjacent `--- ` and `+++ ` pair. Invalid patches and patches over the limit return `undefined`; a limit that is not a nonnegative safe integer throws `RangeError`. Pass parsed results to the [diff renderer](../../libs/src/tui/components/diff-view/README.md).

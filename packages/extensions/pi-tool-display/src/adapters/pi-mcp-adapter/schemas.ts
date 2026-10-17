@@ -67,7 +67,7 @@ export const scriptSummarySchema = z.object({
   calls: z
     .array(
       z.object({
-        operation: z.enum(["call", "search", "describe"]),
+        operation: z.enum(["call", "search", "describe", "evaluate"]),
         ok: z.boolean(),
         error: z.string().optional()
       })

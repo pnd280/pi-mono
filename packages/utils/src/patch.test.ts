@@ -7,6 +7,9 @@ const maxBytes = 128 * 1024;
 it("rejects malformed and multi-file patches without trusting hunk counts", () => {
   for (const patch of [
     "+1 legacy",
+    "+++ b\n@@ -1 +1 @@\n-old\n+new\n",
+    "---a\n+++ b\n@@ -1 +1 @@\n-old\n+new\n",
+    "--- a\n+++b\n@@ -1 +1 @@\n-old\n+new\n",
     "@@ -1,2 +1 @@\n-old\n+new\n",
     "@@ -1 +1 @@\n-old\n+new\n+extra\n",
     "@@ -1 +1 @@\n context only\n",

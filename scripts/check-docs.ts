@@ -78,10 +78,12 @@ function anchors(file: string): Set<string> {
       .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
       .replace(/[^\p{L}\p{N}\s_-]/gu, "")
       .replace(/\s/g, "-");
-    const count = seen.get(slug) ?? 0;
+    let count = seen.get(slug) ?? 0;
+    let anchor = count ? `${slug}-${count}` : slug;
 
-    found.add(count ? `${slug}-${count}` : slug);
-    seen.set(slug, count + 1);
+    while (found.has(anchor)) anchor = `${slug}-${++count}`;
+    found.add(anchor);
+    seen.set(slug, count);
   }
 
   anchorCache.set(file, found);
@@ -224,7 +226,7 @@ function checkFile(file: string): string[] {
     if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("~/")) continue;
 
     const [path = "", anchor] = target.split("#", 2);
-    const destination = path ? resolve(dirname(file), decodeURI(path)) : file;
+    const destination = path ? resolve(dirname(file), decodeURIComponent(path)) : file;
 
     if (!exists(destination)) {
       problems.push(`${name}: missing link target ${target}`);

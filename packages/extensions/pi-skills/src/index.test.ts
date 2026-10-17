@@ -1,5 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
@@ -13,6 +12,7 @@ import {
   type SlashCommandInfo
 } from "@earendil-works/pi-coding-agent";
 import { CombinedAutocompleteProvider } from "@earendil-works/pi-tui";
+import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import skills from "../index.ts";
@@ -23,13 +23,17 @@ afterEach(async () => {
   vi.unstubAllEnvs();
 });
 
-async function host({ enabled = true, format }: { enabled?: boolean; format?: string } = {}) {
-  const directory = await mkdtemp(join(tmpdir(), "pi-skills-test-"));
+async function host({
+  enabled = true,
+  format,
+  template = false
+}: { enabled?: boolean; format?: string; template?: boolean } = {}) {
+  const directory = await createValidationWorkspace("pi-skills-test-");
   cleanups.push(() => rm(directory, { recursive: true, force: true }));
   const cwd = join(directory, "work");
   const agentDir = join(directory, "agent");
-  await mkdir(cwd);
-  await mkdir(agentDir);
+  const templatePath = join(directory, "outline.md");
+  if (template) await writeFile(templatePath, "OUTLINE TEMPLATE");
   const settingsPath = join(agentDir, "settings.json");
   const setExpansionFormat = (expansionFormat: string) =>
     writeFile(settingsPath, JSON.stringify({ "ext.pi-skills": { expansionFormat } }));
@@ -59,7 +63,10 @@ async function host({ enabled = true, format }: { enabled?: boolean; format?: st
       skills,
       (pi) => {
         getCommands = () => pi.getCommands();
-        pi.on("resources_discover", () => ({ skillPaths: [skillPath] }));
+        pi.on("resources_discover", () => ({
+          skillPaths: [skillPath],
+          promptPaths: template ? [templatePath] : []
+        }));
       }
     ]
   });
@@ -128,8 +135,8 @@ function userTexts(session: Awaited<ReturnType<typeof host>>["session"]): string
     });
 }
 
-it("loads JSON formats on session start and reload without native skill injection", async () => {
-  const fixture = await host({ format: "Read {path} for {command}" });
+it("loads formats with skill commands disabled and reloads without native skill injection", async () => {
+  const fixture = await host({ enabled: false, format: "Read {path} for {command}" });
   const first = `Read ${fixture.getSkillPath()} for /skill:review`;
   await fixture.session.prompt("/skill:review");
   expect(userTexts(fixture.session)).toEqual([first]);
@@ -143,8 +150,22 @@ it("loads JSON formats on session start and reload without native skill injectio
   expect(fixture.errors).toEqual([]);
 });
 
-it("keeps expansion with skill commands disabled and uses reloaded skills", async () => {
-  const fixture = await host({ enabled: false });
+it("keeps leading skill references literal while ordinary prompt templates expand", async () => {
+  const fixture = await host({ format: "/outline {path}", template: true });
+  const reference = `/outline ${fixture.getSkillPath()} keep my request`;
+  await fixture.session.prompt("/skill:review keep my request");
+  await fixture.session.prompt(reference);
+  await fixture.session.prompt("/outline ordinary request");
+  expect(userTexts(fixture.session)).toEqual([
+    ` ${reference}`,
+    ` ${reference}`,
+    "OUTLINE TEMPLATE"
+  ]);
+  expect(fixture.errors).toEqual([]);
+});
+
+it("expands and completes only the currently registered skills after reload", async () => {
+  const fixture = await host();
   const completion = () =>
     fixture.addAutocompleteProvider.mock.calls.at(-1)![0](
       new CombinedAutocompleteProvider(fixture.getCommands(), process.cwd())
@@ -154,9 +175,6 @@ it("keeps expansion with skill commands disabled and uses reloaded skills", asyn
   const first = `[/skill:review](${fixture.getSkillPath()})`;
   expect(userTexts(fixture.session)).toEqual([first]);
 
-  expect(await completion().getSuggestions(["Use /skill:re"], 0, 13, options)).toMatchObject({
-    items: [{ value: "skill:review" }]
-  });
   await fixture.changeSkill();
   await fixture.session.reload();
   await fixture.session.prompt("/skill:fresh /skill:review");
@@ -164,7 +182,7 @@ it("keeps expansion with skill commands disabled and uses reloaded skills", asyn
     first,
     `[/skill:fresh](${fixture.getSkillPath()}) /skill:review`
   ]);
-  expect(await completion().getSuggestions(["/skill:fr"], 0, 9, options)).toMatchObject({
+  expect(await completion().getSuggestions(["/skill:"], 0, 7, options)).toMatchObject({
     items: [{ value: "skill:fresh" }]
   });
   expect(fixture.errors).toEqual([]);

@@ -1,14 +1,13 @@
+import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { createWriteStream, type WriteStream } from "node:fs";
 import { constants, homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { contentText } from "@earendil-works/pi-ai";
 import {
   createBashToolDefinition,
-  createLocalBashOperations,
+  DEFAULT_MAX_BYTES,
   type BashOperations,
   type ExtensionToolContext,
   type SessionEntry
@@ -17,8 +16,13 @@ import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 import { jobResultMessage, ResultSource } from "../background-result.ts";
-import { JOB_END_ENTRY, JOB_ENTRY } from "../constants.ts";
+import { getDepth } from "../child/depth.ts";
+import { forwardStderr, killGroupSync } from "../child/platform.ts";
+import { JOB_END_ENTRY, JOB_ENTRY, STOP_FAILURE_PREFIX } from "../constants.ts";
 import { boundedText, firstLine } from "../result.ts";
+import { JobLog } from "./log-writer.ts";
+import { formatLogTail } from "./log.ts";
+import { jobOperations } from "./process.ts";
 import {
   jobHistory,
   stoppedJob,
@@ -34,12 +38,18 @@ export type JobEvent = { kind: "changed"; jobId: string };
 /** Job log files are `<prefix><job_id>.log` in the OS temporary directory. */
 const JOB_LOG_PREFIX = "pi-job-";
 
+/** Stop a noisy job before a slow log writer can exhaust the supervisor's memory. */
+const MAX_PENDING_LOG_BYTES = 16 * 1024 * 1024;
+
 /** The shell settings that Pi's own `bash` applies. */
 export type ShellOptions = { shellPath?: string; commandPrefix?: string };
 
 type LiveJob = {
   controller: AbortController;
-  log: WriteStream;
+  log: JobLog;
+  output: Buffer;
+  clipped: boolean;
+  stopError?: Error;
   /** `job_abort` asked for the job's result to be dropped if the job is cancelled. */
   drop: boolean;
   /** The first log write error; it fails the job. */
@@ -122,18 +132,10 @@ function exited(live: Omit<LiveJob, "done">, code: number): Ended {
   );
 }
 
-/** Pi throws for an abort, a timeout, or a start failure; the text holds the output and reason. */
+/** Pi's terminal status precedes a later abort during process-group cleanup. */
 function thrown(live: Omit<LiveJob, "done">, text: string): Ended {
   const failure = writeFailure(live, null);
   if (failure) return failure;
-  // A timeout can stop the command just before the abort; then Pi's text names only the timeout.
-  if (live.controller.signal.aborted)
-    return {
-      outcome: "cancelled",
-      exit_code: null,
-      error: "Cancelled",
-      ...(ABORTED.test(text) ? { stated: true as const } : {})
-    };
   const timeout = TIMEOUT.exec(text)?.[1];
   if (timeout)
     return {
@@ -142,6 +144,8 @@ function thrown(live: Omit<LiveJob, "done">, text: string): Ended {
       error: `timed out after ${timeout} s`,
       stated: true
     };
+  if (ABORTED.test(text))
+    return { outcome: "cancelled", exit_code: null, error: "Cancelled", stated: true };
   const line = firstLine(text);
 
   return line
@@ -150,12 +154,22 @@ function thrown(live: Omit<LiveJob, "done">, text: string): Ended {
 }
 
 /**
- * Background shell commands of one supervisor binding. Pi's own `bash` runs each command in its
- * process group; this registry owns the job's abort controller, log file, entries, and outcome.
+ * Background shell commands of one supervisor binding. Each live job owns its shell and group
+ * through cleanup, as well as its abort controller, bounded log, entries, and outcome.
  */
 export class Jobs {
   private records: Map<string, JobRecord>;
   private live = new Map<string, LiveJob>();
+  private processes = new Set<ChildProcess>();
+  private killOnExit = () => {
+    for (const child of this.processes) {
+      try {
+        killGroupSync(child);
+      } catch {
+        // Exit cannot wait or retry. One failed kill must not prevent the other attempts.
+      }
+    }
+  };
   /** Log streams that have not closed, including streams that never started a job. */
   private streams = new Set<Promise<void>>();
   private listeners = new Set<(event: JobEvent) => void>();
@@ -228,9 +242,15 @@ export class Jobs {
     const job_id = randomUUID();
     const log_file = join(tmpdir(), `${JOB_LOG_PREFIX}${job_id}.log`);
     // Like Pi's output files: never follow a planted link, and keep the output private.
-    const log = createWriteStream(log_file, { flags: "wx", mode: 0o600 });
+    const log = new JobLog(log_file);
     const controller = new AbortController();
-    const live: Omit<LiveJob, "done"> = { controller, log, drop: false };
+    const live: Omit<LiveJob, "done"> = {
+      controller,
+      log,
+      drop: false,
+      output: Buffer.alloc(0),
+      clipped: false
+    };
     // An unhandled stream error would end Pi; a write error after the start fails the job.
     log.on("error", (error) => {
       live.writeError ??= error;
@@ -280,23 +300,41 @@ export class Jobs {
     return this.details(record);
   }
 
-  /** Pi's local shell, with each output chunk also written to the job's log file. */
-  private operations(live: Omit<LiveJob, "done">): BashOperations {
-    const local = createLocalBashOperations(
-      this.options.shellPath ? { shellPath: this.options.shellPath } : undefined
-    );
+  /** One exit listener covers all owned groups; log closure can continue after they are released. */
+  private trackProcess(child: ChildProcess): () => void {
+    if (!this.processes.size) process.on("exit", this.killOnExit);
+    this.processes.add(child);
 
-    return {
-      exec: (command, cwd, options) =>
-        local.exec(command, cwd, {
-          ...options,
-          onData: (data) => {
-            options.onData(data);
-            // The stream buffers without backpressure; a destroyed stream already failed the job.
-            if (!live.log.destroyed && !live.log.writableEnded) live.log.write(data);
-          }
-        })
+    return () => {
+      this.processes.delete(child);
+      if (!this.processes.size) process.off("exit", this.killOnExit);
     };
+  }
+
+  /** Keep output out of Pi's accumulator: it would create a second, unbounded disk log. */
+  private operations(live: Omit<LiveJob, "done">): BashOperations {
+    return jobOperations(
+      this.options.shellPath,
+      (data) => {
+        if (live.writeError || live.log.destroyed || live.log.writableEnded) return;
+
+        if (live.log.writableLength + data.length > MAX_PENDING_LOG_BYTES) {
+          live.writeError = new Error("Pending log output exceeded 16 MiB");
+          live.controller.abort();
+          // Discard the stalled queue so completion does not wait for it to drain.
+          live.log.destroy(live.writeError);
+
+          return;
+        }
+
+        live.log.write(data);
+        const output = Buffer.concat([live.output, data]);
+        live.clipped ||= output.length > DEFAULT_MAX_BYTES;
+        live.output = output.subarray(-DEFAULT_MAX_BYTES);
+      },
+      (error) => (live.stopError ??= error),
+      (child) => this.trackProcess(child)
+    );
   }
 
   private async run(
@@ -326,9 +364,10 @@ export class Jobs {
         undefined,
         ctx
       );
-      text = contentText(result.content, "");
-      // Pi resolves only with an exit code.
-      ended = exited(live, exitSchema.parse(result.structuredContent).exit_code);
+      // Pi resolves only with an exit code. Its accumulator receives no job output.
+      const code = exitSchema.parse(result.structuredContent).exit_code;
+      ended = exited(live, code);
+      text = code === 0 ? "" : `Command exited with code ${code}`;
     } catch (error) {
       text = errorText(error);
       ended = thrown(live, text);
@@ -340,6 +379,16 @@ export class Jobs {
     );
     // The last buffered writes can fail as the log closes.
     ended = writeFailure(live, ended.exit_code) ?? ended;
+    if (live.stopError)
+      ended = {
+        outcome: "failed",
+        exit_code: ended.exit_code,
+        error: [ended.error, `Job cleanup failed: ${live.stopError.message}`]
+          .filter(Boolean)
+          .join("; ")
+      };
+    const output = formatLogTail(live.output, live.clipped);
+    text = [output || (text ? "" : "(no output)"), text].filter(Boolean).join("\n\n");
     this.live.delete(record.job_id);
     const ended_at = Date.now();
     const done: JobRecord & { state: "inactive" } = {
@@ -399,7 +448,10 @@ export class Jobs {
     if (drop) live.drop = true;
     live.controller.abort();
 
-    return live.done;
+    const done = await live.done;
+    if (live.stopError) throw new Error(`Job cleanup failed: ${live.stopError.message}`);
+
+    return done;
   }
 
   /** No later entry, result, or event leaves this binding. */
@@ -410,9 +462,25 @@ export class Jobs {
   /** Kills every job's process group and settles after each command and log file closed. */
   async shutdown(): Promise<void> {
     this.invalidate();
-    const jobs = [...this.live.values()];
-    for (const job of jobs) job.controller.abort();
-    await Promise.all([...jobs.map((job) => job.done), ...this.streams]);
+    const jobs = [...this.live];
+    for (const [, job] of jobs) job.controller.abort();
+    await Promise.all([...jobs.map(([, job]) => job.done), ...this.streams]);
     this.listeners.clear();
+    const failures = jobs.flatMap(([id, job]) =>
+      job.stopError ? [{ id, error: job.stopError }] : []
+    );
+    if (!failures.length) return;
+
+    // Pi catches session_shutdown errors. Its supervising task needs the stderr record as well.
+    if (getDepth() > 0)
+      await forwardStderr(
+        failures
+          .map(({ id, error }) => `\n${STOP_FAILURE_PREFIX}job ${id}: ${error.message}\n`)
+          .join("")
+      );
+    throw new AggregateError(
+      failures.map(({ error }) => error),
+      `Job cleanup failed: ${failures.map(({ error }) => error.message).join("; ")}`
+    );
   }
 }

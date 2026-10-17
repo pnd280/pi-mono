@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline host tests, real codemode cases, shared utils, FFF guard, and display suites, and an unchanged native context loader; no runtime changes needed). Not covered: live FFF integration and manual [notice](../GLOSSARY.md#delivery) presentation.
+> Last verified against Pi 1.3.0 (package checks and offline host tests, including real codemode cases). Not covered: live FFF integration and manual [notice](../GLOSSARY.md#delivery) presentation.
 
 ## Upgrade procedure
 
@@ -22,6 +22,7 @@ Nested discovery must preserve Pi's native instruction loading and deduplicate a
 ### Tool inputs
 
 - [ ] `turn_end.message` exposes the inputs of tool calls the assistant made directly, including blocked or rejected calls.
+- [ ] `turn_end.messageEntryId` identifies the exact source entry for each direct call.
 - [ ] Public `tool_execution_start` events with `parentToolCallId` supply nested inputs before validation and interception. Collect them until the same `turn_end`, without reading results.
 - [ ] Only direct calls can create [read markers](../GLOSSARY.md#discovery), because nested output may never reach the model.
 - [ ] Boundary drafts are saved after tool results and before the next model request, without implicit steering or continuation.
@@ -29,6 +30,8 @@ Nested discovery must preserve Pi's native instruction loading and deduplicate a
 
 ### Session
 
+- [ ] `turn_end.context.contextEntries` includes earlier boundary drafts and applies their compaction and context edits.
+- [ ] Returning boundary entries replaces the accumulated draft list. Preserve `turn_end.entries` when adding notices or markers.
 - [ ] `buildSessionProjection()` keeps source entry IDs and applies compaction and context edits. `getBranch()` supplies metadata for the branch.
 - [ ] Replaced content doesn't keep its loaded status just because its details are unchanged.
 - [ ] `session_start` fires for startup, resume, reload, new sessions, and forks.

@@ -80,14 +80,14 @@ Diagnostics for unsupported hosts and interference with other listeners are cove
 
 Setup: edit only the fixture's `agent/keybindings.json`, and run `/reload` after each change.
 
-| Do                                                                                                                  | Expect                                                                              |
-| ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Type `/prompts save`, `drafts add <text>` with quotes, an invalid number, `show <n>`, and `restore-and-delete <n>`. | Each behaves as documented.                                                         |
-| Restore a draft, then inspect native editor history.                                                                | Restoring hasn't added the text to native editor history.                           |
-| Save a multiline bracketed paste.                                                                                   | Storage holds the expanded text, not paste markers.                                 |
-| Bind confirm, copy, cancel, and navigation to keys used by fixed controls.                                          | Behaviour and hints follow the [precedence rules](controls.md#keys-and-precedence). |
-| Disable paging with `[]`. Separately, restore it and bind the same key to copy, cancel, or confirm.                 | Disabled or overridden bindings aren't reserved for paging.                         |
-| Bind cancel only to **Ctrl+C**, then only to a copy key.                                                            | The browser refuses to open, and no **Escape** override is added.                   |
+| Do                                                                                                                  | Expect                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Type `/prompts save`, `drafts add <text>` with quotes, an invalid number, `show <n>`, and `restore-and-delete <n>`. | Each behaves as documented.                                                                                         |
+| Restore a draft, then inspect native editor history.                                                                | Restoring hasn't added the text to native editor history.                                                           |
+| Save a multiline bracketed paste.                                                                                   | Storage holds the expanded text, not paste markers.                                                                 |
+| Bind confirm, copy, cancel, and navigation to keys used by fixed controls.                                          | Behaviour and hints follow the [precedence rules](controls.md#keys-and-precedence).                                 |
+| Disable paging with `[]`. Separately, restore it and bind the same key to copy, cancel, or confirm.                 | Disabled paging is not claimed. Each resolved browser action takes priority over transcript controls while focused. |
+| Bind cancel only to **Ctrl+C**, then only to a copy key.                                                            | The browser refuses to open, and no **Escape** override is added.                                                   |
 
 ### Capture, reload, or session isolation
 

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { copyFile, readFile, rm } from "node:fs/promises";
+import { copyFile, readFile } from "node:fs/promises";
 
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test } from "vite-plus/test";
@@ -10,17 +10,14 @@ import { RunReader } from "../src/history/reader.ts";
 import { detailsSchema } from "../src/result.ts";
 import { taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
 import type { TaskEvent } from "../src/tasks/registry.ts";
-import { remainingProcesses, killFixtureProcesses } from "./processes.ts";
-import { Supervisor } from "./supervisor.ts";
-import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
+import { withFixture } from "./background-fixture.ts";
+import { fixtureLaunch } from "./workspace.ts";
 
 test.skipIf(process.platform !== "linux")(
   "scopes activity to each child and resets it when a task resumes",
   async () => {
-    const directory = await createFixtureWorkspace();
-    const host = await Supervisor.start(directory);
-
-    try {
+    await withFixture(async (directory, start) => {
+      const host = await start();
       await host.prompt("activity-pair");
       const updates = host.records.flatMap((event) => {
         if (event.type !== "tool_execution_update" || event.toolName !== "subagent") return [];
@@ -185,12 +182,6 @@ test.skipIf(process.platform !== "linux")(
       } finally {
         await run.terminate("Activity fixture finished");
       }
-    } finally {
-      await host.stop();
-      const leaked = await remainingProcesses(directory);
-      await killFixtureProcesses(directory);
-      await rm(directory, { recursive: true, force: true });
-      expect(leaked).toEqual([]);
-    }
+    });
   }
 );

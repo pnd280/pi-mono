@@ -35,7 +35,7 @@ const argsSchema = z.object({
 });
 
 const taskSchema = z.object({
-  id: z.number(),
+  id: z.int().positive(),
   subject: z.string(),
   status: z.enum(TASK_STATUSES)
 });
@@ -235,10 +235,14 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
           (parsed.status === undefined || task.status === parsed.status)
       ).length;
 
-      return { text: `${matching} ${matching === 1 ? "todo" : "todos"} listed · ${progress}` };
+      return {
+        text: `${matching} matching ${matching === 1 ? "todo" : "todos"} · ${progress}`,
+        preserveOutput: true
+      };
     }
 
-    return { text: progress };
+    // Lists can omit rows while details retain every todo. Keep the producer's notice visible.
+    return { text: progress, preserveOutput: parsed.action === "list" };
   }
 };
 

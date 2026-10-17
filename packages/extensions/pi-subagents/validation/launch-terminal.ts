@@ -9,12 +9,12 @@ process.exitCode = await runTerminalLauncher({
 Creates an offline disposable workspace with jobs on and retains it for replay.
 Prompts: delegate-reply, delegate-error, delegate-slow, delegate-stubborn,
          delegate-dialog, delegate-display, delegate-remember, capacity, job-barrier,
-         job-stream`,
+         job-stream, job-retention`,
   createWorkspace: () =>
     createFixtureWorkspace({ settings: { "ext.pi-subagents": { jobs: true } } }),
   launch: fixtureLaunch,
   describe: (directory) => [
     `Fixture directory: ${directory}`,
-    "Prompts: delegate-reply, delegate-error, delegate-slow, delegate-stubborn, delegate-dialog, delegate-display, delegate-remember, capacity, background-idle, background-slow, nested-background, nested-slow, activity-pair, job-barrier and job-stream (create job-release in the work directory to end them)"
+    "Prompts: delegate-reply, delegate-error, delegate-slow, delegate-stubborn, delegate-dialog, delegate-display, delegate-remember, capacity, background-idle, background-slow, nested-background, nested-slow, activity-pair, job-barrier, job-stream and job-retention (create job-release in the work directory to end them)"
   ]
 });

@@ -12,25 +12,24 @@ process.exitCode = await runTerminalLauncher({
   args: process.argv.slice(2),
   help: "Usage: launch-terminal.ts <regular|fullscreen> [--reuse <fixture-directory>] [Pi arguments...]\nOffline skill-completion fixture with review and release skills and sample.txt; retains the fixture after exit.",
   async createWorkspace() {
-    const directory = await createValidationWorkspace("pi-skills-terminal-");
-    const skillDirectory = join(directory, "skills");
-    await mkdir(skillDirectory, { mode: 0o700 });
+    return createValidationWorkspace("pi-skills-terminal-", async (directory) => {
+      const skillDirectory = join(directory, "skills");
+      await mkdir(skillDirectory, { mode: 0o700 });
 
-    for (const name of ["review", "release"]) {
+      for (const name of ["review", "release"]) {
+        await writeFile(
+          join(skillDirectory, `${name}.md`),
+          `---\nname: ${name}\ndescription: Offline ${name} fixture\n---\nSkill body must not be injected.\n`
+        );
+      }
+
+      await writeFile(join(directory, "work", "sample.txt"), "Offline attachment fixture\n");
       await writeFile(
-        join(skillDirectory, `${name}.md`),
-        `---\nname: ${name}\ndescription: Offline ${name} fixture\n---\nSkill body must not be injected.\n`
+        join(directory, "agent", "settings.json"),
+        JSON.stringify({ theme: "dark", enableSkillCommands: true, quietStartup: true })
       );
-    }
-
-    await writeFile(join(directory, "work", "sample.txt"), "Offline attachment fixture\n");
-    await writeFile(
-      join(directory, "agent", "settings.json"),
-      JSON.stringify({ theme: "dark", enableSkillCommands: true, quietStartup: true })
-    );
-    await writeFile(join(directory, marker), markerText);
-
-    return directory;
+      await writeFile(join(directory, marker), markerText);
+    });
   },
   async launch(directory) {
     if ((await readFile(join(directory, marker), "utf8")) !== markerText)

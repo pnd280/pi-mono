@@ -1,10 +1,12 @@
 # pi-session-utils
 
-Conversations started with `--no-session` are lost when Pi exits, and Pi has no built-in way to start an empty session linked to the current one. This extension adds `/sesh` commands for both gaps, plus optional automatic session naming:
+Conversations started with `--no-session` are lost when Pi exits, and Pi has no built-in way to start an empty session linked to the current one. This extension adds `/sesh` commands for both gaps, plus optional automatic session naming.
 
-- Save a conversation started with `--no-session` to a file, so you can come back to it.
-- Start a fresh, empty session that records the current one as its parent, from inside Pi or with `pi --parent-session`.
-- Optionally, name sessions automatically with a model you choose.
+In a conversation started with `pi --no-session`, wait until the agent is idle, then save it:
+
+```text
+/sesh persist
+```
 
 ## Usage
 

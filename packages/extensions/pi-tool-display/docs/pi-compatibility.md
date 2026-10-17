@@ -2,14 +2,16 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.3.0 on Linux with unchanged host fingerprints, a source diff of the hooked Pi methods, the built-in MCP, tool-search, and codemode extensions, and `pi-mcp` and `pi-codemode`, the API and CLI suites, including the offline MCP and codemode hosts, and a tmux smoke run of the regular-mode `filenames` and `native-mixed` read ranges. Not covered by this review: fullscreen, replay, reload, mode cycling, thinking toggles, and the other manual [terminal checks](validation.md), physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
+> Last verified against Pi 1.3.0 on Linux with unchanged host fingerprints, a source diff of the hooked Pi methods, the built-in MCP, tool-search, and codemode extensions, and `pi-mcp` and `pi-codemode`, the API and CLI suites, including the offline MCP and codemode hosts, and a tmux smoke run of the regular-mode `filenames` and `native-mixed` read ranges. Offline provenance probes also cover both extension orders, session reload, later wrappers, version-mismatch refusal, and CLI `--help` loading. Not covered by the terminal smoke run: fullscreen, replay, reload, mode cycling, thinking toggles, and the other manual [terminal checks](validation.md), physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
 
-A _fingerprint_ is a hash of an inspected private Pi method's source. When a fingerprint doesn't match, the matching hook stays uninstalled and the feature falls back as described in the [README](../README.md#compatibility).
+A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports `inspectedPiVersion = "1.3.0"`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
+
+For host integration, the unwrapped value must be callable. A reviewed hash accepts it on any version. A callable with an unknown hash is accepted only when Pi's public `VERSION` equals the pin. A failed gate leaves the affected feature disabled as described in the [README](../README.md#compatibility).
 
 ## Upgrade procedure
 
 1. Work through every item under [contracts to verify](#contracts-to-verify).
-2. Update fingerprints only after the matching contract is confirmed.
+2. Update fingerprints and the version pin only after the matching contracts are confirmed.
 3. Run the [package checks](../README.md#validation) and the [host and terminal checks](testing.md#manual-checks). Include regular mode, fullscreen, reload, and replay.
 4. Update the "Last verified" line at the top of this file. Record what was not covered there, not in a separate log.
 
@@ -20,6 +22,9 @@ Work through every section below when you bump the supported Pi version, checkin
 ### Host hooks
 
 - [ ] [Host hooks](../src/host/compatibility.ts) cover construction, row insertion, expansion, thinking, reload, and conditional restoration.
+- [ ] Review `getRegisteredToolDefinition`, `renderSessionItems`, `handleEvent`, `addMessageToChat`, `addCustomEntryToChat`, `maybeShowThinkingDropNotice`, `addCacheMissNotice`, `addCacheWarmingUsage`, `showExtensionNotify`, `switchTuiMode`, and `updateThinkingBlockVisibility`. Check their recorded predecessors with `unwrapHook`; native implementation changes still require source review.
+- [ ] Reload installs over wrappers added later, and disposal restores only hooks still owned by this extension. Keep the existing ownership invariant and its reinstallation test.
+- [ ] Run the workspace [fingerprint check](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) after reviewing both builds. Keep its owner registration aligned with every source hash.
 - [ ] `getRegisteredToolDefinition` returns the renderers that Pi resolves through `session.extensionRunner.resolveToolRenderers`: extension resolvers from `registerToolRenderer`, then built-in renderers on the registered definition. The [lookup wrapper](../src/host/install.ts) calls it exactly once and gives no adapter to tools that it cannot select.
 - [ ] For registered tools, adapter selection treats `resolveToolRenderers(name, () => definition)` as the owner's renderers: resolvers, then the registered definition, without Pi's built-in renderers. Pi uses the same chain for HTML export. Unregistered names get no resolver renderers. Pi's MCP resolver answers every `mcp__` name, but servers register their tools after `/reload` reconstructs rows, and only generic rows can upgrade.
 - [ ] After disposal or rebinding, pending events don't reattach old row or assistant hooks.
@@ -43,7 +48,7 @@ Work through every section below when you bump the supported Pi version, checkin
 - [ ] `getStartupExpansionState` reflects `--verbose`.
 - [ ] The selected mode survives reconstruction and reload without being persisted.
 - [ ] `collapsedMode` controls startup and programmatic collapse from verbose. **Ctrl+O** follows the fixed cycle.
-- [ ] Recheck both method fingerprints in the API and installed CLI builds. On mismatch, **Ctrl+O** toggles only between the collapsed mode and verbose.
+- [ ] Recheck fingerprints for both expansion methods and the called-only private dependencies `getStartupExpansionState` and `showStatus` in the API and installed CLI builds. The former sets initial expansion; the latter must reuse the native status row. These gates require reviewed source hashes; the version pin gives no allowance. A mismatch disables only mode cycling: **Ctrl+O** toggles between the collapsed mode and verbose, while host rendering and session-scoped collection remain active.
 
 ### Row chrome
 
@@ -112,6 +117,10 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 ## Limitations and replacement opportunities
 
 - Public host and observation APIs could replace the private hooks if they keep the contracts above. Trace shared-library consumers before removing a hook.
+- Public component methods such as `setExpanded` and `invalidate`, and public session and renderer-resolver calls, retain their declared contracts. They do not need private-method fingerprints. Existing row and assistant fingerprints additionally guard the private child-layout assumptions that display changes.
+- Row and assistant source checks stay strict even when the public version matches the pin.
+- On the verified version, a changed native host method can be accepted as an unknown wrapper; version evidence cannot distinguish them. On an unverified version, an unknown wrapper disables host integration until the contracts and version pin are reviewed.
+- A public Pi mode-change API could replace the mode-switch wrappers shared with editor widgets.
 - As of Pi 1.3.0, `registerToolRenderer` could replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. It doesn't replace it yet: Pi also calls resolvers for HTML export, resolvers run in extension load order, so an earlier resolver can hide this one, and a resolver receives no host to claim the row's call.
 - Pi records each final tool result's `durationMs` in the session and passes it to renderers and `tool_execution_end`. It could replace local shell and mutation timing, so durations would replay on other machines, and could give codemode cards the script's total time that Pi's own row shows. Pi measures the whole `execute()` call, not only the shell or file operation.
 - Recheck the [image-row limitation](validation.md#platform-limitations) for finalised-message image updates against each new Pi version. Compare live and replay, with and without this extension.

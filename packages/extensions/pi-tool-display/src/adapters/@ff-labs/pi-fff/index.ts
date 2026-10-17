@@ -14,11 +14,16 @@ const scopeSchema = z
   .optional()
   .transform((value) => value || ".");
 const argumentSchemas = {
-  multi: z.object({ patterns: patternsSchema }),
-  find: z.object({ pattern: z.string() }),
-  grep: z.object({ pattern: z.string() })
+  multi: z.object({ patterns: patternsSchema, constraints: z.string().optional() }),
+  find: z.object({
+    pattern: z.string(),
+    path: z.string().optional(),
+    cursor: z.string().optional()
+  }),
+  grep: z.object({ pattern: z.string(), path: z.string().optional() })
 };
 const countsSchema = z.object({ totalMatched: z.number(), totalFiles: z.number() });
+const detailsSchema = z.union([countsSchema, z.strictObject({})]).optional();
 const summaryCountsSchema = z.object({
   totalMatched: z.int().nonnegative(),
   totalFiles: z.int().nonnegative()
@@ -30,10 +35,10 @@ const registrationSchemas = {
 };
 
 function supportsFffCall(kind: FffToolKind, args: unknown, result?: BorrowedToolResult): boolean {
-  if (!argumentSchemas[kind].safeParse(args).success) return false;
-  const details = record(result?.details);
-
-  return !result || !Object.keys(details).length || countsSchema.safeParse(details).success;
+  return (
+    argumentSchemas[kind].safeParse(args).success &&
+    (!result || detailsSchema.safeParse(result.details).success)
+  );
 }
 
 function patternPart(kind: FffToolKind, pattern: unknown): InvocationPart {
@@ -52,12 +57,22 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
     id: `@ff-labs/pi-fff:${kind}`,
     family: "search",
     supports: (args, result) => supportsFffCall(kind, args, result),
-    headingVerbs: (args) =>
-      kind === "find" && record(args).pattern === ""
+    headingVerbs(args) {
+      const data = record(args);
+
+      return kind === "find" &&
+        (data.cursor === undefined || data.cursor === "") &&
+        data.pattern === ""
         ? { action: "List", pending: "Listing", complete: "Listed" }
-        : undefined,
+        : undefined;
+    },
     invocation(args) {
       const data = record(args);
+      if (kind === "find" && typeof data.cursor === "string" && data.cursor !== "")
+        return [
+          { kind: "annotation", text: "page " },
+          { kind: "value", text: stringField(data.cursor) }
+        ];
       const listing = kind === "find" && data.pattern === "";
 
       return invocationParts(
@@ -87,8 +102,13 @@ export function piFffAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | u
         : parts.filter((part) => part.kind !== "warning");
     },
     exploration(args, result) {
-      if (!supportsFffCall(kind, args, result)) return undefined;
       const data = record(args);
+      // Find cursors resume a saved query whose pattern and scope are not published.
+      if (
+        !supportsFffCall(kind, args, result) ||
+        (kind === "find" && typeof data.cursor === "string" && data.cursor !== "")
+      )
+        return undefined;
       const scope = scopeSchema.safeParse(kind === "multi" ? data.constraints : data.path).data;
       const patterns = patternsSchema.safeParse(data.patterns).data;
 

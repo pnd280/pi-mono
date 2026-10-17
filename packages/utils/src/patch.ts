@@ -37,11 +37,12 @@ type Hunk = PatchHunk & {
 /** GNU diff omits a range's count when it is one. Text after the second `@@` is a heading. */
 const hunkHeader = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 
-/** Index after the first `+++` line. An empty line before it means the patch has no hunks. */
+/** Index after adjacent `---` and `+++` file headers, allowing a nonempty preamble. */
 function headerEnd(lines: readonly string[]): number | undefined {
   for (const [index, line] of lines.entries()) {
     if (!line || (line.startsWith("Binary files ") && line.endsWith("differ"))) return undefined;
-    if (line.startsWith("+++")) return index + 1;
+    if (line.startsWith("+++ "))
+      return lines[index - 1]?.startsWith("--- ") ? index + 1 : undefined;
   }
 
   return undefined;

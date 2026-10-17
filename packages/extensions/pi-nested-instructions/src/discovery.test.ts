@@ -1,4 +1,4 @@
-import { mkdir, rm, symlink } from "node:fs/promises";
+import { mkdir, symlink } from "node:fs/promises";
 import path from "node:path";
 
 import type { JsonObject } from "@earendil-works/pi-ai";
@@ -38,42 +38,6 @@ async function run(name = "read", input: JsonObject = { path: "pkg/deep/file.ts"
 
   return entries;
 }
-
-it("loads Pi's first readable regular filename per directory, broad to narrow, without ambient files", async () => {
-  await fs.write("AGENTS.md", "cwd not ours");
-  await fs.write("../AGENTS.md", "parent not ours");
-  await fs.write("pkg/AGENTS.md", "parent rules");
-  await fs.write("pkg/deep/CLAUDE.MD", "fallback");
-  await fs.write("pkg/deep/AGENTS.MD", "uppercase");
-  await fs.write("pkg/deep/AGENTS.override.md", "\uFEFFpreferred");
-  const loaded = notices(await run());
-  expect(
-    loaded.map(({ path: file }) => path.relative(fs.cwd, file!).split(path.sep).join("/"))
-  ).toEqual(["pkg/AGENTS.md", "pkg/deep/AGENTS.override.md"]);
-  expect(loaded[0]?.content).toContain("parent rules");
-  expect(loaded[1]?.content).toContain("preferred");
-  expect(loaded[1]?.content).not.toContain("\uFEFF");
-  expect(notices(await run())).toEqual([]);
-});
-
-it("falls back after directories, broken symlinks, or failed content reads", async () => {
-  await mkdir(path.join(fs.cwd, "pkg/AGENTS.override.md"), { recursive: true });
-  await symlink("missing", path.join(fs.cwd, "pkg/AGENTS.md"));
-  await fs.write("pkg/CLAUDE.md", "usable");
-  // A separate directory keeps every name distinct on case-insensitive file systems.
-  const unreadable = await fs.write("pkg/deep/AGENTS.md");
-  await fs.write("pkg/deep/CLAUDE.md", "usable");
-  files.read = vi.fn(async (file: string) => {
-    // Case-insensitive file systems also open this file as `AGENTS.MD`.
-    if (file.toLowerCase() === unreadable.toLowerCase()) throw new Error("unreadable");
-
-    return instructionFiles.read(file);
-  });
-  expect(notices(await run()).map(({ path: file }) => file)).toEqual([
-    path.join(fs.cwd, "pkg/CLAUDE.md"),
-    path.join(fs.cwd, "pkg/deep/CLAUDE.md")
-  ]);
-});
 
 it("follows instruction symlinks but not their destination ancestors", async () => {
   await fs.write("../external/AGENTS.md", "do not load this");
@@ -116,18 +80,6 @@ it("marks failed attempts too, and never treats directory listings as loaded con
   expect(files.read).not.toHaveBeenCalled();
   fs.manager.appendCompaction("summary", null, 1);
   expect(notices(await run("ls", { path: "pkg/" }))).toHaveLength(1);
-});
-
-it("gathers markers across the batch before reading content, while preserving preferred overrides", async () => {
-  await fs.write("pkg/AGENTS.md", "already being read");
-  const ordinary = fs.call("read", { path: "pkg/file.ts" });
-  const direct = fs.call("bash", { command: "cat pkg/AGENTS.md" });
-  const entries = await discover([ordinary, direct], fs.cwd, fs.manager, files);
-  fs.append(entries);
-  expect(entries).toHaveLength(1);
-  expect(files.read).not.toHaveBeenCalled();
-  await fs.write("pkg/AGENTS.override.md", "preferred override");
-  expect(notices(await run())[0]?.path).toBe(path.join(fs.cwd, "pkg/AGENTS.override.md"));
 });
 
 it.each([
@@ -192,7 +144,7 @@ it.each(["call removed", null])(
   }
 );
 
-it("rejects malformed markers and expires markers when a projected call's arguments change", async () => {
+it("rejects malformed markers and requires the exact unchanged projected call", async () => {
   await fs.write("pkg/AGENTS.md", "rules");
   const other = await fs.write("other/AGENTS.md", "other rules");
   const call = fs.call("read", { path: "pkg/AGENTS.md" });
@@ -208,6 +160,41 @@ it("rejects malformed markers and expires markers when a projected call's argume
     ]
   });
   expect(notices(await run())).toHaveLength(1);
+
+  fs.manager.appendCompaction("summary", null, 1);
+  const edited = fs.call("read", { path: "pkg/AGENTS.md" });
+  fs.manager.appendContextEdit(fs.manager.getLeafId()!, {
+    content: [
+      {
+        type: "toolCall",
+        id: edited.toolCallId,
+        name: "read",
+        arguments: { path: "other/file.ts" }
+      }
+    ]
+  });
+  const discovered = await discover([edited], fs.cwd, fs.manager, files);
+  expect(notices(discovered)).toMatchObject([{ path: path.join(fs.cwd, "pkg/AGENTS.md") }]);
+  expect(discovered.filter((entry) => entry.type === "custom")).toHaveLength(0);
+
+  fs.manager.appendCompaction("summary", null, 1);
+  fs.call("read", { path: "pkg/AGENTS.md" });
+  const previous = fs.manager.getLeafId()!;
+  const omitted = fs.call("read", { path: "pkg/AGENTS.md" });
+  const omittedEntry = fs.manager.getLeafId()!;
+  fs.manager.appendContextEdit(previous, {
+    content: [
+      {
+        type: "toolCall",
+        id: omitted.toolCallId,
+        name: "read",
+        arguments: { path: "pkg/AGENTS.md" }
+      }
+    ]
+  });
+  fs.manager.appendContextEdit(omittedEntry, null);
+  const rediscovered = await discover([omitted], fs.cwd, fs.manager, files);
+  expect(notices(rediscovered)).toMatchObject([{ path: path.join(fs.cwd, "pkg/AGENTS.md") }]);
 });
 
 it("an empty preferred instruction file still suppresses lower-priority content", async () => {
@@ -226,53 +213,5 @@ it("an empty preferred instruction file still suppresses lower-priority content"
   const emptied = await refresh(fs.cwd, fs.manager, files);
   expect(emptied.map((entry) => decodeNotice(entry).body)).toEqual([""]);
   fs.append(emptied);
-  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
-});
-
-it("keeps ordinary snapshots and refreshes only changed/removed visible scopes", async () => {
-  await fs.write("pkg/AGENTS.md", "old");
-  await run();
-  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
-  await fs.write("pkg/AGENTS.override.md", "old");
-  expect(await run()).toEqual([]);
-  const updated = await refresh(fs.cwd, fs.manager, files);
-  const updatedNotices = notices(updated);
-  expect(updatedNotices).toMatchObject([
-    {
-      action: "updated",
-      path: path.join(fs.cwd, "pkg/AGENTS.override.md")
-    }
-  ]);
-  expect(updatedNotices[0]?.content).toContain("old");
-  expect(updatedNotices[0]?.content).toMatch(/supersedes|replaces|overrides/i);
-  fs.append(updated);
-  await rm(path.join(fs.cwd, "pkg/AGENTS.override.md"));
-  fs.append(await refresh(fs.cwd, fs.manager, files));
-  await rm(path.join(fs.cwd, "pkg/AGENTS.md"));
-  const removed = await refresh(fs.cwd, fs.manager, files);
-  const removedNotices = notices(removed);
-  expect(removedNotices).toMatchObject([
-    {
-      action: "removed",
-      path: null
-    }
-  ]);
-  expect(removedNotices[0]?.content).toContain("no longer apply");
-  expect(removedNotices[0]?.content).toContain("pkg");
-  fs.append(removed);
-  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
-  fs.manager.appendCompaction("summary", null, 1);
-  await fs.write("pkg/AGENTS.md", "not eagerly reloaded");
-  expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
-  expect(notices(await run())).toHaveLength(1);
-});
-
-it("rechecks changed direct-read files on reload without retaining their old contents", async () => {
-  await fs.write("pkg/AGENTS.md", "old direct");
-  await run("bash", { command: "cat pkg/AGENTS.md" });
-  await fs.write("pkg/AGENTS.md", "new and longer direct rules");
-  const changes = await refresh(fs.cwd, fs.manager, files);
-  expect(notices(changes)[0]?.content).toContain("new and longer direct rules");
-  fs.append(changes);
   expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
 });

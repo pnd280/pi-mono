@@ -7,10 +7,12 @@
 Use [`text-budget`](index.ts) to wrap text synchronously and produce excerpts within row and character budgets.
 
 - `wrapRows` wraps ANSI-styled text and clamps wide graphemes that cannot fit.
-- `wrapHangingRows` wraps a first row beside a marker at one width and the remaining text at another, so continuation rows can take a tree prefix.
+- `wrapHangingRows` wraps a first row beside a marker at one width and the remaining text at another, so continuation rows can take a tree prefix. It consumes each break once and retains explicit blank rows.
 - `compactRows` retains head and tail rows, reserving one budgeted row for the caller's omission notice.
 - `displayLine` normalises raw text into one compact line from a bounded prefix (2048 UTF-16 code units by default), appending `…` only when it clips.
-- `compactText` limits text passed to wrapping, keeping excerpts from the start and end and SGR state.
+- `compactText` limits text passed to wrapping, keeping excerpts from the start and end.
+
+Wrapping and suffix excerpts use Pi's SGR tracking. Its [styling limits](../terminal-text/README.md#behaviour) apply to continuation rows and reconstructed suffix styling.
 
 `notice` receives omitted-row counts after full wrapping, or `undefined` when character clipping skips measurement. See [budget options](index.ts) for limits.
 

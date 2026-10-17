@@ -15,6 +15,8 @@ This package tests settings trust, delegated execution through its private Pi ho
 - **Critical, e2e:** Observed native calls keep their construction settings, including the shell path and command prefix.
 - **Critical, e2e:** Collection in TUI, RPC, print, and JSON preserves execution, trusted settings, verified native selection, renderer overrides, and middleware. Native observation requires verified native provenance and selection of the specialised native adapter.
 - **High, e2e:** Display integration preserves tool parameter schemas and results produced through Pi's middleware, registers no tools, and leaves the active tool selection unchanged.
+- **High, e2e:** Startup and the session remain usable when private host hooks are incompatible or non-writable. Failed installation leaves no partial hooks.
+- **High, e2e:** Buffered and replayed tool rows retain the correct call's arguments and results.
 - **High, integration:** File mutation observation uses the shared capture rather than rereading targets for display.
 - **High, unit:** An `edit` change fact is saved only when the result cannot replace it: a non-successful or missing result, or a missing, invalid or different `details.patch`. Line endings, file headers, and a BOM do not count as differences.
 - **Critical, unit:** `pi-tool-display.call` entries contain only the listed outcome, exit, timeout, application, and change facts and bounded patches. Local lines contain no result bodies, images, styled text, or previews. Call and writer records above the whole-record byte limit are rejected, including when unknown fields cause the excess.

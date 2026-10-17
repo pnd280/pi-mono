@@ -22,7 +22,7 @@ export function expandSkillInput(
   format = defaultExpansionFormat
 ): string {
   const paths = getSkillPaths(commands);
-  if (paths.size === 0 || !text.includes("/skill:")) return text;
+  if (paths.size === 0 || (!text.includes("/skill:") && !text.startsWith("/"))) return text;
 
   const references = new Map<string, string[]>();
 
@@ -41,27 +41,37 @@ export function expandSkillInput(
   for (const candidates of references.values())
     candidates.sort((left, right) => right.length - left.length);
 
-  let endOfExistingReference = 0;
+  const expansion = { existingReferenceEnd: 0, startsWithReference: false };
 
   const expanded = text.replace(/\S+/gu, (token, start: number) => {
-    if (start < endOfExistingReference) return token;
+    if (start < expansion.existingReferenceEnd) return token;
 
     const existing = references.get(token)?.find((reference) => text.startsWith(reference, start));
 
     if (existing !== undefined) {
       // A path or template can contain whitespace and skill-shaped tokens; skip the whole reference.
-      endOfExistingReference = start + existing.length;
+      expansion.existingReferenceEnd = start + existing.length;
+      if (start === 0) expansion.startsWithReference = true;
 
       return token;
     }
 
     const path = paths.get(token);
+    if (path === undefined) return token;
+    if (start === 0) expansion.startsWithReference = true;
 
-    return path === undefined ? token : formatReference(format, token, path);
+    return formatReference(format, token, path);
   });
 
   const leadingCommand = expanded.match(/^\/skill:[^ ]+/u)?.[0];
+  const leadingTemplate = expanded.match(/^\/(\S+)/u)?.[1];
+  const invokesTemplate =
+    expansion.startsWithReference &&
+    commands.some((command) => command.source === "prompt" && command.name === leadingTemplate);
 
-  // Pi parses the leading command up to the first literal space after input handlers run.
-  return leadingCommand && paths.has(leadingCommand) ? ` ${expanded}` : expanded;
+  // Pi expands skills at a literal space and templates at any whitespace after input handlers run.
+  // Only guard template commands introduced by a reference; keep ordinary template calls working.
+  return (leadingCommand && paths.has(leadingCommand)) || invokesTemplate
+    ? ` ${expanded}`
+    : expanded;
 }

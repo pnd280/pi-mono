@@ -37,7 +37,7 @@ One place in the whole live task tree. A run holds its slot until its child exit
 _Avoid_: permit, token
 
 **Job**:
-A shell command that a supervisor runs in the background with the `job` tool. A job has no child and no capacity slot. It stops when the supervisor's session binding ends.
+A shell command that a supervisor runs in the background with the `job` tool. A job has no child and no capacity slot. It keeps its shell handle through process cleanup and retains a bounded log. The supervisor waits for cleanup when its session binding ends; [job limits](docs/jobs.md#limits) apply.
 _Avoid_: background bash, background task
 
 **Promotion**:

@@ -16,7 +16,7 @@ Notices use persisted format version 3. Older notices keep their original text b
 
 ### Which files load
 
-Only directories below the session's working directory are searched. In each directory, the first readable regular file in Pi's order is used:
+Discovery searches paths written below the session's working directory. In each directory, the first readable regular file in Pi's order is used:
 
 1. `AGENTS.override.md`
 2. `AGENTS.md`
@@ -25,8 +25,9 @@ Only directories below the session's working directory are searched. In each dir
 5. `CLAUDE.MD`
 
 - Accessing a file searches from its parent directory upward. Accessing a directory includes that directory.
-- Scope follows the path as written, not the ancestors of a symlink's target.
-- Paths outside the working directory are ignored.
+- Scope follows the path as written. Ancestors of a symlink's target are not searched.
+- Paths outside the working directory are ignored before symlinks are resolved.
+- Directory and instruction-file symlinks are followed. Their targets can be outside the working directory.
 - Git-ignored directories, such as `node_modules`, are searched like any other directory, so reading a dependency's files can load its instructions.
 - If the model reads an instruction file directly, no second copy is added, even if the read fails.
 - Calls made by other tools, such as codemode scripts, still trigger discovery. Their reads of an instruction file don't count as direct reads, because the parent tool may hide what they read.

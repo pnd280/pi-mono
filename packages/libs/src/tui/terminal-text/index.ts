@@ -6,6 +6,48 @@ export function hasUnsafeTerminalControls(text: string): boolean {
   return /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/.test(text);
 }
 
+const sgrCodes = new Set([
+  0, 1, 2, 3, 4, 5, 7, 8, 9, 21, 22, 23, 24, 25, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 39, 40,
+  41, 42, 43, 44, 45, 46, 47, 49, 90, 91, 92, 93, 94, 95, 96, 97, 100, 101, 102, 103, 104, 105, 106,
+  107
+]);
+
+/** Keep the SGR dialect reconstructed by Pi's wrap/slice tracker. */
+function supportedSgr(parameters: string): string {
+  if (parameters === "") return "\x1b[m";
+  const parts = parameters.split(";");
+  const retained: string[] = [];
+
+  for (let index = 0; index < parts.length; index++) {
+    const parameter = parts[index];
+    // Colon subparameters form one unsupported parameter, never separate attributes.
+    if (!parameter || parameter.includes(":")) continue;
+    const code = Number(parameter);
+
+    if (code === 38 || code === 48 || code === 58) {
+      const mode = parts[index + 1];
+      // An unknown colour mode has no supported payload boundary.
+      if (mode !== "5" && mode !== "2") break;
+      const count = mode === "5" ? 1 : 3;
+      const channels = parts.slice(index + 2, index + 2 + count);
+      index += count + 1;
+      // Consume underline-colour and malformed colour groups as a whole so their
+      // channels cannot become bold, dim, blink, or other independent attributes.
+      if (
+        code !== 58 &&
+        channels.length === count &&
+        channels.every((channel) => /^\d+$/.test(channel) && Number(channel) <= 255)
+      )
+        retained.push(String(code), mode, ...channels.map((channel) => String(Number(channel))));
+      continue;
+    }
+
+    if (sgrCodes.has(code)) retained.push(String(code));
+  }
+
+  return retained.length ? `\x1b[${retained.join(";")}m` : "";
+}
+
 function escapeSequence(text: string, position: number): { end: number; sgr: string } {
   const code = text.charCodeAt(position);
   let index = position;
@@ -20,7 +62,7 @@ function escapeSequence(text: string, position: number): { end: number; sgr: str
     const start = index;
     while (index < text.length && !/[\x40-\x7e]/.test(text.charAt(index))) index++;
     if (text[index] === "m" && /^[0-9;:]*$/.test(text.slice(start, index)))
-      sgr = `\x1b[${text.slice(start, index)}m`;
+      sgr = supportedSgr(text.slice(start, index));
     index++;
   } else if (["]", "P", "_", "^", "X"].includes(kind ?? "")) {
     while (
@@ -72,7 +114,7 @@ function advanceSgr(codes: string, sequence: string): string {
 }
 
 /** Select a UTF-16 source range without splitting graphemes or recognized terminal sequences.
- * `leadingSgr` restores process styling when a styled suffix starts mid-stream.
+ * `leadingSgr` reconstructs suffix styling with Pi's SGR tracker.
  */
 export function sliceTerminalText(
   text: string,
@@ -137,7 +179,7 @@ function literal(text: string): string {
   );
 }
 
-/** Allow SGR only. OSC/DCS/APC and cursor/screen controls never reach the terminal.
+/** Allow only SGR supported by Pi's style tracker. OSC/DCS/APC and cursor/screen controls never reach the terminal.
  * Pass complete snapshots, not independently sanitized stream chunks.
  */
 export function styledOutput(text: string): string {
@@ -160,7 +202,11 @@ export function styledOutput(text: string): string {
 
 /** Untrusted content is plain text. Apply trusted styling only after normalization. */
 export function displayText(text: string): string {
-  return literal(stripTerminalSequences(text));
+  // Consume every complete CSI command before the host's limited final-byte matcher.
+  // oxlint-disable-next-line no-control-regex
+  const withoutCsi = text.replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "");
+
+  return literal(stripTerminalSequences(withoutCsi));
 }
 
 /** Flatten untrusted labels to one line before tab/CR expansion, then collapse spaces. */

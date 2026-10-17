@@ -5,6 +5,7 @@ import { absolutePathSchema } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 import { decodeNotice, digest, noticeSchema, noticeType } from "./notices.ts";
+import type { Invocation } from "./scopes.ts";
 
 export const readType = "pi-nested-instructions.read";
 
@@ -21,16 +22,19 @@ const readSchema = z.strictObject({
 
 type ReadMarker = z.infer<typeof readSchema>;
 
-export type SessionView = Pick<
-  ExtensionContext["sessionManager"],
-  "buildSessionProjection" | "getBranch"
->;
+export interface SessionView {
+  buildSessionProjection(): Pick<
+    ReturnType<ExtensionContext["sessionManager"]["buildSessionProjection"]>,
+    "entries"
+  >;
+  getBranch: ExtensionContext["sessionManager"]["getBranch"];
+}
 
 /** What the canonical session projection still shows the model about nested instructions. */
 export interface Ledger {
-  /** Records a direct-read attempt, or returns undefined when its call is not projected. */
+  /** Records a direct-read attempt only while its exact, unchanged source call is projected. */
   markRead(
-    toolCallId: string,
+    call: Invocation,
     file: string,
     stamp: string | undefined
   ): SessionBoundaryDraft | undefined;
@@ -56,8 +60,7 @@ export function ledger(session: SessionView): Ledger {
   );
   const reads = new Map<string, ReadMarker>();
   const scopes = new Map<string, { path: string | null; body: string }>();
-  const calls = new Map<string, { entryId: string; part: object }>();
-  const visibleCalls = new Map<string, object>();
+  const visibleCalls = new Map<string, { name: string; arguments: unknown }>();
   // Hash calls only when a marker needs them, not every call in the session on each turn.
   const digests = new WeakMap<object, string>();
 
@@ -78,7 +81,6 @@ export function ledger(session: SessionView): Ledger {
 
       for (const part of message.content) {
         if (part.type !== "toolCall") continue;
-        calls.set(part.id, { entryId: entry.sourceEntry.id, part });
         visibleCalls.set(JSON.stringify([entry.sourceEntry.id, part.id]), part);
       }
     }
@@ -116,15 +118,21 @@ export function ledger(session: SessionView): Ledger {
   }
 
   return {
-    markRead(toolCallId, file, stamp) {
-      const origin = calls.get(toolCallId);
-      if (!origin) return undefined;
+    markRead(call, file, stamp) {
+      if (!call.callEntryId) return undefined;
+      const origin = visibleCalls.get(JSON.stringify([call.callEntryId, call.toolCallId]));
+      if (
+        !origin ||
+        origin.name !== call.toolName ||
+        JSON.stringify(origin.arguments) !== JSON.stringify(call.input)
+      )
+        return undefined;
       const marker: ReadMarker = {
         version: 1,
         path: file,
-        toolCallId,
-        callEntryId: origin.entryId,
-        callDigest: callDigest(origin.part),
+        toolCallId: call.toolCallId,
+        callEntryId: call.callEntryId,
+        callDigest: callDigest(origin),
         stamp: stamp ?? null
       };
       reads.set(file, marker);

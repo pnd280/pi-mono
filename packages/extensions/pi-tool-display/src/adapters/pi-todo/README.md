@@ -12,7 +12,9 @@ Todo calls from [`pi-todo`](../../../../pi-todo/README.md) appear as `Todos` car
 
 ## Arguments and results
 
-Argument and snapshot validation uses the action and status vocabularies from `pi-todo/text`, so they track the tool; a new action fails type checking until it has heading verbs. A validated snapshot in retained `details.tasks` supplies todo subjects, confirmed statuses, and progress summaries. For a successful create call, `details.nextId - 1` identifies the new todo when that ID exists in the snapshot. A nonempty `details.error` marks the call as a failure even when Pi's error flag is false.
+Argument and snapshot validation use the action and status vocabularies from `pi-todo/text`, so they track the tool; a new action fails type checking until it has heading verbs. Retained task IDs must be positive safe integers. Argument IDs remain numeric so the tool can return domain errors.
+
+A validated snapshot in retained `details.tasks` supplies todo subjects, confirmed statuses, and progress summaries. For a successful create call, `details.nextId - 1` identifies the new todo when that ID exists in the snapshot. A nonempty `details.error` marks the call as a failure even when Pi's error flag is false.
 
 After a result exists, incompatible arguments use ungrouped generic cards, for example `Call failed todo({})`. Unrecognised details do not force fallback, but subjects, progress, and outcomes require validated details.
 
@@ -20,10 +22,10 @@ After a result exists, incompatible arguments use ungrouped generic cards, for e
 
 Supported cards start with `Todos` and the action. Subject previews, status words, and progress summaries come from the [`pi-todo/text`](../../../../pi-todo/src/text.ts) contract, so cards match the widget and browser: subjects use a 200-code-point budget, including any omission mark, and keep whole graphemes.
 
-Compact cards replace successful output with confirmed status and progress:
+Compact cards replace successful output with confirmed status and progress. List cards keep the output preview beside the summary so the producer's omission notices remain visible.
 
 - Progress excludes deleted todos. Snapshots containing only deleted todos report their count and `no active todos`. Empty snapshots report `No todos`.
-- Lists with a status filter or `includeDeleted: true` also report the number of listed todos.
+- Lists with a status filter or `includeDeleted: true` also report the number of matching todos in the full snapshot.
 - Missing or invalid snapshots use an output preview.
 - Failures omit the summary and show diagnostic bodies in `error`.
 

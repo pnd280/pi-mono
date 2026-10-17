@@ -6,7 +6,7 @@ MCP tool calls from [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adap
 
 ## Compatibility and selection
 
-`piMcpAdapter(toolInfo)` checks that a tool really comes from `pi-mcp-adapter` by verifying its provenance and schemas. Provenance accepts any package version; the schemas were inspected in 2.33.0. It covers `mcp`, `mcpScript`, namespace proxies, and direct tools with any name. MCP-like tools from the SDK or other packages don't qualify. Unsupported retained arguments or details use generic cards.
+`piMcpAdapter(toolInfo)` checks that a tool really comes from `pi-mcp-adapter` by verifying its provenance and schemas. Provenance accepts any package version; the schemas were inspected in 3.3.0. It covers `mcp`, `mcpScript`, namespace proxies, and direct tools with any name. MCP-like tools from the SDK or other packages don't qualify. Unsupported retained arguments or details use generic cards.
 
 See [automatic selection](../../../docs/adapters.md#automatic-selection) for renderer overrides and fallback policy.
 
@@ -33,7 +33,7 @@ Validated metadata supplies the resolved `server.tool`; without it, the card kee
 
 MCP calls remain individual cards outside exploration groups. Nonscript calls use output previews.
 
-Completed scripts summarise validated `details.calls` records; calls, searches, and descriptions each count as operations:
+Completed scripts summarise validated `details.calls` records; calls, searches, descriptions, and evaluations each count as operations:
 
 - When the script and all recorded operations succeed, a nonzero total replaces emitted text in compact mode. Expansion restores that text.
 - Failed or unfinished operations keep an output preview beside the total, with separate warning counts. An operation with `ok: false` and `error: "incomplete"` counts as unfinished rather than failed.

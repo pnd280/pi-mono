@@ -45,7 +45,7 @@ For a new task, Pi keeps the marker in memory until the work prompt is persisted
 - A run's entries are the child-file entries whose nearest marker ancestor is that run's marker. The run's final leaf is the last appended entry among the run's entries. The supervisor does not record the leaf: Pi's RPC stream reports message entries without their IDs.
 - After `begin`, the child extension cancels tree navigation, fork, and session switch, including the RPC `fork` and `new_session` commands. A run is therefore one chain that cannot leave its marker's subtree, and the rule above has one answer.
 - The viewer and `show` read the ancestry from the child file's root to the run's final leaf. One run reader supplies it: through the child's RPC connection while the run is live in this binding, and from the child file otherwise. A view keeps one transcript for each run of its task. `--last` uses Pi's model context on that ancestry. A cursor is an entry ID on that ancestry; any other cursor is an error.
-- A child's file is also its supervisor session. Its descendants are the `run` entries on the ancestry of the child's selected run. The panel, `list`, and `show` read descendant files recursively on demand, and they cache each parsed file by path, size, and modification time. The open panel reads them again every second, because a child that runs in another process can add descendants. A record from a live update or from this binding's own run replaces a record read from a file. A file names a run before the run's live update arrives, so the read of an active task stops at its run's marker, and that run's descendants come only from live updates.
+- A child's file is also its supervisor session. Its descendants are the `run` entries on the ancestry of the child's selected run. The panel, `list`, and `show` read descendant files recursively on demand, and they cache each parsed file by path, size, and modification time (extended by the [file-identity update](#file-identity-update)). The open panel reads them again every second, because a child that runs in another process can add descendants. A record from a live update or from this binding's own run replaces a record read from a file. A file names a run before the run's live update arrives, so the read of an active task stops at its run's marker, and that run's descendants come only from live updates.
 - A run's history is the same in every parent branch. A parent branch that forked during a run shows the whole run as `cancelled`, including output and descendants produced after the fork point.
 - Reading never writes to a child file. Files larger than the current 64 MiB read limit show the unavailable-history diagnostic.
 
@@ -55,7 +55,7 @@ Pi does not lock session files, and a child can outlive its supervisor until it 
 
 - The lease is the directory `<canonical child file>.lease/`. Each contender publishes an entry with a random name, through a temporary file and a rename. The entry lists the contender's supervisor PID. Then the contender lists the directory.
 - A contender holds the lease when no other entry names a live process. An entry that it cannot parse counts as live. A signal still reaches an exited process until its parent reaps it, so on Linux the contender also reads the process state; a zombie is not live. Otherwise it removes its own entry, and the launch fails with "Task is running in another process".
-- Any contender can delete an entry whose processes are all dead. The name is unique, so the deletion cannot remove a live contender's entry.
+- Any contender can delete an entry whose processes are all dead. The original design relied on the unique name to protect live entries; the [file-identity update](#file-identity-update) corrects this assumption.
 - Right after spawn, the holder atomically replaces its entry to add the child PID. When it observes the child exit, it removes its entry and then the empty directory.
 - If the holder cannot remove its entry, such as on Windows while a virus scanner has it open, the process remembers the entry as released. Its own next contender for the file deletes the entry instead of counting it as live. Other processes still count it as live until this process exits.
 - Two simultaneous contenders can both fail, but two holders are impossible: the later listing always sees the earlier contender's live entry.
@@ -118,6 +118,13 @@ Maintainers must also make these changes:
 - Update the README, `docs/testing.md`, `docs/pi-compatibility.md`, and the live-record note in ADR 0002. New invariants and tests require user approval.
 
 For the measured session, the supervisor would store 32 small entries instead of 2,244. Nothing would remain under `<agentDir>/pi-subagents/`, and lease directories would exist only while runs are live.
+
+### File-identity update
+
+Update, 2026-10-17: the reader and stale-lease cleanup also check file identity.
+
+- The cache now checks device, inode, and change time as well as path, size, and modification time. Replacing a child file with one of the same size and modification time must not reuse the earlier parsed session.
+- Before deleting a stale lease entry, the contender checks that its current device and inode match the opened entry whose process IDs it checked. A holder can replace its entry to add a live child before the supervisor exits. If the identity changed, acquisition fails instead of deleting that replacement.
 
 ## Runtime checks
 

@@ -7,6 +7,7 @@ This package tests selection validation and the guard around Pi's native `read`,
 ## Must not regress
 
 - **High, unit:** Selections require positive safe integers and ordered ranges, and reject unknown fields, before native execution.
+- **High, unit:** Selections use absolute one-based lines and one-based Unicode code-point columns with exclusive ends for preview text and corresponding UTF-16 highlight ranges.
 - **High, unit:** The native tool executes once with the independent read window and the caller's cancellation signal and update callback, without a second read. Native failures propagate to the caller.
 - **High, unit:** Adding a preview preserves native content blocks and unrelated details.
 - **High, unit:** Preview bounds come from the source actually returned, not the requested limits, and exclude native continuation and truncation notices.
@@ -15,7 +16,7 @@ This package tests selection validation and the guard around Pi's native `read`,
 
 ## Not tested
 
-- Schema projection, source clipping, preview formatting, empty-selection notices, and highlight rendering: below the severity bar.
+- Schema projection, preview formatting, empty-selection notices, and highlight rendering: below the severity bar.
 - Pi's filesystem implementation: owned by Pi.
 
 ## Manual checks

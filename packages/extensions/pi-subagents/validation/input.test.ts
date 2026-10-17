@@ -1,4 +1,4 @@
-import { readFile, rm } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { setTimeout } from "node:timers/promises";
 
 import { contentText } from "@earendil-works/pi-ai";
@@ -9,10 +9,8 @@ import { z } from "zod";
 import { RESULT_MESSAGE } from "../src/constants.ts";
 import { detailsSchema } from "../src/result.ts";
 import { taskRecordSchema } from "../src/tasks/records.ts";
-import { release } from "./background-fixture.ts";
-import { remainingProcesses, killFixtureProcesses } from "./processes.ts";
-import { Supervisor } from "./supervisor.ts";
-import { createFixtureWorkspace } from "./workspace.ts";
+import { release, withFixture } from "./background-fixture.ts";
+import type { Supervisor } from "./supervisor.ts";
 
 // Each test owns its workspace and processes.
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
@@ -52,100 +50,96 @@ async function sendUpdate(host: Supervisor, directory: string, message: string):
 test.each(["follow_up", "steer", "settling", "exiting"])(
   "preserves input and usage through %s delivery",
   async (mode) => {
-    const directory = await createFixtureWorkspace({
-      settings: { "ext.pi-subagents": { maxConcurrent: 1 } }
-    });
-    const host = await Supervisor.start(directory);
-
-    try {
-      const scenario = ["settling", "exiting"].includes(mode) ? mode : "input";
-      await host.reply(`background-${scenario}`);
-      const initial = (await host.results())[0]!;
-      const id = detailsSchema.parse(initial.details).task_id!;
-      if (mode === "settling") await ready(`${directory}/work/settle-ready`);
-      if (mode === "exiting") await ready(`${directory}/work/exit-ready`);
-      const message = `update-id ${id} ${mode === "steer" ? "steer" : "follow_up"}`;
-      // The settling child holds its settle hook until the input arrives.
-      if (mode === "settling" || mode === "exiting") await host.prompt(message);
-      else await sendUpdate(host, directory, message);
-      const update = (await host.results()).at(-1)!;
-      expect(detailsSchema.parse(update.details).task_id).toBe(id);
-      if (mode !== "exiting") {
-        expect(contentText(update.content)).toContain("Background task updated");
-        expect(update.usage).toBeUndefined();
-      } else
-        expect(contentText(update.content)).toContain(
-          "Input occurrences: 1; earlier context: true"
+    await withFixture(
+      async (directory, start) => {
+        const host = await start();
+        const scenario = ["settling", "exiting"].includes(mode) ? mode : "input";
+        await host.reply(`background-${scenario}`);
+        const initial = (await host.results())[0]!;
+        const id = detailsSchema.parse(initial.details).task_id!;
+        if (mode === "settling") await ready(`${directory}/work/settle-ready`);
+        if (mode === "exiting") await ready(`${directory}/work/exit-ready`);
+        const message = `update-id ${id} ${mode === "steer" ? "steer" : "follow_up"}`;
+        // The settling child holds its settle hook until the input arrives.
+        if (mode === "settling" || mode === "exiting") await host.prompt(message);
+        else await sendUpdate(host, directory, message);
+        const update = (await host.results()).at(-1)!;
+        expect(detailsSchema.parse(update.details).task_id).toBe(id);
+        if (mode !== "exiting") {
+          expect(contentText(update.content)).toContain("Background task updated");
+          expect(update.usage).toBeUndefined();
+        } else
+          expect(contentText(update.content)).toContain(
+            "Input occurrences: 1; earlier context: true"
+          );
+        if (mode !== "exiting")
+          await host.wait(
+            (event) =>
+              event.type === "message_end" &&
+              event.message.role === "custom" &&
+              event.message.customType === RESULT_MESSAGE
+          );
+        const entries = await host.entries();
+        const completions = entries.filter(
+          (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
         );
-      if (mode !== "exiting")
-        await host.wait(
-          (event) =>
-            event.type === "message_end" &&
-            event.message.role === "custom" &&
-            event.message.customType === RESULT_MESSAGE
-        );
-      const entries = await host.entries();
-      const completions = entries.filter(
-        (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
-      );
-      expect(completions).toHaveLength(1);
-      expect(
-        completions[0]?.type === "custom_message"
-          ? detailsSchema.parse(completions[0].details).usage
-          : undefined
-      ).toMatchObject({ input: mode === "exiting" ? 10 : 20, output: mode === "exiting" ? 5 : 10 });
-      if (mode === "exiting") expect(update.usage).toMatchObject({ input: 10, output: 5 });
-      // The reply that the input followed stays in the result, before the input's reply.
-      if (mode !== "exiting")
+        expect(completions).toHaveLength(1);
         expect(
-          completions[0]?.type === "custom_message" ? contentText(completions[0].content) : ""
-        ).toMatch(
-          /Choose a subagents fixture scenario\.\s+Input occurrences: 1; earlier context: true/
-        );
-      const page = z
-        .object({ tasks: z.array(taskRecordSchema) })
-        .parse(JSON.parse((await host.command("list")).message));
-      expect(page.tasks).toHaveLength(1);
-      const session = await readFile(page.tasks[0]!.session_file, "utf8");
-      const messages = session
-        .trim()
-        .split("\n")
-        .map((line) =>
-          z
-            .object({
-              type: z.string(),
-              message: z.object({ role: z.string(), content: z.unknown() }).optional()
-            })
-            .parse(JSON.parse(line))
-        );
-      expect(
-        messages.filter(
-          (entry) =>
-            entry.message?.role === "user" &&
-            JSON.stringify(entry.message.content).includes("input-payload")
-        )
-      ).toHaveLength(1);
-    } finally {
-      await host.stop();
-      const leaked = await remainingProcesses(directory);
-      await killFixtureProcesses(directory);
-      await rm(directory, { recursive: true, force: true });
-      expect(leaked).toEqual([]);
-    }
+          completions[0]?.type === "custom_message"
+            ? detailsSchema.parse(completions[0].details).usage
+            : undefined
+        ).toMatchObject({
+          input: mode === "exiting" ? 10 : 20,
+          output: mode === "exiting" ? 5 : 10
+        });
+        if (mode === "exiting") expect(update.usage).toMatchObject({ input: 10, output: 5 });
+        // The reply that the input followed stays in the result, before the input's reply.
+        if (mode !== "exiting")
+          expect(
+            completions[0]?.type === "custom_message" ? contentText(completions[0].content) : ""
+          ).toMatch(
+            /Choose a subagents fixture scenario\.\s+Input occurrences: 1; earlier context: true/
+          );
+        const page = z
+          .object({ tasks: z.array(taskRecordSchema) })
+          .parse(JSON.parse((await host.command("list")).message));
+        expect(page.tasks).toHaveLength(1);
+        const session = await readFile(page.tasks[0]!.session_file, "utf8");
+        const messages = session
+          .trim()
+          .split("\n")
+          .map((line) =>
+            z
+              .object({
+                type: z.string(),
+                message: z.object({ role: z.string(), content: z.unknown() }).optional()
+              })
+              .parse(JSON.parse(line))
+          );
+        expect(
+          messages.filter(
+            (entry) =>
+              entry.message?.role === "user" &&
+              JSON.stringify(entry.message.content).includes("input-payload")
+          )
+        ).toHaveLength(1);
+      },
+      {
+        settings: { "ext.pi-subagents": { maxConcurrent: 1 } }
+      }
+    );
   }
 );
 
 test.for(["stopped", "live"])(
   "routes input to its owner, and only the owner resumes an inactive descendant of a %s owner",
   async (mode, { expect }) => {
-    const directory = await createFixtureWorkspace();
-    let host = await Supervisor.start(directory);
-    const page = async () =>
-      z
-        .object({ tasks: z.array(taskRecordSchema) })
-        .parse(JSON.parse((await host.command("list")).message)).tasks;
-
-    try {
+    await withFixture(async (directory, start) => {
+      let host = await start();
+      const page = async () =>
+        z
+          .object({ tasks: z.array(taskRecordSchema) })
+          .parse(JSON.parse((await host.command("list")).message)).tasks;
       await host.reply(mode === "live" ? "background-owner-live" : "background-owner");
       await expect
         .poll(async () => (await page()).find((task) => task.parent_task_id !== null)?.state, {
@@ -192,11 +186,11 @@ test.for(["stopped", "live"])(
         );
       const state = await host.state();
       await host.stop();
-      host = await Supervisor.start(directory, { sessionId: state.sessionId });
+      host = await start({ sessionId: state.sessionId });
       expect((await page()).find((task) => task.task_id === child!.task_id)?.parent_task_id).toBe(
         owner!.task_id
       );
-      const foreign = await Supervisor.start(directory);
+      const foreign = await start();
 
       try {
         await foreign.prompt(`update-id ${child!.task_id} steer`);
@@ -211,12 +205,6 @@ test.for(["stopped", "live"])(
         `Input occurrences: ${mode === "live" ? 1 : 2}`
       );
       expect((await readFile(child!.session_file, "utf8")).startsWith(saved)).toBe(true);
-    } finally {
-      await host.stop();
-      const leaked = await remainingProcesses(directory);
-      await killFixtureProcesses(directory);
-      await rm(directory, { recursive: true, force: true });
-      expect(leaked).toEqual([]);
-    }
+    });
   }
 );

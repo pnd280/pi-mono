@@ -201,11 +201,15 @@ class NativeTools {
     for (const [name, original] of construction.definitions) {
       const previous = construction.replacements.get(name);
       const current = internal._baseToolDefinitions.get(name);
+      // Eligibility callbacks can dispose entries in this subscription snapshot.
       const subscriber = customNames.has(name)
         ? undefined
         : [...this.observers].find(
-            ({ observer }) =>
-              observer.names.includes(name) && this.safely(() => observer.eligible(session, name))
+            (candidate) =>
+              this.observers.has(candidate) &&
+              candidate.observer.names.includes(name) &&
+              this.safely(() => candidate.observer.eligible(session, name)) &&
+              this.observers.has(candidate)
           );
       if (previous && current === previous.replacement && subscriber === previous.subscriber)
         continue;
@@ -229,7 +233,7 @@ class NativeTools {
       const observed = this.safely(() =>
         subscriber.observer.wrap(session, original.definition, construction.settings)
       );
-      if (!observed) continue;
+      if (!observed || !this.observers.has(subscriber)) continue;
       const registry = this;
       const replacement: ToolDefinition = {
         ...observed,

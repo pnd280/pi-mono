@@ -435,14 +435,14 @@ export class TodosView implements Component {
   }
 
   private footerHints(bodyLength: number, capacity: number): string[] {
+    const cancel = this.keyHint("cancel", this.detail ? "back" : "close");
+    if (!this.entries.length) return [cancel];
     const arrows = navigationHints(
       this.keyLabel("up"),
       this.keyLabel("down"),
       this.detail ? "scroll" : "select"
     );
-    const hints = this.detail
-      ? [...arrows, this.keyHint("cancel", "back")]
-      : [...arrows, this.keyHint("confirm", "details"), this.keyHint("cancel", "close")];
+    const hints = [cancel, ...arrows, ...(this.detail ? [] : [this.keyHint("confirm", "details")])];
 
     if (bodyLength > capacity) {
       hints.push(...navigationHints(this.keyLabel("pageUp"), this.keyLabel("pageDown"), "page"));
@@ -452,9 +452,7 @@ export class TodosView implements Component {
   }
 
   ownsFullscreenInput(data: string): boolean {
-    const action = this.actionFor(data);
-
-    return action === "pageUp" || action === "pageDown";
+    return this.actionFor(data) !== undefined;
   }
 
   handleInput(data: string): void {

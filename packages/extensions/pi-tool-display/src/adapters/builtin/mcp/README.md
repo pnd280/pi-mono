@@ -16,7 +16,7 @@ Pi 1.3.0 replaces every character outside `[A-Za-z0-9_]` with `_` and adds a has
 
 The adapter replaces Pi's own MCP renderer. Pending calls show Pi's tool name, such as `mcp__exa__web_search_exa`, because sanitised names may end in a hash and are never decoded. Results and progress updates carry `details.server` and `details.tool`, which switch the heading to the unsanitised `server.tool`, even when the result has no content. Arguments always stay visible, regardless of `showParameters`.
 
-Output uses the ordinary [MCP facts](../../../../docs/renderers.md#mcp-facts) preview. Pi's error flag marks returned MCP errors and thrown calls as failures. Thrown or blocked calls have no details and keep Pi's tool name. Other detail shapes fall back to generic cards.
+Output uses the ordinary [MCP facts](../../../../docs/renderers.md#mcp-facts) preview. Pi's error flag marks returned MCP errors and thrown calls as failures. Thrown or blocked calls carry an empty details object and keep Pi's tool name. Missing details are also accepted. Other detail shapes use generic cards.
 
 When Pi truncated the output and saved it, compact cards use `details.fullOutputPath` to add an "MCP output truncated; expand to inspect retained output." warning and a "Saved output" reference. Expanded cards keep Pi's warning and reference in the retained output without adding them again. If saving failed, Pi records nothing structured, so the card adds no notice; the truncation text remains in the output.
 

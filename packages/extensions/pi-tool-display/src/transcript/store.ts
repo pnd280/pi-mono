@@ -77,6 +77,12 @@ function parse(bytes: Buffer): { calls: Map<string, LocalCall>; skipped: number 
   let skipped = 0;
 
   for (const line of lines) {
+    // Apply the writer's byte limit before parsing, including unknown fields and the newline.
+    if (Buffer.byteLength(line) + 1 > LINE_BYTES) {
+      skipped++;
+      continue;
+    }
+
     let value: unknown;
 
     try {

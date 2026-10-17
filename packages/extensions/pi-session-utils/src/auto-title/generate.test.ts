@@ -22,7 +22,6 @@ async function fixture() {
   runtime.registerNativeProvider(faux.provider);
   await runtime.refresh({ allowNetwork: false, providers: [faux.provider.id] });
   const registry = new ModelRegistry(runtime);
-  const model = registry.find(faux.provider.id, "nested/model")!;
   const stream = vi.spyOn(faux.provider, "streamSimple");
   const auth = vi.spyOn(faux.provider.auth.apiKey!, "resolve");
   const controller = new AbortController();
@@ -34,36 +33,8 @@ async function fixture() {
   };
   faux.setResponses([fauxAssistantMessage("Fix token expiry")]);
 
-  return { model, stream, auth, request, controller };
+  return { stream, auth, request, controller };
 }
-
-it("requests thinking off without inheriting the active model's effort", async () => {
-  const { request, stream } = await fixture();
-  await generateTitle({ ...request, config: { ...request.config, thinkingLevel: "off" } });
-  expect(stream.mock.calls[0]?.[2]?.reasoning).toBeUndefined();
-});
-
-it("refuses incomplete config, unavailable models, and unsupported thinking without a request", async () => {
-  const { request, model, stream } = await fixture();
-  await expect(generateTitle({ ...request, config: undefined })).rejects.toThrow(TitleError);
-  await expect(
-    generateTitle({ ...request, config: { ...request.config, model: "missing/model" } })
-  ).rejects.toThrow(TitleError);
-  model.thinkingLevelMap = { low: null };
-  await expect(generateTitle(request)).rejects.toThrow(TitleError);
-  expect(stream).not.toHaveBeenCalled();
-});
-
-it("reports authentication failure without exposing the provider's error content", async () => {
-  const { request, auth, stream } = await fixture();
-  const secret = "private credential detail";
-  const excludesSecret: unknown = expect.not.stringContaining(secret);
-  auth.mockRejectedValue(new Error(secret));
-  await expect(generateTitle(request)).rejects.toThrow(
-    expect.objectContaining({ message: excludesSecret })
-  );
-  expect(stream).not.toHaveBeenCalled();
-});
 
 it("times out stalled authentication and never starts transport afterward", async () => {
   vi.useFakeTimers();

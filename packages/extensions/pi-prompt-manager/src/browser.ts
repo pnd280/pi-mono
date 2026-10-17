@@ -175,7 +175,7 @@ export async function openBrowser(
     onError: (error) => ports.notify(errorMessage(error), "error"),
     onInputRoutingUnavailable: () =>
       ports.notify(
-        "Prompt browser fullscreen paging is unavailable on this host. Use arrow keys to navigate.",
+        "Prompt browser fullscreen input routing is unavailable on this host. Use regular mode if controls do not respond.",
         "warning"
       ),
     afterClose: () => request.afterClose(restoration)

@@ -33,8 +33,11 @@ test.each([
   async (mode, resultDelivery) => {
     await fixture(
       async (host) => {
+        // Reuse the supervisor so prior results cannot satisfy the next scenario's checks.
         await host.prompt(`background-${mode}`);
-        const initial = (await host.results())[0]!;
+        const start = host.records.length;
+        await host.prompt(`background-${mode}`);
+        const initial = (await host.results())[1]!;
         expect(detailsSchema.parse(initial.details)).toMatchObject({
           background: true,
           state: "running"
@@ -43,7 +46,8 @@ test.each([
           (record) =>
             record.type === "message_end" &&
             record.message.role === "custom" &&
-            record.message.customType === RESULT_MESSAGE
+            record.message.customType === RESULT_MESSAGE,
+          start
         );
         expect(completion.type).toBe("message_end");
         // Both cases continue the same run: idle after the `agent_end` wait, busy at settlement.
@@ -51,15 +55,17 @@ test.each([
           (record) =>
             record.type === "message_end" &&
             record.message.role === "assistant" &&
-            contentText(record.message.content).includes("background results 1")
+            contentText(record.message.content).includes("background results 1"),
+          start
         );
+        expect(host.records.slice(start).some(replies("background results 2"))).toBe(false);
         const entries = await host.entries();
         expect(
           entries.filter(
             (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
           )
-        ).toHaveLength(1);
-        expectChildUsageOnce(entries, 1);
+        ).toHaveLength(2);
+        expectChildUsageOnce(entries, 2);
       },
       4,
       2,

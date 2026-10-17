@@ -11,7 +11,7 @@ import {
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import { builtinText } from "./builtins.ts";
-import type { WidgetHost } from "./host.ts";
+import { widgetHostMethodsCompatible, widgetRendererCompatible, type WidgetHost } from "./host.ts";
 import { regions, resolveLayout, type Layout, type Placement, type Region } from "./layout.ts";
 import { clip, renderRows, type Rendered } from "./render.ts";
 
@@ -58,11 +58,22 @@ export class WidgetCoordinator {
       belowEditor: this.regionComponent("belowEditor"),
       footer: this.regionComponent("footer")
     };
+
+    if (!widgetHostMethodsCompatible(host)) {
+      this.active = false;
+      this.warn(
+        "pi-editor-widgets: unsupported Pi widget registry. Use Pi 1.3.0 and /reload, or disable the extension. Native UI was left unchanged."
+      );
+
+      return;
+    }
+
     const switchMode = host.switchTuiMode.bind(host);
     const renderWidgets = host.renderWidgets.bind(host);
 
     try {
       this.bindRenderer();
+      if (!this.active) return;
       this.hooks.replace(host, "switchTuiMode", (...args) => {
         try {
           return switchMode(...args);
@@ -208,8 +219,18 @@ export class WidgetCoordinator {
     const renderer = this.renderer;
     // Keyboard redraws bypass requestRender; refresh once at the actual frame boundary.
     const target: object = renderer;
-    if (!("doRender" in target) || typeof target.doRender !== "function")
-      throw new Error("pi-editor-widgets: renderer has no doRender method.");
+
+    if (
+      !widgetRendererCompatible(renderer) ||
+      !("doRender" in target) ||
+      typeof target.doRender !== "function"
+    ) {
+      this.warn("pi-editor-widgets: renderer contract unavailable; coordinator released.");
+      this.dispose();
+
+      return;
+    }
+
     const render = target.doRender;
     this.rendererHooks.replace(target, "doRender", () => {
       if (this.active) this.invalidateCache();
@@ -348,12 +369,20 @@ export class WidgetCoordinator {
     if (this.host.customFooter === this.components.footer)
       this.nativeFooter.call(this.host, undefined);
 
-    // Native rendering remounts borrowed contributions and its spacing without disposing them.
-    if (
-      this.host.widgetContainerAbove.children.includes(this.components.aboveEditor) ||
-      this.host.widgetContainerBelow.children.includes(this.components.belowEditor)
-    )
-      this.host.renderWidgets();
+    // Restore borrowed contributions only in slots we still own; keep later owners intact.
+    for (const region of ["aboveEditor", "belowEditor"] as const) {
+      const container =
+        region === "aboveEditor" ? this.host.widgetContainerAbove : this.host.widgetContainerBelow;
+      const index = container.children.indexOf(this.components[region]);
+      if (index < 0) continue;
+      const widgets =
+        region === "aboveEditor"
+          ? this.host.extensionWidgetsAbove
+          : this.host.extensionWidgetsBelow;
+      const children: Component[] = [...widgets.values()];
+      if (region === "aboveEditor") children.unshift(new Spacer(aboveEditorSpacing));
+      container.children.splice(index, 1, ...children);
+    }
 
     this.registry.clear();
     this.invalidateCache();

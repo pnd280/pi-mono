@@ -24,6 +24,7 @@ const detailsSchema = z.object({
   tool: nonempty,
   fullOutputPath: nonempty.optional()
 });
+const resultDetailsSchema = z.union([detailsSchema, z.strictObject({})]).optional();
 
 function details(result: BorrowedToolResult | undefined) {
   return detailsSchema.safeParse(result?.details).data;
@@ -63,10 +64,9 @@ export const mcpToolDisplayAdapter: ToolDisplayAdapter = {
   family: "invocation",
   // MCP tool names alone may not explain the request.
   alwaysShowParameters: true,
-  // Thrown and blocked calls carry no details; other shapes are not Pi's.
+  // Pi's agent core gives thrown and blocked calls an empty details object.
   supports: (args, result) =>
-    argsSchema.safeParse(args).success &&
-    (result.details === undefined || detailsSchema.safeParse(result.details).success),
+    argsSchema.safeParse(args).success && resultDetailsSchema.safeParse(result.details).success,
   mcp: mcpFacts,
   notices,
   summaryItems: () => [{ category: "mcp" }]

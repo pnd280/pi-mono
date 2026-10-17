@@ -17,8 +17,7 @@ import {
 const compactionStatusKey = "pi-smart-compact.compactions";
 
 function updateCompactionStatus(ctx: ExtensionContext) {
-  // Headless hosts expose a no-op UI whose theme is uninitialized outside the CLI.
-  if (!ctx.hasUI) return;
+  if (ctx.mode !== "tui") return;
 
   const count = ctx.sessionManager
     .getBranch()
@@ -88,7 +87,7 @@ export default function smartCompact(pi: ExtensionAPI) {
     binding?.dispose();
     binding = undefined;
     config = {};
-    ctx.ui.setStatus(compactionStatusKey, undefined);
+    if (ctx.mode === "tui") ctx.ui.setStatus(compactionStatusKey, undefined);
   });
   pi.registerTool({
     name: "compact",

@@ -8,4 +8,4 @@ Preserve the documented [input behaviour](README.md#behaviour) and [editor-owner
 
 ## Validation
 
-[Testing](docs/testing.md) lists the manual checks. For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+[Testing](docs/testing.md) lists the automated coverage and manual checks. For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).

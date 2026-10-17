@@ -9,23 +9,27 @@ process.exitCode = await runTerminalLauncher({
   args: process.argv.slice(2),
   help: "Usage: launch-terminal.ts <regular|fullscreen> [--reuse <fixture-directory>] [Pi arguments...]\nOffline working-message fixture. Submit seed, then hold to inspect the composed working message.",
   async createWorkspace() {
-    const directory = await createValidationWorkspace("pi-working-message-");
-    await writeFile(join(directory, ".working-message-fixture"), "working-message fixture\n");
-    await writeFile(
-      join(directory, "agent", "settings.json"),
-      JSON.stringify({
-        "ext.pi-todo": { collapseWidgetByDefault: true },
-        workingMessage: {
-          order: ["pi-todo.activity", "fixture.status", "fixture.inactive", "unavailable.activity"]
-        },
-        compaction: { enabled: false },
-        retry: { enabled: false },
-        enableAnalytics: false,
-        enableInstallTelemetry: false
-      })
-    );
-
-    return directory;
+    return createValidationWorkspace("pi-working-message-", async (directory) => {
+      await writeFile(join(directory, ".working-message-fixture"), "working-message fixture\n");
+      await writeFile(
+        join(directory, "agent", "settings.json"),
+        JSON.stringify({
+          "ext.pi-todo": { collapseWidgetByDefault: true },
+          workingMessage: {
+            order: [
+              "pi-todo.activity",
+              "fixture.status",
+              "fixture.inactive",
+              "unavailable.activity"
+            ]
+          },
+          compaction: { enabled: false },
+          retry: { enabled: false },
+          enableAnalytics: false,
+          enableInstallTelemetry: false
+        })
+      );
+    });
   },
   async launch(directory) {
     if (

@@ -2,7 +2,7 @@
 
 [pi-prompt-manager](../README.md)
 
-> Last verified against Pi 1.3.0 with package checks and offline API and installed-CLI tests; pi-tui fuzzy matching and the input event are unchanged, and overlay `done()` now hides only its own overlay. Not covered: manual terminal checks, including literal-plus launch shortcuts and the search cursor with `showHardwareCursor`, delivery to the native clipboard, and platform checks.
+> Last verified against Pi 1.3.0 with package checks and offline API and installed-CLI tests. Not covered: manual terminal checks, including literal-plus launch shortcuts and the search cursor with `showHardwareCursor`, delivery to the native clipboard, and platform checks.
 
 ## Upgrade procedure
 
@@ -15,7 +15,8 @@
 - [ ] [Editor host mapping](../src/index.ts) and [source refusal](../src/manager.ts): pastes are expanded, restoring is safe and neither submits nor adds to history, and concurrent edits are protected.
 - [ ] [Search ranking](../src/ranking.ts) retains Pi-compatible fuzzy scores, including Unicode positions and letter/digit transposition fallback. Compare `fuzzyScore` with `fuzzyMatch` in the installed `@earendil-works/pi-tui` (`dist/fuzzy.js`).
 - [ ] [Browser](../src/browser.ts): Pi keybindings work, the view remounts at the boundary between 19-row inline and 18-row overlay, cancellation works, and restoring happens only after the final close.
-- [ ] [Fullscreen paging](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): paging the list, preview, or inspection leaves the transcript still, and respects focus in search and dialogs. If routing is unsupported, a warning appears once per opening and the view stays open.
+- [ ] [Fullscreen input routing](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): resolved browser actions take priority over transcript controls while focused, and respect focus in search and dialogs. Check remapped actions and the unavailable-routing warning against the [browser controls](controls.md#fullscreen-paging).
+- [ ] Closing an overlay with `done()` hides only that overlay.
 
 ## Limitations
 

@@ -85,6 +85,8 @@ export class BrowserController<Item> {
     return this.state.query;
   }
   get selected() {
+    if (this.searching) return undefined;
+
     return this.results.find((item) => this.options.key(item) === this.state.selected);
   }
   get selectedIndex() {

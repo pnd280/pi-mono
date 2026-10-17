@@ -203,7 +203,7 @@ class TaskSource {
       this.unavailable = undefined;
       this.changed();
     } catch (error) {
-      if (!this.isActive()) return;
+      if (!this.isActive() || record.run_id !== this.record.run_id) return;
       const live = this.live?.runId === record.run_id && this.live.connected;
       if (live) this.unavailable = "Child transcript unavailable";
       else this.unavailable = error instanceof Error ? error.message : "Transcript unavailable";

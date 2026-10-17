@@ -11,6 +11,18 @@ import { decodeUtf8Window } from "@pi-mono/utils/utf8";
 /** Marks a tail that starts after the beginning of the log. */
 const EARLIER_OUTPUT = "[Earlier output omitted]";
 
+/** A byte-bounded output window, with no partial leading UTF-8 character. */
+export function formatLogTail(
+  window: Buffer,
+  clipped: boolean,
+  { maxBytes = DEFAULT_MAX_BYTES, maxLines = DEFAULT_MAX_LINES } = {}
+): string {
+  const text = clipped ? decodeUtf8Window(window, "tail").text : window.toString("utf8");
+  const result = truncateTail(text, { maxBytes, maxLines });
+
+  return clipped || result.truncated ? `${EARLIER_OUTPUT}\n${result.content}` : result.content;
+}
+
 /**
  * The end of a job's log file, at most `maxBytes` and `maxLines`. It reads only the file's last
  * bytes, never follows a link, and never blocks on a special file. On Windows, the open can follow
@@ -36,10 +48,15 @@ export async function readLogTail(
     const { bytesRead } = await handle.read(buffer, 0, length, size - length);
     const window = buffer.subarray(0, bytesRead);
     const clipped = size > length;
-    const text = clipped ? decodeUtf8Window(window, "tail").text : window.toString("utf8");
-    const result = truncateTail(text, { maxBytes, maxLines });
+    const text = formatLogTail(window, clipped, { maxBytes, maxLines });
+    // The viewer's smaller window must retain the disk omission count from the file's header.
+    const header = Buffer.alloc(Math.min(size, 128));
+    const head = await handle.read(header, 0, header.length, 0);
+    const marker = /^\[Earlier output omitted: \d+ bytes\]\n/.exec(
+      header.subarray(0, head.bytesRead).toString("utf8")
+    )?.[0];
 
-    return clipped || result.truncated ? `${EARLIER_OUTPUT}\n${result.content}` : result.content;
+    return marker && !text.startsWith(marker) ? `${marker}${text}` : text;
   } finally {
     await handle.close();
   }

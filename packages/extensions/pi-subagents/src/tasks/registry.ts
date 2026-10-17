@@ -2,6 +2,7 @@ import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import { ResultSource, taskResultMessage } from "../background-result.ts";
 import type { PiInvocation } from "../child/invocation.ts";
+import { forwardStderr } from "../child/platform.ts";
 import type { SubagentsConfig } from "../config.ts";
 import { STOP_FAILURE_PREFIX } from "../constants.ts";
 import {
@@ -32,30 +33,6 @@ export type TaskEvent =
   | { kind: "changed"; taskId?: string }
   /** A direct task's run began; its child is not yet prompted. */
   | { kind: "run"; record: TaskRecord; run: RunConnection };
-
-/** How long a child supervisor waits for stderr to take its forwarded cleanup failures. */
-const FORWARD_MS = 1_000;
-
-/** Writes to stderr before the process exits. When no reader remains (EPIPE), nothing reports it. */
-function forwardStderr(text: string): Promise<void> {
-  // A failed write also emits an error after its callback; without a listener, it ends the process.
-  // Other errors keep that default: with no other listener, this one throws them again.
-  const onError = (error: NodeJS.ErrnoException) => {
-    if (error.code !== "EPIPE" && process.stderr.listenerCount("error") === 1) throw error;
-  };
-
-  process.stderr.on("error", onError);
-
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, FORWARD_MS);
-    // The listener stays until this write ends, also after the timeout, because it can still fail.
-    process.stderr.write(text, () => {
-      clearTimeout(timer);
-      setImmediate(() => process.stderr.off("error", onError));
-      resolve();
-    });
-  });
-}
 
 export const INTERRUPTED_WARNING =
   "The resumed history ends with an incomplete tool cycle. Old calls are not replayed automatically. Completed effects remain; the model can request the operation again.";

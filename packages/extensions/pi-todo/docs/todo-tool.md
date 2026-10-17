@@ -37,7 +37,7 @@ The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and
 - `delete` leaves a hidden marker (a _tombstone_). `list` hides deleted todos unless `includeDeleted: true`.
 - A todo with children that are not deleted can be moved but not deleted.
 - `clear` removes everything and resets IDs.
-- `list` shortens its displayed output, but the result details keep the full snapshot.
+- `list` returns at most 200 lines and 32,768 characters, including any omission notice. The result details keep the full snapshot.
 - [Limits](../src/state/limits.ts) on input and state also apply when results are replayed.
 
 ## Tool cards

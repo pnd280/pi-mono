@@ -62,6 +62,11 @@ function status(
   const reported = progress.status;
 
   if (!reported) {
+    if (!p.context.isPartial)
+      return {
+        text: [TUI_GLYPHS.outcome.success, "completed", time].filter(Boolean).join(" "),
+        color: "success"
+      };
     if (!p.context.argsComplete) return { text: "preparing", color: "dim" };
 
     return {
@@ -86,6 +91,7 @@ function cardColors(p: Projection): { marker: CardColor; label: CardColor; secon
   if (p.context.isPartial) return { marker: "warning", label: "warning", secondary: "muted" };
   if (p.outcome === "failure") return { marker: "error", label: "error", secondary: "error" };
   if (p.outcome === "cancelled") return { marker: "error", label: "error", secondary: "warning" };
+  if (p.outcome === "unavailable") return { marker: "muted", label: "muted", secondary: "muted" };
 
   return { marker: "muted", label: "accent", secondary: "muted" };
 }

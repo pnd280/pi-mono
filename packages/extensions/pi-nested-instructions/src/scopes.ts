@@ -25,6 +25,8 @@ const loadBash = () => (bashModule ??= import("./bash.ts"));
 
 export interface Invocation {
   toolCallId: string;
+  /** The persisted assistant entry for a direct call; nested calls have no transcript entry. */
+  callEntryId?: string;
   parentToolCallId?: string;
   toolName: string;
   input: unknown;

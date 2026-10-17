@@ -96,6 +96,11 @@ export default function editorWidgets(pi: ExtensionAPI): void {
         await openResponsiveCustomUI({
           ui,
           signal,
+          onInputRoutingUnavailable: () =>
+            ui.notify(
+              "Widget menu fullscreen input routing is unavailable on this host. Use regular mode if controls do not respond.",
+              "warning"
+            ),
           useOverlay: () => false,
           create: (tui, _theme, _keys, close) =>
             new WidgetMenu({

@@ -175,8 +175,16 @@ export class SessionBinding {
     const jobsStopped = opened.jobs.shutdown();
     opened.session.delivery.shutdown();
     opened.widget.dispose();
-    await tasksStopped;
-    await jobsStopped;
+    // Attach both handlers now: job cleanup can fail while task cleanup is still waiting.
+    const stopped = await Promise.allSettled([tasksStopped, jobsStopped]);
+    const failures = stopped.flatMap((result): unknown[] =>
+      result.status === "rejected" ? [result.reason] : []
+    );
+    if (failures.length)
+      throw new AggregateError(
+        failures,
+        failures.map((error) => (error instanceof Error ? error.message : String(error))).join("; ")
+      );
   }
 
   private async openTasks(opened: Opened): Promise<Bound> {

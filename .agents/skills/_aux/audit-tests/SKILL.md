@@ -29,7 +29,7 @@ Also flag invariants that are below the severity bar, that describe removed beha
 
 ## 3. Clean up
 
-1. Get user approval for new and dropped invariants. Record baseline counts and failures.
+1. Get user approval for new invariants, and for dropped invariants whose behaviour still exists. When the behaviour itself is removed, remove its invariant and tests as the [coverage policy](../../../../docs/agents/testing.md#coverage) requires. Record baseline counts and failures.
 2. Per package: write replacement scenarios first, then remove cases and the scaffolding that only they used. Do not change production code.
 3. Run affected suites, including consumers of shared code. Update `docs/testing.md` to match the retained invariants.
 

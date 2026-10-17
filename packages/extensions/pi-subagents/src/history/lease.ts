@@ -1,5 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, realpath, rmdir, unlink, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import {
+  lstat,
+  mkdir,
+  open,
+  readdir,
+  readFile,
+  realpath,
+  rmdir,
+  unlink,
+  writeFile
+} from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import { renameWithRetry } from "@pi-mono/libs/file-rename";
@@ -75,6 +86,27 @@ function pids(text: string): number[] | undefined {
     : undefined;
 }
 
+/** A damaged entry excludes a writer without allowing an unbounded or blocking read. */
+async function readEntry(path: string) {
+  const handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK | constants.O_NOFOLLOW);
+
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size > 1024) return undefined;
+    const buffer = Buffer.alloc(1025);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    if (bytesRead !== stat.size) return undefined;
+
+    return {
+      processes: pids(buffer.subarray(0, bytesRead).toString("utf8")),
+      dev: stat.dev,
+      ino: stat.ino
+    };
+  } finally {
+    await handle.close();
+  }
+}
+
 /** Removes an entry that this process released; a failed removal waits for the next acquire. */
 async function removeReleased(path: string): Promise<void> {
   try {
@@ -116,20 +148,22 @@ export class WriterLease {
           continue;
         }
 
-        let text: string;
-
         try {
-          text = await readFile(path, "utf8");
+          const holder = await readEntry(path);
+          // Entries are published by rename, so an unreadable one is not a partial write.
+          if (!holder?.processes || (await Promise.all(holder.processes.map(alive))).includes(true))
+            throw new Error("Task is running in another process");
+          // The supervisor can add its child after we open the old entry, then exit before the
+          // liveness check. Only remove the inode we checked. Once its writers are dead, they
+          // cannot replace it again.
+          const current = await lstat(path);
+          if (current.dev !== holder.dev || current.ino !== holder.ino)
+            throw new Error("Task is running in another process");
+          await ignoreMissing(unlink(path));
         } catch (error) {
           if (hasCode(error, "ENOENT")) continue;
           throw error;
         }
-
-        // Entries are published by rename, so an unreadable one is not a partial write.
-        const holder = pids(text);
-        if (!holder || (await Promise.all(holder.map(alive))).includes(true))
-          throw new Error("Task is running in another process");
-        await ignoreMissing(unlink(path));
       }
     } catch (error) {
       await lease.release().catch(() => {});

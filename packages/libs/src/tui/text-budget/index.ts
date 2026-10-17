@@ -1,6 +1,5 @@
 import {
   sliceByColumn,
-  stripTerminalSequences,
   truncateToWidth,
   visibleWidth,
   wrapTextWithAnsi
@@ -26,15 +25,16 @@ export function wrapRows(text: string, width: number): string[] {
 export function wrapHangingRows(text: string, firstWidth: number, restWidth: number): string[] {
   const [first, ...wrapped] = wrapRows(text, firstWidth);
   if (first === undefined) return [];
-  if (!wrapped.length) return [first];
-  const start = visibleWidth(first);
-  // Wrapping drops the space at the break; the remainder keeps earlier styles.
-  const space = stripTerminalSequences(sliceByColumn(text, start, 1)) === " ";
+  if (restWidth === firstWidth) return [first, ...wrapped];
+  if (!wrapped.length || restWidth < 1) return [first];
+  // Consume discarded break spaces or one source newline, keeping SGR state.
+  const remainder = sliceByColumn(text, visibleWidth(first), visibleWidth(text)).replace(
+    // oxlint-disable-next-line no-control-regex
+    /^(?:\x1b\[[0-9;:]*m|[^\S\n])*(?:\n)?/,
+    (gap) => gap.replace(/\s/g, "")
+  );
 
-  return [
-    first,
-    ...wrapRows(sliceByColumn(text, start + (space ? 1 : 0), visibleWidth(text)), restWidth)
-  ];
+  return [first, ...(remainder ? wrapRows(remainder, restWidth) : [""])];
 }
 
 export type RowBudgetOptions = {
@@ -76,7 +76,7 @@ export type TextBudgetOptions = {
   notice: (omittedRows: number | undefined) => string;
 };
 
-/** Bound formatting, not retained output. SGR state and whole graphemes survive excerpts. */
+/** Bound formatting, not retained output. Excerpts keep whole graphemes and escapes. */
 export function compactText(text: string, options: TextBudgetOptions): string[] {
   const { maxRows, width, maxCharacters, notice } = options;
   if (!characterLimitSchema.safeParse(maxCharacters).success)

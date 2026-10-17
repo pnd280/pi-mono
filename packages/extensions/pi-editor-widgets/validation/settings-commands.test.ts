@@ -130,6 +130,67 @@ it.each(["regular", "fullscreen"] as const)(
   }
 );
 
+it("closes /widgets on the first Ctrl+C after a native registration moves and restores the saved layout", async () => {
+  const fixture = await hostFixture([editorWidgets]);
+  const abort = new AbortController();
+  let opening: Promise<void> | undefined;
+
+  try {
+    const projectPath = join(fixture.directory, ".pi/settings.json");
+    const project = defaultLayout();
+    project.belowEditor = [["widget:saved"]];
+    const source = JSON.stringify({ "ext.pi-editor-widgets": { layout: project } });
+    mkdirSync(join(fixture.directory, ".pi"));
+    writeFileSync(projectPath, source);
+    await fixture.bind();
+    fixture.ui.setWidget("saved", ["SAVED"]);
+    fixture.ui.setWidget("moving", ["MOVING"]);
+    const above = () => plain(fixture.host.widgetContainerAbove.render(80));
+    const below = () => plain(fixture.host.widgetContainerBelow.render(80));
+    expect(below()).toContain("SAVED");
+    const runner = fixture.session.extensionRunner;
+    const editor = fixture.host.editorContainer.children[0];
+    opening = runner.getCommand("widgets")?.handler("", {
+      ...runner.createCommandContext(),
+      signal: abort.signal
+    });
+    await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).not.toBe(editor), {
+      interval: 1,
+      timeout: STEP_TIMEOUT_MS
+    });
+    const menu = fixture.host.editorContainer.children[0]!;
+    menu.handleInput?.("\t"); // Preview the unset global scope instead of the project override.
+    expect(above()).toContain("SAVED");
+    expect(below()).not.toContain("SAVED");
+    menu.handleInput?.("\r"); // Above editor -> rows
+    menu.handleInput?.("\x1b[B"); // Select the moving widget's native row.
+    menu.handleInput?.("\r"); // Row -> contents
+    menu.render(80);
+    fixture.ui.setWidget("moving", ["MOVED"], { placement: "belowEditor" });
+    // No intervening render: close must not be consumed by stale-selection rejection.
+    menu.handleInput?.("\x03");
+    await vi.waitFor(() => expect(fixture.host.editorContainer.children[0]).toBe(editor), {
+      interval: 1,
+      timeout: STEP_TIMEOUT_MS
+    });
+    await opening;
+    expect(above()).not.toContain("SAVED");
+    expect(above()).not.toContain("MOVED");
+    expect(below()).toContain("SAVED");
+    expect(below()).toContain("MOVED");
+    expect(readFileSync(projectPath, "utf8")).toBe(source);
+    expect(() => readFileSync(join(fixture.agentDir, "settings.json"))).toThrow();
+  } finally {
+    abort.abort();
+
+    try {
+      await opening;
+    } finally {
+      await fixture.dispose();
+    }
+  }
+});
+
 it.each(["regular", "fullscreen"] as const)(
   "restores the live layout when a mounted %s menu is cancelled by the host",
   async (mode) => {

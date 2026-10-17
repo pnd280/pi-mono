@@ -33,11 +33,11 @@ If modified keys don't arrive, check your [terminal setup](https://pi.dev/docs/l
 
 ### Fullscreen paging
 
-While an inline browser has focus, paging keys move the list or preview, never the transcript. This holds for remapped paging keys that survive the precedence above, at scroll boundaries, and while navigation is briefly ignored.
+While an inline browser has focus, resolved browser actions take priority over transcript controls. Paging moves the list or preview, never the transcript, including at scroll boundaries and while navigation is briefly ignored. Remapped cancel, confirm, and selection actions use the same priority route.
 
 - Search overlays and other dialogs get input while they have focus.
 - Closing the browser gives paging back to the transcript.
-- If fullscreen routing is unavailable, a warning appears once per opening. The browser stays open and arrow keys still work.
+- If fullscreen routing is unavailable, a warning appears once per opening. The browser stays open; use regular mode if controls do not respond.
 
 See the [shared routing contract](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership) for host compatibility and effects on other extensions.
 
@@ -52,6 +52,7 @@ Only one view can be open per session.
 
 - Search covers the complete terminal-safe plain text. It ignores case and repeated whitespace, but not accents or Unicode forms.
 - Results rank literal phrases first, then matches of all terms, then fuzzy matches.
+- While a search is pending, "Searching collection…" replaces the results and their action hints. You can still edit the search, switch collections, or cancel.
 - The selection stays on a matching occurrence. After a deletion, a nearby result is selected.
 - "History" fills the search from the editor text when the untrimmed text is a single line under 100 Unicode code points, then trims and sanitises it.
 - "Saved drafts" starts with an empty search.

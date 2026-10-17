@@ -86,8 +86,22 @@ const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
       command: `i=0; while [ ! -e job-release ]; do i=$((i + 1)); printf 'Fixture job line %s\\n' "$i"; sleep 0.2; done`
     }
   ],
+  // Manual disk-retention check: 64 MiB in paced chunks, then wait with the log still live.
+  [
+    "retention",
+    {
+      command: `node -e 'let n = 0; const timer = setInterval(() => { n++; const line = ("Fixture retention chunk " + n).padEnd(63, ".") + "\\n"; process.stdout.write(line.repeat(16384)); process.stdout.write("Fixture retention checkpoint " + n + "\\n"); if (n === 64) clearInterval(timer); }, 100);'; while [ ! -e job-release ]; do sleep 0.05; done; printf 'Fixture retention complete\\n'`
+    }
+  ],
   ["shell", { command: `printf '%s %s' "$FIXTURE_JOB_SHELL" "$FIXTURE_JOB_PREFIX"` }],
-  ["timeout", { command: "sleep 600", timeout: 1 }]
+  [
+    "timeout",
+    {
+      // The shell exits at timeout; its resistant member keeps cleanup active for a late abort.
+      command: `sh -c 'trap "" TERM; echo $$ > job-member; exec sleep 600' >/dev/null 2>&1 & while [ ! -s job-member ]; do sleep 0.01; done; echo $$ > job-group; wait`,
+      timeout: 1
+    }
+  ]
 ]);
 
 /** `job-<kind>`, also with `-hold`, starts one job; `job-abort-id <job_id>` aborts one. */
@@ -510,13 +524,15 @@ function createStream(
           const completed = results.length >= plannedSteps;
 
           if (completed) {
-            const completions = context.messages.filter(
-              (item) =>
-                item.role === "user" &&
-                /<summary>Background (task|job) (completed|failed|cancelled):/.test(
-                  contentText(item.content)
-                )
-            );
+            const completions = context.messages
+              .slice(userIndex + 1)
+              .filter(
+                (item) =>
+                  item.role === "user" &&
+                  /<summary>Background (task|job) (completed|failed|cancelled):/.test(
+                    contentText(item.content)
+                  )
+              );
             if (!completions.length) await holdFinalReply(scenario, signal);
             failFinalReply(scenario, completions.length);
             await releaseLateTask(scenario, completions.length);
@@ -729,6 +745,12 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
     // Only delivery starts runs with a custom message: the idle wake with background results.
     idleWake = event.messageType === "custom";
     const prompt = event.messageType === "user" ? event.prompt : undefined;
+
+    if (event.messageType === "user") {
+      resultPending = false;
+      retried = false;
+    }
+
     idleRelease = prompt === "background-idle";
     if (idleRelease) await rm(join(ctx.cwd, IDLE_RELEASE), { force: true });
     digestCompact = prompt === "digest-compact";

@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-In TUI mode, pi-subagents shows tasks and [jobs](jobs.md) in a task panel, read-only viewers, tool cards, and a widget.
+In TUI mode, pi-subagents shows tasks and [jobs](jobs.md) in a task panel, read-only viewers, tool cards, and a widget. The keys listed below are defaults; the [panel controls](#panel-keys) follow Pi's current bindings.
 
 ## Task panel
 
@@ -22,17 +22,23 @@ A `(n/m)` line under the list shows the selection position; the borders do not c
 
 ### Panel keys
 
-A `→` cursor and the accent colour mark the selected task.
+A `→` cursor and the accent colour mark the selected task. The panel and both viewers read Pi's current selection bindings. The task viewer also reads Pi's tool-expansion binding. Input handling and footer hints use the same bindings, including after a host binding change.
 
-| Key         | Action                                                                         |
-| ----------- | ------------------------------------------------------------------------------ |
-| **Up/Down** | Select a task.                                                                 |
-| **Enter**   | Inspect the selected task.                                                     |
-| **Ctrl+D**  | Abort an active task.                                                          |
-| **Ctrl+B**  | Move foreground work to the background.                                        |
-| **Esc**     | Return to the task list with its view and selection preserved; again to close. |
+| Default key         | Action                                                                                       | Pi binding                                 |
+| ------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **Up/Down**         | Select a task in the list or scroll a viewer.                                                | `tui.select.up`, `tui.select.down`         |
+| **PageUp/PageDown** | Scroll by a page.                                                                            | `tui.select.pageUp`, `tui.select.pageDown` |
+| **Enter**           | Inspect the selected task or job.                                                            | `tui.select.confirm`                       |
+| **Esc**             | Return from a viewer to the list with its view and selection preserved; close from the list. | `tui.select.cancel`                        |
+| **Ctrl+O**          | Expand or collapse messages in the task viewer.                                              | `app.tools.expand`                         |
 
-The footer shows **Ctrl+D** and **Ctrl+B** only when they apply to the selected task. These keys belong to the panel only while it has focus.
+Local actions retain their fixed keys: **Tab** and **Shift+Tab** change the list view, **Ctrl+B** promotes a foreground task from the list, **Ctrl+D** aborts from the list or a viewer, and **Home** and **End** scroll to the ends of a viewer.
+
+When bindings overlap, the first applicable action wins in this order: back or close, inspect (list only), up, down, page up, page down, expand (task viewer only), then local actions. A configured binding therefore takes precedence over a local key. Remaining non-conflicting alternatives still work. A shown action with no usable binding says “unavailable”; it does not silently restore its default key. The back or close action excludes **Ctrl+C**, leaving that key to Pi's copy or interrupt handling unless another configured panel action claims it. Key-release events perform no action.
+
+The footer shows abort and background actions only when they apply to the selected item. Controls belong to the panel or viewer only while it has focus.
+
+The panel keeps the close hint first when space is limited. Below ten terminal rows, the list shows only the close binding and a resize instruction; list actions are disabled. The viewers keep their separate height limits.
 
 ### Jobs in the panel
 
@@ -48,7 +54,7 @@ The task viewer and the job log viewer have the same frame. In regular mode, the
 - Below the top border, metadata rows show dim labels in one column and their values; in a very narrow viewer, each label is above its values. Long values wrap under the value column between their parts, so no row ends with a separator; a part wider than the column wraps on its own rows.
 - Then come a border, the transcript or the log, a blank row, diagnostics, the key hints, and the bottom border. The borders around the body show the number of rows hidden above and below.
 
-When the viewer has too few rows, it keeps the borders, one body row, and the first hint row with **Esc back**; below five rows, the hint row drops out, and below four, the body row. Then diagnostics, the metadata rows from the top, the other hint rows, and the blank row get the free rows, in that order.
+When the viewer has too few rows, it keeps the borders, one body row, and the first hint row with the current back binding (or “back unavailable”); below five rows, the hint row drops out, and below four, the body row. Then diagnostics, the metadata rows from the top, the other hint rows, and the blank row get the free rows, in that order.
 
 ### Task viewer
 
@@ -59,7 +65,7 @@ The read-only viewer follows the selected task's live branch or the history of i
 - `usage`: the total usage in the format of the [pi-editor-widgets](../../pi-editor-widgets/README.md) token and context widgets, such as `↑30 ↓7.4k R325k W42k CH98.5% $0.552 • 48k/200k (24.0%)`: cache reads (`R`) and writes (`W`), the latest request's cache hit rate (`CH`), the cost to three decimals, and the latest context use. Zero token counts and a zero cost are left out. A known cache hit rate shows, including zero, when the task has reported cache reads or writes. Known context use also shows when zero; unknown use shows `?/200k` without a percentage.
 - `error`: the first line of a failed or cancelled run's result.
 
-**Ctrl+O** expands and collapses tool calls and other expandable messages. Use **Up/Down**, **PageUp/PageDown**, **Home**, and **End** to scroll within the viewer's bounded transcript area; its metadata rows and key hints stay in place. In fullscreen mode, the mouse wheel also scrolls, and you can click or drag the scrollbar. **Ctrl+D** aborts an active task.
+Pi's `app.tools.expand` binding, **Ctrl+O** by default, expands and collapses tool calls and other expandable messages. Use **Up/Down**, **PageUp/PageDown**, **Home**, and **End** to scroll within the viewer's bounded transcript area; its metadata rows and key hints stay in place. In fullscreen mode, the mouse wheel also scrolls, and you can click or drag the scrollbar. **Ctrl+D** aborts an active task.
 
 Active direct children stream live; deeper children refresh at completed-message boundaries. A missing, invalid, or too large child file shows an unavailable-history diagnostic.
 
@@ -78,7 +84,7 @@ The log viewer shows the end of the job's log file: at most 2,000 lines or 50 Ki
 - `log`: the log file path.
 - `error`: the job's error, only when it adds to the exit code, such as `timed out after 60 s`.
 
-Use **Up/Down**, **PageUp/PageDown**, **Home**, and **End** to scroll; in fullscreen mode, the mouse wheel also scrolls. **Ctrl+D** aborts an active job, and **Esc** returns to the list. A missing or unreadable log file shows a diagnostic.
+Use **Up/Down**, **PageUp/PageDown**, **Home**, and **End** to scroll; in fullscreen mode, the mouse wheel also scrolls. **Ctrl+D** aborts an active job, and **Esc** returns to the list. A missing or unreadable log file shows a diagnostic. An empty log shows “(no output)”.
 
 ## Tool cards
 

@@ -4,6 +4,8 @@
 
 A model needs long commands, such as builds, test runs, servers, and watchers, to run while it continues its work. A [job](../../GLOSSARY.md#tasks-and-processes) is such a command. It has its own `job` and `job_abort` tools, its own registry, and its own session entries. Built-in `bash` does not change.
 
+The runner and full-output log policy below are superseded by [ADR 0007](0007-own-job-processes-and-bound-logs.md). The tool, delivery, and session-history decisions remain in effect.
+
 ## Decision
 
 - `job` runs the command with Pi's public `createBashToolDefinition` and a wrapper of `createLocalBashOperations`. The wrapper also writes the output to the job's log file. The job owns its abort controller, so a turn abort does not stop it. `job_abort` aborts that controller, and Pi then stops the shell's process group.

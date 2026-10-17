@@ -63,7 +63,7 @@ Add an `ext.pi-skills` key to Pi's global `~/.pi/agent/settings.json` (or `$PI_C
 | `{command}` | The full `/skill:<name>` token.        | No       |
 
 - Placeholders may repeat. Everything else, including spaces, is literal.
-- If a format starts with the command, such as `"{command} ({path})"`, a space is added before it at the start of a prompt, so Pi doesn't insert the skill's contents.
+- If a leading reference could invoke a registered skill or prompt-template command, a space is added before it to keep it literal. This includes formats such as `"{command} ({path})"` and references already in the current format. Ordinary prompt-template commands still work.
 - Formats are limited to 512 characters. Invalid sections, and settings files that are too large, are ignored.
 - A trusted project's format overrides the global one.
 - Settings load on session start and `/reload`.

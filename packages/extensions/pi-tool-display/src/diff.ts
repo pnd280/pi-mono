@@ -9,11 +9,15 @@ export const PATCH_BYTES = 128 * 1024;
 
 /** Retained tool patches share the same bound in observation, rendering, and history. */
 export function parseRetainedPatch(patch: string) {
+  if (patch.length > PATCH_BYTES) return undefined;
+
   return parsePatch(patch, PATCH_BYTES);
 }
 
 /** Compare the parsed hunks of two patches. Line endings, file headers, and a leading BOM are ignored. */
-export function sameRetainedHunks(left: string, right: string): boolean {
+export function sameRetainedHunks(left: string | undefined, right: string | undefined): boolean {
+  if (left === undefined || right === undefined) return false;
+
   const comparable = (patch: string) => {
     const parsed = parseRetainedPatch(patch);
 
@@ -39,20 +43,26 @@ export function sameRetainedHunks(left: string, right: string): boolean {
 /**
  * The patch of a write that created its file, from the content argument as Node
  * writes it: unpaired surrogates become U+FFFD and CRLF compares as LF.
+ * Unretainable content returns undefined without building an unbounded patch.
  */
-export function creationPatch(content: string): string {
+export function creationPatch(content: string): string | undefined {
+  // CRLF normalisation can halve the source length. Bound copies before decoding.
+  if (content.length > PATCH_BYTES * 2) return undefined;
   const text = Buffer.from(content, "utf8").toString("utf8").replaceAll("\r\n", "\n");
+  if (Buffer.byteLength(text) > PATCH_BYTES) return undefined;
   if (!text) return "--- a\n+++ b\n";
   const lines = text.split("\n");
   const terminated = lines.at(-1) === "";
   if (terminated) lines.pop();
 
-  return [
+  const patch = [
     `@@ -0,0 +1,${lines.length} @@`,
     ...lines.map((line) => `+${line}`),
     ...(terminated ? [] : ["\\ No newline at end of file"]),
     ""
   ].join("\n");
+
+  return Buffer.byteLength(patch) > PATCH_BYTES ? undefined : patch;
 }
 
 const changeReasons: Record<ChangeUnavailableReason, string> = {

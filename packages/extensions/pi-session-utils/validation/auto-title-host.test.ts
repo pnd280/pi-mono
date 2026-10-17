@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -10,14 +9,14 @@ import {
   ModelRuntime,
   SessionManager,
   SettingsManager,
+  type AgentSession,
   type ExtensionContext
 } from "@earendil-works/pi-coding-agent";
 import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
-import { afterEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import sessionUtils from "../index.ts";
 
-const cleanups: (() => Promise<void>)[] = [];
 const settings = JSON.stringify({
   theme: "light",
   "ext.pi-session-utils": {
@@ -25,21 +24,34 @@ const settings = JSON.stringify({
   }
 });
 
-afterEach(async () => {
-  for (const cleanup of cleanups.splice(0)) await cleanup();
-  vi.unstubAllEnvs();
-});
-
 async function host({
   projectTrusted = false,
   projectSettings,
+  ancestorSettings,
   globalSettings = settings
 }: {
   projectTrusted?: boolean;
   projectSettings?: string;
+  ancestorSettings?: string;
   globalSettings?: string;
 } = {}) {
   const directory = await createValidationWorkspace("pi-session-utils-auto-title-host-");
+  const resources: { session?: AgentSession } = {};
+  onTestFinished(async () => {
+    try {
+      try {
+        await resources.session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+      } finally {
+        resources.session?.dispose();
+      }
+    } finally {
+      try {
+        await rm(directory, { recursive: true, force: true });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    }
+  });
   const cwd = join(directory, "work");
   const agentDir = join(directory, "agent");
   const settingsPath = join(agentDir, "settings.json");
@@ -50,6 +62,11 @@ async function host({
   if (projectSettings !== undefined) {
     await mkdir(join(cwd, CONFIG_DIR_NAME), { recursive: true });
     await writeFile(projectSettingsPath, projectSettings);
+  }
+
+  if (ancestorSettings !== undefined) {
+    await mkdir(join(directory, CONFIG_DIR_NAME), { recursive: true });
+    await writeFile(join(directory, CONFIG_DIR_NAME, "settings.json"), ancestorSettings);
   }
 
   vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
@@ -103,11 +120,7 @@ async function host({
     sessionManager: SessionManager.inMemory(cwd),
     noTools: "all"
   });
-  cleanups.push(async () => {
-    await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
-    session.dispose();
-    await rm(directory, { recursive: true, force: true });
-  });
+  resources.session = session;
   const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
   const errors: unknown[] = [];
   await session.bindExtensions({
@@ -135,31 +148,6 @@ async function host({
     command
   };
 }
-
-it.each(["persist", "create-empty-child"])(
-  "%s warns and returns immediately while busy without saving or switching",
-  async (command) => {
-    const fixture = await host();
-    const runner = fixture.session.extensionRunner;
-    const ctx = runner.createCommandContext();
-    const switchSession = vi.fn<typeof ctx.switchSession>();
-    const newSession = vi.fn<typeof ctx.newSession>();
-    await runner.getCommand("sesh")!.handler(command, {
-      ...ctx,
-      isIdle: () => false,
-      switchSession,
-      newSession
-    });
-
-    expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
-    expect(newSession).not.toHaveBeenCalled();
-    expect(switchSession).not.toHaveBeenCalled();
-    expect(existsSync(join(fixture.agentDir, "sessions"))).toBe(false);
-
-    expect(fixture.titleRequests).toEqual([]);
-    expect(fixture.errors).toEqual([]);
-  }
-);
 
 it("keeps naming outside idle checks and the session-operation lock", async () => {
   const fixture = await host();
@@ -218,37 +206,110 @@ it("keeps naming outside idle checks and the session-operation lock", async () =
   expect(fixture.errors).toEqual([]);
 });
 
-it("keeps unconfigured naming inert while clear remains available", async () => {
-  const fixture = await host({ globalSettings: "{}" });
+it.each([
+  { failure: "missing settings", globalSettings: "{}" },
+  {
+    failure: "invalid merged settings",
+    projectTrusted: true,
+    projectSettings: JSON.stringify({
+      "ext.pi-session-utils": { "auto-title": { thinkingLevel: "automatic" } }
+    })
+  },
+  {
+    failure: "unavailable model",
+    globalSettings: JSON.stringify({
+      "ext.pi-session-utils": {
+        "auto-title": { model: "missing/title", thinkingLevel: "off" }
+      }
+    })
+  },
+  {
+    failure: "unsupported thinking level",
+    globalSettings: JSON.stringify({
+      "ext.pi-session-utils": {
+        "auto-title": { model: "title-fixture/title", thinkingLevel: "low" }
+      }
+    })
+  }
+])("keeps naming inert with $failure while clear remains available", async (options) => {
+  const fixture = await host(options);
+  const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
   await fixture.session.prompt("Opening request");
-  expect(fixture.titleRequests).toEqual([]);
   await fixture.command();
+  expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
   fixture.session.setSessionName("Manual title");
   fixture.notify.mockClear();
   await fixture.command("clear");
   expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "info");
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
+  expect(stream).toHaveBeenCalledOnce();
+  expect(stream.mock.calls[0]?.[0].id).toBe("active");
   expect(fixture.titleRequests).toEqual([]);
   expect(fixture.errors).toEqual([]);
 });
 
-it.each([false, true])("honors Pi's project trust decision: %s", async (projectTrusted) => {
-  const projectSettings = JSON.stringify({
-    "ext.pi-session-utils": { "auto-title": { model: "title-fixture/project-title" } }
-  });
-  const fixture = await host({ projectTrusted, projectSettings });
+it.each([
+  { scope: "untrusted project", projectTrusted: false, ancestor: false, selected: false },
+  { scope: "trusted project", projectTrusted: true, ancestor: false, selected: true },
+  { scope: "ancestor of a trusted project", projectTrusted: true, ancestor: true, selected: false }
+])(
+  "selects the naming provider only from global or trusted project settings: $scope",
+  async ({ projectTrusted, ancestor, selected }) => {
+    const projectSettings = JSON.stringify({
+      "ext.pi-session-utils": { "auto-title": { model: "project-title-fixture/title" } }
+    });
+    const fixture = await host({
+      projectTrusted,
+      ...(ancestor ? { ancestorSettings: projectSettings } : { projectSettings })
+    });
+    const project = fauxProvider({ provider: "project-title-fixture", models: [{ id: "title" }] });
+    project.setResponses([
+      fauxAssistantMessage("Project session title"),
+      fauxAssistantMessage("Project session title")
+    ]);
+    fixture.session.modelRuntime.registerNativeProvider(project.provider);
+    await fixture.session.modelRuntime.refresh({ allowNetwork: false });
+    const projectStream = vi.spyOn(project.provider, "streamSimple");
+    await fixture.session.prompt("Opening request");
+    await vi.waitFor(
+      () =>
+        expect(fixture.session.sessionManager.getSessionName()).toBe(
+          selected ? "Project session title" : "Offline session title"
+        ),
+      { timeout: STEP_TIMEOUT_MS }
+    );
+    await fixture.command();
+    expect(projectStream).toHaveBeenCalledTimes(selected ? 2 : 0);
+    expect(fixture.titleRequests).toHaveLength(selected ? 0 : 2);
+    if (!ancestor)
+      expect(await readFile(fixture.projectSettingsPath, "utf8")).toBe(projectSettings);
+    expect(fixture.errors).toEqual([]);
+  }
+);
+
+it("reports naming authentication failure without exposing credential-bearing errors", async () => {
+  const fixture = await host();
   await fixture.session.prompt("Opening request");
   await vi.waitFor(
-    () =>
-      expect(fixture.session.sessionManager.getSessionName()).toBe(
-        projectTrusted ? "Project session title" : "Offline session title"
-      ),
+    () => expect(fixture.session.sessionManager.getSessionName()).toBe("Offline session title"),
     { timeout: STEP_TIMEOUT_MS }
   );
+  await fixture.command("clear");
+  fixture.notify.mockClear();
+  const secret = "fixture-private-credential";
+  const auth = vi
+    .spyOn(fixture.faux.provider.auth.apiKey!, "resolve")
+    .mockRejectedValue(new Error(`Authentication failed with Bearer ${secret}`));
+  const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
+
   await fixture.command();
-  expect(fixture.titleRequests).toHaveLength(2);
-  expect(await readFile(fixture.projectSettingsPath, "utf8")).toBe(projectSettings);
+
+  expect(auth).toHaveBeenCalledOnce();
+  expect(stream).not.toHaveBeenCalled();
+  expect(fixture.notify).toHaveBeenCalledWith(expect.any(String), "warning");
+  expect(JSON.stringify(fixture.notify.mock.calls)).not.toContain(secret);
+  expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(fixture.errors).toEqual([]);
 });
 

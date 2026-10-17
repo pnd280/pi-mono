@@ -10,7 +10,7 @@ Completion closes child stdin; cancellation also clears queued input and request
 
 Cancellation, the usage read, and shutdown share the same grace period. The grace period is 5 seconds plus 7 seconds per possible remaining descendant level, bounded by `maxDepth` and `maxConcurrent`. With default limits, children receive 12 seconds and grandchildren 5 seconds.
 
-Graceful exit waits for cleanup.
+Graceful exit waits for child-task cleanup. Each background job also keeps its shell handle through process-group cleanup, including after the shell exits. Job shutdown waits for that cleanup and the log file to close, and reports stop failures. Jobs use the shared process-stop helpers without a child stdin grace period; see [job stops](jobs.md#stop-a-job) and their [limits](jobs.md#limits).
 
 ### Process-group cleanup
 
@@ -28,7 +28,7 @@ Requests to the child that are still pending 1 second after its exit fail, also 
 
 ### Descendant cleanup failures
 
-A child supervisor writes the failed stops of its own tasks to stderr before it exits, each on its own line, and waits up to 1 second for the write. Its supervisor reads all of that stderr, not only the kept excerpt, and reports them in the result of that child's run.
+A child supervisor writes the failed stops of its own tasks and jobs to stderr before it exits, each on its own line, and waits up to 1 second for the write. Its supervisor reads all of that stderr, not only the kept excerpt, and reports them in the result of that child's run.
 
 ## Immediate stop
 
@@ -36,9 +36,15 @@ Navigation and foreground abort use a separate immediate path. Unix stops the li
 
 In both paths, capacity remains reserved until process exit is observed, and on Linux and macOS, until any forced stop of the child's process group ends.
 
+## Supervisor hard exit
+
+Pi's terminal-gone and fatal-error paths can call `process.exit()` without session shutdown. Each job registry keeps one synchronous `exit` listener while it owns shell handles or process groups, then removes it when group cleanup ends. This preserves Pi's exit cleanup for jobs without using its private detached-child tracker.
+
+On Linux and macOS, the listener sends SIGKILL immediately, with no grace period. On Windows, it launches detached `taskkill /F /T /PID` from System32 with ignored stdio. This cleanup is best effort and cannot wait for termination or log writes; [job limits](jobs.md#limits) still apply.
+
 ## Limits
 
-- After supervisor SIGKILL, children rely on cooperative stdin-EOF shutdown. A child that blocks shutdown can remain alive with its commands; there is no independent watchdog.
+- Supervisor SIGKILL bypasses job exit hooks. Children then rely on cooperative stdin-EOF shutdown. A child that blocks shutdown can remain alive with its commands; there is no independent watchdog.
 - Force-kill does not reverse file changes and can bypass child cleanup.
 - A process that holds the child's output pipes in another process group delays the run's result until it exits, unless a forced stop ran.
 - After the child exits, only the remaining members of its process group keep the group's number. If they all exit between a check and the next signal, and the system gives the number to a new group, that signal reaches the new group. Node.js has no process-group handle that prevents this.

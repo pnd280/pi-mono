@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { mkdir, mkdtemp, realpath } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -42,19 +42,26 @@ export function session(): WriteScope {
 
 export async function workspace() {
   const directory = await mkdtemp(join(tmpdir(), "pi-prompts-test-"));
-  const cwd = join(directory, "project");
-  const agentDir = join(directory, "agent");
-  await Promise.all([mkdir(cwd), mkdir(agentDir)]);
-  const realCwd = await realpath(cwd);
-  const repository = await FileRepository.create({ cwd, agentDir, retention: 250 });
-  const storage = join(
-    agentDir,
-    "pi-prompt-manager",
-    createHash("sha256").update(realCwd).digest("hex")
-  );
-  await repository.read("drafts");
+  let ready = false;
 
-  return { directory, cwd, realCwd, agentDir, storage, repository };
+  try {
+    const cwd = join(directory, "project");
+    const agentDir = join(directory, "agent");
+    await Promise.all([mkdir(cwd), mkdir(agentDir)]);
+    const realCwd = await realpath(cwd);
+    const repository = await FileRepository.create({ cwd, agentDir, retention: 250 });
+    const storage = join(
+      agentDir,
+      "pi-prompt-manager",
+      createHash("sha256").update(realCwd).digest("hex")
+    );
+    await repository.read("drafts");
+    ready = true;
+
+    return { directory, cwd, realCwd, agentDir, storage, repository };
+  } finally {
+    if (!ready) await rm(directory, { recursive: true, force: true });
+  }
 }
 
 export function managerFixture(overrides: Partial<ManagerPorts> = {}) {

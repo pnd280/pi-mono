@@ -12,7 +12,7 @@ The caller supplies typed, borrowed text and image blocks through `ReadResultVie
 - `preview.kind` distinguishes `absent`, `invalid`, and `valid`. An invalid marker is not equivalent to an absent marker.
 - A valid marker has a positive safe `sourceBlocks` count, exactly one following preview block, and an all-text result. `preview.contentIndex` identifies that trailing block.
 - `sourceContent` borrows the original blocks. Only valid provenance excludes the preview. Unmarked text, including preview-heading lookalikes, is never hidden.
-- `appendPreview` preserves native blocks and unrelated details. It leaves invalid preview provenance intact and replaces an already validated preview rather than stacking previews.
+- `appendPreview` preserves native blocks and unrelated details. It leaves results with invalid details or preview provenance unchanged and replaces an already validated preview rather than stacking previews.
 
 ## Source windows and highlights
 

@@ -1,8 +1,8 @@
 import { matchesKey, type TUI, type TuiInputListener } from "@earendil-works/pi-tui";
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
+import { inputHostFixture } from "../../validation/interactive-host/index.ts";
 import { STEP_TIMEOUT_MS } from "../../validation/pi-process/index.ts";
-import { createInputHost } from "../test-fixture.ts";
 import { fullscreenInputRouting } from "./fullscreen-input.ts";
 import { openResponsiveCustomUI } from "./index.ts";
 
@@ -14,26 +14,30 @@ function listeners(tui: TUI): Set<TuiInputListener> {
   return value as Set<TuiInputListener>;
 }
 
-async function open(host = createInputHost(), claims = true) {
+async function open(existingHost?: Awaited<ReturnType<typeof inputHostFixture>>) {
+  const host = existingHost ?? (await inputHostFixture());
   const abort = new AbortController();
   const handleInput = vi.fn();
   const unavailable = vi.fn();
   const dispose = vi.fn();
-  const view = { render: () => ["view"], invalidate() {}, handleInput, dispose };
-  const common = { ui: host.ui, signal: abort.signal, useOverlay: () => false };
-  const opening = openResponsiveCustomUI(
-    claims
-      ? {
-          ...common,
-          onInputRoutingUnavailable: unavailable,
-          create: () => ({
-            ...view,
-            ownsFullscreenInput: (data: string) =>
-              matchesKey(data, "pageUp") || matchesKey(data, "pageDown")
-          })
-        }
-      : { ...common, create: () => view }
-  );
+  const opening = openResponsiveCustomUI({
+    ui: host.ui,
+    signal: abort.signal,
+    useOverlay: () => false,
+    onInputRoutingUnavailable: unavailable,
+    create: () => ({
+      render: () => ["view"],
+      invalidate() {},
+      handleInput,
+      dispose,
+      ownsFullscreenInput: (data: string) =>
+        matchesKey(data, "pageUp") || matchesKey(data, "pageDown")
+    })
+  });
+  onTestFinished(async () => {
+    abort.abort();
+    await opening;
+  });
   await vi.waitFor(() => expect(host.presentation).toBeDefined(), {
     interval: 1,
     timeout: STEP_TIMEOUT_MS
@@ -47,13 +51,12 @@ async function open(host = createInputHost(), claims = true) {
     close: async () => {
       abort.abort();
       await opening;
-      host.dispose();
     }
   };
 }
 
 it("preserves listener order and edits, routes repeats once, and leaves retained callbacks inert", async () => {
-  const host = createInputHost();
+  const host = await inputHostFixture();
   const calls: string[] = [];
 
   const first = (data: string) => {
@@ -146,7 +149,7 @@ it("tracks real focus loss, competing inline UI, overlay restoration, and transc
 });
 
 it("lets temporary inline UI block an existing overlay and restores that overlay on closure", async () => {
-  const host = createInputHost();
+  const host = await inputHostFixture();
   const otherInput = vi.fn();
   const overlay = host.tui.showOverlay({
     render: () => ["overlay"],
@@ -167,23 +170,8 @@ it("lets temporary inline UI block an existing overlay and restores that overlay
   }
 });
 
-it.each(["regular", "fullscreen"] as const)(
-  "does not install for nonparticipants in %s mode",
-  async (mode) => {
-    const host = createInputHost(mode);
-    const original = [...listeners(host.tui)];
-    const view = await open(host, false);
-
-    try {
-      expect([...listeners(host.tui)]).toEqual(original);
-    } finally {
-      await view.close();
-    }
-  }
-);
-
 it("defers installation requested synchronously during listener traversal", async () => {
-  const host = createInputHost();
+  const host = await inputHostFixture();
   const before = [...listeners(host.tui)];
   const handleInput = vi.fn();
   const presentation = { focused: false, render: () => ["view"], invalidate() {}, handleInput };
@@ -213,7 +201,6 @@ it("defers installation requested synchronously during listener traversal", asyn
     expect(listener).toHaveBeenCalledOnce();
   } finally {
     routing.dispose();
-    host.dispose();
   }
 });
 
@@ -247,9 +234,9 @@ it.each(["remove", "reorder", "copy"] as const)(
 );
 
 it("shares one dispatcher and rebinds a stable reference without activating old-renderer callbacks", async () => {
-  const oldHost = createInputHost();
-  const newHost = createInputHost();
-  const regular = createInputHost("regular");
+  const oldHost = await inputHostFixture();
+  const newHost = await inputHostFixture();
+  const regular = await inputHostFixture("regular");
   let current = oldHost.tui;
   const reference = new Proxy(oldHost.tui, {
     get: (_target, property) => {
@@ -314,8 +301,5 @@ it("shares one dispatcher and rebinds a stable reference without activating old-
   } finally {
     first.dispose();
     second.dispose();
-    oldHost.dispose();
-    newHost.dispose();
-    regular.dispose();
   }
 });

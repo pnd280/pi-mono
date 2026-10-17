@@ -177,8 +177,11 @@ function boundedListLines(
   if (omitted === 0) return lines;
   let notice = omittedTasksNotice(omitted);
 
-  // Keep the notice inside the same model-output budget, retaining at least the first line.
-  while (lines.length > 1 && characters + 1 + notice.length > MAX_LIST_CHARACTERS) {
+  // Keep the notice inside both output budgets, retaining at least the first todo.
+  while (
+    lines.length > 1 &&
+    (lines.length >= MAX_LIST_LINES || characters + 1 + notice.length > MAX_LIST_CHARACTERS)
+  ) {
     const removed = lines.pop();
     if (removed === undefined) break;
     characters -= removed.length + 1;

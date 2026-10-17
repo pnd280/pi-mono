@@ -116,21 +116,47 @@ export class PreparedResult {
     const result = p.result;
     if (!result) return [];
     const parts = textParts(result, p, false);
-    // Use the adapter's interpretation of known envelopes, as the expanded body does.
-    const text = displayText(
-      result.content
-        .flatMap((block, contentIndex) => {
-          if (block.type !== "text") return [];
-          const blockParts = parts(contentIndex, block.text);
+    const retained: ResultTextPart[] = [];
+    let remaining = COMPACT_OUTPUT_CHARACTERS;
+    let truncated = false;
 
-          return blockParts.length ? [blockParts.map((part) => part.text).join("")] : [];
-        })
-        .join("\n")
-    )
-      .replace(/^(?:[^\S\n]*\n)+/, "")
-      .trimEnd();
-    if (!text) return tree([{ rows: [theme.fg("dim", "(no output)")] }], p);
-    const lines = text.split("\n");
+    // Interpret complete envelopes, but bound formatting before normalising text.
+    for (const [contentIndex, block] of result.content.entries()) {
+      if (block.type !== "text") continue;
+      const blockParts = parts(contentIndex, block.text);
+      if (!blockParts.length) continue;
+
+      if (retained.length) {
+        if (remaining === 0) {
+          truncated = true;
+          break;
+        }
+
+        retained.push({ kind: "output", text: "\n" });
+        remaining--;
+      }
+
+      for (const part of blockParts) {
+        const text = sliceTerminalText(part.text, 0, remaining).text;
+        retained.push({ ...part, text });
+        remaining -= text.length;
+
+        if (text.length < part.text.length) {
+          truncated = true;
+          break;
+        }
+      }
+
+      if (truncated) break;
+    }
+
+    // Measure logical lines with the shared wrapper so each line keeps its styling.
+    const allLines = wrapRows(styleResultParts(retained, p), Number.MAX_SAFE_INTEGER);
+    const hasText = (line: string) => stripTerminalSequences(line).trim().length > 0;
+    const first = allLines.findIndex(hasText);
+    const end = allLines.reduce((end, line, index) => (hasText(line) ? index + 1 : end), 0);
+    const lines = allLines.slice(Math.max(0, first), end);
+    if (!lines.length && !truncated) return tree([{ rows: [theme.fg("dim", "(no output)")] }], p);
     // A hint must save space, so it never replaces a single line.
     const shown = lines.length > PREVIEW_LINES + 1 ? PREVIEW_LINES : lines.length;
     const hidden = lines.length - shown;
@@ -139,14 +165,16 @@ export class PreparedResult {
       [
         {
           rows: [
-            ...lines
-              .slice(0, shown)
-              .map((line) => theme.fg("toolOutput", truncateToWidth(line, width, "…"))),
-            ...(hidden > 0
+            ...lines.slice(0, shown).map((line) => truncateToWidth(line, width, "…")),
+            ...(truncated || hidden > 0
               ? [
                   theme.fg(
                     "dim",
-                    truncateToWidth(`… ${hidden} more lines (${expansionHint()})`, width, "…")
+                    truncateToWidth(
+                      `… ${truncated ? "more output" : `${hidden} more lines`} (${expansionHint()})`,
+                      width,
+                      "…"
+                    )
                   )
                 ]
               : [])

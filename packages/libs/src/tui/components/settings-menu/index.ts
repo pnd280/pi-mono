@@ -223,37 +223,44 @@ function frameLayout(options: SettingsMenuOptions, compact: boolean) {
 
 function menuList(options: SettingsMenuOptions, compact: boolean, available: number) {
   const { theme, items, selected, width } = options;
-  const gaps = compact ? 0 : items.slice(1).filter((item) => item.gapBefore).length;
-  const paginationRows = items.length > Math.min(8, available - gaps) ? 1 : 0;
 
-  return renderWindowedList({
-    items,
-    selectedIndex: selected,
-    maxRows: Math.max(1, Math.min(8, available - gaps - paginationRows)),
-    width,
-    theme: {
-      selectedPrefix: (value) => theme.fg("accent", value),
-      selectedText: (value) => theme.fg("accent", value),
-      description: (value) => theme.fg("muted", value),
-      scrollInfo: (value) => theme.fg("muted", value),
-      noMatch: (value) => theme.fg("muted", value)
-    },
-    format: (visible) => ({
-      items: visible.map((item) => {
-        const description = compactDisplayText(item.description ?? "");
-        let label = compactDisplayText(item.label);
-        if (width <= 40 && description) label += ` · ${description}`;
-        if (item.disabled) label = theme.fg("dim", label);
+  // Gaps depend on the centred window, so try at most eight row counts.
+  for (let maxRows = Math.min(8, available); ; maxRows--) {
+    const list = renderWindowedList({
+      items,
+      selectedIndex: selected,
+      maxRows,
+      width,
+      theme: {
+        selectedPrefix: (value) => theme.fg("accent", value),
+        selectedText: (value) => theme.fg("accent", value),
+        description: (value) => theme.fg("muted", value),
+        scrollInfo: (value) => theme.fg("muted", value),
+        noMatch: (value) => theme.fg("muted", value)
+      },
+      format: (visible) => ({
+        items: visible.map((item) => {
+          const description = compactDisplayText(item.description ?? "");
+          let label = compactDisplayText(item.label);
+          if (width <= 40 && description) label += ` · ${description}`;
+          if (item.disabled) label = theme.fg("dim", label);
 
-        return { value: item.key, label, description };
-      }),
-      layout: {
-        minPrimaryColumnWidth: 8,
-        maxPrimaryColumnWidth: 38,
-        truncatePrimary: ({ text, maxWidth }) => truncateToWidth(text, maxWidth)
-      }
-    })
-  });
+          return { value: item.key, label, description };
+        }),
+        layout: {
+          minPrimaryColumnWidth: 8,
+          maxPrimaryColumnWidth: 38,
+          truncatePrimary: ({ text, maxWidth }) => truncateToWidth(text, maxWidth)
+        }
+      })
+    });
+    const gaps = compact
+      ? 0
+      : items.slice(list.start + 1, list.start + list.count).filter((item) => item.gapBefore)
+          .length;
+    const paginationRows = items.length > list.count ? 1 : 0;
+    if (maxRows === 1 || list.count + gaps + paginationRows <= available) return list;
+  }
 }
 
 function feedbackDetails(options: SettingsMenuOptions, budget: number): string[] {

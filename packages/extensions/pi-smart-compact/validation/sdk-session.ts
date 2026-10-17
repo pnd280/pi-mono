@@ -13,6 +13,39 @@ import {
 import { createValidationWorkspace } from "@pi-mono/libs/validation/pi-process";
 import { expect, vi } from "vite-plus/test";
 
+export async function sdkSessionServices({
+  cwd,
+  agentDir,
+  factories,
+  settingsManager
+}: {
+  cwd: string;
+  agentDir: string;
+  factories: ((pi: ExtensionAPI) => void)[];
+  settingsManager: SettingsManager;
+}) {
+  return createAgentSessionServices({
+    cwd,
+    agentDir,
+    modelRuntime: await ModelRuntime.create({
+      authPath: join(agentDir, "auth.json"),
+      modelsPath: null,
+      modelsStorePath: join(agentDir, "models-store.json"),
+      refreshOnCreate: false,
+      allowModelNetwork: false
+    }),
+    settingsManager,
+    resourceLoaderOptions: {
+      noExtensions: true,
+      noSkills: true,
+      noThemes: true,
+      noContextFiles: true,
+      noPromptTemplates: true,
+      extensionFactories: factories
+    }
+  });
+}
+
 /** Real SDK session for routing and tool policy, without an interactive host. */
 export async function sdkSessionFixture(factories: ((pi: ExtensionAPI) => void)[]) {
   const directory = await createValidationWorkspace("pi-smart-compact-sdk-");
@@ -27,37 +60,26 @@ export async function sdkSessionFixture(factories: ((pi: ExtensionAPI) => void)[
     try {
       await session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
     } finally {
-      session?.dispose();
-      vi.unstubAllEnvs();
-      await rm(directory, { recursive: true, force: true });
+      try {
+        session?.dispose();
+      } finally {
+        vi.unstubAllEnvs();
+        await rm(directory, { recursive: true, force: true });
+      }
     }
 
     expect(errors).toEqual([]);
   };
 
   try {
-    const services = await createAgentSessionServices({
+    const services = await sdkSessionServices({
       cwd,
       agentDir,
-      modelRuntime: await ModelRuntime.create({
-        authPath: join(agentDir, "auth.json"),
-        modelsPath: null,
-        modelsStorePath: join(agentDir, "models-store.json"),
-        refreshOnCreate: false,
-        allowModelNetwork: false
-      }),
+      factories,
       settingsManager: SettingsManager.inMemory({
         compaction: { enabled: false },
         retry: { enabled: false }
-      }),
-      resourceLoaderOptions: {
-        noExtensions: true,
-        noSkills: true,
-        noThemes: true,
-        noContextFiles: true,
-        noPromptTemplates: true,
-        extensionFactories: factories
-      }
+      })
     });
     ({ session } = await createAgentSessionFromServices({
       services,
@@ -68,6 +90,7 @@ export async function sdkSessionFixture(factories: ((pi: ExtensionAPI) => void)[
     return {
       session: activeSession,
       agentDir,
+      cwd,
       async bind() {
         await activeSession.bindExtensions({
           mode: "print",

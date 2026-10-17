@@ -358,6 +358,7 @@ export default defineConfig({
     // Absolute: package `test` scripts load this config with the package as the root.
     globalSetup: [`${import.meta.dirname}/packages/libs/src/validation/pi-process/global-setup.ts`],
     include: [
+      ".agents/skills/pi-update/scripts/*.test.ts",
       "src/**/*.test.ts",
       "validation/**/*.test.ts",
       "packages/*/src/**/*.test.ts",

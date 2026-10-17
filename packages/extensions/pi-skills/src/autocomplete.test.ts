@@ -4,7 +4,6 @@ import {
   ProcessTerminal,
   TuiMainScreen,
   type AutocompleteProvider,
-  type AutocompleteSuggestions,
   type EditorTheme
 } from "@earendil-works/pi-tui";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
@@ -15,35 +14,6 @@ import { command } from "./test-fixture.ts";
 
 const commands = [command("skill:review"), command("skill:release"), command("skill:plan")];
 const options = () => ({ signal: new AbortController().signal, force: true });
-
-it("reads membership at request time", async () => {
-  let catalog = commands;
-  const current = new CombinedAutocompleteProvider(commands, process.cwd());
-  const provider = createSkillAutocompleteProvider(current, () => catalog);
-  expect(await provider.getSuggestions(["/skill:re"], 0, 9, options())).not.toBeNull();
-  catalog = [];
-  expect(await provider.getSuggestions(["/skill:plan"], 0, 11, options())).toBeNull();
-});
-
-it("reads the current catalog after native asynchronous suggestions resolve", async () => {
-  const pending = Promise.withResolvers<AutocompleteSuggestions | null>();
-  let catalog: typeof commands = [];
-  const current: AutocompleteProvider = {
-    getSuggestions: () => pending.promise,
-    applyCompletion: (lines, cursorLine, cursorCol) => ({ lines, cursorLine, cursorCol })
-  };
-  const provider = createSkillAutocompleteProvider(current, () => catalog);
-  const result = provider.getSuggestions(["/skill:re"], 0, 9, options());
-  catalog = commands;
-  pending.resolve({
-    items: [{ value: "skill:review", label: "skill:review" }],
-    prefix: "/skill:re"
-  });
-  expect(await result).toEqual({
-    items: [{ value: "skill:review", label: "skill:review" }],
-    prefix: "skill:re"
-  });
-});
 
 it("does not claim a borrowed item reused by a delegated provider", async () => {
   const item = { value: "skill:review", label: "custom label", description: "native metadata" };

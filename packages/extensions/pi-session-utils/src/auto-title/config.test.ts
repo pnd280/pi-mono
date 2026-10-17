@@ -93,10 +93,3 @@ it("disables generation on project read errors rather than silently using anothe
   mkdirSync(projectPath);
   expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toBeUndefined();
 });
-
-it("uses only the current directory's project settings, without ancestor discovery", () => {
-  const { agentDir, cwd } = settings(globalSettings, titleSettings({ model: "provider/parent" }));
-  const child = join(cwd, "child");
-  mkdirSync(child);
-  expect(loadTitleConfig(child, { agentDir, projectTrusted: true })).toEqual(globalConfig);
-});

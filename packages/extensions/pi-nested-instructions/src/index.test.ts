@@ -20,7 +20,7 @@ import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import nestedInstructions from "../index.ts";
 import { readType } from "./ledger.ts";
-import { decodeNotice, noticeType } from "./notices.ts";
+import { decodeNotice, noticeEntry, noticeType } from "./notices.ts";
 import { fixture } from "./test-fixture.ts";
 
 const cleanup: (() => Promise<void>)[] = [];
@@ -95,25 +95,51 @@ async function host(responses: FauxResponseFactory[], before: ExtensionFactory[]
 
 it("does not interrupt sibling tools and delivers only unseen instructions before the next request", async () => {
   const requests: string[] = [];
-  const h = await host([
-    (context) => {
-      expect(getCurrentSystemPrompt(context.messages)).toContain("NATIVE ROOT RULES");
+  const h = await host(
+    [
+      (context) => {
+        expect(getCurrentSystemPrompt(context.messages)).toContain("NATIVE ROOT RULES");
 
-      return fauxAssistantMessage([
-        fauxToolCall("read", { path: "pkg/deep/file.ts" }, { id: "file" }),
-        fauxToolCall("bash", { command: "cat pkg/deep/AGENTS.md" }, { id: "instructions" })
-      ]);
-    },
-    (context) => {
-      requests.push(JSON.stringify(context.messages));
+        return fauxAssistantMessage([
+          fauxToolCall("read", { path: "pkg/deep/file.ts" }, { id: "file" }),
+          fauxToolCall("bash", { command: "cat pkg/deep/AGENTS.md" }, { id: "instructions" })
+        ]);
+      },
+      (context) => {
+        requests.push(JSON.stringify(context.messages));
 
-      return fauxAssistantMessage("done");
-    }
-  ]);
+        return fauxAssistantMessage("done");
+      }
+    ],
+    [
+      (pi) => {
+        pi.on("turn_end", (event, ctx) => {
+          if (
+            event.message.role !== "assistant" ||
+            !event.message.content.some((part) => part.type === "toolCall")
+          )
+            return;
+
+          return {
+            entries: [
+              ...event.entries,
+              noticeEntry(
+                path.join(ctx.cwd, "pkg"),
+                { path: path.join(ctx.cwd, "pkg/AGENTS.md"), content: "PRIOR BOUNDARY RULES" },
+                "loaded",
+                ctx.cwd
+              )
+            ]
+          };
+        });
+      }
+    ]
+  );
   expect(h.session.extensionRunner.getMessageRenderer(noticeType)).toBeUndefined();
   await h.session.prompt("Run the batch");
   expect(h.errors).toEqual([]);
-  expect(requests[0]).toContain("AUTO PARENT RULES");
+  expect(requests[0]?.match(/PRIOR BOUNDARY RULES/g)).toHaveLength(1);
+  expect(requests[0]).not.toContain("AUTO PARENT RULES");
   expect(requests[0]?.match(/DIRECT CHILD RULES/g)).toHaveLength(1);
   expect(requests[0]).not.toContain("DO NOT FOLLOW OUTPUT PATHS");
   const entries = h.fs.manager.getBranch();

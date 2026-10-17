@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,23 +28,41 @@ export const COMPILE_CACHES_ENV = "PI_MONO_VALIDATION_COMPILE_CACHES";
 /** Creates a private directory for `COMPILE_CACHES_ENV`; the caller removes it. */
 export async function createCompileCaches(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), "pi-validation-caches-"));
-  for (const name of compileCaches) await mkdir(join(directory, name), { mode: 0o700 });
+  let ready = false;
 
-  return directory;
+  try {
+    for (const name of compileCaches) await mkdir(join(directory, name), { mode: 0o700 });
+    ready = true;
+
+    return directory;
+  } finally {
+    if (!ready) await rm(directory, { recursive: true, force: true });
+  }
 }
 
-/** Creates only the private directory skeleton; consumers own fixtures and cleanup. */
-export async function createValidationWorkspace(prefix: string): Promise<string> {
+/** Creates private directories and runs consumer setup; removes them if either step fails. */
+export async function createValidationWorkspace(
+  prefix: string,
+  prepare?: (directory: string) => Promise<void>
+): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), prefix));
-  for (const name of ["work", "home", "agent", "tmp"])
-    await mkdir(join(directory, name), { mode: 0o700 });
-  const caches = process.env[COMPILE_CACHES_ENV];
-  if (caches)
-    for (const name of compileCaches)
-      // Other platforms ignore the type; Windows junctions need no symlink privilege.
-      await symlink(join(caches, name), join(directory, "tmp", name), "junction");
+  let ready = false;
 
-  return directory;
+  try {
+    for (const name of ["work", "home", "agent", "tmp"])
+      await mkdir(join(directory, name), { mode: 0o700 });
+    const caches = process.env[COMPILE_CACHES_ENV];
+    if (caches)
+      for (const name of compileCaches)
+        // Other platforms ignore the type; Windows junctions need no symlink privilege.
+        await symlink(join(caches, name), join(directory, "tmp", name), "junction");
+    await prepare?.(directory);
+    ready = true;
+
+    return directory;
+  } finally {
+    if (!ready) await rm(directory, { recursive: true, force: true });
+  }
 }
 
 /** Resolve and validate the executable declared by the installed Pi package. */

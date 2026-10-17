@@ -1,7 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
   isKeyRelease,
-  matchesKey,
   ScrollView,
   type Component,
   type TUI,
@@ -12,6 +11,7 @@ import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import { readLogTail } from "../jobs/log.ts";
 import type { Jobs } from "../jobs/registry.ts";
+import { PanelControls, type PanelKeys } from "./controls.ts";
 import { jobRows, renderViewer, Spinner, type ViewerBody } from "./viewer-frame.ts";
 
 /** A live log follows its file at this interval. */
@@ -39,14 +39,17 @@ export class JobLogView implements Component {
   );
   private timer: ReturnType<typeof setInterval>;
   private unsubscribe: () => void;
+  private controls: PanelControls;
 
   constructor(
     private jobs: Jobs,
     readonly jobId: string,
     private tui: TUI,
     private theme: Theme,
+    keys: PanelKeys,
     private close: () => void
   ) {
+    this.controls = new PanelControls(keys, "job");
     this.command = displayText(jobs.owned(jobId).command).split("\n");
     // The last read after the exit shows the complete end of the log.
     this.unsubscribe = jobs.subscribe(() => {
@@ -90,7 +93,8 @@ export class JobLogView implements Component {
 
     try {
       const text = await readLogTail(record.log_file);
-      this.lines = displayText(text).replace(/\n$/, "").split("\n");
+      const output = displayText(text);
+      this.lines = output ? output.replace(/\n$/, "").split("\n") : [];
       this.unavailable = "";
     } catch (error) {
       this.lines = [];
@@ -119,16 +123,21 @@ export class JobLogView implements Component {
     return this.wrapped.rows;
   }
 
+  ownsFullscreenInput(data: string): boolean {
+    return this.active && this.controls.actionFor(data) !== undefined;
+  }
+
   handleInput(data: string): void {
     if (!this.active || isKeyRelease(data)) return;
-    if (matchesKey(data, "escape")) this.close();
-    else if (matchesKey(data, "ctrl+d")) void this.abort();
-    else if (matchesKey(data, "up")) this.scroll.scrollBy(-1);
-    else if (matchesKey(data, "down")) this.scroll.scrollBy(1);
-    else if (matchesKey(data, "pageUp")) this.scroll.scrollBy(-Math.max(1, this.bodyRows));
-    else if (matchesKey(data, "pageDown")) this.scroll.scrollBy(Math.max(1, this.bodyRows));
-    else if (matchesKey(data, "home")) this.scroll.scrollToStart();
-    else if (matchesKey(data, "end")) this.scroll.scrollToEnd();
+    const action = this.controls.actionFor(data);
+    if (action === "cancel") this.close();
+    else if (action === "abort") void this.abort();
+    else if (action === "up") this.scroll.scrollBy(-1);
+    else if (action === "down") this.scroll.scrollBy(1);
+    else if (action === "pageUp") this.scroll.scrollBy(-Math.max(1, this.bodyRows));
+    else if (action === "pageDown") this.scroll.scrollBy(Math.max(1, this.bodyRows));
+    else if (action === "first") this.scroll.scrollToStart();
+    else if (action === "last") this.scroll.scrollToEnd();
     this.tui.requestRender();
   }
 
@@ -167,11 +176,9 @@ export class JobLogView implements Component {
         ...(this.error ? [this.error] : [])
       ],
       hints: [
-        "Esc back",
-        ...(active ? ["Ctrl+D abort"] : []),
-        "↑↓ scroll",
-        "PageUp/PageDown page",
-        "Home/End first/last"
+        this.controls.hint("cancel", "back"),
+        ...(active ? [this.controls.hint("abort", "abort")] : []),
+        ...this.controls.scrollHints()
       ],
       body: (height) => this.body(lines, unavailableInBody, height)
     }).rows;
@@ -196,7 +203,7 @@ export class JobLogView implements Component {
   }
 
   handleMouse(event: TuiMouseEvent): ReturnType<NonNullable<Component["handleMouse"]>> {
-    if (event.type !== "wheel") return;
+    if (!this.active || event.type !== "wheel") return;
     this.scroll.scrollBy(event.wheelDelta ?? 0);
 
     return { handled: true };

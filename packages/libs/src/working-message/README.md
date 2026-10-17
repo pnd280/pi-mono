@@ -6,6 +6,7 @@
 
 ## Behaviour
 
+- Only interactive TUI mode receives working-message updates. RPC, JSON, and print modes do not.
 - Nonempty contributions are joined with `·` in the configured order. Unlisted components follow in sorted ID order.
 - Empty contributions stay registered and listed in settings. When no component has text, Pi's default message returns.
 - A nonempty `overrideWorkingMessage` override replaces contributions. The most recently changed nonempty override wins. Clearing it reveals the next nonempty override, or the combined message. Overrides stay out of the settings menu.
@@ -50,4 +51,4 @@ export default function activityExtension(pi: ExtensionAPI) {
 
 ## Validation
 
-Use [library checks](../../README.md#validation). [Settings tests](settings.test.ts) check the saved key and order schema; the [settings-file tests](../settings-file/README.md#validation) cover trust and file handling. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) to check `/working-message` and the published text in real Pi, in regular and fullscreen modes.
+Use [library checks](../../README.md#validation). The [settings-file tests](../settings-file/README.md#validation) cover trust and file handling. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) to check ordering, `/working-message`, and the published text in real Pi, in regular and fullscreen modes.

@@ -76,7 +76,7 @@ Public `sendMessage` with `triggerTurn: false` can't replace `_appendCustomMessa
 - [ ] `ctx.ui.setStatus(key, undefined)` clears a footer status.
 - [ ] Successful tool-requested compaction emits `session_compact` through `_runAutoCompaction`. `turn_start` and `agent_settled` also refresh the count from the saved branch.
 
-The status counts entries rather than events, so resumed sessions and tree navigation stay accurate. RPC forwards `setStatus` to the client but doesn't guarantee it is displayed.
+The status counts entries rather than events, so resumed sessions and tree navigation stay accurate. See [What you see](../README.md#what-you-see) for the interactive-terminal display limit.
 
 ### What Pi still owns
 
@@ -167,6 +167,7 @@ The gaps below concern private Pi integration; [replacement opportunities](#repl
 | `manual` reason   | Passing `manual` is outside `_runAutoCompaction`'s declared contract, which expects automatic reasons only. Native failure text may still say `Auto-compaction failed` (observed in Pi 0.99.2, still in the Pi 1.3.0 source). The outcome message removes that misleading prefix.                            |
 | Overflow recovery | Automatic `overflow` recovery keeps Pi's native preparation and serialisation. See [recovery behaviour](../README.md#errors) for length stops and retained context edits.                                                                                                                                    |
 | Authentication    | Pi resolves summarisation authentication inside the default summariser, after hooks, so summaries from hooks skip it. Configured requests use the registry stream with isolated credentials, not private authentication helpers or arbitrary stream overrides. Unrelated operations use the original stream. |
+| Concurrent calls  | Native compaction uses shared per-session state. SDK callers must follow the [manual-compaction constraint](../README.md#compact).                                                                                                                                                                           |
 | Not a transaction | The temporary metadata wrapper has the [session-write and cancellation limits](../README.md#side-effects).                                                                                                                                                                                                   |
 | Late patches      | Fingerprint checks don't inspect overrides on session instances, and don't detect patches installed after binding. Combinations of third-party patches and reloads aren't guaranteed to work. Cleanup deactivates retained wrappers and leaves later replacements alone.                                     |
 

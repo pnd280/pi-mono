@@ -23,7 +23,7 @@ type Dispatcher = {
 const dispatchers = new WeakMap<ListenerCollection, Dispatcher>();
 const ownedDispatchers = new WeakSet<TuiInputListener>();
 
-/** Pi 0.87: reads through the stable proxy, never descriptor operations on it. */
+/** Read through the stable proxy; never use descriptor operations on it. */
 function capability(tui: TUI) {
   if (
     !("inputListeners" in tui) ||

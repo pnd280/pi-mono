@@ -49,13 +49,13 @@ Project settings are ignored.
 
 Problems are shown as UI warnings when settings load. Modes without a UI, such as print mode, show no warnings.
 
-| Problem                                                                        | Result                                                       |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| Invalid rule, including an unknown field in a rule                             | That rule is skipped.                                        |
-| Invalid section, including an unknown field in it                              | All rules are disabled.                                      |
-| `settings.json` can't be read                                                  | All rules are disabled.                                      |
-| A listed file is missing, unreadable, not a regular file, or larger than 1 MiB | The rule keeps Pi's text instead of applying a partial list. |
-| Pi's own `APPEND_SYSTEM.md` is unreadable or larger than 1 MiB                 | No replacement happens.                                      |
+| Problem                                                                                                        | Result                                                       |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Invalid rule, including an unknown field in a rule                                                             | That rule is skipped.                                        |
+| Invalid section, including an unknown field in it                                                              | All rules are disabled.                                      |
+| `settings.json` can't be read                                                                                  | All rules are disabled.                                      |
+| A listed file is missing, unreadable, not a regular file, contains invalid UTF-8, or is larger than 1 MiB      | The rule keeps Pi's text instead of applying a partial list. |
+| Pi's own `APPEND_SYSTEM.md` is unreadable, not a regular file, contains invalid UTF-8, or is larger than 1 MiB | No replacement happens.                                      |
 
 ## Side effects
 

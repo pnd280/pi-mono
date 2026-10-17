@@ -33,7 +33,7 @@ Restoring replaces the editor text. It doesn't submit, and doesn't add to Pi's n
 
 ### Browser
 
-**Ctrl+R** opens "History". In the browser:
+By default, **Ctrl+R** opens "History". The default browser bindings are:
 
 | Key                           | Action                               |
 | ----------------------------- | ------------------------------------ |

@@ -120,6 +120,8 @@ function isSemanticallyValidSnapshot(state: TodoState): boolean {
   if (state.nextId <= highestTaskId) return false;
 
   for (const task of state.tasks) {
+    if (!task.subject.trim()) return false;
+
     for (const dependency of task.blockedBy ?? []) {
       if (dependency === task.id || !hierarchy.tasksById.has(dependency)) return false;
     }

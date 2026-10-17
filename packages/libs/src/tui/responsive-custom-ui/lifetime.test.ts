@@ -1,19 +1,19 @@
 import { expect, it, vi } from "vite-plus/test";
 
+import { inputHostFixture } from "../../validation/interactive-host/index.ts";
 import { STEP_TIMEOUT_MS } from "../../validation/pi-process/index.ts";
-import { createInputHost } from "../test-fixture.ts";
 import { openResponsiveCustomUI } from "./index.ts";
 
 it.each(["factory", "before-install", "open", "remount"] as const)(
   "deactivates synchronously on cancellation during %s",
   async (phase) => {
-    const host = createInputHost();
+    const host = await inputHostFixture();
     const abort = new AbortController();
     const dispose = vi.fn();
     const handleInput = vi.fn();
     const unavailable = vi.fn();
     const focus = host.tui.setFocus.bind(host.tui);
-    vi.spyOn(host.tui, "setFocus").mockImplementation((component) => {
+    vi.spyOn(host.host.renderer, "setFocus").mockImplementation((component) => {
       focus(component);
       if (phase === "before-install" && component !== host.editor) abort.abort();
     });
@@ -55,13 +55,13 @@ it.each(["factory", "before-install", "open", "remount"] as const)(
       await opening;
       expect(dispose).toHaveBeenCalledOnce();
       expect(unavailable).not.toHaveBeenCalled();
+      host.render();
       host.transcript.scrollTo(40);
       host.send("\x1b[5~");
       expect(host.transcript.scrollTop).toBeLessThan(40);
     } finally {
       abort.abort();
       await opening;
-      host.dispose();
     }
   }
 );

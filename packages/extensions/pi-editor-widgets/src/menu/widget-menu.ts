@@ -117,13 +117,23 @@ export class WidgetMenu implements Component {
     });
   }
 
+  ownsFullscreenInput(data: string): boolean {
+    return !this.closed && this.actionFor(data) !== undefined;
+  }
+
+  private actionFor(data: string): Navigation | undefined {
+    const action = navigationKeys.find(([key]) => matchesKey(data, key))?.[1];
+
+    return action === "switchScope" && !this.options.settings.projectTrusted ? undefined : action;
+  }
+
   handleInput(data: string): void {
     if (this.closed) return;
     const scope = this.drafts.scope;
     const value = JSON.stringify(this.drafts.current.value);
     this.handleMenuInput(data);
     const edited =
-      !matchesKey(data, "ctrl+s") &&
+      this.actionFor(data) !== "save" &&
       scope === this.drafts.scope &&
       value !== JSON.stringify(this.drafts.current.value);
 
@@ -134,10 +144,8 @@ export class WidgetMenu implements Component {
   }
 
   private handleMenuInput(data: string): void {
-    const action: Navigation | undefined = navigationKeys.find(([key]) =>
-      matchesKey(data, key)
-    )?.[1];
-    if (!action || (action === "switchScope" && !this.options.settings.projectTrusted)) return;
+    const action = this.actionFor(data);
+    if (!action) return;
     const effect = this.drafts.navigate(action);
     if (effect === "save") this.save();
     else if (effect === "close") this.close();

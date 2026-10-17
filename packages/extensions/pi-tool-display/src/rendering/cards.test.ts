@@ -49,83 +49,76 @@ beforeAll(() => {
 });
 
 describe("tool display renderers", () => {
-  it.each([false, true])(
-    "skips CLI-only callbacks while retained standalone slots refresh their card meaning (supports throws=%s)",
-    (supportsThrows) => {
-      const cliOnly = vi.fn(() => {
-        throw new Error("No transcript consumer");
+  it("keeps borrowed arguments and results unchanged while standalone slots refresh", () => {
+    const cliOnly = vi.fn(() => {
+      throw new Error("No transcript consumer");
+    });
+    const supports = vi.fn(() => false);
+    const adapter: ToolDisplayAdapter = {
+      id: "owner:standalone-meaning",
+      family: "invocation",
+      supports,
+      exploration: cliOnly,
+      summaryItems: cliOnly,
+      get groupTitle() {
+        return cliOnly();
+      },
+      get summaryCategories() {
+        return cliOnly();
+      },
+      mcp: (_args, supplied) => {
+        const tool = typeof supplied?.details === "string" ? supplied.details : "pending";
+
+        return {
+          server: "docs",
+          tool,
+          outcome: tool === "cancelled" ? "cancelled" : "success",
+          content: [{ type: "text", text: `typed ${tool}` }]
+        };
+      },
+      outcome: (supplied) => (supplied.details === "failed" ? "failure" : "success")
+    };
+    const renderer = createPublicRenderers("lookup", adapter);
+    const current = context({ args: { query: "needle" } });
+    const header = renderer.renderCall(current.args, theme, { ...current, isPartial: true });
+    expect(header.render(100).join("\n")).toContain("Calling docs.pending");
+    let output = renderer.renderResult(
+      { ...result("flattened"), details: "search" },
+      current,
+      theme,
+      current
+    );
+
+    for (const [details, isError, isPartial, action] of [
+      ["search", false, false, "Called"],
+      ["failed", false, false, "Call failed"],
+      ["cancelled", true, false, "Call cancelled"],
+      ["cancelled", false, true, "Calling"],
+      ["search", true, false, "Call failed"],
+      ["list", false, false, "Called"]
+    ] as const) {
+      const supplied = { ...result("flattened"), details };
+      const before = structuredClone({ supplied, args: current.args });
+      output = renderer.renderResult(supplied, { expanded: false, isPartial }, theme, {
+        ...current,
+        isError,
+        lastComponent: output
       });
-      const supports = vi.fn(() => {
-        if (supportsThrows) throw new Error("No automatic selection");
 
-        return false;
-      });
-      const adapter: ToolDisplayAdapter = {
-        id: "owner:standalone-meaning",
-        family: "invocation",
-        supports,
-        exploration: cliOnly,
-        summaryItems: cliOnly,
-        get groupTitle() {
-          return cliOnly();
-        },
-        get summaryCategories() {
-          return cliOnly();
-        },
-        mcp: (_args, supplied) => {
-          const tool = typeof supplied?.details === "string" ? supplied.details : "pending";
-
-          return {
-            server: "docs",
-            tool,
-            outcome: tool === "cancelled" ? "cancelled" : "success",
-            content: [{ type: "text", text: `typed ${tool}` }]
-          };
-        },
-        outcome: (supplied) => (supplied.details === "failed" ? "failure" : "success")
-      };
-      const renderer = createPublicRenderers("lookup", adapter);
-      const current = context({ args: { query: "needle" } });
-      const header = renderer.renderCall(current.args, theme, { ...current, isPartial: true });
-      expect(header.render(100).join("\n")).toContain("Calling docs.pending");
-      let output = renderer.renderResult(
-        { ...result("flattened"), details: "search" },
-        current,
-        theme,
-        current
-      );
-
-      for (const [details, isError, isPartial, action] of [
-        ["search", false, false, "Called"],
-        ["failed", false, false, "Call failed"],
-        ["cancelled", true, false, "Call cancelled"],
-        ["cancelled", false, true, "Calling"],
-        ["search", true, false, "Call failed"],
-        ["list", false, false, "Called"]
-      ] as const) {
-        const supplied = { ...result("flattened"), details };
-        const before = structuredClone({ supplied, args: current.args });
-        output = renderer.renderResult(supplied, { expanded: false, isPartial }, theme, {
-          ...current,
-          isError,
-          lastComponent: output
-        });
-
-        for (let redraw = 0; redraw < 20; redraw++) {
-          expect(header.render(100).join("\n")).toContain(`${action} docs.${details}`);
-          expect(output.render(100).join("\n")).toContain(`typed ${details}`);
-        }
-
-        header.invalidate();
+      for (let redraw = 0; redraw < 20; redraw++) {
         expect(header.render(100).join("\n")).toContain(`${action} docs.${details}`);
         expect(output.render(100).join("\n")).toContain(`typed ${details}`);
-        expect({ supplied, args: current.args }).toEqual(before);
       }
 
-      expect(cliOnly).not.toHaveBeenCalled();
-      expect(supports).not.toHaveBeenCalled();
+      header.invalidate();
+      expect(header.render(100).join("\n")).toContain(`${action} docs.${details}`);
+      expect(output.render(100).join("\n")).toContain(`typed ${details}`);
+      expect({ supplied, args: current.args }).toEqual(before);
     }
-  );
+
+    expect(cliOnly).not.toHaveBeenCalled();
+    expect(supports).not.toHaveBeenCalled();
+  });
 
   it.each(["patch", "live preview", "saved output"])(
     "keeps an image result unchanged when %s replaces retained text",

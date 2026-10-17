@@ -21,6 +21,8 @@ Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; 
 3. Press **Ctrl+S** to save the layout you're viewing. If saving fails, your edits are kept so you can retry.
 4. Press **Escape** to go back, or **Ctrl+C** to close and discard unsaved edits.
 
+While the fullscreen menu has focus, its controls take priority over transcript controls. If input routing is unavailable, a warning appears once per opening. The menu stays open; use regular mode if controls do not respond.
+
 Widgets and statuses can share a row, or appear in several regions at once. A row too narrow for its contents wraps whole items onto the next line instead of shrinking them. An empty widget takes no space but keeps its position.
 
 Widgets that contain Kitty or iTerm2 images use full-width rows and keep their native output intact. If the height limit falls inside one of these widgets, clipping stops before that widget.

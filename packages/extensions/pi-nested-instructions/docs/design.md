@@ -41,11 +41,13 @@ Never inspect execution results. Each batch is handled at `turn_end`:
 3. Infer the batch's scopes and save all [read markers](../GLOSSARY.md#discovery).
 4. Discover the remaining instructions.
 
+Discovery deduplicates against `turn_end.context.contextEntries`, which includes earlier handlers' drafted notices, compaction, and context edits. It appends its drafts to `turn_end.entries`, preserving the earlier drafts. Startup and reload refresh use the committed session projection.
+
 Pending inputs are cleared at turn and session boundaries. Handling the whole batch at once avoids races between sibling calls, and needs no tool replacement, steering, or retry.
 
 The [nested-call rule](../README.md#which-files-load) applies across the batch: a sibling [direct read](../GLOSSARY.md#discovery) can still suppress the matching file. Unknown nested tool schemas and opaque parent code provide no scope unless a supported child input is observed.
 
-Direct-read markers contain a lexical path, filesystem revision, and the identity of the entry and call that created it. They contain no instruction text. A fingerprint of the projected call prevents a context replacement from preserving stale suppression. [Notices](../GLOSSARY.md#delivery) contain the full selected instructions plus structured metadata and a `messageDigest` of the entire model-facing message, including the note and tag around the instructions. The `messageDigest` detects context replacements which retain source details but change the delivered text.
+Direct-read markers contain a lexical path, filesystem revision, and the identity of the entry and call that created it. They contain no instruction text. A marker is created only when the exact `turn_end.messageEntryId` and tool-call ID remain in the boundary projection with the issued tool name and arguments. Its stored call fingerprint prevents later context replacements from preserving stale suppression. [Notices](../GLOSSARY.md#delivery) contain the full selected instructions plus structured metadata and a `messageDigest` of the entire model-facing message, including the note and tag around the instructions. The `messageDigest` detects context replacements which retain source details but change the delivered text.
 
 Markers are per file: reading `AGENTS.md` does not suppress a preferred `AGENTS.override.md`. Listing a filename is not a content read. Failed and blocked read attempts count; results are not inspected.
 

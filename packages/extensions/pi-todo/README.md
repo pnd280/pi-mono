@@ -16,18 +16,20 @@ The extension draws no tool cards; [pi-tool-display](../pi-tool-display/src/adap
 
 ### The `/todos` browser
 
-`/todos` opens a snapshot of the list; reopen it to see later changes.
+`/todos` opens a snapshot of the list; reopen it to see later changes. The browser uses Pi's `tui.select.*` bindings. The keys below are defaults.
 
-| Key                            | Action                                 |
-| ------------------------------ | -------------------------------------- |
-| Up and down keys               | Move the selection.                    |
-| Confirm (**Enter** by default) | Show details.                          |
-| Cancel (**Escape** by default) | Go back, or close.                     |
-| **PageUp**, **PageDown**       | Move the selection, or scroll details. |
+| Key                      | Action                                 |
+| ------------------------ | -------------------------------------- |
+| **Up**, **Down**         | Move the selection.                    |
+| **Enter**                | Show details.                          |
+| **Escape**               | Go back, or close.                     |
+| **PageUp**, **PageDown** | Move the selection, or scroll details. |
 
 **Ctrl+C** never closes the browser. The browser opens only if `tui.select.cancel` has a usable key other than **Ctrl+C**, as checked by [shared keybinding validation](../../libs/src/tui/keybindings/README.md#behaviour). If it is not, fix Pi's keybindings and run `/reload`.
 
-In fullscreen mode, `/todos` is never shown as an overlay, and paging doesn't scroll the transcript. If [input routing](../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership) is unavailable, use the arrow keys.
+In fullscreen mode, `/todos` is never shown as an overlay. Resolved browser actions take priority over transcript controls while the view has focus. If [input routing](../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership) is unavailable, use regular mode if controls do not respond.
+
+The footer keeps back or close first when space is limited. An empty list shows only the close hint.
 
 ### The widget
 

@@ -126,7 +126,7 @@ describe("preview provenance", () => {
   });
 });
 
-it("does not conceal invalid provenance when appending, and replaces only a validated preview", () => {
+it("preserves invalid details when appending, and replaces only a validated preview", () => {
   const retained: ReadResult = {
     content: [
       { type: "text", text: "source" },
@@ -135,6 +135,25 @@ it("does not conceal invalid provenance when appending, and replaces only a vali
     details: { selectiveRead: { sourceBlocks: 9 } }
   };
   expect(appendPreview(retained, { path: "a.ts" }, span(1))).toBe(retained);
+  const invalidNative: ReadResult = {
+    content: [{ type: "text", text: "native diagnostic" }],
+    details: {
+      truncation: {
+        content: "",
+        truncated: true,
+        truncatedBy: "bytes",
+        totalLines: 1,
+        totalBytes: 60 * 1024,
+        outputLines: -1,
+        outputBytes: 0,
+        lastLinePartial: false,
+        firstLineExceedsLimit: true,
+        maxLines: 2000,
+        maxBytes: 50 * 1024
+      }
+    }
+  };
+  expect(appendPreview(invalidNative, { path: "a.ts" }, span(1))).toBe(invalidNative);
   const valid: ReadResult = {
     content: [
       { type: "text", text: "source" },
@@ -151,6 +170,46 @@ it("does not conceal invalid provenance when appending, and replaces only a vali
   expect(valid.content[1]).toEqual({ type: "text", text: "old preview" });
   expect(updated.details?.selectiveRead).toEqual({ sourceBlocks: 1 });
 });
+
+it.each([
+  {
+    name: "a same-line span at line and column one ends after a surrogate pair",
+    text: "😀tail",
+    offset: 1,
+    selection: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 2 },
+    preview: "Selected source preview:\n😀",
+    ranges: [{ line: 0, start: 0, end: 2 }]
+  },
+  {
+    name: "an absolute multiline span clips only its first and last code-point columns",
+    text: "outside\nx😀A\u0301B\nmiddle😀\n😀界tail\noutside",
+    offset: 10,
+    selection: { startLine: 11, startColumn: 4, endLine: 13, endColumn: 3 },
+    preview: "Selected source preview:\n\u0301B\nmiddle😀\n😀界",
+    ranges: [
+      { line: 1, start: 4, end: 6 },
+      { line: 2, start: 0, end: 8 },
+      { line: 3, start: 0, end: 3 }
+    ]
+  }
+])(
+  "maps source coordinates to preview text and UTF-16 highlights: $name",
+  ({ text, offset, selection: input, preview, ranges }) => {
+    const native = {
+      content: [{ type: "text", text }],
+      details: undefined
+    } satisfies ReadResult;
+    const selection = selectionSchema.parse(input);
+    const window = { offset };
+    const interpreted = interpretReadResult(native, window);
+
+    expect(
+      appendPreview(native, { path: "source.ts", ...window }, selection).content.at(-1)
+    ).toEqual({ type: "text", text: preview });
+    expect(interpreted.document?.select(selection).ranges).toEqual(ranges);
+    expect(interpreted.blocks[0]?.highlight(text, selection)).toEqual(ranges);
+  }
+);
 
 describe("native source windows", () => {
   it("shares fractional native window arithmetic without imposing selection-coordinate rules", () => {

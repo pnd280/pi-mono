@@ -15,7 +15,7 @@ import { JOB_END_ENTRY, JOB_RESULT_MESSAGE, TASKS_MESSAGE } from "../src/constan
 import { jobDetailsSchema } from "../src/jobs/records.ts";
 import { detailsSchema } from "../src/result.ts";
 import { release, replies, withFixture } from "./background-fixture.ts";
-import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
+import { killFixtureProcesses, processStat, remainingProcesses } from "./processes.ts";
 import type { Supervisor } from "./supervisor.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
@@ -231,11 +231,19 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
     }
   );
 
-  test("J1: delivers a timed-out job as failed", async () => {
-    await withJobs(async (_directory, start) => {
+  test("J1: delivers a timed-out job as failed even after an abort during group cleanup", async () => {
+    await withJobs(async (directory, start) => {
       const host = await start();
       const after = host.records.length;
       await host.prompt("job-timeout");
+      const job = await startedJob(host);
+      const group = await jobGroup(directory);
+      await expect.poll(() => processStat(group), { timeout: STEP_TIMEOUT_MS }).toBeUndefined();
+      expect(groupAlive(group)).toBe(true);
+      await host.prompt(`job-abort-id ${job.job_id}`);
+      expect(
+        jobDetailsSchema.parse((await toolResults(host, "job_abort")).at(-1)?.details)
+      ).toMatchObject({ outcome: "failed", error: "timed out after 1 s" });
       await settledAfterJobResult(host, after);
       const results = await host.jobResults();
       expect(results).toHaveLength(1);

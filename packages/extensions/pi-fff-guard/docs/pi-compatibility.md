@@ -2,11 +2,11 @@
 
 [pi-fff-guard](../README.md)
 
-> Last verified against Pi 1.3.0 and FFF 0.11.0 (package checks, offline interception and scope tests, and live calls on Linux to installed FFF through an offline scripted provider, in the default and `override` modes). Compared with 0.10.6, FFF 0.11.0 registers its tools when it loads and again at session start, and changes rendering and SDK loading. Its tool schemas, `query.ts`, and `aux-finders.ts` are unchanged. No runtime changes were needed. Not covered: live calls on platforms other than Linux.
+> Last verified against Pi 1.3.0 and FFF 0.11.0 (package checks, offline interception and scope tests, and live calls on Linux to installed FFF through an offline scripted provider, in the default and `override` modes). Not covered: live calls on platforms other than Linux.
 
 ## Upgrade procedure
 
-1. Run the [package checks](../README.md#validation).
+1. Run the [package checks](../../../../docs/development.md#focused-validation).
 2. If an integration contract changed, make real calls to the installed FFF. Local tests don't establish external compatibility.
 3. Work through the checklist below, then update the "Last verified" line. Keep the README's external version evidence tied to the versions actually tested.
 

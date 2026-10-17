@@ -8,6 +8,7 @@ Extensions that need searchable sections with selection, previews, and actions u
 
 - Sections retain their own queries and selections.
 - Stable item keys preserve selection through search and refresh.
+- While a search is pending, a loading message replaces the results and their action hints. Query editing, section switching, and cancellation remain available.
 - While a removal or selection action is pending, only cancellation is allowed.
 - Late results cannot reopen a closed browser.
 
@@ -20,6 +21,7 @@ The browser uses Pi's selection keybindings plus fixed keys for sections, previe
 - Cancel returns from preview to the list, or closes from the list.
 - While loading or an action is pending, cancel closes immediately.
 - Closing does not undo effects already started by consumer callbacks.
+- The footer keeps the back or close hint first when space is limited.
 
 ## Caller responsibilities
 
@@ -82,7 +84,10 @@ await openBrowser({
   },
   onError: reportError,
   onInputRoutingUnavailable: () =>
-    ctx.ui.notify("Fullscreen paging is unavailable; use arrows.", "warning"),
+    ctx.ui.notify(
+      "Fullscreen input routing is unavailable. Use regular mode if controls do not respond.",
+      "warning"
+    ),
   afterClose: () => {
     if (selected !== undefined) return openSelectedFile(selected);
   }

@@ -121,6 +121,10 @@ export class Transcript {
 
   private reset(runId: string): void {
     this.run = runId;
+    this.projection = undefined;
+    this.latest = undefined;
+    this.saved.clear();
+    this.json.clear();
     this.pending.clear();
     this.streaming = undefined;
     this.calls.clear();
