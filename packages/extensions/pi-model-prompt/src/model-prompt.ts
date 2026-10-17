@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -7,7 +6,6 @@ import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 const SETTINGS_KEY = "ext.pi-model-prompt";
-const BASE_FILE = "APPEND_SYSTEM.md";
 
 /** Pi joins multiple append sources with the same separator. */
 const SEPARATOR = "\n\n";
@@ -40,67 +38,45 @@ interface ModelPromptConfig {
 export interface ModelPromptSnapshot {
   readonly warnings: readonly string[];
   /**
-   * Matches `modelKey` as `provider/id` and returns the selected append list joined in order,
-   * only when the current text equals the discovered base and every listed file was read.
-   * Differing explicit text is protected.
-   * `undefined` means no change; an empty string removes the append text.
+   * Matches `modelKey` as `provider/id` and returns `currentAppend` followed by the selected
+   * files' non-empty contents, joined in order. `undefined` means no change: no rule selects
+   * files, a selected file was not read, or every selected file is empty.
    */
-  replacementFor(modelKey: string, currentAppend: string): string | undefined;
+  appendTextFor(modelKey: string, currentAppend: string): string | undefined;
 }
 
 /**
- * Loads global settings, the base, and every configured file once for this session. Base
- * discovery mirrors Pi: trusted project file, then agent file. Pass `projectDir` only for
- * trusted projects. Lookups use this snapshot without rereading settings or files.
+ * Loads global settings and every configured file once for this session. Lookups use this
+ * snapshot without rereading settings or files.
  */
-export function loadModelPromptSnapshot({
-  projectDir,
-  agentDir
-}: {
-  projectDir: string | undefined;
-  agentDir: string;
-}): ModelPromptSnapshot {
+export function loadModelPromptSnapshot(agentDir: string): ModelPromptSnapshot {
   const { rules, warnings } = loadModelPromptConfig(agentDir);
-  const dirs = projectDir === undefined ? [agentDir] : [projectDir, agentDir];
-  const basePath = dirs.map((dir) => join(dir, BASE_FILE)).find((path) => existsSync(path));
-  // No base file means empty text; an unreadable base disables replacement.
-  let base: string | undefined = "";
-
-  if (basePath !== undefined) {
-    try {
-      base = readPrompt(basePath);
-    } catch {
-      base = undefined;
-      warnings.push(`${basePath} could not be read; replacement disabled`);
-    }
-  }
-
   const files = new Map<string, string>();
 
   for (const path of new Set(rules.flatMap((rule) => rule.append ?? []))) {
     try {
       files.set(path, readPrompt(path));
     } catch {
-      warnings.push(`${path} could not be read; rules listing it keep ${BASE_FILE}`);
+      warnings.push(`${path} could not be read; rules listing it add nothing`);
     }
   }
 
   return {
     warnings,
-    replacementFor(modelKey, currentAppend) {
+    appendTextFor(modelKey, currentAppend) {
       const paths = selectAppendFiles(rules, modelKey);
-      if (paths === undefined || base === undefined || currentAppend !== base) return undefined;
-      const parts: string[] = [];
+      if (paths === undefined) return undefined;
+      const added: string[] = [];
 
       for (const path of paths) {
         const text = files.get(path);
         if (text === undefined) return undefined;
-        parts.push(text);
+        if (text !== "") added.push(text);
       }
 
-      const replacement = parts.join(SEPARATOR);
+      if (added.length === 0) return undefined;
 
-      return replacement === currentAppend ? undefined : replacement;
+      return (currentAppend === "" ? added : [currentAppend, ...added]).join(SEPARATOR);
     }
   };
 }
@@ -182,6 +158,6 @@ function readPrompt(path: string): string {
   const text = readSettingsFile(path);
   if (text === undefined) throw new Error("Prompt must be a regular file up to 1 MiB.");
 
-  // Matches Pi's own loader so unchanged base text compares equal.
+  // Matches Pi's own loader for append files.
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }

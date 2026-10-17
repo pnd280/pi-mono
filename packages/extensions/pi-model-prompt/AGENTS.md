@@ -4,7 +4,7 @@ Change prompts only through `systemPromptOptions`, never by forcing `systemPromp
 
 ## Constraints
 
-- Mirror Pi's `APPEND_SYSTEM.md` discovery and byte-order-mark handling, so the replacement check compares the same text Pi loaded.
+- Only add to `appendSystemPrompt`. Keep the text that Pi, `--append-system-prompt`, and earlier extensions put there.
 - Read files and settings only on session start.
 - Keep settings global.
 - New per-model fields must be selectable independently.

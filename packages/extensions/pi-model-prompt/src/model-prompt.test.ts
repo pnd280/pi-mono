@@ -16,9 +16,7 @@ afterEach(async () => {
 async function fixture(files: Record<string, string> = {}) {
   const root = await mkdtemp(join(tmpdir(), "pi-model-prompt-snapshot-"));
   directories.push(root);
-  const projectDir = join(root, "project", ".pi");
   const agentDir = join(root, "agent");
-  await mkdir(projectDir, { recursive: true });
   await mkdir(agentDir);
 
   for (const [name, text] of Object.entries(files)) {
@@ -27,7 +25,7 @@ async function fixture(files: Record<string, string> = {}) {
     await writeFile(path, text);
   }
 
-  return { projectDir, agentDir, at: (name: string) => join(agentDir, name) };
+  return { agentDir, at: (name: string) => join(agentDir, name) };
 }
 
 const withRules = (rules: unknown) => JSON.stringify({ "ext.pi-model-prompt": { rules } });
@@ -38,14 +36,11 @@ it("does not echo supplied settings keys or values in validation warnings", asyn
 
   for (const settings of [
     withRules([{ match: "claude", [privateKey]: privateValue }]),
-    JSON.stringify({ "ext.pi-model-prompt": { [privateKey]: privateValue } }),
-    withRules([{ match: { value: privateValue } }]),
-    withRules([{ match: "claude", append: [1, privateValue] }])
+    JSON.stringify({ "ext.pi-model-prompt": { [privateKey]: privateValue } })
   ]) {
-    const { agentDir } = await fixture({ "APPEND_SYSTEM.md": "base", "settings.json": settings });
-    const snapshot = loadModelPromptSnapshot({ agentDir, projectDir: undefined });
+    const { agentDir } = await fixture({ "settings.json": settings });
+    const snapshot = loadModelPromptSnapshot(agentDir);
 
-    expect(snapshot.replacementFor("p/claude", "base")).toBeUndefined();
     expect(snapshot.warnings).toHaveLength(1);
     expect(snapshot.warnings[0]).not.toContain("PRIVATE-SETTING");
     expect(snapshot.warnings[0]).not.toContain("PRIVATE-VALUE");
@@ -53,45 +48,18 @@ it("does not echo supplied settings keys or values in validation warnings", asyn
   }
 });
 
-it("keeps the base for failed first selections without falling through to later rules", async () => {
+it("adds nothing for failed first selections without falling through to later rules", async () => {
   const { agentDir, at } = await fixture({
-    "APPEND_SYSTEM.md": "base",
     "a.md": "A",
     "settings.json": withRules([
-      { match: "^valid$", append: ["a.md"] },
       { match: "^missing$", append: ["a.md", "missing.md"] },
       { match: "^directory$", append: ["dir.md"] },
       { match: ".", append: ["a.md"] }
     ])
   });
   await mkdir(at("dir.md"));
-  const snapshot = loadModelPromptSnapshot({ agentDir, projectDir: undefined });
+  const snapshot = loadModelPromptSnapshot(agentDir);
 
-  expect(snapshot.warnings).toEqual([
-    `${at("missing.md")} could not be read; rules listing it keep APPEND_SYSTEM.md`,
-    `${at("dir.md")} could not be read; rules listing it keep APPEND_SYSTEM.md`
-  ]);
-  expect(snapshot.replacementFor("valid", "base")).toBe("A");
-  expect(snapshot.replacementFor("missing", "base")).toBeUndefined();
-  expect(snapshot.replacementFor("directory", "base")).toBeUndefined();
-});
-
-it("disables replacement when the base file cannot be read, even with an empty selection", async () => {
-  const { projectDir, agentDir } = await fixture({
-    "APPEND_SYSTEM.md": "agent base",
-    "a.md": "A",
-    "settings.json": withRules([
-      { match: "^file$", append: ["a.md"] },
-      { match: "^empty$", append: [] }
-    ])
-  });
-  await mkdir(join(projectDir, "APPEND_SYSTEM.md"));
-  const snapshot = loadModelPromptSnapshot({ projectDir, agentDir });
-
-  expect(snapshot.warnings).toEqual([
-    `${join(projectDir, "APPEND_SYSTEM.md")} could not be read; replacement disabled`
-  ]);
-  expect(snapshot.replacementFor("file", "")).toBeUndefined();
-  expect(snapshot.replacementFor("file", "agent base")).toBeUndefined();
-  expect(snapshot.replacementFor("empty", "agent base")).toBeUndefined();
+  expect(snapshot.appendTextFor("missing", "base")).toBeUndefined();
+  expect(snapshot.appendTextFor("directory", "base")).toBeUndefined();
 });

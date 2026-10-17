@@ -1,6 +1,4 @@
-import { join } from "node:path";
-
-import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { loadModelPromptSnapshot, type ModelPromptSnapshot } from "./model-prompt.ts";
@@ -8,12 +6,9 @@ import { loadModelPromptSnapshot, type ModelPromptSnapshot } from "./model-promp
 export default function modelPrompt(pi: ExtensionAPI): void {
   let snapshot: ModelPromptSnapshot | undefined;
 
-  // Pi's resource loader rereads APPEND_SYSTEM.md on startup and /reload, which both start a session.
+  // Startup and /reload both start a session, so edited settings and files apply after /reload.
   pi.on("session_start", (_event, ctx) => {
-    snapshot = loadModelPromptSnapshot({
-      projectDir: ctx.isProjectTrusted() ? join(ctx.cwd, CONFIG_DIR_NAME) : undefined,
-      agentDir: getAgentDir()
-    });
+    snapshot = loadModelPromptSnapshot(getAgentDir());
 
     if (!ctx.hasUI) return;
 
@@ -26,11 +21,12 @@ export default function modelPrompt(pi: ExtensionAPI): void {
     const model = ctx.model;
     if (!snapshot || !model) return;
 
+    // Pi builds these options again for each run, so the files are added once per run.
     const options = event.systemPromptOptions;
-    const replacement = snapshot.replacementFor(
+    const appendText = snapshot.appendTextFor(
       `${model.provider}/${model.id}`,
       options.appendSystemPrompt
     );
-    if (replacement !== undefined) options.appendSystemPrompt = replacement;
+    if (appendText !== undefined) options.appendSystemPrompt = appendText;
   });
 }
