@@ -19,22 +19,25 @@ A bug fix alone does not warrant a new test. If the fixed behaviour is not liste
 
 ### Severity
 
-- **Critical:** loss or corruption of user or session data; credentials or secrets sent or shown to the wrong destination; bypass of a trust or security boundary, such as untrusted project settings, path escape, symlinks, or file ownership; an irreversible or destructive action.
-- **High:** a silent wrong result that the user or model is unlikely to notice, such as wrong model context, lost input, or wrong saved facts; ignored cancellation or abort; a broken Pi startup or session; state or resources leaking across sessions.
+Critical severity covers loss or corruption of user or session data; credentials or secrets sent or shown to the wrong destination; bypass of a trust or security boundary, such as untrusted project settings, path escape, symlinks, or file ownership; an irreversible or destructive action.
+
+High severity covers a silent wrong result that the user or model is unlikely to notice, such as wrong model context, lost input, or wrong saved facts; ignored cancellation or abort; a broken Pi startup or session; state or resources leaking across sessions.
 
 Layout, wording, colours, glyphs, UI ordering, cosmetic limits, and convenience behaviour are below the bar. Verify them with manual checks.
 
 ### Layers
 
-- **e2e:** drives a real Pi host (SDK session or installed CLI) with an offline faux provider, through public inputs such as prompts, tool calls, commands, and reload. Asserts what the user or model observes: provider requests, saved sessions, tool results, rendered output.
-- **integration:** a real filesystem, lock, or subprocess, without a Pi host.
-- **unit:** one module, in process.
+| Layer       | Boundary and observations                                                                                                                                                                                                                                               |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| e2e         | Drives a real Pi host (SDK session or installed CLI) with an offline faux provider, through public inputs such as prompts, tool calls, commands, and reload. Asserts what the user or model observes: provider requests, saved sessions, tool results, rendered output. |
+| integration | Uses a real filesystem, lock, or subprocess, without a Pi host.                                                                                                                                                                                                         |
+| unit        | Tests one module, in process.                                                                                                                                                                                                                                           |
 
 Choose the layer in this order:
 
-1. **e2e** when the invariant spans more than one lifecycle step or crosses a Pi boundary: events, tool execution, session save or reload, provider requests, or settings with trust. This is the default for feature behaviour.
-2. **integration** when the risk sits at a filesystem or process boundary and needs no host.
-3. **unit** only for pure security or data-integrity functions whose edge cases e2e cannot reach cheaply, such as path containment, patch parsing, or private-file checks.
+1. Use e2e when the invariant spans more than one lifecycle step or crosses a Pi boundary: events, tool execution, session save or reload, provider requests, or settings with trust. This is the default for feature behaviour.
+2. Use integration when the risk sits at a filesystem or process boundary and needs no host.
+3. Use unit only for pure security or data-integrity functions whose edge cases e2e cannot reach cheaply, such as path containment, patch parsing, or private-file checks.
 
 ### Budget
 
@@ -83,7 +86,7 @@ Each package's `docs/testing.md` uses this shape and nothing else:
 
 ## Manual checks
 
-<Optional: launch command and a table of change, action, and expected result. Put a long table in `docs/validation.md`, and link it here.>
+<Optional: setup line with a launch command, followed by a Do / Expect table. Put a long table in `docs/validation.md`, and link it here.>
 ```
 
 State each invariant as an observable outcome, not as a test name or an implementation detail. Packages with no invariants say so, and use `vp test run --passWithNoTests`.

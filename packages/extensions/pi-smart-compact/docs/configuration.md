@@ -25,7 +25,7 @@ When compaction starts, each rule is tested in order against the conversation mo
 The `instructionsFile` setting names a UTF-8 file of extra focus for every compaction route.
 
 - The file's text comes first, then a blank line, then any `/compact <instructions>` or tool instructions.
-- `session_before_compact` handlers receive the combined focus. Custom summarizers must apply it themselves.
+- `session_before_compact` handlers receive the combined focus. Custom summarisers must apply it themselves and control their own requests and output.
 - Relative paths resolve from the directory of the settings file that set them: the agent directory for global settings, or `<cwd>/.pi` for project settings. Absolute and `~/` paths also work.
 - A trusted project can override an inherited file, including with an empty file to turn the focus off.
 - Only the selected file is read, at startup or `/reload`, up to 1 MiB.

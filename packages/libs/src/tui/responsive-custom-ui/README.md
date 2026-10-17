@@ -8,7 +8,7 @@ Use [`openResponsiveCustomUI`](index.ts) when a view must keep its state while s
 
 ### Fullscreen input ownership
 
-A component may provide synchronous, side-effect-free `ownsFullscreenInput(data): boolean` alongside `handleInput`. In a focused fullscreen inline presentation, owned presses reach that presentation's handler once, before Pi's transcript listener. **Other extension listeners do not receive consumed input.** Unclaimed input follows the original listener chain.
+A component may provide synchronous, side-effect-free `ownsFullscreenInput(data): boolean` alongside `handleInput`. In a focused fullscreen inline presentation, owned presses reach that presentation's handler once, before Pi's transcript listener. Other extension listeners do not receive consumed input. Unclaimed input follows the original listener chain.
 
 Regular mode, overlays, and components without ownership use ordinary host routing. Search overlays and other focused dialogs suspend the inline view's ownership. The working-message ordering menu does not opt in.
 

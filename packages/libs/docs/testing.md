@@ -2,13 +2,14 @@
 
 [Package](../README.md) · [Testing policy](../../../docs/agents/testing.md#coverage)
 
-This package tests reusable protocols with I/O, scheduling, or terminal output. [Utils](../../utils/docs/testing.md) owns other pure helpers; extensions own feature records, policies, and their SDK integration.
+This package tests reusable protocols with I/O, scheduling, or terminal output; [utils](../../utils/docs/testing.md) owns other pure helpers, and extensions own feature records, policies, and their SDK integration.
 
 ## Must not regress
 
 - **Critical, integration:** Under caller-established trusted parents, private-file access rejects foreign ownership before repairing permissions or ACLs.
 - **Critical, integration:** Private-file access rejects final-path symlinks, hard-linked files, and nonregular files without changing their permissions or contents.
 - **Critical, integration:** Private-file lock acquisition does not reclaim an existing lock, regardless of its age or the owning process's liveness.
+- **Critical, integration:** Releasing a private-file lock never removes a lock whose token or inode changed.
 - **Critical, integration:** Private-file transactions acquire the data path's lock before reading the bytes supplied to the update callback.
 - **Critical, integration:** Without POSIX owner IDs, private storage refuses a directory outside the user profile before it creates it, and works inside the profile without owner or mode checks.
 - **Critical, integration:** Settings updates preserve JSON keys that the synchronous mutator leaves untouched, including `__proto__` and `constructor`.
@@ -20,6 +21,8 @@ This package tests reusable protocols with I/O, scheduling, or terminal output. 
 - **Critical, integration:** Settings section diagnostics show terminal-safe paths, while loads and saves still use the real paths.
 - **Critical, unit:** For complete input snapshots, `displayText` removes terminal escape and control bytes other than normalised whitespace.
 - **Critical, unit:** For complete input snapshots, `styledOutput` retains only SGR styling from source terminal controls.
+- **High, integration:** Disposing a private-write lifetime cancels unstarted transactions and waits for started commits and lock cleanup.
+- **High, integration:** A private-file transaction whose post-commit cleanup or lock release fails still reports `committed`, with the warnings and cleanup errors separate.
 - **High, unit:** `highlightCodeBounded` returns its input unchanged when language detection or input limits prevent highlighting, so callers must supply display-safe text.
 - **High, unit:** Native hook disposal leaves later replacements by other owners intact.
 - **High, integration:** Disposing a native-tool or file-mutation subscription stops that subscription's observation callbacks without disabling surviving subscriptions.

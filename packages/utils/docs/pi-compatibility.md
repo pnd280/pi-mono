@@ -6,7 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [package checks](../README.md#validation).
+1. Run the [focused checks](../../../docs/development.md#focused-validation) for `@pi-mono/utils`.
 2. Run the checks of the libs modules and extensions whose input or output assumptions changed. This package needs no standalone terminal scenario.
 3. Work through the checklist below, then update the "Last verified" line.
 

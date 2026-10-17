@@ -29,12 +29,24 @@ Use `fullscreen` instead of `regular` to check the fullscreen TUI, and add `--re
 
 Setup: the launcher provides `review` and `release` skills and `sample.txt`. Submissions are written to `work/inputs.jsonl` in the printed fixture directory, without model requests. The fixture is kept after exit.
 
-| When changing          | Do                                                                                                                                                   | Expect                                                                                           |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Completion             | Press **Tab** after `Use /skill:re`, and on a later line starting with `/skill:re`.                                                                  | Both complete to a skill.                                                                        |
-| Completion             | Put the cursor after `re` in `/skill:reBAD rest` and accept.                                                                                         | `reBAD` is replaced; `rest` stays.                                                               |
-| Completion             | Accept with **Enter** and with **Tab**; press **Escape**; undo an insertion.                                                                         | Accepting never submits. **Escape** closes the picker. Undo removes the insertion.               |
-| Completion             | Toggle skill commands in `/settings`, then submit `/skill:review`.                                                                                   | Completion follows the setting, but `/skill:review` still expands, without the skill's contents. |
-| Formats                | In the fixture's `agent/settings.json`, set `"ext.pi-skills": {"expansionFormat": "{command} ({path})"}`, run `/reload`, and submit `/skill:review`. | The new format is used, and no skill contents are inserted.                                      |
-| Resources or lifecycle | Rename `skills/review.md` to `skills/fresh.md`, change its frontmatter `name` to `fresh`, and run `/reload`.                                         | Completion offers `fresh`, and the submitted path is the new one.                                |
-| Provider composition   | Complete a file (`./sam`), an attachment (`@sam`), a native command (`/settings`), and the fixture extension (`/fixture`, `#fi`).                    | Each completes as usual outside skill tokens.                                                    |
+### Completion
+
+| Do                                                                                  | Expect                                          |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Press **Tab** after `Use /skill:re`, and on a later line starting with `/skill:re`. | Both complete to a skill.                       |
+| Put the cursor after `re` in `/skill:reBAD rest` and accept.                        | `reBAD` is replaced; `rest` stays.              |
+| Accept with **Enter** and with **Tab**.                                             | Neither key submits the prompt.                 |
+| Press **Escape** with the picker open.                                              | The picker closes.                              |
+| Undo an insertion.                                                                  | The insertion is removed.                       |
+| Turn skill commands off in `/settings`, then type `/skill:re`.                      | No skill suggestions appear.                    |
+| Submit `/skill:review` with skill commands off.                                     | Captured input is a link to `skills/review.md`. |
+| Turn skill commands back on in `/settings`, then complete `/skill:re`.              | Skill suggestions return.                       |
+
+### Formats, resources, and provider composition
+
+| Do                                                                                                                                                   | Expect                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| In the fixture's `agent/settings.json`, set `"ext.pi-skills": {"expansionFormat": "{command} ({path})"}`, run `/reload`, and submit `/skill:review`. | Captured input uses `{command} ({path})` with a leading space and no skill contents. |
+| Rename `skills/review.md` to `skills/fresh.md`, change its frontmatter `name` to `fresh`, and run `/reload`.                                         | Completion offers `fresh`.                                                           |
+| Submit `/skill:fresh`.                                                                                                                               | Captured input uses the path to `skills/fresh.md`.                                   |
+| Complete a file (`./sam`), an attachment (`@sam`), a native command (`/settings`), and the fixture extension (`/fixture`, `#fi`).                    | Each completes as usual outside skill tokens.                                        |

@@ -8,7 +8,7 @@ Results still pending when the `agent_end` wait ends remain in the delivery comp
 
 ## Considered options
 
-- **Wait only in `agent_before_settle`.** This was the earlier design for children and print/JSON. `ctx.signal` is `undefined` at that point, and no public event reports an abort, so a top-level wait could not end on **Esc**. It remains the fallback after a final error or `length` stop that Pi does not recover.
+- **Wait only in `agent_before_settle`.** This was the earlier design for children and print/JSON. `ctx.signal` is `undefined` at that point, and no public event reports an abort, so a top-level wait could not end on **Esc**. It remains the wait for children and print or JSON supervisors after a final error or `length` stop that Pi does not recover.
 - **Wait in `turn_end`.** It also has a live signal, but it fires after every turn, so choosing the right turn needs more checks.
 - **Keep `wakeIdle()` only.** It still delivers results that arrive after an abort or while idle.
 - **Detect Esc through terminal input.** Rejected: it observes only one source of abort and duplicates Pi's input handling.

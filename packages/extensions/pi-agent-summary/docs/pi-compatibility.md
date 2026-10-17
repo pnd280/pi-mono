@@ -12,7 +12,7 @@
 
 ## Checklist
 
-Recheck lifecycle boundaries, attribution, and native file observations against the installed Pi version.
+Recheck [run](../GLOSSARY.md) lifecycle boundaries, attribution, and native file observations against the installed Pi version.
 
 ### Lifecycle
 
@@ -20,7 +20,7 @@ Recheck lifecycle boundaries, attribution, and native file observations against 
 
 - [ ] A run lasts from the first `agent_start` to `agent_settled`, through retries, queued follow-ups, and cancellation, and the timer is cleaned up.
 - [ ] Direct and nested agent `bash` calls count once per call ID. Manual shell input is excluded.
-- [ ] [Milestones](../src/milestones.ts) and [counters](../src/counters.ts) emitted on `pi.events` reach the active run synchronously, and reload removes the old subscriptions.
+- [ ] [Milestones](../GLOSSARY.md) and [counters](../GLOSSARY.md) emitted on `pi.events` reach the active run synchronously, and reload removes the old subscriptions.
 
 ### Answering models
 
@@ -29,7 +29,7 @@ Recheck lifecycle boundaries, attribution, and native file observations against 
 - [ ] Assistant `message_end` events name the answering `provider`, `model`, and requested `thinkingLevel`.
 - [ ] Under a virtual selection these are the routed physical model. Failed or aborted routing leaves `api: "pi-virtual"` on the message (Pi's unexported `VIRTUAL_MODEL_API`).
 - [ ] Error responses don't count.
-- [ ] The [stored schema](../src/summary.ts) accepts every host thinking level, missing levels, and missing model lists, and rejects empty lists and models without a provider.
+- [ ] The saved [summary](../GLOSSARY.md) [schema](../src/summary.ts) accepts every host thinking level, missing levels, and missing model lists, and rejects empty lists and models without a provider.
 
 ### Throughput
 
@@ -38,15 +38,29 @@ Recheck lifecycle boundaries, attribution, and native file observations against 
 - [ ] Public assistant `message_start` and `message_end` events delimit response streams.
 - [ ] `message_update` carries `text_delta`, `thinking_delta`, and `toolcall_delta` events. Text and tool-call deltas can be empty; they must not start the visible-output clock.
 - [ ] A completed `message.usage.output` includes reasoning exactly once.
-- [ ] Usage from cancelled and failed responses, exclusion of tool and nested usage, aggregation across continuations, and reporting outside the TUI.
+- [ ] Reported output usage from cancelled and failed responses contributes to throughput.
+- [ ] Tool and nested usage is excluded from throughput.
+- [ ] Throughput combines output tokens and streaming time across continuations.
+- [ ] Summaries save throughput outside the TUI.
 
 ### File statistics
 
-- [ ] [Mutation statistics](../src/changes.ts): verified native operations, ordering, path deduplication, net and reverted changes, and unavailable versus zero statistics.
+[Mutation statistics](../src/changes.ts):
+
+- [ ] Only verified native operations contribute file statistics.
+- [ ] Concurrent operations use the first and last contents in write order.
+- [ ] Symlink aliases count as one file.
+- [ ] Statistics reflect net changes, with reverted changes omitted.
+- [ ] Unavailable statistics remain distinct from zero changes.
 
 ### Persistence and rendering
 
-- [ ] [Persistence and rendering](../src/index.ts): `appendEntry` stays out of model context. Replay, expansion and mouse behaviour, and runs outside the TUI keep metadata without contents or patches.
+[Persistence and rendering](../src/index.ts):
+
+- [ ] `appendEntry` keeps summaries out of model context.
+- [ ] Resuming a session restores its summaries.
+- [ ] Expansion works with the tool-output shortcut and fullscreen mouse clicks.
+- [ ] Summaries keep metadata without contents or patches, including outside the TUI.
 
 ## Limitations
 

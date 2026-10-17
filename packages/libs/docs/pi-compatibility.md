@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline tests, with the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager; source diffs against 1.2.0: unchanged native-construction fingerprints, unchanged extension types and pi-tui, and native observation independent of the new transcript tool-loadout restoration on resume; the custom-UI fixtures now hide only their own overlay handle, as Pi 1.3.0 does, so responsive custom UI no longer defers `done()` until its overlay mounts). Not covered: live-provider schema acceptance, platform-specific checks, a resumed session with tool modifiers and native observation, and terminal checks of overlay closure, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
+> Last verified against Pi 1.3.0 (package checks and offline tests, with native-tools consumers in tool display and agent summary and browser consumers in todo and prompt manager). Not covered: live-provider schema acceptance, platform-specific checks, a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation), and terminal checks of overlay closure, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
 
 ## Upgrade procedure
 
@@ -26,7 +26,9 @@ Check both API and installed-CLI consumers wherever a library depends on Pi's ho
 
 ### Native tools and mutations
 
-[Native tools](../src/native-tools/README.md) and [mutations](../src/file-mutations/README.md):
+Pi 1.3.0 retains the native-construction fingerprints from 1.2.0. Native observation is independent of transcript tool-loadout restoration on resume, added in 1.3.0.
+
+Check [native tools](../src/native-tools/README.md) and [mutations](../src/file-mutations/README.md):
 
 - [ ] Construction through the API and CLI, provenance, middleware, exposure and output schemas, and structured results.
 - [ ] Queue ordering, borrowed data, shared capture, and conditional teardown.
@@ -34,6 +36,8 @@ Check both API and installed-CLI consumers wherever a library depends on Pi's ho
 - [ ] Reload activates newly added `defaultTools`. Existing active tools are kept when defaults are removed, and surviving observers are wrapped exactly once.
 
 ### TUI
+
+In Pi 1.3.0, custom-UI fixtures hide only their own overlay handle, matching the host. Responsive custom UI calls `done()` without waiting for its overlay to mount.
 
 - [ ] [TUI](../src/tui/README.md) public exports, layout and keybindings, images, invalidation, responsive remounts, editor restoration, and disposal.
 - [ ] Recheck the [rejected shortcuts](../src/tui/keybindings/README.md#behaviour) and the Shift-symbol overlap rule against Pi's dispatcher before changing validation or resolution.

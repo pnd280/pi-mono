@@ -21,7 +21,7 @@ See [tool card presentation](presentation.md) for layout, diff behaviour, and di
 
 ## Explicit contracts
 
-Pass a `ToolDisplayAdapter` for specialisation, such as a [native contract](../src/adapters/native/README.md#compatibility-and-selection) for compatible tools, without execution observation:
+Pass a [display adapter](../GLOSSARY.md#interpretation) (`ToolDisplayAdapter`) for specialisation, such as a [native contract](../src/adapters/native/README.md#compatibility-and-selection) for compatible tools, without execution observation:
 
 ```ts
 import { nativeAdapter } from "pi-tool-display/adapters";
@@ -39,25 +39,35 @@ The third argument is `ToolDisplayRendererOptions`, not CLI settings. `showParam
 
 ## Custom adapters
 
-Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`. Use the [type declarations](../src/contracts.ts) for the callback and field inventory. The sections below cover choices that types alone cannot explain: [grouping](#exploration-scopes), [summaries](#result-summaries), [source text](#result-text), [outcomes](#outcomes), and [MCP facts](#mcp-facts).
+Import `ToolDisplayAdapter` and its result types from `pi-tool-display/adapters`. The [type declarations](../src/contracts.ts) list the callbacks and fields.
 
-Validate borrowed arguments and results without modifying them, and never infer facts from ordinary output. Cards read callbacks once for each update, not on each redraw, so callbacks must depend only on their inputs. `alwaysShowParameters: true` overrides `showParameters`. A `kind: "parameters"` part carries the borrowed `value`, not text. The display serializes it as `(…)` only when shown, within the compact heading budget, and `separated: true` puts a space before it.
+### Callback inputs
 
-For concrete targets use `path` and optionally `range`; use `value` or `pattern` for literal expressions, which receive no path normalization. See [display conventions](conventions.md#literal-filters-and-paths).
+Validate borrowed arguments and results without modifying them, and never infer facts from ordinary output. Cards read callbacks once for each update, so callbacks must depend only on their inputs.
+
+### Invocation parts
+
+`alwaysShowParameters: true` overrides `showParameters`. A `kind: "parameters"` part carries the borrowed `value`, not text. The display serialises it as `(…)` only when shown, within the compact heading budget, and `separated: true` puts a space before it.
+
+For concrete targets use `path` and optionally `range`; use `value` or `pattern` for literal expressions, which receive no path normalisation. See [display conventions](conventions.md#literal-filters-and-paths).
+
+### Standalone input
 
 Standalone adapters must handle incompatible input themselves. Only the automatic CLI integration checks `supports`. Standalone cards, and automatic rows that have no matching transcript call, receive Pi's raw arguments from `renderCall`. These can contain optional `null` values that Pi removed before execution, so an adapter for these cards must accept or ignore such values. Rows that have a transcript call receive [validated arguments](adapters.md#callback-arguments) when validation succeeds. To add automatic selection for another extension, [register a resolver](adapters.md#add-an-adapter).
 
 Standalone cards do not invoke `exploration`, `action`, or internal `summaryItems`, or read `groupTitle` and `summaryCategories`. Failures in those unused fields therefore cannot cause [generic fallback](../GLOSSARY.md#interpretation) in standalone cards. The card's `summary` callback still applies to standalone results; it is distinct from run-summary items.
 
+### Callback failures
+
 Callbacks used by cards fail atomically to generic meaning, so specialised MCP identity never survives with generic outcomes. Any failure in metadata (`mcp` or `outcome`) or presentation keeps both retained slots generic through later updates and invalidation. The CLI also interprets grouping and run-summary fields, whose failures invalidate the whole interpretation.
 
 ### Exploration scopes
 
-`exploration` supplies ordered items for CLI grouping. It can run before a result exists, so handle partial arguments. File scopes group by normalized parent directory; directory scopes resolve lexically against the session cwd; filter scopes compare opaque expressions exactly.
+`exploration` supplies ordered items for CLI grouping. It can run before a result exists, so handle partial arguments. File scopes group by normalised parent directory; directory scopes resolve lexically against the session cwd; filter scopes compare opaque expressions exactly.
 
 Items must resolve to one directory or identical filters; files can group with their parent directory. Missing, invalid, or mismatched scopes leave the call standalone, as does returning `undefined` or `[]`. Never derive scopes from summaries or treat arbitrary filters as directories.
 
-For non-file groups such as `pi-todo`, return one stable literal `filter` and set [`groupTitle`](../src/contracts.ts). The title replaces the scope heading; member summaries and notices stay visible. Adjacent calls group only when both the normalized scope and title match, so titled and untitled groups never merge.
+For non-file groups such as `pi-todo`, return one stable literal `filter` and set [`groupTitle`](../src/contracts.ts). The title replaces the scope heading; member summaries and notices stay visible. Adjacent calls group only when both the normalised scope and title match, so titled and untitled groups never merge.
 
 See [exploration groups](presentation.md#groups) for headings, boundaries, and expansion behaviour.
 
@@ -77,7 +87,7 @@ See [exploration groups](presentation.md#groups) for headings, boundaries, and e
 
 Summaries precede output. Nonempty compact summaries replace successful text unless `preserveOutput: true`, as for shell status. Failure and cancellation output, notices, and images remain; expansion restores retained text.
 
-Missing summaries, including those that display as blank after terminal-control sanitization, use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
+Missing summaries, including those that display as blank after terminal-control sanitisation, use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
 
 Use `notices` for diagnostics and references that must remain visible when a summary replaces output. [Severity changes styling, never visibility](presentation.md#notices-and-colours): compact groups keep `info` notices.
 
@@ -85,7 +95,7 @@ Use `notices` for diagnostics and references that must remain visible when a sum
 
 `textParts` interprets a known text envelope. Use result identity and content index to distinguish generated blocks from similar source headings; do not infer provenance from phrases alone. For expanded read cards, an `output` part can supply ordered, nonoverlapping `selection` ranges using zero-based lines and UTF-16 offsets.
 
-Compute ranges from unsanitized text. The renderer uses [selection-aware code highlighting](../../../libs/src/tui/components/code-highlight/README.md) with `searchMatchBg`. Omit ranges for partial or failed results, including cancellations.
+Compute ranges from unsanitised text. The renderer uses [selection-aware code highlighting](../../../libs/src/tui/components/code-highlight/README.md) with `searchMatchBg`. Omit ranges for partial or failed results, including cancellations.
 
 Suppress a known cancellation message only when `isCancelled` is true. Retain useful diagnostics and restore the full diagnostic on expansion.
 

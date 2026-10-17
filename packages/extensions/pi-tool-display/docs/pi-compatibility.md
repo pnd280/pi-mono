@@ -10,7 +10,7 @@ A _fingerprint_ is a hash of an inspected private Pi method's source. When a fin
 
 1. Work through every item under [contracts to verify](#contracts-to-verify).
 2. Update fingerprints only after the matching contract is confirmed.
-3. Run the [package checks](../README.md#validation), the [API](../src/host/install.test.ts) and [CLI](../src/host/install-cli.test.ts) suites, and the [terminal and adapter checks](validation.md). Include regular mode, fullscreen, reload, and replay.
+3. Run the [package checks](../README.md#validation) and the [host and terminal checks](testing.md#manual-checks). Include regular mode, fullscreen, reload, and replay.
 4. Update the "Last verified" line at the top of this file. Record what was not covered there, not in a separate log.
 
 ## Contracts to verify
@@ -31,7 +31,7 @@ Work through every section below when you bump the supported Pi version, checkin
 
 - [ ] `updateContent` creates direct `Markdown` children only for prose, with symmetric `outputPad`, and nests thinking in `MouseRegion`.
 - [ ] Prose markers, native Markdown transformers, and width limits work.
-- [ ] Thinking is hidden at each run's last `thinking_end`, before the message completes.
+- [ ] With thinking collapsed, each consecutive group of thinking blocks is hidden after its last `thinking_end`, before the message completes.
 - [ ] Thinking creates only group boundaries; prose and diagnostics create run boundaries.
 - [ ] Restoration works in the API and installed CLI builds.
 - [ ] Streaming completion uses event content indices, not shared mutable partials. Pi rebuilds the row after recording the event.
@@ -58,7 +58,7 @@ Work through every section below when you bump the supported Pi version, checkin
 
 ### Native observation
 
-See [native tools](../../../libs/src/native-tools/README.md).
+Verify [native observation](../GLOSSARY.md#interpretation) against [native tools](../../../libs/src/native-tools/README.md).
 
 - [ ] Middleware, definitions (including exposure and output schemas), structured results, active tools, mutation ordering, and other subscribers are preserved.
 - [ ] A nonzero Bash exit resolves an error result with its exit code.
@@ -68,8 +68,8 @@ See [native tools](../../../libs/src/native-tools/README.md).
 ### Nested execution
 
 - [ ] The built-in [codemode](../src/adapters/builtin/codemode/README.md) and [MCP](../src/adapters/builtin/mcp/README.md) adapter cards render.
-- [ ] Child execution events create no transcript rows, orphan call entries or local lines, or duplicate summaries. Only persisted parent calls own replay rows.
-- [ ] MCP tools discovered through codemode keep built-in provenance and their unsanitized identity in details, including normalized namespaces and collision-suffixed names.
+- [ ] Child execution events create no transcript rows, orphan [saved call entries or local lines](../GLOSSARY.md#interpretation), or duplicate summaries. Only persisted parent calls own replay rows.
+- [ ] MCP tools discovered through codemode keep built-in provenance and their unsanitised identity in details, including normalised namespaces and collision-suffixed names.
 - [ ] Selection doesn't depend on direct exposure or on decoding names.
 - [ ] External `pi-mcp-adapter` tools keep their separate provenance contract.
 
@@ -114,11 +114,11 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 - Public host and observation APIs could replace the private hooks if they keep the contracts above. Trace shared-library consumers before removing a hook.
 - As of Pi 1.3.0, `registerToolRenderer` could replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. It doesn't replace it yet: Pi also calls resolvers for HTML export, resolvers run in extension load order, so an earlier resolver can hide this one, and a resolver receives no host to claim the row's call.
 - Pi records each final tool result's `durationMs` in the session and passes it to renderers and `tool_execution_end`. It could replace local shell and mutation timing, so durations would replay on other machines, and could give codemode cards the script's total time that Pi's own row shows. Pi measures the whole `execute()` call, not only the shell or file operation.
-- Recheck the [image-row limitation](validation.md#platform-limitations) for finalized-message image updates against each new Pi version. Compare live and replay, with and without this extension.
+- Recheck the [image-row limitation](validation.md#platform-limitations) for finalised-message image updates against each new Pi version. Compare live and replay, with and without this extension.
 
 ## Coverage notes
 
 - Real codemode coverage checks its adapter card, summary count, nested mutations, parent-only replay, and the absence of child display metadata.
-- A local stdio MCP server checks discovery, deferred exposure, normalized namespaces, collision-suffixed names, built-in renderer selection, and original server and tool identities.
+- A local stdio MCP server checks discovery, deferred exposure, normalised namespaces, collision-suffixed names, built-in renderer selection, and original server and tool identities.
 - For terminal coverage, run the [manual checks](validation.md) for buffered output, thinking toggles, fullscreen summaries, compact-mode reload, and replay in both modes.
 - External adapter fixtures don't establish compatibility with the live adapters.

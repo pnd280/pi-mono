@@ -18,7 +18,7 @@ In `path` and `exclude`, FFF strips `./` and absolute prefixes inside the worksp
 
 For `fffind.pattern`, the guard checks existing explicit paths and globs with fixed directory prefixes, such as `node_modules/**`.
 
-Missing-path checks need an anchor (`/`, `./`, `../`, or `~/`), a trailing `/`, or a rooted glob.
+For `fffind.pattern`, missing-path checks need an anchor (`/`, `./`, `../`, or `~/`), a trailing `/`, or a rooted glob. Explicit `path` values and multi-grep path constraints are checked without an anchor.
 
 The guard trims `path` without splitting it and preserves existing explicit `fffind.pattern` paths. Other filename queries and multi-grep constraints split on whitespace without shell-quote parsing.
 

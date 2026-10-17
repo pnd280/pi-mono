@@ -35,7 +35,7 @@ When you add, rename, or remove a fingerprinted hook, update `owners` in the scr
 
 ## Private hook replacement
 
-Check every private hook for a public replacement in the target release, including hooks whose fingerprints did not change. Private hooks include the [fingerprinted methods](#host-fingerprints) and every other prototype or instance property replacement; search the workspace for `OwnedHooks` to find them.
+Check every private hook for a public replacement in the target release, including hooks whose fingerprints did not change. Private hooks include the [fingerprinted methods](#host-fingerprints) and every other prototype or instance property replacement; search the workspace for `OwnedHooks` and direct property assignments.
 
 1. List each hook with the package features that depend on it, from the owner code and the package's `docs/pi-compatibility.md`.
 2. Search the target's documentation, examples, declarations, and implementation for public APIs that give the same behaviour, such as events, renderer registration, `ctx.ui` methods, tool definition fields, and exported components.

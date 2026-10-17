@@ -2,7 +2,9 @@
 
 [pi-agent-summary](../README.md)
 
-Another extension adds milestones and counters to the active run's summary by emitting on Pi's event bus. If pi-agent-summary is not loaded, emits do nothing. For how they look in the summary, see [milestones](../README.md#milestones) and [counters](../README.md#counters).
+Another extension adds [milestones and counters](../GLOSSARY.md) to the active [run's summary](../GLOSSARY.md) by emitting on Pi's event bus.
+
+If pi-agent-summary is not loaded, emits do nothing. For how they look in the summary, see [milestones](../README.md#milestones) and [counters](../README.md#counters).
 
 ## Milestones
 

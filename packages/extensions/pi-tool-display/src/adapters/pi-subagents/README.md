@@ -34,7 +34,7 @@ Results show the child's reply without the model-facing [`<task>` envelope](../.
 
 The adapter also renders the `pi-subagents.result` session message through Pi's public message-renderer API. It validates the message details with the same details schema as tool results. Valid results use the [card renderer](../../rendering/subagent-result.ts) with the standalone `subagent` card layout: the description, the final state and time, and the identity and usage. Completed results add a reply preview; failed or cancelled results show any recorded error. The matching task envelope is removed. Results have no prompt, and expansion adds the task ID, non-default options such as `background`, and retained output. A fullscreen click emits the same `pi-subagents:open` action. Invalid details keep Pi's default message box.
 
-Without pi-tool-display, pi-subagents registers no message renderer, so Pi shows its default message box. Background results separate exploration groups and runs like other visible messages, and add no summary counts.
+Without pi-tool-display, pi-subagents registers no message renderer, so Pi shows its default message box. Background results separate [exploration groups and runs](../../../GLOSSARY.md#transcript-structure) like other visible messages, and add no summary counts.
 
 ## Background jobs
 
@@ -42,7 +42,7 @@ Without pi-tool-display, pi-subagents registers no message renderer, so Pi shows
 
 A `job` call returns at once. Its card shows the description, `↗ returned; job continues in background`, and then the command and the first eight characters of the job ID. Expansion shows the full job ID and the timeout, when the call sets one. The card does not show the later state of the job. If the job cannot start, the call has an error result without details, and the card is generic.
 
-A `job_abort` card uses the layout of a `subagent_abort` card. Before details exist, the description is the job ID. After that, the card shows the job description, `⊘ aborted` with the job's run time, the command, and the exit code when it is known. If the command ended before the abort, the card shows the real outcome. The call itself succeeded, so the card has no failure state.
+A `job_abort` card uses the layout of a `subagent_abort` card. Before details exist, the description is the job ID. After that, the card shows the job description, `⊘ aborted` with the job's run time, the command, and the exit code when it is known. If the command ended before the abort, the status shows the real outcome, including failure colouring for a failed job. The abort call succeeds.
 
 The `pi-subagents.job-result` message has a card with the outcome, the run time from `started_at` to `ended_at`, the command, the exit code, any recorded error, and the log path. A failed or cancelled job colours the card like a failed or cancelled call. Collapsed cards preview the first output lines. Expansion shows the job ID and the full retained output. Invalid details keep Pi's default message box.
 

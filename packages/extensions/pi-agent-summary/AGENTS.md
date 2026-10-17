@@ -1,10 +1,10 @@
 # [pi-agent-summary](README.md) development
 
-Time a run from the first `agent_start` to `agent_settled`, not to `turn_end` or a retryable `agent_end`.
+Time a [run](GLOSSARY.md) from the first `agent_start` to `agent_settled`, not to `turn_end` or a retryable `agent_end`.
 
 ## Must not regress
 
-- Use `appendEntry`, never `sendMessage`, so summaries stay out of model context.
+- Use `appendEntry`, never `sendMessage`, so [summaries](GLOSSARY.md) stay out of model context.
 - Never save file contents or patches.
 - Keep unavailable statistics distinct from zero changes.
 

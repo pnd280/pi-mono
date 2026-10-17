@@ -18,4 +18,4 @@ Put scheduling and I/O in [shared libraries](../libs/README.md).
 
 ## Validation
 
-Use [package validation](README.md#validation). For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+Use [coverage](docs/testing.md). For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).

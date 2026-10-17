@@ -15,9 +15,9 @@ Presentation must preserve tool execution and keep borrowed data unchanged.
 
 ### Layers
 
-The transcript owns call state and boundaries. Adapters interpret verified tool contracts, and rendering consumes that interpretation. This layering keeps a presentation failure from changing tool behaviour, and keeps output prose from being treated as an operation fact.
+The transcript owns call state and boundaries. [Display adapters](GLOSSARY.md#interpretation) interpret verified tool contracts, and rendering consumes that interpretation. This keeps presentation failures from changing tool behaviour, and output prose from becoming an operation fact.
 
-When you add a message type or adapt a Pi row, keep the difference between an exploration group and a [run](GLOSSARY.md#transcript-structure) intact; see [summary mode](docs/presentation.md#summary-mode).
+When adding a message type or adapting a Pi row, preserve the distinction between [exploration groups and runs](GLOSSARY.md#transcript-structure); see [summary mode](docs/presentation.md#summary-mode).
 
 ### Pi host access
 
@@ -39,6 +39,6 @@ When you add a message type or adapt a Pi row, keep the difference between an ex
 
 ### Rows
 
-Grouped calls and notices stay in their original Pi rows. Change row chrome only in `layoutRow`, which owns both rendering and click targets. Keep diagnostics and images attached to their source call, following the [mode visibility rules](README.md#usage).
+Grouped calls and notices stay in their original Pi rows. Change [row chrome](GLOSSARY.md#transcript-structure) only in `layoutRow`, which owns rendering and click targets. Keep diagnostics and images attached to their source call, following the [mode visibility rules](README.md#usage).
 
-User-visible exclusions, side effects, and limits are listed under [what is recorded](README.md#what-is-recorded).
+See [what is recorded](README.md#what-is-recorded) for exclusions, side effects, and limits.

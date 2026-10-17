@@ -2,7 +2,7 @@
 
 [pi-session-utils](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline tests, including API and process startup, persistence, the naming lifecycle, and title requests; a source diff against Pi 1.2.0 shows the session manager, session runtime, session picker, model registry, and thinking-level sources unchanged; title requests send one user message, so the change to drop thinking from other models doesn't apply, and they keep `maxRetries: 0`, so the wider retry matching doesn't apply; no runtime changes needed). Not covered: the Pi 1.2.0 offline payload probes for per-level sampling and routed title budgets were not repeated, title quality with live providers, and manual checks of the session picker.
+> Last verified against Pi 1.3.0 (package checks, offline tests of API and process startup, persistence, naming, and title requests, and source review of session management, the session picker, the model registry, and thinking levels). Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, and manual checks of the session picker.
 
 ## Upgrade procedure
 
@@ -54,9 +54,14 @@ Session replacement must preserve saved data and parent links while giving namin
 
 [Generation](../src/auto-title/generate.ts):
 
-- [ ] Registry normalisation, authentication, supported thinking levels, complete responses, safe errors, and bounded request and cache defaults.
+- [ ] Pi normalises title requests and applies provider authentication.
+- [ ] The title request contains one user message.
+- [ ] Unsupported thinking levels are rejected before a request.
+- [ ] Only complete, non-empty text responses become titles.
+- [ ] Provider errors don't expose raw error details.
+- [ ] Requests keep the 15-second deadline and disabled cache retention.
 - [ ] Pi applies the title model's `samplingParamsByThinkingLevel` using its effective physical level, including `off`. The extension leaves sampling selection to the registry and keeps its token budget, disabled cache retention, and no-retry policy.
-- [ ] The configured model is validated, with no fallback and no retries.
+- [ ] The configured model is validated, with no fallback, and requests keep `maxRetries: 0`.
 - [ ] `MODEL_THINKING_LEVELS` from `@earendil-works/pi-ai/providers/model-schema` lists every level that the `thinkingLevel` setting accepts, including `off`, and matches the levels in the [README](../README.md#configuration).
 - [ ] A virtual model's unknown output limit never becomes a zero-token request. The extension supplies the 1,024-token title budget, registry dispatch caps it to the routed physical model, and any smaller known limit is kept.
 

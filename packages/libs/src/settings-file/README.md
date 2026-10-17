@@ -6,7 +6,7 @@ Read and update JSON settings files such as Pi's `settings.json`. The library is
 
 ## Behaviour
 
-Reads return current content without changing the file. Section saves apply one locked change.
+Reads return current content without writes; section saves make one locked change.
 
 ### Scopes
 
@@ -16,10 +16,10 @@ Reads return current content without changing the file. Section saves apply one 
 
 ### Reads
 
-| Function                               | Returns                                                          | Missing file | Empty file | Unreadable | Nonregular, over 1 MiB, or changed during the read | Malformed JSON |
-| -------------------------------------- | ---------------------------------------------------------------- | ------------ | ---------- | ---------- | -------------------------------------------------- | -------------- |
-| [`readSettingsFile`](read.ts)          | Bounded UTF-8 text from a regular file, not parsed or defaulted. | Throws       | `""`       | Throws     | `undefined`                                        | Not parsed     |
-| [`readSettingsRecord`](transaction.ts) | A parsed JSON object. Pi's leading BOM is accepted.              | `{}`         | `{}`       | Throws     | Throws                                             | Throws         |
+| Function                               | Returns                                                          | Missing file | Empty file | Unreadable | Nonregular, over 1 MiB, or read length differs from initial size | Malformed JSON |
+| -------------------------------------- | ---------------------------------------------------------------- | ------------ | ---------- | ---------- | ---------------------------------------------------------------- | -------------- |
+| [`readSettingsFile`](read.ts)          | Bounded UTF-8 text from a regular file, not parsed or defaulted. | Throws       | `""`       | Throws     | `undefined`                                                      | Not parsed     |
+| [`readSettingsRecord`](transaction.ts) | A parsed JSON object. Pi's leading BOM is accepted.              | `{}`         | `{}`       | Throws     | Throws                                                           | Throws         |
 
 ### Sections
 

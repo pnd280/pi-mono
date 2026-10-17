@@ -18,7 +18,7 @@ Extensions use libs and utils; libs can use utils. Neither shared package depend
 
 Pi loads an extension through its manifest's `pi.extensions` entry. The package-root `index.ts` forwards to the factory in `src/index.ts`; [tool display's entry point](../packages/extensions/pi-tool-display/src/index.ts) is one example. Lifecycle handlers connect package behaviour to the active session and release owned resources on shutdown.
 
-Shared contracts connect features without transferring their domain policy:
+Shared contracts connect features without transferring their domain policy. The package glossaries in the [glossary map](../GLOSSARY-MAP.md) define terms such as notices, counters, milestones, and tasks.
 
 | Contract                                                                                               | Producer                                                                                                     | Consumer and responsibility                                                                                                                    |
 | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |

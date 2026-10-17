@@ -2,7 +2,7 @@
 
 [Private-file integration](../../src/private-files/README.md) · [Coverage](../testing.md)
 
-On Linux and macOS, [private files](../../src/private-files/README.md) check that the current user owns each storage directory and file, set modes `0700` and `0600`, and remove extended ACLs. Native Windows has no POSIX owner IDs: `process.getuid` is undefined, and Node's `chmod` changes only the read-only attribute. Before this decision, private storage threw `PrivateFileError` there. Prompt manager could not save prompts, and tool display kept details in memory only.
+On Linux and macOS, [private files](../../src/private-files/README.md) require the current user to own storage directories and files, and set directory mode `0700` and file mode `0600`. Linux restricts extended ACL access through the mode bits; macOS removes extended ACLs. Native Windows has no POSIX owner IDs: `process.getuid` is undefined, and Node's `chmod` changes only the read-only attribute. Before this decision, private storage threw `PrivateFileError` there. Prompt manager could not save prompts, and tool display kept details in memory only.
 
 A new directory or file in a Windows user profile inherits the profile's ACL. By default, that ACL gives access only to the user, `SYSTEM`, and the Administrators group. `SYSTEM` and administrators can always read the user's files, as root can on POSIX. Other standard users cannot.
 
@@ -17,6 +17,8 @@ When `process.getuid` is undefined, private storage trusts the inherited ACL of 
 - Linux and macOS behaviour is unchanged.
 
 ## Considered options
+
+The alternatives cost a process per check, need a native build for every install, or leave native Windows without private storage.
 
 ### Check ACLs with PowerShell `Get-Acl` or `icacls`
 

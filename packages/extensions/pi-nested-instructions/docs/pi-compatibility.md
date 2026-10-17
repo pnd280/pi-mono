@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline host tests, real codemode cases, shared utils, FFF guard, and display suites, and an unchanged native context loader; no runtime changes needed). Not covered: live FFF integration and manual notice presentation.
+> Last verified against Pi 1.3.0 (package checks and offline host tests, real codemode cases, shared utils, FFF guard, and display suites, and an unchanged native context loader; no runtime changes needed). Not covered: live FFF integration and manual [notice](../GLOSSARY.md#delivery) presentation.
 
 ## Upgrade procedure
 
@@ -23,7 +23,7 @@ Nested discovery must preserve Pi's native instruction loading and deduplicate a
 
 - [ ] `turn_end.message` exposes the inputs of tool calls the assistant made directly, including blocked or rejected calls.
 - [ ] Public `tool_execution_start` events with `parentToolCallId` supply nested inputs before validation and interception. Collect them until the same `turn_end`, without reading results.
-- [ ] Only direct calls can create read-suppression markers, because nested output may never reach the model.
+- [ ] Only direct calls can create [read markers](../GLOSSARY.md#discovery), because nested output may never reach the model.
 - [ ] Boundary drafts are saved after tool results and before the next model request, without implicit steering or continuation.
 - [ ] `getAllTools().sourceInfo` identifies official FFF tools, including late registrations and overrides. Check the selective-read and native path schemas alongside FFF's real source schemas.
 
@@ -38,12 +38,12 @@ Nested discovery must preserve Pi's native instruction loading and deduplicate a
 
 ## Persisted notice contract
 
-The [notice interface](../src/notices.ts) writes version 3. Version 3 changes only the model-facing text: a note says that Pi sent the notice, not the user, and loaded and updated notices wrap the instruction body in a `<project_instructions path="…">` tag. It retains `messageDigest` to validate the full canonical model-facing message before the ledger decodes and compares its instruction body.
+The [notice interface](../src/notices.ts) writes version 3. Version 3 changes only the model-facing text: a note says that Pi sent the notice, not the user, and loaded and updated notices wrap the instruction body in a `<project_instructions path="…">` tag. It retains `messageDigest` to validate the full canonical model-facing message before the [ledger](../GLOSSARY.md#delivery) decodes and compares its instruction body.
 
 This is a breaking replay change with no compatibility reader or automatic migration:
 
 - Version-1 and version-2 notices no longer validate. Strict validation also rejects the version-1 `stamp` and `fileDigest` keys.
-- Invalid notices provide no deduplication or refresh scope tracking, no structured notice rendering, and no run-summary counts. Their original model-facing content is not deleted; display falls back to the supplied text.
+- Invalid notices provide no deduplication or refresh [scope](../GLOSSARY.md#discovery) tracking, no structured notice rendering, and no run-summary counts. Their original model-facing content is not deleted; display falls back to the supplied text.
 - Resume and reload do not eagerly restore scopes represented only by old notices. A later qualifying tool input can load those instructions again, even while the old message text remains in context.
 - Direct-read markers remain version 1 and retain their filesystem revision stamps, originating-call identity, and call fingerprints.
 
@@ -54,7 +54,7 @@ Keep discovery and the pi-tool-display adapter on the same notice contract. Cont
 The extension uses only public Pi APIs, with no host patches or tool overrides. The local filename list and input adapters still need checking on upgrades, because Pi has no public API for discovering only nested files that also avoids reading instruction files the model read directly.
 
 - Discovery doesn't follow result paths, opaque scripts, FFF cursor state, or temporary context rewrites by other extensions.
-- A direct read is an attempt, not proof that the content was delivered in full.
+- A [direct read](../GLOSSARY.md#discovery) is an attempt, not proof that the content was delivered in full.
 - Comparing filesystem revisions on reload avoids rereading unchanged files the model read directly.
 
 Replace local behaviour only if a public Pi API keeps these boundaries and metadata-only markers. Don't replace it with the startup loader, which also reads global and ancestor content.

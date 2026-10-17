@@ -11,4 +11,4 @@ Change prompts only through `systemPromptOptions`, never by forcing `systemPromp
 
 ## Validation
 
-Run [package validation](README.md#validation) offline. [Testing](docs/testing.md) says what is tested where. For Pi upgrades, follow [compatibility](docs/pi-compatibility.md).
+[Testing](docs/testing.md) lists the offline coverage. For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).

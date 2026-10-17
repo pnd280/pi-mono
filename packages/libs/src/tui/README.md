@@ -4,8 +4,6 @@
 
 ## Usage
 
-Extensions share terminal components and Pi mounting through separate entry points.
-
 Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [package exports](../../package.json)). Keep domain policy and I/O in consumers; shared components own presentation and interaction, not persistence.
 
 | Module                                                   | Responsibility                                                           |
@@ -29,4 +27,10 @@ Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [packag
 
 ## Validation
 
-Use the [package checks](../../README.md#validation). The [Must not regress invariants](../../docs/testing.md#must-not-regress) list terminal-text sanitisation and bounded highlighting. Host mounting, fullscreen input routing, and presentation lifetime also have tests in `open-browser/` and `responsive-custom-ui/`, because a regression there can lose, duplicate, or misroute input. Other shared TUI behaviour is below the severity bar and has no tests. For real-terminal appearance, use prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting) and tool display's [host interaction checks](../../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks).
+Use [package checks](../../README.md#validation). Other TUI behaviour is below the severity bar and has no tests.
+
+| When you…                                                           | Read                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Change terminal-text sanitisation or bounded highlighting           | [Must not regress invariants](../../docs/testing.md#must-not-regress)                                                                                                                                                                                                        |
+| Change mounting, fullscreen input routing, or presentation lifetime | Tests in `open-browser/` and `responsive-custom-ui/`: regressions can lose, duplicate, or misroute input                                                                                                                                                                     |
+| Check real-terminal appearance                                      | Prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting) and tool display's [host interaction checks](../../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks) |

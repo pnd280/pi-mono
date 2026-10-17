@@ -33,5 +33,5 @@ File statistics come from Pi's native `edit` and `write` tools only; changes mad
 
 - Counts compare each file's original and final content, so a change that was reverted disappears.
 - Symlink aliases count as one file.
-- Statistics are unavailable, not zero, for binary or unreadable files, files that changed during observation, failed writes, and files over the [diff limits](../../../libs/src/bounded-diff/README.md#behaviour). Expand the summary to see why.
+- Statistics are unavailable, not zero, for binary or unreadable files, files that changed during observation, failed writes, and comparisons that exceed the [diff limits](../../../libs/src/bounded-diff/README.md#behaviour). A large native edit can still use its tool-provided patch. Expand the summary to see why.
 - Totals include only files with available statistics.

@@ -6,6 +6,12 @@
 
 Browser keys are Pi action IDs, set in `~/.pi/agent/keybindings.json` (or `$PI_CODING_AGENT_DIR/keybindings.json`); run `/reload` after changing them. They're separate from the [launch shortcuts](../README.md#configuration) that open the browser.
 
+### Cancellation safety
+
+**Ctrl+C** never cancels, even when bound to `tui.select.cancel`, though it can perform another configured action such as copy. The browser opens only if some key other than **Ctrl+C**, not also used for copy, is bound to cancel. No **Escape** override is added.
+
+### Action precedence
+
 | Default                             | Binding                                    | Action                                                               |
 | ----------------------------------- | ------------------------------------------ | -------------------------------------------------------------------- |
 | **Ctrl+C**                          | `tui.input.copy`                           | Copy the complete text and stay open.                                |
@@ -20,9 +26,8 @@ Browser keys are Pi action IDs, set in `~/.pi/agent/keybindings.json` (or `$PI_C
 
 When one key is bound to several actions, the first in this order wins: copy, cancel, confirm, up, down, page up, page down, fixed controls, then search editing.
 
-- Hints skip keys rejected by [shared keybinding validation](../../../libs/src/tui/keybindings/README.md#behaviour) and show the first usable binding for each action, or mark the action unavailable. For example, if copy is bound to **Enter**, restore uses another confirm key, or the hint shows `restore unavailable`.
+- Hints skip keys rejected by [shared keybinding validation](../../../libs/src/tui/keybindings/README.md#behaviour) and show the first usable binding for each action, or mark the action unavailable. For example, if copy is bound to **Enter**, restore uses another confirm key, or the hint shows "restore unavailable".
 - Configured actions override fixed keys they conflict with, and hints leave those keys out. If **Tab** conflicts, **Shift+Tab** may still switch collections. To free a key, rebind it, or use the [numbered commands](#numbered-draft-commands).
-- **Ctrl+C** never cancels, even when bound to `tui.select.cancel`, though it can perform another configured action such as copy. The browser opens only if some key other than **Ctrl+C**, not also used for copy, is bound to cancel. No **Escape** override is added.
 
 If modified keys don't arrive, check your [terminal setup](https://pi.dev/docs/latest/terminal-setup) or rebind them.
 

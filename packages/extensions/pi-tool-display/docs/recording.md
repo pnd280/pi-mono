@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md) · [Glossary](../GLOSSARY.md)
 
-This guide gives the details behind [what is recorded](../README.md#what-is-recorded): which facts the extension saves, when it creates its local files, and how replay finds them again.
+The extension keeps portable facts in session history and local details on the observing machine. For user-visible effects, read [what is recorded](../README.md#what-is-recorded).
 
 ## Observation
 
@@ -36,7 +36,16 @@ Local details (timing, saved-output references, and diagnostics) go to `pi-tool-
 - Folders and files are owner-only, and linked files are refused.
 - On native Windows, the folders rely on the user profile's ACL instead of owner and mode checks, so the agent directory must be inside the user profile. Outside it, the extension warns once and keeps local details in memory, as for sessions that Pi does not save. See the [Windows storage decision](../../../libs/docs/adr/0001-windows-private-storage.md).
 - A failed write or close of this file shows a warning, also during shutdown.
-- Line and file size limits are listed under [resource limits](presentation.md#resource-limits).
+
+## Record size limits
+
+- Persisted fact size includes unknown fields, so an oversized record cannot be replayed.
+- Each local line is limited to 32 KiB.
+- When a writer's header exceeds the limit, its file is not created and its local details stay in memory.
+- An oversized call line is replaced by a diagnostic with bounded fields.
+- Replay does not read a writer's file above 8 MiB, whatever its line sizes.
+
+Other display budgets are listed under [resource limits](presentation.md#resource-limits).
 
 ## Replay
 

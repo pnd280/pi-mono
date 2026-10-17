@@ -1,6 +1,6 @@
 # pi-tool-display
 
-Replaces Pi's default tool-call output with compact cards, so long agent runs stay readable. Once a run of tool calls finishes, it collapses to one line:
+Long agent runs bury tool results. pi-tool-display replaces Pi's default tool-call output with compact cards. A finished run collapses to one line:
 
 ```text
   Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file
@@ -46,11 +46,13 @@ Assistant prose starts with a `•` marker. When thinking is collapsed (default 
 
 These tools get dedicated cards:
 
-- Pi's [native tools](src/adapters/native/README.md): read, bash, PowerShell, edit, write, and the search and listing tools.
-- Pi's built-in [codemode](src/adapters/builtin/codemode/README.md), [MCP](src/adapters/builtin/mcp/README.md), and [tool search](src/adapters/builtin/tool-search/README.md).
-- Extensions: [FFF](src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](src/adapters/pi-mcp-adapter/README.md), [todo](src/adapters/pi-todo/README.md), [selective read](src/adapters/pi-read/README.md), [smart compact](src/adapters/pi-smart-compact/README.md), and [subagents](src/adapters/pi-subagents/README.md), including [background jobs](src/adapters/pi-subagents/README.md#background-jobs).
-- [Nested-instruction notices](src/adapters/pi-nested-instructions/README.md), which also count toward run summaries.
-- [Subagent background results](src/adapters/pi-subagents/README.md#background-results) and [job results](src/adapters/pi-subagents/README.md#background-jobs).
+- Pi's native tools: read, bash, PowerShell, edit, write, and the search and listing tools.
+- Pi's built-in codemode, MCP, and tool search.
+- Extensions: FFF, the MCP adapter, todo, selective read, smart compact, and subagents, including background jobs.
+- Nested-instruction notices, which also count towards run summaries.
+- Subagent background results and job results.
+
+The [adapter index](docs/adapters.md#built-in-adapters) links each card's layout and compatibility requirements.
 
 A dedicated card replaces any renderer the tool supplies. Other tools keep their own renderer if they have one, including renderers that extensions supply through `registerToolRenderer`; otherwise they get a generic card. Calls to tools that are not loaded, such as old calls or MCP calls before the server reconnects, get a generic card. It switches to the dedicated card if the tool registers later.
 
@@ -73,7 +75,7 @@ Settings live under the literal key `ext.pi-tool-display` in global `~/.pi/agent
 
 | Setting             | Values                                    | Effect                                                                                                                          |
 | ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `collapsedMode`     | `summary` (default), `compact`            | Starting mode, and the mode that collapsing from `verbose` returns to.                                                          |
+| `collapsedMode`     | `summary` (default), `compact`            | Starting mode, also used when a Pi action collapses `verbose` output. **Ctrl+O** follows the cycle above.                       |
 | `showParameters`    | `false` (default), `true`                 | Shows optional details on dedicated cards. Structured blocks still need expansion. MCP and generic cards always show arguments. |
 | `rendererOverrides` | tool name → `auto`, `generic`, `original` | Per-tool rendering choice; see below.                                                                                           |
 
@@ -83,7 +85,7 @@ Settings live under the literal key `ext.pi-tool-display` in global `~/.pi/agent
 - `generic` shows the tool's data on a generic card and turns off this extension's observation of it.
 - `original` leaves the tool's rendering, grouping, and observation entirely to Pi. Other extensions may still observe it.
 
-Mode changes made with **Ctrl+O** last through `/reload` and session switches in the same process, without writing settings. A new process starts from `collapsedMode` (or `--verbose`). These settings do not change tool execution or saved arguments.
+Mode changes from **Ctrl+O** survive `/reload` and session switches within the process, without writing settings. New processes start from `collapsedMode` (or `--verbose`). Settings leave tool execution and saved arguments unchanged.
 
 Trusted project settings merge over global settings key by key. Untrusted project settings are ignored.
 
@@ -105,7 +107,7 @@ Native observation excludes SDK tool overrides, custom tools, and manual `!` and
 
 Session history stores only facts that Pi's own entries lack, such as cancellation, a failed shell's exit code, and bounded patches. They are kept in `pi-tool-display.call` and `pi-tool-display.writer` entries, outside the model's context. Timing, saved-output references, and diagnostics stay on this machine, in `pi-tool-display/calls/<writer>.jsonl` under Pi's agent directory.
 
-> **Patches can keep deleted text.** Removed and context lines from overwritten files may remain in session history.
+> Patches can keep deleted text. Removed and context lines from overwritten files may remain in session history.
 
 The extension never deletes its local files, because copied or moved sessions can still name them. Sessions that Pi does not save keep these details in memory. On native Windows, an agent directory outside the user profile also keeps them in memory. Live shell previews stay in memory only. For the exact facts saved and when the local files are created, read [recorded data and replay](docs/recording.md).
 
@@ -137,6 +139,8 @@ The extension registers no tools, changes no active tools, and adds no keybindin
 To give your own tool a custom card, use the [standalone renderer API](docs/renderers.md). Automatic integration needs an [adapter resolver](docs/adapters.md#add-an-adapter) in this package.
 
 ## Validation
+
+Maintainers use these checks:
 
 | When you…                             | Read                                                                  |
 | ------------------------------------- | --------------------------------------------------------------------- |

@@ -24,7 +24,7 @@ Read applicable repository instructions and [workspace development guidance](../
 
 ## Phases
 
-Execute these phases sequentially. Resolve relative skill links from this file and expand `~` to the user's home directory. The scope and implementation authorisation above take precedence over child skills' default scope, review-only mode, and confirmation steps.
+Execute these phases sequentially. Resolve relative skill links from this file and expand `~` to the user's home directory. The scope and implementation authorisation above take precedence over child skills' default scope, review-only mode, and confirmation steps. Repository-required approvals still apply, including approval for new invariants under the [testing policy](../../../docs/agents/testing.md#coverage).
 
 1. [UI consistency](../_aux/audit-ui-consistency/SKILL.md)
    Audit and apply justified UI consistency fixes. Establish intended user-facing contracts and preserve intentional differences. If no UI surfaces are relevant, record why this phase is not applicable.

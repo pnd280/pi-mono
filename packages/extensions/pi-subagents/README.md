@@ -79,14 +79,12 @@ Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `
 
 Settings load at session start and `/reload`. Valid trusted-project values override global values; invalid values are ignored. See Pi's [settings reference](https://pi.dev/docs/latest/settings) for its own settings.
 
-`turn_end` puts a result into more model requests than `settle`, so a large result uses more input tokens and can make compaction start earlier.
-
 Top-level launches queue FIFO when capacity is full. Nested launches fail immediately with the configured capacity in the error; a task never waits for capacity held by its own ancestors.
 
 ## Side effects
 
 - Children have normal Pi tools and permissions. A research prompt does not make a child read-only, and there is no workspace isolation.
-- Children inherit the environment, working directory, and project-trust decision. They load their own configured extensions and tools, and they also load this package through `-e` from the path that Pi reports for it. A child whose settings load another copy of the package fails to launch. Other supervisor CLI flags, including the supervisor's own `-e`, `--tools`, `--session-dir`, and `--no-session`, are not forwarded.
+- Children inherit the environment, working directory, and project-trust decision. They load their own configured extensions and tools. When Pi reports an absolute source path for this package, children also load it through `-e`; otherwise, their settings must load it. A child whose settings load another copy of the package fails to launch. Other supervisor CLI flags, including the supervisor's own `-e`, `--tools`, `--session-dir`, and `--no-session`, are not forwarded.
 - Each task saves one Pi session for the child. The child adds a `pi-subagents.marker` entry at the start of each run. The supervisor adds two small entries for each run, whatever the child writes. Child session files are not automatically deleted.
 - While a run is live, a `<session_file>.lease/` directory blocks other resumes of the task. See [writer lease](docs/history.md#writer-lease).
 - Child model calls can incur provider charges. Usage after a background call returns reaches supervisor totals only when its result is delivered; see [usage accounting](docs/background-results.md#usage-accounting).
@@ -104,7 +102,7 @@ Top-level launches queue FIFO when capacity is full. Nested launches fail immedi
 
 ## Validation
 
-The offline e2e suite uses real Pi processes and Linux `/proc` to check cleanup. See [coverage](docs/testing.md) and the [maintainer compatibility checklist](docs/pi-compatibility.md).
+For maintainers, the offline e2e suite checks cleanup with real Pi processes and Linux `/proc`. See [coverage](docs/testing.md) and the [maintainer compatibility checklist](docs/pi-compatibility.md).
 
 For the [manual terminal checks](docs/validation.md), run from the repository root:
 

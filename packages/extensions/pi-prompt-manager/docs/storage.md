@@ -10,56 +10,64 @@
   drafts.json
 ```
 
-`PI_CODING_AGENT_DIR`, when set, replaces `~/.pi/agent`. Use a trusted local Linux, macOS, or WSL filesystem with POSIX owner checks and enforced permissions, or, on native Windows, an agent directory inside the user profile. Network filesystems and coordination across machines aren't supported.
+`PI_CODING_AGENT_DIR`, when set, replaces `~/.pi/agent`.
+
+### Storage safety
+
+Use a trusted local Linux, macOS, or WSL filesystem with POSIX owner checks and enforced permissions, or, on native Windows, an agent directory inside the user profile. Network filesystems and coordination across machines aren't supported.
+
+- On POSIX systems, storage owned by another user is refused.
+- Symlinks below the agent root, hard-linked data, and data files that aren't regular files are refused.
+- On native Windows, storage outside the user profile is refused before any directory is created.
+- On native Windows, junctions below the agent root are also refused.
+
+### Directory access
 
 - The agent root may be a symlink.
 - Opening collections may create the directories the extension manages and repair their permissions and ACLs. Other Pi directories are left alone.
-- Directories use `0700`. Data, temporary files, and locks use `0600`.
-- Storage owned by another user, symlinks below the agent root, hard-linked data, and data files that aren't regular files are refused.
-- On native Windows, storage relies on the user profile's inherited ACL: owners aren't checked, and permissions aren't changed. Storage outside the profile is refused before any directory is created. Links and junctions below the agent root are refused. See the [Windows storage decision](../../../libs/docs/adr/0001-windows-private-storage.md).
+- On POSIX systems, directories use `0700`; data, temporary files, and locks use `0600`.
+- On native Windows, storage relies on the user profile's inherited ACL: owners aren't checked, and permissions aren't changed. See the [Windows storage decision](../../../libs/docs/adr/0001-windows-private-storage.md).
 
 ## Manual backup and repair
 
-1. Stop all sessions using the real working directory, including through symlink aliases, before editing collections or removing locks.
-2. Find the hash directory from the document's `cwd`. If the document is unreadable, compute it:
+Setup: stop all sessions using the real working directory, including through symlink aliases, before editing collections or removing locks. Keep backups and diagnostics that contain prompts private.
 
-   ```sh
-   node -e '
-   const { createHash } = require("node:crypto");
-   const { realpathSync } = require("node:fs");
-   console.log(createHash("sha256").update(realpathSync(process.argv[1])).digest("hex"));
-   ' /absolute/path/to/project
-   ```
+| Do                                                                                                                                                                         | Expect                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Find the hash directory from the document's `cwd`. If the document is unreadable, run the hash command below and look under the [storage location](#location-and-privacy). | The directory identifies the real working directory's collections.         |
+| Set the absolute collection path, check that `$collection.backup` doesn't exist yet, and run the backup commands below.                                                    | A private backup preserves the original file.                              |
+| Repair the [document](#document-format), keeping `version: 1`, the canonical `cwd`, and `entries` in newest-first order.                                                   | The document still identifies the same working directory and record order. |
+| Keep each `text` exactly, the original `recordedAt`, and unknown fields on records and at the top level.                                                                   | The retained source data is unchanged.                                     |
+| Give invalid or duplicate IDs new unique UUIDs.                                                                                                                            | Each ID is valid and unique.                                               |
+| Remove whole records to meet the [limits](#limits); never shorten text you keep.                                                                                           | The removed records remain in the backup.                                  |
+| Keep the [permissions](#location-and-privacy) and ACL restrictions, then restart or reopen the browser.                                                                    | The collection is accessible.                                              |
 
-   Look under the [storage location](#location-and-privacy).
+Hash command:
 
-3. Set the absolute collection path, and make sure `$collection.backup` doesn't exist yet. Then copy:
+```sh
+node -e '
+const { createHash } = require("node:crypto");
+const { realpathSync } = require("node:fs");
+console.log(createHash("sha256").update(realpathSync(process.argv[1])).digest("hex"));
+' /absolute/path/to/project
+```
 
-   ```sh
-   collection='/absolute/path/to/history.json'
-   umask 077
-   cp -- "$collection" "$collection.backup"
-   chmod 600 "$collection.backup"
-   ```
+Backup commands:
 
-4. Repair the [document](#document-format):
-   - Keep `version: 1`, the canonical `cwd`, and `entries` in newest-first order.
-   - Keep each `text` exactly, the original `recordedAt`, and any unknown fields on records or at the top level.
-   - Give invalid or duplicate IDs new unique UUIDs.
-   - To get within the [limits](#limits), remove whole records; never shorten text you keep. The removed records stay in the backup.
-5. Keep the [permissions](#location-and-privacy) and ACL restrictions. Restart or reopen the browser to check access. Keep backups and diagnostics that contain prompts private.
+```sh
+collection='/absolute/path/to/history.json'
+umask 077
+cp -- "$collection" "$collection.backup"
+chmod 600 "$collection.backup"
+```
 
 ### Locks and temporary files
 
 Recovery is manual: the extension never migrates collection documents or reclaims abandoned locks and temporary files. Opening collections can still create managed directories and repair permissions and ACLs.
 
-#### Abandoned locks
+Stop all sessions that use the collection and back it up before cleanup. An old lock isn't necessarily abandoned.
 
-Stop all sessions that use the collection and back it up first. Then remove only its `history.json.lock` or `drafts.json.lock`. An old lock isn't necessarily abandoned.
-
-#### Temporary files
-
-Inspect `.tmp` files with UUID suffixes before removing them; they may hold saves that weren't committed.
+After confirming that a lock is abandoned, remove only its `history.json.lock` or `drafts.json.lock` to unblock changes to that collection. Inspect `.tmp` files with UUID suffixes before removing them; they may hold saves that weren't committed.
 
 ## Document format
 

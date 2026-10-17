@@ -6,10 +6,9 @@ Set [`jobs`](../README.md#configuration) to `true` to give the model the `job` a
 
 ## Start a job
 
-The model calls `job` with a `command`, a short `description`, and an optional `timeout` in seconds. The call returns immediately with the job ID and the path of the job's log file. The command runs with Pi's built-in `bash` implementation in the session's working directory, and it uses Pi's `shellPath` and `shellCommandPrefix` settings. At the timeout or at an abort, Pi stops the process group of the command's shell.
+The model calls `job` with a `command`, a short `description`, and an optional `timeout` in seconds. The timeout must be more than 0 and at most 2,147,483 seconds; there is no default timeout. The call returns immediately with the job ID and the path of the job's log file. The command runs with Pi's built-in `bash` implementation in the session's working directory, and it uses Pi's `shellPath` and `shellCommandPrefix` settings. At the timeout or at an abort, Pi stops the process group of the command's shell.
 
 - `jobs` applies at all depths: `maxDepth` does not hide the job tools. The tools are model-only, so codemode scripts cannot call them.
-- If another extension registers `bash`, for example a sandbox, `job` and `job_abort` are hidden and a warning appears. Otherwise a job would run its command outside that extension.
 - A job belongs to the session that started it. A supervisor does not see the jobs of its descendants.
 - With [pi-agent-summary](../../pi-agent-summary/README.md#counters), the run summary shows `started N jobs`. Each accepted `job` call counts once, also when the command then fails to start.
 
@@ -55,7 +54,7 @@ Each job writes all its output to `pi-job-<job_id>.log` in the OS temporary dire
 
 ## Limits
 
-- A job stops only the process group of its shell. A process that leaves the group, for example with `setsid`, `nohup … &`, or a launcher that becomes a daemon, continues after its job stops. Its later output does not go to the log. Keep each process in the foreground of its command.
-- The check for another `bash` runs when settings load. An extension that registers `bash` later is not detected, and jobs continue to use Pi's built-in shell.
+- A job stops only the process group of its shell. A process that leaves the group, for example with `setsid` or a launcher that becomes a daemon, continues after its job stops. Its later output does not go to the log. Keep each process in the foreground of its command.
+- If another extension registers `bash`, for example a sandbox, `job` and `job_abort` are hidden and a warning appears. Otherwise a job would run its command outside that extension. The check runs when settings load; an extension that registers `bash` later is not detected, and jobs continue to use Pi's built-in shell.
 - The conversion of Git Bash, MSYS, Cygwin, and WSL `shellPath` forms for jobs on Windows is untested and not officially supported.
 - Job entries over 1 MiB are ignored during recovery.

@@ -8,7 +8,7 @@
 
 - Nonempty contributions are joined with `·` in the configured order. Unlisted components follow in sorted ID order.
 - Empty contributions stay registered and listed in settings. When no component has text, Pi's default message returns.
-- An override from `overrideWorkingMessage` replaces the whole message while it has text. The most recently set override wins. Clearing it restores the combined message. Overrides do not appear in the settings menu.
+- A nonempty `overrideWorkingMessage` override replaces contributions. The most recently changed nonempty override wins. Clearing it reveals the next nonempty override, or the combined message. Overrides stay out of the settings menu.
 - Text is terminal-sanitised, and whitespace is collapsed to one line. Overrides keep SGR styling, such as theme colours; contributions are plain text.
 - Pi's event bus shares one owner across library instances. Shutdown removes it and invalidates handles. New sessions and reloads register fresh components.
 - Nonparticipants can overwrite the message without interception. The indicator's content and visibility are unchanged.

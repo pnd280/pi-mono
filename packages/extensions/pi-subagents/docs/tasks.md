@@ -23,7 +23,7 @@ The child resolves the model with the extensions that it loads itself; see [side
 
 On resume, each omitted value repeats the value that the task's latest run requested, so later changes to the supervisor's selection do not apply. For example, a run that requested `high` on a model without thinking levels applies `off`, and a resume that selects a reasoning model requests `high` again.
 
-Cards, the panel, and the board show the requested selection while a task is queued, the child's resolved model and clamped thinking level from launch, and then the physical model and thinking level of its latest response.
+A task shows its requested selection while queued, then the child's resolved model and clamped thinking level at launch. Each response that did not fail supplies the physical model and thinking level. The panel follows these updates; a tool card stops updating when its call returns.
 
 ## Cancel a task
 

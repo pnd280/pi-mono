@@ -2,7 +2,17 @@
 
 [pi-tool-display](../README.md) · [Renderer integration](renderers.md)
 
-A [display adapter](../GLOSSARY.md#interpretation) tells this extension how to read one tool's arguments and results. Adapters reach cards in two ways: a resolver in this package selects them automatically for verified tools, or a tool author attaches one directly to renderer fields through [standalone integration](renderers.md#custom-adapters). Follow the [display conventions](conventions.md) for wording.
+Extension authors define a [display adapter](../GLOSSARY.md#interpretation) to interpret one tool's arguments and results. A resolver in this package selects it automatically for verified tools.
+
+| When you…                                                 | Read                                                   |
+| --------------------------------------------------------- | ------------------------------------------------------ |
+| Add automatic selection for a tool                        | [Add an adapter](#add-an-adapter)                      |
+| Attach an adapter directly to your tool's renderer fields | [Standalone integration](renderers.md#custom-adapters) |
+| Choose action wording                                     | [Display conventions](conventions.md)                  |
+
+## Prohibited actions
+
+Adapters must not enable or run tools, access files, persist data, modify borrowed arguments or results, or change model context. Native observation and unavailable-history notices need separate [host provenance checks](../README.md#what-is-recorded).
 
 ## Add an adapter
 
@@ -34,10 +44,6 @@ Callbacks should return `undefined`, or reject through `supports`, rather than t
 - After any callback failure, the call stays generic through later updates. It leaves its exploration group and uses generic summary counts, but keeps `omitFromSummary`.
 - If this extension's own card code throws, the call also stays generic. Only a failure of the generic card propagates.
 - The host warns once for each adapter ID, with separate warnings for adapter and card failures.
-
-### Prohibited actions
-
-Adapters must not enable or run tools, access files, persist data, modify borrowed arguments or results, or change model context. Native observation and unavailable-history notices need separate [host provenance checks](../README.md#what-is-recorded).
 
 ## Session-message adapters
 

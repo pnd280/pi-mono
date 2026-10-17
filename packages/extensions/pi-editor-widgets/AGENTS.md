@@ -26,4 +26,4 @@ Read the [compatibility boundary](docs/pi-compatibility.md) before changing host
 
 ## Validation
 
-Use [package validation](README.md#validation) and the [behavioural coverage](docs/testing.md). Pi upgrades need the [private host checklist](docs/pi-compatibility.md) and installed-host fixtures, not simulated registries alone.
+Use [terminal validation](docs/validation.md) and the [behavioural coverage](docs/testing.md). Pi upgrades need the [private host checklist](docs/pi-compatibility.md) and installed-host fixtures, not simulated registries alone.

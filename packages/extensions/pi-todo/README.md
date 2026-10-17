@@ -10,7 +10,7 @@ The model manages todos through the `todo` tool; you follow along in the `/todos
 
 ### The `todo` tool
 
-The model calls the `todo` tool to create, update, list, get, delete, and clear todos. Todos can be nested and blocked by other todos, and a completed todo can't be reopened. Each call saves a full snapshot of the list in the session.
+The model calls the `todo` tool to create, update, list, get, delete, and clear todos. Todos can be nested and blocked by other todos, and a completed todo can't be reopened. Results save full snapshots in the session, except for [host errors](docs/todo-tool.md#replay).
 
 The extension draws no tool cards; [pi-tool-display](../pi-tool-display/src/adapters/pi-todo/README.md) draws them. To see the exact rules, limits, and card text that the tool uses, read [the todo tool](docs/todo-tool.md).
 

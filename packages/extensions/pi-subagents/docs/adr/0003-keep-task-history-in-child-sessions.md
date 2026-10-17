@@ -105,7 +105,7 @@ The README must state these contract changes:
 - An ancestor can no longer resume an inactive descendant.
 - Editing or deleting a child file changes or removes task history. Continuing a child file manually extends the run that wrote the file's last entry.
 - A trailing user or custom message of an interrupted run is not part of the resumed context.
-- Children always load this package through `-e`. A child whose settings load another copy of the package fails to launch.
+- Children load this package through `-e` when Pi reports an absolute source path for the supervisor's extension; otherwise, they rely on their settings. A child whose settings load another copy of the package fails to launch.
 - Restored rows show the model, thinking level, and background state from `end`, or the launch values when the run has no `end`.
 
 Maintainers must also make these changes:
@@ -134,7 +134,7 @@ A temporary probe drove offline Pi 1.0.2 RPC children with a test extension. It 
 | Extension loading    | The same entry path in settings and `-e`, also as a directory in settings, gave one registration. A source path in `-e` with the package path in settings stopped Pi at startup with "Duplicate working-message id".                                                    |
 | Event coverage       | Source inspection: Pi emits `entry_appended` for custom entries, context edits, and boundary drafts, not for messages.                                                                                                                                                  |
 
-Later checks gave these results:
+For the current verification scope, use the [compatibility checklist](../pi-compatibility.md). Later checks gave these results:
 
 - **Usage across runs:** An e2e test compares the task total with the sum of the runs' usage, live and after restart. The nested background test shows that late descendant usage reaches the run's `end` entry. A run's usage is the difference of two `get_session_stats` reads, and Pi counts every entry in the file, including compaction entries. An e2e test compacts a child with a compaction entry that carries usage; both `list` and `show` include that usage.
 - **Lease:** An e2e test resumes a task from a forked supervisor while a stubborn child runs, and again after the child's supervisor is killed. Both resumes fail and leave the file unchanged. After the processes exit, the next resume succeeds and removes the stale lease entries. A path alias was not tested: the lease uses the canonical path, and the `run` entries record one path.

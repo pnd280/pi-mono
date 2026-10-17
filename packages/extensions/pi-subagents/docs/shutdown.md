@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-This guide explains how a [child](../GLOSSARY.md#tasks-and-processes) stops after completion, cancellation, navigation, or a supervisor exit, and what can survive.
+A [child](../GLOSSARY.md#tasks-and-processes) stops after completion, cancellation, navigation, or a supervisor exit. Forced stops can leave processes alive under the [limits](#limits) below.
 
 ## Graceful stop
 
@@ -10,7 +10,25 @@ Completion closes child stdin; cancellation also clears queued input and request
 
 Cancellation, the usage read, and shutdown share the same grace period. The grace period is 5 seconds plus 7 seconds per possible remaining descendant level, bounded by `maxDepth` and `maxConcurrent`. With default limits, children receive 12 seconds and grandchildren 5 seconds.
 
-On Linux and macOS, a live supervisor then sends SIGTERM to the child process group, followed by SIGKILL after 2 more seconds if a member of the group remains, also when the child itself has exited. When the child exits without a forced stop and members of its group remain, the supervisor starts the same forced stop at once. The stop ends when the group is gone. If a member remains 1 second after SIGKILL, or the group cannot be checked, the run's result reports the failure; a cancelled run stays cancelled and names it, and a failed run's first line starts with it. After the stop ends and the child exits, the supervisor waits for EOF on the child's output pipes. When another process still holds them, the supervisor closes them after no output arrives for 100 milliseconds, or at the latest after 2 seconds. Without EOF, more output could follow, so the result's first line then starts with `Output can be incomplete: the supervisor closed it before EOF`; a run that would complete fails, and a cancelled run stays cancelled. Requests to the child that are still pending 1 second after its exit fail, also when its output pipes stay open. A child supervisor writes the failed stops of its own tasks to stderr before it exits, each on its own line, and waits up to 1 second for the write. Its supervisor reads all of that stderr, not only the kept excerpt, and reports them in the result of that child's run. On Windows, the supervisor force-stops the child's process tree with `taskkill` at once. Graceful exit waits for cleanup.
+Graceful exit waits for cleanup.
+
+### Process-group cleanup
+
+On Linux and macOS, a live supervisor sends SIGTERM to the child process group after the grace period. It sends SIGKILL after 2 more seconds if a member remains, also when the child itself has exited. When the child exits without a forced stop and members of its group remain, the supervisor starts the same forced stop at once. The stop ends when the group is gone.
+
+If a member remains 1 second after SIGKILL, or the group cannot be checked, the run's result reports the failure. A cancelled run stays cancelled and names it; a failed run's first line starts with it.
+
+On Windows, the supervisor force-stops the child's process tree with `taskkill` at once.
+
+### Output pipes
+
+After the stop ends and the child exits, the supervisor waits for EOF on the child's output pipes. When another process still holds them, the supervisor closes them after no output arrives for 100 milliseconds, or at the latest after 2 seconds. Without EOF, more output could follow, so the result's first line then starts with `Output can be incomplete: the supervisor closed it before EOF`. A run that would complete fails, and a cancelled run stays cancelled.
+
+Requests to the child that are still pending 1 second after its exit fail, also when its output pipes stay open.
+
+### Descendant cleanup failures
+
+A child supervisor writes the failed stops of its own tasks to stderr before it exits, each on its own line, and waits up to 1 second for the write. Its supervisor reads all of that stderr, not only the kept excerpt, and reports them in the result of that child's run.
 
 ## Immediate stop
 

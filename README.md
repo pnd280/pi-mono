@@ -32,7 +32,7 @@ Links to published Pi documentation point to the latest version, which can be ne
 | [pi-todo](packages/extensions/pi-todo/README.md)                               | Gives the model a todo list, shown in a widget and a `/todos` browser and saved in the session.       |
 | [pi-subagents](packages/extensions/pi-subagents/README.md)                     | Delegates foreground and background work to resumable Pi processes, with task views and cancellation. |
 | [pi-smart-compact](packages/extensions/pi-smart-compact/README.md)             | Lets the model compact its own context mid-task, so long tasks keep going.                            |
-| [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md)           | Searchable history of your prompts and saved drafts, kept per directory.                              |
+| [pi-prompt-manager](packages/extensions/pi-prompt-manager/README.md)           | Keeps searchable prompt history and saved drafts per directory.                                       |
 | [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md)           | Moves widgets and statuses above the editor, below it, or into the footer.                            |
 | [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md) | Loads `AGENTS.md` files from subdirectories when the model starts working in them.                    |
 | [pi-session-utils](packages/extensions/pi-session-utils/README.md)             | Saves unsaved sessions, starts empty child sessions, and names sessions automatically.                |

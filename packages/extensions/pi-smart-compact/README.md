@@ -31,7 +31,7 @@ What happens after a request:
 1. Pi saves the whole tool batch.
 2. Before the next model response, Pi tries to compact, using its native summary and entry.
 3. If the attempt is skipped, cancelled, or fails, a `pi-smart-compact.result` status message tells the model what happened. It does not start another turn.
-4. The task continues as normal. In print mode, Pi still waits for the task's final response.
+4. The task continues unless the whole run is aborted or an unexpected exception stops it. In print mode, Pi waits for the task's final response.
 
 Other behaviour:
 
@@ -74,8 +74,6 @@ All fields are optional.
 | `applyToAuto`      | `false` | Also use the matching rule for automatic compaction at the threshold or on overflow.                                    |
 | `instructionsFile` | None    | UTF-8 file of extra focus for every compaction route, whatever `rules`, `applyToManual`, and `applyToAuto` say.         |
 
-When compaction starts, each rule's `match` is tested in order against the conversation model as `provider/id`. The first matching rule chooses the summary `model` and `thinkingLevel`, and when no rule matches, compaction uses native selection. A rule with only `match`, like `^local/` above, keeps native selection for its models.
-
 For the example `instructionsFile`, create `compaction-instructions.txt` beside the settings file containing the focus you want, such as `Preserve outstanding decisions and remaining tests.` Its text comes before any `/compact <instructions>` or tool instructions.
 
 | When you…                                                                            | Read                                                       |
@@ -103,12 +101,13 @@ Project settings override global fields only in [trusted projects](https://pi.de
 
 `context_window` and Pi's native compaction keep working.
 
-An unavailable model, unsupported thinking level, authentication error, or failed summary never falls back silently to another model. During overflow recovery, Pi may already have removed the failed request from model context; that removal stays if compaction fails.
+An unavailable model, unsupported thinking level, authentication error, or failed summary never falls back silently to another model. Overflow recovery also covers recoverable length stops. If Pi removed the failed request from model context before recovery, that removal stays if compaction fails.
 
 ## Side effects
 
 - It sends conversation history to the active or configured summary model through Pi's native summarisation requests, with the usual provider usage and cost.
-- It saves to the current session: native compaction entries, `pi-smart-compact.model` entries for default summaries, and status messages for skipped, cancelled, or failed requested attempts. Raw history stays in the session file.
+- It saves native compaction entries, `pi-smart-compact.model` entries for default summaries, and status messages for skipped, cancelled, or failed requested attempts to the current session. Raw history stays in the session file.
+- Metadata and native compaction are separate writes. A storage error can leave one without the other. Cancellation protects them only before native persistence starts.
 - It patches private Pi methods in memory for the session. On shutdown it restores only the hooks it still owns, leaving later replacements by other extensions in place.
 - It sets and clears one footer status, `pi-smart-compact.compactions`.
 - It does not modify installed Pi files, create configuration, send user prompts, or invent continuation requests.

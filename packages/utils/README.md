@@ -1,8 +1,15 @@
 # @pi-mono/utils
 
-Extensions and shared libraries in this workspace share pure functions for transforming source text, paths, and patches. For example, `parsePatch` validates a unified patch and returns its hunks, with no file access.
+Workspace extensions and libraries need common transformations for source text, paths, and patches without file access or shared state. For example, `parsePatch` validates a unified patch and returns its hunks:
 
-The helpers hold no state: callers supply inputs and policy. The [manifest](package.json) lists the supported imports.
+```ts
+import { parsePatch } from "@pi-mono/utils/patch";
+
+const patch = parsePatch("@@ -1 +1 @@\n-old\n+new\n", 1024);
+console.log(patch?.hunks.length); // 1
+```
+
+Callers supply inputs and policy.
 
 ## Usage
 
@@ -22,9 +29,3 @@ Before using a helper, read its [caller boundaries](docs/caller-boundaries.md).
 ### Search scopes
 
 For FFF provenance or static prefix discovery, see [search-scope caller boundaries](docs/caller-boundaries.md#search-scopes).
-
-## Validation
-
-The [coverage specification](docs/testing.md) lists what is tested here.
-
-Use the [focused commands](../../docs/development.md#focused-validation) with `@pi-mono/utils`.

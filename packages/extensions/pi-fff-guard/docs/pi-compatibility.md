@@ -2,7 +2,7 @@
 
 [pi-fff-guard](../README.md)
 
-> Last verified against Pi 1.3.0 and FFF 0.11.0 (package checks, offline interception and scope tests, and live calls on Linux to installed FFF through an offline scripted provider, in the default and `override` modes). Compared with 0.10.6, FFF 0.11.0 registers its tools when it loads and again at session start, and changes rendering and SDK loading. Its tool schemas, `query.ts`, and `aux-finders.ts` are unchanged. No runtime changes were needed.
+> Last verified against Pi 1.3.0 and FFF 0.11.0 (package checks, offline interception and scope tests, and live calls on Linux to installed FFF through an offline scripted provider, in the default and `override` modes). Compared with 0.10.6, FFF 0.11.0 registers its tools when it loads and again at session start, and changes rendering and SDK loading. Its tool schemas, `query.ts`, and `aux-finders.ts` are unchanged. No runtime changes were needed. Not covered: live calls on platforms other than Linux.
 
 ## Upgrade procedure
 

@@ -11,7 +11,7 @@
 
 ## Checklist
 
-Keep file discovery and prompt-section merging consistent with Pi when applying model-specific additions.
+The extension uses the public `before_agent_start` prompt sections of Pi 1.3.0. Keep file discovery and prompt-section merging consistent with Pi when applying model-specific additions.
 
 ### Base discovery
 

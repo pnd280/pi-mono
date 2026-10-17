@@ -9,7 +9,7 @@ The `/subagents` command lists, inspects, and controls tasks and [jobs](jobs.md)
 | `/subagents`                                                 | The [task panel](interface.md) in TUI mode; the first page elsewhere.                                                   |
 | `/subagents list [--offset <n>] [--limit <n>]`               | A JSON page in depth-first launch order.                                                                                |
 | `/subagents show <task_id> [--since <cursor>] [--limit <n>]` | A compact transcript digest with cumulative child usage.                                                                |
-| `/subagents show <task_id> --last`                           | The latest assistant text and its entry cursor, or `null` when absent.                                                  |
+| `/subagents show <task_id> --last`                           | The text and entry cursor of the latest assistant message with content; both fields are `null` when absent.             |
 | `/subagents abort <task_id>`                                 | Cancel an active task; its session remains resumable.                                                                   |
 | `/subagents jobs [--offset <n>] [--limit <n>]`               | A JSON page of the jobs on the selected ancestry, in start order.                                                       |
 | `/subagents show <job_id>`                                   | The job's state and the end of its log file.                                                                            |
@@ -30,7 +30,7 @@ The fields of a task item have different scopes:
 
 `jobs` pages contain `{ jobs, total, offset, next_offset }` and use the same rules. A job item has `job_id`, `description`, `command`, `state` (`active` or `inactive`), `outcome` (`completed`, `failed`, `cancelled`, or `null` while active), `exit_code`, `started_at`, `ended_at`, and `log_file`. `exit_code` is `null` after a timeout, a cancellation, or a start failure, and while the job is active.
 
-`show <job_id>` returns `{ job_id, state, outcome, exit_code, log_file, text }`. `text` is the end of the log file, at most 2,000 lines, and short enough for the reply to fit 50 KiB. It is `null` when the log file cannot be read.
+`show <job_id>` returns `{ job_id, state, outcome, exit_code, log_file, text }`. `text` is the end of the log file, at most 2,000 log lines plus an `[Earlier output omitted]` line when needed, and short enough for the reply to fit 50 KiB. It is `null` when the log file cannot be read.
 
 ## Transcript digests
 

@@ -2,27 +2,29 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
+Maintainers use this reference for input discovery and session persistence. The [README](../README.md#usage) defines user-facing loading rules.
+
 ## Source behaviour
 
 Based on OpenCode v2 at [`39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49`](https://github.com/anomalyco/opencode/tree/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49):
 
 - [Read-tool discovery](https://github.com/anomalyco/opencode/blob/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49/packages/core/src/tool/plugin/read.ts) walks nested ancestors to the workspace boundary.
 - [Session instructions](https://github.com/anomalyco/opencode/blob/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49/packages/core/src/session/instructions.ts) records synthetic instruction messages and deduplicates against surviving context.
-- [v2 instructions documentation](https://github.com/anomalyco/opencode/blob/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49/services/www/src/docs/content/instructions.mdx) distinguishes ambient instructions from nested snapshots.
+- [v2 instructions documentation](https://github.com/anomalyco/opencode/blob/39e1ce55bccb4ab1761c1edee7a5bfbefe6c1a49/services/www/src/docs/content/instructions.mdx) distinguishes ambient instructions from nested [snapshots](../GLOSSARY.md#delivery).
 
-Pi 1.3.0 is the host reference. Pi's startup loading, filename priority, broad-to-narrow ordering, and explicit reload behaviour take precedence. OpenCode's ambient watcher and startup search are not ported.
+Pi 1.3.0 is the host reference. [Pi's loading rules](../README.md#usage) take precedence over OpenCode's. OpenCode's ambient watcher and startup search are not ported.
 
 FFF adapters reference [pi-fff source](https://github.com/dmtrKovalenko/fff/tree/89c19270ea2dfc20829a7429f72022571558093e/packages/pi-fff/src) at `89c19270ea2dfc20829a7429f72022571558093e`. Source schemas, rather than abbreviated README parameters, define the inputs.
 
 ## Input discovery
 
-Discovery infers scope from native `read`, `ls`, `grep`, `find`, and `bash` inputs and official FFF `fffind`, `ffgrep`, and `fff-multi-grep`, including their native overrides. Search content patterns, exclusions, fuzzy filenames, and cursor-only searches do not provide scope. Only rooted pattern prefixes and finite brace alternatives contribute directories. Glob matches are never enumerated. A wildcard never counts as an exact instruction-file read.
+Discovery infers [scope](../GLOSSARY.md#discovery) from native `read`, `ls`, `grep`, `find`, and `bash` inputs and official FFF `fffind`, `ffgrep`, and `fff-multi-grep`, including their native overrides. Search content patterns, exclusions, fuzzy filenames, and cursor-only searches do not provide scope. Only rooted pattern prefixes and finite brace alternatives contribute directories. Glob matches are never enumerated. A wildcard never counts as an exact instruction-file read.
 
 ### Bash inference
 
 [Bash inference](../src/bash.ts) consumes the [unbash](https://github.com/webpro-nl/unbash) AST without executing commands or expanding variables or filesystem globs. Supported syntax includes literal simple commands, unquoted finite brace alternatives, ordinary pipes, `&&` and `||` chains, sequential commands, and basic redirections (`<`, `>`, `>>`, `<&`, `>&`).
 
-Parser errors or unsupported syntax discard inference for the entire invocation, including otherwise valid commands. Unsupported syntax includes dynamic expansions (also in declaration assignments such as `export NAME=value`), command-prefix assignments, compound commands, background execution, `|&`, `time`, negation, extended globs, ANSI-C or localized strings, here-documents, here-strings, and variable file descriptors.
+Parser errors or unsupported syntax discard inference for the entire invocation, including otherwise valid commands. Unsupported syntax includes dynamic expansions (also in declaration assignments such as `export NAME=value`), command-prefix assignments, compound commands, background execution, `|&`, `time`, negation, extended globs, ANSI-C or localised strings, here-documents, here-strings, and variable file descriptors.
 
 On Windows, Pi's Bash can be Git Bash, MSYS2, Cygwin, or WSL. Path operands and path-valued options, with separate or attached values, that start with a drive component such as `/c/` are read as the drive path `C:/`, as in Git Bash and MSYS2. Other POSIX-rooted paths, such as `/tmp/pkg`, give no scope, because their mount root depends on the shell. A `cd` to such a path stops inference for the rest of the invocation.
 
@@ -36,14 +38,14 @@ Never inspect execution results. Each batch is handled at `turn_end`:
 
 1. Take direct tool inputs from the completed assistant message supplied at `turn_end`.
 2. Add nested inputs collected from public `tool_execution_start` events carrying `parentToolCallId`, including blocked or invalid attempts.
-3. Infer the batch's scopes and save all direct-read markers.
+3. Infer the batch's scopes and save all [read markers](../GLOSSARY.md#discovery).
 4. Discover the remaining instructions.
 
 Pending inputs are cleared at turn and session boundaries. Handling the whole batch at once avoids races between sibling calls, and needs no tool replacement, steering, or retry.
 
-Nested calls contribute scope but never direct-read suppression: codemode or another parent can filter their output before the model sees it. A direct sibling read can still suppress the matching file for the whole batch. Unknown nested tool schemas and opaque parent code provide no scope unless a supported child input is observed.
+The [nested-call rule](../README.md#which-files-load) applies across the batch: a sibling [direct read](../GLOSSARY.md#discovery) can still suppress the matching file. Unknown nested tool schemas and opaque parent code provide no scope unless a supported child input is observed.
 
-Direct-read markers contain a lexical path, filesystem revision, and the identity of the entry and call that created it. They contain no instruction text. A fingerprint of the projected call prevents a context replacement from preserving stale suppression. Notices contain the full selected instructions plus structured metadata and a `messageDigest` of the entire model-facing message, including the note and tag around the instructions. The `messageDigest` detects context replacements which retain source details but change the delivered text.
+Direct-read markers contain a lexical path, filesystem revision, and the identity of the entry and call that created it. They contain no instruction text. A fingerprint of the projected call prevents a context replacement from preserving stale suppression. [Notices](../GLOSSARY.md#delivery) contain the full selected instructions plus structured metadata and a `messageDigest` of the entire model-facing message, including the note and tag around the instructions. The `messageDigest` detects context replacements which retain source details but change the delivered text.
 
 Markers are per file: reading `AGENTS.md` does not suppress a preferred `AGENTS.override.md`. Listing a filename is not a content read. Failed and blocked read attempts count; results are not inspected.
 
@@ -57,7 +59,7 @@ If compaction, branch navigation, or context edits remove a notice or its origin
 
 Refresh on startup, resume, and `/reload` uses only scopes still represented by canonical context. Unchanged direct-read revisions suppress content reads. A changed file, changed preferred candidate, or disappearance can produce an updated or removed notice. A direct read of a missing or unreadable file delivered nothing: if a file appears there later, refresh loads it, and if none appears, refresh adds no removal notice. Normal invocations otherwise retain snapshots; compacted-away scopes are not eagerly restored.
 
-Older notice formats do not represent scopes under the [version-3 persisted contract](pi-compatibility.md#persisted-notice-contract); their message text remains in the session.
+The [version-3 persisted contract](pi-compatibility.md#persisted-notice-contract) defines which notice formats contribute scopes.
 
 ## Shared scope extraction
 

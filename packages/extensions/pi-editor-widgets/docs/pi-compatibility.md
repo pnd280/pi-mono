@@ -2,7 +2,7 @@
 
 [pi-editor-widgets](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline host tests; a source diff against Pi 1.2.0 shows the status, region, footer, mode-switch, metrics, and compaction-threshold sources unchanged, pi-tui including container mouse dispatch byte-identical, and the only interactive-mode changes in the overlay close path the menu doesn't use and the `/share` destination setting; no runtime changes needed). Not covered: physical-terminal and manual checks.
+> Last verified against Pi 1.3.0 (package checks, offline host tests, and source review of statuses, regions, the footer, mode switching, metrics, compaction thresholds, pi-tui mouse dispatch, and interactive mode). Not covered: physical-terminal and manual checks.
 
 Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks. It needs no core or dependency edits.
 
@@ -11,7 +11,7 @@ Public APIs don't expose other extensions' registries or row placement, so this 
 1. Run the [package checks and tests](../README.md#validation), including the shared [interactive host fixture](../../../libs/src/validation/interactive-host/README.md).
 2. Work through the host checks below.
 3. Check custom UI mounting through the shared [responsive host](../../../libs/src/tui/responsive-custom-ui/README.md).
-4. Do the [terminal checks](testing.md#manual-checks).
+4. Do the [terminal checks](validation.md).
 5. Update the "Last verified" line.
 
 ### Status discovery
@@ -84,4 +84,4 @@ Verify `renderer`, the stable `ui` proxy, and `switchTuiMode`.
 - Pi's renderer already expands visible tabs to the three columns `visibleWidth()` uses. The extension must not rewrite tabs inside OSC or APC payloads.
 - Automated fixtures use real Pi renderers and the native fullscreen dock, without startup downloads, process signal handlers, or a physical terminal. They don't establish visual quality for every component or terminal emulator.
 
-When Pi adds a public registry, layout, or renderer-lifecycle API, use it instead of the matching private hook. Pi 1.3.0 adds none: its extension types, extension and TUI docs, and pi-tui are unchanged from Pi 1.2.0. Replace the boundary and its tests together, without transitional adapters.
+When Pi adds a public registry, layout, or renderer-lifecycle API, use it instead of the matching private hook. Replace the boundary and its tests together, without transitional adapters.

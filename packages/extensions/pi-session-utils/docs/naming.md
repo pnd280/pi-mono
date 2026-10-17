@@ -8,12 +8,13 @@ The README describes [what text is sent](../README.md#automatic-session-names) a
 
 An unnamed session gets at most one automatic attempt per load. These events cancel a generation that is in progress:
 
-| Event                                                | Effect on automatic naming                                                          |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Setting or clearing a name                           | Stops automatic naming until the session is loaded or reloaded.                     |
-| Navigating the session tree                          | No other automatic attempt. Use `/sesh auto-name` for the selected branch.          |
-| Aborting the agent run                               | Cancels its automatic attempt, without another attempt.                             |
-| Running `/sesh auto-name` or `/sesh auto-name clear` | A new generation replaces any earlier one. Both commands work while the agent runs. |
+| Event                           | Effect on automatic naming                                                 |
+| ------------------------------- | -------------------------------------------------------------------------- |
+| Setting or clearing a name      | Stops automatic naming until the session is loaded or reloaded.            |
+| Navigating the session tree     | No other automatic attempt. Use `/sesh auto-name` for the selected branch. |
+| Aborting the agent run          | Cancels its automatic attempt, without another attempt.                    |
+| Running `/sesh auto-name`       | A new generation replaces any earlier one, even while the agent runs.      |
+| Running `/sesh auto-name clear` | Cancels generation and clears the title, even while the agent runs.        |
 
 ## Output modes
 

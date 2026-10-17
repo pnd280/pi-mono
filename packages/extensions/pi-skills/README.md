@@ -72,13 +72,11 @@ Pi's `enableSkillCommands` setting (toggled in `/settings`) controls completion 
 
 ## Side effects
 
-Only prompt text changes. Pi saves the changed prompt in its normal session storage. The extension keeps no state of its own and makes no network requests.
+Only prompt text changes. Pi saves the changed prompt in its normal session storage. The extension writes no files and makes no network requests.
 
 ## Validation
 
-Use the [workspace checks](../../../docs/development.md#focused-validation) for `pi-skills`.
-
-| When you…                                       | Read                                                         |
-| ----------------------------------------------- | ------------------------------------------------------------ |
-| Change completion, formats, or host integration | the [terminal checks](docs/testing.md#manual-checks) as well |
-| Decide where a test belongs                     | [Testing](docs/testing.md)                                   |
+| When you…                                       | Read                                                  |
+| ----------------------------------------------- | ----------------------------------------------------- |
+| Change completion, formats, or host integration | The [terminal checks](docs/testing.md#manual-checks). |
+| Decide where a test belongs                     | [Testing](docs/testing.md)                            |

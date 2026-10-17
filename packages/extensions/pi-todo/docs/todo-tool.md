@@ -24,7 +24,7 @@ The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and
 | `blockedBy`                       | `create`                  | The IDs of todos that block the new todo.                                               |
 | `addBlockedBy`, `removeBlockedBy` | `update`                  | The IDs of blocking todos to add or remove.                                             |
 | `owner`                           | `create`, `update`        | The agent or owner assigned to the todo.                                                |
-| `metadata`                        | `create`, `update`        | Arbitrary JSON. On `update`, a key with a `null` value deletes that key.                |
+| `metadata`                        | `create`, `update`        | A JSON object. On `update`, a key with a `null` value deletes that key.                 |
 | `includeDeleted`                  | `list`                    | If `true`, `list` also returns deleted todos. The default is `false`.                   |
 
 ## Rules

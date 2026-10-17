@@ -18,7 +18,7 @@ A successful result with valid `details.loaded` names replaces the compact body 
 
 ## Summary mode
 
-Loaded tools count once per name across the run (`loaded 1 tool`, `loaded 3 tools`). Calls with missing, empty, or invalid `details.loaded` count per call as `tool_search ×N`, including pending calls and Pi's error results.
+Only ended [runs](../../../../GLOSSARY.md#transcript-structure) have [summary lines](../../../../docs/presentation.md#when-a-run-collapses). Loaded tools count once per name (`loaded 1 tool`, `loaded 3 tools`). Calls with missing, empty, or invalid `details.loaded`, including Pi's error results, count as `tool_search ×N`.
 
 ## Limitations
 
