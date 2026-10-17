@@ -7,18 +7,10 @@ import {
 import {
   buildSessionProjection,
   type JsonAgentSessionEvent,
-  type SessionEntry,
   type SessionProjection
 } from "@earendil-works/pi-coding-agent";
 
-/** One run's history in a child session, as RPC `get_entries` or the session file supplies it. */
-export interface TranscriptSnapshot {
-  sessionId: string;
-  runId: string;
-  cwd: string;
-  entries: readonly SessionEntry[];
-  leafId: string | null;
-}
+import type { RunHistory } from "./reader.ts";
 
 export type TranscriptMessage = SessionProjection["messages"][number];
 
@@ -53,10 +45,12 @@ function executionKey(timestamp: number, id: string): string {
 
 /**
  * Saved entries are authoritative. Streamed assistant messages and tool executions overlay
- * them until the matching entries arrive.
+ * them until the matching entries arrive. A transcript follows one task: a history or a
+ * connection of another run ends the earlier run's overlay.
  */
 export class Transcript {
-  private snapshot: TranscriptSnapshot | undefined;
+  /** The run that the overlay belongs to. */
+  private run: string | undefined;
   private projection: SessionProjection | undefined;
   /** The last saved assistant message on the branch. */
   private latest: AssistantMessage | undefined;
@@ -69,12 +63,9 @@ export class Transcript {
   private calls = new Map<string, number>();
   private executions = new Map<string, Execution>();
   private listeners = new Set<() => void>();
-  private running: boolean;
-
-  /** observed: a connection reports the child's events; otherwise only snapshots arrive. */
-  constructor(private readonly observed: boolean) {
-    this.running = observed;
-  }
+  /** Whether a connection reports the child's events; otherwise only histories arrive. */
+  private observed = false;
+  private running = false;
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
@@ -88,29 +79,27 @@ export class Transcript {
     for (const listener of this.listeners) listener();
   }
 
+  /** A connection reports the events of run `runId` from its start. */
+  observe(runId: string): void {
+    this.observed = true;
+    this.running = true;
+    this.reset(runId);
+    this.changed();
+  }
+
   /** running: whether the task is active; events report this when the transcript is observed. */
-  replace(snapshot: TranscriptSnapshot, running: boolean): void {
+  replace(history: RunHistory, running: boolean): void {
     if (!this.observed) this.running = running;
-
-    if (
-      this.snapshot &&
-      (this.snapshot.sessionId !== snapshot.sessionId || this.snapshot.runId !== snapshot.runId)
-    ) {
-      this.pending.clear();
-      this.streaming = undefined;
-      this.calls.clear();
-      this.executions.clear();
-    }
-
-    this.snapshot = snapshot;
-    this.projection = buildSessionProjection([...snapshot.entries], snapshot.leafId);
+    if (history.runId !== this.run) this.reset(history.runId);
+    const { entries } = history;
+    this.projection = buildSessionProjection([...entries], entries.at(-1)?.id ?? null);
     this.saved.clear();
     this.latest = undefined;
     for (const entry of this.projection.entries)
       for (const message of entry.messages) if (message.role === "assistant") this.latest = message;
     const owners = new Map<string, number>();
 
-    for (const entry of snapshot.entries) {
+    for (const entry of entries) {
       if (entry.type !== "message") continue;
       const { message } = entry;
 
@@ -128,6 +117,14 @@ export class Transcript {
       if (this.saved.has(timestamp)) this.pending.delete(timestamp);
     if (this.streaming && this.saved.has(this.streaming.timestamp)) this.streaming = undefined;
     this.changed();
+  }
+
+  private reset(runId: string): void {
+    this.run = runId;
+    this.pending.clear();
+    this.streaming = undefined;
+    this.calls.clear();
+    this.executions.clear();
   }
 
   event(event: JsonAgentSessionEvent): void {

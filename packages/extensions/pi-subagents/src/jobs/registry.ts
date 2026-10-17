@@ -16,6 +16,7 @@ import {
 import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
+import { jobResultMessage, ResultSource } from "../background-result.ts";
 import { JOB_END_ENTRY, JOB_ENTRY } from "../constants.ts";
 import { boundedText, firstLine } from "../result.ts";
 import {
@@ -28,16 +29,7 @@ import {
   type JobRecord
 } from "./records.ts";
 
-export type JobEvent =
-  | { kind: "changed"; jobId: string }
-  /** A job's command exited. `text` is the bounded output tail and the reason. */
-  | {
-      kind: "completed";
-      details: JobDetails & { state: "inactive" };
-      text: string;
-      /** `job_abort` cancelled the job, so its result goes to nobody. */
-      dropped: boolean;
-    };
+export type JobEvent = { kind: "changed"; jobId: string };
 
 /** Job log files are `<prefix><job_id>.log` in the OS temporary directory. */
 const JOB_LOG_PREFIX = "pi-job-";
@@ -168,6 +160,8 @@ export class Jobs {
   private streams = new Set<Promise<void>>();
   private listeners = new Set<(event: JobEvent) => void>();
   private closed = false;
+  /** The results of exited jobs. Jobs never hold the run; see ADR 0005. */
+  readonly results = new ResultSource(() => false);
   readonly bindingId: string;
 
   get activeBinding(): boolean {
@@ -381,20 +375,15 @@ export class Jobs {
       );
     }
 
-    this.emit({
-      kind: "completed",
-      details: this.details(done),
-      // Pi gives details only to the UI; the model learns the reason from this text.
-      text: [
-        // Pi keeps the output's final newline; the join adds the blank line.
-        text.trimEnd(),
-        !ended.stated && done.error && `Error: ${done.error}`,
-        `Log file: ${done.log_file}`
-      ]
-        .filter(Boolean)
-        .join("\n\n"),
-      dropped: live.drop && done.outcome === "cancelled"
-    });
+    // `job_abort` gave up a cancelled job's result. A job result waits during a pending session
+    // change, because a later extension can cancel the change; see ADR 0005.
+    if (!live.drop || done.outcome !== "cancelled")
+      this.results.publish({
+        kind: "result",
+        message: jobResultMessage(this.details(done), text, ended.stated === true),
+        survivesChange: true
+      });
+    this.emit({ kind: "changed", jobId: done.job_id });
 
     return done;
   }

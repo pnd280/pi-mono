@@ -9,8 +9,6 @@ import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
 import type { RunReader } from "./history/reader.ts";
-import { branchTo } from "./history/sessions.ts";
-import type { TranscriptSnapshot } from "./history/transcript.ts";
 import { boundedText, detailsUsage, sumUsage, type ToolDetails } from "./result.ts";
 
 type Item = { type: "user" | "assistant" | "tools"; text: string };
@@ -110,8 +108,11 @@ function items(entries: readonly SessionEntry[]): { id: string; item: Item }[] {
   return result;
 }
 
-function lastText(saved: TranscriptSnapshot): { cursor: string | null; text: string | null } {
-  const projected = buildSessionProjection([...saved.entries], saved.leafId);
+function lastText(entries: readonly SessionEntry[]): {
+  cursor: string | null;
+  text: string | null;
+} {
+  const projected = buildSessionProjection([...entries], entries.at(-1)?.id ?? null);
 
   for (const entry of projected.entries.slice().reverse()) {
     // A stopped or failed request can end with an empty message, also after an abort.
@@ -132,17 +133,19 @@ function lastText(saved: TranscriptSnapshot): { cursor: string | null; text: str
 /** The state is the read run's state, even when the task starts another run during the read. */
 export async function showTask(reader: RunReader, id: string, tokens: string[]): Promise<unknown> {
   const config = options(tokens);
-  const { record: task, snapshot: captured } = await reader.read(id);
-  const saved = { ...captured, entries: branchTo(captured.entries, captured.leafId) };
-  if (config.last) return { task_id: id, state: task.state, ...lastText(saved) };
-  const common = { task_id: id, state: task.state, usage: usage(saved.entries) };
+  const {
+    record: task,
+    history: { entries }
+  } = await reader.read(id);
+  if (config.last) return { task_id: id, state: task.state, ...lastText(entries) };
+  const common = { task_id: id, state: task.state, usage: usage(entries) };
 
   const start =
-    config.since === undefined ? -1 : saved.entries.findIndex((entry) => entry.id === config.since);
+    config.since === undefined ? -1 : entries.findIndex((entry) => entry.id === config.since);
   if (config.since !== undefined && start < 0)
     throw new Error("Unknown subagent transcript cursor");
-  const all = items(saved.entries);
-  const positions = new Map(saved.entries.map((entry, index) => [entry.id, index]));
+  const all = items(entries);
+  const positions = new Map(entries.map((entry, index) => [entry.id, index]));
   const eligible = all.filter((item) => (positions.get(item.id) ?? -1) > start);
 
   const selected =
@@ -156,7 +159,7 @@ export async function showTask(reader: RunReader, id: string, tokens: string[]):
       cursor:
         config.since !== undefined && more
           ? (selected.at(-1)?.id ?? config.since)
-          : (saved.entries.at(-1)?.id ?? null),
+          : (entries.at(-1)?.id ?? null),
       ...(config.since === undefined ? { omitted: all.length - selected.length } : { more }),
       items: selected.map(({ item }) => item)
     };

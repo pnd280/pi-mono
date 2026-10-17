@@ -28,6 +28,10 @@ _Avoid_: worker, subagent process
 A task that a child launches, at any depth below the supervisor's direct tasks.
 _Avoid_: subtask, grandchild for any depth
 
+**Task tree**:
+A supervisor's direct tasks and their descendants, each below the task whose child launched it. The supervisor gets the tree from its selected ancestry and the child files. A live record from a run replaces the record from a file.
+_Avoid_: task list, hierarchy
+
 **Capacity slot**:
 One place in the whole live task tree. A run holds its slot until its child exits and any forced stop of the child's process group ends.
 _Avoid_: permit, token
@@ -39,6 +43,10 @@ _Avoid_: background bash, background task
 **Promotion**:
 Moving foreground work to the background, so that its call returns while the run continues.
 _Avoid_: backgrounding, detach
+
+**Session binding**:
+A supervisor's tasks, jobs, result delivery, and views for one session and selected ancestry. A session change stops its tasks before the change, and ends the binding when the change is final. If the change is cancelled, the next interaction starts its tasks again on the same ancestry.
+_Avoid_: lifetime, "session" when the binding is meant
 
 ### History
 
@@ -63,6 +71,10 @@ _Avoid_: lock
 **Background result**:
 The message that delivers a finished background task or job to its supervisor.
 _Avoid_: completion, notification
+
+**Result source**:
+The part of the task or job registry that gives its background results to delivery. It also tells whether its unfinished work holds the supervisor's run: only direct background tasks hold it.
+_Avoid_: result emitter, completion events
 
 **Late usage**:
 The usage of a run after its call returned. A background result carries it into the supervisor's totals.

@@ -1,7 +1,7 @@
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 
-import { LATE_USAGE_KIND, RESULT_MESSAGE } from "./constants.ts";
-import { detailsSchema } from "./result.ts";
+import { lateUsageOf } from "./background-result.ts";
+import { LATE_USAGE_KIND } from "./constants.ts";
 
 const PATCHED = Symbol.for("pi-subagents.late-usage-patch");
 
@@ -32,8 +32,7 @@ export function installLateUsagePatch(): string | undefined {
     details?: T
   ): string {
     const id = append.call(this, customType, content, display, details);
-    if (customType !== RESULT_MESSAGE) return id;
-    const late = detailsSchema.safeParse(details).data?.late_usage;
+    const late = lateUsageOf({ customType, details });
     if (late) this.appendUsage(LATE_USAGE_KIND, late.provider, late.model, late.usage);
 
     return id;

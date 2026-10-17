@@ -6,6 +6,7 @@ import { displayLine, wrapRows } from "@pi-mono/libs/tui/text-budget";
 import { parseJobEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
+import { jobText } from "../result.ts";
 import {
   clickable,
   elapsed,
@@ -20,7 +21,6 @@ import {
   jobDetailsSchema,
   jobInputSchema,
   jobParameters,
-  jobText,
   type JobAbortInput,
   type JobDetails,
   type JobInput
@@ -237,8 +237,9 @@ function jobGuidance(delivers: boolean): string {
   ].join(" ");
 }
 
+/** `current` resolves the jobs of the current session binding at each call. */
 export function createJobTool(
-  jobs: Jobs,
+  current: () => Promise<Jobs>,
   open: (id: string, binding?: string) => void,
   delivers: boolean
 ) {
@@ -263,6 +264,7 @@ export function createJobTool(
         throw new Error(
           `Invalid job parameters: ${parsed.error.issues.map((issue) => issue.message).join("; ")}`
         );
+      const jobs = await current();
       // The job owns its abort controller, so a turn abort does not stop it.
       const details = await jobs.start(parsed.data, ctx);
 
@@ -279,7 +281,10 @@ export function createJobTool(
   } satisfies ToolDefinition<typeof jobParameters, JobDetails, CardState>;
 }
 
-export function createJobAbortTool(jobs: Jobs, open: (id: string, binding?: string) => void) {
+export function createJobAbortTool(
+  current: () => Promise<Jobs>,
+  open: (id: string, binding?: string) => void
+) {
   return {
     name: "job_abort",
     label: "Abort job",
@@ -292,6 +297,7 @@ export function createJobAbortTool(jobs: Jobs, open: (id: string, binding?: stri
     async execute(_id: string, raw: JobAbortInput) {
       const parsed = jobAbortInputSchema.safeParse(raw);
       if (!parsed.success) throw new Error("Invalid job_abort parameters");
+      const jobs = await current();
       // The model gave up this job's result; a job that already exited keeps its result.
       const record = await jobs.abort(parsed.data.job_id, { drop: true });
       const details = jobs.details(record);

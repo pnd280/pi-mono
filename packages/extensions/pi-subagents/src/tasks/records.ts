@@ -6,8 +6,9 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
-import { END_ENTRY, RECORD_MAX_BYTES, RESULT_MESSAGE, RUN_ENTRY } from "../constants.ts";
-import { detailsSchema, detailsUsage, firstLine, sumUsage, usageSchema } from "../result.ts";
+import { lateUsageOf } from "../background-result.ts";
+import { END_ENTRY, RECORD_MAX_BYTES, RUN_ENTRY } from "../constants.ts";
+import { detailsUsage, firstLine, sumUsage, usageSchema } from "../result.ts";
 
 const id = z.string().min(1).max(1024);
 const outcome = z.enum(["completed", "failed", "cancelled"]);
@@ -156,8 +157,7 @@ export function applyEvent(record: TaskRecord, event: JsonAgentSessionEvent): Ta
 
   let usage: Usage | undefined;
   if (message.role === "assistant" || message.role === "toolResult") usage = message.usage;
-  else if (message.role === "custom" && message.customType === RESULT_MESSAGE)
-    usage = detailsSchema.safeParse(message.details).data?.late_usage?.usage;
+  else if (message.role === "custom") usage = lateUsageOf(message)?.usage;
   if (!usage) return next;
   const prompt = usage.input + usage.cacheRead + usage.cacheWrite;
 

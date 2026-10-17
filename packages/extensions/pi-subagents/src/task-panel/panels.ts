@@ -17,7 +17,7 @@ const transcriptOverlay = {
   maxHeight: "100%"
 } as const;
 
-/** Opens one task panel at a time. */
+/** Opens one task panel at a time, until its tasks or jobs stop. */
 export class Panels {
   private controller = new AbortController();
   private panel: TaskPanel | undefined;
@@ -29,7 +29,7 @@ export class Panels {
     private tasks: Tasks,
     private jobs: Jobs,
     private reader: RunReader,
-    private ctx: ExtensionContext
+    private ctx: Pick<ExtensionContext, "mode" | "ui">
   ) {}
 
   open(taskId?: string): Promise<void> {
@@ -59,8 +59,7 @@ export class Panels {
     this.opened = loadPanel()
       .then(({ TaskPanel }) => {
         // The session can end while the panel loads; a panel built then would keep its timer.
-        if (this.controller.signal.aborted || !this.tasks.activeBinding || !this.jobs.activeBinding)
-          return;
+        if (this.controller.signal.aborted) return;
 
         return openResponsiveCustomUI({
           ui: this.ctx.ui,

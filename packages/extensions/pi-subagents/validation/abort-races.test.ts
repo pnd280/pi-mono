@@ -23,6 +23,7 @@ import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest, vi } from "vite-plus/test";
 import { z } from "zod";
 
+import { ResultSource, type ResultEvent } from "../src/background-result.ts";
 import * as invocation from "../src/child/invocation.ts";
 import { ChildRun } from "../src/child/run.ts";
 import { DEPTH_ENV, RESULT_MESSAGE, TASK_ID_ENV } from "../src/constants.ts";
@@ -32,7 +33,6 @@ import { branchTo } from "../src/history/sessions.ts";
 import subagents from "../src/index.ts";
 import { detailsSchema } from "../src/result.ts";
 import { taskHistory, taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
-import { Tasks, type TaskEvent } from "../src/tasks/registry.ts";
 import { release as releaseBarrier } from "./background-fixture.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
@@ -243,17 +243,20 @@ async function fixture(
   }
 }
 
-/** Hold each completion at the event seam, so that its release reaches delivery synchronously. */
+/** Hold each completion at the result seam, so that its release reaches delivery synchronously. */
 function holdCompletions() {
-  const reached = Promise.withResolvers<Extract<TaskEvent, { kind: "completed" }>>();
+  const reached = Promise.withResolvers<Extract<ResultEvent, { kind: "result" }>>();
   const held: (() => void)[] = [];
   let open = false;
-  // The wrapper forwards each listener to its original Tasks instance.
+  // The wrapper forwards each listener to its original result source.
   // oxlint-disable-next-line typescript/unbound-method
-  const subscribe = Tasks.prototype.subscribe;
-  vi.spyOn(Tasks.prototype, "subscribe").mockImplementation(function (this: Tasks, listener) {
+  const subscribe = ResultSource.prototype.subscribe;
+  vi.spyOn(ResultSource.prototype, "subscribe").mockImplementation(function (
+    this: ResultSource,
+    listener
+  ) {
     return subscribe.call(this, (event) => {
-      if (event.kind !== "completed" || open) return listener(event);
+      if (event.kind !== "result" || open) return listener(event);
       held.push(() => listener(event));
       reached.resolve(event);
     });
@@ -312,7 +315,7 @@ test.each(["release then abort", "abort after end", "release after aborted end"]
           );
           const prompt = session.prompt("Start the finite background task");
           const event = await bounded(completion.reached, "real child completion");
-          expect(event.outcome).toBe("completed");
+          expect(detailsSchema.parse(event.message.details).state).toBe("completed");
           expect(session.isIdle).toBe(false);
 
           if (order === "release then abort") {

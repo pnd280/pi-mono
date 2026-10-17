@@ -1,9 +1,9 @@
 import type { JsonAgentSessionEvent, SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import type { TaskRecord } from "../tasks/records.ts";
-import type { TaskEvent, Tasks } from "../tasks/registry.ts";
-import { readTaskSnapshot } from "./sessions.ts";
-import { Transcript, type TranscriptSnapshot } from "./transcript.ts";
+import type { Tasks } from "../tasks/registry.ts";
+import { branchTo, readRunAncestry } from "./sessions.ts";
+import { Transcript } from "./transcript.ts";
 
 /** A live run's read-only connection: its agent events and its child file's entries. */
 export type RunConnection = {
@@ -13,54 +13,87 @@ export type RunConnection = {
   entries(since?: string): Promise<{ entries: SessionEntry[]; leafId: string | null }>;
 };
 
+/** One run's history: its child file's entries from the root to the run's final leaf. */
+export type RunHistory = {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly entries: readonly SessionEntry[];
+};
+
 /**
- * One run's transcript: streamed from the run's connection while the run is live, then read
- * from the child file. The reader and each view hold it; the last release disposes it.
+ * Read a run's history from its task's child file. The reader keeps the file in memory and never
+ * repairs it. With `descendants`, the history names the task's descendants: an active run's history
+ * then ends before its marker, because the file names the run before the run's live record arrives,
+ * and that run's descendants come only from live records.
  */
-class RunSource {
-  cwd = "";
-  transcript: Transcript | undefined;
-  unavailable: string | undefined;
-  private holders = 0;
-  private active = true;
+export async function readRunFile(
+  record: TaskRecord,
+  { descendants = false }: { descendants?: boolean } = {}
+): Promise<RunHistory> {
+  const ancestry = await readRunAncestry(record, descendants && record.state === "active");
+
+  return { runId: record.run_id, ...ancestry };
+}
+
+/** A run that is live in this binding, with the child file's entries that its connection reported. */
+class LiveRun {
+  /** Until the child exits; its file then holds the whole run. */
+  connected = true;
   private entries = new Map<string, SessionEntry>();
   private cursor: string | undefined;
+
+  constructor(
+    readonly runId: string,
+    readonly connection: RunConnection
+  ) {}
+
+  /** The run's history; undefined when the child exited before its connection answered. */
+  async read(): Promise<RunHistory | undefined> {
+    let data;
+
+    try {
+      data = await this.connection.entries(this.cursor);
+    } catch (error) {
+      if (this.connected) throw error;
+
+      return undefined;
+    }
+
+    for (const entry of data.entries) this.entries.set(entry.id, entry);
+    this.cursor = data.entries.at(-1)?.id ?? this.cursor;
+
+    return {
+      runId: this.runId,
+      cwd: this.connection.cwd,
+      entries: branchTo([...this.entries.values()], data.leafId)
+    };
+  }
+}
+
+/**
+ * One task's transcript, which follows the task to each new run. A run that is live in this binding
+ * streams into it from the run's start; the child file supplies every other run. The reader holds it
+ * while the run is live, and each view holds it; the last release disposes it.
+ */
+class TaskSource {
+  readonly transcript = new Transcript();
+  cwd = "";
+  unavailable: string | undefined;
+  /** Whether the transcript shows a run: a live run began, or a read succeeded. */
+  ready = false;
+  private live: LiveRun | undefined;
+  private unsubscribeLive: (() => void) | undefined;
+  private holders = 0;
+  private active = true;
   private pending = false;
   private refreshing = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private listeners = new Set<() => void>();
-  private unsubscribe: (() => void) | undefined;
 
   constructor(
-    private task: TaskRecord,
-    private connection?: RunConnection
-  ) {
-    if (connection) {
-      // The child is not prompted before the run's start returns, so no event is missed;
-      // snapshots then supply the saved entries.
-      this.cwd = connection.cwd;
-      this.transcript = new Transcript(true);
-      this.unsubscribe = connection.events((event) => {
-        try {
-          this.event(event);
-        } catch {
-          this.unavailable = "Transcript update unavailable";
-        }
-      });
-      void connection.done.then(() => this.finish());
-    }
-
-    this.refresh();
-  }
-
-  get runId(): string {
-    return this.task.run_id;
-  }
-
-  /** The connection while the run is live. */
-  get live(): RunConnection | undefined {
-    return this.connection;
-  }
+    private record: TaskRecord,
+    private onDispose: () => void
+  ) {}
 
   retain(): this {
     this.holders++;
@@ -70,13 +103,6 @@ class RunSource {
 
   release(): void {
     if (--this.holders <= 0) this.dispose();
-  }
-
-  /** Read again for the task's current record; a file source can move to the task's next run. */
-  start(task: TaskRecord): void {
-    if (!this.active || (this.connection && task.run_id !== this.task.run_id)) return;
-    this.task = task;
-    this.refresh();
   }
 
   subscribe(listener: () => void): () => void {
@@ -96,10 +122,48 @@ class RunSource {
     return this.active;
   }
 
+  /** The task's run began in this binding. Its child is not yet prompted, so no event is missed. */
+  begin(record: TaskRecord, connection: RunConnection): void {
+    if (!this.active) return;
+    this.unsubscribeLive?.();
+    const live = new LiveRun(record.run_id, connection);
+    this.record = record;
+    this.live = live;
+    this.cwd = connection.cwd;
+    this.ready = true;
+    this.unavailable = undefined;
+    this.transcript.observe(record.run_id);
+    this.unsubscribeLive = connection.events((event) => {
+      try {
+        this.event(event);
+      } catch {
+        this.unavailable = "Transcript update unavailable";
+      }
+    });
+    void connection.done.then(() => this.finish(live));
+    this.changed();
+    this.refresh();
+  }
+
+  /** The task's current record. A file source reads again; a live run reports its own changes. */
+  follow(record: TaskRecord): void {
+    if (!this.active || record === this.record) return;
+    this.record = record;
+    if (this.live?.runId !== record.run_id || !this.live.connected) this.refresh();
+  }
+
+  /** The record's run history: from the run's connection while it is live, else from the file. */
+  async read(record: TaskRecord): Promise<RunHistory> {
+    const live = this.live;
+    const history = live?.runId === record.run_id && live.connected ? await live.read() : undefined;
+
+    return history ?? readRunFile(record);
+  }
+
   private event(event: JsonAgentSessionEvent): void {
     // Calls that another tool made are not part of the child's own transcript.
     if (!this.active || ("parentToolCallId" in event && event.parentToolCallId)) return;
-    this.transcript?.event(event);
+    this.transcript.event(event);
     if (
       ["entry_appended", "message_end", "agent_settled", "auto_compaction_end"].includes(event.type)
     )
@@ -116,57 +180,33 @@ class RunSource {
     }, 30);
   }
 
-  private async snapshot(): Promise<TranscriptSnapshot> {
-    const task = this.task;
-    const connection = this.connection;
-
-    if (connection) {
-      try {
-        const data = await connection.entries(this.cursor);
-
-        if (this.connection) {
-          for (const entry of data.entries) this.entries.set(entry.id, entry);
-          this.cursor = data.entries.at(-1)?.id ?? this.cursor;
-
-          return {
-            sessionId: task.session_id,
-            runId: task.run_id,
-            cwd: connection.cwd,
-            entries: [...this.entries.values()],
-            leafId: data.leafId
-          };
-        }
-      } catch {
-        if (this.connection) throw new Error("Child transcript unavailable");
-      }
-    }
-
-    return readTaskSnapshot(task);
-  }
-
   private async load(): Promise<void> {
     if (!this.active || this.refreshing) return;
     this.refreshing = true;
     this.pending = false;
+    const record = this.record;
 
     try {
-      const snapshot = await this.snapshot();
+      const history = await this.read(record);
       if (!this.isActive()) return;
 
       // The task started another run while this read was in flight.
-      if (snapshot.runId !== this.task.run_id) {
+      if (history.runId !== this.record.run_id) {
         this.pending = true;
 
         return;
       }
 
-      this.cwd = snapshot.cwd;
-      (this.transcript ??= new Transcript(false)).replace(snapshot, this.task.state === "active");
+      this.cwd = history.cwd;
+      this.ready = true;
+      this.transcript.replace(history, this.record.state === "active");
       this.unavailable = undefined;
       this.changed();
     } catch (error) {
       if (!this.isActive()) return;
-      this.unavailable = error instanceof Error ? error.message : "Transcript unavailable";
+      const live = this.live?.runId === record.run_id && this.live.connected;
+      if (live) this.unavailable = "Child transcript unavailable";
+      else this.unavailable = error instanceof Error ? error.message : "Transcript unavailable";
       this.changed();
     } finally {
       this.refreshing = false;
@@ -174,12 +214,13 @@ class RunSource {
     }
   }
 
-  /** The run's process exited; its child file now holds the whole run. */
-  private finish(): void {
-    if (!this.connection) return;
-    this.connection = undefined;
-    this.unsubscribe?.();
-    this.transcript?.stop();
+  /** A live run's child exited; its child file now holds the whole run. */
+  private finish(live: LiveRun): void {
+    live.connected = false;
+    if (!this.active || live !== this.live) return;
+    this.unsubscribeLive?.();
+    this.unsubscribeLive = undefined;
+    this.transcript.stop();
     this.refresh();
   }
 
@@ -187,32 +228,28 @@ class RunSource {
     if (!this.active) return;
     this.active = false;
     clearTimeout(this.timer);
-    this.unsubscribe?.();
+    this.unsubscribeLive?.();
     this.listeners.clear();
-    this.transcript?.dispose();
-    this.transcript = undefined;
+    this.transcript.dispose();
+    this.onDispose();
   }
 }
 
-/** A task's transcript that follows the task to each new run. */
+/** A view of a task's transcript. The transcript is the same object for each run of the task. */
 export class TaskView {
-  private source: RunSource | undefined;
+  private source: TaskSource | undefined;
   private listeners = new Set<() => void>();
-  private unsubscribeSource: (() => void) | undefined;
   private unsubscribe: () => void;
 
-  constructor(
-    private reader: RunReader,
-    tasks: Pick<Tasks, "subscribe">,
-    private taskId: string,
-    record: TaskRecord
-  ) {
-    this.show(reader.source(record));
-    this.unsubscribe = tasks.subscribe((event) => this.update(event));
+  constructor(source: TaskSource) {
+    this.source = source.retain();
+    this.unsubscribe = source.subscribe(() => this.changed());
+    source.refresh();
   }
 
+  /** The task's transcript once it shows a run. */
   get transcript(): Transcript | undefined {
-    return this.source?.transcript;
+    return this.source?.ready ? this.source.transcript : undefined;
   }
 
   get unavailable(): string | undefined {
@@ -235,29 +272,8 @@ export class TaskView {
     for (const listener of this.listeners) listener();
   }
 
-  private show(source: RunSource): void {
-    this.unsubscribeSource?.();
-    this.source?.release();
-    this.source = source.retain();
-    this.unsubscribeSource = source.subscribe(() => this.changed());
-    source.refresh();
-    this.changed();
-  }
-
-  private update(event: TaskEvent): void {
-    if (!this.source) return;
-
-    if (event.kind === "run") {
-      if (event.record.task_id === this.taskId) this.show(this.reader.source(event.record));
-    } else if (!this.source.live && (event.kind === "completed" || event.taskId === this.taskId)) {
-      const record = this.reader.record(this.taskId);
-      if (record) this.source.start(record);
-    }
-  }
-
   dispose(): void {
     this.unsubscribe();
-    this.unsubscribeSource?.();
     this.source?.release();
     this.source = undefined;
     this.listeners.clear();
@@ -267,28 +283,28 @@ export class TaskView {
 /**
  * Reads tasks' runs: live from a direct task's connection while its run is active, and from the
  * child file otherwise. It holds each live run's source from the run's start, so a view opened
- * later still has the run's streamed events.
+ * later still has the run's streamed events. Each source follows its task's current record.
  */
 export class RunReader {
-  private live = new Map<string, RunSource>();
+  /** Each task's source while its run is live here or a view shows it. */
+  private sources = new Map<string, TaskSource>();
+  /** The sources that the reader holds for their live runs. */
+  private live = new Map<TaskSource, RunConnection>();
   private unsubscribe: () => void;
 
   constructor(private tasks: Pick<Tasks, "subscribe" | "owned">) {
     this.unsubscribe = tasks.subscribe((event) => {
-      if (event.kind !== "run") return;
-      const id = event.record.task_id;
-      const source = new RunSource(event.record, event.run).retain();
-      this.live.get(id)?.release();
-      this.live.set(id, source);
-      void event.run.done.then(() => {
-        if (this.live.get(id) !== source) return;
-        this.live.delete(id);
-        source.release();
-      });
+      // Tasks reports a run before its child is prompted.
+      if (event.kind === "run") this.begin(event.record, event.run);
+
+      for (const [taskId, source] of this.sources) {
+        const record = this.record(taskId);
+        if (record) source.follow(record);
+      }
     });
   }
 
-  record(taskId: string): TaskRecord | undefined {
+  private record(taskId: string): TaskRecord | undefined {
     try {
       return this.tasks.owned(taskId);
     } catch {
@@ -296,48 +312,51 @@ export class RunReader {
     }
   }
 
-  /** The live source of the record's run, or a new source that reads the child file. */
-  source(record: TaskRecord): RunSource {
-    const live = this.live.get(record.task_id);
+  private source(record: TaskRecord): TaskSource {
+    const id = record.task_id;
+    const existing = this.sources.get(id);
+    if (existing) return existing;
 
-    return live?.live && live.runId === record.run_id ? live : new RunSource(record);
+    const source: TaskSource = new TaskSource(record, () => {
+      if (this.sources.get(id) === source) this.sources.delete(id);
+    });
+    this.sources.set(id, source);
+
+    return source;
   }
 
-  /** A task's record and a snapshot of the run that the record names. */
-  async read(taskId: string): Promise<{ record: TaskRecord; snapshot: TranscriptSnapshot }> {
+  private begin(record: TaskRecord, run: RunConnection): void {
+    const source = this.source(record);
+    if (!this.live.has(source)) source.retain();
+    this.live.set(source, run);
+    source.begin(record, run);
+    void run.done.then(() => {
+      if (this.live.get(source) !== run) return;
+      this.live.delete(source);
+      source.release();
+    });
+  }
+
+  /** A task's record and the history of the run that the record names. */
+  async read(taskId: string): Promise<{ record: TaskRecord; history: RunHistory }> {
     const record = this.tasks.owned(taskId);
-    const source = this.live.get(taskId);
-    const connection = source?.runId === record.run_id ? source.live : undefined;
+    const source = this.sources.get(taskId);
 
-    if (connection) {
-      try {
-        const data = await connection.entries();
-
-        return {
-          record,
-          snapshot: {
-            sessionId: record.session_id,
-            runId: record.run_id,
-            cwd: connection.cwd,
-            ...data
-          }
-        };
-      } catch (error) {
-        if (source?.live) throw error;
-      }
-    }
-
-    return { record, snapshot: await readTaskSnapshot(record) };
+    return { record, history: await (source ? source.read(record) : readRunFile(record)) };
   }
 
   /** A view of a task's transcript that follows the task to each new run. */
   observe(taskId: string): TaskView {
-    return new TaskView(this, this.tasks, taskId, this.tasks.owned(taskId));
+    const record = this.tasks.owned(taskId);
+    const source = this.source(record);
+    source.follow(record);
+
+    return new TaskView(source);
   }
 
   dispose(): void {
     this.unsubscribe();
-    for (const source of this.live.values()) source.release();
+    for (const source of this.live.keys()) source.release();
     this.live.clear();
   }
 }

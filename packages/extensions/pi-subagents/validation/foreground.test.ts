@@ -13,7 +13,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
 import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY } from "../src/constants.ts";
-import { readTaskSnapshot } from "../src/history/sessions.ts";
+import { readRunFile } from "../src/history/reader.ts";
 import { detailsSchema } from "../src/result.ts";
 import { endRecordSchema, runRecordSchema, taskRecordSchema } from "../src/tasks/records.ts";
 import { LONG_GRACE_LIMIT, withFixture } from "./background-fixture.ts";
@@ -118,7 +118,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
               async () => {
                 const task = (await list(host))[0]!;
 
-                return (await readTaskSnapshot(task)).entries.some(
+                return (await readRunFile(task)).entries.some(
                   (entry) =>
                     entry.type === "message" &&
                     entry.message.role === "assistant" &&

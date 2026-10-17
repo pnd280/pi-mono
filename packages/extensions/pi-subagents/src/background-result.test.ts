@@ -1,7 +1,7 @@
 import type { SessionStats } from "@earendil-works/pi-coding-agent";
 import { expect, test } from "vite-plus/test";
 
-import { lateUsage } from "./result.ts";
+import { lateUsage } from "./background-result.ts";
 
 function stats(total: number, cost: number): SessionStats {
   return {

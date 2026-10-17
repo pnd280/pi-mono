@@ -51,12 +51,38 @@ async function alive(pid: number): Promise<boolean> {
   return stat.slice(stat.lastIndexOf(")") + 2)[0] !== "Z";
 }
 
+const releasedKey = Symbol.for("pi-subagents.released-lease-entries");
+
+/**
+ * Entries that this process released but could not remove. They name this live process, so they
+ * would otherwise block its next acquire. The set is process-owned because Pi reloads extension
+ * modules.
+ */
+function releasedEntries(): Set<unknown> {
+  const retained: unknown = Reflect.get(process, releasedKey);
+  if (retained instanceof Set) return retained;
+  const entries = new Set<unknown>();
+  Reflect.set(process, releasedKey, entries);
+
+  return entries;
+}
+
 function pids(text: string): number[] | undefined {
   const values = text.split(" ").map(Number);
 
   return values.length > 0 && values.every((pid) => Number.isSafeInteger(pid) && pid > 0)
     ? values
     : undefined;
+}
+
+/** Removes an entry that this process released; a failed removal waits for the next acquire. */
+async function removeReleased(path: string): Promise<void> {
+  try {
+    await ignoreMissing(unlink(path));
+    releasedEntries().delete(path);
+  } catch {
+    /* The entry stays released. */
+  }
 }
 
 /**
@@ -84,6 +110,12 @@ export class WriterLease {
       for (const name of await readdir(directory)) {
         const path = join(directory, name);
         if (name.startsWith(".") || path === lease.entry) continue;
+
+        if (releasedEntries().has(path)) {
+          await removeReleased(path);
+          continue;
+        }
+
         let text: string;
 
         try {
@@ -120,7 +152,13 @@ export class WriterLease {
     return this.enqueue(async () => {
       if (this.released) return;
       this.released = true;
-      await ignoreMissing(unlink(this.entry));
+
+      try {
+        await ignoreMissing(unlink(this.entry));
+      } catch (error) {
+        releasedEntries().add(this.entry);
+        throw error;
+      }
 
       try {
         await rmdir(this.directory);

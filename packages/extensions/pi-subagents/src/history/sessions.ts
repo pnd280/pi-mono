@@ -4,8 +4,7 @@ import { parseSessionEntries, type SessionEntry } from "@earendil-works/pi-codin
 import { z } from "zod";
 
 import { MARKER_ENTRY } from "../constants.ts";
-import { taskHistory, type TaskRecord } from "../tasks/records.ts";
-import type { TranscriptSnapshot } from "./transcript.ts";
+import type { TaskRecord } from "../tasks/records.ts";
 
 const headerSchema = z.object({
   type: z.literal("session"),
@@ -173,52 +172,24 @@ export async function checkSession(task: Pick<TaskRecord, "session_file" | "sess
     throw new Error("Subagent session identity does not match its task");
 }
 
-/** A run's history: the child file's entries and the run's final leaf. */
-export async function readTaskSnapshot(task: TaskRecord): Promise<TranscriptSnapshot> {
+/**
+ * A run's ancestry in its task's child file: the entries from the root to the run's final leaf, or
+ * with `beforeRun` to the parent of the run's marker. An active task's ancestry is empty while its
+ * file does not exist, because Pi writes a new session file with its first response.
+ */
+export async function readRunAncestry(
+  task: TaskRecord,
+  beforeRun: boolean
+): Promise<{ cwd: string; entries: SessionEntry[] }> {
   const session = await readSession(task.session_file);
-  const snapshot = { sessionId: task.session_id, runId: task.run_id };
-  // Pi writes a new session file with its first response.
-  if (!session && task.state === "active")
-    return { ...snapshot, cwd: "", entries: [], leafId: null };
+  if (!session && task.state === "active") return { cwd: "", entries: [] };
   if (session && session.id !== task.session_id)
     throw new Error("Subagent session identity does not match its task");
   const leafId = session && runLeaf(session.entries, task.run_id);
   if (!session || leafId === undefined) throw new Error(UNAVAILABLE);
+  const end = beforeRun
+    ? (session.entries.find((entry) => isMarker(entry, task.run_id))?.parentId ?? null)
+    : leafId;
 
-  return { ...snapshot, cwd: session.cwd, entries: session.entries, leafId };
-}
-
-/**
- * Each run's ancestry names its child's tasks. An unreadable file adds no descendants. An active
- * task's file names a run before the run's live record arrives, so the read of an active task
- * stops at its run's marker: the run's own descendants come only from live records.
- */
-export async function descendantRecords(roots: readonly TaskRecord[]): Promise<TaskRecord[]> {
-  const seen = new Set(roots.map((task) => task.task_id));
-  const found: TaskRecord[] = [];
-  const pending = [...roots];
-
-  for (const task of pending) {
-    let branch: SessionEntry[];
-
-    try {
-      const { entries, leafId } = await readTaskSnapshot(task);
-      const leaf =
-        task.state === "active"
-          ? (entries.find((entry) => isMarker(entry, task.run_id))?.parentId ?? null)
-          : leafId;
-      branch = branchTo(entries, leaf);
-    } catch {
-      continue;
-    }
-
-    for (const child of taskHistory(branch, task.task_id).values()) {
-      if (seen.has(child.task_id)) continue;
-      seen.add(child.task_id);
-      found.push(child);
-      pending.push(child);
-    }
-  }
-
-  return found;
+  return { cwd: session.cwd, entries: branchTo(session.entries, end) };
 }

@@ -23,7 +23,7 @@ Your current Pi session is the supervisor. Its model calls `subagent` with a sho
 
 - Set `task_id` to continue a task: an inactive task resumes, and an active task receives input. Use `delivery: "steer"` to deliver input before the child's next model request instead of after its current work. See [continue and cancel tasks](docs/tasks.md#send-input-or-resume).
 - Omit `model` and `thinking` to use the supervisor's current selection for a new task, or set `model` to `provider/id`. A resume repeats the selection that the task's latest run requested; see [model and thinking](docs/tasks.md#model-and-thinking).
-- Aborting the supervisor's turn immediately force-stops its running foreground subtrees and cancels queued foreground calls.
+- Aborting the supervisor's turn immediately force-stops its running foreground subtrees. It also cancels the calls that have not returned: queued calls, and background calls whose child has not started.
 - Tree navigation, parent-session fork, and session switch force-stop all owned running subtrees, including background work. Restored tasks never restart automatically; see [task history](docs/history.md).
 - Child dialogs appear with a `[subagent: <description>]` prefix. RPC clients answer them using Pi's [extension UI protocol](https://pi.dev/docs/latest/rpc-extension-ui).
 
@@ -31,7 +31,7 @@ The tools are model-only: codemode scripts cannot invoke them. At `maxDepth`, `s
 
 ### Background tasks
 
-Background tasks survive turn aborts. Use them only for independent work; wait for their automatic result instead of polling or duplicating their work.
+Background tasks survive turn aborts after their call returns. Use them only for independent work; wait for their automatic result instead of polling or duplicating their work.
 
 By default, a ready result joins the run after the model's reply and its tool calls, before the next model request. A supervisor stays busy after a normal reply while its direct background tasks run, and new input or an abort ends that wait. The [`resultDelivery`](#configuration) setting changes the timing; [background results](docs/background-results.md) covers the modes, the waits in print and JSON modes, and the exceptions.
 

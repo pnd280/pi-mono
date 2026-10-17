@@ -6,7 +6,7 @@ import type {
 import { formatTaskEnvelope } from "@pi-mono/utils/task-envelope";
 
 import { forwardDialog } from "../child/dialogs.ts";
-import { detailsUsage, taskResult, type ToolDetails } from "../result.ts";
+import { taskResult, type ToolDetails } from "../result.ts";
 import { INTERRUPTED_WARNING, type Submission, type Tasks } from "./registry.ts";
 import { createRenderers, type CardState } from "./render.ts";
 import {
@@ -75,8 +75,9 @@ function toolResult(result: Submission) {
     : taskResult(result.details, result.text, result.usage, undefined, warning);
 }
 
+/** `current` resolves the tasks of the current session binding at each call. */
 export function createSubagentTool(
-  tasks: Tasks,
+  current: () => Promise<Tasks>,
   open: (id: string, binding?: string) => void,
   delegated: () => void,
   docs: string
@@ -98,6 +99,7 @@ export function createSubagentTool(
     ) {
       const parsed = toolInputSchema.safeParse(raw);
       if (!parsed.success) throw new Error("Invalid subagent parameters");
+      const tasks = await current();
       let details: ToolDetails | undefined;
       let timer: ReturnType<typeof setInterval> | undefined;
       let callOpen = true;
@@ -141,7 +143,10 @@ export function createSubagentTool(
   } satisfies ToolDefinition<typeof toolParameters, ToolDetails, CardState>;
 }
 
-export function createAbortTool(tasks: Tasks, open: (id: string, binding?: string) => void) {
+export function createAbortTool(
+  current: () => Promise<Tasks>,
+  open: (id: string, binding?: string) => void
+) {
   return {
     name: "subagent_abort",
     label: "Abort subagent",
@@ -155,26 +160,9 @@ export function createAbortTool(tasks: Tasks, open: (id: string, binding?: strin
       const parsed = abortInputSchema.safeParse(raw);
       if (!parsed.success) throw new Error("Invalid subagent_abort parameters");
       const { task_id } = parsed.data;
+      const tasks = await current();
       // The model gave up this task's result; a task that already finished keeps its result.
-      const aborted = await tasks.abort(task_id, { reason: ABORT_REASON, drop: true });
-      const { record } = aborted;
-      const details: ToolDetails = {
-        ...(aborted.details ?? {
-          task_id,
-          binding_id: tasks.bindingId,
-          description: record.description,
-          model: record.model,
-          thinking: record.thinking,
-          background: record.background,
-          delivery: "follow_up" as const,
-          started_at: record.started_at,
-          ended_at: record.ended_at ?? null,
-          activity: "",
-          usage: record.usage ?? detailsUsage()
-        }),
-        state: record.outcome
-      };
-      details.ended_at ??= Date.now();
+      const { details } = await tasks.abort(task_id, { reason: ABORT_REASON, drop: true });
 
       return {
         content: [

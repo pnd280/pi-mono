@@ -10,12 +10,13 @@ import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { counterChannel, type Counter } from "pi-agent-summary/counters";
 import { z } from "zod";
 
+import { navigationLeaf, SessionBinding, type BindingSession } from "./binding.ts";
 import { getDepth, getTaskId } from "./child/depth.ts";
 import { forwardDialog } from "./child/dialogs.ts";
 import { getPiInvocation } from "./child/invocation.ts";
 import type * as CommandsModule from "./commands.ts";
 import { remindTasks } from "./compaction.ts";
-import { loadConfig } from "./config.ts";
+import { loadConfig, type SubagentsConfig } from "./config.ts";
 import { OPEN_EVENT } from "./constants.ts";
 import { begin, currentRun, send } from "./coordination/begin.ts";
 import {
@@ -25,15 +26,11 @@ import {
   type ChildMessage
 } from "./coordination/protocol.ts";
 import { Delivery } from "./delivery.ts";
-import { RunReader } from "./history/reader.ts";
-import { Jobs, shellOptions } from "./jobs/registry.ts";
+import { shellOptions } from "./jobs/registry.ts";
 import { createJobAbortTool, createJobRenderers, createJobTool } from "./jobs/tool.ts";
 import { installLateUsagePatch } from "./late-usage.ts";
-import { Panels } from "./task-panel/panels.ts";
-import { Tasks } from "./tasks/registry.ts";
 import { createRenderers } from "./tasks/render.ts";
 import { createAbortTool, createSubagentTool } from "./tasks/tool.ts";
-import { taskWidget } from "./widget.ts";
 
 // Commands load at first use. Concurrent calls share one import.
 let commands: Promise<typeof CommandsModule> | undefined;
@@ -57,8 +54,8 @@ const startedJobs: Counter = {
 const FOREIGN_BASH_WARNING =
   "pi-subagents: job and job_abort are off because another extension owns bash";
 
-/** Pi passes only `pi`; validation fixtures pass `onPending` to observe pending background results. */
-export default function subagents(pi: ExtensionAPI, onPending?: () => void): void {
+/** The Pi adapter: it maps Pi's events, tools, and commands to the session binding. */
+export default function subagents(pi: ExtensionAPI): void {
   const depth = getDepth();
   const taskId = getTaskId();
   let lateUsageWarning = installLateUsagePatch();
@@ -67,44 +64,31 @@ export default function subagents(pi: ExtensionAPI, onPending?: () => void): voi
     label: "Background wait",
     contributor: "pi-subagents"
   });
-  let tasks: Tasks | undefined;
-  let jobs: Jobs | undefined;
-  let reader: RunReader | undefined;
-  let delivery: Delivery | undefined;
-  let panels: Panels | undefined;
-  let disposeWidget: (() => void) | undefined;
-  let refreshWidget: (() => void) | undefined;
-
-  const open = (taskId?: string) => {
-    try {
-      void panels?.open(taskId).catch(() => {});
-    } catch {
-      /* Foreign or stale task actions are ignored. */
-    }
-  };
-
-  const openJob = (jobId: string) => {
-    try {
-      void panels?.openJob(jobId).catch(() => {});
-    } catch {
-      /* Foreign or stale job actions are ignored. */
-    }
-  };
+  const binding = new SessionBinding();
 
   const action = z.union([
     z.object({ task_id: z.string().min(1), binding_id: z.string().min(1) }),
     z.object({ job_id: z.string().min(1), binding_id: z.string().min(1) })
   ]);
-  let unsubscribe: (() => void) | undefined;
   const subscribe = () =>
     pi.events.on(OPEN_EVENT, (value) => {
       const parsed = action.safeParse(value).data;
       if (!parsed) return;
-      if ("job_id" in parsed) {
-        if (jobs?.activeBinding && parsed.binding_id === jobs.bindingId) openJob(parsed.job_id);
-      } else if (tasks?.activeBinding && parsed.binding_id === tasks.bindingId)
-        open(parsed.task_id);
+      void binding
+        .current()
+        .then((bound) => {
+          if (!bound) return;
+          if ("job_id" in parsed) {
+            if (parsed.binding_id === bound.jobs.bindingId)
+              return bound.panels.openJob(parsed.job_id);
+          } else if (parsed.binding_id === bound.tasks.bindingId)
+            return bound.panels.open(parsed.task_id);
+        })
+        .catch(() => {
+          /* Foreign or stale task and job actions are ignored. */
+        });
     });
+  let unsubscribe: (() => void) | undefined;
   const emitOpen = (task_id: string, binding_id?: string) =>
     pi.events.emit(OPEN_EVENT, { task_id, binding_id });
   const emitOpenJob = (job_id: string, binding_id?: string) =>
@@ -121,6 +105,21 @@ export default function subagents(pi: ExtensionAPI, onPending?: () => void): voi
 
     return own ? (next() ?? own) : next();
   });
+
+  const currentTasks = async () => {
+    const bound = await binding.current();
+    if (!bound) throw new Error("Subagent session ended");
+
+    return bound.tasks;
+  };
+
+  const currentJobs = async () => {
+    const bound = await binding.current();
+    if (!bound) throw new Error("Job session ended");
+
+    return bound.jobs;
+  };
+
   let registered = false;
   let jobsRegistered = false;
   /** The current binding offers the job tools. */
@@ -136,7 +135,8 @@ export default function subagents(pi: ExtensionAPI, onPending?: () => void): voi
       if (reserved && depth > 0 && taskId) {
         const [, name, payload = ""] = reserved;
         if (name === "begin") return begin(pi, payload, ctx);
-        if (!tasks?.activeBinding) throw new Error("Subagent session has not started");
+        const tasks = (await binding.current())?.tasks;
+        if (!tasks) throw new Error("Subagent session has not started");
 
         if (name === "slot") {
           const reply = decode(slotReplySchema, payload);
@@ -153,62 +153,24 @@ export default function subagents(pi: ExtensionAPI, onPending?: () => void): voi
         );
       }
 
-      if (!args.trim() && ctx.mode === "tui") return panels?.open();
-
-      const current = tasks;
-      const currentJobs = jobs;
-      const currentReader = reader;
+      const bound = await binding.current();
+      if (!args.trim() && ctx.mode === "tui") return bound?.panels.open();
       const { runCommand } = await loadCommands();
 
-      return runCommand(
-        args,
-        current &&
-          currentJobs &&
-          currentReader && { tasks: current, jobs: currentJobs, reader: currentReader },
-        {
-          notify: (message, type) => {
-            if (current?.activeBinding && tasks === current) ctx.ui.notify(message, type);
-          }
+      return runCommand(args, bound, {
+        notify: (message, type) => {
+          if (binding.isCurrent(bound)) ctx.ui.notify(message, type);
         }
-      );
+      });
     }
   });
   pi.registerShortcut("ctrl+alt+s", {
     description: "Open the subagents panel",
-    handler: () => panels?.open()
+    handler: async () => (await binding.current())?.panels.open()
   });
 
-  /**
-   * Before a session change: stop tasks. Jobs keep running until the change is final, because a
-   * later extension can still cancel it; their results wait. See ADR 0005.
-   */
-  const stopTasks = (immediate: boolean) => {
-    tasks?.invalidate();
-    delivery?.suspend();
-    refreshWidget?.();
-
-    return tasks?.shutdown(immediate);
-  };
-
-  /** Stops tasks and, unless `keepJobs`, jobs; then releases the binding's views. */
-  const shutdown = async (immediate: boolean, keepJobs = false) => {
-    // No end entry or result of a stopped job reaches the next ancestry.
-    if (!keepJobs) jobs?.invalidate();
-    const tasksStopped = stopTasks(immediate);
-    const jobsStopped = keepJobs ? undefined : jobs?.shutdown();
-    reader?.dispose();
-    delivery?.shutdown();
-    panels?.dispose();
-    disposeWidget?.();
-    unsubscribe?.();
-    await tasksStopped;
-    await jobsStopped;
-  };
-
-  const bind = async (ctx: ExtensionContext) => {
-    // Jobs that are still bound belong to this session and branch.
-    await shutdown(true, jobs?.activeBinding);
-    unsubscribe = subscribe();
+  /** The binding's view of the session in `ctx`, after the warnings of its settings. */
+  const session = (ctx: ExtensionContext): BindingSession & { docs: string } => {
     if (lateUsageWarning) ctx.ui.notify(lateUsageWarning, "warning");
     lateUsageWarning = undefined;
     const { docs, warnings, ...config } = loadConfig(ctx.cwd, {
@@ -221,70 +183,64 @@ export default function subagents(pi: ExtensionAPI, onPending?: () => void): voi
       .getCommands()
       .find((command) => command.source === "extension" && command.name === "subagents")
       ?.sourceInfo.path;
-    const current = new Tasks(config, ctx.sessionManager.getBranch(), {
-      depth,
-      sessionId: ctx.sessionManager.getSessionId(),
-      invocation: getPiInvocation(),
-      launch: () => ({
-        model: ctx.model && `${ctx.model.provider}/${ctx.model.id}`,
-        thinking: pi.getThinkingLevel(),
-        cwd: ctx.cwd,
-        trusted: ctx.isProjectTrusted(),
-        parentSession: ctx.sessionManager.getSessionFile()
-      }),
-      ...(extension && isAbsolute(extension) ? { extension } : {}),
-      warn: (message) => {
-        if (tasks === current && current.activeBinding) ctx.ui.notify(message, "warning");
+    const sessionId = ctx.sessionManager.getSessionId();
+
+    return {
+      docs,
+      config,
+      branch: () => ctx.sessionManager.getBranch(),
+      tasks: {
+        depth,
+        sessionId,
+        invocation: getPiInvocation(),
+        launch: () => ({
+          model: ctx.model && `${ctx.model.provider}/${ctx.model.id}`,
+          thinking: pi.getThinkingLevel(),
+          cwd: ctx.cwd,
+          trusted: ctx.isProjectTrusted(),
+          parentSession: ctx.sessionManager.getSessionFile()
+        }),
+        ...(extension && isAbsolute(extension) ? { extension } : {}),
+        ...(depth > 0 && taskId
+          ? { taskId, send: (message: ChildMessage) => send(ctx.ui, message) }
+          : {})
       },
-      ...(depth > 0 && taskId
-        ? { taskId, send: (message: ChildMessage) => send(ctx.ui, message) }
-        : {}),
-      append: (type, record) => {
-        if (tasks === current && current.activeBinding) pi.appendEntry(type, record);
-      }
-    });
-    tasks = current;
-
-    if (!jobs?.activeBinding) {
-      const currentJobs: Jobs = new Jobs(ctx.sessionManager.getBranch(), {
+      jobs: {
         ...shellOptions(pi.getSettings()),
-        sessionId: ctx.sessionManager.getSessionId(),
+        sessionId,
         cwd: ctx.cwd,
-        branch: () => ctx.sessionManager.getBranch(),
-        append: (type, record) => {
-          if (jobs === currentJobs && currentJobs.activeBinding) pi.appendEntry(type, record);
-        },
-        warn: (message) => {
-          if (jobs === currentJobs && currentJobs.activeBinding) ctx.ui.notify(message, "warning");
-        },
         started: () => pi.events.emit(counterChannel, startedJobs)
-      });
-      jobs = currentJobs;
-    }
+      },
+      append: (type, data) => pi.appendEntry(type, data),
+      warn: (message) => ctx.ui.notify(message, "warning"),
+      delivery: new Delivery(pi, ctx, depth, waiting, config.resultDelivery),
+      ui: ctx
+    };
+  };
 
-    reader = new RunReader(tasks);
-    await tasks.readDescendants();
-    delivery = new Delivery(tasks, jobs, pi, ctx, depth, waiting, config.resultDelivery, onPending);
-    panels = new Panels(tasks, jobs, reader, ctx);
-    const widget = taskWidget(tasks, jobs, ctx, () => open());
-    disposeWidget = () => widget.dispose();
-    refreshWidget = () => widget.refresh();
-    jobsOn = registerJobs(config.jobs, ctx);
+  /** Opens the binding on the session and selected ancestry in `ctx`, then offers its tools. */
+  const open = async (ctx: ExtensionContext) => {
+    const { docs, ...opened } = session(ctx);
+    await binding.open(opened);
+    jobsOn = registerJobs(opened.config.jobs, ctx);
+    registerTasks(opened.config, docs);
+  };
 
-    if (depth < config.maxDepth || registered) {
-      const exposure = depth >= config.maxDepth ? "hidden" : "model-only";
-      pi.registerTool({
-        ...createSubagentTool(
-          tasks,
-          emitOpen,
-          () => pi.events.emit(counterChannel, delegated),
-          docs
-        ),
-        exposure
-      });
-      pi.registerTool({ ...createAbortTool(tasks, emitOpen), exposure });
-      registered = true;
-    }
+  /** Pi cannot remove a tool, so a binding beyond the depth limit hides the registered tools. */
+  const registerTasks = (config: SubagentsConfig, docs: string) => {
+    if (depth >= config.maxDepth && !registered) return;
+    const exposure = depth >= config.maxDepth ? "hidden" : "model-only";
+    pi.registerTool({
+      ...createSubagentTool(
+        currentTasks,
+        emitOpen,
+        () => pi.events.emit(counterChannel, delegated),
+        docs
+      ),
+      exposure
+    });
+    pi.registerTool({ ...createAbortTool(currentTasks, emitOpen), exposure });
+    registered = true;
   };
 
   /** Jobs apply at all depths; Pi cannot remove a tool, so turned-off tools become hidden. */
@@ -294,53 +250,60 @@ export default function subagents(pi: ExtensionAPI, onPending?: () => void): voi
       pi.getAllTools().some((tool) => tool.name === "bash" && tool.sourceInfo.source !== "builtin");
     if (foreign) ctx.ui.notify(FOREIGN_BASH_WARNING, "warning");
     const on = enabled && !foreign;
-    if (!jobs || (!on && !jobsRegistered)) return on;
+    if (!on && !jobsRegistered) return on;
     const exposure = on ? "model-only" : "hidden";
     // Print, JSON, and child runs end with their final reply, and their jobs end with them.
     const delivers = depth === 0 && ctx.mode !== "print" && ctx.mode !== "json";
-    pi.registerTool({ ...createJobTool(jobs, emitOpenJob, delivers), exposure });
-    pi.registerTool({ ...createJobAbortTool(jobs, emitOpenJob), exposure });
+    pi.registerTool({ ...createJobTool(currentJobs, emitOpenJob, delivers), exposure });
+    pi.registerTool({ ...createJobAbortTool(currentJobs, emitOpenJob), exposure });
     jobsRegistered = true;
 
     return on;
   };
 
-  pi.on("session_start", (_event, ctx) => bind(ctx));
+  pi.on("session_start", (_event, ctx) => {
+    unsubscribe ??= subscribe();
+
+    return open(ctx);
+  });
   // A begun run is one chain under its marker; see ADR 0003.
   pi.on("session_before_tree", async (event, ctx) => {
     if (currentRun() !== undefined) return { cancel: true };
-    const target = ctx.sessionManager.getEntry(event.preparation.targetId);
-    // Pi moves to the parent of a user or custom message.
-    const effective =
-      (target?.type === "message" && target.message.role === "user") ||
-      target?.type === "custom_message"
-        ? target.parentId
-        : event.preparation.targetId;
-    if (effective !== ctx.sessionManager.getLeafId()) await stopTasks(true);
+    const { targetId } = event.preparation;
+    if (
+      navigationLeaf(ctx.sessionManager.getEntry(targetId), targetId) !==
+      ctx.sessionManager.getLeafId()
+    )
+      await binding.beforeChange();
   });
   pi.on("session_tree", async (event, ctx) => {
     // The navigation is final: jobs of the previous leaf stop before the new ancestry binds.
-    if (event.oldLeafId !== event.newLeafId) await shutdown(true);
-    if (!tasks?.activeBinding || !jobs?.activeBinding) await bind(ctx);
+    if (event.oldLeafId !== event.newLeafId) await open(ctx);
+    // The binding stays; tasks that a cancelled change stopped reopen.
+    else await binding.current();
   });
   pi.on("session_before_fork", async () => {
     if (currentRun() !== undefined) return { cancel: true };
-    await stopTasks(true);
+    await binding.beforeChange();
   });
   pi.on("session_before_switch", async () => {
     if (currentRun() !== undefined) return { cancel: true };
-    await stopTasks(true);
+    await binding.beforeChange();
   });
-  // A run after a cancelled session change takes the job results that waited.
-  pi.on("agent_start", () => delivery?.resume());
-  pi.on("turn_end", (event) => delivery?.turn(event));
-  pi.on("agent_end", (event, ctx) => delivery?.end(event, ctx));
-  pi.on("agent_settled", (_event, ctx) => delivery?.settled(ctx));
-  pi.on("agent_before_settle", () => delivery?.settle());
-  pi.on("session_compact", () => {
-    if (tasks?.activeBinding) remindTasks(pi, tasks, jobsOn ? jobs : undefined);
+  pi.on("agent_start", () => binding.runStarted());
+  pi.on("turn_end", (event) => binding.delivery?.turn(event));
+  pi.on("agent_end", (event, ctx) => binding.delivery?.end(event, ctx));
+  pi.on("agent_settled", (_event, ctx) => binding.delivery?.settled(ctx));
+  pi.on("agent_before_settle", () => binding.delivery?.settle());
+  pi.on("session_compact", async () => {
+    const bound = await binding.current();
+    if (bound) remindTasks(pi, bound.tasks, jobsOn ? bound.jobs : undefined);
   });
   pi.on("session_shutdown", async (event) => {
-    await shutdown(event.reason === "new" || event.reason === "resume" || event.reason === "fork");
+    unsubscribe?.();
+    unsubscribe = undefined;
+    await binding.close(
+      event.reason === "new" || event.reason === "resume" || event.reason === "fork"
+    );
   });
 }

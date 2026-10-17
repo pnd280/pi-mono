@@ -9,24 +9,20 @@ const WIDGET_KEY = "pi-subagents";
 const count = (value: number, singular: string, plural: string) =>
   value ? `${value} ${value === 1 ? singular : plural}` : "";
 
-/** Active tasks and jobs; stopped tasks no longer count. `refresh` recounts at once. */
+/** Active tasks and jobs; without `tasks`, such as while a session change stops them, only jobs. */
 export function taskWidget(
-  tasks: Tasks,
+  tasks: Tasks | undefined,
   jobs: Jobs,
-  ctx: ExtensionContext,
+  ctx: Pick<ExtensionContext, "mode" | "ui">,
   open: () => void
-): { refresh(): void; dispose(): void } {
-  if (ctx.mode !== "tui") return { refresh() {}, dispose() {} };
+): { dispose(): void } {
+  if (ctx.mode !== "tui") return { dispose() {} };
 
   let previous = "";
 
   const update = () => {
     const text = [
-      count(
-        tasks.activeBinding ? tasks.list().filter((task) => task.state === "active").length : 0,
-        "subagent",
-        "subagents"
-      ),
+      count(tasks?.tree.active().length ?? 0, "subagent", "subagents"),
       count(jobs.list().filter((job) => job.state === "active").length, "job", "jobs")
     ]
       .filter(Boolean)
@@ -63,11 +59,10 @@ export function taskWidget(
     );
   };
 
-  const unsubscribe = [tasks.subscribe(update), jobs.subscribe(update)];
+  const unsubscribe = [jobs.subscribe(update), ...(tasks ? [tasks.subscribe(update)] : [])];
   update();
 
   return {
-    refresh: update,
     dispose() {
       for (const stop of unsubscribe) stop();
       ctx.ui.setWidget(WIDGET_KEY, undefined);

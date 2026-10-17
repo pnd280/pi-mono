@@ -7,7 +7,7 @@ import type { Tasks } from "./tasks/registry.ts";
 
 /** Direct tasks, and the jobs on this ancestry when `jobs` is set. */
 export function remindTasks(pi: ExtensionAPI, tasks: Tasks, jobs: Jobs | undefined): void {
-  const items = tasks
+  const items = tasks.tree
     .direct()
     .map(
       (task) =>

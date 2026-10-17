@@ -8,6 +8,8 @@ Task state belongs to the supervisor's [selected ancestry](../GLOSSARY.md#histor
 
 Tree navigation, parent-session fork, and session switch immediately force-stop all owned running subtrees, including background work. Selecting the current leaf and sending ordinary messages leave tasks running. Restored tasks are stopped; they never restart automatically.
 
+The tasks stop before the change, so they also stop when another extension cancels the change, or when a branch summary is cancelled or fails. Their runs show as `cancelled`. The supervisor can launch and resume tasks again at once on the same ancestry, and [jobs](jobs.md#stop-a-job) continue.
+
 ## Runs and entries
 
 A task keeps one child session file for its whole life, and that file is the only copy of its conversation. A run is one child process, from launch to exit.
@@ -33,6 +35,7 @@ While a run is live, a `<session_file>.lease/` directory names its supervisor an
 - A crash can leave a `<session_file>.lease/` directory behind. A later resume removes it when no process that it names is live.
 - On Linux, an exited process that its parent has not reaped is not live.
 - A reused process ID can block a resume until that process exits.
+- If the supervisor cannot remove its lease entry when the child exits, its own next resume of the task removes it. A resume from another supervisor fails until this supervisor exits.
 - The lease protects only cooperating supervisors; a manual `pi --session` on a child file is not covered.
 
 ## Manual changes

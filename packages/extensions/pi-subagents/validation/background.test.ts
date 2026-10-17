@@ -1,11 +1,13 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { contentText } from "@earendil-works/pi-ai";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
+import { resultDetailsSchema } from "../src/background-result.ts";
 import { LATE_USAGE_KIND, RESULT_MESSAGE, RUN_ENTRY, TASKS_MESSAGE } from "../src/constants.ts";
 import { detailsSchema } from "../src/result.ts";
 import { runRecordSchema, taskRecordSchema } from "../src/tasks/records.ts";
@@ -15,7 +17,8 @@ import {
   isResult,
   release,
   replies,
-  taskList
+  taskList,
+  withFixture
 } from "./background-fixture.ts";
 import { processStat } from "./processes.ts";
 
@@ -111,6 +114,37 @@ test("ends a background wait on abort and delivers the later result when idle", 
     await host.wait(replies("Idle continuation prepared: true"), start);
     expectChildUsageOnce(await host.entries(), 1);
   });
+});
+
+test("cancels a background call on turn abort while its child starts, without a later result", async () => {
+  await withFixture(
+    async (directory, start) => {
+      await writeFile(join(directory, "work", "start-hold"), "");
+      const host = await start();
+      const mark = host.records.length;
+      await host.request({ type: "prompt", message: "background-slow" });
+      // The call reports its run before the child acknowledges `begin`.
+      await host.wait(
+        (event) =>
+          event.type === "tool_execution_update" &&
+          z.object({ details: detailsSchema }).safeParse(event.partialResult).data?.details
+            .state === "running",
+        mark
+      );
+      await host.request({ type: "abort" });
+      await host.wait((record) => record.type === "agent_settled", mark);
+      const [result] = await host.results();
+      expect(detailsSchema.parse(result!.details).state).toBe("cancelled");
+      expect(contentText(result!.content)).toContain("Cancelled by turn abort");
+      // The call returned the run's result itself; the next run would take a background result.
+      await host.prompt("reply");
+      expect(host.records.slice(mark).some(isResult)).toBe(false);
+    },
+    {
+      extensions: [fileURLToPath(new URL("./hold-start.ts", import.meta.url))],
+      settings: { "ext.pi-subagents": { maxConcurrent: 4, maxDepth: 2 } }
+    }
+  );
 });
 
 test.each(["followUp", "steer"] as const)(
@@ -307,7 +341,7 @@ test("promotes foreground work, retains it across turn abort, and counts late us
       (entry) => entry.type === "custom_message" && entry.customType === RESULT_MESSAGE
     );
     if (completion?.type !== "custom_message") throw new Error("No completion");
-    const details = detailsSchema.parse(completion.details);
+    const details = resultDetailsSchema.parse(completion.details);
     // The card keeps the full run usage; only the part after the return is counted again.
     expect(details.usage.input).toBe(20);
     expect(details.late_usage?.usage).toMatchObject({ totalTokens: 15, cost: { total: 0.001 } });

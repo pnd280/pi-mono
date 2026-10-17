@@ -12,6 +12,6 @@ The [workspace testing policy](../../../../../docs/agents/testing.md#layers) kee
 
 ## Consequences
 
-- Race tests hold their windows with spies on `ChildRun.prototype`, `WriterLease.prototype`, and `Tasks.prototype.subscribe`, the event seam that delivery reads. They check public outcomes: tool results, `/subagents list`, and saved entries.
+- Race tests hold their windows with spies on `ChildRun.prototype`, `WriterLease.prototype`, and `ResultSource.prototype.subscribe`, the result seam that delivery reads. They check public outcomes: tool results, `/subagents list`, and saved entries.
 - Pi's `RpcClient` stays excluded as an adapter; see [AGENTS.md](../../AGENTS.md#boundaries).
 - Reopen this decision if the workspace policy permits in-process lifecycle tests, or if a second child transport becomes necessary.

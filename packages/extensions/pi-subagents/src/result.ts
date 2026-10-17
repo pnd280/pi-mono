@@ -6,8 +6,10 @@ import {
   type SessionStats
 } from "@earendil-works/pi-coding-agent";
 import { sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
-import { formatTaskEnvelope } from "@pi-mono/utils/task-envelope";
+import { formatJobEnvelope, formatTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
+
+import type { JobRecord } from "./jobs/records.ts";
 
 export const usageSchema = z.object({
   input: z.number(),
@@ -33,33 +35,10 @@ export const detailsSchema = z.object({
   returned: z.enum(["background", "input"]).optional(),
   /** The first line of a failed or cancelled call's result body. */
   error: z.string().optional(),
-  usage: usageSchema,
-  /** Background usage after the call returned, counted once when the result is persisted. */
-  late_usage: z
-    .object({
-      provider: z.string(),
-      model: z.string(),
-      usage: z.object({
-        input: z.number(),
-        output: z.number(),
-        cacheRead: z.number(),
-        cacheWrite: z.number(),
-        totalTokens: z.number(),
-        cost: z.object({
-          input: z.number(),
-          output: z.number(),
-          cacheRead: z.number(),
-          cacheWrite: z.number(),
-          total: z.number()
-        })
-      })
-    })
-    .optional()
+  usage: usageSchema
 });
 
 export type ToolDetails = z.infer<typeof detailsSchema>;
-
-export type LateUsage = NonNullable<ToolDetails["late_usage"]>;
 
 export function boundedText(text: string, maxLines = DEFAULT_MAX_LINES): string {
   const result = truncateHead(text, { maxLines, maxBytes: DEFAULT_MAX_BYTES });
@@ -76,28 +55,6 @@ export function usageDifference(start: SessionStats, end: SessionStats): Usage {
     totalTokens: end.tokens.total - start.tokens.total,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: end.cost - start.cost }
   };
-}
-
-/** Splits `provider/model` at the first `/`; model IDs can contain `/`. */
-function splitModel(model: string): { provider: string; model: string } {
-  const index = model.indexOf("/");
-
-  return index < 0
-    ? { provider: "", model }
-    : { provider: model.slice(0, index), model: model.slice(index + 1) };
-}
-
-/** Usage after a background call returned, or `undefined` when there is none to count. */
-export function lateUsage(
-  reported: SessionStats | undefined,
-  end: SessionStats | undefined,
-  model: string
-): LateUsage | undefined {
-  if (!reported || !end) return undefined;
-  const usage = usageDifference(reported, end);
-  if (!usage.totalTokens && !usage.cost.total) return undefined;
-
-  return { ...splitModel(model), usage };
 }
 
 export function detailsUsage(usage?: Usage): ToolDetails["usage"] {
@@ -162,4 +119,17 @@ export function taskResult(
     ...(error ? { isError: true } : {}),
     ...(usage ? { usage } : {})
   };
+}
+
+/** The model-facing `<job>` text of a call result or a result message. */
+export function jobText(record: JobRecord, body: string, summary?: string): string {
+  return formatJobEnvelope({
+    id: record.job_id,
+    state: record.state,
+    ...(record.state === "inactive"
+      ? { outcome: record.outcome, exit_code: record.exit_code }
+      : {}),
+    summary,
+    body
+  });
 }

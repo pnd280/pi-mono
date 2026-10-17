@@ -1,6 +1,5 @@
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { toToolSchema } from "@pi-mono/libs/tool-schema";
-import { formatJobEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
 import { JOB_END_ENTRY, JOB_ENTRY } from "../constants.ts";
@@ -91,19 +90,6 @@ export const jobDetailsSchema = z.discriminatedUnion("state", [
 ]);
 
 export type JobDetails = z.infer<typeof jobDetailsSchema>;
-
-/** The model-facing `<job>` text of a call result or a result message. */
-export function jobText(record: JobRecord, body: string, summary?: string): string {
-  return formatJobEnvelope({
-    id: record.job_id,
-    state: record.state,
-    ...(record.state === "inactive"
-      ? { outcome: record.outcome, exit_code: record.exit_code }
-      : {}),
-    summary,
-    body
-  });
-}
 
 /** A started job's record before its end entry; without one, the job was cancelled. */
 export function stoppedJob(entry: JobEntry): JobRecord {

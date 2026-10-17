@@ -13,7 +13,6 @@ import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import type { RunReader, TaskView } from "../history/reader.ts";
-import type { Transcript } from "../history/transcript.ts";
 import type { Jobs } from "../jobs/registry.ts";
 import type { Tasks } from "../tasks/registry.ts";
 import { createRenderers } from "../tasks/render.ts";
@@ -39,9 +38,8 @@ const keys = [
 class TranscriptView implements Component {
   private source: TaskView | undefined;
   private sourceUnsubscribe: (() => void) | undefined;
+  /** Built once the view shows a run; the view keeps its transcript for each run of the task. */
   private viewer: TranscriptViewer | undefined;
-  /** The transcript that the viewer shows; each new run of the task has its own. */
-  private shown: Transcript | undefined;
   private viewing: string | undefined;
   private scroll: ScrollView | undefined;
   private working: Spinner | undefined;
@@ -75,7 +73,7 @@ class TranscriptView implements Component {
     const working =
       this.active &&
       this.viewing !== undefined &&
-      this.tasks.list().some((task) => task.task_id === this.viewing && task.state === "active");
+      this.tasks.tree.find(this.viewing)?.state === "active";
 
     if (working && !this.working) this.working = new Spinner(this.tui);
     else if (!working && this.working) {
@@ -99,13 +97,6 @@ class TranscriptView implements Component {
   private installViewer(): void {
     if (!this.active) return;
     const transcript = this.source?.transcript;
-
-    if (transcript !== this.shown) {
-      this.viewer?.dispose();
-      this.viewer = undefined;
-      this.scroll = undefined;
-      this.shown = transcript;
-    }
 
     if (!this.viewer && transcript) {
       // Nested cards carry the child session's binding, so accept any task in this tree.
@@ -139,7 +130,6 @@ class TranscriptView implements Component {
     this.source?.dispose();
     this.sourceUnsubscribe = undefined;
     this.viewer = undefined;
-    this.shown = undefined;
     this.source = undefined;
     this.scroll = undefined;
     this.viewing = undefined;
@@ -182,9 +172,9 @@ class TranscriptView implements Component {
 
   render(width: number): string[] {
     // Keep the header current with the task's live record.
-    const tasks = this.tasks.list();
-    const record = tasks.find((task) => task.task_id === this.viewing);
-    const parent = record && tasks.find((task) => task.task_id === record.parent_task_id);
+    const { tree } = this.tasks;
+    const record = this.viewing === undefined ? undefined : tree.find(this.viewing);
+    const parent = record?.parent_task_id ? tree.find(record.parent_task_id) : undefined;
     const { rows, bodyTop } = renderViewer({
       tui: this.tui,
       theme: this.theme,
@@ -357,6 +347,7 @@ export class TaskPanel implements Component {
   private unsubscribe: () => void;
   private unsubscribeJobs: () => void;
   private timer: ReturnType<typeof setInterval>;
+  private unobserve: () => void;
 
   constructor(
     private tasks: Tasks,
@@ -368,13 +359,11 @@ export class TaskPanel implements Component {
   ) {
     this.unsubscribe = tasks.subscribe(() => this.update());
     this.unsubscribeJobs = jobs.subscribe(() => this.update());
-    // A read that changes the tasks emits an update.
-    this.timer = setInterval(() => {
-      void tasks.readDescendants();
-      tui.requestRender();
-    }, 1000);
+    // Elapsed times advance every second.
+    this.timer = setInterval(() => tui.requestRender(), 1000);
     this.update();
-    void tasks.readDescendants();
+    // The tree reads child files while the panel is open; a read that changes it emits an update.
+    this.unobserve = tasks.tree.observe();
   }
 
   get viewingTranscript(): boolean {
@@ -384,7 +373,7 @@ export class TaskPanel implements Component {
   private update(id = this.selectedEntry && entryId(this.selectedEntry)): void {
     const view = views[this.view] ?? views[0];
     this.entries = boardEntries(
-      this.tasks.list().filter(view.match),
+      this.tasks.tree.list().filter(view.match),
       this.jobs.list().filter(view.matchJob)
     );
     const index = this.entries.findIndex((entry) => entryId(entry) === id);
@@ -523,7 +512,7 @@ export class TaskPanel implements Component {
 
   /** Each view with its number of tasks and jobs. */
   private tabs(): string {
-    const tasks = this.tasks.list();
+    const tasks = this.tasks.tree.list();
     const jobs = this.jobs.list();
 
     return views
@@ -633,6 +622,7 @@ export class TaskPanel implements Component {
     this.active = false;
     this.transcript?.dispose();
     clearInterval(this.timer);
+    this.unobserve();
     this.unsubscribe();
     this.unsubscribeJobs();
   }

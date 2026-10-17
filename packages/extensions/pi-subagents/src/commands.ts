@@ -20,7 +20,7 @@ const pageSchema = z.object({
 type Page<T> = { items: T[]; total: number; offset: number; next_offset: number | null };
 
 /** One page of `records` within the output budget, as `{ <key>, total, offset, next_offset }`. */
-function listPage<T>(key: "tasks" | "jobs", records: T[], tokens: string[]): unknown {
+function listPage<T>(key: "tasks" | "jobs", records: readonly T[], tokens: string[]): unknown {
   const values: { offset: string | number; limit: string | number } = {
     offset: 0,
     limit: LIST_DEFAULT_LIMIT
@@ -143,8 +143,9 @@ async function taskCommand(
   command: string,
   tokens: string[]
 ): Promise<unknown> {
-  if (command === "list" || command === "show") await tasks.readDescendants();
-  if (command === "list") return listPage("tasks", tasks.list(), tokens);
+  // A command reads the child files again, because another process can add descendants.
+  if (command === "list" || command === "show") await tasks.tree.refresh();
+  if (command === "list") return listPage("tasks", tasks.tree.list(), tokens);
   if (command === "show" && tokens[0]) return showTask(reader, tokens[0], tokens.slice(1));
 
   if (command === "abort" && tokens.length === 1 && tokens[0]) {

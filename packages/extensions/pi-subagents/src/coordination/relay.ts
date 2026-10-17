@@ -2,9 +2,13 @@ import { randomUUID } from "node:crypto";
 
 import { Capacity } from "../tasks/capacity.ts";
 import type { TaskRecord } from "../tasks/records.ts";
+import type { TaskTree, Urgency } from "../tasks/tree.ts";
 import type { ChildMessage, SlotReply } from "./protocol.ts";
 
 export type Reservation = { release(): void };
+
+/** Debounce for a task's debounced updates; an immediate update is sent at once. */
+const UPDATE_DEBOUNCE_MS = 100;
 
 interface RelayHost {
   /** This supervisor's task ID; a root supervisor has none. */
@@ -13,12 +17,12 @@ interface RelayHost {
   send(message: ChildMessage): void;
   /** Send a slot reply to a direct child. */
   reply(childId: string, message: SlotReply): Promise<void>;
-  belongsTo(childId: string, taskId: string): boolean;
-  accepts(childId: string, record: TaskRecord): boolean;
-  record(record: TaskRecord): void;
 }
 
-/** Only adjacent processes exchange messages. The root alone grants whole-tree capacity. */
+/**
+ * Only adjacent processes exchange messages. The root alone grants whole-tree capacity. Task
+ * records travel up the same streams as slot requests; see `publish` for their order.
+ */
 export class Relay {
   private active = true;
   private capacity: Capacity;
@@ -28,9 +32,13 @@ export class Relay {
     string,
     { resolve(value: Reservation): void; reject(error: Error): void; dispose(): void }
   >();
+  /** Debounced updates by task ID, each with the task's latest record. */
+  private updates = new Map<string, { record: TaskRecord; timer: ReturnType<typeof setTimeout> }>();
 
   constructor(
     private host: RelayHost,
+    /** The owners of slot requests, and the store of descendant updates. */
+    private tree: Pick<TaskTree, "accept" | "belongsTo">,
     private limits: { maxConcurrent: number; maxQueued: number }
   ) {
     this.capacity = new Capacity(limits.maxConcurrent, limits.maxQueued);
@@ -77,20 +85,62 @@ export class Relay {
     }
   }
 
+  /**
+   * In a child, send a task's latest record to this process's supervisor. An immediate update is
+   * sent before this call returns, and it replaces a debounced update of the same task.
+   *
+   * An ancestor drops a slot request whose owner it does not know, so a task's record must reach
+   * every ancestor before the task can request capacity. The order holds on each stream: a run's
+   * start is immediate, and its child is prompted only after the start returns; each process
+   * publishes an accepted descendant update at once, before it reads the child's next message.
+   */
+  publish(record: TaskRecord, urgency: Urgency): void {
+    if (this.host.self === undefined || !this.active) return;
+    const taskId = record.task_id;
+    const pending = this.updates.get(taskId);
+
+    if (urgency === "debounced") {
+      if (pending) {
+        pending.record = record;
+
+        return;
+      }
+
+      const update = {
+        record,
+        timer: setTimeout(() => {
+          this.updates.delete(taskId);
+          this.sendRecord(update.record);
+        }, UPDATE_DEBOUNCE_MS)
+      };
+      this.updates.set(taskId, update);
+
+      return;
+    }
+
+    clearTimeout(pending?.timer);
+    this.updates.delete(taskId);
+    this.sendRecord(record);
+  }
+
+  private sendRecord(record: TaskRecord): void {
+    if (!this.active) return;
+
+    try {
+      this.host.send({ kind: "task", record });
+    } catch {
+      /* An update must not interrupt process cleanup. */
+    }
+  }
+
   receive(child: string, message: ChildMessage): void {
     if (!this.active) return;
 
     if (message.kind === "task") {
-      if (
-        message.record.parent_task_id === null ||
-        !this.host.belongsTo(child, message.record.parent_task_id) ||
-        !this.host.accepts(child, message.record)
-      )
-        return;
-      this.host.record(message.record);
+      if (!this.tree.accept(child, message.record)) return;
       if (message.record.state === "inactive") this.exited(message.record.task_id);
     } else if (message.kind === "slot-request") {
-      if (!this.host.belongsTo(child, message.owner) || this.routes.has(message.request_id)) return;
+      if (!this.tree.belongsTo(child, message.owner) || this.routes.has(message.request_id)) return;
       this.routes.set(message.request_id, { child, owner: message.owner });
       if (this.host.self === undefined) this.grant(child, message.request_id, message.owner);
       else this.host.send(message);
@@ -182,19 +232,21 @@ export class Relay {
   /** A task's process exited: free the slots that it or its descendants requested. */
   exited(taskId: string): void {
     for (const [id, route] of this.routes) {
-      if (route.child !== taskId && !this.host.belongsTo(taskId, route.owner)) continue;
+      if (route.child !== taskId && !this.tree.belongsTo(taskId, route.owner)) continue;
       this.routes.delete(id);
       this.free(id, route.owner);
     }
 
     for (const [id, grant] of this.grants)
-      if (grant.child === taskId || this.host.belongsTo(taskId, grant.owner))
+      if (grant.child === taskId || this.tree.belongsTo(taskId, grant.owner))
         this.free(id, grant.owner);
   }
 
   invalidate(): void {
     this.active = false;
     this.capacity.shutdown();
+    for (const { timer } of this.updates.values()) clearTimeout(timer);
+    this.updates.clear();
 
     for (const pending of this.pending.values()) {
       pending.dispose();

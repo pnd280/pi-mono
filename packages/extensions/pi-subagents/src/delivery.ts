@@ -8,14 +8,11 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import type { WorkingMessageHandle } from "@pi-mono/libs/working-message";
 
+import type { ResultEvent, ResultMessage, ResultSource } from "./background-result.ts";
 import type { ResultDelivery } from "./config.ts";
-import { JOB_RESULT_MESSAGE, RESULT_MESSAGE } from "./constants.ts";
-import { jobText } from "./jobs/records.ts";
-import type { JobEvent, Jobs } from "./jobs/registry.ts";
-import { taskResult } from "./result.ts";
-import type { TaskEvent, Tasks } from "./tasks/registry.ts";
 
-type Completion = Parameters<ExtensionAPI["sendMessage"]>[0];
+/** A result that delivery holds until Pi can take it. */
+type Pending = Extract<ResultEvent, { kind: "result" }>;
 
 type WaitResult = "closed" | "result" | "none" | "input" | "abort";
 
@@ -40,92 +37,57 @@ function isNormalReply(message: TurnEndEvent["message"] | undefined): boolean {
  * messages after it. Queue the others first, in the same synchronous block, so that no other run
  * takes them.
  */
-function wakeIdle(pi: ExtensionAPI, [first, ...rest]: readonly Completion[]): void {
+function wakeIdle(
+  pi: Pick<ExtensionAPI, "sendMessage">,
+  [first, ...rest]: readonly ResultMessage[]
+): void {
   if (!first) return;
   for (const message of rest) pi.sendMessage(message, { deliverAs: "nextTurn" });
   pi.sendMessage(first, { triggerTurn: true });
 }
 
 /**
- * Owns background completions of tasks and jobs until a turn end, the settlement, or the idle
- * handoff. Only background tasks hold a run; job results join the next handoff. See ADR 0001,
- * ADR 0005, and ADR 0006.
+ * Owns the finished background results of its sources until a turn end, the settlement, or the
+ * idle handoff. A wait lasts while a source holds the run; results that do not hold it join the
+ * next handoff. See ADR 0001, ADR 0005, and ADR 0006.
  */
 export class Delivery {
-  private pending: Completion[] = [];
+  private pending: Pending[] = [];
   private waiting = false;
   private wake: (() => void) | undefined;
   private closed = false;
-  /** A session change is pending: tasks stopped, and job results wait for the next run. */
+  /** A session change is pending or was cancelled: results wait without a turn until a run starts. */
   private suspended = false;
   /** Pi emits no event when a manual compaction ends; results queued during one recheck. */
   private recheck: ReturnType<typeof setInterval> | undefined;
-  private unsubscribe: () => void;
-  private unsubscribeJobs: () => void;
+  private sources = new Map<ResultSource, () => void>();
 
   constructor(
-    private tasks: Tasks,
-    jobs: Jobs,
-    private pi: ExtensionAPI,
-    private ctx: ExtensionContext,
+    private pi: Pick<ExtensionAPI, "sendMessage">,
+    private ctx: Pick<ExtensionContext, "isIdle" | "hasPendingMessages" | "mode">,
     private depth: number,
     private message: WorkingMessageHandle,
-    private resultDelivery: ResultDelivery,
-    /** Observes each result that becomes pending here; only validation fixtures pass it. */
-    private onPending?: () => void
-  ) {
-    this.unsubscribe = tasks.subscribe((event) => this.completed(event));
-    this.unsubscribeJobs = jobs.subscribe((event) => this.jobCompleted(event));
-  }
+    private resultDelivery: ResultDelivery
+  ) {}
 
-  private jobCompleted(event: JobEvent): void {
-    if (this.closed || event.kind !== "completed" || event.dropped) return;
-    const { details } = event;
-    this.queue({
-      customType: JOB_RESULT_MESSAGE,
-      display: true,
-      content: [
-        {
-          type: "text",
-          text: jobText(
-            details,
-            event.text,
-            `Background job ${details.outcome}: ${details.description}`
-          )
-        }
-      ],
-      details
-    });
-  }
-
-  private completed(event: TaskEvent): void {
-    if (this.closed || event.kind !== "completed") return;
-
-    if (!event.details.background || event.dropped) {
-      // A dropped completion still changes the number of remaining tasks.
-      this.wake?.();
-
-      return;
-    }
-
-    const result = taskResult(
-      event.details,
-      event.text,
-      undefined,
-      `Background task ${event.outcome}: ${event.details.description}`
+  /** Takes the results of `source` until the returned function or `shutdown` removes it. */
+  add(source: ResultSource): () => void {
+    this.sources.set(
+      source,
+      source.subscribe((event) => this.receive(event))
     );
-    this.queue({
-      customType: RESULT_MESSAGE,
-      display: true,
-      content: result.content,
-      // `late_usage` becomes a hidden usage entry when Pi persists this message.
-      details: { ...result.details, ...(event.lateUsage ? { late_usage: event.lateUsage } : {}) }
-    });
+
+    return () => {
+      this.sources.get(source)?.();
+      this.sources.delete(source);
+    };
   }
 
-  private queue(message: Completion): void {
-    this.pending.push(message);
-    this.onPending?.();
+  private receive(event: ResultEvent): void {
+    if (this.closed) return;
+    // The work that holds the run changed, so a wait checks it again.
+    if (event.kind === "changed") return this.wake?.();
+    this.pending.push(event);
 
     if (this.waiting) {
       this.wake?.();
@@ -165,11 +127,11 @@ export class Delivery {
     return !this.closed && !this.suspended && this.pending.length > 0;
   }
 
-  private take(): Completion[] {
+  private take(): ResultMessage[] {
     const pending = this.pending;
     this.pending = [];
 
-    return pending;
+    return pending.map((result) => result.message);
   }
 
   /** Waits for the first background result, new input, an abort, or no remaining tasks. */
@@ -178,7 +140,7 @@ export class Delivery {
       if (this.closed) return "closed";
       if (signal?.aborted) return "abort";
       if (this.pending.length) return "result";
-      if (!this.hasBackground()) return "none";
+      if (!this.holdsRun()) return "none";
       if (this.ctx.hasPendingMessages()) return "input";
 
       await new Promise<void>((resolve) => {
@@ -212,13 +174,13 @@ export class Delivery {
   }
 
   /** Keeps the supervisor busy until its first background result, so the result continues this run. */
-  async end(event: AgentEndEvent, ctx: ExtensionContext): Promise<void> {
+  async end(event: AgentEndEvent, ctx: Pick<ExtensionContext, "signal">): Promise<void> {
     if (this.closed) return;
     const last = [...event.messages].reverse().find((message) => message.role === "assistant");
     if (!isNormalReply(last)) return;
     this.waiting = true;
     // Pi keeps the TUI loader until `agent_end` handlers finish; the coordinator writes only in TUI mode.
-    if (this.hasBackground()) this.message.setText(WAITING_MESSAGE);
+    if (this.holdsRun()) this.message.setText(WAITING_MESSAGE);
 
     try {
       // Keep results pending: a follow-up queued here can be stranded by a later abort.
@@ -229,12 +191,9 @@ export class Delivery {
     }
   }
 
-  /** A direct task runs in the background; descendants report to their own supervisors. */
-  private hasBackground(): boolean {
-    // Stopped tasks keep their last records.
-    if (!this.tasks.activeBinding) return false;
-
-    return this.tasks.direct().some((record) => record.state === "active" && record.background);
+  /** A source's unfinished result holds the run: a direct background task, not a job. */
+  private holdsRun(): boolean {
+    return [...this.sources.keys()].some((source) => source.holdsRun());
   }
 
   /** Commits ready results in all modes; print, JSON, and nested supervisors can also wait. */
@@ -264,32 +223,32 @@ export class Delivery {
   }
 
   /** Delivers results that arrived as a wait ended by an abort. */
-  settled(ctx: ExtensionContext): void {
+  settled(ctx: Pick<ExtensionContext, "isIdle">): void {
     if (!this.ready() || !ctx.isIdle()) return;
     wakeIdle(this.pi, this.take());
   }
 
   /**
-   * Before a session change: drop task results and stop waiting for tasks. Job results stay
-   * pending without starting a turn, because a later extension can still cancel the change.
+   * Before a session change: drop task results and stop waiting for tasks. Job results survive
+   * the change and stay pending without starting a turn, because a later extension can still
+   * cancel the change. Results that arrive later also wait.
    */
   suspend(): void {
     this.suspended = true;
-    this.unsubscribe();
-    this.pending = this.pending.filter((message) => message.customType !== RESULT_MESSAGE);
+    this.pending = this.pending.filter((result) => result.survivesChange);
     this.stopRecheck();
     this.wake?.();
   }
 
-  /** Resumes delivery of pending job results in a run after a cancelled session change. */
+  /** In a run after a cancelled session change: the results that waited join this run. */
   resume(): void {
     this.suspended = false;
   }
 
   shutdown(): void {
     this.closed = true;
-    this.unsubscribe();
-    this.unsubscribeJobs();
+    for (const stop of this.sources.values()) stop();
+    this.sources.clear();
     this.pending = [];
     this.stopRecheck();
     this.wake?.();
