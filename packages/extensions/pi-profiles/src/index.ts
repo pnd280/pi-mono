@@ -329,7 +329,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   pi.on("before_agent_start", async (event, ctx) => {
     // A request that starts during a switch uses the profile's tools and prompts.
     await switching;
-    const prompts = findProfile(currentName(ctx))?.appendSystemPrompts ?? [];
+    const prompts = findProfile(currentName(ctx))?.prompts ?? [];
     if (prompts.length === 0) return;
 
     // Pi builds these options again for each run, so the prompts are added once per run.

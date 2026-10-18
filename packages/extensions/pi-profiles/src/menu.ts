@@ -140,7 +140,6 @@ function profileDetails({ profile, change, modelAvailable }: ProfileChoice): str
   const model = profile.model
     ? `${profile.model}${modelAvailable ? "" : " (unknown or no credentials, so the profile cannot apply)"}`
     : "unchanged";
-  const prompts = profile.appendSystemPrompts ?? [];
   const thinking =
     profile.thinking ??
     (profile.model ? "not set; a model change applies Pi's setting" : "unchanged");
@@ -158,8 +157,8 @@ function profileDetails({ profile, change, modelAvailable }: ProfileChoice): str
     )}`,
     `A switch now requests: ${modelAvailable ? change : "nothing, because the profile cannot apply"}`,
     "",
-    prompts.length > 0 ? "Appended system prompts:" : "Appended system prompts: none",
-    ...prompts.flatMap((prompt, index) => (index === 0 ? [prompt] : ["", prompt]))
+    profile.prompts.length > 0 ? "Appended system prompts:" : "Appended system prompts: none",
+    ...profile.prompts.flatMap((prompt, index) => (index === 0 ? [prompt] : ["", prompt]))
   ].join("\n");
 }
 

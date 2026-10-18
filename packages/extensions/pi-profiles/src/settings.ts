@@ -1,11 +1,16 @@
+import { homedir } from "node:os";
+import { dirname, resolve } from "node:path";
+
 import { MODEL_THINKING_LEVELS } from "@earendil-works/pi-ai/providers/model-schema";
 import {
   readScopedSettings,
+  readSettingsFile,
   readSettingsRecord,
   type SettingsScopeOptions
 } from "@pi-mono/libs/settings-file";
 import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
 import { modelReferenceSchema } from "@pi-mono/utils/model-reference";
+import { expandHomePath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
 const SETTINGS_KEY = "ext.pi-profiles";
@@ -34,6 +39,7 @@ const profileSchema = z.strictObject({
   description: z.string().max(MAX_DESCRIPTION_LENGTH),
   model: modelReferenceSchema.optional(),
   thinking: z.enum(MODEL_THINKING_LEVELS).optional(),
+  // File paths, which resolve from the directory of the settings file that names them.
   appendSystemPrompts: z.array(z.string().min(1)).max(MAX_PROMPTS).optional(),
   tools: z
     .strictObject({
@@ -54,7 +60,31 @@ const sectionSchema = z.looseObject({
   shortcut: canonicalKeySchema.optional()
 });
 
-export type Profile = z.output<typeof profileSchema>;
+export type Profile = Omit<z.output<typeof profileSchema>, "appendSystemPrompts"> & {
+  /** The non-empty texts of the `appendSystemPrompts` files, read when settings load. */
+  prompts: string[];
+};
+
+/** The trimmed texts of the files, or the index of the first file that cannot be read. */
+function readPrompts(paths: readonly string[], settingsPath: string): string[] | number {
+  const texts: string[] = [];
+
+  for (const [index, path] of paths.entries()) {
+    let text: string | undefined;
+
+    try {
+      text = readSettingsFile(resolve(dirname(settingsPath), expandHomePath(path, homedir())));
+    } catch {
+      // Reported by the caller without the path.
+    }
+
+    if (text === undefined) return index;
+    // `trim` also removes a byte order mark.
+    if (text.trim()) texts.push(text.trim());
+  }
+
+  return texts;
+}
 
 type Shortcut = z.output<typeof canonicalKeySchema>;
 
@@ -124,7 +154,14 @@ function readSection(path: string): Section {
     } else if (section.profiles.some(({ name }) => name === profile.data.name)) {
       section.warnings.push(`profiles[${index}] skipped: duplicate name`);
     } else {
-      section.profiles.push(profile.data);
+      const { appendSystemPrompts = [], ...rest } = profile.data;
+      const prompts = readPrompts(appendSystemPrompts, path);
+
+      if (typeof prompts === "number")
+        section.warnings.push(
+          `profiles[${index}] skipped: appendSystemPrompts[${prompts}] could not be read`
+        );
+      else section.profiles.push({ ...rest, prompts });
     }
   }
 

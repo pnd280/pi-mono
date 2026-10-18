@@ -40,9 +40,11 @@ const plan = {
   description: "Plan",
   model: "faux/second",
   thinking: "high",
-  appendSystemPrompts: ["PLAN-A", "PLAN-B"],
+  appendSystemPrompts: ["plan-a.md", "plan-b.md"],
   tools: { deny: ["beta"] }
 };
+/** Files by path from the fixture root. Global paths resolve from `agent`, project paths from `work/.pi`. */
+const planPrompts = { "agent/plan-a.md": "PLAN-A\n", "agent/plan-b.md": "PLAN-B\n" };
 const build = { name: "build", description: "Build", tools: { deny: ["alpha"] } };
 const focus = { name: "focus", description: "Focus", tools: { allow: ["gamma"] } };
 
@@ -94,7 +96,11 @@ interface Request {
   append: string | undefined;
 }
 
-async function workspace(settings: unknown, projectSettings?: unknown) {
+async function workspace(
+  settings: unknown,
+  projectSettings?: unknown,
+  prompts: Record<string, string> = {}
+) {
   const directory = await mkdtemp(join(tmpdir(), "pi-profiles-test-"));
   cleanups.push(() => rm(directory, { recursive: true, force: true }));
   const cwd = join(directory, "work");
@@ -102,6 +108,8 @@ async function workspace(settings: unknown, projectSettings?: unknown) {
   await mkdir(join(cwd, ".pi"), { recursive: true });
   await mkdir(agentDir);
   await writeFile(join(agentDir, "settings.json"), JSON.stringify({ "ext.pi-profiles": settings }));
+  for (const [path, text] of Object.entries({ ...planPrompts, ...prompts }))
+    await writeFile(join(directory, path), text);
 
   if (projectSettings !== undefined) {
     await writeFile(
@@ -522,22 +530,22 @@ it.each([
 ] as const)(
   "lets only trusted project settings add profiles, replace global profiles by name, and choose the default, whose deferred tools tool_search loads (trusted: %s)",
   async (projectTrusted, requests) => {
-    const profile = (name: string, prompt: string) => ({
+    const profile = (name: string) => ({
       name,
-      description: prompt,
-      appendSystemPrompts: [prompt]
+      description: name,
+      appendSystemPrompts: [`${name}.md`]
     });
     const dirs = await workspace(
+      { profiles: [profile("plan"), profile("keep")], defaultProfile: "keep" },
       {
-        profiles: [profile("plan", "GLOBAL-PLAN"), profile("keep", "KEEP")],
-        defaultProfile: "keep"
+        profiles: [profile("plan"), { ...profile("project"), tools: { defer: ["alpha"] } }],
+        defaultProfile: "project"
       },
       {
-        profiles: [
-          profile("plan", "PROJECT-PLAN"),
-          { ...profile("project", "PROJECT"), tools: { defer: ["alpha"] } }
-        ],
-        defaultProfile: "project"
+        "agent/plan.md": "GLOBAL-PLAN",
+        "agent/keep.md": "KEEP",
+        "work/.pi/plan.md": "PROJECT-PLAN",
+        "work/.pi/project.md": "PROJECT"
       }
     );
     // No global profile defers tools, so only the project profile can need tool_search.
@@ -572,8 +580,12 @@ it.each([
 it.each([null, "missing"])(
   "applies no default profile, not the global one, when a trusted project's defaultProfile is invalid (%s)",
   async (defaultProfile) => {
-    const keep = { name: "keep", description: "Keep", appendSystemPrompts: ["KEEP"] };
-    const dirs = await workspace({ profiles: [keep], defaultProfile: "keep" }, { defaultProfile });
+    const keep = { name: "keep", description: "Keep", appendSystemPrompts: ["keep.md"] };
+    const dirs = await workspace(
+      { profiles: [keep], defaultProfile: "keep" },
+      { defaultProfile },
+      { "agent/keep.md": "KEEP" }
+    );
     const fixture = await host(dirs, { mode: "tui", projectTrusted: true });
 
     await fixture.session.prompt("zero");

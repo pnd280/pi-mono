@@ -20,13 +20,15 @@ Define profiles in Pi's global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT
         "description": "Read and plan without changing files",
         "model": "openai-codex/gpt-5.1",
         "thinking": "high",
-        "appendSystemPrompts": ["Plan only. Do not change files."],
+        "appendSystemPrompts": ["profiles/plan.md"],
         "tools": { "deny": ["edit", "write"] }
       }
     ]
   }
 }
 ```
+
+Here `~/.pi/agent/profiles/plan.md` contains the instructions for the `plan` profile, for example `Plan only. Do not change files.`
 
 Switching from `build` to `plan` shows a notice with the tool changes:
 
@@ -55,12 +57,13 @@ A switch changes these settings for the current session only:
 | --------------------- | -------------------------------------------------------------------- | -------------------------- |
 | `model`               | Selects the model.                                                   | The model does not change. |
 | `thinking`            | Sets the thinking level, which Pi limits to what the model supports. | See below.                 |
-| `appendSystemPrompts` | Adds the texts to the system prompt from the next request.           | Adds no text.              |
+| `appendSystemPrompts` | Adds the files' texts to the system prompt from the next request.    | Adds no text.              |
 | `tools`               | Selects the declared tools; see [tools](#tools).                     | Keeps the base tools.      |
 
 - Without `thinking`, pi-profiles does not set the level. A `model` change can still change it, because Pi then applies the level that its settings set for that model, or its default level. Without those settings, Pi keeps the current level, limited to what the model supports.
 - Switches are refused while the agent runs, or while an earlier switch still waits for its model. Wait for the run to end, or stop it first. A switch cannot be cancelled. A request that you send during a switch, and the end of the session, wait until the switch is complete.
 - If the model is unknown or has no credentials, the profile is not applied, and an error is shown. This also applies when the model is already selected. Modes without a UI write the error to stderr. The check is Pi's check for configured credentials: a key command or a stored login counts before a request uses it.
+- The texts are read when settings load, so run `/reload` after you edit a file. Each text is trimmed, and empty texts are left out.
 - The texts are joined with a blank line (`\n\n`) and added after Pi's append text, such as `APPEND_SYSTEM.md`, `--append-system-prompt`, and changes from earlier extensions.
 - A switch to the current profile applies it again, for example after you edit settings and run `/reload`.
 - No profile undoes the previous profile's tool changes and adds no texts. The model and the thinking level do not change.
@@ -138,7 +141,7 @@ The search is Pi's:
 - It searches the inactive tools with `codemode` or `deferred` exposure and the profile's deferred tools. It reads each tool's name, description, and parameter names and descriptions, and an MCP server's name, description, and instructions.
 - It matches words, not meaning. For example, "shell" finds `bash`, but "terminal" does not.
 - It loads up to `limit` matches (8 by default), and the other tools of their deferred groups. These group tools can make the total more than `limit`, and the result does not name them. For example, "edit a file" can match `edit`, `write`, `read`, and `bash`, because each description contains "file".
-- The model does not see deferred tools until it searches, and codemode does not list deferred `direct` tools. Tell the model what to search for with `appendSystemPrompts`, for example `"To run shell commands, load bash with tool_search."`
+- The model does not see deferred tools until it searches, and codemode does not list deferred `direct` tools. Tell the model what to search for in a file in `appendSystemPrompts`, for example `To run shell commands, load bash with tool_search.`
 
 ### MCP tools
 
@@ -174,7 +177,7 @@ Pi's MCP support also changes the declared tools by itself, so the profile does 
 
 ## Configuration
 
-Put the `ext.pi-profiles` section in the global settings, in the project's `.pi/settings.json`, or in both. Run `/reload` after you edit settings.
+Put the `ext.pi-profiles` section in the global settings, in the project's `.pi/settings.json`, or in both. Run `/reload` after you edit settings or a prompt file.
 
 Project settings apply only in a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust), because profiles select tools and system prompt text. In an untrusted project, they are ignored. Pi reads them only from the current directory, not from parent directories.
 
@@ -197,7 +200,7 @@ Each profile has these fields:
 | `description`         | Required text for the `/profile` list, up to 1,024 characters.                                                                                                                                                                                                    |
 | `model`               | Optional `provider/model-id` reference.                                                                                                                                                                                                                           |
 | `thinking`            | Optional level: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`.                                                                                                                                                                                     |
-| `appendSystemPrompts` | Optional array of up to 32 non-empty texts.                                                                                                                                                                                                                       |
+| `appendSystemPrompts` | Optional array of up to 32 paths of UTF-8 text files, up to 1 MiB each. A relative path in the global settings resolves from the agent directory, and in the project settings from the project's `.pi` directory. Absolute paths and a leading `~` also work.     |
 | `tools`               | Optional object with `allow`, `deny`, and `defer` arrays of up to 256 entries each. An entry is a tool name or a `*` pattern of 1 to 256 characters; see [tools](#tools). A `defer` entry can also be a [group](#groups): an array of 1 to 256 names or patterns. |
 
 ### Errors
@@ -209,6 +212,7 @@ Settings problems are shown as warnings when settings load. Each warning starts 
 | Invalid profile, including an unknown field                    | That profile is skipped.                                                                                                                        |
 | A profile with the name of an earlier profile in the same file | That profile is skipped.                                                                                                                        |
 | A profile with the name `clear`                                | That profile is skipped.                                                                                                                        |
+| A file in `appendSystemPrompts` can't be read                  | That profile is skipped.                                                                                                                        |
 | Invalid `shortcut`                                             | It is ignored. The other file's `shortcut` or `alt+i` is used.                                                                                  |
 | `defaultProfile` names no valid profile                        | No profile applies by default. A project value, also `null`, does not fall back to the global value.                                            |
 | `--profile` names no valid profile                             | An error is shown, or written to stderr in modes without a UI. The run continues as without `--profile`.                                        |
