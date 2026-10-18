@@ -78,7 +78,12 @@ const cases: {
   },
   {
     name: "instruction file with model opt-ins",
-    config: { ...override, instructionsFile: "focus.txt", applyToManual: true, applyToAuto: true },
+    config: {
+      ...override,
+      compactionInstructionsFile: "focus.txt",
+      applyToManual: true,
+      applyToAuto: true
+    },
     manual: dedicatedSummary,
     automatic: dedicatedSummary,
     manualFocus: combinedFocus,
@@ -87,7 +92,7 @@ const cases: {
   },
   {
     name: "retry",
-    config: { ...override, applyToManual: true, instructionsFile: "focus.txt" },
+    config: { ...override, applyToManual: true, compactionInstructionsFile: "focus.txt" },
     manual: dedicatedSummary,
     automatic: nativeSummary,
     manualFocus: combinedFocus,

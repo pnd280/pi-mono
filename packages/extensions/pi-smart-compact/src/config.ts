@@ -32,7 +32,8 @@ const configSchema = z.strictObject({
   rules: z.array(ruleSchema).optional(),
   applyToManual: z.boolean().optional(),
   applyToAuto: z.boolean().optional(),
-  instructionsFile: z.string().trim().min(1).optional()
+  compactionInstructionsFile: z.string().trim().min(1).optional(),
+  docs: z.array(z.string().trim().min(1)).optional()
 });
 const settingsSchema = z.object({ "ext.pi-smart-compact": configSchema.optional() });
 
@@ -41,7 +42,9 @@ export type CompactSettings = z.input<typeof configSchema>;
 
 type ParsedSettings = z.output<typeof configSchema>;
 
-export type CompactConfig = Omit<ParsedSettings, "instructionsFile"> & { instructions?: string };
+export type CompactConfig = Omit<ParsedSettings, "compactionInstructionsFile" | "docs"> & {
+  instructions?: string;
+};
 
 /** The first rule matching `provider/id` decides both fields; no match keeps native selection. */
 export function selectRule(
@@ -64,11 +67,11 @@ function readSection(path: string): ParsedSettings {
 
     if (parsed.success) {
       const config = parsed.data["ext.pi-smart-compact"] ?? {};
-      if (config.instructionsFile !== undefined)
-        config.instructionsFile = resolve(
-          dirname(path),
-          expandHomePath(config.instructionsFile, homedir())
-        );
+      // Relative paths belong to the scope that names them.
+      const scoped = (entry: string) => resolve(dirname(path), expandHomePath(entry, homedir()));
+      if (config.compactionInstructionsFile !== undefined)
+        config.compactionInstructionsFile = scoped(config.compactionInstructionsFile);
+      if (config.docs !== undefined) config.docs = config.docs.map(scoped);
 
       return config;
     }
@@ -81,24 +84,41 @@ function readSection(path: string): ParsedSettings {
   );
 }
 
-/** Only absent fields inherit; invalid settings must not silently select another model. */
-export function loadCompactConfig(
-  cwd: string,
-  { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
-): CompactConfig {
-  const [global, project] = readScopedSettings({ cwd, projectTrusted, agentDir }, readSection);
-
-  const { instructionsFile, ...config } = { ...global, ...project };
-  if (instructionsFile === undefined) return config;
-
+/** Read a selected text file, trimmed; `setting` names it in the error. */
+function readTextFile(path: string, setting: "compactionInstructionsFile" | "docs") {
   try {
-    const instructions = readSettingsFile(instructionsFile);
-    if (instructions !== undefined) return { ...config, instructions: instructions.trim() };
+    const text = readSettingsFile(path);
+    if (text !== undefined) return text.trim();
   } catch {
-    // Do not expose file contents or silently ignore a configured focus.
+    // Do not expose file contents or silently ignore configured text.
   }
 
   throw new Error(
-    "pi-smart-compact: invalid or unreadable instructions file (expected a UTF-8 text file up to 1 MiB). Check ext.pi-smart-compact.instructionsFile, then /reload."
+    `pi-smart-compact: invalid or unreadable file (expected a UTF-8 text file up to 1 MiB). Check ext.pi-smart-compact.${setting}, then /reload.`
   );
+}
+
+/**
+ * Only absent fields inherit; invalid settings must not silently select another model.
+ * `docs` joins the selected files for the `context_window` description and is absent when unset.
+ */
+export function loadCompactConfig(
+  cwd: string,
+  { projectTrusted = false, agentDir }: { projectTrusted?: boolean; agentDir?: string } = {}
+): CompactConfig & { docs?: string } {
+  const [global, project] = readScopedSettings({ cwd, projectTrusted, agentDir }, readSection);
+  const { compactionInstructionsFile, docs, ...config } = { ...global, ...project };
+
+  return {
+    ...config,
+    ...(compactionInstructionsFile !== undefined && {
+      instructions: readTextFile(compactionInstructionsFile, "compactionInstructionsFile")
+    }),
+    ...(docs !== undefined && {
+      docs: docs
+        .map((path) => readTextFile(path, "docs"))
+        .filter(Boolean)
+        .join("\n\n")
+    })
+  };
 }

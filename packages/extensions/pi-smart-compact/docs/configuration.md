@@ -22,13 +22,23 @@ When compaction starts, each rule is tested in order against the conversation mo
 
 ## Instruction file
 
-The `instructionsFile` setting names a UTF-8 file of extra focus for every compaction route.
+The `compactionInstructionsFile` setting names a UTF-8 file of extra focus for every compaction route.
 
 - The file's text comes first, then a blank line, then any `/compact <instructions>` or tool instructions.
 - `session_before_compact` handlers receive the combined focus. Custom summarisers must apply it themselves and control their own requests and output.
 - Relative paths resolve from the directory of the settings file that set them: the agent directory for global settings, or `<cwd>/.pi` for project settings. Absolute and `~/` paths also work.
 - A trusted project can override an inherited file, including with an empty file to turn the focus off.
 - Only the selected file is read, at startup or `/reload`, up to 1 MiB.
+
+## Docs
+
+The `docs` setting lists UTF-8 files that tell the model how to use `context_window`, for example when to check usage and when to call `compact`.
+
+- Each file is trimmed. The files follow the built-in `context_window` description in list order, separated by a blank line. `compact` gets no docs.
+- The text goes into the current tool declaration. Descriptions already recorded in conversation history stay.
+- Relative paths resolve from the directory of the settings file that lists them. Absolute and `~/` paths also work.
+- A trusted project's list replaces the global list, and an empty array removes the docs.
+- Only the selected files are read, at startup or `/reload`, each up to 1 MiB.
 
 ## Edge cases
 

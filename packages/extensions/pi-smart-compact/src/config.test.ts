@@ -94,7 +94,7 @@ it.each([
   section({ rules: [{ match: "", thinkingLevel: "automatic" }] }),
   section({ applyToManual: "true" }),
   section({ applyToAuto: null }),
-  section({ instructionsFile: "   " }),
+  section({ compactionInstructionsFile: "   " }),
   section({ unknown: true }),
   JSON.stringify({ "ext.pi-smart-compact": globalConfig, ignored: "x".repeat(1024 * 1024) })
 ])("rejects invalid participating files rather than silently falling back: case %#", (source) => {

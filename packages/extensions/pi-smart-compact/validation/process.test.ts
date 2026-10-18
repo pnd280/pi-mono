@@ -628,7 +628,7 @@ it.concurrent.each([
         JSON.stringify({
           "ext.pi-smart-compact": {
             rules: [{ match: conversationMatch, model: summaryModel, thinkingLevel: "low" }],
-            instructionsFile: "focus.txt",
+            compactionInstructionsFile: "focus.txt",
             applyToManual: entry === "manual",
             applyToAuto: entry === "auto"
           },

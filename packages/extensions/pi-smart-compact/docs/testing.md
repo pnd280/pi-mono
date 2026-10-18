@@ -38,7 +38,7 @@ Hook ownership
 
 ## Not tested
 
-- Tool output wording, outcome status messages, summary-model metadata entries, footer status, instruction-file loading, routing flags, and focus placement: below the severity bar.
+- Tool output wording, outcome status messages, summary-model metadata entries, footer status, instruction-file and docs loading, routing flags, and focus placement: below the severity bar.
 - Request timeout and retry policy on configured summary requests, several `compact` calls in one tool batch, and summaries supplied by `session_before_compact` hooks: below the severity bar.
 - Whether a real model follows the instructions, threshold detection, and the full overflow retry scheduler.
 - Interactive mounting, RPC display, and terminal appearance.

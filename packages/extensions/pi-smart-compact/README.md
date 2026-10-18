@@ -2,7 +2,7 @@
 
 Keep long tasks going before they reach the context limit by letting the model compact its own context mid-task. For example, after a large refactor the model can call `compact({ instructions: "Preserve modified files and remaining tests." })` and then carry on.
 
-_Compaction_ replaces older conversation history with a summary written by a model. Pi does the compaction itself; this extension adds a way for the model to request it, an optional dedicated summary model, and an optional instruction file. Requires Pi 1.3.0; see [compatibility](docs/pi-compatibility.md).
+_Compaction_ replaces older conversation history with a summary written by a model. Pi does the compaction itself; this extension adds a way for the model to request it, an optional dedicated summary model, an optional instruction file, and optional `context_window` docs. Requires Pi 1.3.0; see [compatibility](docs/pi-compatibility.md).
 
 ## Usage
 
@@ -21,6 +21,7 @@ Returns Pi's context usage as JSON: `tokens`, `contextWindow`, and `percent`.
 - When usage is unknown, `tokens` and `percent` are `null`.
 - When usage is unavailable, it returns `Context usage unavailable.`
 - Code run by other tools can also call it.
+- Configured [docs](docs/configuration.md#docs) follow its description.
 
 ### `compact`
 
@@ -61,26 +62,29 @@ By default, compaction uses the session's current model and Pi's native thinking
     ],
     "applyToManual": true,
     "applyToAuto": true,
-    "instructionsFile": "compaction-instructions.txt"
+    "compactionInstructionsFile": "compaction-instructions.txt",
+    "docs": ["context-window.md"]
   }
 }
 ```
 
 All fields are optional.
 
-| Field              | Default | Effect                                                                                                                  |
-| ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `rules`            | None    | Summary model and thinking level for `compact`, chosen by conversation model. See [rules](docs/configuration.md#rules). |
-| `applyToManual`    | `false` | Also use the matching rule for `/compact`, including manual compaction through RPC and the SDK.                         |
-| `applyToAuto`      | `false` | Also use the matching rule for automatic compaction at the threshold or on overflow.                                    |
-| `instructionsFile` | None    | UTF-8 file of extra focus for every compaction route, whatever `rules`, `applyToManual`, and `applyToAuto` say.         |
+| Field                        | Default | Effect                                                                                                                  |
+| ---------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `rules`                      | None    | Summary model and thinking level for `compact`, chosen by conversation model. See [rules](docs/configuration.md#rules). |
+| `applyToManual`              | `false` | Also use the matching rule for `/compact`, including manual compaction through RPC and the SDK.                         |
+| `applyToAuto`                | `false` | Also use the matching rule for automatic compaction at the threshold or on overflow.                                    |
+| `compactionInstructionsFile` | None    | UTF-8 file of extra focus for every compaction route, whatever `rules`, `applyToManual`, and `applyToAuto` say.         |
+| `docs`                       | None    | UTF-8 files whose text follows the `context_window` description. See [docs](docs/configuration.md#docs).                |
 
-For the example `instructionsFile`, create `compaction-instructions.txt` beside the settings file containing the focus you want, such as `Preserve outstanding decisions and remaining tests.` Its text comes before any `/compact <instructions>` or tool instructions.
+For the example `compactionInstructionsFile`, create `compaction-instructions.txt` beside the settings file containing the focus you want, such as `Preserve outstanding decisions and remaining tests.` Its text comes before any `/compact <instructions>` or tool instructions.
 
 | When you…                                                                            | Read                                                       |
 | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
 | Write rule patterns, choose thinking levels, or route through virtual models         | [Rules](docs/configuration.md#rules)                       |
 | Place the instruction file, override it per project, or use `session_before_compact` | [Instruction file](docs/configuration.md#instruction-file) |
+| Tell the model when to check context usage or compact                                | [Docs](docs/configuration.md#docs)                         |
 | Pick a summary model for overflow recovery or check what metadata is saved           | [Edge cases](docs/configuration.md#edge-cases)             |
 
 ### Where settings live
@@ -90,7 +94,7 @@ For the example `instructionsFile`, create `compaction-instructions.txt` beside 
 | Global  | `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when set. |
 | Project | `<cwd>/.pi/settings.json`; parent directories are not searched.                |
 
-Project settings override global fields only in [trusted projects](https://pi.dev/docs/latest/security#understand-project-trust), and omitted fields are inherited. Settings and instruction files are not watched, so run `/reload` after changes. To go back to native selection, remove `rules`. The extension has no environment variables and never writes settings.
+Project settings override global fields only in [trusted projects](https://pi.dev/docs/latest/security#understand-project-trust), and omitted fields are inherited. Settings, instruction files, and docs files are not watched, so run `/reload` after changes. To go back to native selection, remove `rules`. The extension has no environment variables and never writes settings.
 
 ### Errors
 
@@ -98,9 +102,9 @@ Project settings override global fields only in [trusted projects](https://pi.de
 
 - a settings file is unreadable, malformed, or over 1 MiB;
 - a value is invalid, including a `match` that is not a valid regular expression, or `ext.pi-smart-compact` or a rule contains an unknown key;
-- the selected instruction file is missing or unreadable.
+- a selected instruction or docs file is missing or unreadable.
 
-`context_window` and Pi's native compaction keep working.
+`context_window`, without docs, and Pi's native compaction keep working.
 
 An unavailable model, unsupported thinking level, authentication error, or failed summary never falls back silently to another model. Overflow recovery also covers recoverable length stops. If Pi removed the failed request from model context before recovery, that removal stays if compaction fails.
 
