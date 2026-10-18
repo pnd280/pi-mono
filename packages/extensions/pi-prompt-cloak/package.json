@@ -1,0 +1,27 @@
+{
+  "name": "pi-prompt-cloak",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rephrases Pi-specific system prompt text to reduce fingerprinting by upstream providers",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
+    "test": "vp test run --config ../../../vite.config.ts --passWithNoTests"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "catalog:pi-host"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

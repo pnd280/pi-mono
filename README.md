@@ -44,6 +44,7 @@ Links to published Pi documentation point to the latest version, which can be ne
 | [pi-skills](packages/extensions/pi-skills/README.md)                           | Turns `/skill:<name>` anywhere in a prompt into a file link, with **Tab** completion.                 |
 | [pi-null-args](packages/extensions/pi-null-args/README.md)                     | Drops optional tool arguments that a model sent as the text `"null"`, so Pi doesn't reject the call.  |
 | [pi-abort-guard](packages/extensions/pi-abort-guard/README.md)                 | Stops a running agent only on a second **Escape**, so one stray press doesn't end the turn.           |
+| [pi-prompt-cloak](packages/extensions/pi-prompt-cloak/README.md)               | Rephrases two documentation lines in Pi's system prompt before each model request.                    |
 
 ## Development
 
