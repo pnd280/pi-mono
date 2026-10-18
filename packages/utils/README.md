@@ -18,7 +18,7 @@ Choose the [exported module](package.json) for your task:
 - File and display text: [patches](src/patch.ts), [output notices](src/output-text.ts), [UTF-8 windows](src/utf8.ts).
 - Discovery: [FFF provenance](src/fff-tools.ts), [search scopes](src/search-scopes.ts), [lexical paths](src/paths.ts).
 - Commands: [POSIX argument quoting](src/shell.ts).
-- Model settings: [`provider/model-id` references](src/model-reference.ts).
+- Model settings: [`provider/model-id` references](src/model-reference.ts), [thinking levels](src/thinking-levels.ts).
 
 Use [task envelopes](src/task-envelope.ts) to format subagent task and job results and extract their bodies.
 

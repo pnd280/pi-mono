@@ -1,0 +1,65 @@
+name: release
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  check:
+    uses: ./.github/workflows/check.yml
+
+  # Users install the `release` branch or a version tag with `pi install git:…`; see
+  # docs/development.md.
+  release:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-branch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: node .scripts/build-release.ts "$RUNNER_TEMP/release"
+      - name: Commit the build to the release branch and tag its version
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          # A separate index stages the build tree; its .gitignore leaves out node_modules.
+          export GIT_INDEX_FILE="$RUNNER_TEMP/release-index"
+          git --work-tree="$RUNNER_TEMP/release" add --all
+          tree=$(git write-tree)
+          commit=""
+          parent=()
+          # No parent on the first run. If the fetch fails for another reason, the push below
+          # is not a fast-forward and fails.
+          if git fetch --depth=1 origin release; then
+            if [ "$tree" = "$(git rev-parse 'FETCH_HEAD^{tree}')" ]; then
+              echo "The release branch already has this build."
+              commit=$(git rev-parse FETCH_HEAD)
+            else
+              parent=(-p FETCH_HEAD)
+            fi
+          fi
+          if [ -z "$commit" ]; then
+            commit=$(git commit-tree "$tree" "${parent[@]}" -m "chore(release): build $GITHUB_SHA")
+            git push origin "$commit:refs/heads/release"
+          fi
+          # Tag the first build of each version. Tags never move: the push without --force
+          # fails instead of replacing a tag. This also runs for an unchanged tree, so a rerun
+          # adds a tag that an earlier run did not push.
+          tag="v$(node -p "require(process.env.RUNNER_TEMP + '/release/package.json').version")"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "Tag $tag already exists."
+          else
+            git tag -a "$tag" -m "$tag" "$commit"
+            git push origin "refs/tags/$tag"
+          fi

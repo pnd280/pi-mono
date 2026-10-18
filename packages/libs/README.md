@@ -15,6 +15,7 @@ For pure helpers with no side effects, use [utils](../utils/README.md). Import e
 | [file-rename](src/file-rename/README.md)               | File replacement by rename, with bounded retries on Windows               |
 | [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |
 | [timed-confirmation](src/timed-confirmation/README.md) | Target comparison and confirmation deadline                               |
+| [abort-race](src/abort-race/README.md)                 | Waits that stop when an abort signal fires                                |
 | [owned-hooks](src/owned-hooks/README.md)               | Property replacement and conditional restoration                          |
 | [output-buffer](src/output-buffer/README.md)           | UTF-8 decoding and bounded stream retention                               |
 | [native-tools](src/native-tools/README.md)             | Shared observation of verified native tools                               |

@@ -13,6 +13,7 @@
 ## Checklist
 
 - [ ] Trace the [direct and indirect consumers](../AGENTS.md#code-navigation). FFF provenance and scope normalisation, omission ranges, patches, and UTF-8 boundaries must still match the target tool and result contracts.
+- [ ] [Thinking levels](../src/thinking-levels.ts) match `MODEL_THINKING_LEVELS` in Pi's `@earendil-works/pi-ai/providers/model-schema`, in the same order. Installed extensions can't import that entry point.
 - [ ] Keep helpers pure; do not introduce Pi runtime state, I/O, scheduling, or consumer policy.
 
 ## Limitations

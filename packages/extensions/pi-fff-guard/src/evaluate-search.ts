@@ -1,4 +1,4 @@
-import { raceWithAbortSignal } from "@earendil-works/pi-ai/utils/abort";
+import { raceWithAbortSignal } from "@pi-mono/libs/abort-race";
 import type { FffToolKind } from "@pi-mono/utils/fff-tools";
 
 import { inspectGitIgnore, type GitIgnoreResult } from "./git-ignore.ts";

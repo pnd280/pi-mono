@@ -7,7 +7,7 @@ Every test is a maintenance cost. Write the minimum: each automated test protect
 ## Coverage
 
 Each package's `docs/testing.md` lists its invariants under "Must not regress". That list is the complete scope of the package's unit, integration, and e2e tests.
-Root fingerprint tooling uses the [Pi-update invariant list](../../.agents/skills/pi-update/references/testing.md#must-not-regress).
+Root fingerprint tooling uses the [Pi-update invariant list](../../.agents/skills/pi-update/references/testing.md#must-not-regress), and the release build uses the [release branch list](../development.md#release-branch).
 
 When you change code:
 

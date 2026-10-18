@@ -11,6 +11,7 @@ Pi provides the agent runtime, tool execution, sessions, and terminal UI. This w
 | [`packages/extensions/`](../README.md#extensions) | Feature packages with their own Pi integration and domain policy.                                                          |
 | [`packages/libs/`](../packages/libs/README.md)    | Shared stateful services, I/O, lifecycle coordination, and [TUI components and hosts](../packages/libs/src/tui/README.md). |
 | [`packages/utils/`](../packages/utils/README.md)  | Pure parsing, formatting, and transformation helpers.                                                                      |
+| [`apps/website/`](../apps/website/README.md)      | The marketing site, a TanStack Start app that Pi does not load.                                                            |
 
 Extensions use libs and utils; libs can use utils. Neither shared package depends on extensions, and utils does not depend on libs. Package exports define supported import paths; [boundary checks](../vite.config.ts) enforce these dependency directions.
 

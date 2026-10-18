@@ -1,0 +1,207 @@
+<!doctype html>
+<!--
+  README hero for pi-mono. The PNGs next to this file are screenshots of it.
+  The website copies the sample session in apps/website/src/components/session-panel.tsx
+  and loads the fonts from fonts/; update both when you change them.
+  Re-render both from the repository root:
+
+  for theme in dark light; do
+    google-chrome --headless=new --hide-scrollbars --force-device-scale-factor=2 \
+      --window-size=1280,400 --default-background-color=00000000 \
+      --screenshot="docs/assets/hero-$theme.png" "file://$PWD/docs/assets/hero.html?theme=$theme"
+  done
+
+  Fonts in fonts/ are unmodified SIL OFL 1.1 files: JetBrains Mono from
+  github.com/JetBrains/JetBrainsMono, and Departure Mono as served by pi.dev.
+  The Pi logo is https://pi.dev/logo-auto.svg, cropped to its artwork.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>pi-mono</title>
+    <script>
+      const requested = new URLSearchParams(location.search).get("theme");
+      const prefersLight = matchMedia("(prefers-color-scheme: light)").matches;
+      document.documentElement.dataset.theme =
+        requested === "light" || requested === "dark" ? requested : prefersLight ? "light" : "dark";
+    </script>
+    <style>
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("fonts/JetBrainsMono-Regular.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        font-weight: 700;
+        src: url("fonts/JetBrainsMono-Bold.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Departure Mono";
+        src: url("fonts/DepartureMono-Regular.woff2") format("woff2");
+      }
+
+      /* Colours follow pi.dev's dark (:root) and light ([data-theme="light"]) tokens. */
+      :root {
+        --bg: #161d27;
+        --grid: #d5e1f212;
+        --ink: #ebe7e4;
+        --sub: #6a9fcc;
+        --panel: #212730;
+        --panel-line: #495059;
+        --panel-shadow: #00000059;
+        --text: #d5d8db;
+        --dim: #9fa4ab;
+        --accent: #6a9fcc;
+        --add: #5db87a;
+        --del: #e8704f;
+        --string: #e1b06e;
+      }
+      :root[data-theme="light"] {
+        --bg: #ebe7e4;
+        --grid: #252f3d14;
+        --ink: #252f3d;
+        --sub: #4b607c;
+        --panel: #f4f2f0;
+        --panel-line: #8b847d59;
+        --panel-shadow: #5c575224;
+        --text: #252f3d;
+        --dim: #6b645e;
+        --accent: #4b607c;
+        --add: #2e7d4f;
+        --del: #b8432e;
+        --string: #7a4f10;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        background: transparent;
+      }
+      .banner {
+        position: relative;
+        width: 1280px;
+        height: 400px;
+        overflow: hidden;
+        border-radius: 12px;
+        color: var(--ink);
+        font-family: "JetBrains Mono", monospace;
+        font-variant-ligatures: none;
+        background-color: var(--bg);
+        background-image:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-position: -1px -1px;
+        background-size: 20px 20px;
+      }
+
+      .intro {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 60px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        width: 420px;
+      }
+      /* Departure Mono is drawn on an 11 px grid; multiples of 11 px keep its pixels sharp. */
+      .intro h1 {
+        margin: 28px 0 22px;
+        font:
+          400 44px/48px "Departure Mono",
+          monospace;
+      }
+      .intro p {
+        color: var(--sub);
+        font:
+          22px/30px "Departure Mono",
+          monospace;
+      }
+
+      .session {
+        position: absolute;
+        top: 38px;
+        left: 520px;
+        width: 712px;
+        background: var(--panel);
+        border: 1px solid var(--panel-line);
+        box-shadow: 0 14px 34px var(--panel-shadow);
+      }
+      .session pre {
+        padding: 18px 22px;
+        color: var(--text);
+        font: inherit;
+        font-size: 18px;
+        line-height: 26px;
+      }
+      /* pi-tool-display's diff panel: tinted strips and changed rows, one column of padding. */
+      .diff {
+        display: block;
+        padding: 0 0.6em;
+        background: color-mix(in srgb, var(--panel), var(--dim) 8%);
+      }
+      .diff.removed {
+        background: color-mix(in srgb, var(--panel), var(--del) 12%);
+      }
+      .diff.added {
+        background: color-mix(in srgb, var(--panel), var(--add) 12%);
+      }
+      .change {
+        font-weight: 700;
+        background: color-mix(in srgb, transparent, var(--accent) 16%);
+      }
+      .string {
+        color: var(--string);
+      }
+      b {
+        font-weight: 700;
+      }
+      .dim {
+        color: var(--dim);
+      }
+      .accent {
+        color: var(--accent);
+      }
+      .add {
+        color: var(--add);
+      }
+      .del {
+        color: var(--del);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      <div class="intro">
+        <svg
+          width="50"
+          height="50"
+          viewBox="165.29 165.29 469.43 469.43"
+          role="img"
+          aria-label="Pi logo"
+        >
+          <path fill="#F09082" d="M165.29 165.29H517.36V400H400V282.65H165.29Z" />
+          <path fill="#4D9ABF" d="M165.29 282.65H282.65V400H400V517.36H282.65V634.72H165.29Z" />
+          <path fill="#F1BE58" d="M517.36 400H634.72V634.72H517.36Z" />
+        </svg>
+        <h1>Good defaults,<br />engineered<br />with care</h1>
+        <p>17 extensions<br />for the Pi coding agent</p>
+      </div>
+
+      <div class="session">
+        <pre><span class="accent">›</span> Accept trailing commas in the parser, then test.
+<span class="dim">•</span> <b class="accent">Subagent</b> Locate list parsing<span class="dim"> · </span><span class="add">✓ completed 38.2s</span>
+<span class="dim">  │ anthropic/claude-haiku-5-5:xhigh · ↑48k ↓3.1k $0.21</span>
+<span class="dim">  └ Lists close in parseList, src/parser.ts:52.</span>
+• Edited src/parser.ts
+<span class="diff"><span class="add">+1</span> <span class="del">-1</span></span><span class="diff removed"><span class="dim">54</span> <span class="del">-</span>    <span class="accent">if</span> (at(<span class="string">"]"</span>)) <span class="change"><span class="accent">throw</span> unexpected(<span class="string">","</span>)</span>;</span><span class="diff added"><span class="dim">54</span> <span class="add">+</span>    <span class="accent">if</span> (at(<span class="string">"]"</span>)) <span class="change"><span class="accent">break</span></span>;</span>• Ran vp test parser <span class="add">✓</span> <span class="dim">2.1s</span>
+<span class="dim">• anthropic/claude-opus-5-5:medium (48.2 tok/s) · 1m 23s</span>
+<span class="dim">    ran 1 command · delegated 1 task · edited 1 file · </span><span class="add">+1</span> <span class="del">-1</span></pre>
+      </div>
+    </div>
+  </body>
+</html>

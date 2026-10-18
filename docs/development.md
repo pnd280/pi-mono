@@ -61,6 +61,8 @@ Keep runtime code independent of package-local `validation/` fixtures. Across pa
 
 Keep shared development tooling and Pi host packages in root `devDependencies`; declare package-specific dependencies locally. Use `workspace:*` for local packages and `catalog:` for external versions in [pnpm-workspace.yaml](../pnpm-workspace.yaml). Pi `peerDependencies` use `catalog:pi-host` to retain host-supplied versions independently of development versions.
 
+Runtime code can import only the host entry points that Pi supplies to installed extensions: the `@earendil-works/pi-ai` root, `/compat`, `/oauth`, and `/providers/all`; the roots of `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`, and `@earendil-works/pi-coding-agent`; and `typebox` with `/compile` and `/value`. Inside the workspace, other subpaths resolve to the development copy in `node_modules`, so lint rejects value imports of them in runtime code. Type imports are allowed, because TypeScript removes them before Pi runs the code. Worker files get none of these entry points, because Node loads them without Pi's loader. The [release check](#release-branch) finds the failures that lint misses.
+
 Use `vp add --save-catalog`, `vp remove`, or `vp update`; include pnpm lockfile changes.
 
 When updating Vite+, keep the direct `vite` alias and override aligned with `vp toolchain` for Vitest's pnpm peer dependency; let Vite+ select its transitive Vitest version.
@@ -76,6 +78,20 @@ export { default } from "./src/index.ts";
 ```
 
 Set `pi.extensions` to `["./index.ts"]`; include the wrapper in `tsconfig.json` and checks. It gives local extensions their package directory name in Pi's compact startup list.
+
+### Release branch
+
+Users [install](../README.md#install) the generated `release` branch. Pull requests run [check.yml](../.github/workflows/check.yml). On each push to `master`, [release.yml](../.github/workflows/release.yml) runs the same checks first. When they pass, its `release` job builds the tree with [build-release.ts](../.scripts/build-release.ts) and commits it to `release` when the tree changed. The job never force-pushes, so commits that users installed stay available.
+
+To release a version, raise `version` in the root `package.json`. The job tags the first `release` commit that has a version `v<version>`, if that tag does not exist yet. Tags never move, so a tag always names the same build. A push without a version change moves only the branch.
+
+The build includes every package under `packages/` and `packages/extensions/`, so a new extension needs no release change. `pnpm pack` replaces the `workspace:` and `catalog:` specifiers, which npm rejects. The build removes tests, `validation/` fixtures, `AGENTS.md`, `tsconfig.json`, scripts, and development dependencies. Then it installs a copy outside the workspace with Pi's npm command and starts the Pi CLI with every extension and an offline model. An extension that fails to load fails the job. The offline model also starts both worker threads from the installed copy, because print mode never starts them, and it fails the job when one does not answer.
+
+Must not regress ([testing policy](agents/testing.md#coverage)):
+
+- **High, e2e:** In an installed copy of the release tree, the bounded-diff and pi-prompt-manager collection workers start and return a result. Otherwise, pi-agent-summary and pi-tool-display show no diffs, and pi-prompt-manager can't read or write collections of 1 MiB or more.
+
+To inspect the tree, run `node .scripts/build-release.ts`. It writes `.tmp/release` and needs network access for npm.
 
 ## Documentation
 

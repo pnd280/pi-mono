@@ -1,6 +1,6 @@
-import { MODEL_THINKING_LEVELS } from "@earendil-works/pi-ai/providers/model-schema";
 import { readScopedSettings, readSettingsRecord } from "@pi-mono/libs/settings-file";
 import { modelReferenceSchema } from "@pi-mono/utils/model-reference";
+import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
 const configSchema = z.strictObject({

@@ -1,9 +1,9 @@
 name: check
 
+# Pull requests run this workflow; on master, release.yml runs it before the release job.
 on:
-  push:
-    branches: [master]
   pull_request:
+  workflow_call:
 
 jobs:
   check:

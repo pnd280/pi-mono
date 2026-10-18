@@ -8,7 +8,8 @@ export default defineConfig({
       "**/.pi/**/*.jsonl",
       "**/.pi/worktrees/**/*",
       "**/dist/**/*",
-      "**/node_modules/**/*"
+      "**/node_modules/**/*",
+      "**/routeTree.gen.ts"
     ],
     sortImports: {
       groups: [
@@ -101,6 +102,21 @@ export default defineConfig({
                   from: { file: { categories: { noneOf: ["test", "fixture", "validation"] } } },
                   disallow: { to: { file: { categories: ["test", "fixture", "validation"] } } },
                   message: "Runtime modules must not import tests or validation fixtures."
+                },
+                {
+                  from: { file: { categories: { noneOf: ["test", "fixture", "validation"] } } },
+                  disallow: {
+                    dependency: {
+                      kind: "value",
+                      source: [
+                        "@earendil-works/pi-ai/!(compat|oauth|providers)/**",
+                        "@earendil-works/pi-ai/providers/!(all)/**",
+                        "@earendil-works/{pi-agent-core,pi-coding-agent,pi-tui}/**/*"
+                      ]
+                    }
+                  },
+                  message:
+                    "Installed extensions can import only the Pi host entry points in docs/development.md."
                 },
                 {
                   from: {

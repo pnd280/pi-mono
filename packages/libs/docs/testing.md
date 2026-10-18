@@ -42,6 +42,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - Output retention, working-message contributions and ordering, scripted provider streams, and the interactive host fixture are below the severity bar.
 - TUI layout, settings-frame presentation, and diff-row appearance are below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation).
 - Extension-specific collection formats and tool-card policies: owned by extensions.
+- Worker loading in the installed `release` tree, where workers get no Pi host packages: owned by the [release check](../../../docs/development.md#release-branch).
 
 ## Manual checks
 

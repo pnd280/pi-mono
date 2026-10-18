@@ -4,8 +4,8 @@ import {
   uuidv7,
   type Context
 } from "@earendil-works/pi-ai";
-import { raceWithAbortSignal } from "@earendil-works/pi-ai/utils/abort";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+import { raceWithAbortSignal } from "@pi-mono/libs/abort-race";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { splitModelReference } from "@pi-mono/utils/model-reference";
 

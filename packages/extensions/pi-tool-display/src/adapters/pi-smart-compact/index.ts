@@ -1,6 +1,6 @@
-import { MODEL_THINKING_LEVELS } from "@earendil-works/pi-ai/providers/model-schema";
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { modelReferenceSchema } from "@pi-mono/utils/model-reference";
+import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
 import type { InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";

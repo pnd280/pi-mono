@@ -24,6 +24,7 @@ This package tests collection formats, retention and recovery, activation, clipb
 - Capture ordering, history deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing: below the severity bar. Use the [manual validation checks](validation.md).
 - Settings parsing and fallback: below the severity bar.
 - Shared browser geometry and native editor history: owned by libs and Pi.
+- Collection worker loading in the installed `release` tree, where the worker gets no Pi host packages: owned by the [release check](../../../../docs/development.md#release-branch).
 
 ## Manual checks
 

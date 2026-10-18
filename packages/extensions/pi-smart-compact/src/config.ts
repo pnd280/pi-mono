@@ -1,7 +1,6 @@
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 
-import { MODEL_THINKING_LEVELS } from "@earendil-works/pi-ai/providers/model-schema";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
   readScopedSettings,
@@ -10,6 +9,7 @@ import {
 } from "@pi-mono/libs/settings-file";
 import { modelReferenceSchema, splitModelReference } from "@pi-mono/utils/model-reference";
 import { expandHomePath } from "@pi-mono/utils/paths";
+import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
 export const thinkingLevelSchema = z.enum(MODEL_THINKING_LEVELS);

@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+/* The README hero (docs/assets/hero.html) owns these font files and their licence note. */
+@font-face {
+  font-family: "JetBrains Mono";
+  font-display: swap;
+  src: url("../../../docs/assets/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 700;
+  font-display: swap;
+  src: url("../../../docs/assets/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Departure Mono";
+  font-display: swap;
+  src: url("../../../docs/assets/fonts/DepartureMono-Regular.woff2") format("woff2");
+}
+
+/* Colours follow pi.dev's dark and light tokens, as in the README hero. */
+:root {
+  color-scheme: dark;
+  --bg: #161d27;
+  --grid: #d5e1f212;
+  --ink: #ebe7e4;
+  --sub: #6a9fcc;
+  --panel: #212730;
+  --panel-line: #495059;
+  --panel-shadow: #00000059;
+  --text: #d5d8db;
+  --dim: #9fa4ab;
+  --accent: #6a9fcc;
+  --add: #5db87a;
+  --del: #e8704f;
+  --string: #e1b06e;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #ebe7e4;
+    --grid: #252f3d14;
+    --ink: #252f3d;
+    --sub: #4b607c;
+    --panel: #f4f2f0;
+    --panel-line: #8b847d59;
+    --panel-shadow: #5c575224;
+    --text: #252f3d;
+    --dim: #6b645e;
+    --accent: #4b607c;
+    --add: #2e7d4f;
+    --del: #b8432e;
+    --string: #7a4f10;
+  }
+}
+
+@theme inline {
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-pixel: "Departure Mono", ui-monospace, monospace;
+  --color-bg: var(--bg);
+  --color-ink: var(--ink);
+  --color-sub: var(--sub);
+  --color-panel: var(--panel);
+  --color-panel-line: var(--panel-line);
+  --color-panel-shadow: var(--panel-shadow);
+  --color-text: var(--text);
+  --color-dim: var(--dim);
+  --color-accent: var(--accent);
+  --color-add: var(--add);
+  --color-del: var(--del);
+  --color-string: var(--string);
+}
+
+@utility grid-paper {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-position: -1px -1px;
+  background-size: 20px 20px;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+}

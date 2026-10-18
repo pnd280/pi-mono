@@ -14,6 +14,7 @@
     "./file-rename": "./src/file-rename/index.ts",
     "./native-tools": "./src/native-tools/index.ts",
     "./timed-confirmation": "./src/timed-confirmation/index.ts",
+    "./abort-race": "./src/abort-race/index.ts",
     "./private-files": "./src/private-files/index.ts",
     "./tui/responsive-custom-ui": "./src/tui/responsive-custom-ui/index.ts",
     "./tui/open-browser": "./src/tui/open-browser/index.ts",

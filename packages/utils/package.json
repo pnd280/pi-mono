@@ -8,6 +8,7 @@
     "./search-scopes": "./src/search-scopes.ts",
     "./paths": "./src/paths.ts",
     "./model-reference": "./src/model-reference.ts",
+    "./thinking-levels": "./src/thinking-levels.ts",
     "./shell": "./src/shell.ts",
     "./patch": "./src/patch.ts",
     "./output-text": "./src/output-text.ts",
