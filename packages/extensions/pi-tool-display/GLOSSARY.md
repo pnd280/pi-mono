@@ -51,7 +51,7 @@ A maximal sequence of this extension's calls between visible non-thinking bounda
 _Avoid_: turn, batch, group
 
 **Summary line**:
-The single line that replaces an ended run in summary mode.
+The single line that replaces an ended run in summary mode. An opened run keeps it as its header.
 _Avoid_: collapsed run, summary card
 
 **Row chrome**:

@@ -3,7 +3,7 @@
 Long agent runs bury tool results. pi-tool-display replaces Pi's default tool-call output with compact cards. A finished run collapses to one line:
 
 ```text
-  Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file
+▸ Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file   12 calls
 ```
 
 Click the line to see the cards again. Cards use the active theme and syntax highlighter, show live shell previews, and show [file diffs](docs/presentation.md#diff-viewer) for edits and writes.
@@ -28,7 +28,7 @@ Compact cards keep diagnostics and images beneath their call when successful tex
 
 Summary lines need Pi's fullscreen mode. In regular mode, `summary` renders as `compact`, and **Ctrl+O** toggles between `compact` and `verbose`.
 
-In fullscreen, clicking a card, group, or summary line expands it. Clicking the horizontal rule above or below an opened run collapses it again. Cards ignore clicks with Shift, Alt, or Ctrl held, so those clicks don't expand, collapse, or open anything. Regular mode leaves mouse input to the terminal.
+In fullscreen, clicking a card, group, or summary line expands it. Clicking an opened run's summary line, or the `▴ collapse` bar below its cards, collapses it again. Cards ignore clicks with Shift, Alt, or Ctrl held, so those clicks don't expand, collapse, or open anything. Regular mode leaves mouse input to the terminal.
 
 In fullscreen, click a subagent card or background result with a task ID to open its transcript. Click a job card or job result to open the job. pi-subagents checks that the card is current and that it owns the task or job. Use **Ctrl+O** to expand its details.
 

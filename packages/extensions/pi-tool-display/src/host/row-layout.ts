@@ -56,19 +56,21 @@ export function bindRowChrome(
   // oxlint-disable-next-line typescript/unbound-method
   const previousInvalidate = row.invalidate;
   let targets: RowLayout["targets"] = [];
-  let summary: { revision: number; width: number; line: string[] } | undefined;
+  let summary: { revision: number; width: number; open: boolean; line: string[] } | undefined;
 
   // The coordinator invalidates a leader when its run changes; Pi invalidates rows
   // on theme changes.
-  const summaryLine = (width: number, theme: DisplayTheme | undefined) => {
+  const summaryLine = (width: number, theme: DisplayTheme | undefined, open: boolean) => {
     if (!theme) return [];
 
-    if (summary?.revision !== call.revision || summary.width !== width) {
+    if (summary?.revision !== call.revision || summary.width !== width || summary.open !== open) {
       const model = coordinator.summary(call);
+      const calls = coordinator.run(call)?.members.length ?? 1;
       summary = {
         revision: call.revision,
         width,
-        line: renderRunSummary(model, { width, theme })
+        open,
+        line: renderRunSummary(model, { width, theme, open, calls })
       };
     }
 
@@ -88,7 +90,7 @@ export function bindRowChrome(
       coordinator,
       width,
       theme,
-      () => summaryLine(width, theme),
+      (open) => summaryLine(width, theme, open),
       notice,
       options.tail?.() ?? true
     );

@@ -2,6 +2,7 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import type { DisplayCall, DisplayGroup, DisplayRun, SummaryRole } from "../contracts.ts";
+import { renderRunFooter } from "./summary-line.ts";
 import type { DisplayTheme } from "./types.ts";
 
 /** Chrome around one Pi transcript row. */
@@ -12,7 +13,9 @@ export type RowChrome =
       kind: "card";
       joined: boolean;
       imagePrefix: string;
-      collapse: { top: boolean; bottom: boolean; rule: string } | undefined;
+      /** Collapse controls of an opened run: its summary line above, its end bar below. */
+      header: readonly string[];
+      footer: readonly string[];
     };
 
 export type RowTarget = { kind: "card"; y: number } | { kind: "collapse" };
@@ -51,23 +54,38 @@ export function layoutRow(
 
   const self = selfHeight > 0 ? rows.slice(1, selfHeight + 1) : [];
   const images = rows.slice(selfHeight > 0 ? selfHeight + 1 : 0);
-  const collapse = chrome.collapse;
   if (self.length && !chrome.joined) push("");
 
-  if (collapse?.top) {
-    push(collapse.rule, { kind: "collapse" });
-    push("", { kind: "collapse" });
+  if (chrome.header.length) {
+    chrome.header.forEach((row) => push(row, { kind: "collapse" }));
+    push("");
   }
 
   self.forEach((row, y) => push(row, { kind: "card", y }));
   images.forEach((row) => push(chrome.imagePrefix + row));
 
-  if (collapse?.bottom) {
-    push("", { kind: "collapse" });
-    push(collapse.rule, { kind: "collapse" });
+  if (chrome.footer.length) {
+    push("");
+    chrome.footer.forEach((row) => push(row, { kind: "collapse" }));
   }
 
   return layout;
+}
+
+const NO_CONTROLS = { header: [], footer: [] } as const;
+
+/** An opened run's summary line stays above its first card; an end bar follows its last. */
+function collapseControls(
+  top: boolean,
+  bottom: boolean,
+  width: number,
+  theme: DisplayTheme,
+  summaryLine: (open: boolean) => readonly string[]
+) {
+  return {
+    header: top ? summaryLine(true) : [],
+    footer: bottom ? renderRunFooter(width, theme) : []
+  };
 }
 
 export function rowChrome(
@@ -75,13 +93,13 @@ export function rowChrome(
   coordinator: RowView,
   width: number,
   theme: DisplayTheme | undefined,
-  summaryLine: () => readonly string[],
+  summaryLine: (open: boolean) => readonly string[],
   notice: boolean,
   tail: boolean
 ): RowChrome {
   const role = coordinator.summaryRole(call);
   if (role && (notice || role.kind === "hidden")) return { kind: "hidden" };
-  if (role) return { kind: "summary", line: summaryLine() };
+  if (role) return { kind: "summary", line: summaryLine(false) };
   const group = notice || call.expanded ? undefined : coordinator.group(call);
   const run = coordinator.run(call);
   const top = !notice && run?.members[0] === call;
@@ -99,13 +117,6 @@ export function rowChrome(
       Math.max(0, width - 1),
       ""
     ),
-    collapse: collapsible
-      ? {
-          top,
-          bottom,
-          // An opened run's collapse action, a rule that spans the row.
-          rule: theme.fg("dim", TUI_GLYPHS.tree.horizontal.repeat(Math.max(0, width)))
-        }
-      : undefined
+    ...(collapsible ? collapseControls(top, bottom, width, theme, summaryLine) : NO_CONTROLS)
   };
 }

@@ -22,7 +22,7 @@ Cards share one layout: a heading marker, a target line, and a bounded result ar
 | Collapsed card or group heading | `•`                                                                                                                                                                                                                          |
 | Expanded card                   | `▾`                                                                                                                                                                                                                          |
 | Pending card or group           | The marker alternates between `muted` and `dim` every 600 ms and stays visible. [Standalone renderers](renderers.md) keep a steady marker. Pending verbs and labels use `warning`, also in group members and progress cards. |
-| Summary line                    | None                                                                                                                                                                                                                         |
+| Summary line                    | `▸` when its run is collapsed, `▾` when it is open. An opened run ends with a `▴ collapse` bar.                                                                                                                              |
 
 ### Target paths
 
@@ -194,8 +194,10 @@ Each category counts identities separately and keeps their latest outcomes.
 
 ### Line layout
 
-- The line has no leading marker. Each row is indented two columns.
+- The line is a bar: every row fills the full width with `toolPendingBg`.
+- The first row starts with a `▸` marker in `muted`. Wrapped rows are indented two columns, aligned with the first item.
 - Wrapping happens only between items, with no row limit. An item wider than the line is truncated.
+- The run's call count, such as `11 calls`, sits at the right of the last row in `dim`. When it does not fit after the last item, it gets a row of its own.
 - Colours: a leading verb uses `accent` (bold for the first item), counts use `text`, other words use `muted`, and separators use `dim`. Failed and cancelled counts use `error`; unavailable counts use `muted`.
 - Calls with images, and failed or cancelled calls, add to the counts; their images and diagnostic text stay hidden. Error text appears only in opened runs.
 
@@ -203,15 +205,15 @@ Each category counts identities separately and keeps their latest outcomes.
 
 Use fullscreen summary mode with an ended run.
 
-| Do                                                 | Expect                                                                 |
-| -------------------------------------------------- | ---------------------------------------------------------------------- |
-| Left-click the summary line.                       | The run opens as compact cards.                                        |
-| Click a group or card in the opened run.           | It expands or collapses as usual.                                      |
-| Click either horizontal rule or its inner padding. | The summary line returns; individual cards keep their expansion state. |
+| Do                                                    | Expect                                                                 |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| Left-click the summary line.                          | The run opens as compact cards.                                        |
+| Click a group or card in the opened run.              | It expands or collapses as usual.                                      |
+| Click the run's summary line or its `▴ collapse` bar. | The summary line returns; individual cards keep their expansion state. |
 
-An opened, ended run has plain full-width `dim` rules above its first card and below its last card or trailing instruction notice, including any images. One blank row separates the content from each rule. The rules have no label or triangle marker.
+An opened, ended run keeps its summary line as a header above its first card, with the `▾` marker. A `▴ collapse` bar follows its last card or trailing instruction notice, including any images. The end bar uses the same `toolPendingBg` surface, with the marker in `muted` and the label in `dim`. One blank row separates the content from each bar. Only the bar rows collapse the run.
 
-Single-card runs have both rules too. Runs whose line would be empty, such as todo-only runs without counted notices, have no collapse controls. Any mode change, including a TUI mode switch, closes opened runs.
+Single-card runs have both bars too. Runs whose line would be empty, such as todo-only runs without counted notices, have no collapse controls. Any mode change, including a TUI mode switch, closes opened runs.
 
 ## Thinking
 

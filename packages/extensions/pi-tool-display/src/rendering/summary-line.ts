@@ -1,4 +1,5 @@
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
 import type { RunSummary, SummarySegment } from "../run-summary.ts";
@@ -6,10 +7,17 @@ import type { DisplayTheme } from "./types.ts";
 
 const SEPARATOR = " · ";
 const INDENT = "  ";
+const RESET = "\x1b[0m";
+/** Least space between the last item and the call count on one row. */
+const COUNT_GAP = 3;
 
 export type SummaryLineOptions = {
   width: number;
   theme: DisplayTheme;
+  /** The run's cards show below the line. */
+  open: boolean;
+  /** Calls in the run. */
+  calls: number;
 };
 
 type Color = Parameters<DisplayTheme["fg"]>[0];
@@ -69,10 +77,24 @@ function segmentText(segment: SummarySegment, theme: DisplayTheme, first: boolea
   );
 }
 
-/** Pure: one summary line, wrapped only between items. */
+/** Pad a styled row to the full width on the bar surface. Inline resets restart the surface. */
+function barRow(row: string, width: number, theme: DisplayTheme): string {
+  const clipped = truncateToWidth(row, width, "");
+  const padded = clipped + " ".repeat(Math.max(0, width - visibleWidth(clipped)));
+
+  return padded
+    .split(RESET)
+    .map((part) => (part ? theme.bg("toolPendingBg", part) : part))
+    .join(RESET);
+}
+
+/**
+ * Pure: one summary line on a full-width bar, wrapped only between items. A marker
+ * shows whether the run is open, and the call count sits at the right.
+ */
 export function renderRunSummary(summary: RunSummary, options: SummaryLineOptions): string[] {
-  const { width, theme } = options;
-  if (width < 1) return [];
+  const { width, theme, open, calls } = options;
+  if (width < 1 || !summary.segments.length) return [];
   const contentWidth = Math.max(1, width - INDENT.length);
   const separator = theme.fg("dim", SEPARATOR);
   const items = summary.segments.map((segment, index) =>
@@ -92,6 +114,26 @@ export function renderRunSummary(summary: RunSummary, options: SummaryLineOption
   }
 
   if (current) rows.push(current);
+  const marker = theme.fg("muted", open ? TUI_GLYPHS.expanded : TUI_GLYPHS.closed);
+  const lines = rows.map((row, y) => `${y ? INDENT : `${marker} `}${row}`);
+  const count = theme.fg("dim", `${calls} ${calls === 1 ? "call" : "calls"} `);
+  const last = lines.at(-1) ?? "";
+  const gap = width - visibleWidth(last) - visibleWidth(count);
 
-  return rows.map((row) => truncateToWidth(`${INDENT}${row}`, width, ""));
+  // Put the count on its own row when it does not fit after the last item.
+  if (gap >= COUNT_GAP) lines[lines.length - 1] = last + " ".repeat(gap) + count;
+  else
+    lines.push(
+      INDENT + " ".repeat(Math.max(0, width - INDENT.length - visibleWidth(count))) + count
+    );
+
+  return lines.map((row) => barRow(row, width, theme));
+}
+
+/** The bar below an opened run. A click on it returns the run to its summary line. */
+export function renderRunFooter(width: number, theme: DisplayTheme): string[] {
+  if (width < 1) return [];
+  const label = `${theme.fg("muted", TUI_GLYPHS.collapse)} ${theme.fg("dim", "collapse")}`;
+
+  return [barRow(label, width, theme)];
 }

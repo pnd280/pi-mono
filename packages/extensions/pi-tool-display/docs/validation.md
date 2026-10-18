@@ -105,7 +105,8 @@ Setup: fullscreen fixture in summary mode unless a row says otherwise.
 | Watch the tail shell while it runs.                                                           | Its run keeps compact cards.                                                                                |
 | Wait for the agent to finish.                                                                 | The tail run collapses to one summary line.                                                                 |
 | Repeat, clicking the shell card while it runs, then wait for the agent to finish.             | The run stays open with the [documented collapse controls](presentation.md#opening-and-closing-a-run).      |
-| Click either rule or its inner padding.                                                       | The run returns to its [summary line](presentation.md#line-layout).                                         |
+| Click the run's summary line or its `▴ collapse` bar.                                         | The run returns to its [summary line](presentation.md#line-layout).                                         |
+| Inspect summary lines in the dark and light themes, at full width and at 52 columns.          | They follow the [line layout](presentation.md#line-layout): one full-width bar, call count at the right.    |
 | Open the run again.                                                                           | Individual cards keep their expansion state.                                                                |
 | Repeat with a single-card run and a run ending in an image, after resize and group expansion. | The bottom control stays below all output and images.                                                       |
 | Click the image.                                                                              | The run stays open.                                                                                         |
@@ -137,7 +138,7 @@ Setup: load `pi-nested-instructions` and put a nested instruction file in the di
 | Inspect that run's summary.                               | It includes `loaded 1 instruction file`.                                   |
 | Load several files, update one, remove one.               | Loaded files, updated files, and removed directories have separate counts. |
 | Open the summary, expand the notice, and resize.          | The notice stays in place.                                                 |
-| Collapse with the bottom rule.                            | The notice hides with the run.                                             |
+| Collapse with the `▴ collapse` bar.                       | The notice hides with the run.                                             |
 | Repeat through replay and **Ctrl+O**.                     | Notice placement, counts, and visibility match the live run.               |
 | Insert an unrelated visible custom message between calls. | The message splits the runs.                                               |
 

@@ -6,6 +6,8 @@ export const TUI_GLYPHS = {
   bullet,
   activeBullet,
   expanded: "▾",
+  closed: "▸",
+  collapse: "▴",
   queued: "◌",
   outcome: {
     success: "✓",
