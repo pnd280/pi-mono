@@ -162,12 +162,13 @@ function deferUnits(
 }
 
 /**
- * `allow` (or the base tools) without `deny`. A pattern in `allow` names the registered tools that
- * it matches. A `defer` tool stays active when it is active now and the branch has used it, or when
- * no declared `tool_search` can load it again. Pi's `tool_search` loads `codemode` and `deferred`
- * tools; the extension's copy also loads `direct` and `model-only` tools that a profile deferred,
- * and a profile that defers them declares `tool_search`. A group is deferred only as a whole, and
- * only the extension's copy loads it together.
+ * `allow` (or the base tools) without `deny`. A pattern in `allow` names the registered `direct` and
+ * `model-only` tools that it matches, as Pi's `--tools` does, and the base tools that it matches,
+ * such as `codemode` tools that `tool_search` loaded. A `defer` tool stays active when it is active
+ * now and the branch has used it, or when no declared `tool_search` can load it again. Pi's
+ * `tool_search` loads `codemode` and `deferred` tools; the extension's copy also loads `direct` and
+ * `model-only` tools that a profile deferred, and a profile that defers them declares `tool_search`.
+ * A group is deferred only as a whole, and only the extension's copy loads it together.
  */
 export function profileTools(
   profile: Profile,
@@ -176,9 +177,11 @@ export function profileTools(
   const { allow, deny = [], defer = [] } = profile.tools ?? {};
   const denied = toolMatcher(deny);
   const searchesDirect = state.ownsToolSearch && !denied(TOOL_SEARCH);
-  const registered = [...state.exposure.keys()];
+  const selectable = [...state.exposure].flatMap(([name, exposure]) =>
+    isDirect(exposure) || state.base.includes(name) ? [name] : []
+  );
   const named = allow?.flatMap((entry) =>
-    entry.includes("*") ? registered.filter(toolMatcher([entry])) : [entry]
+    entry.includes("*") ? selectable.filter(toolMatcher([entry])) : [entry]
   );
   const candidates = [...new Set(named ?? state.base)].filter((name) => !denied(name));
   const units = deferUnits(candidates, defer, state.exposure);

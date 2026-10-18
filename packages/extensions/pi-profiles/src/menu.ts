@@ -81,14 +81,26 @@ function reach(tool: ToolInfo, status: ToolStatus, data: MenuData): string[] {
 }
 
 /** Which of the selected profile's lists name the tool. The state above shows their effect. */
-function profileRule(name: string, { profile, ownsToolSearch }: MenuData): string[] {
+function profileRule(
+  { name, exposure }: ToolInfo,
+  { profile, ownsToolSearch }: MenuData
+): string[] {
   if (!profile?.tools) return [];
   const { allow, deny = [], defer } = profile.tools;
+
+  const allowRule = () => {
+    if (!allow || !toolMatcher(allow)(name)) return "does not include it in allow";
+    // As in Pi's `--tools`, a pattern does not turn on `codemode` or `deferred` tools.
+    if (allow.includes(name) || isDirect(exposure)) return "includes it in allow";
+
+    return "matches an allow pattern, which does not turn on codemode or deferred tools";
+  };
+
   const denied = toolMatcher(deny)(name);
   // A tool belongs to the first `defer` entry that matches it.
   const entry = defer?.find((entry) => toolMatcher(entryNames(entry))(name));
   const lists = [
-    allow && (toolMatcher(allow)(name) ? "includes it in allow" : "does not include it in allow"),
+    allow && allowRule(),
     denied && "includes it in deny",
     entry !== undefined &&
       (typeof entry === "string" ? "includes it in defer" : "includes it in a defer group")
@@ -113,7 +125,7 @@ function toolItems(data: MenuData): ToolItem[] {
     const status = toolStatus(tool, data);
     const details = [
       ...reach(tool, status, data),
-      ...profileRule(tool.name, data),
+      ...profileRule(tool, data),
       data.used.has(tool.name) ? "The model called it on this branch." : undefined,
       `Source: ${tool.sourceInfo.path}`,
       "",

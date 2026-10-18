@@ -390,7 +390,7 @@ it("defers unused tools of any exposure only when tool_search can load them agai
   );
 });
 
-it("matches * patterns in allow, deny, and defer against the registered tools, and defers each match of a defer pattern on its own", async () => {
+it("matches * patterns in deny and defer against the registered tools, and in allow only against direct, model-only, and base tools, and defers each match of a defer pattern on its own", async () => {
   const wild = {
     name: "wild",
     description: "Wild",
@@ -408,8 +408,9 @@ it("matches * patterns in allow, deny, and defer against the registered tools, a
   const fixture = await host(await workspace({ profiles: [wild, single] }), {
     replies: [search, () => fauxAssistantMessage("done"), search]
   });
-  fixture.session.setActiveToolsByName(["alpha", "beta"]);
+  fixture.session.setActiveToolsByName(["alpha", "beta", "gamma"]);
 
+  // `*a` keeps the base tool gamma. As in Pi's `--tools`, it does not turn on the codemode tool delta.
   await fixture.session.prompt("/profile wild");
   await fixture.session.prompt("search");
   // `*a` matches alpha and gamma, but loading alpha does not load gamma.
@@ -417,8 +418,8 @@ it("matches * patterns in allow, deny, and defer against the registered tools, a
   await fixture.session.prompt("search again");
 
   expect(fixture.requests.map(({ tools }) => tools)).toEqual([
-    ["delta", "gamma", "tool_search"],
-    ["alpha", "delta", "gamma", "tool_search"],
+    ["gamma", "tool_search"],
+    ["alpha", "gamma", "tool_search"],
     ["tool_search"],
     ["alpha", "tool_search"]
   ]);

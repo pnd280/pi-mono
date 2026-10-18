@@ -34,12 +34,14 @@
 - [ ] The built-in `tool-search` extension is still replaceable: an extension that registers `tool_search` while loading stops it from loading, and `-builtin:tool-search` in `extensions` disables it.
 - [ ] `pi.getAllTools()` returns each tool's `reachesTools` function as registered, so the extension recognises its own `tool_search`.
 - [ ] `pi.setActiveTools()` turns on registered `direct` and `model-only` tools, and the MCP extension still activates a replacement `tool_search` that declares `reachesTools`.
+- [ ] With `codemode.mode` set to `"only"`, Pi still hides the declarations of active `direct` tools and lists them in the codemode description (`prepareCodemodeLoadout` in `extensions/codemode/tool.js`), as the README's [tools](../README.md#tools) section says.
 
 ### Patterns
 
 [Selection](../src/selection.ts):
 
 - [ ] In `--tools`, `--exclude-tools`, and `toolExposure`, `*` still matches any characters, and other characters match only themselves (`toolPatternRegExp` in `core/mcp-servers.js`). Pi does not export `createToolNameMatcher`, so the extension has its own copy. If Pi exports it, use it.
+- [ ] A `--tools` pattern still turns on only the `direct` and `model-only` tools that it matches (`_isDeclarable` in `agent-session.js`), so an `allow` pattern does the same.
 
 ### MCP tools
 
