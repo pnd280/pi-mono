@@ -4,7 +4,14 @@ import type { BrowserOptions, BrowserSection } from "@pi-mono/libs/tui/component
 import { openBrowser } from "@pi-mono/libs/tui/open-browser";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 
-import { entryNames, isDirect, TOOL_SEARCH, toolMatcher, type Deferred } from "./selection.ts";
+import {
+  allowPatternSelects,
+  entryNames,
+  isDirect,
+  TOOL_SEARCH,
+  toolMatcher,
+  type Deferred
+} from "./selection.ts";
 import type { Profile } from "./settings.ts";
 
 /** A configured profile, or `clear` for no profile. */
@@ -27,6 +34,8 @@ export interface MenuData {
   profile: Profile | undefined;
   tools: readonly ToolInfo[];
   active: readonly string[];
+  /** The active tools without the selected profile's changes. */
+  base: readonly string[];
   /** The latest selection's deferred tools. */
   deferred: Deferred;
   used: ReadonlySet<string>;
@@ -83,17 +92,17 @@ function reach(tool: ToolInfo, status: ToolStatus, data: MenuData): string[] {
 /** Which of the selected profile's lists name the tool. The state above shows their effect. */
 function profileRule(
   { name, exposure }: ToolInfo,
-  { profile, ownsToolSearch }: MenuData
+  { profile, base, ownsToolSearch }: MenuData
 ): string[] {
   if (!profile?.tools) return [];
   const { allow, deny = [], defer } = profile.tools;
 
   const allowRule = () => {
     if (!allow || !toolMatcher(allow)(name)) return "does not include it in allow";
-    // As in Pi's `--tools`, a pattern does not turn on `codemode` or `deferred` tools.
-    if (allow.includes(name) || isDirect(exposure)) return "includes it in allow";
+    if (allow.includes(name) || allowPatternSelects(name, exposure, base))
+      return "includes it in allow";
 
-    return "matches an allow pattern, which does not turn on codemode or deferred tools";
+    return "matches an allow pattern, which turns on only direct and model-only tools";
   };
 
   const denied = toolMatcher(deny)(name);

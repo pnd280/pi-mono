@@ -388,13 +388,17 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       };
     });
 
+    const branch = ctx.sessionManager.getBranch();
+    const active = pi.getActiveTools();
+
     return {
       choices,
       profile: findProfile(current),
       tools: pi.getAllTools(),
-      active: pi.getActiveTools(),
+      active,
+      base: baseTools(active, latestSelection(branch)?.selection),
       deferred,
-      used: usedTools(ctx.sessionManager.getBranch()),
+      used: usedTools(branch),
       ownsToolSearch: ownsToolSearch()
     };
   }

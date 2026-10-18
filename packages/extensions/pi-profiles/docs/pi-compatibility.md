@@ -34,7 +34,7 @@
 - [ ] The built-in `tool-search` extension is still replaceable: an extension that registers `tool_search` while loading stops it from loading, and `-builtin:tool-search` in `extensions` disables it.
 - [ ] `pi.getAllTools()` returns each tool's `reachesTools` function as registered, so the extension recognises its own `tool_search`.
 - [ ] `pi.setActiveTools()` turns on registered `direct` and `model-only` tools, and the MCP extension still activates a replacement `tool_search` that declares `reachesTools`.
-- [ ] With `codemode.mode` set to `"only"`, Pi still hides the declarations of active `direct` tools and lists them in the codemode description (`prepareCodemodeLoadout` in `extensions/codemode/tool.js`), as the README's [tools](../README.md#tools) section says.
+- [ ] With `codemode.mode` set to `"only"`, Pi still hides the declarations of active `direct` tools and lists them in the codemode description (`prepareCodemodeLoadout` in `extensions/codemode/tool.js`), as the README's [codemode-only mode](../README.md#codemode-only-mode) section says.
 
 ### Patterns
 

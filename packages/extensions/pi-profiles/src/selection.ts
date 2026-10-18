@@ -138,6 +138,17 @@ export const isDirect = (exposure: ToolExposure | undefined) =>
   exposure === "direct" || exposure === "model-only";
 
 /**
+ * Whether a `*` pattern in `allow` selects a tool that it matches. As Pi's `--tools` does, a pattern
+ * turns on only `direct` and `model-only` tools, so `codemode` exposure stays. It also keeps the
+ * base tools, such as `codemode` tools that `tool_search` loaded.
+ */
+export const allowPatternSelects = (
+  name: string,
+  exposure: ToolExposure | undefined,
+  base: readonly string[]
+) => isDirect(exposure) || base.includes(name);
+
+/**
  * The candidates' deferral units. A tool belongs to the first `defer` entry that matches it. A group
  * entry makes one unit of its tools; a name or pattern makes a unit of each tool. `tool_search`,
  * unregistered tools, and `hidden` tools have no unit, so they stay.
@@ -162,10 +173,9 @@ function deferUnits(
 }
 
 /**
- * `allow` (or the base tools) without `deny`. A pattern in `allow` names the registered `direct` and
- * `model-only` tools that it matches, as Pi's `--tools` does, and the base tools that it matches,
- * such as `codemode` tools that `tool_search` loaded. A `defer` tool stays active when it is active
- * now and the branch has used it, or when no declared `tool_search` can load it again. Pi's
+ * `allow` (or the base tools) without `deny`. A pattern in `allow` names the registered tools that
+ * it matches and selects (see {@link allowPatternSelects}). A `defer` tool stays active when it is
+ * active now and the branch has used it, or when no declared `tool_search` can load it again. Pi's
  * `tool_search` loads `codemode` and `deferred` tools; the extension's copy also loads `direct` and
  * `model-only` tools that a profile deferred, and a profile that defers them declares `tool_search`.
  * A group is deferred only as a whole, and only the extension's copy loads it together.
@@ -178,7 +188,7 @@ export function profileTools(
   const denied = toolMatcher(deny);
   const searchesDirect = state.ownsToolSearch && !denied(TOOL_SEARCH);
   const selectable = [...state.exposure].flatMap(([name, exposure]) =>
-    isDirect(exposure) || state.base.includes(name) ? [name] : []
+    allowPatternSelects(name, exposure, state.base) ? [name] : []
   );
   const named = allow?.flatMap((entry) =>
     entry.includes("*") ? selectable.filter(toolMatcher([entry])) : [entry]

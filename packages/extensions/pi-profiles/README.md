@@ -80,7 +80,7 @@ In **Profiles**, the `defer` list shows each [group](#groups) in square brackets
 
 | State        | Meaning                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------ |
-| `active`     | Pi has activated the tool. Codemode-only mode can still hide its declaration.                          |
+| `active`     | Pi has activated the tool. [Codemode-only mode](#codemode-only-mode) can still hide its declaration.   |
 | `deferred`   | The selected profile deferred the tool. The details tell whether the active `tool_search` can load it. |
 | `searchable` | The tool is not active. Its exposure is `codemode` or `deferred`, so `tool_search` can load it.        |
 | `off`        | The tool is not active, and `tool_search` cannot load it.                                              |
@@ -92,9 +92,12 @@ The menu shows the state when it opens. In RPC mode, `/profile` shows a plain li
 
 A profile declares `allow`, or else the base tools, without the tools in `deny`. The base tools are the tools that are declared without a profile: before the first switch, the current tools; later, the current tools with the previous profile's additions and removals undone. Changes made after a switch, such as tools that `tool_search` loaded, stay in the base.
 
-Profiles change Pi's active tools. With `codemode.mode` set to `"only"`, Pi can omit active tools from the model request and expose them through codemode instead. Profiles do not override this mode.
+Each entry in `allow`, `deny`, and `defer` is a tool name or a pattern in which `*` matches any characters, as in Pi's `--tools`. For example, `mcp__github__*` matches each tool of the `github` MCP server, and `*` matches every tool. A pattern in `allow` has these limits:
 
-Each entry in `allow`, `deny`, and `defer` is a tool name or a pattern in which `*` matches any characters, as in Pi's `--tools`. For example, `mcp__github__*` matches each tool of the `github` MCP server, and `*` matches every tool. As in `--tools`, a pattern in `allow` does not turn on `codemode` or `deferred` tools. It keeps those that are base tools, such as tools that `tool_search` loaded. To declare another `codemode` or `deferred` tool, put its name in `allow`. A pattern in `allow` matches only the tools that are registered when you switch. For a tool that registers later, for example from an MCP server that connects later, switch again. Until then, Pi decides whether that tool is declared; see [MCP tools](#mcp-tools).
+- As in `--tools`, a pattern in `allow` turns on only `direct` and `model-only` tools.
+- A pattern in `allow` keeps the `codemode` and `deferred` tools that are base tools, such as tools that `tool_search` loaded. To declare another `codemode` or `deferred` tool, put its name in `allow`.
+- A pattern in `allow` matches only the tools that are registered when you switch. For a tool that registers later, for example from an MCP server that connects later, switch again.
+- Until you switch again, Pi decides whether a tool that registers later is declared; see [MCP tools](#mcp-tools).
 
 A tool in `defer` is not declared, but the model can load it again with `tool_search`. A switch decides each `defer` tool that the profile would declare:
 
@@ -110,8 +113,6 @@ A tool in `defer` is not declared, but the model can load it again with `tool_se
 - A `codemode` or `deferred` tool stays declared if the profile does not declare `tool_search`, for example because `allow` omits it or `deny` lists it.
 - `tool_search` does not load `deny` tools with `direct` or `model-only` exposure. Denied `codemode` and `deferred` tools stay reachable; see [MCP tools](#mcp-tools).
 - Codemode scripts can call deferred `codemode` and `deferred` tools while `codemode` is declared, but not deferred `direct` or `model-only` tools.
-- With `codemode.mode` set to `"only"`, Pi hides the declaration of a `direct` tool that `tool_search` loads, so the model can call it only from codemode scripts. The `tool_search` result still says that the tool is available from the next call.
-- In that mode, the codemode description lists the active `direct` tools, so each load of a deferred `direct` tool makes Pi declare `codemode` again. Because Pi already hides `direct` declarations in that mode, use `deny` for `direct` tools, or keep them declared.
 - "Used" means that the model called the tool directly; calls from codemode scripts do not count. Names of tools that are not registered are ignored.
 - The switch notice lists deferred tools apart from removed tools, for example `Profile review: tools added tool_search; deferred bash, edit`.
 
@@ -130,6 +131,16 @@ Here each Linear tool is deferred alone, but one search can load more than one o
 - Only pi-profiles' [tool search](#tool-search) loads a group together. A group with more than one tool stays declared when `deny` lists `tool_search`, or when another extension owns `tool_search`.
 - A group contains only the tools that the profile would declare: `allow`, or else the base tools, without `deny`. It never contains `tool_search`, `hidden` tools, or tools that are not registered. `tool_search` loads no other tools as group tools, but it can still load a `codemode` or `deferred` tool that matches the query; see [MCP tools](#mcp-tools).
 - The `tool_search` result names only the tools that match the query. The other tools of their groups are declared from the next request too.
+
+#### Codemode-only mode
+
+While `codemode` is declared and `codemode.mode` is `"only"`, Pi leaves the active `direct` tools out of the model request. The codemode description lists them, and the model calls them from codemode scripts. Profiles change Pi's active tools, but they do not override this mode. The mode changes the effect of `defer`:
+
+- After `tool_search` loads a deferred `direct` tool, the model can call it only from codemode scripts, because Pi hides its declaration.
+- The `tool_search` result still says that the loaded tool is available from the next call.
+- Each load of a deferred `direct` tool changes the codemode description, so Pi declares `codemode` again.
+- Because Pi already hides `direct` declarations, deferral of a `direct` tool only removes it from the codemode description and from scripts.
+- To remove a `direct` tool, use `deny`. To keep it for scripts, leave it out of `defer`.
 
 ### Tool search
 
