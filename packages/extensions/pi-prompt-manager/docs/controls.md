@@ -52,8 +52,9 @@ Only one view can be open per session.
 
 - Search covers the complete terminal-safe plain text. It ignores case and repeated whitespace, but not accents or Unicode forms.
 - Results rank literal phrases first, then matches of all terms, then fuzzy matches.
-- While a search is pending, "Searching collection…" replaces the results and their action hints. You can still edit the search, switch collections, or cancel.
-- The selection stays on a matching occurrence. After a deletion, a nearby result is selected.
+- While you type, the previous results stay visible until the search finishes. If a search takes longer than 200 ms, "Searching collection…" replaces the results and their action hints.
+- While a search is pending, you can only edit the search, switch collections, or cancel.
+- Editing the search selects the first result. Otherwise, the selection stays on a matching occurrence. After a deletion, a nearby result is selected.
 - "History" fills the search from the editor text when the untrimmed text is a single line under 100 Unicode code points, then trims and sanitises it.
 - "Saved drafts" starts with an empty search.
 

@@ -295,7 +295,7 @@ export class Browser<Item> implements Component, Focusable {
     const { theme } = this.environment;
     const selected = state.selected;
     if (state.status === "loading") lines.push(theme.fg("dim", "  Loading collection…"));
-    else if (state.searching) lines.push(theme.fg("dim", "  Searching collection…"));
+    else if (state.searchNotice) lines.push(theme.fg("dim", "  Searching collection…"));
     else if (state.status === "unavailable")
       lines.push(
         ...wrapTextWithAnsi(`Unavailable: ${displayText(state.error)}`, width - 4)

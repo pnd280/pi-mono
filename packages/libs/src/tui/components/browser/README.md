@@ -7,8 +7,10 @@
 Extensions that need searchable sections with selection, previews, and actions use the collection browser. Use the [browser contracts](types.ts) for options and action signatures; [layout policy](layout.ts) chooses inline or overlay presentation.
 
 - Sections retain their own queries and selections.
-- Stable item keys preserve selection through search and refresh.
-- While a search is pending, a loading message replaces the results and their action hints. Query editing, section switching, and cancellation remain available.
+- A query edit selects the first result.
+- Stable item keys preserve selection through section switches and refresh.
+- After a query edit, the previous results stay visible while the search is pending. If the search takes longer than 200 ms, a loading message replaces the results and their action hints. Other searches show the message at once.
+- While a search is pending, only query editing, section switching, and cancellation are available.
 - While a removal or selection action is pending, only cancellation is allowed.
 - Late results cannot reopen a closed browser.
 - `details` show below the results for the selected item. They take at most half of the rows, and `…` marks rows that do not fit.

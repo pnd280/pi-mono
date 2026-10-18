@@ -17,6 +17,9 @@ type BrowserPorts = {
 
 type ViewState = { query: string; selected: string | undefined };
 
+/** After a query edit, the previous results stay visible this long before the search notice. */
+const searchNoticeDelayMs = 200;
+
 export class BrowserController<Item> {
   section: BrowserSection<Item>;
   status: "loading" | "ready" | "unavailable" = "loading";
@@ -31,6 +34,10 @@ export class BrowserController<Item> {
   private confirmation: TimedConfirmation<Item>;
   private activation = new AbortController();
   private readonly views = new Map<string, ViewState>();
+  private searchNoticeShown = false;
+  private searchNoticeTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The results come from a completed search of the current snapshot. */
+  private settled = false;
 
   constructor(
     readonly options: BrowserOptions<Item>,
@@ -75,6 +82,10 @@ export class BrowserController<Item> {
   get searching() {
     return this.searchTask.pending;
   }
+  /** True while a pending search replaces the results and their action hints. */
+  get searchNotice() {
+    return this.searchNoticeShown;
+  }
   get busy() {
     return this.pendingAction !== undefined;
   }
@@ -85,7 +96,7 @@ export class BrowserController<Item> {
     return this.state.query;
   }
   get selected() {
-    if (this.searching) return undefined;
+    if (this.searchNotice) return undefined;
 
     return this.results.find((item) => this.options.key(item) === this.state.selected);
   }
@@ -105,6 +116,8 @@ export class BrowserController<Item> {
     const activation = new AbortController();
     this.activation = activation;
     this.searchTask.cancel();
+    this.hideSearchNotice();
+    this.settled = false;
     this.confirmation.dispose();
     this.section = section;
     this.confirmation = this.createConfirmation();
@@ -148,13 +161,33 @@ export class BrowserController<Item> {
     }
   }
 
-  private async filter(nearby?: number): Promise<void> {
+  private showSearchNotice(delayed: boolean) {
+    if (!delayed) this.searchNoticeShown = true;
+    else if (!this.searchNoticeShown)
+      this.searchNoticeTimer ??= setTimeout(() => {
+        this.searchNoticeTimer = undefined;
+        this.searchNoticeShown = true;
+        this.ports.changed();
+      }, searchNoticeDelayMs);
+  }
+
+  private hideSearchNotice() {
+    clearTimeout(this.searchNoticeTimer);
+    this.searchNoticeTimer = undefined;
+    this.searchNoticeShown = false;
+  }
+
+  /** A query edit selects the first result and keeps the previous results visible for a moment. */
+  private async filter({ nearby = 0, edited = false } = {}): Promise<void> {
     const state = this.state;
+    this.showSearchNotice(edited && this.settled);
 
     try {
       await this.searchTask.run(
         (current) => this.options.search(this.snapshot?.items ?? [], state.query, current),
         (results) => {
+          this.hideSearchNotice();
+          this.settled = true;
           this.results = results;
 
           if (this.snapshot) {
@@ -162,8 +195,8 @@ export class BrowserController<Item> {
             this.error = "";
           }
 
-          if (!results.some((item) => this.options.key(item) === state.selected)) {
-            const selected = results[Math.min(nearby ?? 0, results.length - 1)];
+          if (edited || !results.some((item) => this.options.key(item) === state.selected)) {
+            const selected = results[Math.min(nearby, results.length - 1)];
             state.selected = selected === undefined ? undefined : this.options.key(selected);
           }
 
@@ -171,6 +204,8 @@ export class BrowserController<Item> {
         }
       );
     } catch (error) {
+      this.hideSearchNotice();
+      this.settled = false;
       this.results = [];
       state.selected = undefined;
       this.preview = false;
@@ -189,7 +224,7 @@ export class BrowserController<Item> {
     if (this.isClosed() || this.busy || this.preview || this.options.inspection) return;
     this.cancelConfirmation();
     this.state.query = query;
-    void this.filter().catch((error: unknown) => this.reportError(error));
+    void this.filter({ edited: true }).catch((error: unknown) => this.reportError(error));
   }
 
   cancelConfirmation(): void {
@@ -201,6 +236,7 @@ export class BrowserController<Item> {
     this.closed = true;
     this.activation.abort();
     this.searchTask.dispose();
+    this.hideSearchNotice();
     this.confirmation.dispose();
     this.ports.close();
   }
@@ -243,7 +279,7 @@ export class BrowserController<Item> {
         this.preview = false;
         this.previewScroll = 0;
         this.snapshot = snapshot;
-        await this.filter(nearby);
+        await this.filter({ nearby });
       }
     } catch (error) {
       this.reportError(error);
