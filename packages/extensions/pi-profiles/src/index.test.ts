@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   fauxAssistantMessage,
@@ -13,15 +14,20 @@ import {
   type FauxResponseFactory
 } from "@earendil-works/pi-ai";
 import {
+  AgentSessionRuntime,
   createAgentSession,
+  createAgentSessionFromServices,
+  createAgentSessionServices,
   DefaultResourceLoader,
   ModelRuntime,
   SessionManager,
   SettingsManager,
+  type AgentSessionServices,
   type ExtensionAPI,
   type ExtensionContext,
   type ToolExposure
 } from "@earendil-works/pi-coding-agent";
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import profiles from "../index.ts";
@@ -128,17 +134,23 @@ async function host(
   { cwd, agentDir }: Awaited<ReturnType<typeof workspace>>,
   {
     extensions = [earlierExtension],
+    excludeTools = [],
     flags = {},
+    loadFromFile = false,
     mode = "rpc",
     projectTrusted = false,
     replies = [],
+    runtimeOwned = false,
     sessionManager = SessionManager.inMemory(cwd)
   }: {
     extensions?: ((pi: ExtensionAPI) => void)[];
+    excludeTools?: string[];
     flags?: Record<string, string>;
+    loadFromFile?: boolean;
     mode?: ExtensionContext["mode"];
     projectTrusted?: boolean;
     replies?: (() => AssistantMessage | Promise<AssistantMessage>)[];
+    runtimeOwned?: boolean;
     sessionManager?: SessionManager;
   } = {}
 ) {
@@ -158,7 +170,10 @@ async function host(
     noThemes: true,
     noContextFiles: true,
     noPromptTemplates: true,
-    extensionFactories: [...extensions, profiles]
+    additionalExtensionPaths: loadFromFile
+      ? [fileURLToPath(new URL("../index.ts", import.meta.url))]
+      : [],
+    extensionFactories: loadFromFile ? extensions : [...extensions, profiles]
   });
   await resourceLoader.reload();
   expect(resourceLoader.getExtensions().errors).toEqual([]);
@@ -209,12 +224,17 @@ async function host(
     modelRuntime,
     model: faux.models[0],
     thinkingLevel: "off",
-    sessionManager
+    sessionManager,
+    excludeTools
   });
-  cleanups.push(async () => {
-    await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
-    session.dispose();
-  });
+
+  if (!runtimeOwned) {
+    cleanups.push(async () => {
+      await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+      session.dispose();
+    });
+  }
+
   const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
   const errors: unknown[] = [];
   // Print and JSON runs bind no UI, as Pi's print mode does.
@@ -230,7 +250,16 @@ async function host(
     }
   });
 
-  return { session, requests, errors };
+  const services: AgentSessionServices = {
+    cwd,
+    agentDir,
+    settingsManager,
+    resourceLoader,
+    modelRuntime,
+    diagnostics: []
+  };
+
+  return { session, requests, errors, services };
 }
 
 it("applies the profile's model, thinking, tools, and prompts, and undoes them on the next switch, also to no profile; tool_search loads searchable tools without a defer list", async () => {
@@ -322,6 +351,21 @@ it("defers unused tools of any exposure only when tool_search can load them agai
   await foreign.session.prompt("/profile lean");
   await foreign.session.prompt("switched");
 
+  // Without any tool_search, restoration must also declare native deferred and codemode tools.
+  const withoutSearch = await host(dirs, {
+    extensions: [earlierExtension, modelOnly],
+    excludeTools: ["tool_search"],
+    sessionManager: SessionManager.forkFrom(file, dirs.cwd, dirs.sessionDir)
+  });
+  await withoutSearch.session.prompt("restored without search");
+  expect(withoutSearch.requests.at(-1)?.tools).toEqual([
+    "alpha",
+    "delta",
+    "epsilon",
+    "gamma",
+    "zeta"
+  ]);
+
   const resumed = await host(dirs, {
     extensions: [earlierExtension, modelOnly],
     replies: [call("tool_search", { query: "alpha beta delta" })],
@@ -341,7 +385,9 @@ it("defers unused tools of any exposure only when tool_search can load them agai
     ["alpha", "gamma", "tool_search", "zeta"],
     ["alpha", "delta", "epsilon", "gamma", "zeta"]
   ]);
-  expect([...first.errors, ...foreign.errors, ...resumed.errors]).toEqual([]);
+  expect([...first.errors, ...foreign.errors, ...withoutSearch.errors, ...resumed.errors]).toEqual(
+    []
+  );
 });
 
 it("matches * patterns in allow, deny, and defer against the registered tools, and defers each match of a defer pattern on its own", async () => {
@@ -502,6 +548,120 @@ it("restores the branch's latest selection after tree navigation, resume, and re
   ]);
   expect(last.requests).toMatchObject([{ tools: ["beta"], append: "EARLIER" }]);
   expect([...first.errors, ...resumed.errors, ...again.errors, ...last.errors]).toEqual([]);
+
+  // Pi has no tool record before the first request, so leaving a selection must undo its tools.
+  const unselected = await host(dirs);
+  const initialLeaf = unselected.session.sessionManager.getLeafId()!;
+  await unselected.session.prompt("/profile build");
+  await unselected.session.navigateTree(initialLeaf);
+  await unselected.session.prompt("first request without a selection");
+  expect(unselected.requests.at(-1)).toMatchObject({ tools: ["alpha", "beta"], append: "EARLIER" });
+  expect(unselected.errors).toEqual([]);
+
+  // Tree navigation must not move a switch's selection onto the destination branch while the
+  // switch waits for a model_select handler.
+  const releaseModel = Promise.withResolvers<void>();
+  let modelSelected = false;
+  const concurrent = await host(dirs, {
+    mode: "tui",
+    extensions: [
+      earlierExtension,
+      (pi) => {
+        pi.on("model_select", async () => {
+          modelSelected = true;
+          await releaseModel.promise;
+        });
+      }
+    ]
+  });
+  await concurrent.session.prompt("before switch");
+  const target = concurrent.session.sessionManager.getLeafId()!;
+  const switching = concurrent.session.prompt("/profile plan");
+
+  try {
+    await expect.poll(() => modelSelected, { timeout: STEP_TIMEOUT_MS }).toBe(true);
+    const navigating = concurrent.session.navigateTree(target);
+    releaseModel.resolve();
+    await Promise.all([switching, navigating]);
+  } finally {
+    releaseModel.resolve();
+    await switching;
+  }
+
+  await concurrent.session.prompt("after navigation");
+  expect(concurrent.requests.at(-1)).toMatchObject({ tools: ["beta"], append: "EARLIER" });
+  expect(concurrent.errors).toEqual([]);
+
+  // A same-file resume must wait for the switch before Pi opens the destination session file.
+  const releaseResumeModel = Promise.withResolvers<void>();
+  let resumeModelSelected = false;
+  const extensions = [
+    earlierExtension,
+    (pi: ExtensionAPI) => {
+      pi.on("model_select", async () => {
+        resumeModelSelected = true;
+        await releaseResumeModel.promise;
+      });
+    }
+  ];
+  const beforeResume = await host(dirs, {
+    extensions,
+    runtimeOwned: true,
+    sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
+  });
+  const runtime = new AgentSessionRuntime(
+    beforeResume.session,
+    beforeResume.services,
+    async ({ cwd, agentDir, sessionManager, sessionStartEvent }) => {
+      const services = await createAgentSessionServices({
+        cwd,
+        agentDir,
+        settingsManager: beforeResume.services.settingsManager,
+        modelRuntime: beforeResume.services.modelRuntime,
+        resourceLoaderOptions: {
+          noExtensions: true,
+          noSkills: true,
+          noThemes: true,
+          noContextFiles: true,
+          noPromptTemplates: true,
+          extensionFactories: [...extensions, profiles]
+        }
+      });
+      const created = await createAgentSessionFromServices({
+        services,
+        sessionManager,
+        ...(sessionStartEvent && { sessionStartEvent })
+      });
+
+      return { ...created, services, diagnostics: services.diagnostics };
+    }
+  );
+  runtime.setRebindSession(async (session) => {
+    await session.bindExtensions({
+      mode: "rpc",
+      onError: (error) => {
+        beforeResume.errors.push(error);
+      }
+    });
+  });
+  cleanups.push(() => runtime.dispose());
+  await runtime.session.prompt("before same-file resume");
+  const sessionFile = runtime.session.sessionFile!;
+  const resumeSwitch = runtime.session.prompt("/profile plan");
+
+  try {
+    await expect.poll(() => resumeModelSelected, { timeout: STEP_TIMEOUT_MS }).toBe(true);
+    const resuming = runtime.switchSession(sessionFile);
+    releaseResumeModel.resolve();
+    await Promise.all([resumeSwitch, resuming]);
+  } finally {
+    releaseResumeModel.resolve();
+    await resumeSwitch;
+  }
+
+  await runtime.session.prompt("after same-file resume");
+  expect(beforeResume.requests.at(-1)).toMatchObject({ tools: ["alpha"], append });
+  expect(beforeResume.errors).toEqual([]);
 });
 
 const both = ["alpha", "beta"];
@@ -606,6 +766,7 @@ it.each([
     const dirs = await workspace({ profiles: [plan, build], defaultProfile: "plan" });
     const first = await host(dirs, {
       mode,
+      loadFromFile: true,
       sessionManager: SessionManager.create(dirs.cwd, dirs.sessionDir)
     });
     await first.session.prompt("one");
@@ -614,6 +775,7 @@ it.each([
     // No profile is a selection, so the default profile does not apply when the session resumes.
     const resumed = await host(dirs, {
       mode,
+      loadFromFile: true,
       sessionManager: SessionManager.open(first.session.sessionManager.getSessionFile()!)
     });
     await resumed.session.prompt("two");
@@ -621,6 +783,7 @@ it.each([
     // When Pi starts, --profile replaces the resumed selection.
     const flagged = await host(dirs, {
       mode,
+      loadFromFile: true,
       flags: { profile: "build" },
       sessionManager: SessionManager.open(first.session.sessionManager.getSessionFile()!)
     });

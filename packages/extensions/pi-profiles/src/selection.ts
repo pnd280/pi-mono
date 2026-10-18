@@ -245,13 +245,19 @@ export function restoredTools(selection: Selection, state: RestoreState): string
   if (state.reload) tools = state.active.filter((name) => !off.includes(name));
   else tools = state.recorded ? [...state.active] : [...selection.tools];
 
-  // Without the extension's `tool_search`, deferred `direct` tools could not be loaded again, and
-  // groups could not load together.
-  if (!state.ownsToolSearch) {
+  const searchExposure = state.exposure.get(TOOL_SEARCH);
+  const searchDeclared =
+    searchExposure !== undefined && searchExposure !== "hidden" && tools.includes(TOOL_SEARCH);
+
+  // Without a declared `tool_search`, no deferred tool can load again. Without the extension's
+  // copy, deferred `direct` tools and groups still need restoration.
+  if (!searchDeclared || !state.ownsToolSearch) {
     const unreachable = selection.deferred.flatMap((entry) =>
-      typeof entry === "string"
+      typeof entry === "string" && searchDeclared
         ? [entry].filter((name) => isDirect(state.exposure.get(name)))
-        : entry.filter((name) => state.exposure.has(name) && state.exposure.get(name) !== "hidden")
+        : entryNames(entry).filter(
+            (name) => state.exposure.has(name) && state.exposure.get(name) !== "hidden"
+          )
     );
     tools.push(...unreachable.filter((name) => !tools.includes(name)));
   }

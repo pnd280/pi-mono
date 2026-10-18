@@ -64,8 +64,10 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   let searchReach: unknown;
   /** Aborted when the session ends, so an open menu closes without a switch. */
   let session = new AbortController();
-  /** The switch in progress. Requests and the end of the session wait for it. */
+  /** The switch in progress. Requests, navigation, and the end of the session wait for it. */
   let switching: Promise<void> | undefined;
+  /** The outgoing selection, for a tree destination that has no selection or tool record. */
+  let treeSelection: Selection | undefined;
 
   // Pi skips its built-in `tool_search` when an extension registers one while loading. This copy is
   // Pi's own tool, but it sees the deferred tools as `deferred`, so it finds and loads them too, and
@@ -121,7 +123,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       // Like Pi's own editor, it draws the working status in its top border.
       const editor =
         previous?.(tui, theme, keybindings) ??
-        new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: false });
+        new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: true });
       const render = editor.render.bind(editor);
 
       editor.render = (width) => {
@@ -244,28 +246,35 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     );
   }
 
-  function restoreTools(ctx: ExtensionContext, reload: boolean): Selection | undefined {
+  function restoreTools(
+    ctx: ExtensionContext,
+    reload: boolean,
+    previous?: Selection
+  ): Selection | undefined {
     const branch = ctx.sessionManager.getBranch();
     const latest = latestSelection(branch);
     deferred = latest?.selection.deferred ?? [];
     showLabel(latest?.selection.name);
-    if (!latest) return undefined;
+    if (!latest && !previous) return undefined;
 
-    const recorded = loadoutRecordedAfter(branch, latest.index)
-      ? (
-          getCurrentSystemMessage(ctx.sessionManager.buildSessionProjection().messages)
-            ?.toolsAdded ?? []
-        ).map(({ name }) => name)
-      : undefined;
+    const message = getCurrentSystemMessage(ctx.sessionManager.buildSessionProjection().messages);
+    // Pi leaves the current tools unchanged when the destination has no tool record.
+    if (!latest && message) return undefined;
+    const recorded =
+      latest && loadoutRecordedAfter(branch, latest.index)
+        ? (message?.toolsAdded ?? []).map(({ name }) => name)
+        : undefined;
     const active = pi.getActiveTools();
     const exposure = new Map(pi.getAllTools().map((tool) => [tool.name, tool.exposure]));
-    const tools = restoredTools(latest.selection, {
-      active,
-      recorded,
-      reload,
-      exposure,
-      ownsToolSearch: ownsToolSearch()
-    });
+    const tools = latest
+      ? restoredTools(latest.selection, {
+          active,
+          recorded,
+          reload,
+          exposure,
+          ownsToolSearch: ownsToolSearch()
+        })
+      : baseTools(active, previous);
 
     // A call that turns off a tool also drops Pi's pending tools, such as MCP tools that are
     // still connecting, so the tools are set only when they change.
@@ -274,7 +283,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       tools.some((name) => exposure.has(name) && !active.includes(name));
     if (changed) pi.setActiveTools(tools);
 
-    return latest.selection;
+    return latest?.selection;
   }
 
   // Startup and /reload both start a session, so edited settings apply after /reload.
@@ -317,8 +326,20 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     }
   });
 
+  pi.on("session_before_tree", async (_event, ctx) => {
+    // Save the selection on its original branch before Pi moves the leaf.
+    await switching;
+    treeSelection = latestSelection(ctx.sessionManager.getBranch())?.selection;
+  });
+
   pi.on("session_tree", (_event, ctx) => {
-    restoreTools(ctx, false);
+    restoreTools(ctx, false, treeSelection);
+    treeSelection = undefined;
+  });
+
+  pi.on("session_before_switch", async () => {
+    // A same-file resume must read the selection saved by the completed switch.
+    await switching;
   });
 
   pi.on("session_shutdown", async () => {

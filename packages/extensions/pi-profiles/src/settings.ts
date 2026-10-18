@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 
-import { MODEL_THINKING_LEVELS } from "@earendil-works/pi-ai/providers/model-schema";
+import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
   readScopedSettings,
   readSettingsFile,
@@ -38,7 +38,17 @@ const profileSchema = z.strictObject({
     .regex(/^[^\s\p{C}]+$/u),
   description: z.string().max(MAX_DESCRIPTION_LENGTH),
   model: modelReferenceSchema.optional(),
-  thinking: z.enum(MODEL_THINKING_LEVELS).optional(),
+  thinking: z
+    .enum([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ] satisfies readonly ModelThinkingLevel[])
+    .optional(),
   // File paths, which resolve from the directory of the settings file that names them.
   appendSystemPrompts: z.array(z.string().min(1)).max(MAX_PROMPTS).optional(),
   tools: z

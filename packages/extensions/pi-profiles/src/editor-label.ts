@@ -1,4 +1,9 @@
-import { sliceByColumn, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import {
+  sliceByColumn,
+  stripTerminalSequences,
+  truncateToWidth,
+  visibleWidth
+} from "@earendil-works/pi-tui";
 
 const BORDER = "─";
 
@@ -20,5 +25,6 @@ export function labelBorder(
   const covered = stripTerminalSequences(sliceByColumn(border, start - 1, width - start + 1));
   if (covered !== BORDER.repeat(width - start + 1)) return border;
 
-  return sliceByColumn(border, 0, start) + color(text);
+  // Truncation closes an inherited OSC 8 link before the label.
+  return truncateToWidth(border, start, "") + color(text);
 }

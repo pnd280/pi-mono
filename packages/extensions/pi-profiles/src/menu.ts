@@ -33,7 +33,7 @@ export interface MenuData {
   ownsToolSearch: boolean;
 }
 
-const STATUSES = ["declared", "deferred", "searchable", "off", "hidden"] as const;
+const STATUSES = ["active", "deferred", "searchable", "off", "hidden"] as const;
 
 type ToolStatus = (typeof STATUSES)[number];
 
@@ -44,7 +44,7 @@ type MenuItem =
 
 function toolStatus(tool: ToolInfo, data: MenuData): ToolStatus {
   if (tool.exposure === "hidden") return "hidden";
-  if (data.active.includes(tool.name)) return "declared";
+  if (data.active.includes(tool.name)) return "active";
   if (data.deferred.flat().includes(tool.name)) return "deferred";
 
   return isDirect(tool.exposure) ? "off" : "searchable";
@@ -53,18 +53,24 @@ function toolStatus(tool: ToolInfo, data: MenuData): ToolStatus {
 /** Why the model can or cannot reach the tool now. */
 function reach(tool: ToolInfo, status: ToolStatus, data: MenuData): string[] {
   if (status === "hidden") return ["Hidden: the model and codemode scripts cannot reach it."];
-  if (status === "declared") return ["Declared: the model can call it."];
+  if (status === "active")
+    return [
+      "Active in Pi's tool set.",
+      "Its exposure and Pi's codemode mode decide whether the model can call it directly."
+    ];
   if (status === "off") return ["Off: the model cannot call it or load it."];
 
-  const lines = [status === "deferred" ? "Deferred by the profile." : "Not declared."];
+  const lines = [
+    status === "deferred" ? "Deferred by the profile." : "Not active in Pi's tool set."
+  ];
   if (!data.active.includes(TOOL_SEARCH))
-    lines.push("tool_search is not declared, so the model cannot load it now.");
+    lines.push("tool_search is not active, so the model cannot load it now.");
   // pi-profiles' `tool_search` alone finds deferred `direct` and `model-only` tools.
   else if (isDirect(tool.exposure) && !data.ownsToolSearch)
-    lines.push("The declared tool_search cannot load it.");
+    lines.push("The active tool_search cannot load it.");
   else lines.push("The model can load it with tool_search.");
   if (tool.exposure === "codemode" || tool.exposure === "deferred")
-    lines.push("Codemode scripts can call it while codemode is declared.");
+    lines.push("Codemode scripts can call it while codemode is active.");
   const group = data.deferred.find(
     (entry) => typeof entry !== "string" && entry.includes(tool.name)
   );
@@ -89,13 +95,13 @@ function profileRule(name: string, { profile, ownsToolSearch }: MenuData): strin
   ].filter((text) => typeof text === "string");
   const lines = lists.length > 0 ? [`Profile ${profile.name} ${lists.join(" and ")}.`] : [];
   if (typeof entry === "string")
-    lines.push("A deferred tool stays declared when the model called it on this branch.");
+    lines.push("A deferred tool stays active when the model called it on this branch.");
   else if (entry)
     lines.push(
-      "A group is deferred only as a whole: it stays declared when the model called one of its declared tools on this branch."
+      "A group is deferred only as a whole: it stays active when the model called one of its active tools on this branch."
     );
   if (name === TOOL_SEARCH && ownsToolSearch && !denied)
-    lines.push("A profile declares it when it defers direct or model-only tools.");
+    lines.push("A profile activates it when it defers direct or model-only tools.");
 
   return lines;
 }

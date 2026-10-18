@@ -61,7 +61,7 @@ A switch changes these settings for the current session only:
 | `tools`               | Selects the declared tools; see [tools](#tools).                     | Keeps the base tools.      |
 
 - Without `thinking`, pi-profiles does not set the level. A `model` change can still change it, because Pi then applies the level that its settings set for that model, or its default level. Without those settings, Pi keeps the current level, limited to what the model supports.
-- Switches are refused while the agent runs, or while an earlier switch still waits for its model. Wait for the run to end, or stop it first. A switch cannot be cancelled. A request that you send during a switch, and the end of the session, wait until the switch is complete.
+- Switches are refused while the agent runs, or while an earlier switch still waits for its model. Wait for the run to end, or stop it first. A switch cannot be cancelled. A request, tree navigation, session replacement, and the end of the session wait until the switch is complete.
 - If the model is unknown or has no credentials, the profile is not applied, and an error is shown. This also applies when the model is already selected. Modes without a UI write the error to stderr. The check is Pi's check for configured credentials: a key command or a stored login counts before a request uses it.
 - The texts are read when settings load, so run `/reload` after you edit a file. Each text is trimmed, and empty texts are left out.
 - The texts are joined with a blank line (`\n\n`) and added after Pi's append text, such as `APPEND_SYSTEM.md`, `--append-system-prompt`, and changes from earlier extensions.
@@ -78,19 +78,21 @@ In the interactive terminal, `/profile` opens a menu with two views. Press **Tab
 
 In **Profiles**, the `defer` list shows each [group](#groups) in square brackets. In **Tools**, the details of a tool in a deferred group name the other tools that load with it.
 
-| State        | Meaning                                                                                                  |
-| ------------ | -------------------------------------------------------------------------------------------------------- |
-| `declared`   | The model can call the tool.                                                                             |
-| `deferred`   | The selected profile deferred the tool. The details tell whether the declared `tool_search` can load it. |
-| `searchable` | The tool is not declared. Its exposure is `codemode` or `deferred`, so `tool_search` can load it.        |
-| `off`        | The tool is not declared, and `tool_search` cannot load it.                                              |
-| `hidden`     | The tool has `hidden` exposure, so nothing can reach it.                                                 |
+| State        | Meaning                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------ |
+| `active`     | Pi has activated the tool. Codemode-only mode can still hide its declaration.                          |
+| `deferred`   | The selected profile deferred the tool. The details tell whether the active `tool_search` can load it. |
+| `searchable` | The tool is not active. Its exposure is `codemode` or `deferred`, so `tool_search` can load it.        |
+| `off`        | The tool is not active, and `tool_search` cannot load it.                                              |
+| `hidden`     | The tool has `hidden` exposure, so nothing can reach it.                                               |
 
 The menu shows the state when it opens. In RPC mode, `/profile` shows a plain list of the profiles instead.
 
 ### Tools
 
 A profile declares `allow`, or else the base tools, without the tools in `deny`. The base tools are the tools that are declared without a profile: before the first switch, the current tools; later, the current tools with the previous profile's additions and removals undone. Changes made after a switch, such as tools that `tool_search` loaded, stay in the base.
+
+Profiles change Pi's active tools. With `codemode.mode` set to `"only"`, Pi can omit active tools from the model request and expose them through codemode instead. Profiles do not override this mode.
 
 Each entry in `allow`, `deny`, and `defer` is a tool name or a pattern in which `*` matches any characters, as in Pi's `--tools`. For example, `mcp__github__*` matches each tool of the `github` MCP server, and `*` matches every tool. A pattern in `allow` matches only the tools that are registered when you switch. For a tool that registers later, for example from an MCP server that connects later, switch again. Until then, Pi decides whether that tool is declared; see [MCP tools](#mcp-tools).
 
@@ -132,7 +134,7 @@ Here each Linear tool is deferred alone, but one search can load more than one o
 pi-profiles registers its own `tool_search` while Pi loads extensions. It is Pi's `tool_search`, built with Pi's own code: it has the same name, description, and search. It also finds the tools that the current profile deferred, and it loads the rest of their [groups](#groups) with them. Without deferred tools, it works as Pi's built-in `tool_search`. It is registered also when no profile has a `defer` list, because an extension cannot see the project trust decision while it loads, so it cannot tell whether a project profile has one.
 
 - Pi then does not load its built-in `tool-search` extension, and it shows a warning at each start. To stop the warning, add `"-builtin:tool-search"` to `extensions` in `settings.json`. If you remove pi-profiles later, remove that entry too, or no `tool_search` is available, also for MCP servers with `deferred` exposure.
-- If pi-profiles no longer owns `tool_search`, for example because another extension now registers it, resume, `/tree`, `/fork`, and `/reload` declare again the `direct` and `model-only` tools that the session's selection deferred. They also declare each registered tool of its deferred groups, except `hidden` tools.
+- If pi-profiles no longer owns `tool_search`, for example because another extension now registers it, resume, `/tree`, `/fork`, and `/reload` declare again the `direct` and `model-only` tools that the session's selection deferred. They also declare each registered tool of its deferred groups, except `hidden` tools. If no registered, non-hidden `tool_search` is active, restoration declares all registered, non-hidden deferred tools, subject to Pi's tool restrictions.
 - Only one extension can own `tool_search`. If another extension also registers it, Pi reports a conflict at startup.
 - [pi-tool-display](../pi-tool-display/src/adapters/pi-profiles/README.md) shows its calls as it shows the calls of Pi's `tool_search`.
 
@@ -168,6 +170,7 @@ Pi's MCP support also changes the declared tools by itself, so the profile does 
 
 - Each switch, also to no profile, saves the selection in the session. The model does not see it.
 - Resume, `/fork`, and `/tree` use the latest selection on the branch: its texts are added, its tools are declared, and `tool_search` can load its deferred tools. If a request followed the switch, also one that did not change the tools, the tools of the last request are declared instead, so later changes, such as tools that `tool_search` loaded, stay.
+- `/tree` to a branch with no selection and no recorded tools undoes the outgoing profile's tool changes.
 - `/reload` keeps the selection and the declared tools. Pi turns on again the `direct` and `model-only` extension tools that are active by default, as it does without profiles. pi-profiles then turns off again the tools that the selection turned off, unless a request after the switch declared them. So if you turn on such a tool after the last request, it turns off again, as on resume.
 - Pi restores the model and the thinking level of the branch on resume and `/fork`, but not on `/tree`. After `/tree`, switch again to use the profile's model.
 - `--profile` applies when Pi starts, in every mode. It replaces the selection of a session that you open with `--continue`, `--resume`, `--session`, or `--fork`. Later sessions in the same run, for example after `/new` or `/resume`, keep their own selection; on a branch without a selection, `--profile` applies instead of `defaultProfile`.

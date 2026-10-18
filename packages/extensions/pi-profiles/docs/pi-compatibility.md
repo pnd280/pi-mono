@@ -2,7 +2,7 @@
 
 [pi-profiles](../README.md)
 
-> Last verified against Pi 1.3.0 with the offline host tests and source inspection. Not covered: live providers, MCP servers, and the interactive shortcut.
+> Last verified against Pi 1.3.0 with the offline host tests, isolated CLI loading, and source inspection. Not covered: live providers, MCP servers, and a live interactive terminal session.
 
 ## Upgrade procedure
 
@@ -16,7 +16,7 @@
 [Adapter](../src/index.ts):
 
 - [ ] `ctx.modelRegistry.find()` resolves exact provider and model IDs, and `ctx.modelRegistry.hasConfiguredAuth()` and `pi.setModel()` report a provider without configured credentials. `pi.setModel()` checks the credentials again (`checkAuth()`) and throws before it changes the model. Neither check runs a key command or refreshes a login.
-- [ ] Pi awaits `before_agent_start` handlers before it reads the model and the active tools for a request (`_prepareRun()` in `agent-session.js`), and awaits `session_shutdown` handlers before it ends a session, so both can wait for a switch.
+- [ ] Pi awaits `before_agent_start` handlers before it reads the model and the active tools for a request (`_prepareRun()` in `agent-session.js`), `session_before_tree` handlers before it moves the branch leaf, `session_before_switch` handlers before it reads the destination session file, and `session_shutdown` handlers before it ends a session, so each can wait for a switch.
 - [ ] `pi.setModel()` applies the thinking level that settings set for the model, or the default level, or else keeps the current level, so the extension sets the profile's level after the model.
 - [ ] `pi.setActiveTools()` ignores unknown and `hidden` names, and `pi.getActiveTools()` returns the declared tools.
 - [ ] `pi.getAllTools()` reports each tool's `exposure`, and tools with `codemode` or `deferred` exposure stay reachable through `tool_search` and codemode while undeclared.
@@ -59,7 +59,7 @@ Recheck each row of the README's [MCP tools](../README.md#mcp-tools) tables:
 
 [Selection](../src/selection.ts):
 
-- [ ] Pi restores tools from the transcript before `session_start` and before `session_tree`, so a later `pi.setActiveTools()` call in those handlers is kept.
+- [ ] Pi restores tools from the transcript before `session_start` and before `session_tree`, so a later `pi.setActiveTools()` call in those handlers is kept. When the destination branch has no system message, Pi leaves the current tools unchanged, so the extension undoes the outgoing selection's changes if the destination also has no selection.
 - [ ] When a session is created, Pi restores the tools only for sessions that use `defaultTools` (`usesDefaultTools` in `sdk.js`), so the host tests set `defaultTools: []` instead of `noTools`. `/tree` restores them in every session.
 - [ ] On `/reload`, Pi keeps the active tools, adds new `defaultTools` entries, and turns on again the `direct` and `model-only` extension tools without `defaultActive: false` (`includeAllExtensionTools` in `reload()`). The extension turns off again the tools that the selection turned off, unless the last request declared them (`getCurrentSystemMessage()`).
 - [ ] `setActiveToolsByName()` drops all pending tools when a call turns off a tool, so the extension sets restored tools only when they change.
@@ -71,6 +71,8 @@ Recheck each row of the README's [MCP tools](../README.md#mcp-tools) tables:
 
 ### Lifecycle
 
+- [ ] Pi's file-based extension loader loads the package entry point and its runtime imports. The startup tests use this loader; direct factory imports do not check its module aliases.
+- [ ] The thinking-level enum in [settings](../src/settings.ts) matches Pi's `ModelThinkingLevel` values.
 - [ ] `session_start` fires on startup, `/reload`, `/new`, `/resume`, and `/fork`, and `getAgentDir()` honours `PI_CODING_AGENT_DIR`.
 - [ ] In `session_start`, `ctx.isProjectTrusted()` reports Pi's trust decision, and `ctx.cwd` is the directory whose `.pi/settings.json` Pi reads as project settings.
 - [ ] The first session of a run has the reason `"startup"`, also with `--continue`, `--resume`, `--session`, and `--fork` (`createRuntime` in `main.js`).
