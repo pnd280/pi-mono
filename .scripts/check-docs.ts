@@ -1,7 +1,7 @@
 // Check workspace Markdown: relative links and heading anchors must resolve, inline
 // `Class.prototype.member` names must exist, and every "Last verified against Pi x.y.z"
 // line must name the installed Pi version.
-// Usage: node scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
+// Usage: node .scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
