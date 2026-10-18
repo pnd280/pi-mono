@@ -1,0 +1,34 @@
+{
+  "name": "pi-profiles",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Switchable model, thinking, prompt, and tool profiles for Pi",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "format": "vp fmt .",
+    "lint": "vp lint --format stylish .",
+    "check": "vp fmt --check . && vp run lint",
+    "test": "vp test run --config ../../../vite.config.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "workspace:*",
+    "@pi-mono/utils": "workspace:*",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:pi-host",
+    "@earendil-works/pi-coding-agent": "catalog:pi-host",
+    "@earendil-works/pi-tui": "catalog:pi-host"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

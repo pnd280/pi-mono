@@ -11,6 +11,8 @@ Extensions that need searchable sections with selection, previews, and actions u
 - While a search is pending, a loading message replaces the results and their action hints. Query editing, section switching, and cancellation remain available.
 - While a removal or selection action is pending, only cancellation is allowed.
 - Late results cannot reopen a closed browser.
+- `details` show below the results for the selected item. They take at most half of the rows, and `…` marks rows that do not fit.
+- `preview` opens a separate scrollable view. Without it, **Ctrl+P** does nothing and has no hint.
 
 ### Keys and cancellation
 
@@ -34,7 +36,8 @@ The browser owns presentation and interaction; the caller owns data, search, and
 - `load(signal)` returns prepared items and an optional status `message`.
 - Pass the activation signal through preparation; it is aborted on reactivation or final closure, not remount.
 - The `search` callback filters and ranks results and must honour the supplied `current` callback.
-- Supply terminal-safe rows and previews, and keep the exact source separately.
+- Supply terminal-safe rows, details, and previews, and keep the exact source separately.
+- Prepare `details` before the browser opens and keep them short. The browser wraps them synchronously.
 - Format only the visible window. Keep its item count and order, and use width-preserving styles.
 
 ### Actions and errors

@@ -48,7 +48,7 @@ These tools get dedicated cards:
 
 - Pi's native tools: read, bash, PowerShell, edit, write, and the search and listing tools.
 - Pi's built-in codemode, MCP, and tool search.
-- Extensions: FFF, the MCP adapter, todo, selective read, smart compact, and subagents, including background jobs.
+- Extensions: FFF, the MCP adapter, todo, selective read, smart compact, the tool search of profiles, and subagents, including background jobs.
 - Nested-instruction notices, which also count towards run summaries.
 - Subagent background results and job results.
 

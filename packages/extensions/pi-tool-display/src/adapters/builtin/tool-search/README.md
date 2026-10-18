@@ -8,7 +8,7 @@ Calls to Pi's built-in `tool_search` appear as cards that name the tools each se
 
 The adapter matches Pi's built-in `tool_search` only: tool name `tool_search`, `builtin` source with path `builtin:tool-search`, and parameters with a required string `query` and optional number `limit`. Pi has no public schema-identity check for it, so provenance relies on the synthetic built-in source path.
 
-SDK registrations through `createToolSearchExtension()` get an unverifiable `<inline:…>` source and keep generic cards. Replacement extensions that register their own `tool_search` are not specialised either. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
+SDK registrations through `createToolSearchExtension()` get an unverifiable `<inline:…>` source and keep generic cards. Replacement extensions that register their own `tool_search` are not specialised either; the [pi-profiles adapter](../../pi-profiles/README.md) matches the replacement of `pi-profiles`. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 
 ## Display
 

@@ -8,7 +8,9 @@ const TOOL_NAME = "tool_search";
 const SOURCE_PATH = "builtin:tool-search";
 
 const argsSchema = z.strictObject({ query: z.string(), limit: z.number().optional() });
-const parametersSchema = z.object({
+
+/** The parameter contract of Pi's `tool_search`, also when an extension registers Pi's tool itself. */
+export const toolSearchParametersSchema = z.object({
   type: z.literal("object"),
   required: z.tuple([z.literal("query")]),
   properties: z.strictObject({
@@ -16,6 +18,7 @@ const parametersSchema = z.object({
     limit: z.object({ type: z.literal("number") })
   })
 });
+
 const detailsSchema = z.object({ loaded: z.array(z.string()) });
 
 const loadedCategory: SummaryCategory = {
@@ -69,7 +72,7 @@ export function builtinToolSearchAdapter(
     tool?.name !== TOOL_NAME ||
     tool.sourceInfo.source !== "builtin" ||
     tool.sourceInfo.path !== SOURCE_PATH ||
-    !parametersSchema.safeParse(tool.parameters).success
+    !toolSearchParametersSchema.safeParse(tool.parameters).success
   )
     return undefined;
 

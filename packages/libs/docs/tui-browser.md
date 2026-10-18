@@ -8,13 +8,13 @@ This guide is for callers who remap browser keys, debug input precedence, or con
 
 Configured actions take precedence over the fixed keys below, in this order: `copy`, `cancel`, `confirm`, `up`, `down`, `pageUp`, `pageDown`. The [browser controls](../src/tui/components/browser/controls.ts) map them to Pi keybindings.
 
-| Fixed key                 | Action           |
-| ------------------------- | ---------------- |
-| **Tab**                   | Next section     |
-| **Shift+Tab**             | Previous section |
-| **Ctrl+P**                | Preview          |
-| **Delete**, pressed twice | Remove           |
-| **Alt+Enter**             | Alternate action |
+| Fixed key                 | Action                                      |
+| ------------------------- | ------------------------------------------- |
+| **Tab**                   | Next section                                |
+| **Shift+Tab**             | Previous section                            |
+| **Ctrl+P**                | Preview, when the caller supplies `preview` |
+| **Delete**, pressed twice | Remove                                      |
+| **Alt+Enter**             | Alternate action                            |
 
 ### Input routing
 
@@ -25,7 +25,7 @@ Configured actions take precedence over the fixed keys below, in this order: `co
 
 ### Edge cases
 
-- Inspection mode uses a one-based item index and permits copying, scrolling, and closure, not selection actions.
+- Inspection mode needs `preview`. It uses a one-based item index and permits copying, scrolling, and closure, not selection actions.
 - Below 40 columns or 10 rows, only cancellation is available.
 
 ## Direct construction

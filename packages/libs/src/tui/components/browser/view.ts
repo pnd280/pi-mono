@@ -9,6 +9,7 @@ import {
 } from "@earendil-works/pi-tui";
 
 import { displayText } from "../../terminal-text/index.ts";
+import { wrapRows } from "../../text-budget/index.ts";
 import { renderHintFooter } from "../hint-footer/index.ts";
 import { renderOverflowBorder, ScrollableTextPreview } from "../text-preview/index.ts";
 import { renderWindowedList } from "../windowed-list/index.ts";
@@ -35,6 +36,7 @@ export class Browser<Item> implements Component, Focusable {
   private width = 0;
   private height = 0;
   private pageSize = 5;
+  private detailLayout: { text: string; width: number; rows: string[] } | undefined;
 
   constructor(
     readonly options: BrowserOptions<Item>,
@@ -189,7 +191,8 @@ export class Browser<Item> implements Component, Focusable {
       hints.push(this.controls.hint("switch", "view") ?? this.controls.hint("switchBack", "view"));
     const selected = state.selected;
     if (state.status !== "ready" || selected === undefined) return hints;
-    if (!state.preview) hints.push(this.controls.hint("preview", "preview"));
+    if (!state.preview && this.options.preview)
+      hints.push(this.controls.hint("preview", "preview"));
     if (state.section.remove?.enabled(selected))
       hints.push(this.controls.hint("delete", state.section.remove.label));
     if (state.section.alternate)
@@ -299,8 +302,8 @@ export class Browser<Item> implements Component, Focusable {
           .slice(0, available)
           .map((line) => theme.fg("error", `  ${line}`))
       );
-    else if (state.preview && selected !== undefined)
-      return this.renderPreview(selected, lines, width, available);
+    else if (state.preview && selected !== undefined && this.options.preview)
+      return this.renderPreview(this.options.preview(selected), lines, width, available);
     else this.renderResults(lines, width, available);
   }
 
@@ -320,10 +323,14 @@ export class Browser<Item> implements Component, Focusable {
     return undefined;
   }
 
-  private renderPreview(selected: Item, lines: string[], width: number, available: number) {
+  private renderPreview(
+    content: { text: string; metadata?: string },
+    lines: string[],
+    width: number,
+    available: number
+  ) {
     const state = this.controller;
     const { theme } = this.environment;
-    const content = this.options.preview(selected);
     const metadataRows = content.metadata === undefined ? 0 : 2;
     this.pageSize = Math.max(1, available - metadataRows);
     this.textPreview.setText(content.text);
@@ -364,11 +371,17 @@ export class Browser<Item> implements Component, Focusable {
       return;
     }
 
+    const selected = state.selected;
+    const details =
+      this.options.details && selected !== undefined
+        ? this.detailRows(this.options.details(selected), width - 4)
+        : [];
+    // Details take at most half of the rows, and the results keep the rest.
+    const half = Math.floor(available / 2);
+    const space =
+      available - (details.length > 0 && half >= 2 ? Math.min(details.length + 1, half) : 0);
     const selectedIndex = state.selectedIndex;
-    const resultRows = Math.min(
-      10,
-      Math.max(1, available - (state.results.length > available ? 1 : 0))
-    );
+    const resultRows = Math.min(10, Math.max(1, space - (state.results.length > space ? 1 : 0)));
     this.pageSize = resultRows;
     const { lines: rows } = renderWindowedList({
       items: state.results,
@@ -386,6 +399,22 @@ export class Browser<Item> implements Component, Focusable {
     });
     if (state.results.length > resultRows)
       rows.push(theme.fg("dim", `  (${selectedIndex + 1}/${state.results.length})`));
-    lines.push(...rows.slice(0, available));
+    const shown = rows.slice(0, space);
+    lines.push(...shown);
+
+    // One blank row separates the details from the results.
+    const room = available - shown.length - 1;
+    if (!details.length || room < 1) return;
+    const cut = details.length > room;
+    lines.push("", ...details.slice(0, cut ? room - 1 : room).map((row) => `  ${row}`));
+    if (cut) lines.push(theme.fg("dim", "  …"));
+  }
+
+  /** Wraps once per text and width, not on every render. */
+  private detailRows(text: string, width: number): string[] {
+    if (this.detailLayout?.text !== text || this.detailLayout.width !== width)
+      this.detailLayout = { text, width, rows: wrapRows(text, width) };
+
+    return this.detailLayout.rows;
   }
 }

@@ -7,6 +7,7 @@ import { builtinToolSearchAdapter } from "../adapters/builtin/tool-search/index.
 import { genericAdapter } from "../adapters/generic.ts";
 import { nativeAdapter } from "../adapters/native/index.ts";
 import { piMcpAdapter } from "../adapters/pi-mcp-adapter/index.ts";
+import { piProfilesAdapter } from "../adapters/pi-profiles/index.ts";
 import { piSelectiveReadAdapter } from "../adapters/pi-read/index.ts";
 import { piSmartCompactAdapter } from "../adapters/pi-smart-compact/index.ts";
 import { piSubagentAdapter } from "../adapters/pi-subagents/index.ts";
@@ -24,6 +25,7 @@ const extensionAdapterResolvers: readonly ToolDisplayAdapterResolver[] = [
   piSubagentAdapter,
   piSelectiveReadAdapter,
   piSmartCompactAdapter,
+  piProfilesAdapter,
   builtinCodemodeAdapter,
   builtinMcpAdapter,
   builtinToolSearchAdapter

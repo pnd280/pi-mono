@@ -112,6 +112,7 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 
 - [ ] [Adapters](adapters.md) still match on provenance and schemas, treat results as borrowed, and handle cancellation, saved-output references, and image ownership, including for FFF and MCP consumers.
 - [ ] `validateToolArguments` is still a public `@earendil-works/pi-ai` export. It still clones its input, removes optional nulls that the schema rejects, and converts values. Pi's execution still validates with it after `prepareArguments`, and `tool_call` handlers still receive the validated copy. Saved assistant messages and `tool_execution_start` still carry the raw arguments. See [callback arguments](adapters.md#callback-arguments).
+- [ ] A `tool_search` that pi-profiles registers with `createToolSearchExtension()` has the pi-profiles entry point as its source path, so the [pi-profiles adapter](../src/adapters/pi-profiles/README.md) matches it, and the built-in adapter does not.
 - [ ] Read targets use Pi's public `formatReadLineRange`, which returns an empty string when both values are missing or `null`, or when a value is malformed. Pi's own read renderer uses the same helper.
 
 ## Limitations and replacement opportunities

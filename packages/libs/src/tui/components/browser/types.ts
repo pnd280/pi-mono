@@ -34,7 +34,16 @@ export type BrowserSection<Item> = {
   remove?: BrowserRemoval<Item>;
 };
 
-export type BrowserOptions<Item> = {
+/** Inspection opens the preview, so it needs one. */
+type BrowserPreview<Item> =
+  | {
+      /** A separate scrollable view, opened with Ctrl+P. */
+      preview(item: Item): { text: string; metadata?: string };
+      inspection?: { index: number; title: string; missingMessage: string };
+    }
+  | { preview?: undefined; inspection?: undefined };
+
+export type BrowserOptions<Item> = BrowserPreview<Item> & {
   sections: readonly BrowserSection<Item>[];
   initialSection: string;
   key(item: Item): string;
@@ -43,8 +52,8 @@ export type BrowserOptions<Item> = {
     items: readonly Item[],
     theme: Pick<Theme, "fg" | "bold">
   ): ReturnType<WindowedListOptions<Item>["format"]>;
-  preview(item: Item): { text: string; metadata?: string };
-  inspection?: { index: number; title: string; missingMessage: string };
+  /** Short text shown below the results for the selected item. Rows that do not fit are cut. */
+  details?(item: Item): string;
   /** Shown when `load` rejects with a non-Error value; Error messages are shown directly. */
   loadError?: string;
   /** Caller-owned diagnostic when no usable cancel binding exists. */

@@ -342,6 +342,7 @@ export class BrowserController<Item> {
         this.select("alternate", target);
         break;
       case "preview":
+        if (!this.options.preview) break;
         this.preview = true;
         this.previewScroll = 0;
         break;
