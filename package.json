@@ -1,0 +1,30 @@
+{
+  "name": "pi-mono",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "extensions/*",
+    "lib/*"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/pi-abort-guard/index.ts",
+      "./extensions/pi-agent-summary/index.ts",
+      "./extensions/pi-editor-widgets/index.ts",
+      "./extensions/pi-fff-guard/index.ts",
+      "./extensions/pi-model-prompt/index.ts",
+      "./extensions/pi-nested-instructions/index.ts",
+      "./extensions/pi-null-args/index.ts",
+      "./extensions/pi-profiles/index.ts",
+      "./extensions/pi-prompt-cloak/index.ts",
+      "./extensions/pi-prompt-manager/index.ts",
+      "./extensions/pi-read/index.ts",
+      "./extensions/pi-session-utils/index.ts",
+      "./extensions/pi-skills/index.ts",
+      "./extensions/pi-smart-compact/index.ts",
+      "./extensions/pi-subagents/index.ts",
+      "./extensions/pi-todo/index.ts",
+      "./extensions/pi-tool-display/index.ts"
+    ]
+  }
+}

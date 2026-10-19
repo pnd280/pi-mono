@@ -1,0 +1,29 @@
+{
+  "name": "pi-agent-summary",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Live agent elapsed time with context-free tool and file change summaries",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./counters": "./src/counters.ts",
+    "./milestones": "./src/milestones.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "0.1.0",
+    "@pi-mono/utils": "0.1.0",
+    "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

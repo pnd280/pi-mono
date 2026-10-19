@@ -1,0 +1,5 @@
+packages:
+  - extensions/*
+  - lib/*
+linkWorkspacePackages: true
+autoInstallPeers: false

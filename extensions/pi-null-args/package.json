@@ -1,0 +1,21 @@
+{
+  "name": "pi-null-args",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Drops optional tool arguments that a model sent as the text \"null\"",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

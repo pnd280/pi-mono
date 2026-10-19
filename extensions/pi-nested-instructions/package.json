@@ -1,0 +1,27 @@
+{
+  "name": "pi-nested-instructions",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Discover nested Pi instructions from tool inputs without duplicating direct reads",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./notices": "./src/notices.ts"
+  },
+  "dependencies": {
+    "@pi-mono/utils": "0.1.0",
+    "unbash": "^6.0.0",
+    "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

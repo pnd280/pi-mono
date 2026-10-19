@@ -1,0 +1,33 @@
+{
+  "name": "pi-tool-display",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Compact, borderless tool activity rendering for pi",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./renderers": "./src/rendering/api.ts",
+    "./adapters": "./src/adapters/index.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "0.1.0",
+    "@pi-mono/utils": "0.1.0",
+    "pi-nested-instructions": "0.1.0",
+    "pi-read": "0.1.0",
+    "pi-todo": "0.1.0",
+    "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

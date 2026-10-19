@@ -1,0 +1,21 @@
+{
+  "name": "@pi-mono/utils",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./fff-tools": "./src/fff-tools.ts",
+    "./search-scopes": "./src/search-scopes.ts",
+    "./paths": "./src/paths.ts",
+    "./model-reference": "./src/model-reference.ts",
+    "./thinking-levels": "./src/thinking-levels.ts",
+    "./shell": "./src/shell.ts",
+    "./patch": "./src/patch.ts",
+    "./output-text": "./src/output-text.ts",
+    "./utf8": "./src/utf8.ts",
+    "./task-envelope": "./src/task-envelope.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

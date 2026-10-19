@@ -1,0 +1,28 @@
+{
+  "name": "pi-todo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Session-backed todo hierarchies and a read-only todo browser",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./text": "./src/text.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "0.1.0",
+    "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

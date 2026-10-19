@@ -1,0 +1,27 @@
+{
+  "name": "pi-fff-guard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Block FFF searches targeting Git-ignored or missing explicit paths",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "0.1.0",
+    "@pi-mono/utils": "0.1.0",
+    "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

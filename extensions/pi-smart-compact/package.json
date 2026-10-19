@@ -1,0 +1,28 @@
+{
+  "name": "pi-smart-compact",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Model-callable native compaction with focused summaries and uninterrupted continuation",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "0.1.0",
+    "@pi-mono/utils": "0.1.0",
+    "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

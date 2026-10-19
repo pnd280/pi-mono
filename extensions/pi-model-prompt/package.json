@@ -1,0 +1,26 @@
+{
+  "name": "pi-model-prompt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Model-specific append prompt files for Pi",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@pi-mono/libs": "0.1.0",
+    "@pi-mono/utils": "0.1.0",
+    "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

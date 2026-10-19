@@ -1,0 +1,214 @@
+import type { CustomEntry, EntryRenderOptions, Theme } from "@earendil-works/pi-coding-agent";
+import { MouseRegion, Text, truncateToWidth, type Component } from "@earendil-works/pi-tui";
+import { renderTree, renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
+import { formatDuration } from "@pi-mono/libs/tui/duration";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
+import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+import { wrapHangingRows } from "@pi-mono/libs/tui/text-budget";
+
+import { summarySchema, type RunSummary } from "./summary.ts";
+
+type SummaryTheme = Pick<Theme, "fg" | "bold">;
+
+const milestoneMarker = "◆";
+
+const finishTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true
+});
+
+function lineCounts(added: number, removed: number, theme: SummaryTheme): string {
+  const parts: string[] = [];
+  if (added) parts.push(theme.fg("toolDiffAdded", `+${added}`));
+  if (removed) parts.push(theme.fg("toolDiffRemoved", `-${removed}`));
+
+  return parts.join(" ");
+}
+
+function countSegment(
+  { verb, singular, plural, count }: Omit<NonNullable<RunSummary["counters"]>[number], "id">,
+  theme: SummaryTheme
+): string {
+  // Bold's reset also ends dim, so the noun takes its own dim style.
+  return [
+    theme.fg("dim", verb),
+    theme.bold(theme.fg("dim", String(count))),
+    theme.fg("dim", count === 1 ? singular : plural)
+  ].join(" ");
+}
+
+function summaryLines(
+  summary: RunSummary,
+  expanded: boolean,
+  theme: SummaryTheme
+): [string, ...string[]] {
+  const separator = theme.fg("dim", " · ");
+  const available = summary.files.filter((file) => file.status === "available");
+  const parts: string[] = [];
+  let throughput: string | undefined;
+
+  if (summary.throughput) {
+    const { outputTokens, durationMs } = summary.throughput;
+    throughput = `${theme.bold(((outputTokens / durationMs) * 1000).toFixed(1))} tok/s`;
+  }
+
+  if (summary.models) {
+    const model = compactDisplayText(
+      summary.models
+        .map(
+          ({ provider, id, thinkingLevel }) =>
+            `${provider}/${id}${thinkingLevel ? `:${thinkingLevel}` : ""}`
+        )
+        .join(" → ")
+    );
+    parts.push(theme.fg("dim", `${model}${throughput ? ` (${throughput})` : ""}`));
+  }
+
+  parts.push(
+    theme.fg(
+      "dim",
+      `${formatDuration(summary.durationMs)}${expanded ? ` (${finishTimeFormatter.format(summary.finishedAt)})` : ""}`
+    )
+  );
+
+  if (!summary.models && throughput) parts.push(theme.fg("dim", throughput));
+
+  if (summary.bashCalls)
+    parts.push(
+      countSegment(
+        { verb: "ran", singular: "command", plural: "commands", count: summary.bashCalls },
+        theme
+      )
+    );
+  for (const { verb, singular, plural, count } of summary.counters ?? [])
+    parts.push(
+      countSegment(
+        {
+          verb: compactDisplayText(verb),
+          singular: compactDisplayText(singular),
+          plural: compactDisplayText(plural),
+          count
+        },
+        theme
+      )
+    );
+  if (available.length)
+    parts.push(
+      countSegment(
+        { verb: "edited", singular: "file", plural: "files", count: available.length },
+        theme
+      )
+    );
+  const counts = lineCounts(
+    available.reduce((total, file) => total + file.added, 0),
+    available.reduce((total, file) => total + file.removed, 0),
+    theme
+  );
+  if (counts) parts.push(counts);
+  const unavailable = summary.files.length - available.length;
+  if (unavailable)
+    parts.push(
+      theme.fg(
+        "muted",
+        `statistics unavailable for ${unavailable} ${unavailable === 1 ? "file" : "files"}`
+      )
+    );
+  const lines: [string, ...string[]] = [parts.join(separator)];
+
+  if (expanded) {
+    for (const file of summary.files) {
+      const path = theme.fg("dim", compactDisplayText(file.path));
+      const detail =
+        file.status === "available"
+          ? lineCounts(file.added, file.removed, theme)
+          : theme.fg("dim", compactDisplayText(file.reason));
+      lines.push(`${path}${detail ? separator + detail : ""}`);
+    }
+  }
+
+  return lines;
+}
+
+export function createSummaryRenderer() {
+  // Pi rebuilds entry components on invalidation. Keep local expansion across
+  // rebuilds, but let changes to the global tool-output toggle take precedence.
+  const states = new WeakMap<CustomEntry, { expanded: boolean; globalExpanded: boolean }>();
+
+  return function renderSummary(
+    entry: CustomEntry,
+    { expanded }: EntryRenderOptions,
+    theme: SummaryTheme
+  ): Component | undefined {
+    const parsed = summarySchema.safeParse(entry.data);
+    if (!parsed.success) return;
+
+    const previous = states.get(entry);
+    const expansion =
+      previous?.globalExpanded === expanded ? previous : { expanded, globalExpanded: expanded };
+    states.set(entry, expansion);
+    // Each TUI frame renders every chat entry; theme changes clear the cache through invalidate().
+    let cache: { width: number; expanded: boolean; lines: string[] } | undefined;
+
+    return new MouseRegion(
+      {
+        render: (width) => {
+          if (width < 1) return [];
+          if (cache?.width === width && cache.expanded === expansion.expanded) return cache.lines;
+
+          const [heading, ...files] = summaryLines(parsed.data, expansion.expanded, theme);
+          const marker = expansion.expanded ? TUI_GLYPHS.expanded : TUI_GLYPHS.bullet;
+          const style = (text: string) => theme.fg("dim", text);
+          // The first row fits beside the marker; the rest wrap in the tree body.
+          const [first = "", ...wrapped] = wrapHangingRows(
+            heading,
+            Math.max(1, width - 2),
+            Math.max(1, width - 4)
+          );
+
+          const markedRows = (text: string, glyph: string) =>
+            new Text(text, 0, 0).render(Math.max(1, width - 2)).map((line, index) => {
+              const prefix = index === 0 ? `${glyph} ` : "  ";
+
+              return truncateToWidth(prefix + line, width, "");
+            });
+
+          const lines = [
+            ...(parsed.data.milestones ?? []).flatMap((text) =>
+              markedRows(
+                theme.fg("text", compactDisplayText(text)),
+                theme.fg("accent", milestoneMarker)
+              )
+            ),
+            truncateToWidth(`${theme.fg("dim", marker)} ${first}`, width, ""),
+            ...renderTreeContinuation(wrapped, {
+              width,
+              indent: 2,
+              style,
+              hasChildren: files.length > 0
+            }),
+            ...renderTree(
+              files.map((file) => ({
+                rows: new Text(file, 0, 0).render(Math.max(1, width - 4))
+              })),
+              { width, indent: 2, style }
+            )
+          ];
+          cache = { width, expanded: expansion.expanded, lines };
+
+          return lines;
+        },
+        invalidate() {
+          cache = undefined;
+        }
+      },
+      (event) => {
+        if (event.type !== "click" || event.button !== "left") return;
+        expansion.expanded = !expansion.expanded;
+
+        return { handled: true };
+      }
+    );
+  };
+}

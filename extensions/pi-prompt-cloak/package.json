@@ -1,0 +1,21 @@
+{
+  "name": "pi-prompt-cloak",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rephrases Pi-specific system prompt text to reduce fingerprinting by upstream providers",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
