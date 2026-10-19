@@ -1,6 +1,6 @@
 # [Shared TUI](README.md) development
 
-Keep domain policy and I/O in consumers; reusable components receive effect callbacks rather than importing extensions or host mounting.
+Reusable components receive effect callbacks rather than importing extensions or host mounting, as the [ownership rule](README.md#usage) requires.
 
 ## Code navigation
 
@@ -15,7 +15,8 @@ Keep domain policy and I/O in consumers; reusable components receive effect call
 
 - Prepare full text outside render and input loops.
 - Keep theme colours out of cached layout.
-- Preserve logical views across host remounts; dispose only on final closure.
+- Preserve logical views across host remounts.
+- Dispose logical views only on final closure.
 
 ## Validation
 

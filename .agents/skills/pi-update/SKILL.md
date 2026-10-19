@@ -16,10 +16,10 @@ Follow the six stages in order. Audit and planning requests skip stages 4 and 5:
 
 ### 1. Establish the baseline
 
-1. Read package instructions and [development guidance](../../../docs/development.md). Inspect staged, unstaged, and untracked work. Treat changes for the same target as an in-progress migration to verify and continue, reported separately in the handoff; preserve all other changes.
+1. Read package instructions, [development guidance](../../../docs/development.md), and the [Pi API contracts](../../../docs/agents/pi-apis.md). Inspect staged, unstaged, and untracked work. Treat changes for the same target as an in-progress migration to verify and continue, reported separately in the handoff; preserve all other changes.
 2. Record target, declared workspace, and consumer-resolved versions. Run executable, terminal, and API checks against workspace-resolved Pi (`node_modules/.bin/pi` or `resolvePiExecutable`); a global CLI is not target evidence. Global Pi updates require an explicit request.
 3. Read every intervening changelog section and linked migration note. Obtain target release or tagged source first if unavailable locally; use `gh` for GitHub.
-4. Read relevant [Pi documentation](../../../docs/pi-docs.md) fully and inspect examples, then declarations, exports, and implementation for unsettled contracts. Record source versions. Never edit installed or upstream Pi.
+4. Read relevant [Pi documentation](../../../docs/agents/pi-docs.md) fully and inspect examples, then declarations, exports, and implementation for unsettled contracts. Record source versions. Never edit installed or upstream Pi.
 5. Inventory imports, events, provider streams, helpers, private hooks, manifests, settings, tests, launchers, and compatibility claims, following [shared consumers](../../../docs/agents/architecture.md#reuse-decision). Read existing package `docs/pi-compatibility.md` guides, including shared packages. Where no guide exists, inspect the owning code and tests for Pi contracts; report unverified contracts rather than missing documents.
 6. Run relevant baseline checks to distinguish existing failures from regressions.
 

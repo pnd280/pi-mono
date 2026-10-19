@@ -1,0 +1,32 @@
+{
+  "_aux/audit-docs-v2": {
+    "source": "$local",
+    "skill": "audit-docs-v2",
+    "hash": "bbffc2de04d6912cbfb63a33f2469c48f5b582263d7316c8857aeaafeb7006dd"
+  },
+  "_aux/code-review-expert": {
+    "source": "https://github.com/sanyuan0704/sanyuan-skills",
+    "skill": "code-review-expert",
+    "hash": "27187cbf9a4852b663ab6fe5859229dc0ed3e5e0a5c2e31e92f9ad932c5bb8d0"
+  },
+  "_aux/show-me": {
+    "source": "https://github.com/humanlayer/skills",
+    "skill": "show-me",
+    "hash": "4e36a6913afa2df96698e56346d3cac4e322a45aa99a5fe77958bb3f2309ecfa"
+  },
+  "_aux/typescript-advanced-types": {
+    "source": "https://github.com/wshobson/agents",
+    "skill": "typescript-advanced-types",
+    "hash": "8ac9f4ce250d22de6e1c05519f5924e6ac52c682b282d9b43bfa98b63efb8bdf"
+  },
+  "_aux/typescript-review": {
+    "source": "$local",
+    "skill": "typescript-review",
+    "hash": "9580c351ba5d1691abb89080b95764a1bfbea4aecba24526fa9de9866717bbf3"
+  },
+  "_aux/typescript-taste": {
+    "source": "$local",
+    "skill": "typescript-taste",
+    "hash": "8839f338cf50fef95c5d47f45a798170e402f8a3d95d4a784bf855abdbf67734"
+  }
+}

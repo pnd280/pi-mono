@@ -49,7 +49,7 @@ Naming needs [configuration](#configuration); saving and child sessions don't.
 
 - An unnamed session gets at most one automatic attempt per load, made silently when a user message with non-empty text arrives. Loading or reloading allows another attempt, at the next user message.
 - `/sesh auto-name` generates a new title at any time, even while the agent is running.
-- Setting or clearing a name yourself stops automatic naming until the session is loaded or reloaded. Other events that cancel naming are listed in the [naming guide](docs/naming.md#cancellation-and-retries).
+- Setting or clearing a name yourself stops automatic naming. The [naming guide](docs/naming.md#cancellation-and-retries) says when naming resumes and lists the other events that cancel it.
 - Generation times out after 15 seconds and isn't retried. If it fails, the name is unchanged.
 
 | Trigger           | Text from the current branch sent to the model                                  |
@@ -94,12 +94,10 @@ To turn on naming, add `auto-title` under an `ext.pi-session-utils` key in globa
 | `model`         | Model used for naming, as `provider/model-id`. Authentication uses Pi's provider configuration.                            |
 | `thinkingLevel` | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. A level the model doesn't support is rejected, not adjusted. |
 
-| Scope   | File                                                                           |
-| ------- | ------------------------------------------------------------------------------ |
-| Global  | `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when set. |
-| Project | `<cwd>/.pi/settings.json`; parent directories aren't searched.                 |
+Put the key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
 
-- Only [trusted projects](https://pi.dev/docs/latest/security#understand-project-trust) can override global fields. Fields a project leaves out are inherited.
+- A trusted project's fields override the global fields.
+- Fields that a project leaves out are inherited from the global settings.
 - Both fields are required after merging. There are no defaults, no environment variables, and no fallback to the active model.
 - Run `/reload` to apply changes.
 - Invalid settings turn off naming, but not saving or child sessions. [Settings errors](docs/naming.md#settings-errors) lists what counts as invalid.
@@ -116,4 +114,4 @@ To turn off naming only, remove `auto-title` from the global settings and from t
 
 ## Validation
 
-Use the [workspace checks](../../../docs/development.md#focused-validation). Fixture providers need no credentials or paid requests. See [testing](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md).
+The package tests use offline fixture providers, so they need no credentials and make no paid requests. See [testing](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md).

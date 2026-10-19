@@ -2,7 +2,7 @@
 
 Prompts you submit in Pi's TUI scroll out of reach just when you want to reuse one. pi-prompt-manager keeps a private history of those prompts and lets you save drafts to come back to. Press **Ctrl+R** to search past prompts and put one back in the editor; it is never submitted for you.
 
-It runs only in a trusted agent directory on local storage: on Linux, macOS, or WSL with POSIX owner checks and enforced permissions, or on native Windows inside the user profile. In RPC, print, and JSON modes the extension stays inactive and reads neither settings nor storage.
+It runs only in a trusted agent directory on local storage, on Linux, macOS, WSL, or native Windows. The [storage safety rules](docs/storage.md#storage-safety) give the filesystem requirements for each platform. In RPC, print, and JSON modes the extension stays inactive and reads neither settings nor storage.
 
 ## Usage
 
@@ -35,14 +35,14 @@ Restoring replaces the editor text. It doesn't submit, and doesn't add to Pi's n
 
 By default, **Ctrl+R** opens "History". The default browser bindings are:
 
-| Key                           | Action                               |
-| ----------------------------- | ------------------------------------ |
-| **Enter**                     | Restore the selection.               |
-| **Ctrl+C**                    | Copy without closing.                |
-| **Tab**                       | Switch between collections.          |
-| **Ctrl+P**                    | Preview.                             |
-| **Delete** twice within 1.5 s | Delete the selection.                |
-| **Escape**                    | Close the preview, then the browser. |
+| Key                                 | Action                               |
+| ----------------------------------- | ------------------------------------ |
+| **Enter**                           | Restore the selection.               |
+| **Ctrl+C**                          | Copy without closing.                |
+| **Tab**                             | Switch between collections.          |
+| **Ctrl+P**                          | Preview.                             |
+| **Delete** twice within 1.5 seconds | Delete the selection.                |
+| **Escape**                          | Close the preview, then the browser. |
 
 The browser needs at least 40 columns by 10 rows; below that, resize or cancel. See [controls](docs/controls.md) for search, duplicates, and deletion rules.
 
@@ -67,11 +67,11 @@ Add an `ext.pi-prompt-manager` key to the global `~/.pi/agent/settings.json`, or
 | `historyRetention` | How many history entries to keep. Numbers are floored and clamped to 1–5,000; numeric strings are invalid. Lowering it prunes on the next captured prompt.                                        |
 | `shortcuts`        | Keys in [Pi key syntax](https://pi.dev/docs/latest/keybindings#key-syntax). An empty list disables the action, and an invalid list uses the default. If both actions share a key, `history` wins. |
 
-- Shortcuts must pass [shared keybinding validation](../../libs/src/tui/keybindings/README.md#behaviour), which excludes keys Pi cannot dispatch.
+- Shortcuts must be valid Pi keys. Pi 1.3.0 can't dispatch modified **Escape** or modified function keys, so these keys are invalid.
 - Each invalid field falls back to its default with a warning. Unreadable or oversized settings use all defaults.
 - Run `/reload` to apply changes. The extension never rewrites settings.
 - Pi may warn about conflicts with built-in keys, such as **Ctrl+R** for session renaming.
-- Shortcuts are claimed through the shared [lifecycle coordinator](../../libs/src/lifecycle/README.md#shortcut-claims). If a key can match the same keypress as a key that another extension claims there, such as the pi-profiles shortcut, neither extension registers it, and a warning names the conflict.
+- If a shortcut can match the same keypress as a shortcut of another [pi-mono](../../../README.md) extension, such as pi-profiles, neither extension registers it, and a warning names the conflict.
 
 ## Side effects
 
@@ -80,7 +80,7 @@ The extension writes only to its own per-directory storage, and to the system cl
 ### Capture and storage
 
 - Captures each interactive submission, trimmed, before templates and skills expand. This includes steering and follow-up messages you later withdraw.
-- Captures run as an observer of the shared [input chain](../../libs/src/input-chain/README.md), so they record the typed text before any chain transform, such as pi-skills expansion, in every load order. Extensions that change input outside the chain still run in load order.
+- Captures record the typed text before other pi-mono extensions change it, such as by pi-skills expansion, whatever the load order. Other extensions that change input run in load order, so they can change it first.
 - Doesn't capture slash commands handled by extensions, extension-generated input, or custom messages. Existing session and editor history isn't imported.
 - Collections persist even with `--no-session`. Symlink aliases of a directory share storage; different directories and worktrees don't.
 - Prompt text is stored unencrypted, protected by file permissions. See [storage and recovery](docs/storage.md) for paths, capacities, and repair.
@@ -95,6 +95,4 @@ Requires macOS `pbcopy`, Wayland `wl-copy`, X11 `xclip` or `xsel`, or WSL `power
 
 ## Validation
 
-This section is for maintainers. Use the [focused checks](../../../docs/development.md#focused-validation) for `pi-prompt-manager`.
-
-The [coverage specification](docs/testing.md) defines what the tests protect. Prerequisites, offline fixtures, and platform checks are in the [validation guidance](docs/validation.md).
+This section is for maintainers. The [coverage specification](docs/testing.md) defines what the tests protect. Prerequisites, offline fixtures, and platform checks are in the [validation guidance](docs/validation.md).

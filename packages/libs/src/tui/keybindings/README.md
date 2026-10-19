@@ -24,4 +24,4 @@ Pi 1.3.0 matches a symbol binding such as `ctrl++` against the Shift press that 
 
 ## Caller responsibilities
 
-Callers own actions, defaults, diagnostics, precedence, and Pi keybinding changes.
+- Own actions, defaults, diagnostics, precedence, and Pi keybinding changes.

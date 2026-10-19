@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../../../README.md) · [Adapter development](../../../../docs/adapters.md)
 
-FFF searches appear as compact cards with match counts, grouped by search filter. This page documents the adapter contract for its maintainers; if you use `@ff-labs/pi-fff`, read [Display](#display) for how its calls appear.
+FFF searches appear as compact cards with match counts, grouped by search filter. See [FFF cards](../../../../docs/tools.md#fff).
 
 ## Compatibility and selection
 
@@ -18,21 +18,11 @@ Missing result details and empty details objects are supported. Nonempty details
 
 ## Display
 
-Adjacent calls [group](../../../../docs/presentation.md#groups) by exact literal `path` or multi-search `constraints`, defaulting to `.` when empty or omitted. `src/**` and `./src/**` are different filters, and filters never merge with native directories.
+[FFF cards](../../../../docs/tools.md#fff) describes what users see. Groups use the literal `path` or multi-search `constraints` as their filter. Result summaries need nonnegative integer `totalMatched` and `totalFiles`:
 
-Explicit empty patterns remain valid; missing patterns cannot group and fall back to generic cards after a result arrives.
-
-Find calls with a nonempty `cursor` show `page <cursor>` instead of the supplied pattern and filter. They stay outside exploration groups because FFF resumes a saved query whose pattern and scope are not in the result. Result counts and notices remain available.
-
-Completed successful calls with nonnegative integer counts show result summaries instead of match excerpts in compact cards, both inside and outside groups:
-
-- Grep and multi-grep label `totalMatched` as matches collected for the call.
-- Find labels `totalMatched` as the total matching files, which can exceed the current page.
-- `totalFiles` is the unfiltered number of indexed files, not the number searched or containing matches.
-
-Missing or invalid counts use bounded output previews. Calls with [incompatible details](#arguments-and-results) use generic cards. Failed and partial results do not receive completed-result summaries.
-
-Pagination, limit, query, and fallback notices remain visible in compact and expanded cards.
+- For grep and multi-grep, `totalMatched` is the number of matches collected for the call.
+- For find, `totalMatched` is the total number of matching files, which can exceed the current page.
+- `totalFiles` is the unfiltered number of indexed files.
 
 ## Validation
 

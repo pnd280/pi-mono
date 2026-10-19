@@ -34,8 +34,8 @@ Use fresh session contexts after replacement and restore startup hooks only whil
 
 ## Validation
 
-| When you…                 | Read or run                                                             |
-| ------------------------- | ----------------------------------------------------------------------- |
-| Validate a package change | [Package validation](README.md#validation) with offline fixture models. |
-| Change host assumptions   | The [compatibility checklist](docs/pi-compatibility.md).                |
-| Choose what to test       | [Testing](docs/testing.md).                                             |
+| When you…                 | Read or run                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Validate a package change | The [package checks](../../../docs/development.md#focused-validation). They use offline fixture models. |
+| Change host assumptions   | The [compatibility checklist](docs/pi-compatibility.md).                                                |
+| Choose what to test       | [Testing](docs/testing.md).                                                                             |

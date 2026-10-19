@@ -17,7 +17,7 @@ escape again to interrupt
 
 Edge cases:
 
-- Retries, compactions, and branch summaries show their own status line instead of the working message, so the hint does not appear there. The first press is still held back.
+- Retries, compactions, and branch summaries show their own status line instead of the working message, so the hint does not appear there. The extension still holds back the first press.
 - After the hint clears, the current working message returns. When no other contribution or override has text, Pi shows "Working".
 
 ## Limitations

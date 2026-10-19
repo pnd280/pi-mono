@@ -24,5 +24,5 @@ Pi removes a real JSON `null` from an optional argument when its property schema
 ## Side effects
 
 - The saved session records the cleaned tool call, not the arguments the model sent.
-- An optional argument that should really be the text `"null"` is removed too.
+- An optional argument that should be the text `"null"` is removed too.
 - The extension writes no files and makes no requests.

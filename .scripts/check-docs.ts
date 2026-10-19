@@ -1,6 +1,7 @@
 // Check workspace Markdown: relative links and heading anchors must resolve, inline
 // `Class.prototype.member` names must exist, and every "Last verified against Pi x.y.z"
-// line must name the installed Pi version.
+// line must name the installed Pi version. Docs outside agent skills, prompt resources, and
+// changelogs must also follow the structural conventions checked by checkConventions().
 // Usage: node .scripts/check-docs.ts [files...]   (default: all Git-visible Markdown)
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -50,8 +51,11 @@ function exists(path: string): boolean {
 }
 
 // Fenced blocks, including indented ones in list items, hold examples, not headings or links.
+// Blank lines replace them, so line numbers stay valid.
 function withoutFences(text: string): string {
-  return text.replace(/^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[`~]*[ \t]*$/gm, "");
+  return text.replace(/^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[`~]*[ \t]*$/gm, (block) =>
+    block.replace(/[^\n]/g, "")
+  );
 }
 
 // Inline code holds examples, not links.
@@ -214,10 +218,166 @@ function checkPrototypeNames(file: string, text: string, name: string): string[]
   return problems;
 }
 
+// The documentation conventions (docs/development.md#documentation) allow a bold label at the
+// start of a bullet only as the severity and layer of a "Must not regress" invariant
+// (docs/agents/testing.md#coverage), with Critical invariants before High ones in each group.
+const bulletLabel = /^[ \t]*(?:[-*+]|\d+\.)[ \t]+\*\*([^*\n]+?)(?::\*\*|\*\*:)/;
+const severityLabel = /^(Critical|High), (?:e2e|integration|unit)$/;
+
+type RegressScope = {
+  // Heading level of the open "Must not regress" section, or 0.
+  level: number;
+  // The list after a "Must not regress (...):" paragraph, before and after its first bullet.
+  intro: "pending" | "open" | undefined;
+  seenHigh: boolean;
+};
+
+// Update the scope for this line, and return the bold label that starts its bullet, if any.
+function trackRegressScope(scope: RegressScope, line: string): string | undefined {
+  const heading = /^(#{1,6})\s+(.+?)\s*#*$/.exec(line);
+
+  if (heading) {
+    const level = heading[1].length;
+
+    if (heading[2] === "Must not regress") scope.level = level;
+    else if (level <= scope.level) scope.level = 0;
+    scope.intro = undefined;
+    scope.seenHigh = false;
+
+    return undefined;
+  }
+
+  if (line.trim() === "") {
+    if (scope.intro === "open") scope.intro = undefined;
+
+    return undefined;
+  }
+
+  if (/^\S/.test(line) && !/^(?:[-*+]|\d+\.)\s/.test(line)) {
+    scope.intro = line.startsWith("Must not regress") ? "pending" : undefined;
+    scope.seenHigh = false;
+
+    return undefined;
+  }
+
+  if (scope.intro === "pending") scope.intro = "open";
+
+  return bulletLabel.exec(line)?.[1];
+}
+
+function labelProblem(scope: RegressScope, label: string): string | undefined {
+  const severity = severityLabel.exec(label)?.[1];
+
+  if (!severity) return `bold bullet label "${label}"; use a heading or a table`;
+
+  if (scope.level === 0 && scope.intro !== "open") {
+    return `severity label "${label}" outside a "Must not regress" list`;
+  }
+
+  if (severity === "High") scope.seenHigh = true;
+  else if (scope.seenHigh) return "Critical invariant after a High one";
+
+  return undefined;
+}
+
+function checkLabels(lines: string[], name: string): string[] {
+  const problems: string[] = [];
+  const scope: RegressScope = { level: 0, intro: undefined, seenHigh: false };
+
+  for (const [index, line] of lines.entries()) {
+    const label = trackRegressScope(scope, line);
+    const problem = label === undefined ? undefined : labelProblem(scope, label);
+
+    if (problem) problems.push(`${name}:${index + 1}: ${problem}`);
+  }
+
+  return problems;
+}
+
+// Package testing guides follow the template in docs/agents/testing.md#package-testing-guide.
+const testingSections = ["Must not regress", "Not tested", "Manual checks"];
+
+function checkTestingGuide(lines: string[], name: string): string[] {
+  const problems: string[] = [];
+  const sections = lines.flatMap((line, index) =>
+    line.startsWith("## ") ? [{ title: line.slice(3).trim(), index }] : []
+  );
+  let previous = -1;
+
+  if (!/^# .+ test coverage for maintainers$/.test(lines[0] ?? "")) {
+    problems.push(`${name}:1: title is not "# <Package> test coverage for maintainers"`);
+  }
+
+  if (sections[0]?.title !== "Must not regress") {
+    problems.push(`${name}: first section is not "Must not regress"`);
+  }
+
+  for (const { title, index } of sections) {
+    const order = testingSections.indexOf(title);
+
+    if (order <= previous) problems.push(`${name}:${index + 1}: unexpected section "${title}"`);
+    else previous = order;
+  }
+
+  return problems;
+}
+
+// A compatibility doc opens with one "Last verified" quote line before its first section
+// (docs/development.md#writing-for-scanning).
+const verifiedLine = /^> Last verified against Pi \d+\.\d+\.\d+\b.* with .+\. Not covered: .+\.$/;
+
+function checkCompatibilityDoc(lines: string[], name: string): string[] {
+  const problems: string[] = [];
+  const verified = lines.flatMap((line, index) =>
+    line.includes("Last verified against Pi") ? [index] : []
+  );
+  const firstSection = lines.findIndex((line) => line.startsWith("## "));
+
+  if (verified.length !== 1) {
+    problems.push(`${name}: ${verified.length} "Last verified" lines; expected one`);
+  }
+
+  for (const index of verified) {
+    const quoted = (offset: number) => (lines[index + offset] ?? "").startsWith(">");
+    const at = `${name}:${index + 1}`;
+
+    if (!verifiedLine.test(lines[index] ?? "") || quoted(-1) || quoted(1)) {
+      problems.push(
+        `${at}: "Last verified" is not one quote line "> Last verified against Pi x.y.z with <method>. Not covered: <gaps>."`
+      );
+    }
+
+    if (firstSection !== -1 && index > firstSection) {
+      problems.push(`${at}: "Last verified" line is not before the first section`);
+    }
+  }
+
+  return problems;
+}
+
+function checkConventions(text: string, name: string): string[] {
+  const path = name.split(sep).join("/");
+
+  if (/^\.(?:agents|resources)\//.test(path) || path.endsWith("CHANGELOG.md")) return [];
+
+  const lines = withoutFences(text).split("\n");
+  const problems = checkLabels(lines, name);
+
+  if (/^packages\/(?:.+\/)?docs\/testing\.md$/.test(path)) {
+    problems.push(...checkTestingGuide(lines, name));
+  }
+
+  if (/^packages\/(?:.+\/)?docs\/pi-compatibility\.md$/.test(path)) {
+    problems.push(...checkCompatibilityDoc(lines, name));
+  }
+
+  return problems;
+}
+
 function checkFile(file: string): string[] {
   const text = readMarkdown(file);
   const name = relative(root, file);
-  const problems = checkPrototypeNames(file, text, name);
+  const problems = [...checkPrototypeNames(file, text, name), ...checkConventions(text, name)];
 
   for (const [, target = ""] of prose(text).matchAll(
     /\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g

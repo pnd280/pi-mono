@@ -32,7 +32,7 @@ When adding a message type or adapting a Pi row, preserve the distinction betwee
 
 - Treat Pi's tool arguments and results as borrowed: read them, never modify them.
 - Interpret a call only from [verified provenance](docs/adapters.md#recognise-tool-contracts), never by guessing from output text.
-- Display code (adapter lookup and renderers) must not read files, run tools, or persist data.
+- Display code (adapter lookup and renderers) must not take the [prohibited adapter actions](docs/adapters.md#prohibited-actions).
 - Persist bounded facts and patches.
 - Never persist result bodies, images, or styled text.
 - Replay must not observe files again, rerun tools, or animate results whose outcome is unknown.

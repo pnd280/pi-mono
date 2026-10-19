@@ -2,7 +2,9 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-A [background result](../GLOSSARY.md#results) delivers a finished background task or [job](jobs.md) to its supervisor. This guide explains when the result reaches the model, how long a supervisor waits for it, and how its usage is counted. The decisions are in [ADR 0001](adr/0001-hold-run-for-background-results.md) and [ADR 0006](adr/0006-deliver-background-results-at-turn-end.md).
+A [background result](../GLOSSARY.md#results) delivers a finished background task or [job](jobs.md) to its supervisor.
+
+The decisions are in [ADR 0001](adr/0001-hold-run-for-background-results.md) and [ADR 0006](adr/0006-deliver-background-results-at-turn-end.md).
 
 ## Delivery timing
 
@@ -26,7 +28,7 @@ In all modes, a supervisor stays busy after a normal reply while its direct back
 - Print and JSON supervisors wait before exiting.
 - The waiting time counts as busy time, for example in `pi-agent-summary`, and commands that need an idle session are blocked until the wait ends.
 
-In TUI mode, the `pi-subagents.waiting` component adds “Waiting for background subagents” to the [shared working message](../../../libs/src/working-message/README.md) during the wait; `/working-message` orders it.
+In TUI mode, the working message shows "Waiting for background subagents" during the wait, as the `pi-subagents.waiting` item. To change its position, run `/working-message`; see [working-message ordering](../../../libs/src/working-message/ordering.md#settings-menu).
 
 Edge cases:
 

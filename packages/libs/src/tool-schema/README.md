@@ -2,13 +2,13 @@
 
 [Library index](../../README.md#usage)
 
-Describe tool input once in Zod and project model-facing parameters into a limited schema profile for Pi.
+Pi tools declare model-facing parameters in TypeBox, but extensions validate input in Zod, and some providers reject parts of JSON Schema. [`toToolSchema`](index.ts) (`@pi-mono/libs/tool-schema`) projects a Zod input schema into Pi's TypeBox parameters in a limited schema profile, so that each tool describes its input once.
 
 ## Behaviour
 
-[`toToolSchema`](index.ts) (`@pi-mono/libs/tool-schema`) projects a Zod input schema into Pi's TypeBox parameters. It preserves the input TypeScript type, including optional and nullable fields, and can be composed inside `Type.Object` and `Type.Optional`.
+The projection preserves the input TypeScript type, including optional and nullable fields, and can be composed inside `Type.Object` and `Type.Optional`.
 
-The adapter uses one deliberately limited compatibility profile, not a universal provider schema standard:
+The adapter uses one limited compatibility profile:
 
 - It omits integer bounds, including Zod's automatic safe-integer bounds, because some providers reject them.
 - Explicit integer bounds require a nonempty description on the bounded schema, field, or containing nullable, array, or record schema.
@@ -36,8 +36,8 @@ const args = input.parse({ line: 1 });
 ## Caller responsibilities
 
 - Keep feature schemas, descriptions, and validation errors in the consumer. State omitted numeric constraints in the required description; the adapter checks that a description exists, not what it says.
-- Validate full inputs before side effects with the original Zod schema or equivalent domain validation. A projected TypeBox schema is not a replacement for runtime validation.
-- Use `z.strictObject` where unknown keys must be rejected. Optionality must be expressed in the containing Zod object or with `Type.Optional` when composing TypeBox objects.
+- Validate full inputs before side effects with the original Zod schema or equivalent domain validation. A projected TypeBox schema does not replace runtime validation.
+- Use `z.strictObject` where unknown keys must be rejected. Express optionality in the containing Zod object, or with `Type.Optional` when composing TypeBox objects.
 - For display consumers, follow [structural recognition guidance](../../../extensions/pi-tool-display/docs/adapters.md#recognise-tool-contracts) rather than treating the projected schema as a stable fingerprint.
 - Check actual provider acceptance when changing the profile or supported providers. Local serialisation and argument-validation tests cannot establish live API compatibility.
 

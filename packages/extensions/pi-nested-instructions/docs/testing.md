@@ -1,14 +1,15 @@
-# Nested instruction test coverage
+# Nested instruction test coverage for maintainers
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Glossary](../GLOSSARY.md)
 
-This package tests nested-input delivery, [read-marker](../GLOSSARY.md#discovery) lifetime, and full-body [notices](../GLOSSARY.md#delivery) against canonical session context.
-
-Libs and utils own shared algorithms; the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md) owns rendering. E2e checks drive a Pi host with its faux provider and network access disabled. Integration checks use real instruction files and the installed `SessionManager` without a host.
+This package tests nested-input delivery, [read-marker](../GLOSSARY.md#discovery) lifetime, and full-body notices against canonical session context; libs and utils own shared algorithms, and the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md) owns rendering.
 
 ## Must not regress
 
-- **Critical, integration:** Inferred scopes stay strictly inside the lexical cwd and never include symlink-target ancestor scopes. Selecting a file symlink keeps its lexical scope.
+E2e checks drive a Pi host with its faux provider and network access disabled. Integration checks use real instruction files and the installed `SessionManager` without a host.
+
+- **Critical, integration:** Inferred scopes stay strictly inside the lexical cwd and never include symlink-target ancestor scopes.
+- **Critical, integration:** Selecting a file symlink keeps its lexical scope.
 - **High, e2e:** Nested discovery leaves Pi's native global, cwd, and parent instruction loading and reload behaviour unchanged.
 - **High, e2e:** Supported nested tool inputs can load instructions even when the parent hides the child output, unless a sibling [direct read](../GLOSSARY.md#discovery) suppresses the selected file.
 - **High, e2e:** Nested calls do not create direct-read suppression markers, including blocked and invalid child attempts.
@@ -18,9 +19,11 @@ Libs and utils own shared algorithms; the [pi-tool-display adapter](../../pi-too
 
 ## Not tested
 
-- Host-driven context edits, compaction, and branch navigation: the canonical-context lifetime scenarios currently use `SessionManager` integration checks.
-- File selection order, Bash and FFF input inference rules, batching, and reload diffing: below the severity bar. Inference rejects unsupported syntax by design; see [Bash inference](design.md#bash-inference).
-- Pi's default notice renderer when discovery loads alone: below the severity bar.
-- Whether FFF searches and indexes correctly, arbitrary shell evaluation, and real provider calls.
-- Byte equality of direct reads: discovery is input-only, and wildcards never prove which instruction file a tool read.
-- Temporary message filtering by other extensions and final provider-payload rewrites: outside the canonical session projection.
+- Host-driven context edits, compaction, and branch navigation are not tested in a host, because the canonical-context lifetime scenarios use `SessionManager` integration checks.
+- File selection order, Bash and FFF input inference rules, batching, and reload diffing are below the severity bar. Inference rejects unsupported syntax by design, as the [Bash inference rules](input-discovery.md#bash-inference) state.
+- Pi's default notice renderer when discovery loads alone is below the severity bar.
+- FFF owns whether its searches and indexes are correct.
+- Arbitrary shell evaluation is not tested because discovery never runs commands.
+- Real provider calls are not tested because the e2e checks run offline with the faux provider.
+- Byte equality of direct reads is not tested because discovery is input-only, and wildcards never prove which instruction file a tool read.
+- Temporary message filtering by other extensions and final provider-payload rewrites are not tested because they are outside the canonical session projection.

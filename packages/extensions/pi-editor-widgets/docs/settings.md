@@ -37,21 +37,22 @@ A project layout replaces the entire global layout; the two are never merged.
 
 ### Row entries
 
-| Entry                 | Meaning                                                             |
-| --------------------- | ------------------------------------------------------------------- |
-| `widget:<native-key>` | A widget registered with `setWidget()`.                             |
-| `status:<native-key>` | A status registered with `setStatus()`.                             |
-| `builtin:<name>`      | Built-in footer information; see [builtins.ts](../src/builtins.ts). |
-| `separator`           | A divider.                                                          |
-| `flex`                | Right-aligns the group that follows.                                |
+| Entry                 | Meaning                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `widget:<native-key>` | A widget registered with `setWidget()`.                                                             |
+| `status:<native-key>` | A status registered with `setStatus()`.                                                             |
+| `builtin:<name>`      | Built-in footer information: `cwd`, `git-branch`, `session-title`, `tokens`, `context`, or `model`. |
+| `separator`           | A divider.                                                                                          |
+| `flex`                | Right-aligns the group that follows.                                                                |
 
 - To hide something, list it in `hidden`. An empty region doesn't hide unlisted or future registrations.
 - Unlisted widgets get their own rows at the end of the region that their extension requested, sorted by ID in code unit order, whatever the locale. Unlisted statuses share one footer row, also sorted by ID in code unit order.
 - Unknown IDs keep their positions, so a widget reappears where you put it once its extension loads.
 - In `aboveEditor`, shorter widgets in a multiline row align to the bottom, next to the editor. Other regions align them to the top.
 - A row can contain each ID once and at most one `flex`. The same ID can appear in several rows, but an ID in `hidden` can't also be placed.
-- The [layout schema](../src/layout.ts) defines the size limits and the default layout.
+- Each region holds at most 1,000 rows, and each row at most 1,000 entries. `hidden` holds at most 10,000 IDs, and each ID is at most 4,096 UTF-16 code units.
+- The default layout leaves the regions above and below the editor empty. Its first footer row shows `builtin:cwd`, `builtin:git-branch`, and `builtin:session-title`, with dividers between them. Its second footer row shows `builtin:tokens`, a divider, and `builtin:context`, then `builtin:model` right-aligned by `flex`.
 
 ### Invalid layouts
 
-Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections. See [settings persistence](../src/settings.ts) and the shared [settings section saves](../../../libs/src/settings-file/README.md#sections) for the implementation.
+Invalid layouts warn and fall back to the next scope, then defaults. Saves can replace an invalid layout inside a valid section, but do not overwrite malformed files or sections.

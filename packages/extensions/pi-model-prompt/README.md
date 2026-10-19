@@ -21,15 +21,7 @@ Configure Claude and GPT models in Pi's global `~/.pi/agent/settings.json` (or `
 2. List them per model in [settings](#configuration).
 3. Switch models as usual. The matching files apply from the next prompt.
 
-The listed files are added after Pi's append text; they don't replace it.
-
-- Pi uses the `--append-system-prompt` text when it is given. Otherwise, Pi uses one `APPEND_SYSTEM.md`: the project's `.pi/` file in [trusted](https://pi.dev/docs/latest/security#understand-project-trust) projects, or else the agent directory's file.
-- Changes that earlier extensions make to the append text are kept.
-- The text is a part at rank `100` of the shared [prompt parts](../../libs/src/prompt-parts/README.md), whatever the extension load order. It comes before pi-profiles text, at rank `200`.
-- The files are chosen for the model that the run uses, after other extensions, such as pi-profiles, finish a model switch.
-- The files' contents are joined in list order with a blank line (`\n\n`), the way Pi joins several append sources. A blank line also separates them from Pi's append text.
-- Empty files add nothing.
-- Models with no matching rule get only Pi's append text.
+### Replace shared instructions
 
 To give models instructions instead of shared ones, move the shared text into a prompt file. Relative paths such as `prompts/shared.md` resolve against the directory of the global `settings.json`, normally `~/.pi/agent/`.
 
@@ -41,15 +33,28 @@ To give models instructions instead of shared ones, move the shared text into a 
 
 A trusted project's `.pi/APPEND_SYSTEM.md`, `--append-system-prompt` text, and append text from earlier extensions still apply to every model. Move that text into prompt files too if it must depend on the model.
 
+## Behaviour
+
+pi-model-prompt adds the listed files after Pi's append text; it does not replace that text.
+
+- Pi uses the `--append-system-prompt` text when it is given. Otherwise, Pi uses one `APPEND_SYSTEM.md`: the project's `.pi/` file in [trusted](https://pi.dev/docs/latest/security#understand-project-trust) projects, or else the agent directory's file.
+- pi-model-prompt keeps the changes that earlier extensions make to the append text.
+- The text comes before the text of [pi-profiles](../pi-profiles/README.md), whatever the extension load order.
+- pi-model-prompt chooses the files for the model that the run uses, after other extensions, such as pi-profiles, finish a model switch.
+- pi-model-prompt joins the files' contents in list order with a blank line (`\n\n`), the way Pi joins several append sources.
+- A blank line separates the files' contents from Pi's append text.
+- Empty files add nothing.
+- Models with no matching rule get only Pi's append text.
+
 Rules for a [virtual model](https://pi.dev/docs/latest/virtual-models) match its own ID, not the model it routes to. For the effects on routed requests, read [virtual models](docs/virtual-models.md).
 
 ## Configuration
 
-Project settings are ignored.
+pi-model-prompt ignores project settings.
 
 | Field    | Meaning                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `match`  | Required JavaScript regular expression, 1-512 characters, tested against `provider/modelId`. Unanchored and case-sensitive; add `^` or `$` as needed.                                                                                 |
+| `match`  | Required JavaScript regular expression, 1-512 characters, tested against `provider/modelId`. The match is unanchored and case-sensitive; add `^` or `$` as needed.                                                                    |
 | `append` | Optional array of up to 32 file paths, each 1-4096 characters, added in order. `~` alone expands to the home directory, as do leading `~/` and, on Windows, `~\`. Other relative paths resolve against the settings file's directory. |
 
 - The first matching rule that sets `append` wins. Matching rules without `append` don't stop later rules from matching.
@@ -57,11 +62,11 @@ Project settings are ignored.
 - With no rules, Pi's append text is unchanged.
 - `rules` holds at most 100 entries.
 - Listed files can live anywhere, including inside projects. Project trust doesn't affect them, because only global settings list them.
-- Settings and files are loaded on session start and `/reload`, like Pi's own `APPEND_SYSTEM.md`, so run `/reload` after editing them.
+- pi-model-prompt loads settings and files on session start and `/reload`, like Pi's own `APPEND_SYSTEM.md`, so run `/reload` after editing them.
 
 ### Errors
 
-Problems are shown as UI warnings when settings load. Modes without a UI, such as print mode, show no warnings.
+pi-model-prompt shows problems as UI warnings when settings load. Modes without a UI, such as print mode, show no warnings.
 
 | Problem                                                                                                   | Result                                                                  |
 | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -72,13 +77,14 @@ Problems are shown as UI warnings when settings load. Modes without a UI, such a
 
 ## Side effects
 
-- Adds only to the append section of the system prompt. Pi records the change in the session transcript.
+- pi-model-prompt adds only to the append section of the system prompt.
+- Pi records the change in the session transcript.
 - Switching models mid-conversation changes the prompt, so prompt-cache reuse depends on the provider.
 - Writes no files and makes no network requests.
 
 ## Validation
 
-Tests run offline; the Unix FIFO test needs `mkfifo`.
+Tests run offline.
 
 | When you…                              | Read                                         |
 | -------------------------------------- | -------------------------------------------- |

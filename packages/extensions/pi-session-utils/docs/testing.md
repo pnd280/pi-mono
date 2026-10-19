@@ -1,8 +1,8 @@
-# Session management test coverage
+# Session management test coverage for maintainers
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests session persistence, parent lookup, the startup flag, and naming requests. [OwnedHooks](../../../libs/src/owned-hooks/README.md) owns property restoration; Pi owns session reconstruction, metadata serialisation, later persistence, and provider-specific reasoning mappings.
+This package tests session persistence, parent lookup, the startup flag, and naming requests; [OwnedHooks](../../../libs/src/owned-hooks/README.md) owns property restoration, and Pi owns session reconstruction, metadata serialisation, later persistence, and provider-specific reasoning mappings.
 
 ## Must not regress
 
@@ -20,7 +20,9 @@ This package tests session persistence, parent lookup, the startup flag, and nam
 
 ## Not tested
 
-- Busy-agent warnings, command surface and completion, child creation guidance, notification text, title formatting, and request text limits: below the severity bar.
-- Rejection of incomplete or thinking-only title responses, title token budgets for virtual models, and the retry policy after tree navigation: below the severity bar. The token budget is a [compatibility check](pi-compatibility.md#generation).
-- Settings file encoding and size limits: owned by the [settings-file library](../../../libs/src/settings-file/README.md).
-- Paid model requests, title quality, exporting other branches, terminal rendering, and provider authentication mechanisms: out of scope or owned by Pi.
+- Busy-agent warnings, the command list and its completion, child creation guidance, notification text, title formatting, and request text limits are below the severity bar.
+- Rejection of incomplete or thinking-only title responses, title token budgets for virtual models, and the retry policy after tree navigation are below the severity bar. The token budget is a [compatibility check](pi-compatibility.md#generation).
+- The [settings-file library](../../../libs/src/settings-file/README.md) owns settings file encoding and size limits.
+- Pi owns terminal rendering and provider authentication mechanisms.
+- Paid model requests and title quality are not tested because the tests use offline fixture providers.
+- Exporting other branches is not tested because `persist` saves only the active branch.

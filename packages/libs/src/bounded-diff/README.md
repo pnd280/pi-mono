@@ -38,7 +38,7 @@ Supply one options object:
 | `contextLines`    | Context lines kept around each change.          |
 | `timeoutMs`       | Deadline for the request, excluding queue wait. |
 
-Consult [`patchLimitsSchema`](index.ts) for accepted limits. Invalid limits throw `RangeError`.
+See [`patchLimitsSchema`](index.ts) for accepted limits. Invalid limits throw `RangeError`.
 
 `PatchLimits` also applies to [file mutation observation](../file-mutations/README.md). Consumers own budget values and diagnostics.
 

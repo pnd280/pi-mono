@@ -2,7 +2,7 @@
 
 [pi-subagents](../../README.md) · [Background results](../background-results.md)
 
-A busy [supervisor](../../GLOSSARY.md#tasks-and-processes) received each [background result](../../GLOSSARY.md#results) only after the model's final reply, at `agent_before_settle` ([ADR 0001](0001-hold-run-for-background-results.md)). A model that works for many turns continued on old information until then, for example after a job's build failed or its server stopped.
+A busy supervisor received each [background result](../../GLOSSARY.md#results) only after the model's final reply, at `agent_before_settle` ([ADR 0001](0001-hold-run-for-background-results.md)). A model that works for many turns continued on old information until then, for example after a job's build failed or its server stopped.
 
 ## Decision
 

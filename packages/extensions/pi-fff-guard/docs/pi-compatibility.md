@@ -2,7 +2,7 @@
 
 [pi-fff-guard](../README.md)
 
-> Last verified against Pi 1.3.0 and FFF 0.11.0 (package checks, offline interception and scope tests, and live calls on Linux to installed FFF through an offline scripted provider, in the default and `override` modes). Not covered: live calls on platforms other than Linux.
+> Last verified against Pi 1.3.0 and FFF 0.11.0 with package checks, offline interception and scope tests, and live Linux calls to installed FFF through an offline scripted provider in the default and `override` modes. Not covered: live calls on platforms other than Linux.
 
 ## Upgrade procedure
 
@@ -12,12 +12,37 @@
 
 ## Checklist
 
-- [ ] [Interception](../src/index.ts): official-package provenance, enabled tool names, hook dispatch, and `{ block: true, reason }`. No argument changes, replacement searches, or ended turns.
-- [ ] [Inspection](../src/evaluate-search.ts): installed FFF schemas and normalisation, explicit paths versus filters, ignore and symlink behaviour, deadlines, and the cancellation policy.
+Recheck these contracts against the installed Pi and FFF versions.
+
+### Interception
+
+Confirm these items against [src/index.ts](../src/index.ts):
+
+- [ ] `getAllTools().sourceInfo` attributes FFF's tools, including override names and late registrations, to the official package.
+- [ ] The tool names that FFF enables still match the names that the guard intercepts.
+- [ ] Pi runs `tool_call` hooks for every FFF search call.
+- [ ] Returning `{ block: true, reason }` from a `tool_call` hook blocks the call and gives the reason to the model.
+- [ ] `ctx.signal` in a `tool_call` hook aborts when the caller cancels.
+
+The guard changes no arguments, runs no replacement searches, and ends no turns.
+
+### Inspection
+
+Confirm these items against [src/evaluate-search.ts](../src/evaluate-search.ts) and the installed FFF source:
+
+- [ ] The installed FFF schemas still have the path, exclusion, pattern, and constraint fields that the guard reads.
+- [ ] FFF still normalises `path` and `exclude` as [search scopes](search-scopes.md#paths-and-filters) describes.
+- [ ] FFF still treats bare filenames as recursive filters and other paths as explicit paths.
+- [ ] FFF's index still leaves out Git-ignored paths, as [FFF #714](https://github.com/dmtrKovalenko/fff/issues/714) describes.
+- [ ] Ignore inspection still follows the [Git ignore rules](search-scopes.md#git-ignore-rules), including symbolic-link destinations.
+- [ ] Caller cancellation still blocks the call.
+- [ ] An inspection that passes the two-second deadline still allows the call with a diagnostic.
+
+The README states the deadline and the cancellation result as user-visible [limits](../README.md#limits).
 
 ## Limitations
 
-- [Calling `execute()` directly skips hooks](../README.md#limits). Pi's public `ctx.executeTool()` dispatches nested calls through hooks (observed in Pi 0.99.2), but that doesn't show how an external FFF wrapper runs its calls. Recheck the installed wrapper before changing this limitation.
+- [Calling `execute()` directly skips hooks](../README.md#limits). In Pi 1.3.0, the public `ctx.executeTool()` dispatches nested calls through hooks, but that doesn't show how an external FFF wrapper runs its calls. Recheck the installed wrapper before changing this limitation.
 
 ## Retirement checks
 

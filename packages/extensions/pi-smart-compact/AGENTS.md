@@ -17,14 +17,14 @@ Terms such as _fingerprint_ and _split turn_ are defined in the [compatibility g
 
 ## Constraints
 
-- Reuse Pi's native compaction orchestration. Do not call the aborting manual API, build compaction summaries or entries by hand, or invent continuation messages.
+- Reuse Pi's native compaction orchestration. Do not call the aborting manual API, build compaction summaries or entries by hand, send user prompts, or invent continuation messages.
 - Save a summary-model entry, hidden from the model, only for successful default summaries.
 - Keep selected model and thinking information in result details for `pi-tool-display`, not in the acknowledgement the model reads.
 - Apply instruction-file focus to every compaction route, whatever the model and thinking opt-ins say. Compose it once, before per-call focus, give hooks the same text, and keep Pi's default prompts.
-- Register `context_window` in the extension factory. The `session_start` registration adds the configured docs and must keep the same exposure, so that, without `--tools`, it does not activate the tool again after another extension chose the active tools. With `--tools`, Pi activates every listed tool again on any registration; register only in `session_start`, because [lifecycle](../../libs/src/lifecycle/README.md) startup commits, such as a profile's, run after every `session_start` handler.
+- Register `context_window` in the extension factory, and again in `session_start` with the same exposure to add the configured docs. The [tools checklist](docs/pi-compatibility.md#tools) states the `--tools` behaviour and why a profile's choice of active tools still wins.
 - At startup or reload, read only the selected instruction and docs files, and resolve relative paths in the settings scope that set them.
 - Match the native split-turn instruction suffix, not phrases inside serialised conversation. Clone provider input instead of modifying context shared with retries.
 
 ## Validation
 
-Run [package validation](README.md#validation) with offline provider fixtures. [Testing](docs/testing.md) covers behaviour and [compatibility](docs/pi-compatibility.md) covers host boundaries.
+Run the [package checks](../../../docs/development.md#focused-validation). They use offline provider fixtures. [Testing](docs/testing.md) covers behaviour and [compatibility](docs/pi-compatibility.md) covers host boundaries.

@@ -9,51 +9,51 @@ Adapters interpret individual calls; transcript groups and runs determine how th
 ### Interpretation
 
 **Display adapter**:
-A tool-specific contract that tells the display how to interpret one registered tool's arguments and results.
+A tool-specific contract that tells the display how to interpret one registered tool's arguments and results. See [adapter development](docs/adapters.md).
 _Avoid_: renderer, handler, plain "adapter" when the architectural term could be meant
 
 **Call interpretation**:
-What a call means for display: its effective display adapter, pending state, outcome, and grouping and summary identities.
+What a call means for display: its effective display adapter, pending state, outcome, and grouping and summary identities. See [failure handling](docs/adapters.md#failure-handling).
 _Avoid_: projection, call state, call view
 
 **Generic fallback**:
-A call shown with the generic display adapter although its tool has a display adapter. A _rejection_ refuses one update's input and is checked again on the next update; a _failure_ is an error from the display adapter or its card, and lasts while the call keeps that display adapter.
+A call shown with the generic display adapter although its tool has a display adapter. A _rejection_ is the display adapter refusing one update's input. A _failure_ is an error from the display adapter or its card. See [invalid and partial input](docs/renderers.md#invalid-and-partial-input) and [failure handling](docs/adapters.md#failure-handling).
 _Avoid_: plain "fallback", which also names behaviour for missing host contracts
 
 **Native observation**:
-Facts collected about a verified native tool call in a live TUI, RPC, print, or JSON session, such as shell previews, timing, outcomes, and pre-write contents. Supplements Pi's published results; never replaces them.
+Facts that supplement Pi's published results, collected about a verified native tool call in a live TUI, RPC, print, or JSON session, such as shell previews, timing, outcomes, and pre-write contents. See [what is recorded](README.md#what-is-recorded).
 _Avoid_: capture, tracking
 
 **Local details**:
-Observed call data that stays on the machine that observed it: timing, saved-output references, and diagnostics. Session entries keep the portable facts.
+Observed call data that stays on the machine that observed it: timing, saved-output references, and diagnostics. Session entries keep the portable facts. See [local files](docs/recording.md#local-files).
 _Avoid_: metadata, telemetry
 
 **Writer**:
-One collection lifetime within a session, ending at reload, session change, or shutdown. Its writer entry identifies the local file for saved call facts and results that follow it.
+One collection lifetime within a session, ending at reload, session change, or shutdown. Its writer entry identifies the local file for saved call facts and results that follow it. See [session history](docs/recording.md#session-history).
 _Avoid_: process, store
 
 **Saved call**:
-Recorded facts for one live call that Pi's entries do not hold: at most one call entry on the branch and one local line from its writer. Disposal saves the facts known for unfinished calls. Replay applies them only to the matching historical call.
+Recorded facts for one live call that Pi's entries do not hold: at most one call entry on the branch and one local line from its writer. See [recorded data and replay](docs/recording.md).
 _Avoid_: persisted call, call metadata
 
 **Saved output**:
-Pi's temporary full-output file for a call, which an expanded card previews. This extension never stores or archives it.
+Pi's temporary full-output file for a call, which an expanded card previews. See [saved-output previews](docs/presentation.md#saved-output-previews).
 _Avoid_: saved call (a different concept), archive
 
 ### Transcript structure
 
 **Exploration group**:
-Adjacent exploration calls sharing one scope and title, shown under a single heading. Thinking may split a group.
+Adjacent exploration calls sharing one scope and title, shown under a single heading. See [groups](docs/presentation.md#groups).
 _Avoid_: batch, cluster
 
 **Run**:
-A maximal sequence of this extension's calls between visible non-thinking boundaries. Thinking never splits or ends a run.
+A maximal sequence of this extension's calls between visible non-thinking boundaries. See [what a run is](docs/presentation.md#what-a-run-is).
 _Avoid_: turn, batch, group
 
 **Summary line**:
-The single line that replaces an ended run in summary mode. An opened run keeps it as its header.
+The single line that replaces an ended run in summary mode. See [summary mode](docs/presentation.md#summary-mode).
 _Avoid_: collapsed run, summary card
 
 **Row chrome**:
-Everything the host draws around or instead of a call's card in its Pi row: the summary line, hidden members, joined margins, and collapse controls placed after images.
+Everything the host draws around or instead of a call's card in its Pi row: the summary line, hidden members, joined margins, and collapse controls. See [opening and closing a run](docs/presentation.md#opening-and-closing-a-run).
 _Avoid_: frame, decoration, shell

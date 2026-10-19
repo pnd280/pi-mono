@@ -67,30 +67,35 @@ A consumer lists an invariant for a shared helper only where it could omit a saf
 
 ## Package testing guide
 
-Each package's `docs/testing.md` uses this shape and nothing else:
+Each package's `docs/testing.md` uses this shape and adds no other sections:
 
 ```md
-# <Package> test coverage
+# <Package> test coverage for maintainers
 
 [Package](../README.md) · [Testing policy](<path>/docs/agents/testing.md#coverage)
 
-<One sentence: what this package tests; what libs, utils, Pi, or other packages own.>
+<One or two sentences: what this package tests, and what libs, utils, Pi, or other packages own. If invariants carry IDs such as (J1), one more sentence says what the IDs refer to.>
 
 ## Must not regress
+
+### <Optional group>
 
 - **Critical, e2e:** <observable invariant>
 - **High, unit:** <observable invariant>
 
 ## Not tested
 
-- <Behaviour a reader could expect to be tested, and its owner or reason.>
+- <Behaviour a reader could expect to be tested> is below the severity bar.
+- <Owner> owns <behaviour a reader could expect to be tested>.
 
 ## Manual checks
 
 <Optional: setup line with a launch command, followed by a Do / Expect table. Put a long table in `docs/validation.md`, and link it here.>
 ```
 
-State each invariant as an observable outcome, not as a test name or an implementation detail. Packages with no invariants say so, and use `vp test run --passWithNoTests`.
+State each invariant as an observable outcome, not as a test name or an implementation detail. List Critical invariants before High ones, within each group when the list has groups. Group invariants under H3 headings or not at all, never under plain-text labels.
+
+Write each "Not tested" bullet as a full sentence that names the owner or the reason. Packages with no invariants say so under "Must not regress", and use `vp test run --passWithNoTests`. Omit a "Not tested" bullet that only repeats that there are no invariants, and omit the section when no bullet remains.
 
 ## Filesystem fixtures
 

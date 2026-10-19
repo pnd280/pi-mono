@@ -6,13 +6,14 @@
 
 A footer must show available hints and transient feedback in a fixed height. [`renderHintFooter`](index.ts) returns rows fitted to the visible terminal width, up to `maxRows`.
 
-Messages replace hints at the same height; message overflow replaces the final row with `overflowText`. Zero width or rows returns no rows. It sends no notifications and starts no timers; callers own feedback expiry and delivery.
+Messages replace hints at the same height. If a message overflows, `overflowText` replaces the final row. A width or row limit of zero returns no rows. It sends no notifications and starts no timers.
 
 ## Caller responsibilities
 
 - Supply display-safe strings, width-preserving styling, and finite nonnegative viewport dimensions.
 - Select hints and row limits for the active actions and layout.
 - Retain full messages separately from the bounded rows.
+- Own feedback expiry and delivery.
 
 ## Validation
 

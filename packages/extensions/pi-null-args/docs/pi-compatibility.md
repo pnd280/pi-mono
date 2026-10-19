@@ -13,8 +13,10 @@
 
 [Handler](../src/index.ts):
 
-- [ ] A `message_end` replacement still updates the finished assistant message in place, and the agent loop reads tool calls from that message after `message_end`.
-- [ ] Pi still runs `prepareArguments` and validation after `message_end`, and the `tool_call` event after validation.
+- [ ] A `message_end` replacement still updates the finished assistant message in place.
+- [ ] The agent loop still reads tool calls from that message after `message_end`.
+- [ ] Pi still runs `prepareArguments` and validation after `message_end`.
+- [ ] Pi still runs the `tool_call` event after validation.
 - [ ] Each `message_end` handler still receives the previous handler's replacement.
 - [ ] Tool-call replacement preserves metadata such as `argumentsError`, which Pi sets with empty arguments for malformed JSON.
 - [ ] `pi.getAllTools()` still returns each tool's `parameters`, including `required` lists and object-composition keywords.

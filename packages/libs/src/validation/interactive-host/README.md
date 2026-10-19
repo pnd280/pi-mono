@@ -16,7 +16,7 @@ Pass extension factories and optionally `"regular"` or `"fullscreen"`. Create fe
 
 Always close custom UI and await `dispose()` in `finally`. If a widget or footer disposer throws, `dispose()` still releases the host and session resources. Directory removal and environment restoration also run if host or session cleanup throws.
 
-Do not run fixtures concurrently in the same test context: environment stubs and Pi's theme are process-local.
+Do not run fixtures concurrently in the same test context, because environment stubs and Pi's theme are process-local.
 
 ## Terminal input tests
 

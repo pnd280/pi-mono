@@ -1,6 +1,6 @@
 # pi-skills
 
-Pi on its own recognises `/skill:<name>` only at the very start of a prompt, where it pastes in the whole skill. With this extension, you can mention skills anywhere in a prompt: `/skill:<name>` anywhere becomes a link to the skill's file, and **Tab** completes skill names mid-prompt.
+Pi on its own recognises `/skill:<name>` only at the start of a prompt, where it pastes in the whole skill. With this extension, you can mention skills anywhere in a prompt: `/skill:<name>` anywhere becomes a link to the skill's file, and **Tab** completes skill names mid-prompt.
 
 ## Usage
 
@@ -35,19 +35,17 @@ In the TUI, type `/skill:` at the start of any token, including mid-prompt or on
 
 ### What gets expanded
 
-Expansion runs in Pi's input hook. It covers what you type and extension `sendUserMessage()` calls.
+Expansion covers what you type and extension `sendUserMessage()` calls. The prompt history of pi-prompt-manager saves the text before expansion.
 
-Expansion runs at rank `100` of the shared [input chain](../../libs/src/input-chain/README.md), whatever the extension load order. Input observers, such as the prompt history of pi-prompt-manager, see the text before expansion. Transforms with a higher rank see the expanded text.
-
-It doesn't cover commands handled before the hook, text produced by prompt templates, or custom `sendMessage()` messages.
+It doesn't cover commands that Pi handles before extensions see the input, text produced by prompt templates, or custom `sendMessage()` messages.
 
 ## Compatibility
 
-The extension uses the public extension and autocomplete APIs of Pi 1.3.0. Maintainers checking another host version should follow the [compatibility checklist](docs/pi-compatibility.md).
+The extension uses the public extension and autocomplete APIs of Pi 1.3.0.
 
 ## Configuration
 
-Add an `ext.pi-skills` key to Pi's global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json`), or to `.pi/settings.json` in the current directory of a [trusted](https://pi.dev/docs/latest/security#understand-project-trust) project:
+Put the `ext.pi-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
 
 ```json
 {
@@ -78,7 +76,4 @@ Only prompt text changes. Pi saves the changed prompt in its normal session stor
 
 ## Validation
 
-| When you…                                       | Read                                                  |
-| ----------------------------------------------- | ----------------------------------------------------- |
-| Change completion, formats, or host integration | The [terminal checks](docs/testing.md#manual-checks). |
-| Decide where a test belongs                     | [Testing](docs/testing.md)                            |
+After you change completion, formats, or host integration, run the [terminal checks](docs/testing.md#manual-checks). The [test coverage guide](docs/testing.md) says where a test belongs.

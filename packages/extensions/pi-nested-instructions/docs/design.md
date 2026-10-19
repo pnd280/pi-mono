@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-Maintainers use this reference for input discovery and session persistence. The [README](../README.md#usage) defines user-facing loading rules.
+Maintainers use this reference for input adapters and session persistence. The [README](../README.md#usage) defines user-facing loading rules, and the [input discovery guide](input-discovery.md) lists the inputs that give scope.
 
 ## Source behaviour
 
@@ -16,25 +16,15 @@ Pi 1.3.0 is the host reference. [Pi's loading rules](../README.md#usage) take pr
 
 FFF adapters reference [pi-fff source](https://github.com/dmtrKovalenko/fff/tree/89c19270ea2dfc20829a7429f72022571558093e/packages/pi-fff/src) at `89c19270ea2dfc20829a7429f72022571558093e`. Source schemas, rather than abbreviated README parameters, define the inputs.
 
-## Input discovery
+## Input adapters
 
-Discovery infers [scope](../GLOSSARY.md#discovery) from native `read`, `ls`, `grep`, `find`, and `bash` inputs and official FFF `fffind`, `ffgrep`, and `fff-multi-grep`, including their native overrides. Search content patterns, exclusions, fuzzy filenames, and cursor-only searches do not provide scope. Only rooted pattern prefixes and finite brace alternatives contribute directories. Glob matches are never enumerated. A wildcard never counts as an exact instruction-file read.
+The [input discovery guide](input-discovery.md) owns the recognised tools and the Bash syntax that stops inference.
 
-### Bash inference
-
-[Bash inference](../src/bash.ts) consumes the [unbash](https://github.com/webpro-nl/unbash) AST without executing commands or expanding variables or filesystem globs. Supported syntax includes literal simple commands, unquoted finite brace alternatives, ordinary pipes, `&&` and `||` chains, sequential commands, and basic redirections (`<`, `>`, `>>`, `<&`, `>&`).
-
-Parser errors or unsupported syntax discard inference for the entire invocation, including otherwise valid commands. Unsupported syntax includes dynamic expansions (also in declaration assignments such as `export NAME=value`), command-prefix assignments, compound commands, background execution, `|&`, `time`, negation, extended globs, ANSI-C or localised strings, here-documents, here-strings, and variable file descriptors.
-
-On Windows, Pi's Bash can be Git Bash, MSYS2, Cygwin, or WSL. Path operands and path-valued options, with separate or attached values, that start with a drive component such as `/c/` are read as the drive path `C:/`, as in Git Bash and MSYS2. Other POSIX-rooted paths, such as `/tmp/pkg`, give no scope, because their mount root depends on the shell. A `cd` to such a path stops inference for the rest of the invocation.
-
-Quoting and escapes determine whether tildes and glob characters are literal. Scope patterns cannot retain per-character shell quoting, so two combinations also discard the invocation's scope: quotes or escapes inside brace alternatives, and words mixing literal glob characters with active glob or brace syntax. Entirely quoted or escaped literal paths remain supported, as do quoted plain prefixes such as `"pkg/"{src,lib}/AGENTS.md`.
-
-Inference recognises paths in `cd`, `ls`, `cat`, `head`, `tail`, `sed`, `awk`, `grep`, `rg`, `find`, and `fd`. Unknown options discard that command's hints. Embedded scripts and ambiguous cwd changes are not interpreted. Inference stops before the right-hand side of `||`, including when its left-hand side is a redirect-only command. Later syntax is still validated. Filename-only modes do not count as content reads. For `find`, only path operands before the filter expression provide scope. See [scope extraction](../src/scopes.ts) and the Bash implementation for supported operands and options.
+[Bash inference](../src/bash.ts) reads the [unbash](https://github.com/webpro-nl/unbash) AST, and [scope extraction](../src/scopes.ts) maps tool inputs to scopes.
 
 ## Pi adaptation
 
-Never inspect execution results. Each batch is handled at `turn_end`:
+Discovery reads the inputs that [input discovery](input-discovery.md) describes. It handles each batch at `turn_end`:
 
 1. Take direct tool inputs from the completed assistant message supplied at `turn_end`.
 2. Add nested inputs collected from public `tool_execution_start` events carrying `parentToolCallId`, including blocked or invalid attempts.
@@ -43,13 +33,17 @@ Never inspect execution results. Each batch is handled at `turn_end`:
 
 Discovery deduplicates against `turn_end.context.contextEntries`, which includes earlier handlers' drafted notices, compaction, and context edits. It appends its drafts to `turn_end.entries`, preserving the earlier drafts. Startup and reload refresh use the committed session projection.
 
-Pending inputs are cleared at turn and session boundaries. Handling the whole batch at once avoids races between sibling calls, and needs no tool replacement, steering, or retry.
+Discovery clears pending inputs at turn and session boundaries. Handling the whole batch at once avoids races between sibling calls, and needs no tool replacement, steering, or retry.
 
 The [nested-call rule](../README.md#which-files-load) applies across the batch: a sibling [direct read](../GLOSSARY.md#discovery) can still suppress the matching file. Unknown nested tool schemas and opaque parent code provide no scope unless a supported child input is observed.
 
-Direct-read markers contain a lexical path, filesystem revision, and the identity of the entry and call that created it. They contain no instruction text. A marker is created only when the exact `turn_end.messageEntryId` and tool-call ID remain in the boundary projection with the issued tool name and arguments. Its stored call fingerprint prevents later context replacements from preserving stale suppression. [Notices](../GLOSSARY.md#delivery) contain the full selected instructions plus structured metadata and a `messageDigest` of the entire model-facing message, including the note and tag around the instructions. The `messageDigest` detects context replacements which retain source details but change the delivered text.
+A direct-read marker holds a lexical path, a filesystem revision, and the IDs of the entry and call that created it. It holds no instruction text.
 
-Markers are per file: reading `AGENTS.md` does not suppress a preferred `AGENTS.override.md`. Listing a filename is not a content read. Failed and blocked read attempts count; results are not inspected.
+Discovery creates a marker only when the boundary projection still contains the exact `turn_end.messageEntryId` and tool-call ID, with the issued tool name and arguments. The marker also stores a call fingerprint. If a later context edit replaces the call, the fingerprint no longer matches, and the marker stops suppressing rediscovery.
+
+A [notice](../GLOSSARY.md#delivery) holds the full selected instructions, structured metadata, and a `messageDigest` of the whole model-facing message, including the note and tag around the instructions. If a context edit keeps the source details but changes the delivered text, the digest no longer matches.
+
+Markers are per file, so they suppress only the file that the call read. Failed and blocked direct read attempts also create markers. The README states the [user-visible effect](../README.md#which-files-load).
 
 ## Session lifetime
 
@@ -57,14 +51,12 @@ Discovery and refresh query the [ledger](../GLOSSARY.md#delivery), never raw ses
 
 The ledger accepts a notice only when its complete projected message matches `messageDigest`. It privately retains the selected path and the body decoded from that visible message, using the persisted display spelling rather than the current cwd. Refresh compares the newly selected path and instruction body directly with that snapshot, including empty content and exact whitespace. Notice metadata contains neither a filesystem revision nor a separate body fingerprint.
 
-If compaction, branch navigation, or context edits remove a notice or its originating read call from model-visible context, a later qualifying call can discover the file again. Metadata-only markers do not add instruction content.
+The README states the [rediscovery and refresh rules](../README.md#compaction-branching-and-reload) that users see. Metadata-only markers do not add instruction content. Refresh uses only scopes that canonical context still represents, and unchanged direct-read revisions suppress content reads.
 
-Refresh on startup, resume, and `/reload` uses only scopes still represented by canonical context. Unchanged direct-read revisions suppress content reads. A changed file, changed preferred candidate, or disappearance can produce an updated or removed notice. A direct read of a missing or unreadable file delivered nothing: if a file appears there later, refresh loads it, and if none appears, refresh adds no removal notice. Normal invocations otherwise retain snapshots; compacted-away scopes are not eagerly restored.
-
-The refreshed notices are sent in a [lifecycle](../../../libs/src/lifecycle/README.md) startup commit at rank `100`. Commits run in the first participant's `resources_discover` handler, which Pi emits after every extension's `session_start` handler has run. Pi appends them at once because the session is idle, so they precede the startup entries of pi-profiles (rank `200`) in every load order.
+Refresh sends its notices in a [lifecycle](../../../libs/src/lifecycle/README.md) startup commit at rank `100`. Commits run in the first participant's `resources_discover` handler, which Pi emits after every extension's `session_start` handler has run. Pi appends them at once because the session is idle, so they precede the startup entries of pi-profiles (rank `200`) in every load order.
 
 The [version-3 persisted contract](pi-compatibility.md#persisted-notice-contract) defines which notice formats contribute scopes.
 
 ## Shared scope extraction
 
-[Shared scope helpers](../../../utils/README.md#search-scopes) own brace expansion, fixed glob prefixes, filename filters, and FFF expression parsing. Discovery supplies existing-query-path facts and retains lexical hints after access failures. It ignores negative terms and keeps its own direct-read policy; it does not adopt `pi-fff-guard`'s blocking, missing-path, intersection, exclusion, or Git policies.
+[Shared scope helpers](../../../utils/docs/caller-boundaries.md#search-scopes) own brace expansion, fixed glob prefixes, filename filters, and FFF expression parsing. Discovery supplies existing-query-path facts and retains lexical hints after access failures. It ignores negative terms and keeps its own direct-read policy; it does not adopt `pi-fff-guard`'s blocking, missing-path, intersection, exclusion, or Git policies.

@@ -9,7 +9,7 @@ The runner and full-output log policy below are superseded by [ADR 0007](0007-ow
 ## Decision
 
 - `job` runs the command with Pi's public `createBashToolDefinition` and a wrapper of `createLocalBashOperations`. The wrapper also writes the output to the job's log file. The job owns its abort controller, so a turn abort does not stop it. `job_abort` aborts that controller, and Pi then stops the shell's process group.
-- Jobs do not hold the run: only the [result source](../../GLOSSARY.md#results) of tasks holds it, while a direct background task runs, so jobs do not extend the wait of [ADR 0001](0001-hold-run-for-background-results.md).
+- Jobs do not hold the run. Only the [result source](../../GLOSSARY.md#results) of tasks holds it, while a direct background task runs, so jobs do not extend the wait of [ADR 0001](0001-hold-run-for-background-results.md).
 - The working message does not show jobs.
 - Task and job results share the delivery queue and the delivery boundaries of [ADR 0006](0006-deliver-background-results-at-turn-end.md).
 - The result body names the job's error, such as `exit code 143 (SIGTERM)` or a log write failure, before the log file path. Pi gives the result's details only to the interface. Without this line, the model sees a log write failure only as `failed` with exit code 0. Pi's text already names a plain exit code, a timeout, an abort, or a start failure, so the body does not repeat these.

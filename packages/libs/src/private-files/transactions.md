@@ -14,12 +14,29 @@ Use [`resolveDirectoryScope`](scoped-directory.ts) for a canonical directory sto
 
 ## Serialised transactions
 
-[`PrivateFileTransactions`](transaction.ts) serialises by key, locks, reads bounded latest bytes, and applies updates. Within a consumer, mutations of one file must share one instance and key. Cooperating instances and processes share `<path>.lock`. Acquisition never reclaims an existing lock; the consumer handles abandoned-lock recovery.
+[`PrivateFileTransactions`](transaction.ts) serialises by key, locks, reads the latest bytes up to a limit, and applies updates. Cooperating instances and processes share `<path>.lock`. Acquisition never reclaims an existing lock.
+
+### Must not break
+
+- Never retry a write solely because cleanup failed after a commit.
+- Within a consumer, use one instance and one key for all mutations of one file.
+- Recover abandoned locks in the consumer.
+
+### Updates
 
 Supply a `path()` resolver that establishes trusted private parents, a `maxReadBytes` read limit, a contention `timeoutMs`, and `update(raw)`. Missing files give `undefined`. Validate schema, identity, and capacity, and return `unchanged` or `replace` with a result. Only `replace` writes.
 
-Use [`WriteLifetime`](lifetime.ts) for `scope`. `dispose()` aborts its signal and waits for started atomic writes and lock cleanup, not resolution, reads, or `update`. Cancellation is checked before replacement. Long callbacks should observe the signal cooperatively. A custom `WriteScope` must check cancellation synchronously before invoking its atomic callback and track the entire returned promise.
+### Cancellation
 
-Results distinguish `committed`, `unchanged`, and `failed`. Write warnings and lock-cleanup errors are reported separately. Translate errors and warnings in the consumer; never retry solely because cleanup failed after a commit.
+Pass a [`WriteLifetime`](lifetime.ts) as `scope`.
 
-Replacement is atomic across process crashes. Power-loss durability is not guaranteed because the containing directory is not fsynced.
+- `dispose()` aborts the signal, then waits for atomic writes and lock cleanup that already started. It does not wait for path resolution, reads, or `update`.
+- The transaction checks cancellation before it replaces the file.
+- Long callbacks should check the signal themselves.
+- A custom `WriteScope` must check cancellation synchronously before it calls its atomic callback, and must track the whole returned promise.
+
+### Results
+
+Results distinguish `committed`, `unchanged`, and `failed`. They report write warnings and lock-cleanup errors separately. Translate errors and warnings in the consumer.
+
+Replacement is atomic across process crashes. The library does not fsync the containing directory, so power-loss durability is not guaranteed.

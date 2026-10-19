@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline tests, with native-tools consumers in tool display and agent summary and browser consumers in todo and prompt manager). Not covered: live-provider schema acceptance, platform-specific checks, a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation), and terminal checks of overlay closure, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
+> Last verified against Pi 1.3.0 with package checks and offline tests of the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager. Not covered: live-provider schema acceptance; platform-specific checks; a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation); and terminal checks of overlay closure, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
 
 ## Upgrade procedure
 
@@ -19,60 +19,93 @@ Check both API and installed-CLI consumers wherever a library depends on Pi's ho
 
 [Tool schemas](../src/tool-schema/README.md):
 
-- [ ] Zod input projection.
+- [ ] Pi accepts the TypeBox parameters that `toToolSchema` projects from Zod input.
 - [ ] Hidden metadata stays excluded after TypeBox composition.
-- [ ] Integer bounds are removed.
-- [ ] Pi validates arguments, and supported providers accept the documented profile.
+- [ ] The projected parameters contain no integer bounds.
+- [ ] Pi validates tool arguments against the projected parameters.
+- [ ] Supported providers accept the documented profile.
 
 ### Native tools and mutations
 
-Pi 1.3.0 retains the native-construction fingerprints from 1.2.0. Native observation is independent of transcript tool-loadout restoration on resume, added in 1.3.0.
+[Native tools](../src/native-tools/README.md) and [mutations](../src/file-mutations/README.md) depend on these Pi host contracts:
 
-Check [native tools](../src/native-tools/README.md) and [mutations](../src/file-mutations/README.md):
-
-- [ ] Construction through the API and CLI, provenance, middleware, exposure and output schemas, and structured results.
-- [ ] Queue ordering, borrowed data, shared capture, and conditional teardown.
-- [ ] A nonzero bash exit resolves to an error result; aborts and timeouts still reject.
-- [ ] Reload activates newly added `defaultTools`. Existing active tools are kept when defaults are removed, and surviving observers are wrapped exactly once.
+- [ ] Pi constructs native tools through the API and the installed CLI with the `_buildRuntime` and `_refreshToolRegistry` methods that match the fingerprints in [`compatibility.ts`](../src/native-tools/compatibility.ts).
+- [ ] Wrapped native tools keep their provenance, middleware, exposure, output schemas, and structured results.
+- [ ] Pi's mutation queue keeps its ordering around the shared source capture.
+- [ ] Borrowed definitions and results reach observers unchanged.
+- [ ] Teardown restores only replacements that the library still owns.
+- [ ] A nonzero bash exit resolves to an error result, and aborts and timeouts still reject.
+- [ ] Reload activates newly added `defaultTools`.
+- [ ] Reload keeps existing active tools when defaults are removed.
+- [ ] Reload wraps surviving observers exactly once.
 
 ### TUI
 
-In Pi 1.3.0, custom-UI fixtures hide only their own overlay handle, matching the host. Responsive custom UI calls `done()` without waiting for its overlay to mount.
+The [shared TUI](../src/tui/README.md) depends on these Pi host contracts:
 
-- [ ] [TUI](../src/tui/README.md) public exports, layout and keybindings, images, invalidation, responsive remounts, editor restoration, and disposal.
-- [ ] Recheck the [rejected shortcuts](../src/tui/keybindings/README.md#behaviour) and the Shift-symbol overlap rule against Pi's dispatcher before changing validation or resolution.
+- [ ] The pi-tui public exports that the shared TUI imports still exist.
+- [ ] Shared TUI layout, keybindings, images, and invalidation render as the component scenarios expect in the current Pi host.
+- [ ] Responsive remounts keep the logical view.
+- [ ] Editor restoration returns the editor.
+- [ ] Disposal runs only on final closure.
+- [ ] Pi's dispatcher still cannot dispatch the [rejected shortcuts](../src/tui/keybindings/README.md#behaviour), and it still matches a symbol binding against the Shift press that types the symbol.
 - [ ] [Fullscreen routing](../src/tui/responsive-custom-ui/README.md#host-compatibility) still finds the [renderer contract](tui-fullscreen-input.md#renderer-contract) it depends on.
-- [ ] Deferred installation, renderer rebinding, focus handoff, and teardown that keeps listeners all work.
+- [ ] Deferred installation puts the adapter's dispatcher first in `inputListeners`, before Pi's transcript listener, and the dispatcher then receives input first.
+- [ ] When the renderer changes, the adapter finds the new `inputListeners` Set and moves its dispatcher there.
+- [ ] While Pi has a pending overlay focus restore, the adapter does not take input from the overlay.
+- [ ] Teardown removes only the adapter's dispatcher, and unrelated listeners stay in `inputListeners`.
 - [ ] Unsupported routing is reported once per opening, without closing the view.
+
+Recheck the shortcut item before you change shortcut validation or resolution.
 
 ### Coordinators
 
 The [coordinator protocol](../src/coordination/README.md) depends on these Pi host contracts:
 
 - [ ] Event-bus listeners run synchronously during `pi.events.emit`.
-- [ ] A failed factory loses its load-time bus subscriptions, and its `pi.events.emit` throws. A replaced or reloaded runtime also removes its subscriptions, and its `pi.events.emit` throws.
+- [ ] A failed factory loses its load-time bus subscriptions, and its `pi.events.emit` throws.
+- [ ] A replaced or reloaded runtime removes its subscriptions, and its `pi.events.emit` throws.
 - [ ] The project-trust pass can run a factory and then leave its extension out without discarding it. Its bus subscriptions stay, and Pi runs none of its handlers.
 - [ ] Each emission creates one context and passes it to every handler of that emission.
-- [ ] `input` and `before_agent_start` build a new event object for each handler. `session_shutdown`, `agent_start`, and `agent_settled` build one new event object for each emission.
+- [ ] `input` and `before_agent_start` build a new event object for each handler.
+- [ ] `session_shutdown`, `agent_start`, and `agent_settled` build one new event object for each emission.
 - [ ] Every bind emits the session's stored `session_start` event. RPC binds a replaced session twice, so two emissions receive the same event object.
 - [ ] Every bind and `/reload` emits `resources_discover` after all `session_start` handlers, when any extension has a `resources_discover` handler.
-- [ ] `input` and `before_agent_start` keep the chain and error semantics that [input-chain](../src/input-chain/README.md#behaviour) and [prompt-parts](../src/prompt-parts/README.md#behaviour) copy. A `systemPrompt` result still makes Pi ignore `appendSystemPrompt`.
-- [ ] Interactive mode sets up extension shortcuts and commands after `resources_discover`, so [lifecycle claims](../src/lifecycle/README.md#shortcut-claims) and the working-message command registered before it work.
-- [ ] Prompts sent during `agent_settled` are deferred until the emission ends, so [run marks](../src/lifecycle/README.md#run-marks) of one run do not mix with the next.
+- [ ] `input` and `before_agent_start` keep the chain and error semantics that [input-chain](../src/input-chain/README.md#behaviour) and [prompt-parts](../src/prompt-parts/README.md#behaviour) copy.
+- [ ] A `systemPrompt` result still makes Pi ignore `appendSystemPrompt`.
+- [ ] Interactive mode sets up extension shortcuts and commands after `resources_discover`.
+- [ ] Pi defers prompts sent during `agent_settled` until the emission ends.
+
+The late shortcut and command setup lets [lifecycle claims](../src/lifecycle/README.md#shortcut-claims) and the working-message command registered before it work. The deferred prompts keep the [run marks](../src/lifecycle/README.md#run-marks) of one run apart from the next.
 
 ### Working message
 
-- [ ] [Working message](../src/working-message/README.md) command ownership, stale handles, and defaults.
-- [ ] Trusted settings precedence, locking, and preservation of unrelated fields.
+After an upgrade, these [working message](../src/working-message/README.md) results hold:
+
+- [ ] Among live participants and participants that can still become live, the one with the lowest `ownerRank` registers `/working-message`, with the tie-breaks and the left-out-factory case in the [README](../src/working-message/README.md#behaviour).
+- [ ] Stale or disposed handles cannot change a replacement's text.
+- [ ] When no live component or override has text, Pi's default working message returns.
+- [ ] Trusted project ordering overrides global ordering.
+- [ ] Ordering saves lock the settings file and keep unrelated fields.
 
 ### Offline fixtures
 
-- [ ] [Offline fixtures](../README.md#offline-validation) match the real provider message and stream contracts, isolate authentication, load the installed CLI, and accept the launcher flags.
+- [ ] [Offline fixtures](../README.md#offline-validation) match the real provider message and stream contracts.
+- [ ] Offline fixtures isolate authentication.
+- [ ] Offline fixtures load the installed CLI.
+- [ ] Offline fixtures accept the launcher flags.
 - [ ] The [interactive host fixture](../src/validation/interactive-host/README.md) still finds the private containers, UI-context creation, renderer mounting, and `createChatViewport` it relies on.
 
 ## Limitations
 
-These private dependencies could be replaced by public Pi APIs. Pi 1.3.0 adds none: its extension types, extension and TUI docs, and pi-tui are unchanged from 1.2.0.
+These host results were observed in Pi 1.3.0:
+
+- In Pi 1.3.0, native construction still matches the recorded fingerprints.
+- In Pi 1.3.0, native observation is independent of the transcript tool-loadout restoration on resume, which Pi 1.3.0 added.
+- In Pi 1.3.0, custom-UI fixtures hide only their own overlay handle, matching the host.
+- In Pi 1.3.0, responsive custom UI calls `done()` without waiting for its overlay to mount.
+
+These private dependencies could be replaced by public Pi APIs. None exists as of Pi 1.3.0.
 
 - Replace the [private native-observation hooks](../src/native-tools/compatibility.ts) when Pi offers public native-observation APIs, and validate both the display and summary consumers.
 - Replace private fullscreen routing when a public API offers input priority scoped to focus. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.

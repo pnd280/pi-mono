@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../../../README.md) · [Adapter development](../../../../docs/adapters.md)
 
-Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted script and a list of the calls it made. This page documents the adapter contract for its maintainers; if you use `codemode`, read [Display](#display) for how its calls appear.
+Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted script and a list of the calls it made. See [codemode cards](../../../../docs/tools.md#codemode).
 
 ## Compatibility and selection
 
@@ -12,20 +12,12 @@ SDK registrations through `createCodemodeExtension()` get an unverifiable `<inli
 
 ## Display
 
-Headings read "Running script", "Ran script", or "Script failed". The script follows as JavaScript-highlighted code; compact cards show up to 10 rows, or all 11 when only one row would be omitted, within the [heading formatting limit](../../../../docs/presentation.md#resource-limits), with an expansion hint for omitted source.
-
-The result lists the script's nested calls from `details.calls`, including partial results while the script runs. Each row shows a status icon (`…` running, `✓` success, `✗` failure, `⊘` cancelled), the tool name, Pi's argument preview, and any reported duration or model-call cost. Compact cards show the latest 8 calls, one row each; expansion shows every call with wrapped arguments and error previews. Multiple calls with positive costs add a "Model calls" total.
-
-The output follows without Pi's `Script completed`/`Script failed` header, which is hidden only as the first text block. Output from separate `text()` calls shares one compact preview. Failed scripts keep Pi's error output. Compact cards name `details.fullOutputPath` as "Saved output", like other cards; expanded output already ends with Pi's reference.
-
-## Summary mode
-
-Each script counts once as `ran 1 script`, with failures as `(1 failed)`. Nested calls do not count: they never reach the transcript, and their truncated argument previews cannot identify files.
+[Codemode cards](../../../../docs/tools.md#codemode) describes what users see. The call list comes from `details.calls`, also in partial results, and a result without valid `details.calls` shows no call list. The "Saved output" reference comes from `details.fullOutputPath`. The card hides Pi's `Script completed` or `Script failed` header only when it is the first text block.
 
 ## Limitations
 
-The adapter never runs scripts, reads saved output, or parses argument previews. Nested edits show no diffs because their changes are not observed. Results without valid `details.calls` omit the call list.
+The adapter never runs scripts, reads saved output, or parses argument previews.
 
 ## Validation
 
-Run [package validation](../../../../README.md#validation). The [colocated test](index.test.ts) checks that standalone rendering leaves script arguments unchanged. The [install suite](../../../host/install.test.ts) loads `builtin:codemode` in a real session and checks delegated execution.
+The [colocated test](index.test.ts) checks that standalone rendering leaves script arguments unchanged. The [install suite](../../../host/install.test.ts) loads `builtin:codemode` in a real session and checks delegated execution.

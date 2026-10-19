@@ -6,7 +6,7 @@ For the settings example, the top-level fields, and where settings live, see [co
 
 ## Rules
 
-When compaction starts, each rule is tested in order against the conversation model as `provider/id`. The first matching rule decides both of its fields, and later rules are ignored. When no rule matches, compaction uses native selection.
+When compaction starts, the extension tests each rule in order against the conversation model as `provider/id`. The first matching rule decides both of its fields, and later rules are ignored. When no rule matches, compaction uses _native selection_: the session's current model and Pi's native thinking behaviour.
 
 | Field           | Default            | Effect                                                                                                                                         |
 | --------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |

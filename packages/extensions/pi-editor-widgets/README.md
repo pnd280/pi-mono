@@ -1,8 +1,8 @@
 # pi-editor-widgets
 
-Choose where Pi's widgets and statuses appear: above the editor, below it, or in the footer. For example, open `/widgets` to move a git-status widget into the footer beside the model name, or show the token count above the editor.
+Pi puts each extension's widgets and statuses where that extension asks, so you can't choose what sits above the editor, below it, or in the footer. pi-editor-widgets lets you arrange them. For example, open `/widgets` to move a git-status widget into the footer beside the model name, or show the token count above the editor.
 
-Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; this extension only arranges what they contribute. Built-in footer information can be arranged the same way. Works in the interactive TUI, in regular and fullscreen modes.
+Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; this extension only arranges what they contribute. Built-in footer information can be arranged the same way. It works in the interactive TUI, in regular and fullscreen modes.
 
 ## Usage
 
@@ -21,7 +21,7 @@ Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; 
 3. Press **Ctrl+S** to save the layout you're viewing. If saving fails, your edits are kept so you can retry.
 4. Press **Escape** to go back, or **Ctrl+C** to close and discard unsaved edits.
 
-While the fullscreen menu has focus, its controls take priority over transcript controls. If input routing is unavailable, a warning appears once per opening. The menu stays open; use regular mode if controls do not respond.
+While the fullscreen menu has focus, its controls take priority over transcript controls. If input routing is unavailable, a warning appears once per opening. The menu stays open; use regular mode if controls do not respond. On a short terminal, tall regions can still be clipped while the menu is open.
 
 Widgets and statuses can share a row, or appear in several regions at once. A row too narrow for its contents wraps whole items onto the next line instead of shrinking them. An empty widget takes no space but keeps its position.
 
@@ -37,11 +37,11 @@ To edit layouts as JSON or set up inheritance between global and project layouts
 
 ## Side effects
 
-- This extension takes over the whole footer. If another extension also replaces the footer, disable it and run `/reload`. Native widgets and statuses keep working.
+- This extension takes over the whole footer. If another extension also replaces the footer, a warning names the footer conflict, and this extension stops arranging widgets and statuses. Disable the other extension and run `/reload`. Native widgets and statuses keep working.
 - Moving, copying, or hiding a widget never creates or disposes it. Copies share one instance, including its side effects.
 - Only **Ctrl+S** writes layout settings. Unrelated fields and settings symlinks are preserved. If a settings file or section is unreadable or malformed, repair it before saving.
-- Mouse drag capture has [geometry limits](docs/pi-compatibility.md#limitations).
+- Mouse input reaches widgets only in fullscreen mode. A drag that continues after the widget is redrawn follows the position where it was last drawn.
 
 ## Validation
 
-Use the [focused checks](../../../docs/development.md#focused-validation) for `pi-editor-widgets`. For interaction changes, also run the maintainer [terminal checks](docs/validation.md). For Pi upgrades, follow the maintainer [compatibility checklist](docs/pi-compatibility.md).
+This section is for maintainers. For interaction changes, run the [terminal checks](docs/validation.md). For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).

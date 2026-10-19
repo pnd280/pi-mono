@@ -11,6 +11,6 @@ The [workspace architecture](docs/architecture.md) keeps each feature's domain p
 
 ## Relationships
 
-`pi-nested-instructions` publishes notices that `pi-tool-display` renders through its [message adapter](./packages/extensions/pi-tool-display/src/adapters/pi-nested-instructions/README.md). Tool display counts these notices in run summaries: they join the preceding run but remain exploration-group boundaries.
+`pi-nested-instructions` publishes notices that `pi-tool-display` renders through its [message adapter](./packages/extensions/pi-tool-display/src/adapters/pi-nested-instructions/README.md). Tool display counts these notices in run summaries. These notices join the preceding run but remain exploration-group boundaries.
 
 `pi-subagents` owns task and job results; `pi-tool-display` renders them as cards through its [subagent adapter](./packages/extensions/pi-tool-display/src/adapters/pi-subagents/README.md). `pi-subagents` also adds to `pi-agent-summary` counters.

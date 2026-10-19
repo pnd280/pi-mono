@@ -1,6 +1,6 @@
 # pi-subagents
 
-Delegate independent work to separate Pi processes and receive their final results in your current conversation.
+Long reviews and parallel investigations fill one conversation with every intermediate step. pi-subagents runs each piece in a separate Pi process and returns only its final result to your conversation. For example, send this prompt:
 
 ```text
 Ask two subagents to review the parser and the documentation, then summarise their findings.
@@ -27,23 +27,23 @@ Your current Pi session is the supervisor. Its model calls `subagent` with a sho
 - Tree navigation, parent-session fork, and session switch force-stop all owned running subtrees, including background work. Restored tasks never restart automatically; see [task history](docs/history.md).
 - Child dialogs appear with a `[subagent: <description>]` prefix. RPC clients answer them using Pi's [extension UI protocol](https://pi.dev/docs/latest/rpc-extension-ui).
 
-The tools are model-only: codemode scripts cannot invoke them. At `maxDepth`, `subagent` and `subagent_abort` are hidden. When `jobs` is off, `job` and `job_abort` are hidden.
+The tools are model-only, so codemode scripts cannot invoke them. At `maxDepth`, `subagent` and `subagent_abort` are hidden. When `jobs` is off, `job` and `job_abort` are hidden.
 
 ### Background tasks
 
 Background tasks survive turn aborts after their call returns. Use them only for independent work; wait for their automatic result instead of polling or duplicating their work.
 
-By default, a ready result joins the run after the model's reply and its tool calls, before the next model request. A supervisor stays busy after a normal reply while its direct background tasks run, and new input or an abort ends that wait. The [`resultDelivery`](#configuration) setting changes the timing; [background results](docs/background-results.md) covers the modes, the waits in print and JSON modes, and the exceptions.
+By default, a ready result joins the run after the model's reply and its tool calls, before the next model request. After a normal reply, a supervisor stays busy while its direct background tasks run, until new input or an abort. For the [`resultDelivery`](#configuration) modes, the waits in print and JSON modes, and the exceptions, see [background results](docs/background-results.md).
 
 ### Cancel a task
 
-The model calls `subagent_abort` with a `task_id` when an active owned task's result is no longer necessary. The task session remains resumable. For the result that each supervisor then receives, see [cancel a task](docs/tasks.md#cancel-a-task).
+The model calls `subagent_abort` with a `task_id` to cancel an active owned task. The task session remains resumable. For the result that each supervisor receives, see [cancel a task](docs/tasks.md#cancel-a-task).
 
 ### Background jobs
 
 Set [`jobs`](#configuration) to `true` to give the model the `job` and `job_abort` tools. A job runs one shell command in the background, such as a build, a test run, a server, or a watcher. It is not a task: it has no child, no capacity slot, no model, and no usage.
 
-The `job` call returns immediately with the job ID and the log file path. When the command exits, its result arrives like a task result, with the exit code and the end of the output. A turn abort does not stop jobs, but session changes and exit request a stop without a result, and print mode, JSON mode, and child runs lose their results. See [background jobs](docs/jobs.md) for the result envelope, exit codes, and stop conditions.
+The `job` call returns immediately with the job ID and the log file path. When the command exits, its result arrives like a task result, with the exit code and the end of the output. A turn abort does not stop jobs. Session changes, exit, and the end of a print, JSON, or child run stop jobs without a result. For the result envelope, exit codes, and stop conditions, see [background jobs](docs/jobs.md).
 
 ### Commands and task panel
 
@@ -84,17 +84,22 @@ Top-level launches queue FIFO when capacity is full. Nested launches fail immedi
 ## Side effects
 
 - Children have normal Pi tools and permissions. A research prompt does not make a child read-only, and there is no workspace isolation.
-- Children inherit the environment, working directory, and project-trust decision. They load their own configured extensions and tools. When Pi reports an absolute source path for this package, children also load it through `-e`; otherwise, their settings must load it. A child whose settings load another copy of the package fails to launch. Other supervisor CLI flags, including the supervisor's own `-e`, `--tools`, `--session-dir`, and `--no-session`, are not forwarded.
-- Each task saves one Pi session for the child. The child adds a `pi-subagents.marker` entry at the start of each run. The supervisor adds two small entries for each run, whatever the child writes. Child session files are not automatically deleted.
+- Children inherit the environment, working directory, and project-trust decision.
+- Children load their own configured extensions and tools. When Pi reports an absolute source path for this package, children also load it through `-e`; otherwise, their settings must load it.
+- A child whose settings load another copy of the package fails to launch.
+- Other supervisor CLI flags, including the supervisor's own `-e`, `--tools`, `--session-dir`, and `--no-session`, are not forwarded.
+- Each task saves one Pi session for the child, and the child adds a `pi-subagents.marker` entry at the start of each run. Child session files are not automatically deleted.
+- The supervisor adds two small entries for each run, whatever the child writes.
 - While a run is live, a `<session_file>.lease/` directory blocks other resumes of the task. See [writer lease](docs/history.md#writer-lease).
 - Child model calls can incur provider charges. Usage after a background call returns reaches supervisor totals only when its result is delivered; see [usage accounting](docs/background-results.md#usage-accounting).
 - Successful compaction adds a hidden reminder of direct task IDs without starting a new turn. When `jobs` is on, the reminder also lists the jobs on the selected ancestry with their IDs, states, outcomes, and exit codes.
-- Each job writes to `pi-job-<job_id>.log` in the OS temporary directory. The file keeps at most 16 MiB and marks omitted output. Files are not automatically deleted; see [log files](docs/jobs.md#log-files). The supervisor adds two small entries for each job, whatever the command writes.
+- Each job writes to `pi-job-<job_id>.log` in the OS temporary directory. Files are not automatically deleted. For the size limit and file access, see [log files](docs/jobs.md#log-files).
+- The supervisor adds two small entries for each job, whatever the command writes.
 
 ### Limits
 
-- Force-kill does not reverse file changes and can bypass child cleanup. After supervisor SIGKILL, a child that blocks shutdown can remain alive; see [process shutdown](docs/shutdown.md).
-- Keep each process in the foreground of its command. On Linux and macOS, a job cleans up its process group even after its shell exits. A process that leaves the group is outside that cleanup; Windows has a parent-exit limit. See [job limits](docs/jobs.md#limits).
+- Force-kill does not reverse file changes and can bypass child cleanup. After supervisor SIGKILL, a child that blocks shutdown can remain alive. See [process shutdown limits](docs/shutdown.md#limits).
+- In a job, keep each process in the foreground of its command. A process that leaves the job's process group is outside job cleanup, and Windows has a parent-exit limit. See [job limits](docs/jobs.md#limits).
 - A model can bypass extension depth limits by running Pi itself through `bash`.
 - Tool output is truncated using Pi's 2,000-line and 50 KiB defaults.
 - Linux has automated coverage. macOS uses the same process-group path but has not been verified. Windows code paths are untested and not officially supported.

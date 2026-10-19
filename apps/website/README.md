@@ -1,6 +1,6 @@
 # Website
 
-The marketing site for this workspace, built with [TanStack Start](https://tanstack.com/start), React, TypeScript, and Tailwind CSS.
+The marketing site for this workspace uses [TanStack Start](https://tanstack.com/start), React, TypeScript, and Tailwind CSS.
 
 ```sh
 vpr '@pi-mono/website#dev'

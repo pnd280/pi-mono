@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-Task state belongs to the supervisor's [selected ancestry](../GLOSSARY.md#history), and each task's conversation lives in one [child file](../GLOSSARY.md#history). The decision is in [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md).
+Task state belongs to the supervisor's [selected ancestry](../GLOSSARY.md#history), and each task's conversation lives in one child file. The decision is in [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md).
 
 ## Branch changes
 
@@ -26,13 +26,13 @@ A child's descendants come from the `run` and `end` entries in its own session f
 
 Explicit resume continues the task's latest run on the selected ancestry, in the same child file as a new branch. Later runs, and user or custom messages that the run did not answer, are not part of the resumed context. `task_id`, `session_id`, and `session_file` stay the same for every run. A running child cannot navigate its tree, fork, or switch sessions.
 
-An interrupted tool cycle produces a warning: old calls are not replayed automatically, completed effects remain, and the model can request the operation again. Only calls without a result in the run's last response that did not fail produce it; Pi does not run the calls of a failed or aborted response.
+An interrupted tool cycle produces a warning: old calls are not replayed automatically, completed effects remain, and the model can request the operation again. Only calls without a result produce it, and only in the run's last response when that response did not fail. Pi does not run the calls of a failed or aborted response.
 
 ## Writer lease
 
 While a run is live, a `<session_file>.lease/` directory names its supervisor and child processes. A resume fails with "Task is running in another process" while a process named in the lease is live, such as a child that outlived its supervisor. The supervisor removes the directory when the child exits.
 
-- A crash can leave a `<session_file>.lease/` directory behind. A later resume removes stale entries when all the processes they name are dead. An entry replaced during this check prevents that resume, so the check cannot remove a newer entry that names a live child.
+- A crash can leave a `<session_file>.lease/` directory behind. A later resume removes stale entries when all the processes they name are dead. If another process replaces an entry during this check, that resume fails. Thus the check cannot remove a newer entry that names a live child.
 - An unreadable or malformed lease entry prevents resume. Lease entries must be regular files of at most 1 KiB.
 - On Linux, an exited process that its parent has not reaped is not live.
 - A reused process ID can block a resume until that process exits.

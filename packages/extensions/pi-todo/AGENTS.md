@@ -1,6 +1,6 @@
 # [pi-todo](README.md) development
 
-Leave tool cards to the host; attach no renderer fields to the tool definition.
+Leave tool cards to the host. Attach no renderer fields to the tool definition.
 
 ## Must not regress
 

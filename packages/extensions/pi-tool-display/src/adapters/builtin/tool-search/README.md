@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../../../README.md) · [Adapter development](../../../../docs/adapters.md)
 
-Calls to Pi's built-in `tool_search` appear as cards that name the tools each search loaded. This page documents the adapter contract for its maintainers; if you use `tool_search`, read [Display](#display) for how its calls appear.
+Calls to Pi's built-in `tool_search` appear as cards that name the tools each search loaded. See [tool search cards](../../../../docs/tools.md#tool-search).
 
 ## Compatibility and selection
 
@@ -12,13 +12,7 @@ SDK registrations through `createToolSearchExtension()` get an unverifiable `<in
 
 ## Display
 
-Cards read "Searching tools" while pending and "Searched tools" afterward, followed by the query after a spaced em dash. Raw parameters, including `limit`, stay hidden unless `showParameters: true`.
-
-A successful result with valid `details.loaded` names replaces the compact body with "Loaded N tools: a, b" or "No matching tools". Expansion shows only the original text, without the summary line. Errors, cancellations, and invalid details keep the ordinary output preview; unrecognised arguments fall back to generic cards.
-
-## Summary mode
-
-Only ended [runs](../../../../GLOSSARY.md#transcript-structure) have [summary lines](../../../../docs/presentation.md#when-a-run-collapses). Loaded tools count once per name (`loaded 1 tool`, `loaded 3 tools`). Calls with missing, empty, or invalid `details.loaded`, including Pi's error results, count as `tool_search ×N`.
+[Tool search cards](../../../../docs/tools.md#tool-search) describes what users see. The "Loaded N tools" line and the per-name summary counts need valid, nonempty `details.loaded` names. Calls with missing or invalid `details.loaded` keep the output preview. Calls with missing, empty, or invalid `details.loaded` count as `tool_search ×N`.
 
 ## Limitations
 
@@ -26,4 +20,4 @@ The adapter never activates tools or reads the tool registry; loaded names come 
 
 ## Validation
 
-Run [package validation](../../../../README.md#validation). The [colocated test](index.test.ts) checks that standalone rendering leaves arguments and results unchanged; it does not verify the registered `tool_search` schema.
+The [colocated test](index.test.ts) checks that standalone rendering leaves arguments and results unchanged. It does not verify the registered `tool_search` schema.

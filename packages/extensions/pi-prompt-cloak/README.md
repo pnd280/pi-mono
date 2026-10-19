@@ -1,20 +1,29 @@
 # pi-prompt-cloak
 
-This extension rephrases Pi-specific system prompt text to reduce fingerprinting by upstream providers.
+Pi's system prompt contains wording that upstream providers can use to identify Pi. pi-prompt-cloak rephrases two of those lines in the `docs` section of the system prompt before each request:
+
+```diff
+-Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):
++Pi documentation (read only for questions about the agent, its SDK, extensions, themes, skills, or TUI):
+```
+
+The second line, the topic-to-file list, gets a new lead-in ("When asked about:" becomes "Choose the reference for the requested topic:"), semicolons instead of commas between topics, and two new labels ("TUI components" becomes "terminal UI components", and "pi packages" becomes "packages"). The [replacement table](src/prompt-rewrites.ts) holds both lines. No configuration is required.
 
 ## Behaviour
 
-- The extension uses `context_with_system` for every provider and authentication method. It does not detect OAuth.
-- It replaces only the documentation heading and the topic-to-file list in the `docs` section of every outgoing system message, including earlier messages and section updates. The [replacement table](src/prompt-rewrites.ts) defines both exact matches.
-- It preserves all other lines and sections, including the preamble, tool summaries, usage rules, skills, project instructions, and appended instructions. Tool declarations and documentation paths remain unchanged.
+- It rewrites a line only when the complete line exactly matches one of the two built-in lines. Custom wording in `docs` stays as written.
+- It rewrites only inside the `docs` section. Copies of the two lines in other sections and in system text without sections stay unchanged.
+- It rewrites every outgoing system message, including earlier messages and section updates.
+- It runs for every provider and authentication method. It does not detect OAuth sign-in.
 - It preserves instructions added by [pi-model-prompt](../pi-model-prompt/README.md) in either extension load order.
-- Matching uses complete lines. Custom wording in `docs` remains unchanged unless it exactly matches one of the two built-in lines. Copies in other sections and unstructured system text remain unchanged. No configuration is required.
+
+The extension does not change any other text: the preamble, tool summaries, usage rules, skills, project instructions, appended instructions, tool declarations, and documentation paths.
 
 ## Side effects
 
-The handler changes only the outgoing transcript for the current request. It does not rewrite saved sessions or credentials. In Pi 1.3.0, a complete `systemPrompt` override from another extension takes precedence over this rewrite.
+The extension changes only the request that Pi sends. It does not rewrite saved sessions or credentials. In Pi 1.3.0, a complete `systemPrompt` override from another extension takes precedence over this rewrite.
 
-This changes prompt wording only. Package checks do not exercise live Anthropic requests.
+This changes prompt wording only. Package checks do not send live Anthropic requests.
 
 ## Validation
 

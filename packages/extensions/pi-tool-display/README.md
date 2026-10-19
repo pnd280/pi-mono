@@ -10,7 +10,7 @@ Click the line to see the cards again. Cards use the active theme and syntax hig
 
 ## Usage
 
-Pi's expansion key (default **Ctrl+O**) cycles through three display modes: `summary` → `compact` → `verbose` → `summary`.
+Pi's expansion key (default **Ctrl+O**) cycles through three display modes in this order: `summary`, `compact`, `verbose`, then back to `summary`.
 
 | Mode                | What you see                                                                                                                |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -52,7 +52,7 @@ These tools get dedicated cards:
 - Nested-instruction notices, which also count towards run summaries.
 - Subagent background results and job results.
 
-The [adapter index](docs/adapters.md#built-in-adapters) links each card's layout and compatibility requirements.
+[Supported tool cards](docs/tools.md) shows how the calls of each tool appear and what each card needs.
 
 A dedicated card replaces any renderer the tool supplies. Other tools keep their own renderer if they have one, including renderers that extensions supply through `registerToolRenderer`; otherwise they get a generic card. Calls to tools that are not loaded, such as old calls or MCP calls before the server reconnects, get a generic card. It switches to the dedicated card if the tool registers later.
 
@@ -73,11 +73,11 @@ Settings live under the literal key `ext.pi-tool-display` in global `~/.pi/agent
 }
 ```
 
-| Setting             | Values                                    | Effect                                                                                                                          |
-| ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `collapsedMode`     | `summary` (default), `compact`            | Starting mode, also used when a Pi action collapses `verbose` output. **Ctrl+O** follows the cycle above.                       |
-| `showParameters`    | `false` (default), `true`                 | Shows optional details on dedicated cards. Structured blocks still need expansion. MCP and generic cards always show arguments. |
-| `rendererOverrides` | tool name → `auto`, `generic`, `original` | Per-tool rendering choice; see below.                                                                                           |
+| Setting             | Values                                         | Effect                                                                                                                          |
+| ------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `collapsedMode`     | `summary` (default), `compact`                 | Starting mode, also used when a Pi action collapses `verbose` output. **Ctrl+O** follows the cycle above.                       |
+| `showParameters`    | `false` (default), `true`                      | Shows optional details on dedicated cards. Structured blocks still need expansion. MCP and generic cards always show arguments. |
+| `rendererOverrides` | `auto`, `generic`, or `original` per tool name | Per-tool rendering choice; see below.                                                                                           |
 
 `rendererOverrides` matches exact tool names:
 
@@ -105,7 +105,7 @@ In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native
 
 Native observation excludes SDK tool overrides, custom tools, and manual `!` and `!!` commands. Verified extension adapters can still contribute call provenance and summaries.
 
-Session history stores only facts that Pi's own entries lack, such as cancellation, a failed shell's exit code, and bounded patches. They are kept in `pi-tool-display.call` and `pi-tool-display.writer` entries, outside the model's context. Timing, saved-output references, and diagnostics stay on this machine, in `pi-tool-display/calls/<writer>.jsonl` under Pi's agent directory.
+Session history stores only facts that Pi's own entries lack, such as cancellation, a failed shell's exit code, and bounded patches. The extension keeps them in `pi-tool-display.call` and `pi-tool-display.writer` entries, outside the model's context. Timing, saved-output references, and diagnostics stay on this machine, in `pi-tool-display/calls/<writer>.jsonl` under Pi's agent directory.
 
 > Patches can keep deleted text. Removed and context lines from overwritten files may remain in session history.
 
@@ -113,7 +113,7 @@ The extension never deletes its local files, because copied or moved sessions ca
 
 ### Replay and saved output
 
-Reopening a session restores matching facts without rerunning tools or observing source files again. Missing facts are never guessed from output text. When the local details are on another machine, shell cards show `Timing not on this machine`.
+Reopening a session restores matching facts without rerunning tools or observing source files again. Missing facts are never guessed from output text. When the local details are on another machine, native shell cards show `Timing not on this machine` in place of the duration. Expanded native `bash`, `powershell`, `edit`, and `write` cards say [why local details are missing](docs/presentation.md#local-details-on-replay).
 
 Expanding a finished shell card reads a bounded preview from Pi's temporary output file. See [saved-output previews](docs/presentation.md#saved-output-previews) for loading and retry. The extension keeps no durable output archive and makes no network requests.
 
@@ -142,9 +142,8 @@ To give your own tool a custom card, use the [standalone renderer API](docs/rend
 
 Maintainers use these checks:
 
-| When you…                             | Read                                                                  |
-| ------------------------------------- | --------------------------------------------------------------------- |
-| change tested behaviour               | [Coverage specification](docs/testing.md)                             |
-| run package checks                    | [Focused validation](../../../docs/development.md#focused-validation) |
-| check clicks, keys, or layout by hand | [Terminal checks](docs/validation.md)                                 |
-| check the FFF or MCP adapter by hand  | [Adapter validation](docs/validation.md#adapter-validation)           |
+| When you…                             | Read                                                        |
+| ------------------------------------- | ----------------------------------------------------------- |
+| change tested behaviour               | [Coverage specification](docs/testing.md)                   |
+| check clicks, keys, or layout by hand | [Terminal checks](docs/validation.md)                       |
+| check the FFF or MCP adapter by hand  | [Adapter validation](docs/validation.md#adapter-validation) |

@@ -364,7 +364,8 @@ export default defineConfig({
     }
   },
   staged: {
-    "*": String.raw`sh -c 'git --literal-pathspecs grep --cached -n -I -F -- "$(printf "\342\200\224")" "$@"; [ "$?" -eq 1 ]' sh`
+    // Agent skills keep their own text. Paths stay literal; the exclude needs pathspec magic.
+    "*": String.raw`sh -c 'git --noglob-pathspecs grep --cached -n -I -F -e "$(printf "\342\200\224")" -- "$@" ":(top,exclude).agents/skills"; [ "$?" -eq 1 ]' sh`
   },
   test: {
     // Hang guards only. Tests do not set their own limits: a full suite starts many Pi processes

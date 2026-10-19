@@ -10,13 +10,18 @@ Complete [workspace setup](../README.md#setup), then enable Git hooks:
 vp hooks enable
 ```
 
-The pre-commit hook rejects em dashes (U+2014) in staged text; it does not run [focused checks](#focused-validation).
+The pre-commit hook rejects em dashes (U+2014) in staged text outside `.agents/skills/`; it does not run [focused checks](#focused-validation).
 
 ## Code and tooling
 
 Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts). Lint warnings fail checks. Tests follow the [runner convention](agents/testing.md#runner).
 
 Fix implementation diagnostics without weakening shared checks; explain narrow exceptions.
+
+| When you…                                                                                                          | Read                                               |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| Validate configuration, persisted JSON, external data, or tool parameters                                          | [Runtime validation](agents/runtime-validation.md) |
+| Change Pi behaviour or use Pi APIs, patch Pi, gate a host hook, name a custom entry or message, or notify the user | [Pi API contracts](agents/pi-apis.md)              |
 
 ## Focused validation
 
@@ -33,15 +38,15 @@ Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<
 
 Workspace commands:
 
-| Command                  | Scope                                                                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `vpr check`              | Formatting, linting, type checking, `docs:check`, and `fingerprints:check`                                                  |
-| `vpr docs:check`         | Markdown links, anchors, inline prototype member names, and "Last verified" Pi versions                                     |
-| `vpr fingerprints:check` | [Host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) of private Pi methods |
-| `vpr test`               | All tests in one Vitest invocation                                                                                          |
-| `vpr lint`               | Linting and type checking                                                                                                   |
-| `vp fmt --check`         | Formatting without writes                                                                                                   |
-| `vp fmt`                 | Apply formatting                                                                                                            |
+| Command                  | Scope                                                                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `vpr check`              | Formatting, linting, type checking, `docs:check`, and `fingerprints:check`                                                       |
+| `vpr docs:check`         | Markdown links and anchors, inline prototype member names, "Last verified" lines, bold bullet labels, and testing-guide sections |
+| `vpr fingerprints:check` | [Host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) of private Pi methods      |
+| `vpr test`               | All tests in one Vitest invocation                                                                                               |
+| `vpr lint`               | Linting and type checking                                                                                                        |
+| `vp fmt --check`         | Formatting without writes                                                                                                        |
+| `vp fmt`                 | Apply formatting                                                                                                                 |
 
 Use `vpr check` for the repository's `stylish` lint format; the built-in `vp check` does not support custom output formats.
 
@@ -69,7 +74,7 @@ When updating Vite+, keep the direct `vite` alias and override aligned with `vp 
 
 ### Pi extension entry points
 
-Before editing extension manifests or Pi host or runtime dependencies, read the package documentation for the workspace's installed version through [Pi API references](pi-docs.md).
+Before editing extension manifests or Pi host or runtime dependencies, read the package documentation for the workspace's installed version through [Pi API references](agents/pi-docs.md).
 
 Keep the default Pi factory in `src/index.ts` and only this export in package-root `index.ts`:
 
@@ -105,59 +110,43 @@ Use one H1, sentence-case headings, consecutive heading levels, numbered procedu
 - State the normal behaviour before exceptions. Collect leftovers under a labelled "Edge cases" line, and use a table for flag or option matrices.
 - Put the most important rule first. In contract lists, lead with invariants whose violation causes harm (trust, data loss, focus capture) under an explicit heading, and move cosmetic rules lower.
 - Write full sentences with verbs and articles. Use a slash only for a true alternative such as read/write, and at most once per sentence.
-- Keep one or two inline links per paragraph. Collect routing links into a "When you… / Read" table instead of prose.
+- Keep one or two inline links per paragraph, and make each link label name what its target holds. Collect routing links into a "When you… / Read" table instead of prose.
 - Define project terms on first use in user-facing docs; in maintainer docs, link the package `GLOSSARY.md` term on first use when the package has one.
-- Write manual procedures as a setup line followed by a Do / Expect table with one observable result per row.
-- State each rule in one place and link to it elsewhere. User-visible behaviour belongs in the README; maintainer docs link to it.
-- Keep version-specific validation logs out of reference docs. Reduce them to one "Last verified against Pi x.y.z" line at the top of the compatibility doc, naming what was not covered. Label a version-specific host quirk with the version it was observed in.
+- Write manual procedures as a setup line followed by a Do / Expect table. Each Expect cell names what the tester sees, such as "The footer shows two rows", never "It works". Merge a row into the row before when it repeats that row's action or result.
+- State each rule in one place and link to it elsewhere. User-visible behaviour belongs in the README or the user guide that it links; maintainer and tool-author docs link there. A callback contract belongs only in the tool-author reference.
+- A README section that summarises a guide gives the user-visible outcome in one or two sentences and links the guide for the conditions. A glossary entry defines the term and links the guide that owns its behaviour, without restating rules or limits.
+- Keep version-specific validation logs out of reference docs and ADRs. Start the compatibility doc with one "Last verified against Pi x.y.z" line: the method in one clause, then "Not covered:" and the gaps. Put the line directly under the title and intro, in the form `> Last verified against Pi x.y.z with <method>. Not covered: <gap>, <gap>, and <gap>.`, and separate gaps that contain commas with semicolons. Put source-diff results and host quirks under `## Limitations`, labelled with the Pi version they were observed in. An ADR keeps the evidence for its decision; record later upgrade checks in the compatibility doc.
 - Use British spelling in prose. Preserve spelling in API names, settings, commands, and literal output.
 - Replace stock assurances with observable behaviour. Omit sentences that only announce what a section will explain.
 
-Emphasis convention: bold for keys (**Ctrl+O**), code for setting names and values (`summary`), and quotes for on-screen labels ("Explored"). Do not bold versions or mode names. Use headings or lookup tables instead of repeated bold labels at the start of bullets.
+Emphasis convention: bold for keys (**Ctrl+O**), code for setting names and values (`summary`), and quotes for on-screen labels ("Explored"). Do not bold versions or mode names. Use headings or lookup tables instead of repeated bold labels at the start of bullets. The one exception is the severity and layer label, such as `**Critical, e2e:**`, that starts each invariant in a "Must not regress" list of the [testing policy](agents/testing.md#coverage).
 
 ### Package READMEs
 
-Each package README is written for users. Open with the problem it solves in one sentence, then one concrete example (output, a screenshot, or a command); put feature links after that. Include `Usage` for actual package steps, `Configuration` for choices not obvious from source, `Side effects` for important writes or requests, and `Validation` for package-specific checks or manual prerequisites, only when there is substantive content. Do not repeat generic extension-loading commands or workspace checks in every package. Move tool-author and implementation detail to `docs/`, or label the section by its audience.
+Write each package README for users. Open with the problem it solves in one sentence, then one concrete example (output, a screenshot, a command, or, for an extension that the model drives, a prompt); put feature links after that. Include `Usage` for actual package steps, `Configuration` for choices not obvious from source, `Side effects` for important writes or requests, and `Validation` for package-specific checks or manual prerequisites, only when there is substantive content. Do not repeat generic extension-loading commands or workspace checks in every package. Move tool-author and implementation detail to `docs/`, or label the section by its audience. When a section is a rule list longer than one screen, keep a short summary and an example in the README, and move the list to `docs/<topic>.md` with a "When you… / Read" row.
+
+User docs (the README and the user guides that it links) state what the user sees and every limit that applies. Keep coordinator ranks, lifecycle phases, renderer-author budgets, and the names of shared modules, classes, listeners, and hooks in maintainer docs, tool-author docs, or `AGENTS.md`. When a user-visible rule comes from a shared module or is stated only in a maintainer reference, state it in the user doc; link the source only as detail for callers or maintainers.
 
 Optional headings exist for substantive content only; omit a heading rather than fill it with boilerplate. Package `docs/testing.md` files follow the [package testing guide](agents/testing.md#package-testing-guide).
 
 ### Package instructions
 
-Use a package `AGENTS.md` for non-obvious boundaries and conditional pointers to specialised guidance, not a mandatory inventory of source files or a repeat of the README. Maintain a Pi compatibility checklist when the package relies on Pi contracts that need rechecking on upgrade; do not require an empty checklist for packages without such contracts.
+A package `AGENTS.md` is optional. Add one for non-obvious boundaries and conditional pointers to specialised guidance, not for an inventory of source files or a repeat of the README. State each instruction once, and link the README or the compatibility doc for its reason.
+
+Maintain a Pi compatibility checklist when the package relies on Pi contracts that need rechecking on upgrade; do not require an empty checklist for packages without such contracts. Give each checkbox one Pi contract, as a sentence that names the contract and its expected result, so that a maintainer can confirm it as true or false. Put rationale and failure behaviour in prose under the same heading as the checkbox, and link user-visible behaviour instead of restating it.
 
 ### Guides and references
 
 Give each guide one primary task or topic and a link to its package or workspace entry document. Keep short, cohesive topics together; use headings only for content that benefits from separation.
 
-Keep user guides in package `docs/`; existing `docs/testing.md`, `docs/pi-compatibility.md`, and `docs/validation.md` are maintainer references. Make that audience explicit in their titles or opening instructions. Shared-module READMEs address library callers; `.agents/` skills and `AGENTS.md` address coding agents.
+Keep user guides in package `docs/`; existing `docs/testing.md`, `docs/pi-compatibility.md`, and `docs/validation.md` are maintainer references. Make that audience explicit in their titles or opening instructions. Shared-module and adapter READMEs address library callers and maintainers; `.agents/` skills and `AGENTS.md` address coding agents.
 
-Follow the [Pi link policy](pi-docs.md#linking-pi-documentation): published pages for users, installed references for agents checking pinned contracts. Fetch new external targets and check their anchors. Update incoming fragment links when renaming or removing headings.
+A shared-module README opens with the caller's problem, then names the entry point once. Put module behaviour, including what the module does not do, under "Behaviour". "Caller responsibilities" holds only imperative caller duties. Put ownership pointers in one "Related" sentence.
+
+Follow the [Pi link policy](agents/pi-docs.md#linking-pi-documentation): published pages for users, installed references for agents checking pinned contracts. Fetch new external targets and check their anchors. Update incoming fragment links when renaming or removing headings.
 
 When revising docs, compare inline-code tokens and numbers with the previous text, check that moved facts keep their conditions, and run link and formatting checks. Preserve verified example output and distinguish placeholders in templates from commands readers can run as written.
 
 ### Code comments
 
 Explain non-obvious constraints and design decisions near the code; omit obvious implementation narration.
-
-## Runtime validation
-
-Use Zod for configuration, persisted JSON, external structured data, and option limits. Colocate schemas with their owner, derive owned types, and export shared contracts.
-
-- Choose unknown-key and failure handling: settings may recover fields or reject everything; stored documents may retain unknown fields for recovery.
-- Use parsed output for normalisation, but validate without replacement when preserving borrowed data or exact stored source.
-- Limit original record sizes, including unknown fields.
-- Hide raw validation errors that could expose stored content.
-
-For Zod-based model-facing parameters, use [`toToolSchema`](../packages/libs/src/tool-schema/README.md) from `@pi-mono/libs/tool-schema`, not direct Zod-to-TypeBox conversion or local keyword stripping. Its explicit profile omits runtime metadata and unsupported integer bounds while rejecting unhandled keywords. State omitted constraints in descriptions (explicit integer bounds require one) and enforce full validation before side effects. Valid arguments do not prove provider acceptance.
-
-Schemas are unnecessary for control-flow narrowing, host capability checks, or invariants that depend on filesystem or lifecycle state.
-
-## Pi APIs
-
-Implement Pi changes through workspace extensions, preferring public APIs. Runtime monkey-patches may work around API limits. Gate patches of private Pi methods with SHA-256 [host fingerprints](../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints); follow that section when you add, move, or remove one. Tool-display host integration and editor-widgets host and renderer gates use shared hook provenance and a reviewed public-version pin; tool-display row, assistant, and mode source checks stay strict. The version-aware gates accept a callable endpoint with a reviewed hash, or an unknown hash when public `VERSION` matches the pin. On an unverified version, an unknown wrapper disables the feature until the pin is reviewed; on the verified version, a changed native method can be accepted as a wrapper. `vpr check` fails until `owners` in the [fingerprint script](../.agents/skills/pi-update/scripts/fingerprints.ts) and the hashes listed in workspace source match the installed Pi, and both owners' `inspectedPiVersion` pins match the public `VERSION` of the installed API and CLI builds. It does not check the host fingerprints table. Never suggest or edit Pi core or upstream package files, including installed dependencies.
-
-Namespace persisted custom entry and custom message `customType` identifiers as `<extension-package>.<entry-name>`, for example `pi-agent-summary.summary`. Define each identifier in its owning module and reuse it for writes, reads, and renderer registration. These identifiers are distinct from Pi-generated session record `id` values.
-
-Start a `ctx.ui.notify` message with the package name and a colon, for example `pi-model-prompt: rules[0] skipped: …`, when the user didn't request it: startup, settings loading, host compatibility, or background work. Pi shows notices without a source. A message that answers the user's own command or an open view needs no prefix.
-
-Find installed documentation and examples in [Pi API references](pi-docs.md).

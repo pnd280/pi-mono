@@ -10,10 +10,12 @@ Treat every change request as building from the ground up by default. Make break
 
 ## Task references
 
-| Task                                                                                                  | Guidance                                                   |
-| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Find the package that owns a feature                                                                  | [Workspace architecture](docs/architecture.md)             |
-| Change behaviour or refactor                                                                          | [Code organisation and reuse](docs/agents/architecture.md) |
-| Choose coverage, edit tests, or review tests                                                          | [Testing](docs/agents/testing.md)                          |
-| Validate changes, edit TypeScript or tooling, configure packages, update dependencies, or use Pi APIs | [Development](docs/development.md)                         |
-| Install the workspace or resolve prerequisites                                                        | [Setup](README.md#setup)                                   |
+| Task                                                                                                               | Guidance                                                   |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Find the package that owns a feature                                                                               | [Workspace architecture](docs/architecture.md)             |
+| Change behaviour or refactor                                                                                       | [Code organisation and reuse](docs/agents/architecture.md) |
+| Choose coverage, edit tests, or review tests                                                                       | [Testing](docs/agents/testing.md)                          |
+| Run checks, edit TypeScript or tooling, configure packages, or update dependencies                                 | [Development](docs/development.md)                         |
+| Change Pi behaviour or use Pi APIs, patch Pi, gate a host hook, name a custom entry or message, or notify the user | [Pi API contracts](docs/agents/pi-apis.md)                 |
+| Validate configuration, persisted JSON, external data, or tool parameters                                          | [Runtime validation](docs/agents/runtime-validation.md)    |
+| Install the workspace or resolve prerequisites                                                                     | [Setup](README.md#setup)                                   |

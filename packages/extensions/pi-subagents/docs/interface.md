@@ -8,14 +8,14 @@ In TUI mode, pi-subagents shows tasks and [jobs](jobs.md) in a task panel, read-
 
 Press **Ctrl+Alt+S** or run `/subagents` to open the task panel in TUI mode. The panel has top and bottom borders, like the other custom views.
 
-If another extension claims a key that overlaps **Ctrl+Alt+S** through the [lifecycle coordinator](../../../libs/src/lifecycle/README.md#shortcut-claims), neither extension gets its key, and a warning names the conflict. Use `/subagents` instead.
+If another extension claims a key that overlaps **Ctrl+Alt+S** through the [shared shortcut claims](../../../libs/src/lifecycle/README.md#shortcut-claims), neither extension gets its key, and a warning names the conflict. Use `/subagents` instead.
 
-The panel uses the layout of the shared collection browser. A `View:` row lists the "all", "running", "background", and "finished" views with their counts of tasks and jobs; **Tab** and **Shift+Tab** change the view, and each view keeps its own selection.
+The panel has the same layout as the list browsers of other workspace extensions, such as pi-todo. A `View:` row lists the "all", "running", "background", and "finished" views with their counts of tasks and jobs; **Tab** and **Shift+Tab** change the view, and each view keeps its own selection.
 
 ### Task rows
 
 - Task trees are listed running first, then background, then finished. A tree goes in the place of its most active task, so a finished parent with a running background child is listed with the background tasks. In a view that excludes a parent, its listed children are roots.
-- Nested tasks hang from their parent's status glyph with `├─`, `└─`, and `│` guides, and each task keeps its own status glyph: `•` running, `◐` background, `✓` completed, `✗` failed, or `⊘` cancelled.
+- Nested tasks connect to their parent's status glyph with `├─`, `└─`, and `│` guides, and each task keeps its own status glyph: `•` running, `◐` background, `✓` completed, `✗` failed, or `⊘` cancelled.
 - Each task has one row: the glyph, the description, and then, muted, `provider/model:thinking`. The other muted details are aligned to the right edge: `failed` or `cancelled` for those outcomes, the latest run's elapsed time or duration, the current tool of an active direct child, total tokens such as `↑12k ↓3.0k`, and the total cost.
 - While a task is active, its context use such as `48k/200k` (used/total, `?` when unknown after compaction) replaces the tokens; the tokens return when it settles. Usage goes up while a task runs and adds up across resumes. Token and cost details omit zero or unknown values.
 - When a row is wider than the panel, the model and the details move to their own rows, and the details stay aligned to the right edge. Long text wraps under the description. Wrapped rows continue the tree guides, and a parent's wrapped rows carry a `│` stem down to its children.
@@ -36,7 +36,13 @@ A `→` cursor and the accent colour mark the selected task. The panel and both 
 
 Local actions retain their fixed keys: **Tab** and **Shift+Tab** change the list view, **Ctrl+B** promotes a foreground task from the list, **Ctrl+D** aborts from the list or a viewer, and **Home** and **End** scroll to the ends of a viewer.
 
-When bindings overlap, the first applicable action wins in this order: back or close, inspect (list only), up, down, page up, page down, expand (task viewer only), then local actions. A configured binding therefore takes precedence over a local key. Remaining non-conflicting alternatives still work. A shown action with no usable binding says “unavailable”; it does not silently restore its default key. The back or close action excludes **Ctrl+C**, leaving that key to Pi's copy or interrupt handling unless another configured panel action claims it. Key-release events perform no action.
+When bindings overlap, the first applicable action wins in this order: back or close, inspect (list only), up, down, page up, page down, expand (task viewer only), then local actions. A configured binding therefore takes precedence over a local key, and the other alternatives that do not conflict still work.
+
+Edge cases:
+
+- A shown action with no usable binding says "unavailable". Its default key is not restored.
+- The back or close action excludes **Ctrl+C**. That key stays with Pi's copy or interrupt handling unless another configured panel action claims it.
+- Key-release events perform no action.
 
 The footer shows abort and background actions only when they apply to the selected item. Controls belong to the panel or viewer only while it has focus.
 
@@ -56,7 +62,7 @@ The task viewer and the job log viewer have the same frame. In regular mode, the
 - Below the top border, metadata rows show dim labels in one column and their values; in a very narrow viewer, each label is above its values. Long values wrap under the value column between their parts, so no row ends with a separator; a part wider than the column wraps on its own rows.
 - Then come a border, the transcript or the log, a blank row, diagnostics, the key hints, and the bottom border. The borders around the body show the number of rows hidden above and below.
 
-When the viewer has too few rows, it keeps the borders, one body row, and the first hint row with the current back binding (or “back unavailable”); below five rows, the hint row drops out, and below four, the body row. Then diagnostics, the metadata rows from the top, the other hint rows, and the blank row get the free rows, in that order.
+When the viewer has too few rows, it keeps the borders, one body row, and the first hint row with the current back binding (or "back unavailable"); below five rows, the hint row drops out, and below four, the body row. Then diagnostics, the metadata rows from the top, the other hint rows, and the blank row get the free rows, in that order.
 
 ### Task viewer
 
@@ -73,7 +79,7 @@ Active direct children stream live; deeper children refresh at completed-message
 
 The viewer shows the child's messages with Pi's chat components. Pi's built-in tools use their own renderers, `subagent` and `subagent_abort` calls use the [tool cards](#tool-cards), other tools use Pi's generic card, and background results use Pi's default message box. Images are not shown.
 
-- A failed or aborted response supplies an error for calls without a saved result. Other calls without a final result show “Interrupted” after any partial output when the task stops or an earlier run left them unfinished.
+- A failed or aborted response supplies an error for calls without a saved result. Other calls without a final result show "Interrupted" after any partial output when the task stops or an earlier run left them unfinished.
 - Removing a saved result from model context does not change its recorded completion.
 - Viewing uses only recorded content: it never executes tools, reads the files that calls or results name, or rewrites child sessions.
 
@@ -86,7 +92,7 @@ The log viewer shows the end of the job's log file: at most 2,000 lines or 50 Ki
 - `log`: the log file path.
 - `error`: the job's error, only when it adds to the exit code, such as `timed out after 60 s`.
 
-Use **Up/Down**, **PageUp/PageDown**, **Home**, and **End** to scroll; in fullscreen mode, the mouse wheel also scrolls. **Ctrl+D** aborts an active job, and **Esc** returns to the list. A missing or unreadable log file shows a diagnostic. An empty log shows “(no output)”.
+Use **Up/Down**, **PageUp/PageDown**, **Home**, and **End** to scroll; in fullscreen mode, the mouse wheel also scrolls. **Ctrl+D** aborts an active job, and **Esc** returns to the list. A missing or unreadable log file shows a diagnostic. An empty log shows "(no output)".
 
 ## Tool cards
 
@@ -132,7 +138,7 @@ A `job_abort` card names the job ID and shows `⊘ aborted after` the job's time
 
 ### Background result messages
 
-Pi shows a delivered background result in its default message box, including the model-facing `<task>` or `<job>` envelope. [pi-tool-display](../../pi-tool-display/src/adapters/pi-subagents/README.md) replaces these cards and the background result box in the main chat with its own subagent and job cards.
+Pi shows a delivered background result in its default message box, including the model-facing `<task>` or `<job>` envelope. [pi-tool-display](../../pi-tool-display/docs/tools.md#subagents) replaces these cards and the background result box in the main chat with its own subagent and job cards.
 
 ## Widget
 

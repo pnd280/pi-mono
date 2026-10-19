@@ -1,4 +1,4 @@
-# Prompt cloak test coverage
+# Prompt cloak test coverage for maintainers
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
@@ -10,8 +10,7 @@ There are no automated invariants. Prompt wording is below the testing policy's 
 
 ## Not tested
 
-- There are no automated tests for the wording replacement.
-- Package checks do not cover live Anthropic acceptance.
+- Live Anthropic acceptance is not tested because the checks use no live provider.
 
 ## Manual checks
 

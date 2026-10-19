@@ -6,7 +6,7 @@ Open an interactive validation fixture in a real terminal and report its exit st
 
 ## Behaviour
 
-Validation-only [`runTerminalLauncher`](index.ts) (`@pi-mono/libs/validation/terminal-launcher`) accepts `regular`/`fullscreen`, immediately followed by optional `--reuse <directory>`. `--help` shows consumer help without creating a workspace. Any other first argument prints an error and returns `1`; `--reuse` without a directory throws.
+Validation-only [`runTerminalLauncher`](index.ts) (`@pi-mono/libs/validation/terminal-launcher`) accepts `regular` or `fullscreen`, immediately followed by optional `--reuse <directory>`. `--help` shows consumer help without creating a workspace. Any other first argument prints an error and returns `1`; `--reuse` without a directory throws.
 
 Children inherit terminal I/O, receive `--tui-mode <mode>`, and receive any extra Pi arguments. The launcher returns the child's exit code, or `1` when there is no numeric code. Launch failures propagate.
 

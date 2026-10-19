@@ -1,10 +1,12 @@
-# Agent-summary test coverage
+# Agent-summary test coverage for maintainers
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests what saved [run summaries](../GLOSSARY.md) contain, when they are saved, and run isolation. Libs owns diffing, tree-row layout, and native-tool observation; Pi owns native file operations. The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events and lazily creates one offline session for real `edit` and `write` calls.
+This package tests what saved [run summaries](../GLOSSARY.md) contain, when they are saved, and run isolation; libs owns diffing, tree-row layout, and native-tool observation, and Pi owns native file operations.
 
 ## Must not regress
+
+The [lifecycle fixture](../src/test-fixture.ts) delivers synthetic events and lazily creates one offline session for real `edit` and `write` calls.
 
 - **Critical, e2e:** Saved summaries contain run metadata and file statistics or unavailability reasons, not file contents or patches.
 - **High, e2e:** Appending a summary with `appendEntry` leaves the model's session context unchanged.
@@ -16,10 +18,11 @@ This package tests what saved [run summaries](../GLOSSARY.md) contain, when they
 
 ## Not tested
 
-- Run timing, answering-model lists, throughput calculations, live-rate formatting, command counts, file-statistic deduplication, [milestone](../GLOSSARY.md) limits and deduplication, [counter](../GLOSSARY.md) limits and merging, and rendering: below the severity bar. The listed scenarios compare whole saved summaries, so they also fail when these fields change.
-- Inferring file changes from bash, and the correctness of native operations: out of scope or owned by Pi.
-- Shared [tree-row layout](../../../libs/src/tui/components/tree/README.md): owned by libs.
+- Run timing, answering-model lists, throughput calculations, live-rate formatting, command counts, file-statistic deduplication, [milestone](../GLOSSARY.md) limits and deduplication, counter limits and merging, and rendering are below the severity bar. The listed scenarios compare whole saved summaries, so they also fail when these fields change.
+- Inferring file changes from bash is not tested because the package never infers them.
+- Pi owns the correctness of native file operations.
+- Libs owns the shared [tree-row layout](../../../libs/src/tui/components/tree/README.md).
 
 ## Manual checks
 
-Theme colours and terminal appearance: use the README's [manual checks](../README.md#validation).
+The README [manual checks](../README.md#validation) cover theme colours and terminal appearance.

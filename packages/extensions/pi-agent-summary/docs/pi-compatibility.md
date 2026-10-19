@@ -2,11 +2,11 @@
 
 [pi-agent-summary](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline tests, including real codemode and virtual-model coverage, plus shared mutation and display suites). Not covered: manual visual checks.
+> Last verified against Pi 1.3.0 with package checks, offline tests that include real codemode and virtual-model cases, and the shared mutation and display suites. Not covered: manual visual checks.
 
 ## Upgrade procedure
 
-1. Run the [package and manual checks](../README.md#validation).
+1. Run the [package checks](../../../../docs/development.md#focused-validation) and the README [manual checks](../README.md#validation).
 2. When affected, check the other file-mutation consumer (`pi-tool-display`) and working-message composition with `pi-todo`.
 3. Work through the checklist below, then update the "Last verified" line.
 
@@ -16,27 +16,34 @@ Recheck [run](../GLOSSARY.md) lifecycle boundaries, attribution, and native file
 
 ### Lifecycle
 
-[Lifecycle](../src/index.ts):
+Confirm these items against [src/index.ts](../src/index.ts):
 
-- [ ] A run lasts from the first `agent_start` to `agent_settled`, through retries, queued follow-ups, and cancellation, and the timer is cleaned up. The duration and finish time come from the [lifecycle run marks](../../../libs/src/lifecycle/README.md#run-marks).
-- [ ] Direct and nested agent `bash` calls count once per call ID. Manual shell input is excluded.
-- [ ] [Milestones](../GLOSSARY.md) and [counters](../GLOSSARY.md) emitted on `pi.events` reach the active run synchronously, and reload removes the old subscriptions.
+- [ ] A run lasts from the first `agent_start` to `agent_settled`, through retries, queued follow-ups, and cancellation.
+- [ ] The live timer is cleaned up when the run ends.
+- [ ] The [lifecycle run marks](../../../libs/src/lifecycle/README.md#run-marks) supply the duration and finish time.
+- [ ] Direct and nested agent `bash` calls count once per call ID.
+- [ ] Manual shell input is excluded from the command count.
+- [ ] [Milestones and counters](../GLOSSARY.md) emitted on `pi.events` reach the active run synchronously.
+- [ ] Reload removes the old `pi.events` subscriptions.
 
 ### Answering models
 
-[Run metadata](../src/index.ts):
+Confirm the run metadata in [src/index.ts](../src/index.ts):
 
 - [ ] Assistant `message_end` events name the answering `provider`, `model`, and requested `thinkingLevel`.
-- [ ] Under a virtual selection these are the routed physical model. Failed or aborted routing leaves `api: "pi-virtual"` on the message (Pi's unexported `VIRTUAL_MODEL_API`).
-- [ ] Error responses don't count.
-- [ ] The saved [summary](../GLOSSARY.md) [schema](../src/summary.ts) accepts every host thinking level, missing levels, and missing model lists, and rejects empty lists and models without a provider.
+- [ ] Under a virtual selection, these fields name the routed physical model.
+- [ ] Failed or aborted routing leaves `api: "pi-virtual"` on the message (Pi's unexported `VIRTUAL_MODEL_API`).
+- [ ] Error responses don't add an answering model.
+- [ ] The saved [summary schema](../src/summary.ts) accepts every host thinking level, missing levels, and missing model lists.
+- [ ] The saved summary schema rejects empty model lists and models without a provider.
 
 ### Throughput
 
-[Output throughput](../src/throughput.ts):
+Confirm these items against [src/throughput.ts](../src/throughput.ts):
 
 - [ ] Public assistant `message_start` and `message_end` events delimit response streams.
-- [ ] `message_update` carries `text_delta`, `thinking_delta`, and `toolcall_delta` events. Text and tool-call deltas can be empty; they must not start the visible-output clock.
+- [ ] `message_update` carries `text_delta`, `thinking_delta`, and `toolcall_delta` events.
+- [ ] Empty text and tool-call deltas do not start the visible-output clock.
 - [ ] A completed `message.usage.output` includes reasoning exactly once.
 - [ ] Reported output usage from cancelled and failed responses contributes to throughput.
 - [ ] Tool and nested usage is excluded from throughput.
@@ -45,7 +52,7 @@ Recheck [run](../GLOSSARY.md) lifecycle boundaries, attribution, and native file
 
 ### File statistics
 
-[Mutation statistics](../src/changes.ts):
+Confirm these items against [src/changes.ts](../src/changes.ts):
 
 - [ ] Only verified native operations contribute file statistics.
 - [ ] Concurrent operations use the first and last contents in write order.
@@ -55,16 +62,17 @@ Recheck [run](../GLOSSARY.md) lifecycle boundaries, attribution, and native file
 
 ### Persistence and rendering
 
-[Persistence and rendering](../src/index.ts):
+Confirm persistence and rendering in [src/index.ts](../src/index.ts):
 
 - [ ] `appendEntry` keeps summaries out of model context.
 - [ ] Resuming a session restores its summaries.
-- [ ] Expansion works with the tool-output shortcut and fullscreen mouse clicks.
-- [ ] Summaries keep metadata without contents or patches, including outside the TUI.
+- [ ] The tool-output shortcut expands and collapses all summaries.
+- [ ] In fullscreen mode, a mouse click expands and collapses one summary.
+- [ ] Saved summaries hold metadata without file contents or patches, also outside the TUI.
 
 ## Limitations
 
-These limits come from missing Pi APIs. Revisit them when Pi adds one.
+In Pi 1.3.0, these limits come from missing Pi APIs. Revisit them when Pi adds one.
 
 ### Throughput
 

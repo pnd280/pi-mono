@@ -1,8 +1,8 @@
-# Skill-reference test coverage
+# Skill-reference test coverage for maintainers
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests format trust, skill-reference expansion, and completion routing in the real editor. Pi owns skill-file discovery, content loading, undo, persistence, queueing, and fuzzy scoring.
+This package tests format trust, skill-reference expansion, and completion routing in the real editor; Pi owns skill-file discovery, content loading, undo, persistence, queueing, and fuzzy scoring.
 
 ## Must not regress
 
@@ -16,7 +16,6 @@ This package tests format trust, skill-reference expansion, and completion routi
 ## Not tested
 
 - Expansion matching, token replacement, cursor eligibility, per-request suggestion membership, asynchronous suggestion timing, and **Tab** routing details are below the severity bar. Use the manual checks.
-- Provider-only assertions cannot prove native acceptance behaviour, so they do not replace the real-editor checks above.
 
 ## Manual checks
 

@@ -7,15 +7,15 @@
 ## Behaviour
 
 - Only interactive TUI mode receives working-message updates. RPC, JSON, and print modes do not.
-- Nonempty contributions are joined with `·` in the configured order. Unlisted components follow in sorted ID order.
+- The coordinator joins nonempty contributions with `·` in the configured order. Unlisted components follow in sorted ID order.
 - Empty contributions stay registered and listed in settings. When no component has text, Pi's default message returns.
 - A nonempty `overrideWorkingMessage` override replaces contributions. The most recently changed nonempty override wins. Clearing it reveals the next nonempty override, or the combined message. Overrides stay out of the settings menu.
-- Text is terminal-sanitised, and whitespace is collapsed to one line. Overrides keep SGR styling, such as theme colours; contributions are plain text.
+- The coordinator sanitises text for the terminal and collapses whitespace to one line. Overrides keep SGR styling, such as theme colours; contributions are plain text.
 - Library copies share one coordinator through Pi's event bus, as the [coordinator protocol](../coordination/README.md) describes. Shutdown removes it and invalidates handles. New sessions and reloads register fresh components.
 - Only components and overrides of live participants show, so those of a failed or left-out factory never show.
 - When more than one live extension registers a component ID, none of those components shows, and one warning names the ID.
 - The command owner is the component with the lowest `ownerRank` among live participants and participants that can still become live. Equal ranks fall back to contributor, then ID. Overrides never own the command.
-- A participant whose factory ran but which Pi's loader left out still counts as a candidate. When it has the lowest `ownerRank`, no extension registers `/working-message` in that runtime. This can occur only on the first start in a project that needs a trust decision: Pi's [project-trust pass](../../docs/pi-compatibility.md#coordinators) runs user and global factories, then leaves out an extension that the final set replaces or removes, for example when the project lists the same package.
+- A participant whose factory ran but which Pi's loader left out still counts as a candidate. When it has the lowest `ownerRank`, no extension registers `/working-message` in that runtime. This can occur only on the first start in a project that needs a trust decision. Pi's [project-trust pass](../../docs/pi-compatibility.md#coordinators) runs user and global factories, then leaves out an extension that the final set replaces or removes, for example when the project lists the same package.
 - After a [version mismatch](../coordination/README.md#version-mismatch), each participant writes only its own text, and the latest write shows. Each protocol version registers its own `/working-message` for its own components, and Pi numbers the duplicate names.
 - Nonparticipants can overwrite the message without interception. The indicator's content and visibility are unchanged.
 

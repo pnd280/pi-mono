@@ -6,7 +6,7 @@ The README describes [what text is sent](../README.md#automatic-session-names) a
 
 ## Cancellation and retries
 
-An unnamed session gets at most one automatic attempt per load. These events cancel a generation that is in progress:
+The README states the [one-attempt rule](../README.md#automatic-session-names). These events cancel a generation that is in progress:
 
 | Event                           | Effect on automatic naming                                                 |
 | ------------------------------- | -------------------------------------------------------------------------- |

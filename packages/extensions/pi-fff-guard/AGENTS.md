@@ -4,12 +4,12 @@ Block with `{ block: true, reason }`, never `terminate`.
 
 ## Code navigation
 
-| Area                  | Files                                                                                                     |
-| --------------------- | --------------------------------------------------------------------------------------------------------- |
-| Interception          | [src/index.ts](src/index.ts). Official FFF provenance is shared in [utils](../../utils/src/fff-tools.ts). |
-| Decisions and scopes  | [src/evaluate-search.ts](src/evaluate-search.ts) and [src/targets.ts](src/targets.ts).                    |
-| Git ignore inspection | [src/git-ignore.ts](src/git-ignore.ts) and its [contract](docs/search-scopes.md#inspection-contract).     |
-| Shared helpers        | [Scope parsing](../../utils/README.md#search-scopes).                                                     |
+| Area                  | Files                                                                                                                                                                               |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Interception          | [src/index.ts](src/index.ts). Official FFF provenance is shared in [utils](../../utils/src/fff-tools.ts).                                                                           |
+| Decisions and scopes  | [src/evaluate-search.ts](src/evaluate-search.ts) and [src/targets.ts](src/targets.ts).                                                                                              |
+| Git ignore inspection | [src/git-ignore.ts](src/git-ignore.ts) and its [contract](docs/search-scopes.md#inspection-contract).                                                                               |
+| Shared helpers        | [Scope parsing](../../utils/docs/caller-boundaries.md#search-scopes) owns prefixes and normalisation. The guard keeps its own missing-path, intersection, exclusion, and Git rules. |
 
 ## Constraints
 

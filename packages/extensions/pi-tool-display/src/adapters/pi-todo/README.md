@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
 
-Todo calls from [`pi-todo`](../../../../pi-todo/README.md) appear as `Todos` cards with confirmed statuses and progress. This page documents the adapter contract for its maintainers; if you use `pi-todo`, read [Display](#display) for how its calls appear.
+Todo calls from [`pi-todo`](../../../../pi-todo/README.md) appear as `Todos` cards with confirmed statuses and progress. See [todo cards](../../../docs/tools.md#todo).
 
 ## Compatibility and selection
 
@@ -20,19 +20,4 @@ After a result exists, incompatible arguments use ungrouped generic cards, for e
 
 ## Display
 
-Supported cards start with `Todos` and the action. Subject previews, status words, and progress summaries come from the [`pi-todo/text`](../../../../pi-todo/src/text.ts) contract, so cards match the widget and browser: subjects use a 200-code-point budget, including any omission mark, and keep whole graphemes.
-
-Compact cards replace successful output with confirmed status and progress. List cards keep the output preview beside the summary so the producer's omission notices remain visible.
-
-- Progress excludes deleted todos. Snapshots containing only deleted todos report their count and `no active todos`. Empty snapshots report `No todos`.
-- Lists with a status filter or `includeDeleted: true` also report the number of matching todos in the full snapshot.
-- Missing or invalid snapshots use an output preview.
-- Failures omit the summary and show diagnostic bodies in `error`.
-
-Expansion restores full result text. API labels remain literal because unstructured output cannot reliably distinguish them from task content; friendly labels apply only to generated headings and summaries.
-
-Adjacent `todo` calls form a collapsed `Todos` group with one member line per action and no call count. Each member keeps its result summary. Expansion restores each call's full card.
-
-## Summary mode
-
-Calls using this adapter are omitted from [run summary lines](../../../docs/presentation.md#summary-mode), including incompatible calls using generic fallback. They contribute no counts; a todo-only run shows no line.
+[Todo cards](../../../docs/tools.md#todo) describes what users see. Subject previews, status words, and progress summaries come from the [`pi-todo/text`](../../../../pi-todo/src/text.ts) contract, so cards match the widget and browser. The adapter sets `omitFromSummary`, so todo calls stay out of summary lines.

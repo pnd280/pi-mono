@@ -6,7 +6,7 @@ The model changes todos only through the `todo` tool. You follow its work in the
 
 ## Actions
 
-The model calls the `todo` tool with one of these actions: `create`, `update`, `list`, `get`, `delete`, and `clear`. The tool can only be called by the model directly, not through other tools, so every change leaves a snapshot that can be replayed.
+The model calls the `todo` tool with one of these actions: `create`, `update`, `list`, `get`, `delete`, and `clear`. Only the model can call the tool, and only directly, not through other tools, so every change leaves a snapshot that can be replayed.
 
 ## Parameters
 
@@ -42,8 +42,8 @@ The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and
 
 ## Tool cards
 
-The extension draws no tool cards. [pi-tool-display](../../pi-tool-display/src/adapters/pi-todo/README.md) draws them with the action and status names, shortened subjects, status words, and progress summary from the pure [`pi-todo/text`](../src/text.ts) export.
+The extension draws no tool cards. [pi-tool-display](../../pi-tool-display/docs/tools.md#todo) draws them with the action and status names, shortened subjects, status words, and progress summary from the pure [`pi-todo/text`](../src/text.ts) export.
 
 ## Replay
 
-When a session starts or reloads, on branch changes, and after compaction, the latest valid `todo` result on the current branch is replayed as a nested list. Only version 2 snapshots within the current limits are replayed; other formats, malformed snapshots, and host errors are skipped.
+When a session starts or reloads, on branch changes, and after compaction, the extension replays the latest valid `todo` result on the current branch as a nested list. It replays only version 2 snapshots within the current limits, and skips other formats, malformed snapshots, and host errors.

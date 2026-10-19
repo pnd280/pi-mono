@@ -2,7 +2,9 @@
 
 [Library index](../../README.md#usage)
 
-Read and update JSON settings files such as Pi's `settings.json`. The library is used by [working-message ordering](../working-message/README.md#persistence), [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration), and the `ext.<package>` settings of other extensions.
+Extensions that keep settings in JSON files such as Pi's `settings.json` must respect project trust and must save a change without losing other fields or other writers' changes. [`@pi-mono/libs/settings-file`](index.ts) reads and updates these files.
+
+[Working-message ordering](../working-message/README.md#persistence), [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration), and the `ext.<package>` settings of other extensions use the library.
 
 ## Behaviour
 
@@ -30,7 +32,7 @@ Reads return current content without writes; section saves make one locked chang
 - An unreadable file, a section that is not an object, or a field that fails the schema also loads as `undefined`, and adds one `loadWarning` for its terminal-safe path.
 - `save(scope, value)` refuses a project save in an untrusted project, then throws `invalidValue` for a value that fails the schema. Neither case touches the file.
 - A save replaces only its field, including an invalid old value, and keeps the rest of the section. It refuses a section that is not an object instead of repairing it.
-- A failed update throws `Check access, JSON, size and locks.`, with the terminal-safe file path on the next line.
+- A failed update throws `Check access, JSON, size and locks.`, followed by a line with `File: ` and the terminal-safe file path.
 - `paths` and `projectTrusted` expose the destinations and the trust decision, for example to label menu scopes.
 
 ### Updates

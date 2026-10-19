@@ -2,11 +2,11 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline host tests, including real codemode cases). Not covered: live FFF integration and manual [notice](../GLOSSARY.md#delivery) presentation.
+> Last verified against Pi 1.3.0 with package checks and offline host tests, including real codemode cases. Not covered: live FFF integration and manual [notice](../GLOSSARY.md#delivery) presentation.
 
 ## Upgrade procedure
 
-1. Run the [package checks and offline tests](../README.md#validation). No paid model request is needed.
+1. Run the [package checks](../../../../docs/development.md#focused-validation), which include the offline tests. No paid model request is needed.
 2. After shared adapter changes, also run the utils and `pi-fff-guard` suites. Changes to the notice contract also need the pi-tool-display suite.
 3. Work through the checklist below, then update the "Last verified" line.
 
@@ -17,28 +17,41 @@ Nested discovery must preserve Pi's native instruction loading and deduplicate a
 ### Native discovery
 
 - [ ] Native context discovery still prefers `AGENTS.override.md`, `AGENTS.md`, `AGENTS.MD`, `CLAUDE.md`, then `CLAUDE.MD`.
-- [ ] It strips a UTF-8 BOM, follows file symlinks, and skips unreadable and non-regular candidates.
+- [ ] Native context discovery strips a UTF-8 BOM.
+- [ ] Native context discovery follows file symlinks.
+- [ ] Native context discovery skips unreadable and non-regular candidates.
 
 ### Tool inputs
 
 - [ ] `turn_end.message` exposes the inputs of tool calls the assistant made directly, including blocked or rejected calls.
 - [ ] `turn_end.messageEntryId` identifies the exact source entry for each direct call.
-- [ ] Public `tool_execution_start` events with `parentToolCallId` supply nested inputs before validation and interception. Collect them until the same `turn_end`, without reading results.
+- [ ] Public `tool_execution_start` events with `parentToolCallId` supply nested inputs before validation and interception.
+
+Discovery collects nested inputs until the same `turn_end`, without reading results.
+
 - [ ] Only direct calls can create [read markers](../GLOSSARY.md#discovery), because nested output may never reach the model.
 - [ ] Boundary drafts are saved after tool results and before the next model request, without implicit steering or continuation.
-- [ ] `getAllTools().sourceInfo` identifies official FFF tools, including late registrations and overrides. Check the selective-read and native path schemas alongside FFF's real source schemas.
+- [ ] `getAllTools().sourceInfo` identifies official FFF tools, including late registrations and overrides.
+- [ ] The selective-read and native path schemas still match the fields that the adapters read.
+
+Compare the FFF adapters with FFF's real source schemas, not its README parameters.
 
 ### Session
 
 - [ ] `turn_end.context.contextEntries` includes earlier boundary drafts and applies their compaction and context edits.
-- [ ] Returning boundary entries replaces the accumulated draft list. Preserve `turn_end.entries` when adding notices or markers.
-- [ ] `buildSessionProjection()` keeps source entry IDs and applies compaction and context edits. `getBranch()` supplies metadata for the branch.
+- [ ] Returning boundary entries replaces the accumulated draft list.
+- [ ] `buildSessionProjection()` keeps source entry IDs and applies compaction and context edits.
+- [ ] `getBranch()` supplies metadata for the branch.
 - [ ] Replaced content doesn't keep its loaded status just because its details are unchanged.
-- [ ] `session_start` fires for startup, resume, reload, new sessions, and forks. Pi awaits each handler and then emits `resources_discover`, whose first lifecycle participant handler runs the startup commit that sends refreshed notices.
+- [ ] `session_start` fires for startup, resume, reload, new sessions, and forks.
+- [ ] Pi awaits each `session_start` handler and then emits `resources_discover`, whose first lifecycle participant handler runs the startup commit that sends refreshed notices.
 - [ ] An idle `sendMessage(..., { triggerTurn: false })` appends the message at once, so the commit rank decides its place among startup entries.
 - [ ] `sendMessage(..., { triggerTurn: false })` doesn't interrupt a running batch.
 - [ ] No pending discovery state is kept across turns or sessions.
-- [ ] Metadata-only custom entries stay out of model context. Visible notices keep their content and details without a registered renderer. Presentation belongs to the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
+- [ ] Metadata-only custom entries stay out of model context.
+- [ ] Visible notices keep their content and details without a registered renderer.
+
+Discovery preserves `turn_end.entries` when it adds notices or markers, because returned entries replace the draft list. Presentation belongs to the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
 
 ## Persisted notice contract
 
@@ -59,6 +72,5 @@ The extension uses only public Pi APIs, with no host patches or tool overrides. 
 
 - Discovery doesn't follow result paths, opaque scripts, FFF cursor state, or temporary context rewrites by other extensions.
 - A [direct read](../GLOSSARY.md#discovery) is an attempt, not proof that the content was delivered in full.
-- Comparing filesystem revisions on reload avoids rereading unchanged files the model read directly.
 
 Replace local behaviour only if a public Pi API keeps these boundaries and metadata-only markers. Don't replace it with the startup loader, which also reads global and ancestor content.

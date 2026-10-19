@@ -2,11 +2,11 @@
 
 [pi-skills](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks, offline host input and reload probes, real-editor acceptance, settings, formats, and provider composition). Not covered: manual terminal checks, including native slash completion after leading whitespace (added in Pi 1.0.0).
+> Last verified against Pi 1.3.0 with the package checks and offline host probes of input, reload, real-editor acceptance, settings, formats, and provider composition. Not covered: the manual terminal checks and native slash completion after leading whitespace.
 
 ## Upgrade procedure
 
-1. Run the [package and offline terminal checks](../README.md#validation). Real-editor acceptance and installed-host input tests cover behaviour that provider-only fixtures can't.
+1. Run the [package checks](../../../../docs/development.md#focused-validation) and the [offline terminal checks](testing.md#manual-checks). Real-editor acceptance and installed-host input tests cover behaviour that provider-only fixtures can't.
 2. Work through the checklist below, then update the "Last verified" line.
 
 ## Checklist
@@ -15,28 +15,37 @@ Input expansion and completion must compose with Pi's existing providers and reg
 
 ### Input expansion
 
-[Input expansion](../src/tokens.ts) owns catalogue projection, substitution, and the native-insertion guard; [input-hook wiring](../src/index.ts) passes the current commands:
+[Input expansion](../src/tokens.ts) owns catalogue projection, substitution, and the native-insertion guard. [Input-hook wiring](../src/index.ts) passes the current commands.
 
-- [ ] Pi's `input` event still runs before native skill insertion and prompt-template expansion. The [input chain](../../../libs/src/input-chain/README.md) runs the transform at rank `100` from one `input` handler.
-- [ ] Registered skill paths, and name collisions.
-- [ ] Exact token boundaries, including in fenced text. Configured references aren't expanded twice.
-- [ ] Leading references never trigger Pi's native `<skill>` insertion or prompt-template expansion. Ordinary prompt-template commands still work.
-- [ ] Images are kept.
-- [ ] Steering and follow-up messages are delivered in TUI, print, JSON, and RPC modes.
+The [input chain](../../../libs/src/input-chain/README.md) runs the transform at rank `100` from one `input` handler.
+
+- [ ] Pi's `input` event runs before native skill insertion and prompt-template expansion.
+- [ ] `getCommands()` reports each skill with its registered file path, which expansion inserts exactly.
+- [ ] Only whole whitespace-separated tokens expand, also in fenced text.
+- [ ] References already in the configured format don't expand again.
+- [ ] Leading references don't trigger Pi's native `<skill>` insertion or prompt-template expansion.
+- [ ] Ordinary leading prompt-template commands still expand.
+- [ ] Image attachments on an expanded prompt reach the model.
+- [ ] Expanded steering and follow-up messages are delivered in TUI, print, JSON, and RPC modes.
 
 ### Settings and completion
 
-- [ ] [Format settings](../src/config.ts): bounded JSON validation, trusted project overrides, the default Markdown link, and `/reload` updates, without UI or settings writes.
-- [ ] [Completion](../src/autocomplete.ts): suggestions from Pi's current provider, and `enableSkillCommands`.
-- [ ] Replacement is relative to the cursor, and **Tab** and **Enter** accept without submitting.
+[Format settings](../src/config.ts) and [completion](../src/autocomplete.ts) own this behaviour.
+
+The README states the [format rules](../README.md#configuration) and the [completion rules](../README.md#completion) that users see.
+
+- [ ] Pi's settings files and project trust give the documented format, and `/reload` updates it, without UI or settings writes.
+- [ ] Skill suggestions come from Pi's current autocomplete provider, and Pi's `enableSkillCommands` setting turns them off.
+- [ ] Skill names that an extension command or prompt template also uses aren't suggested.
+- [ ] Accepting a suggestion replaces the token around the cursor.
+- [ ] **Tab** and **Enter** accept a suggestion without submitting the prompt.
 - [ ] File, attachment, and other command completion keep working.
 
 ### Lifecycle
 
-- [ ] [Lifecycle](../src/index.ts): resource discovery and `/reload` update paths and completion, without duplicate providers or saved state.
+- [ ] After resource discovery and `/reload`, [expansion and completion](../src/index.ts) use the current skill paths, without duplicate providers or saved state.
 
 ## Limitations
 
-- Pi inserts skill contents only for prompts that begin exactly with `/skill:`, and its input handler has no option to turn that off. Pi also expands leading prompt-template commands after the input hook. On upgrades, check that the default leading Markdown link stays literal, and that leading references which match either kind of command are still guarded.
-- Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width.
-- Keep composing with native autocomplete rather than adding another matcher or file discovery.
+- In Pi 1.3.0, Pi inserts skill contents only for prompts that begin exactly with `/skill:`, and its input handler has no option to turn that off. Pi also expands leading prompt-template commands after the input hook. The leading-reference checkboxes above cover both.
+- In Pi 1.3.0, Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width.

@@ -1,6 +1,6 @@
 # [@pi-mono/utils](README.md) development
 
-Keep helpers pure; callers supply inputs and policy.
+Keep helpers pure.
 
 ## Code navigation
 
@@ -14,7 +14,7 @@ Keep helpers pure; callers supply inputs and policy.
 
 ## Constraints
 
-Put scheduling and I/O in [shared libraries](../libs/README.md).
+Do not add Pi runtime state or consumer policy, and put scheduling and I/O in [shared libraries](../libs/README.md).
 
 ## Validation
 

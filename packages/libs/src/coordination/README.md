@@ -2,7 +2,7 @@
 
 [Library index](../../README.md#usage)
 
-Pi runs extension handlers in load order, so extensions that share an event can get different results when users install them in a different order. The coordinators in this package remove that dependency for the [input chain](../input-chain/README.md), [prompt parts](../prompt-parts/README.md), [lifecycle](../lifecycle/README.md), and [working message](../working-message/README.md). This page states the rules that they share; it is not an entry point.
+Pi runs extension handlers in load order, so extensions that share an event can get different results when users install them in a different order. The coordinators in this package remove that dependency for the [input chain](../input-chain/README.md), [prompt parts](../prompt-parts/README.md), [lifecycle](../lifecycle/README.md), and [working message](../working-message/README.md). Callers start from those READMEs; the rules below apply to all four.
 
 ## Rendezvous
 
@@ -16,7 +16,7 @@ Pi runs extension handlers in load order, so extensions that share an event can 
 - Callbacks run in ascending rank. Equal ranks run in participant ID order, and then in registration order within the participant. Join and load order never decide.
 - A participant becomes live when its own `session_start` handler runs. Only callbacks of live participants run.
 - Pi runs no handler of an extension whose factory failed, or of an extension that the loader leaves out after its factory ran. Neither extension becomes live, so neither changes the result for live participants.
-- Participant IDs use letters, digits, and `._:/-`, up to 200 characters. When a second live participant has the same ID, its `session_start` handler throws, and no participant with that ID takes part.
+- Participant IDs start with a letter or digit, use only letters, digits, and `._:/-`, and have up to 200 characters. When a second live participant has the same ID, its `session_start` handler throws, and no participant with that ID takes part.
 - Each registration returns a function that removes it. A removed callback does not run, also when another callback removed it earlier in the same dispatch. Other participants keep their registrations.
 
 ## Errors

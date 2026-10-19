@@ -2,7 +2,7 @@
 
 [@pi-mono/utils](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and all helper tests; source diffs against 1.2.0: extension types and tool source provenance unchanged, and the built-in tool changes are limited to read rendering; no runtime changes needed). Not covered: live FFF behaviour.
+> Last verified against Pi 1.3.0 with package checks, all helper tests, and a source diff against 1.2.0. Not covered: live FFF behaviour.
 
 ## Upgrade procedure
 
@@ -12,12 +12,15 @@
 
 ## Checklist
 
-- [ ] Trace the [direct and indirect consumers](../AGENTS.md#code-navigation). FFF provenance and scope normalisation, omission ranges, patches, and UTF-8 boundaries must still match the target tool and result contracts.
-- [ ] [Thinking levels](../src/thinking-levels.ts) match `MODEL_THINKING_LEVELS` in Pi's `@earendil-works/pi-ai/providers/model-schema`, in the same order. Installed extensions can't import that entry point.
-- [ ] Keep helpers pure; do not introduce Pi runtime state, I/O, scheduling, or consumer policy.
+- [ ] FFF provenance and scope normalisation, omission ranges, patches, and UTF-8 boundaries match the Pi tool and result contracts that their [direct and indirect consumers](../AGENTS.md#code-navigation) target.
+- [ ] [Thinking levels](../src/thinking-levels.ts) match `MODEL_THINKING_LEVELS` in Pi's `@earendil-works/pi-ai/providers/model-schema`, in the same order.
+
+This package keeps its own copy of the thinking levels, because installed extensions can't import that entry point.
 
 ## Limitations
 
 Compare new public Pi helpers with the [supported exports](../README.md#usage). Replace local code only when bounds, Unicode units, parsing and failure behaviour, and consumers all agree; a similar name doesn't mean the behaviour is the same.
+
+In Pi 1.3.0, a source diff against 1.2.0 found extension types and tool source provenance unchanged, and built-in tool changes limited to read rendering. This package needed no runtime changes.
 
 Pi 1.3.0 adds `formatReadLineRange`, a read-header range formatter with no counterpart here, and resolves model references with registry-aware matching that is not exported from the package root. Neither replaces [`model-reference`](../src/model-reference.ts), which only checks and splits the `provider/model-id` syntax.

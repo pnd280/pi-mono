@@ -4,9 +4,9 @@ The guard stops FFF searches that would silently return nothing, or only matches
 
 ## Compatibility
 
-The guard requires Node.js 24+, Git, and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 1.3.0 and FFF 0.11.0.
+The guard requires Git and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 1.3.0 and FFF 0.11.0.
 
-The guard checks FFF's search tools, and its overrides of native tool names, only when Pi attributes them to the official package. Built-in tools and unrecognised forks are left alone.
+The guard checks FFF's search tools, and its overrides of native tool names, only when Pi attributes them to the official package. It leaves built-in tools and unrecognised forks alone.
 
 ## Usage
 
@@ -20,7 +20,7 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 
 ### Limits
 
-- Inspection has a two-second deadline and limits on scope size. If inspection fails and no other target is blocked, the call is allowed and a diagnostic is shown in the UI or on stderr. If you cancel, the call is blocked.
+- Inspection has a two-second deadline. It fails for paths or filters with more than 128 components, and for link chains of 32 or more links. If inspection fails and no other target is blocked, the guard allows the call and shows a diagnostic in the UI or on stderr. If you cancel, the guard blocks the call.
 - Tools that wrap FFF must dispatch child calls through Pi hooks; calling `execute()` directly skips the guard.
 - Slash commands and `@` autocomplete aren't checked.
 
