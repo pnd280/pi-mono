@@ -141,7 +141,8 @@ async function host(
     projectTrusted = false,
     replies = [],
     runtimeOwned = false,
-    sessionManager = SessionManager.inMemory(cwd)
+    sessionManager = SessionManager.inMemory(cwd),
+    tools
   }: {
     extensions?: ((pi: ExtensionAPI) => void)[];
     excludeTools?: string[];
@@ -152,6 +153,8 @@ async function host(
     replies?: (() => AssistantMessage | Promise<AssistantMessage>)[];
     runtimeOwned?: boolean;
     sessionManager?: SessionManager;
+    /** Pi's `--tools` allowlist. */
+    tools?: string[];
   } = {}
 ) {
   // Pi restores recorded tools only for sessions that use `defaultTools`.
@@ -225,7 +228,8 @@ async function host(
     model: faux.models[0],
     thinkingLevel: "off",
     sessionManager,
-    excludeTools
+    excludeTools,
+    ...(tools && { tools })
   });
 
   if (!runtimeOwned) {
@@ -424,6 +428,60 @@ it("matches * patterns in deny and defer against the registered tools, and in al
     ["alpha", "tool_search"]
   ]);
   expect(fixture.errors).toEqual([]);
+});
+
+it("keeps deny tools off for the whole selection when an extension or --tools turns them on again", async () => {
+  /** Turns on beta, and registers a new tool, from tool calls during a run. */
+  const toolChanges = (pi: ExtensionAPI) => {
+    const tool = (name: string, run: () => void) => {
+      pi.registerTool({
+        name,
+        label: name,
+        description: `Test tool ${name}`,
+        parameters: Type.Object({}),
+        execute: () => {
+          run();
+
+          return Promise.resolve({ content: [{ type: "text", text: "ok" }], details: undefined });
+        }
+      });
+    };
+
+    tool("enable_beta", () => {
+      pi.setActiveTools([...pi.getActiveTools(), "beta"]);
+    });
+    tool("register_late", () => {
+      tool("late", () => undefined);
+    });
+  };
+
+  const call = (name: string) => () =>
+    fauxAssistantMessage(fauxToolCall(name, {}), { stopReason: "toolUse" });
+  const dirs = await workspace({ profiles: [plan] });
+
+  // Another extension turns beta on before a run and during it.
+  const extension = await host(dirs, {
+    extensions: [earlierExtension, toolChanges],
+    replies: [call("enable_beta")]
+  });
+  await extension.session.prompt("/profile plan");
+  extension.session.setActiveToolsByName([...extension.session.getActiveToolNames(), "beta"]);
+  await extension.session.prompt("enable beta");
+
+  // With `--tools`, each registry refresh turns on every listed tool again, beta too.
+  const allowlist = await host(dirs, {
+    extensions: [earlierExtension, toolChanges],
+    replies: [call("register_late")],
+    tools: ["alpha", "beta", "register_late", "late"]
+  });
+  await allowlist.session.prompt("/profile plan");
+  await allowlist.session.prompt("register late");
+
+  const requests = [...extension.requests, ...allowlist.requests].map(({ tools }) => tools);
+  expect(requests.map((tools) => tools.includes("beta"))).toEqual([false, false, false, false]);
+  // The second request follows the registry refresh that the late registration caused.
+  expect(requests[3]).toContain("late");
+  expect([...extension.errors, ...allowlist.errors]).toEqual([]);
 });
 
 it("gives each tool to its first defer entry, defers a group only as a whole, and loads it together only with pi-profiles' tool_search, also after resume", async () => {

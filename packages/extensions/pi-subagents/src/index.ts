@@ -1,10 +1,7 @@
 import { isAbsolute } from "node:path";
 
-import type {
-  ExtensionAPI,
-  ExtensionContext,
-  ToolRenderers
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { counterChannel, type Counter } from "pi-agent-summary/counters";
@@ -16,7 +13,7 @@ import { forwardDialog } from "./child/dialogs.ts";
 import { getPiInvocation } from "./child/invocation.ts";
 import type * as CommandsModule from "./commands.ts";
 import { remindTasks } from "./compaction.ts";
-import { loadConfig, type SubagentsConfig } from "./config.ts";
+import { loadConfig } from "./config.ts";
 import { OPEN_EVENT } from "./constants.ts";
 import { begin, currentRun, send } from "./coordination/begin.ts";
 import {
@@ -27,9 +24,8 @@ import {
 } from "./coordination/protocol.ts";
 import { Delivery } from "./delivery.ts";
 import { shellOptions } from "./jobs/registry.ts";
-import { createJobAbortTool, createJobRenderers, createJobTool } from "./jobs/tool.ts";
+import { createJobAbortTool, createJobTool } from "./jobs/tool.ts";
 import { installLateUsagePatch } from "./late-usage.ts";
-import { createRenderers } from "./tasks/render.ts";
 import { createAbortTool, createSubagentTool } from "./tasks/tool.ts";
 
 // Commands load at first use. Concurrent calls share one import.
@@ -59,10 +55,12 @@ export default function subagents(pi: ExtensionAPI): void {
   const depth = getDepth();
   const taskId = getTaskId();
   let lateUsageWarning = installLateUsagePatch();
+  const lifecycle = joinLifecycle(pi, { id: "pi-subagents" });
   const waiting = registerWorkingMessage(pi, {
     id: "pi-subagents.waiting",
     label: "Background wait",
-    contributor: "pi-subagents"
+    contributor: "pi-subagents",
+    ownerRank: 300
   });
   const binding = new SessionBinding();
 
@@ -70,41 +68,28 @@ export default function subagents(pi: ExtensionAPI): void {
     z.object({ task_id: z.string().min(1), binding_id: z.string().min(1) }),
     z.object({ job_id: z.string().min(1), binding_id: z.string().min(1) })
   ]);
-  const subscribe = () =>
-    pi.events.on(OPEN_EVENT, (value) => {
-      const parsed = action.safeParse(value).data;
-      if (!parsed) return;
-      void binding
-        .current()
-        .then((bound) => {
-          if (!bound) return;
-          if ("job_id" in parsed) {
-            if (parsed.binding_id === bound.jobs.bindingId)
-              return bound.panels.openJob(parsed.job_id);
-          } else if (parsed.binding_id === bound.tasks.bindingId)
-            return bound.panels.open(parsed.task_id);
-        })
-        .catch(() => {
-          /* Foreign or stale task and job actions are ignored. */
-        });
-    });
-  let unsubscribe: (() => void) | undefined;
+  // Subscribed at load, so a click during startup waits for the binding instead of being lost.
+  const unsubscribe = pi.events.on(OPEN_EVENT, (value) => {
+    const parsed = action.safeParse(value).data;
+    if (!parsed) return;
+    void binding
+      .current()
+      .then((bound) => {
+        if (!bound) return;
+        if ("job_id" in parsed) {
+          if (parsed.binding_id === bound.jobs.bindingId)
+            return bound.panels.openJob(parsed.job_id);
+        } else if (parsed.binding_id === bound.tasks.bindingId)
+          return bound.panels.open(parsed.task_id);
+      })
+      .catch(() => {
+        /* Foreign or stale task and job actions are ignored. */
+      });
+  });
   const emitOpen = (task_id: string, binding_id?: string) =>
     pi.events.emit(OPEN_EVENT, { task_id, binding_id });
   const emitOpenJob = (job_id: string, binding_id?: string) =>
     pi.events.emit(OPEN_EVENT, { job_id, binding_id });
-  // Pi rebuilds the chat on reload before session_start registers the tool.
-  const cards: Record<string, ToolRenderers> = {
-    subagent: createRenderers(emitOpen),
-    subagent_abort: createRenderers(emitOpen, "subagent_abort"),
-    job: createJobRenderers(emitOpenJob),
-    job_abort: createJobRenderers(emitOpenJob, "job_abort")
-  };
-  pi.registerToolRenderer((name, next) => {
-    const own = Object.hasOwn(cards, name) ? cards[name] : undefined;
-
-    return own ? (next() ?? own) : next();
-  });
 
   const currentTasks = async () => {
     const bound = await binding.current();
@@ -120,8 +105,6 @@ export default function subagents(pi: ExtensionAPI): void {
     return bound.jobs;
   };
 
-  let registered = false;
-  let jobsRegistered = false;
   /** The current binding offers the job tools. */
   let jobsOn = false;
   pi.registerCommand("subagents", {
@@ -164,10 +147,6 @@ export default function subagents(pi: ExtensionAPI): void {
         }
       });
     }
-  });
-  pi.registerShortcut("ctrl+alt+s", {
-    description: "Open the subagents panel",
-    handler: async () => (await binding.current())?.panels.open()
   });
 
   /** The binding's view of the session in `ctx`, after the warnings of its settings. */
@@ -219,18 +198,21 @@ export default function subagents(pi: ExtensionAPI): void {
     };
   };
 
-  /** Opens the binding on the session and selected ancestry in `ctx`, then offers its tools. */
-  const open = async (ctx: ExtensionContext) => {
-    const { docs, ...opened } = session(ctx);
-    await binding.open(opened);
-    jobsOn = registerJobs(opened.config.jobs, ctx);
-    registerTasks(opened.config, docs);
-  };
+  let registered: string | undefined;
 
-  /** Pi cannot remove a tool, so a binding beyond the depth limit hides the registered tools. */
-  const registerTasks = (config: SubagentsConfig, docs: string) => {
-    if (depth >= config.maxDepth && !registered) return;
-    const exposure = depth >= config.maxDepth ? "hidden" : "model-only";
+  /**
+   * Registers the four tools when their exposure, docs, or delivery changed since the last
+   * registration. Pi cannot remove a tool, so turned-off tools are hidden. Without `--tools`, Pi
+   * activates a `model-only` tool when it is first registered or when its exposure changes to
+   * `model-only`. With `--tools`, every registration activates each listed tool again, which would
+   * undo the active tools that a profile chose; an unchanged registration is therefore skipped.
+   */
+  const registerTools = (tasks: boolean, jobs: boolean, docs: string, delivers: boolean) => {
+    const key = JSON.stringify([tasks, jobs, docs, delivers]);
+    if (key === registered) return;
+    registered = key;
+    const taskExposure = tasks ? "model-only" : "hidden";
+    const jobExposure = jobs ? "model-only" : "hidden";
     pi.registerTool({
       ...createSubagentTool(
         currentTasks,
@@ -238,34 +220,43 @@ export default function subagents(pi: ExtensionAPI): void {
         () => pi.events.emit(counterChannel, delegated),
         docs
       ),
-      exposure
+      exposure: taskExposure
     });
-    pi.registerTool({ ...createAbortTool(currentTasks, emitOpen), exposure });
-    registered = true;
+    pi.registerTool({ ...createAbortTool(currentTasks, emitOpen), exposure: taskExposure });
+    pi.registerTool({
+      ...createJobTool(currentJobs, emitOpenJob, delivers),
+      exposure: jobExposure
+    });
+    pi.registerTool({ ...createJobAbortTool(currentJobs, emitOpenJob), exposure: jobExposure });
   };
 
-  /** Jobs apply at all depths; Pi cannot remove a tool, so turned-off tools become hidden. */
-  const registerJobs = (enabled: boolean, ctx: ExtensionContext): boolean => {
+  // Registered at load, so Pi activates them before any session_start handler, such as a profile,
+  // chooses the active tools.
+  registerTools(true, true, "", depth === 0);
+
+  /** Opens the binding on the session and selected ancestry in `ctx`, then offers its tools. */
+  const open = async (ctx: ExtensionContext) => {
+    const { docs, ...opened } = session(ctx);
+    await binding.open(opened);
+    const { maxDepth, jobs } = opened.config;
+    // Jobs apply at all depths. They run commands through Pi's built-in shell.
     const foreign =
-      enabled &&
+      jobs &&
       pi.getAllTools().some((tool) => tool.name === "bash" && tool.sourceInfo.source !== "builtin");
     if (foreign) ctx.ui.notify(FOREIGN_BASH_WARNING, "warning");
-    const on = enabled && !foreign;
-    if (!on && !jobsRegistered) return on;
-    const exposure = on ? "model-only" : "hidden";
+    jobsOn = jobs && !foreign;
     // Print, JSON, and child runs end with their final reply, and their jobs end with them.
     const delivers = depth === 0 && ctx.mode !== "print" && ctx.mode !== "json";
-    pi.registerTool({ ...createJobTool(currentJobs, emitOpenJob, delivers), exposure });
-    pi.registerTool({ ...createJobAbortTool(currentJobs, emitOpenJob), exposure });
-    jobsRegistered = true;
-
-    return on;
+    registerTools(depth < maxDepth, jobsOn, docs, delivers);
   };
 
-  pi.on("session_start", (_event, ctx) => {
-    unsubscribe ??= subscribe();
-
-    return open(ctx);
+  lifecycle.onSessionStart(async (_event, ctx, arrival) => {
+    // A claim that overlaps another participant's claim is not registered, with a warning.
+    arrival.claimShortcut("ctrl+alt+s", {
+      description: "Open the subagents panel",
+      handler: async () => (await binding.current())?.panels.open()
+    });
+    await open(ctx);
   });
   // A begun run is one chain under its marker; see ADR 0003.
   pi.on("session_before_tree", async (event, ctx) => {
@@ -291,7 +282,8 @@ export default function subagents(pi: ExtensionAPI): void {
     if (currentRun() !== undefined) return { cancel: true };
     await binding.beforeChange();
   });
-  pi.on("agent_start", () => binding.runStarted());
+  // The handler awaits the binding, so its run mark keeps later participants' run timing exact.
+  lifecycle.onAgentStart(() => binding.runStarted());
   pi.on("turn_end", (event) => binding.delivery?.turn(event));
   pi.on("agent_end", (event, ctx) => binding.delivery?.end(event, ctx));
   pi.on("agent_settled", (_event, ctx) => binding.delivery?.settled(ctx));
@@ -300,11 +292,14 @@ export default function subagents(pi: ExtensionAPI): void {
     const bound = await binding.current();
     if (bound) remindTasks(pi, bound.tasks, jobsOn ? bound.jobs : undefined);
   });
-  pi.on("session_shutdown", async (event) => {
-    unsubscribe?.();
-    unsubscribe = undefined;
-    await binding.close(
-      event.reason === "new" || event.reason === "resume" || event.reason === "fork"
-    );
-  });
+  // The revoke runs before any participant's shutdown handler awaits, so no task or job starts,
+  // writes an entry, or delivers a result after shutdown begins. Cleanup then stops them.
+  lifecycle.onSessionShutdown(
+    () => {
+      unsubscribe();
+      binding.revoke();
+    },
+    (event) =>
+      binding.close(event.reason === "new" || event.reason === "resume" || event.reason === "fork")
+  );
 }

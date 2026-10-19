@@ -2,7 +2,7 @@
 
 [pi-abort-guard](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks, source review, and disposable input probes). Not covered: an offline host run, a physical terminal, or live dialogs, compactions, retries, and branch summaries.
+> Last verified against Pi 1.3.0 (package checks, source review, and disposable input probes). Not covered: a physical terminal, or live dialogs, compactions, retries, and branch summaries.
 
 ## Upgrade procedure
 
@@ -14,8 +14,9 @@
 [Extension](../src/index.ts):
 
 - [ ] `CustomEditor.handleInput` still gives extension shortcuts and image-paste bindings priority over `app.interrupt`, and sends interrupt presses to `onEscape` only when autocomplete is hidden.
-- [ ] `setEditorComponent` still sets `onEscape` on a `CustomEditor` subclass to call the default editor's current handler, and copies the action handlers, padding, and autocomplete settings.
+- [ ] `setEditorComponent` still sets `onEscape` after the factory returns, on an editor with `actionHandlers` and no `onEscape`, to call the default editor's current handler, and copies the action handlers, padding, and autocomplete settings.
 - [ ] Pi's default editor still sets only `embedWorkingStatus` among the options that `setEditorComponent` does not copy.
+- [ ] Pi still reads `embedWorkingStatus` from the editor instance only when it places a status indicator, after the factory returns, so that the extension can turn it off on an editor that another extension built.
 - [ ] Session replacement and `/reload` still clear the editor factory before `session_start`.
 - [ ] `ctx.isIdle()` is still `false` during agent runs, retries, compaction, and branch summaries.
 - [ ] `agent_settled` still marks the end of a run and its automatic continuations. Manual compaction and tree navigation still emit `session_compact`, `session_compact_failed`, or `session_tree` so pending confirmation can be cleared.

@@ -369,10 +369,11 @@ it("cancels when native /name changes or clears the title, even back to its orig
   expect(fixture.errors).toEqual([]);
 });
 
-it("cancels before tree navigation can wait for a branch summary", async () => {
+it("cancels when tree navigation completes", async () => {
   const fixture = await host();
   const sm = fixture.session.sessionManager;
   const targetId = sm.appendMessage({ role: "user", content: "Request", timestamp: 0 });
+  sm.appendMessage({ role: "user", content: "Later request", timestamp: 1 });
   const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
 
   let finish = () => {};
@@ -385,17 +386,7 @@ it("cancels before tree navigation can wait for a branch summary", async () => {
   ]);
   const pending = fixture.command();
   await vi.waitFor(() => expect(stream).toHaveBeenCalledOnce(), { timeout: STEP_TIMEOUT_MS });
-  await fixture.session.extensionRunner.emit({
-    type: "session_before_tree",
-    preparation: {
-      targetId,
-      oldLeafId: sm.getLeafId(),
-      commonAncestorId: targetId,
-      entriesToSummarize: sm.getBranch(),
-      userWantsSummary: true
-    },
-    signal: new AbortController().signal
-  });
+  expect(await fixture.session.navigateTree(targetId)).toMatchObject({ cancelled: false });
   const canceled = stream.mock.calls[0]?.[2]?.signal?.aborted;
   finish();
   await pending;

@@ -60,6 +60,6 @@ it("adds nothing for failed first selections without falling through to later ru
   await mkdir(at("dir.md"));
   const snapshot = loadModelPromptSnapshot(agentDir);
 
-  expect(snapshot.appendTextFor("missing", "base")).toBeUndefined();
-  expect(snapshot.appendTextFor("directory", "base")).toBeUndefined();
+  expect(snapshot.appendTextFor("missing")).toBeUndefined();
+  expect(snapshot.appendTextFor("directory")).toBeUndefined();
 });

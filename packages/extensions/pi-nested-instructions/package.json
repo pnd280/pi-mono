@@ -18,6 +18,7 @@
     "test": "vp test run --config ../../../vite.config.ts"
   },
   "dependencies": {
+    "@pi-mono/libs": "workspace:*",
     "@pi-mono/utils": "workspace:*",
     "unbash": "catalog:",
     "zod": "catalog:"

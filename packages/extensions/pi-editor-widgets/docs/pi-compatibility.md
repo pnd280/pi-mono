@@ -2,7 +2,7 @@
 
 [pi-editor-widgets](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.3.0 (package checks, offline host tests, API/CLI provenance probes for load order and reload, and source review of statuses, regions, the footer, mode switching, metrics, compaction thresholds, pi-tui mouse dispatch, and interactive mode). Not covered: physical-terminal and manual checks.
+> Last verified against Pi 1.3.0 (package checks, offline host tests, including reload, and source review of statuses, regions, the footer, mode switching, metrics, compaction thresholds, pi-tui mouse dispatch, and interactive mode). Not covered: physical-terminal and manual checks.
 
 Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks. It needs no core or dependency edits.
 

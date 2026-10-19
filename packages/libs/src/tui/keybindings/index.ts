@@ -136,6 +136,11 @@ function legacyOverlap(a: KeyId, b: KeyId): boolean {
   );
 }
 
+/** True when Pi can dispatch one keypress to both canonical keys. */
+export function keysOverlap(a: KeyId, b: KeyId): boolean {
+  return a === b || shiftOverlap(a, b) || legacyOverlap(a, b);
+}
+
 /** Claim alternatives in order so dispatch and user-facing hints share precedence. */
 export function resolveKeybindings<Action extends string>(
   candidates: readonly KeybindingCandidate<Action>[]
@@ -146,13 +151,7 @@ export function resolveKeybindings<Action extends string>(
   for (const candidate of candidates) {
     for (const value of candidate.keys) {
       const key = canonicalKey(value);
-      if (
-        !key ||
-        occupied.some(
-          (other) => other === key || shiftOverlap(other, key) || legacyOverlap(other, key)
-        ) ||
-        candidate.exclude?.(key)
-      )
+      if (!key || occupied.some((other) => keysOverlap(other, key)) || candidate.exclude?.(key))
         continue;
       occupied.push(key);
       bindings.push({ action: candidate.action, key });

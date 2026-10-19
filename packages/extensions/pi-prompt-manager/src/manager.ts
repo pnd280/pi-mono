@@ -372,6 +372,10 @@ export class PromptManager {
     }
   }
 
+  /**
+   * Stops new writes, notifications, and views before it returns its promise. The promise settles
+   * when atomic writes that already started have finished.
+   */
   async dispose(): Promise<void> {
     const finishing = this.lifetime.dispose();
     this.queue = [];

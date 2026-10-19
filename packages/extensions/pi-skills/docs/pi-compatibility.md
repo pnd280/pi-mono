@@ -17,7 +17,7 @@ Input expansion and completion must compose with Pi's existing providers and reg
 
 [Input expansion](../src/tokens.ts) owns catalogue projection, substitution, and the native-insertion guard; [input-hook wiring](../src/index.ts) passes the current commands:
 
-- [ ] Hook registration order and chaining.
+- [ ] Pi's `input` event still runs before native skill insertion and prompt-template expansion. The [input chain](../../../libs/src/input-chain/README.md) runs the transform at rank `100` from one `input` handler.
 - [ ] Registered skill paths, and name collisions.
 - [ ] Exact token boundaries, including in fenced text. Configured references aren't expanded twice.
 - [ ] Leading references never trigger Pi's native `<skill>` insertion or prompt-template expansion. Ordinary prompt-template commands still work.

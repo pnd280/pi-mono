@@ -22,7 +22,7 @@ The extension adds to the public `before_agent_start` prompt options of Pi 1.3.0
 
 ### Prompt and lifecycle
 
-- [ ] [Prompt adapter](../src/index.ts): `before_agent_start`, for both user and custom-message runs, exposes a writable `systemPromptOptions.appendSystemPrompt` with Pi's append text and earlier extensions' changes, and `ctx.model` is the model for the run. Under a virtual model, it is the selected virtual model, and routing still happens later, per request.
+- [ ] [Prompt adapter](../src/index.ts): `before_agent_start`, for both user and custom-message runs, exposes a writable `systemPromptOptions.appendSystemPrompt` with Pi's append text and earlier extensions' changes. The [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator appends the rank `100` part there, and `ctx.model` is the model for the run when it calls the part. Under a virtual model, it is the selected virtual model, and routing still happens later, per request.
 - [ ] Pi builds new `systemPromptOptions` from its loaded append text for each run, so additions don't build up across runs.
 - [ ] [Lifecycle](../src/index.ts): `session_start` fires on startup and `/reload`.
 - [ ] [Agent directory](../src/index.ts): `getAgentDir()` honours `PI_CODING_AGENT_DIR`.

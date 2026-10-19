@@ -25,7 +25,11 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **Critical, integration:** Settings section diagnostics show terminal-safe paths, while loads and saves still use the real paths.
 - **Critical, unit:** For complete input snapshots, `displayText` removes terminal escape and control bytes other than normalised whitespace.
 - **Critical, unit:** For complete input snapshots, `styledOutput` retains only SGR styling from source terminal controls.
+- **Critical, e2e:** In every load order, startup commits run once per `session_start` emission, in ascending rank, after every extension's `session_start` handler. Every participant's shutdown revoke runs before any participant's shutdown handler awaits.
 - **High, e2e:** A shared custom view receives each owned input once while focused, including controls remapped to transcript paging. Close, abort, and remount make old callbacks inert, restore host input, and preserve unrelated overlays. After-close effects run once, after final closure only.
+- **High, e2e:** In every load order, input-chain observers receive the input before any participant's transform changes it, transforms run in ascending rank and each gets the previous result, and a `handled` result stops the chain.
+- **High, e2e:** In every load order, prompt parts are appended after the existing `appendSystemPrompt` text in ascending rank, once per run, and only after every pending hold has settled.
+- **High, e2e:** Shortcut claims that overlap, including different spellings of one key, register for no claimant and give one warning per conflict. Other claims register.
 - **High, integration:** A configured FIFO cannot block `readSettingsFile` or session startup.
 - **High, integration:** Mutation observations preserve native write outcomes and queue order, distinguish unavailable source from complete UTF-8 source, and add no post-write reads.
 - **High, integration:** Bounded patch requests refuse oversized inputs and results, and recover after worker failure without blocking later requests or retaining unbounded queued source.
@@ -40,6 +44,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 
 - Model-facing schema projection: consumers reject invalid domain input before side effects, and only live provider checks prove that providers accept a schema.
 - Output retention, working-message contributions and ordering, scripted provider streams, and the interactive host fixture are below the severity bar.
+- [Coordinator](../src/coordination/README.md) liveness and version-mismatch behaviour, and working-message command ownership: no invariant is approved yet.
 - TUI layout, settings-frame presentation, and diff-row appearance are below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation).
 - Extension-specific collection formats and tool-card policies: owned by extensions.
 - Worker loading in the installed `release` tree, where workers get no Pi host packages: owned by the [release check](../../../docs/development.md#release-branch).

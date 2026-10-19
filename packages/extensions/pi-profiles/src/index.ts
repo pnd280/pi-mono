@@ -3,8 +3,11 @@ import {
   createToolSearchExtension,
   CustomEditor,
   type ExtensionAPI,
-  type ExtensionContext
+  type ExtensionContext,
+  type SessionStartEvent
 } from "@earendil-works/pi-coding-agent";
+import { joinLifecycle } from "@pi-mono/libs/lifecycle";
+import { joinPromptParts } from "@pi-mono/libs/prompt-parts";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 import { splitModelReference } from "@pi-mono/utils/model-reference";
 
@@ -12,6 +15,7 @@ import { labelBorder } from "./editor-label.ts";
 import type { MenuData } from "./menu.ts";
 import {
   baseTools,
+  enforcedTools,
   isDirect,
   latestSelection,
   loadoutRecordedAfter,
@@ -19,12 +23,19 @@ import {
   restoredTools,
   SELECTION_ENTRY,
   TOOL_SEARCH,
+  toolMatcher,
   usedTools,
   withGroups,
   type Deferred,
   type Selection
 } from "./selection.ts";
 import { CLEAR, loadProfiles, type Profile, type ProfileConfig } from "./settings.ts";
+
+const ID = "pi-profiles";
+/** After pi-model-prompt (`100`), so the profile's prompts follow the model's text. */
+const PROMPT_RANK = 200;
+/** After pi-nested-instructions (`100`), so the selection entry follows its startup messages. */
+const STARTUP_RANK = 200;
 
 function describeChange(
   before: readonly string[],
@@ -38,7 +49,8 @@ function describeChange(
     deferred: off.filter((name) => deferred.has(name))
   })
     .filter(([, names]) => names.length > 0)
-    .map(([change, names]) => `${change} ${names.join(", ")}`);
+    // Code unit order: Pi lists tools in registration order, which follows load order.
+    .map(([change, names]) => `${change} ${[...names].sort().join(", ")}`);
 
   return parts.length > 0 ? `tools ${parts.join("; ")}` : "tools unchanged";
 }
@@ -57,12 +69,16 @@ function reportError(ctx: ExtensionContext, message: string): void {
 }
 
 export default async function profiles(pi: ExtensionAPI): Promise<void> {
+  const prompt = joinPromptParts(pi, { id: ID });
+  const lifecycle = joinLifecycle(pi, { id: ID });
   let config: ProfileConfig | undefined;
   /** The latest selection's deferred tools, which the extension's `tool_search` can load. */
   let deferred: Deferred = [];
+  /** The latest selection's `deny` list. Its tools stay off until the next selection. */
+  let deny: readonly string[] = [];
   /** Identifies the extension's `tool_search` in `pi.getAllTools()`. */
   let searchReach: unknown;
-  /** Aborted when the session ends, so an open menu closes without a switch. */
+  /** Aborted when the session ends, so an open menu closes and no new switch starts. */
   let session = new AbortController();
   /** The switch in progress. Requests, navigation, and the end of the session wait for it. */
   let switching: Promise<void> | undefined;
@@ -78,9 +94,12 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     ...pi,
     getAllTools: () => {
       const names = new Set(deferred.flat());
+      const denied = toolMatcher(deny);
 
+      // The selection's `deny` tools stay off, so the search does not load them.
       return pi
         .getAllTools()
+        .filter((tool) => !denied(tool.name))
         .map((tool) =>
           names.has(tool.name) && isDirect(tool.exposure) ? { ...tool, exposure: "deferred" } : tool
         );
@@ -191,6 +210,8 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     ctx: ExtensionContext,
     source = ""
   ): Promise<void> {
+    if (session.signal.aborted) return;
+
     if (!ctx.isIdle() || switching) {
       ctx.ui.notify(
         "Profiles cannot change while the agent runs or another switch is in progress",
@@ -203,6 +224,8 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     switching = apply(profile, ctx, source).finally(() => {
       switching = undefined;
     });
+    // A run that starts now builds its prompt after the switch, with the profile and its model.
+    prompt.hold(switching);
     await switching;
   }
 
@@ -230,10 +253,13 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     pi.setActiveTools(plan.tools);
     const tools = pi.getActiveTools();
     deferred = plan.deferred;
+    deny = profile?.tools?.deny ?? [];
     pi.appendEntry<Selection>(SELECTION_ENTRY, {
       name: profile?.name,
-      base: plan.base,
-      tools,
+      // Code unit order, so that the entry does not follow load order. Restoration reads only
+      // which tools they name, and runs use the fixed tool order.
+      base: [...plan.base].sort(),
+      tools: [...tools].sort(),
       deferred: plan.deferred
     });
     showLabel(profile?.name);
@@ -254,6 +280,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const branch = ctx.sessionManager.getBranch();
     const latest = latestSelection(branch);
     deferred = latest?.selection.deferred ?? [];
+    deny = findProfile(latest?.selection.name)?.tools?.deny ?? [];
     showLabel(latest?.selection.name);
     if (!latest && !previous) return undefined;
 
@@ -286,20 +313,46 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     return latest?.selection;
   }
 
+  /** Restores the session's selection, then applies `--profile` or the default profile. */
+  async function startProfile(
+    reason: SessionStartEvent["reason"],
+    loaded: ProfileConfig,
+    ctx: ExtensionContext
+  ): Promise<void> {
+    const selection = restoreTools(ctx, reason === "reload");
+    const flag = pi.getFlag("profile");
+    const requested = typeof flag === "string" ? choose(flag) : undefined;
+    if (typeof flag === "string" && !requested && reason === "startup")
+      reportError(ctx, `--profile names no configured profile; use a profile name or ${CLEAR}`);
+
+    if (requested && (reason === "startup" || !selection)) {
+      // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such
+      // as after /new, keep theirs, and use `--profile` in place of the default profile.
+      await switchTo(requested.profile, ctx);
+    } else if (!selection) {
+      // Print, JSON, and RPC runs, such as subagents, keep the model and tools they were given.
+      if (ctx.mode === "tui" && loaded.defaultProfile)
+        await switchTo(loaded.defaultProfile, ctx, "pi-profiles: ");
+    } else if (ctx.hasUI && selection.name !== undefined && !findProfile(selection.name)) {
+      ctx.ui.notify("pi-profiles: the selected profile is no longer configured", "warning");
+    }
+  }
+
   // Startup and /reload both start a session, so edited settings apply after /reload.
-  pi.on("session_start", async (event, ctx) => {
+  lifecycle.onSessionStart((event, ctx, arrival) => {
     session = new AbortController();
-    config = loadProfiles({ cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted() });
+    const loaded = loadProfiles({ cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted() });
+    config = loaded;
 
     if (ctx.hasUI) {
-      for (const warning of config.warnings) ctx.ui.notify(`pi-profiles: ${warning}`, "warning");
+      for (const warning of loaded.warnings) ctx.ui.notify(`pi-profiles: ${warning}`, "warning");
     }
 
-    if (config.profiles.length > 0) {
-      pi.registerShortcut(config.shortcut, {
+    if (loaded.profiles.length > 0) {
+      arrival.claimShortcut(loaded.shortcut, {
         description: "Switch to the next profile, or to no profile after the last",
         handler: async (shortcutCtx) => {
-          const names = [...(config?.profiles ?? []).map(({ name }) => name), undefined];
+          const names = [...loaded.profiles.map(({ name }) => name), undefined];
           const next = names[(names.indexOf(currentName(shortcutCtx)) + 1) % names.length];
           await switchTo(findProfile(next), shortcutCtx);
         }
@@ -307,23 +360,10 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
       if (ctx.mode === "tui") labelEditor(ctx);
     }
 
-    const selection = restoreTools(ctx, event.reason === "reload");
-    const flag = pi.getFlag("profile");
-    const requested = typeof flag === "string" ? choose(flag) : undefined;
-    if (typeof flag === "string" && !requested && event.reason === "startup")
-      reportError(ctx, `--profile names no configured profile; use a profile name or ${CLEAR}`);
-
-    if (requested && (event.reason === "startup" || !selection)) {
-      // Only when Pi starts does `--profile` replace a selection. Later sessions in the run, such
-      // as after /new, keep theirs, and use `--profile` in place of the default profile.
-      await switchTo(requested.profile, ctx);
-    } else if (!selection) {
-      // Print, JSON, and RPC runs, such as subagents, keep the model and tools they were given.
-      if (ctx.mode === "tui" && config.defaultProfile)
-        await switchTo(config.defaultProfile, ctx, "pi-profiles: ");
-    } else if (ctx.hasUI && selection.name !== undefined && !findProfile(selection.name)) {
-      ctx.ui.notify("pi-profiles: the selected profile is no longer configured", "warning");
-    }
+    // Commits run in the first participant's `resources_discover` handler, which Pi emits after
+    // every extension's `session_start` handler, so the tools that they register are known, and
+    // the selection entry follows pi-nested-instructions' startup messages (`100`).
+    arrival.commit(STARTUP_RANK, () => startProfile(event.reason, loaded, ctx));
   });
 
   pi.on("session_before_tree", async (_event, ctx) => {
@@ -342,22 +382,42 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     await switching;
   });
 
-  pi.on("session_shutdown", async () => {
-    session.abort();
+  // Before any extension awaits its shutdown work, no new switch starts and the menu closes. The
+  // switch in progress still saves its selection.
+  lifecycle.onSessionShutdown(
+    () => session.abort(),
+    () => switching
+  );
+
+  // The coordinator calls parts after every hold, such as a switch, has settled.
+  prompt.part(PROMPT_RANK, (ctx) =>
+    findProfile(currentName(ctx))
+      ?.prompts.filter((text) => text !== "")
+      .join("\n\n")
+  );
+
+  /**
+   * Turns off the selection's `deny` tools, which other extensions, `tool_search`, or `--tools`
+   * can turn on again, and puts the active tools in a fixed order. Sets them only when they change.
+   */
+  function enforceTools(): void {
+    const active = pi.getActiveTools();
+    const tools = enforcedTools(active, deny, pi.getAllTools());
+    if (tools.length !== active.length || tools.some((name, index) => name !== active[index]))
+      pi.setActiveTools(tools);
+  }
+
+  // The run's first request declares the tools that are active when before_agent_start ends.
+  pi.on("before_agent_start", async () => {
+    // A run that starts during a switch uses the profile's tools.
     await switching;
+    enforceTools();
   });
 
-  pi.on("before_agent_start", async (event, ctx) => {
-    // A request that starts during a switch uses the profile's tools and prompts.
-    await switching;
-    const prompts = findProfile(currentName(ctx))?.prompts ?? [];
-    if (prompts.length === 0) return;
-
-    // Pi builds these options again for each run, so the prompts are added once per run.
-    const options = event.systemPromptOptions;
-    options.appendSystemPrompt = [options.appendSystemPrompt, ...prompts]
-      .filter((text) => text !== "")
-      .join("\n\n");
+  // A later request declares the tools that are active when the previous turn ends. Pi takes them
+  // before turn_start, so a change in turn_start reaches only the request after.
+  pi.on("turn_end", () => {
+    enforceTools();
   });
 
   /** The configured profiles, then `clear` for no profile. */

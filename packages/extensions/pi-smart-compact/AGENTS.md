@@ -21,6 +21,7 @@ Terms such as _fingerprint_ and _split turn_ are defined in the [compatibility g
 - Save a summary-model entry, hidden from the model, only for successful default summaries.
 - Keep selected model and thinking information in result details for `pi-tool-display`, not in the acknowledgement the model reads.
 - Apply instruction-file focus to every compaction route, whatever the model and thinking opt-ins say. Compose it once, before per-call focus, give hooks the same text, and keep Pi's default prompts.
+- Register `context_window` in the extension factory. The `session_start` registration adds the configured docs and must keep the same exposure, so that, without `--tools`, it does not activate the tool again after another extension chose the active tools. With `--tools`, Pi activates every listed tool again on any registration; register only in `session_start`, because [lifecycle](../../libs/src/lifecycle/README.md) startup commits, such as a profile's, run after every `session_start` handler.
 - At startup or reload, read only the selected instruction and docs files, and resolve relative paths in the settings scope that set them.
 - Match the native split-turn instruction suffix, not phrases inside serialised conversation. Clone provider input instead of modifying context shared with retries.
 

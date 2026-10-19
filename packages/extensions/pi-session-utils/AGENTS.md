@@ -28,6 +28,8 @@ Use fresh session contexts after replacement and restore startup hooks only whil
 
 - Use Pi's authentication and session-name metadata. Never send conversation messages or write custom stdout.
 - Abort the underlying I/O of a superseded or cancelled title request, and discard its result.
+- Cancel title work for tree navigation in `session_tree`, not `session_before_tree`: another extension's handler can cancel the navigation after this one runs.
+- Stop title work at shutdown only in the [lifecycle](../../libs/src/lifecycle/README.md) shutdown revoke, which runs before any participant awaits. A direct `session_shutdown` handler can run after another extension's await, and a finished generation could still save its title.
 - Use [terminal-text](../../libs/src/tui/terminal-text/README.md) for terminal safety and Unicode-safe boundaries.
 
 ## Validation

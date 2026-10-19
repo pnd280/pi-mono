@@ -7,6 +7,7 @@ import type {
   ToolExecutionStartEvent
 } from "@earendil-works/pi-coding-agent";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
+import { joinLifecycle, type LifecycleAPI } from "@pi-mono/libs/lifecycle";
 import { registerWorkingMessage, type WorkingMessageContext } from "@pi-mono/libs/working-message";
 
 import { RunChanges } from "./changes.ts";
@@ -44,16 +45,19 @@ export type SummaryExtensionAPI = Pick<
 // Pi's `VIRTUAL_MODEL_API`, which the package index does not export.
 const virtualModelApi = "pi-virtual";
 
-export default function piAgentSummary(pi: SummaryExtensionAPI): void {
+export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): void {
+  const lifecycle = joinLifecycle(pi, { id: "pi-agent-summary" });
   const elapsed = registerWorkingMessage(pi, {
     id: "pi-agent-summary.elapsed",
     label: "Elapsed time",
-    contributor: "pi-agent-summary"
+    contributor: "pi-agent-summary",
+    ownerRank: 200
   });
   const rate = registerWorkingMessage(pi, {
     id: "pi-agent-summary.throughput",
     label: "Output rate",
-    contributor: "pi-agent-summary"
+    contributor: "pi-agent-summary",
+    ownerRank: 200
   });
   let run:
     | {
@@ -71,6 +75,8 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     rate.setText(text === undefined ? undefined : run?.throughput.text());
   });
   let manager: SummaryContext["sessionManager"] | undefined;
+  // Set by the shutdown revoke: until a new session starts, no run starts and no observer connects.
+  let revoked = false;
   let generation = 0;
   const connect = () =>
     observeFileMutations({
@@ -117,10 +123,14 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
     else if (run.counters.length < maxCounters) run.counters.push({ ...parsed.data, count: 1 });
   });
   pi.on("session_start", (_event, ctx) => {
+    revoked = false;
     reset();
     bind(ctx);
   });
-  pi.on("agent_start", (_event, ctx) => {
+  // Run marks time the run from the first agent_start to agent_settled, so slow handlers that run
+  // before these ones in load order do not change the duration.
+  lifecycle.onAgentStart((_event, ctx, at) => {
+    if (revoked) return;
     run ??= {
       changes: new RunChanges(ctx.cwd),
       bashCalls: new Set(),
@@ -130,7 +140,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
       counters: []
     };
     if (manager !== ctx.sessionManager) bind(ctx);
-    timer.start(ctx.mode === "tui");
+    timer.start(at, ctx.mode === "tui");
   });
   pi.on("message_start", (event) => {
     if (event.message.role === "assistant") run?.throughput.start();
@@ -155,13 +165,14 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
   pi.on("tool_execution_start", (event) => {
     if (event.toolName === "bash") run?.bashCalls.add(event.toolCallId);
   });
-  pi.on("agent_settled", async (_event, ctx) => {
+  lifecycle.onAgentSettled(async (_event, ctx, at) => {
     // A preceding extension handler may already have started another run.
     if (!ctx.isIdle() || !run) return;
-    const finishedAt = Date.now();
+    // The wall-clock time of the settle mark.
+    const finishedAt = Math.round(Date.now() - (performance.now() - at));
     const finished = run;
     run = undefined;
-    const duration = timer.finish();
+    const duration = timer.finish(at);
     if (!duration) return;
     const throughput = finished.throughput.finish();
     const startedGeneration = generation;
@@ -179,7 +190,10 @@ export default function piAgentSummary(pi: SummaryExtensionAPI): void {
       files
     });
   });
-  pi.on("session_shutdown", () => {
+  // The revoke runs before any participant's shutdown handler awaits, so a run that another
+  // extension starts during shutdown cannot reconnect the observers or restart the timer.
+  lifecycle.onSessionShutdown(() => {
+    revoked = true;
     reset();
     manager = undefined;
     mutations?.dispose();

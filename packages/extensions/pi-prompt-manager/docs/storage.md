@@ -156,3 +156,4 @@ Sessions coordinate changes to each collection through lock files and atomic rep
 - Closing the browser or switching collections cancels processing and preparation that are no longer needed, but not deletions that have started.
 - Reload, shutdown, and replacing the session discard queued captures.
 - Changes still reading or waiting for a lock can't commit after the session ends. Writes that have started may finish, and a graceful shutdown waits for them and for lock cleanup.
+- At shutdown, the [lifecycle shutdown phase](../../../libs/src/lifecycle/README.md#shutdown-phase) stops new writes and notifications before any participant awaits its cleanup. Every workspace extension whose shutdown handler awaits is a participant, so only an extension from outside the workspace can await before it. The extension then waits for its started writes in its own cleanup.

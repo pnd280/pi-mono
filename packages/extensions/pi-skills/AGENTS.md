@@ -4,6 +4,7 @@ Use only Pi's public extension and autocomplete APIs.
 
 ## Constraints
 
+- Register input behaviour only through the [input chain](../../libs/src/input-chain/README.md), at transform rank `100`. A separate `input` handler would run in load order.
 - Use Pi's currently registered paths exactly as given.
 - Derive suggestions from the existing provider, so Pi's `enableSkillCommands` setting controls availability.
 - Compose with existing providers. Recognise this extension's completion items by object identity, not by their text.

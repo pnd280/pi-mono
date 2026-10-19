@@ -37,6 +37,8 @@ In the TUI, type `/skill:` at the start of any token, including mid-prompt or on
 
 Expansion runs in Pi's input hook. It covers what you type and extension `sendUserMessage()` calls.
 
+Expansion runs at rank `100` of the shared [input chain](../../libs/src/input-chain/README.md), whatever the extension load order. Input observers, such as the prompt history of pi-prompt-manager, see the text before expansion. Transforms with a higher rank see the expanded text.
+
 It doesn't cover commands handled before the hook, text produced by prompt templates, or custom `sendMessage()` messages.
 
 ## Compatibility

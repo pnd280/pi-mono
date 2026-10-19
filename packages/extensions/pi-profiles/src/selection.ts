@@ -1,4 +1,4 @@
-import type { SessionEntry, ToolExposure } from "@earendil-works/pi-coding-agent";
+import type { SessionEntry, ToolExposure, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import type { Profile } from "./settings.ts";
@@ -101,6 +101,32 @@ export function toolMatcher(entries: readonly string[]): (name: string) => boole
     );
 
   return (name) => names.has(name) || patterns.some((pattern) => pattern.test(name));
+}
+
+/**
+ * Pi's own tools, such as `read` and `codemode`, have the source path `builtin:<name>`. Other tools
+ * of Pi's built-in extensions, such as MCP tools, have the extension's path, such as `builtin:mcp`.
+ */
+const isPiTool = ({ name, sourceInfo }: Pick<ToolInfo, "name" | "sourceInfo">) =>
+  sourceInfo.source === "builtin" && sourceInfo.path === `builtin:${name}`;
+
+/**
+ * The active tools without the `deny` matches, in a fixed order: Pi's own tools in the order of
+ * `tools` (Pi's `getAllTools()`, which lists its core tools first, in Pi's order), then the other
+ * tools by name. Pi activates extension tools in registration order, which follows load order.
+ */
+export function enforcedTools(
+  active: readonly string[],
+  deny: readonly string[],
+  tools: readonly Pick<ToolInfo, "name" | "sourceInfo">[]
+): string[] {
+  const denied = toolMatcher(deny);
+  const kept = new Set(active.filter((name) => !denied(name)));
+  const own = tools.filter((tool) => isPiTool(tool) && kept.has(tool.name)).map(({ name }) => name);
+  // Code unit order, so that the locale does not change it.
+  const others = [...kept].filter((name) => !own.includes(name)).sort();
+
+  return [...own, ...others];
 }
 
 /** The names of a `defer` entry: a name or pattern, or a group of them. */

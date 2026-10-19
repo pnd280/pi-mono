@@ -40,6 +40,7 @@ Work through each area below before accepting new fingerprints.
 
 - [ ] `compact` has `exposure: "model-only"`. Direct model calls keep replayable request results, and nested execution cannot schedule compaction.
 - [ ] `context_window` can still be composed through `ctx.tools` and `ctx.executeTool()`.
+- [ ] Without `--tools`, registering `context_window` again in `session_start` with an unchanged exposure replaces its description and does not activate it again. Active tools chosen by an earlier `session_start` handler stay. With `--tools`, any registration activates every registered declarable tool that the list names; Pi emits `resources_discover`, where lifecycle startup commits run, after every `session_start` handler.
 - [ ] The public `ctx.getContextUsage()` returns `{ tokens: number | null, contextWindow: number, percent: number | null }` or `undefined`.
 - [ ] `context_window` serialises that object unchanged and keeps it in result details. `undefined` produces an unavailable message, never invented usage. This tool uses no private APIs.
 

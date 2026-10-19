@@ -43,7 +43,8 @@ it("replays branch state and clears todo activity without clearing other contrib
   const other = registerWorkingMessage(api, {
     id: "other.status",
     label: "Other",
-    contributor: "other"
+    contributor: "other",
+    ownerRank: 400
   });
   entry(api);
 

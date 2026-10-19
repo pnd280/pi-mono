@@ -1,5 +1,9 @@
 import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
-import { CustomEditor, type KeybindingsManager } from "@earendil-works/pi-coding-agent";
+import {
+  CustomEditor,
+  type ExtensionFactory,
+  type KeybindingsManager
+} from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
@@ -24,9 +28,10 @@ type InputHost = Fixture["host"] & {
   setupExtensionShortcuts(runner: Fixture["session"]["extensionRunner"]): void;
 };
 
-async function fixture() {
+async function fixture(before: ExtensionFactory[] = []) {
   const shortcut = vi.fn();
   const result = await hostFixture([
+    ...before,
     abortGuard,
     (pi) => {
       pi.registerShortcut("ctrl+q", { handler: shortcut });
@@ -249,6 +254,49 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
     expect(current.hint()).toContain("again to interrupt");
     fresh.finish();
     await freshPrompt;
+  } finally {
+    await current.dispose();
+  }
+});
+
+it("guards interrupts in an editor that an earlier extension set", async () => {
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+  const label = "earlier editor";
+
+  // Wraps the previous editor and patches its render, as pi-profiles does.
+  const earlier: ExtensionFactory = (pi) => {
+    pi.on("session_start", (_event, ctx) => {
+      const previous = ctx.ui.getEditorComponent();
+      ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+        const editor =
+          previous?.(tui, theme, keybindings) ??
+          new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: true });
+        const render = editor.render.bind(editor);
+        editor.render = (width) => [label, ...render(width)];
+
+        return editor;
+      });
+    });
+  };
+
+  const dispatch = vi.spyOn(CustomEditor.prototype, "handleInput");
+  const current = await fixture([earlier]);
+
+  try {
+    expect(current.host.editor.render(80)[0]).toBe(label);
+    const run = current.response();
+    const prompt = current.track(current.session.prompt("Keep working in the earlier editor"));
+    await run.started();
+    dispatch.mockClear();
+    current.press();
+    expect(dispatch).toHaveBeenCalledExactlyOnceWith("\u001b");
+    expect(current.hint()).toContain("again to interrupt");
+    expect(current.abort).not.toHaveBeenCalled();
+    dispatch.mockClear();
+    current.press();
+    expect(dispatch).toHaveBeenCalledExactlyOnceWith("\u001b");
+    await prompt;
+    expect(current.abort).toHaveBeenCalledTimes(1);
   } finally {
     await current.dispose();
   }

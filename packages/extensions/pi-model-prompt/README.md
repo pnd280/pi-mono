@@ -25,6 +25,8 @@ The listed files are added after Pi's append text; they don't replace it.
 
 - Pi uses the `--append-system-prompt` text when it is given. Otherwise, Pi uses one `APPEND_SYSTEM.md`: the project's `.pi/` file in [trusted](https://pi.dev/docs/latest/security#understand-project-trust) projects, or else the agent directory's file.
 - Changes that earlier extensions make to the append text are kept.
+- The text is a part at rank `100` of the shared [prompt parts](../../libs/src/prompt-parts/README.md), whatever the extension load order. It comes before pi-profiles text, at rank `200`.
+- The files are chosen for the model that the run uses, after other extensions, such as pi-profiles, finish a model switch.
 - The files' contents are joined in list order with a blank line (`\n\n`), the way Pi joins several append sources. A blank line also separates them from Pi's append text.
 - Empty files add nothing.
 - Models with no matching rule get only Pi's append text.

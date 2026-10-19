@@ -16,6 +16,8 @@ export async function createFixtureWorkspace(
   options: {
     settings?: Record<string, unknown>;
     projectSettings?: Record<string, unknown>;
+    /** Fixture extensions that load before pi-subagents and the provider. */
+    earlierExtensions?: string[];
     /** Fixture extensions that load after pi-subagents and the provider. */
     extensions?: string[];
   } = {}
@@ -30,6 +32,7 @@ export async function createFixtureWorkspace(
           retry: { enabled: false },
           ...options.settings,
           extensions: [
+            ...(options.earlierExtensions ?? []),
             fileURLToPath(new URL("./extension.ts", import.meta.url)),
             fileURLToPath(new URL("./provider.ts", import.meta.url)),
             ...(options.extensions ?? [])

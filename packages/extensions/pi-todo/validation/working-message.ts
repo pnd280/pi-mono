@@ -33,12 +33,14 @@ export default function workingMessageFixture(pi: ExtensionAPI): void {
   const status = registerWorkingMessage(pi, {
     id: "fixture.status",
     label: "Other status",
-    contributor: "fixture"
+    contributor: "fixture",
+    ownerRank: 400
   });
   registerWorkingMessage(pi, {
     id: "fixture.inactive",
     label: "Inactive component",
-    contributor: "fixture"
+    contributor: "fixture",
+    ownerRank: 400
   });
   pi.on("session_start", () => status.setText("Other status"));
   pi.registerCommand("fixture-status", {

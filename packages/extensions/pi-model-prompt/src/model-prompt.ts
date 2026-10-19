@@ -38,11 +38,11 @@ interface ModelPromptConfig {
 export interface ModelPromptSnapshot {
   readonly warnings: readonly string[];
   /**
-   * Matches `modelKey` as `provider/id` and returns `currentAppend` followed by the selected
-   * files' non-empty contents, joined in order. `undefined` means no change: no rule selects
-   * files, a selected file was not read, or every selected file is empty.
+   * Matches `modelKey` as `provider/id` and returns the selected files' non-empty contents,
+   * joined in order. `undefined` means no text: no rule selects files, a selected file was not
+   * read, or every selected file is empty.
    */
-  appendTextFor(modelKey: string, currentAppend: string): string | undefined;
+  appendTextFor(modelKey: string): string | undefined;
 }
 
 /**
@@ -63,7 +63,7 @@ export function loadModelPromptSnapshot(agentDir: string): ModelPromptSnapshot {
 
   return {
     warnings,
-    appendTextFor(modelKey, currentAppend) {
+    appendTextFor(modelKey) {
       const paths = selectAppendFiles(rules, modelKey);
       if (paths === undefined) return undefined;
       const added: string[] = [];
@@ -76,7 +76,7 @@ export function loadModelPromptSnapshot(agentDir: string): ModelPromptSnapshot {
 
       if (added.length === 0) return undefined;
 
-      return (currentAppend === "" ? added : [currentAppend, ...added]).join(SEPARATOR);
+      return added.join(SEPARATOR);
     }
   };
 }

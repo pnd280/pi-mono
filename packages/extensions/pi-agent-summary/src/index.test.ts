@@ -19,7 +19,8 @@ it("records one context-free entry after all turns and retries settle, preservin
   const other = registerWorkingMessage(runtime.api, {
     id: "other.activity",
     label: "Activity",
-    contributor: "other"
+    contributor: "other",
+    ownerRank: 400
   });
   runtime.session.appendMessage({ role: "user", content: "Work", timestamp: Date.now() });
   const before = runtime.session.buildSessionContext().messages;
@@ -118,13 +119,23 @@ it.each(["session_start", "session_shutdown"] as const)(
     await runtime.emit("agent_start", {});
     await runtime.emit("message_end", end);
     await runtime.emit("agent_settled", {});
-    expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-      durationMs: 0,
-      finishedAt: Date.now(),
-      models: [{ provider: "faux", id: "faux-1" }],
-      bashCalls: 0,
-      files: []
-    });
+    // After shutdown, a run starts only in a new session, so this late run is not recorded.
+    expect(vi.mocked(runtime.api.appendEntry).mock.calls).toEqual(
+      event === "session_shutdown"
+        ? []
+        : [
+            [
+              summaryEntryType,
+              {
+                durationMs: 0,
+                finishedAt: Date.now(),
+                models: [{ provider: "faux", id: "faux-1" }],
+                bashCalls: 0,
+                files: []
+              }
+            ]
+          ]
+    );
   }
 );
 
@@ -300,12 +311,12 @@ it.each(["session_start", "session_shutdown"] as const)(
         { path: "baseline.txt", status: "available", added: 1, removed: 0 }
       ]);
       await runtime.emit("agent_settled", {});
-      expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-        durationMs: 0,
-        finishedAt: Date.now(),
-        bashCalls: 0,
-        files: []
-      });
+      // After shutdown, the late agent_start starts no run and reconnects no observer.
+      expect(vi.mocked(runtime.api.appendEntry).mock.calls).toEqual(
+        event === "session_shutdown"
+          ? []
+          : [[summaryEntryType, { durationMs: 0, finishedAt: Date.now(), bashCalls: 0, files: [] }]]
+      );
       expect(vi.getTimerCount()).toBe(0);
     } finally {
       observer.dispose();

@@ -1,6 +1,6 @@
 # [pi-agent-summary](README.md) development
 
-Time a [run](GLOSSARY.md) from the first `agent_start` to `agent_settled`, not to `turn_end` or a retryable `agent_end`.
+Time a [run](GLOSSARY.md) from the first `agent_start` to `agent_settled`, not to `turn_end` or a retryable `agent_end`. Use the [lifecycle run marks](../../libs/src/lifecycle/README.md#run-marks), not a clock reading in the handler, so that slow handlers of other extensions do not change the duration.
 
 ## Must not regress
 
@@ -17,6 +17,7 @@ Time a [run](GLOSSARY.md) from the first `agent_start` to `agent_settled`, not t
 - Don't reread targets, scan repositories, or infer changes from bash commands.
 - Use [bounded-diff](../../libs/src/bounded-diff/README.md) for net comparisons.
 - Clear live intervals on shutdown.
+- Stop the run, the timer, and the file observers in the lifecycle shutdown revoke. After it, only a new `session_start` binds again, so a late `agent_start` cannot reconnect the observers.
 - Accept [milestones and counters](GLOSSARY.md) only through their public channels, checked against the saved schema's limits, so saved summaries stay renderable.
 
 ## Validation

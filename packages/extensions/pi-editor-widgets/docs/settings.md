@@ -46,6 +46,7 @@ A project layout replaces the entire global layout; the two are never merged.
 | `flex`                | Right-aligns the group that follows.                                |
 
 - To hide something, list it in `hidden`. An empty region doesn't hide unlisted or future registrations.
+- Unlisted widgets get their own rows at the end of the region that their extension requested, sorted by ID in code unit order, whatever the locale. Unlisted statuses share one footer row, also sorted by ID in code unit order.
 - Unknown IDs keep their positions, so a widget reappears where you put it once its extension loads.
 - In `aboveEditor`, shorter widgets in a multiline row align to the bottom, next to the editor. Other regions align them to the top.
 - A row can contain each ID once and at most one `flex`. The same ID can appear in several rows, but an ID in `hidden` can't also be placed.

@@ -61,6 +61,8 @@ If compaction, branch navigation, or context edits remove a notice or its origin
 
 Refresh on startup, resume, and `/reload` uses only scopes still represented by canonical context. Unchanged direct-read revisions suppress content reads. A changed file, changed preferred candidate, or disappearance can produce an updated or removed notice. A direct read of a missing or unreadable file delivered nothing: if a file appears there later, refresh loads it, and if none appears, refresh adds no removal notice. Normal invocations otherwise retain snapshots; compacted-away scopes are not eagerly restored.
 
+The refreshed notices are sent in a [lifecycle](../../../libs/src/lifecycle/README.md) startup commit at rank `100`. Commits run in the first participant's `resources_discover` handler, which Pi emits after every extension's `session_start` handler has run. Pi appends them at once because the session is idle, so they precede the startup entries of pi-profiles (rank `200`) in every load order.
+
 The [version-3 persisted contract](pi-compatibility.md#persisted-notice-contract) defines which notice formats contribute scopes.
 
 ## Shared scope extraction

@@ -28,6 +28,7 @@ Session isolation
 - **High, unit:** A pending request can be consumed only by its owning session, and a consumed request is not retried at a later boundary, including after a skip, cancellation, failure, or exception.
 - **High, unit:** Settlement, binding disposal, or an abort detected before the boundary discards the pending request.
 - **High, e2e:** Session replacement and reload dispose the old binding before binding the new session state.
+- **High, e2e:** When an extension that loads earlier turns `context_window` off at session start, it stays off: the session-start registration with the configured docs does not turn it on again.
 - **High, unit:** Disposing a binding during an attempt prevents late outcome status publication, and outcome listeners are released when the native attempt exits, including on exceptions.
 
 Hook ownership

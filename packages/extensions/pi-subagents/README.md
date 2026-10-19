@@ -27,7 +27,7 @@ Your current Pi session is the supervisor. Its model calls `subagent` with a sho
 - Tree navigation, parent-session fork, and session switch force-stop all owned running subtrees, including background work. Restored tasks never restart automatically; see [task history](docs/history.md).
 - Child dialogs appear with a `[subagent: <description>]` prefix. RPC clients answer them using Pi's [extension UI protocol](https://pi.dev/docs/latest/rpc-extension-ui).
 
-The tools are model-only: codemode scripts cannot invoke them. At `maxDepth`, `subagent` and `subagent_abort` are hidden.
+The tools are model-only: codemode scripts cannot invoke them. At `maxDepth`, `subagent` and `subagent_abort` are hidden. When `jobs` is off, `job` and `job_abort` are hidden.
 
 ### Background tasks
 

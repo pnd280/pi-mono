@@ -11,6 +11,7 @@ import {
   type ExtensionAPI,
   type ExtensionContext
 } from "@earendil-works/pi-coding-agent";
+import { joinInputChain } from "@pi-mono/libs/input-chain";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
@@ -153,9 +154,10 @@ it("registers at startup and reload, keeps old callbacks inert, persists without
   expect(fixture.errors).toEqual([]);
 });
 
-it("captures only interactive input after transforms, without replay across reloads", async () => {
+it("captures only typed interactive input, without replay across reloads", async () => {
+  // The transform joins the chain first, so it hosts the chain, and history still sees "before".
   const fixture = await host("tui", (pi) =>
-    pi.on("input", (event) =>
+    joinInputChain(pi, { id: "fixture-transform" }).transform(100, (event) =>
       event.text === "before" ? { action: "transform", text: "after" } : undefined
     )
   );
@@ -167,7 +169,7 @@ it("captures only interactive input after transforms, without replay across relo
   await runner.emitInput("steering", undefined, "interactive", "steer");
   await runner.emitInput("rpc input", undefined, "rpc");
   await runner.emitInput("follow-up", undefined, "interactive", "followUp");
-  const expected = ["follow-up", "steering", "after"];
+  const expected = ["follow-up", "steering", "before"];
   await vi.waitFor(
     async () => {
       const history = await fixture.repository.read("history");

@@ -11,7 +11,9 @@
 
 ## Checklist
 
-- [ ] [Lifecycle and capture](../src/index.ts): activates only after TUI startup. Input order, capture exclusions, and reload cleanup are kept. Settings and storage aren't touched outside the TUI.
+- [ ] [Lifecycle and capture](../src/index.ts): activates only after TUI startup. Capture exclusions and reload cleanup are kept. Settings and storage aren't touched outside the TUI.
+- [ ] Capture is an [input-chain](../../../libs/src/input-chain/README.md) observer, so it sees the typed text before chain transforms. Shortcuts are [lifecycle claims](../../../libs/src/lifecycle/README.md#shortcut-claims) made in the startup handler. They register in the first participant's `resources_discover` handler, before Pi sets up extension shortcuts.
+- [ ] `session_shutdown` runs the [shutdown phase](../../../libs/src/lifecycle/README.md#shutdown-phase): the revoke stops new work synchronously, and the cleanup awaits started atomic writes.
 - [ ] [Editor host mapping](../src/index.ts) and [source refusal](../src/manager.ts): pastes are expanded, restoring is safe and neither submits nor adds to history, and concurrent edits are protected.
 - [ ] [Search ranking](../src/ranking.ts) retains Pi-compatible fuzzy scores, including Unicode positions and letter/digit transposition fallback. Compare `fuzzyScore` with `fuzzyMatch` in the installed `@earendil-works/pi-tui` (`dist/fuzzy.js`).
 - [ ] [Browser](../src/browser.ts): Pi keybindings work, the view remounts at the boundary between 19-row inline and 18-row overlay, cancellation works, and restoring happens only after the final close.

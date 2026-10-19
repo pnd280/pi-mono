@@ -71,6 +71,7 @@ Add an `ext.pi-prompt-manager` key to the global `~/.pi/agent/settings.json`, or
 - Each invalid field falls back to its default with a warning. Unreadable or oversized settings use all defaults.
 - Run `/reload` to apply changes. The extension never rewrites settings.
 - Pi may warn about conflicts with built-in keys, such as **Ctrl+R** for session renaming.
+- Shortcuts are claimed through the shared [lifecycle coordinator](../../libs/src/lifecycle/README.md#shortcut-claims). If a key can match the same keypress as a key that another extension claims there, such as the pi-profiles shortcut, neither extension registers it, and a warning names the conflict.
 
 ## Side effects
 
@@ -79,6 +80,7 @@ The extension writes only to its own per-directory storage, and to the system cl
 ### Capture and storage
 
 - Captures each interactive submission, trimmed, before templates and skills expand. This includes steering and follow-up messages you later withdraw.
+- Captures run as an observer of the shared [input chain](../../libs/src/input-chain/README.md), so they record the typed text before any chain transform, such as pi-skills expansion, in every load order. Extensions that change input outside the chain still run in load order.
 - Doesn't capture slash commands handled by extensions, extension-generated input, or custom messages. Existing session and editor history isn't imported.
 - Collections persist even with `--no-session`. Symlink aliases of a directory share storage; different directories and worktrees don't.
 - Prompt text is stored unencrypted, protected by file permissions. See [storage and recovery](docs/storage.md) for paths, capacities, and repair.

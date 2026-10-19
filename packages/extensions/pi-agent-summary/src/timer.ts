@@ -9,10 +9,11 @@ export class AgentTimer {
     this.setText = setText;
   }
 
-  start(showWorkingMessage: boolean): void {
+  /** `at` is the run's shared `performance.now()` mark, not this handler's clock reading. */
+  start(at: number, showWorkingMessage: boolean): void {
     // Retries and queued continuations may start again before the agent settles.
     if (this.startedAt !== undefined) return;
-    this.startedAt = performance.now();
+    this.startedAt = at;
     if (!showWorkingMessage) return;
 
     // The live timer ticks once a second, so it shows whole seconds.
@@ -27,9 +28,10 @@ export class AgentTimer {
     this.interval.unref();
   }
 
-  finish(): { durationMs: number } | undefined {
+  /** `at` is the settlement's shared `performance.now()` mark. */
+  finish(at: number): { durationMs: number } | undefined {
     if (this.startedAt === undefined) return;
-    const summary = { durationMs: this.elapsed() };
+    const summary = { durationMs: this.elapsed(at) };
     this.reset();
 
     return summary;
@@ -42,8 +44,8 @@ export class AgentTimer {
     this.setText();
   }
 
-  private elapsed(): number {
+  private elapsed(now = performance.now()): number {
     // A monotonic clock avoids negative or inflated durations after clock changes.
-    return this.startedAt === undefined ? 0 : Math.floor(performance.now() - this.startedAt);
+    return this.startedAt === undefined ? 0 : Math.floor(now - this.startedAt);
   }
 }

@@ -100,8 +100,11 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
       }
     }
   });
-  // Observation must be installed before the first native session is constructed.
-  entry(api);
+  // Observation must be installed before the first native session is constructed. The lifecycle
+  // coordinator registers only the fixture's events through `on`, and the extension claims no
+  // shortcut.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  entry(api as Parameters<typeof entry>[0]);
   const native = () =>
     (nativeSession ??= (async () => {
       const settingsManager = SettingsManager.inMemory();

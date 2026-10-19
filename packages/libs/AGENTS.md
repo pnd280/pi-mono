@@ -1,6 +1,6 @@
 # [@pi-mono/libs](README.md) development
 
-Keep feature records, capacities, diagnostics, session policy, and fixture scenarios in the consuming extensions.
+Keep feature records, capacities, diagnostics, session policy, rank reasons, and fixture scenarios in the consuming extensions.
 
 ## Code navigation
 

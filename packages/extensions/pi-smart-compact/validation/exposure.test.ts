@@ -1,4 +1,13 @@
-import { fauxAssistantMessage, fauxProvider, fauxToolCall, Type } from "@earendil-works/pi-ai";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import {
+  fauxAssistantMessage,
+  fauxProvider,
+  fauxToolCall,
+  getCurrentTools,
+  Type
+} from "@earendil-works/pi-ai";
 import { expect, it } from "vite-plus/test";
 
 import smartCompact from "../src/index.ts";
@@ -46,6 +55,47 @@ it("rejects nested compaction requests while leaving context inspection composab
     expect(session.sessionManager.getBranch().some((entry) => entry.type === "compaction")).toBe(
       false
     );
+  } finally {
+    await fixture.dispose();
+  }
+});
+
+it("keeps context_window inactive after an earlier extension turns it off at session start", async () => {
+  const faux = fauxProvider({ provider: "compact-reregister", models: [{ id: "offline" }] });
+  const declared: string[][] = [];
+  faux.setResponses([
+    (context) => {
+      declared.push(getCurrentTools(context.messages).map((tool) => tool.name));
+
+      return fauxAssistantMessage("done");
+    }
+  ]);
+  const fixture = await sdkSessionFixture([
+    (pi) =>
+      pi.on("session_start", () =>
+        pi.setActiveTools(pi.getActiveTools().filter((name) => name !== "context_window"))
+      ),
+    smartCompact
+  ]);
+  const { session } = fixture;
+
+  try {
+    await writeFile(join(fixture.agentDir, "context-window.md"), "CONFIGURED_DOCS");
+    await writeFile(
+      join(fixture.agentDir, "settings.json"),
+      JSON.stringify({ "ext.pi-smart-compact": { docs: ["context-window.md"] } })
+    );
+    await fixture.bind();
+    expect(
+      session.getAllTools().find((tool) => tool.name === "context_window")?.description
+    ).toContain("CONFIGURED_DOCS");
+    session.modelRuntime.registerNativeProvider(faux.provider);
+    await session.modelRuntime.refresh({ allowNetwork: false });
+    await session.setModel(faux.getModel());
+    await session.prompt("List the tools");
+    expect(declared).toHaveLength(1);
+    expect(declared[0]).toContain("compact");
+    expect(declared[0]).not.toContain("context_window");
   } finally {
     await fixture.dispose();
   }

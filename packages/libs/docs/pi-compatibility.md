@@ -45,9 +45,24 @@ In Pi 1.3.0, custom-UI fixtures hide only their own overlay handle, matching the
 - [ ] Deferred installation, renderer rebinding, focus handoff, and teardown that keeps listeners all work.
 - [ ] Unsupported routing is reported once per opening, without closing the view.
 
+### Coordinators
+
+The [coordinator protocol](../src/coordination/README.md) depends on these Pi host contracts:
+
+- [ ] Event-bus listeners run synchronously during `pi.events.emit`.
+- [ ] A failed factory loses its load-time bus subscriptions, and its `pi.events.emit` throws. A replaced or reloaded runtime also removes its subscriptions, and its `pi.events.emit` throws.
+- [ ] The project-trust pass can run a factory and then leave its extension out without discarding it. Its bus subscriptions stay, and Pi runs none of its handlers.
+- [ ] Each emission creates one context and passes it to every handler of that emission.
+- [ ] `input` and `before_agent_start` build a new event object for each handler. `session_shutdown`, `agent_start`, and `agent_settled` build one new event object for each emission.
+- [ ] Every bind emits the session's stored `session_start` event. RPC binds a replaced session twice, so two emissions receive the same event object.
+- [ ] Every bind and `/reload` emits `resources_discover` after all `session_start` handlers, when any extension has a `resources_discover` handler.
+- [ ] `input` and `before_agent_start` keep the chain and error semantics that [input-chain](../src/input-chain/README.md#behaviour) and [prompt-parts](../src/prompt-parts/README.md#behaviour) copy. A `systemPrompt` result still makes Pi ignore `appendSystemPrompt`.
+- [ ] Interactive mode sets up extension shortcuts and commands after `resources_discover`, so [lifecycle claims](../src/lifecycle/README.md#shortcut-claims) and the working-message command registered before it work.
+- [ ] Prompts sent during `agent_settled` are deferred until the emission ends, so [run marks](../src/lifecycle/README.md#run-marks) of one run do not mix with the next.
+
 ### Working message
 
-- [ ] [Working message](../src/working-message/README.md) event-bus ownership, stale handles, and defaults.
+- [ ] [Working message](../src/working-message/README.md) command ownership, stale handles, and defaults.
 - [ ] Trusted settings precedence, locking, and preservation of unrelated fields.
 
 ### Offline fixtures

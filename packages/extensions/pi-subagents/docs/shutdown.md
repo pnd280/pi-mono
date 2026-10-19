@@ -10,6 +10,8 @@ Completion closes child stdin; cancellation also clears queued input and request
 
 Cancellation, the usage read, and shutdown share the same grace period. The grace period is 5 seconds plus 7 seconds per possible remaining descendant level, bounded by `maxDepth` and `maxConcurrent`. With default limits, children receive 12 seconds and grandchildren 5 seconds.
 
+When the session ends, the [lifecycle shutdown revoke](../../../libs/src/lifecycle/README.md#shutdown-phase) runs before any participant's shutdown handler awaits. Every workspace extension whose shutdown handler awaits is a participant, so only an extension from outside the workspace can await before it. From then on, no task or job starts, saves an entry, or delivers a result, and tools, commands, and the panel see no session. The extension's own shutdown handler then stops the children and jobs.
+
 Graceful exit waits for child-task cleanup. Each background job also keeps its shell handle through process-group cleanup, including after the shell exits. Job shutdown waits for that cleanup and the log file to close, and reports stop failures. Jobs use the shared process-stop helpers without a child stdin grace period; see [job stops](jobs.md#stop-a-job) and their [limits](jobs.md#limits).
 
 ### Process-group cleanup

@@ -18,7 +18,7 @@ Recheck [run](../GLOSSARY.md) lifecycle boundaries, attribution, and native file
 
 [Lifecycle](../src/index.ts):
 
-- [ ] A run lasts from the first `agent_start` to `agent_settled`, through retries, queued follow-ups, and cancellation, and the timer is cleaned up.
+- [ ] A run lasts from the first `agent_start` to `agent_settled`, through retries, queued follow-ups, and cancellation, and the timer is cleaned up. The duration and finish time come from the [lifecycle run marks](../../../libs/src/lifecycle/README.md#run-marks).
 - [ ] Direct and nested agent `bash` calls count once per call ID. Manual shell input is excluded.
 - [ ] [Milestones](../GLOSSARY.md) and [counters](../GLOSSARY.md) emitted on `pi.events` reach the active run synchronously, and reload removes the old subscriptions.
 

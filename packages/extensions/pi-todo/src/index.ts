@@ -54,7 +54,8 @@ export default function piTodo(pi: TodoExtensionAPI): void {
   const activity = registerWorkingMessage(pi, {
     id: "pi-todo.activity",
     label: "Activity",
-    contributor: "pi-todo"
+    contributor: "pi-todo",
+    ownerRank: 100
   });
   const controller = new TodoController();
   const widget = new TodoWidget(controller);

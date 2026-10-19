@@ -19,6 +19,10 @@
 - [ ] Pi awaits `before_agent_start` handlers before it reads the model and the active tools for a request (`_prepareRun()` in `agent-session.js`), `session_before_tree` handlers before it moves the branch leaf, `session_before_switch` handlers before it reads the destination session file, and `session_shutdown` handlers before it ends a session, so each can wait for a switch.
 - [ ] `pi.setModel()` applies the thinking level that settings set for the model, or the default level, or else keeps the current level, so the extension sets the profile's level after the model.
 - [ ] `pi.setActiveTools()` ignores unknown and `hidden` names, and `pi.getActiveTools()` returns the declared tools.
+- [ ] After the `before_agent_start` handlers, the active tools decide the run's first request unless a handler edits `systemPromptOptions.selectedTools` (`_prepareRun()` in `agent-session.js`). Pi declares them before `agent_start` (`runAgentLoop()` in pi-agent-core's `agent-loop.js`).
+- [ ] Pi takes the tools of a run's later request in `prepareNextTurnWithContext()` (`agent-session.js`), after the `turn_end` handlers (`finishTurn`) and before `turn_start`. The request declares only the tools of the transcript's system messages (`streamAssistantResponse()` in `agent-loop.js`), so a `turn_start` change reaches only the request after. The extension enforces `deny` and the tool order in `turn_end`.
+- [ ] `pi.getAllTools()` lists Pi's own tools first, in Pi's order, with the source path `builtin:<name>`. The tools of built-in extensions have the extension's path, such as `builtin:mcp`. Only the `codemode` tool has its own name in that path, so it counts as Pi's own and follows the core tools.
+- [ ] With a `--tools` list, a tool registration turns on again every listed tool that can be declared (`_refreshToolRegistry()` in `agent-session.js`), so the extension turns off the `deny` tools again.
 - [ ] `pi.getAllTools()` reports each tool's `exposure`, and tools with `codemode` or `deferred` exposure stay reachable through `tool_search` and codemode while undeclared.
 - [ ] Extension commands and shortcuts still run while the agent streams, and `ctx.isIdle()` is `false` then.
 - [ ] `ctx.mode` is `"tui"` only in the interactive terminal.
@@ -55,7 +59,7 @@ Recheck each row of the README's [MCP tools](../README.md#mcp-tools) tables:
 
 ### Prompt
 
-- [ ] `before_agent_start` exposes a writable `systemPromptOptions.appendSystemPrompt` with Pi's append text and earlier extensions' changes, and Pi builds new options for each run.
+- [ ] The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns the `before_agent_start` append checks. The extension adds its part at rank `200` and holds each switch.
 
 ### Restoration
 
@@ -80,7 +84,7 @@ Recheck each row of the README's [MCP tools](../README.md#mcp-tools) tables:
 - [ ] The first session of a run has the reason `"startup"`, also with `--continue`, `--resume`, `--session`, and `--fork` (`createRuntime` in `main.js`).
 - [ ] `pi.getFlag()` returns the `--profile` value in `session_start` of every session in the run, also after `/new` and `/reload` (`extensionFlagValues` in `main.js`, `flagValues` in `reload()`), and `pi --help` lists the option.
 - [ ] `ctx.hasUI` is `false` in print and JSON modes, where `ctx.ui.notify()` does nothing, so errors go to stderr.
-- [ ] Interactive mode reads extension shortcuts after `session_start`, so the shortcut registered there works.
+- [ ] The libs [lifecycle](../../../libs/src/lifecycle/README.md) coordinator owns the checks of the startup commit, the shortcut claim, and the shutdown revoke.
 - [ ] No built-in Pi action uses **Alt+I**, the default shortcut.
 
 ### Menu

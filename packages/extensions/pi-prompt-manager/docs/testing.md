@@ -17,7 +17,7 @@ This package tests collection formats, retention and recovery, activation, clipb
 - **High, integration:** Copying passes the complete text, including Unicode, terminal controls, and large payloads, to the native helper's stdin without shell interpretation.
 - **High, integration:** The five-second clipboard deadline and cancellation reject the copy and prevent fallback to later helpers.
 - **High, e2e:** The extension reads settings and initialises storage only after `session_start` in TUI mode. Print, JSON, and RPC modes stay inactive. The installed-CLI check also covers worker and module loading and process exit.
-- **High, e2e:** History captures only live interactive TUI input and never replays earlier input on reload.
+- **High, e2e:** History captures only live interactive TUI input, as typed before input-chain transforms, and never replays earlier input on reload.
 
 ## Not tested
 

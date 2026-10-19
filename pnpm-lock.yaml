@@ -438,6 +438,9 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: catalog:pi-host
         version: 1.3.0(@aws-sdk/credential-provider-node@3.972.86)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(ws@8.22.0)(zod@4.6.7)
+      '@pi-mono/libs':
+        specifier: workspace:*
+        version: link:../../libs
       '@pi-mono/utils':
         specifier: workspace:*
         version: link:../../utils

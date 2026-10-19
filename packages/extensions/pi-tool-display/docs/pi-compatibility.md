@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md)
 
-> Last verified against Pi 1.3.0 on Linux with unchanged host fingerprints, a source diff of the hooked Pi methods, the built-in MCP, tool-search, and codemode extensions, and `pi-mcp` and `pi-codemode`, the API and CLI suites, including the offline MCP and codemode hosts, and a tmux smoke run of the regular-mode `filenames` and `native-mixed` read ranges. Offline provenance probes also cover both extension orders, session reload, later wrappers, version-mismatch refusal, and CLI `--help` loading. Not covered by the terminal smoke run: fullscreen, replay, reload, mode cycling, thinking toggles, and the other manual [terminal checks](validation.md), physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
+> Last verified against Pi 1.3.0 on Linux with unchanged host fingerprints, a source diff of the hooked Pi methods, the built-in MCP, tool-search, and codemode extensions, and `pi-mcp` and `pi-codemode`, the API and CLI suites, including the offline MCP and codemode hosts, and a tmux smoke run of the regular-mode `filenames` and `native-mixed` read ranges. The API suite also covers session reload and later wrappers. Not covered by the terminal smoke run: fullscreen, replay, reload, mode cycling, thinking toggles, and the other manual [terminal checks](validation.md), physical mouse/image protocols, a live `registerToolRenderer` resolver (offline ownership is tested), live MCP and FFF services, or other platforms.
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports `inspectedPiVersion = "1.3.0"`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
 
@@ -89,7 +89,7 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 - [ ] Facts replay only for matching calls on the selected branch. Timestamp associations refresh after appends, branch changes, and resets.
 - [ ] Replay never runs tools or observes files again.
 - [ ] Public listeners receive a tool result's `message_end` after extension replacement and before Pi appends the result entry, so call entries precede their results. Copies and forks keep entry IDs and entry order.
-- [ ] Session changes and shutdown invalidate pending saved-output loading. Shutdown flushes queued local lines.
+- [ ] Session changes and shutdown invalidate pending saved-output loading. Shutdown flushes queued local lines. The [lifecycle](../../../libs/src/lifecycle/README.md#shutdown-phase) shutdown revoke stops collection and appends without awaiting, and the flush awaits in its cleanup, so it does not delay other participants' revokes.
 
 ### Extension notifications
 

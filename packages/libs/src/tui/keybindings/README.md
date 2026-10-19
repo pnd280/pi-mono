@@ -16,6 +16,8 @@ A final `+` names the plus key, as in `+` or `ctrl++`. Pi 1.3.0 dispatches these
 
 Pi 1.3.0 matches a symbol binding such as `ctrl++` against the Shift press that types the symbol, such as `ctrl+shift+=`. The keyboard layout decides which key types which symbol. `resolveKeybindings` therefore treats a symbol binding and any Shift binding of a digit or symbol with the same other modifiers as one key, and skips the later one. It can skip a binding that does not overlap on the current layout.
 
+`keysOverlap` tells whether one keypress can match two canonical keys, by the same equality, legacy-input, and Shift-symbol rules. `resolveKeybindings` and [lifecycle shortcut claims](../../lifecycle/README.md#shortcut-claims) use it.
+
 `formatKeyLabel` turns a canonical key into a hint label, such as `Ctrl+Shift+Up`, `Esc`, or `Del`.
 
 `navigationHints` combines the labels of a paired up and down action into hints. Two available keys share one hint, and the plain arrow keys show as `↑↓`. A missing key gives its direction an "unavailable" hint, so remapped or unbound keys are never shown as arrows.

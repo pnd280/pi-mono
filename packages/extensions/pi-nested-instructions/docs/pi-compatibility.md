@@ -34,7 +34,8 @@ Nested discovery must preserve Pi's native instruction loading and deduplicate a
 - [ ] Returning boundary entries replaces the accumulated draft list. Preserve `turn_end.entries` when adding notices or markers.
 - [ ] `buildSessionProjection()` keeps source entry IDs and applies compaction and context edits. `getBranch()` supplies metadata for the branch.
 - [ ] Replaced content doesn't keep its loaded status just because its details are unchanged.
-- [ ] `session_start` fires for startup, resume, reload, new sessions, and forks.
+- [ ] `session_start` fires for startup, resume, reload, new sessions, and forks. Pi awaits each handler and then emits `resources_discover`, whose first lifecycle participant handler runs the startup commit that sends refreshed notices.
+- [ ] An idle `sendMessage(..., { triggerTurn: false })` appends the message at once, so the commit rank decides its place among startup entries.
 - [ ] `sendMessage(..., { triggerTurn: false })` doesn't interrupt a running batch.
 - [ ] No pending discovery state is kept across turns or sessions.
 - [ ] Metadata-only custom entries stay out of model context. Visible notices keep their content and details without a registered renderer. Presentation belongs to the [pi-tool-display adapter](../../pi-tool-display/src/adapters/pi-nested-instructions/README.md).

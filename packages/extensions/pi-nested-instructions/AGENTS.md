@@ -12,6 +12,7 @@ See the [glossary](GLOSSARY.md) for domain terms, and [session lifetime](docs/de
 
 - Collect all markers in a batch before reading instructions.
 - Save only through public session APIs.
+- Send startup refresh notices only in the [lifecycle](../../libs/src/lifecycle/README.md#recommended-ranks-and-registrations) startup commit at rank `100`. A direct `session_start` send would place them by load order.
 - Keep rendering in [pi-tool-display](../pi-tool-display/src/adapters/pi-nested-instructions/README.md).
 - Document new adapter limits in [input discovery](docs/design.md#input-discovery).
 
