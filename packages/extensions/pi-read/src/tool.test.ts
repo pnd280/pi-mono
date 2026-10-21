@@ -1,11 +1,18 @@
-import { createReadToolDefinition } from "@earendil-works/pi-coding-agent";
+import {
+  createReadToolDefinition,
+  type ExtensionToolContext
+} from "@earendil-works/pi-coding-agent";
 import { createToolContext } from "@pi-mono/libs/validation/tool-context";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { interpretReadResult, type ReadResult } from "./result.ts";
 import { createSelectiveReadTool, type SelectiveReadParams } from "./tool.ts";
 
-const context = await createToolContext("/session");
+let context: ExtensionToolContext;
+
+beforeEach(async () => {
+  context = await createToolContext("/session");
+});
 
 function fixture(source = "before\nalpha\nbeta\nafter\n") {
   const readFile = vi.fn(async () => Buffer.from(source));

@@ -20,9 +20,11 @@ async function withJobs(
 
   try {
     const launch = await createPiLaunch({ directory, args: [] });
+    const { cwd } = launch.options;
+    // The tool context isolates the environment first, so the launch environment wins.
+    const ctx = await createToolContext(cwd);
     for (const key of Object.keys(process.env)) vi.stubEnv(key, undefined);
     for (const [key, value] of Object.entries(launch.options.env)) vi.stubEnv(key, value);
-    const { cwd } = launch.options;
     const entries: SessionEntry[] = [];
     jobs = new Jobs(entries, {
       cwd,
@@ -39,7 +41,7 @@ async function withJobs(
         });
       }
     });
-    await body(jobs, await createToolContext(cwd), cwd);
+    await body(jobs, ctx, cwd);
   } finally {
     try {
       // Failure cleanup must also stop processes leaked by the old runner in the red check.

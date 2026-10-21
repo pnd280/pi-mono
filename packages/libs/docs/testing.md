@@ -18,7 +18,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **Critical, integration:** Private-file transactions acquire the data path's lock before reading the bytes supplied to the update callback.
 - **Critical, integration:** Without POSIX owner IDs, private storage refuses a directory outside the user profile before it creates it, and works inside the profile without owner or mode checks.
 - **Critical, integration:** Settings updates preserve JSON keys that the synchronous mutator leaves untouched, including `__proto__` and `constructor`.
-- **Critical, integration:** Settings updates follow an existing symlink without replacing the link itself.
+- **Critical, integration:** Settings updates follow an existing symlink without replacing the link itself, and exclude a concurrent writer through another alias of the same file.
 - **Critical, integration:** On POSIX filesystems, settings updates preserve existing permission bits even when the writer's umask would mask them.
 - **Critical, integration:** Settings updates refuse malformed input or serialised output above 1 MiB before replacing the file.
 - **Critical, integration:** Settings sections ignore untrusted project and parent-directory settings, and refuse project saves in an untrusted project.
@@ -37,7 +37,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **High, e2e:** In every load order, input-chain transforms run in ascending rank, and each gets the previous result.
 - **High, e2e:** A `handled` input-chain result stops the chain.
 - **High, e2e:** In every load order, prompt parts are appended after the existing `appendSystemPrompt` text in ascending rank, once per run, and only after every pending hold has settled.
-- **High, e2e:** Shortcut claims that overlap, including different spellings of one key, register for no claimant and give one warning per conflict. Other claims register.
+- **High, e2e:** Shortcut claims that overlap, including different spellings of one key, register for no claimant and give one warning per conflict. Other claims register. After a later bind, a key that its claimant dropped or that now overlaps runs no handler.
 - **High, integration:** A configured FIFO cannot block `readSettingsFile` or session startup.
 - **High, integration:** Mutation observations preserve native write outcomes and queue order.
 - **High, integration:** Mutation observations distinguish unavailable source from complete UTF-8 source.

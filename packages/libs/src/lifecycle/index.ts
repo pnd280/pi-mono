@@ -9,6 +9,7 @@ import type {
 
 import { rendezvous } from "../coordination/index.ts";
 import { LifecycleCoordinator, type StartupHandler } from "./coordinator.ts";
+import type { ShortcutOptions } from "./shortcuts.ts";
 
 export type { StartupAction, StartupArrival, StartupHandler } from "./coordinator.ts";
 
@@ -47,8 +48,19 @@ const protocol = { name: "lifecycle", version: 1 };
 export function joinLifecycle(pi: LifecycleAPI, options: { id: string }): LifecycleParticipant {
   const coordinator = rendezvous(pi.events, protocol, (host) => new LifecycleCoordinator(host));
   const participant = coordinator.roster.join(options.id);
+  // Pi has no shortcut removal. Each registered key forwards to the handler that the latest
+  // startup accepted, so a claim that a later startup drops or loses to a conflict does nothing.
+  const shortcuts = new Map<string, ShortcutOptions["handler"]>();
   let closing = false;
-  pi.on("session_start", (_event, ctx) => coordinator.open(participant, pi.events, ctx));
+  pi.on("session_start", (_event, ctx) => {
+    shortcuts.clear();
+    coordinator.open(participant, pi.events, ctx);
+  });
+
+  const registerShortcut: LifecycleAPI["registerShortcut"] = (key, shortcut) => {
+    shortcuts.set(key, shortcut.handler);
+    pi.registerShortcut(key, { ...shortcut, handler: (ctx) => shortcuts.get(key)?.(ctx) });
+  };
 
   return {
     onSessionStart: (handler) => {
@@ -59,46 +71,69 @@ export function joinLifecycle(pi: LifecycleAPI, options: { id: string }): Lifecy
         );
       }
 
-      return pi.on("session_start", (event, ctx) =>
-        coordinator.startup(
-          participant,
-          (key, shortcut) => pi.registerShortcut(key, shortcut),
-          event,
-          ctx,
-          handler
+      return registration((active) =>
+        pi.on("session_start", (event, ctx) =>
+          active()
+            ? coordinator.startup(participant, registerShortcut, event, ctx, handler)
+            : undefined
         )
       );
     },
     onSessionShutdown: (revoke, cleanup) => {
       const entry = coordinator.addRevoker(participant, revoke);
-      const off = pi.on("session_shutdown", async (event, ctx) => {
-        // Runs before this handler's first await, so no participant awaits before revoking.
-        const revoked = coordinator.revoke(entry, pi.events, event);
 
-        try {
-          await cleanup?.(event, ctx);
-        } catch (error) {
-          if (!revoked) throw error;
-          throw new AggregateError(
-            [revoked.error, error],
-            `revoke failed: ${message(revoked.error)}; cleanup failed: ${message(error)}`
-          );
-        }
+      return registration(
+        (active) =>
+          pi.on("session_shutdown", async (event, ctx) => {
+            if (!active()) return;
+            // Runs before this handler's first await, so no participant awaits before revoking.
+            const revoked = coordinator.revoke(entry, pi.events, event);
 
-        if (revoked) throw revoked.error;
-      });
+            try {
+              await cleanup?.(event, ctx);
+            } catch (error) {
+              if (!revoked) throw error;
+              throw new AggregateError(
+                [revoked.error, error],
+                `revoke failed: ${message(revoked.error)}; cleanup failed: ${message(error)}`
+              );
+            }
 
-      return () => {
-        coordinator.removeRevoker(entry);
-        off();
-      };
+            if (revoked) throw revoked.error;
+          }),
+        () => coordinator.removeRevoker(entry)
+      );
     },
     onAgentStart: (handler) =>
-      pi.on("agent_start", (event, ctx) => handler(event, ctx, coordinator.mark(pi.events, event))),
+      registration((active) =>
+        pi.on("agent_start", (event, ctx) =>
+          active() ? handler(event, ctx, coordinator.mark(pi.events, event)) : undefined
+        )
+      ),
     onAgentSettled: (handler) =>
-      pi.on("agent_settled", (event, ctx) =>
-        handler(event, ctx, coordinator.mark(pi.events, event))
+      registration((active) =>
+        pi.on("agent_settled", (event, ctx) =>
+          active() ? handler(event, ctx, coordinator.mark(pi.events, event)) : undefined
+        )
       )
+  };
+}
+
+/**
+ * Pi snapshots the handlers when an emission starts, so unsubscribing does not stop the current
+ * dispatch from calling a handler. Each handler checks `active` and does nothing after disposal.
+ */
+function registration(
+  subscribe: (active: () => boolean) => () => void,
+  remove?: () => void
+): () => void {
+  let active = true;
+  const off = subscribe(() => active);
+
+  return () => {
+    active = false;
+    remove?.();
+    off();
   };
 }
 

@@ -52,12 +52,14 @@ it.each(loadOrders)(
 
 it("registers no overlapping shortcut claim, warns once per conflict, and registers the others", async () => {
   const claims = { a: ["ctrl+alt+x", "ctrl+alt+y"], b: ["alt+ctrl+x", "ctrl+alt+u"] };
-  const { session, notify, errors } = await coordinationHost(
+  const pressed: string[] = [];
+  const { session, notify, errors, bind } = await coordinationHost(
     (["a", "b"] as const).map((id) => ({
       name: id,
       factory: (pi) => {
         joinLifecycle(pi, { id }).onSessionStart((_event, _ctx, arrival) => {
-          for (const key of claims[id]) arrival.claimShortcut(key, { handler: () => {} });
+          for (const key of claims[id])
+            arrival.claimShortcut(key, { handler: () => void pressed.push(`${id}:${key}`) });
         });
       }
     }))
@@ -71,5 +73,13 @@ it("registers no overlapping shortcut claim, warns once per conflict, and regist
   );
   expect(registered).toEqual({ "ctrl+alt+u": "<inline:b>", "ctrl+alt+y": "<inline:a>" });
   expect(notify.mock.calls).toEqual([[expect.stringContaining('"ctrl+alt+x"'), "warning"]]);
+
+  // Pi cannot remove a shortcut, so keys that a later bind drops or puts in conflict stay registered.
+  claims.b = ["alt+ctrl+x", "ctrl+alt+y"];
+  await bind();
+  const context = session.extensionRunner.createContext();
+  for (const [, shortcut] of session.extensionRunner.getShortcuts({}))
+    await shortcut.handler(context);
+  expect(pressed).toEqual([]);
   expect(errors).toEqual([]);
 });

@@ -105,6 +105,9 @@ export class Browser<Item> implements Component, Focusable {
       !this.controller.preview &&
       !this.options.inspection
     ) {
+      // A section switch earlier in the same input batch has not rendered yet.
+      if (this.input.getValue() !== this.controller.query)
+        this.input.setValue(this.controller.query);
       this.input.handleInput(data);
       const query = displayText(this.input.getValue()).replace(/\s+/gu, " ");
       if (query !== this.input.getValue()) this.input.setValue(query);

@@ -45,7 +45,8 @@ A section save runs one locked update:
 4. Replaces the file atomically.
 
 - If another writer holds the lock, the save throws without retrying.
-- Existing settings symlinks are followed, not replaced.
+- Existing settings symlinks are followed, not replaced. A save through a symlink locks both the link path, as Pi does, and the link's final target, so a writer through another alias of the same file also throws.
+- If the symlink changes while the save takes its locks, the save throws.
 - Unrelated fields and existing mode bits are kept.
 - Malformed JSON, invalid UTF-8, and dangling links are refused, never repaired.
 - Parent directories can be created. New files use mode `0600`, subject to the platform.

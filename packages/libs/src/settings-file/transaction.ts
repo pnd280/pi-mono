@@ -9,7 +9,7 @@ import {
   writeFileSync
 } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import type * as ProperLockfile from "proper-lockfile";
 import { z } from "zod";
@@ -57,16 +57,46 @@ export function readSettingsRecord(path: string): Record<string, unknown> {
   }
 }
 
-function writeTarget(path: string): string {
+/** The final target when `path` is a symlink. Throws for a dangling link. */
+function linkTarget(path: string): string | undefined {
   try {
-    lstatSync(path);
+    if (!lstatSync(path).isSymbolicLink()) return undefined;
   } catch (error) {
-    if (missing(error)) return path;
+    if (missing(error)) return undefined;
     throw error;
   }
 
   // Preserve dotfile symlinks; never replace a dangling link.
   return realpathSync(path);
+}
+
+/**
+ * Pi locks the supplied name, so writers through different aliases of one file take different
+ * locks. A symlink's writers therefore also lock its final target, which every alias shares.
+ * Both locks are taken in canonical path order, whichever alias the writer uses.
+ */
+function lockDestination(path: string, target: string | undefined): () => void {
+  const { lockSync } = loadLockfile();
+  const supplied = join(realpathSync(dirname(path)), basename(path));
+  if (target === undefined || target === supplied) return lockSync(path, { realpath: false });
+  const [first, second] = supplied < target ? [path, target] : [target, path];
+  const releaseFirst = lockSync(first, { realpath: false });
+  let releaseSecond: () => void;
+
+  try {
+    releaseSecond = lockSync(second, { realpath: false });
+  } catch (error) {
+    releaseFirst();
+    throw error;
+  }
+
+  return () => {
+    try {
+      releaseSecond();
+    } finally {
+      releaseFirst();
+    }
+  };
 }
 
 /** Pi-compatible lock around a bounded read/merge/atomic rename. Mutators may reject the write. */
@@ -79,9 +109,12 @@ export function updateSettingsRecord(
 
   try {
     mkdirSync(dirname(path), { recursive: true });
-    release = loadLockfile().lockSync(path, { realpath: false });
-    const target = writeTarget(path);
-    const record = readSettingsRecord(path);
+    const link = linkTarget(path);
+    release = lockDestination(path, link);
+    // The locks cover only the destination chosen before they were taken.
+    if (linkTarget(path) !== link) throw new Error("Settings link changed during the update.");
+    const target = link ?? path;
+    const record = readSettingsRecord(target);
     // A void callback type also accepts async functions. Never commit a
     // record before its mutation finishes.
     const outcome: unknown = update(record);
@@ -104,7 +137,7 @@ export function updateSettingsRecord(
     let mode = 0o600;
 
     try {
-      mode = statSync(path).mode & 0o777;
+      mode = statSync(target).mode & 0o777;
     } catch (error) {
       if (!missing(error)) throw error;
     }

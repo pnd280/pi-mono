@@ -8,7 +8,7 @@ Import `hostFixture` from `@pi-mono/libs/validation/interactive-host` in Vite+ t
 
 Creates an offline `AgentSession` with Pi's real interactive containers, renderer, input dock, and UI proxy against a no-op 80×24 terminal. It loads only supplied extension factories, not workspace extensions.
 
-Mutable settings and model-runtime files live in a system temporary directory. The fixture disables model-network access and user resource discovery; it does not send model requests. If setup fails, it releases the acquired host and session resources, removes the temporary directory, and restores the environment before it rejects.
+Mutable settings and model-runtime files live in a system temporary directory. Until `dispose()`, the process environment keeps only `PATH`, `SystemRoot`, and the terminal, locale, and temporary-directory variables, and `HOME` points to a private directory, so provider credentials from the user's environment or home files cannot authenticate. The fixture disables model-network access and user resource discovery; it does not send model requests. If setup fails, it releases the acquired host and session resources, removes the temporary directory, and restores the environment before it rejects.
 
 ## Caller responsibilities
 
