@@ -33,8 +33,10 @@ Confirm these items against [src/evaluate-search.ts](../src/evaluate-search.ts) 
 - [ ] The installed FFF schemas still have the path, exclusion, pattern, and constraint fields that the guard reads.
 - [ ] FFF still normalises `path` and `exclude` as [search scopes](search-scopes.md#paths-and-filters) describes.
 - [ ] FFF still treats bare filenames as recursive filters and other paths as explicit paths.
+- [ ] In an FFF glob without `**`, `*`, `?`, and bracket expressions still match `/`; in a glob with `**`, they still match within one path component.
 - [ ] FFF's index still leaves out Git-ignored paths, as [FFF #714](https://github.com/dmtrKovalenko/fff/issues/714) describes.
-- [ ] Ignore inspection still follows the [Git ignore rules](search-scopes.md#git-ignore-rules), including symbolic-link destinations.
+- [ ] Ignore inspection still follows the [Git ignore rules](search-scopes.md#git-ignore-rules).
+- [ ] FFF still indexes the files below a directory link under the link's name, including a link that Git does not ignore into an ignored directory, and still applies the ignore files inside the destination below the link.
 - [ ] Caller cancellation still blocks the call.
 - [ ] An inspection that passes the two-second deadline still allows the call with a diagnostic.
 

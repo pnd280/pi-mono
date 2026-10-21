@@ -7,7 +7,7 @@ This package tests which arguments reach the tool after cleaning; Pi owns argume
 ## Must not regress
 
 - **High, e2e:** An optional top-level tool argument sent as the text `"null"` is removed before validation for [supported schemas](../README.md#behaviour).
-- **High, e2e:** Required arguments and other top-level values reach the tool unchanged.
+- **High, e2e:** Required arguments and other top-level values reach the tool unchanged, including arguments that a schema requires without a `required` list.
 - **High, e2e:** Nested object and array argument values, including the literal text `"null"`, reach tools unchanged.
 
 ## Not tested

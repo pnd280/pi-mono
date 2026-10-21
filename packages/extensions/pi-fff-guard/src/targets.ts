@@ -170,13 +170,18 @@ function escapeGlob(value: string): string {
   return value.replace(/[\\*?[\]{}!]/g, "\\$&");
 }
 
-/** Match scope filters, including dot components. This is not Git ignore matching. */
-function matchesFilter(value: string, expression: string): boolean {
+/**
+ * Match scope filters like FFF, including dot components. This is not Git ignore matching.
+ * FFF confines wildcards to one component only in an alternative that contains `**`;
+ * `componentWise` keeps that mode for a base taken from such an alternative.
+ */
+function matchesFilter(value: string, expression: string, componentWise = false): boolean {
   const segments = value.split("/");
   if (segments.length > 128 || expression.split("/").length > 128)
     throw new Error("filter component limit exceeded");
 
   return alternatives(expression).some((alternative) => {
+    if (!componentWise && !alternative.includes("**")) return matchesPath(value, alternative);
     const filters = alternative.split("/");
     const memo = new Map<string, boolean>();
 
@@ -205,6 +210,15 @@ function matchesFilter(value: string, expression: string): boolean {
 
     return match(0, 0);
   });
+}
+
+/** Match the whole path; `*`, `?`, and bracket expressions also match `/`. */
+function matchesPath(value: string, glob: string): boolean {
+  // NUL cannot occur in a path, so it replaces the separator as an ordinary character.
+  return path.posix.matchesGlob(
+    `component${value.replaceAll("/", "\0")}`,
+    `component${glob.replaceAll("/", "\0")}`
+  );
 }
 
 function workspaceFilter(expression: string, cwd: string): string {
@@ -249,8 +263,19 @@ async function excluded(target: Target, excludes: string[], cwd: string): Promis
 
     if (target.directory && /\/\*\*(?:\/\*)?$/.test(glob)) {
       const base = glob.replace(/\/\*\*(?:\/\*)?$/, "");
-      if (matchesFilter(relative, base)) return true;
+      if (matchesFilter(relative, base, true)) return true;
     }
+
+    // Without `**`, a final `*` also matches `/`, so it covers every file below a matched prefix.
+    if (
+      target.directory &&
+      relative &&
+      glob.includes("/") &&
+      !glob.includes("**") &&
+      glob.endsWith("*") &&
+      matchesPath(`${relative}/`, glob)
+    )
+      return true;
   }
 
   return false;
@@ -308,6 +333,7 @@ async function targetsForExpression(
   const entries = literal && !literal.filters.length ? [expression] : alternatives(expression);
   const targets: Target[] = [];
   let missing = true;
+  let missingDirectories = true;
 
   for (const entry of entries) {
     signal?.throwIfAborted();
@@ -316,11 +342,21 @@ async function targetsForExpression(
 
     if (resolved.kind !== "missing") missing = false;
     if (resolved.kind === "target") targets.push(resolved.target);
+    // Brace expansion can remove the wildcard from a branch. A missing file in an existing
+    // directory then means only that the glob matches nothing, not that a directory is missing.
+    if (
+      literal &&
+      missingDirectories &&
+      (resolved.kind !== "missing" ||
+        (!hasGlob(entry) &&
+          !entry.endsWith("/") &&
+          (await fileInfo(path.dirname(resolvePath(entry, cwd))))?.isDirectory()))
+    )
+      missingDirectories = false;
   }
 
-  // Brace expansion can remove the wildcard from every branch. Retain the
-  // original fixed root rather than requiring one of those branches to exist.
-  if (literal && targets.length === 0 && literal.filters.length > 0) targets.push(literal);
+  // Retain the glob's fixed root unless every branch has a missing directory.
+  if (literal && targets.length === 0 && !missingDirectories) targets.push(literal);
 
   return { targets, missing: targets.length === 0 && missing };
 }

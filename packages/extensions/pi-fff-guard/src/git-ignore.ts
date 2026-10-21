@@ -159,14 +159,17 @@ async function inspect(
       : await repository(directory, signal);
   if (await ignoredIn(root, canonical, signal)) return true;
   if (!link) return false;
-  const destination = path.resolve(
-    path.dirname(link),
-    await readlink(link),
-    path.relative(link, absolute)
-  );
+  const remainder = path.relative(link, absolute);
+  // FFF follows directory links and indexes their files under the link's own name, so a rule that
+  // ignores the destination or one of its ancestors does not hide them. Below an ignored
+  // destination, Git cannot report the rules inside it, so inspection stops there.
+  if (!remainder && (await stat(link)).isDirectory()) return false;
+  const target = path.resolve(path.dirname(link), await readlink(link));
+  // The copy keeps this check out of the link chain limit.
+  if (remainder && (await inspect(target, workspace, signal, new Set(seen)))) return false;
 
   // Keep workspace authority for local destinations; external paths use their own repository.
-  return inspect(destination, workspace, signal, seen);
+  return inspect(path.join(target, remainder), workspace, signal, seen);
 }
 
 /** Inspect existing paths using Git's rules, including lexical and resolved link targets.

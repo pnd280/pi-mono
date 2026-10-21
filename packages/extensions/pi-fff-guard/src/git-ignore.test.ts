@@ -62,7 +62,7 @@ describe("Git authority", () => {
     await directory.write(".tmp/nested/file.ts");
     expect((await detect(".tmp/nested/file.ts")).status).toBe("ignored");
     await symlink(".tmp/nested", join(directory.root, "nested-link"));
-    expect((await detect("nested-link/file.ts")).status).toBe("ignored");
+    expect((await detect("nested-link/file.ts")).status).toBe("not-ignored");
     expect((await inspect(join(external.root, "node_modules"), directory.root)).status).toBe(
       "ignored"
     );
@@ -84,7 +84,7 @@ describe("Git authority", () => {
     expect((await inspect(join(worktree, "ignored/file.ts"), worktree)).status).toBe("ignored");
   });
 
-  it("checks dependency links lexically, then resolves non-ignored links without beyond-link errors", async () => {
+  it("checks links lexically, then applies rules inside non-ignored destinations", async () => {
     await directory.write("node_modules/.pnpm/linked/package.json");
     await symlink(".pnpm/linked", join(directory.root, "node_modules/linked"));
     expect((await detect("node_modules/linked/package.json")).status).toBe("ignored");
@@ -92,9 +92,12 @@ describe("Git authority", () => {
       join(external.root, "node_modules/dependency"),
       join(directory.root, "dependency-link")
     );
-    expect((await detect("dependency-link/package.json")).status).toBe("ignored");
-    await symlink(join(external.root, "src"), join(directory.root, "source-link"));
-    expect((await detect("source-link/main.ts")).status).toBe("not-ignored");
+    expect((await detect("dependency-link/package.json")).status).toBe("not-ignored");
+    await symlink(external.root, join(directory.root, "external-link"));
+    expect((await detect("external-link/src/main.ts")).status).toBe("not-ignored");
+    expect((await detect("external-link/node_modules/dependency/package.json")).status).toBe(
+      "ignored"
+    );
     await symlink("cycle", join(directory.root, "cycle"));
     expect((await detect("cycle")).status).toBe("unavailable");
     expect((await detect("node_modules/linked/missing.ts")).status).toBe("missing");

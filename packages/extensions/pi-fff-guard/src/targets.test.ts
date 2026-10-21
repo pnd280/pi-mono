@@ -101,6 +101,9 @@ describe("FFF search scopes", () => {
       "node_modules/missing",
       "node_modules/missing/**/*.ts",
       "{missing,also-missing}/**",
+      // Brace expansion removes the wildcard before each missing directory.
+      "src/{missing,also-missing}/**",
+      "node_modules/{missing,also-missing}/**",
       `~/${path.relative(homedir(), directory.root)}/missing`
     ]) {
       expect(await decision("grep", { path: searchPath }), searchPath).toStrictEqual({
@@ -161,6 +164,8 @@ describe("FFF search scopes", () => {
     await expectAllowed("find", { path: ".tmp/page.html", pattern: "*.ts" });
     await expectAllowed("find", { path: "node_modules/", pattern: "*.ts", exclude: "*.ts" });
     await expectAllowed("multi", { constraints: "*.ts node_modules/ !*.ts" });
+    // Without `**`, FFF's `*` also matches `/`.
+    await expectAllowed("grep", { path: "node_modules/", exclude: "node_modules/*" });
     await expectIgnored("grep", { path: "node_modules/", exclude: "node_modules/dependency/" });
     await expectIgnored("grep", { path: ".tmp/**", exclude: ". **" });
     await expectIgnored("multi", { constraints: "{src,node_modules}/** !src/" });
@@ -186,6 +191,9 @@ describe("FFF search scopes", () => {
       constraints: "node_modules/*.{ts,js} !*.ts"
     });
     await expectIgnored("multi", { constraints: "node_modules/ node_modules/dependency/" });
+    await expectIgnored("multi", {
+      constraints: "node_modules/*.json node_modules/dependency/package.json"
+    });
   });
 
   it("keeps spaces and commas in an existing explicit find pattern", async () => {
