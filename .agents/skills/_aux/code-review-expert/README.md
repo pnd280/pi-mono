@@ -19,11 +19,13 @@ npx skills add sanyuan0704/sanyuan-skills --path skills/code-review-expert
 
 ## Usage
 
-After installation, simply run:
+After installation, run this command in Pi:
 
 ```
-/code-review-expert
+/skill:code-review-expert
 ```
+
+For the workspace's full six-phase review, use `/skill:code-review` instead.
 
 The skill will automatically review your current git changes.
 
