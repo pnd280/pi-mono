@@ -13,7 +13,7 @@ Use /skill:review then /skill:review
 For a skill registered at `/skills/review/SKILL.md`, the submitted prompt becomes:
 
 ```text
-Use [/skill:review](/skills/review/SKILL.md) then [/skill:review](/skills/review/SKILL.md)
+Use [/skill:review](</skills/review/SKILL.md>) then [/skill:review](</skills/review/SKILL.md>)
 ```
 
 The reference stays plain prompt text. Pi doesn't insert the skill's contents, and the model isn't guaranteed to read the file.
@@ -23,6 +23,7 @@ The reference stays plain prompt text. Pi doesn't insert the skill's contents, a
 - Tokens must match a registered command exactly and be separated by whitespace. This applies inside fenced code too.
 - Punctuation or backticks attached to a token stop it from matching, unless the whole token is itself a registered command.
 - Paths are inserted exactly as registered. References already in the current format, with the registered path, aren't expanded again.
+- An existing reference must be complete. If the format ends in a placeholder, the reference must be followed by whitespace or the end of the prompt, so a longer path such as `/skills/review.md.backup` isn't taken for `/skills/review.md`.
 
 ### Completion
 
@@ -50,12 +51,12 @@ Put the `ext.pi-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CODIN
 ```json
 {
   "ext.pi-skills": {
-    "expansionFormat": "[{command}]({path})"
+    "expansionFormat": "[{command}](<{path}>)"
   }
 }
 ```
 
-`expansionFormat` sets what each token becomes. The default is `"[{command}]({path})"`.
+`expansionFormat` sets what each token becomes. The default is `"[{command}](<{path}>)"`. The angle brackets keep paths with spaces or parentheses inside the Markdown link. Paths that contain `<`, `>`, or a line break don't make a valid link.
 
 | Placeholder | Replaced with                          | Required |
 | ----------- | -------------------------------------- | -------- |

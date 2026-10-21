@@ -13,13 +13,13 @@ E2e checks drive a Pi host with its faux provider and network access disabled. I
 - **High, e2e:** Nested discovery leaves Pi's native global, cwd, and parent instruction loading and reload behaviour unchanged.
 - **High, e2e:** Supported nested tool inputs can load instructions even when the parent hides the child output, unless a sibling [direct read](../GLOSSARY.md#discovery) suppresses the selected file.
 - **High, e2e:** Nested calls do not create direct-read suppression markers, including blocked and invalid child attempts.
-- **High, e2e:** A notice stops suppressing rediscovery when its complete message is changed or omitted from the canonical session projection by context edits, compaction, or branch navigation.
-- **High, e2e:** A direct-read marker suppresses rediscovery only while its exact originating entry and unchanged tool call stay in the canonical session projection.
+- **High, integration:** A notice stops suppressing rediscovery when its complete message is changed or omitted from the canonical session projection by context edits, compaction, or branch navigation.
+- **High, integration:** A direct-read marker suppresses rediscovery only while its exact originating entry and unchanged tool call stay in the canonical session projection.
 - **High, e2e:** Loaded and updated notices carry the full selected instruction body and schema-valid metadata, whether or not pi-tool-display is loaded.
 
 ## Not tested
 
-- Host-driven context edits, compaction, and branch navigation are not tested in a host, because the canonical-context lifetime scenarios use `SessionManager` integration checks.
+- Host-driven context edits, compaction, and branch navigation are not tested in a host. The canonical-context lifetime scenarios use `SessionManager` integration checks, so they don't cover how the extension reads `turn_end.context.contextEntries`, merges boundary drafts, or passes the host entry ID to marker creation. The [compatibility checklist](pi-compatibility.md#session) covers that wiring.
 - File selection order, Bash and FFF input inference rules, batching, and reload diffing are below the severity bar. Inference rejects unsupported syntax by design, as the [Bash inference rules](input-discovery.md#bash-inference) state.
 - Pi's default notice renderer when discovery loads alone is below the severity bar.
 - FFF owns whether its searches and indexes are correct.
