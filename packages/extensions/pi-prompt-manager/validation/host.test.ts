@@ -111,7 +111,7 @@ async function host(mode: ExtensionContext["mode"], before?: (pi: ExtensionAPI) 
   return { ...fixture, session, errors, notify, getEditor: () => editor };
 }
 
-it.each(["print", "rpc"] as const)(
+it.each(["print", "json", "rpc"] as const)(
   "does not register or touch feature storage/settings in %s mode",
   async (mode) => {
     const fixture = await host(mode);

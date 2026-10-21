@@ -17,27 +17,44 @@ const raw = () =>
     })
   );
 
-it("keeps large collection processing off the event loop without detaching borrowed bytes", async () => {
-  const bytes = raw();
-  let ticks = 0;
-  const timer = setInterval(() => ticks++, 1);
+// JSON.parse keeps this retained number as Infinity under an own `__proto__` key.
+const nonFinite = (padding: number) =>
+  Buffer.from(
+    JSON.stringify({
+      version: 1,
+      cwd: options.cwd,
+      entries: [entry("kept", { ["__proto__"]: { number: 0 }, metadata: "x".repeat(padding) })]
+    }).replace('"number":0', '"number":1e400')
+  );
 
-  try {
-    const actual = await readCollectionAsync({ ...options, raw: bytes });
-    expect(actual).toMatchObject({
-      status: "ready",
-      access: "writable",
-      entries: [{ source: { text: "exact\ttext" } }, { source: { text: "keep" } }]
+it("processes collections without detaching borrowed bytes or rewriting retained data", async () => {
+  const bytes = raw();
+  const actual = await readCollectionAsync({ ...options, raw: bytes });
+  expect(actual).toMatchObject({
+    status: "ready",
+    access: "writable",
+    entries: [{ source: { text: "exact\ttext" } }, { source: { text: "keep" } }]
+  });
+  expect(bytes.toString("utf8")).toContain("exact\\ttext");
+  const operation = { kind: "delete", target: actual.entries[0]! } as const;
+  expect(await updateCollectionAsync({ ...options, raw: bytes, operation })).toMatchObject({
+    status: "replace",
+    value: { entries: [{ source: { text: "keep" } }] }
+  });
+
+  // In process and through the worker, a write would turn the retained number into null.
+  for (const padding of [0, 2 * 1024 * 1024]) {
+    const retained = nonFinite(padding);
+    expect(await readCollectionAsync({ ...options, raw: retained })).toMatchObject({
+      access: "read-only"
     });
-    expect(ticks).toBeGreaterThan(0);
-    expect(bytes.toString("utf8")).toContain("exact\\ttext");
-    const operation = { kind: "delete", target: actual.entries[0]! } as const;
-    expect(await updateCollectionAsync({ ...options, raw: bytes, operation })).toMatchObject({
-      status: "replace",
-      value: { entries: [{ source: { text: "keep" } }] }
-    });
-  } finally {
-    clearInterval(timer);
+    await expect(
+      updateCollectionAsync({
+        ...options,
+        raw: retained,
+        operation: { kind: "add", text: "new", recordedAt }
+      })
+    ).rejects.toThrow("read-only");
   }
 });
 

@@ -1,11 +1,11 @@
 import { join } from "node:path";
 
 import { readSettingsRecord } from "@pi-mono/libs/settings-file";
-import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
+import { canonicalKeySchema, keysOverlap, resolveKeybindings } from "@pi-mono/libs/tui/keybindings";
 import { z } from "zod";
 
 const objectSchema = z.looseObject({});
-const shortcutListSchema = z.array(canonicalKeySchema).transform((keys) => [...new Set(keys)]);
+const shortcutListSchema = z.array(canonicalKeySchema);
 const shortcutsSchema = z.strictObject({
   history: shortcutListSchema.default(["ctrl+r"]),
   saveDraft: shortcutListSchema.default(["ctrl+shift+s"])
@@ -56,13 +56,23 @@ function parseSettings(value: unknown): { settings: Settings; warnings: string[]
   );
 }
 
+/**
+ * Keep the first of the keys that one keypress can match, with history first. Lifecycle claims
+ * refuse overlapping keys, even from one extension, so they would otherwise disable both.
+ */
 function resolveShortcuts(settings: Settings, warnings: string[]) {
-  settings.shortcuts.saveDraft = settings.shortcuts.saveDraft.filter((key) => {
-    if (!settings.shortcuts.history.includes(key)) return true;
-    warnings.push(`history owns launch shortcut ${key}; it will not save drafts.`);
+  const bindings = resolveKeybindings([
+    { action: "history", keys: settings.shortcuts.history },
+    { action: "saveDraft", keys: settings.shortcuts.saveDraft }
+  ]);
+  const keys = (action: "history" | "saveDraft") =>
+    bindings.filter((binding) => binding.action === action).map((binding) => binding.key);
+  const history = keys("history");
 
-    return false;
-  });
+  for (const key of settings.shortcuts.saveDraft)
+    if (history.some((other) => keysOverlap(other, key)))
+      warnings.push(`history owns launch shortcut ${key}; it will not save drafts.`);
+  settings.shortcuts = { history, saveDraft: keys("saveDraft") };
 
   return { settings, warnings };
 }

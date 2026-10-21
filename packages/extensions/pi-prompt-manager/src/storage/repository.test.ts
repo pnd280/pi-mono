@@ -12,6 +12,7 @@ import {
   writeFile
 } from "node:fs/promises";
 import { join } from "node:path";
+import { Worker } from "node:worker_threads";
 
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
@@ -188,7 +189,7 @@ it("preserves old snapshots before rename and reports post-commit cleanup separa
   expect((await readdir(fixture.storage)).filter((name) => /\.(tmp|lock)$/.test(name))).toEqual([]);
 });
 
-it("expires queued work but lets started atomic writes and owned lock cleanup finish", async () => {
+it("expires queued and processing work but waits for started atomic writes and owned lock cleanup", async () => {
   const started = Promise.withResolvers<void>();
   const proceed = Promise.withResolvers<void>();
   const repository = await FileRepository.create({
@@ -215,6 +216,34 @@ it("expires queued work but lets started atomic writes and owned lock cleanup fi
   });
   expect(notices).toEqual([]);
   expect((await readdir(fixture.storage)).some((name) => name.endsWith(".lock"))).toBe(false);
+
+  // A collection of 1 MiB or more is processed by the worker while the transaction holds the lock.
+  const path = join(fixture.storage, "history.json");
+  const large = encode({
+    version: 1,
+    cwd: fixture.realCwd,
+    entries: [entry("kept", { metadata: "x".repeat(2 * 1024 * 1024) })]
+  });
+  await writeFile(path, large);
+  const posted = Promise.withResolvers<void>();
+  // The spy calls the real method with the worker as its receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const post = Worker.prototype.postMessage;
+  const processing = vi.spyOn(Worker.prototype, "postMessage").mockImplementationOnce(function (
+    this: Worker,
+    ...request
+  ) {
+    post.apply(this, request);
+    posted.resolve();
+  });
+  const shutdown = managerFixture({ repository: fixture.repository });
+  shutdown.manager.capture("cancelled");
+  await posted.promise;
+  // The worker's reply is a later task, so disposal starts while processing holds the lock.
+  await shutdown.manager.dispose().finally(() => processing.mockRestore());
+  expect((await readdir(fixture.storage)).some((name) => name.endsWith(".lock"))).toBe(false);
+  expect(await readFile(path, "utf8")).toBe(large);
+  expect(shutdown.notices).toEqual([]);
 });
 
 function worker(label: string, count: number) {

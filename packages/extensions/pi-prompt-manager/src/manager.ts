@@ -9,6 +9,7 @@ import {
   limits,
   PromptError,
   type Collection,
+  type Mutation,
   type MutationResult,
   type Occurrence,
   type Repository
@@ -46,6 +47,7 @@ export function assertRestorable(text: string): void {
 
 export class PromptManager {
   private readonly lifetime = new WriteLifetime();
+  private readonly mutations = new Set<Promise<MutationResult>>();
   private queue: { text: string; recordedAt: string; bytes: number }[] = [];
   private queueBytes = 0;
   private pumping = false;
@@ -59,6 +61,16 @@ export class PromptManager {
 
   private isActive() {
     return !this.lifetime.signal.aborted;
+  }
+
+  /** The lifetime drains only atomic writes; disposal also waits for cancelled transactions' cleanup. */
+  private mutate(collection: Collection, operation: Mutation): Promise<MutationResult> {
+    const mutation = this.ports.repository.mutate(collection, operation, this.lifetime);
+    const settled = () => this.mutations.delete(mutation);
+    this.mutations.add(mutation);
+    void mutation.then(settled, settled);
+
+    return mutation;
   }
 
   notify(message: string, severity: "info" | "warning" | "error" = "info") {
@@ -109,11 +121,11 @@ export class PromptManager {
         this.queueBytes -= entry.bytes;
 
         try {
-          const result = await this.ports.repository.mutate(
-            "history",
-            { kind: "add", text: entry.text, recordedAt: entry.recordedAt },
-            this.lifetime
-          );
+          const result = await this.mutate("history", {
+            kind: "add",
+            text: entry.text,
+            recordedAt: entry.recordedAt
+          });
 
           if (
             result.status === "failed" ||
@@ -200,11 +212,7 @@ export class PromptManager {
       const revision = this.restorationRevision;
       this.saving = true;
       ownsGuard = true;
-      const result = await this.ports.repository.mutate(
-        "drafts",
-        { kind: "add", text, recordedAt },
-        this.lifetime
-      );
+      const result = await this.mutate("drafts", { kind: "add", text, recordedAt });
 
       if (!this.reportMutation(result, "Draft saved.") || !this.isActive()) return;
 
@@ -272,11 +280,7 @@ export class PromptManager {
     let result: MutationResult;
 
     try {
-      result = await this.ports.repository.mutate(
-        collection,
-        { kind: "delete", target },
-        this.lifetime
-      );
+      result = await this.mutate(collection, { kind: "delete", target });
     } catch (error) {
       result = { status: "failed", message: errorMessage(error) };
     }
@@ -354,11 +358,11 @@ export class PromptManager {
           break;
 
         case "add": {
-          const result = await this.ports.repository.mutate(
-            "drafts",
-            { kind: "add", text: command.text, recordedAt: this.ports.now().toISOString() },
-            this.lifetime
-          );
+          const result = await this.mutate("drafts", {
+            kind: "add",
+            text: command.text,
+            recordedAt: this.ports.now().toISOString()
+          });
           this.reportMutation(result, "Draft saved.");
           break;
         }
@@ -374,14 +378,15 @@ export class PromptManager {
 
   /**
    * Stops new writes, notifications, and views before it returns its promise. The promise settles
-   * when atomic writes that already started have finished.
+   * when started mutations have committed or been cancelled, and have released their locks.
    */
   async dispose(): Promise<void> {
     const finishing = this.lifetime.dispose();
+    const mutations = [...this.mutations];
     this.queue = [];
     this.queueBytes = 0;
     this.ui?.abort();
     this.ui = undefined;
-    await finishing;
+    await Promise.allSettled([finishing, ...mutations]);
   }
 }
