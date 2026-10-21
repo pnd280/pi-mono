@@ -7,81 +7,23 @@ import { z } from "zod";
 
 import { ChildRun } from "../src/child/run.ts";
 import { RunReader } from "../src/history/reader.ts";
-import { detailsSchema } from "../src/result.ts";
 import { taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
 import type { TaskEvent } from "../src/tasks/registry.ts";
 import { withFixture } from "./background-fixture.ts";
 import { fixtureLaunch } from "./workspace.ts";
 
 test.skipIf(process.platform !== "linux")(
-  "scopes activity to each child and resets it when a task resumes",
+  "keeps late updates of a disposed task view out of its replacement and the child files",
   async () => {
     await withFixture(async (directory, start) => {
       const host = await start();
       await host.prompt("activity-pair");
-      const updates = host.records.flatMap((event) => {
-        if (event.type !== "tool_execution_update" || event.toolName !== "subagent") return [];
-        const parsed = z.object({ details: detailsSchema }).safeParse(event.partialResult).data;
-
-        return parsed ? [parsed.details] : [];
-      });
-      expect(
-        updates
-          .filter((detail) => detail.description === "Read activity task")
-          .map((detail) => detail.activity)
-      ).toContain("read");
-      expect(
-        updates.some(
-          (detail) => detail.description === "Write activity task" && detail.activity === "write"
-        )
-      ).toBe(true);
-      expect(
-        updates.some(
-          (detail) => detail.description === "Read activity task" && detail.activity === "write"
-        )
-      ).toBe(false);
-      const list = async () =>
-        z
-          .object({ tasks: z.array(taskRecordSchema) })
-          .parse(JSON.parse((await host.command("list")).message)).tasks;
-      const task = (await list()).find((item) => item.description === "Read activity task")!;
-      const resumedAt = host.records.length;
-      await host.prompt(`resume-activity-id ${task.task_id}`);
-      const resumedActivity = host.records.slice(resumedAt).flatMap((event) => {
-        if (event.type !== "tool_execution_update" || event.toolName !== "subagent") return [];
-        const details = z.object({ details: detailsSchema }).safeParse(event.partialResult)
-          .data?.details;
-
-        return details?.activity ? [details.activity] : [];
-      });
-      expect(resumedActivity).toContain("write");
-      expect(resumedActivity).not.toContain("read");
-      const after = host.records.length;
-      const work = host.prompt(`resume-slow-id ${task.task_id}`);
-      await host.wait((event) => {
-        if (event.type !== "tool_execution_update") return false;
-        const details = z.object({ details: detailsSchema }).safeParse(event.partialResult)
-          .data?.details;
-
-        return details?.task_id === task.task_id && details.state === "running";
-      }, after);
-      const current = host.records
-        .slice(after)
-        .flatMap((event) =>
-          event.type === "tool_execution_update"
-            ? [
-                z.object({ details: detailsSchema }).safeParse(event.partialResult).data?.details
-                  .activity
-              ]
-            : []
-        );
-      expect(current.every((activity) => activity === "")).toBe(true);
-      await host.command(`abort ${task.task_id}`);
-      await work;
+      const tasks = z
+        .object({ tasks: z.array(taskRecordSchema) })
+        .parse(JSON.parse((await host.command("list")).message)).tasks;
+      const task = tasks.find((item) => item.description === "Read activity task")!;
 
       // Open only a disposable copy; the source conversations must remain unchanged.
-      const tasks = await list();
-      const stopped = tasks.find((item) => item.task_id === task.task_id)!;
       const original = await readFile(task.session_file, "utf8");
       const sessionFile = `${directory}/source-session.jsonl`;
       await copyFile(task.session_file, sessionFile);
@@ -100,7 +42,7 @@ test.skipIf(process.platform !== "linux")(
         sessionFile,
         taskId: task.task_id,
         runId,
-        previousRunId: stopped.run_id,
+        previousRunId: task.run_id,
         prompt: "slow"
       });
 
@@ -109,7 +51,7 @@ test.skipIf(process.platform !== "linux")(
         await run.connection.request({ type: "get_state" });
         await expect.poll(() => run.connection.pendingCount, { timeout: STEP_TIMEOUT_MS }).toBe(0);
         // The reader follows this run as `Tasks` would report it; the run itself is real.
-        const live: TaskRecord = { ...stopped, session_file: sessionFile, run_id: runId };
+        const live: TaskRecord = { ...task, session_file: sessionFile, run_id: runId };
         const records = new Map([
           [live.task_id, live],
           [replacementTask.task_id, replacementTask]

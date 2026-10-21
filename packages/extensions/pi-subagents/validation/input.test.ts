@@ -61,8 +61,19 @@ test.each(["follow_up", "steer", "settling", "exiting"])(
         if (mode === "exiting") await ready(`${directory}/work/exit-ready`);
         const message = `update-id ${id} ${mode === "steer" ? "steer" : "follow_up"}`;
         // The settling child holds its settle hook until the input arrives.
-        if (mode === "settling" || mode === "exiting") await host.prompt(message);
-        else await sendUpdate(host, directory, message);
+        if (mode === "settling") await host.prompt(message);
+        else if (mode === "exiting") {
+          // The exiting child holds its shutdown until the supervisor's call has started. The
+          // supervisor routes the input before its next step, so the input meets the exit.
+          const after = host.records.length;
+          const work = host.prompt(message);
+          await host.wait(
+            (record) => record.type === "tool_execution_start" && record.toolName === "subagent",
+            after
+          );
+          await release(directory, "exit-release");
+          await work;
+        } else await sendUpdate(host, directory, message);
         const update = (await host.results()).at(-1)!;
         expect(detailsSchema.parse(update.details).task_id).toBe(id);
         if (mode !== "exiting") {

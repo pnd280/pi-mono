@@ -2,6 +2,7 @@ import { contentText, type Usage } from "@earendil-works/pi-ai";
 import {
   buildSessionProjection,
   DEFAULT_MAX_BYTES,
+  DEFAULT_MAX_LINES,
   truncateHead,
   type SessionEntry
 } from "@earendil-works/pi-coding-agent";
@@ -10,6 +11,7 @@ import { z } from "zod";
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
 import type { RunReader } from "./history/reader.ts";
 import { boundedText, detailsUsage, sumUsage, type ToolDetails } from "./result.ts";
+import type { TaskRecord } from "./tasks/records.ts";
 
 type Item = { type: "user" | "assistant" | "tools"; text: string };
 
@@ -121,13 +123,28 @@ function lastText(entries: readonly SessionEntry[]): {
       .reverse()
       .find((message) => message.role === "assistant" && message.content.length > 0);
     if (last?.role === "assistant")
-      return {
-        cursor: entry.sourceEntry.id,
-        text: boundedText(contentText(last.content, ""))
-      };
+      return { cursor: entry.sourceEntry.id, text: contentText(last.content, "") };
   }
 
   return { cursor: null, text: null };
+}
+
+/** The `--last` response, with the text shortened until the complete response fits the output budget. */
+function lastResponse(id: string, state: TaskRecord["state"], entries: readonly SessionEntry[]) {
+  const { cursor, text } = lastText(entries);
+
+  for (let maxBytes = DEFAULT_MAX_BYTES; ; maxBytes = Math.floor(maxBytes / 2)) {
+    const response = {
+      task_id: id,
+      state,
+      cursor,
+      text: text === null ? null : boundedText(text, DEFAULT_MAX_LINES, maxBytes)
+    };
+
+    // Escaped control characters can make the JSON text larger than the text.
+    if (Buffer.byteLength(JSON.stringify(response)) <= DEFAULT_MAX_BYTES || maxBytes === 0)
+      return response;
+  }
 }
 
 /** The state is the read run's state, even when the task starts another run during the read. */
@@ -137,7 +154,7 @@ export async function showTask(reader: RunReader, id: string, tokens: string[]):
     record: task,
     history: { entries }
   } = await reader.read(id);
-  if (config.last) return { task_id: id, state: task.state, ...lastText(entries) };
+  if (config.last) return lastResponse(id, task.state, entries);
   const common = { task_id: id, state: task.state, usage: usage(entries) };
 
   const start =

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { contentText } from "@earendil-works/pi-ai";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
-import { expect, test as caseTest } from "vite-plus/test";
+import { expect, test as caseTest, type ExpectStatic } from "vite-plus/test";
 import { z } from "zod";
 
 import { resultDetailsSchema } from "../src/background-result.ts";
@@ -24,6 +24,50 @@ import { processStat } from "./processes.ts";
 
 // Each test owns its workspace and processes.
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
+
+const extensionErrorSchema = z.object({
+  type: z.literal("extension_error"),
+  event: z.string(),
+  error: z.string()
+});
+
+/** The `group-zombie` fixture records the PIDs of the zombie's parent and the zombie. */
+async function zombiePids(directory: string): Promise<number[]> {
+  const recorded = await readFile(join(directory, "work", "zombie-pids"), "utf8").catch(() => "");
+
+  return recorded.split(" ").filter(Boolean).map(Number);
+}
+
+/** Waits until the zombie is in the process group of the child that started its parent. */
+async function zombieInGroup(directory: string, expect: ExpectStatic): Promise<void> {
+  await expect
+    .poll(async () => (await zombiePids(directory)).length, { timeout: STEP_TIMEOUT_MS })
+    .toBe(2);
+  const [parent, zombie] = await zombiePids(directory);
+
+  // The parent's parent is the child, so the zombie must be in its process group.
+  const inGroup = async () => {
+    const [owner, member] = await Promise.all([processStat(parent!), processStat(zombie!)]);
+    const child = owner && (await processStat(owner.ppid));
+
+    return member?.state === "Z" && member.pgrp === child?.pgrp;
+  };
+
+  await expect.poll(inGroup, { timeout: STEP_TIMEOUT_MS }).toBe(true);
+}
+
+/**
+ * Before the fixture's cleanup: the zombie's parent is outside the group; on SIGTERM, it reaps the
+ * zombie and exits. Setup can fail before the PIDs are recorded.
+ */
+async function stopZombie(directory: string, expect: ExpectStatic): Promise<void> {
+  const pids = await zombiePids(directory);
+  if (pids[0] !== undefined && (await processStat(pids[0]))) process.kill(pids[0], "SIGTERM");
+  // A scan of working directories cannot find a zombie, so check the recorded PIDs.
+  await expect
+    .poll(() => Promise.all(pids.map((pid) => processStat(pid))), { timeout: STEP_TIMEOUT_MS })
+    .toEqual(pids.map(() => undefined));
+}
 
 test.each([
   ["idle", "turn_end"],
@@ -238,25 +282,12 @@ test("reports a descendant's failed process cleanup in the cancelled result and 
   expect
 }) => {
   await fixture(async (host, directory) => {
-    const recorded = () => readFile(join(directory, "work", "zombie-pids"), "utf8").catch(() => "");
-
     try {
       // The child supervisor's grandchild leaves a zombie; the child writes other stderr around the
       // failure that it forwards.
       await host.reply("background-nested-zombie");
       const [task] = await taskList(host);
-      await expect.poll(recorded, { timeout: STEP_TIMEOUT_MS }).not.toBe("");
-      const [parent, zombie] = (await recorded()).split(" ").map(Number);
-
-      // The parent's parent is the grandchild, so the zombie must be in its process group.
-      const inGroup = async () => {
-        const [owner, member] = await Promise.all([processStat(parent!), processStat(zombie!)]);
-        const child = owner && (await processStat(owner.ppid));
-
-        return member?.state === "Z" && member.pgrp === child?.pgrp;
-      };
-
-      await expect.poll(inGroup, { timeout: STEP_TIMEOUT_MS }).toBe(true);
+      await zombieInGroup(directory, expect);
       await host.prompt(`abort-id ${task!.task_id}`);
       const aborted = (await host.entries())
         .flatMap((entry) =>
@@ -274,20 +305,40 @@ test("reports a descendant's failed process cleanup in the cancelled result and 
       expect(record).toMatchObject({ state: "inactive", outcome: "cancelled" });
       expect(record!.error).toMatch(failure);
     } finally {
-      // Before the fixture's cleanup: the zombie's parent is outside the group; on SIGTERM, it reaps
-      // the zombie and exits. Setup can fail before the PIDs are recorded.
-      const pids = (await recorded()).split(" ").filter(Boolean).map(Number);
-      if (pids[0] !== undefined && (await processStat(pids[0]))) process.kill(pids[0], "SIGTERM");
-      // A scan of working directories cannot find a zombie, so check the recorded PIDs.
-      await expect
-        .poll(() => Promise.all(pids.map((pid) => processStat(pid))), { timeout: STEP_TIMEOUT_MS })
-        .toEqual(pids.map(() => undefined));
+      await stopZombie(directory, expect);
     }
   });
 });
 
+test("reports a failed process cleanup of a task when the supervisor's session ends", async ({
+  expect
+}) => {
+  await fixture(
+    async (host, directory) => {
+      try {
+        await host.reply("background-group-zombie");
+        await zombieInGroup(directory, expect);
+        await host.stop();
+        // No result follows at the session end, so Pi reports the error of the shutdown handler.
+        const errors = host.records.flatMap(
+          (record) => extensionErrorSchema.safeParse(record).data ?? []
+        );
+        expect(errors.map(({ event }) => event)).toEqual(["session_shutdown"]);
+        expect(errors[0]!.error).toMatch(
+          /^Task cleanup failed: task \S+: force_stop failed: Process group \d+ still has members after SIGKILL/
+        );
+      } finally {
+        await stopZombie(directory, expect);
+      }
+    },
+    4,
+    // A child at the depth limit gets the shortest grace period before its forced stop.
+    1
+  );
+});
+
 test("promotes foreground work, retains it across turn abort, and counts late usage once", async () => {
-  await fixture(async (host) => {
+  await fixture(async (host, directory) => {
     const work = host.prompt("promote-pair").catch((error: unknown) => error);
     const record = await host.wait(
       (event) =>
@@ -330,6 +381,8 @@ test("promotes foreground work, retains it across turn abort, and counts late us
       state: "active",
       background: true
     });
+    // The promoted child holds its final reply until now.
+    await release(directory, "run-release");
     await host.wait(
       (event) =>
         event.type === "message_end" &&

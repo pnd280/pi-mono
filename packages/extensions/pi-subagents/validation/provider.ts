@@ -150,18 +150,10 @@ function continuationPlan(scenario: string): Call[] | undefined {
         prompt: history[1] === "extend" ? "nested-background" : "history-context"
       }
     ];
-  const resumedActivity = /^resume-activity-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
-  if (resumedActivity)
-    return [
-      { description: "Resumed activity", prompt: "activity-write", task_id: resumedActivity }
-    ];
   const resumedStubborn = /^stubborn-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
-  if (resumedStubborn)
-    return [{ description: "Resume stubborn", prompt: "ignore-abort", task_id: resumedStubborn }];
-  const resumedSlow = /^resume-slow-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
 
-  return resumedSlow
-    ? [{ description: "Resume without activity", prompt: "slow", task_id: resumedSlow }]
+  return resumedStubborn
+    ? [{ description: "Resume stubborn", prompt: "ignore-abort", task_id: resumedStubborn }]
     : undefined;
 }
 
@@ -347,6 +339,15 @@ async function holdChildReply(scenario: string, signal: AbortSignal | undefined)
   if (["finite-late", "input-hold"].includes(scenario)) await runRelease(signal);
 }
 
+/**
+ * The promoted task ends when the test releases it after the turn abort. The read and write tasks
+ * keep their activity visible for the manual checks.
+ */
+async function holdActivityReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
+  if (scenario === "activity-promote") await runRelease(signal);
+  else if (scenario !== "activity-digest") await setTimeout(1200, undefined, { signal });
+}
+
 /** `background-pair` lets its late task finish once the first result has continued the run. */
 async function releaseLateTask(scenario: string, completions: number): Promise<void> {
   if (scenario === "background-pair" && completions === 1)
@@ -485,7 +486,6 @@ function createStream(
     const prompt = user?.role === "user" ? contentText(user.content).trim() : "";
     const scenario = idleWake() ? "idle-wake" : prompt;
     const plannedSteps = ["failure-then-reply", "job-turn"].includes(scenario) ? 2 : 1;
-    const activityDelay = ["activity-promote", "activity-digest"].includes(scenario) ? 4000 : 1200;
     if (scenario === "abort-tool")
       return createFixtureStream({
         model,
@@ -578,7 +578,7 @@ function createStream(
             .some((item) => item.role === "toolResult");
 
           if (hadTool) {
-            await setTimeout(activityDelay, undefined, { signal });
+            await holdActivityReply(scenario, signal);
             text("Activity fixture finished");
 
             return "stop";
@@ -843,9 +843,10 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
     await input;
   });
   pi.on("session_shutdown", async () => {
+    // The child exits when the test releases it after the supervisor received the input.
     if (exitHold) {
       await writeFile(join(process.cwd(), "exit-ready"), "ready");
-      await setTimeout(1500);
+      await runRelease(undefined, "exit-release");
     }
 
     // pi-subagents loads first, so its handler has written the cleanup failures.

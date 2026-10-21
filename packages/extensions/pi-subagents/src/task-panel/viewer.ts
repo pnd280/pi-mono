@@ -1,4 +1,9 @@
-import { contentText } from "@earendil-works/pi-ai";
+import {
+  contentText,
+  type AssistantMessage,
+  type ImageContent,
+  type TextContent
+} from "@earendil-works/pi-ai";
 import {
   AssistantMessageComponent,
   BashExecutionComponent,
@@ -76,6 +81,61 @@ function displayValue(value: unknown): unknown {
     );
 
   return value;
+}
+
+function displayContent(
+  content: string | (TextContent | ImageContent)[]
+): string | (TextContent | ImageContent)[] {
+  if (typeof content === "string") return displayText(content);
+
+  return content.map((block) =>
+    block.type === "text" ? { ...block, text: displayText(block.text) } : block
+  );
+}
+
+function displayAssistant(message: AssistantMessage): AssistantMessage {
+  return {
+    ...message,
+    content: message.content.map((block) => {
+      if (block.type === "text") return { ...block, text: displayText(block.text) };
+      if (block.type === "thinking") return { ...block, thinking: displayText(block.thinking) };
+
+      return block;
+    }),
+    ...(message.errorMessage === undefined
+      ? {}
+      : { errorMessage: displayText(message.errorMessage) })
+  };
+}
+
+/** Pi's chat components receive display copies of the child's text; the recorded message stays exact. */
+function displayMessage(message: TranscriptMessage): TranscriptMessage {
+  switch (message.role) {
+    case "assistant":
+      return displayAssistant(message);
+    case "bashExecution":
+      return {
+        ...message,
+        command: displayText(message.command),
+        output: displayText(message.output),
+        ...(message.fullOutputPath === undefined
+          ? {}
+          : { fullOutputPath: displayText(message.fullOutputPath) })
+      };
+    case "user":
+      return { ...message, content: displayContent(message.content) };
+    case "custom":
+      return {
+        ...message,
+        customType: displayText(message.customType),
+        content: displayContent(message.content)
+      };
+    case "compactionSummary":
+    case "branchSummary":
+      return { ...message, summary: displayText(message.summary) };
+    default:
+      return message;
+  }
 }
 
 /** For their renderers only: these tools never run here. */
@@ -159,7 +219,7 @@ export class TranscriptViewer extends Container {
         reused.component instanceof AssistantMessageComponent &&
         item.message.role === "assistant"
       ) {
-        reused.component.updateContent(item.message, item.streaming);
+        reused.component.updateContent(displayAssistant(item.message), item.streaming);
 
         return { ...row, component: reused.component };
       }
@@ -238,10 +298,12 @@ export class TranscriptViewer extends Container {
 }
 
 function messageComponent(
-  message: TranscriptMessage,
+  recorded: TranscriptMessage,
   streaming: boolean,
   { ui }: ViewerOptions
 ): Component | undefined {
+  const message = displayMessage(recorded);
+
   switch (message.role) {
     case "assistant": {
       const component = new AssistantMessageComponent(undefined, true);

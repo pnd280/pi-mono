@@ -12,7 +12,7 @@ Cancellation, the usage read, and shutdown share the same grace period. The grac
 
 When the session ends, no task or job starts, saves an entry, or delivers a result, and tools, commands, and the panel see no session. pi-subagents then stops the children and jobs. For the order against other extensions' shutdown handlers, see the [shared lifecycle shutdown order](../../../libs/src/lifecycle/README.md#shutdown-phase).
 
-Graceful exit waits for child-task cleanup. It also waits for each job's process-group cleanup, including after the job's shell exits, and for the job's log file to close. Job stop failures are reported. Jobs get no stdin grace period; see [job stops](jobs.md#stop-a-job) and their [limits](jobs.md#limits).
+Graceful exit waits for child-task cleanup. It also waits for each job's process-group cleanup, including after the job's shell exits, and for the job's log file to close. When a task's or job's forced stop fails, Pi reports an error of the pi-subagents shutdown handler after all stops end. Jobs get no stdin grace period; see [job stops](jobs.md#stop-a-job) and their [limits](jobs.md#limits).
 
 ### Process-group cleanup
 

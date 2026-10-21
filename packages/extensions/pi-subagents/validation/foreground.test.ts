@@ -566,13 +566,15 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           ({ pid }) => pid !== second.connection.process.pid
         );
 
+      // The held writer runs `sleep 600` and writes nothing until it ends.
       const rejected = async () => {
+        const held = await readFile(task.session_file);
         await second.prompt(`history-id ${task.task_id}`);
         const result = (await second.results()).at(-1)!;
         expect(result.isError).toBe(true);
         expect(contentText(result.content)).toContain("Task is running in another process");
-        // No second writer started a run in the file.
-        expect(await runs()).toBe(2);
+        // No second writer changed the file.
+        expect(await readFile(task.session_file)).toEqual(held);
       };
 
       const work = first.prompt(`stubborn-id ${task.task_id}`).catch((error: unknown) => error);
