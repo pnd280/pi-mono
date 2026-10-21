@@ -114,7 +114,6 @@ When the destination branch has neither a selection nor a system message, the ex
 ### Lifecycle
 
 - [ ] Pi's file-based extension loader loads the package entry point and its runtime imports.
-- [ ] The thinking-level enum in [settings](../src/settings.ts) matches Pi's `ModelThinkingLevel` values.
 - [ ] `session_start` fires on startup, `/reload`, `/new`, `/resume`, and `/fork`.
 - [ ] `getAgentDir()` honours `PI_CODING_AGENT_DIR`.
 - [ ] In `session_start`, `ctx.isProjectTrusted()` reports Pi's trust decision.

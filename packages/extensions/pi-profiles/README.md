@@ -92,13 +92,13 @@ In the interactive terminal, `/profile` opens a menu with two views. Press **Tab
 
 In "Profiles", the `defer` list shows each [group](docs/tools.md#groups) in square brackets. In "Tools", the details of a tool in a deferred group name the other tools that load with it.
 
-| State        | Meaning                                                                                                           |
-| ------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `active`     | Pi has activated the tool. [Codemode-only mode](docs/tools.md#codemode-only-mode) can still hide its declaration. |
-| `deferred`   | The selected profile deferred the tool. The details tell whether the active `tool_search` can load it.            |
-| `searchable` | The tool is not active. Its exposure is `codemode` or `deferred`, so `tool_search` can load it.                   |
-| `off`        | The tool is not active, and `tool_search` cannot load it.                                                         |
-| `hidden`     | The tool has `hidden` exposure, so nothing can reach it.                                                          |
+| State        | Meaning                                                                                                                 |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `active`     | Pi has activated the tool. [Codemode-only mode](docs/tools.md#codemode-only-mode) can still hide its declaration.       |
+| `deferred`   | The selected profile deferred the tool. The details tell whether the active `tool_search` can load it.                  |
+| `searchable` | The tool is not active. Its exposure is `codemode` or `deferred`, so `tool_search` can load it.                         |
+| `off`        | The tool is not active, and `tool_search` cannot load it, also when the profile denies a `codemode` or `deferred` tool. |
+| `hidden`     | The tool has `hidden` exposure, so nothing can reach it.                                                                |
 
 The menu shows the state when it opens. In RPC mode, `/profile` shows a plain list of the profiles instead.
 

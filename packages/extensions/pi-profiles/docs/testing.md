@@ -23,7 +23,7 @@ This package tests the trust boundary for project settings, what a switch declar
 - **High, e2e:** Later requests add the texts of the profile's prompt files after the existing `appendSystemPrompt` text.
 - **High, e2e:** The next switch, also to no profile, undoes the previous profile's tool changes.
 - **High, e2e:** No profile adds no prompts.
-- **High, e2e:** A `deny` tool stays off for the whole selection, also when another extension registers it or turns it on later, or when `--tools` lists it.
+- **High, e2e:** No request of the selection declares a `deny` tool when an extension that loads earlier turns it on before or during a run, or when a later registration makes `--tools` turn it on again.
 
 ### Deferral
 

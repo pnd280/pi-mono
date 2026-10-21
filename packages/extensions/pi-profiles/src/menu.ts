@@ -56,7 +56,14 @@ function toolStatus(tool: ToolInfo, data: MenuData): ToolStatus {
   if (data.active.includes(tool.name)) return "active";
   if (data.deferred.flat().includes(tool.name)) return "deferred";
 
-  return isDirect(tool.exposure) ? "off" : "searchable";
+  if (isDirect(tool.exposure) || searchExcludes(tool, data)) return "off";
+
+  return "searchable";
+}
+
+/** pi-profiles' `tool_search` leaves the selected profile's `deny` tools out. */
+function searchExcludes({ name }: ToolInfo, { profile, ownsToolSearch }: MenuData): boolean {
+  return ownsToolSearch && toolMatcher(profile?.tools?.deny ?? [])(name);
 }
 
 /** Why the model can or cannot reach the tool now. */
@@ -67,7 +74,15 @@ function reach(tool: ToolInfo, status: ToolStatus, data: MenuData): string[] {
       "Active in Pi's tool set.",
       "Its exposure and Pi's codemode mode decide whether the model can call it directly."
     ];
-  if (status === "off") return ["Off: the model cannot call it or load it."];
+
+  if (status === "off") {
+    if (isDirect(tool.exposure)) return ["Off: the model cannot call it or load it."];
+
+    return [
+      "Off: the profile denies it, so pi-profiles' tool_search cannot load it.",
+      "Codemode scripts can call it while codemode is active."
+    ];
+  }
 
   const lines = [
     status === "deferred" ? "Deferred by the profile." : "Not active in Pi's tool set."
