@@ -1,9 +1,10 @@
-import { Type } from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionContext,
   ToolDefinition
 } from "@earendil-works/pi-coding-agent";
+import { toToolSchema } from "@pi-mono/libs/tool-schema";
+import { z } from "zod";
 
 import {
   findConfiguredModel,
@@ -33,7 +34,13 @@ function updateCompactionStatus(ctx: ExtensionContext) {
   );
 }
 
-const contextWindowParameters = Type.Object({});
+const contextWindowParameters = toToolSchema(z.object({}));
+
+const compactInput = z.object({
+  instructions: z.string().describe("What to preserve or emphasize in the summary.").optional()
+});
+
+const compactParameters = toToolSchema(compactInput);
 
 /** Configured `docs` follow the built-in description. */
 function contextWindowTool(docs: string) {
@@ -119,16 +126,12 @@ export default function smartCompact(pi: ExtensionAPI) {
     exposure: "model-only",
     label: "Compact context",
     description: "Compact the session context",
-    parameters: Type.Object({
-      instructions: Type.Optional(
-        Type.String({
-          description: "What to preserve or emphasize in the summary."
-        })
-      )
-    }),
+    parameters: compactParameters,
     async execute(_id, args, signal, _onUpdate, ctx) {
       if (!binding) throw new Error(unavailable);
-      binding.request(args.instructions, signal);
+      const parsed = compactInput.safeParse(args);
+      if (!parsed.success) throw new Error("Invalid compact parameters");
+      binding.request(parsed.data.instructions, signal);
       const rule = ctx.model && selectRule(config, ctx.model);
       const modelOverride = rule?.model;
       let thinkingLevel = rule?.thinkingLevel ?? pi.getThinkingLevel();

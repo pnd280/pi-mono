@@ -91,7 +91,7 @@ For the example `compactionInstructionsFile`, create `compaction-instructions.tx
 
 Put the key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
 
-A trusted project's fields override the global fields, and fields that it leaves out are inherited. The extension doesn't watch settings, instruction files, or docs files, so run `/reload` after changes. To go back to native selection, remove `rules`. The extension has no environment variables and never writes settings.
+A trusted project's fields override the global fields, and fields that it leaves out are inherited. The extension doesn't watch settings, instruction files, or docs files, so run `/reload` after changes. To use native selection in a project that inherits global rules, set `rules` to `[]` in the project's settings. To remove routing entirely, remove `rules` from both participating scopes. The extension has no environment variables and never writes settings.
 
 ### Errors
 

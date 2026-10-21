@@ -38,6 +38,7 @@ The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and
 - A todo with children that are not deleted can be moved but not deleted.
 - `clear` removes everything and resets IDs.
 - `list` returns at most 200 lines and 32,768 characters, including any omission notice. The result details keep the full snapshot.
+- `get` returns the saved metadata as one line of JSON, shortened to 4,000 characters. The result details keep the stored value unchanged.
 - [Limits](../src/state/limits.ts) on input and state also apply when results are replayed.
 
 ## Tool cards

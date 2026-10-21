@@ -5,7 +5,7 @@ import {
   styledOutput
 } from "@pi-mono/libs/tui/terminal-text";
 
-import type { Task, TaskMutationParams, TaskStatus } from "./state/model.ts";
+import type { Task, TaskMetadata, TaskMutationParams, TaskStatus } from "./state/model.ts";
 
 // pi-tool-display imports this module (`pi-todo/text`) for todo cards; keep it free of runtime host imports.
 
@@ -53,6 +53,11 @@ export function formatTodosSummary(tasks: readonly Pick<Task, "status">[]): stri
 
 export function presentTaskDescription(text: string): string {
   return excerpt(sanitizeTaskDescription(text), 4000);
+}
+
+/** One terminal-safe JSON line; result details keep the stored value unchanged. */
+export function presentTaskMetadata(metadata: TaskMetadata): string {
+  return excerpt(compactDisplayText(JSON.stringify(metadata)), 4000);
 }
 
 export function sanitizeTaskMutationParams(params: TaskMutationParams): TaskMutationParams {
