@@ -640,6 +640,9 @@ importers:
       pi-read:
         specifier: workspace:*
         version: link:../pi-read
+      pi-subagents:
+        specifier: workspace:*
+        version: link:../pi-subagents
       pi-todo:
         specifier: workspace:*
         version: link:../pi-todo

@@ -162,6 +162,26 @@ export class TranscriptCoordinator implements TranscriptView {
       this.state.get(key) ?? (origin === "live" ? this.liveIdentities.get(identity) : undefined);
 
     if (existing) {
+      // Final middleware can also replace the tool at the same position. Pi executes
+      // the final tool, so its name and display adapter replace the streamed ones.
+      const renamed = existing.name !== name;
+
+      if (renamed) {
+        const previous = JSON.stringify([
+          existing.reference.messageTimestamp,
+          existing.reference.toolCallId,
+          existing.name
+        ]);
+
+        if (this.liveIdentities.get(previous) === existing) {
+          this.liveIdentities.delete(previous);
+          this.liveIdentities.set(identity, existing);
+        }
+
+        existing.name = name;
+        existing.adapter = adapter;
+      }
+
       const referenceChanged =
         existing.reference.messageTimestamp !== reference.messageTimestamp ||
         existing.reference.contentIndex !== reference.contentIndex ||
@@ -169,7 +189,7 @@ export class TranscriptCoordinator implements TranscriptView {
         existing.reference.messageEntryId !== reference.messageEntryId;
       if (referenceChanged) existing.reference = { ...reference };
       this.rawArgs.set(existing, args);
-      if (this.validate(existing, validated)) this.changed(existing);
+      if (this.validate(existing, validated) || renamed) this.changed(existing);
 
       return existing;
     }

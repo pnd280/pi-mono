@@ -24,8 +24,8 @@ This package tests settings trust, delegated execution through its private Pi ho
 - **High, e2e:** Display integration preserves tool parameter schemas and results produced through Pi's middleware.
 - **High, e2e:** Display integration registers no tools and leaves the active tool selection unchanged.
 - **High, e2e:** Startup and the session remain usable when private host hooks are incompatible or non-writable.
-- **High, e2e:** Failed hook installation leaves no partial hooks.
-- **High, e2e:** Buffered and replayed tool rows retain the correct call's arguments and results.
+- **High, e2e:** Failed hook installation leaves no partial hooks, including on one row whose later hook fails after its first hook was installed.
+- **High, e2e:** Buffered and replayed tool rows retain the correct call's arguments and results. When message-end middleware renames a call, its card, observation, and saved facts follow the final tool.
 - **High, integration:** File mutation observation uses the shared capture rather than rereading targets for display.
 
 ### Saved facts
@@ -52,6 +52,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 - **High, e2e:** Disposal leaves other mutation subscribers and later wrappers active.
 - **High, e2e:** Disposed collectors cannot update or persist into replacement sessions.
 - **High, e2e:** Pending host-event continuations cannot reattach assistant decoration after disposal or take row ownership from a replacement transcript binding.
+- **High, e2e:** When one row's cleanup fails, disposal still restores the other rows and the host hooks, and warns instead of throwing.
 
 ## Not tested
 

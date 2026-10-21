@@ -243,6 +243,8 @@ export class DisplaySession {
         if (!selected) {
           if (!this.messages.has(position)) coordinator.boundary();
           this.messages.add(position);
+          // Later notices belong to this tool, which keeps its own renderer.
+          this.noticeAnchor = undefined;
           continue;
         }
 

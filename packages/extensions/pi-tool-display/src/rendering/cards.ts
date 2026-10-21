@@ -199,11 +199,19 @@ class CardRow {
     return this.prepared;
   }
 
-  /** A recorded failure changes the effective display adapter, so the retry prepares again. */
+  /**
+   * A recorded failure changes the effective display adapter, so the retry prepares
+   * again. Pi renders the call slot first; preparing a visible result slot with it lets
+   * a result failure make the heading generic before Pi receives it.
+   */
   render(slot: Slot, width: number): string[] {
     return this.evaluator.render(
       () => this.prepared?.interpreted,
-      () => this.renderSlot(slot, width)
+      () => {
+        if (slot === "call" && this.result !== undefined) this.renderSlot("result", width);
+
+        return this.renderSlot(slot, width);
+      }
     );
   }
 

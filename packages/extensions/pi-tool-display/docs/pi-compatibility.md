@@ -181,6 +181,6 @@ The `validateToolArguments` items keep [callback arguments](adapters.md#callback
 ## Coverage notes
 
 - Real codemode coverage checks its adapter card, summary count, nested mutations, parent-only replay, and the absence of child display metadata.
-- A local stdio MCP server checks discovery, deferred exposure, normalised namespaces, collision-suffixed names, built-in renderer selection, and original server and tool identities.
+- No automated test covers built-in MCP discovery through codemode, deferred exposure, normalised namespaces, collision-suffixed names, built-in renderer selection, or original server and tool identities. Recheck them with the [nested-execution contracts](#nested-execution).
 - For terminal coverage, run the [manual checks](validation.md) for buffered output, thinking toggles, fullscreen summaries, compact-mode reload, and replay in both modes.
 - External adapter fixtures don't establish compatibility with the live adapters.

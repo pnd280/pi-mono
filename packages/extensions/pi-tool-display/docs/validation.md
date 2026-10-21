@@ -145,15 +145,16 @@ Setup: regular-mode fixture. Set `collapsedMode: "compact"` in `agent/settings.j
 
 Setup: load `pi-nested-instructions` and put a nested instruction file in the disposable fixture.
 
-| Do                                                        | Expect                                                                     |
-| --------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Read a file beneath that directory.                       | The notice stays inside the run, even as the last row.                     |
-| Inspect that run's summary.                               | It includes `loaded 1 instruction file`.                                   |
-| Load several files, update one, remove one.               | Loaded files, updated files, and removed directories have separate counts. |
-| Open the summary, expand the notice, and resize.          | The notice stays in place.                                                 |
-| Collapse with the `▴ collapse` bar.                       | The notice hides with the run.                                             |
-| Repeat through replay and **Ctrl+O**.                     | Notice placement, counts, and visibility match the live run.               |
-| Insert an unrelated visible custom message between calls. | The message splits the runs.                                               |
+| Do                                                                                                                          | Expect                                                                                           |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Read a file beneath that directory.                                                                                         | The notice stays inside the run, even as the last row.                                           |
+| Inspect that run's summary.                                                                                                 | It includes `loaded 1 instruction file`.                                                         |
+| Load several files, update one, remove one.                                                                                 | Loaded files, updated files, and removed directories have separate counts.                       |
+| Open the summary, expand the notice, and resize.                                                                            | The notice stays in place.                                                                       |
+| Collapse with the `▴ collapse` bar.                                                                                         | The notice hides with the run.                                                                   |
+| Repeat through replay and **Ctrl+O**.                                                                                       | Notice placement, counts, and visibility match the live run.                                     |
+| Insert an unrelated visible custom message between calls.                                                                   | The message splits the runs.                                                                     |
+| Set `rendererOverrides` `bash` to `original`. Read a file outside that directory, then `cat` a file beneath it with `bash`. | The notice stays standalone below the Bash row. The read run's summary has no instruction count. |
 
 ### Exploration groups and images
 

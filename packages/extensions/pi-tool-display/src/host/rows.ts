@@ -34,6 +34,8 @@ export type RowOptions = {
   /** Without mode hooks, Pi's global expansion toggles collapsed mode and verbose. */
   syncMode?: () => void;
   action?: (action: DisplayAction) => void;
+  /** A row's hooks failed to install or to release. The row keeps Pi's behaviour. */
+  failed: (stage: "bind" | "release") => void;
 };
 
 /**
@@ -298,17 +300,22 @@ class RowBinding {
     }
 
     if (!call) return false;
-    this.notices.add(row);
-    this.trailingNotices.set(call, row);
-    this.coordinator.setBoundary(row, call, "group");
-    if (summary) this.coordinator.addSummaryNotice(call, summary);
     const anchor = call;
-    this.disposers.push(
+    const release = this.installed(() =>
       bindRowChrome(row, anchor, this.coordinator, {
         active: this.options.active,
         theme: () => this.theme,
         tail: () => this.trailingNotices.get(anchor) === row
-      }),
+      })
+    );
+    // An unbound notice stays a visible boundary, as Pi renders it.
+    if (!release) return false;
+    this.disposers.push(release);
+    this.notices.add(row);
+    this.trailingNotices.set(call, row);
+    this.coordinator.setBoundary(row, call, "group");
+    if (summary) this.coordinator.addSummaryNotice(call, summary);
+    this.disposers.push(
       this.coordinator.attach(anchor, {
         invalidate: () => {
           row.invalidate();
@@ -339,11 +346,14 @@ class RowBinding {
     // Final-message middleware can remove previously visible streaming content.
     if (!(component instanceof AssistantMessageComponent)) return;
 
+    // Bind each assistant once: a failed or unknown layout keeps Pi's presentation.
     if (this.options.styleAssistant && !this.assistants.has(component)) {
       this.assistants.add(component);
-      const dispose = bindAssistantPresentation(component, () => {
-        if (this.options.active()) this.assistantBoundary(component);
-      });
+      const dispose = this.installed(() =>
+        bindAssistantPresentation(component, () => {
+          if (this.options.active()) this.assistantBoundary(component);
+        })
+      );
       if (dispose) this.disposers.push(dispose);
     }
 
@@ -353,16 +363,26 @@ class RowBinding {
   bind(): void {
     // A host event may reconstruct the transcript before its original handler returns.
     if (!this.options.active()) return;
-    const coordinator = this.coordinator;
     this.indexChildren();
 
     for (const child of this.pendingRows) {
       this.pendingRows.delete(child);
       const call = this.rowCall(child);
-      if (!call) continue;
-      this.bound.add(child);
+      if (call) this.bindRow(child, call);
+    }
+  }
+  /** Install one tool row's hooks, or none of them. */
+  private bindRow(child: ToolExecutionComponent, call: DisplayCall): void {
+    const coordinator = this.coordinator;
+    const cleanup: (() => void)[] = [];
+
+    const release = () => {
+      for (const run of cleanup.splice(0).reverse()) run();
+    };
+
+    try {
       if (this.options.chrome)
-        this.disposers.push(
+        cleanup.push(
           bindRowChrome(child, call, coordinator, {
             action: this.options.action,
             active: this.options.active,
@@ -385,27 +405,55 @@ class RowBinding {
 
       const hooks = new OwnedHooks();
       hooks.replace(child, "setExpanded", setExpanded);
-      const detach = coordinator.attach(call, {
-        invalidate: () => {
-          child.invalidate();
-          this.host.ui?.requestRender();
-        },
-        requestRender: () => this.host.ui?.requestRender(),
-        setExpanded: (expanded) => previous.call(child, expanded)
-      });
+      cleanup.push(() => hooks.restore());
+      cleanup.push(
+        coordinator.attach(call, {
+          invalidate: () => {
+            child.invalidate();
+            this.host.ui?.requestRender();
+          },
+          requestRender: () => this.host.ui?.requestRender(),
+          setExpanded: (expanded) => previous.call(child, expanded)
+        })
+      );
+      // Pi's callback can release this binding, so record the cleanup first.
+      this.disposers.push(release);
+      this.bound.add(child);
       previous.call(
         child,
         coordinator.group(call)?.expanded ??
           (coordinator.mode === "verbose" || (this.host.toolOutputExpanded ?? false))
       );
-      this.disposers.push(() => {
-        detach();
-        hooks.restore();
-      });
+    } catch {
+      this.bound.delete(child);
+      const index = this.disposers.indexOf(release);
+      if (index >= 0) this.disposers.splice(index, 1);
+      release();
+      this.options.failed("bind");
     }
   }
+  /** Each installer restores its own hooks when it throws. */
+  private installed<T>(install: () => T): T | undefined {
+    try {
+      return install();
+    } catch {
+      this.options.failed("bind");
+
+      return undefined;
+    }
+  }
+  /** Release every row even when one cleanup fails, then report the failure. */
   dispose(): void {
-    this.disposers.splice(0).forEach((dispose) => dispose());
+    let failed = false;
+
+    for (const dispose of this.disposers.splice(0)) {
+      try {
+        dispose();
+      } catch {
+        failed = true;
+      }
+    }
+
     this.pendingCalls.clear();
     this.pendingRows.clear();
     this.trailingNotices.clear();
@@ -414,5 +462,6 @@ class RowBinding {
     this.lastChild = undefined;
     this.lastCall = undefined;
     this.predecessors = new WeakMap();
+    if (failed) this.options.failed("release");
   }
 }

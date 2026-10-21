@@ -32,7 +32,8 @@ function handled(component: DisplayRow, event: TuiMouseEvent) {
 /**
  * Own a Pi row's chrome and click routing: summary lines, hidden members, joined
  * group margins, and collapse controls. Card clicks the transcript does not handle
- * reach Pi's own row handlers at their original coordinates.
+ * reach Pi's own row handlers at their original coordinates. If a hook cannot be
+ * installed, this restores the hooks it already installed and throws.
  */
 export function bindRowChrome(
   row: DisplayRow,
@@ -158,10 +159,15 @@ export function bindRowChrome(
     previousInvalidate.call(this);
   };
 
-  // Owned hooks unwind in reverse order: restore rendering before mouse routing.
-  hooks.replace(row, "invalidate", invalidate);
-  hooks.replace(row, "handleMouse", handleMouse);
-  hooks.replace(row, "render", render);
+  try {
+    // Owned hooks unwind in reverse order: restore rendering before mouse routing.
+    hooks.replace(row, "invalidate", invalidate);
+    hooks.replace(row, "handleMouse", handleMouse);
+    hooks.replace(row, "render", render);
+  } catch (error) {
+    hooks.restore();
+    throw error;
+  }
 
   return () => {
     targets = [];

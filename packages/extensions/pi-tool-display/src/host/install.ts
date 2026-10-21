@@ -69,6 +69,7 @@ export function installHostIntegration(
   const rowChrome = rowContractCompatible();
   let modeWarning = false;
   let rowWarning = false;
+  const rowFailures = new Set<"bind" | "release">();
   let active = true;
 
   function rowsFor(host: Host): TranscriptRows {
@@ -76,6 +77,17 @@ export function installHostIntegration(
     if (!rows) hostRows.set(host, (rows = new TranscriptRows(host)));
 
     return rows;
+  }
+
+  /** Row failures leave the session usable, so each stage warns once. */
+  function rowFailure(stage: "bind" | "release"): void {
+    if (rowFailures.has(stage)) return;
+    rowFailures.add(stage);
+    collection.warning(
+      stage === "bind"
+        ? "row hooks unavailable; affected rows keep Pi's presentation."
+        : "row cleanup failed; affected rows may show display styling until Pi redraws them."
+    );
   }
 
   function release(binding: Binding): void {
@@ -125,6 +137,7 @@ export function installHostIntegration(
       styleAssistant: configuration.valid,
       chrome: rowChrome,
       action,
+      failed: rowFailure,
       ...(modeHooks
         ? {}
         : {
