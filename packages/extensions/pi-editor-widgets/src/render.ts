@@ -32,6 +32,17 @@ type Item = {
 
 const content = (line: string) => stripTerminalSequences(line).trim().length > 0;
 
+/**
+ * Whitespace can still paint through background, reverse, or underline styles. Treat any escape
+ * other than resets and known non-painting SGR codes as visible output.
+ */
+const painted = (line: string) =>
+  content(line) ||
+  line
+    // oxlint-disable-next-line no-control-regex -- Only resets and known non-painting SGR codes are neutral.
+    .replace(/\x1b\[(?:0|1|2|3|22|23|3[0-7]|39|9[0-7]|38;5;\d+|38;2;\d+;\d+;\d+)?m/gu, "")
+    .includes("\x1b");
+
 /** Only compact literal trailing spaces known not to paint or carry terminal metadata. */
 function compactWidth(line: string): number {
   if (!line.endsWith(" ")) return visibleWidth(line);
@@ -76,7 +87,7 @@ function measure(row: string[], sources: ReadonlyMap<string, Component>, width: 
       (line) => line.includes("\x1b_G") || line.includes("\x1b]1337;File=")
     );
     const lines = images ? output : output.map((line) => truncateToWidth(line, width));
-    if (!images && !lines.some(content)) continue;
+    if (!images && !lines.some(painted)) continue;
     items.push({
       component: source,
       lines,

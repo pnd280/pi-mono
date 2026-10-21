@@ -42,6 +42,7 @@ Statistics are unavailable, not zero, in these cases. Expand the summary to see 
 - The target is not a regular file.
 - The tool's own patch is invalid.
 - The write failed.
+- Something other than Pi's native `edit` and `write` tools, such as `bash` or an editor, changed the file between two native operations.
 - A source is larger than 8 MiB. A large native edit can still use its tool-provided patch.
 - The patch is larger than 128 KiB.
 - The comparison takes longer than 50 ms or has more than 2000 changed lines.

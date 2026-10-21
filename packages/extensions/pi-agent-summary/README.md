@@ -30,7 +30,7 @@ A _run_ is everything from your prompt until the agent settles, including retrie
 | Counters         | Segments that other extensions add, such as `delegated 3 tasks`. See [counters](#counters).                     |
 | `edited N files` | Files changed through Pi's native `edit` and `write` tools, with net added and removed lines such as `+42 -11`. |
 
-Changes made through `bash` or custom tools aren't counted. Statistics for a file can be unavailable, for example for binary files; this is not the same as zero changes, and you can expand the summary to see why. While the agent works, the working message shows a live rate such as `160/s`. For how each value is measured and when it is left out, read [summary fields](docs/summary-fields.md).
+Changes made through `bash` or custom tools aren't counted. Statistics for a file can be unavailable, for example for binary files or when another writer changed the file between native edits; this is not the same as zero changes, and you can expand the summary to see why. While the agent works, the working message shows a live rate such as `160/s`. For how each value is measured and when it is left out, read [summary fields](docs/summary-fields.md).
 
 ### Milestones
 

@@ -41,11 +41,19 @@ it("bounds aggregate retained strings but preserves single-patch statistics", as
   ]);
 });
 
-it("does not mistake a failed final write for a reverted change", async () => {
+it("does not mistake a failed final write or an unobserved write for native changes", async () => {
   const changes = new RunChanges("/work");
+  // An external writer appends between two native edits; callbacks also settle out of order.
+  await changes.completed(mutation("external", "edited\nbash\n", "final\nbash\n", 4));
+  await changes.completed(mutation("external", "original\n", "edited\n", 3));
   await changes.completed(mutation("file", "before\n", "after\n", 1));
   await changes.completed({ ...mutation("file", "after\n", "before\n", 2), outcome: "failure" });
   expect(await changes.finish()).toEqual([
+    {
+      path: "external",
+      status: "unavailable",
+      reason: expect.stringMatching(/outside native edit and write/i) as unknown
+    },
     {
       path: "file",
       status: "unavailable",
