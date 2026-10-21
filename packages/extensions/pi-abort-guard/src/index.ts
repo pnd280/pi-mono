@@ -82,6 +82,10 @@ export default function abortGuard(pi: ExtensionAPI): void {
     hint.setText();
   };
 
+  // A failed branch summary emits no terminal event, so also clear when the next operation starts.
+  pi.on("agent_start", clearConfirmation);
+  pi.on("session_before_compact", clearConfirmation);
+  pi.on("session_before_tree", clearConfirmation);
   pi.on("agent_settled", clearConfirmation);
   pi.on("session_compact", clearConfirmation);
   pi.on("session_compact_failed", clearConfirmation);

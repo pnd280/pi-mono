@@ -10,7 +10,8 @@ import {
   SessionManager,
   SettingsManager,
   type AgentSession,
-  type ExtensionContext
+  type ExtensionContext,
+  type ExtensionFactory
 } from "@earendil-works/pi-coding-agent";
 import { createValidationWorkspace, STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
@@ -28,12 +29,14 @@ async function host({
   projectTrusted = false,
   projectSettings,
   ancestorSettings,
-  globalSettings = settings
+  globalSettings = settings,
+  extensions = []
 }: {
   projectTrusted?: boolean;
   projectSettings?: string;
   ancestorSettings?: string;
   globalSettings?: string;
+  extensions?: ExtensionFactory[];
 } = {}) {
   const directory = await createValidationWorkspace("pi-session-utils-auto-title-host-");
   const resources: { session?: AgentSession } = {};
@@ -97,7 +100,7 @@ async function host({
     noThemes: true,
     noContextFiles: true,
     noPromptTemplates: true,
-    extensionFactories: [sessionUtils]
+    extensionFactories: [sessionUtils, ...extensions]
   });
   await resourceLoader.reload();
   expect(resourceLoader.getExtensions().errors).toEqual([]);
@@ -392,6 +395,48 @@ it("cancels when tree navigation completes", async () => {
   await pending;
   expect(canceled).toBe(true);
   expect(sm.getSessionName()).toBeUndefined();
+  expect(fixture.errors).toEqual([]);
+});
+
+it("cancels automatic naming when the run is aborted after the agent loop ends", async () => {
+  const settle = Promise.withResolvers<void>();
+  let settling = false;
+  const fixture = await host({
+    extensions: [
+      (pi) => {
+        pi.on("agent_before_settle", async () => {
+          settling = true;
+          await settle.promise;
+        });
+      }
+    ]
+  });
+  const title = Promise.withResolvers<ReturnType<typeof fauxAssistantMessage>>();
+  fixture.faux.setResponses(
+    Array.from(
+      { length: 2 },
+      () => (_context, _options, _state, model) =>
+        model.id === "title" ? title.promise : fauxAssistantMessage("Fixture reply")
+    )
+  );
+  const stream = vi.spyOn(fixture.faux.provider, "streamSimple");
+  const prompt = fixture.session.prompt("Opening request");
+  await vi.waitFor(
+    () => {
+      expect(settling).toBe(true);
+      expect(stream.mock.calls.some(([model]) => model.id === "title")).toBe(true);
+    },
+    { timeout: STEP_TIMEOUT_MS }
+  );
+  // Pi is still busy, but the low-level agent signal no longer belongs to an active loop.
+  const abort = fixture.session.abort();
+  settle.resolve();
+  await abort;
+  await prompt;
+  const request = stream.mock.calls.find(([model]) => model.id === "title");
+  expect(request?.[2]?.signal?.aborted).toBe(true);
+  title.resolve(fauxAssistantMessage("Title after user abort"));
+  expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(fixture.errors).toEqual([]);
 });
 

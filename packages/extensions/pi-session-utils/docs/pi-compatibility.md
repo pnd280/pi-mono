@@ -79,6 +79,7 @@ The [naming guide](naming.md#cancellation-and-retries) states what users see.
 
 - [ ] Pi's session events let naming make one automatic attempt per load.
 - [ ] Branch changes, session changes, and reloads cancel a generation in progress.
+- [ ] `agent_settled` still reports `aborted` for an abort after the low-level agent loop ends, for example during `agent_before_settle`, when `ctx.signal` no longer fires.
 - [ ] A name that the user or another extension sets during generation is visible through `getSessionName()`, so the generated title is discarded.
 - [ ] Results of a superseded or cancelled generation are discarded.
 - [ ] Naming events and metadata-only name updates work in TUI, print, JSON, and RPC modes, with no conversation messages or custom stdout.

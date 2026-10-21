@@ -84,7 +84,9 @@ async function fixture(before: ExtensionFactory[] = []) {
     const press = (data = "\u001b") => host.ui.getFocusedComponent()?.handleInput?.(data);
     const hint = () => workingMessage.mock.lastCall?.[0];
 
-    const response = (kind: "run" | "compact" | "failed-compact" | "tree" = "run") => {
+    const response = (
+      kind: "run" | "compact" | "failed-compact" | "tree" | "failed-tree" = "run"
+    ) => {
       let entered = false;
       let finish!: () => void;
       const pending = new Promise<void>((resolve) => {
@@ -99,7 +101,7 @@ async function fixture(before: ExtensionFactory[] = []) {
           try {
             await pending;
 
-            return kind === "failed-compact"
+            return kind === "failed-compact" || kind === "failed-tree"
               ? fauxAssistantMessage("", {
                   stopReason: "error",
                   errorMessage: "Offline summary failure"
@@ -192,15 +194,15 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
     later.finish();
     await laterPrompt;
 
-    // Complete real manual compaction and tree navigation with a pending interrupt.
-    for (const operation of ["compact", "failed-compact", "tree"] as const) {
+    // Finish real manual compaction and tree navigation, successfully or not, with a pending interrupt.
+    for (const operation of ["compact", "failed-compact", "tree", "failed-tree"] as const) {
       const summary = current.response(operation);
       const target = current.session.sessionManager
         .getEntries()
         .find((entry) => entry.type === "message" && entry.message.role === "user");
       expect(target).toBeDefined();
       const pending = current.track<unknown>(
-        operation === "tree"
+        operation === "tree" || operation === "failed-tree"
           ? current.session.navigateTree(target!.id, { summarize: true })
           : current.session.compact()
       );
@@ -208,7 +210,7 @@ it("routes interrupts once and isolates confirmation across operations, reload, 
       current.press();
       expect(current.hint()).toContain("again to interrupt");
       summary.finish();
-      if (operation === "failed-compact")
+      if (operation === "failed-compact" || operation === "failed-tree")
         await expect(pending).rejects.toThrow("Offline summary failure");
       else await pending;
       const next = current.response();
