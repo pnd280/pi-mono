@@ -2,9 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { validateToolArguments, type JsonObject } from "@earendil-works/pi-ai";
 import {
-  getAgentDir,
   sessionEntryToContextMessages,
-  VERSION,
   type AgentSession,
   type AgentSessionEvent,
   type ExtensionAPI,
@@ -16,9 +14,13 @@ import { observeNativeTools } from "@pi-mono/libs/native-tools";
 import type { DisplayFailure } from "../interpretation.ts";
 import { displayMutationSink, observeNativeDefinition } from "../observation/native.ts";
 import type { DisplaySettings } from "../settings.ts";
-import { executionOutcome, hostToolResult, TranscriptMessages } from "../transcript/messages.ts";
+import {
+  executionOutcome,
+  hostToolResult,
+  TranscriptMessages,
+  validDuration
+} from "../transcript/messages.ts";
 import { DisplaySession, type ToolSnapshot } from "../transcript/session.ts";
-import { LocalStore } from "../transcript/store.ts";
 import { displaySettings } from "./configuration.ts";
 import { selectAdapter } from "./selection.ts";
 
@@ -32,27 +34,15 @@ export class DisplayCollector {
   private unsubscribe: () => void;
   private active = true;
   private expanded = () => false;
-  /** One writer per collector; reconstruction keeps it. */
-  private local: LocalStore;
+  /** Observed saved-output paths outlive transcript reconstruction, not this collector. */
+  private savedPaths = new Map<string, string>();
 
   constructor(
     readonly session: AgentSession,
     private owner: DisplayCollectors,
     private append?: ExtensionAPI["appendEntry"]
   ) {
-    const manager = session.sessionManager;
-    this.sessionId = manager.getSessionId();
-    this.local = new LocalStore({
-      root: getAgentDir(),
-      persisted: manager.isPersisted(),
-      header: {
-        sessionId: this.sessionId,
-        sessionFile: manager.getSessionFile(),
-        cwd: manager.getCwd(),
-        pi: VERSION
-      },
-      warn: (text) => owner.warning(text)
-    });
+    this.sessionId = session.sessionManager.getSessionId();
     this.settings = displaySettings(session);
     this.settings.warnings.forEach((text) => owner.warning(text));
     this.display = this.createDisplay();
@@ -68,7 +58,8 @@ export class DisplayCollector {
       tools: () => this.owner.tools(this.session, this.settings),
       onFailure: (failure) => this.owner.failure(failure),
       expanded: () => this.expanded(),
-      local: this.local,
+      warn: (text) => this.owner.warning(text),
+      savedPaths: this.savedPaths,
       append: (type, data) => {
         if (this.active && this.sessionId === this.session.sessionManager.getSessionId())
           this.append?.(type, data);
@@ -108,24 +99,19 @@ export class DisplayCollector {
       this.message(event);
 
       if (event.type === "tool_execution_start") display.queued(event.toolCallId);
-      if (event.type === "tool_execution_update" || event.type === "tool_execution_end")
+      if (event.type === "tool_execution_update")
+        display.result(event.toolCallId, hostToolResult(event.partialResult), "success", true);
+      if (event.type === "tool_execution_end")
         display.result(
           event.toolCallId,
-          hostToolResult(
-            event.type === "tool_execution_update" ? event.partialResult : event.result
-          ),
-          event.type === "tool_execution_end"
-            ? executionOutcome(event.isError, this.session.agent.signal)
-            : "success",
-          event.type === "tool_execution_update"
+          hostToolResult(event.result),
+          executionOutcome(event.isError, this.session.agent.signal),
+          false,
+          validDuration(event.durationMs) ? event.durationMs : undefined
         );
       if (event.type === "agent_end") display.coordinator.settle();
-    } catch (error) {
+    } catch {
       this.owner.warning("collection unavailable for this event; keeping original execution.");
-      this.local.diagnostic({
-        code: "collection-failed",
-        detail: `${event.type}: ${error instanceof Error ? error.message : String(error)}`
-      });
     }
   }
 
@@ -148,16 +134,12 @@ export class DisplayCollector {
         this.display.message(this.messages.read(message), "live");
   }
 
-  /** Resolves when the local file holds every line this writer wrote, also when called again. */
-  dispose(): Promise<void> {
-    if (this.active) {
-      this.unsubscribe();
-      // Facts of running calls persist while this collector can still append.
-      this.display.dispose();
-      this.active = false;
-    }
-
-    return this.local.dispose();
+  dispose(): void {
+    if (!this.active) return;
+    this.unsubscribe();
+    // Facts of running calls persist while this collector can still append.
+    this.display.dispose();
+    this.active = false;
   }
 }
 
@@ -189,9 +171,6 @@ export class DisplayCollectors {
   private active = true;
   private runtimes = new WeakMap<object, AgentSession>();
   private collectors = new Map<AgentSession, DisplayCollector>();
-  /** Disposal of collectors replaced after a session ID change; final disposal waits for it. */
-  private retired = new Set<Promise<void>>();
-  private disposal: Promise<void> | undefined;
   /** Display policy only; native provenance and mutation I/O are shared with other observers. */
   private native;
   private mutations;
@@ -285,10 +264,7 @@ export class DisplayCollectors {
     let collector = this.collectors.get(session);
 
     if (collector && collector.sessionId !== session.sessionManager.getSessionId()) {
-      const retired: Promise<void> = collector
-        .dispose()
-        .finally(() => this.retired.delete(retired));
-      this.retired.add(retired);
+      collector.dispose();
       this.collectors.delete(session);
       collector = undefined;
     }
@@ -312,16 +288,12 @@ export class DisplayCollectors {
     if (session) this.get(session);
   }
 
-  /** Repeated shutdowns share one wait, so none ends before the local files close. */
-  dispose(): Promise<void> {
-    if (this.disposal) return this.disposal;
+  dispose(): void {
+    if (!this.active) return;
     this.active = false;
-    const flushed = [...this.collectors.values()].map((collector) => collector.dispose());
+    for (const collector of this.collectors.values()) collector.dispose();
     this.collectors.clear();
     this.mutations.dispose();
     this.native.dispose();
-    this.disposal = Promise.all([...this.retired, ...flushed]).then(() => {});
-
-    return this.disposal;
   }
 }

@@ -1,10 +1,6 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { fauxToolCall, type JsonObject, type JsonValue } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
 import { genericAdapter, nativeAdapter, piFffAdapter, piMcpAdapter } from "../adapters/index.ts";
@@ -19,34 +15,9 @@ import {
 } from "../contracts.ts";
 import { loadDisplaySettings } from "../settings.ts";
 import { assistantMessage } from "../test-fixture.ts";
-import { CALL_TYPE, WRITER_TYPE } from "./metadata.ts";
+import { TranscriptMessages } from "./messages.ts";
+import { CALL_TYPE } from "./metadata.ts";
 import { DisplaySession, type ToolSnapshot } from "./session.ts";
-import { LocalStore } from "./store.ts";
-
-let root: string;
-const stores: LocalStore[] = [];
-
-beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "pi-tool-display-session-"));
-});
-
-afterEach(async () => {
-  await Promise.all(stores.splice(0).map((store) => store.dispose()));
-  await rm(root, { recursive: true, force: true });
-});
-
-/** A writer whose file is under the fixture root, never the real agent directory. */
-function localStore(): LocalStore {
-  const store = new LocalStore({
-    root,
-    persisted: true,
-    header: { sessionId: "session", sessionFile: undefined, cwd: "/tmp", pi: "test" },
-    warn() {}
-  });
-  stores.push(store);
-
-  return store;
-}
 
 /** A registry snapshot whose validation keeps the raw arguments. */
 function tools(adapter: ToolSnapshot["adapter"]): () => ToolSnapshot {
@@ -61,7 +32,7 @@ function fixture(options: Partial<ConstructorParameters<typeof DisplaySession>[0
     settings: loadDisplaySettings([]),
     tools: tools(nativeAdapter),
     expanded: () => false,
-    local: localStore(),
+    warn() {},
     ...options
   });
 }
@@ -85,6 +56,8 @@ type LiveCall = {
   outcome: Outcome | undefined;
   details?: JsonValue;
   timestamp?: number;
+  /** Pi's measurement; absent when the tool did not run. */
+  durationMs?: number;
 };
 
 /**
@@ -92,7 +65,7 @@ type LiveCall = {
  * result message, and then its entry. An undefined outcome stops before the end event.
  */
 function runLive(session: DisplaySession, history: SessionManager, call: LiveCall): DisplayCall {
-  const { id, name, args, outcome, timestamp = 1 } = call;
+  const { id, name, args, outcome, timestamp = 1, durationMs } = call;
   const published = {
     content: [{ type: "text" as const, text: "published body" }],
     details: call.details
@@ -104,10 +77,17 @@ function runLive(session: DisplaySession, history: SessionManager, call: LiveCal
   for (const fact of call.facts) sink.fact(fact);
 
   if (outcome) {
-    session.result(id, published, outcome);
+    session.result(id, published, outcome, false, durationMs);
     const isError = outcome !== "success";
     session.message(
-      { kind: "result", id, name, result: published, outcome: isError ? "failure" : "success" },
+      {
+        kind: "result",
+        id,
+        name,
+        result: published,
+        outcome: isError ? "failure" : "success",
+        ...(durationMs === undefined ? {} : { durationMs })
+      },
       "live"
     );
     history.appendMessage({
@@ -116,6 +96,7 @@ function runLive(session: DisplaySession, history: SessionManager, call: LiveCal
       toolName: name,
       content: published.content,
       ...(call.details === undefined ? {} : { details: call.details }),
+      ...(durationMs === undefined ? {} : { durationMs }),
       isError,
       timestamp
     });
@@ -127,49 +108,18 @@ function runLive(session: DisplaySession, history: SessionManager, call: LiveCal
 /** Rebuild a display from Pi's entries, as the host does after a reload. */
 function replay(history: SessionManager, options: Parameters<typeof fixture>[0] = {}) {
   const session = fixture({ history, ...options });
+  const messages = new TranscriptMessages();
   session.reconstruct(() => {
-    for (const entry of history.getBranch()) {
-      if (entry.type !== "message") continue;
-      const message = entry.message;
-      if (message.role === "assistant")
-        session.message(
-          {
-            kind: "assistant",
-            timestamp: message.timestamp,
-            calls: message.content.flatMap((content, index) =>
-              content.type === "toolCall"
-                ? [{ index, id: content.id, name: content.name, args: content.arguments }]
-                : []
-            )
-          },
-          "historical"
-        );
-      if (message.role === "toolResult")
-        session.message(
-          {
-            kind: "result",
-            id: message.toolCallId,
-            name: message.toolName,
-            result: { content: message.content, details: message.details },
-            outcome: message.isError ? "failure" : "success"
-          },
-          "historical"
-        );
-    }
+    for (const entry of history.getBranch())
+      if (entry.type === "message") session.message(messages.read(entry.message), "historical");
   });
 
   return session;
 }
 
-/** The session applies a writer's local read before a later reader of the same promise. */
-async function localRead(store: LocalStore, writer: string): Promise<void> {
-  await store.read(writer);
-}
-
-it("replays saved facts for separate assistant calls sharing a timestamp", async () => {
+it("replays saved facts and Pi's durations for separate assistant calls sharing a timestamp", () => {
   const history = SessionManager.inMemory("/tmp");
-  const writer = localStore();
-  const live = fixture({ history, append: history.appendCustomEntry.bind(history), local: writer });
+  const live = fixture({ history, append: history.appendCustomEntry.bind(history) });
   const calls = [
     ["first", 2],
     ["second", 3]
@@ -180,9 +130,10 @@ it("replays saved facts for separate assistant calls sharing a timestamp", async
       id,
       name: "bash",
       args: {},
-      facts: [operation({ durationMs: exitCode, outcome: "failure", exitCode })],
+      facts: [operation({ outcome: "failure", exitCode })],
       outcome: "failure",
-      timestamp: 17
+      timestamp: 17,
+      durationMs: exitCode
     });
   const change = {
     kind: "change",
@@ -193,28 +144,27 @@ it("replays saved facts for separate assistant calls sharing a timestamp", async
     id: "unfinished-write",
     name: "write",
     args: { path: "unfinished.txt", content: "after\n" },
-    facts: [change, operation({ durationMs: 7, outcome: "success" })],
+    facts: [change, operation({ outcome: "success" })],
     outcome: undefined,
     timestamp: 17
   });
   live.dispose();
-  await writer.dispose();
-  const reader = localStore();
-  const restored = replay(history, { local: reader });
+  const restored = replay(history);
 
   try {
-    await localRead(reader, writer.writer);
     for (const [id, exitCode] of calls)
-      expect(restored.coordinator.byId(id)?.operation).toEqual(
-        operation({ durationMs: exitCode, outcome: "failure", exitCode })
-      );
+      expect(restored.coordinator.byId(id)).toMatchObject({
+        operation: operation({ outcome: "failure", exitCode }),
+        durationMs: exitCode
+      });
     const unfinished = restored.coordinator.byId("unfinished-write")!;
     expect(unfinished).toMatchObject({
       lifecycle: "unavailable",
       outcome: "unavailable",
       change,
-      operation: operation({ durationMs: 7, outcome: "success" })
+      operation: operation({ outcome: "success" })
     });
+    expect(unfinished.durationMs).toBeUndefined();
   } finally {
     restored.dispose();
   }
@@ -229,7 +179,7 @@ it.each(["host", "operation"] as const)(
       id: "cancelled",
       name: "bash",
       args: { command: "sleep 1" },
-      facts: source === "operation" ? [operation({ durationMs: 1, outcome: "cancelled" })] : [],
+      facts: source === "operation" ? [operation({ outcome: "cancelled" })] : [],
       outcome: source === "host" ? "cancelled" : "failure"
     });
     live.dispose();
@@ -334,8 +284,7 @@ it("restores native facts and eligible saved previews after late contract select
   const entry = history.appendMessage(
     assistantMessage([fauxToolCall("bash", args, { id: "late-native" })])
   );
-  const local = localStore();
-  history.appendCustomEntry(WRITER_TYPE, { writer: local.writer, cwd: "/tmp" });
+  history.appendCustomEntry(CALL_TYPE, { entry, toolCallId: "late-native", operation: true });
   const published = result("published-output");
   history.appendMessage({
     role: "toolResult",
@@ -343,15 +292,14 @@ it("restores native facts and eligible saved previews after late contract select
     toolName: "bash",
     ...published,
     isError: false,
+    durationMs: 12,
     timestamp: 1
   });
-  local.call({ entry, toolCallId: "late-native", tool: "bash", durationMs: 12 });
   const file = files();
   const append = vi.fn();
   let available = false;
   const session = fixture({
     history,
-    local,
     tools: tools((name) => (available ? nativeAdapter(name) : genericAdapter)),
     expanded: () => true,
     readSavedOutput: file.read,
@@ -367,14 +315,14 @@ it("restores native facts and eligible saved previews after late contract select
       },
       "historical"
     );
-    session.result("late-native", published, "success");
+    session.result("late-native", published, "success", false, 12);
     const call = session.coordinator.byId("late-native")!;
     expect(call.operation).toBeUndefined();
     expect(file.read).not.toHaveBeenCalled();
     available = true;
     session.refreshAdapters();
-    await localRead(local, local.writer);
-    expect(call.operation).toEqual(operation({ durationMs: 12, outcome: "success", exitCode: 0 }));
+    expect(call.operation).toEqual(operation({ outcome: "success", exitCode: 0 }));
+    expect(call.durationMs).toBe(12);
     expect(file.read).toHaveBeenCalledExactlyOnceWith("published-output");
     await file.complete("published-output");
     expect(call.savedOutput?.text).toBe("preview:published-output");
@@ -387,18 +335,11 @@ it("restores native facts and eligible saved previews after late contract select
   }
 });
 
-it("makes retained observation callbacks inert after session disposal, including persistence", async () => {
+it("makes retained observation callbacks inert after session disposal, including persistence", () => {
   const history = SessionManager.inMemory("/tmp");
   history.appendMessage(assistantMessage([fauxToolCall("bash", {}, { id: "shell" })]));
   const append = vi.fn();
-  const local = localStore();
-  const session = fixture({ history, append, local });
-
-  const saved = async () => {
-    const read = await local.read(local.writer);
-
-    return read.status === "found" ? [...read.calls.values()] : [];
-  };
+  const session = fixture({ history, append });
 
   try {
     session.message(
@@ -413,21 +354,19 @@ it("makes retained observation callbacks inert after session disposal, including
     const observation = session.beginObservation("shell", "pi:bash")!;
     observation.started();
     observation.preview({ text: "live preview" });
-    observation.fact(operation({ durationMs: 10, outcome: "failure", exitCode: 1 }));
+    observation.fact(operation({ outcome: "failure", exitCode: 1 }));
     expect(call.lifecycle).toBe("executing");
     expect(call.liveOutput?.text).toBe("live preview");
     const retained = { ...call };
     // A call still running at disposal keeps the facts known so far.
     session.dispose();
     const flushed = append.mock.calls.slice();
-    expect(flushed.map(([type]) => type as unknown)).toEqual([WRITER_TYPE, CALL_TYPE]);
-    expect(await saved()).toMatchObject([{ toolCallId: "shell", durationMs: 10 }]);
+    expect(flushed).toEqual([[CALL_TYPE, expect.objectContaining({ toolCallId: "shell" })]]);
     observation.started();
     observation.preview({ text: "late preview" });
-    observation.fact(operation({ durationMs: 20, outcome: "success", exitCode: 0 }));
+    observation.fact(operation({ outcome: "success", exitCode: 0 }));
     expect(call).toEqual(retained);
     expect(append.mock.calls).toEqual(flushed);
-    expect(await saved()).toMatchObject([{ toolCallId: "shell", durationMs: 10 }]);
     expect(session.beginObservation("shell", "pi:bash")).toBeUndefined();
     expect(session.coordinator.calls.size).toBe(0);
   } finally {

@@ -14,7 +14,6 @@ function mutation(
   return {
     path: `/work/${path}`,
     sequence,
-    durationMs: 0,
     outcome: "success",
     before: before === undefined ? { status: "missing" } : { status: "ready", text: before },
     after: { status: "ready", text: after },

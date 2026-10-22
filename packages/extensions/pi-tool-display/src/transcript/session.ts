@@ -26,6 +26,7 @@ export type TranscriptMessage =
       name: string;
       result: AgentToolResult<unknown>;
       outcome: Outcome;
+      durationMs?: number;
     }
   | {
       kind: "assistant";
@@ -53,7 +54,8 @@ type DisplaySessionOptions = {
   /** Initial transcript mode; the host owns later transitions. */
   mode?: DisplayMode;
   append?: ExtensionAPI["appendEntry"] | undefined;
-  local: SavedCallsOptions["local"];
+  warn: SavedCallsOptions["warn"];
+  savedPaths?: SavedCallsOptions["savedPaths"];
   readSavedOutput?: (path: string) => Promise<SavedOutput>;
   onFailure?: DisplayFailureHandler;
 };
@@ -95,11 +97,11 @@ export class DisplaySession {
     });
     this.history = new DisplayHistory(options.history);
     this.saved = new SavedCalls({
-      cwd: options.cwd,
       coordinator: this.coordinator,
       history: this.history,
       append: options.append,
-      local: options.local
+      warn: options.warn,
+      savedPaths: options.savedPaths
     });
     this.output = new SavedOutputs(this.coordinator, options.readSavedOutput);
   }
@@ -153,21 +155,27 @@ export class DisplaySession {
     const call = this.coordinator.byId(id);
     if (!call || this.disposed) return;
     if (call.lifecycle !== "executing") this.coordinator.update(call, "queued");
-    this.saved.queued(call);
   }
   /**
    * Pi's execution event. Extensions can still replace the result before Pi saves it,
    * so the call's facts are saved with Pi's final result message.
    */
-  result(id: string, result: AgentToolResult<unknown>, outcome: Outcome, partial = false): void {
-    const call = this.publish(id, result, outcome, partial);
+  result(
+    id: string,
+    result: AgentToolResult<unknown>,
+    outcome: Outcome,
+    partial = false,
+    durationMs?: number
+  ): void {
+    const call = this.publish(id, result, outcome, partial, durationMs);
     if (call && !partial) this.saved.end(call, outcome);
   }
   private publish(
     id: string,
     result: AgentToolResult<unknown>,
     outcome: Outcome,
-    partial = false
+    partial = false,
+    durationMs?: number
   ): DisplayCall | undefined {
     if (this.disposed) return;
     const call = this.coordinator.byId(id);
@@ -177,7 +185,7 @@ export class DisplaySession {
         this.coordinator.fact(call, { kind: "cancellation" });
       // Keep the path first, so completion loads only the final saved output.
       this.output.retain(call, result);
-      this.coordinator.result(call, result, outcome, partial);
+      this.coordinator.result(call, result, outcome, partial, durationMs);
       if (!partial) this.saved.replay(call);
     });
 
@@ -215,7 +223,7 @@ export class DisplaySession {
     if (input.kind === "result") {
       const call = coordinator.byId(input.id);
       if (call?.name !== input.name) return;
-      this.publish(input.id, input.result, input.outcome);
+      this.publish(input.id, input.result, input.outcome, false, input.durationMs);
       // Pi saves this message after its listeners, so facts written now precede it.
       if (origin === "live" && complete) this.saved.finish(call, input.result, input.outcome);
 

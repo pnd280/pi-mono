@@ -24,7 +24,6 @@ Consumers share source capture and patches for each call. Canonical paths resolv
 - Only attempted disk writes produce mutations.
 - A successful disk write keeps its success outcome even if Pi cancellation or middleware intervenes later.
 - For a failed write, `after` is the proposed content, not confirmed content.
-- `durationMs` excludes source capture and patch generation.
 
 ### Patches
 

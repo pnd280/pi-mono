@@ -1,4 +1,5 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
+import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { z } from "zod";
 
 import type {
@@ -61,6 +62,11 @@ export const codemodeDisplayAdapter: ToolDisplayAdapter = {
       .safeParse(result.details)
       .data?.calls.map(({ status, ...call }) => ({ ...call, status: statuses[status] }));
   },
+  // Pi's duration replaces the hidden header's wall time.
+  summary: (_result, { durationMs }) =>
+    durationMs === undefined
+      ? undefined
+      : { text: `Took ${formatDuration(durationMs)}`, preserveOutput: true, neutral: true },
   textParts(text, _args, { contentIndex, isError }): ResultTextPart[] {
     if (contentIndex === 0 && SCRIPT_HEADER.test(text)) return [];
 

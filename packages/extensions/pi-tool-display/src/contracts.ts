@@ -21,8 +21,6 @@ export type Outcome = "success" | "failure" | "cancelled" | "unavailable";
 
 export type OperationFact = {
   readonly kind: "operation";
-  /** Absent when a replayed call has no timing on this machine. */
-  readonly durationMs?: number | undefined;
   readonly outcome: Outcome;
   readonly exitCode?: number | null | undefined;
   readonly timedOut?: boolean | undefined;
@@ -54,20 +52,6 @@ export type CancellationFact = {
 
 export type DisplayFact = OperationFact | ChangeFact | SavedOutputFact | CancellationFact;
 
-/**
- * Replay state of details kept only on the machine that observed a call: timing and
- * saved-output references. `pending` waits for the local read; `absent` means the
- * writer's file is not on this machine; `unsaved` means the file has no line for the call.
- */
-export type LocalDetails =
-  | "pending"
-  | "found"
-  | "absent"
-  | "unsaved"
-  | "not-observed"
-  | "too-large"
-  | "unreadable";
-
 type DeepReadonly<Value> = Value extends readonly (infer Item)[]
   ? readonly DeepReadonly<Item>[]
   : Value extends object
@@ -98,10 +82,15 @@ export type DisplayCall = {
   readonly operation?: OperationFact;
   readonly cancellation?: CancellationFact;
   readonly change?: ChangeFact;
-  /** Historical calls only. */
-  readonly local?: LocalDetails;
-  /** Historical calls only: the cwd where the call ran, when it differs from the session cwd. */
-  readonly cwd?: string;
+  /**
+   * Pi's monotonic measurement of the tool's `execute()` call, from the final result.
+   * Absent when the tool did not run, or for results that Pi saved without one.
+   */
+  readonly durationMs?: number;
+  /**
+   * From Pi's result details, or observed during a live shell call. Pi's failed shell
+   * results have no details, so an observed path stays in memory and replay lacks it.
+   */
   readonly savedPath?: string;
   readonly savedOutput?: SavedOutput;
   readonly liveOutput?: Readonly<OutputText> | undefined;
@@ -196,6 +185,8 @@ export type ResultSummary = {
   text: string;
   /** Supplement the output preview when these facts do not summarize its content. */
   preserveOutput?: boolean;
+  /** States no outcome, such as elapsed time, so failed results keep it dim. */
+  neutral?: boolean;
 };
 
 export type ResultTextContext = {
@@ -387,8 +378,8 @@ export type ToolDisplayAdapter = {
       args: unknown;
       outcome: Outcome;
       operation: OperationFact | undefined;
-      /** Replay state of local timing; `absent` means it stayed on another machine. */
-      local: LocalDetails | undefined;
+      /** Pi's measured `execute()` time of the final result; undefined when Pi has none. */
+      durationMs: number | undefined;
       expanded: boolean;
     }
   ): ResultSummary | undefined;

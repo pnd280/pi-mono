@@ -57,9 +57,7 @@ function formatParts(
       ({ text: source, truncated: excerpt } = parametersText(part, remaining));
     else
       source =
-        part.kind === "path"
-          ? invocationPartText(part, p.call?.cwd ?? p.context.cwd, relativeTo)
-          : part.text;
+        part.kind === "path" ? invocationPartText(part, p.context.cwd, relativeTo) : part.text;
     // Bound source work before terminal normalization can discard or expand it.
     const retained = sliceTerminalText(source, 0, remaining).text;
     const normalized = displayText(retained);
@@ -152,8 +150,7 @@ function targetTitleRows(
   const indent = visibleWidth(title) + 1;
   const rows = targetRows(parts, {
     width: p.width - indent,
-    cwd: p.call?.cwd ?? p.context.cwd,
-    relativeTo: p.context.cwd,
+    cwd: p.context.cwd,
     theme: p.theme,
     expanded: p.expanded
   });
@@ -265,8 +262,7 @@ function scopeHeading(
   const scope =
     targetRows(parts, {
       width: bodyWidth(p.width),
-      cwd: p.call?.cwd ?? p.context.cwd,
-      relativeTo: p.context.cwd,
+      cwd: p.context.cwd,
       theme: p.theme,
       expanded: p.expanded
     }) ?? previewRows(wrapRows(genericDetail().text, bodyWidth(p.width)), p, genericDetail());
@@ -366,7 +362,7 @@ function groupHeading(group: PreparedGroup, p: PreparedCard): string[] {
       const indent = visibleWidth(title) + 1;
       const target = targetRows(entry.parts, {
         width: bodyWidth(p.width) - indent,
-        cwd: p.call?.cwd ?? p.context.cwd,
+        cwd: p.context.cwd,
         relativeTo,
         theme: p.theme,
         expanded: p.expanded

@@ -21,19 +21,11 @@ A call shown with the generic display adapter although its tool has a display ad
 _Avoid_: plain "fallback", which also names behaviour for missing host contracts
 
 **Native observation**:
-Facts that supplement Pi's published results, collected about a verified native tool call in a live TUI, RPC, print, or JSON session, such as shell previews, timing, outcomes, and pre-write contents. See [what is recorded](README.md#what-is-recorded).
+Facts that supplement Pi's published results, collected about a verified native tool call in a live TUI, RPC, print, or JSON session, such as shell previews, outcomes, and pre-write contents. See [what is recorded](README.md#what-is-recorded).
 _Avoid_: capture, tracking
 
-**Local details**:
-Observed call data that stays on the machine that observed it: timing, saved-output references, and diagnostics. Session entries keep the portable facts. See [local files](docs/recording.md#local-files).
-_Avoid_: metadata, telemetry
-
-**Writer**:
-One collection lifetime within a session, ending at reload, session change, or shutdown. Its writer entry identifies the local file for saved call facts and results that follow it. See [session history](docs/recording.md#session-history).
-_Avoid_: process, store
-
 **Saved call**:
-Recorded facts for one live call that Pi's entries do not hold: at most one call entry on the branch and one local line from its writer. See [recorded data and replay](docs/recording.md).
+Facts recorded for one live call that Pi's own entries do not hold. See [recorded data and replay](docs/recording.md).
 _Avoid_: persisted call, call metadata
 
 **Saved output**:

@@ -15,7 +15,6 @@ import {
   type DisplayRun,
   type ExplorationScope,
   type Lifecycle,
-  type LocalDetails,
   type Outcome,
   type SavedOutput,
   type SummaryNotice,
@@ -324,7 +323,7 @@ export class TranscriptCoordinator implements TranscriptView {
     this.regroupBoundaries(changed("group"));
     this.repartitionRuns(changed("run"));
   }
-  /** Cached until an interpreted input changes; identities use the call's cwd. */
+  /** Cached until an interpreted input changes; identities use the session cwd. */
   interpretation(call: DisplayCall): CallInterpretation {
     const inputs = [
       call.name,
@@ -335,15 +334,14 @@ export class TranscriptCoordinator implements TranscriptView {
       call.outcome,
       call.cancellation,
       call.operation,
-      call.change,
-      call.cwd
+      call.change
     ];
     const cached = this.interpretations.get(call);
     if (cached?.inputs.every((input, index) => Object.is(input, inputs[index])))
       return cached.value;
     const run = this.runs.get(call.key);
     if (run) delete run.summary;
-    const value = interpret(call, call.cwd ?? this.cwd, this.evaluator(call));
+    const value = interpret(call, this.cwd, this.evaluator(call));
     this.interpretations.set(call, { inputs, value });
 
     return value;
@@ -502,7 +500,8 @@ export class TranscriptCoordinator implements TranscriptView {
     view: DisplayCall,
     result: AgentToolResult<unknown>,
     outcome: Outcome,
-    partial = false
+    partial = false,
+    durationMs?: number
   ): void {
     const call = this.mutable(view);
     if (!call || (partial && !isLive(call))) return;
@@ -516,6 +515,8 @@ export class TranscriptCoordinator implements TranscriptView {
       call.lifecycle = "complete";
       call.outcome = outcome;
       call.liveOutput = undefined;
+      if (durationMs === undefined) delete call.durationMs;
+      else call.durationMs = durationMs;
     }
 
     this.changed(call);
@@ -540,18 +541,6 @@ export class TranscriptCoordinator implements TranscriptView {
     const call = this.mutable(view);
     if (!call || call.reference.messageEntryId === messageEntryId) return;
     call.reference = { ...call.reference, messageEntryId };
-    this.changed(call);
-  }
-  setCwd(view: DisplayCall, cwd: string): void {
-    const call = this.mutable(view);
-    if (!call || call.cwd === cwd) return;
-    call.cwd = cwd;
-    this.changed(call);
-  }
-  setLocal(view: DisplayCall, local: LocalDetails): void {
-    const call = this.mutable(view);
-    if (!call || call.local === local) return;
-    call.local = local;
     this.changed(call);
   }
   setSavedPath(view: DisplayCall, path: string): void {

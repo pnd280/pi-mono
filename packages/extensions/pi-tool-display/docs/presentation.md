@@ -30,7 +30,6 @@ Standalone and expanded targets show paths as follows:
 
 - Descendants of Pi's rendering cwd are relative to it, and the cwd itself is `.`.
 - Other paths are absolute.
-- Historical relative targets resolve against the recorded execution cwd, then follow the same display rules.
 - Resolution is lexical, including home expansion. The filesystem is never inspected and symlinks are not followed.
 - Native and selective-read targets first apply Pi's Unicode-space normalisation, consistently across headings, grouping, and summary identities. Custom paths skip this normalisation.
 - Path display leaves parameters, retained output, generic arguments, literal scopes, and filters unchanged.
@@ -65,7 +64,7 @@ When validated result metadata allows it, successful text can be replaced with a
 | Non-progress failure or cancellation | Output stays visible                        |
 | Notices and images                   | Stay visible                                |
 
-Shell status, operation rows, nested calls, and progress cards use one duration format: milliseconds below one second, tenths of a second below one minute, then minutes and seconds, such as `1m 5s`, with hours for durations of an hour or more. A running progress timer counts whole seconds.
+Shell status, operation rows, script times, nested calls, and progress cards use one duration format: milliseconds below one second, tenths of a second below one minute, then minutes and seconds, such as `1m 5s`, with hours for durations of an hour or more. A running progress timer counts whole seconds.
 
 Preview rules:
 
@@ -241,12 +240,6 @@ Failed, cancelled, and unknown-history headings keep the action name: `Write fai
 - Cancellation and failure follow the [outcome precedence](renderers.md#outcomes).
 - After the CLI confirms cancellation, compact native cards can hide Pi's exact cancellation message. They keep process output and other diagnostics, and expansion restores the full diagnostics. Without confirmation, output that only resembles the message stays visible.
 
-### Local details on replay
-
-- Expanded native `bash`, `powershell`, `edit`, and `write` cards say why timing and saved-output references are missing: the writer's file is not on this machine, the file has no line for the call, the file exceeds 8 MiB or cannot be read safely, or the call was not observed.
-- When the file is not on this machine, shell summaries and operation rows show `Timing not on this machine` in place of the duration.
-- Other adapters keep no local details and show no notice.
-
 ## Notices and colours
 
 Severity changes styling, never visibility. Compact groups keep informational notices.
@@ -288,6 +281,12 @@ Edit and write cards show retained patches below their headings.
 
 Expanding a completed shell card loads a bounded preview of Pi's temporary output file.
 
+### Output paths
+
+- A result that Pi saved with an output path supplies the path, including a shell call that exited with a nonzero code.
+- When the shell throws, as on an abort, a timeout, or a missing exit code, Pi's result keeps no path. The card then uses the path that the extension observed while the call ran.
+- Observed paths stay in memory only. They survive a rebuilt transcript, but not `/reload`, a session change, or exit. After that, such a call shows no preview.
+
 ### Reading
 
 - Expanding a completed shell card reads the file in the background. An expanded running card reads it when the call completes. Collapsed cards never read it.
@@ -316,7 +315,7 @@ Limits affect display only, never execution or Pi's saved arguments and results.
 - Collapsed output previews follow the [preview rules](#results). Source-code previews keep the first rows. Nested-call lists keep the latest calls.
 - Expansion restores only what Pi retained or what the bounded observation captured.
 - Exceeded limits make a patch unavailable; they never make an edit or write unsuccessful.
-- A saved call fact that is too large cannot be replayed. Each line of local details is limited to 32 KiB, and replay skips a local file above 8 MiB. [Record size limits](recording.md#record-size-limits) has the details.
+- A saved call fact that exceeds the [record size limit](recording.md#record-size-limits) is not saved and cannot be replayed.
 
 ### How work is bounded
 

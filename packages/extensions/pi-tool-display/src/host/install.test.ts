@@ -26,13 +26,14 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { type Container, stripTerminalSequences, Text, type TUI } from "@earendil-works/pi-tui";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
+import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
 import toolDisplay from "../index.ts";
 import { assistantMessage, messageToolCall, renderingTui } from "../test-fixture.ts";
-import { CALL_TYPE, WRITER_TYPE } from "../transcript/metadata.ts";
+import { CALL_TYPE } from "../transcript/metadata.ts";
 import { DisplaySession } from "../transcript/session.ts";
 import { DisplayCollectors } from "./collection.ts";
 import { hostHook, interactivePrototype, type Host } from "./compatibility.ts";
@@ -44,14 +45,14 @@ function installHostIntegration(): (() => void) | undefined {
   const dispose = installHostHooks(collection);
 
   if (!dispose) {
-    void collection.dispose();
+    collection.dispose();
 
     return;
   }
 
   return () => {
     dispose();
-    void collection.dispose();
+    collection.dispose();
   };
 }
 
@@ -477,8 +478,15 @@ it("observes native calls through real transcript rows before Pi middleware wrap
         toolCallId: "native-shell",
         toolName: "bash",
         result,
-        isError: false
+        isError: false,
+        durationMs: 1500
       });
+      const shellRow = tui.chatContainer.children
+        .filter((child) => child instanceof ToolExecutionComponent)
+        .at(-1)!;
+      shellRow.setExpanded(true);
+      expect(text(shellRow)).toContain("Exit 0 · 1.5s");
+      // A message_end replacement can drop Pi's duration; the card follows the final result.
       const shellResult = {
         role: "toolResult" as const,
         toolCallId: "native-shell",
@@ -488,14 +496,12 @@ it("observes native calls through real transcript rows before Pi middleware wrap
         timestamp: 3
       };
       await tui.handleEvent({ type: "message_end", message: shellResult });
-      // Pi's successful result implies exit 0, so only the writer entry is saved.
-      expect(saved(session, WRITER_TYPE)).toHaveLength(1);
-      expect(saved(session, CALL_TYPE)).toEqual([]);
-      const shellRow = tui.chatContainer.children
-        .filter((child) => child instanceof ToolExecutionComponent)
-        .at(-1)!;
-      shellRow.setExpanded(true);
+      // Pi's successful result implies exit 0, so only the observed operation is saved.
+      expect(saved(session, CALL_TYPE)).toEqual([
+        { entry: expect.any(String) as unknown, toolCallId: "native-shell", operation: true }
+      ]);
       expect(text(shellRow)).toContain("Exit 0");
+      expect(text(shellRow)).not.toContain("1.5s");
     } finally {
       tui.footerDataProvider.dispose();
     }
@@ -685,7 +691,12 @@ it("preserves native construction settings when settings change before TUI bindi
       // Facts are saved with Pi's final result message, before Pi appends its entry.
       await tui.handleEvent({ type: "message_end", message: final });
       expect(saved(session, CALL_TYPE)).toEqual([
-        { entry: expect.any(String) as unknown, toolCallId: "observed-settings", exitCode: 3 }
+        {
+          entry: expect.any(String) as unknown,
+          toolCallId: "observed-settings",
+          operation: true,
+          exitCode: 3
+        }
       ]);
     } finally {
       tui.footerDataProvider.dispose();
@@ -693,11 +704,11 @@ it("preserves native construction settings when settings change before TUI bindi
   });
 });
 
-it.each(["observation", "session-entry", "local-store"] as const)(
+it.each(["observation", "session-entry"] as const)(
   "preserves a native result and thrown error when %s fails",
   async (failure) => {
     await withSession(
-      async ({ session, agentDir, assertNoRegistration }) => {
+      async ({ session, assertNoRegistration }) => {
         const manager = session.sessionManager;
         const args = { command: 'printf "%s" "$TOOL_DISPLAY_TEST"; exit 3' };
         const expected = await session.agent.state.tools
@@ -738,15 +749,10 @@ it.each(["observation", "session-entry", "local-store"] as const)(
             });
           if (failure === "session-entry")
             writes.mockImplementation((type, data) => {
-              if (type === CALL_TYPE || type === WRITER_TYPE) return fail();
+              if (type === CALL_TYPE) return fail();
 
               return append(type, data);
             });
-
-          if (failure === "local-store") {
-            await mkdir(agentDir, { recursive: true });
-            await writeFile(join(agentDir, "pi-tool-display"), "not a directory");
-          }
 
           await session.bindExtensions({
             mode: "tui",
@@ -798,23 +804,21 @@ it.each(["observation", "session-entry", "local-store"] as const)(
           }
 
           if (failure === "session-entry") {
-            expect(writes).toHaveBeenCalledWith(WRITER_TYPE, expect.any(Object));
             expect(writes).toHaveBeenCalledWith(
               CALL_TYPE,
               expect.objectContaining({ toolCallId: "native-result", exitCode: 3 })
             );
             expect(saved(session, CALL_TYPE)).toEqual([]);
-          }
-
-          if (failure === "local-store")
             await vi.waitFor(
               () =>
                 expect(notify).toHaveBeenCalledWith(
-                  expect.stringContaining("local call details cannot be saved"),
+                  expect.stringContaining("call record not saved: the session write failed."),
                   "warning"
                 ),
               { timeout: STEP_TIMEOUT_MS }
             );
+          }
+
           assertNoRegistration();
         } finally {
           unsubscribe();
@@ -1381,8 +1385,6 @@ it.each([
           if (replay) {
             tui.chatContainer.clear();
             tui.renderSessionEntries(session.sessionManager.buildContextEntries());
-            // Replay applies this writer's local timing after its in-memory read resolves.
-            await new Promise((resolve) => setImmediate(resolve));
           }
 
           const row = tui.chatContainer.children.find(
@@ -1504,8 +1506,6 @@ it.each([
             if (replay) {
               tui.chatContainer.clear();
               tui.renderSessionEntries(session.sessionManager.buildContextEntries());
-              // Replay applies a writer's local timing after its in-memory read resolves.
-              await new Promise((resolve) => setImmediate(resolve));
             }
 
             const row = tui.chatContainer.children.find(
@@ -1536,6 +1536,7 @@ it.each([
                   {
                     entry: expect.any(String) as unknown,
                     toolCallId: call.id,
+                    operation: true,
                     applied: true,
                     change: { kind: "creation" }
                   }
@@ -1579,7 +1580,12 @@ it.each(["rpc", "print", "json"] as const)(
       await session.prompt("Run the native command");
       const entries = session.sessionManager.getEntries();
       const facts = [
-        { entry: expect.any(String) as unknown, toolCallId: "headless-shell", exitCode: 3 }
+        {
+          entry: expect.any(String) as unknown,
+          toolCallId: "headless-shell",
+          operation: true,
+          exitCode: 3
+        }
       ];
       expect(saved(session, CALL_TYPE)).toEqual(facts);
       expect(
@@ -1611,9 +1617,9 @@ it.each(["rpc", "print", "json"] as const)(
   }
 );
 
-it("replays session facts and local timing after a fork and reload, and reports local details missing on this machine", async () => {
+it("replays session facts and Pi's duration after a fork and reload", async () => {
   await withSession(
-    async ({ session, agentDir }) => {
+    async ({ session }) => {
       const tui = interactiveHost(session);
 
       try {
@@ -1641,20 +1647,34 @@ it("replays session facts and local timing after a fork and reload, and reports 
           );
         if (!source) throw new Error("Expected the shell's assistant entry");
         const selected = manager.getLeafId()!;
+        const [durationMs] = manager
+          .getEntries()
+          .flatMap((entry) =>
+            entry.type === "message" &&
+            entry.message.role === "toolResult" &&
+            entry.message.toolCallId === "kept"
+              ? [entry.message.durationMs]
+              : []
+          );
+        if (durationMs === undefined) throw new Error("Expected Pi's saved duration");
+        const status = `Exit 3 · ${formatDuration(durationMs)}`;
         const excluded = manager.appendCustomEntry(CALL_TYPE, {
           entry: source.id,
           toolCallId: "kept",
+          operation: true,
           exitCode: 91
         });
         manager.branch(selected);
         manager.appendCustomEntry(CALL_TYPE, {
           entry: selected,
           toolCallId: "kept",
+          operation: true,
           exitCode: 92
         });
         manager.appendCustomEntry(CALL_TYPE, {
           entry: source.id,
           toolCallId: "another-call",
+          operation: true,
           exitCode: 93
         });
         expect(manager.getEntry(excluded)).toBeDefined();
@@ -1674,28 +1694,13 @@ it("replays session facts and local timing after a fork and reload, and reports 
         };
 
         const matching = await replayed();
-        await vi.waitFor(() => expect(text(matching)).toMatch(/Exit 3 · \d+ms/), {
-          timeout: STEP_TIMEOUT_MS
-        });
+        expect(text(matching)).toContain(status);
         const file = manager.getSessionFile();
         // Like /fork and /clone: a new session file with the same selected entry IDs.
         manager.createBranchedSession(manager.getLeafId()!);
         expect(manager.getSessionFile()).not.toBe(file);
         const forked = await replayed();
-        await vi.waitFor(() => expect(text(forked)).toMatch(/Exit 3 · \d+ms/), {
-          timeout: STEP_TIMEOUT_MS
-        });
-        expect(text(forked)).not.toContain("Local details");
-        await rm(join(agentDir, "pi-tool-display"), { recursive: true });
-        const moved = await replayed();
-        await vi.waitFor(
-          () =>
-            expect(text(moved)).toContain(
-              "Local details for this part of the session are not on this machine."
-            ),
-          { timeout: STEP_TIMEOUT_MS }
-        );
-        expect(text(moved)).toContain("Exit 3 · Timing not on this machine");
+        expect(text(forked)).toContain(status);
       } finally {
         tui.footerDataProvider.dispose();
       }

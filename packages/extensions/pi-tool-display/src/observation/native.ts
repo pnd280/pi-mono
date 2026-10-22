@@ -88,11 +88,7 @@ export function displayMutationSink(observer: ObservationSink, name: string): Mu
     async completed(mutation) {
       const change = async () => observer.fact(await mutationChange(mutation));
       if (name === "write") await change();
-      observer.fact({
-        kind: "operation",
-        durationMs: mutation.durationMs,
-        outcome: mutation.outcome
-      });
+      observer.fact({ kind: "operation", outcome: mutation.outcome });
       if (name === "edit") await change();
     }
   };
@@ -146,19 +142,8 @@ export function observeNativeDefinition(
       const observer = sink;
       const fact = (value: DisplayFact) => ignoreFailure(() => observer.fact(value));
 
-      const start = () => {
-        ignoreFailure(() => observer.started());
-
-        return performance.now();
-      };
-
-      const terminal = (started: number, outcome: Outcome, extra = {}) =>
-        fact({
-          kind: "operation",
-          durationMs: Math.max(0, performance.now() - started),
-          outcome,
-          ...extra
-        });
+      const terminal = (outcome: Outcome, extra = {}) =>
+        fact({ kind: "operation", outcome, ...extra });
       let definition: Pick<ToolDefinition, "execute">;
       if (original.name === "bash" || original.name === "powershell") {
         const local =
@@ -169,7 +154,7 @@ export function observeNativeDefinition(
         const previews = previewPublisher(buffer, (value) => observer.preview(value));
         const operations: BashOperations = {
           async exec(command, cwd, options) {
-            const started = start();
+            ignoreFailure(() => observer.started());
 
             try {
               const result = await local.exec(command, cwd, {
@@ -182,7 +167,7 @@ export function observeNativeDefinition(
               let outcome: Outcome = "failure";
               if (result.exitCode === null) outcome = "unavailable";
               else if (result.exitCode === 0) outcome = "success";
-              terminal(started, outcome, { exitCode: result.exitCode });
+              terminal(outcome, { exitCode: result.exitCode });
 
               return result;
             } catch (error) {
@@ -190,11 +175,7 @@ export function observeNativeDefinition(
               const aborted = error instanceof Error && error.message === "aborted";
               const timedOut =
                 error instanceof Error && error.message === `timeout:${options.timeout}`;
-              terminal(
-                started,
-                aborted ? "cancelled" : "failure",
-                timedOut ? { timedOut: true } : {}
-              );
+              terminal(aborted ? "cancelled" : "failure", timedOut ? { timedOut: true } : {});
               throw error;
             } finally {
               ignoreFailure(() => previews.finish());

@@ -95,9 +95,11 @@ Use `Listing <target>` while pending and `Listed <target>` after success, in sta
 
 ### Result summaries
 
-`summary` runs only for completed results with a known success, failure, or cancellation. Use validated metadata or recorded facts. Distinguish collected matches from total matches, and failed operations from unfinished ones. Return `undefined` when the data is insufficient.
+`summary` runs only for completed results with a known success, failure, or cancellation. Use validated metadata or recorded facts. Its `durationMs` is Pi's measured `execute()` time for the final result, or `undefined` when Pi recorded none. Distinguish collected matches from total matches, and failed operations from unfinished ones. Return `undefined` when the data is insufficient.
 
 Summaries precede output. Nonempty compact summaries replace successful text unless `preserveOutput: true`, as for shell status. Failure and cancellation output, notices, and images remain; expansion restores retained text.
+
+Failed and cancelled results show their summary in the outcome colour. Set `neutral: true` when the summary states no outcome, such as codemode's elapsed time, so it stays `dim`.
 
 Missing summaries, including those that display as blank after terminal-control sanitisation, use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
 
@@ -153,6 +155,5 @@ Current budgets live in the source:
 | Saved previews     | [observation/saved-output.ts](../src/observation/saved-output.ts), [transcript/saved-output.ts](../src/transcript/saved-output.ts) |
 | Patch limits       | [diff.ts](../src/diff.ts)                                                                                                          |
 | Record validation  | [metadata.ts](../src/transcript/metadata.ts)                                                                                       |
-| Local lines        | [store.ts](../src/transcript/store.ts)                                                                                             |
 
 The user-visible effects of these budgets are under [resource limits](presentation.md#resource-limits).

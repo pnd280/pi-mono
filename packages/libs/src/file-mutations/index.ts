@@ -30,7 +30,6 @@ export interface FileMutation {
   before: FileObservation;
   after: FileObservation;
   outcome: "success" | "failure";
-  durationMs: number;
   /** Call-scoped cache. Do not retain this closure: it owns the captured source. */
   patch: (limits: PatchLimits) => Promise<MutationPatch>;
 }
@@ -109,7 +108,6 @@ export function observeMutationDefinition(
             : { status: "too-large" };
         const order = ++sequence;
         sinks.forEach((sink) => safely(() => sink.started?.()));
-        const started = performance.now();
         let outcome: FileMutation["outcome"] = "failure";
 
         try {
@@ -122,7 +120,6 @@ export function observeMutationDefinition(
             before,
             after,
             outcome,
-            durationMs: Math.max(0, performance.now() - started),
             patch(limits) {
               if (!patchLimitsSchema.safeParse(limits).success)
                 throw new RangeError(

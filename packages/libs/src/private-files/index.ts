@@ -12,4 +12,4 @@ export {
 
 export { PrivateFileTransactions, type PrivateFileUpdate } from "./transaction.ts";
 
-export { boundedRead, checkHandle } from "./privacy.ts";
+export { boundedRead } from "./privacy.ts";

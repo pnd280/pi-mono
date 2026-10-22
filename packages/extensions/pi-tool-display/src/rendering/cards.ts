@@ -47,7 +47,8 @@ function prepareCard(
       args: base.context.args,
       outcome: interpretation.outcome,
       operation: base.call?.operation,
-      local: base.call?.local,
+      // Standalone cards have no transcript call; Pi's context holds the same measurement.
+      durationMs: base.call ? base.call.durationMs : base.context.durationMs,
       expanded: base.expanded
     });
 

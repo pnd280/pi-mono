@@ -28,7 +28,6 @@ export default function toolDisplay(pi: ExtensionAPI): void {
 
   const collection = new DisplayCollectors((type, data) => pi.appendEntry(type, data), warning);
   const dispose = installHostIntegration(collection, emit);
-  let disposal: Promise<void> | undefined;
   let live: typeof notify;
   joinLifecycle(pi, { id: "pi-tool-display" }).onSessionShutdown(
     () => {
@@ -37,19 +36,16 @@ export default function toolDisplay(pi: ExtensionAPI): void {
       dispose?.();
       live = notify;
       notify = undefined;
-      disposal = collection.dispose();
+      collection.dispose();
     },
-    // Pi awaits this handler, so lines queued during local file setup reach the file.
     // The session context stays valid until the handler ends, so flush warnings still show.
-    async (event, context) => {
+    (event, context) => {
       // A TUI quit stops the terminal before this handler, so warnings print once Pi exits.
-      notify =
+      const flush =
         event.reason === "quit" && context.mode === "tui"
-          ? (message) => process.once("exit", () => stderr(message))
+          ? (message: string) => process.once("exit", () => stderr(message))
           : live;
-      if (notify) warnings.splice(0).forEach(notify);
-      await disposal;
-      notify = undefined;
+      if (flush) warnings.splice(0).forEach(flush);
     }
   );
   pi.on("session_start", (_event, context) => {

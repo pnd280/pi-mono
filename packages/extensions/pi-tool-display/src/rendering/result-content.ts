@@ -20,7 +20,6 @@ import type { ParsedPatch } from "@pi-mono/utils/patch";
 import type {
   BorrowedToolResult,
   DisplayNotice,
-  LocalDetails,
   McpFacts,
   NestedCall,
   ResultTextPart
@@ -716,22 +715,11 @@ function appendDetails(items: TreeItem[], rows: string[]): void {
   else items.push({ rows: [...rows] });
 }
 
-const localNotices: Partial<Record<LocalDetails, string>> = {
-  "not-observed": "Operation details unavailable; call was not observed.",
-  absent: "Local details for this part of the session are not on this machine.",
-  unsaved: "Local details were not saved for this call.",
-  "too-large": "Local details for this part of the session are unavailable: file exceeds 8 MiB.",
-  unreadable:
-    "Local details for this part of the session are unavailable: file cannot be read safely."
-};
-
 function unavailableHistory(p: Projection): DisplayNotice[] {
   if (p.call?.origin !== "historical") return [];
   const notices: DisplayNotice[] = [];
   if (p.adapter.id === "pi:write" && !p.call.change)
     notices.push({ kind: "unavailable", text: "Before-state unavailable; no historical diff." });
-  const local = p.call.local && localNotices[p.call.local];
-  if (p.expanded && local) notices.push({ kind: "unavailable", text: local });
 
   return notices;
 }
@@ -763,11 +751,9 @@ function notices(result: BorrowedToolResult, p: Projection): string[] {
     const color = (
       { failure: "error", cancelled: "warning", unavailable: "muted", success: "dim" } as const
     )[operation.outcome];
-    let timing = "";
-    if (operation.durationMs !== undefined)
-      timing = p.theme.fg("dim", `; ${formatDuration(operation.durationMs)}`);
-    else if (p.call.local === "absent")
-      timing = p.theme.fg("muted", "; timing not on this machine");
+    const { durationMs } = p.call;
+    const timing =
+      durationMs === undefined ? "" : p.theme.fg("dim", `; ${formatDuration(durationMs)}`);
     const detail =
       p.theme.fg("dim", "Operation: ") +
       p.theme.fg(color, operation.outcome) +
@@ -801,7 +787,7 @@ function buildResultBody(current: BorrowedToolResult, p: Projection): ResultBody
   return {
     ...body,
     annotations: [
-      ...message(p.summary.text, p, p.context.isError ? color : "dim"),
+      ...message(p.summary.text, p, p.context.isError && !p.summary.neutral ? color : "dim"),
       ...body.annotations
     ]
   };

@@ -101,21 +101,23 @@ Warnings appear as Pi notifications in TUI and RPC sessions. Print and JSON sess
 
 ### What is recorded
 
-In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, timing, outcomes, and file contents from before each write. Display failures never change a tool's outcome.
+In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, outcomes, and file contents from before each write. Durations come from Pi's own results. Pi measures the whole tool execution, including setup and any file observation or patch generation. Display failures never change a tool's outcome.
 
 Native observation excludes SDK tool overrides, custom tools, and manual `!` and `!!` commands. Verified extension adapters can still contribute call provenance and summaries.
 
-Session history stores only facts that Pi's own entries lack, such as cancellation, a failed shell's exit code, and bounded patches. The extension keeps them in `pi-tool-display.call` and `pi-tool-display.writer` entries, outside the model's context. Timing, saved-output references, and diagnostics stay on this machine, in `pi-tool-display/calls/<writer>.jsonl` under Pi's agent directory.
+Session history stores only facts that Pi's own entries lack, such as an observed operation, cancellation, a failed shell's exit code, and bounded patches. The extension keeps them in `pi-tool-display.call` entries, outside the model's context, and writes no files of its own.
+
+Files that older versions wrote under `pi-tool-display/calls/` in Pi's agent directory stay on disk. The extension no longer reads them, so you can delete them.
 
 > Patches can keep deleted text. Removed and context lines from overwritten files may remain in session history.
 
-The extension never deletes its local files, because copied or moved sessions can still name them. Sessions that Pi does not save keep these details in memory. On native Windows, an agent directory outside the user profile also keeps them in memory. Live shell previews stay in memory only. For the exact facts saved and when the local files are created, read [recorded data and replay](docs/recording.md).
+Live shell previews stay in memory only. For the exact facts saved, read [recorded data and replay](docs/recording.md).
 
 ### Replay and saved output
 
-Reopening a session restores matching facts without rerunning tools or observing source files again. Missing facts are never guessed from output text. When the local details are on another machine, native shell cards show `Timing not on this machine` in place of the duration. Expanded native `bash`, `powershell`, `edit`, and `write` cards say [why local details are missing](docs/presentation.md#local-details-on-replay).
+Reopening a session restores matching facts without rerunning tools or observing source files again. Missing facts are never guessed from output text. Durations come from Pi's saved results, so they replay on any machine. A result that Pi saved without a duration shows none.
 
-Expanding a finished shell card reads a bounded preview from Pi's temporary output file. See [saved-output previews](docs/presentation.md#saved-output-previews) for loading and retry. The extension keeps no durable output archive and makes no network requests.
+Expanding a finished shell card reads a bounded preview from Pi's temporary output file. After `/reload` or reopening a session, an aborted or timed-out shell call shows no preview, because Pi saves no output path with its result. See [saved-output previews](docs/presentation.md#saved-output-previews) for path sources, loading, and retry. The extension keeps no durable output archive and makes no network requests.
 
 [Resource limits](docs/presentation.md#resource-limits) bound output, previews, and patches. Large, binary, or unavailable changes never block a native operation.
 

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile, realpath, rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -7,7 +7,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it } from "vite-plus/test";
 
-import { CALL_TYPE, parseWriterRecord, WRITER_TYPE } from "../src/transcript/metadata.ts";
+import { CALL_TYPE } from "../src/transcript/metadata.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
 it("runs fixed plans through the installed CLI and resumes without replaying mutations", async () => {
@@ -48,62 +48,37 @@ it("runs fixed plans through the installed CLI and resumes without replaying mut
       "display_fixture_read"
     ]);
     expect(results.every((result) => !result.isError)).toBe(true);
+    // Replay shows Pi's measured durations from these results.
+    expect(results.every((result) => typeof result.durationMs === "number")).toBe(true);
     expect(results.at(-1)?.content).toEqual([{ type: "text", text: changed }]);
     const custom = (type: string) =>
       entries.flatMap((entry) =>
         entry.type === "custom" && entry.customType === type ? [entry.data] : []
       );
-    // Replay derives the creation patch from content; Pi's edit patches replace the observed ones.
-    // The write's diff has a wall-clock budget in the Pi process, which suite load can exceed.
+    // Each observed operation is saved. Replay derives the creation patch from content, and
+    // Pi's edit patches replace the observed ones. The write's diff has a wall-clock budget in
+    // the Pi process, which suite load can exceed.
+    const operation = {
+      entry: expect.any(String) as unknown,
+      toolCallId: expect.any(String) as unknown,
+      operation: true
+    };
     expect(custom(CALL_TYPE)).toEqual([
       {
-        entry: expect.any(String) as unknown,
-        toolCallId: expect.any(String) as unknown,
+        ...operation,
         change: expect.toBeOneOf([
           { kind: "creation" },
           { kind: "unavailable", reason: "budget-exceeded" }
         ]) as unknown
-      }
+      },
+      operation,
+      operation
     ]);
     expect(
       manager
         .buildSessionProjection()
-        .messages.some(
-          (message) =>
-            message.role === "custom" &&
-            (message.customType === CALL_TYPE || message.customType === WRITER_TYPE)
-        )
+        .messages.some((message) => message.role === "custom" && message.customType === CALL_TYPE)
     ).toBe(false);
-    // Only the first process collects calls; the public fixture tool renders itself.
-    const writers = custom(WRITER_TYPE).map(parseWriterRecord);
-    // Pi records process.cwd(), which resolves macOS /var to /private/var.
-    expect(writers).toEqual([
-      { writer: expect.any(String) as unknown, cwd: await realpath(join(directory, "work")) }
-    ]);
-    // The fixture agent directory is outside the fixture profile, so Windows keeps these details in memory.
-    if (process.platform === "win32") return;
-    const local = await readFile(
-      join(directory, "agent", "pi-tool-display", "calls", `${writers[0]!.writer}.jsonl`),
-      "utf8"
-    );
-    const line = (tool: string) => ({
-      type: "call",
-      entry: expect.any(String) as unknown,
-      toolCallId: expect.any(String) as unknown,
-      tool,
-      durationMs: expect.any(Number) as unknown
-    });
-    expect(
-      local
-        .trimEnd()
-        .split("\n")
-        .map((text) => JSON.parse(text) as unknown)
-    ).toEqual([
-      expect.objectContaining({ type: "writer", sessionFile: join(directory, "session.jsonl") }),
-      line("write"),
-      line("edit"),
-      line("edit")
-    ]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

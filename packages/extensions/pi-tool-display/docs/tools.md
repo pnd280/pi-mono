@@ -24,8 +24,7 @@ When a tool is not the verified tool that a card expects, it keeps its own rende
 
 Pi's own tools get shell previews with status and duration, file diffs, and grouped reads and searches. They follow the shared card layout, group, and result rules of [tool card presentation](presentation.md).
 
-- Observed shells show the recorded status and duration. A missing exit code stays unknown. Output text alone never sets the status.
-- When the duration stayed on another machine, `Timing not on this machine` replaces it.
+- Observed shells show the recorded status and Pi's measured duration. A missing exit code stays unknown. Output text alone never sets the status.
 - Image omission warnings and fallbacks stay visible when Pi cannot display images.
 - Pi's read continuation and byte-limit instructions stay visible in compact cards and groups, including fractional, negative, and exponent-form continuation values. Expansion shows them once, in the retained text.
 - Diagnostic bodies and failure markers use error styling, without recolouring the process output before them.
@@ -40,6 +39,7 @@ Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted 
 - The result lists the calls that the script made, also while the script runs. Each row shows a status icon (`…` running, `✓` success, `✗` failure, `⊘` cancelled), the tool name, Pi's argument preview, and any reported duration or model-call cost.
 - Compact cards show the latest 8 calls, one row each. Expansion shows every call with wrapped arguments and error previews.
 - Multiple calls with positive costs add a "Model calls" total.
+- Finished scripts show Pi's measured script time, such as `Took 1.5s`. It stays `dim` when the script fails or is cancelled, because it states no outcome.
 - The output follows without Pi's `Script completed` or `Script failed` header when that header is the first text block. Output from separate `text()` calls shares one compact preview. Failed scripts keep Pi's error output.
 - Compact cards name Pi's saved output file as "Saved output", like other cards. Expanded output already ends with Pi's reference.
 

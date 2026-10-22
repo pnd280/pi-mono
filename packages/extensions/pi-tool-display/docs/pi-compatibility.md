@@ -99,7 +99,7 @@ Verify [native observation](../GLOSSARY.md#interpretation) against [native tools
 
 - [ ] Calls of Pi's built-in [codemode](../src/adapters/builtin/codemode/README.md) and [MCP](../src/adapters/builtin/mcp/README.md) tools get their dedicated cards.
 - [ ] Child execution events create no transcript rows.
-- [ ] Child execution events create no orphan [saved call entries or local lines](../GLOSSARY.md#interpretation).
+- [ ] Child execution events create no orphan [saved call entries](../GLOSSARY.md#interpretation).
 - [ ] Child execution events create no duplicate summaries.
 - [ ] Only persisted parent calls own replay rows.
 - [ ] MCP tools discovered through codemode keep built-in provenance.
@@ -122,9 +122,11 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 - [ ] Public listeners receive a tool result's `message_end` after extension replacement and before Pi appends the result entry, so call entries precede their results.
 - [ ] Copies and forks keep entry IDs and entry order.
 - [ ] Session changes and shutdown discard pending saved-output reads.
-- [ ] Shutdown flushes queued local lines.
+- [ ] `tool_execution_end.durationMs` reports the completed `execute()` duration when the tool ran.
+- [ ] A saved `toolResult` keeps that `durationMs`.
+- [ ] `ToolRenderContext.durationMs` supplies the final result's duration and is undefined for partial results.
 
-The [lifecycle](../../../libs/src/lifecycle/README.md#shutdown-phase) shutdown revoke stops collection and appends without awaiting. The flush awaits in its cleanup, so it does not delay the revokes of other participants.
+The [lifecycle](../../../libs/src/lifecycle/README.md#shutdown-phase) shutdown revoke stops collection and appends without awaiting.
 
 ### Extension notifications
 
@@ -175,11 +177,11 @@ The `validateToolArguments` items keep [callback arguments](adapters.md#callback
 - In Pi 1.3.0, the tmux smoke run covered the regular-mode `filenames` and `native-mixed` read ranges.
 - In Pi 1.3.0, offline tests covered the ownership of a `registerToolRenderer` resolver, but no live resolver was checked.
 - In Pi 1.3.0, `registerToolRenderer` could replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. It doesn't replace it yet, for three reasons. Pi also calls resolvers for HTML export. Resolvers run in extension load order, so an earlier resolver can hide this one. A resolver receives no host to claim the row's call.
-- In Pi 1.3.0, Pi records each final tool result's `durationMs` in the session and passes it to renderers and `tool_execution_end`. It could replace local shell and mutation timing, so durations would replay on other machines, and could give codemode cards the script's total time that Pi's own row shows. Pi measures the whole `execute()` call, not only the shell or file operation.
 - In Pi 1.4.0, the host fingerprints were unchanged in the API and CLI builds. The extension dialog stack changed no hooked method, and selectors still toggle tool output through `toggleToolOutputExpansion`.
 - In Pi 1.4.0, the source review covered the hooked Pi methods, the row and assistant components, and the built-in MCP and codemode extensions. It did not cover the `pi-mcp` and `pi-codemode` packages.
 - In Pi 1.4.0, the API and CLI suites included the offline MCP and codemode hosts. The API suite also covered session reload and later wrappers.
 - In Pi 1.4.0, `registerToolRenderer` and `resolveToolRenderers` were unchanged, so the 1.3.0 reasons not to replace the lookup hook still apply.
+- In Pi 1.4.0, `durationMs` measures the whole `execute()` call, not only the shell or file operation, so shell and mutation durations include tool setup.
 - In Pi 1.4.0, a codemode script that cannot get a worker fails with Pi's `Script failed` header and empty `details.calls`. A source review shows that the card hides the header and keeps the error.
 - Recheck the [image-row limitation](validation.md#platform-limitations) for finalised-message image updates against each new Pi version. Compare live and replay, with and without this extension.
 

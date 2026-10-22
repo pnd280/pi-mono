@@ -36,7 +36,6 @@ it("rejects foreign and disposed call updates without changing retained views or
     c.setSavedPath(view, "/late");
     c.setSavedOutput(view, { path: "/late", text: "late preview" });
     c.fact(view, { kind: "change", change: "unavailable", reason: "binary" });
-    c.setLocal(view, "absent");
     c.result(view, result("late result"), "failure");
     c.expand(view, true);
   };

@@ -2,7 +2,7 @@
 
 [pi-tool-display](../README.md) · [Glossary](../GLOSSARY.md)
 
-The extension keeps portable facts in session history and local details on the observing machine. For user-visible effects, read [what is recorded](../README.md#what-is-recorded).
+The extension keeps observed facts in session history and writes no files of its own. For user-visible effects, read [what is recorded](../README.md#what-is-recorded).
 
 ## Observation
 
@@ -11,8 +11,9 @@ The extension keeps portable facts in session history and local details on the o
 
 ## Session history
 
-[What is recorded](../README.md#what-is-recorded) names the session entries and the local file. Session history stores only facts that Pi's own entries lack. The full set is:
+[What is recorded](../README.md#what-is-recorded) names the session entry. Session history stores only facts that Pi's own entries lack. The full set is:
 
+- that native observation saw an operation;
 - cancellation;
 - a shell exit code or timeout when the call did not succeed;
 - a change applied although Pi reported failure;
@@ -21,34 +22,24 @@ The extension keeps portable facts in session history and local details on the o
 
 When collection stops before Pi saves a call's result, such as at shutdown, the extension saves the observed outcome and exit code, because replay cannot rely on that result.
 
-Each `pi-tool-display.call` custom entry holds the facts of one call. A `pi-tool-display.writer` entry names the local file for subsequent saved call facts and results, and the directory where those calls ran.
+Each call saves at most one `pi-tool-display.call` custom entry, and every call with an observed operation saves one. When an entry cannot be saved, because it exceeds the size limit or the session write fails, the extension warns once for each problem, and the live card keeps its facts.
 
 The extension saves patches only when replay needs them:
 
 - `write` saves its patch only when replay cannot derive the same patch from the written content.
 - `edit` diffs come from Pi's result. The extension saves its own diff when the edit did not succeed, ended without a result, or Pi's patch is missing, invalid, or has different hunks.
 
-## Local files
-
-Each [writer](../GLOSSARY.md#interpretation) puts its local details in its own file, which [what is recorded](../README.md#what-is-recorded) names.
-
-- The file is created at the first live tool start or local-detail write, including after a reload.
-- Folders and files are owner-only, and the extension refuses linked files.
-- On native Windows, the folders rely on the user profile's ACL instead of owner and mode checks, so the agent directory must be inside the user profile. Outside it, the extension warns once and keeps local details in memory, as for sessions that Pi does not save. See the [Windows storage decision](../../../libs/docs/adr/0001-windows-private-storage.md).
-- A failed write or close of this file shows a warning, also during shutdown.
-
 ## Record size limits
 
-- Persisted fact size includes unknown fields, so an oversized record cannot be replayed.
-- Each local line is limited to 32 KiB.
-- When a writer's header exceeds the limit, the extension does not create the writer's file, and the writer's local details stay in memory.
-- The extension replaces an oversized call line with a diagnostic that has bounded fields.
-- Replay does not read a writer's file above 8 MiB, whatever its line sizes.
+A call entry is limited to 160 KiB, and the size includes unknown fields. The extension does not save a larger entry, and replay does not apply one.
 
 Other display budgets are listed under [resource limits](presentation.md#resource-limits).
 
 ## Replay
 
-Reopening a session restores matching facts for calls on the selected branch. Published results still supply their outcomes.
+Reopening a session restores matching facts for calls on the selected branch. Published results still supply their outcomes and durations.
 
-Replay finds local details through the nearest writer entry before a call's saved facts or result, so forks and copies keep them on the same machine. When the details are missing, cards say [why local details are missing](presentation.md#local-details-on-replay).
+- Durations come from the `durationMs` that Pi saves with each tool result, so forks, copies, and other machines show them too. Results without it, such as a call that never ran, show no duration.
+- Replay rebuilds an operation status only when the call's entry records an observed operation, using Pi's outcome and the saved facts. Pi's duration shows only that the tool ran, so a call that stopped before its operation, such as an edit whose text did not match, shows none.
+- Relative targets resolve against the session cwd, as Pi's own rows do, including for calls that ran in another directory.
+- Saved-output paths that the extension observed are never saved. [Output paths](presentation.md#output-paths) says when a reopened call still has a preview.

@@ -6,13 +6,10 @@ import { isChangeUnavailableReason, PATCH_BYTES } from "../diff.ts";
 /** Session facts of one call that Pi's own entries do not hold. */
 export const CALL_TYPE = "pi-tool-display.call";
 
-/** Names the local file that holds the details of the calls after it on the branch. */
-export const WRITER_TYPE = "pi-tool-display.writer";
-
 export const MAX_RECORD_BYTES = 160 * 1024;
 
-/** Pi entry and tool-call IDs, in session entries and local lines. */
-export const idSchema = z.string().min(1).max(1024);
+/** Pi entry and tool-call IDs. */
+const idSchema = z.string().min(1).max(1024);
 
 const patchSchema = z.string().refine((patch) => Buffer.byteLength(patch) <= PATCH_BYTES);
 
@@ -22,6 +19,11 @@ const callRecordSchema = z.object({
   toolCallId: idSchema,
   /** The call was cancelled, for any tool; Pi's result has no cancellation flag. */
   cancelled: z.literal(true).optional(),
+  /**
+   * Native observation saw an operation; the fields below refine it. Pi's duration
+   * shows only that the tool ran, not that the operation started.
+   */
+  operation: z.literal(true).optional(),
   /** The observed operation failed, independently of Pi's result and call cancellation. */
   outcome: z.literal("failure").optional(),
   /** Shell only, when success does not imply exit 0; null when the process had no exit code. */
@@ -44,10 +46,6 @@ const callRecordSchema = z.object({
 
 export type CallRecord = z.infer<typeof callRecordSchema>;
 
-const writerRecordSchema = z.object({ writer: z.uuid(), cwd: z.string().min(1).max(4096) });
-
-export type WriterRecord = z.infer<typeof writerRecordSchema>;
-
 function bounded(value: unknown): boolean {
   try {
     return Buffer.byteLength(JSON.stringify(value)) <= MAX_RECORD_BYTES;
@@ -59,12 +57,6 @@ function bounded(value: unknown): boolean {
 /** The whole original value counts toward the limit, including unknown fields. */
 export function parseCallRecord(value: unknown): CallRecord | undefined {
   const parsed = callRecordSchema.safeParse(value);
-
-  return parsed.success && bounded(value) ? parsed.data : undefined;
-}
-
-export function parseWriterRecord(value: unknown): WriterRecord | undefined {
-  const parsed = writerRecordSchema.safeParse(value);
 
   return parsed.success && bounded(value) ? parsed.data : undefined;
 }

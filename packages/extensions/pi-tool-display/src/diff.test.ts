@@ -9,7 +9,6 @@ function mutation(result: MutationPatch, created = false): FileMutation {
   return {
     path: "/work/file",
     sequence: 1,
-    durationMs: 0,
     outcome: "success",
     before: created ? { status: "missing" } : { status: "ready", text: "before\n" },
     after: { status: "ready", text: "after\n" },

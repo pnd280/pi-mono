@@ -1,10 +1,6 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { fauxToolCall, type JsonObject, type JsonValue } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import { nativeAdapter } from "../adapters/index.ts";
 import {
@@ -18,48 +14,21 @@ import { parseRetainedPatch } from "../diff.ts";
 import { assistantMessage } from "../test-fixture.ts";
 import { TranscriptCoordinator } from "./coordinator.ts";
 import { DisplayHistory } from "./history.ts";
-import { CALL_TYPE, WRITER_TYPE } from "./metadata.ts";
+import { CALL_TYPE } from "./metadata.ts";
 import { SavedCalls, type SavedCallsOptions } from "./saved-calls.ts";
-import { LocalStore } from "./store.ts";
-
-let root: string;
-const stores: LocalStore[] = [];
-
-beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "pi-tool-display-saved-calls-"));
-});
-
-afterEach(async () => {
-  await Promise.all(stores.splice(0).map((store) => store.dispose()));
-  await rm(root, { recursive: true, force: true });
-});
-
-/** A writer whose file is under the fixture root, never the real agent directory. */
-function localStore(): LocalStore {
-  const store = new LocalStore({
-    root,
-    persisted: true,
-    header: { sessionId: "session", sessionFile: undefined, cwd: "/tmp", pi: "test" },
-    warn() {}
-  });
-  stores.push(store);
-
-  return store;
-}
 
 type Fixture = { coordinator: TranscriptCoordinator; saved: SavedCalls; dispose(): void };
 
 function fixture(
   history: SessionManager,
-  options: Partial<Pick<SavedCallsOptions, "append" | "local">> = {}
+  options: Partial<Pick<SavedCallsOptions, "append" | "warn">> = {}
 ): Fixture {
   const coordinator = new TranscriptCoordinator("saved-calls", { cwd: "/tmp" });
   const saved = new SavedCalls({
-    cwd: "/tmp",
     coordinator,
     history: new DisplayHistory(history),
     append: options.append,
-    local: options.local ?? localStore()
+    warn: options.warn ?? (() => {})
   });
 
   return {
@@ -87,6 +56,8 @@ type LiveCall = {
   /** False stops after the end event, as when shutdown precedes Pi's final result. */
   final?: boolean | undefined;
   details?: JsonValue;
+  /** Pi's measurement; absent when the tool did not run. */
+  durationMs?: number | undefined;
 };
 
 /**
@@ -94,7 +65,7 @@ type LiveCall = {
  * result message, and then its entry. An undefined outcome stops before the end event.
  */
 function runLive({ coordinator, saved }: Fixture, history: SessionManager, input: LiveCall) {
-  const { id, name, args, outcome } = input;
+  const { id, name, args, outcome, durationMs } = input;
   const published = {
     content: [{ type: "text" as const, text: "published body" }],
     details: input.details
@@ -107,7 +78,6 @@ function runLive({ coordinator, saved }: Fixture, history: SessionManager, input
     nativeAdapter(name)!,
     "live"
   );
-  saved.queued(call);
   saved.observe(call);
   for (const fact of input.facts) saved.fact(call, fact);
   if (!outcome) return call;
@@ -116,7 +86,7 @@ function runLive({ coordinator, saved }: Fixture, history: SessionManager, input
   if (outcome === "cancelled") coordinator.fact(call, { kind: "cancellation" });
   saved.end(call, outcome);
   const isError = outcome !== "success";
-  coordinator.result(call, published, isError ? "failure" : "success");
+  coordinator.result(call, published, isError ? "failure" : "success", false, durationMs);
   if (input.final === false) return call;
   saved.finish(call, published, isError ? "failure" : "success");
   history.appendMessage({
@@ -125,6 +95,7 @@ function runLive({ coordinator, saved }: Fixture, history: SessionManager, input
     toolName: name,
     content: published.content,
     ...(input.details === undefined ? {} : { details: input.details }),
+    ...(durationMs === undefined ? {} : { durationMs }),
     isError,
     timestamp: 1
   });
@@ -133,8 +104,8 @@ function runLive({ coordinator, saved }: Fixture, history: SessionManager, input
 }
 
 /** Rebuild calls from Pi's entries, as reconstruction does after a reload. */
-function replay(history: SessionManager, local?: LocalStore): Fixture {
-  const replayed = fixture(history, local ? { local } : {});
+function replay(history: SessionManager): Fixture {
+  const replayed = fixture(history);
   const { coordinator, saved } = replayed;
 
   for (const entry of history.getBranch()) {
@@ -165,7 +136,9 @@ function replay(history: SessionManager, local?: LocalStore): Fixture {
       coordinator.result(
         call,
         { content: message.content, details: message.details },
-        message.isError ? "failure" : "success"
+        message.isError ? "failure" : "success",
+        false,
+        message.durationMs
       );
       saved.replay(call);
     }
@@ -197,92 +170,119 @@ function assistantEntry(history: SessionManager, id: string): string {
 it.each([
   {
     case: "success",
-    facts: [operation({ durationMs: 5, outcome: "success", exitCode: 0 })],
+    facts: [operation({ outcome: "success", exitCode: 0 })],
     outcome: "success",
-    saved: undefined
+    saved: { operation: true }
   },
   {
     case: "a nonzero exit code",
-    facts: [operation({ durationMs: 5, outcome: "failure", exitCode: 2 })],
+    facts: [operation({ outcome: "failure", exitCode: 2 })],
     outcome: "failure",
-    saved: { exitCode: 2 }
+    saved: { operation: true, exitCode: 2 }
   },
   {
     case: "a timeout",
-    facts: [operation({ durationMs: 5, outcome: "failure", timedOut: true })],
+    facts: [operation({ outcome: "failure", timedOut: true })],
     outcome: "failure",
-    saved: { timedOut: true }
+    saved: { operation: true, timedOut: true }
   },
   {
     case: "a process without an exit code",
-    facts: [operation({ durationMs: 5, outcome: "unavailable", exitCode: null })],
+    facts: [operation({ outcome: "unavailable", exitCode: null })],
     outcome: "failure",
-    saved: { exitCode: null }
+    saved: { operation: true, exitCode: null }
   },
   {
     case: "an operation failure that Pi reported as success",
-    facts: [operation({ durationMs: 5, outcome: "failure" })],
+    facts: [operation({ outcome: "failure" })],
     outcome: "success",
-    saved: { outcome: "failure" }
+    saved: { operation: true, outcome: "failure" }
   },
   {
     case: "an operation cancellation",
-    facts: [operation({ durationMs: 5, outcome: "cancelled" })],
+    facts: [operation({ outcome: "cancelled" })],
     outcome: "failure",
-    saved: { cancelled: true }
+    saved: { cancelled: true, operation: true }
   },
   {
     case: "a host cancellation after an operation failure without an exit code",
-    facts: [operation({ durationMs: 5, outcome: "failure" })],
+    facts: [operation({ outcome: "failure" })],
     outcome: "cancelled",
-    saved: { cancelled: true, outcome: "failure" }
+    saved: { cancelled: true, operation: true, outcome: "failure" }
   },
   {
-    case: "a host cancellation before the operation",
+    case: "a host cancellation before the tool ran",
     facts: [],
     outcome: "cancelled",
     saved: { cancelled: true },
-    local: {}
+    durationMs: undefined
+  },
+  {
+    case: "an edit that failed before writing",
+    name: "edit",
+    facts: [],
+    outcome: "failure",
+    saved: undefined
+  },
+  {
+    case: "a shell success whose final result has no duration",
+    facts: [operation({ outcome: "success", exitCode: 0 })],
+    outcome: "success",
+    saved: { operation: true },
+    durationMs: undefined
   },
   {
     case: "a write applied although Pi reported failure",
     name: "write",
     facts: [
       { kind: "change", change: "unavailable", reason: "binary" },
-      operation({ durationMs: 5, outcome: "success" })
+      operation({ outcome: "success" })
     ],
     outcome: "failure",
-    saved: { applied: true, change: { kind: "unavailable", reason: "binary" } }
+    saved: {
+      operation: true,
+      applied: true,
+      change: { kind: "unavailable", reason: "binary" }
+    }
   },
   {
     case: "disposal after a shell success, before Pi's result",
-    facts: [operation({ durationMs: 5, outcome: "success", exitCode: 0 })],
+    facts: [operation({ outcome: "success", exitCode: 0 })],
     outcome: "success",
     final: false,
-    saved: { exitCode: 0 }
+    saved: { operation: true, exitCode: 0 }
   },
   {
     case: "disposal after an applied write, before Pi's result",
     name: "write",
     facts: [
       { kind: "change", change: "unavailable", reason: "binary" },
-      operation({ durationMs: 5, outcome: "success" })
+      operation({ outcome: "success" })
     ],
     outcome: "success",
     final: false,
-    saved: { applied: true, change: { kind: "unavailable", reason: "binary" } }
+    saved: {
+      operation: true,
+      applied: true,
+      change: { kind: "unavailable", reason: "binary" }
+    }
   }
 ] as const)(
   "saves only facts that Pi's entries lack, and replay shows the live card: $case",
-  async ({ name = "bash", facts, outcome, final, saved, ...input }) => {
+  ({ name = "bash", facts, outcome, final, saved, ...input }) => {
     const history = SessionManager.inMemory("/tmp");
-    const writer = localStore();
-    const live = fixture(history, {
-      append: history.appendCustomEntry.bind(history),
-      local: writer
-    });
+    const live = fixture(history, { append: history.appendCustomEntry.bind(history) });
     const args = name === "bash" ? { command: "run" } : { path: "a.bin", content: "x" };
-    const observed = runLive(live, history, { id: "call", name, args, facts, outcome, final });
+    const durationMs = "durationMs" in input ? input.durationMs : 5;
+    const observed = runLive(live, history, {
+      id: "call",
+      name,
+      args,
+      facts,
+      outcome,
+      final,
+      durationMs
+    });
     const shown = (call: DisplayCall) => ({
       operation: call.operation,
       change: call.change,
@@ -290,42 +290,17 @@ it.each([
     });
     const expected = shown(observed);
     live.dispose();
-    await writer.dispose();
 
     const entry = assistantEntry(history, "call");
-    expect(custom(history, WRITER_TYPE)).toEqual([{ writer: writer.writer, cwd: "/tmp" }]);
     expect(custom(history, CALL_TYPE)).toEqual(
       saved ? [{ entry, toolCallId: "call", ...saved }] : []
     );
-    const file = await readFile(
-      join(root, "pi-tool-display", "calls", `${writer.writer}.jsonl`),
-      "utf8"
-    );
-    expect(file).not.toContain("published body");
-    expect(
-      file
-        .trimEnd()
-        .split("\n")
-        .slice(1)
-        .map((line) => JSON.parse(line) as unknown)
-    ).toEqual([
-      {
-        type: "call",
-        entry,
-        toolCallId: "call",
-        tool: name,
-        ...("local" in input ? input.local : { durationMs: 5 })
-      }
-    ]);
-
-    const reader = localStore();
-    const restored = replay(history, reader);
+    const restored = replay(history);
 
     try {
       const call = restored.coordinator.byId("call")!;
-      await reader.read(writer.writer);
-      expect(call.local).toBe("found");
       expect(shown(call)).toEqual(expected);
+      expect(call.durationMs).toBe(final === false ? undefined : durationMs);
     } finally {
       restored.dispose();
     }
@@ -441,5 +416,53 @@ it.each([
           ]
         : []
     );
+  }
+);
+
+it.each([
+  {
+    case: "the session write fails",
+    name: "bash",
+    args: { command: "run" },
+    fact: operation({ outcome: "failure", exitCode: 2 }),
+    outcome: "failure",
+    writeFails: true,
+    warning: "call record not saved: the session write failed."
+  },
+  {
+    case: "the record exceeds the size limit",
+    name: "write",
+    args: { path: "new.ts", content: "x" },
+    fact: {
+      kind: "change",
+      change: "creation",
+      // Within the patch limit, but JSON escapes each quote past the record limit.
+      patch: `@@ -0,0 +1,1 @@\n+${'"'.repeat(100_000)}\n`
+    },
+    outcome: "success",
+    writeFails: false,
+    warning: "call record not saved: it exceeds 160 KiB or fails validation."
+  }
+] as const)(
+  "warns once when a call entry cannot be saved, keeping the live facts: $case",
+  ({ name, args, fact, outcome, writeFails, warning }) => {
+    const history = SessionManager.inMemory("/tmp");
+    const warn = vi.fn();
+    const append = vi.fn(() => {
+      if (writeFails) throw new Error("disk full");
+    });
+    const live = fixture(history, { append, warn });
+
+    try {
+      for (const id of ["first", "second"]) {
+        const call = runLive(live, history, { id, name, args, facts: [fact], outcome });
+        expect(call[fact.kind]).toEqual(fact);
+      }
+    } finally {
+      live.dispose();
+    }
+
+    expect(append).toHaveBeenCalledTimes(writeFails ? 2 : 0);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(warning);
   }
 );

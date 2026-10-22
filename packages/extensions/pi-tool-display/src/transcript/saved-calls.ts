@@ -1,25 +1,17 @@
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import type {
-  ChangeFact,
-  DisplayCall,
-  DisplayFact,
-  LocalDetails,
-  OperationFact,
-  Outcome
-} from "../contracts.ts";
+import type { ChangeFact, DisplayCall, DisplayFact, OperationFact, Outcome } from "../contracts.ts";
 import { creationPatch, parseRetainedPatch, sameRetainedHunks } from "../diff.ts";
 import { record } from "../values.ts";
 import type { TranscriptCoordinator } from "./coordinator.ts";
-import type { DisplayHistory } from "./history.ts";
-import { CALL_TYPE, parseCallRecord, WRITER_TYPE, type CallRecord } from "./metadata.ts";
-import { localKey, type LocalCall, type LocalRead, type LocalStore } from "./store.ts";
+import { callKey, type DisplayHistory } from "./history.ts";
+import { CALL_TYPE, parseCallRecord, type CallRecord } from "./metadata.ts";
 
-/** Native calls whose operations are observed, with timing kept on this machine. */
+/** Native calls whose operations are observed. */
 const OBSERVED_ADAPTERS = new Set(["pi:bash", "pi:powershell", "pi:edit", "pi:write"]);
 
 /** Facts observed during one live call, saved once when it ends. */
-type ObservedCall = { operation?: OperationFact; change?: ChangeFact; savedOutput?: string };
+type ObservedCall = { operation?: OperationFact; change?: ChangeFact };
 
 type RecordedChange = CallRecord["change"];
 
@@ -62,11 +54,11 @@ function recordedChange(
 
 type OperationRecord = Pick<
   CallRecord,
-  "cancelled" | "outcome" | "exitCode" | "timedOut" | "applied"
+  "cancelled" | "operation" | "outcome" | "exitCode" | "timedOut" | "applied"
 >;
 
 /**
- * The operation that replay shows for saved facts and Pi's error flag. The writer
+ * The operation that replay shows for saved facts and Pi's error flag. A live call
  * saves only the fields this cannot derive, so live and replayed operations match.
  */
 function derivedOperation(
@@ -141,7 +133,10 @@ function recordedFacts(
     ...(operation?.timedOut ? { timedOut: true as const } : {})
   };
 
-  if (operation) addOperationFacts(call.adapter.family, operation, published, facts);
+  if (operation) {
+    facts.operation = true;
+    addOperationFacts(call.adapter.family, operation, published, facts);
+  }
 
   const record = { ...facts, ...(change ? { change } : {}) };
 
@@ -158,67 +153,46 @@ function replayedChange(call: DisplayCall, change: RecordedChange): ChangeFact |
   return patch === undefined ? undefined : { kind: "change", change: change.kind, patch };
 }
 
-/**
- * Rebuild an observed operation from saved facts and Pi's published outcome. Without
- * local timing or a saved operation fact there is no evidence of an observed operation.
- */
+/** Rebuild an observed operation from saved facts and Pi's published outcome. */
 function replayedOperation(
   call: DisplayCall,
-  recorded: CallRecord | undefined,
-  local: LocalCall | undefined
+  recorded: CallRecord | undefined
 ): OperationFact | undefined {
-  const durationMs = local?.durationMs;
-  if (
-    durationMs === undefined &&
-    recorded?.outcome !== "failure" &&
-    recorded?.exitCode === undefined &&
-    !recorded?.timedOut &&
-    !recorded?.applied &&
-    !recorded?.change
-  )
-    return undefined;
+  if (!recorded?.operation) return undefined;
 
-  return {
-    kind: "operation",
-    ...derivedOperation(call.adapter.family, call.outcome, recorded ?? {}),
-    ...(durationMs === undefined ? {} : { durationMs })
-  };
+  return { kind: "operation", ...derivedOperation(call.adapter.family, call.outcome, recorded) };
 }
 
 export type SavedCallsOptions = {
-  /** The directory of this session; a replayed call from another directory keeps its own. */
-  cwd: string;
   coordinator: TranscriptCoordinator;
   history: DisplayHistory;
-  /** Without it, calls save only local details. */
+  /** Without it, calls save nothing. */
   append?: ExtensionAPI["appendEntry"] | undefined;
-  /** This writer's machine-local details; it outlives transcript reconstruction. */
-  local: Pick<LocalStore, "writer" | "open" | "call" | "diagnostic" | "read">;
+  /** Reports a call entry that was not saved; the live card keeps its facts. */
+  warn(message: string): void;
+  /**
+   * Observed saved-output paths by call. They are never saved: the owner keeps them
+   * across transcript reconstruction, because Pi's thrown errors hold no path.
+   */
+  savedPaths?: Map<string, string> | undefined;
 };
 
 /**
  * The round trip of saved calls. A live call keeps its observed facts until Pi's
- * final result, then saves only what Pi's entries lack: a local line on this
- * machine and at most one call entry. Replay applies the same facts to a
- * historical call, so it shows the card that the live call showed.
+ * final result, then saves at most one call entry with what Pi's entries lack.
+ * Replay combines the recorded facts with Pi's saved results. Observed saved-output
+ * paths stay in memory.
  */
 export class SavedCalls {
   /** Observed facts wait for the end of the call, so each call writes at most one entry. */
   private observed = new Map<DisplayCall, ObservedCall>();
   /** Pi's end-event outcome, kept until Pi's final result message; only it shows host cancellation. */
   private ended = new Map<DisplayCall, Outcome>();
-  /** Historical calls waiting for one writer's local file. */
-  private localReads = new Map<string, DisplayCall[]>();
+  /** Warnings already reported. */
+  private warned = new Set<string>();
   private disposed = false;
 
   constructor(private options: SavedCallsOptions) {}
-
-  /** Pi queued a live call; name this writer on the branch before its result. */
-  queued(call: DisplayCall): void {
-    if (this.disposed || call.origin !== "live") return;
-    this.sourceEntry(call);
-    this.appendWriter();
-  }
 
   /** Native observation of a live call started; only observed calls save operations. */
   observe(call: DisplayCall): void {
@@ -227,7 +201,7 @@ export class SavedCalls {
     this.observed.set(call, this.observed.get(call) ?? {});
   }
 
-  /** Show an observed fact on the live card and keep it for the call's saved facts. */
+  /** Apply a fact to the live card; keep operation and change facts for the call entry. */
   fact(call: DisplayCall, fact: DisplayFact): void {
     if (this.disposed) return;
     this.options.coordinator.fact(call, fact);
@@ -235,7 +209,6 @@ export class SavedCalls {
     if (!observed) return;
     if (fact.kind === "operation") observed.operation = fact;
     if (fact.kind === "change") observed.change = fact;
-    if (fact.kind === "saved-output") observed.savedOutput = fact.path;
   }
 
   /** Pi's end event. Extensions can still replace the result before Pi saves it. */
@@ -244,9 +217,9 @@ export class SavedCalls {
   }
 
   /**
-   * Pi's final result message. Write the local line, then at most one call entry;
-   * Pi appends the result after both. When disposal comes first, even after the end
-   * event, no published outcome is known.
+   * Pi's final result message. Write at most one call entry; Pi appends the result
+   * after it. When disposal comes first, even after the end event, no published
+   * outcome is known.
    */
   finish(call: DisplayCall, result?: AgentToolResult<unknown>, published?: Outcome): void {
     if (this.disposed || call.origin !== "live") return;
@@ -256,72 +229,33 @@ export class SavedCalls {
     this.ended.delete(call);
     const entry = this.sourceEntry(call);
     if (!entry) return;
-    const { toolCallId } = call.reference;
-    const { append, local } = this.options;
-    this.appendWriter();
-    if (OBSERVED_ADAPTERS.has(call.adapter.id))
-      local.call({
-        entry,
-        toolCallId,
-        tool: call.name,
-        ...(observed?.operation?.durationMs === undefined
-          ? {}
-          : { durationMs: observed.operation.durationMs }),
-        ...(observed?.savedOutput ? { savedOutput: observed.savedOutput } : {}),
-        ...(observed ? {} : { reason: "not-observed" as const })
-      });
+    if (call.savedPath)
+      this.options.savedPaths?.set(callKey(entry, call.reference.toolCallId), call.savedPath);
+    const { append } = this.options;
     const facts =
       append &&
       recordedFacts(call, observed, result, published, (ended ?? published) === "cancelled");
     if (!facts) return;
-    const value = { entry, toolCallId, ...facts };
-    if (parseCallRecord(value)) this.appendRecord(CALL_TYPE, value, { entry, toolCallId });
-    else
-      local.diagnostic({
-        code: "session-record-rejected",
-        entry,
-        toolCallId,
-        detail: "record exceeds 160 KiB or fails validation"
-      });
+    const value = { entry, toolCallId: call.reference.toolCallId, ...facts };
+    if (parseCallRecord(value)) this.appendRecord(CALL_TYPE, value);
+    else this.warn("call record not saved: it exceeds 160 KiB or fails validation.");
   }
 
-  /** Restore saved facts even without a result; local details follow asynchronously. */
+  /** Restore saved facts, again once Pi's result supplies its outcome and duration. */
   replay(call: DisplayCall): void {
     if (this.disposed || call.origin !== "historical") return;
-    const { coordinator, history, local } = this.options;
+    const { coordinator, history } = this.options;
     const { messageEntryId: entry, toolCallId } = call.reference;
     if (!entry) return;
     const recorded = history.callRecord(entry, toolCallId);
     if (recorded?.cancelled) coordinator.fact(call, { kind: "cancellation" });
-    const source = history.writerFor(entry, toolCallId);
-    // Resolve copied targets against the directory where the call ran.
-    if (source && source.cwd !== this.options.cwd) coordinator.setCwd(call, source.cwd);
     if (!OBSERVED_ADAPTERS.has(call.adapter.id)) return;
+    const path = this.options.savedPaths?.get(callKey(entry, toolCallId));
+    if (path) coordinator.fact(call, { kind: "saved-output", path });
     const change = replayedChange(call, recorded?.change);
     if (change) coordinator.fact(call, change);
-    const writer = source?.writer;
-    if (!writer) return this.applyLocal(call, "not-observed");
-    this.applyLocal(call, "pending");
-    const waiting = this.localReads.get(writer);
-
-    if (waiting) {
-      if (!waiting.includes(call)) waiting.push(call);
-
-      return;
-    }
-
-    const calls = [call];
-    this.localReads.set(writer, calls);
-    void local.read(writer).then(
-      (read) => {
-        if (this.disposed) return;
-        this.localReads.delete(writer);
-        coordinator.batch(() => {
-          for (const call of calls) this.applyRead(call, read);
-        });
-      },
-      () => {}
-    );
+    const operation = replayedOperation(call, recorded);
+    if (operation) coordinator.fact(call, operation);
   }
 
   /** Save the facts of calls still running; they keep the facts known so far. */
@@ -341,41 +275,18 @@ export class SavedCalls {
   }
 
   /** Best effort: persistence must never change the delegated result. */
-  private appendRecord(type: string, data: object, call?: { entry: string; toolCallId: string }) {
+  private appendRecord(type: string, data: object) {
     try {
       this.options.append?.(type, data);
     } catch {
-      this.options.local.diagnostic({ code: "session-write-failed", ...call, detail: type });
+      this.warn("call record not saved: the session write failed.");
     }
   }
 
-  /** Name this writer's local file on the current branch before the first result it writes. */
-  private appendWriter(): void {
-    const { append, local, cwd, history } = this.options;
-    if (!append) return;
-    local.open();
-    if (!history.hasWriter(local.writer))
-      this.appendRecord(WRITER_TYPE, { writer: local.writer, cwd });
-  }
-
-  private applyRead(call: DisplayCall, read: LocalRead): void {
-    const entry = call.reference.messageEntryId;
-    if (!entry) return;
-    if (read.status !== "found") return this.applyLocal(call, read.status);
-    const line = read.calls.get(localKey(entry, call.reference.toolCallId));
-    if (!line) return this.applyLocal(call, "unsaved");
-    this.applyLocal(call, line.reason ?? "found", line);
-  }
-
-  private applyLocal(call: DisplayCall, state: LocalDetails, line?: LocalCall): void {
-    const { coordinator, history } = this.options;
-    const entry = call.reference.messageEntryId;
-    const recorded = entry ? history.callRecord(entry, call.reference.toolCallId) : undefined;
-    const operation = replayedOperation(call, recorded, line);
-    if (operation) coordinator.fact(call, operation);
-    coordinator.setLocal(call, state);
-
-    if (line?.savedOutput && call.adapter.savedOutput && !call.savedPath)
-      coordinator.setSavedPath(call, line.savedOutput);
+  /** Each problem warns once, so a failing session cannot flood notifications. */
+  private warn(message: string): void {
+    if (this.warned.has(message)) return;
+    this.warned.add(message);
+    this.options.warn(message);
   }
 }

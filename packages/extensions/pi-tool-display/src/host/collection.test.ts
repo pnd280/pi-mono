@@ -35,6 +35,6 @@ it("keeps Pi's arguments unchanged when it validates a copy of them", async () =
     expect(received).not.toEqual(before);
     expect(supplied).toEqual(before);
   } finally {
-    await collection.dispose();
+    collection.dispose();
   }
 });

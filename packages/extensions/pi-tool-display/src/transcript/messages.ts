@@ -22,6 +22,22 @@ export function executionOutcome(isError: boolean, signal?: AbortSignal): Outcom
   return signal?.aborted ? "cancelled" : "failure";
 }
 
+/** Pi's tool duration; session files are external data. */
+export function validDuration(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function toolResult(value: Record<string, unknown>, input: unknown): TranscriptMessage {
+  return {
+    kind: "result",
+    id: String(value.toolCallId),
+    name: String(value.toolName),
+    result: hostToolResult(input),
+    outcome: executionOutcome(value.isError === true),
+    ...(validDuration(value.durationMs) ? { durationMs: value.durationMs } : {})
+  };
+}
+
 type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
 
 function assistantCall(block: unknown, index: number): AssistantCall | undefined {
@@ -84,14 +100,7 @@ export class TranscriptMessages {
         id: JSON.stringify([value.timestamp, value.details]),
         notice: notice.summary
       };
-    if (value.role === "toolResult")
-      return {
-        kind: "result",
-        id: String(value.toolCallId),
-        name: String(value.toolName),
-        result: hostToolResult(input),
-        outcome: executionOutcome(value.isError === true)
-      };
+    if (value.role === "toolResult") return toolResult(value, input);
     if (value.role !== "assistant" || !Array.isArray(value.content)) return { kind: "boundary" };
     const interruption = assistantInterruption(value);
 

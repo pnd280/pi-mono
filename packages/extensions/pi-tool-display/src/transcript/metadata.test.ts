@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 
-import { parseCallRecord, parseWriterRecord } from "./metadata.ts";
+import { parseCallRecord } from "./metadata.ts";
 
 const call = { entry: "a1b2c3d4", toolCallId: "toolu_1" };
 
@@ -39,13 +39,6 @@ it("bounds the original record, including unknown fields", () => {
   expect(parseCallRecord({ ...value, extra: "x" })).toEqual(value);
   expect(parseCallRecord({ ...value, extra: "x".repeat(160 * 1024) })).toBeUndefined();
   expect(
-    parseWriterRecord({
-      writer: "3f0c4b1e-8f5a-4c3d-9b2a-1e2f3a4b5c6d",
-      cwd: "/work",
-      extra: "x".repeat(160 * 1024)
-    })
-  ).toBeUndefined();
-  expect(
     parseCallRecord({
       ...value,
       cycle: {
@@ -55,11 +48,4 @@ it("bounds the original record, including unknown fields", () => {
       }
     })
   ).toBeUndefined();
-});
-
-it("accepts writer records only with a UUID and a cwd", () => {
-  const writer = { writer: "3f0c4b1e-8f5a-4c3d-9b2a-1e2f3a4b5c6d", cwd: "/work" };
-  expect(parseWriterRecord(writer)).toEqual(writer);
-  expect(parseWriterRecord({ ...writer, writer: "../other" })).toBeUndefined();
-  expect(parseWriterRecord({ ...writer, cwd: "" })).toBeUndefined();
 });
