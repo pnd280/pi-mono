@@ -15,8 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # queue: max keeps every pending job. With the default single queue, a late older run
+    # cancels the pending job for the current commit, and then nothing publishes it.
     concurrency:
       group: release-branch
+      queue: max
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -38,7 +41,7 @@ jobs:
           # older build never replaces a newer one.
           head=$(git ls-remote --exit-code origin "$GITHUB_REF" | cut -f1)
           if [ "$head" != "$GITHUB_SHA" ]; then
-            echo "$GITHUB_REF is now at $head, not $GITHUB_SHA; the run for that commit publishes it."
+            echo "Skipping this build because $GITHUB_REF is now at $head, not $GITHUB_SHA."
             exit 0
           fi
           # A separate index stages the build tree; its .gitignore leaves out node_modules.

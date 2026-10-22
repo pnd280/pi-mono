@@ -88,7 +88,7 @@ Set `pi.extensions` to `["./index.ts"]`; include the wrapper in `tsconfig.json` 
 
 ### Release branch
 
-Users [install](../README.md#install) the generated `release` branch. Pull requests run [check.yml](../.github/workflows/check.yml). On each push to `master`, [release.yml](../.github/workflows/release.yml) runs the same checks first. When they pass, its `release` job builds the tree with [build-release.ts](../.scripts/build-release.ts) and commits it to `release` when the tree changed. Workflow runs can reach the `release` job out of order, so the job publishes only when its commit is still the head of `master`. The job never force-pushes, so commits that users installed stay available.
+Users [install](../README.md#install) the generated `release` branch. Pull requests run [check.yml](../.github/workflows/check.yml). On each push to `master`, [release.yml](../.github/workflows/release.yml) runs the same checks first. When they pass, its `release` job builds the tree with [build-release.ts](../.scripts/build-release.ts) and commits it to `release` when the tree changed. Workflow runs can reach the `release` job out of order, so the job publishes only when its commit is still the head of `master`. The job's concurrency group keeps all pending jobs (`queue: max`), so a late older run cannot cancel the pending job for the current commit. The job never force-pushes, so commits that users installed stay available.
 
 To release a version, raise `version` in the root `package.json`. The job tags the first `release` commit that has a version `v<version>`, if that tag does not exist yet. Tags never move, so a tag always names the same build. A push without a version change moves only the branch.
 
