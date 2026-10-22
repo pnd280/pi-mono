@@ -39,12 +39,6 @@ Only Linux support is guaranteed. Windows and macOS are not thoroughly tested.
 
 To change the extensions, remove them, or add your own, fork or clone this repository and develop in it. The workspace is the source of the `release` branch, so your copy has the same extensions, tests, and checks.
 
-The workspace has instructions and skills for coding agents:
-
-- The root [`AGENTS.md`](AGENTS.md) links the agent to the guidance for its task, such as architecture, testing, or verification.
-- Extensions and shared packages with non-obvious boundaries have their own `AGENTS.md` with those boundaries and their checks. With [pi-nested-instructions](packages/extensions/pi-nested-instructions/README.md) loaded, Pi adds that file when the agent starts to work in the package.
-- [`.agents/skills/`](.agents/skills/) has skills that review changes and move the workspace to a newer Pi release. Pi finds them when it runs in the workspace. Run one with `/skill:<name>`, such as `/skill:code-review`.
-
 ### Setup
 
 Use Node.js from [.node-version](.node-version) and the [Vite+ CLI (`vp`)](https://viteplus.dev/guide/). From the repository root:
