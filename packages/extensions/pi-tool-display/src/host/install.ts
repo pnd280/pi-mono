@@ -85,7 +85,7 @@ export function installHostIntegration(
     rowFailures.add(stage);
     collection.warning(
       stage === "bind"
-        ? "row hooks unavailable; affected rows keep Pi's presentation."
+        ? "row hooks unavailable; affected rows stand alone, outside groups and summaries."
         : "row cleanup failed; affected rows may show display styling until Pi redraws them."
     );
   }

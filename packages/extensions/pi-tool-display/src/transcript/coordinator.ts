@@ -327,6 +327,7 @@ export class TranscriptCoordinator implements TranscriptView {
   /** Cached until an interpreted input changes; identities use the call's cwd. */
   interpretation(call: DisplayCall): CallInterpretation {
     const inputs = [
+      call.name,
       call.adapter,
       call.args,
       call.result,

@@ -292,7 +292,8 @@ class CardRow {
       interpretation,
       {
         ...view,
-        name: this.name,
+        // Final-message middleware can rename a bound call; follow the final tool.
+        name: call ? displayText(call.name) : this.name,
         showParameters:
           selected.alwaysShowParameters === true || this.options.showParameters === true,
         // Pi can retain streamed args and the pre-message_end error flag.

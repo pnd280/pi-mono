@@ -141,6 +141,15 @@ Setup: regular-mode fixture. Set `collapsedMode: "compact"` in `agent/settings.j
 | Inspect terminal scrollback after the run ends. | Earlier rows remain.                                            |
 | Press **Ctrl+O** repeatedly.                    | Status alternates between "Tool output: verbose" and "compact". |
 
+#### Failed row hooks
+
+Setup: fullscreen fixture in summary mode. Temporarily make the first `bindRowChrome` call in [row-layout.ts](../src/host/row-layout.ts) throw. Undo the change afterwards.
+
+| Do                                                       | Expect                                                                                                                           |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Run `summary`.                                           | One warning appears. The first call is a standalone card, and the rest of its run has its own summary line, which opens the run. |
+| Press **Ctrl+O** until the status reads "summary" again. | Every call is visible or behind a summary line.                                                                                  |
+
 #### With nested instructions
 
 Setup: load `pi-nested-instructions` and put a nested instruction file in the disposable fixture.
@@ -239,6 +248,7 @@ Run these when you change the matching integration.
 1. Add the fixed call plan or scoped middleware to [provider.ts](../validation/provider.ts), and prepare disposable inputs in [workspace.ts](../validation/workspace.ts).
 2. Change the disposable files before replay, so patches must come from retained data.
 3. Compare live and replay results with the [host cases](../src/host/install.test.ts). Observed facts stay separate from published outcomes.
+4. Rename a call that has a generic card, and keep its arguments. The live card and summary line name the final tool, as in replay.
 
 ## Adapter validation
 
