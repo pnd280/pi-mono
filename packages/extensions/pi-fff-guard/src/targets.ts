@@ -200,8 +200,7 @@ function matchesFilter(value: string, expression: string, componentWise = false)
       else
         result =
           segment !== undefined &&
-          // Scope values use `/` separators on every platform.
-          path.posix.matchesGlob(`component${segment}`, `component${filter}`) &&
+          matchesPath(segment, filter) &&
           match(segmentIndex + 1, filterIndex + 1);
       memo.set(key, result);
 
@@ -212,13 +211,79 @@ function matchesFilter(value: string, expression: string, componentWise = false)
   });
 }
 
-/** Match the whole path; `*`, `?`, and bracket expressions also match `/`. */
-function matchesPath(value: string, glob: string): boolean {
-  // NUL cannot occur in a path, so it replaces the separator as an ordinary character.
-  return path.posix.matchesGlob(
-    `component${value.replaceAll("/", "\0")}`,
-    `component${glob.replaceAll("/", "\0")}`
+/** A `*` wildcard, or a test for one character. */
+type GlobToken = "*" | ((char: string) => boolean);
+
+// FFF 0.11.0 supports these ASCII classes in bracket expressions.
+const posixClasses = new Map([
+  ["alnum", /[0-9A-Za-z]/],
+  ["alpha", /[A-Za-z]/],
+  ["blank", /[\t ]/],
+  ["cntrl", /[^ -~\x80-\u{10ffff}]/u],
+  ["digit", /[0-9]/],
+  ["graph", /[!-~]/],
+  ["lower", /[a-z]/],
+  ["print", /[ -~]/],
+  ["punct", /[!-/:-@[-`{-~]/],
+  ["space", /[\t-\r ]/],
+  ["upper", /[A-Z]/],
+  ["xdigit", /[0-9A-Fa-f]/]
+]);
+
+const codePoint = (char: string) => char.codePointAt(0) ?? -1;
+
+/** Like FFF, read `\` literally inside brackets and treat a reversed range as empty. */
+function bracketTest(negated: boolean, members: string): (char: string) => boolean {
+  const tests = [...members.matchAll(/\[:([a-z]+):\]|([^])-([^])|([^])/gu)].map(
+    ([, name, from = "", to = "", single]) =>
+      (char: string) => {
+        if (name !== undefined) return posixClasses.get(name)?.test(char) ?? false;
+        if (single !== undefined) return char === single;
+
+        return codePoint(from) <= codePoint(char) && codePoint(char) <= codePoint(to);
+      }
   );
+
+  return (char) => tests.some((test) => test(char)) !== negated;
+}
+
+/**
+ * Match the whole value like FFF; `*`, `?`, and bracket expressions also match `/`.
+ * Bracket expressions compare original characters, so ranges such as `[.-0]` include `/`.
+ */
+function matchesPath(value: string, glob: string): boolean {
+  const tokens = [
+    ...glob.matchAll(
+      /\\([^])|(\*)|(\?)|\[([!^]?)((?:\]|\[:[a-z]+:\]|[^\]])(?:\[:[a-z]+:\]|[^\]])*)\]|([^])/gu
+    )
+  ].map(([, escaped, star, question, negation = "", members, char]): GlobToken => {
+    if (star) return "*";
+    if (question) return () => true;
+    if (members !== undefined) return bracketTest(negation !== "", members);
+
+    return (next) => next === (escaped ?? char);
+  });
+  const chars = Array.from(value);
+  let token = 0;
+  let index = 0;
+  // Retrying only from the latest `*` bounds the work by the product of both lengths.
+  let retry: { token: number; index: number } | undefined;
+
+  while (index < chars.length) {
+    const current = tokens[token];
+    if (current === "*") {
+      token++;
+      retry = { token, index };
+    } else if (current?.(chars[index] ?? "")) {
+      token++;
+      index++;
+    } else if (retry) {
+      retry.index++;
+      ({ token, index } = retry);
+    } else return false;
+  }
+
+  return tokens.slice(token).every((current) => current === "*");
 }
 
 function workspaceFilter(expression: string, cwd: string): string {

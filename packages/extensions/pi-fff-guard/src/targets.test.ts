@@ -166,7 +166,16 @@ describe("FFF search scopes", () => {
     await expectAllowed("multi", { constraints: "*.ts node_modules/ !*.ts" });
     // Without `**`, FFF's `*` also matches `/`.
     await expectAllowed("grep", { path: "node_modules/", exclude: "node_modules/*" });
+    // Bracket ranges compare `/` itself, which lies between `.` and `0`.
+    await expectAllowed("grep", {
+      path: "node_modules/dependency/",
+      exclude: "node_modules[.-0]dependency/*"
+    });
     await expectIgnored("grep", { path: "node_modules/", exclude: "node_modules/dependency/" });
+    await expectIgnored("grep", {
+      path: "node_modules/dependency/",
+      exclude: "node_modules[!.-0]dependency/*"
+    });
     await expectIgnored("grep", { path: ".tmp/**", exclude: ". **" });
     await expectIgnored("multi", { constraints: "{src,node_modules}/** !src/" });
   });

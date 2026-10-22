@@ -42,10 +42,11 @@ Repository-root `.` searches, bare fuzzy queries, generic filters such as `*.ts`
 
 The guard uses effective Git ignore rules, local and global exclusions, and tracked-file exceptions, and supports worktrees and external repositories. Workspace paths use workspace rules even inside nested repositories; external paths use their own repositories.
 
-FFF indexes the files below a directory link under the link's own name. A link that Git does not ignore therefore stays searchable even when Git ignores its destination or one of the destination's parents. Below the link, FFF also applies the ignore files inside the destination. These limits apply:
+With its default `followSymlinks: true` setting, FFF indexes the files below a directory link under the link's own name. A link that Git does not ignore therefore stays searchable even when Git ignores its destination or one of the destination's parents. Below the link, FFF also applies the ignore files inside the destination. These limits apply:
 
 - When Git does not ignore the destination, the guard checks paths below the link with Git's rules for the destination path. A rule from outside the destination can then block a path that FFF indexes.
 - When Git ignores the destination, Git cannot report the rules inside it. The guard then does not block paths below the link.
+- The guard does not read FFF's `followSymlinks` setting. If you disable it with `--fff-follow-symlinks=false`, `FFF_FOLLOW_SYMLINKS=0`, or `"followSymlinks": false` in `pi-fff.json`, FFF leaves out the files below directory links, but the guard still allows searches below a link that Git does not ignore. Those searches silently return nothing, or only matches from other files.
 
 A link to a file is checked under its destination's rules.
 
