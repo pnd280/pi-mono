@@ -2,7 +2,7 @@
 
 [pi-prompt-manager](../README.md)
 
-> Last verified against Pi 1.4.0 with package checks, offline API and installed-CLI tests, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: manual terminal checks, including literal-plus launch shortcuts and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline browser at session replacement or `/reload`; delivery to the native clipboard; and platform checks.
+> Last verified against Pi 1.4.0 with package checks, offline API and installed-CLI tests, a source review of the Pi 1.3.0 to 1.4.0 changes, an offline tmux run in fullscreen mode of the browser between the 19-row inline and 18-row overlay layouts, and a tmux check with a stand-in `wl-copy` that Ctrl+Z leaves the clipboard owner running. Not covered: the other manual terminal checks, including literal-plus launch shortcuts and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline browser at session replacement or `/reload`; delivery to the native clipboard, and a paste after Ctrl+Z with the real `wl-copy`; and platform checks.
 
 ## Upgrade procedure
 

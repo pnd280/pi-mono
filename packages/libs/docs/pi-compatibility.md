@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes, the fingerprint check, package checks, and offline tests of the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager. Not covered: live-provider schema acceptance; platform-specific checks; a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation); and terminal checks of overlay closure, stacked extension dialogs over an inline custom view, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
+> Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes, the fingerprint check, package checks, and offline tests of the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager, and an offline tmux run of the prompt manager browser between the 19-row inline and 18-row overlay layouts, with input, selection, and editor focus kept after each remount and after the overlay closes. Not covered: live-provider schema acceptance; platform-specific checks; a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation); and terminal checks of stacked extension dialogs over an inline custom view, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
 
 ## Upgrade procedure
 

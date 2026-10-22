@@ -2,7 +2,7 @@
 
 [pi-profiles](../README.md)
 
-> Last verified against Pi 1.4.0 with the offline host tests and a source review of the 1.3.0 to 1.4.0 changes. Not covered: isolated CLI loading, live providers, MCP servers, and a live interactive terminal session.
+> Last verified against Pi 1.4.0 with the offline host tests, a source review of the 1.3.0 to 1.4.0 changes, and an offline tmux session of the installed CLI with isolated settings, in which a `deny` tool stayed off after the switch, after `/tree` to a branch with and without a recorded request, after `/fork`, and after resume. Not covered: live providers, MCP servers, and the other manual checks.
 
 ## Upgrade procedure
 
