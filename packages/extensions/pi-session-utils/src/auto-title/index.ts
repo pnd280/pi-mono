@@ -11,8 +11,9 @@ export function registerAutoTitle(
 ): (args: string) => Promise<void> {
   let title: SessionTitle | undefined;
   // ctx.signal belongs to the low-level agent loop. Pi can still abort the run after that loop ends,
-  // for example while agent_before_settle handlers wait, and reports it only in agent_settled.
-  let run: AbortController | undefined;
+  // for example while agent_before_settle handlers wait, and reports it only in agent_settled. So an
+  // automatic title is saved only after its run settles without an abort.
+  let run: { controller: AbortController; settled: PromiseWithResolvers<void> } | undefined;
 
   pi.on("session_start", (_event, ctx) => {
     title?.dispose();
@@ -31,12 +32,16 @@ export function registerAutoTitle(
   });
   pi.on("message_start", (event, ctx) => {
     if (event.message.role !== "user") return;
-    run ??= new AbortController();
-    const signal = ctx.signal ? AbortSignal.any([ctx.signal, run.signal]) : run.signal;
-    void title?.automatic(event.message, signal);
+    run ??= { controller: new AbortController(), settled: Promise.withResolvers() };
+    const { signal } = run.controller;
+    void title?.automatic(event.message, {
+      signal: ctx.signal ? AbortSignal.any([ctx.signal, signal]) : signal,
+      settled: run.settled.promise
+    });
   });
   pi.on("agent_settled", (event) => {
-    if (event.aborted) run?.abort();
+    if (event.aborted) run?.controller.abort();
+    run?.settled.resolve();
     run = undefined;
   });
   pi.on("session_info_changed", () => title?.nameChanged());

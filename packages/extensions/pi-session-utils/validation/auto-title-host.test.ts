@@ -430,12 +430,15 @@ it("cancels automatic naming when the run is aborted after the agent loop ends",
   );
   // Pi is still busy, but the low-level agent signal no longer belongs to an active loop.
   const abort = fixture.session.abort();
+  title.resolve(fauxAssistantMessage("Title after user abort"));
+  // Let the title response finish while the settlement gate is still held.
+  await new Promise((resolve) => setImmediate(resolve));
+  expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   settle.resolve();
   await abort;
   await prompt;
   const request = stream.mock.calls.find(([model]) => model.id === "title");
   expect(request?.[2]?.signal?.aborted).toBe(true);
-  title.resolve(fauxAssistantMessage("Title after user abort"));
   expect(fixture.session.sessionManager.getSessionName()).toBeUndefined();
   expect(fixture.errors).toEqual([]);
 });

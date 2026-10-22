@@ -12,7 +12,7 @@ The README states the [one-attempt rule](../README.md#automatic-session-names). 
 | ------------------------------- | -------------------------------------------------------------------------- |
 | Setting or clearing a name      | Stops automatic naming until the session is loaded or reloaded.            |
 | Completing a tree navigation    | No other automatic attempt. Use `/sesh auto-name` for the selected branch. |
-| Aborting the agent run          | Cancels its automatic attempt, without another attempt.                    |
+| Aborting the agent run          | Discards its automatic title, even a generated one, with no other attempt. |
 | Running `/sesh auto-name`       | A new generation replaces any earlier one, even while the agent runs.      |
 | Running `/sesh auto-name clear` | Cancels generation and clears the title, even while the agent runs.        |
 | Ending or replacing the session | Cancels generation without saving its title.                               |
@@ -23,7 +23,7 @@ A generation that finishes while a tree navigation is still in progress, for exa
 
 - In interactive and RPC modes, `/sesh auto-name` reports progress and results through Pi notifications.
 - Naming also works in print, JSON, and RPC modes.
-- Print and JSON modes don't wait for automatic naming on exit, so the title may not be saved.
+- Print and JSON modes don't wait on exit for an automatic title that is still generating when the agent finishes, so that title may not be saved.
 
 ## Settings errors
 
