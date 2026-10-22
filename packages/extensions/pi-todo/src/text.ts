@@ -55,9 +55,18 @@ export function presentTaskDescription(text: string): string {
   return excerpt(sanitizeTaskDescription(text), 4000);
 }
 
-/** One terminal-safe JSON line; result details keep the stored value unchanged. */
+/**
+ * One terminal-safe JSON line that decodes to the stored keys and values; result details keep
+ * the stored value unchanged. `JSON.stringify` escapes C0 controls; escape DEL and C1 the same way.
+ */
 export function presentTaskMetadata(metadata: TaskMetadata): string {
-  return excerpt(compactDisplayText(JSON.stringify(metadata)), 4000);
+  // oxlint-disable-next-line no-control-regex
+  const json = JSON.stringify(metadata).replace(
+    /[\x7f-\x9f]/g,
+    (control) => `\\u${control.charCodeAt(0).toString(16).padStart(4, "0")}`
+  );
+
+  return excerpt(json, 4000);
 }
 
 export function sanitizeTaskMutationParams(params: TaskMutationParams): TaskMutationParams {

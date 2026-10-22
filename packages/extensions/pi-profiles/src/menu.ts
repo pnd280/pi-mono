@@ -54,9 +54,11 @@ type MenuItem =
 function toolStatus(tool: ToolInfo, data: MenuData): ToolStatus {
   if (tool.exposure === "hidden") return "hidden";
   if (data.active.includes(tool.name)) return "active";
+  // A saved deferral does not override the current deny list, which tool_search applies.
+  if (searchExcludes(tool, data)) return "off";
   if (data.deferred.flat().includes(tool.name)) return "deferred";
 
-  if (isDirect(tool.exposure) || searchExcludes(tool, data)) return "off";
+  if (isDirect(tool.exposure)) return "off";
 
   return "searchable";
 }
