@@ -26,4 +26,4 @@ The adapter never reads saved output or connects to servers.
 
 ## Validation
 
-The [colocated fixture](index.test.ts) mirrors Pi 1.3.0's private `createMcpToolDefinition` projection without opening a connection. The [offline host test](../../../../validation/mcp.test.ts) loads `builtin:mcp` and discovers a local stdio server through codemode, checking selection and original identities for normalised, collision-suffixed names. Recheck both boundaries when upgrading Pi; neither establishes external-service compatibility.
+The [colocated fixture](index.test.ts) mirrors Pi 1.3.0's private `createMcpToolDefinition` projection without opening a connection, and checks that rendering leaves arguments and results unchanged. No automated test covers discovery through codemode or selection for normalised, collision-suffixed names. Recheck them and the fixture's projection with the [nested-execution contracts](../../../../docs/pi-compatibility.md#nested-execution) when upgrading Pi. These checks do not establish external-service compatibility.

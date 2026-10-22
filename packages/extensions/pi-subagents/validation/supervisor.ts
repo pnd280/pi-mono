@@ -50,11 +50,29 @@ export class Supervisor {
     return host;
   }
 
+  /** A live supervisor that does not answer fails the step, so the test still reaches its teardown. */
   async request(command: RpcCommand) {
-    const response = await this.connection.request(command);
-    if (!response.success) throw new Error(response.error);
+    let timer: NodeJS.Timeout | undefined;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Timed out waiting for the ${command.type} response; stderr: ${this.connection.stderrTail}`
+            )
+          ),
+        STEP_TIMEOUT_MS
+      );
+    });
 
-    return response;
+    try {
+      const response = await Promise.race([this.connection.request(command), deadline]);
+      if (!response.success) throw new Error(response.error);
+
+      return response;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async state() {

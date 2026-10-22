@@ -156,9 +156,11 @@ it("keeps leading skill references literal while ordinary prompt templates expan
   await fixture.session.prompt("/skill:review keep my request");
   await fixture.session.prompt(reference);
   await fixture.session.prompt("/outline ordinary request");
+  await fixture.session.prompt(`/outline ${fixture.getSkillPath()}.backup keep my request`);
   expect(userTexts(fixture.session)).toEqual([
     ` ${reference}`,
     ` ${reference}`,
+    "OUTLINE TEMPLATE",
     "OUTLINE TEMPLATE"
   ]);
   expect(fixture.errors).toEqual([]);
@@ -172,7 +174,7 @@ it("expands and completes only the currently registered skills after reload", as
     );
   const options = { signal: new AbortController().signal };
   await fixture.session.prompt("/skill:review");
-  const first = `[/skill:review](${fixture.getSkillPath()})`;
+  const first = `[/skill:review](<${fixture.getSkillPath()}>)`;
   expect(userTexts(fixture.session)).toEqual([first]);
 
   await fixture.changeSkill();
@@ -180,7 +182,7 @@ it("expands and completes only the currently registered skills after reload", as
   await fixture.session.prompt("/skill:fresh /skill:review");
   expect(userTexts(fixture.session)).toEqual([
     first,
-    `[/skill:fresh](${fixture.getSkillPath()}) /skill:review`
+    `[/skill:fresh](<${fixture.getSkillPath()}>) /skill:review`
   ]);
   expect(await completion().getSuggestions(["/skill:"], 0, 7, options)).toMatchObject({
     items: [{ value: "skill:fresh" }]

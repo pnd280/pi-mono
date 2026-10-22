@@ -33,6 +33,7 @@ Discovery collects nested inputs until the same `turn_end`, without reading resu
 - [ ] Boundary drafts are saved after tool results and before the next model request, without implicit steering or continuation.
 - [ ] `getAllTools().sourceInfo` identifies official FFF tools, including late registrations and overrides.
 - [ ] The selective-read and native path schemas still match the fields that the adapters read.
+- [ ] On Windows, native tools still map `/c/…`, `/mnt/c/…`, and `/cygdrive/c/…` to `C:\…`, as `nativePath()` in the [scope extraction](../src/scopes.ts) does.
 
 Compare the FFF adapters with FFF's real source schemas, not its README parameters.
 

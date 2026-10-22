@@ -24,7 +24,10 @@ import { createFixtureWorkspace } from "./workspace.ts";
 export const LONG_GRACE_LIMIT = 3 + Math.ceil(STEP_TIMEOUT_MS / (STOP_GRACE_MS + KILL_GRACE_MS));
 
 /** Creates a barrier file that a fixture command, child, or scripted model waits for. */
-export async function release(directory: string, name: "job-release" | "run-release") {
+export async function release(
+  directory: string,
+  name: "exit-release" | "job-release" | "run-release"
+) {
   await writeFile(join(directory, "work", name), "");
 }
 

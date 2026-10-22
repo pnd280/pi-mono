@@ -10,10 +10,7 @@ export const stallAbortFile = "stall-title-abort.json";
 /** Offline CLI fixture. No credentials, catalog requests, or model transport. */
 export default function fixtureProvider(pi: ExtensionAPI): void {
   const titleStarted = Promise.withResolvers<void>();
-  const titleCommitted = Promise.withResolvers<void>();
-  pi.on("session_info_changed", ({ name }) => {
-    if (name) titleCommitted.resolve();
-  });
+  const titleGenerated = Promise.withResolvers<void>();
   const faux = fauxProvider({
     provider: "title-fixture",
     models: [{ id: "active" }, { id: "title" }]
@@ -24,8 +21,13 @@ export default function fixtureProvider(pi: ExtensionAPI): void {
       const stalled = contentText(user?.content ?? "").includes("stall-title");
 
       if (model.id === "active") {
-        // Separate committed-title output from exit with title work still pending.
-        await (stalled ? titleStarted.promise : titleCommitted.promise);
+        // Separate a title held for settlement from exit with title work still pending. After the
+        // title response, naming needs only microtasks to hold the title, so one macrotask suffices.
+        if (stalled) await titleStarted.promise;
+        else {
+          await titleGenerated.promise;
+          await new Promise((resolve) => setImmediate(resolve));
+        }
 
         return fauxAssistantMessage("Fixture reply");
       }
@@ -53,6 +55,8 @@ export default function fixtureProvider(pi: ExtensionAPI): void {
 
         return fauxAssistantMessage("", { stopReason: "aborted" });
       }
+
+      titleGenerated.resolve();
 
       return fauxAssistantMessage("Offline session title");
     })

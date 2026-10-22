@@ -41,7 +41,7 @@ export type LifecycleParticipant = {
 };
 
 // Increase when the shared object's shape or behaviour changes.
-const protocol = { name: "lifecycle", version: 1 };
+const protocol = { name: "lifecycle", version: 2 };
 
 /** Call during the extension factory. Every returned method registers through `pi`. */
 export function joinLifecycle(pi: LifecycleAPI, options: { id: string }): LifecycleParticipant {
@@ -49,6 +49,9 @@ export function joinLifecycle(pi: LifecycleAPI, options: { id: string }): Lifecy
   const participant = coordinator.roster.join(options.id);
   let closing = false;
   pi.on("session_start", (_event, ctx) => coordinator.open(participant, pi.events, ctx));
+
+  const registerShortcut: LifecycleAPI["registerShortcut"] = (key, shortcut) =>
+    pi.registerShortcut(key, shortcut);
 
   return {
     onSessionStart: (handler) => {
@@ -59,46 +62,70 @@ export function joinLifecycle(pi: LifecycleAPI, options: { id: string }): Lifecy
         );
       }
 
-      return pi.on("session_start", (event, ctx) =>
-        coordinator.startup(
-          participant,
-          (key, shortcut) => pi.registerShortcut(key, shortcut),
-          event,
-          ctx,
-          handler
+      return registration((active) =>
+        pi.on("session_start", (event, ctx) =>
+          active()
+            ? coordinator.startup(participant, registerShortcut, event, ctx, handler)
+            : undefined
         )
       );
     },
     onSessionShutdown: (revoke, cleanup) => {
       const entry = coordinator.addRevoker(participant, revoke);
-      const off = pi.on("session_shutdown", async (event, ctx) => {
-        // Runs before this handler's first await, so no participant awaits before revoking.
-        const revoked = coordinator.revoke(entry, pi.events, event);
 
-        try {
-          await cleanup?.(event, ctx);
-        } catch (error) {
-          if (!revoked) throw error;
-          throw new AggregateError(
-            [revoked.error, error],
-            `revoke failed: ${message(revoked.error)}; cleanup failed: ${message(error)}`
-          );
-        }
+      return registration(
+        (active) =>
+          pi.on("session_shutdown", async (event, ctx) => {
+            if (!active()) return;
+            // Runs before this handler's first await, so no participant awaits before revoking.
+            const revoked = coordinator.revoke(entry, pi.events, event);
 
-        if (revoked) throw revoked.error;
-      });
+            try {
+              // Another participant's revoke can dispose this registration.
+              if (active()) await cleanup?.(event, ctx);
+            } catch (error) {
+              if (!revoked) throw error;
+              throw new AggregateError(
+                [revoked.error, error],
+                `revoke failed: ${message(revoked.error)}; cleanup failed: ${message(error)}`
+              );
+            }
 
-      return () => {
-        coordinator.removeRevoker(entry);
-        off();
-      };
+            if (revoked) throw revoked.error;
+          }),
+        () => coordinator.removeRevoker(entry)
+      );
     },
     onAgentStart: (handler) =>
-      pi.on("agent_start", (event, ctx) => handler(event, ctx, coordinator.mark(pi.events, event))),
+      registration((active) =>
+        pi.on("agent_start", (event, ctx) =>
+          active() ? handler(event, ctx, coordinator.mark(pi.events, event)) : undefined
+        )
+      ),
     onAgentSettled: (handler) =>
-      pi.on("agent_settled", (event, ctx) =>
-        handler(event, ctx, coordinator.mark(pi.events, event))
+      registration((active) =>
+        pi.on("agent_settled", (event, ctx) =>
+          active() ? handler(event, ctx, coordinator.mark(pi.events, event)) : undefined
+        )
       )
+  };
+}
+
+/**
+ * Pi snapshots the handlers when an emission starts, so unsubscribing does not stop the current
+ * dispatch from calling a handler. Each handler checks `active` and does nothing after disposal.
+ */
+function registration(
+  subscribe: (active: () => boolean) => () => void,
+  remove?: () => void
+): () => void {
+  let active = true;
+  const off = subscribe(() => active);
+
+  return () => {
+    active = false;
+    remove?.();
+    off();
   };
 }
 

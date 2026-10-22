@@ -141,19 +141,29 @@ Setup: regular-mode fixture. Set `collapsedMode: "compact"` in `agent/settings.j
 | Inspect terminal scrollback after the run ends. | Earlier rows remain.                                            |
 | Press **Ctrl+O** repeatedly.                    | Status alternates between "Tool output: verbose" and "compact". |
 
+#### Failed row hooks
+
+Setup: fullscreen fixture in summary mode. Temporarily make the first `bindRowChrome` call in [row-layout.ts](../src/host/row-layout.ts) throw. Undo the change afterwards.
+
+| Do                                                       | Expect                                                                                                                           |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Run `summary`.                                           | One warning appears. The first call is a standalone card, and the rest of its run has its own summary line, which opens the run. |
+| Press **Ctrl+O** until the status reads "summary" again. | Every call is visible or behind a summary line.                                                                                  |
+
 #### With nested instructions
 
 Setup: load `pi-nested-instructions` and put a nested instruction file in the disposable fixture.
 
-| Do                                                        | Expect                                                                     |
-| --------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Read a file beneath that directory.                       | The notice stays inside the run, even as the last row.                     |
-| Inspect that run's summary.                               | It includes `loaded 1 instruction file`.                                   |
-| Load several files, update one, remove one.               | Loaded files, updated files, and removed directories have separate counts. |
-| Open the summary, expand the notice, and resize.          | The notice stays in place.                                                 |
-| Collapse with the `▴ collapse` bar.                       | The notice hides with the run.                                             |
-| Repeat through replay and **Ctrl+O**.                     | Notice placement, counts, and visibility match the live run.               |
-| Insert an unrelated visible custom message between calls. | The message splits the runs.                                               |
+| Do                                                                                                                          | Expect                                                                                           |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Read a file beneath that directory.                                                                                         | The notice stays inside the run, even as the last row.                                           |
+| Inspect that run's summary.                                                                                                 | It includes `loaded 1 instruction file`.                                                         |
+| Load several files, update one, remove one.                                                                                 | Loaded files, updated files, and removed directories have separate counts.                       |
+| Open the summary, expand the notice, and resize.                                                                            | The notice stays in place.                                                                       |
+| Collapse with the `▴ collapse` bar.                                                                                         | The notice hides with the run.                                                                   |
+| Repeat through replay and **Ctrl+O**.                                                                                       | Notice placement, counts, and visibility match the live run.                                     |
+| Insert an unrelated visible custom message between calls.                                                                   | The message splits the runs.                                                                     |
+| Set `rendererOverrides` `bash` to `original`. Read a file outside that directory, then `cat` a file beneath it with `bash`. | The notice stays standalone below the Bash row. The read run's summary has no instruction count. |
 
 ### Exploration groups and images
 
@@ -238,6 +248,7 @@ Run these when you change the matching integration.
 1. Add the fixed call plan or scoped middleware to [provider.ts](../validation/provider.ts), and prepare disposable inputs in [workspace.ts](../validation/workspace.ts).
 2. Change the disposable files before replay, so patches must come from retained data.
 3. Compare live and replay results with the [host cases](../src/host/install.test.ts). Observed facts stay separate from published outcomes.
+4. Rename a call that has a generic card, and keep its arguments. The live card and summary line name the final tool, as in replay.
 
 ## Adapter validation
 

@@ -28,7 +28,7 @@ The shutdown revoke then discards queued captures before the new session starts.
 
 ### Shortcuts and shutdown
 
-Shortcuts are [lifecycle claims](../../../libs/src/lifecycle/README.md#shortcut-claims) made in the startup handler. The [shutdown phase](../../../libs/src/lifecycle/README.md#shutdown-phase) revoke stops new writes and notifications synchronously, and the cleanup awaits started atomic writes. Every workspace extension whose shutdown handler awaits is a participant, so only an extension from outside the workspace can await before the revoke. The user-visible effect is in [cancellation](storage.md#cancellation).
+Shortcuts are [lifecycle claims](../../../libs/src/lifecycle/README.md#shortcut-claims) made in the startup handler. The [shutdown phase](../../../libs/src/lifecycle/README.md#shutdown-phase) revoke stops new writes and notifications synchronously, and the cleanup awaits started changes until they commit or release their locks after cancellation. Every workspace extension whose shutdown handler awaits is a participant, so only an extension from outside the workspace can await before the revoke. The user-visible effect is in [cancellation](storage.md#cancellation).
 
 - [ ] Pi emits `resources_discover` before it sets up extension shortcuts, so claims that the first participant's handler registers work at once.
 - [ ] Pi runs `session_shutdown` handlers one after another in load order, so the first participant's handler revokes every participant before any later handler runs.

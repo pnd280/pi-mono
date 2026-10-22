@@ -41,7 +41,6 @@ type CommandOwner = {
   readonly rank: number;
   readonly contributor: string;
   readonly id: string;
-  readonly registerCommand: WorkingMessageAPI["registerCommand"];
 };
 
 type Participant = { readonly events: EventBus };
@@ -84,8 +83,7 @@ export function registerWorkingMessage(
   return rendezvous(pi.events, protocol, installCoordinator).register(pi, component, {
     rank,
     contributor: component.contributor,
-    id: component.id,
-    registerCommand: (name, options) => pi.registerCommand(name, options)
+    id: component.id
   });
 }
 

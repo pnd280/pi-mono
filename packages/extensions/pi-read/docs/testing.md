@@ -17,15 +17,16 @@ This package tests selection validation, the guard around Pi's native `read`, pr
 
 ## Not tested
 
-- Schema projection, preview formatting, empty-selection notices, and highlight rendering are below the severity bar.
+- Schema projection, preview formatting, empty-selection notices, highlight rendering, and native rendering of errors, partial results, and images are below the severity bar.
 - Pi owns its filesystem implementation.
 
 ## Manual checks
 
 Check appearance changes by hand. Setup: in Pi, read a file with a multiline selection that includes tabs and wide characters.
 
-| Do                                    | Expect                                                    |
-| ------------------------------------- | --------------------------------------------------------- |
-| View the read collapsed and expanded. | Context stays visible, and the preview isn't shown twice. |
-| Narrow the terminal.                  | Highlighting stays on the selected span.                  |
-| Switch between light and dark themes. | The highlight is readable in both.                        |
+| Do                                                 | Expect                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------ |
+| View the read collapsed and expanded.              | Context stays visible, and the preview isn't shown twice.          |
+| Narrow the terminal.                               | Highlighting stays on the selected span.                           |
+| Switch between light and dark themes.              | The highlight is readable in both.                                 |
+| Read an image and a missing file with a selection. | Each card matches Pi's native read and shows no selection preview. |

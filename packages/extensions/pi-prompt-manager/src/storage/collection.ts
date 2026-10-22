@@ -28,7 +28,6 @@ function encode(document: Document): string {
 const idSchema = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-const jsonValueSchema = z.json();
 const documentEnvelopeSchema = documentSchema.extend({ entries: z.array(z.unknown()) });
 
 function validId(value: unknown): value is string {
@@ -44,6 +43,23 @@ function decode(raw: Buffer): unknown {
   } catch {
     throw new PromptError(`Collection contains invalid UTF-8 or JSON. ${reductionGuidance}`);
   }
+}
+
+/**
+ * JSON.parse returns only JSON values, so a non-finite number is the only value that a write would
+ * change (to null). Zod's JSON schema skips own `__proto__` keys, so walk every own property instead.
+ */
+function finiteNumbers(value: unknown): boolean {
+  const pending = [value];
+
+  while (pending.length) {
+    const current = pending.pop();
+    if (typeof current === "number" && !Number.isFinite(current)) return false;
+    if (typeof current === "object" && current !== null)
+      for (const child of Object.values(current)) pending.push(child);
+  }
+
+  return true;
 }
 
 function usable(value: unknown): value is StoredEntry {
@@ -130,7 +146,7 @@ export function readCollection(collection: Collection, cwd: string, raw?: Buffer
     );
 
   const warnings: string[] = [];
-  const serializationSafe = jsonValueSchema.safeParse(value).success;
+  const serializationSafe = finiteNumbers(value);
   const entries: StoredEntry[] = [];
 
   for (const entry of value.entries) {

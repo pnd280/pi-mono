@@ -119,6 +119,17 @@ export default defineConfig({
                     "Installed extensions can import only the Pi host entry points in docs/development.md."
                 },
                 {
+                  from: { file: { categories: "worker" } },
+                  disallow: {
+                    dependency: {
+                      kind: "value",
+                      source: ["@earendil-works/**", "typebox{,/**}"]
+                    }
+                  },
+                  message:
+                    "Node loads worker entries without Pi's loader, so they get none of the Pi host entry points."
+                },
+                {
                   from: {
                     file: {
                       categories: { allOf: ["display-rendering"], noneOf: ["test", "fixture"] }
@@ -330,6 +341,13 @@ export default defineConfig({
         {
           pattern: "packages/libs/src/tui/{open-browser,responsive-custom-ui}/**",
           category: "tui-host"
+        },
+        {
+          pattern: [
+            "packages/libs/src/bounded-diff/worker.ts",
+            "packages/extensions/pi-prompt-manager/src/storage/collection-worker.ts"
+          ],
+          category: "worker"
         },
         { pattern: "**/*.test.ts", category: "test" },
         { pattern: "**/test-fixture.ts", category: "fixture" },

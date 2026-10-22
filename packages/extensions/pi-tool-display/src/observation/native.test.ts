@@ -1,5 +1,5 @@
 import { mkdirSync, renameSync } from "node:fs";
-import { chmod, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, open, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -13,12 +13,14 @@ import {
 import { observeMutationDefinition } from "@pi-mono/libs/file-mutations";
 import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
 import { createToolContext } from "@pi-mono/libs/validation/tool-context";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import type { DisplayFact } from "../contracts.ts";
 import { OBSERVATION_BYTES, parseRetainedPatch } from "../diff.ts";
 import { record } from "../values.ts";
 import { displayMutationSink, observeNativeDefinition, type ObservationSink } from "./native.ts";
+
+vi.mock("node:fs/promises", { spy: true });
 
 function patchOf(fact: DisplayFact | undefined): string | undefined {
   return fact?.kind === "change" && fact.change !== "unavailable" ? fact.patch : undefined;
@@ -108,7 +110,7 @@ it.skipIf(process.platform === "win32")(
 );
 
 it.each(["edit", "write"] as const)(
-  "preserves BOM-bearing files during observed %s",
+  "observes %s of a BOM-bearing file through the shared capture without rereading it",
   async (name) => {
     useStepPatchDeadline();
     const directory = await mkdtemp(join(tmpdir(), "display-native-bom-"));
@@ -127,6 +129,9 @@ it.each(["edit", "write"] as const)(
         preview() {},
         fact: (fact) => facts.push(fact)
       }));
+      const context = await createToolContext(directory);
+      const reads = vi.mocked(readFile).mockClear();
+      const opens = vi.mocked(open).mockClear();
       const result = await observed.execute(
         "bom",
         name === "edit"
@@ -134,8 +139,11 @@ it.each(["edit", "write"] as const)(
           : { path: "file", content: after },
         undefined,
         undefined,
-        await createToolContext(directory)
+        context
       );
+      // The shared capture reads for the native edit and opens before a write; display adds no I/O.
+      expect(reads).toHaveBeenCalledTimes(name === "edit" ? 1 : 0);
+      expect(opens).toHaveBeenCalledTimes(name === "edit" ? 0 : 1);
       expect(await readFile(join(directory, "file"), "utf8")).toBe(after);
       const change = facts.find((fact) => fact.kind === "change");
       expect(patchOf(change)).toBeTypeOf("string");

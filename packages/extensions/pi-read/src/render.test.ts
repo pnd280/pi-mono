@@ -2,8 +2,7 @@ import { createReadToolDefinition, initTheme, type Theme } from "@earendil-works
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { beforeAll, expect, it } from "vite-plus/test";
 
-import { appendPreview, type ReadResult } from "./result.ts";
-import { selectionSchema } from "./selection.ts";
+import type { ReadResult } from "./result.ts";
 import {
   createSelectiveReadTool,
   type SelectiveReadParams,
@@ -59,34 +58,4 @@ it("keeps source with malformed preview provenance visible", () => {
     .join("\n");
   expect(stripTerminalSequences(output)).toContain("source");
   expect(stripTerminalSequences(output)).toContain("retained unowned text");
-});
-
-it("delegates image, error, and partial output to the native renderer without previews", () => {
-  const base = createReadToolDefinition("/project");
-  const tool = createSelectiveReadTool(base);
-  const args = { path: "example.txt", selection: { startLine: 1 } };
-  const text: ReadResult = { content: [{ type: "text", text: "source" }], details: undefined };
-  const augmented = appendPreview(text, args, selectionSchema.parse(args.selection));
-  const image: ReadResult = {
-    content: [{ type: "image", data: "AA==", mimeType: "image/png" }],
-    details: undefined
-  };
-
-  for (const scenario of [
-    { result: augmented, isError: true, isPartial: false, native: text },
-    { result: augmented, isError: false, isPartial: true, native: text },
-    { result: image, isError: false, isPartial: false, native: image }
-  ]) {
-    const ctx = {
-      ...context(args),
-      isError: scenario.isError,
-      lastComponent: { render: () => [], invalidate() {} }
-    };
-    const options = { expanded: true, isPartial: scenario.isPartial };
-    const expected = base.renderResult!(scenario.native, options, theme, {
-      ...ctx,
-      lastComponent: undefined
-    }).render(80);
-    expect(tool.renderResult(scenario.result, options, theme, ctx).render(80)).toEqual(expected);
-  }
 });

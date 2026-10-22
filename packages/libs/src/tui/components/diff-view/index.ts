@@ -13,8 +13,14 @@ import { z } from "zod";
 import { displayText } from "../../terminal-text/index.ts";
 import { wrapRows } from "../../text-budget/index.ts";
 
-const INLINE_DIFF_WORK_LIMIT = 40_000;
+/**
+ * Inline comparison work for one panel, counted by `comparisonWork`. Panels render again on
+ * each width change, so this limits the synchronous fast-diff time of each render.
+ */
+const INLINE_DIFF_WORK_LIMIT = 250_000;
 const INLINE_DIFF_LINE_LIMIT = 1000;
+/** Work per line character for fast-diff's cleanup passes, in middle-search units. */
+const CLEANUP_WORK_PER_CHARACTER = 12;
 
 /** How far strips and changed rows move from the panel surface toward a foreground colour. */
 const STRIP_TINT = 0.08;
@@ -140,6 +146,24 @@ function lineChanges(
   return { removed, added };
 }
 
+/**
+ * Estimated fast-diff work for one pair, not a strict bound. The search covers the middles
+ * that differ after the shared UTF-16 ends are removed. The cleanup passes cover the full
+ * lines and can move an edit through repeated text.
+ */
+function comparisonWork(before: string, after: string): number {
+  const shorter = Math.min(before.length, after.length);
+  let start = 0,
+    end = 0;
+  while (start < shorter && before[start] === after[start]) start++;
+  while (end < shorter - start && before.at(-1 - end) === after.at(-1 - end)) end++;
+
+  return (
+    (before.length - start - end) * (after.length - start - end) +
+    CLEANUP_WORK_PER_CHARACTER * (before.length + after.length)
+  );
+}
+
 function changeRanges(rows: readonly PatchRow[]): Map<PatchLine, ChangedSpans> {
   const ranges = new Map<PatchLine, ChangedSpans>();
   let remaining = INLINE_DIFF_WORK_LIMIT;
@@ -149,13 +173,9 @@ function changeRanges(rows: readonly PatchRow[]): Map<PatchLine, ChangedSpans> {
     // Compare terminal-safe text so tabs and stripped controls cannot shift range offsets.
     const before = displayText(row.old.text),
       after = displayText(row.new.text);
-    const work = before.length * after.length;
-    if (
-      !work ||
-      work > remaining ||
-      Math.max(before.length, after.length) >= INLINE_DIFF_LINE_LIMIT
-    )
-      continue;
+    if (Math.max(before.length, after.length) >= INLINE_DIFF_LINE_LIMIT) continue;
+    const work = comparisonWork(before, after);
+    if (work > remaining) continue;
     remaining -= work;
     const { removed, added } = lineChanges(before, after);
     ranges.set(row.old, removed);

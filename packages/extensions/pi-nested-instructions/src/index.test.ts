@@ -34,6 +34,8 @@ async function host(responses: FauxResponseFactory[], before: ExtensionFactory[]
   cleanup.push(fs.dispose);
   const agentDir = path.join(fs.root, "agent");
   await mkdir(agentDir);
+  await fs.write("../agent/AGENTS.md", "NATIVE GLOBAL RULES");
+  await fs.write("../AGENTS.md", "NATIVE ANCESTOR RULES");
   await fs.write("AGENTS.md", "NATIVE ROOT RULES");
   await fs.write("pkg/AGENTS.md", "AUTO PARENT RULES");
   await fs.write("pkg/deep/AGENTS.md", "DIRECT CHILD RULES");
@@ -98,7 +100,9 @@ it("does not interrupt sibling tools and delivers only unseen instructions befor
   const h = await host(
     [
       (context) => {
-        expect(getCurrentSystemPrompt(context.messages)).toContain("NATIVE ROOT RULES");
+        const systemPrompt = getCurrentSystemPrompt(context.messages);
+        for (const rules of ["NATIVE GLOBAL RULES", "NATIVE ANCESTOR RULES", "NATIVE ROOT RULES"])
+          expect(systemPrompt).toContain(rules);
 
         return fauxAssistantMessage([
           fauxToolCall("read", { path: "pkg/deep/file.ts" }, { id: "file" }),
@@ -275,9 +279,13 @@ it("refreshes changed scopes through a real host reload without repeating unchan
   await h.session.reload();
   expect(count()).toBe(1);
   await h.fs.write("pkg/AGENTS.md", "CHANGED PARENT RULES");
+  await h.fs.write("../agent/AGENTS.md", "UPDATED GLOBAL RULES");
   await h.session.reload();
   expect(count()).toBe(2);
   expect(h.errors).toEqual([]);
+  for (const rules of ["UPDATED GLOBAL RULES", "NATIVE ANCESTOR RULES", "NATIVE ROOT RULES"])
+    expect(h.session.systemPrompt).toContain(rules);
+  expect(h.session.systemPrompt).not.toContain("CHANGED PARENT RULES");
   expect(
     h.session.messages.some(
       (message) =>

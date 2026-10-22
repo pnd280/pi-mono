@@ -48,6 +48,7 @@ An _ephemeral_ session is one that isn't saved to a file, such as one started wi
 Naming needs [configuration](#configuration); saving and child sessions don't.
 
 - An unnamed session gets at most one automatic attempt per load, made silently when a user message with non-empty text arrives. Loading or reloading allows another attempt, at the next user message.
+- An automatic title is saved only when the agent finishes running without an abort.
 - `/sesh auto-name` generates a new title at any time, even while the agent is running.
 - Setting or clearing a name yourself stops automatic naming. The [naming guide](docs/naming.md#cancellation-and-retries) says when naming resumes and lists the other events that cancel it.
 - Generation times out after 15 seconds and isn't retried. If it fails, the name is unchanged.

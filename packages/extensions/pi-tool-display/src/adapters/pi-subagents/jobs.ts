@@ -228,9 +228,6 @@ export const jobResultDisplayAdapter: ToolDisplayAdapter = {
   }
 };
 
-/** The background job result message that pi-subagents persists. */
-export const jobResultType = "pi-subagents.job-result";
-
 /** Pure: a job result message as card input; undefined unless its details match. */
 export function jobResultCard(
   message: Pick<Parameters<MessageRenderer>[0], "content" | "details">

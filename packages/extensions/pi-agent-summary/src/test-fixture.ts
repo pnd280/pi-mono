@@ -16,11 +16,6 @@ import { afterEach, beforeEach, vi } from "vite-plus/test";
 import entry from "../index.ts";
 import type { SummaryContext, SummaryEvents, SummaryExtensionAPI } from "./index.ts";
 
-type TestEvents = SummaryEvents & {
-  turn_end: unknown;
-  agent_end: unknown;
-};
-
 const cleanup: (() => Promise<void>)[] = [];
 beforeEach(() =>
   vi.useFakeTimers({
@@ -43,8 +38,8 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
   vi.stubEnv("PI_OFFLINE", "1");
   const session = SessionManager.inMemory(directory);
   const handlers: {
-    [E in keyof TestEvents]: ((
-      event: TestEvents[E],
+    [E in keyof SummaryEvents]: ((
+      event: SummaryEvents[E],
       ctx: SummaryContext
     ) => void | Promise<void>)[];
   } = {
@@ -55,9 +50,7 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
     message_start: [],
     message_update: [],
     message_end: [],
-    tool_execution_start: [],
-    turn_end: [],
-    agent_end: []
+    tool_execution_start: []
   };
   const setWorkingMessage = vi.fn();
   const ctx: SummaryContext = {
@@ -80,9 +73,9 @@ export function fixture(mode: SummaryContext["mode"] = "tui") {
     }
   };
 
-  const emit = async <E extends keyof TestEvents>(
+  const emit = async <E extends keyof SummaryEvents>(
     name: E,
-    event: TestEvents[E] & Record<string, unknown>
+    event: SummaryEvents[E] & Record<string, unknown>
   ) => {
     for (const handler of handlers[name]) await handler(event, ctx);
   };

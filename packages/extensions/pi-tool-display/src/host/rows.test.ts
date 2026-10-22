@@ -13,7 +13,7 @@ it("restores native assistant rows after release", () => {
     assistantMessage([{ type: "text", text: "Native assistant prose" }])
   );
   const rows = new TranscriptRows({ chatContainer: { children: [component] } });
-  rows.attach(coordinator, { styleAssistant: true, chrome: true });
+  rows.attach(coordinator, { styleAssistant: true, chrome: true, failed: () => {} });
 
   try {
     rows.addMessage({ role: "assistant" }, () => {});

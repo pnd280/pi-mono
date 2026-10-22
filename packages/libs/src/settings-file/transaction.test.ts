@@ -106,7 +106,7 @@ it.each([
   expect(readdirSync(directory)).toEqual(["settings.json"]);
 });
 
-it("follows an existing settings symlink and refuses to replace a dangling link", () => {
+it("follows an existing settings symlink, excludes writers through other aliases, and refuses to replace a dangling link", () => {
   const { directory, path } = fixture();
   const target = join(directory, "target.json");
   writeFileSync(target, '{"theme":"dark"}');
@@ -116,6 +116,16 @@ it("follows an existing settings symlink and refuses to replace a dangling link"
   });
   expect(lstatSync(path).isSymbolicLink()).toBe(true);
   expect(readSettingsRecord(target)).toEqual({ theme: "light" });
+  // A writer through the target alias must not commit between this update's read and rename.
+  updateSettingsRecord(path, (record) => {
+    expect(() =>
+      updateSettingsRecord(target, (other) => {
+        other.savedByOtherWriter = true;
+      })
+    ).toThrow();
+    record.savedByFirstWriter = true;
+  });
+  expect(readSettingsRecord(target)).toEqual({ theme: "light", savedByFirstWriter: true });
   rmSync(target);
   expect(() =>
     updateSettingsRecord(path, (record) => {

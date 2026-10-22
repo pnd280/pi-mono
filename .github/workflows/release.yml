@@ -15,11 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # queue: max keeps every pending job. With the default single queue, a late older run
+    # cancels the pending job for the current commit, and then nothing publishes it.
     concurrency:
       group: release-branch
+      queue: max
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .node-version
       - run: corepack enable
@@ -33,6 +36,14 @@ jobs:
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         run: |
           set -euo pipefail
+          # Runs can reach this job out of order, and an old run can be rerun. While this job
+          # holds the release-branch lock, publish only the current head of the branch, so an
+          # older build never replaces a newer one.
+          head=$(git ls-remote --exit-code origin "$GITHUB_REF" | cut -f1)
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "Skipping this build because $GITHUB_REF is now at $head, not $GITHUB_SHA."
+            exit 0
+          fi
           # A separate index stages the build tree; its .gitignore leaves out node_modules.
           export GIT_INDEX_FILE="$RUNNER_TEMP/release-index"
           git --work-tree="$RUNNER_TEMP/release" add --all

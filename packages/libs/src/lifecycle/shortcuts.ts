@@ -19,11 +19,14 @@ export type ShortcutClaim = {
 type Valid = { entry: Entry<ShortcutClaim>; key: KeyId };
 
 /**
- * Registers each uncontested claim through its claimant. Claims whose keys overlap, directly
- * or through another claim, form one conflict, and no claimant in it registers its key.
+ * Registers each uncontested claim through its claimant and stores its handler in `accepted`.
+ * The registration runs the handler that `accepted` holds for its key at the keypress. Claims
+ * whose keys overlap, directly or through another claim, form one conflict, and no claimant in
+ * it registers its key.
  */
 export function resolveShortcutClaims(
   claims: readonly Entry<ShortcutClaim>[],
+  accepted: Map<string, ShortcutOptions["handler"]>,
   notify: Notify | undefined
 ): void {
   const groups: Valid[][] = [];
@@ -50,7 +53,7 @@ export function resolveShortcutClaims(
     if (!only) continue;
 
     if (others.length === 0) {
-      register(only, notify);
+      register(only, accepted, notify);
       continue;
     }
 
@@ -64,9 +67,16 @@ export function resolveShortcutClaims(
   }
 }
 
-function register({ entry, key }: Valid, notify: Notify | undefined): void {
+function register(
+  { entry, key }: Valid,
+  accepted: Map<string, ShortcutOptions["handler"]>,
+  notify: Notify | undefined
+): void {
+  const { options } = entry.value;
+
   try {
-    entry.value.registerShortcut(key, entry.value.options);
+    entry.value.registerShortcut(key, { ...options, handler: (ctx) => accepted.get(key)?.(ctx) });
+    accepted.set(key, options.handler);
   } catch (error) {
     reportFailure(notify, entry.participant, `shortcut "${key}" registration`, error);
   }

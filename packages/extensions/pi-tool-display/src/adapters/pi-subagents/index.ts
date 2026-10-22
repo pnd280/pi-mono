@@ -245,9 +245,6 @@ const subagentAbortDisplayAdapter: ToolDisplayAdapter = {
   }
 };
 
-/** The background result message that pi-subagents persists. */
-export const subagentResultType = "pi-subagents.result";
-
 /** Pure: a background result message as subagent card input; undefined unless its details match. */
 export function subagentResultCard(
   message: Pick<Parameters<MessageRenderer>[0], "content" | "details">

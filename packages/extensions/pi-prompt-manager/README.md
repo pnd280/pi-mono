@@ -62,12 +62,13 @@ Add an `ext.pi-prompt-manager` key to the global `~/.pi/agent/settings.json`, or
 }
 ```
 
-| Setting            | Meaning                                                                                                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `historyRetention` | How many history entries to keep. Numbers are floored and clamped to 1–5,000; numeric strings are invalid. Lowering it prunes on the next captured prompt.                                        |
-| `shortcuts`        | Keys in [Pi key syntax](https://pi.dev/docs/latest/keybindings#key-syntax). An empty list disables the action, and an invalid list uses the default. If both actions share a key, `history` wins. |
+| Setting            | Meaning                                                                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `historyRetention` | How many history entries to keep. Numbers are floored and clamped to 1–5,000; numeric strings are invalid. Lowering it prunes on the next captured prompt. |
+| `shortcuts`        | Keys in [Pi key syntax](https://pi.dev/docs/latest/keybindings#key-syntax). An empty list disables the action, and an invalid list uses the default.       |
 
 - Shortcuts must be valid Pi keys. Pi 1.3.0 can't dispatch modified **Escape** or modified function keys, so these keys are invalid.
+- When keys can match the same keypress, such as `tab` and `ctrl+i`, only the first is used. `history` keys come before `saveDraft` keys, so `history` wins a shared key, with a warning.
 - Each invalid field falls back to its default with a warning. Unreadable or oversized settings use all defaults.
 - Run `/reload` to apply changes. The extension never rewrites settings.
 - Pi may warn about conflicts with built-in keys, such as **Ctrl+R** for session renaming.

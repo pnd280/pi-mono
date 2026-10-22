@@ -31,7 +31,7 @@ it("recognizes native construction through the installed pi executable, not just
     await writeFile(
       fixture,
       `
-      import { AgentSession, AssistantMessageComponent, initTheme } from "@earendil-works/pi-coding-agent";
+      import { AgentSession, AssistantMessageComponent, initTheme, SessionManager, SettingsManager } from "@earendil-works/pi-coding-agent";
       import { installHostIntegration } from ${JSON.stringify(integration)};
       import { DisplayCollectors } from ${JSON.stringify(collection)};
       import { assistantBoundaryKind, bindAssistantPresentation, trackThinkingCompletion } from ${JSON.stringify(assistant)};
@@ -39,11 +39,24 @@ it("recognizes native construction through the installed pi executable, not just
       import { createBoundedPatch } from ${JSON.stringify(boundedDiff)};
       import { piSelectiveReadAdapter } from ${JSON.stringify(selectiveAdapter)};
       const original = Reflect.get(AgentSession.prototype, "_buildRuntime");
-       const collection = new DisplayCollectors();
-       const dispose = installHostIntegration(collection);
+      const host = interactivePrototype();
+      const lookup = host.getRegisteredToolDefinition;
+      // Pi's lookup has no definition for an unregistered tool; the installed hook gives it a generic card.
+      const lookupHost = { session: {
+        settingsManager: SettingsManager.inMemory(),
+        sessionManager: SessionManager.inMemory(process.cwd()),
+        getToolDefinition: () => undefined,
+        getAllTools: () => [],
+        extensionRunner: { resolveToolRenderers: (_name, base) => base() }
+      } };
+      const lookupShell = () => host.getRegisteredToolDefinition.call(lookupHost, "unregistered")?.renderShell;
+      const collection = new DisplayCollectors();
+      const dispose = installHostIntegration(collection);
+      const hostInstalled = typeof dispose === "function" && host.getRegisteredToolDefinition !== lookup && lookupShell() === "self";
       const recognized = Reflect.get(AgentSession.prototype, "_buildRuntime") !== original;
       dispose?.();
       collection.dispose();
+      const hostRestored = host.getRegisteredToolDefinition === lookup && lookupShell() === undefined;
       const restored = Reflect.get(AgentSession.prototype, "_buildRuntime") === original;
       export default function (pi) {
         pi.registerCommand("verify-display", { handler: async () => {
@@ -73,7 +86,7 @@ it("recognizes native construction through the installed pi executable, not just
           const patchStatus = patch.status;
           const modeHooks = modeHooksCompatible(interactivePrototype());
           const rowContract = rowContractCompatible();
-          process.stdout.write(JSON.stringify({ recognized, restored, thinkingLive, suppressed, revealed, thinkingBoundary, thinkingRestored, proseMarked, proseBoundary, proseRestored, selectiveReadRecognized, patchStatus, modeHooks, rowContract }) + "\\n");
+          process.stdout.write(JSON.stringify({ hostInstalled, hostRestored, recognized, restored, thinkingLive, suppressed, revealed, thinkingBoundary, thinkingRestored, proseMarked, proseBoundary, proseRestored, selectiveReadRecognized, patchStatus, modeHooks, rowContract }) + "\\n");
         } });
       }
     `
@@ -112,6 +125,8 @@ it("recognizes native construction through the installed pi executable, not just
       .split("\n")
       .find((line) => line.startsWith("{") && line.includes('"recognized"'));
     expect(JSON.parse(report ?? "null")).toEqual({
+      hostInstalled: true,
+      hostRestored: true,
       recognized: true,
       restored: true,
       thinkingLive: true,

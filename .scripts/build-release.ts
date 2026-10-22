@@ -10,6 +10,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync
 } from "node:fs";
@@ -23,8 +24,9 @@ const scratch = join(root, ".tmp");
 const output = resolve(process.argv[2] ?? join(scratch, "release"));
 
 // Only clear an existing directory inside .tmp/, so a mistyped argument cannot delete other work.
+// Resolve both paths first, so a symlink in the output path cannot lead outside .tmp/.
 if (existsSync(output)) {
-  const local = relative(scratch, output);
+  const local = existsSync(scratch) ? relative(realpathSync(scratch), realpathSync(output)) : "..";
 
   if (local === "" || local.startsWith("..") || isAbsolute(local)) {
     throw new Error(`${output} exists; remove it or choose another directory`);

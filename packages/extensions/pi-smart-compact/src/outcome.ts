@@ -32,7 +32,8 @@ export function describeOutcome(
     case "cancelled":
       return "Compaction cancelled. Existing context was preserved.";
     case "failed":
-      return `Compaction failed: ${outcome.error}\nExisting context was preserved.`;
+      // A failed write can leave the compaction active in memory, so make no preservation claim.
+      return `Compaction failed: ${outcome.error}`;
   }
 }
 

@@ -28,6 +28,8 @@ import {
 } from "@earendil-works/pi-tui";
 import { onTestFinished, vi } from "vite-plus/test";
 
+import { isolateEnvironment } from "../pi-process/environment.ts";
+
 type NativeComponent = Component & { dispose?(): void };
 
 interface FixtureHost {
@@ -96,8 +98,7 @@ export async function hostFixture(
   let ready = false;
 
   try {
-    vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-    vi.stubEnv("PI_OFFLINE", "1");
+    isolateEnvironment(directory);
     const settingsManager = SettingsManager.inMemory();
     const loader = new DefaultResourceLoader({
       cwd: directory,

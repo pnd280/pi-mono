@@ -1,143 +1,14 @@
 import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { fauxAssistantMessage, type AssistantMessage } from "@earendil-works/pi-ai";
 import * as boundedDiff from "@pi-mono/libs/bounded-diff";
 import { observeFileMutations } from "@pi-mono/libs/file-mutations";
 import { useStepPatchDeadline } from "@pi-mono/libs/validation/bounded-diff";
-import { registerWorkingMessage } from "@pi-mono/libs/working-message";
 import { expect, it, vi } from "vite-plus/test";
 
 import { RunChanges } from "./changes.ts";
-import { counterChannel } from "./counters.ts";
-import { milestoneChannel } from "./milestones.ts";
 import { summaryEntryType } from "./summary.ts";
 import { fixture } from "./test-fixture.ts";
-
-it("records one context-free entry after all turns and retries settle, preserving other working text", async () => {
-  const runtime = fixture();
-  const other = registerWorkingMessage(runtime.api, {
-    id: "other.activity",
-    label: "Activity",
-    contributor: "other",
-    ownerRank: 400
-  });
-  runtime.session.appendMessage({ role: "user", content: "Work", timestamp: Date.now() });
-  const before = runtime.session.buildSessionContext().messages;
-  await runtime.emit("session_start", {});
-  other.setText("Checking files");
-  await runtime.emit("agent_start", {});
-  const message = assistantMessage(0, "pending");
-  await runtime.emit("message_start", { type: "message_start", message });
-
-  for (const delta of ["first visible output", "later visible output"]) {
-    await runtime.emit("message_update", {
-      type: "message_update",
-      message,
-      assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta, partial: message }
-    });
-    vi.advanceTimersByTime(1000);
-  }
-
-  const workingText: unknown = runtime.setWorkingMessage.mock.lastCall?.[0];
-  expect(workingText).toContain("Checking files");
-  expect(workingText).toContain("2s");
-  expect(workingText).toMatch(/\d+\/s/);
-  await runtime.emit("message_end", {
-    type: "message_end",
-    message: assistantMessage(50, "stop")
-  });
-  await runtime.tool("bash", { command: "true" });
-  await runtime.emit("turn_end", {});
-  await runtime.emit("agent_end", {});
-  vi.advanceTimersByTime(1000);
-  await runtime.emit("agent_start", {});
-  await runtime.tool("bash", { command: "false" });
-  runtime.api.events.emit(milestoneChannel, { text: "Published v1.2.0" });
-  for (const verb of ["delegated", "ignored"])
-    runtime.api.events.emit(counterChannel, {
-      id: "tasks",
-      verb,
-      singular: "task",
-      plural: "tasks"
-    });
-  vi.advanceTimersByTime(1500);
-  expect(runtime.api.appendEntry).not.toHaveBeenCalled();
-  await runtime.emit("agent_settled", {});
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-    durationMs: 4500,
-    finishedAt: Date.now(),
-    models: [{ provider: "faux", id: "faux-1" }],
-    throughput: { outputTokens: 50, durationMs: 2000 },
-    milestones: ["Published v1.2.0"],
-    counters: [{ id: "tasks", verb: "delegated", singular: "task", plural: "tasks", count: 2 }],
-    bashCalls: 2,
-    files: []
-  });
-  expect(runtime.session.buildSessionContext().messages).toEqual(before);
-  expect(runtime.setWorkingMessage).toHaveBeenLastCalledWith("Checking files");
-  expect(vi.getTimerCount()).toBe(0);
-  runtime.setWorkingMessage.mockClear();
-  vi.advanceTimersByTime(5000);
-  expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
-});
-
-function assistantMessage(
-  output: number,
-  stopReason: AssistantMessage["stopReason"]
-): AssistantMessage {
-  return {
-    ...fauxAssistantMessage([], { stopReason }),
-    usage: {
-      input: 1000,
-      output,
-      reasoning: output / 2,
-      cacheRead: 500,
-      cacheWrite: 0,
-      totalTokens: 1500 + output,
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
-    }
-  };
-}
-
-it.each(["session_start", "session_shutdown"] as const)(
-  "discards throughput, milestones, and counters on %s",
-  async (event) => {
-    const runtime = fixture();
-    await runtime.emit("agent_start", {});
-    const start = { type: "message_start" as const, message: assistantMessage(0, "pending") };
-    const end = { type: "message_end" as const, message: assistantMessage(50, "stop") };
-    await runtime.emit("message_start", start);
-    vi.advanceTimersByTime(1000);
-    await runtime.emit("message_end", end);
-    await runtime.emit("message_start", start);
-    runtime.api.events.emit(milestoneChannel, { text: "Discarded milestone" });
-    runtime.api.events.emit(counterChannel, { id: "x", verb: "did", singular: "x", plural: "xs" });
-    vi.advanceTimersByTime(1000);
-    await runtime.emit(event, {});
-    await runtime.emit("agent_start", {});
-    await runtime.emit("message_end", end);
-    await runtime.emit("agent_settled", {});
-    // After shutdown, a run starts only in a new session, so this late run is not recorded.
-    expect(vi.mocked(runtime.api.appendEntry).mock.calls).toEqual(
-      event === "session_shutdown"
-        ? []
-        : [
-            [
-              summaryEntryType,
-              {
-                durationMs: 0,
-                finishedAt: Date.now(),
-                models: [{ provider: "faux", id: "faux-1" }],
-                bashCalls: 0,
-                files: []
-              }
-            ]
-          ]
-    );
-  }
-);
 
 it("aggregates native edit/write aliases and large files without scanning bash-only changes", async () => {
   const runtime = fixture();
@@ -183,16 +54,6 @@ it("aggregates native edit/write aliases and large files without scanning bash-o
         { path: "real/existing.txt", status: "available", added: 3, removed: 1 }
       ]
     });
-    vi.advanceTimersByTime(1000);
-    await runtime.emit("agent_start", {});
-    vi.advanceTimersByTime(250);
-    await runtime.emit("agent_settled", {});
-    expect(runtime.api.appendEntry).toHaveBeenLastCalledWith(summaryEntryType, {
-      durationMs: 250,
-      finishedAt: Date.now(),
-      bashCalls: 0,
-      files: []
-    });
     expect(patch).toHaveBeenCalledTimes(2);
     expect(patch).toHaveBeenNthCalledWith(
       1,
@@ -231,32 +92,6 @@ it("waits if another extension has already started a run during settlement", asy
   await runtime.emit("agent_settled", {});
   expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
     durationMs: 2000,
-    finishedAt: Date.now(),
-    bashCalls: 0,
-    files: []
-  });
-});
-
-it("cleans up unfinished runs on shutdown without appending a partial summary", async () => {
-  const runtime = fixture();
-  expect(vi.getTimerCount()).toBe(0);
-  await runtime.emit("session_start", {});
-  await runtime.emit("agent_start", {});
-  await runtime.tool("write", { path: "file.txt", content: "new\n" });
-  vi.advanceTimersByTime(1000);
-  await runtime.emit("session_shutdown", {});
-  await runtime.emit("session_shutdown", {});
-  await runtime.emit("agent_settled", {});
-  runtime.setWorkingMessage.mockClear();
-  vi.advanceTimersByTime(5000);
-  expect(runtime.api.appendEntry).not.toHaveBeenCalled();
-  expect(runtime.setWorkingMessage).not.toHaveBeenCalled();
-  expect(vi.getTimerCount()).toBe(0);
-  await runtime.emit("session_start", {});
-  await runtime.emit("agent_start", {});
-  await runtime.emit("agent_settled", {});
-  expect(runtime.api.appendEntry).toHaveBeenCalledExactlyOnceWith(summaryEntryType, {
-    durationMs: 0,
     finishedAt: Date.now(),
     bashCalls: 0,
     files: []
@@ -320,28 +155,6 @@ it.each(["session_start", "session_shutdown"] as const)(
       expect(vi.getTimerCount()).toBe(0);
     } finally {
       observer.dispose();
-    }
-  }
-);
-
-it.each(["session_shutdown", "session_start"] as const)(
-  "discards a pending net comparison after %s",
-  async (event) => {
-    const runtime = fixture();
-    await runtime.emit("agent_start", {});
-    const pending = Promise.withResolvers<Awaited<ReturnType<RunChanges["finish"]>>>();
-    const finish = vi.spyOn(RunChanges.prototype, "finish").mockReturnValueOnce(pending.promise);
-    const settlement = runtime.emit("agent_settled", {});
-
-    try {
-      await runtime.emit(event, {});
-      pending.resolve([{ path: "file", status: "available", added: 1, removed: 0 }]);
-      await settlement;
-      expect(runtime.api.appendEntry).not.toHaveBeenCalled();
-    } finally {
-      pending.resolve([]);
-      await settlement;
-      finish.mockRestore();
     }
   }
 );

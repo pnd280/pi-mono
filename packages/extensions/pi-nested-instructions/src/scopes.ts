@@ -95,12 +95,20 @@ async function hints(invocation: Invocation, cwd: string): Promise<PathHint[]> {
   return nativeHints(invocation.toolName, input, cwd);
 }
 
+/** Pi's native Windows drive aliases: `/c/dir`, `/mnt/c/dir`, and `/cygdrive/c/dir` become `C:\dir`. */
+function windowsDrivePath(value: string): string {
+  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return value;
+  const match = /^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i.exec(value);
+  if (!match?.[1]) return value;
+
+  return `${match[1].toUpperCase()}:\\${match[2]?.replaceAll("/", "\\") ?? ""}`;
+}
+
 // Pi's native tool path syntax, kept separate from Bash and FFF path semantics.
 function nativePath(value: string | null | undefined): string | undefined {
   if (value == null) return undefined;
-  const normalized = value
-    .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ")
-    .replace(/^@/, "");
+  let normalized = value.replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ").replace(/^@/, "");
+  if (process.platform === "win32") normalized = windowsDrivePath(normalized);
 
   return normalized.startsWith("file://") ? fileURLToPath(normalized) : normalized;
 }

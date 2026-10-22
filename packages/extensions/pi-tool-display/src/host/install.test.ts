@@ -17,7 +17,7 @@ import {
   SettingsManager,
   ToolExecutionComponent,
   AgentSession,
-  type AssistantMessageComponent,
+  AssistantMessageComponent,
   type AgentSessionRuntime,
   type AgentSessionEvent,
   type ExtensionAPI,
@@ -1424,11 +1424,18 @@ it.each([
 it.each([
   { renderer: "auto", finalization: "in a new object" },
   { renderer: "generic", finalization: "in a new object" },
-  { renderer: "auto", finalization: "modified in place" }
+  { renderer: "auto", finalization: "modified in place" },
+  { renderer: "auto", finalization: "renamed to write" },
+  { renderer: "generic", finalization: "renamed to write with unchanged arguments" }
 ])(
-  "uses finalized arguments $finalization in $renderer live summaries and expanded parameters",
+  "uses finalized calls $finalization in $renderer live summaries, expanded parameters, and saved facts",
   async ({ renderer, finalization }) => {
     const inPlace = finalization === "modified in place";
+    const renamed = finalization.startsWith("renamed");
+    const unchanged = finalization.endsWith("unchanged arguments");
+    // Only the specialised write adapter observes the creation and shows its diff.
+    const observed = renamed && renderer === "auto";
+    const args = { path: "after.ts", ...(renamed ? { content: "AFTER_TARGET" } : {}) };
 
     await withSession(
       async ({ session }) => {
@@ -1438,8 +1445,12 @@ it.each([
           tui.renderSessionItems([]);
           const directory = session.sessionManager.getCwd();
           await writeFile(join(directory, "before.ts"), "BEFORE_TARGET");
-          await writeFile(join(directory, "after.ts"), "AFTER_TARGET");
-          const streamedCall = fauxToolCall("read", { path: "before.ts" }, { id: "final-args" });
+          if (!renamed) await writeFile(join(directory, "after.ts"), "AFTER_TARGET");
+          const streamedCall = fauxToolCall(
+            "read",
+            unchanged ? { ...args } : { path: "before.ts" },
+            { id: "final-args" }
+          );
           const streamed = assistantMessage([streamedCall]);
           await tui.handleEvent({ type: "message_start", message: streamed });
           await tui.handleEvent({
@@ -1452,10 +1463,11 @@ it.each([
               partial: streamed
             }
           });
-          // message_end handlers can return a new argument object or modify Pi's object in place.
+          // message_end handlers can return a new argument object, modify Pi's object in place,
+          // or replace the tool, which Pi then executes in the same row.
           const call = inPlace
             ? streamedCall
-            : fauxToolCall("read", { path: "after.ts" }, { id: streamedCall.id });
+            : fauxToolCall(renamed ? "write" : "read", args, { id: streamedCall.id });
           if (inPlace) streamedCall.arguments.path = "after.ts";
           const finalized = inPlace ? streamed : assistantMessage([call]);
           session.sessionManager.appendMessage(finalized);
@@ -1463,23 +1475,25 @@ it.each([
           await tui.handleEvent({
             type: "tool_execution_start",
             toolCallId: call.id,
-            toolName: "read",
+            toolName: call.name,
             args: call.arguments
           });
-          const tool = session.agent.state.tools.find((tool) => tool.name === "read")!;
+          const tool = session.agent.state.tools.find((tool) => tool.name === call.name)!;
           const result = await tool.execute(call.id, call.arguments);
-          expect(result.content).toEqual([{ type: "text", text: "AFTER_TARGET" }]);
+          if (renamed)
+            expect(await readFile(join(directory, "after.ts"), "utf8")).toBe("AFTER_TARGET");
+          else expect(result.content).toEqual([{ type: "text", text: "AFTER_TARGET" }]);
           await tui.handleEvent({
             type: "tool_execution_end",
             toolCallId: call.id,
-            toolName: "read",
+            toolName: call.name,
             result,
             isError: false
           });
           session.sessionManager.appendMessage({
             role: "toolResult",
             toolCallId: call.id,
-            toolName: "read",
+            toolName: call.name,
             ...result,
             isError: false,
             timestamp: 2
@@ -1490,6 +1504,8 @@ it.each([
             if (replay) {
               tui.chatContainer.clear();
               tui.renderSessionEntries(session.sessionManager.buildContextEntries());
+              // Replay applies a writer's local timing after its in-memory read resolves.
+              await new Promise((resolve) => setImmediate(resolve));
             }
 
             const row = tui.chatContainer.children.find(
@@ -1501,6 +1517,8 @@ it.each([
               const rendered = text(row);
               expect(rendered).toContain("after.ts");
               expect(rendered).not.toContain("before.ts");
+              expect(rendered.includes("+AFTER_TARGET")).toBe(observed);
+              if (renderer === "generic") expect(rendered).toContain(`Called ${call.name}(`);
 
               if (expanded) {
                 expect(rendered).toContain('"path"');
@@ -1512,13 +1530,25 @@ it.each([
           }
 
           expect(renderings.slice(0, 2)).toEqual(renderings.slice(2));
-          expect(streamedCall.arguments.path).toBe(inPlace ? "after.ts" : "before.ts");
+          expect(saved(session, CALL_TYPE)).toEqual(
+            observed
+              ? [
+                  {
+                    entry: expect.any(String) as unknown,
+                    toolCallId: call.id,
+                    applied: true,
+                    change: { kind: "creation" }
+                  }
+                ]
+              : []
+          );
+          expect(streamedCall.arguments.path).toBe(inPlace || unchanged ? "after.ts" : "before.ts");
           expect(call.arguments.path).toBe("after.ts");
         } finally {
           tui.footerDataProvider.dispose();
         }
       },
-      { showParameters: true, rendererOverrides: { read: renderer } }
+      { showParameters: true, rendererOverrides: { read: renderer, write: renderer } }
     );
   }
 );
@@ -1786,6 +1816,135 @@ it.each(["missing", "non-writable"])(
     }
   }
 );
+
+it("keeps calls reachable and disposal complete when one row's hooks fail to install or release", async () => {
+  await withSession(
+    async ({ session }) => {
+      const notify = vi.fn<ExtensionContext["ui"]["notify"]>();
+      const uiContext = { notify } satisfies Pick<ExtensionContext["ui"], "notify">;
+      await session.bindExtensions({
+        mode: "tui",
+        // This binding only reports warnings; no dialogs or editor are used.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        uiContext: uiContext as unknown as ExtensionContext["ui"]
+      });
+      const tui = interactiveHost(session);
+      const addChild = tui.chatContainer.addChild.bind(tui.chatContainer);
+      const locked: object[] = [];
+      const lockedKeys = new Map<unknown, string>([
+        [ToolExecutionComponent, "handleMouse"],
+        [AssistantMessageComponent, "updateContent"]
+      ]);
+
+      // Another owner locks one instance property of the first assistant and tool rows.
+      // Pi's prototype contracts still match, so only those rows fail to bind.
+      tui.chatContainer.addChild = (child) => {
+        const key = lockedKeys.get(child.constructor);
+
+        if (key && !locked.some((row) => row.constructor === child.constructor)) {
+          const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(child), key);
+          Object.defineProperty(child, key, { ...descriptor, writable: false });
+          locked.push(child);
+        }
+
+        addChild(child);
+      };
+
+      try {
+        const message = assistantMessage([
+          { type: "text", text: "Locked prose" },
+          fauxToolCall("read", { path: "a.ts" }, { id: "locked" }),
+          fauxToolCall("read", { path: "b.ts" }, { id: "bound" })
+        ]);
+        tui.renderSessionItems([
+          message,
+          ...["locked", "bound"].map((toolCallId) => ({
+            role: "toolResult",
+            toolCallId,
+            toolName: "read",
+            content: [{ type: "text", text: `${toolCallId} body` }],
+            isError: false,
+            timestamp: 2
+          })),
+          { ...assistantMessage([{ type: "text", text: "Bound prose" }], 3), stopReason: "stop" }
+        ]);
+        await tui.handleEvent({
+          type: "message_start",
+          message: assistantMessage([{ type: "text", text: "Live prose" }], 4)
+        });
+        const assistants = tui.chatContainer.children.filter(
+          (child) => child instanceof AssistantMessageComponent
+        );
+        const rows = tui.chatContainer.children.filter(
+          (child) => child instanceof ToolExecutionComponent
+        );
+        const rendered = (row: AssistantMessageComponent) =>
+          row.render(80).map(stripTerminalSequences).join("\n");
+        expect(assistants).toHaveLength(3);
+        expect(rows).toHaveLength(2);
+        expect(locked).toEqual([assistants[0], rows[0]]);
+        expect(notify.mock.calls.filter(([text]) => text.includes("row hooks"))).toEqual([
+          [
+            "pi-tool-display: row hooks unavailable; affected rows stand alone, outside groups and summaries.",
+            "warning"
+          ]
+        ]);
+
+        // The failed tool row keeps no partial hooks; its sibling still binds.
+        for (const key of ["invalidate", "render", "setExpanded"])
+          expect([Object.hasOwn(rows[0]!, key), Object.hasOwn(rows[1]!, key)]).toEqual([
+            false,
+            true
+          ]);
+        expect(rendered(assistants[0]!)).not.toContain("•");
+        expect(rendered(assistants[1]!)).toContain("• Bound prose");
+        expect(rendered(assistants[2]!)).toContain("• Live prose");
+
+        // The failed row stands alone with its card, so the bound call keeps its own summary
+        // line. Both results stay reachable after a mode change and a return to summary mode.
+        for (const modes of [[], ["compact", "verbose"], ["summary"]]) {
+          for (const mode of modes) {
+            tui.toggleToolOutputExpansion?.();
+            expect(transcriptText(tui)).toContain(`Tool output: ${mode}`);
+          }
+
+          const shown = rows.map((row) => text(row));
+          if (modes.at(-1) === "verbose")
+            expect(shown).toEqual([
+              expect.stringContaining("locked body"),
+              expect.stringContaining("bound body")
+            ]);
+          else
+            expect(shown).toEqual([
+              expect.stringMatching(/^\s*• Read a\.ts/),
+              expect.stringContaining("Read 1 file")
+            ]);
+        }
+
+        // A later owner's callback fails while the first bound row is released.
+        assistants[1]!.invalidate = () => {
+          throw new Error("later owner invalidate failure");
+        };
+
+        const dispose = interactivePrototype()[hostHook];
+        expect(dispose).toBeTypeOf("function");
+        expect(() => dispose?.()).not.toThrow();
+        expect(interactivePrototype()[hostHook]).toBeUndefined();
+        expect(notify).toHaveBeenCalledWith(
+          "pi-tool-display: row cleanup failed; affected rows may show display styling until Pi redraws them.",
+          "warning"
+        );
+        expect(Object.hasOwn(rows[1]!, "render")).toBe(false);
+        assistants[2]!.invalidate();
+        expect(rendered(assistants[2]!)).toContain("Live prose");
+        expect(rendered(assistants[2]!)).not.toContain("•");
+      } finally {
+        tui.footerDataProvider.dispose();
+      }
+    },
+    { collapsedMode: "summary" }
+  );
+});
 
 it("replaces repeated installations and preserves later wrappers during repeated disposal and reinstallation", () => {
   const original = host.getRegisteredToolDefinition;

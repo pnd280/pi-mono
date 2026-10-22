@@ -4,6 +4,7 @@ import type {
   ExtensionUIContext,
   SessionEntry
 } from "@earendil-works/pi-coding-agent";
+import { raceWithAbortSignal } from "@pi-mono/libs/abort-race";
 
 import { TitleError } from "./generate.ts";
 import { conversationSource, firstRequestSource, requestSource } from "./source.ts";
@@ -14,6 +15,9 @@ export type TitleHost = Pick<ExtensionAPI, "getSessionName" | "setSessionName"> 
   notify: ExtensionUIContext["notify"];
 };
 
+/** The agent run that owns an automatic attempt. An aborted run aborts `signal` before `settled`. */
+export type TitleRun = { signal: AbortSignal; settled: Promise<void> };
+
 export class SessionTitle {
   private controller: AbortController | undefined;
   private attempted: boolean;
@@ -23,11 +27,11 @@ export class SessionTitle {
     this.attempted = Boolean(host.getSessionName());
   }
 
-  async automatic(message: UserMessage, signal?: AbortSignal): Promise<void> {
+  async automatic(message: UserMessage, run: TitleRun): Promise<void> {
     if (this.disposed || this.attempted || this.host.getSessionName()) return;
     const source = requestSource(contentText(message.content));
     if (!source) return;
-    await this.run(firstRequestSource(this.host.getBranch()) || source, false, signal);
+    await this.run(firstRequestSource(this.host.getBranch()) || source, false, run);
   }
 
   async command(args: string): Promise<void> {
@@ -60,20 +64,20 @@ export class SessionTitle {
     this.cancel();
   }
 
-  private async run(source: string, manual: boolean, parentSignal?: AbortSignal): Promise<void> {
+  private async run(source: string, manual: boolean, owner?: TitleRun): Promise<void> {
     this.cancel();
     if (source) this.attempted = true;
     const controller = new AbortController();
     this.controller = controller;
-    const signal = parentSignal
-      ? AbortSignal.any([controller.signal, parentSignal])
-      : controller.signal;
+    const signal = owner ? AbortSignal.any([controller.signal, owner.signal]) : controller.signal;
     const originalName = this.host.getSessionName();
     if (manual) this.host.notify("Generating session title…", "info");
 
     try {
       const title = await this.host.generate(source, signal);
-      // A superseded or cancelled run always has an aborted signal.
+      // Hold an automatic title until its agent run settles, because Pi can abort the run until then.
+      if (title && owner) await raceWithAbortSignal(owner.settled, signal);
+      // A superseded or cancelled generation always has an aborted signal.
       if (!title || signal.aborted || this.host.getSessionName() !== originalName) return;
       this.controller = undefined;
       this.host.setSessionName(title);

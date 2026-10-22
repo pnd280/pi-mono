@@ -34,6 +34,8 @@ vpr '<package-name>#check'
 vpr '<package-name>#test'
 ```
 
+The website has no `test` task; run only its `check`.
+
 Check formatting with `vpr '<package-name>#format' --check` or lint with `vpr '<package-name>#lint'`.
 
 Workspace commands:
@@ -66,7 +68,7 @@ Keep runtime code independent of package-local `validation/` fixtures. Across pa
 
 Keep shared development tooling and Pi host packages in root `devDependencies`; declare package-specific dependencies locally. Use `workspace:*` for local packages and `catalog:` for external versions in [pnpm-workspace.yaml](../pnpm-workspace.yaml). Pi `peerDependencies` use `catalog:pi-host` to retain host-supplied versions independently of development versions.
 
-Runtime code can import only the host entry points that Pi supplies to installed extensions: the `@earendil-works/pi-ai` root, `/compat`, `/oauth`, and `/providers/all`; the roots of `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`, and `@earendil-works/pi-coding-agent`; and `typebox` with `/compile` and `/value`. Inside the workspace, other subpaths resolve to the development copy in `node_modules`, so lint rejects value imports of them in runtime code. Type imports are allowed, because TypeScript removes them before Pi runs the code. Worker files get none of these entry points, because Node loads them without Pi's loader. The [release check](#release-branch) finds the failures that lint misses.
+Runtime code can import only the host entry points that Pi supplies to installed extensions: the `@earendil-works/pi-ai` root, `/compat`, `/oauth`, and `/providers/all`; the roots of `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`, and `@earendil-works/pi-coding-agent`; and `typebox` with `/compile` and `/value`. Inside the workspace, other subpaths resolve to the development copy in `node_modules`, so lint rejects value imports of them in runtime code. Type imports are allowed, because TypeScript removes them before Pi runs the code. Worker files get none of these entry points, because Node loads them without Pi's loader, so lint rejects value imports of them in the worker entries that `vite.config.ts` lists. Lint does not follow the modules that a worker entry imports; the [release check](#release-branch) finds those failures.
 
 Use `vp add --save-catalog`, `vp remove`, or `vp update`; include pnpm lockfile changes.
 
@@ -86,7 +88,7 @@ Set `pi.extensions` to `["./index.ts"]`; include the wrapper in `tsconfig.json` 
 
 ### Release branch
 
-Users [install](../README.md#install) the generated `release` branch. Pull requests run [check.yml](../.github/workflows/check.yml). On each push to `master`, [release.yml](../.github/workflows/release.yml) runs the same checks first. When they pass, its `release` job builds the tree with [build-release.ts](../.scripts/build-release.ts) and commits it to `release` when the tree changed. The job never force-pushes, so commits that users installed stay available.
+Users [install](../README.md#install) the generated `release` branch. Pull requests run [check.yml](../.github/workflows/check.yml). On each push to `master`, [release.yml](../.github/workflows/release.yml) runs the same checks first. When they pass, its `release` job builds the tree with [build-release.ts](../.scripts/build-release.ts) and commits it to `release` when the tree changed. Workflow runs can reach the `release` job out of order, so the job publishes only when its commit is still the head of `master`. The job's concurrency group keeps all pending jobs (`queue: max`), so a late older run cannot cancel the pending job for the current commit. The job never force-pushes, so commits that users installed stay available.
 
 To release a version, raise `version` in the root `package.json`. The job tags the first `release` commit that has a version `v<version>`, if that tag does not exist yet. Tags never move, so a tag always names the same build. A push without a version change moves only the branch.
 

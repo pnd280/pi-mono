@@ -46,7 +46,10 @@ type Opened = {
   bound: Bound | undefined;
   /** Removes the bound tasks' results from delivery. */
   release: () => void;
-  /** The stop of the tasks that the latest session change stopped. */
+  /**
+   * The stop of the tasks that the latest session change stopped. It never rejects: the caller that
+   * stopped them reports a failed cleanup.
+   */
   stopped: Promise<void>;
   widget: { dispose(): void };
 };
@@ -76,6 +79,9 @@ export function navigationLeaf(target: SessionEntry | undefined, targetId: strin
  *   tasks, jobs, and delivery start, write, and deliver nothing. Pi does not use an extension
  *   instance after its shutdown, so a revoked binding stays revoked.
  * - `close` stops the tasks, jobs, delivery, and views when the session ends.
+ *
+ * A transition that stops tasks or jobs rejects after the stops end when a cleanup of their
+ * processes failed, so Pi reports the failure as an error of the event's handler.
  */
 export class SessionBinding {
   private opened: Opened | undefined;
@@ -229,17 +235,21 @@ export class SessionBinding {
     return bound;
   }
 
-  /** Runs that a change stops stay cancelled: the stopped tasks append no end entry. */
+  /**
+   * Runs that a change stops stay cancelled: the stopped tasks append no end entry. Only the
+   * returned stop of the bound tasks rejects with a failed cleanup, so it is reported once.
+   */
   private stopTasks(opened: Opened, immediate: boolean): Promise<void> {
     const { bound } = opened;
     if (!bound) return opened.stopped;
     opened.bound = undefined;
-    opened.stopped = bound.tasks.shutdown(immediate);
+    const stopped = bound.tasks.shutdown(immediate);
+    opened.stopped = stopped.catch(() => {});
     opened.release();
     bound.reader.dispose();
     bound.panels.dispose();
 
-    return opened.stopped;
+    return stopped;
   }
 
   /** Without `tasks`, while a session change stops them, the widget counts only jobs. */

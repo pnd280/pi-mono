@@ -15,7 +15,7 @@ Keep one logical browser, and don't install a custom editor.
 
 - Before changing filesystem code, read the shared [mutation protocol](../../libs/src/private-files/README.md#mutation-protocol).
 - Register input, startup shortcuts, and shutdown only through the [input chain](../../libs/src/input-chain/README.md) and the [lifecycle coordinator](../../libs/src/lifecycle/README.md). Direct Pi handlers would run in load order.
-- Keep the shutdown revoke synchronous. Await started writes only in its cleanup.
+- Keep the shutdown revoke synchronous. Await started mutations, including the lock cleanup of cancelled ones, only in its cleanup.
 - Use the native-only [clipboard module](src/clipboard.ts), not Pi's general helper.
 - Restore selections only in the [browser host's](../../libs/src/tui/open-browser/README.md) `afterClose`, before any requested removal, and never during a responsive remount.
 - Keep recovery manual.

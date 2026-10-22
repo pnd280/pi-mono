@@ -13,11 +13,11 @@ Fixtures that run Git keep their isolation checks, so inherited Git selectors ca
 - **High, unit:** Only official FFF registrations are intercepted, including override names and tools registered after startup.
 - **High, unit:** Built-in tools and lookalike registrations pass through.
 - **High, unit:** The guard leaves arguments, registrations, and active tools unchanged, and runs no replacement search.
-- **High, integration:** Missing explicit targets are blocked before ignore inspection, even when the search is fully excluded.
-- **High, integration:** Ignored targets that stay searchable after exclusions are blocked with guidance to retry using another tool.
+- **High, integration:** Missing explicit targets, including missing glob roots and files given as directory-only scopes, are blocked before ignore inspection, even when the search is fully excluded.
+- **High, integration:** Ignored targets that stay searchable after exclusions, including rooted globs and files that a glob's `*` reaches across `/`, are blocked with guidance to retry using another tool.
 - **High, integration:** Exclusions apply only to their matching positive scope.
 - **High, integration:** Existence and ignore state are checked again on every call.
-- **High, integration:** Ignore inspection follows Git's effective rules: negations, tracked exceptions, local and global excludes, nested and external repositories, linked worktrees, and symbolic-link destinations.
+- **High, integration:** Ignore inspection follows Git's effective rules: negations, tracked exceptions, local and global excludes, nested and external repositories, linked worktrees, and symbolic links as FFF indexes them.
 - **High, integration:** A missing target reports missing even under an ignored parent.
 - **High, unit:** Caller cancellation blocks the call.
 - **High, unit:** Calls settle at the two-second deadline even if scope extraction or Git inspection ignores the abort.
@@ -25,5 +25,5 @@ Fixtures that run Git keep their isolation checks, so inherited Git selectors ca
 
 ## Not tested
 
-- Glob roots, directory-only scopes, probe counts, inspection order, and malformed-field diagnostics are below the severity bar.
+- Exact probe counts, inspection order, and malformed-field diagnostics are below the severity bar.
 - FFF owns whether its index and searches are correct.

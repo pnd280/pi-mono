@@ -25,7 +25,20 @@ it("drops optional arguments sent as the text null and passes the rest unchanged
           { text: Type.Optional(Type.String()), note: Type.Optional(Type.String()) },
           // oxlint-disable-next-line unicorn/no-thenable -- JSON Schema uses "then" for conditional requirements.
           { if: { required: ["note"] }, then: { required: ["text"] } }
-        )
+        ),
+        // Each schema requires `text` without a `required` list that names it.
+        negated_probe: Type.Object(
+          { text: Type.Optional(Type.String()) },
+          { not: { not: { required: ["text"] } } }
+        ),
+        constant_probe: Type.Union([
+          Type.Object({ text: Type.Optional(Type.String()) }, { const: { text: "null" } })
+        ]),
+        enumerated_probe: Type.Object(
+          { text: Type.Optional(Type.String()) },
+          { enum: [{ text: "null" }] }
+        ),
+        counted_probe: Type.Object({ text: Type.Optional(Type.String()) }, { minProperties: 1 })
       })) {
         pi.registerTool({
           name,
@@ -59,7 +72,10 @@ it("drops optional arguments sent as the text null and passes the rest unchanged
           note: "kept"
         }),
         fauxToolCall("referenced_probe", { text: "null", note: "kept" }),
-        fauxToolCall("conditional_probe", { text: "null", note: "kept" })
+        fauxToolCall("conditional_probe", { text: "null", note: "kept" }),
+        ...["negated_probe", "constant_probe", "enumerated_probe", "counted_probe"].map((name) =>
+          fauxToolCall(name, { text: "null" })
+        )
       ]),
       fauxAssistantMessage("done")
     ]);
@@ -68,7 +84,11 @@ it("drops optional arguments sent as the text null and passes the rest unchanged
       { name: "probe", args: { text: "null", note: "kept" } },
       { name: "composed_probe", args: { text: "null", group: "null", note: "kept" } },
       { name: "referenced_probe", args: { text: "null", note: "kept" } },
-      { name: "conditional_probe", args: { text: "null", note: "kept" } }
+      { name: "conditional_probe", args: { text: "null", note: "kept" } },
+      { name: "negated_probe", args: { text: "null" } },
+      { name: "constant_probe", args: { text: "null" } },
+      { name: "enumerated_probe", args: { text: "null" } },
+      { name: "counted_probe", args: { text: "null" } }
     ]);
   } finally {
     await fixture.dispose();

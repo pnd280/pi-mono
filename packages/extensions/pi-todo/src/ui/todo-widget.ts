@@ -76,9 +76,11 @@ export class TodoWidget {
     this.suppressions.clear();
   }
 
-  /** Regular mode always shows the expanded widget; an unknown mode keeps the preference latent. */
+  /** Regular mode always shows the expanded widget; only confirmed fullscreen mode accepts collapse commands. */
   canCollapse(): boolean {
-    return this.tuiMode !== "regular";
+    if (!this.widgetRegistered) this.probeMode();
+
+    return this.tuiMode === "fullscreen";
   }
 
   setCollapsed(collapsed: boolean): boolean {
@@ -209,6 +211,18 @@ export class TodoWidget {
     this.presentation = presentation;
 
     return presentation;
+  }
+
+  /** Without a registered widget, read the mode through a transient factory that Pi constructs synchronously. */
+  private probeMode(): void {
+    if (!this.live || !this.uiCtx) return;
+
+    this.uiCtx.setWidget(WIDGET_KEY, (tui) => {
+      this.observeMode(tui.mode);
+
+      return { render: () => [], invalidate() {} };
+    });
+    this.uiCtx.setWidget(WIDGET_KEY, undefined);
   }
 
   private observeMode(mode: TuiMode): void {

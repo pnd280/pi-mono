@@ -12,7 +12,7 @@
      vpr '<package-name>#test'
      ```
 
-     `#check` runs the format check and type-aware lint, which type-checks the package. It does not run `check-docs.ts`.
+     `#check` runs the format check and type-aware lint, which type-checks the package. It does not run `check-docs.ts`. Run `#test` only when the package declares a `test` task; the website does not. For a package without one, do any documented manual validation and report that no tests ran.
 
      For workspace-wide and partial commands, see [focused validation](../development.md#focused-validation).
 3. Review the final diff for correctness and scope.

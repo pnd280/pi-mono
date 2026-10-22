@@ -30,7 +30,7 @@ export default function promptManager(pi: ExtensionAPI): void {
     if (previous) finishing = Promise.all([finishing, previous.dispose()]).then(() => undefined);
   };
 
-  // Atomic writes that already started finish, so committed user data is not lost.
+  // Started atomic writes finish and cancelled changes release their locks before Pi can exit.
   lifecycle.onSessionShutdown(revoke, () => finishing);
   lifecycle.onSessionStart(async (_event, ctx, arrival) => {
     const activation = generation + 1;

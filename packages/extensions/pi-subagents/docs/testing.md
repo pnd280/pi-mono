@@ -25,6 +25,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** A [forced stop](shutdown.md) continues after the child exits until the child's process group is gone. A member of the group that ignores SIGTERM and outlives the child receives SIGKILL after the grace period, before the call returns.
 - **High, e2e:** A forced stop that leaves the child's process group is reported, also when another process holds the child's output pipes.
 - **High, e2e:** A child supervisor forwards a forced-stop failure among its other stderr output, so a descendant's failure reaches the task above it.
+- **High, e2e:** A task's forced-stop failure during the supervisor's session end is reported as an error of the shutdown handler.
 - **High, e2e:** After a forced-stop failure, a cancelled task stays cancelled, and its result names the failure. `subagent_abort` returns the error instead of a confirmation.
 - **High, e2e:** Tree selection (including a same-path rewind), parent-session fork, and saved-session switch immediately stop owned running subtrees, including children that block shutdown and detached [descendants](../GLOSSARY.md#tasks-and-processes).
 - **High, e2e:** Late captures, completions, and controls cannot affect the replacement binding after a session change.
@@ -51,7 +52,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** Nothing is written under `<agentDir>/pi-subagents/`, and no lease directory remains after the runs end.
 - **High, e2e:** Only one process, the holder of the [writer lease](../GLOSSARY.md#history), writes a task's child file. A forked supervisor cannot resume a task while the original child runs, also after the original supervisor is killed, and the file stays unchanged.
 - **High, e2e:** After the lease writers exit, the next resume succeeds and removes the stale lease entries.
-- **High, unit:** After a release cannot remove its lease entry, the same process can take the lease again, and a lease that it holds still excludes another writer.
+- **High, integration:** After a release cannot remove its lease entry, the same process can take the lease again, and a lease that it holds still excludes another writer.
 - **High, integration:** History and lease reads reject non-regular files without blocking and enforce byte limits.
 - **High, e2e:** (S6) Descendant records read from child session files preserve ownership across restart.
 - **High, e2e:** (S10) While a task runs, also after a restart, `list` still shows the descendants of the task's earlier runs, and it never shows a descendant that is starting or running as stopped.
@@ -82,7 +83,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 - **Critical, e2e:** (J4) `job` uses the `shellPath` and `shellCommandPrefix` settings.
 - **Critical, e2e:** (J4) When another extension owns `bash`, `job` and `job_abort` are hidden.
-- **Critical, unit:** (J5) The job log reader refuses a symbolic link, a special file, and a file that replaced the log path after the reader checked it.
+- **Critical, integration:** (J5) The job log reader refuses a symbolic link, a special file, and a file that replaced the log path after the reader checked it.
 - **High, e2e:** (J1) A [job](../GLOSSARY.md#tasks-and-processes) delivers exactly one background result to its supervisor when the supervisor is busy, idle, or settling after an abort.
 - **High, e2e:** (J1) The supervisor settles while a job runs.
 - **High, e2e:** (J1) A timeout gives a `failed` result.
@@ -109,17 +110,16 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** (R3) Read-only `show` paging covers eligible items on the selected run's ancestry once, including tool summaries that complete after a cursor was given out, with correct cursors and ancestry-scoped cumulative usage.
 - **High, e2e:** (R3) `show` excludes thinking, arguments, and outputs.
 - **High, e2e:** (R4) After an abort during a tool call, `show --last` returns the text and cursor of the latest assistant message with content, and skips empty `error` messages.
-- **High, e2e:** (T2) Activity names only the connected child's own tool calls and resets when a task resumes.
 
 ## Not tested
 
-- Late updates outside the connection boundary are not tested because the [activity test](../validation/activity.test.ts) covers only that boundary. The untested cases include a replaced terminal task view, a delayed filesystem read, an injected failed response, and other late event kinds.
+- Late updates outside the connection boundary are not tested because the [late-update test](../validation/activity.test.ts) covers only that boundary. The untested cases include a replaced terminal task view, a delayed filesystem read, an injected failed response, and other late event kinds.
 - A delayed file read of an earlier run is below the severity bar; see [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#delayed-reads).
 - Pi owns RPC framing, prompt-disposition semantics, lineage, and its internal trust enforcement.
 - macOS and Windows are not tested because the tests run only on Linux. The forced-stop failure test also needs `perl` to put a process into another process group.
 - Coordination-protocol races during settlement and stdin EOF, and reads of large branched child files, are not tested automatically. [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) records the one-time probes and the open checks for these cases.
 - A child that blocks shutdown can survive supervisor SIGKILL, because no independent watchdog exists to stop it.
-- Card appearance and task-list pagination are below the severity bar.
+- Card appearance, the activity that cards and panel rows name, and task-list pagination are below the severity bar.
 - Job card appearance, the widget's job count, panel job rows, and the job log viewer are below the severity bar.
 - A job process that leaves its process group is not tested because job cleanup does not stop it.
 - A cancelled session switch and a cancelled or failed branch summary are not tested because the fixtures cancel only tree navigation and parent-session forks.
