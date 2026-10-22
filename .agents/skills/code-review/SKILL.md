@@ -9,6 +9,7 @@ Audit and revise code using all six skills below, in order. Invocation authorise
 
 ## Scope
 
+- Never change a locked skill, even when a finding targets it. A locked skill is a skill directory that [`skills-lock.json`](../skills-lock.json) lists, such as `_aux/code-review-expert/`. Do not edit, add, move, or delete its files, and do not edit `skills-lock.json`. Report the finding as unresolved instead.
 - Use supplied paths, symbols, features, or a Git range as the target.
 - Otherwise, use the initial staged, unstaged, and non-ignored untracked changes. If none exist, use the latest commit's changes.
 - Record and freeze this initial scope before editing. For change-based targets, focus on changed behaviour and its enclosing implementation, not every unrelated issue in touched files.
@@ -53,4 +54,4 @@ For each phase:
 
 ## Finish
 
-Review the cumulative diff and complete [required repository verification](../../../docs/agents/verification.md). Report the scope, important changes and keep decisions, exact checks and results, and unresolved issues. Clearly distinguish completed, not-applicable, and blocked phases.
+Review the cumulative diff and complete [required repository verification](../../../docs/agents/verification.md). Confirm that your changes touch no file in a locked skill and leave `skills-lock.json` unchanged; revert any such change that you made. Report the scope, important changes and keep decisions, exact checks and results, and unresolved issues. Clearly distinguish completed, not-applicable, and blocked phases.

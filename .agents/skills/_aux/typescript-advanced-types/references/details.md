@@ -62,8 +62,7 @@ type ExtractParams<T> = T extends { params: infer P } ? P : never;
 type ExtractBody<T> = T extends { body: infer B } ? B : never;
 type ExtractResponse<T> = T extends { response: infer R } ? R : never;
 
-// Each endpoint declares only the methods it supports.
-class APIClient<Config extends Record<string, Partial<Record<HTTPMethod, unknown>>>> {
+class APIClient<Config extends Record<string, Record<HTTPMethod, any>>> {
   async request<Path extends keyof Config, Method extends keyof Config[Path]>(
     path: Path,
     method: Method,
@@ -103,16 +102,35 @@ const user = await api.request("/users/:id", "GET", {
 ### Pattern 3: Builder Pattern with Type Safety
 
 ```typescript
-class Builder<T, S extends Partial<T> = {}> {
-  constructor(private readonly state: S) {}
+type BuilderState<T> = {
+  [K in keyof T]: T[K] | undefined;
+};
 
-  set<K extends keyof T>(fields: Pick<T, K>): Builder<T, S & Pick<T, K>> {
-    return new Builder({ ...this.state, ...fields });
+type RequiredKeys<T> = {
+  [K in keyof T]-?: {} extends Pick<T, K> ? never : K;
+}[keyof T];
+
+type OptionalKeys<T> = {
+  [K in keyof T]-?: {} extends Pick<T, K> ? K : never;
+}[keyof T];
+
+type IsComplete<T, S> =
+  RequiredKeys<T> extends keyof S
+    ? S[RequiredKeys<T>] extends undefined
+      ? false
+      : true
+    : false;
+
+class Builder<T, S extends BuilderState<T> = {}> {
+  private state: S = {} as S;
+
+  set<K extends keyof T>(key: K, value: T[K]): Builder<T, S & Record<K, T[K]>> {
+    this.state[key] = value;
+    return this as any;
   }
 
-  // Callable only when the collected fields satisfy T, so every required field is set.
-  build(this: Builder<T, T>): T {
-    return this.state;
+  build(this: IsComplete<T, S> extends true ? this : never): T {
+    return this.state as T;
   }
 }
 
@@ -123,16 +141,16 @@ interface User {
   age?: number;
 }
 
-const builder = new Builder<User>({});
+const builder = new Builder<User>();
 
 const user = builder
-  .set({ id: "1" })
-  .set({ name: "John" })
-  .set({ email: "john@example.com" })
+  .set("id", "1")
+  .set("name", "John")
+  .set("email", "john@example.com")
   .build(); // OK: all required fields set
 
 // const incomplete = builder
-//   .set({ id: "1" })
+//   .set("id", "1")
 //   .build();  // Error: missing required fields
 ```
 
