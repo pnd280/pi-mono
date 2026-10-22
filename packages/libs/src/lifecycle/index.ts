@@ -9,7 +9,6 @@ import type {
 
 import { rendezvous } from "../coordination/index.ts";
 import { LifecycleCoordinator, type StartupHandler } from "./coordinator.ts";
-import type { ShortcutOptions } from "./shortcuts.ts";
 
 export type { StartupAction, StartupArrival, StartupHandler } from "./coordinator.ts";
 
@@ -42,25 +41,17 @@ export type LifecycleParticipant = {
 };
 
 // Increase when the shared object's shape or behaviour changes.
-const protocol = { name: "lifecycle", version: 1 };
+const protocol = { name: "lifecycle", version: 2 };
 
 /** Call during the extension factory. Every returned method registers through `pi`. */
 export function joinLifecycle(pi: LifecycleAPI, options: { id: string }): LifecycleParticipant {
   const coordinator = rendezvous(pi.events, protocol, (host) => new LifecycleCoordinator(host));
   const participant = coordinator.roster.join(options.id);
-  // Pi has no shortcut removal. Each registered key forwards to the handler that the latest
-  // startup accepted, so a claim that a later startup drops or loses to a conflict does nothing.
-  const shortcuts = new Map<string, ShortcutOptions["handler"]>();
   let closing = false;
-  pi.on("session_start", (_event, ctx) => {
-    shortcuts.clear();
-    coordinator.open(participant, pi.events, ctx);
-  });
+  pi.on("session_start", (_event, ctx) => coordinator.open(participant, pi.events, ctx));
 
-  const registerShortcut: LifecycleAPI["registerShortcut"] = (key, shortcut) => {
-    shortcuts.set(key, shortcut.handler);
-    pi.registerShortcut(key, { ...shortcut, handler: (ctx) => shortcuts.get(key)?.(ctx) });
-  };
+  const registerShortcut: LifecycleAPI["registerShortcut"] = (key, shortcut) =>
+    pi.registerShortcut(key, shortcut);
 
   return {
     onSessionStart: (handler) => {
@@ -90,7 +81,8 @@ export function joinLifecycle(pi: LifecycleAPI, options: { id: string }): Lifecy
             const revoked = coordinator.revoke(entry, pi.events, event);
 
             try {
-              await cleanup?.(event, ctx);
+              // Another participant's revoke can dispose this registration.
+              if (active()) await cleanup?.(event, ctx);
             } catch (error) {
               if (!revoked) throw error;
               throw new AggregateError(

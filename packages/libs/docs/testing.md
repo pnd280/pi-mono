@@ -18,7 +18,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **Critical, integration:** Private-file transactions acquire the data path's lock before reading the bytes supplied to the update callback.
 - **Critical, integration:** Without POSIX owner IDs, private storage refuses a directory outside the user profile before it creates it, and works inside the profile without owner or mode checks.
 - **Critical, integration:** Settings updates preserve JSON keys that the synchronous mutator leaves untouched, including `__proto__` and `constructor`.
-- **Critical, integration:** Settings updates follow an existing symlink without replacing the link itself, and exclude a concurrent writer through another alias of the same file.
+- **Critical, integration:** Settings updates follow an existing symlink without replacing the link itself, and exclude a concurrent settings update through another alias of the same file.
 - **Critical, integration:** On POSIX filesystems, settings updates preserve existing permission bits even when the writer's umask would mask them.
 - **Critical, integration:** Settings updates refuse malformed input or serialised output above 1 MiB before replacing the file.
 - **Critical, integration:** Settings sections ignore untrusted project and parent-directory settings, and refuse project saves in an untrusted project.

@@ -21,7 +21,7 @@ No participant waits for another, so the barrier cannot deadlock. A commit that 
 - Each key is normalised with [`canonicalKeySchema`](../tui/keybindings/README.md). An invalid key is not registered, with one warning.
 - Claims whose keys can match one keypress, by [`keysOverlap`](../tui/keybindings/README.md), form one conflict. No claimant in a conflict registers its key, and each conflict gives one warning.
 - Every other claim registers its canonical key through the claimant's own `pi.registerShortcut`. Pi sets up shortcuts after `resources_discover`, so they work at once.
-- A key runs only the handler of the claim that the latest barrier accepted. Pi cannot remove a shortcut, so a key that a later bind drops or puts in a conflict stays registered with its earlier description, but does nothing until `/reload` or session replacement.
+- A key runs only the handler of the claim that the latest barrier accepted. Pi cannot remove a shortcut, so a key that a later bind drops, puts in a conflict, or accepts from another participant stays registered with its earlier description. The key does nothing while no current claim for it is accepted. When a later bind accepts a claim for it again, from any participant, the key runs that claim's handler.
 - Claims do not see shortcuts that other extensions register directly, or Pi's built-in keys. Pi resolves those conflicts.
 
 ### Shutdown phase

@@ -52,6 +52,10 @@ export class LifecycleCoordinator {
   >();
   private readonly marks = new WeakMap<object, number>();
   private barrier: Barrier = newBarrier();
+  // Handlers of the claims that the latest barrier accepted, by canonical key. Pi cannot remove a
+  // shortcut and runs the last-loaded registration of a key, which can be stale, so every
+  // participant's registrations of a key forward here.
+  private readonly shortcuts = new Map<string, ShortcutOptions["handler"]>();
 
   constructor(private readonly host: Host) {
     this.roster = new Roster(host);
@@ -59,7 +63,11 @@ export class LifecycleCoordinator {
 
   /** Call from each participant's first `session_start` handler. */
   open(participant: Participant, events: EventBus, ctx: ExtensionContext): void {
-    if (this.opened.first(ctx)) this.barrier = newBarrier();
+    if (this.opened.first(ctx)) {
+      this.barrier = newBarrier();
+      this.shortcuts.clear();
+    }
+
     this.roster.arrive(participant, events, ctx);
   }
 
@@ -104,7 +112,7 @@ export class LifecycleCoordinator {
     const own = this.host.disabled(events);
     if (!own && !this.closed.first(ctx)) return;
     const only = own ? participant : undefined;
-    resolveShortcutClaims(this.barrier.claims.take(only), notify);
+    resolveShortcutClaims(this.barrier.claims.take(only), this.shortcuts, notify);
 
     for (const entry of this.barrier.commits.take(only)) {
       try {
@@ -118,7 +126,8 @@ export class LifecycleCoordinator {
   /**
    * Call synchronously at the start of a participant's `session_shutdown` handler. The first
    * call of an emission runs every active revoke. A revoke outside that pass, such as one of a
-   * participant with a duplicate ID, runs in its own handler. Returns this revoke's failure.
+   * participant with a duplicate ID, runs in its own handler unless the pass removed it. Returns
+   * this revoke's failure.
    */
   revoke(
     own: Entry<() => void>,
@@ -135,7 +144,7 @@ export class LifecycleCoordinator {
       this.phases.set(event, ran);
     }
 
-    if (!ran.has(own)) ran.set(own, runRevoke(own));
+    if (!ran.has(own) && this.revokers.has(own)) ran.set(own, runRevoke(own));
 
     return ran.get(own);
   }
