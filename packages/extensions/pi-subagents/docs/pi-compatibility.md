@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.3.0 on Linux with offline suites and a one-time offline probe of resumed tool loadouts. Not covered: the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; live providers.
+> Last verified against Pi 1.4.0 on Linux with offline suites and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: the offline probe of resumed tool loadouts, which last ran on Pi 1.3.0; the SDK idle-wake probe; terminal card expansion, resizing, and task-view opening; terminal background waits and abort cards; key-release handling, header space, and live titles; overlay closure while another extension's overlay is open; viewer rows of child tool calls with malformed arguments; physical mouse and image protocols; macOS; Windows; simultaneous [writer-lease](../GLOSSARY.md#history) acquisition; actual disk exhaustion; live providers.
 
 ## Upgrade procedure
 
@@ -31,6 +31,7 @@ The backend depends on Pi's public lifecycle and RPC ordering, while [task](../G
 - [ ] `get_state` returns the full session ID and session-file path.
 - [ ] A new session writes no file until Pi persists the first prompt.
 - [ ] Without `--tools`, Pi restores a resumed session's tool loadout from its session file instead of the `defaultTools` setting.
+- [ ] Without `--tools`, a resumed child also turns on registered `direct` and `model-only` tools that no system message of the child file adds or removes, unless `defaultActive: false`.
 - [ ] A recorded tool that an extension registers as `hidden`, such as `subagent` at `maxDepth`, stays inactive after resume.
 - [ ] `clear_queue` followed by `abort` prevents queued input from continuing.
 - [ ] Closing stdin disposes the collectors and RPC event stream, then awaits `session_shutdown`.
@@ -204,12 +205,14 @@ The [input cases](../validation/input.test.ts) exercise running input, deferred 
 ## Limitations
 
 - In Pi 1.0.2, an idle `sendMessage` with `triggerTurn` skipped `before_agent_start` ([Pi issue 5581](https://github.com/earendil-works/pi/issues/5581)), so the idle wake sent an extra user message.
-- In Pi 1.0.2, 1.2.0, and 1.3.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call.
+- In Pi 1.0.2, 1.2.0, 1.3.0, and 1.4.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call.
 - In Pi 1.2.0, the [ADR 0003 runtime probe](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) was not rerun. A source comparison with Pi 1.0.2 found the session manager, RPC mode, session runtime, extension loader, tree navigation, extension-command handling, `entry_appended` emission, and session statistics unchanged. `agent_settled` gained an `aborted` field. The offline suite passed.
 - In Pi 1.3.0, the ADR 0003 runtime probe was not rerun. A source comparison with Pi 1.2.0 found the session manager, RPC mode, print mode, extension runner, extension types, and agent core unchanged. `AgentSession` changed only in restoring a resumed session's tool loadout from its transcript.
 - In Pi 1.3.0, a one-time probe resumed a session that recorded `subagent`. The tool stayed active, and it stayed inactive when the session resumed at `maxDepth`. The offline suite passed.
 - In Pi 1.3.0, Pi's session loader appends a newline to a file that ends with a partial line.
+- In Pi 1.4.0, the ADR 0003 runtime probe and the resumed-loadout probe were not rerun. A source comparison with Pi 1.3.0 found the session manager, RPC mode, print mode, extension runner, and extension types unchanged. `AgentSession` changed in transcript tool restoration, recovery omission, and the compaction check; agent core added request `identity`. The offline suite passed.
+- In Pi 1.4.0, a source review found that resume also turns on registered `direct` and `model-only` tools that the child file never recorded, unless `defaultActive: false`. The `session_start` registration hides them again where needed.
 
 ## Replacement opportunities
 
-Pi 1.3.0 exposes no extension API for writing usage entries in the current session and does not count usage on custom messages. The `SessionManager.prototype.appendCustomMessageEntry` wrapper supplies [late usage](../GLOSSARY.md#results) in session totals, the footer, the cost breakdown, and nested supervisors' run usage ([ADR 0002](adr/0002-count-late-background-usage.md)). A public replacement must write usage at custom-message persistence or count usage on custom messages.
+Pi 1.4.0 exposes no extension API for writing usage entries in the current session and does not count usage on custom messages. The `SessionManager.prototype.appendCustomMessageEntry` wrapper supplies [late usage](../GLOSSARY.md#results) in session totals, the footer, the cost breakdown, and nested supervisors' run usage ([ADR 0002](adr/0002-count-late-background-usage.md)). A public replacement must write usage at custom-message persistence or count usage on custom messages.

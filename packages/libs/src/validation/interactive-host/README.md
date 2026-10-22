@@ -20,7 +20,7 @@ Do not run fixtures concurrently in the same test context, because environment s
 
 ## Terminal input tests
 
-Use `inputHostFixture("fullscreen")` for focused-input and custom-view lifetime tests. It adds an offline faux provider, binds the session, starts the real renderer, and registers teardown with Vite+. The default mode is `"fullscreen"`; pass `"regular"` to test regular-mode mounting.
+Use `inputHostFixture("fullscreen")` for focused-input and custom-view lifetime tests. It adds an offline faux provider, binds the session, focuses the editor as Pi's startup does, starts the real renderer, and registers teardown with Vite+. The default mode is `"fullscreen"`; pass `"regular"` to test regular-mode mounting.
 
 Send terminal bytes with `send(data)` and force a render with `render()`. The returned `presentation`, `editor`, `dock`, and `transcript` expose the active host components for assertions. The fixture supplies a 100-line transcript so paging has an observable target. Always close custom views in `finally`; fixture teardown releases the host after the test.
 

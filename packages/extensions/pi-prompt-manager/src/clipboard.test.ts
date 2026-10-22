@@ -35,6 +35,31 @@ it("writes complete Unicode/control/large payloads through stdin without shell i
   }
 });
 
+it("runs helpers in their own process group, so suspending Pi does not stop a clipboard owner", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "prompt-clipboard-group-"));
+  const path = join(directory, "group");
+
+  try {
+    await copyNative("payload", signal(), {
+      timeout: STEP_TIMEOUT_MS,
+      helpers: [
+        {
+          command: process.execPath,
+          args: [
+            "-e",
+            // Signal 0 finds a process group whose ID is the helper's own PID only if it leads one.
+            "process.stdin.resume();process.stdin.on('end',()=>{let own=true;try{process.kill(-process.pid,0)}catch{own=false}require('node:fs').writeFileSync(process.argv[1],String(own))});",
+            path
+          ]
+        }
+      ]
+    });
+    expect(await readFile(path, "utf8")).toBe("true");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 it("has a five-second deadline and cancellation prevents later helper fallback", async () => {
   const directory = await mkdtemp(join(tmpdir(), "prompt-clipboard-cancel-"));
   const path = join(directory, "must-not-exist");

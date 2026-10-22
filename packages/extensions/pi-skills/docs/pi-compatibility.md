@@ -2,7 +2,7 @@
 
 [pi-skills](../README.md)
 
-> Last verified against Pi 1.3.0 with the package checks and offline host probes of input, reload, real-editor acceptance, settings, formats, and provider composition. Not covered: the manual terminal checks and native slash completion after leading whitespace.
+> Last verified against Pi 1.4.0 with the package checks, the offline tests, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: the manual terminal checks and native slash completion after leading whitespace.
 
 ## Upgrade procedure
 
@@ -47,5 +47,5 @@ The README states the [format rules](../README.md#configuration) and the [comple
 
 ## Limitations
 
-- In Pi 1.3.0, Pi inserts skill contents only for prompts that begin exactly with `/skill:`, and its input handler has no option to turn that off. Pi also expands leading prompt-template commands after the input hook. The leading-reference checkboxes above cover both.
-- In Pi 1.3.0, Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width.
+- In Pi 1.3.0, Pi inserts skill contents only for prompts that begin exactly with `/skill:`, and its input handler has no option to turn that off. Pi also expands leading prompt-template commands after the input hook. The leading-reference checkboxes above cover both. A source review of Pi 1.4.0 found the same input order and `/skill:` check.
+- In Pi 1.3.0, Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width. A source review of Pi 1.4.0 found Pi's editor unchanged.

@@ -5,7 +5,7 @@
 
 # pi-mono
 
-[![Pi ^1.3.0](https://img.shields.io/badge/Pi-%5E1.3.0-111111)](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)
+[![Pi ^1.4.0](https://img.shields.io/badge/Pi-%5E1.4.0-111111)](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)
 
 pi-mono is a monorepo of opinionated [extensions](#extensions) for the [Pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent). Fork or clone it, then [adapt the extensions](#make-it-your-own) to your workflow. The workspace has instructions and skills for coding agents, so Pi can make the changes for you.
 

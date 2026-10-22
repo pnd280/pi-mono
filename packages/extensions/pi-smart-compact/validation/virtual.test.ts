@@ -99,7 +99,6 @@ it.each([
       expect(stream).toHaveBeenCalledOnce();
       expect(stream.mock.calls[0]?.[0].id).toBe("summary");
       expect(stream.mock.calls[0]?.[2]?.reasoning).toBeUndefined();
-      expect(stream.mock.calls[0]?.[2]?.maxTokens).toBe(128);
       expect(session.sessionManager.getBranch().at(-2)).toMatchObject({
         type: "custom",
         customType: summaryModelEntryType,

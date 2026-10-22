@@ -54,7 +54,7 @@ export type AutoCompaction = NativeSession["_runAutoCompaction"];
 
 export type ManualCompaction = AgentSession["compact"];
 
-// Reviewed Pi 1.3.0 API modules and installed bundled CLI, respectively. Never
+// Reviewed Pi 1.4.0 API modules and installed bundled CLI, respectively. Never
 // learn fingerprints from the running host: an unknown implementation must fail closed.
 // Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const fingerprints = [
@@ -64,7 +64,7 @@ const fingerprints = [
     _runAutoCompaction: "f07bf873ed393f9345176b24ad80e21c123220df5bf60c0aecbf7e406ccbdf35",
     _runDefaultCompaction: "97f694b93ba4c9aa53b9026a24e3177c4958fce2f55a48bd3b92d0b1dcff170c",
     _appendCustomMessage: "8611e9601816d650052ec466bd47ea61705c5fcb0f4e9a1cf462a0136afc4f0f",
-    compact: "072f2b6ebff7b56fa5eef0f4e9614bd66fb48e7c61a673adfa77c4f89f9df433",
+    compact: "f43225962d63c637a54dfcf34866c23890df585ff36eb30aaa3321b263cb98cd",
     manualCompact: "eca2d26b71753ef8f3713f18e8d29ee3af99fc797bfd3c6df0ba0b4ac4b9f8ff"
   },
   {
@@ -73,7 +73,7 @@ const fingerprints = [
     _runAutoCompaction: "c079a7e16d747f8429eb7de3c709a730630367012a2eadeff036a1ae03a15d9e",
     _runDefaultCompaction: "be1bfc56c9becc10cfd7a878b3592199c70119776f1978eca5f0aafb4da7ccd7",
     _appendCustomMessage: "7962902b977b66315b1bf64b4c695322117728bf9701116b46f59848eebcb296",
-    compact: "0fced1a8aa5b49e13c692801b918b771ac807f11db95bd342d69f0e005ab89cf",
+    compact: "5b1cadee684de9f19286fba081630eefcc0841b5c02e35d6791012dda219a2e9",
     manualCompact: "88bcbdb42742d6dc8da5b29c2e62928fd9215986741d4c80b00cd90fe596ca37"
   }
 ];
@@ -104,9 +104,9 @@ export function assertCompatible(
     })
   );
 
-  if (VERSION !== "1.3.0" || !inspected) {
+  if (VERSION !== "1.4.0" || !inspected) {
     throw new Error(
-      "pi-smart-compact: requires the inspected Pi 1.3.0 compaction implementation; unsupported version or conflicting runtime patch."
+      "pi-smart-compact: requires the inspected Pi 1.4.0 compaction implementation; unsupported version or conflicting runtime patch."
     );
   }
 }

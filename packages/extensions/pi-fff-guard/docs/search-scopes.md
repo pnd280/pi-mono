@@ -16,7 +16,7 @@ In `path` and `exclude`, FFF strips `./` and absolute prefixes inside the worksp
 | `src/main.ts`              | Explicit path.                                                          |
 | `src/utils` (no extension) | Directory constraint; a regular file with that name doesn't satisfy it. |
 
-For `fffind.pattern`, the guard checks existing explicit paths and globs with fixed directory prefixes, such as `node_modules/**`. Missing-path checks need an anchor (`/`, `./`, `../`, or `~/`), a trailing `/`, or a rooted glob. Explicit `path` values and multi-grep path constraints are checked without an anchor.
+For `fffind.pattern`, the guard checks existing explicit paths and globs with fixed directory prefixes, such as `node_modules/**`. Missing-path checks need an anchor (`/`, `./`, `../`, or `~/`), a trailing `/`, or a rooted glob. Explicit `path` values and multi-grep path constraints are checked without an anchor. A multi-grep constraint without `/`, such as `vendor`, does not limit FFF 0.11.0 results to a directory, so the guard allows it.
 
 The guard trims `path` without splitting it and preserves existing explicit `fffind.pattern` paths. Other filename queries and multi-grep constraints split on whitespace without shell-quote parsing.
 

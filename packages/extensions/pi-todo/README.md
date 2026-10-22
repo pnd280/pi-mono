@@ -35,7 +35,7 @@ The extension draws no tool cards. [pi-tool-display](../pi-tool-display/docs/too
 | **Escape**               | Go back, or close.                     |
 | **PageUp**, **PageDown** | Move the selection, or scroll details. |
 
-**Ctrl+C** never closes the browser. The browser opens only if `tui.select.cancel` has a usable key other than **Ctrl+C**. Pi 1.3.0 can't use modified Escape or modified function-key bindings. If no usable key is bound, fix Pi's keybindings and run `/reload`.
+**Ctrl+C** never closes the browser. The browser opens only if `tui.select.cancel` has a usable key other than **Ctrl+C**. Pi 1.4.0 can't use modified Escape or modified function-key bindings. If no usable key is bound, fix Pi's keybindings and run `/reload`.
 
 In fullscreen mode, `/todos` is never shown as an overlay. While the view has focus, browser keys, including remapped ones, take priority over transcript controls. If Pi can't give the browser this priority, a warning appears each time you open `/todos`, and the browser stays open. If controls don't respond, use regular mode.
 

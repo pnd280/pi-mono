@@ -2,7 +2,7 @@
 
 [pi-null-args](../README.md)
 
-> Last verified against Pi 1.3.0 with the offline host test and source inspection. Not covered: live providers, including their malformed-argument and `\u` escape repair paths.
+> Last verified against Pi 1.4.0 with the package checks, the offline host test, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: live providers, including their malformed-argument and `\u` escape repair paths.
 
 ## Upgrade procedure
 

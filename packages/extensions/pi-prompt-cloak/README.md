@@ -21,7 +21,7 @@ The extension does not change any other text: the preamble, tool summaries, usag
 
 ## Side effects
 
-The extension changes only the request that Pi sends. It does not rewrite saved sessions or credentials. In Pi 1.3.0, a complete `systemPrompt` override from another extension takes precedence over this rewrite.
+The extension changes only the request that Pi sends. It does not rewrite saved sessions or credentials. In Pi 1.4.0, a complete `systemPrompt` override from another extension takes precedence over this rewrite.
 
 This changes prompt wording only. Package checks do not send live Anthropic requests.
 

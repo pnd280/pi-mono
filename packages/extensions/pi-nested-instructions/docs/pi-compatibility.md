@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Glossary](../GLOSSARY.md)
 
-> Last verified against Pi 1.3.0 with package checks and offline host tests, including real codemode cases. Not covered: live FFF integration and manual [notice](../GLOSSARY.md#delivery) presentation.
+> Last verified against Pi 1.4.0 with package checks, offline host tests that include real codemode cases, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: live FFF integration and manual [notice](../GLOSSARY.md#delivery) presentation.
 
 ## Upgrade procedure
 

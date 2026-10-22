@@ -2,7 +2,7 @@
 
 [pi-prompt-cloak](../README.md)
 
-> Last verified against Pi 1.3.0 with package checks and offline host checks. Not covered: live Anthropic acceptance.
+> Last verified against Pi 1.4.0 with package checks and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: the manual offline host checks and live Anthropic acceptance.
 
 ## Upgrade checklist
 

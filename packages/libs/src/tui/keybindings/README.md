@@ -10,11 +10,11 @@ Extension settings accept user-typed shortcuts that must match Pi's canonical fo
 
 It also checks Pi's legacy input aliases against the active terminal protocol and platform. For example, **Escape** and **Ctrl+[** both match an Escape byte, so assigning **Ctrl+[** to an earlier action makes **Escape** unavailable to later actions. This prevents hints from advertising keys that dispatch to an earlier action.
 
-Pi 1.3.0 cannot dispatch modified Escape or modified function keys. Validation rejects these bindings. `resolveKeybindings` skips them when choosing alternatives, so hints do not advertise unusable keys.
+Pi 1.4.0 cannot dispatch modified Escape or modified function keys. Validation rejects these bindings. `resolveKeybindings` skips them when choosing alternatives, so hints do not advertise unusable keys.
 
-A final `+` names the plus key, as in `+` or `ctrl++`. Pi 1.3.0 dispatches these bindings; `ctrl++` needs the Kitty keyboard protocol or modifyOtherKeys.
+A final `+` names the plus key, as in `+` or `ctrl++`. Pi 1.4.0 dispatches these bindings; `ctrl++` needs the Kitty keyboard protocol or modifyOtherKeys.
 
-Pi 1.3.0 matches a symbol binding such as `ctrl++` against the Shift press that types the symbol, such as `ctrl+shift+=`. The keyboard layout decides which key types which symbol. `resolveKeybindings` therefore treats a symbol binding and any Shift binding of a digit or symbol with the same other modifiers as one key, and skips the later one. It can skip a binding that does not overlap on the current layout.
+Pi 1.4.0 matches a symbol binding such as `ctrl++` against the Shift press that types the symbol, such as `ctrl+shift+=`. The keyboard layout decides which key types which symbol. `resolveKeybindings` therefore treats a symbol binding and any Shift binding of a digit or symbol with the same other modifiers as one key, and skips the later one. It can skip a binding that does not overlap on the current layout.
 
 `keysOverlap` tells whether one keypress can match two canonical keys, by the same equality, legacy-input, and Shift-symbol rules. `resolveKeybindings` and [lifecycle shortcut claims](../../lifecycle/README.md#shortcut-claims) use it.
 

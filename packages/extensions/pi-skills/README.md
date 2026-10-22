@@ -42,7 +42,7 @@ It doesn't cover commands that Pi handles before extensions see the input, text 
 
 ## Compatibility
 
-The extension uses the public extension and autocomplete APIs of Pi 1.3.0.
+The extension uses the public extension and autocomplete APIs of Pi 1.4.0.
 
 ## Configuration
 

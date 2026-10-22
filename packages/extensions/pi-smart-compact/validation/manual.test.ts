@@ -212,7 +212,6 @@ it.each(cases)(
           const selected = expectedSelection();
           assert.equal(model.id, selected.model);
           assert.equal(options.reasoning, selected.thinkingLevel);
-          if (selected.model === "summary") assert.equal(options.maxTokens, 128);
           assert.equal(runtime.session.model?.id, "main");
           assert.equal(runtime.session.thinkingLevel, "high");
           assert.equal(runtime.session.isCompacting, true);

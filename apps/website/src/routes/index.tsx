@@ -61,7 +61,7 @@ function Hero() {
           href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent"
           className="inline-block border border-panel-line bg-panel px-3 py-1 text-xs text-dim hover:text-ink"
         >
-          For Pi ^1.3.0
+          For Pi ^1.4.0
         </a>
         <h1 className="mt-8 font-pixel text-[33px] leading-[40px] sm:text-[44px] sm:leading-[52px]">
           Good defaults,

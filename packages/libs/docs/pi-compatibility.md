@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.3.0 with package checks and offline tests of the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager. Not covered: live-provider schema acceptance; platform-specific checks; a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation); and terminal checks of overlay closure, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
+> Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes, the fingerprint check, package checks, and offline tests of the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager. Not covered: live-provider schema acceptance; platform-specific checks; a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation); and terminal checks of overlay closure, stacked extension dialogs over an inline custom view, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
 
 ## Upgrade procedure
 
@@ -46,7 +46,8 @@ The [shared TUI](../src/tui/README.md) depends on these Pi host contracts:
 - [ ] The pi-tui public exports that the shared TUI imports still exist.
 - [ ] Shared TUI layout, keybindings, images, and invalidation render as the component scenarios expect in the current Pi host.
 - [ ] Responsive remounts keep the logical view.
-- [ ] Editor restoration returns the editor.
+- [ ] Closing an inline custom component removes only its own dialog, then shows the previous dialog or the editor and focuses it.
+- [ ] An inline custom mount that closes before Pi shows it changes no focus.
 - [ ] Disposal runs only on final closure.
 - [ ] Pi's dispatcher still cannot dispatch the [rejected shortcuts](../src/tui/keybindings/README.md#behaviour), and it still matches a symbol binding against the Shift press that types the symbol.
 - [ ] [Fullscreen routing](../src/tui/responsive-custom-ui/README.md#host-compatibility) still finds the [renderer contract](tui-fullscreen-input.md#renderer-contract) it depends on.
@@ -95,20 +96,24 @@ After an upgrade, these [working message](../src/working-message/README.md) resu
 - [ ] Offline fixtures load the installed CLI.
 - [ ] Offline fixtures accept the launcher flags.
 - [ ] The [interactive host fixture](../src/validation/interactive-host/README.md) still finds the private containers, UI-context creation, renderer mounting, and `createChatViewport` it relies on.
+- [ ] Pi focuses `editor` at startup before the renderer starts, as the interactive host fixture does. Custom-UI tests depend on this focus.
 
 ## Limitations
 
-These host results were observed in Pi 1.3.0:
+These host results were observed in the named Pi versions:
 
 - In Pi 1.3.0, native construction still matches the recorded fingerprints.
 - In Pi 1.3.0, native observation is independent of the transcript tool-loadout restoration on resume, which Pi 1.3.0 added.
 - In Pi 1.3.0, custom-UI fixtures hide only their own overlay handle, matching the host.
 - In Pi 1.3.0, responsive custom UI calls `done()` without waiting for its overlay to mount.
+- In Pi 1.4.0, native construction still matches the recorded fingerprints.
+- In Pi 1.4.0, transcript restoration also activates extension tools that the branch never added or removed. It reads only the names of `_baseToolDefinitions`, so native observation stays independent of it.
+- In Pi 1.4.0, an inline custom mount that closes before Pi shows it no longer focuses the editor. A responsive view at 18 rows mounts inline, moves to an overlay, and closes the inline mount in a microtask, so the overlay saves and restores the focus that existed before. The interactive host fixture did not focus the editor, so its overlay restored no focus. The fixture now focuses the editor at startup, as Pi does. Pi itself was not affected.
 
-These private dependencies could be replaced by public Pi APIs. None exists as of Pi 1.3.0.
+These private dependencies could be replaced by public Pi APIs. None exists as of Pi 1.4.0.
 
-- Replace the [private native-observation hooks](../src/native-tools/compatibility.ts) when Pi offers public native-observation APIs, and validate both the display and summary consumers.
-- Replace private fullscreen routing when a public API offers input priority scoped to focus. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.
+- Replace the [private native-observation hooks](../src/native-tools/compatibility.ts) when Pi offers public native-observation APIs, and validate both the display and summary consumers. Pi 1.4.0 parity for `_buildRuntime` and `_refreshToolRegistry`: None. Pi would need a public hook that wraps or observes built-in tool definitions at construction and reload and keeps their `sourceInfo`.
+- Replace private fullscreen routing when a public API offers input priority scoped to focus. Pi 1.4.0 parity for the `inputListeners` mutation: None. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.
 - Revisit public contribution APIs for working-message [overwrites by non-participants](../src/working-message/README.md#behaviour).
 - Adopt public TUI components that can replace a local implementation without losing controlled state or cancellation.
 

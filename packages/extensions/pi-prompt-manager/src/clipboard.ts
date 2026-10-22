@@ -64,8 +64,11 @@ function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Pro
   signal.throwIfAborted();
 
   return new Promise((resolve, reject) => {
+    // A clipboard owner such as wl-copy can stay as a daemon. In its own process group, it
+    // keeps running when Ctrl+Z suspends Pi's group, so a paste elsewhere does not wait for it.
     const child = spawn(helper.command, helper.args, {
       stdio: ["pipe", "ignore", "ignore"],
+      detached: true,
       ...(helper.env ? { env: helper.env } : {})
     });
     let settled = false;

@@ -23,7 +23,6 @@ Terms such as _fingerprint_ and _split turn_ are defined in the [compatibility g
 - Apply instruction-file focus to every compaction route, whatever the model and thinking opt-ins say. Compose it once, before per-call focus, give hooks the same text, and keep Pi's default prompts.
 - Register `context_window` in the extension factory, and again in `session_start` with the same exposure to add the configured docs. The [tools checklist](docs/pi-compatibility.md#tools) states the `--tools` behaviour and why a profile's choice of active tools still wins.
 - At startup or reload, read only the selected instruction and docs files, and resolve relative paths in the settings scope that set them.
-- Match the native split-turn instruction suffix, not phrases inside serialised conversation. Clone provider input instead of modifying context shared with retries.
 
 ## Validation
 

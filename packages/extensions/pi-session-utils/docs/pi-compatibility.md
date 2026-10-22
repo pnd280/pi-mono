@@ -2,7 +2,7 @@
 
 [pi-session-utils](../README.md)
 
-> Last verified against Pi 1.3.0 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of session management, the session picker, the model registry, and thinking levels. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, and manual checks of the session picker.
+> Last verified against Pi 1.4.0 with the package checks, offline tests of API and process startup, persistence, naming, and title requests, and a source review of the Pi 1.3.0 to 1.4.0 changes to session management, the session picker, the model registry, and thinking levels. Not covered: offline payload probes for per-level sampling and routed title budgets, title quality with live providers, and manual checks of the session picker.
 
 ## Upgrade procedure
 
@@ -68,6 +68,7 @@ Session replacement must preserve saved data and parent links while giving namin
 - [ ] The [shared thinking levels](../../../utils/src/thinking-levels.ts) list every level that the `thinkingLevel` setting accepts, including `off`, and matches the levels in the [README](../README.md#configuration).
 - [ ] A virtual model's unknown output limit never becomes a zero-token request.
 - [ ] Registry dispatch caps the extension's 1,024-token title budget to the routed physical model, and a smaller known model limit is kept.
+- [ ] For OpenCode models, registry dispatch sends the request's `sessionId`, a new UUIDv7 for each title request, in the `x-opencode-session` header (`getOpenCodeSessionHeaders` in `model-runtime.js`, added to registry calls in Pi 1.4.0). No conversation data is in this header.
 
 The extension leaves sampling selection to the registry. It keeps its own token budget, disabled cache retention, and no-retry policy.
 
@@ -94,15 +95,15 @@ These limits come from Pi behaviour. Recheck each one when Pi changes the behavi
 
 ### Startup parent
 
-In Pi 1.3.0, Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
+In Pi 1.4.0, Pi has no public way to set the parent at startup, so the CLI flag uses a scoped prototype hook and changes the live header. If Pi adds an API for startup session options, use it, while still rejecting resumed or non-empty sessions and failing before any model request.
 
 ### Option order
 
-In Pi 1.3.0, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
+In Pi 1.4.0, Pi resolves its built-in session-selection options before extensions load. [Parent lookup](sessions.md#parent-lookup-from-the-cli) states what users see when an option conflicts with `--parent-session`.
 
 ### Custom directories
 
-In Pi 1.3.0, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
+In Pi 1.4.0, in-memory session managers don't remember a custom directory. [Session directories](sessions.md#session-directories) states the directories that `/sesh persist` and parent ID lookup use as a result.
 
 ### Copying JSONL
 

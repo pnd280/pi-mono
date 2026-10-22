@@ -2,7 +2,7 @@
 
 [pi-profiles](../README.md)
 
-> Last verified against Pi 1.3.0 with the offline host tests, isolated CLI loading, and source inspection. Not covered: live providers, MCP servers, and a live interactive terminal session.
+> Last verified against Pi 1.4.0 with the offline host tests and a source review of the 1.3.0 to 1.4.0 changes. Not covered: isolated CLI loading, live providers, MCP servers, and a live interactive terminal session.
 
 ## Upgrade procedure
 
@@ -94,6 +94,7 @@ The [selection](../src/selection.ts) module relies on these contracts.
 
 - [ ] Pi restores tools from the transcript before `session_start` and before `session_tree`, so a later `pi.setActiveTools()` call in those handlers is kept.
 - [ ] When the destination branch has no system message, Pi leaves the current tools unchanged.
+- [ ] On resume, `/fork`, and `/tree`, Pi replays every system message of the branch, also before a compaction. It also turns on the registered `direct` and `model-only` extension tools that no system message adds or removes, unless they set `defaultActive: false` (`_restoreToolsFromTranscript` in `agent-session.js`).
 - [ ] When a session is created, Pi restores the tools only for sessions that use `defaultTools` (`usesDefaultTools` in `sdk.js`).
 - [ ] `/tree` restores the tools in every session.
 - [ ] On `/reload`, Pi keeps the active tools and adds new `defaultTools` entries.
@@ -109,7 +110,7 @@ The [selection](../src/selection.ts) module relies on these contracts.
 - [ ] On resume and `/fork`, Pi restores the model and thinking level from `model_change` and `thinking_level_change` entries, which `setModel()` and `setThinkingLevel()` append.
 - [ ] `pi.appendEntry()` entries appear in `getBranch()` as `custom` entries and are not sent to the model.
 
-When the destination branch has neither a selection nor a system message, the extension undoes the outgoing selection's changes. The host tests set `defaultTools: []` instead of `noTools`, so that Pi restores the tools. After `/reload`, the extension turns off again the tools that the selection turned off, unless the last request declared them (`getCurrentSystemMessage()`). The extension sets restored tools only when they change, so that Pi keeps its pending tools. It counts a later system or assistant message as a request, so a switch with no request after it is not recorded. A compaction checkpoint does not record a switch.
+When the destination branch has neither a selection nor a system message, the extension undoes the outgoing selection's changes. The host tests set `defaultTools: []` instead of `noTools`, so that Pi restores the tools. After `/reload`, the extension turns off again the tools that the selection turned off, unless the last request declared them (`getCurrentSystemMessage()`). After resume, `/fork`, and `/tree`, the extension turns off again the tools that the selection knew and the last request did not declare, because Pi turns on extension tools that the branch never recorded. The extension sets restored tools only when they change, so that Pi keeps its pending tools. It counts a later system or assistant message as a request, so a switch with no request after it is not recorded. A compaction checkpoint does not record a switch.
 
 ### Lifecycle
 
@@ -148,6 +149,6 @@ A new `CustomEditor` with `embedWorkingStatus: true` draws the working status in
 
 ## Limitations
 
-- Pi 1.3.0 has no event for tool registration, so the extension cannot apply a profile again when an MCP server's tools appear. `mcp_servers_change` is not a substitute: it fires only when extensions register or unregister server configurations, not when a server connects. A handler for it also stops Pi's reports of registered servers that nothing connects (`reportUnhandledMcpServers` in `runner.js`). If Pi adds a tool-registration event, consider applying the profile to tools that appear after a switch.
-- In Pi 1.3.0, a loading extension gets no trust decision. `getSettings` throws in `loader.js`, and `loadProjectTrustExtensions()` loads global and CLI extensions before the trust resolver runs. So the extension registers `tool_search` on every load, because it cannot tell whether a project profile defers tools. Pi warns when it replaces the enabled built-in `tool-search`; the README's [tool search](../README.md#tool-search) section tells how to stop the warning. If Pi gives extension factories the trust decision, consider registering `tool_search` only when a global or trusted project profile has a `defer` list.
+- Pi 1.3.0 and 1.4.0 have no event for tool registration, so the extension cannot apply a profile again when an MCP server's tools appear. `mcp_servers_change` is not a substitute: it fires only when extensions register or unregister server configurations, not when a server connects. A handler for it also stops Pi's reports of registered servers that nothing connects (`reportUnhandledMcpServers` in `runner.js`). If Pi adds a tool-registration event, consider applying the profile to tools that appear after a switch.
+- In Pi 1.3.0 and 1.4.0, a loading extension gets no trust decision. `getSettings` throws in `loader.js`, and `loadProjectTrustExtensions()` loads global and CLI extensions before the trust resolver runs. So the extension registers `tool_search` on every load, because it cannot tell whether a project profile defers tools. Pi warns when it replaces the enabled built-in `tool-search`; the README's [tool search](../README.md#tool-search) section tells how to stop the warning. If Pi gives extension factories the trust decision, consider registering `tool_search` only when a global or trusted project profile has a `defer` list.
 - The extension uses `getAgentDir()`, not the SDK resource loader's directory override, so SDK hosts with a custom `agentDir` must set `PI_CODING_AGENT_DIR` to match.

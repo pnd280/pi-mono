@@ -2,7 +2,7 @@
 
 [pi-agent-summary](../README.md)
 
-> Last verified against Pi 1.3.0 with package checks, offline tests that include real codemode and virtual-model cases, and the shared mutation and display suites. Not covered: manual visual checks.
+> Last verified against Pi 1.4.0 with package checks, offline tests that include real codemode and virtual-model cases, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: manual visual checks.
 
 ## Upgrade procedure
 
@@ -72,7 +72,7 @@ Confirm persistence and rendering in [src/index.ts](../src/index.ts):
 
 ## Limitations
 
-In Pi 1.3.0, these limits come from missing Pi APIs. Revisit them when Pi adds one.
+In Pi 1.4.0, these limits come from missing Pi APIs. Revisit them when Pi adds one.
 
 ### Throughput
 

@@ -2,7 +2,7 @@
 
 [pi-abort-guard](../README.md)
 
-> Last verified against Pi 1.3.0 with package checks, source review, and disposable input probes. Not covered: a physical terminal; live dialogs, compactions, retries, and branch summaries.
+> Last verified against Pi 1.4.0 with package checks, offline tests, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: a physical terminal; the disposable input probes; live dialogs, including stacked dialogs over a running agent; live compactions, retries, and branch summaries.
 
 ## Upgrade procedure
 

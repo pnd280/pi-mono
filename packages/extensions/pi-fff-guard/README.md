@@ -4,7 +4,7 @@ The guard stops FFF searches that would silently return nothing, or only matches
 
 ## Compatibility
 
-The guard requires Git and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 1.3.0 and FFF 0.11.0.
+The guard requires Git and the official [`@ff-labs/pi-fff`](https://github.com/dmtrKovalenko/fff/tree/main/packages/pi-fff), installed and loaded separately. It was validated with Pi 1.4.0 and FFF 0.11.0.
 
 The guard checks FFF's search tools, and its overrides of native tool names, only when Pi attributes them to the official package. It leaves built-in tools and unrecognised forks alone.
 

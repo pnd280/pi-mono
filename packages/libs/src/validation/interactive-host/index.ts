@@ -49,6 +49,7 @@ interface FixtureHost {
   extensionWidgetsBelow: Map<string, NativeComponent>;
   widgetContainerAbove: Container;
   widgetContainerBelow: Container;
+  editor: Component;
   editorContainer: Container;
   statusContainer: Container;
   pendingMessagesContainer: Container;
@@ -243,6 +244,8 @@ export async function inputHostFixture(tuiMode: "regular" | "fullscreen" = "full
     render: () => Array.from({ length: 100 }, (_, index) => `Transcript ${index}`),
     invalidate() {}
   });
+  // As in Pi's startup, the editor has focus before the renderer starts.
+  fixture.host.ui.setFocus(fixture.host.editor);
   fixture.host.ui.start();
 
   return {

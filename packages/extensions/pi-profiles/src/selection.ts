@@ -274,15 +274,22 @@ export interface RestoreState {
 
 /**
  * The tools to declare after Pi restored a session. Pi declares the tools of the last request on
- * resume, `/fork`, and `/tree`, which predate the selection when no request followed it.
+ * resume, `/fork`, and `/tree`, which predate the selection when no request followed it. Pi also
+ * turns on the extension tools that the branch never recorded, as if they registered later. A tool
+ * that the selection knew is not new, so it stays off unless the last request declared it.
  */
 export function restoredTools(selection: Selection, state: RestoreState): string[] {
-  const off = [...selection.base, ...selection.deferred.flat()].filter(
-    (name) => !selection.tools.includes(name) && !state.recorded?.includes(name)
-  );
+  const { recorded } = state;
   let tools: string[];
-  if (state.reload) tools = state.active.filter((name) => !off.includes(name));
-  else tools = state.recorded ? [...state.active] : [...selection.tools];
+  if (state.reload) {
+    const off = [...selection.base, ...selection.deferred.flat()].filter(
+      (name) => !selection.tools.includes(name) && !recorded?.includes(name)
+    );
+    tools = state.active.filter((name) => !off.includes(name));
+  } else if (recorded) {
+    const known = new Set([...selection.base, ...selection.tools, ...selection.deferred.flat()]);
+    tools = state.active.filter((name) => recorded.includes(name) || !known.has(name));
+  } else tools = [...selection.tools];
 
   const searchExposure = state.exposure.get(TOOL_SEARCH);
   const searchDeclared =

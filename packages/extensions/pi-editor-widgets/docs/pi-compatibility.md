@@ -2,7 +2,7 @@
 
 [pi-editor-widgets](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.3.0 with package checks, offline host tests including reload, and a source review of statuses, regions, the footer, mode switching, metrics, compaction thresholds, pi-tui mouse dispatch, and interactive mode. Not covered: physical-terminal checks and manual checks.
+> Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes to statuses, regions, the footer, mode switching, the extension dialog stack, metrics, compaction thresholds, pi-tui mouse dispatch and exit restoration, and interactive mode, the fingerprint check, and the offline package checks and host tests including reload. Not covered: physical-terminal checks, manual checks, a UI reset while `/widgets` is open, and terminal restoration on exit in fullscreen mode.
 
 Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks. It needs no core or dependency edits.
 
@@ -16,7 +16,7 @@ Public APIs don't expose other extensions' registries or row placement, so this 
 
 ### Fingerprint boundary
 
-The [host boundary](../src/host.ts) exports `inspectedPiVersion = "1.3.0"` and applies the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) before the discovery probe. It checks the discovered receiver again before acquiring the coordinator.
+The [host boundary](../src/host.ts) exports `inspectedPiVersion = "1.4.0"` and applies the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) before the discovery probe. It checks the discovered receiver again before acquiring the coordinator.
 
 Each gate unwraps recorded hook predecessors. A callable with a reviewed API or bundled CLI source hash is accepted on any version. A callable with an unknown hash is accepted only when Pi's public `VERSION` equals the pin.
 
@@ -81,6 +81,7 @@ Shutdown releases adapters but doesn't dispose borrowed widgets. A new start loa
 
 - [ ] On `/reload`, Pi still emits `session_shutdown` for the old extension instance before `session_start` for the new one.
 - [ ] Pi's native UI reset still disposes extension widgets on shutdown, new sessions, and reload.
+- [ ] Pi's native UI reset still disposes every stacked extension dialog, including an open inline `/widgets` menu, and the menu promise settles. Pi 1.4.0 added this dialog stack.
 
 ### Metrics
 
@@ -92,7 +93,7 @@ Never render an unknown context window as zero. The label shows the selected mod
 - [ ] `getContextUsage()` returns no usage when the effective model's window is unknown.
 - [ ] `autoCompactionEnabled` is runtime state.
 - [ ] `settingsManager.getCompactionReserveTokens(session.model)` returns the selected model's reserve for the verbose threshold, and can reject invalid settings.
-- [ ] Pi's `_exceedsCompactionThreshold` and `_checkCompaction` combine the selected model's reserve with the physical window, even when the physical model has a different reserve configured.
+- [ ] Pi's `_exceedsCompactionThreshold` and `_checkCompaction(assistantMessage, skipAbortedCheck)` combine the selected model's reserve with the physical window, even when the physical model has a different reserve configured.
 - [ ] `session.routedModel` gives the physical model and thinking level of the latest successful response under a virtual selection.
 - [ ] Pi's native footer still shows "(sub)" when the provider is `kimi-coding` or `session.modelRuntime.isUsingSubscription(provider)` returns true, as `builtin:tokens` does.
 - [ ] Pi's native footer still shows the thinking level only when `model.reasoning` is true, and reads it from `session.thinkingLevel`, as `builtin:model` does.
@@ -110,7 +111,18 @@ Never render an unknown context window as zero. The label shows the selected mod
 - Components expose `render(width)`, not a preferred size. Each placement renders once at terminal width, and the output it occupies sets its row width. Whole widgets wrap in order without shrinking, and a full-width component takes its own row. Widgets control wrapping inside their own output.
 - While `/widgets` is open, the menu sizes itself from the unclipped region height, so tall regions still clip on short terminals.
 - Shared rows trim only literal trailing spaces known not to paint or carry metadata. Backgrounds, decorated spaces, and unknown escape sequences keep their width. Leading indentation and singleton padding are kept.
-- In Pi 1.3.0, the renderer already expands visible tabs to the three columns `visibleWidth()` uses. The extension must not rewrite tabs inside OSC or APC payloads.
+- In Pi 1.4.0, the renderer already expands visible tabs to the three columns `visibleWidth()` uses. The extension must not rewrite tabs inside OSC or APC payloads.
 - Automated fixtures use real Pi renderers and the native fullscreen dock, without startup downloads, process signal handlers, or a physical terminal. They don't establish visual quality for every component or terminal emulator.
+
+In Pi 1.4.0, the extension API and the pi-tui declarations were unchanged, so no public API replaces a private hook yet:
+
+| Private hook                   | Parity                              | Public API that Pi would need                                |
+| ------------------------------ | ----------------------------------- | ------------------------------------------------------------ |
+| `setExtensionStatus` probe     | None                                | A read API for other extensions' widgets and statuses        |
+| `renderWidgets`                | None                                | A widget layout or placement provider                        |
+| `setExtensionFooter`           | Partial, through `ctx.ui.setFooter` | A footer-ownership change event                              |
+| `createExtensionUIContext`     | Partial, through `ctx.ui.theme`     | None, if the coordinator takes the theme from `ctx.ui.theme` |
+| `switchTuiMode`                | None                                | A TUI mode-change event                                      |
+| `doRender` and `requestRender` | None                                | A renderer frame or lifecycle hook                           |
 
 When Pi adds a public registry, layout, mode-change, or renderer-lifecycle API, use it instead of the matching private hook. Replace the boundary and its tests together, without transitional adapters.

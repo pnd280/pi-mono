@@ -68,7 +68,7 @@ Limits:
 
 - The resource tools `list_mcp_resources`, `list_mcp_resource_templates`, and `read_mcp_resource` get generic cards.
 - Calls made inside codemode scripts appear only in the [codemode](#codemode) card's call list.
-- In Pi 1.3.0, the registered tool names replace every character outside `[A-Za-z0-9_]` with `_` and add a hash suffix to colliding or overlong names. Exact-name [renderer overrides](../README.md#configuration) must use the registered names.
+- In Pi 1.4.0, the registered tool names replace every character outside `[A-Za-z0-9_]` with `_` and add a hash suffix to colliding or overlong names. Exact-name [renderer overrides](../README.md#configuration) must use the registered names.
 
 ## Tool search
 

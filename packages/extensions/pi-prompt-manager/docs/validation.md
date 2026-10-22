@@ -140,6 +140,7 @@ Setup: on Linux, macOS, and WSL, use isolated clipboards, never someone's live c
 | Make all native helper dependencies unavailable, then copy.     | Copying reports a failure.                                     |
 | End the session during an active copy.                          | The copy is cancelled.                                         |
 | Let a helper exceed the five-second deadline.                   | Copying reports a timeout.                                     |
+| On Linux, copy, press Ctrl+Z, paste in the shell, then `fg`.    | The paste does not wait for Pi to resume.                      |
 | On macOS, copy Unicode with `LANG` unset, then with `LC_ALL=C`. | The native clipboard matches the Unicode source in both cases. |
 
 ### Storage permissions and writes

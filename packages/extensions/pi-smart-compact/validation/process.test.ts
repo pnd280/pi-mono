@@ -32,7 +32,6 @@ const traceSchema = z.object({
   headers: z.record(z.string(), z.string()).optional(),
   authEnv: z.string().optional(),
   baseUrl: z.string().optional(),
-  maxTokens: z.number().optional(),
   requestPolicy: z
     .object({
       timeoutMs: z.number().optional(),
@@ -344,8 +343,6 @@ function checkModelRouting(trace: Trace, config: SummaryRule | undefined, manage
       "X-Fixture-Provider": provider,
       "X-Fixture-Hook": "applied"
     });
-    // Native summary shapes use different budgets, but both must honor the selected model's cap.
-    if (config?.model) assert.equal(entry.maxTokens, 128);
     assert.equal(entry.reasoning, expectedThinking === "off" ? undefined : expectedThinking);
   }
 
@@ -692,7 +689,6 @@ it.concurrent.each([
         sessionModel: "scripted",
         sessionThinking: "high"
       });
-      assert.equal(requests[0]?.maxTokens, 128);
       checkEntryFocus(trace, focus);
       assert.equal(
         trace.find((item) => item.type === "hook:before")?.reason,

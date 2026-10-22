@@ -9,6 +9,7 @@ pi-profiles saves each switch in the session, so a resumed, forked, or reloaded 
 - Each switch, also to no profile, saves the selection in the session. The model does not see it.
 - Resume, `/fork`, and `/tree` use the latest selection on the branch: its texts are added, its tools are declared, and `tool_search` can load its deferred tools.
 - If a request followed the switch, also one that did not change the tools, the tools of the last request are declared instead, so later changes, such as tools that `tool_search` loaded, stay.
+- Pi also turns on extension tools that the branch never recorded. pi-profiles keeps them on only when they are new since the switch.
 - `/tree` to a branch with no selection and no recorded tools undoes the outgoing profile's tool changes.
 - `/reload` keeps the selection and the declared tools.
 - On `/reload`, Pi turns on again the `direct` and `model-only` extension tools that are active by default, as it does without profiles. pi-profiles then turns off again the tools that the selection turned off, unless a request after the switch declared them. So if you turn on such a tool after the last request, it turns off again, as on resume.

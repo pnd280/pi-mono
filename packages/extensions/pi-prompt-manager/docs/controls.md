@@ -26,7 +26,7 @@ Browser keys are Pi action IDs, set in `~/.pi/agent/keybindings.json` (or `$PI_C
 
 When one key is bound to several actions, the first in this order wins: copy, cancel, confirm, up, down, page up, page down, fixed controls, then search editing.
 
-- Hints skip invalid keys and keys that Pi 1.3.0 can't dispatch, such as modified **Escape** and modified function keys.
+- Hints skip invalid keys and keys that Pi 1.4.0 can't dispatch, such as modified **Escape** and modified function keys.
 - Hints also skip a key that sends the same input as a key of an earlier action. For example, **Ctrl+[** and **Escape** send the same byte in some terminals.
 - Hints show the first usable binding for each action, or mark the action unavailable. For example, if copy is bound to **Enter**, restore uses another confirm key, or the hint shows "restore unavailable".
 - Configured actions override fixed keys they conflict with, and hints leave those keys out. If **Tab** conflicts, **Shift+Tab** may still switch collections. To free a key, rebind it, or use the [numbered commands](#numbered-draft-commands).

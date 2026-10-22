@@ -196,7 +196,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
       headers: options.headers,
       authEnv: options.env?.PI_COMPACTION_FIXTURE_AUTH,
       baseUrl: model.baseUrl,
-      maxTokens: options.maxTokens,
       requestPolicy: {
         timeoutMs: options.timeoutMs,
         websocketConnectTimeoutMs: options.websocketConnectTimeoutMs,
@@ -329,7 +328,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
             reasoning: true,
             input: ["text"],
             contextWindow: 200000,
-            maxTokens: dedicated ? 128 : 4096,
+            maxTokens: 4096,
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
           }
         ],

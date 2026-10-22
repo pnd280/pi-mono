@@ -12,7 +12,7 @@ Untrusted terminal output can carry control sequences that corrupt the display. 
 
 `sliceTerminalText(text, start, end, options?)` returns `{ text, leadingSgr }` for the UTF-16 range from `start` (inclusive) to `end` (exclusive). It never splits graphemes or recognised escapes. It omits a grapheme that straddles a boundary. Set `preserveSgr: true` to reconstruct leading styling with Pi's SGR tracker.
 
-`styledOutput` retains the SGR dialect that Pi 1.3.0 reconstructs on continuation rows and sliced suffixes:
+`styledOutput` retains the SGR dialect that Pi 1.4.0 reconstructs on continuation rows and sliced suffixes:
 
 | Styling    | Retained parameters                                                                                                                                                                                                                       |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

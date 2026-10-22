@@ -2,7 +2,7 @@
 
 [@pi-mono/utils](../README.md)
 
-> Last verified against Pi 1.3.0 with package checks, all helper tests, and a source diff against 1.2.0. Not covered: live FFF behaviour.
+> Last verified against Pi 1.4.0 with package checks, all helper tests, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: live FFF behaviour.
 
 ## Upgrade procedure
 
@@ -30,3 +30,5 @@ Compare new public Pi helpers with the [supported exports](../README.md#usage). 
 In Pi 1.3.0, a source diff against 1.2.0 found extension types and tool source provenance unchanged, and built-in tool changes limited to read rendering. This package needed no runtime changes.
 
 Pi 1.3.0 adds `formatReadLineRange`, a read-header range formatter with no counterpart here, and resolves model references with registry-aware matching that is not exported from the package root. Neither replaces [`model-reference`](../src/model-reference.ts), which only checks and splits the `provider/model-id` syntax.
+
+In Pi 1.4.0, a source diff against 1.3.0 found extension types, tool source provenance, and thinking levels unchanged, and built-in tool changes limited to `grep` running `rg --no-config`. The new `@earendil-works/pi-ai/models` host entry point does not export `MODEL_THINKING_LEVELS`. This package needed no runtime changes.

@@ -7,7 +7,7 @@ import { markAssistantProse } from "../rendering/assistant.ts";
 import { record } from "../values.ts";
 import { inspectedSource } from "./compatibility.ts";
 
-// Pi 1.3.0 updateContent creates direct Markdown children only for prose, using
+// Pi 1.4.0 updateContent creates direct Markdown children only for prose, using
 // outputPad on both sides, and one MouseRegion per nonempty consecutive thinking
 // run. Gate this private child-layout contract for both the API and installed CLI.
 // Keep .agents/skills/pi-update/scripts/fingerprints.ts in sync with this method.

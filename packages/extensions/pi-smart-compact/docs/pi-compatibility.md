@@ -2,7 +2,7 @@
 
 [pi-smart-compact](../README.md) · [Testing](testing.md)
 
-> Last verified against Pi 1.3.0 with a source review of the release changes, a fingerprint comparison, and offline API and installed-CLI tests. Not covered: interactive progress, **Escape** behaviour, and real-provider summary quality.
+> Last verified against Pi 1.4.0 with a source review of the release changes, a fingerprint comparison, and offline API and installed-CLI tests. Not covered: interactive progress, **Escape** behaviour, and real-provider summary quality.
 
 Terms used below:
 
@@ -13,7 +13,7 @@ Terms used below:
 
 ## Supported boundary
 
-At session binding, the [compatibility checks](../src/compatibility.ts) require Pi 1.3.0 and reviewed fingerprints for:
+At session binding, the [compatibility checks](../src/compatibility.ts) require Pi 1.4.0 and reviewed fingerprints for:
 
 - five prototype methods: `_compactBeforeNextAssistantResponse`, `_runAutoCompaction`, `_runDefaultCompaction`, `_appendCustomMessage`, and `compact`;
 - the exported lower-level `compact` implementation.
@@ -100,7 +100,7 @@ The status counts entries rather than events, so resumed sessions and tree navig
 ### What Pi still owns
 
 - [ ] Pi still owns native preparation, the active model's compaction settings, hook cancellation and custom summaries, retries, usage and file metadata, saving compaction entries, and rebuilding the finalised projection.
-- [ ] Selecting a summary model changes its output cap, but not retention settings or the session's model and thinking metadata.
+- [ ] Selecting a summary model changes the output limit that applies, but not retention settings or the session's model and thinking metadata. Pi sends no summary `maxTokens`.
 - [ ] `compaction_start`, `compaction_end`, retry events, and the before, success, and failure hooks accept `manual`.
 - [ ] UI consumers still use native `isCompacting` and `abortCompaction()`.
 - [ ] No idle transition or final print response happens during compaction.
@@ -114,7 +114,7 @@ The status counts entries rather than events, so resumed sessions and tree navig
 - [ ] When thinking isn't configured, `pi.getThinkingLevel()` supplies the session's level for acknowledgements.
 - [ ] Non-reasoning summary models default to `off`.
 - [ ] For a virtual summary model with an explicit thinking override, the override reaches `session.modelRuntime.resolveModel()` before native generation, with `reason: "direct"`, the current converted transcript, and the owning abort signal.
-- [ ] The physical model and level that `resolveModel()` returns govern generation and output caps.
+- [ ] The physical model and level that `resolveModel()` returns govern generation and output limits.
 - [ ] Returned selection facts keep the selected virtual model and input level, without mutating the native argument tuple.
 - [ ] Unconfigured virtual routing stays native.
 
@@ -127,6 +127,7 @@ The compatibility boundary defines Pi's `pi-virtual` API marker itself, because 
 - [ ] Summary routing preserves the model's sampling configuration and request overrides without copying the conversation model's defaults.
 - [ ] Native request keys, headers, and environment are cleared from intercepted options before registry dispatch.
 - [ ] The registry supplies the selected provider's credentials and base URL.
+- [ ] For OpenCode models, registry dispatch sends the session ID in the `x-opencode-session` header (`getOpenCodeSessionHeaders` in `model-runtime.js`). Pi 1.4.0 added this to registry calls, so configured summaries send it as native summaries did in Pi 1.3.0.
 - [ ] Authentication and generation errors and aborts reach native outcomes and retries, with no fallback to the active model.
 - [ ] Registry calls skip the session stream's request defaults.
 - [ ] The adapter's retry and timeout policy matches the public `settingsManager` policy: request options take precedence, a provider timeout overrides the HTTP idle timeout, and an idle timeout of zero becomes `2147483647`.
@@ -139,7 +140,7 @@ On each upgrade, recheck the policy and hook ordering against the SDK session st
 
 - [ ] `_runDefaultCompaction` takes arguments in this order: preparation, model, instructions, signal, reason.
 - [ ] The default implementation of `_runDefaultCompaction` uses `agent.streamFunction` for history and split-turn summaries, including retries.
-- [ ] Passing the selected or routed physical model to the original summariser controls token caps.
+- [ ] Passing the selected or routed physical model to the original summariser selects the output limit that applies.
 - [ ] The native adapter forwards only the unchanged result of the original summariser to Pi.
 - [ ] Stream options carry the native thinking level and can be overridden without changing session state.
 
@@ -157,10 +158,7 @@ On each upgrade, recheck the policy and hook ordering against the SDK session st
 
 - [ ] The manual entry-point wrapper passes combined file and per-call instructions to native `compact()`, which forwards them to hooks and default summarisation.
 - [ ] The automatic entry-point wrapper limits file instructions to threshold and overflow attempts, and keeps reason and retry arguments.
-- [ ] The summary router applies split-turn focus only to the owning operation, whatever the model opt-ins say.
-- [ ] The split-turn prompt ends in the exact instruction block inspected in [instructions.ts](../src/instructions.ts), carried by one text block in the final user message.
-- [ ] History prompts already include custom instructions, and the extension doesn't add them twice.
-- [ ] Provider context is cloned for each attempt, so retries never accumulate focus text.
+- [ ] History and split-turn prompts already include custom instructions, and the extension doesn't add them.
 - [ ] The public `session.extensionRunner` getter exposes the runner that emits automatic and tool-requested `session_before_compact` events with `_autoCompactionAbortController.signal`.
 - [ ] Scoped `emit` overrides keep return values, receivers, unrelated events, and operations with another signal or reason.
 
@@ -188,7 +186,7 @@ Setup: an interactive Pi session with the extension loaded and a configured prov
 
 ## Limitations
 
-In Pi 1.3.0, every reviewed fingerprint matched without change.
+In Pi 1.3.0, every reviewed fingerprint matched without change. In Pi 1.4.0, only the lower-level `compact` fingerprint changed: native split-turn prompts include custom instructions, and summary requests send no `maxTokens`.
 
 For request outcomes and routing scope, see [usage](../README.md#compact) and [configuration](../README.md#configuration).
 
@@ -197,7 +195,7 @@ The gaps below concern private Pi integration; [replacement opportunities](#repl
 | Gap               | Effect                                                                                                                                                                                                                                                                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | No public API     | There is no public way to run native compaction and then continue. `ctx.compact()` aborts the current run, and boundary entries would need summaries written by the extension rather than Pi. Replace the private patches if Pi adds a public API with the same lifecycle guarantees.                        |
-| `manual` reason   | Passing `manual` is outside `_runAutoCompaction`'s declared contract, which expects automatic reasons only. Native failure text may still say `Auto-compaction failed` (observed in Pi 0.99.2, still in the Pi 1.3.0 source). The outcome message removes that misleading prefix.                            |
+| `manual` reason   | Passing `manual` is outside `_runAutoCompaction`'s declared contract, which expects automatic reasons only. Native failure text may still say `Auto-compaction failed` (observed in Pi 0.99.2, still in the Pi 1.4.0 source). The outcome message removes that misleading prefix.                            |
 | Overflow recovery | Automatic `overflow` recovery keeps Pi's native preparation and serialisation. See [recovery behaviour](../README.md#errors) for responses that stop at the output-length limit, and for retained context edits.                                                                                             |
 | Authentication    | Pi resolves summarisation authentication inside the default summariser, after hooks, so summaries from hooks skip it. Configured requests use the registry stream with isolated credentials, not private authentication helpers or arbitrary stream overrides. Unrelated operations use the original stream. |
 | Concurrent calls  | Native compaction uses shared per-session state. SDK callers must follow the [manual-compaction constraint](../README.md#compact).                                                                                                                                                                           |
@@ -206,12 +204,12 @@ The gaps below concern private Pi integration; [replacement opportunities](#repl
 
 ## Replacement opportunities
 
-No public API in Pi 1.3.0 keeps all the features of any private hook below, so every hook stays. `ctx.compact()` still aborts the run, `session_before_compact` can cancel or replace a summary but can't change its instructions or model, and `compaction.modelOverrides` sets only token budgets.
+No public API in Pi 1.4.0 keeps all the features of any private hook below, so every hook stays. `ctx.compact()` still aborts the run, `session_before_compact` can cancel or replace a summary but can't change its instructions or model, and `compaction.modelOverrides` sets only token budgets.
 
 | Private hook                                                                        | Features that depend on it                                                                 | Parity  | Public API Pi would need                                                                                            |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------- |
 | `_compactBeforeNextAssistantResponse` (prototype)                                   | `compact` tool requests at the between-response boundary, and their status messages        | None    | A request for native compaction before the next response, with instructions and outcome, that doesn't abort the run |
-| `_runDefaultCompaction` (prototype), `agent.streamFunction` (instance, per attempt) | Summary-model and thinking routing, credential isolation, split-turn focus, and metadata   | None    | Native selection of the summary model and thinking level for default summaries, reported to the persistence step    |
+| `_runDefaultCompaction` (prototype), `agent.streamFunction` (instance, per attempt) | Summary-model and thinking routing, credential isolation, and metadata                     | None    | Native selection of the summary model and thinking level for default summaries, reported to the persistence step    |
 | `_runAutoCompaction` and `compact` (prototype)                                      | Instruction-file focus for automatic and manual compaction                                 | None    | Extension-supplied instructions for every compaction route, seen by all `session_before_compact` handlers           |
 | `_runDefaultCompaction` and `extensionRunner.emit` (instance, per attempt)          | Focus for automatic and tool-requested attempts, in summaries and `session_before_compact` | None    | The instruction API in the row above                                                                                |
 | `sessionManager.appendCompaction` (instance, per attempt)                           | A metadata entry written before the compaction entry, after Pi's final abort check         | Partial | A summary-model field on the compaction entry, or a hook that writes before it                                      |

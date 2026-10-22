@@ -2,7 +2,7 @@
 
 [pi-prompt-manager](../README.md)
 
-> Last verified against Pi 1.3.0 with package checks and offline API and installed-CLI tests. Not covered: manual terminal checks, including literal-plus launch shortcuts and the search cursor with `showHardwareCursor`; delivery to the native clipboard; and platform checks.
+> Last verified against Pi 1.4.0 with package checks, offline API and installed-CLI tests, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: manual terminal checks, including literal-plus launch shortcuts and the search cursor with `showHardwareCursor`; another extension's dialog over the inline browser; closure of an open inline browser at session replacement or `/reload`; delivery to the native clipboard; and platform checks.
 
 ## Upgrade procedure
 

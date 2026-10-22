@@ -44,9 +44,9 @@ export interface WidgetHost {
 
 type StatusPrototype = { setExtensionStatus: ExtensionContext["ui"]["setStatus"] };
 
-export const inspectedPiVersion = "1.3.0";
+export const inspectedPiVersion = "1.4.0";
 
-// Inspected Pi 1.3.0 API and bundled CLI sources, respectively. Keep the owner in
+// Inspected Pi 1.4.0 API and bundled CLI sources, respectively. Keep the owner in
 // .agents/skills/pi-update/scripts/fingerprints.ts in sync with these methods.
 const hostHashes = {
   switchTuiMode: new Set([

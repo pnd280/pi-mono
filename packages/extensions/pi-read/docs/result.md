@@ -23,7 +23,7 @@ Pass the independent native `offset` and `limit`.
 - Selection-coordinate restrictions don't apply to `offset` and `limit`.
 - A validated native `truncation.outputLines` takes precedence over the requested limit. This includes zero source lines for a byte-limit diagnostic.
 
-In Pi 1.3.0, an untruncated read with a negative slice end appends a blank line and one continuation-notice line. Both views exclude those two lines from the source limit without matching their prose. An empty slice therefore looks like one empty source line.
+In Pi 1.4.0, an untruncated read with a negative slice end appends a blank line and one continuation-notice line. Both views exclude those two lines from the source limit without matching their prose. An empty slice therefore looks like one empty source line.
 
 The interpreter builds the two source views on demand, so provenance recognition and notice handling do not join or split source bodies:
 

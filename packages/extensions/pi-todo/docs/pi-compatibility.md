@@ -2,7 +2,7 @@
 
 [pi-todo](../README.md)
 
-> Last verified against Pi 1.3.0 with the package checks and offline tests. Not covered: manual terminal checks.
+> Last verified against Pi 1.4.0 with the package checks, offline tests, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: manual terminal checks.
 
 ## Upgrade procedure
 
