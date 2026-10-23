@@ -52,6 +52,8 @@ type LiveJob = {
   stopError?: Error;
   /** `job_abort` asked for the job's result to be dropped if the job is cancelled. */
   drop: boolean;
+  /** The model asked with `hold_run` that the job holds the run until it ends; see ADR 0008. */
+  hold: boolean;
   /** The first log write error; it fails the job. */
   writeError?: Error;
   done: Promise<JobRecord>;
@@ -174,8 +176,10 @@ export class Jobs {
   private streams = new Set<Promise<void>>();
   private listeners = new Set<(event: JobEvent) => void>();
   private closed = false;
-  /** The results of exited jobs. Jobs never hold the run; see ADR 0005. */
-  readonly results = new ResultSource(() => false);
+  /** The results of exited jobs. A live job started with `hold_run` holds the run; see ADR 0008. */
+  readonly results = new ResultSource(
+    () => !this.closed && [...this.live.values()].some((job) => job.hold)
+  );
   readonly bindingId: string;
 
   get activeBinding(): boolean {
@@ -248,6 +252,7 @@ export class Jobs {
       controller,
       log,
       drop: false,
+      hold: input.hold_run === true,
       output: Buffer.alloc(0),
       clipped: false
     };

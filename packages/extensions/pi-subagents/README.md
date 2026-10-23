@@ -43,7 +43,7 @@ The model calls `subagent_abort` with a `task_id` to cancel an active owned task
 
 Set [`jobs`](#configuration) to `true` to give the model the `job` and `job_abort` tools. A job runs one shell command in the background, such as a build, a test run, a server, or a watcher. It is not a task: it has no child, no capacity slot, no model, and no usage.
 
-The `job` call returns immediately with the job ID and the log file path. When the command exits, its result arrives like a task result, with the exit code and the end of the output. A turn abort does not stop jobs. Session changes, exit, and the end of a print, JSON, or child run stop jobs without a result. For the result envelope, exit codes, and stop conditions, see [background jobs](docs/jobs.md).
+The `job` call returns immediately with the job ID and the log file path. When the command exits, its result arrives like a task result, with the exit code and the end of the output. With `hold_run: true`, the run waits for the job like a background task, so print, JSON, and child runs also receive its result. A turn abort does not stop jobs. Session changes, exit, and the end of a print, JSON, or child run stop the remaining jobs without a result. For the result envelope, exit codes, held jobs, and stop conditions, see [background jobs](docs/jobs.md).
 
 ### Commands and task panel
 

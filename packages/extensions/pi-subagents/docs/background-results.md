@@ -19,23 +19,23 @@ Delivery at the end of a turn skips failed, aborted, and length-truncated replie
 
 With `resultDelivery` set to `turn_end`, a result is part of more model requests than with `settle`. A large result, such as a 50 KiB job tail, then uses more input tokens and can make compaction start earlier.
 
-## Waiting for background tasks
+## Waiting for background results
 
-In all modes, a supervisor stays busy after a normal reply while its direct background tasks run. Each time a task finishes, its result continues the same run before the supervisor waits for the next task.
+In all modes, a supervisor stays busy after a normal reply while its direct background tasks or its [held jobs](jobs.md#held-jobs) run. Each time one of them finishes, its result continues the same run before the supervisor waits for the next one.
 
-- New input or an abort ends the wait after a normal reply. The tasks continue, and a later result starts a new turn when the supervisor is idle.
+- New input or an abort ends the wait after a normal reply. The tasks and jobs continue, and a later result starts a new turn when the supervisor is idle.
 - A child consumes the results of its background descendants before returning.
 - Print and JSON supervisors wait before exiting.
 - The waiting time counts as busy time, for example in `pi-agent-summary`, and commands that need an idle session are blocked until the wait ends.
 
-In TUI mode, the working message shows "Waiting for background subagents" during the wait, as the `pi-subagents.waiting` item. To change its position, run `/working-message`; see [working-message ordering](../../../libs/src/working-message/ordering.md#settings-menu).
+In TUI mode, the working message shows "Waiting for background results" during the wait, as the `pi-subagents.waiting` item. To change its position, run `/working-message`; see [working-message ordering](../../../libs/src/working-message/ordering.md#settings-menu).
 
 Edge cases:
 
 - A reply that fails and that Pi retries does not wait.
 - If Pi does not recover an error or length-truncated reply, children and print or JSON supervisors still wait for background results. An abort cannot interrupt this wait.
 
-Supervisors do not wait for jobs; see [job results](jobs.md#job-results).
+Supervisors do not wait for jobs without `hold_run`; see [job results](jobs.md#job-results).
 
 ## Usage accounting
 

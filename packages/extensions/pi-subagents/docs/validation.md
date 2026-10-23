@@ -126,22 +126,22 @@ Open a task from the panel with **Enter**. Compare built-in tools, subagent call
 
 The `background-late` and `background-input` children reply only after `run-release` exists in the work directory. Delete it before each check that uses either scenario.
 
-| Do                                                                                     | Expect                                                           |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Run `background-late`.                                                                 | The working message includes "Waiting for background subagents". |
-| Press **Esc** during the wait.                                                         | The component clears; the wait ends and the task continues.      |
-| Create `run-release`.                                                                  | The result starts a new turn.                                    |
-| Run `background-late`, then type `reply` during the wait.                              | The input is processed at once.                                  |
-| Create `run-release`.                                                                  | The result arrives.                                              |
-| Run `background-slow`, then send `abort-id <task_id>` in regular and fullscreen modes. | The card has the `subagent` layout with `⊘ aborted`.             |
-| Click the abort card.                                                                  | The task opens.                                                  |
-| Run `background-input`, then send `update-id <task_id> steer`.                         | The update returns immediately.                                  |
-| Create `run-release`.                                                                  | The task's background result contains the added input once.      |
-| Let a background result arrive.                                                        | It shows in Pi's default message box.                            |
+| Do                                                                                     | Expect                                                         |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Run `background-late`.                                                                 | The working message includes "Waiting for background results". |
+| Press **Esc** during the wait.                                                         | The component clears; the wait ends and the task continues.    |
+| Create `run-release`.                                                                  | The result starts a new turn.                                  |
+| Run `background-late`, then type `reply` during the wait.                              | The input is processed at once.                                |
+| Create `run-release`.                                                                  | The result arrives.                                            |
+| Run `background-slow`, then send `abort-id <task_id>` in regular and fullscreen modes. | The card has the `subagent` layout with `⊘ aborted`.           |
+| Click the abort card.                                                                  | The task opens.                                                |
+| Run `background-input`, then send `update-id <task_id> steer`.                         | The update returns immediately.                                |
+| Create `run-release`.                                                                  | The task's background result contains the added input once.    |
+| Let a background result arrive.                                                        | It shows in Pi's default message box.                          |
 
 ## Jobs
 
-Use `job-barrier` and `job-stream` for the [job](../GLOSSARY.md#tasks-and-processes) checks. Delete `job-release` in the work directory before starting either scenario.
+Use `job-barrier`, `job-stream`, and `held-job-barrier` for the [job](../GLOSSARY.md#tasks-and-processes) checks. Delete `job-release` in the work directory before starting any of them.
 
 | Do                                                                          | Expect                                                                                                                                 |
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -163,6 +163,8 @@ Use `job-barrier` and `job-stream` for the [job](../GLOSSARY.md#tasks-and-proces
 | Run `/subagents jobs`.                                                      | One JSON notification lists the jobs.                                                                                                  |
 | Run `/subagents show <job_id>`.                                             | One JSON notification contains the tail of the log file.                                                                               |
 | Run `/subagents abort <job_id>` on an active job.                           | The job stops, and one JSON notification reports its `cancelled` outcome.                                                              |
+| Run `held-job-barrier`.                                                     | After the final reply, the working message includes "Waiting for background results".                                                  |
+| Create `job-release` in the work directory.                                 | The job's result continues the same run, and the working message clears.                                                               |
 
 ### Job log retention
 

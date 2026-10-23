@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
@@ -40,6 +40,12 @@ export const PENDING_RESULT_CHANNEL = "pi-subagents-fixture:pending-result";
 /** A background result is pending in this supervisor process. */
 let resultPending = false;
 
+/** The `pi.events` channel on which `extension.ts` reports that a result source holds the run. */
+export const HOLD_CHANNEL = "pi-subagents-fixture:hold";
+
+/** A `held-job-<kind>` supervisor creates this file when delivery first waits for its job. */
+const RUN_HELD = "run-held";
+
 /** A `background-idle` supervisor creates this file after its final turn for its child. */
 const IDLE_RELEASE = "idle-release";
 
@@ -62,7 +68,7 @@ type Call =
       background?: boolean;
       delivery?: "steer" | "follow_up";
     }
-  | { tool: "job"; description: string; command: string; timeout?: number }
+  | { tool: "job"; description: string; command: string; timeout?: number; hold_run?: boolean }
   | { tool: "job_abort"; job_id: string }
   | { tool: "read"; path: string };
 
@@ -75,6 +81,11 @@ const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
   [
     "barrier",
     { command: "while [ ! -e job-release ]; do sleep 0.05; done; printf 'Fixture job output'" }
+  ],
+  // Exits only after delivery waits for it, when the provider creates `run-held`.
+  [
+    "waited",
+    { command: "while [ ! -e run-held ]; do sleep 0.05; done; printf 'Fixture job output'" }
   ],
   // Field 5 of the stat line is the process group. Both sleeps fork into it before the marker, so a
   // stop of the shell alone leaves the group alive.
@@ -104,14 +115,27 @@ const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
   ]
 ]);
 
-/** `job-<kind>`, also with `-hold`, starts one job; `job-abort-id <job_id>` aborts one. */
+/**
+ * `job-<kind>`, also with `-hold`, starts one job; `held-job-<kind>` starts one with `hold_run`;
+ * `job-abort-id <job_id>` aborts one.
+ */
 function jobPlan(scenario: string): Call[] | undefined {
   const abort = /^job-abort-id (\S+)$/.exec(scenario)?.[1];
   if (abort) return [{ tool: "job_abort", job_id: abort }];
-  const kind = /^job-(\w+?)(?:-hold)?$/.exec(scenario)?.[1];
+  const heldKind = /^held-job-(\w+)$/.exec(scenario)?.[1];
+  const kind = heldKind ?? /^job-(\w+?)(?:-hold)?$/.exec(scenario)?.[1];
   const job = kind ? JOB_COMMANDS.get(kind) : undefined;
 
-  return job && [{ tool: "job", description: `Fixture ${kind} job`, ...job }];
+  return (
+    job && [
+      {
+        tool: "job",
+        description: `Fixture ${kind} job`,
+        ...job,
+        ...(heldKind ? { hold_run: true } : {})
+      }
+    ]
+  );
 }
 
 function continuationPlan(scenario: string): Call[] | undefined {
@@ -738,8 +762,12 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
   let digestHold = false;
   let idleWake = false;
   let idleRelease = false;
+  let heldJob = false;
   pi.events.on(PENDING_RESULT_CHANNEL, () => {
     resultPending = true;
+  });
+  pi.events.on(HOLD_CHANNEL, () => {
+    if (heldJob) writeFileSync(join(process.cwd(), RUN_HELD), "");
   });
   pi.on("before_agent_start", async (event, ctx) => {
     // Only delivery starts runs with a custom message: the idle wake with background results.
@@ -751,6 +779,7 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       retried = false;
     }
 
+    heldJob = prompt?.startsWith("held-job-") ?? false;
     idleRelease = prompt === "background-idle";
     if (idleRelease) await rm(join(ctx.cwd, IDLE_RELEASE), { force: true });
     digestCompact = prompt === "digest-compact";

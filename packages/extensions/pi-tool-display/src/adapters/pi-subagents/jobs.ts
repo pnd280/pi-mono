@@ -8,14 +8,16 @@ import type { BorrowedToolResult, DisplayProgress, ToolDisplayAdapter } from "..
 const argsSchema = z.strictObject({
   command: z.string().min(1),
   description: z.string().min(1),
-  timeout: z.number().positive().optional()
+  timeout: z.number().positive().optional(),
+  hold_run: z.boolean().optional()
 });
 const parametersSchema = z.object({
   type: z.literal("object"),
   properties: z.object({
     command: z.object({ type: z.literal("string") }),
     description: z.object({ type: z.literal("string") }),
-    timeout: z.object({ type: z.literal("number") })
+    timeout: z.object({ type: z.literal("number") }),
+    hold_run: z.object({ type: z.literal("boolean") })
   }),
   required: z
     .array(z.string())

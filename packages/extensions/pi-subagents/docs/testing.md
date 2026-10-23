@@ -30,6 +30,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** Tree selection (including a same-path rewind), parent-session fork, and saved-session switch immediately stop owned running subtrees, including children that block shutdown and detached [descendants](../GLOSSARY.md#tasks-and-processes).
 - **High, e2e:** Late captures, completions, and controls cannot affect the replacement binding after a session change.
 - **High, e2e:** After another extension cancels a tree navigation or a parent-session fork, `/subagents list` and new `subagent` calls work on the same ancestry, and a job result that waited arrives once in the next run.
+- **High, e2e:** When a session change starts while the run waits for a [held job](jobs.md#held-jobs), the wait ends and the job continues. If another extension cancels the change, the job's result arrives once in the next run.
 - **High, e2e:** Ordinary foreground abort stops only its foreground subtree, and new messages leave children running.
 - **High, e2e:** (S5) Cancellation and graceful shutdown stop subtrees even during background and settle waits.
 - **High, e2e:** (S5) Supervisor SIGKILL leaves no cooperative descendants under the documented cleanup limit.
@@ -85,7 +86,8 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **Critical, e2e:** (J4) When another extension owns `bash`, `job` and `job_abort` are hidden.
 - **Critical, integration:** (J5) The job log reader refuses a symbolic link, a special file, and a file that replaced the log path after the reader checked it.
 - **High, e2e:** (J1) A [job](../GLOSSARY.md#tasks-and-processes) delivers exactly one background result to its supervisor when the supervisor is busy, idle, or settling after an abort.
-- **High, e2e:** (J1) The supervisor settles while a job runs.
+- **High, e2e:** (J1) The supervisor settles while a job without `hold_run` runs.
+- **High, e2e:** (J6) A print run waits for a [held job](jobs.md#held-jobs), and the job's result continues the run before it ends.
 - **High, e2e:** (J1) A timeout gives a `failed` result.
 - **High, e2e:** (J1) After compaction, the reminder keeps the job IDs in model context.
 - **High, e2e:** (J1) A result that arrives during a turn with tool calls follows the configured [delivery timing](background-results.md#delivery-timing) within the same run.

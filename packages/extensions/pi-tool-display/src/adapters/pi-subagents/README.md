@@ -28,7 +28,7 @@ Without pi-tool-display, pi-subagents registers no message renderer, so Pi shows
 
 ## Background jobs
 
-[jobs.ts](jobs.ts) recognises `job` by the projected `command` and `description` strings, the `timeout` number, and the required `command` and `description`. It recognises `job_abort` by a required `job_id` string. Strict Zod schemas validate the arguments. A separate schema validates the job details: active details have `exit_code` and `ended_at` set to `null`, and inactive details have an `outcome` of `completed`, `failed`, or `cancelled`.
+[jobs.ts](jobs.ts) recognises `job` by the projected `command` and `description` strings, the `timeout` number, the `hold_run` boolean, and the required `command` and `description`. It recognises `job_abort` by a required `job_id` string. Strict Zod schemas validate the arguments. A separate schema validates the job details: active details have `exit_code` and `ended_at` set to `null`, and inactive details have an `outcome` of `completed`, `failed`, or `cancelled`.
 
 [Job cards](../../../docs/tools.md#job-cards) and [job results](../../../docs/tools.md#job-results) describe what users see. A job result card shows the run time from `started_at` to `ended_at`.
 

@@ -8,7 +8,7 @@ The design is in [ADR 0005](adr/0005-background-jobs.md) and [ADR 0007](adr/0007
 
 ## Start a job
 
-The model calls `job` with a `command`, a short `description`, and an optional `timeout` in seconds. The timeout must be more than 0 and at most 2,147,483 seconds; there is no default timeout. The call returns immediately with the job ID and the path of the job's log file. The command runs in the session's working directory, with the environment that Pi supplies to its `bash` tool and Pi's `shellPath` and `shellCommandPrefix` settings.
+The model calls `job` with a `command`, a short `description`, an optional `timeout` in seconds, and an optional `hold_run` boolean. The timeout must be more than 0 and at most 2,147,483 seconds; there is no default timeout. `hold_run` is `false` by default; see [held jobs](#held-jobs). The call returns immediately with the job ID and the path of the job's log file. The command runs in the session's working directory, with the environment that Pi supplies to its `bash` tool and Pi's `shellPath` and `shellCommandPrefix` settings.
 
 - `jobs` applies at all depths: `maxDepth` does not hide the job tools. The tools are model-only, so codemode scripts cannot call them.
 - A job belongs to the session that started it. A supervisor does not see the jobs of its descendants.
@@ -16,7 +16,7 @@ The model calls `job` with a `command`, a short `description`, and an optional `
 
 ## Job results
 
-The supervisor does not wait for jobs, and a run settles while its jobs run. When a job exits, its background result arrives as a `pi-subagents.job-result` message. If the supervisor is busy, the result joins the run in the same way as a [task result](background-results.md). If the supervisor is idle, the result starts a new turn.
+By default, the supervisor does not wait for jobs, and a run settles while its jobs run. When a job exits, its background result arrives as a `pi-subagents.job-result` message. If the supervisor is busy, the result joins the run in the same way as a [task result](background-results.md). If the supervisor is idle, the result starts a new turn.
 
 The result contains a `<job>` envelope with the job ID, the outcome, and the exit code. Then it contains the last 2,000 lines or 50 KiB of output. After a failure, Pi's status line follows, such as `Command exited with code 2` or `Command timed out after 60 seconds`. An `Error:` line follows when the job's error adds to that text, such as a signal name or a log write failure. The log file path comes last.
 
@@ -28,6 +28,18 @@ The result contains a `<job>` envelope with the job ID, the outcome, and the exi
 
 A shell reports a signal as 128 plus the signal number. Thus the error names the signal, but the command can also exit with that code itself. A log write failure or process cleanup failure makes the outcome `failed`, including when the shell exited with code 0.
 
+### Held jobs
+
+A job started with `hold_run` set to `true` holds the run like a direct background task. After a normal reply, the supervisor stays busy until the job's result arrives, and the result continues the same run; see [waiting for background results](background-results.md#waiting-for-background-results). Thus children and print and JSON supervisors also receive the result before they end.
+
+The model sets `hold_run` only for a command that exits by itself. A held server or watcher keeps the run busy until **Esc**, new input, a timeout, or an abort of the job. The decision is in [ADR 0008](adr/0008-hold-run-for-marked-jobs.md).
+
+Edge cases:
+
+- If another extension cancels a session change during a run, held jobs no longer hold that run. Their results wait for the next run.
+- The job card does not show `hold_run`.
+- The job entry does not save `hold_run`, because jobs stop at a reload or restart.
+
 ## Stop a job
 
 | When                                                                                                             | Result                                                                                                               |
@@ -36,9 +48,9 @@ A shell reports a signal as 128 plus the signal number. Thus the error names the
 | You press **Ctrl+D** in the [task panel](interface.md#jobs-in-the-panel) or run `/subagents abort <job_id>`.     | The job stops, and its `cancelled` result is delivered.                                                              |
 | The timeout passes.                                                                                              | The job stops, and its `failed` result is delivered.                                                                 |
 | Tree navigation to a different entry, parent-session fork, session switch, `/new`, `/resume`, `/reload`, or exit | All jobs of the session stop, and they deliver no result.                                                            |
-| A print or JSON supervisor or a child ends its run.                                                              | Its jobs stop, and their results are lost, because these supervisors do not wait for jobs.                           |
+| A print or JSON supervisor or a child ends its run.                                                              | Its remaining jobs stop, and their results are lost. Before it ends, the run waits for [held jobs](#held-jobs).      |
 
-In print and JSON modes and in children, the `job` description tells the model to use jobs only for processes that it needs during the run, such as a server that it tests, and to run finite commands in the foreground.
+In print and JSON modes and in children, the `job` description tells the model to set `hold_run` for a command whose result it needs. It also tells the model to use other jobs only for processes that it needs during the run, such as a server that it tests.
 
 Edge cases:
 

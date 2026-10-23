@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import type { RpcRecord } from "../src/child/connection.ts";
 import { JOB_END_ENTRY } from "../src/constants.ts";
-import { release, taskList, withFixture } from "./background-fixture.ts";
+import { release, replies, taskList, withFixture } from "./background-fixture.ts";
 import type { Supervisor } from "./supervisor.ts";
 
 // Each test owns its workspace and processes.
@@ -135,6 +135,35 @@ test("delivers a job result that waited across a cancelled navigation once in th
       // The result waits for the next run.
       expect(await host.jobResults()).toHaveLength(0);
 
+      await host.prompt("reply");
+      expect(await host.jobResults()).toHaveLength(1);
+    },
+    { extensions: [cancelChange], settings: { "ext.pi-subagents": { jobs: true } } }
+  );
+});
+
+test("ends a hold_run wait at a pending fork, and delivers the job result once in the next run", async ({
+  expect
+}) => {
+  await withFixture(
+    async (directory, start) => {
+      const host = await start();
+      await host.prompt("reply");
+      const anchor = (await host.entries()).at(-1)!.id;
+      const after = host.records.length;
+      // After this reply, the run waits for the held job, which waits for its barrier.
+      await host.reply("held-job-barrier");
+      expect(host.records.slice(after).some(replies("background results 0"))).toBe(true);
+
+      await host.request({ type: "prompt", message: `/fixture-parent-fork ${anchor}` });
+      await host.wait((record) => record.type === "agent_settled", after);
+      expect(host.records.slice(after).some(isJobEnd)).toBe(false);
+
+      const ended = host.records.length;
+      await release(directory, "job-release");
+      await host.wait(isJobEnd, ended);
+      // The result waits for the next run.
+      expect(await host.jobResults()).toHaveLength(0);
       await host.prompt("reply");
       expect(await host.jobResults()).toHaveLength(1);
     },

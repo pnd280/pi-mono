@@ -366,6 +366,28 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
     }
   );
 
+  test("J6: a print run waits for a job with hold_run, and its result continues the run", async () => {
+    const directory = await createFixtureWorkspace({ settings: JOBS });
+
+    try {
+      const launch = await fixtureLaunch(directory);
+      // The job exits only after delivery waits for it, so the result needs the hold.
+      const child = promisify(execFile)(
+        launch.command,
+        [...launch.args, "--print", "held-job-waited"],
+        { ...launch.options, timeout: STEP_TIMEOUT_MS }
+      );
+      child.child.stdin?.end();
+      const { stdout } = await child;
+      expect(stdout).toContain("background results 1");
+      expect(stdout).toContain("Fixture job output");
+      expect(await remainingProcesses(directory)).toEqual([]);
+    } finally {
+      await killFixtureProcesses(directory);
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   test("J3: restores jobs on the selected ancestry, and a job without an end entry as cancelled", async () => {
     await withJobs(async (directory, start) => {
       const host = await start();

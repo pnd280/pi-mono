@@ -213,22 +213,35 @@ export function createJobRenderers(
   };
 }
 
-/** Where job results go: a supervisor that waits for results, or a run whose end stops its jobs. */
+const RESULT_ARRIVES =
+  "The result arrives automatically when the command exits; do not sleep or poll.";
+
+/**
+ * Where job results go: a supervisor that receives them later, or a run whose end stops the jobs
+ * that do not hold it.
+ */
 function jobDelivery(delivers: boolean): string {
   return delivers
-    ? "The result arrives automatically when the command exits; do not sleep or poll."
-    : "Jobs stop when your final reply ends this run. Use them only for processes you need during the run, such as a server you test. Run finite commands in the foreground.";
+    ? `${RESULT_ARRIVES} Set hold_run when you need the result before you finish.`
+    : "Set hold_run for a command whose result you need, such as a build or a test run: your run waits for the job, and the result arrives automatically; do not sleep or poll. Jobs without hold_run stop when your final reply ends this run, so use them only for processes that you need during the run, such as a server that you test.";
 }
 
-function jobStarted(logFile: string, delivers: boolean): string {
+/** What happens to the result of this job. */
+function jobStarted(logFile: string, delivers: boolean, hold: boolean): string {
+  let result = RESULT_ARRIVES;
+  if (hold) result = `Your run waits for this job after your final reply. ${RESULT_ARRIVES}`;
+  else if (!delivers)
+    result =
+      "If the job still runs when your final reply ends this run, it stops, and you receive no result.";
+
   return [
     `The job is running in the background. Its output goes to the log file ${logFile}`,
-    jobDelivery(delivers),
+    result,
     "Read the log file to check output while it runs. Stop the job with job_abort."
   ].join("\n");
 }
 
-/** Guidance for the model; `delivers` is false where the run's end stops its jobs. */
+/** Guidance for the model; `delivers` is false where the run's end stops jobs without `hold_run`. */
 function jobGuidance(delivers: boolean): string {
   return [
     "Run a shell command in the background, such as a build, a test run, a server, or a watcher. Returns at once with the job_id and the path of a log file that receives the command's output.",
@@ -272,7 +285,11 @@ export function createJobTool(
         content: [
           {
             type: "text" as const,
-            text: jobText(details, jobStarted(details.log_file, delivers), "Background job started")
+            text: jobText(
+              details,
+              jobStarted(details.log_file, delivers, parsed.data.hold_run === true),
+              "Background job started"
+            )
           }
         ],
         details
