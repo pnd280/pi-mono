@@ -13,7 +13,6 @@ import {
   type NativeSession
 } from "./compatibility.ts";
 import { findConfiguredModel, selectRule, type CompactConfig } from "./config.ts";
-import { focusSplitTurn } from "./instructions.ts";
 import type { SummaryModelEntry } from "./summary-model-entry.ts";
 
 export type CompactionModelOptions = {
@@ -25,7 +24,6 @@ export async function summarizeWithOverrides(
   session: NativeSession,
   summarize: DefaultCompaction,
   args: Readonly<Parameters<DefaultCompaction>>,
-  instructions: string | undefined,
   overrides: CompactionModelOptions | undefined
 ): Promise<{
   result: Awaited<ReturnType<DefaultCompaction>>;
@@ -58,7 +56,7 @@ export async function summarizeWithOverrides(
     model: `${selectedModel.provider}/${selectedModel.id}`,
     thinkingLevel: selectedModel.reasoning ? (inputThinkingLevel ?? session.thinkingLevel) : "off"
   } satisfies Pick<SummaryModelEntry, "model" | "thinkingLevel">;
-  if (!instructions && reference === undefined && inputThinkingLevel === undefined)
+  if (reference === undefined && inputThinkingLevel === undefined)
     return { result: await summarize(...args), selection };
 
   let requestModel = selectedModel;
@@ -82,7 +80,6 @@ export async function summarizeWithOverrides(
   try {
     hooks.replace(session.agent, "streamFunction", (model, context, options) => {
       if (!active || options?.signal !== args[3]) return stream(model, context, options);
-      const focused = instructions ? focusSplitTurn(context, instructions) : context;
       const configured = { ...options };
 
       if (requestThinkingLevel !== undefined) {
@@ -108,7 +105,7 @@ export async function summarizeWithOverrides(
         if (websocketTimeout !== undefined)
           configured.websocketConnectTimeoutMs ??= websocketTimeout;
 
-        return overrides.registry.streamSimple(model, focused, {
+        return overrides.registry.streamSimple(model, context, {
           ...configured,
           // The session stream normally dispatches this hook after provider auth.
           // Keep that ordering without carrying over conversation headers.
@@ -119,7 +116,7 @@ export async function summarizeWithOverrides(
         });
       }
 
-      return stream(model, focused, configured);
+      return stream(model, context, configured);
     });
 
     return {

@@ -2,29 +2,32 @@
 
 [Library index](../../README.md#usage)
 
-Store records that stay readable only by their owner, with coordinated writers.
+Extension records such as saved prompts must stay readable only by their owner, even when two Pi processes write them. [`@pi-mono/libs/private-files`](index.ts) enforces permissions and ACLs, resolves directory scopes, coordinates writers through locks, and replaces files atomically.
 
 ## Behaviour
 
-[`@pi-mono/libs/private-files`](index.ts) enforces permissions and ACLs, resolves directory scopes, coordinates writers through locks, and atomically replaces files.
+Directories use mode `0700` and files use mode `0600`. Reads may repair permissions and ACLs. Checks reject foreign ownership and final-path symlinks. Files also reject hard links and nonregular types.
 
-Directories use `0700`, files `0600`; reads may repair permissions and ACLs. Checks reject foreign ownership and final-path symlinks. Files also reject hard links and nonregular types. On native Windows, the user profile's ACL replaces the owner and permission checks; see [filesystem assumptions](#filesystem-assumptions).
+### Native Windows
+
+Native Windows has no POSIX owner IDs. There, the library trusts the user profile's inherited ACL instead of the owner and permission checks. The check compares directory identities, not path text, so a mounted folder or a sibling that differs only in case is outside the profile. `privateScopedDirectory` refuses a directory outside the profile with `PrivateFileError` before it creates it. Checks still refuse final-path links and junctions, hard-linked files, and nonregular types, but they do not check owners, change permissions, or read ACLs. The [Windows storage decision](../../docs/adr/0001-windows-private-storage.md) gives the threat model.
 
 ## Caller responsibilities
 
-Define record schemas and storage policy in the consumer. Translate raw OS exceptions before displaying them because they can expose paths. Only the library's [PrivateFileError diagnostics](errors.ts) use fixed messages.
+- Translate raw OS exceptions before you display them, because they can expose paths. Only the library's [PrivateFileError diagnostics](errors.ts) use fixed messages.
+- Define record schemas and storage policy in the consumer.
 
 ### Filesystem assumptions
 
-Use trusted private parents on local Linux, macOS, or WSL storage with POSIX owner checks and enforced permissions. Network filesystems and cross-machine coordination are unsupported.
+Network filesystems and cross-machine coordination are unsupported.
 
-Native Windows has no POSIX owner IDs. There, storage must be inside the user profile, on the profile's volume, and it trusts the profile's inherited ACL. The check compares directory identities, not path text, so a mounted folder or a sibling that differs only in case is outside. `privateScopedDirectory` refuses a directory outside the profile with `PrivateFileError` before it creates it. Checks still refuse final-path links and junctions, hard-linked files, and nonregular types, but they do not check owners, change permissions, or read ACLs. The [Windows storage decision](../../docs/adr/0001-windows-private-storage.md) gives the threat model.
-
-Follow the [filesystem and scope requirements](transactions.md#filesystem-assumptions) before storing records.
+- On Linux, macOS, or WSL, use trusted private parents on local storage with POSIX owner checks and enforced permissions.
+- On native Windows, keep storage inside the user profile and on the profile's volume.
+- Follow the [filesystem and scope requirements](transactions.md#filesystem-assumptions) before you store records.
 
 ### Mutation protocol
 
-Mutate records through [serialised transactions](transactions.md#serialised-transactions). Never retry a committed write solely because cleanup failed.
+Mutate records through [serialised transactions](transactions.md#serialised-transactions), which state when not to retry a write.
 
 ## Validation
 

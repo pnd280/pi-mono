@@ -2,12 +2,14 @@
 
 [pi-prompt-cloak](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline host checks). Live Anthropic acceptance is not covered.
+> Last verified against Pi 1.4.0 with package checks and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: the manual offline host checks and live Anthropic acceptance.
 
 ## Upgrade checklist
 
+Run the [manual checks](testing.md#manual-checks), then confirm each item.
+
 - [ ] The built-in `docs` heading and topic-to-file list still match the two entries in the [replacement table](../src/prompt-rewrites.ts).
 - [ ] `context_with_system` runs after the `before_agent_start` and `context` handlers, with a request-local copy of the complete transcript.
-- [ ] System messages expose documentation text through `sections.docs`, with `null` for section removal. Rewriting the two lines preserves all other text, section tags, removals, tool declarations, and message order.
+- [ ] System messages expose documentation text through `sections.docs`, with `null` for section removal.
+- [ ] Rewriting the two lines preserves all other text, section tags, removals, tool declarations, and message order.
 - [ ] A complete `systemPrompt` override from another extension still has the [documented precedence](../README.md#side-effects).
-- [ ] Run the [manual checks](testing.md#manual-checks).

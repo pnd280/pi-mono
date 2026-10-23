@@ -1,4 +1,6 @@
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { joinInputChain } from "@pi-mono/libs/input-chain";
+import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 
 import type * as BrowserModule from "./browser.ts";
 import { copyNative } from "./clipboard.ts";
@@ -14,20 +16,26 @@ let browserModule: Promise<typeof BrowserModule> | undefined;
 const loadBrowser = () => (browserModule ??= import("./browser.ts"));
 
 export default function promptManager(pi: ExtensionAPI): void {
+  const lifecycle = joinLifecycle(pi, { id: "pi-prompt-manager" });
+  const input = joinInputChain(pi, { id: "pi-prompt-manager" });
   let manager: PromptManager | undefined;
   let generation = 0;
+  let finishing: Promise<void> = Promise.resolve();
 
-  const dispose = async () => {
+  // Synchronous: new writes, UI updates, and callbacks stop before any shutdown handler awaits.
+  const revoke = () => {
     generation++;
     const previous = manager;
     manager = undefined;
-    await previous?.dispose();
+    if (previous) finishing = Promise.all([finishing, previous.dispose()]).then(() => undefined);
   };
 
-  pi.on("session_shutdown", dispose);
-  pi.on("session_start", async (_event, ctx) => {
+  // Started atomic writes finish and cancelled changes release their locks before Pi can exit.
+  lifecycle.onSessionShutdown(revoke, () => finishing);
+  lifecycle.onSessionStart(async (_event, ctx, arrival) => {
     const activation = generation + 1;
-    await dispose();
+    revoke();
+    await finishing;
     if (ctx.mode !== "tui" || activation !== generation) return;
     const agentDir = getAgentDir();
     const { settings, warnings } = await loadSettings(agentDir);
@@ -85,18 +93,19 @@ export default function promptManager(pi: ExtensionAPI): void {
     });
 
     for (const key of settings.shortcuts.history)
-      pi.registerShortcut(key, {
+      arrival.claimShortcut(key, {
         description: "Browse prompt history",
         handler: () => current.open("history")
       });
     for (const key of settings.shortcuts.saveDraft)
-      pi.registerShortcut(key, {
+      arrival.claimShortcut(key, {
         description: "Save exact editor draft",
         handler: () => current.saveEditor()
       });
     for (const warning of warnings) current.notify(`pi-prompt-manager: ${warning}`, "warning");
   });
-  pi.on("input", (event, ctx) => {
+  // Observers run before every input-chain transform, so history keeps the typed text.
+  input.observe((event, ctx) => {
     if (ctx.mode !== "tui" || event.source !== "interactive") return;
     manager?.capture(event.text);
   });

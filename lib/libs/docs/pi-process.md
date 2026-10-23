@@ -2,7 +2,7 @@
 
 [validation/pi-process](../src/validation/pi-process/README.md) · [@pi-mono/libs](../README.md)
 
-Pi keeps two content-keyed caches of compiled code under its `TMPDIR`: jiti's extension transpiles in `jiti` and Node's module compile cache in `node-compile-cache`. Without sharing, every launch in a new workspace compiles Pi and its extensions again.
+Read this when you change the cache setup or debug a slow or inconsistent validation launch. Pi keeps two content-keyed caches of compiled code under its `TMPDIR`: jiti's extension transpiles in `jiti` and Node's module compile cache in `node-compile-cache`. Without sharing, every launch in a new workspace compiles Pi and its extensions again.
 
 ## How launches share the caches
 

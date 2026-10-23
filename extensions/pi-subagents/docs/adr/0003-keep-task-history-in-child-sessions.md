@@ -42,7 +42,7 @@ For a new task, Pi keeps the marker in memory until the work prompt is persisted
 ### History
 
 - A task's runs on a branch are its `run` entries on the supervisor's selected ancestry. The latest of them sets the task state: running while its process is live in this binding, `end.outcome` when an `end` exists on the branch, and otherwise `cancelled`.
-- A run's entries are the child-file entries whose nearest marker ancestor is that run's marker. The run's final leaf is the last appended entry among the run's entries. The supervisor does not record the leaf: Pi's RPC stream reports message entries without their IDs.
+- A run's entries are the child-file entries whose nearest marker ancestor is that run's marker. The run's final leaf is the last appended entry among the run's entries. The supervisor does not record the leaf, because Pi's RPC stream reports message entries without their IDs.
 - After `begin`, the child extension cancels tree navigation, fork, and session switch, including the RPC `fork` and `new_session` commands. A run is therefore one chain that cannot leave its marker's subtree, and the rule above has one answer.
 - The viewer and `show` read the ancestry from the child file's root to the run's final leaf. One run reader supplies it: through the child's RPC connection while the run is live in this binding, and from the child file otherwise. A view keeps one transcript for each run of its task. `--last` uses Pi's model context on that ancestry. A cursor is an entry ID on that ancestry; any other cursor is an error.
 - A child's file is also its supervisor session. Its descendants are the `run` entries on the ancestry of the child's selected run. The panel, `list`, and `show` read descendant files recursively on demand, and they cache each parsed file by path, size, and modification time (extended by the [file-identity update](#file-identity-update)). The open panel reads them again every second, because a child that runs in another process can add descendants. A record from a live update or from this binding's own run replaces a record read from a file. A file names a run before the run's live update arrives, so the read of an active task stops at its run's marker, and that run's descendants come only from live updates.
@@ -58,7 +58,7 @@ Pi does not lock session files, and a child can outlive its supervisor until it 
 - Any contender can delete an entry whose processes are all dead. The original design relied on the unique name to protect live entries; the [file-identity update](#file-identity-update) corrects this assumption.
 - Right after spawn, the holder atomically replaces its entry to add the child PID. When it observes the child exit, it removes its entry and then the empty directory.
 - If the holder cannot remove its entry, such as on Windows while a virus scanner has it open, the process remembers the entry as released. Its own next contender for the file deletes the entry instead of counting it as live. Other processes still count it as live until this process exits.
-- Two simultaneous contenders can both fail, but two holders are impossible: the later listing always sees the earlier contender's live entry.
+- Two simultaneous contenders can both fail, but two holders are impossible, because the later listing always sees the earlier contender's live entry.
 - PID reuse can make a dead entry look live and block a resume until that process exits. It cannot admit a second writer.
 - The lease protects only cooperating supervisors. A manual `pi --session` on a child file is not covered.
 
@@ -74,7 +74,7 @@ Coordination messages travel only on the RPC streams. They are never persisted.
 - Pi runs an extension command immediately, even while the child streams, and adds no message for it. While the child runs `agent_settled` handlers, Pi defers prompts until the handlers finish, so no `agent_settled` handler may wait for a coordination reply.
 - The supervisor intercepts reserved status records before dialog forwarding. It checks the existing byte limits before parsing, validates the schema, and accepts records only from a connection with an active run. A child accepts reserved subcommands only when it runs as a child.
 - Every request has an ID bound to its connection and run. Capacity uses a request, a grant or denial, and an idempotent release. A child that no longer wants a grant releases it, and the supervisor releases every slot of a child subtree when that child process exits.
-- Slot requests do not use `ctx.ui.input`: a timed-out or aborted dialog is removed only in the child, and Pi ignores a later answer, so the supervisor could not learn that a grant was refused.
+- Slot requests do not use `ctx.ui.input`. A timed-out or aborted dialog is removed only in the child, and Pi ignores a later answer, so the supervisor could not learn that a grant was refused.
 - Active-descendant input keeps the existing rule: it retries only when no prompt was sent. A lost reply is reported, not retried.
 - A descendant update carries the descendant's full in-memory task record and is sent at most every 100 ms. The start and end of a run are sent at once, so a slot request cannot arrive before its task's record. Viewers of a descendant read its file again when its record changes.
 - The supervisor does not close a child's stdin while a coordination request with that child is pending.
@@ -87,13 +87,15 @@ Coordination messages travel only on the RPC streams. They are never persisted.
 
 ## Considered options
 
-- **Write checkpoints only at run end.** Each run would still store a full copy, each resume would still copy the file, and a crash would lose the whole run.
-- **Resume into a forked file that contains only the selected branch.** This needs no lease, but it still copies the branch on every resume.
-- **Pin the child leaf in the supervisor session after each child message.** This keeps exact history at parent fork points, but the supervisor session again grows with every child message.
-- **Keep persisted relay records.** Each descendant change would still add an entry to every ancestor session.
-- **Use a socket as the lease.** The operating system releases it at exit, but a stale socket file cannot be replaced without a race, and socket paths have length limits.
-- **Keep adoption without transfer records.** Two owners would continue one task ID on divergent branches of one file. A later operation can branch an inactive descendant into a new task of the caller in the same file without a format change.
-- **Derive run usage from the child file.** Interrupted runs would get a usage value, but a second calculation could disagree with the statistics delta that the tool result reports.
+| Option                                                                | Assessment                                                                                                                                                                                           |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Write checkpoints only at run end                                     | Each run would still store a full copy, each resume would still copy the file, and a crash would lose the whole run.                                                                                 |
+| Resume into a forked file that contains only the selected branch      | This needs no lease, but it still copies the branch on every resume.                                                                                                                                 |
+| Pin the child leaf in the supervisor session after each child message | This keeps exact history at parent fork points, but the supervisor session again grows with every child message.                                                                                     |
+| Keep persisted relay records                                          | Each descendant change would still add an entry to every ancestor session.                                                                                                                           |
+| Use a socket as the lease                                             | The operating system releases it at exit, but a stale socket file cannot be replaced without a race, and socket paths have length limits.                                                            |
+| Keep adoption without transfer records                                | Two owners would continue one task ID on divergent branches of one file. A later operation can branch an inactive descendant into a new task of the caller in the same file without a format change. |
+| Derive run usage from the child file                                  | Interrupted runs would get a usage value, but a second calculation could disagree with the statistics delta that the tool result reports.                                                            |
 
 ## Consequences
 
@@ -141,13 +143,24 @@ A temporary probe drove offline Pi 1.0.2 RPC children with a test extension. It 
 | Extension loading    | The same entry path in settings and `-e`, also as a directory in settings, gave one registration. A source path in `-e` with the package path in settings stopped Pi at startup with "Duplicate working-message id".                                                    |
 | Event coverage       | Source inspection: Pi emits `entry_appended` for custom entries, context edits, and boundary drafts, not for messages.                                                                                                                                                  |
 
-For the current verification scope, use the [compatibility checklist](../pi-compatibility.md). Later checks gave these results:
+Later checks gave the results below. For the current verification scope and the results of each Pi upgrade, use the [compatibility checklist](../pi-compatibility.md).
 
-- **Usage across runs:** An e2e test compares the task total with the sum of the runs' usage, live and after restart. The nested background test shows that late descendant usage reaches the run's `end` entry. A run's usage is the difference of two `get_session_stats` reads, and Pi counts every entry in the file, including compaction entries. An e2e test compacts a child with a compaction entry that carries usage; both `list` and `show` include that usage.
-- **Lease:** An e2e test resumes a task from a forked supervisor while a stubborn child runs, and again after the child's supervisor is killed. Both resumes fail and leave the file unchanged. After the processes exit, the next resume succeeds and removes the stale lease entries. A path alias was not tested: the lease uses the canonical path, and the `run` entries record one path.
-- **Protocol races:** A one-time probe ran 3,000 random timings of slot requests, cancellations, and exits through three relays. Grants arrived after cancellation 1,156 times, and 3,325 replies to closing children failed. No slot leaked, and admission never exceeded capacity. A child writes its control reply to stdout before Pi writes the command response, so the stream keeps their order.
-- **Pi 1.2.0:** The probe above was not rerun. A source comparison with Pi 1.0.2 found the session manager, RPC mode, session runtime, extension loader, tree navigation, extension-command handling, `entry_appended` emission, and session statistics unchanged. `agent_settled` gained an `aborted` field. The offline suite passes.
-- **Pi 1.3.0:** The probe above was not rerun. A source comparison with Pi 1.2.0 found the session manager, RPC mode, print mode, extension runner, extension types, and agent core unchanged. `AgentSession` changed only in restoring a resumed session's tool loadout from its transcript. A one-time probe resumed a session that recorded `subagent`: the tool stayed active, and it stayed inactive when the session resumed at `maxDepth`. The offline suite passes.
-- **Reader cost:** A one-time probe read a 54 MiB child file with 1,143 branched runs, nested run records, and a partial last line that ended inside a multibyte character. The first read took about 190 ms and 53 MiB of heap; a cached read took about 1 ms. The reader ignored the partial line, each run resumed at its final leaf, and a file over the 64 MiB limit was unavailable.
+### Usage across runs
+
+An e2e test compares the task total with the sum of the runs' usage, live and after restart. The nested background test shows that late descendant usage reaches the run's `end` entry. A run's usage is the difference of two `get_session_stats` reads, and Pi counts every entry in the file, including compaction entries. An e2e test compacts a child with a compaction entry that carries usage; both `list` and `show` include that usage.
+
+### Lease
+
+An e2e test resumes a task from a forked supervisor while a stubborn child runs, and again after the child's supervisor is killed. Both resumes fail and leave the file unchanged. After the processes exit, the next resume succeeds and removes the stale lease entries. A path alias was not tested: the lease uses the canonical path, and the `run` entries record one path.
+
+### Protocol races
+
+A one-time probe ran 3,000 random timings of slot requests, cancellations, and exits through three relays. Grants arrived after cancellation 1,156 times, and 3,325 replies to closing children failed. No slot leaked, and admission never exceeded capacity. A child writes its control reply to stdout before Pi writes the command response, so the stream keeps their order.
+
+### Reader cost
+
+A one-time probe read a 54 MiB child file with 1,143 branched runs, nested run records, and a partial last line that ended inside a multibyte character. The first read took about 190 ms and 53 MiB of heap; a cached read took about 1 ms. The reader ignored the partial line, each run resumed at its final leaf, and a file over the 64 MiB limit was unavailable.
+
+### Delayed reads
 
 A delayed read of one run that completes after the next run starts has no test. The run reader discards a read with an earlier run ID. Without that check, the earlier run would show for one refresh only, so the case is below the testing bar.

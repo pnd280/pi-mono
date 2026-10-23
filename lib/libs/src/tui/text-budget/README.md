@@ -10,7 +10,7 @@ Use [`text-budget`](index.ts) to wrap text synchronously and produce excerpts wi
 - `wrapHangingRows` wraps a first row beside a marker at one width and the remaining text at another, so continuation rows can take a tree prefix. It consumes each break once and retains explicit blank rows.
 - `compactRows` retains head and tail rows, reserving one budgeted row for the caller's omission notice.
 - `displayLine` normalises raw text into one compact line from a bounded prefix (2048 UTF-16 code units by default), appending `…` only when it clips.
-- `compactText` limits text passed to wrapping, keeping excerpts from the start and end.
+- `compactText` wraps text into at most `maxRows` rows. Text longer than `maxCharacters` UTF-16 code units is cut to excerpts from the start and end before wrapping. If `maxRows` is 1, only the notice remains, and the end excerpt needs at least three rows.
 
 Wrapping and suffix excerpts use Pi's SGR tracking. Its [styling limits](../terminal-text/README.md#behaviour) apply to continuation rows and reconstructed suffix styling.
 
@@ -20,9 +20,11 @@ Wrapping and suffix excerpts use Pi's SGR tracking. Its [styling limits](../term
 
 - Supply normalised text with only SGR styling, except to `displayLine`, which normalises its input. Use [terminal text utilities](../terminal-text/README.md) to normalise raw terminal output.
 - Own width, budgets, notices, styling, and exact source retention.
-- `compactRows` needs measured rows; reserve tree connector width before measurement.
+- Pass measured rows to `compactRows`.
+- Reserve tree connector width before measurement.
 - Use [text preview layout](../components/text-preview/README.md#behaviour) to wrap complete text cooperatively.
-- Connector placement belongs to [tree](../components/tree/README.md), and patch selection belongs to [diff view](../components/diff-view/README.md).
+
+Related: [tree](../components/tree/README.md) owns connector placement, and [diff view](../components/diff-view/README.md) owns patch selection.
 
 ## Usage
 

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
 
 import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
@@ -15,6 +16,7 @@ import { z } from "zod";
 import type { FileChange } from "./summary.ts";
 
 const WRITE_FAILURE = "File write failed; final contents were not observed.";
+const EXTERNAL_CHANGE = "File changed outside native edit and write between observed operations.";
 const RETAINED_BYTES = 16 * 1024 * 1024;
 const PATCH_LIMITS = {
   maxSourceBytes: 8 * 1024 * 1024,
@@ -88,6 +90,37 @@ async function mutationStatistics(path: string, mutation: FileMutation): Promise
   return statistics(path, result);
 }
 
+/** Digest of an observed endpoint, or undefined when its content is unknown. */
+function digest(source: FileObservation): string | undefined {
+  const text = observedSource(source);
+
+  return text === undefined ? undefined : createHash("sha256").update(text).digest("base64");
+}
+
+/** Per-operation endpoint digests prove that no unobserved writer changed the file in between. */
+type Link = {
+  sequence: number;
+  failed: boolean;
+  before: string | undefined;
+  after: string | undefined;
+};
+
+/** Returns a reason when consecutive operations do not continue each other's content. */
+function continuityReason(links: Link[]): string | undefined {
+  const ordered = [...links].sort((a, b) => a.sequence - b.sequence);
+
+  for (let index = 1; index < ordered.length; index++) {
+    if (ordered[index - 1]?.failed) return WRITE_FAILURE;
+    const previous = ordered[index - 1]?.after;
+    const next = ordered[index]?.before;
+    if (previous === undefined || next === undefined)
+      return "Complete source unavailable for net comparison.";
+    if (previous !== next) return EXTERNAL_CHANGE;
+  }
+
+  return undefined;
+}
+
 type ObservedFile = {
   firstSequence: number;
   lastSequence: number;
@@ -96,6 +129,7 @@ type ObservedFile = {
   after: string | undefined;
   created: boolean;
   bytes: number;
+  links: Link[];
   single: Promise<FileChange>;
   firstReason?: string | undefined;
   lastReason?: string | undefined;
@@ -142,6 +176,7 @@ export class RunChanges implements MutationSink {
       after,
       created: mutation.before.status === "missing",
       bytes: 0,
+      links: [],
       single,
       firstReason: beforeReason,
       lastReason: afterReason
@@ -161,6 +196,12 @@ export class RunChanges implements MutationSink {
     }
 
     file.count++;
+    file.links.push({
+      sequence: mutation.sequence,
+      failed: mutation.outcome === "failure",
+      before: digest(mutation.before),
+      after: mutation.outcome === "success" ? digest(mutation.after) : undefined
+    });
     this.retainedBytes -= file.bytes;
     // UTF-16 code units conservatively budget retained JS strings, not just UTF-8 disk bytes.
     file.bytes = 2 * ((file.before?.length ?? 0) + (file.after?.length ?? 0));
@@ -185,7 +226,12 @@ export class RunChanges implements MutationSink {
     this.retainedBytes = 0;
 
     for (const [path, file] of files) {
-      const reason = file.retentionReason ?? file.firstReason ?? file.lastReason;
+      // Check continuity first: an unobserved revert must not hide native changes as "unchanged".
+      const reason =
+        file.retentionReason ??
+        file.firstReason ??
+        file.lastReason ??
+        (file.count > 1 ? continuityReason(file.links) : undefined);
       if (!reason && !file.created && file.before !== undefined && file.before === file.after)
         continue;
       if (file.count === 1) changes.push(await file.single);

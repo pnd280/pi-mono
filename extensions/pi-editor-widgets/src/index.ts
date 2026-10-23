@@ -37,7 +37,7 @@ export default function editorWidgets(pi: ExtensionAPI): void {
       binding = findWidgetHost(ctx.ui);
       if (!binding)
         throw new Error(
-          "pi-editor-widgets: unsupported Pi widget registry. Use Pi 1.3.0 and /reload, or disable the extension. Native UI was left unchanged."
+          "pi-editor-widgets: unsupported Pi widget registry. Use Pi 1.4.0 and /reload, or disable the extension. Native UI was left unchanged."
         );
       coordinator = new WidgetCoordinator(binding.host, binding.theme, (message) =>
         notify(ctx, message)

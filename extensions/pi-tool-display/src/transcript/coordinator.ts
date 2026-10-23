@@ -15,7 +15,6 @@ import {
   type DisplayRun,
   type ExplorationScope,
   type Lifecycle,
-  type LocalDetails,
   type Outcome,
   type SavedOutput,
   type SummaryNotice,
@@ -162,6 +161,26 @@ export class TranscriptCoordinator implements TranscriptView {
       this.state.get(key) ?? (origin === "live" ? this.liveIdentities.get(identity) : undefined);
 
     if (existing) {
+      // Final middleware can also replace the tool at the same position. Pi executes
+      // the final tool, so its name and display adapter replace the streamed ones.
+      const renamed = existing.name !== name;
+
+      if (renamed) {
+        const previous = JSON.stringify([
+          existing.reference.messageTimestamp,
+          existing.reference.toolCallId,
+          existing.name
+        ]);
+
+        if (this.liveIdentities.get(previous) === existing) {
+          this.liveIdentities.delete(previous);
+          this.liveIdentities.set(identity, existing);
+        }
+
+        existing.name = name;
+        existing.adapter = adapter;
+      }
+
       const referenceChanged =
         existing.reference.messageTimestamp !== reference.messageTimestamp ||
         existing.reference.contentIndex !== reference.contentIndex ||
@@ -169,7 +188,7 @@ export class TranscriptCoordinator implements TranscriptView {
         existing.reference.messageEntryId !== reference.messageEntryId;
       if (referenceChanged) existing.reference = { ...reference };
       this.rawArgs.set(existing, args);
-      if (this.validate(existing, validated)) this.changed(existing);
+      if (this.validate(existing, validated) || renamed) this.changed(existing);
 
       return existing;
     }
@@ -304,9 +323,10 @@ export class TranscriptCoordinator implements TranscriptView {
     this.regroupBoundaries(changed("group"));
     this.repartitionRuns(changed("run"));
   }
-  /** Cached until an interpreted input changes; identities use the call's cwd. */
+  /** Cached until an interpreted input changes; identities use the session cwd. */
   interpretation(call: DisplayCall): CallInterpretation {
     const inputs = [
+      call.name,
       call.adapter,
       call.args,
       call.result,
@@ -314,15 +334,14 @@ export class TranscriptCoordinator implements TranscriptView {
       call.outcome,
       call.cancellation,
       call.operation,
-      call.change,
-      call.cwd
+      call.change
     ];
     const cached = this.interpretations.get(call);
     if (cached?.inputs.every((input, index) => Object.is(input, inputs[index])))
       return cached.value;
     const run = this.runs.get(call.key);
     if (run) delete run.summary;
-    const value = interpret(call, call.cwd ?? this.cwd, this.evaluator(call));
+    const value = interpret(call, this.cwd, this.evaluator(call));
     this.interpretations.set(call, { inputs, value });
 
     return value;
@@ -481,7 +500,8 @@ export class TranscriptCoordinator implements TranscriptView {
     view: DisplayCall,
     result: AgentToolResult<unknown>,
     outcome: Outcome,
-    partial = false
+    partial = false,
+    durationMs?: number
   ): void {
     const call = this.mutable(view);
     if (!call || (partial && !isLive(call))) return;
@@ -495,6 +515,8 @@ export class TranscriptCoordinator implements TranscriptView {
       call.lifecycle = "complete";
       call.outcome = outcome;
       call.liveOutput = undefined;
+      if (durationMs === undefined) delete call.durationMs;
+      else call.durationMs = durationMs;
     }
 
     this.changed(call);
@@ -519,18 +541,6 @@ export class TranscriptCoordinator implements TranscriptView {
     const call = this.mutable(view);
     if (!call || call.reference.messageEntryId === messageEntryId) return;
     call.reference = { ...call.reference, messageEntryId };
-    this.changed(call);
-  }
-  setCwd(view: DisplayCall, cwd: string): void {
-    const call = this.mutable(view);
-    if (!call || call.cwd === cwd) return;
-    call.cwd = cwd;
-    this.changed(call);
-  }
-  setLocal(view: DisplayCall, local: LocalDetails): void {
-    const call = this.mutable(view);
-    if (!call || call.local === local) return;
-    call.local = local;
     this.changed(call);
   }
   setSavedPath(view: DisplayCall, path: string): void {

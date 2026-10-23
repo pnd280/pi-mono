@@ -1,10 +1,5 @@
-import {
-  CustomEditor,
-  keyText,
-  type ExtensionAPI,
-  type KeybindingsManager
-} from "@earendil-works/pi-coding-agent";
-import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
+import { CustomEditor, keyText, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { EditorComponent } from "@earendil-works/pi-tui";
 import { TimedConfirmation } from "@pi-mono/libs/timed-confirmation";
 import { overrideWorkingMessage } from "@pi-mono/libs/working-message";
 
@@ -12,33 +7,31 @@ const interrupt = "app.interrupt";
 // Long enough to read the hint before the second press.
 const confirmationMs = 1500;
 
-/** Pi's editor, except that it can hold back an interrupt press. */
-class AbortGuardEditor extends CustomEditor {
-  constructor(
-    tui: TUI,
-    theme: EditorTheme,
-    keys: KeybindingsManager,
-    private readonly holdInterrupt: () => boolean
-  ) {
-    // Pi's default editor draws the working status in its top border.
-    super(tui, theme, keys, { embedWorkingStatus: false });
-  }
+/** Holds back interrupt presses in an editor that Pi or an earlier extension built. */
+function guardEditor(editor: EditorComponent, holdInterrupt: () => boolean): void {
+  // Pi's default editor, and an earlier extension's, can draw the working status in the top border.
+  if ("embedWorkingStatus" in editor)
+    Object.assign(editor, { embedWorkingStatus: false } satisfies Partial<CustomEditor>);
 
-  override handleInput(data: string): void {
-    // Let Pi resolve shortcuts, paste bindings, and autocomplete before guarding an interrupt.
-    const onEscape = this.onEscape;
+  const handleInput = editor.handleInput.bind(editor);
+  const guarded: EditorComponent & Partial<Pick<CustomEditor, "onEscape">> = editor;
+
+  guarded.handleInput = (data) => {
+    // Pi sets onEscape after the factory returns, so read it at key time.
+    // Let the editor resolve shortcuts, paste bindings, and autocomplete before guarding an interrupt.
+    const onEscape = guarded.onEscape;
 
     if (onEscape)
-      this.onEscape = () => {
-        if (!this.holdInterrupt()) onEscape();
+      guarded.onEscape = () => {
+        if (!holdInterrupt()) onEscape();
       };
 
     try {
-      super.handleInput(data);
+      handleInput(data);
     } finally {
-      if (onEscape) this.onEscape = onEscape;
+      if (onEscape) guarded.onEscape = onEscape;
     }
-  }
+  };
 }
 
 export default function abortGuard(pi: ExtensionAPI): void {
@@ -47,16 +40,6 @@ export default function abortGuard(pi: ExtensionAPI): void {
 
   pi.on("session_start", (_event, ctx) => {
     if (ctx.mode !== "tui") return;
-
-    // Pi clears the editor factory before session_start, so this one belongs to another extension.
-    if (ctx.ui.getEditorComponent()) {
-      ctx.ui.notify(
-        "pi-abort-guard: another extension replaced the editor; one press still interrupts.",
-        "warning"
-      );
-
-      return;
-    }
 
     const clearHint = () => hint.setText();
     const pending = new TimedConfirmation<typeof interrupt>({
@@ -80,9 +63,16 @@ export default function abortGuard(pi: ExtensionAPI): void {
       return true;
     };
 
-    ctx.ui.setEditorComponent(
-      (tui, theme, keybindings) => new AbortGuardEditor(tui, theme, keybindings, holdInterrupt)
-    );
+    // Pi clears the factory before session_start, so a previous one belongs to an earlier extension.
+    const previous = ctx.ui.getEditorComponent();
+    ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+      const editor =
+        previous?.(tui, theme, keybindings) ??
+        new CustomEditor(tui, theme, keybindings, { embedWorkingStatus: false });
+      guardEditor(editor, holdInterrupt);
+
+      return editor;
+    });
   });
 
   // A press near the end of one operation must not count toward the next one.
@@ -92,6 +82,10 @@ export default function abortGuard(pi: ExtensionAPI): void {
     hint.setText();
   };
 
+  // A failed branch summary emits no terminal event, so also clear when the next operation starts.
+  pi.on("agent_start", clearConfirmation);
+  pi.on("session_before_compact", clearConfirmation);
+  pi.on("session_before_tree", clearConfirmation);
   pi.on("agent_settled", clearConfirmation);
   pi.on("session_compact", clearConfirmation);
   pi.on("session_compact_failed", clearConfirmation);

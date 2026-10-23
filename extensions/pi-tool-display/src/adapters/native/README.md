@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
 
-Specialised cards cover Pi's own tools: shell previews with status and duration, file diffs, and grouped reads and searches. This page documents the adapter contract for its maintainers; if you use Pi's own tools, read [Display](#display) for how their calls appear.
+Specialised cards cover Pi's own tools: shell previews with status and duration, file diffs, and grouped reads and searches. See [native tool cards](../../../docs/tools.md#native-tools).
 
 ## Compatibility and selection
 
@@ -18,15 +18,7 @@ Concrete targets use Pi's Unicode-space normalisation before lexical resolution 
 
 ## Display
 
-See the shared [exploration-group rules](../../../docs/presentation.md#groups), [target formatting](../../../docs/presentation.md#card-layout), and [result presentation](../../../docs/presentation.md#results).
-
-Observed shells show the recorded status and duration; missing codes stay unknown. When the duration stayed on another machine, `Timing not on this machine` replaces it. Output text alone never establishes status.
-
-Image omission warnings and fallbacks remain available when Pi cannot display images.
-
-Recognised read continuation and byte-limit fallback instructions remain visible in compact cards and groups. This includes fractional, negative, and exponent-form continuation values. Expansion restores them once in the retained text.
-
-Diagnostic bodies and failure markers use error styling without recolouring preceding process output.
+[Native tool cards](../../../docs/tools.md#native-tools) describes what users see. The shared exploration-group, target-formatting, and result rules of [tool card presentation](../../../docs/presentation.md) apply.
 
 ### Text-envelope provenance
 

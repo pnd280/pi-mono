@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../../../README.md) · [Adapter development](../../../../docs/adapters.md)
 
-MCP server tools from Pi's built-in MCP extension appear as cards with the server and tool name, the arguments, and an output preview. This page documents the adapter contract for its maintainers; if you use Pi's MCP support, read [Display](#display) for how its calls appear.
+MCP server tools from Pi's built-in MCP extension appear as cards with the server and tool name, the arguments, and an output preview. See [MCP tool cards](../../../../docs/tools.md#mcp-tools).
 
 ## Compatibility and selection
 
@@ -10,24 +10,20 @@ The adapter matches MCP server tools registered by Pi's built-in MCP extension: 
 
 The extension's resource tools (`list_mcp_resources`, `list_mcp_resource_templates`, `read_mcp_resource`) have no namespace and stay unmatched; they use generic cards. [`pi-mcp-adapter`](../../pi-mcp-adapter/README.md) tools have their own adapter. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 
-Pi 1.3.0 replaces every character outside `[A-Za-z0-9_]` with `_` and adds a hash suffix to colliding or overlong tool names; exact-name override keys must use the registered names. Default MCP exposure is `codemode`, with tool discovery through `searchTools()` or `ALL_TOOLS` rather than inline declarations.
+Pi 1.4.0 replaces every character outside `[A-Za-z0-9_]` with `_` and adds a hash suffix to colliding or overlong tool names. [MCP tool cards](../../../../docs/tools.md#mcp-tools) tells users which names override keys need. Default MCP exposure is `codemode`, with tool discovery through `searchTools()` or `ALL_TOOLS` rather than inline declarations.
 
 ## Display
 
-The adapter replaces Pi's own MCP renderer. Pending calls show Pi's tool name, such as `mcp__exa__web_search_exa`, because sanitised names may end in a hash and are never decoded. Results and progress updates carry `details.server` and `details.tool`, which switch the heading to the unsanitised `server.tool`, even when the result has no content. Arguments always stay visible, regardless of `showParameters`.
+[MCP tool cards](../../../../docs/tools.md#mcp-tools) describes what users see. Results and progress updates carry `details.server` and `details.tool`, which supply the unsanitised `server.tool` heading. Output uses the [MCP facts](../../../../docs/renderers.md#mcp-facts) preview. Pi's error flag marks returned MCP errors and thrown calls as failures.
 
-Output uses the ordinary [MCP facts](../../../../docs/renderers.md#mcp-facts) preview. Pi's error flag marks returned MCP errors and thrown calls as failures. Thrown or blocked calls carry an empty details object and keep Pi's tool name. Missing details are also accepted. Other detail shapes use generic cards.
+Thrown or blocked calls carry an empty details object. Missing details are also accepted. Other detail shapes use generic cards.
 
-When Pi truncated the output and saved it, compact cards use `details.fullOutputPath` to add an "MCP output truncated; expand to inspect retained output." warning and a "Saved output" reference. Expanded cards keep Pi's warning and reference in the retained output without adding them again. If saving failed, Pi records nothing structured, so the card adds no notice; the truncation text remains in the output.
-
-## Summary mode
-
-Every call counts once in the shared MCP category, together with `pi-mcp-adapter` calls.
+The truncation warning and "Saved output" reference come from `details.fullOutputPath`. If saving failed, Pi records nothing structured, so the card adds no notice.
 
 ## Limitations
 
-The adapter never reads saved output or connects to servers. Calls made inside codemode scripts appear only in the [codemode card](../codemode/README.md)'s nested-call list.
+The adapter never reads saved output or connects to servers.
 
 ## Validation
 
-Run [package validation](../../../../README.md#validation). The [colocated fixture](index.test.ts) mirrors Pi 1.3.0's private `createMcpToolDefinition` projection without opening a connection. The [offline host test](../../../../validation/mcp.test.ts) loads `builtin:mcp` and discovers a local stdio server through codemode, checking selection and original identities for normalised, collision-suffixed names. Recheck both boundaries when upgrading Pi; neither establishes external-service compatibility.
+The [colocated fixture](index.test.ts) mirrors Pi 1.4.0's private `createMcpToolDefinition` projection without opening a connection, and checks that rendering leaves arguments and results unchanged. No automated test covers discovery through codemode or selection for normalised, collision-suffixed names. Recheck them and the fixture's projection with the [nested-execution contracts](../../../../docs/pi-compatibility.md#nested-execution) when upgrading Pi. These checks do not establish external-service compatibility.

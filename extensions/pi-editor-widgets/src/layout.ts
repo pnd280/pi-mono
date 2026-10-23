@@ -82,20 +82,22 @@ export function resolveLayout(
   }
 
   const statuses: string[] = [];
+  const widgets: Placement[] = [];
 
-  for (const { id, region } of contributions) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    if (id.startsWith("status:")) statuses.push(id);
-    else layout[region].push([id]);
+  for (const contribution of contributions) {
+    if (seen.has(contribution.id)) continue;
+    seen.add(contribution.id);
+    if (contribution.id.startsWith("status:")) statuses.push(contribution.id);
+    else widgets.push(contribution);
   }
 
+  // Sorted in code unit order, so the placement follows neither the registration order of
+  // extensions nor the locale. IDs are unique here, so no two compare equal.
+  for (const { id, region } of widgets.sort((a, b) => (a.id < b.id ? -1 : 1)))
+    layout[region].push([id]);
+
   if (statuses.length)
-    layout.footer.push(
-      statuses
-        .sort((a, b) => a.localeCompare(b))
-        .flatMap((id, index) => (index ? ["separator", id] : [id]))
-    );
+    layout.footer.push(statuses.sort().flatMap((id, index) => (index ? ["separator", id] : [id])));
 
   return layout;
 }

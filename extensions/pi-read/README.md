@@ -1,6 +1,6 @@
 # pi-read
 
-The model can point at an exact span of code while reading a file, such as `src/example.ts:12:4-15:9`. Pi's `read` gains a `selection` argument: the result keeps the usual surrounding lines, adds a short preview of just the selected span, and highlights the span when you expand the read.
+The model can point at an exact span of code while reading a file, such as `src/example.ts:12:4-15:9`. Pi's `read` gains a `selection` argument. The result keeps the usual surrounding lines, adds a short preview of just the selected span, and highlights the span when you expand the read.
 
 ## Usage
 
@@ -32,7 +32,7 @@ Put the filename in `path`, the span in `selection`, and the lines to read in `o
 
 ### Preview
 
-The preview is appended after the file content, which is left unchanged.
+The extension appends the preview after the file content and leaves the content unchanged.
 
 - It shows at most five lines, and 500 code points per line, with `…` marking omissions.
 - If the selection extends beyond the read window, the preview may be partial.
@@ -53,11 +53,11 @@ Don't load another `read` replacement alongside this extension.
 
 With [pi-tool-display](../pi-tool-display/README.md#configuration), choose how reads render with `rendererOverrides.read`:
 
-| Value            | Rendering                                                                                                                                                        |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auto` (default) | The [selective-read adapter](../pi-tool-display/src/adapters/pi-read/README.md) groups compatible reads and highlights selections without repeating the preview. |
-| `original`       | This extension's own rendering, ungrouped.                                                                                                                       |
-| `generic`        | No highlighting, and the appended preview is shown.                                                                                                              |
+| Value            | Rendering                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auto` (default) | [Selective-read cards](../pi-tool-display/docs/tools.md#selective-read) group compatible reads and highlight selections without repeating the preview. |
+| `original`       | This extension's own rendering, ungrouped.                                                                                                             |
+| `generic`        | No highlighting, and the appended preview is shown.                                                                                                    |
 
 ## Validation
 

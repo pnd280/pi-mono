@@ -2,7 +2,7 @@
 
 [pi-model-prompt](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline host tests). Not covered: live providers and manual terminal checks.
+> Last verified against Pi 1.4.0 with the package checks, the offline host tests, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: live providers and manual terminal checks.
 
 ## Upgrade procedure
 
@@ -11,24 +11,30 @@
 
 ## Checklist
 
-The extension adds to the public `before_agent_start` prompt options of Pi 1.3.0. It leaves `APPEND_SYSTEM.md` discovery to Pi.
+The extension adds to the public `before_agent_start` prompt options of Pi 1.4.0. It leaves `APPEND_SYSTEM.md` discovery to Pi.
 
 ### Prompt files
 
-[Session snapshot](../src/model-prompt.ts):
+The [session snapshot](../src/model-prompt.ts) reads the listed files the way Pi reads its append files, so it must follow these Pi contracts.
 
-- [ ] Pi still strips a byte-order mark from append files, which the listed files mirror.
-- [ ] Pi still joins several append sources with `\n\n`, which the listed files mirror.
+- [ ] Pi strips a byte-order mark from append files.
+- [ ] Pi joins several append sources with `\n\n`.
 
 ### Prompt and lifecycle
 
-- [ ] [Prompt adapter](../src/index.ts): `before_agent_start`, for both user and custom-message runs, exposes a writable `systemPromptOptions.appendSystemPrompt` with Pi's append text and earlier extensions' changes, and `ctx.model` is the model for the run. Under a virtual model, it is the selected virtual model, and routing still happens later, per request.
-- [ ] Pi builds new `systemPromptOptions` from its loaded append text for each run, so additions don't build up across runs.
-- [ ] [Lifecycle](../src/index.ts): `session_start` fires on startup and `/reload`.
-- [ ] [Agent directory](../src/index.ts): `getAgentDir()` honours `PI_CODING_AGENT_DIR`.
+The [prompt adapter](../src/index.ts) relies on these contracts. The [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator appends the rank `100` part to `systemPromptOptions.appendSystemPrompt`.
+
+- [ ] `before_agent_start`, for both user and custom-message runs, exposes a writable `systemPromptOptions.appendSystemPrompt` that holds Pi's append text and earlier extensions' changes.
+- [ ] In `before_agent_start`, `ctx.model` is the model for the run when the coordinator calls the part.
+- [ ] Under a virtual model, `ctx.model` in `before_agent_start` is the selected virtual model, and Pi routes later, per request.
+- [ ] Pi builds new `systemPromptOptions` from its loaded append text for each run.
+- [ ] `session_start` fires on startup and `/reload`.
+- [ ] `getAgentDir()` honours `PI_CODING_AGENT_DIR`.
+
+If Pi reused `systemPromptOptions` across runs, the additions would build up. The settings and file reads run in `session_start`, and the agent directory comes from `getAgentDir()`.
 
 ## Limitations
 
-- Rules match the selected virtual model, not the physical model it routes to; see [virtual models](virtual-models.md). In Pi 1.3.0, `context` and `context_with_system` run after routing, but their `ctx.model` is still the selected virtual model. `context_with_system` can change system messages per request without knowing the routed model, and `before_provider_request` receives only a provider-specific payload. If Pi exposes the routed model to a provider-neutral hook, reconsider physical-model rules, keeping in mind that changing system text between requests can reduce prompt-cache reuse.
+- Rules match the selected virtual model, not the physical model it routes to; see [virtual models](virtual-models.md). In Pi 1.4.0, `context` and `context_with_system` run after routing, but their `ctx.model` is still the selected virtual model. `context_with_system` can change system messages per request without knowing the routed model, and `before_provider_request` receives only a provider-specific payload. If Pi exposes the routed model to a provider-neutral hook, reconsider physical-model rules, keeping in mind that changing system text between requests can reduce prompt-cache reuse.
 - The extension uses `getAgentDir()`, not the SDK resource loader's directory override, so SDK hosts with a custom `agentDir` must set `PI_CODING_AGENT_DIR` to match.
 - If Pi adds native model-specific prompt files, remove this extension.

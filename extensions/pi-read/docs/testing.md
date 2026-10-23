@@ -1,14 +1,15 @@
-# Selective-read test coverage
+# Selective-read test coverage for maintainers
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests selection validation and the guard around Pi's native `read`, preview bounds, and the [`pi-read/result` contract](result.md). [Tool display](../../pi-tool-display/docs/testing.md) owns adapter recognition and grouped rendering; Pi owns file access and images.
+This package tests selection validation, the guard around Pi's native `read`, preview bounds, and the [`pi-read/result` contract](result.md), while [tool display](../../pi-tool-display/docs/testing.md) owns adapter recognition and grouped rendering and Pi owns file access and images.
 
 ## Must not regress
 
 - **High, unit:** Selections require positive safe integers and ordered ranges, and reject unknown fields, before native execution.
 - **High, unit:** Selections use absolute one-based lines and one-based Unicode code-point columns with exclusive ends for preview text and corresponding UTF-16 highlight ranges.
-- **High, unit:** The native tool executes once with the independent read window and the caller's cancellation signal and update callback, without a second read. Native failures propagate to the caller.
+- **High, unit:** The native tool executes once with the independent read window and the caller's cancellation signal and update callback, without a second read.
+- **High, unit:** Native failures propagate to the caller.
 - **High, unit:** Adding a preview preserves native content blocks and unrelated details.
 - **High, unit:** Preview bounds come from the source actually returned, not the requested limits, and exclude native continuation and truncation notices.
 - **High, unit:** Only validated preview provenance hides an appended preview, so unmarked source and literal preview lookalikes stay visible.
@@ -16,15 +17,16 @@ This package tests selection validation and the guard around Pi's native `read`,
 
 ## Not tested
 
-- Schema projection, preview formatting, empty-selection notices, and highlight rendering: below the severity bar.
-- Pi's filesystem implementation: owned by Pi.
+- Schema projection, preview formatting, empty-selection notices, highlight rendering, and native rendering of errors, partial results, and images are below the severity bar.
+- Pi owns its filesystem implementation.
 
 ## Manual checks
 
 Check appearance changes by hand. Setup: in Pi, read a file with a multiline selection that includes tabs and wide characters.
 
-| Do                                    | Expect                                                    |
-| ------------------------------------- | --------------------------------------------------------- |
-| View the read collapsed and expanded. | Context stays visible, and the preview isn't shown twice. |
-| Narrow the terminal.                  | Highlighting stays on the selected span.                  |
-| Switch between light and dark themes. | The highlight is readable in both.                        |
+| Do                                                 | Expect                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------ |
+| View the read collapsed and expanded.              | Context stays visible, and the preview isn't shown twice.          |
+| Narrow the terminal.                               | Highlighting stays on the selected span.                           |
+| Switch between light and dark themes.              | The highlight is readable in both.                                 |
+| Read an image and a missing file with a selection. | Each card matches Pi's native read and shows no selection preview. |

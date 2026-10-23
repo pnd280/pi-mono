@@ -7,7 +7,7 @@
 `persist` and `create-empty-child` fail straight away when the agent is busy, instead of queueing.
 
 - If the parent file exists, `create-empty-child` may suggest running `pi --parent-session` in another terminal.
-- When the parent path contains control characters, it asks you to retry once idle instead, rather than offering a command that would be unsafe to copy.
+- When the parent path contains control characters, it asks you to retry once idle, rather than offering a command that would be unsafe to copy.
 - On native Windows it also asks you to retry once idle, because the suggested command uses POSIX shell quoting.
 
 ## Parent lookup from the CLI
@@ -15,7 +15,7 @@
 `--parent-session` accepts a path or an exact session ID.
 
 - Paths resolve from the launch directory, and `~/` is supported.
-- IDs must be exact, not prefixes. They're looked up in Pi's default session directories and the active custom session directory.
+- IDs must be exact, not prefixes. The extension looks them up in Pi's default session directories and the active custom session directory.
 - A missing or ambiguous ID stops startup. For a parent elsewhere, pass its path.
 - Lookup never modifies parent files.
 - The child starts empty, in the launch directory, even when the parent belongs to another project.

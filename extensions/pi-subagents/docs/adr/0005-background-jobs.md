@@ -4,12 +4,12 @@
 
 A model needs long commands, such as builds, test runs, servers, and watchers, to run while it continues its work. A [job](../../GLOSSARY.md#tasks-and-processes) is such a command. It has its own `job` and `job_abort` tools, its own registry, and its own session entries. Built-in `bash` does not change.
 
-The runner and full-output log policy below are superseded by [ADR 0007](0007-own-job-processes-and-bound-logs.md). The tool, delivery, and session-history decisions remain in effect.
+The runner and full-output log policy below are superseded by [ADR 0007](0007-own-job-processes-and-bound-logs.md). [ADR 0008](0008-hold-run-for-marked-jobs.md) supersedes the decisions that jobs do not hold the run and that the working message does not show jobs, and the consequence that print and JSON supervisors and children never wait for jobs. The other tool, delivery, and session-history decisions remain in effect.
 
 ## Decision
 
 - `job` runs the command with Pi's public `createBashToolDefinition` and a wrapper of `createLocalBashOperations`. The wrapper also writes the output to the job's log file. The job owns its abort controller, so a turn abort does not stop it. `job_abort` aborts that controller, and Pi then stops the shell's process group.
-- Jobs do not hold the run: only the [result source](../../GLOSSARY.md#results) of tasks holds it, while a direct background task runs, so jobs do not extend the wait of [ADR 0001](0001-hold-run-for-background-results.md).
+- Jobs do not hold the run. Only the [result source](../../GLOSSARY.md#results) of tasks holds it, while a direct background task runs, so jobs do not extend the wait of [ADR 0001](0001-hold-run-for-background-results.md).
 - The working message does not show jobs.
 - Task and job results share the delivery queue and the delivery boundaries of [ADR 0006](0006-deliver-background-results-at-turn-end.md).
 - The result body names the job's error, such as `exit code 143 (SIGTERM)` or a log write failure, before the log file path. Pi gives the result's details only to the interface. Without this line, the model sees a log write failure only as `failed` with exit code 0. Pi's text already names a plain exit code, a timeout, an abort, or a start failure, so the body does not repeat these.

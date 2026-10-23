@@ -20,7 +20,6 @@ import type { ParsedPatch } from "@pi-mono/utils/patch";
 import type {
   BorrowedToolResult,
   DisplayNotice,
-  LocalDetails,
   McpFacts,
   NestedCall,
   ResultTextPart
@@ -412,26 +411,41 @@ function mcpItems(facts: McpFacts, p: Projection): TreeItem[] {
     } as const
   )[p.outcome];
 
+  // Consecutive text blocks share one compact budget, as in generic results.
+  let run: ResultTextPart[] = [];
+
+  const flushRun = () => {
+    if (run.length) items.push({ rows: resultPartRows(run, p, 10, { outputColor: color }) });
+    run = [];
+  };
+
   for (const block of facts.content) {
+    if (block.type === "text") {
+      if (replacesOutput(p)) continue;
+      if (run.length) run.push({ kind: "output", text: "\n" });
+      run.push({ kind: "output", text: block.text });
+      continue;
+    }
+
+    flushRun();
+
     if (block.type === "media") {
       const text = `${reference("[Media: ", block.mimeType, p)}${p.theme.fg("dim", "]")}`;
       items.push({ rows: output(text, p, Number.MAX_SAFE_INTEGER) });
       continue;
     }
 
-    if (block.type === "text" && replacesOutput(p)) continue;
-    const parts: ResultTextPart[] =
-      block.type === "text"
-        ? [{ kind: "output", text: block.text }]
-        : [
-            { kind: "annotation", text: "Resource: " },
-            { kind: "value", text: block.uri },
-            ...(block.text && !replacesOutput(p)
-              ? [{ kind: "output" as const, text: `\n${block.text}` }]
-              : [])
-          ];
+    const parts: ResultTextPart[] = [
+      { kind: "annotation", text: "Resource: " },
+      { kind: "value", text: block.uri },
+      ...(block.text && !replacesOutput(p)
+        ? [{ kind: "output" as const, text: `\n${block.text}` }]
+        : [])
+    ];
     items.push({ rows: resultPartRows(parts, p, 10, { outputColor: color }) });
   }
+
+  flushRun();
 
   return items;
 }
@@ -701,22 +715,11 @@ function appendDetails(items: TreeItem[], rows: string[]): void {
   else items.push({ rows: [...rows] });
 }
 
-const localNotices: Partial<Record<LocalDetails, string>> = {
-  "not-observed": "Operation details unavailable; call was not observed.",
-  absent: "Local details for this part of the session are not on this machine.",
-  unsaved: "Local details were not saved for this call.",
-  "too-large": "Local details for this part of the session are unavailable: file exceeds 8 MiB.",
-  unreadable:
-    "Local details for this part of the session are unavailable: file cannot be read safely."
-};
-
 function unavailableHistory(p: Projection): DisplayNotice[] {
   if (p.call?.origin !== "historical") return [];
   const notices: DisplayNotice[] = [];
   if (p.adapter.id === "pi:write" && !p.call.change)
     notices.push({ kind: "unavailable", text: "Before-state unavailable; no historical diff." });
-  const local = p.call.local && localNotices[p.call.local];
-  if (p.expanded && local) notices.push({ kind: "unavailable", text: local });
 
   return notices;
 }
@@ -748,11 +751,9 @@ function notices(result: BorrowedToolResult, p: Projection): string[] {
     const color = (
       { failure: "error", cancelled: "warning", unavailable: "muted", success: "dim" } as const
     )[operation.outcome];
-    let timing = "";
-    if (operation.durationMs !== undefined)
-      timing = p.theme.fg("dim", `; ${formatDuration(operation.durationMs)}`);
-    else if (p.call.local === "absent")
-      timing = p.theme.fg("muted", "; timing not on this machine");
+    const { durationMs } = p.call;
+    const timing =
+      durationMs === undefined ? "" : p.theme.fg("dim", `; ${formatDuration(durationMs)}`);
     const detail =
       p.theme.fg("dim", "Operation: ") +
       p.theme.fg(color, operation.outcome) +
@@ -786,7 +787,7 @@ function buildResultBody(current: BorrowedToolResult, p: Projection): ResultBody
   return {
     ...body,
     annotations: [
-      ...message(p.summary.text, p, p.context.isError ? color : "dim"),
+      ...message(p.summary.text, p, p.context.isError && !p.summary.neutral ? color : "dim"),
       ...body.annotations
     ]
   };

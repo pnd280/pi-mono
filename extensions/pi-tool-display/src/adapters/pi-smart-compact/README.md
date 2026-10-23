@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
 
-Calls to the `compact` and `context_window` tools from [`pi-smart-compact`](../../../../pi-smart-compact/README.md) appear as cards with the compaction focus and readable context usage. This page documents the adapter contract for its maintainers; if you use `pi-smart-compact`, read [Display](#display) for how its calls appear.
+Calls to the `compact` and `context_window` tools from [`pi-smart-compact`](../../../../pi-smart-compact/README.md) appear as cards with the compaction focus and readable context usage. See [smart compact cards](../../../docs/tools.md#smart-compact).
 
 ## Compatibility and selection
 
@@ -10,26 +10,12 @@ The adapter matches `pi-smart-compact` provenance and each registration's parame
 
 ## Display
 
-Both cards hide raw parameters by default, including on expansion; `showParameters: true` restores them. Compaction focus remains visible either way. Without the adapter or a current verified tool definition, generic rendering remains available.
-
-### Compaction cards
-
-Cards read "Requesting compaction" while pending and "Requested compaction" after acknowledgement. Supplied instruction focus follows the title, without JSON parameter syntax. This confirms only the request, not successful compaction; native compaction and any later skip or failure status messages are unchanged.
-
-A successful `Compaction requested.` acknowledgement with `details.scheduled: true` is not duplicated in the body. Valid `details.modelOverride` and `details.thinkingLevel` show the request-time model selection.
-
-The model and thinking level describe the request-time selection, not confirmation that native default summarisation ran. Missing or invalid metadata, partial, failed, or cancelled results, and arbitrary output are shown unchanged. Display-only model information never changes the agent-facing acknowledgement or saved content.
-
-### Context-window cards
-
-Cards read "Checking context window" and "Checked context window". Valid `details.tokens`, `details.contextWindow`, and `details.percent` produce a compact usage summary.
-
-Unknown token usage remains unknown; missing percentages are not calculated, and over-capacity usage is not clamped. Invalid details and errors keep the original text and diagnostics; expansion shows the raw result.
+[Smart compact cards](../../../docs/tools.md#smart-compact) describes what users see. The card does not repeat a successful `Compaction requested.` acknowledgement that has `details.scheduled: true`. Valid `details.modelOverride` and `details.thinkingLevel` supply the request-time model and thinking level. Valid `details.tokens`, `details.contextWindow`, and `details.percent` supply the usage summary.
 
 ## Limitations
 
-Besides the shared [prohibited actions](../../../docs/adapters.md#prohibited-actions), the adapters never read current settings, run compaction, or observe native operations. Replay uses saved details, so later configuration changes cannot relabel earlier requests.
+Besides the shared [prohibited actions](../../../docs/adapters.md#prohibited-actions), the adapters never read current settings, run compaction, or observe native operations.
 
 ## Validation
 
-Run [package validation](../../../README.md#validation); colocated tests check that rendering leaves borrowed arguments and results unchanged. Selection and presentation use the [manual checks](../../../docs/testing.md#manual-checks). The compaction package's SDK and CLI tests own persistence and model-facing content.
+Colocated tests check that rendering leaves borrowed arguments and results unchanged. Selection and presentation use the [manual checks](../../../docs/testing.md#manual-checks). The compaction package's SDK and CLI tests own persistence and model-facing content.

@@ -25,7 +25,3 @@ Use [task envelopes](src/task-envelope.ts) to format subagent task and job resul
 For terminal text sanitisation and shortcut normalisation, use [terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md).
 
 Before using a helper, read its [caller boundaries](docs/caller-boundaries.md).
-
-### Search scopes
-
-For FFF provenance or static prefix discovery, see [search-scope caller boundaries](docs/caller-boundaries.md#search-scopes).

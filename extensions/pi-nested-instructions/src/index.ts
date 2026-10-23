@@ -1,9 +1,11 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 
 import { discover, refresh } from "./discovery.ts";
 import type { Invocation } from "./scopes.ts";
 
 export default function nestedInstructions(pi: ExtensionAPI) {
+  const lifecycle = joinLifecycle(pi, { id: "pi-nested-instructions" });
   let nestedCalls: Invocation[] = [];
   pi.on("turn_start", () => {
     nestedCalls = [];
@@ -64,15 +66,15 @@ export default function nestedInstructions(pi: ExtensionAPI) {
   pi.on("session_shutdown", () => {
     nestedCalls = [];
   });
-  pi.on("session_start", async (_event, ctx) => {
+  lifecycle.onSessionStart(async (_event, ctx, arrival) => {
     nestedCalls = [];
-
-    try {
-      for (const message of await refresh(ctx.cwd, ctx.sessionManager)) {
-        pi.sendMessage(message, { triggerTurn: false });
-      }
-    } catch {
-      /* Discovery never prevents starting or reloading a session. */
-    }
+    // Discovery never prevents starting or reloading a session.
+    const messages = await refresh(ctx.cwd, ctx.sessionManager).catch(() => []);
+    if (!messages.length) return;
+    // An idle sendMessage appends at once. At rank 100, the messages precede the startup entries
+    // of pi-profiles (rank 200) in every load order.
+    arrival.commit(100, () => {
+      for (const message of messages) pi.sendMessage(message, { triggerTurn: false });
+    });
   });
 }

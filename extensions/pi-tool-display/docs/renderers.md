@@ -15,7 +15,7 @@ pi.registerTool({
 
 Rendering defaults to generic, even for `read`, `bash`, or `server.search`; specialisation needs an [explicit contract](#explicit-contracts).
 
-The factory works without the automatic extension or its private Pi hooks. It supplies only renderer fields: no execution, observation, file reads, persistence, or native provenance. Grouping and run summaries exist only in the CLI integration and have no public API. Pi handles [images](validation.md#platform-limitations) and expansion.
+The factory works without the automatic extension or its private Pi hooks. It supplies only `renderShell`, `renderCall`, and `renderResult`. The tool keeps its own execution. Observation, file reads, persistence, and native provenance come from the automatic extension, which also collects output and generates patches. The factory only formats the data that it is given. Grouping and run summaries exist only in the CLI integration and have no public API. Pi handles images and expansion; the terminal checks list the [image platform limitations](validation.md#platform-limitations).
 
 See [tool card presentation](presentation.md) for layout, diff behaviour, and display limits.
 
@@ -35,7 +35,7 @@ pi.registerTool({
 });
 ```
 
-The third argument is `ToolDisplayRendererOptions`, not CLI settings. `showParameters: true` shows optional specialised parameters. MCP and generic cards always show arguments, and structured blocks need expansion.
+The third argument is `ToolDisplayRendererOptions`, not CLI settings. Its `showParameters` has the effect of the [`showParameters` setting](../README.md#configuration).
 
 ## Custom adapters
 
@@ -47,19 +47,25 @@ Validate borrowed arguments and results without modifying them, and never infer 
 
 ### Invocation parts
 
-`alwaysShowParameters: true` overrides `showParameters`. A `kind: "parameters"` part carries the borrowed `value`, not text. The display serialises it as `(…)` only when shown, within the compact heading budget, and `separated: true` puts a space before it.
+`alwaysShowParameters: true` overrides `showParameters`. A `kind: "parameters"` part carries the borrowed `value`, not text. The display serialises it as `(…)` only when shown, and `separated: true` puts a space before it. Compact cards shorten the serialised text to the [heading preview budget](#display-budgets).
 
-For concrete targets use `path` and optionally `range`; use `value` or `pattern` for literal expressions, which receive no path normalisation. See [display conventions](conventions.md#literal-filters-and-paths).
+Use `path` parts, and optionally `range`, only for concrete filesystem targets. Use `value` for literal filters and `pattern` for search patterns. Literal filters receive no filesystem resolution, home expansion, trimming, or case folding, so `src/**` and `./src/**` remain distinct.
 
-### Standalone input
+Use a `filter` exploration scope for opaque expressions, even when the expression resembles a path. Give the members of a filter group only their patterns, as FFF does with its patterns or `files`. Do not repeat the group's filter or add an `in <path>` phrase to their parts. Standalone and expanded cards keep the literal filter.
 
-Standalone adapters must handle incompatible input themselves. Only the automatic CLI integration checks `supports`. Standalone cards, and automatic rows that have no matching transcript call, receive Pi's raw arguments from `renderCall`. These can contain optional `null` values that Pi removed before execution, so an adapter for these cards must accept or ignore such values. Rows that have a transcript call receive [validated arguments](adapters.md#callback-arguments) when validation succeeds. To add automatic selection for another extension, [register a resolver](adapters.md#add-an-adapter).
+### Invalid and partial input
+
+`supports(args, result)` must reject input that the adapter cannot interpret. The automatic CLI integration then shows a generic card with the tool name and parameters, even with `showParameters: false`. For example, invalid todo input becomes `Call failed todo({})`, not `Call failed …`. A rejection applies to one update, and the next update checks `supports` again.
+
+The CLI checks `supports` only after a result exists, including partial updates. Earlier callbacks must tolerate partial arguments, and `exploration` must reject arguments that it cannot parse. Standalone renderers never check `supports`, so standalone adapters must handle incompatible input themselves.
+
+Standalone cards, and automatic rows that have no matching transcript call, receive Pi's raw arguments from `renderCall`. These can contain optional `null` values that Pi removed before execution, so an adapter for these cards must accept or ignore such values. Rows that have a transcript call receive [validated arguments](adapters.md#callback-arguments) when validation succeeds. To add automatic selection for another extension, [register a resolver](adapters.md#add-an-adapter).
 
 Standalone cards do not invoke `exploration`, `action`, or internal `summaryItems`, or read `groupTitle` and `summaryCategories`. Failures in those unused fields therefore cannot cause [generic fallback](../GLOSSARY.md#interpretation) in standalone cards. The card's `summary` callback still applies to standalone results; it is distinct from run-summary items.
 
 ### Callback failures
 
-Callbacks used by cards fail atomically to generic meaning, so specialised MCP identity never survives with generic outcomes. Any failure in metadata (`mcp` or `outcome`) or presentation keeps both retained slots generic through later updates and invalidation. The CLI also interprets grouping and run-summary fields, whose failures invalidate the whole interpretation.
+If a callback that a card uses throws, the whole card becomes generic. A card never shows a specialised MCP identity with a generic outcome. After any failure in metadata (`mcp` or `outcome`) or presentation, the heading and the result body both stay generic through later updates and invalidation. The CLI also reads the grouping and run-summary fields, and a failure in one of them makes the whole call generic.
 
 ### Exploration scopes
 
@@ -73,7 +79,13 @@ See [exploration groups](presentation.md#groups) for headings, boundaries, and e
 
 ### Action wording
 
-`headingVerbs(args)` returns, for example, `{ action: "Check", pending: "Checking", complete: "Checked" }`. Omitting the callback or returning `undefined` uses family defaults. Failure, cancellation, and unavailable headings append the outcome to `action`, as in `Check failed`. Verbs and `groupTitle` are plain single-line labels: terminal controls are removed, and line breaks and tabs become spaces before wrapping.
+Use `Listing <target>` while pending and `Listed <target>` after success, in standalone, grouped, and expanded cards, including an empty-pattern `fffind`. Never add `files in`. Separate a search pattern from its scope with a spaced em dash (U+2014), not `in`:
+
+```ts
+{ kind: "annotation", text: " \u2014 " }
+```
+
+`headingVerbs(args)` returns, for example, `{ action: "Check", pending: "Checking", complete: "Checked" }`. Omitting the callback or returning `undefined` uses family defaults. Failure, cancellation, and unavailable headings append the outcome to `action`, as in `Check failed`. Verbs and `groupTitle` are plain single-line labels. The display removes terminal controls and turns line breaks and tabs into spaces before wrapping.
 
 ### Code and nested calls
 
@@ -83,19 +95,21 @@ See [exploration groups](presentation.md#groups) for headings, boundaries, and e
 
 ### Result summaries
 
-`summary` runs only for completed results with a known success, failure, or cancellation. Use validated metadata or recorded facts. Distinguish collected matches from total matches, and failed operations from unfinished ones. Return `undefined` when the data is insufficient.
+`summary` runs only for completed results with a known success, failure, or cancellation. Use validated metadata or recorded facts. Its `durationMs` is Pi's measured `execute()` time for the final result, or `undefined` when Pi recorded none. Distinguish collected matches from total matches, and failed operations from unfinished ones. Return `undefined` when the data is insufficient.
 
 Summaries precede output. Nonempty compact summaries replace successful text unless `preserveOutput: true`, as for shell status. Failure and cancellation output, notices, and images remain; expansion restores retained text.
 
+Failed and cancelled results show their summary in the outcome colour. Set `neutral: true` when the summary states no outcome, such as codemode's elapsed time, so it stays `dim`.
+
 Missing summaries, including those that display as blank after terminal-control sanitisation, use bounded output previews, including in groups. Successful file reads still hide their text until expansion. Edit and write cards keep their diff previews.
 
-Use `notices` for diagnostics and references that must remain visible when a summary replaces output. [Severity changes styling, never visibility](presentation.md#notices-and-colours): compact groups keep `info` notices.
+Use `notices` for diagnostics and references that must remain visible when a summary replaces output. [Notices and colours](presentation.md#notices-and-colours) shows how each severity is styled.
 
 ### Result patches
 
 Set `patch: true` only when a successful result's `details.patch` contains a unified patch for one file. Headerless hunks are accepted. When file headers are present, the `--- ` and `+++ ` lines must be adjacent, in that order.
 
-Patches use the [retention limit](presentation.md#resource-limits). Invalid or oversized patches follow the [unavailable-patch rules](presentation.md#unavailable-patches), and a valid observed patch remains usable when the result supplies an invalid replacement.
+Patches use the [retention limit](presentation.md#resource-limits). Invalid or oversized patches follow the [unavailable-patch rules](presentation.md#unavailable-patches).
 
 ### Result text
 
@@ -122,3 +136,24 @@ Media entries retain ordered MIME labels, not result-block indices or copied bas
 Text and embedded resource bodies use the resolved outcome's colour: `error` for failures, `warning` for cancellations, and `toolOutput` otherwise. Resource labels use `dim`, and URIs use normal foreground.
 
 Generic rendering never infers missing transport or type information from names or error text. Arbitrary `details` are not displayed.
+
+## Display budgets
+
+Patch generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behaviour). Unchanged redraws reuse decorated assistant prose, run summaries, and heading layout. The pending pulse changes only the heading marker. Running progress timers also refresh elapsed time.
+
+Parameters and generic arguments use the [validated copy of Pi's raw arguments](adapters.md#callback-arguments) when validation against the current tool schema succeeds. Otherwise, they use Pi's raw arguments. This applies to both compact previews and expanded parameters.
+
+Current budgets live in the source:
+
+| Budget             | Source                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Parameter previews | [invocation.ts](../src/invocation.ts)                                                                                              |
+| Heading previews   | [headings.ts](../src/rendering/headings.ts)                                                                                        |
+| Target layout      | [target-layout.ts](../src/rendering/target-layout.ts)                                                                              |
+| Preview formatting | [format.ts](../src/rendering/format.ts)                                                                                            |
+| Shell observation  | [observation/](../src/observation/)                                                                                                |
+| Saved previews     | [observation/saved-output.ts](../src/observation/saved-output.ts), [transcript/saved-output.ts](../src/transcript/saved-output.ts) |
+| Patch limits       | [diff.ts](../src/diff.ts)                                                                                                          |
+| Record validation  | [metadata.ts](../src/transcript/metadata.ts)                                                                                       |
+
+The user-visible effects of these budgets are under [resource limits](presentation.md#resource-limits).

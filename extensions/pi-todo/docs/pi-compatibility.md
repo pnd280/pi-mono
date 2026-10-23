@@ -2,7 +2,7 @@
 
 [pi-todo](../README.md)
 
-> Last verified against Pi 1.3.0 (package checks and offline tests). Not covered: manual terminal checks.
+> Last verified against Pi 1.4.0 with the package checks, offline tests, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: manual terminal checks.
 
 ## Upgrade procedure
 
@@ -15,11 +15,16 @@ Model-only execution must keep mutations atomic and results replayable across se
 
 ### Tool
 
-[Activation](../src/runtime.ts) and [tool](../src/tool.ts):
+Handlers in [activation](../src/runtime.ts) and the [tool](../src/tool.ts) assume TUI mode with a UI, so no other mode may reach them.
 
-- [ ] Only interactive TTY sessions activate the extension, using Pi's public `parseArgs` to distinguish flags from option values. Handlers assume TUI mode with a UI, so no other mode may reach them.
-- [ ] The model-facing schema, atomic mutations, and fully replayable result details still work, with no custom tool renderers.
-- [ ] `exposure: "model-only"` keeps direct calls replayable, and prevents nested changes through `ctx.tools` or `ctx.executeTool()`.
+- [ ] Only interactive TTY sessions activate the extension.
+- [ ] Pi's public `parseArgs` still distinguishes flags from option values for the activation check.
+- [ ] Pi accepts the tool's model-facing schema.
+- [ ] Mutations stay atomic.
+- [ ] Result details stay fully replayable.
+- [ ] Tool cards render without custom tool renderers.
+- [ ] With `exposure: "model-only"`, direct calls stay replayable.
+- [ ] With `exposure: "model-only"`, nested calls through `ctx.tools` or `ctx.executeTool()` can't change todos.
 - [ ] Malformed final tool-call JSON fails host validation before execution, changes nothing, and produces a host error result that replay skips.
 
 ### Schema projection
@@ -31,10 +36,19 @@ Model-only execution must keep mutations atomic and results replayable across se
 
 ### Session state and UI
 
-- [ ] [Session state](../src/state/session-state.ts): rebuilding after branch changes and compaction, handling of malformed and error results, and bounded snapshots.
-- [ ] [UI integration](../src/index.ts): widget and browser lifecycle, remapped navigation, session cleanup, and working-message contributions owned independently.
-- [ ] [Fullscreen input routing](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership): `/todos` is never an overlay, at any size. Focused browser actions, including remapped cancel and confirm, take priority over transcript controls as described in the [browser controls](../README.md#the-todos-browser).
-- [ ] If routing is unsupported, a warning appears once per opening and the view stays open. The warning suggests regular mode if controls do not respond. Closing the view restores the widget.
+The [browser controls](../README.md#the-todos-browser) describe what users see.
+
+- [ ] [Session state](../src/state/session-state.ts) rebuilds the list from the current branch after branch changes and compaction.
+- [ ] Rebuilding skips malformed results and host error results.
+- [ ] Rebuilding skips snapshots that exceed the current limits.
+- [ ] On `session_start`, [UI integration](../src/index.ts) rebuilds the list, starts the browser host, and attaches the widget.
+- [ ] On `session_shutdown`, UI integration closes open views and removes only the todo widget registration.
+- [ ] Remapped `tui.select.*` keys still move the `/todos` browser selection.
+- [ ] Clearing todo activity leaves other working-message contributions intact.
+- [ ] In fullscreen mode, `/todos` is never an overlay, at any size.
+- [ ] With [fullscreen input routing](../../../libs/src/tui/responsive-custom-ui/README.md#fullscreen-input-ownership), focused browser actions, including remapped cancel and confirm, take priority over transcript controls.
+- [ ] If routing is unsupported, a warning that suggests regular mode appears once per opening, and the view stays open.
+- [ ] Closing the view restores the widget.
 - [ ] Closing a regular-mode overlay hides only that overlay.
 
 ## Limitations

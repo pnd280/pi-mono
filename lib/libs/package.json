@@ -6,6 +6,9 @@
   "exports": {
     "./tool-schema": "./src/tool-schema/index.ts",
     "./working-message": "./src/working-message/index.ts",
+    "./input-chain": "./src/input-chain/index.ts",
+    "./prompt-parts": "./src/prompt-parts/index.ts",
+    "./lifecycle": "./src/lifecycle/index.ts",
     "./settings-file": "./src/settings-file/index.ts",
     "./tui/components/settings-menu": "./src/tui/components/settings-menu/index.ts",
     "./output-buffer": "./src/output-buffer/index.ts",

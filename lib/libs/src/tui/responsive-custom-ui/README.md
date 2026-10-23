@@ -12,6 +12,8 @@ A component may provide synchronous, side-effect-free `ownsFullscreenInput(data)
 
 Regular mode, overlays, and components without ownership use ordinary host routing. Search overlays and other focused dialogs suspend the inline view's ownership. The working-message ordering menu does not opt in.
 
+Opening a component that opts in to input ownership throws when the caller supplies no `onInputRoutingUnavailable()`.
+
 ### Host compatibility
 
 Priority routing uses a private [adapter](fullscreen-input.ts) that depends on internal Pi renderer properties, because public terminal listeners cannot preempt Pi's transcript listener. When you change the adapter or upgrade Pi, check the [renderer contract and registration lifetime](../../../docs/tui-fullscreen-input.md).
@@ -22,11 +24,13 @@ Missing capabilities or detected interference disable routing and call `onInputR
 
 - Supply the [host options](index.ts).
 - Use `onTransition` to cancel context-dependent actions such as [timed confirmation](../../timed-confirmation/README.md) on remount.
-- Ownership opt-in requires `onInputRoutingUnavailable()`; supply a consumer-specific warning and fallback controls.
-- Derive ownership from the same injected keybindings and action precedence as input dispatch; do not register listeners or mutate host input state in components.
-- Await closure before editor changes: Pi restores the opening snapshot on inline closure.
-- The [browser host](../open-browser/README.md) provides `afterClose` and redraws.
+- When a component opts in to input ownership, supply `onInputRoutingUnavailable()` with a consumer-specific warning and fallback controls.
+- Derive ownership from the same injected keybindings and action precedence as input dispatch.
+- Do not register listeners or mutate host input state in components.
+- Await closure before editor changes, because Pi restores the opening snapshot on inline closure.
+
+Related: the [browser host](../open-browser/README.md) provides `afterClose` and redraws.
 
 ## Validation
 
-Use the [package checks](../../../README.md#validation). [Routing tests](fullscreen-input.test.ts) exercise real-renderer input, focus handoff, listener interference, and renderer replacement; [lifetime tests](lifetime.test.ts) cover cancellation and disposal. Check browser remounts and editor restoration in the [browser host tests](../open-browser/index.test.ts), and run the [terminal scenarios](../../../../extensions/pi-prompt-manager/docs/validation.md#fullscreen-paging).
+Use the [package checks](../../../README.md#validation). [Routing tests](fullscreen-input.test.ts) exercise real-renderer input, focus handoff, listener interference, and renderer replacement. [Lifetime tests](lifetime.test.ts) cover cancellation and disposal. Check browser remounts and editor restoration in the [browser host tests](../open-browser/index.test.ts), and run the [terminal scenarios](../../../../extensions/pi-prompt-manager/docs/validation.md#fullscreen-paging).

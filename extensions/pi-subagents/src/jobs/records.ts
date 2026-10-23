@@ -19,7 +19,15 @@ export const jobInputSchema = z.strictObject({
       "timeout must be more than 0 and at most 2147483 seconds"
     )
     .optional()
-    .describe("Timeout in seconds, more than 0 and at most 2147483 (optional, no default timeout).")
+    .describe(
+      "Timeout in seconds, more than 0 and at most 2147483 (optional, no default timeout)."
+    ),
+  hold_run: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set true when you need the result before you finish: your run then waits for the job to exit, and its result arrives automatically. Only for a command that exits by itself, never for a server or a watcher (optional, default false)."
+    )
 });
 
 export type JobInput = z.infer<typeof jobInputSchema>;

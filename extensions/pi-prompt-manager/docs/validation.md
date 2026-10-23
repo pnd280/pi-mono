@@ -24,6 +24,16 @@ Work only in the printed `Fixture:` directory.
 - A new fixture has 40 entries per collection and long previews. A reused fixture keeps its collections.
 - Submit `pages` to get a scrollable transcript.
 
+### Reuse a fixture
+
+For reload, reopening, or concurrency checks, reuse only fixtures the launcher created, never a real agent directory. Replace the example path with the fixture's printed directory:
+
+```sh
+vpr 'pi-prompt-manager#validate:terminal' regular --reuse /tmp/pi-prompt-manager-terminal-EXAMPLE
+```
+
+For the full syntax, pass `--help` instead of a mode.
+
 ### Basic scenario
 
 Run these in both modes.
@@ -42,7 +52,7 @@ Then add the checks below that match your change.
 
 ### Presentation, preview, or responsive mounting
 
-Setup: append `--models prompt-fixture/offline` to the launch command, so `/model` has its all and scoped row for comparing tabs. Use short, long, and multiline prompts.
+Setup: append `--models prompt-fixture/offline` to the launch command, so `/model` shows its "all" and "scoped" row to compare with the browser tabs. Use short, long, and multiline prompts.
 
 | Do                                                                                         | Expect                                                                                                                        |
 | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -56,7 +66,7 @@ Setup: append `--models prompt-fixture/offline` to the launch command, so `/mode
 | Start a deletion confirmation in the preview, then switch collections.                     | The confirmation is cancelled.                                                                                                |
 | Switch to an empty, unmatched, or unreadable collection in the preview.                    | You return to the list.                                                                                                       |
 | Press **Escape** in the preview.                                                           | The preview closes before the browser does.                                                                                   |
-| Open inspection on a short terminal, resize, and close.                                    | Inspection survives the resize and closes cleanly.                                                                            |
+| Open inspection on a short terminal, resize, and close.                                    | Inspection is still open after the resize. Closing it returns to the editor.                                                  |
 | Scroll a wrapped preview fully, including while confirming a deletion in a compact layout. | Border counts match the hidden rows.                                                                                          |
 | Resize until the preview fits.                                                             | The border counts disappear.                                                                                                  |
 | Resize below the minimum size, then cancel.                                                | The view closes.                                                                                                              |
@@ -72,23 +82,28 @@ Setup: use the fullscreen fixture, and submit `pages` before opening the browser
 | Close the browser and page.                                                                                                                                                                     | The transcript pages again.                                                 |
 | Resize between the 19-row inline and 18-row overlay layouts, both ways, and page.                                                                                                               | Paging still moves only the view.                                           |
 | Open transcript search with `tui.altScreen.search` (**Ctrl+Shift+F**; **Ctrl+F** on WSL) and page.                                                                                              | Paging doesn't reach the browser until **Escape** closes the search.        |
-| In the fixture's `agent/keybindings.json` only, bind `tui.select.pageUp` and `tui.altScreen.pageUp` to `ctrl+pageUp`, and both `pageDown` actions to `ctrl+pageDown`. Run `/reload` and repeat. | The same results with the new keys.                                         |
+| In the fixture's `agent/keybindings.json` only, bind `tui.select.pageUp` and `tui.altScreen.pageUp` to `ctrl+pageUp`, and both `pageDown` actions to `ctrl+pageDown`. Run `/reload` and repeat. | The new keys page only the focused view, as the default keys did.           |
 | Close and reopen several times, then repeat after `/reload` and after `/new` (submit `pages` again).                                                                                            | The editor gets focus back, and restoring never submits or repeats effects. |
 
 Diagnostics for unsupported hosts and interference with other listeners are covered by the [shared routing tests](../../../libs/src/tui/responsive-custom-ui/README.md#validation).
 
 ### Commands, keys, or editor integration
 
-Setup: edit only the fixture's `agent/keybindings.json`, and run `/reload` after each change.
+Setup: edit only the fixture's `agent/keybindings.json` and `agent/settings.json`, and run `/reload` after each change.
 
-| Do                                                                                                                  | Expect                                                                                                              |
-| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Type `/prompts save`, `drafts add <text>` with quotes, an invalid number, `show <n>`, and `restore-and-delete <n>`. | Each behaves as documented.                                                                                         |
-| Restore a draft, then inspect native editor history.                                                                | Restoring hasn't added the text to native editor history.                                                           |
-| Save a multiline bracketed paste.                                                                                   | Storage holds the expanded text, not paste markers.                                                                 |
-| Bind confirm, copy, cancel, and navigation to keys used by fixed controls.                                          | Behaviour and hints follow the [precedence rules](controls.md#keys-and-precedence).                                 |
-| Disable paging with `[]`. Separately, restore it and bind the same key to copy, cancel, or confirm.                 | Disabled paging is not claimed. Each resolved browser action takes priority over transcript controls while focused. |
-| Bind cancel only to **Ctrl+C**, then only to a copy key.                                                            | The browser refuses to open, and no **Escape** override is added.                                                   |
+| Do                                                                                                                                                    | Expect                                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Type `/prompts save` and press **Enter**.                                                                                                             | "Saved drafts" opens, because Pi clears the command from the editor first.                                                                                   |
+| Run `/prompts drafts add "a b" $HOME --flag`.                                                                                                         | A new draft holds `"a b" $HOME --flag` literally. The editor is unchanged.                                                                                   |
+| Run `/prompts drafts show 01`, then `/prompts drafts show 999`.                                                                                       | The first shows the usage message. The second reports "Draft number is outside the current collection."                                                      |
+| Run `/prompts drafts show 1`.                                                                                                                         | A standalone inspection view opens, without tabs. Confirm or cancel closes it.                                                                               |
+| Run `/prompts drafts restore-and-delete 1`.                                                                                                           | The editor holds the draft text, and the draft is gone from "Saved drafts".                                                                                  |
+| Restore a draft, then inspect native editor history.                                                                                                  | Restoring hasn't added the text to native editor history.                                                                                                    |
+| Save a multiline bracketed paste.                                                                                                                     | Storage holds the expanded text, not paste markers.                                                                                                          |
+| Bind confirm, copy, cancel, and navigation to keys used by fixed controls.                                                                            | Behaviour and hints follow the [precedence rules](controls.md#keys-and-precedence).                                                                          |
+| Disable paging with `[]`. Separately, restore it and bind the same key to copy, cancel, or confirm.                                                   | Disabled paging is not claimed. Each resolved browser action takes priority over transcript controls while focused.                                          |
+| Bind cancel only to **Ctrl+C**, then only to a copy key.                                                                                              | The browser refuses to open, and no **Escape** override is added.                                                                                            |
+| In `ext.pi-prompt-manager` settings, set `history` shortcuts to `["tab", "ctrl+i"]`. Then set `history` to `["tab"]` and `saveDraft` to `["ctrl+i"]`. | **Tab** opens "History" both times, and no warning says that pi-prompt-manager claims both keys. The second time, a warning says that history owns `ctrl+i`. |
 
 ### Capture, reload, or session isolation
 
@@ -111,16 +126,6 @@ Setup: use only fixture collections for [backup and repair](storage.md#manual-ba
 | Try to restore the unsafe text.                                                                                                                                     | The editor stays as it was.                                  |
 | Keep a deletion target selected in one fixture session. In another, remove it or replace it with a new draft, then delete the stale selection in the first session. | Deletion is refused.                                         |
 
-### Reuse a fixture
-
-For reload, reopening, or concurrency checks, reuse only fixtures the launcher created, never a real agent directory. Replace the example path with the fixture's printed directory:
-
-```sh
-vpr 'pi-prompt-manager#validate:terminal' regular --reuse /tmp/pi-prompt-manager-terminal-EXAMPLE
-```
-
-For the full syntax, pass `--help` instead of a mode.
-
 ## Platform checks
 
 Run these on real operating systems and filesystems. Fixture stdin and Linux-only tests cannot prove native delivery or permission handling.
@@ -135,6 +140,7 @@ Setup: on Linux, macOS, and WSL, use isolated clipboards, never someone's live c
 | Make all native helper dependencies unavailable, then copy.     | Copying reports a failure.                                     |
 | End the session during an active copy.                          | The copy is cancelled.                                         |
 | Let a helper exceed the five-second deadline.                   | Copying reports a timeout.                                     |
+| On Linux, copy, press Ctrl+Z, paste in the shell, then `fg`.    | The paste does not wait for Pi to resume.                      |
 | On macOS, copy Unicode with `LANG` unset, then with `LC_ALL=C`. | The native clipboard matches the Unicode source in both cases. |
 
 ### Storage permissions and writes

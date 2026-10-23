@@ -16,8 +16,8 @@ type Pending = Extract<ResultEvent, { kind: "result" }>;
 
 type WaitResult = "closed" | "result" | "none" | "input" | "abort";
 
-/** Working-message text while the supervisor waits for background tasks. */
-const WAITING_MESSAGE = "Waiting for background subagents";
+/** Working-message text while the supervisor waits for background tasks or held jobs. */
+const WAITING_MESSAGE = "Waiting for background results";
 
 /** New input arrives through Pi's queue, which has no event; poll it at this interval. */
 const INPUT_POLL_MS = 250;
@@ -134,7 +134,7 @@ export class Delivery {
     return pending.map((result) => result.message);
   }
 
-  /** Waits for the first background result, new input, an abort, or no remaining tasks. */
+  /** Waits for the first background result, new input, an abort, or no work that holds the run. */
   private async next(signal?: AbortSignal): Promise<WaitResult> {
     for (;;) {
       if (this.closed) return "closed";
@@ -191,9 +191,12 @@ export class Delivery {
     }
   }
 
-  /** A source's unfinished result holds the run: a direct background task, not a job. */
+  /**
+   * A source's unfinished result holds the run: a direct background task or a job started with
+   * `hold_run`. A suspended delivery cannot deliver the result, so nothing holds the run then.
+   */
   private holdsRun(): boolean {
-    return [...this.sources.keys()].some((source) => source.holdsRun());
+    return !this.suspended && [...this.sources.keys()].some((source) => source.holdsRun());
   }
 
   /** Commits ready results in all modes; print, JSON, and nested supervisors can also wait. */
@@ -229,7 +232,7 @@ export class Delivery {
   }
 
   /**
-   * Before a session change: drop task results and stop waiting for tasks. Job results survive
+   * Before a session change: drop task results and end the wait, also for held jobs. Job results survive
    * the change and stay pending without starting a turn, because a later extension can still
    * cancel the change. Results that arrive later also wait.
    */

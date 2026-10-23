@@ -1,6 +1,7 @@
 import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 
-export const defaultExpansionFormat = "[{command}]({path})";
+// Angle brackets keep paths with spaces or parentheses inside the Markdown link destination.
+export const defaultExpansionFormat = "[{command}](<{path}>)";
 
 function getSkillPaths(commands: SlashCommandInfo[]): Map<string, string> {
   return new Map(
@@ -43,10 +44,22 @@ export function expandSkillInput(
 
   const expansion = { existingReferenceEnd: 0, startsWithReference: false };
 
+  // A reference that ends in a placeholder could be the prefix of a longer path or command.
+  const endsInPlaceholder = /\{(?:command|path)\}$/u.test(format);
+
+  const complete = (reference: string, start: number) => {
+    const next = text[start + reference.length];
+
+    return (
+      text.startsWith(reference, start) &&
+      (next === undefined || /\s/u.test(next) || !endsInPlaceholder)
+    );
+  };
+
   const expanded = text.replace(/\S+/gu, (token, start: number) => {
     if (start < expansion.existingReferenceEnd) return token;
 
-    const existing = references.get(token)?.find((reference) => text.startsWith(reference, start));
+    const existing = references.get(token)?.find((reference) => complete(reference, start));
 
     if (existing !== undefined) {
       // A path or template can contain whitespace and skill-shaped tokens; skip the whole reference.

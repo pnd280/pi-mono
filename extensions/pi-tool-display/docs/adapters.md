@@ -8,7 +8,7 @@ Extension authors define a [display adapter](../GLOSSARY.md#interpretation) to i
 | --------------------------------------------------------- | ------------------------------------------------------ |
 | Add automatic selection for a tool                        | [Add an adapter](#add-an-adapter)                      |
 | Attach an adapter directly to your tool's renderer fields | [Standalone integration](renderers.md#custom-adapters) |
-| Choose action wording                                     | [Display conventions](conventions.md)                  |
+| Choose action wording                                     | [Action wording](renderers.md#action-wording)          |
 
 ## Prohibited actions
 
@@ -18,11 +18,11 @@ Adapters must not enable or run tools, access files, persist data, modify borrow
 
 1. Create `src/adapters/<extension-package>/index.ts` using the registering extension's full package name, including its scope. For example, use `src/adapters/@ff-labs/pi-fff/index.ts`. Pi's built-in extensions use `src/adapters/builtin/<extension-name>/`, matching their `builtin:<extension-name>` source path.
 2. Export a [`ToolDisplayAdapterResolver`](../src/contracts.ts); verify provenance and the [required structural contract](#recognise-tool-contracts), not names alone. [`registeredBy`](../src/adapters/provenance.ts) checks an extension package's registration. Return `undefined` for unsupported definitions.
-3. Colocate [Zod schemas](../../../../docs/development.md#runtime-validation), presentation, and tests. Write argument schemas for the [arguments that callbacks receive](#callback-arguments). Use `supports(args, result)` to reject uninterpretable CLI input; before results exist, `exploration` must reject unparseable partial arguments.
+3. Colocate [Zod schemas](../../../../docs/agents/runtime-validation.md), presentation, and tests. Write argument schemas for the [arguments that callbacks receive](#callback-arguments). Reject input as described in [invalid and partial input](renderers.md#invalid-and-partial-input). In TypeScript source, write an em dash as the `\u2014` escape, because the repository's pre-commit hook rejects literal em dashes.
 
    Add automated tests only for [listed invariants](testing.md#must-not-regress). Verify other adapter behaviour with the manual checks.
 
-4. Document compatibility, contracts, display behaviour, limitations, and extension-specific validation in the adapter's `README.md`. Write it for the adapter's maintainers, and open it with one sentence on what users of the adapted extension see. Use these sections in order, and omit any that has no content: "Compatibility and selection", "Arguments and results", "Display", "Summary mode", "Limitations", and "Validation". Session-message adapters use "Compatibility and registration" for the first section. Put long manual procedures under [adapter validation](validation.md#adapter-validation) and link to them.
+4. Describe what users see in the tool's section of [supported tool cards](tools.md). Document compatibility, contracts, the data behind the display, limitations, and extension-specific validation in the adapter's `README.md`. Write it for the adapter's maintainers, and open it with one sentence on what users of the adapted extension see, linked to its section in supported tool cards. Use these sections in order, and omit any that has no content: "Compatibility and selection", "Arguments and results", "Display", "Limitations", and "Validation". Session-message adapters use "Compatibility and registration" for the first section. Put long manual procedures under [adapter validation](validation.md#adapter-validation) and link to them.
 5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).
 
 To expose an adapter factory to tool authors, export it from [`src/adapters/index.ts`](../src/adapters/index.ts).
@@ -44,13 +44,13 @@ Callbacks receive Pi's raw arguments when this validation fails, which includes 
 Callbacks should return `undefined`, or reject through `supports`, rather than throw. A call whose validation fails keeps its [raw arguments](#callback-arguments), so `supports` can reject it and keep it generic. If a callback does throw:
 
 - Interpretation resolves all applicable metadata together, and a card is prepared again as a whole, so a call never mixes specialised and generic data. Standalone cards skip CLI-only fields; see [standalone callback failures](renderers.md#custom-adapters).
-- After any callback failure, the call stays generic through later updates. It leaves its exploration group and uses generic summary counts, but keeps `omitFromSummary`.
+- After any callback failure, the call stays generic while it keeps that adapter. It leaves its exploration group and uses generic summary counts, but keeps `omitFromSummary`.
 - If this extension's own card code throws, the call also stays generic. Only a failure of the generic card propagates.
 - The host warns once for each adapter ID, with separate warnings for adapter and card failures.
 
 ## Session-message adapters
 
-Session messages use Pi's public `registerMessageRenderer` API from this extension's entry point, not the tool resolver list. Keep message interpretation under `src/adapters/<extension-package>/` and card layout under `src/rendering/`. Import the persisted identifier and decoder from the producing package's public contract. Do not load its extension factory for rendering. The subagent adapter is the exception: like its tool cards, it verifies [background results](../src/adapters/pi-subagents/README.md#background-results) and [job results](../src/adapters/pi-subagents/README.md#background-jobs) without a runtime dependency on pi-subagents.
+Session messages use Pi's public `registerMessageRenderer` API from this extension's entry point, not the tool resolver list. Keep message interpretation under `src/adapters/<extension-package>/` and card layout under `src/rendering/`. Import the persisted identifier and decoder from the producing package's public contract. Do not load its extension factory for rendering. The subagent adapter imports only the identifiers from `pi-subagents/constants`, because pi-subagents exports no decoder. Like its tool cards, it verifies [background results](../src/adapters/pi-subagents/README.md#background-results) and [job results](../src/adapters/pi-subagents/README.md#background-jobs) with its own schemas.
 
 The [pi-nested-instructions adapter](../src/adapters/pi-nested-instructions/README.md) derives summary categories and identities from validated notice details. Its [notice card renderer](../src/rendering/notice.ts) lives with the other card layout, so notice paths share target wrapping. The host attaches their rows and summary contributions to the preceding call while retaining exploration-group boundaries. Tool renderer overrides and tool-adapter callbacks do not apply to these messages.
 
@@ -70,7 +70,7 @@ Build schema fixtures through the registered tool's projection, and retain integ
 
 [Summary mode](presentation.md#summary-mode) uses internal adapter fields. They are not part of the [renderer API](renderers.md) yet and may change without notice.
 
-- `omitFromSummary: true` excludes the owner's calls even when incompatible arguments or results need generic cards, as for todo bookkeeping. This static policy never interprets unsupported result facts.
+- `omitFromSummary: true` excludes the owner's calls even when incompatible arguments or results need generic cards, as for todo bookkeeping. The flag is fixed for the adapter, so it applies without reading the call's arguments or result.
 - `summaryItems(args, { result, change, cwd })` returns a supported call's summary items. Each names a `category` and optional `identity`, such as a lexically resolved file or directory path. Identities deduplicate within a category by latest outcome; items without one count every call. Return `[]` to omit the call or `undefined` to count it once in its family's category (`write` by change fact, `invocation` by tool name). [Generic fallback](../GLOSSARY.md#interpretation) ignores this callback and adapter result facts.
 - `summaryCategories` declares new categories with `count` wording for one and several items (both use `{n}`). A leading word before the first placeholder renders as the verb. Built-in categories cannot be redefined.
 
@@ -92,7 +92,7 @@ The [subagent adapter](../src/adapters/pi-subagents/README.md) demonstrates stru
 
 ## Built-in adapters
 
-Each adapter documents its contract in its own README, written for its maintainers. Its "Display" section also tells users of the adapted extension how calls appear. The [resolver list](../src/host/selection.ts) is the authoritative list for automatic tool selection.
+Each adapter documents its contract in its own README, written for its maintainers. [Supported tool cards](tools.md) tells users how the calls of each tool appear. The [resolver list](../src/host/selection.ts) is the authoritative list for automatic tool selection.
 
 | Source           | Adapters                                                                                                                                                                                                                                                                                                                                                                                    |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

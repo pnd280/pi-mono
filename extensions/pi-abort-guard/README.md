@@ -17,14 +17,15 @@ escape again to interrupt
 
 Edge cases:
 
-- Retries, compactions, and branch summaries show their own status line instead of the working message, so the hint does not appear there. The first press is still held back.
+- Retries, compactions, and branch summaries show their own status line instead of the working message, so the hint does not appear there. The extension still holds back the first press.
 - After the hint clears, the current working message returns. When no other contribution or override has text, Pi shows "Working".
 
 ## Limitations
 
-The extension holds back the first press by replacing Pi's editor. Status moves from the editor border to a separate line. Only one extension can replace the editor:
+The extension holds back the first press by wrapping the input handling of Pi's editor, or of the editor that another extension set. Status moves from the editor border to a separate line. Extensions that also wrap the earlier editor, such as [pi-profiles](../pi-profiles/README.md), keep the protection in either load order. Other editors limit it:
 
-- If another extension replaced the editor first, pi-abort-guard shows a warning and changes nothing. One press still interrupts.
-- If another extension replaces the editor later, the protection stops without a warning.
+- If another extension replaces the editor and discards the earlier one, the protection stops without a warning.
+- An editor that is not built on Pi's `CustomEditor` gets no interrupt handler from Pi. **Escape** does what that editor does with it, and the extension cannot hold it back.
+- An editor that handles **Escape** itself, without calling Pi's interrupt handler, is not protected.
 
 Only the interactive terminal is affected. RPC, JSON, and print modes are unchanged.

@@ -9,7 +9,7 @@ Discovery uses tool inputs; delivery records what instruction content remains in
 ### Discovery
 
 **Scope**:
-Directories strictly below cwd that a tool input addresses, plus exact instruction files it attempts to read. Inferred from issued inputs only.
+Directories strictly below cwd that a tool input addresses, plus exact instruction files it attempts to read. Discovery infers it from issued inputs only.
 _Avoid_: match, target
 
 **Direct read**:
@@ -17,7 +17,7 @@ A recognised content-read attempt on an exact instruction-file path.
 _Avoid_: explicit load, manual read
 
 **Read marker**:
-Contentless metadata recording a direct read: its path, originating call, and filesystem revision. Valid only while that call remains in the session projection.
+Contentless metadata recording a direct read: its path, originating call, and filesystem revision. A marker is valid only while that call remains in the session projection.
 _Avoid_: read record, suppression entry
 
 ### Delivery

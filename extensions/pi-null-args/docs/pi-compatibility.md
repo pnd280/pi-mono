@@ -2,7 +2,7 @@
 
 [pi-null-args](../README.md)
 
-> Last verified against Pi 1.3.0 with the offline host test and source inspection. Not covered: live providers, including their malformed-argument and `\u` escape repair paths.
+> Last verified against Pi 1.4.0 with the package checks, the offline host test, and a source review of the Pi 1.3.0 to 1.4.0 changes. Not covered: live providers, including their malformed-argument and `\u` escape repair paths.
 
 ## Upgrade procedure
 
@@ -13,8 +13,10 @@
 
 [Handler](../src/index.ts):
 
-- [ ] A `message_end` replacement still updates the finished assistant message in place, and the agent loop reads tool calls from that message after `message_end`.
-- [ ] Pi still runs `prepareArguments` and validation after `message_end`, and the `tool_call` event after validation.
+- [ ] A `message_end` replacement still updates the finished assistant message in place.
+- [ ] The agent loop still reads tool calls from that message after `message_end`.
+- [ ] Pi still runs `prepareArguments` and validation after `message_end`.
+- [ ] Pi still runs the `tool_call` event after validation.
 - [ ] Each `message_end` handler still receives the previous handler's replacement.
 - [ ] Tool-call replacement preserves metadata such as `argumentsError`, which Pi sets with empty arguments for malformed JSON.
 - [ ] `pi.getAllTools()` still returns each tool's `parameters`, including `required` lists and object-composition keywords.

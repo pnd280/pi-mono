@@ -1,7 +1,6 @@
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 
-import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
   readScopedSettings,
   readSettingsFile,
@@ -11,6 +10,7 @@ import {
 import { canonicalKeySchema } from "@pi-mono/libs/tui/keybindings";
 import { modelReferenceSchema } from "@pi-mono/utils/model-reference";
 import { expandHomePath } from "@pi-mono/utils/paths";
+import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
 const SETTINGS_KEY = "ext.pi-profiles";
@@ -38,17 +38,7 @@ const profileSchema = z.strictObject({
     .regex(/^[^\s\p{C}]+$/u),
   description: z.string().max(MAX_DESCRIPTION_LENGTH),
   model: modelReferenceSchema.optional(),
-  thinking: z
-    .enum([
-      "off",
-      "minimal",
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-      "max"
-    ] satisfies readonly ModelThinkingLevel[])
-    .optional(),
+  thinking: z.enum(MODEL_THINKING_LEVELS).optional(),
   // File paths, which resolve from the directory of the settings file that names them.
   appendSystemPrompts: z.array(z.string().min(1)).max(MAX_PROMPTS).optional(),
   tools: z

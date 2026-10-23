@@ -4,7 +4,7 @@
 
 A background or promoted call returns before its child finishes, so its tool result carries only the usage until the return. The rest reached the supervisor only in the details of the result custom message, which Pi does not count in session totals. Nested supervisors read child totals through `get_session_stats`, so the loss also propagated up the chain.
 
-Pi counts `usage` session entries in `getSessionStats()`, the footer, and the cost breakdown, keeps them out of model context, and hides them in chat unless their kind is `cache_warm`. Pi's extension API exposes no usage writer for the current session. This package therefore wraps `SessionManager.prototype.appendCustomMessageEntry`: after Pi persists a result message whose details carry `late_usage`, the wrapper calls `appendUsage("pi-subagents.late", provider, model, usage)` on the same session manager.
+Pi counts `usage` session entries in `getSessionStats()`, the footer, and the cost breakdown, keeps them out of model context, and hides them in chat unless their kind is `cache_warm`. Pi's extension API exposes no usage writer for the current session. This package therefore wraps `SessionManager.prototype.appendCustomMessageEntry`. After Pi persists a result message whose details carry `late_usage`, the wrapper calls `appendUsage("pi-subagents.late", provider, model, usage)` on the same session manager.
 
 - Every custom-message persistence path, including deferred, `nextTurn`, and settle-boundary messages, goes through this method, and each result is persisted once.
 - Pi never persists a custom message between a tool call and its result, so the usage entry that follows it has the same safe position.
@@ -13,8 +13,10 @@ Pi counts `usage` session entries in `getSessionStats()`, the footer, and the co
 
 ## Considered options
 
-- **Append the entry through `ctx.sessionManager`.** The extension context does not promise the full session manager, and the delivery path does not know when Pi persists a deferred message.
-- **Add the late usage to a tool result.** The original call has already returned, and a new tool result would enter model context.
+| Option                                        | Assessment                                                                                                                                |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Append the entry through `ctx.sessionManager` | The extension context does not promise the full session manager, and the delivery path does not know when Pi persists a deferred message. |
+| Add the late usage to a tool result           | The original call has already returned, and a new tool result would enter model context.                                                  |
 
 ## Consequences
 

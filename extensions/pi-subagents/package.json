@@ -8,7 +8,8 @@
   ],
   "type": "module",
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./constants": "./src/constants.ts"
   },
   "dependencies": {
     "@pi-mono/libs": "0.1.0",

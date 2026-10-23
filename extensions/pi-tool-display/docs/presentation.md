@@ -30,7 +30,6 @@ Standalone and expanded targets show paths as follows:
 
 - Descendants of Pi's rendering cwd are relative to it, and the cwd itself is `.`.
 - Other paths are absolute.
-- Historical relative targets resolve against the recorded execution cwd, then follow the same display rules.
 - Resolution is lexical, including home expansion. The filesystem is never inspected and symlinks are not followed.
 - Native and selective-read targets first apply Pi's Unicode-space normalisation, consistently across headings, grouping, and summary identities. Custom paths skip this normalisation.
 - Path display leaves parameters, retained output, generic arguments, literal scopes, and filters unchanged.
@@ -50,11 +49,12 @@ Expansion removes the [compact heading preview limits](#resource-limits). Progre
 
 When validated result metadata allows it, successful text can be replaced with a compact summary. Otherwise, cards show a bounded preview, grouped or standalone.
 
-| When you…                    | Read                                                                   |
-| ---------------------------- | ---------------------------------------------------------------------- |
-| Inspect FFF result totals    | [FFF display](../src/adapters/@ff-labs/pi-fff/README.md#display)       |
-| Inspect todo summaries       | [Todo display](../src/adapters/pi-todo/README.md#display)              |
-| Inspect MCP script summaries | [MCP script display](../src/adapters/pi-mcp-adapter/README.md#display) |
+| When you…                     | Read                                      |
+| ----------------------------- | ----------------------------------------- |
+| Inspect FFF result totals     | [FFF cards](tools.md#fff)                 |
+| Inspect todo summaries        | [Todo cards](tools.md#todo)               |
+| Inspect MCP script summaries  | [MCP adapter cards](tools.md#mcp-adapter) |
+| Inspect any other tool's card | [Supported tool cards](tools.md)          |
 
 | Call                                 | Collapsed result                            |
 | ------------------------------------ | ------------------------------------------- |
@@ -64,13 +64,13 @@ When validated result metadata allows it, successful text can be replaced with a
 | Non-progress failure or cancellation | Output stays visible                        |
 | Notices and images                   | Stay visible                                |
 
-Shell status, operation rows, nested calls, and progress cards use one duration format: milliseconds below one second, tenths of a second below one minute, then minutes and seconds, such as `1m 5s`, with hours for durations of an hour or more. A running progress timer counts whole seconds.
+Shell status, operation rows, script times, nested calls, and progress cards use one duration format: milliseconds below one second, tenths of a second below one minute, then minutes and seconds, such as `1m 5s`, with hours for durations of an hour or more. A running progress timer counts whole seconds.
 
 Preview rules:
 
 - Consecutive text blocks in one result share a single preview, so output split across blocks shows one omission.
 - Ordinary output previews keep the first and last rows. Previews preserve whole graphemes and ANSI styling. Exceeding the [formatting limits](#resource-limits) adds `… more output`.
-- Progress result previews keep the first logical lines, following the [subagent preview rule](../src/adapters/pi-subagents/README.md#results-and-expansion). Failed or cancelled subagent cards show recorded errors instead of reply previews.
+- Progress result previews keep the first logical lines, following the [subagent preview rule](tools.md#results-and-expansion). Failed or cancelled subagent cards show recorded errors instead of reply previews.
 - Shell cards drop trailing blank output rows. Internal blank lines and stored output are unchanged.
 - Expansion shows summaries and retained output, within the live and saved retention limits.
 
@@ -96,7 +96,7 @@ Adapters supply scopes under the [exploration scope contract](renderers.md#explo
 | Directory  | "Exploring" or "Explored" `<path>`   |
 | Filter     | "Filtering" or "Filtered" `<filter>` |
 
-Headings show the action and scope; member rows carry call and operation counts. Scope-kind nouns such as `directory` are omitted. Renderer authors should follow the [display conventions](conventions.md#action-headings) for search and listing wording.
+Headings show the action and scope; member rows carry call and operation counts. Scope-kind nouns such as `directory` are omitted.
 
 - Collapsed directory members keep their ranges, and use paths relative to the group (absolute outside it).
 - FFF members show their pattern or `files`, not the repeated filter.
@@ -133,7 +133,7 @@ Notices, images, and failure diagnostics stay beneath their call. Notices follow
 In [summary mode](../README.md#usage), each ended run becomes one line, placed in its first call's Pi row. `compact` and `verbose` modes keep groups and cards unchanged.
 
 ```text
-  Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file
+▸ Read 4 files · 2 searches · edited 2 files · ran 3 commands (1 failed) · created 1 file   12 calls
 ```
 
 ### What a run is
@@ -148,7 +148,7 @@ Thinking separates exploration groups, but never splits or ends a run. A single 
 
 ### Notices and todo calls in runs
 
-[Nested-instruction notices](../src/adapters/pi-nested-instructions/README.md) join the preceding run without splitting or ending it, but they still separate groups. They add separate counts for loaded, updated, and removed instructions, hide with the run, and return to their original positions when it opens. A notice with no preceding run stays standalone.
+[Nested-instruction notices](tools.md#nested-instructions) join the preceding run without splitting or ending it, but they still separate groups. They add separate counts for loaded, updated, and removed instructions, hide with the run, and return to their original positions when it opens. A notice with no preceding run stays standalone.
 
 Todo calls stay in their run but are left out of the line, including incompatible calls shown with generic fallback. They don't affect counts. A run of only todo calls, with no counted notices, shows no line.
 
@@ -182,9 +182,9 @@ Each category counts identities separately and keeps their latest outcomes.
 #### Categories
 
 - Built-in categories cover creations, edits, shell commands, MCP calls, searches, listings, reads, and unmatched tool names. The current labels are in [summary wording](../src/run-summary.ts).
-- Pi's built-in [codemode](../src/adapters/builtin/codemode/README.md#summary-mode) counts each script once as `ran 1 script`. Nested calls never count.
-- Pi's built-in [tool search](../src/adapters/builtin/tool-search/README.md#summary-mode) adds a loaded-tools category, deduplicated by tool name across the run. Calls without valid, nonempty loaded-name details count individually as `tool_search`.
-- [Instruction notices](../src/adapters/pi-nested-instructions/README.md#display) count once per persisted file path and action, or per directory for removals. These counts stay separate from tool outcomes and file-read counts.
+- Pi's built-in [codemode](tools.md#codemode) counts each script once as `ran 1 script`. Nested calls never count.
+- Pi's built-in [tool search](tools.md#tool-search) adds a loaded-tools category, deduplicated by tool name across the run. Calls without valid, nonempty loaded-name details count individually as `tool_search`.
+- [Instruction notices](tools.md#nested-instructions) count once per persisted file path and action, or per directory for removals. These counts stay separate from tool outcomes and file-read counts.
 
 #### Order and wording
 
@@ -194,11 +194,11 @@ Each category counts identities separately and keeps their latest outcomes.
 
 ### Line layout
 
-- The line is a bar: every row fills the full width with `toolPendingBg`.
+- The line is a bar. Every row fills the full width with `toolPendingBg`.
 - The first row starts with a `▸` marker in `muted`. Wrapped rows are indented two columns, aligned with the first item.
 - Wrapping happens only between items, with no row limit. An item wider than the line is truncated.
 - The run's call count, such as `11 calls`, sits at the right of the last row in `dim`. When it does not fit after the last item, it gets a row of its own.
-- Colours: a leading verb uses `accent` (bold for the first item), counts use `text`, other words use `muted`, and separators use `dim`. Failed and cancelled counts use `error`; unavailable counts use `muted`.
+- A leading verb uses `accent` (bold for the first item), counts use `text`, other words use `muted`, and separators use `dim`. Failed and cancelled counts use `error`; unavailable counts use `muted`.
 - Calls with images, and failed or cancelled calls, add to the counts; their images and diagnostic text stay hidden. Error text appears only in opened runs.
 
 ### Opening and closing a run
@@ -222,7 +222,7 @@ With collapsed thinking (default **Ctrl+T**), a placeholder is hidden as soon as
 - Active thinking stays visible.
 - Message completion also hides any remaining collapsed placeholders, including in history.
 - Revealing thinking restores rows and group boundaries, without changing run membership, settlement, or which runs you opened.
-- A tools → thinking → more tools sequence stays compact until a non-thinking boundary or the agent's end, whether thinking is visible or not.
+- A sequence of tools, then thinking, then more tools stays compact until a non-thinking boundary or the agent's end, whether thinking is visible or not.
 - Live indicators, assistant text, and diagnostics stay. Recorded messages never change.
 
 ## Outcomes
@@ -238,13 +238,7 @@ Failed, cancelled, and unknown-history headings keep the action name: `Write fai
 
 - The CLI records cancellation for an unsuccessful result that arrives after a live abort. Earlier failures and successful results keep their outcomes.
 - Cancellation and failure follow the [outcome precedence](renderers.md#outcomes).
-- Once cancellation is confirmed, compact native cards may omit the exact known cancellation message while keeping process output and extra diagnostics. Expansion restores the full diagnostics. Similar ordinary output without confirmation stays visible.
-
-### Local details on replay
-
-- Expanded native `bash`, `powershell`, `edit`, and `write` cards say why timing and saved-output references are missing: the writer's file is not on this machine, the file has no line for the call, the file exceeds 8 MiB or cannot be read safely, or the call was not observed.
-- When the file is not on this machine, shell summaries and operation rows show `Timing not on this machine` in place of the duration.
-- Other adapters keep no local details and show no notice.
+- After the CLI confirms cancellation, compact native cards can hide Pi's exact cancellation message. They keep process output and other diagnostics, and expansion restores the full diagnostics. Without confirmation, output that only resembles the message stays visible.
 
 ## Notices and colours
 
@@ -258,7 +252,7 @@ Severity changes styling, never visibility. Compact groups keep informational no
 
 Headings, group badges, and summary counts name failed and cancelled outcomes in `error`. Status details use `warning` for a cancellation, for example a shell's `Cancelled` row, a progress status, or a nested call.
 
-Live and saved previews distinguish generated omissions from identical process text, which keeps ordinary styling. Generic output is never searched for extension phrases. See [adapter provenance limits](adapters.md#built-in-adapters).
+Live and saved previews distinguish generated omissions from identical process text, which keeps ordinary styling. Generic output is never searched for extension phrases. See [recognise tool contracts](adapters.md#recognise-tool-contracts).
 
 ## Diff viewer
 
@@ -287,11 +281,20 @@ Edit and write cards show retained patches below their headings.
 
 Expanding a completed shell card loads a bounded preview of Pi's temporary output file.
 
+### Output paths
+
+- A result that Pi saved with an output path supplies the path, including a shell call that exited with a nonzero code.
+- When the shell throws, as on an abort, a timeout, or a missing exit code, Pi's result keeps no path. The card then uses the path that the extension observed while the call ran.
+- Observed paths stay in memory only. They survive a rebuilt transcript, but not `/reload`, a session change, or exit. After that, such a call shows no preview.
+
 ### Reading
 
-- Expansion reads saved shell output asynchronously after the call completes, and defers running calls. Collapsed cards never start reads.
+- Expanding a completed shell card reads the file in the background. An expanded running card reads it when the call completes. Collapsed cards never read it.
 - On failure, Pi's published result stays beside the preview. A missing, unreadable, changing, or non-regular file keeps the output, with a limitation notice.
-- Completed reads, including failures, are cached until eviction or transcript disposal.
+- The session keeps the 8 most recently used previews, including failed reads, until `/reload` or a session change. Expanding the card again reuses its preview.
+- When a ninth preview loads, the oldest one is dropped. Its card shows Pi's published output until you collapse and expand it again.
+- When a call's saved-output path changes, its card drops the old preview.
+- A read that finishes after its path changed, after its preview was dropped, or after `/reload` or a session change never shows its preview.
 
 ### Retrying
 
@@ -303,12 +306,6 @@ Use fullscreen mode for card clicks, or Pi's expansion key (default **Ctrl+O**) 
 | Repair an unreadable file, run `/reload`, then expand the card. | The file is read again.                                |
 | Toggle expansion without reloading a cached failure.            | The cached failure is reused.                          |
 
-### Invalidation
-
-- A changed saved-output path, or cache eviction, discards the old preview.
-- Late reads never restore previews for obsolete paths, evicted values, or disposed transcripts.
-- Expanding again can reload an evicted preview.
-
 ## Resource limits
 
 Limits affect display only, never execution or Pi's saved arguments and results.
@@ -318,7 +315,7 @@ Limits affect display only, never execution or Pi's saved arguments and results.
 - Collapsed output previews follow the [preview rules](#results). Source-code previews keep the first rows. Nested-call lists keep the latest calls.
 - Expansion restores only what Pi retained or what the bounded observation captured.
 - Exceeded limits make a patch unavailable; they never make an edit or write unsuccessful.
-- Saved facts and local details follow the [record size limits](recording.md#record-size-limits).
+- A saved call fact that exceeds the [record size limit](recording.md#record-size-limits) is not saved and cannot be replayed.
 
 ### How work is bounded
 
@@ -326,24 +323,4 @@ Limits affect display only, never execution or Pi's saved arguments and results.
 - Compact invocation values, patterns, source-code previews, and progress result previews are bounded before terminal normalisation.
 - Generic parameter previews bound JSON serialisation by text size, values visited, and nesting depth. An incomplete preview shows a "more details" notice. Expansion serialises all retained arguments.
 
-### For renderer authors
-
-Patch generation runs off the UI thread under [shared worker limits](../../../libs/src/bounded-diff/README.md#behaviour). Unchanged redraws reuse decorated assistant prose, run summaries, and heading layout. The pending pulse changes only the heading marker; running progress timers also refresh elapsed time.
-
-Parameters and generic arguments use the [validated copy of Pi's raw arguments](adapters.md#callback-arguments) when validation against the current tool schema succeeds. Otherwise, they use Pi's raw arguments. This applies to both compact previews and expanded parameters.
-
-Current budgets live in the source:
-
-| Budget             | Source                                                                                                                             |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Parameter previews | [invocation.ts](../src/invocation.ts)                                                                                              |
-| Heading previews   | [headings.ts](../src/rendering/headings.ts)                                                                                        |
-| Target layout      | [target-layout.ts](../src/rendering/target-layout.ts)                                                                              |
-| Preview formatting | [format.ts](../src/rendering/format.ts)                                                                                            |
-| Shell observation  | [observation/](../src/observation/)                                                                                                |
-| Saved previews     | [observation/saved-output.ts](../src/observation/saved-output.ts), [transcript/saved-output.ts](../src/transcript/saved-output.ts) |
-| Patch limits       | [diff.ts](../src/diff.ts)                                                                                                          |
-| Record validation  | [metadata.ts](../src/transcript/metadata.ts)                                                                                       |
-| Local lines        | [store.ts](../src/transcript/store.ts)                                                                                             |
-
-[Automatic integration](../README.md#what-is-recorded) collects output and generates patches. The [standalone factory](renderers.md) only formats data it is given.
+Renderer authors can find the current budgets and argument sources in [renderer integration](renderers.md#display-budgets).

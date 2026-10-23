@@ -156,3 +156,4 @@ Sessions coordinate changes to each collection through lock files and atomic rep
 - Closing the browser or switching collections cancels processing and preparation that are no longer needed, but not deletions that have started.
 - Reload, shutdown, and replacing the session discard queued captures.
 - Changes still reading or waiting for a lock can't commit after the session ends. Writes that have started may finish, and a graceful shutdown waits for them and for lock cleanup.
+- At shutdown, the extension stops new writes and notifications before any other pi-mono extension waits on its shutdown work. Only an extension from outside pi-mono can wait before that. The extension then waits for its started writes and for cancelled changes to release their locks.

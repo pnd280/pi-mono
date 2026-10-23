@@ -2,18 +2,23 @@
 
 [Library index](../../README.md#usage)
 
-Retain bounded output from a byte stream that arrives in chunks.
+A tool that shows process output must keep memory bounded while the output arrives in byte chunks that can split UTF-8 characters. [`@pi-mono/libs/output-buffer`](index.ts) exports `OutputBuffer`, which accepts byte chunks and decodes UTF-8 across chunk boundaries.
 
 ## Behaviour
 
-[`@pi-mono/libs/output-buffer`](index.ts) exports `OutputBuffer`, which accepts byte chunks and decodes UTF-8 across chunk boundaries.
+The buffer retains full output through `maxBytes` raw bytes. Beyond that, it keeps `edgeLines` completed lines at each end and clips each line to `lineBytes`, split between its head and tail.
 
-The buffer retains full output through `maxBytes` raw bytes. Beyond that, it keeps `edgeLines` completed lines at each end and clips each line to `lineBytes`, split between its head and tail. Excerpt limits are independent of `maxBytes`. Generated notices add to source limits. `finish()` flushes incomplete UTF-8.
+- Excerpt limits are independent of `maxBytes`.
+- Generated notices add to source limits.
+- `finish()` flushes incomplete UTF-8.
 
 ## Caller responsibilities
 
-Use one instance per stream. Append new chunks, never replacement snapshots. End with `finish()`, then `snapshot()`. Supply omission messages and positive safe-integer `maxBytes`, `edgeLines`, and `lineBytes`; other limits throw `RangeError`.
+- Sanitise each complete snapshot for terminal display.
+- Preserve the notice ranges in `OutputText` to distinguish notices from identical process output.
+- Use one instance per stream.
+- Append new chunks, never replacement snapshots.
+- End with `finish()`, then `snapshot()`.
+- Supply omission messages and positive safe-integer `maxBytes`, `edgeLines`, and `lineBytes`. Other limits throw `RangeError`.
 
-Preserve the notice ranges in `OutputText` to distinguish notices from identical process output. Sanitise each complete snapshot for terminal display.
-
-Tool display's [native observation](../../../extensions/pi-tool-display/src/observation/native.ts) supplies stream limits and omission messages.
+Related: tool display's [native observation](../../../extensions/pi-tool-display/src/observation/native.ts) supplies stream limits and omission messages.

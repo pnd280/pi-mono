@@ -2,7 +2,9 @@ import { relative, resolve, sep } from "node:path";
 
 import type {
   AgentSession,
+  ContextUsage,
   ReadonlyFooterDataProvider,
+  SessionStats,
   Theme
 } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
@@ -21,8 +23,69 @@ function formatCwd(cwd: string, home = process.env.HOME || process.env.USERPROFI
 
 type UsageDisplay = "regular" | "compact" | "verbose";
 
+type Usage = {
+  sessionId: string;
+  leafId: string | null;
+  entryCount: number;
+  limitsModel: AgentSession["model"];
+  tokens: SessionStats["tokens"];
+  cost: number;
+  hit: number | undefined;
+  context: ContextUsage | undefined;
+};
+
+const usageCache = new WeakMap<AgentSession, Usage>();
+
+/**
+ * Usage totals and context usage scan the whole session, and widgets render on every frame.
+ * Entries are append-only and every append moves the leaf, so, as in Pi's native footer, the
+ * results change only with the session, leaf, entry count, or the model whose limits apply.
+ */
+function usageOf(session: AgentSession): Usage {
+  const manager = session.sessionManager;
+  const sessionId = manager.getSessionId();
+  const leafId = manager.getLeafId();
+  const entryCount = manager.getEntryCount();
+  const limitsModel = session.routedModel?.model ?? session.model;
+  const cached = usageCache.get(session);
+  if (
+    cached?.sessionId === sessionId &&
+    cached.leafId === leafId &&
+    cached.entryCount === entryCount &&
+    cached.limitsModel === limitsModel
+  )
+    return cached;
+  // getSessionStats() also projects context usage, so reuse it instead of projecting again.
+  const stats = session.getSessionStats();
+  let hit: number | undefined;
+  const entries = manager.getEntries();
+
+  for (let index = entries.length - 1; index >= 0; index--) {
+    const entry = entries[index];
+    if (entry?.type !== "message" || entry.message.role !== "assistant") continue;
+    const latest = entry.message.usage;
+    const prompt = latest.input + latest.cacheRead + latest.cacheWrite;
+    hit = prompt > 0 ? (latest.cacheRead / prompt) * 100 : undefined;
+    break;
+  }
+
+  const next = {
+    sessionId,
+    leafId,
+    entryCount,
+    limitsModel,
+    tokens: stats.tokens,
+    cost: stats.cost,
+    hit,
+    context: stats.contextUsage
+  };
+  usageCache.set(session, next);
+
+  return next;
+}
+
 function tokens(session: AgentSession, display: UsageDisplay): string {
-  const { tokens: usage, cost } = session.getSessionStats();
+  const { tokens: usage, cost, hit } = usageOf(session);
   const parts: string[] = [];
 
   for (const [key, prefix] of [
@@ -41,19 +104,6 @@ function tokens(session: AgentSession, display: UsageDisplay): string {
     if (usage[key]) parts.push(`${prefix}${formatTokenCount(usage[key])}`);
   }
 
-  let hit: number | undefined;
-  const entries = session.sessionManager.getEntries();
-
-  // Renders run per frame: scan back to the latest assistant message only.
-  for (let index = entries.length - 1; index >= 0; index--) {
-    const entry = entries[index];
-    if (entry?.type !== "message" || entry.message.role !== "assistant") continue;
-    const latest = entry.message.usage;
-    const prompt = latest.input + latest.cacheRead + latest.cacheWrite;
-    hit = prompt > 0 ? (latest.cacheRead / prompt) * 100 : undefined;
-    break;
-  }
-
   if ((usage.cacheRead || usage.cacheWrite) && hit !== undefined)
     parts.push(`CH${hit.toFixed(1)}%`);
   const model = session.model;
@@ -66,7 +116,7 @@ function tokens(session: AgentSession, display: UsageDisplay): string {
 }
 
 function context(session: AgentSession, theme: Theme, display: UsageDisplay): string {
-  const usage = session.getContextUsage();
+  const usage = usageOf(session).context;
   const tokens = usage?.tokens;
   const percent = usage?.percent;
   const window = usage?.contextWindow;

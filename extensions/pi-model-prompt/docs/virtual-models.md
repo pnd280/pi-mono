@@ -2,7 +2,7 @@
 
 [pi-model-prompt](../README.md)
 
-Rules match the selected model. For a [virtual model](https://pi.dev/docs/latest/virtual-models), that is its own `provider/id`, such as `router/auto`, never the physical model it routes to.
+Rules match the selected model. A [virtual model](https://pi.dev/docs/latest/virtual-models) is a selectable model that picks a physical model for each request. For a virtual model, the selected model is its own `provider/id`, such as `router/auto`, never the physical model it routes to.
 
 - A rule matching the virtual ID adds its files to every request, whichever model the router picks.
 - Rules for physical models, such as `^anthropic/`, don't apply under a virtual model.

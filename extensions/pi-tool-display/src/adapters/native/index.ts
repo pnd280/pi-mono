@@ -61,24 +61,16 @@ export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
     summaryItems,
     savedOutput: family === "shell",
     patch: family === "edit",
-    summary(_result, { operation, local }) {
-      if (family !== "shell") return undefined;
-      if (!operation)
-        return local === "absent"
-          ? { text: "Timing not on this machine", preserveOutput: true }
-          : undefined;
+    summary(_result, { operation, durationMs }) {
+      if (family !== "shell" || !operation) return undefined;
       let status = `Operation ${operation.outcome} · exit unknown`;
       if (operation.timedOut) status = "Timed out";
       else if (operation.outcome === "cancelled") status = "Cancelled";
       else if (operation.exitCode !== undefined && operation.exitCode !== null)
         status = `Exit ${operation.exitCode}`;
 
-      let timing: string | undefined;
-      if (operation.durationMs !== undefined) timing = formatDuration(operation.durationMs);
-      else if (local === "absent") timing = "Timing not on this machine";
-
       return {
-        text: timing === undefined ? status : `${status} · ${timing}`,
+        text: durationMs === undefined ? status : `${status} · ${formatDuration(durationMs)}`,
         // Exit status describes execution, not the command's answer.
         preserveOutput: true
       };

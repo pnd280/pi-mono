@@ -34,6 +34,8 @@ export type RowOptions = {
   /** Without mode hooks, Pi's global expansion toggles collapsed mode and verbose. */
   syncMode?: () => void;
   action?: (action: DisplayAction) => void;
+  /** A row's hooks failed to install or to release. A row without hooks stands alone. */
+  failed: (stage: "bind" | "release") => void;
 };
 
 /**
@@ -83,7 +85,11 @@ export class TranscriptRows {
         ...options,
         ...(call && binding ? { binding: { call, coordinator: binding.coordinator } } : {})
       });
-      if (call) binding?.retainDefinition(view, call);
+      // A row whose hooks fail draws a standalone card, which follows Pi's expansion.
+      if (call)
+        binding?.retainDefinition(view, call, () => {
+          renderers = createToolDisplayRenderers(name, adapter, options);
+        });
 
       return renderers;
     };
@@ -154,6 +160,13 @@ export class TranscriptRows {
   }
 }
 
+/** The definition view that Pi's lookup returned for a row. */
+function rowDefinition(row: ToolExecutionComponent): object | undefined {
+  const definition = record(row).toolDefinition;
+
+  return definition !== null && typeof definition === "object" ? definition : undefined;
+}
+
 /** The row state of one transcript binding. */
 class RowBinding {
   private disposers: (() => void)[] = [];
@@ -164,7 +177,7 @@ class RowBinding {
   private pendingCalls = new Map<string, { calls: DisplayCall[]; next: number }>();
   private unindexedCalls: MapIterator<DisplayCall>;
   private indexedCalls = 0;
-  private calls = new WeakMap<object, DisplayCall>();
+  private definitions = new WeakMap<object, { call: DisplayCall; unbind: () => void }>();
   private children: readonly Component[] | undefined;
   private indexedChildren = 0;
   private lastChild: Component | undefined;
@@ -203,19 +216,18 @@ class RowBinding {
 
     return call;
   }
-  retainDefinition(definition: object, call: DisplayCall): void {
-    this.calls.set(definition, call);
+  /** `unbind` makes the definition's card standalone. */
+  retainDefinition(definition: object, call: DisplayCall, unbind: () => void): void {
+    this.definitions.set(definition, { call, unbind });
   }
   /** Pi passes its theme only to renderers; row chrome reuses the latest one. */
   useTheme(theme: DisplayTheme): void {
     this.theme = theme;
   }
   private rowCall(row: ToolExecutionComponent): DisplayCall | undefined {
-    const definition = record(row).toolDefinition;
+    const definition = rowDefinition(row);
 
-    return definition !== null && typeof definition === "object"
-      ? this.calls.get(definition)
-      : undefined;
+    return definition && this.definitions.get(definition)?.call;
   }
   /** Pi appends rows during streaming and reconstruction. Only insertion/removal
    * within an indexed prefix needs a new predecessor pass, never ordinary events.
@@ -283,7 +295,7 @@ class RowBinding {
    */
   private bindNotice(row: CustomMessageComponent, summary: SummaryNotice | undefined): boolean {
     const children = this.host.chatContainer?.children ?? [];
-    let call: DisplayCall | undefined;
+    let owner: ToolExecutionComponent | undefined;
 
     for (let index = children.indexOf(row) - 1; index >= 0; index--) {
       const previous = children[index];
@@ -293,22 +305,29 @@ class RowBinding {
         assistantBoundaryKind(previous) !== "run"
       )
         continue;
-      if (previous instanceof ToolExecutionComponent) call = this.rowCall(previous);
+      if (previous instanceof ToolExecutionComponent) owner = previous;
       break;
     }
 
-    if (!call) return false;
-    this.notices.add(row);
-    this.trailingNotices.set(call, row);
-    this.coordinator.setBoundary(row, call, "group");
-    if (summary) this.coordinator.addSummaryNotice(call, summary);
-    const anchor = call;
-    this.disposers.push(
+    const anchorRow = owner;
+    const anchor = anchorRow && this.rowCall(anchorRow);
+    if (!anchorRow || !anchor) return false;
+    const release = this.installed(() =>
       bindRowChrome(row, anchor, this.coordinator, {
-        active: this.options.active,
+        // Reconstruction binds notices before rows; a standalone anchor leaves Pi's notice.
+        active: () => this.options.active() && this.rowCall(anchorRow) === anchor,
         theme: () => this.theme,
         tail: () => this.trailingNotices.get(anchor) === row
-      }),
+      })
+    );
+    // An unbound notice stays a visible boundary, as Pi renders it.
+    if (!release) return false;
+    this.disposers.push(release);
+    this.notices.add(row);
+    this.trailingNotices.set(anchor, row);
+    this.coordinator.setBoundary(row, anchor, "group");
+    if (summary) this.coordinator.addSummaryNotice(anchor, summary);
+    this.disposers.push(
       this.coordinator.attach(anchor, {
         invalidate: () => {
           row.invalidate();
@@ -339,11 +358,14 @@ class RowBinding {
     // Final-message middleware can remove previously visible streaming content.
     if (!(component instanceof AssistantMessageComponent)) return;
 
+    // Bind each assistant once: a failed or unknown layout keeps Pi's presentation.
     if (this.options.styleAssistant && !this.assistants.has(component)) {
       this.assistants.add(component);
-      const dispose = bindAssistantPresentation(component, () => {
-        if (this.options.active()) this.assistantBoundary(component);
-      });
+      const dispose = this.installed(() =>
+        bindAssistantPresentation(component, () => {
+          if (this.options.active()) this.assistantBoundary(component);
+        })
+      );
       if (dispose) this.disposers.push(dispose);
     }
 
@@ -353,16 +375,26 @@ class RowBinding {
   bind(): void {
     // A host event may reconstruct the transcript before its original handler returns.
     if (!this.options.active()) return;
-    const coordinator = this.coordinator;
     this.indexChildren();
 
     for (const child of this.pendingRows) {
       this.pendingRows.delete(child);
       const call = this.rowCall(child);
-      if (!call) continue;
-      this.bound.add(child);
+      if (call) this.bindRow(child, call);
+    }
+  }
+  /** Install one tool row's hooks, or none of them. */
+  private bindRow(child: ToolExecutionComponent, call: DisplayCall): void {
+    const coordinator = this.coordinator;
+    const cleanup: (() => void)[] = [];
+
+    const release = () => {
+      for (const run of cleanup.splice(0).reverse()) run();
+    };
+
+    try {
       if (this.options.chrome)
-        this.disposers.push(
+        cleanup.push(
           bindRowChrome(child, call, coordinator, {
             action: this.options.action,
             active: this.options.active,
@@ -385,27 +417,73 @@ class RowBinding {
 
       const hooks = new OwnedHooks();
       hooks.replace(child, "setExpanded", setExpanded);
-      const detach = coordinator.attach(call, {
-        invalidate: () => {
-          child.invalidate();
-          this.host.ui?.requestRender();
-        },
-        requestRender: () => this.host.ui?.requestRender(),
-        setExpanded: (expanded) => previous.call(child, expanded)
-      });
+      cleanup.push(() => hooks.restore());
+      cleanup.push(
+        coordinator.attach(call, {
+          invalidate: () => {
+            child.invalidate();
+            this.host.ui?.requestRender();
+          },
+          requestRender: () => this.host.ui?.requestRender(),
+          setExpanded: (expanded) => previous.call(child, expanded)
+        })
+      );
+      // Pi's callback can release this binding, so record the cleanup first.
+      this.disposers.push(release);
+      this.bound.add(child);
       previous.call(
         child,
         coordinator.group(call)?.expanded ??
           (coordinator.mode === "verbose" || (this.host.toolOutputExpanded ?? false))
       );
-      this.disposers.push(() => {
-        detach();
-        hooks.restore();
-      });
+    } catch {
+      this.bound.delete(child);
+      const index = this.disposers.indexOf(release);
+      if (index >= 0) this.disposers.splice(index, 1);
+      release();
+      this.standalone(child, call);
+      this.options.failed("bind");
     }
   }
+  /**
+   * A row without hooks cannot draw run chrome or route expansion, so it releases its
+   * call and draws a standalone card. Boundaries on both sides keep the call out of
+   * groups and runs, so no other call can hide behind it. Collection keeps the call.
+   */
+  private standalone(child: ToolExecutionComponent, call: DisplayCall): void {
+    const definition = rowDefinition(child);
+
+    if (definition) {
+      this.definitions.get(definition)?.unbind();
+      this.definitions.delete(definition);
+    }
+
+    this.boundaryBefore(child);
+    this.coordinator.boundary(call);
+    child.invalidate();
+  }
+  /** Each installer restores its own hooks when it throws. */
+  private installed<T>(install: () => T): T | undefined {
+    try {
+      return install();
+    } catch {
+      this.options.failed("bind");
+
+      return undefined;
+    }
+  }
+  /** Release every row even when one cleanup fails, then report the failure. */
   dispose(): void {
-    this.disposers.splice(0).forEach((dispose) => dispose());
+    let failed = false;
+
+    for (const dispose of this.disposers.splice(0)) {
+      try {
+        dispose();
+      } catch {
+        failed = true;
+      }
+    }
+
     this.pendingCalls.clear();
     this.pendingRows.clear();
     this.trailingNotices.clear();
@@ -414,5 +492,6 @@ class RowBinding {
     this.lastChild = undefined;
     this.lastCall = undefined;
     this.predecessors = new WeakMap();
+    if (failed) this.options.failed("release");
   }
 }

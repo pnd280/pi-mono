@@ -1,4 +1,4 @@
-import type { SessionEntry, ToolExposure } from "@earendil-works/pi-coding-agent";
+import type { SessionEntry, ToolExposure, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
 import type { Profile } from "./settings.ts";
@@ -101,6 +101,32 @@ export function toolMatcher(entries: readonly string[]): (name: string) => boole
     );
 
   return (name) => names.has(name) || patterns.some((pattern) => pattern.test(name));
+}
+
+/**
+ * Pi's own tools, such as `read` and `codemode`, have the source path `builtin:<name>`. Other tools
+ * of Pi's built-in extensions, such as MCP tools, have the extension's path, such as `builtin:mcp`.
+ */
+const isPiTool = ({ name, sourceInfo }: Pick<ToolInfo, "name" | "sourceInfo">) =>
+  sourceInfo.source === "builtin" && sourceInfo.path === `builtin:${name}`;
+
+/**
+ * The active tools without the `deny` matches, in a fixed order: Pi's own tools in the order of
+ * `tools` (Pi's `getAllTools()`, which lists its core tools first, in Pi's order), then the other
+ * tools by name. Pi activates extension tools in registration order, which follows load order.
+ */
+export function enforcedTools(
+  active: readonly string[],
+  deny: readonly string[],
+  tools: readonly Pick<ToolInfo, "name" | "sourceInfo">[]
+): string[] {
+  const denied = toolMatcher(deny);
+  const kept = new Set(active.filter((name) => !denied(name)));
+  const own = tools.filter((tool) => isPiTool(tool) && kept.has(tool.name)).map(({ name }) => name);
+  // Code unit order, so that the locale does not change it.
+  const others = [...kept].filter((name) => !own.includes(name)).sort();
+
+  return [...own, ...others];
 }
 
 /** The names of a `defer` entry: a name or pattern, or a group of them. */
@@ -248,15 +274,22 @@ export interface RestoreState {
 
 /**
  * The tools to declare after Pi restored a session. Pi declares the tools of the last request on
- * resume, `/fork`, and `/tree`, which predate the selection when no request followed it.
+ * resume, `/fork`, and `/tree`, which predate the selection when no request followed it. Pi also
+ * turns on the extension tools that the branch never recorded, as if they registered later. A tool
+ * that the selection knew is not new, so it stays off unless the last request declared it.
  */
 export function restoredTools(selection: Selection, state: RestoreState): string[] {
-  const off = [...selection.base, ...selection.deferred.flat()].filter(
-    (name) => !selection.tools.includes(name) && !state.recorded?.includes(name)
-  );
+  const { recorded } = state;
   let tools: string[];
-  if (state.reload) tools = state.active.filter((name) => !off.includes(name));
-  else tools = state.recorded ? [...state.active] : [...selection.tools];
+  if (state.reload) {
+    const off = [...selection.base, ...selection.deferred.flat()].filter(
+      (name) => !selection.tools.includes(name) && !recorded?.includes(name)
+    );
+    tools = state.active.filter((name) => !off.includes(name));
+  } else if (recorded) {
+    const known = new Set([...selection.base, ...selection.tools, ...selection.deferred.flat()]);
+    tools = state.active.filter((name) => recorded.includes(name) || !known.has(name));
+  } else tools = [...selection.tools];
 
   const searchExposure = state.exposure.get(TOOL_SEARCH);
   const searchDeclared =

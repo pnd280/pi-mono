@@ -10,6 +10,9 @@ For pure helpers with no side effects, use [utils](../utils/README.md). Import e
 | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | [tool-schema](src/tool-schema/README.md)               | Zod input projection into a limited Pi tool-schema profile                |
 | [working-message](src/working-message/README.md)       | Shared working-message contributions and saved ordering                   |
+| [input-chain](src/input-chain/README.md)               | Input observers and ranked transforms from one `input` handler            |
+| [prompt-parts](src/prompt-parts/README.md)             | Ranked system-prompt parts appended once per run                          |
+| [lifecycle](src/lifecycle/README.md)                   | Startup barrier, shortcut claims, shutdown phase, and run marks           |
 | [settings-file](src/settings-file/README.md)           | Bounded reads, trusted scopes, and locked settings-section saves          |
 | [private-files](src/private-files/README.md)           | Permission and ACL enforcement, directory scopes, locks, atomic writes    |
 | [file-rename](src/file-rename/README.md)               | File replacement by rename, with bounded retries on Windows               |
@@ -21,6 +24,8 @@ For pure helpers with no side effects, use [utils](../utils/README.md). Import e
 | [native-tools](src/native-tools/README.md)             | Shared observation of verified native tools                               |
 | [file-mutations](src/file-mutations/README.md)         | Native file mutation observations and shared patches                      |
 | [bounded-diff](src/bounded-diff/README.md)             | Bounded unified-patch generation                                          |
+
+The input-chain, prompt-parts, lifecycle, and working-message coordinators follow one [coordinator protocol](src/coordination/README.md), so their results do not depend on extension load order.
 
 ### Offline validation
 

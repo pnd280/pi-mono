@@ -4,7 +4,7 @@
 
 ## Behaviour
 
-Extensions that need searchable sections with selection, previews, and actions use the collection browser. Use the [browser contracts](types.ts) for options and action signatures; [layout policy](layout.ts) chooses inline or overlay presentation.
+Extensions that need searchable sections with selection, previews, and actions use the collection browser. Use the [browser contracts](types.ts) for options and action signatures. The [layout policy](layout.ts) chooses inline or overlay presentation.
 
 - Sections retain their own queries and selections.
 - A query edit selects the first result.
@@ -13,7 +13,9 @@ Extensions that need searchable sections with selection, previews, and actions u
 - While a search is pending, only query editing, section switching, and cancellation are available.
 - While a removal or selection action is pending, only cancellation is allowed.
 - Late results cannot reopen a closed browser.
+- The browser aborts the activation signal on reactivation or final closure, not on remount.
 - `details` show below the results for the selected item. They take at most half of the rows, and `…` marks rows that do not fit.
+- The browser wraps `details` synchronously.
 - `preview` opens a separate scrollable view. Without it, **Ctrl+P** does nothing and has no hint.
 
 ### Keys and cancellation
@@ -29,26 +31,26 @@ The browser uses Pi's selection keybindings plus fixed keys for sections, previe
 
 ## Caller responsibilities
 
-The browser owns presentation and interaction; the caller owns data, search, and effects.
+Own data, search, and effects, following the [shared TUI ownership rule](../../README.md#usage).
 
 ### Sections and items
 
 - Supply at least one section, unique IDs, and an existing initial section.
 - Supply stable unique snapshot item keys.
-- `load(signal)` returns prepared items and an optional status `message`.
-- Pass the activation signal through preparation; it is aborted on reactivation or final closure, not remount.
-- The `search` callback filters and ranks results and must honour the supplied `current` callback.
+- Return prepared items and an optional status `message` from `load(signal)`.
+- Pass the activation signal through preparation.
+- Filter and rank results in the `search` callback, and honour the supplied `current` callback.
 - Supply terminal-safe rows, details, and previews, and keep the exact source separately.
-- Prepare `details` before the browser opens and keep them short. The browser wraps them synchronously.
+- Prepare `details` before the browser opens and keep them short.
 - Format only the visible window. Keep its item count and order, and use width-preserving styles.
 
 ### Actions and errors
 
-- `remove.run(item, signal)` returns a committed snapshot, or `undefined` after reporting failure.
+- Return a committed snapshot from `remove.run(item, signal)`, or report the failure and return `undefined`.
 - Use the removal signal only to cancel replacement-snapshot preparation, never effects already started.
-- Errors from loading and the initial search are shown directly, so use terminal-safe messages.
-- Errors from actions and later searches go to `onError`.
-- `cancelError` chooses the diagnostic for unusable cancel bindings.
+- Use terminal-safe messages for errors from loading and the initial search, because the browser shows them directly.
+- Handle errors from actions and later searches in `onError`.
+- Choose the diagnostic for unusable cancel bindings with `cancelError`.
 
 ### Mounting
 
@@ -101,4 +103,4 @@ await openBrowser({
 
 ## Validation
 
-Use the [package checks](../../../../README.md#validation). The browser has no component tests; the [browser host tests](../../open-browser/index.test.ts) exercise list and preview paging, remounts, and cancellation through Pi's renderer. Check sections, actions, and layout with prompt manager's [presentation scenarios](../../../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting).
+Use the [package checks](../../../../README.md#validation). The browser has no component tests. The [browser host tests](../../open-browser/index.test.ts) exercise list and preview paging, remounts, and cancellation through Pi's renderer. Check sections, actions, and layout with prompt manager's [presentation scenarios](../../../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting).

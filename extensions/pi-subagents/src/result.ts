@@ -40,8 +40,12 @@ export const detailsSchema = z.object({
 
 export type ToolDetails = z.infer<typeof detailsSchema>;
 
-export function boundedText(text: string, maxLines = DEFAULT_MAX_LINES): string {
-  const result = truncateHead(text, { maxLines, maxBytes: DEFAULT_MAX_BYTES });
+export function boundedText(
+  text: string,
+  maxLines = DEFAULT_MAX_LINES,
+  maxBytes = DEFAULT_MAX_BYTES
+): string {
+  const result = truncateHead(text, { maxLines, maxBytes });
 
   return result.truncated ? `${result.content}\n[Text truncated]` : result.content;
 }

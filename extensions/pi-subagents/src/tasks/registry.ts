@@ -373,6 +373,10 @@ export class Tasks {
     this.tree.close();
   }
 
+  /**
+   * Stops every run and settles after each run ended. The binding is invalid, so no result reports
+   * a failed cleanup of a run's processes; the stop rejects with them after all runs ended.
+   */
   async shutdown(immediate = false): Promise<void> {
     this.invalidate();
     const runs = [...this.processes];
@@ -386,18 +390,20 @@ export class Tasks {
       runs.map(async (run) => {
         const { stopError } = await run.done;
 
-        // Each record starts a line, also after other output without a final newline.
-        return stopError
-          ? `\n${STOP_FAILURE_PREFIX}task ${run.details.task_id}: ${stopError}\n`
-          : "";
+        return stopError ? [`task ${run.details.task_id}: ${stopError}`] : [];
       })
     );
     this.relay.shutdown();
     this.listeners.clear();
-    const forwarded = failures.join("");
+    const failed = failures.flat();
+    if (!failed.length) return;
 
-    // The supervisor of this child supervisor reads the failures from its stderr.
-    if (this.options.depth > 0 && forwarded) await forwardStderr(forwarded);
+    // Pi catches session_shutdown errors. The supervisor of this child supervisor reads the
+    // failures from its stderr. Each record starts a line, also after other output without a
+    // final newline.
+    if (this.options.depth > 0)
+      await forwardStderr(failed.map((failure) => `\n${STOP_FAILURE_PREFIX}${failure}\n`).join(""));
+    throw new Error(`Task cleanup failed: ${failed.join("; ")}`);
   }
 
   /** The current record of a task of this subtree; it throws after the binding ends. */

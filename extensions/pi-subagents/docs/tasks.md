@@ -11,7 +11,8 @@ Set `task_id` in a `subagent` call to continue a task with its earlier conversat
 - Use `delivery: "follow_up"` (the default) to add input after the current work, or `delivery: "steer"` to deliver it before the next model request.
 - Active-task input uses the existing capacity slot and result destination, and reports no additional usage.
 - When input continues a run after a final reply, the run's result contains that reply before the later replies.
-- Active descendant input is routed to its supervisor. Only the supervisor that launched a task can resume it; inactive descendants are read-only.
+- Active descendant input is routed to its supervisor.
+- Only the supervisor that launched a task can resume it, so inactive descendants are read-only.
 
 A resume continues the task's latest run on the selected ancestry. For what the resumed run contains, see [resume](history.md#resume).
 
@@ -31,7 +32,7 @@ The model calls `subagent_abort` with a `task_id` when an active owned task's re
 
 A successful call returns a confirmation, and the model receives no separate `cancelled` result. An intermediate supervisor still receives the result of its own child. The task session remains resumable.
 
-If the task finished before cancellation, the call reports an inactive task and preserves its actual result. If the task stops but the [forced stop](shutdown.md) of its processes or of a process in its subtree fails, the call reports that error instead of a confirmation, and the task's `cancelled` result also names the error. Descendant cancellation is confirmed by the owning supervisor; its errors reach the caller.
+If the task finished before cancellation, the call reports an inactive task and preserves its actual result. If the task stops but the [forced stop](shutdown.md) of its processes or of a process in its subtree fails, the call reports that error instead of a confirmation, and the task's `cancelled` result also names the error. The owning supervisor confirms descendant cancellation, and its errors reach the caller.
 
 For how the child process then stops, see [process shutdown](shutdown.md).
 

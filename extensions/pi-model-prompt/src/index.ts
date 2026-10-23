@@ -1,9 +1,14 @@
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { joinPromptParts } from "@pi-mono/libs/prompt-parts";
 import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { loadModelPromptSnapshot, type ModelPromptSnapshot } from "./model-prompt.ts";
 
+/** Before pi-profiles (`200`), so the model text precedes the profile text. */
+const PROMPT_RANK = 100;
+
 export default function modelPrompt(pi: ExtensionAPI): void {
+  const prompt = joinPromptParts(pi, { id: "pi-model-prompt" });
   let snapshot: ModelPromptSnapshot | undefined;
 
   // Startup and /reload both start a session, so edited settings and files apply after /reload.
@@ -17,16 +22,12 @@ export default function modelPrompt(pi: ExtensionAPI): void {
     }
   });
 
-  pi.on("before_agent_start", (event, ctx) => {
+  // The coordinator calls parts after every hold, such as a profile's model switch, has settled,
+  // so `ctx.model` is the model for this run.
+  prompt.part(PROMPT_RANK, (ctx) => {
     const model = ctx.model;
-    if (!snapshot || !model) return;
+    if (!snapshot || !model) return undefined;
 
-    // Pi builds these options again for each run, so the files are added once per run.
-    const options = event.systemPromptOptions;
-    const appendText = snapshot.appendTextFor(
-      `${model.provider}/${model.id}`,
-      options.appendSystemPrompt
-    );
-    if (appendText !== undefined) options.appendSystemPrompt = appendText;
+    return snapshot.appendTextFor(`${model.provider}/${model.id}`);
   });
 }

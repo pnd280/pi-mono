@@ -4,7 +4,7 @@
 
 ## Usage
 
-Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [package exports](../../package.json)). Keep domain policy and I/O in consumers; shared components own presentation and interaction, not persistence.
+Extensions that build terminal views need the same presentation and interaction code, such as browsers, settings menus, and text budgets. Import the supported TUI entry points through `@pi-mono/libs/tui/*` (see the [package exports](../../package.json)). Keep domain policy and I/O in consumers. Shared components own presentation and interaction, not persistence.
 
 | Module                                                   | Responsibility                                                           |
 | -------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -29,10 +29,10 @@ Import supported TUI entry points through `@pi-mono/libs/tui/*` (see the [packag
 
 Use [package checks](../../README.md#validation). Layout, colours, glyphs, and convenience behaviour are below the automated-test severity bar; check them manually.
 
-The [focused-input invariant](../../docs/testing.md#must-not-regress) is covered through the real offline Pi host in `open-browser/` and `responsive-custom-ui/`. These tests cover single delivery, remapped controls, focus changes, stale callbacks, remounts, abort, unrelated overlays, and effects after final closure.
+Tests in `open-browser/` and `responsive-custom-ui/` cover the [focused-input invariant](../../docs/testing.md#must-not-regress) through the real offline Pi host. These tests cover single delivery, remapped controls, focus changes, stale callbacks, remounts, abort, unrelated overlays, and effects after final closure.
 
 | When you…                                                           | Read                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Change terminal-text sanitisation or bounded highlighting           | [Must not regress invariants](../../docs/testing.md#must-not-regress)                                                                                                                                                                                                        |
-| Change mounting, fullscreen input routing, or presentation lifetime | The e2e tests in `open-browser/` and `responsive-custom-ui/` use the [interactive host fixture](../validation/interactive-host/README.md)                                                                                                                                    |
+| Change mounting, fullscreen input routing, or presentation lifetime | e2e tests in `open-browser/` and `responsive-custom-ui/`, and the [interactive host fixture](../validation/interactive-host/README.md)                                                                                                                                       |
 | Check real-terminal appearance                                      | Prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting) and tool display's [host interaction checks](../../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks) |

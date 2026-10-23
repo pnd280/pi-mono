@@ -1,6 +1,10 @@
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
-import { sanitizeTaskDescription, sanitizeTaskMutationParams } from "../text.ts";
+import {
+  presentTaskMetadata,
+  sanitizeTaskDescription,
+  sanitizeTaskMutationParams
+} from "../text.ts";
 import {
   deriveTaskHierarchy,
   isTaskId,
@@ -246,6 +250,10 @@ function taskDetailResultText(taskList: readonly Task[], task: Task): string {
 
   if (blocks.length > 0) lines.push(`  blocks: ${blocks.map((id) => `#${id}`).join(", ")}`);
   if (task.owner) lines.push(`  owner: ${compactDisplayText(task.owner)}`);
+
+  if (task.metadata !== undefined && Object.keys(task.metadata).length > 0) {
+    lines.push(`  metadata: ${presentTaskMetadata(task.metadata)}`);
+  }
 
   return lines.join("\n");
 }

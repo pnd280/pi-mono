@@ -2,7 +2,7 @@
 
 [pi-tool-display](../../../README.md) · [Adapter development](../../../docs/adapters.md)
 
-Selective reads from [`pi-read`](../../../../pi-read/README.md) group like native reads, and expanded cards highlight the selected lines. This page documents the adapter contract for its maintainers; if you use `pi-read`, read [Display](#display) for how its calls appear.
+Selective reads from [`pi-read`](../../../../pi-read/README.md) group like native reads, and expanded cards highlight the selected lines. See [selective read cards](../../../docs/tools.md#selective-read).
 
 ## Compatibility and selection
 
@@ -18,21 +18,17 @@ Use [read arguments](../../../../pi-read/README.md#usage); optional `null` value
 
 Result provenance and native source windows use the producer-owned [`pi-read/result` contract](../../../../pi-read/docs/result.md). Display requires a selection when a validated preview is present, rejects invalid contracts rather than recovering them, and hides only the recorded preview.
 
-In automatic mode, incompatible arguments or results use the shared [invalid-input fallback](../../../docs/conventions.md#invalid-input-fallback).
+In automatic mode, incompatible arguments or results use the shared [invalid-input fallback](../../../docs/renderers.md#invalid-and-partial-input).
 
 ## Display
 
-Headings separate read windows and selection ranges. Compatible reads [group](../../../docs/presentation.md#groups); expansion highlights selections without repeating the model preview.
+[Selective read cards](../../../docs/tools.md#selective-read) describes what users see. Targets share [native path normalisation](../native/README.md#arguments-and-results) without rewriting retained arguments.
 
-Targets share [native path normalisation](../native/README.md#arguments-and-results) for headings, grouping, and summary deduplication without rewriting retained arguments.
-
-The shared interpretation supplies per-block highlights from the raw source part after native diagnostics are separated. Terminal sanitisation and tab expansion remain display policy. Notices remain visible but outside selections. Trailer recognition has the native [text-envelope provenance limits](../native/README.md#text-envelope-provenance).
-
-Other result presentation follows the [native adapter](../native/README.md#display). Images, errors, cancellations, and partial results do not receive selection highlighting.
+The shared interpretation supplies per-block highlights from the raw source part after native diagnostics are separated. Terminal sanitisation and tab expansion remain display policy. Trailer recognition has the native [text-envelope provenance limits](../native/README.md#text-envelope-provenance).
 
 ## Validation
 
-Use [package validation](../../../README.md#validation), including the [installed-CLI compatibility check](../../host/install-cli.test.ts).
+Run the [installed-CLI compatibility check](../../host/install-cli.test.ts).
 
 For visual checks, load both extensions. Include repeated reads, tabs, wide characters, multiline selections, selections outside the read window, images, and failed reads.
 

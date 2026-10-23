@@ -17,6 +17,7 @@
     "@pi-mono/utils": "0.1.0",
     "pi-nested-instructions": "0.1.0",
     "pi-read": "0.1.0",
+    "pi-subagents": "0.1.0",
     "pi-todo": "0.1.0",
     "zod": "^4.6.7"
   },

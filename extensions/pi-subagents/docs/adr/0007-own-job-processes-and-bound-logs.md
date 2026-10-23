@@ -18,7 +18,7 @@ On Linux and macOS, completion, timeout, cancellation, and session shutdown wait
 
 On Windows, the runner waits for `taskkill /F /T` and reports launch errors and non-zero exits. Windows has no Unix process group, and the existing parent-exit limit remains. A process that leaves a Unix job group is also outside cleanup. These limits stay visible in the [job guide](../jobs.md#limits).
 
-Pi's private detached-child tracker does not cover these owned operations. Each job registry instead keeps one synchronous Node `exit` listener while it owns shell handles or process groups, and removes the listener when the last group cleanup ends. This preserves cleanup for Pi's terminal-gone and fatal-error paths that call `process.exit()` without session shutdown. On Linux and macOS, the listener sends SIGKILL immediately, with no grace period. On Windows, it launches detached `taskkill /F /T /PID` from System32 with ignored stdio. This exit cleanup is best effort: it cannot wait for termination or log writes. Supervisor SIGKILL bypasses the listener.
+Pi's private detached-child tracker does not cover these owned operations. Each job registry instead keeps one synchronous Node `exit` listener while it owns shell handles or process groups, and removes the listener when the last group cleanup ends. This preserves cleanup for Pi's terminal-gone and fatal-error paths that call `process.exit()` without session shutdown. On Linux and macOS, the listener sends SIGKILL immediately, with no grace period. On Windows, it launches detached `taskkill /F /T /PID` from System32 with ignored stdio. This exit cleanup is best effort. It cannot wait for termination or log writes. Supervisor SIGKILL bypasses the listener.
 
 A job remains active until cleanup and log closure finish. Cleanup failure produces a failed job result. `job_abort` returns the cleanup error, and `Jobs.shutdown()` rejects with the collected stop errors. A child supervisor also forwards these errors through the existing stderr cleanup records before exit. The session binding observes task and job shutdown together, then reports failures after both finish. A final session change still suppresses job end entries and results on the replacement ancestry.
 
@@ -26,7 +26,7 @@ A job remains active until cleanup and log closure finish. Cleanup failure produ
 
 The [job log writer](../../src/jobs/log-writer.ts) keeps one file of at most 16 MiB, including the omission marker. On overflow it rewrites the file with the newest 8 MiB of output and a cumulative omitted-byte count, then resumes appending within the cap. Keeping half the limit avoids rewriting the retained tail for every new chunk. There is no disk line limit.
 
-The writer creates the private file exclusively and uses the same handle for every write and rewrite. It never reopens the path during compaction. A write or compaction failure fails the job. A rewrite is not an atomic snapshot: an active reader can see part of it until the next refresh. The log reader retains its regular-file, symbolic-link, and file-identity checks.
+The writer creates the private file exclusively and uses the same handle for every write and rewrite. It never reopens the path during compaction. A write or compaction failure fails the job. A rewrite is not an atomic snapshot. An active reader can see part of it until the next refresh. The log reader retains its regular-file, symbolic-link, and file-identity checks.
 
 The pending-write queue is separately bounded at 16 MiB. Overflow aborts the process, discards the stalled queue, and reports a log write failure without waiting for that queue to drain. The result retains only a bounded output tail. No job output enters Pi's accumulator, so there is no second full log.
 
@@ -34,7 +34,7 @@ The live viewer keeps the disk omission count in its smaller display window. It 
 
 ## Rejected options
 
-- Keeping the native operations cannot repair ownership after shell exit: they expose no process handle. Wrapping shell text to keep a parent alive changes command semantics and still needs a separate stop owner.
+- Keeping the native operations cannot repair ownership after shell exit, because they expose no process handle. Wrapping shell text to keep a parent alive changes command semantics and still needs a separate stop owner.
 - Killing only the shell PID misses the remaining group members. Saved PIDs also cannot establish live ownership after a restart.
 - Keeping all output on disk leaves a long-running watcher able to exhaust the temporary file system. A pending-memory cap alone does not prevent it.
 - Keeping a head excerpt would preserve old startup output at the cost of recent failures. Jobs retain the newest output, with the omitted-byte count making that loss explicit.

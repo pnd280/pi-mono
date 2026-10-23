@@ -62,7 +62,7 @@ export class WidgetCoordinator {
     if (!widgetHostMethodsCompatible(host)) {
       this.active = false;
       this.warn(
-        "pi-editor-widgets: unsupported Pi widget registry. Use Pi 1.3.0 and /reload, or disable the extension. Native UI was left unchanged."
+        "pi-editor-widgets: unsupported Pi widget registry. Use Pi 1.4.0 and /reload, or disable the extension. Native UI was left unchanged."
       );
 
       return;
@@ -341,9 +341,18 @@ export class WidgetCoordinator {
       width: cell.renderWidth,
       height: cell.height
     });
-    if (!result || "target" in result || (!result.handled && !result.capture && !result.focus))
-      return result;
-    // Pi 1.3.0's container dispatch contract retains the native target for drag capture and focus.
+    if (!result) return undefined;
+
+    // Pi 1.4.0's dispatchMouseEvent keeps keyboard focus on a delegating component that forwarded the event.
+    if ("target" in result) {
+      if (!result.focus || !cell.component.handleInput) return result;
+      const delegated = { ...result, focusTarget: cell.component };
+
+      return delegated;
+    }
+
+    if (!result.handled && !result.capture && !result.focus) return result;
+    // Pi 1.4.0's container dispatch contract retains the native target for drag capture and focus.
     const forwarded = {
       ...result,
       handled: true,

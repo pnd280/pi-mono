@@ -192,13 +192,10 @@ export function bindNativeCompaction(
       const config = selection?.config;
       const { trigger, routed } = classifySummary(this, args, config);
 
-      const instructions =
-        trigger === "tool" || (trigger !== undefined && config?.instructions) ? args[2] : undefined;
       const { result, selection: summarySelection } = await summarizeWithOverrides(
         this,
         originalSummary.bind(this),
         args,
-        instructions,
         routed ? selection : undefined
       );
 

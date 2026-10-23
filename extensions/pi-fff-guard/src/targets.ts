@@ -170,13 +170,18 @@ function escapeGlob(value: string): string {
   return value.replace(/[\\*?[\]{}!]/g, "\\$&");
 }
 
-/** Match scope filters, including dot components. This is not Git ignore matching. */
-function matchesFilter(value: string, expression: string): boolean {
+/**
+ * Match scope filters like FFF, including dot components. This is not Git ignore matching.
+ * FFF confines wildcards to one component only in an alternative that contains `**`;
+ * `componentWise` keeps that mode for a base taken from such an alternative.
+ */
+function matchesFilter(value: string, expression: string, componentWise = false): boolean {
   const segments = value.split("/");
   if (segments.length > 128 || expression.split("/").length > 128)
     throw new Error("filter component limit exceeded");
 
   return alternatives(expression).some((alternative) => {
+    if (!componentWise && !alternative.includes("**")) return matchesPath(value, alternative);
     const filters = alternative.split("/");
     const memo = new Map<string, boolean>();
 
@@ -195,8 +200,7 @@ function matchesFilter(value: string, expression: string): boolean {
       else
         result =
           segment !== undefined &&
-          // Scope values use `/` separators on every platform.
-          path.posix.matchesGlob(`component${segment}`, `component${filter}`) &&
+          matchesPath(segment, filter) &&
           match(segmentIndex + 1, filterIndex + 1);
       memo.set(key, result);
 
@@ -205,6 +209,81 @@ function matchesFilter(value: string, expression: string): boolean {
 
     return match(0, 0);
   });
+}
+
+/** A `*` wildcard, or a test for one character. */
+type GlobToken = "*" | ((char: string) => boolean);
+
+// FFF 0.11.0 supports these ASCII classes in bracket expressions.
+const posixClasses = new Map([
+  ["alnum", /[0-9A-Za-z]/],
+  ["alpha", /[A-Za-z]/],
+  ["blank", /[\t ]/],
+  ["cntrl", /[^ -~\x80-\u{10ffff}]/u],
+  ["digit", /[0-9]/],
+  ["graph", /[!-~]/],
+  ["lower", /[a-z]/],
+  ["print", /[ -~]/],
+  ["punct", /[!-/:-@[-`{-~]/],
+  ["space", /[\t-\r ]/],
+  ["upper", /[A-Z]/],
+  ["xdigit", /[0-9A-Fa-f]/]
+]);
+
+const codePoint = (char: string) => char.codePointAt(0) ?? -1;
+
+/** Like FFF, read `\` literally inside brackets and treat a reversed range as empty. */
+function bracketTest(negated: boolean, members: string): (char: string) => boolean {
+  const tests = [...members.matchAll(/\[:([a-z]+):\]|([^])-([^])|([^])/gu)].map(
+    ([, name, from = "", to = "", single]) =>
+      (char: string) => {
+        if (name !== undefined) return posixClasses.get(name)?.test(char) ?? false;
+        if (single !== undefined) return char === single;
+
+        return codePoint(from) <= codePoint(char) && codePoint(char) <= codePoint(to);
+      }
+  );
+
+  return (char) => tests.some((test) => test(char)) !== negated;
+}
+
+/**
+ * Match the whole value like FFF; `*`, `?`, and bracket expressions also match `/`.
+ * Bracket expressions compare original characters, so ranges such as `[.-0]` include `/`.
+ */
+function matchesPath(value: string, glob: string): boolean {
+  const tokens = [
+    ...glob.matchAll(
+      /\\([^])|(\*)|(\?)|\[([!^]?)((?:\]|\[:[a-z]+:\]|[^\]])(?:\[:[a-z]+:\]|[^\]])*)\]|([^])/gu
+    )
+  ].map(([, escaped, star, question, negation = "", members, char]): GlobToken => {
+    if (star) return "*";
+    if (question) return () => true;
+    if (members !== undefined) return bracketTest(negation !== "", members);
+
+    return (next) => next === (escaped ?? char);
+  });
+  const chars = Array.from(value);
+  let token = 0;
+  let index = 0;
+  // Retrying only from the latest `*` bounds the work by the product of both lengths.
+  let retry: { token: number; index: number } | undefined;
+
+  while (index < chars.length) {
+    const current = tokens[token];
+    if (current === "*") {
+      token++;
+      retry = { token, index };
+    } else if (current?.(chars[index] ?? "")) {
+      token++;
+      index++;
+    } else if (retry) {
+      retry.index++;
+      ({ token, index } = retry);
+    } else return false;
+  }
+
+  return tokens.slice(token).every((current) => current === "*");
 }
 
 function workspaceFilter(expression: string, cwd: string): string {
@@ -249,8 +328,19 @@ async function excluded(target: Target, excludes: string[], cwd: string): Promis
 
     if (target.directory && /\/\*\*(?:\/\*)?$/.test(glob)) {
       const base = glob.replace(/\/\*\*(?:\/\*)?$/, "");
-      if (matchesFilter(relative, base)) return true;
+      if (matchesFilter(relative, base, true)) return true;
     }
+
+    // Without `**`, a final `*` also matches `/`, so it covers every file below a matched prefix.
+    if (
+      target.directory &&
+      relative &&
+      glob.includes("/") &&
+      !glob.includes("**") &&
+      glob.endsWith("*") &&
+      matchesPath(`${relative}/`, glob)
+    )
+      return true;
   }
 
   return false;
@@ -308,6 +398,7 @@ async function targetsForExpression(
   const entries = literal && !literal.filters.length ? [expression] : alternatives(expression);
   const targets: Target[] = [];
   let missing = true;
+  let missingDirectories = true;
 
   for (const entry of entries) {
     signal?.throwIfAborted();
@@ -316,11 +407,21 @@ async function targetsForExpression(
 
     if (resolved.kind !== "missing") missing = false;
     if (resolved.kind === "target") targets.push(resolved.target);
+    // Brace expansion can remove the wildcard from a branch. A missing file in an existing
+    // directory then means only that the glob matches nothing, not that a directory is missing.
+    if (
+      literal &&
+      missingDirectories &&
+      (resolved.kind !== "missing" ||
+        (!hasGlob(entry) &&
+          !entry.endsWith("/") &&
+          (await fileInfo(path.dirname(resolvePath(entry, cwd))))?.isDirectory()))
+    )
+      missingDirectories = false;
   }
 
-  // Brace expansion can remove the wildcard from every branch. Retain the
-  // original fixed root rather than requiring one of those branches to exist.
-  if (literal && targets.length === 0 && literal.filters.length > 0) targets.push(literal);
+  // Retain the glob's fixed root unless every branch has a missing directory.
+  if (literal && targets.length === 0 && !missingDirectories) targets.push(literal);
 
   return { targets, missing: targets.length === 0 && missing };
 }
