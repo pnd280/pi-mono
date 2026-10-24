@@ -235,8 +235,7 @@ export default function subagents(pi: ExtensionAPI): void {
   registerTools(true, true, "", depth === 0);
 
   /** Opens the binding on the session and selected ancestry in `ctx`, then offers its tools. */
-  const open = async (ctx: ExtensionContext) => {
-    const { docs, ...opened } = session(ctx);
+  const open = async (ctx: ExtensionContext, { docs, ...opened } = session(ctx)) => {
     await binding.open(opened);
     const { maxDepth, jobs } = opened.config;
     // Jobs apply at all depths. They run commands through Pi's built-in shell.
@@ -251,12 +250,13 @@ export default function subagents(pi: ExtensionAPI): void {
   };
 
   lifecycle.onSessionStart(async (_event, ctx, arrival) => {
+    const started = session(ctx);
     // A claim that overlaps another participant's claim is not registered, with a warning.
-    arrival.claimShortcut("ctrl+alt+s", {
+    arrival.claimShortcut(started.config.shortcut, {
       description: "Open the subagents panel",
       handler: async () => (await binding.current())?.panels.open()
     });
-    await open(ctx);
+    await open(ctx, started);
   });
   // A begun run is one chain under its marker; see ADR 0003.
   pi.on("session_before_tree", async (event, ctx) => {

@@ -6,9 +6,13 @@ In TUI mode, pi-subagents shows tasks and [jobs](jobs.md) in a task panel, read-
 
 ## Task panel
 
-Press **Ctrl+Alt+S** or run `/subagents` to open the task panel in TUI mode. The panel has top and bottom borders, like the other custom views.
+Press the [`shortcut`](../README.md#configuration), **Ctrl+Alt+S** by default, or run `/subagents` to open the task panel in TUI mode. The panel has top and bottom borders, like the other custom views.
 
-If another extension claims a key that overlaps **Ctrl+Alt+S** through the [shared shortcut claims](../../../libs/src/lifecycle/phases.md#shortcut-claims), neither extension gets its key, and a warning names the conflict. Use `/subagents` instead.
+The `shortcut` setting does not accept **Esc** or a function key with a modifier, such as `ctrl+escape` or `alt+f5`.
+
+If the shortcut overlaps a key claimed by pi-profiles or pi-prompt-manager, neither extension gets its shortcut, and a warning names the conflict.
+
+Pi skips a shortcut when it detects a conflict with one of its reserved keys, such as `shift+tab` under the default bindings, and shows a warning. Pi's conflict check does not detect every equivalent key combination. Use `/subagents` instead, or set another `shortcut` and run `/reload`.
 
 The panel has the same layout as the list browsers of other workspace extensions, such as pi-todo. A `View:` row lists the "all", "running", "background", and "finished" views with their counts of tasks and jobs; **Tab** and **Shift+Tab** change the view, and each view keeps its own selection.
 

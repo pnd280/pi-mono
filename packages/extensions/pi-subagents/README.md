@@ -47,11 +47,11 @@ Set [`jobs`](#configuration) to `true` to give the model the `job` and `job_abor
 
 ### Commands and task panel
 
-Press **Ctrl+Alt+S** or run `/subagents` to open the task panel in TUI mode; elsewhere, `/subagents` returns the first JSON page. The panel lists task trees and jobs, and **Enter** opens a read-only transcript or log viewer. Other `/subagents` subcommands list, show, abort, and move work to the background. See [commands](docs/commands.md) and [task panel, viewers, and cards](docs/interface.md).
+Press the [`shortcut`](#configuration), **Ctrl+Alt+S** by default, or run `/subagents` to open the task panel in TUI mode; elsewhere, `/subagents` returns the first JSON page. The panel lists task trees and jobs, and **Enter** opens a read-only transcript or log viewer. Other `/subagents` subcommands list, show, abort, and move work to the background. See [commands](docs/commands.md) and [task panel, viewers, and cards](docs/interface.md).
 
 ## Configuration
 
-Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `.pi/settings.json`. This example shows the default limits, jobs turned off, the default result delivery, and one docs file:
+Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `.pi/settings.json`. This example shows the default limits, jobs turned off, the default result delivery, the default shortcut, and one docs file:
 
 ```json
 {
@@ -61,19 +61,21 @@ Add `ext.pi-subagents` to Pi's global `settings.json` or the trusted project's `
     "maxQueued": 8,
     "jobs": false,
     "resultDelivery": "turn_end",
+    "shortcut": "ctrl+alt+s",
     "docs": ["prompts/subagent.md"]
   }
 }
 ```
 
-| Setting          | Meaning                                                                                                                                                          |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `maxDepth`       | A non-negative integer. `0` disables launches; `2` permits children and grandchildren.                                                                           |
-| `maxConcurrent`  | A positive integer limiting the whole live task tree, including reserved launches and stopping processes.                                                        |
-| `maxQueued`      | A non-negative integer limiting launches waiting for capacity in FIFO order. `0` rejects a launch when all slots are occupied.                                   |
-| `jobs`           | A boolean. `true` gives the model the `job` and `job_abort` tools. The default is `false`. See [background jobs](docs/jobs.md).                                  |
-| `resultDelivery` | `turn_end` (the default) or `settle`. Sets when task and job results reach a busy supervisor; see [delivery timing](docs/background-results.md#delivery-timing). |
-| `docs`           | An array of Markdown file paths. Their text is added to the `subagent` tool description. See [subagent tool docs](docs/tool-docs.md).                            |
+| Setting          | Meaning                                                                                                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxDepth`       | A non-negative integer. `0` disables launches; `2` permits children and grandchildren.                                                                                              |
+| `maxConcurrent`  | A positive integer limiting the whole live task tree, including reserved launches and stopping processes.                                                                           |
+| `maxQueued`      | A non-negative integer limiting launches waiting for capacity in FIFO order. `0` rejects a launch when all slots are occupied.                                                      |
+| `jobs`           | A boolean. `true` gives the model the `job` and `job_abort` tools. The default is `false`. See [background jobs](docs/jobs.md).                                                     |
+| `resultDelivery` | `turn_end` (the default) or `settle`. Sets when task and job results reach a busy supervisor; see [delivery timing](docs/background-results.md#delivery-timing).                    |
+| `shortcut`       | A key in [Pi key syntax](https://pi.dev/docs/latest/keybindings#key-syntax) that opens the task panel. The default is `ctrl+alt+s`. See [task panel](docs/interface.md#task-panel). |
+| `docs`           | An array of Markdown file paths. Their text is added to the `subagent` tool description. See [subagent tool docs](docs/tool-docs.md).                                               |
 
 Settings load at session start and `/reload`. Valid trusted-project values override global values; invalid values are ignored. See Pi's [settings reference](https://pi.dev/docs/latest/settings) for its own settings.
 
