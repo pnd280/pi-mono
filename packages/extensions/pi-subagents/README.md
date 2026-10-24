@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.png" />
+  <img alt="Two task viewers show the steps of a parser review and a docs review. The supervisor session shows a subagent card for each task with the task's last reply, and then a summary of both replies." src="docs/assets/banner-light.png" />
+</picture>
+
 # pi-subagents
 
 Long reviews and parallel investigations fill one conversation with every intermediate step. pi-subagents runs each piece in a separate Pi process and returns only its final result to your conversation. For example, send this prompt:
