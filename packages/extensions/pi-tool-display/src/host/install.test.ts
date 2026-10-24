@@ -2131,7 +2131,7 @@ it("keeps summary rendering and toggles verbose when Pi's expansion methods diff
         try {
           tui.renderSessionItems(summaryHistory(session));
           expect(notify).toHaveBeenCalledWith(
-            "pi-tool-display: mode cycling unavailable; Ctrl+O toggles summary ↔ verbose.",
+            "pi-tool-display: mode cycling unavailable; ctrl+o toggles summary ↔ verbose.",
             "warning"
           );
           expect(transcriptText(tui)).toContain("Read 2 files · ran 1 command (1 failed)");
