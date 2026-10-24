@@ -25,7 +25,7 @@ This package tests collection formats, retention and recovery, activation, clipb
 
 ## Not tested
 
-- Capture ordering, history deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing are below the severity bar. The [manual validation checks](validation.md) cover them.
+- History deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing are below the severity bar. The [manual validation checks](validation.md) cover them. The live-input scenario also checks capture ordering as part of the capture invariant.
 - Settings parsing and fallback are below the severity bar.
 - Event-loop responsiveness during large collection processing is below the severity bar. The [interaction measurement](validation.md#interaction-measurement) covers it.
 - Libs owns the shared browser geometry.

@@ -11,7 +11,7 @@ Extensions that keep settings in JSON files such as Pi's `settings.json` must re
 - Scoped reads and section loads read the project file only when `projectTrusted` is true.
 - A section save makes one locked change: it replaces one field and keeps unrelated fields, other writers' changes, and existing mode bits.
 - If another writer holds the lock, the save throws without retrying.
-- Malformed JSON, invalid UTF-8, and dangling links are refused, never repaired.
+- Malformed JSON and invalid UTF-8 are refused, never repaired. Saves also refuse dangling links; `readSettingsRecord` and section loads treat them as missing files.
 - Reads and serialised writes are limited to 1 MiB.
 
 | When you…                                                          | Read                                                                      |

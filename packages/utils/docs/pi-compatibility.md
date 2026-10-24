@@ -19,7 +19,7 @@
 - [ ] Pi's byte-limited tool output still clips a head or tail edge that [`decodeUtf8Window`](../src/utf8.ts) identifies correctly.
 - [ ] [Thinking levels](../src/thinking-levels.ts) match `MODEL_THINKING_LEVELS` in Pi's `@earendil-works/pi-ai/providers/model-schema`, in the same order.
 
-The [code navigation](../AGENTS.md#code-navigation) table lists the direct and indirect consumers of each of these helpers.
+The [code navigation](../AGENTS.md#code-navigation) table points to FFF and shared-library consumers.
 
 This package keeps its own copy of the thinking levels, because installed extensions can't import that entry point.
 

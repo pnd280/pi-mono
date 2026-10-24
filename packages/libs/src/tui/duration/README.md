@@ -22,6 +22,6 @@ formatDuration(65_300); // "1m 5s"
 
 ## Caller responsibilities
 
-- Choose when a duration applies. A running timer that ticks once a second passes whole seconds.
+- Choose when a duration applies. A running timer that ticks once a second passes milliseconds rounded down to a whole number of seconds.
 - Add glyphs, labels, and separators locally.
 - Apply theme styling at render time.

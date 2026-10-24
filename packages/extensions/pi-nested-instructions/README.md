@@ -16,11 +16,11 @@ In each directory below the working directory, discovery uses the first readable
 
 Discovery reads only tool inputs. It never runs commands, reads tool results, or lists glob matches.
 
-| When you…                                                                   | Read                                                                       |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Want the full filename order, symlink rules, or reload and compaction rules | [Instruction loading rules](docs/loading.md)                               |
-| Want to know which tool inputs and Bash syntax trigger discovery            | [Input discovery](docs/input-discovery.md)                                 |
-| Resume a session with notices from an older version of this extension       | [Notices from older versions](docs/loading.md#notices-from-older-versions) |
+| When you…                                                                   | Read                                                               |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Want the full filename order, symlink rules, or reload and compaction rules | [Instruction loading rules](docs/loading.md)                       |
+| Want to know which tool inputs and Bash syntax trigger discovery            | [Input discovery](docs/input-discovery.md)                         |
+| Understand notices with invalid metadata                                    | [Invalid notice metadata](docs/loading.md#invalid-notice-metadata) |
 
 ## Side effects
 

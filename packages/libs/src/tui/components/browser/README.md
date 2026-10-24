@@ -90,7 +90,7 @@ Own data, search, and effects, following the [shared TUI ownership rule](../../R
 
 - Return a committed snapshot from `remove.run(item, signal)`, or report the failure and return `undefined`.
 - Use the removal signal only to cancel replacement-snapshot preparation, never effects already started.
-- Use terminal-safe messages for errors from loading and the initial search, because the browser shows them directly.
+- Supply useful messages for errors from loading and the initial search. The browser sanitises them before display.
 - Handle errors from actions and later searches in `onError`.
 - Bind cancel to a key other than **Ctrl+C** that is not also bound to copy. Otherwise construction throws `cancelError`, or a default error when you supply none.
 

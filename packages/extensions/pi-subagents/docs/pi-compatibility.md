@@ -103,7 +103,7 @@ Background results use the `custom` role, so they do not keep the child's earlie
 
 The child receives `-e` only for an absolute source path; otherwise, its settings must load the package. See [what a child inherits](children.md#what-a-child-inherits) for the user-visible result.
 
-The before-change hooks invalidate old bindings before teardown. When Pi emits no session event after a change, the [session binding](../GLOSSARY.md#tasks-and-processes) starts its tasks again at the next interaction. Ordinary messages need a snapshot refresh, because they do not emit `entry_appended`.
+The before-change hooks invalidate old bindings before teardown. When Pi emits no session event after a change, the [session binding](../GLOSSARY.md#tasks-and-processes) reopens its task registry at the next interaction. Tasks stopped by the change remain cancelled. Ordinary messages need a snapshot refresh, because they do not emit `entry_appended`.
 
 ### Extension UI and registration
 
@@ -204,7 +204,6 @@ The [input cases](../validation/input.test.ts) exercise running input, deferred 
 
 ## Limitations
 
-- In Pi 1.0.2, an idle `sendMessage` with `triggerTurn` skipped `before_agent_start` ([Pi issue 5581](https://github.com/earendil-works/pi/issues/5581)), so the idle wake sent an extra user message.
 - In Pi 1.0.2, 1.2.0, 1.3.0, and 1.4.0, Pi added an empty assistant message with `stopReason: "error"` after an abort during a tool call.
 - In Pi 1.2.0, the [ADR 0003 runtime probe](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) was not rerun. A source comparison with Pi 1.0.2 found the session manager, RPC mode, session runtime, extension loader, tree navigation, extension-command handling, `entry_appended` emission, and session statistics unchanged. `agent_settled` gained an `aborted` field. The offline suite passed.
 - In Pi 1.3.0, the ADR 0003 runtime probe was not rerun. A source comparison with Pi 1.2.0 found the session manager, RPC mode, print mode, extension runner, extension types, and agent core unchanged. `AgentSession` changed only in restoring a resumed session's tool loadout from its transcript.

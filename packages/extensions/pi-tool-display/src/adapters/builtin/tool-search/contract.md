@@ -6,7 +6,7 @@ Adapter maintainers use this contract when they change result handling. [Tool se
 
 ## Display
 
-- The "Loaded N tools" line and the per-name summary counts need valid, nonempty `details.loaded` names.
+- Successful compact cards show "Loaded N tools" for a valid, nonempty `details.loaded` array, or "No matching tools" for an empty array.
 - Calls with missing or invalid `details.loaded` keep the output preview.
 - Calls with missing, empty, or invalid `details.loaded` count as `tool_search ×N`.
 

@@ -15,7 +15,7 @@ Callers have these duties:
 - Supply whether the full filename query names an existing path, so that paths that contain spaces stay intact.
 - Own input validation, existing-path detection and error handling, scope limits, filesystem checks, exclusion application, intersections, and blocking policy.
 
-Consumers choose their own failure handling. pi-fff-guard propagates unexpected access failures, and nested discovery can keep lexical hints.
+Consumers choose their own failure handling. pi-fff-guard passes unexpected access failures from scope extraction to its decision layer, which allows the search with a diagnostic. Nested discovery can keep lexical hints.
 
 [`fff-tools`](../src/fff-tools.ts) classifies provenance and names only, not tool schemas or policy.
 

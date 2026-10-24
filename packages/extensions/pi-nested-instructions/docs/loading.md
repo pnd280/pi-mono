@@ -30,6 +30,6 @@ Discovery searches paths written below the session's working directory. In each 
 - A refresh can add an updated notice for a changed file or a changed preferred candidate, and a removal notice for a file that is gone.
 - If the model read a missing or unreadable instruction file and a file appears there later, the next refresh loads it. If no file appears, refresh adds no removal notice.
 
-## Notices from older versions
+## Invalid notice metadata
 
-Notices use persisted format version 3. Older notices keep their original text but no longer suppress rediscovery or provide structured display and summary counts. Resume and reload do not restore their scopes, so a later tool input can load the same instructions again while the old text is still in context. The [persisted notice contract](pi-compatibility.md#persisted-notice-contract) lists the format changes.
+Notices use persisted format version 3. Notices with invalid metadata keep their original text but do not suppress rediscovery or provide structured display and summary counts. Resume and reload do not restore their scopes, so a later tool input can load the same instructions again while the invalid notice text is still in context. The [persisted notice contract](pi-compatibility.md#persisted-notice-contract) defines validation.

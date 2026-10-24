@@ -4,7 +4,7 @@
 
 Each supported tool gets a dedicated card. The shared layout, [exploration groups](presentation.md#groups), and [summary lines](presentation.md#summary-mode) are in tool card presentation.
 
-When a tool is not the verified tool that a card expects, it keeps its own renderer, or gets a generic card if it has none. A verified tool whose arguments or result do not have the expected shape gets a generic card. [Renderer overrides](../README.md#configuration) can keep the tool's own renderer or force a generic card for any tool.
+When a tool is not the verified tool that a card expects, it keeps its own renderer, or gets a generic card if it has none. A selected adapter that rejects arguments or results uses a generic card. Invalid summary metadata can instead leave the card's ordinary output preview. [Renderer overrides](../README.md#configuration) can keep the tool's own renderer or force a generic card for any tool.
 
 | Tool                                                                     | Section                                     |
 | ------------------------------------------------------------------------ | ------------------------------------------- |
@@ -32,7 +32,7 @@ Pi's own tools get shell previews with status and duration, file diffs, and grou
 
 ## Codemode
 
-Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted script and a list of the calls that it made. Only the `codemode` of Pi's built-in extension gets this card. A `codemode` that the SDK or another extension registers keeps its own renderer.
+Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted script and a list of the calls that it made. Only the `codemode` of Pi's built-in extension gets this card. A `codemode` that the SDK or another extension registers keeps any supplied renderer, or gets a generic card if it has none.
 
 - Headings read "Running script", "Ran script", or "Script failed".
 - The script follows as JavaScript-highlighted code. Compact cards show up to 10 rows, or all 11 when only one row would be omitted, within the [heading formatting limit](presentation.md#resource-limits). An expansion hint marks omitted source.
@@ -81,7 +81,7 @@ Calls to Pi's built-in `tool_search` appear as cards that name the tools each se
 
 Only ended [runs](../GLOSSARY.md#transcript-structure) have [summary lines](presentation.md#when-a-run-collapses). Loaded tools count once per name (`loaded 1 tool`, `loaded 3 tools`). Calls without a valid, nonempty list of loaded names, including Pi's error results, count as `tool_search ×N`.
 
-A `tool_search` that the SDK registers through `createToolSearchExtension()`, or that another extension replaces, gets a generic card. The pi-profiles replacement is the exception.
+A `tool_search` that the SDK registers through `createToolSearchExtension()` gets a generic card. Other replacements keep any supplied renderer, or get a generic card if they have none. The pi-profiles replacement gets the dedicated card.
 
 ### Tool search from pi-profiles
 
@@ -132,7 +132,7 @@ Completed scripts summarise their recorded operations. Calls, searches, descript
 - Malformed operation records give an output preview without a summary.
 - Failed or cancelled scripts keep their operation count and diagnostic output, even if their recorded operations succeeded.
 
-Every call counts once in the shared MCP category of summary lines, together with built-in [MCP tools](#mcp-tools). MCP-like tools from the SDK or other packages get generic cards.
+Every call counts once in the shared MCP category of summary lines, together with built-in [MCP tools](#mcp-tools). MCP-like tools from the SDK or other packages keep any supplied renderer, or get generic cards if they have none.
 
 ## Selective read
 
@@ -177,7 +177,7 @@ Subagent tasks from [`pi-subagents`](../../pi-subagents/README.md) appear as pro
 
 ### Task cards
 
-- The first line shows the description and a status: queued, running, completed, failed, cancelled, or returned. Before details exist, it shows `preparing`, `waiting to run`, or `starting`.
+- The first line shows the description and the task state. Queued, failed, and cancelled tasks name their state; running tasks show elapsed time, and completed tasks show `✓`. Returned calls use the fixed labels below. Before details exist, the line shows `preparing`, `waiting to run`, or `starting`.
 - Elapsed time appears only when a start time is known.
 - The second line shows the `model` and `thinking` that the call requested, if any, as `model:thinking` before details exist, then the resolved model, with `Waiting for capacity` or usage such as `↑48k ↓3.1k $0.21`.
 - Usage omits cache counts and appears only when a value is positive.

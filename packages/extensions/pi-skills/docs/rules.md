@@ -41,6 +41,6 @@ Put the `ext.pi-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CODIN
 
 - Placeholders may repeat. Everything else, including spaces, is literal.
 - If a leading reference could invoke a registered skill or prompt-template command, a space is added before it to keep it literal. This includes formats such as `"{command} ({path})"` and references already in the current format. Ordinary prompt-template commands still work.
-- Formats are limited to 512 characters. Invalid sections, and settings files that are too large, are ignored.
+- Formats are limited to 512 Unicode code points. Invalid sections, and settings files larger than 1 MiB, are ignored.
 - A trusted project's format overrides the global one.
 - Settings load on session start and `/reload`.

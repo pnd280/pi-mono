@@ -73,7 +73,7 @@ The extension has its own copy of the matcher. If Pi exports it, use it. An `all
 
 Recheck each row of the [MCP tools](tools.md#mcp-tools) tables against these contracts.
 
-- [ ] Pi names MCP tools `mcp__<server>__<tool>`, replaces other characters with `_`, and shortens long or taken names with a hash (`createMcpToolName` in `mcp/tools.js`).
+- [ ] Pi names MCP tools `mcp__<server>__<tool>`, replaces other characters with `_`, and shortens long or taken names with a hash (`createMcpToolName` in `extensions/mcp/tools.js`).
 - [ ] `hidden` exposure makes a tool unreachable.
 - [ ] Registering a `direct` or `model-only` tool without `defaultActive: false` declares it, whatever the active tools are (`_isActivatedOnRegistration` in `agent-session.js`).
 - [ ] `tool_search` declares undeclared `codemode` and `deferred` tools, including tools that a profile removed.

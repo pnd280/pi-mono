@@ -379,7 +379,7 @@ export class Browser<Item> implements Component, Focusable {
       this.options.details && selected !== undefined
         ? this.detailRows(this.options.details(selected), width - 4)
         : [];
-    // Details take at most half of the rows, and the results keep the rest.
+    // The results keep at least half of the rows; details fill the rows that the results leave.
     const half = Math.floor(available / 2);
     const space =
       available - (details.length > 0 && half >= 2 ? Math.min(details.length + 1, half) : 0);

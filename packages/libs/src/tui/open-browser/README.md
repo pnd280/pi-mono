@@ -18,6 +18,8 @@ Mounting a browser needs Pi presentation, remount survival, and post-closure eff
 The [collection browser usage](../components/browser/README.md#usage) shows a complete `openBrowser` call. Record the selection in an action, and act on it in `afterClose`:
 
 ```ts
+import { openBrowser } from "@pi-mono/libs/tui/open-browser";
+
 await openBrowser({ ui: ctx.ui, signal, browser, onError, onInputRoutingUnavailable, afterClose });
 ```
 

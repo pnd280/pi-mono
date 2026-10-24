@@ -114,7 +114,7 @@ Never render an unknown context window as zero. The label shows the selected mod
 - In Pi 1.4.0, the renderer already expands visible tabs to the three columns `visibleWidth()` uses. The extension must not rewrite tabs inside OSC or APC payloads.
 - Automated fixtures use real Pi renderers and the native fullscreen dock, without startup downloads, process signal handlers, or a physical terminal. They don't establish visual quality for every component or terminal emulator.
 
-In Pi 1.4.0, the extension API and the pi-tui declarations were unchanged, so no public API replaces a private hook yet:
+These private hooks have no complete public replacements in Pi 1.4.0:
 
 | Private hook                   | Parity                              | Public API that Pi would need                                |
 | ------------------------------ | ----------------------------------- | ------------------------------------------------------------ |

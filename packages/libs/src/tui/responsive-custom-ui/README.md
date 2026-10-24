@@ -25,6 +25,7 @@ When you change the private [adapter](fullscreen-input.ts) or upgrade Pi, check 
 ## Usage
 
 ```ts
+import { browserLayout } from "@pi-mono/libs/tui/components/browser/layout";
 import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
 
 await openResponsiveCustomUI({

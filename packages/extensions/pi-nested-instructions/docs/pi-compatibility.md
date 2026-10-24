@@ -6,7 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [package checks](../../../../docs/development.md#focused-validation), which include the offline tests. No paid model request is needed.
+1. Run both package tasks, `check` and `test`, with the [focused validation commands](../../../../docs/development.md#focused-validation). The tests run offline without paid model requests.
 2. After shared adapter changes, also run the utils and `pi-fff-guard` suites. Changes to the notice contract also need the pi-tool-display suite.
 3. Work through the checklist below, then update the "Last verified" line.
 
@@ -56,14 +56,14 @@ Discovery preserves `turn_end.entries` when it adds notices or markers, because 
 
 ## Persisted notice contract
 
-The [notice interface](../src/notices.ts) writes version 3. Version 3 changes only the model-facing text: a note says that Pi sent the notice, not the user, and loaded and updated notices wrap the instruction body in a `<project_instructions path="…">` tag. It retains `messageDigest` to validate the full canonical model-facing message before the [ledger](../GLOSSARY.md#delivery) decodes and compares its instruction body.
+The [notice interface](../src/notices.ts) writes version 3. A note identifies Pi as the sender, and loaded and updated notices wrap the instruction body in a `<project_instructions path="…">` tag. The `messageDigest` validates the full canonical model-facing message before the [ledger](../GLOSSARY.md#delivery) decodes and compares its instruction body.
 
-This is a breaking replay change with no compatibility reader or automatic migration:
+The reader validates the current schema strictly:
 
-- Version-1 and version-2 notices no longer validate. Strict validation also rejects the version-1 `stamp` and `fileDigest` keys.
+- Notices with a version other than 3 or unknown metadata keys do not validate.
 - Invalid notices provide no deduplication or refresh [scope](../GLOSSARY.md#discovery) tracking, no structured notice rendering, and no run-summary counts. Their original model-facing content is not deleted; display falls back to the supplied text.
-- Resume and reload do not eagerly restore scopes represented only by old notices. A later qualifying tool input can load those instructions again, even while the old message text remains in context.
-- Direct-read markers remain version 1 and retain their filesystem revision stamps, originating-call identity, and call fingerprints.
+- Resume and reload do not eagerly restore scopes represented only by invalid notices. A later qualifying tool input can load those instructions again, even while the invalid message text remains in context.
+- Direct-read markers use version 1 and hold filesystem revision stamps, originating-call identity, and call fingerprints.
 
 Keep discovery and the pi-tool-display adapter on the same notice contract. Contract changes need checks for strict validation, visible-message corruption, body equality, rendering, summaries, and host replay.
 

@@ -15,9 +15,9 @@ This guide is for callers who tune search and action timing, remap browser keys,
 ## Details and preview
 
 - `details` show below the results for the selected item.
-- Details take at most half of the rows, and `…` marks rows that do not fit.
+- Details fill the rows that the results do not use. The results keep at least half of the rows, or all their rows if they need fewer. `…` marks detail rows that do not fit.
 - The browser wraps `details` synchronously.
-- `preview` opens a separate scrollable view. Without it, **Ctrl+P** does nothing and has no hint.
+- `preview` opens a separate scrollable view. Without it, **Ctrl+P** does not open a preview and has no preview hint.
 
 ## Keys
 
@@ -33,7 +33,7 @@ Configured actions take precedence over the fixed keys below, in this order: `co
 
 ### Input routing
 
-- The [browser host](../src/tui/open-browser/README.md) routes resolved browser actions ahead of transcript controls while the inline browser has focus.
+- In fullscreen mode, the [browser host](../src/tui/open-browser/README.md) routes resolved browser actions ahead of transcript controls while the inline browser has focus.
 - A key already bound to a higher-priority action does not trigger a lower-priority action.
 - The browser ignores key release events.
 - The browser component installs no listeners.
@@ -45,7 +45,7 @@ Configured actions take precedence over the fixed keys below, in this order: `co
 
 ## Cancellation
 
-**Ctrl+C** never cancels. Construction throws when no cancel binding other than **Ctrl+C** remains, or when the cancel binding is also bound to copy.
+**Ctrl+C** never cancels. Construction throws when no cancel binding remains after validation, exclusion of **Ctrl+C**, and copy-key precedence.
 
 - Cancel returns from preview to the list, or closes from the list.
 - While loading or an action is pending, cancel closes immediately.

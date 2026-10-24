@@ -68,7 +68,7 @@ Session replacement must preserve saved data and parent links while giving namin
 - [ ] The [shared thinking levels](../../../utils/src/thinking-levels.ts) list every level that the `thinkingLevel` setting accepts, including `off`, and matches the levels in the [README](../README.md#configuration).
 - [ ] A virtual model's unknown output limit never becomes a zero-token request.
 - [ ] Registry dispatch caps the extension's 1,024-token title budget to the routed physical model, and a smaller known model limit is kept.
-- [ ] For OpenCode models, registry dispatch sends the request's `sessionId`, a new UUIDv7 for each title request, in the `x-opencode-session` header (`getOpenCodeSessionHeaders` in `model-runtime.js`, added to registry calls in Pi 1.4.0). No conversation data is in this header.
+- [ ] For OpenCode models, registry dispatch sends the request's `sessionId`, a new UUIDv7 for each title request, in the `x-opencode-session` header (`getOpenCodeSessionHeaders` in `model-runtime.js`). No conversation data is in this header.
 
 The extension leaves sampling selection to the registry. It keeps its own token budget, disabled cache retention, and no-retry policy.
 
@@ -111,7 +111,7 @@ If Pi adds a public API to save in-memory sessions, use it instead of copying JS
 
 ### Cancellation
 
-In Pi 1.3.0, authentication and providers may ignore cancellation of a [title request](../src/auto-title/generate.ts). Revisit request cancellation before simplifying the outer deadline, and keep bounded waiting and stale-result protection.
+Authentication and providers can ignore cancellation of a [title request](../src/auto-title/generate.ts). Revisit request cancellation before simplifying the outer deadline, and keep bounded waiting and stale-result protection.
 
 ### Naming APIs
 

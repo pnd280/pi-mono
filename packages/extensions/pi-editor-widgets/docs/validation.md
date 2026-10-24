@@ -51,7 +51,7 @@ Setup: hold a settings lock, or make the settings file malformed JSON.
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Save.                                                       | Edits are kept, the selected target stays visible, and the recovery message stays visible. |
 | Press **Ctrl+S** again.                                     | The save is retried.                                                                       |
-| Watch the notifications for one load or save failure.       | Each warning appears once, and none shows as success.                                      |
+| Read the menu feedback for one load or save failure.        | The failure appears as a warning or error, never as success.                               |
 | After a success, wait three seconds, edit, or switch scope. | Each one clears the success message.                                                       |
 | Wait after a warning or error.                              | The warning or error doesn't expire.                                                       |
 | Fix the file and reopen.                                    | Load warnings clear.                                                                       |

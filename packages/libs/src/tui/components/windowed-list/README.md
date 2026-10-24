@@ -18,6 +18,8 @@ This internal component has no package entry. The [browser](../browser/README.md
 ## Usage
 
 ```ts
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+
 import { renderWindowedList } from "../windowed-list/index.ts";
 
 const { lines, start, count } = renderWindowedList({

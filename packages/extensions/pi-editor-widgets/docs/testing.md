@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests its layout settings key and schema, layout menu state, and editor focus, while libs owns settings trust and writes, the shared settings frame, and the [interactive host fixture](../../../libs/src/validation/interactive-host/README.md).
+This package tests its layout settings key and schema, layout menu state, and editor focus, while libs owns settings trust and writes, the shared settings frame, and the [interactive host fixture](../../../libs/src/validation/interactive-host/README.md). The host tests also assert context-display toggling, one wrapped-row case, above-editor spacing, scope markers, and save-failure feedback as part of the invariants below.
 
 ## Must not regress
 
@@ -22,7 +22,7 @@ This package tests its layout settings key and schema, layout menu state, and ed
 
 ## Not tested
 
-- Token and context widget formatting, mouse toggling, shared-row wrapping and padding, mouse dispatch, region clipping, the above-editor blank line, menu hints and scope markers, and save-feedback text and timing are below the severity bar. The [manual checks](#manual-checks) cover them.
+- Token-widget formatting, general row wrapping and padding, image rendering, region clipping, menu hints, and save-feedback timing are below the severity bar. The [manual checks](#manual-checks) cover them and mouse behaviour beyond the focus and settings-write scenarios.
 - The libs [settings-file](../../../libs/src/settings-file/README.md) tests own project trust, preservation of unrelated settings, and refusal to overwrite malformed, oversized, or locked settings files.
 - The interactive session picker and physical-terminal behaviour are not tested because the host fixture does not drive them.
 

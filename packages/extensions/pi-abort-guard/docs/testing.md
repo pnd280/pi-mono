@@ -12,7 +12,7 @@ This package tests interrupt routing and confirmation isolation in an offline Pi
 
 ## Not tested
 
-- The hint text, its colour, and its replacement of the working message are below the severity bar.
+- The exact hint text, its colour, and its replacement of the working message are below the severity bar.
 
 ## Manual checks
 

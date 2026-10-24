@@ -12,7 +12,7 @@ Untrusted terminal output can carry control sequences that corrupt the display. 
 - `compactDisplayText` makes a single-line plain label without trimming or limiting length.
 - `sliceTerminalText(text, start, end, options?)` returns `{ text, leadingSgr }` for the UTF-16 range from `start` (inclusive) to `end` (exclusive). It never splits graphemes or recognised escapes, and it omits a grapheme that straddles a boundary. Set `preserveSgr: true` to reconstruct leading styling with Pi's SGR tracker.
 - `hasUnsafeTerminalControls` detects DEL and C0 and C1 controls except tab, LF, and CR without modifying the source.
-- Search normalisation and `sliceTerminalText` don't sanitise controls.
+- `sliceTerminalText` does not sanitise controls.
 - Sanitised display text doesn't make the original safe to restore into an editor.
 
 ## Usage

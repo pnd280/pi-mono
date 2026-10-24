@@ -92,11 +92,11 @@ Users [install](../README.md#install) the generated `release` branch. Pull reque
 
 To release a version, raise `version` in the root `package.json`. The job tags the first `release` commit that has a version `v<version>`, if that tag does not exist yet. Tags never move, so a tag always names the same build. A push without a version change moves only the branch.
 
-The build includes every package under `packages/` and `packages/extensions/`, so a new extension needs no release change. `pnpm pack` replaces the `workspace:` and `catalog:` specifiers, which npm rejects. The build removes tests, `validation/` fixtures, `AGENTS.md`, `tsconfig.json`, scripts, and development dependencies. Then it installs a copy outside the workspace with Pi's npm command and starts the Pi CLI with every extension and an offline model. An extension that fails to load fails the job. The offline model also starts both worker threads from the installed copy, because print mode never starts them, and it fails the job when one does not answer.
+The build includes every package under `packages/` and `packages/extensions/`, so a new extension needs no release change. `pnpm pack` replaces the `workspace:` and `catalog:` specifiers, which npm rejects. The build removes tests, `validation/` fixtures, `AGENTS.md`, `tsconfig.json`, scripts, and development dependencies. Then it installs a copy outside the workspace with Pi's npm command and starts the Pi CLI with every extension and an offline model. An extension that fails to load fails the job. The offline model also starts both worker threads from the installed copy, because this startup-only print run would not otherwise start them, and it fails the job when one does not answer.
 
 Must not regress ([testing policy](agents/testing.md#coverage)):
 
-- **High, e2e:** In an installed copy of the release tree, the bounded-diff and pi-prompt-manager collection workers start and return a result. Otherwise, pi-agent-summary and pi-tool-display show no diffs, and pi-prompt-manager can't read or write collections of 1 MiB or more.
+- **High, e2e:** In an installed copy of the release tree, the bounded-diff and pi-prompt-manager collection workers start and return a result. Otherwise, pi-agent-summary and pi-tool-display show diffs only from native edit patches: `write` calls and edits without a valid patch show none, and pi-agent-summary has no statistics for a file that one run changes more than once. pi-prompt-manager can't read or write collections of 1 MiB or more.
 
 To inspect the tree, run `node .scripts/build-release.ts`. It writes `.tmp/release` and needs network access for npm.
 

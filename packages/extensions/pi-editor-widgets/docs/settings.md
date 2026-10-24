@@ -49,7 +49,7 @@ A project layout replaces the entire global layout; the two are never merged.
 - Unlisted widgets get their own rows at the end of the region that their extension requested, sorted by ID in code unit order, whatever the locale. Unlisted statuses share one footer row, also sorted by ID in code unit order.
 - Unknown IDs keep their positions, so a widget reappears where you put it once its extension loads.
 - A row can contain each ID once and at most one `flex`. The same ID can appear in several rows, but an ID in `hidden` can't also be placed.
-- Each region holds at most 1,000 rows, and each row at most 1,000 entries. `hidden` holds at most 10,000 IDs, and each ID is at most 4,096 UTF-16 code units.
+- Each region holds at most 1,000 rows, and each row at most 1,000 entries. `hidden` holds at most 10,000 IDs, and each ID is at most 4,096 Unicode code points.
 - The complete settings file, including unrelated settings, is limited to 1 MiB on read and after save formatting. An oversized file warns and falls back to the next scope. A save that exceeds the limit fails and keeps the draft.
 - The default layout leaves the regions above and below the editor empty. Its first footer row shows `builtin:cwd`, `builtin:git-branch`, and `builtin:session-title`, with dividers between them. Its second footer row shows `builtin:tokens`, a divider, and `builtin:context`, then `builtin:model` right-aligned by `flex`.
 

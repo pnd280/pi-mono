@@ -47,5 +47,5 @@ The user guide states the [format rules](rules.md#expansion-format) and the [com
 
 ## Limitations
 
-- In Pi 1.3.0, Pi inserts skill contents only for prompts that begin exactly with `/skill:`, and its input handler has no option to turn that off. Pi also expands leading prompt-template commands after the input hook. The leading-reference checkboxes above cover both. A source review of Pi 1.4.0 found the same input order and `/skill:` check.
-- In Pi 1.3.0, Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width. A source review of Pi 1.4.0 found Pi's editor unchanged.
+- In Pi 1.4.0, native skill insertion runs only for prompts that begin exactly with `/skill:`, after the input hook. Prompt-template expansion also follows the input hook. The leading-reference checkboxes above cover both.
+- In Pi 1.4.0, Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width.
