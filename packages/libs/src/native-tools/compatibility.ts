@@ -43,7 +43,7 @@ export function inspectedConstruction(prototype: SessionInternals): boolean {
 
       return (
         typeof method === "function" &&
-        createHash("sha256").update(method.toString()).digest("hex") === hash
+        createHash("sha256").update(Function.prototype.toString.call(method)).digest("hex") === hash
       );
     })
   );
