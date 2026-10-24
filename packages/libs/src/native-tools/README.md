@@ -20,6 +20,29 @@ Observation excludes SDK overrides, custom tools, and changed definitions. It pr
 
 If Pi's construction contract is not recognised, or an observer callback throws, tools keep their original execution and subscribers receive `warning()`.
 
+## Usage
+
+```ts
+import { observeNativeTools } from "@pi-mono/libs/native-tools";
+
+// During extension loading, before Pi builds the runtime.
+const native = observeNativeTools({
+  names: ["bash"],
+  eligible: (session) => session.sessionManager === manager,
+  wrap: (session, original, settings) => ({
+    ...original,
+    execute(id, params, signal, onUpdate, context) {
+      record(id, settings.cwd);
+      return original.execute(id, params, signal, onUpdate, context);
+    }
+  }),
+  warning: (message) => console.warn(`my-extension: ${message}`)
+});
+
+pi.on("session_start", (_event, ctx) => native.bindSessionManager(ctx.sessionManager));
+pi.on("session_shutdown", () => native.dispose());
+```
+
 ## Caller responsibilities
 
 ### Must not break
@@ -38,6 +61,8 @@ If Pi's construction contract is not recognised, or an observer callback throws,
 - Use `isNative(session, name, tool?)` to check whether the current definition is verified, including shared replacements. Pass `tool` when you already hold the name's `ToolInfo`. Otherwise the check reads `session.getAllTools()`, which builds info for every tool.
 - Use [file-mutations](../file-mutations/README.md) to combine `edit` and `write` requests.
 - Keep policy, warnings, and persistence in the consumer.
+
+Related: [pi-tool-display](../../../extensions/pi-tool-display/README.md) observes `bash` and `powershell` through this library, and [file-mutations](../file-mutations/README.md) builds on it.
 
 ## Validation
 

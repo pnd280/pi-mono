@@ -2,7 +2,7 @@
 
 [Pi API contracts](pi-apis.md)
 
-Agents checking Pi contracts use the workspace's installed documentation below. For installed-CLI behaviour, also check the documentation and examples shipped with that CLI if its version differs.
+Check Pi contracts against the installed documentation below, which matches the workspace's Pi version. When the installed CLI has a different version, also check the documentation and examples shipped with that CLI for its behaviour.
 
 | When you…                                       | Read                                                                                                                                                                                  |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -25,7 +25,7 @@ Agents checking Pi contracts use the workspace's installed documentation below. 
 | Check a field the docs don't cover              | [Extension types](../../node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/types.d.ts) and [pi-ai types](../../node_modules/@earendil-works/pi-ai/dist/types.d.ts)     |
 | Check runtime order that no doc or type states  | The [compiled core](../../node_modules/@earendil-works/pi-coding-agent/dist/core/), as described below the table                                                                      |
 
-When changing a Pi integration, read the relevant installed API documentation and examples, including linked contracts needed by the change. The Markdown docs omit some contracts, such as `ToolDefinition.constrainedSampling` for grammar tools. Before you state that Pi lacks a capability, read the type declarations. Resolve links inside installed documentation relative to that document, not the workspace root.
+Follow links in installed documentation to the contracts that the change needs, and resolve them relative to that document, not the workspace root. The Markdown docs omit some contracts, such as `ToolDefinition.constrainedSampling` for grammar tools, so read the type declarations before you state that Pi lacks a capability.
 
 In the compiled core, `extensions/runner.js` emits events in load order and ends a `session_before_*` event at the first cancel. `agent-session.js` and `agent-session-runtime.js` run prompts, commands, and session changes.
 

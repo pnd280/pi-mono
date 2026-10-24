@@ -188,7 +188,7 @@ Setup: an interactive Pi session with the extension loaded and a configured prov
 
 In Pi 1.3.0, every reviewed fingerprint matched without change. In Pi 1.4.0, only the lower-level `compact` fingerprint changed: native split-turn prompts include custom instructions, and summary requests send no `maxTokens`.
 
-For request outcomes and routing scope, see [usage](../README.md#compact) and [configuration](../README.md#configuration).
+For request outcomes and routing scope, see [compaction requests](requests.md) and [configuration](../README.md#configuration).
 
 The gaps below concern private Pi integration; [replacement opportunities](#replacement-opportunities) lists the public APIs needed to remove those hooks.
 
@@ -196,9 +196,9 @@ The gaps below concern private Pi integration; [replacement opportunities](#repl
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | No public API     | There is no public way to run native compaction and then continue. `ctx.compact()` aborts the current run, and boundary entries would need summaries written by the extension rather than Pi. Replace the private patches if Pi adds a public API with the same lifecycle guarantees.                        |
 | `manual` reason   | Passing `manual` is outside `_runAutoCompaction`'s declared contract, which expects automatic reasons only. Native failure text may still say `Auto-compaction failed` (observed in Pi 0.99.2, still in the Pi 1.4.0 source). The outcome message removes that misleading prefix.                            |
-| Overflow recovery | Automatic `overflow` recovery keeps Pi's native preparation and serialisation. See [recovery behaviour](../README.md#errors) for responses that stop at the output-length limit, and for retained context edits.                                                                                             |
+| Overflow recovery | Automatic `overflow` recovery keeps Pi's native preparation and serialisation. See [recovery behaviour](requests.md#failed-attempts) for responses that stop at the output-length limit, and for retained context edits.                                                                                     |
 | Authentication    | Pi resolves summarisation authentication inside the default summariser, after hooks, so summaries from hooks skip it. Configured requests use the registry stream with isolated credentials, not private authentication helpers or arbitrary stream overrides. Unrelated operations use the original stream. |
-| Concurrent calls  | Native compaction uses shared per-session state. SDK callers must follow the [manual-compaction constraint](../README.md#compact).                                                                                                                                                                           |
+| Concurrent calls  | Native compaction uses shared per-session state. SDK callers must follow the [manual-compaction constraint](requests.md#other-behaviour).                                                                                                                                                                    |
 | Not a transaction | The temporary metadata wrapper has the [session-write and cancellation limits](../README.md#side-effects).                                                                                                                                                                                                   |
 | Late patches      | Fingerprint checks don't inspect overrides on session instances, and don't detect patches installed after binding. Combinations of third-party patches and reloads aren't guaranteed to work. Cleanup deactivates retained wrappers and leaves later replacements alone.                                     |
 

@@ -21,17 +21,16 @@ Use only public Pi APIs and RPC. The [late-usage](GLOSSARY.md#results) patch is 
 | [Jobs](GLOSSARY.md#tasks-and-processes)                        | [Jobs](src/jobs/registry.ts), [tools](src/jobs/tool.ts), [ADR 0005](docs/adr/0005-background-jobs.md), [ADR 0007](docs/adr/0007-own-job-processes-and-bound-logs.md), [ADR 0008](docs/adr/0008-hold-run-for-marked-jobs.md) |
 | Tool details, cards, or result text                            | [result](src/result.ts), [card renderers](src/tasks/render.ts), and the consumers under [Boundaries](#boundaries)                                                                                                           |
 | The task panel, viewers, or widget                             | [`Panels`](src/task-panel/panels.ts), [`TaskPanel`](src/task-panel/panel.ts), and the [widget](src/widget.ts)                                                                                                               |
-| Tests or fixtures                                              | [Test fixtures](validation/README.md)                                                                                                                                                                                       |
 
 ## Boundaries
 
-- Do not use Pi's `RpcClient`, because it cannot answer [child](GLOSSARY.md#tasks-and-processes) dialogs or stop process trees, and its environment merging breaks fixture isolation.
+- Talk to [children](GLOSSARY.md#tasks-and-processes) through `ChildConnection`. Pi's `RpcClient` stays out: it cannot answer child dialogs or stop process trees, and its environment merging breaks fixture isolation.
 - `ChildRun` spawns Pi, owns the RPC connection and timers, and stops the process tree directly, without a transport port. See [ADR 0004](docs/adr/0004-no-child-transport-seam.md).
 - Keep entry identifiers in [constants](src/constants.ts), shared by readers and writers.
-- [index.ts](src/index.ts) only maps Pi events, tools, and commands to the [session binding](GLOSSARY.md#tasks-and-processes). Tools, commands, and views get the current tasks and jobs from the binding at each use; they do not keep them.
-- Register the tools and the open-event listener in the extension factory. A later registration sets only the session's docs, delivery text, and `hidden` or `model-only` exposure, and runs only when one of them changed since the last registration. Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so an unchanged registration must be skipped.
-- Claim the panel shortcut through the [lifecycle](../../libs/src/lifecycle/README.md) startup arrival, not `registerShortcut`.
-- Stop new work in the lifecycle shutdown revoke, through `SessionBinding.revoke`, and stop processes only in its cleanup. The revoke runs before any participant's shutdown handler awaits, and every workspace extension whose shutdown handler awaits is a participant, so only an extension from outside the workspace can await before it.
+- [index.ts](src/index.ts) only maps Pi events, tools, and commands to the [session binding](GLOSSARY.md#tasks-and-processes). Tools, commands, and views get the current tasks and jobs from the binding at each use and keep no reference.
+- Register the tools and the open-event listener in the extension factory. A later registration sets only the session's docs, delivery text, and `hidden` or `model-only` exposure, and runs only when one of them changed since the last registration. The [registration contracts](docs/pi-compatibility.md#extension-ui-and-registration) give the `--tools` reasons.
+- Claim the panel shortcut through the lifecycle startup arrival ([shortcut claims](../../libs/src/lifecycle/phases.md#shortcut-claims)), not `registerShortcut`.
+- Stop new work in the lifecycle shutdown revoke, through `SessionBinding.revoke`, and stop processes only in its cleanup. The revoke runs before any workspace extension's shutdown handler awaits, so only an extension from outside the workspace can await before it; see the [shutdown phase](../../libs/src/lifecycle/phases.md#shutdown-phase).
 - Preserve the [supervisor](GLOSSARY.md#tasks-and-processes)'s project-trust decision, and pass only the explicitly selected child arguments.
 - Hold [capacity](GLOSSARY.md#tasks-and-processes) until a child exits, including during forced shutdown. After a forced stop, also hold it until the child's process group is gone or the failure is reported. Claim inactive tasks before waiting for capacity to prevent concurrent resumes.
 - Claim a live connection before sending input; retry only when no prompt was sent.
@@ -42,6 +41,9 @@ Use only public Pi APIs and RPC. The [late-usage](GLOSSARY.md#results) patch is 
 
 ## Validation
 
-Follow the [testing coverage](docs/testing.md). New invariants and tests require user approval under the workspace testing policy. For terminal behaviour, use the [manual checks](docs/validation.md).
-
-When you change RPC requests, child-file reads, or session-change handling, read the [installed Pi API references](../../../docs/agents/pi-docs.md). When you upgrade Pi, recheck public contracts with the [compatibility checklist](docs/pi-compatibility.md).
+| When you…                                                 | Read                                                                                                                                                                                          |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Change tests, fixtures, or invariants                     | [Test coverage](docs/testing.md) and [test fixtures](validation/README.md). A new invariant or test needs user approval under the [testing policy](../../../docs/agents/testing.md#coverage). |
+| Change terminal behaviour                                 | [Manual checks](docs/validation.md)                                                                                                                                                           |
+| Change RPC requests, child-file reads, or session changes | [Installed Pi API references](../../../docs/agents/pi-docs.md)                                                                                                                                |
+| Upgrade Pi                                                | [Compatibility checklist](docs/pi-compatibility.md)                                                                                                                                           |

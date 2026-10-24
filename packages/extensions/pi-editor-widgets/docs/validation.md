@@ -58,7 +58,7 @@ Setup: hold a settings lock, or make the settings file malformed JSON.
 
 ## Images
 
-Setup: use widgets with native `Image` output, in a Kitty terminal and an iTerm2 terminal. The expected results follow the [image placement policy](../README.md#usage).
+Setup: use widgets with native `Image` output, in a Kitty terminal and an iTerm2 terminal. The expected results follow the [image placement policy](settings.md#how-rows-render).
 
 | Do                                                                 | Expect                                                                                |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |

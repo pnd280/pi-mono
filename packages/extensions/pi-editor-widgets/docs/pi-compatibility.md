@@ -48,9 +48,9 @@ If a host property below is missing, the capability check fails with a diagnosti
 
 ### Renderer and mode switching
 
-The coordinator hooks the real renderer's `requestRender` and protected `doRender` methods, restores owned hooks when Pi replaces the renderer, and rebinds after mode switches. The `switchTuiMode` gate follows recorded predecessors, including tool-display's wrapper, so both extensions can compose across reload and restoration. Keyboard input can bypass `requestRender`, so the `doRender` hook clears cached measurements once per frame, and dynamic widget content stays current across all regions.
+Pi's stable UI reference is a forwarding proxy, so hook the real renderer and rebind on mode changes, rather than patching properties on the proxy. The coordinator hooks the real renderer's `requestRender` and protected `doRender` methods, restores owned hooks when Pi replaces the renderer, and rebinds after mode switches. The `switchTuiMode` gate follows recorded predecessors, including tool-display's wrapper, so both extensions can compose across reload and restoration. Keyboard input can bypass `requestRender`, so the `doRender` hook clears cached measurements once per frame, and dynamic widget content stays current across all regions.
 
-The compositor recognises image prefixes before text measurement and preserves complete output under the [image placement policy](../README.md#usage). Image geometry, identifiers, and terminal placement remain Pi-owned.
+The compositor recognises image prefixes before text measurement and preserves complete output under the [image placement policy](settings.md#how-rows-render). Image geometry, identifiers, and terminal placement remain Pi-owned.
 
 - [ ] The stable `ui` reference is still a forwarding proxy, and `renderer` still returns the real renderer behind it.
 - [ ] The real renderer still renders each frame through its protected `doRender` method, also when keyboard input bypasses `requestRender`.

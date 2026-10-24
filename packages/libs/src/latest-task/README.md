@@ -10,6 +10,31 @@ Discard results from obsolete work when only the newest task may commit. This in
 
 Cancellation and disposal invalidate the current task without aborting its underlying work.
 
+## Usage
+
+```ts
+import { LatestTask } from "../latest-task/index.ts";
+
+let results: string[] = [];
+const search = new LatestTask({ changed: () => render() });
+
+async function filter(query: string): Promise<void> {
+  try {
+    // A newer filter() call makes this task obsolete, so its results never commit.
+    await search.run(
+      (current) => findItems(query, current),
+      (items) => {
+        results = items;
+      }
+    );
+  } catch (error) {
+    showError(error);
+  }
+}
+```
+
+In this example, `render`, `findItems`, and `showError` belong to the caller. `search.pending` is `true` while the current task runs.
+
 ## Caller responsibilities
 
 - Supply work, commit, and `changed` callbacks, and handle current-task errors.

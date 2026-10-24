@@ -30,6 +30,13 @@ The join callback receives an envelope with the protocol version, the shared sta
 - Each protocol version has its own coordinator.
 - A coordinator stops shared work while a live participant uses another version. Participants that never become live do not stop it.
 - The first participant that becomes live while another version is live warns once for the runtime.
-- Without shared work, each participant does only its own work in its own handlers, at its place in Pi's load order. Each coordinator's README states what changes.
+- Without shared work, each participant does only its own work in its own handlers, at its place in Pi's load order.
+
+| When you check what changes after a mismatch in… | Read                                                                                     |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Lifecycle                                        | [Lifecycle version mismatch](../lifecycle/phases.md#version-mismatch)                    |
+| Input chain                                      | [Input-chain version mismatch](../input-chain/order.md#version-mismatch)                 |
+| Prompt parts                                     | [Prompt-part version mismatch](../prompt-parts/order.md#version-mismatch)                |
+| Working message                                  | [Working-message version mismatch](../working-message/command-owner.md#version-mismatch) |
 
 Increase a coordinator's protocol version whenever the shape or behaviour of its shared state changes.

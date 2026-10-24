@@ -6,7 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [package checks](../../../../docs/development.md#focused-validation) and the README [manual checks](../README.md#validation).
+1. Run the [package checks](../../../../docs/development.md#focused-validation) and the [manual checks](testing.md#manual-checks).
 2. When affected, check the other file-mutation consumer (`pi-tool-display`) and working-message composition with `pi-todo`.
 3. Work through the checklist below, then update the "Last verified" line.
 
@@ -20,7 +20,7 @@ Confirm these items against [src/index.ts](../src/index.ts):
 
 - [ ] A run lasts from the first `agent_start` to `agent_settled`, through retries, queued follow-ups, and cancellation.
 - [ ] The live timer is cleaned up when the run ends.
-- [ ] The [lifecycle run marks](../../../libs/src/lifecycle/README.md#run-marks) supply the duration and finish time.
+- [ ] The [lifecycle run marks](../../../libs/src/lifecycle/phases.md#run-marks) supply the duration and finish time.
 - [ ] Direct and nested agent `bash` calls count once per call ID.
 - [ ] Manual shell input is excluded from the command count.
 - [ ] [Milestones and counters](../GLOSSARY.md) emitted on `pi.events` reach the active run synchronously.

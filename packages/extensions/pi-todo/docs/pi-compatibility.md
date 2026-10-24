@@ -36,7 +36,7 @@ Handlers in [activation](../src/runtime.ts) and the [tool](../src/tool.ts) assum
 
 ### Session state and UI
 
-The [browser controls](../README.md#the-todos-browser) describe what users see.
+The [browser controls](controls.md#the-todos-browser) describe what users see.
 
 - [ ] [Session state](../src/state/session-state.ts) rebuilds the list from the current branch after branch changes and compaction.
 - [ ] Rebuilding skips malformed results and host error results.

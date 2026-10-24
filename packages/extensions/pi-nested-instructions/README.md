@@ -12,35 +12,15 @@ The model receives each notice as a user message. The message starts with a note
 
 With [pi-tool-display](../pi-tool-display/README.md) loaded, notices show as compact cards you can expand; otherwise Pi shows the full messages.
 
-Notices use persisted format version 3. Older notices keep their original text but no longer suppress rediscovery or provide structured display and summary counts. Resume and reload do not restore their scopes, so a later tool input can load the same instructions again while the old text is still in context. The [persisted notice contract](docs/pi-compatibility.md#persisted-notice-contract) lists the format changes.
+In each directory below the working directory, discovery uses the first readable instruction file in Pi's order, starting with `AGENTS.override.md`. If the model reads an instruction file itself, no second copy is added. After compaction, branch navigation, or a context edit removes a notice, a later call can load the file again; startup, resume, and `/reload` refresh the files that the model's context still shows.
 
-### Which files load
+Discovery reads only tool inputs. It never runs commands, reads tool results, or lists glob matches.
 
-Discovery searches paths written below the session's working directory. In each directory, the first readable regular file in Pi's order is used:
-
-1. `AGENTS.override.md`
-2. `AGENTS.md`
-3. `AGENTS.MD`
-4. `CLAUDE.md`
-5. `CLAUDE.MD`
-
-- Accessing a file searches from its parent directory upward. Accessing a directory includes that directory.
-- Scope follows the path as written. Ancestors of a symlink's target are not searched.
-- Discovery ignores paths outside the working directory before it resolves symlinks.
-- Discovery follows directory and instruction-file symlinks. Their targets can be outside the working directory.
-- Git-ignored directories, such as `node_modules`, are searched like any other directory, so reading a dependency's files can load its instructions.
-- If the model reads an instruction file directly, no second copy is added, even if the read fails. This applies only to that file: reading `AGENTS.md` does not stop a preferred `AGENTS.override.md` in the same directory from loading.
-- Calls made by other tools, such as codemode scripts, still trigger discovery. Their reads of an instruction file don't count as direct reads, because the parent tool may hide what they read.
-
-Discovery reads only tool inputs. It never runs commands, reads tool results, or lists glob matches. For the tool inputs that are recognised and the Bash syntax that stops inference, see [input discovery](docs/input-discovery.md).
-
-### Compaction, branching, and reload
-
-- If compaction, branch navigation, or a context edit removes a notice or the read call that loaded it from the model's context, a later qualifying call can load the file again.
-- During normal turns, a loaded file keeps the content that its notice delivered.
-- On startup, resume, and `/reload`, discovery refreshes only the scopes that the model's context still shows. It does not restore scopes that compaction removed.
-- A refresh can add an updated notice for a changed file or a changed preferred candidate, and a removal notice for a file that is gone.
-- If the model read a missing or unreadable instruction file and a file appears there later, the next refresh loads it. If no file appears, refresh adds no removal notice.
+| When you…                                                                   | Read                                                                       |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Want the full filename order, symlink rules, or reload and compaction rules | [Instruction loading rules](docs/loading.md)                               |
+| Want to know which tool inputs and Bash syntax trigger discovery            | [Input discovery](docs/input-discovery.md)                                 |
+| Resume a session with notices from an older version of this extension       | [Notices from older versions](docs/loading.md#notices-from-older-versions) |
 
 ## Side effects
 

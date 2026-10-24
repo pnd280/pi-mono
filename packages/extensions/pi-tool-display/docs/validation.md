@@ -215,14 +215,14 @@ Setup: `images` prompt, at wide and narrow widths, with image display on and the
 
 Setup: `output` prompt.
 
-| Do                                                                                                         | Expect                                                                                                      |
-| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Expand the successful card.                                                                                | The saved preview loads.                                                                                    |
-| Inspect the separate failure card.                                                                         | Its diagnostic stays visible.                                                                               |
-| Compare generated omissions with literal lookalikes.                                                       | They follow the [text-notice provenance limits](../src/adapters/native/README.md#text-envelope-provenance). |
-| Stop the session, move the referenced output file aside inside the fixture, reopen with `--reuse`, expand. | Retained output and an unavailable notice remain.                                                           |
-| Restore the file with the session open, toggle expansion.                                                  | The cached failure is reused.                                                                               |
-| Run `/reload`, then expand.                                                                                | The saved preview appears. See [saved-output previews](presentation.md#saved-output-previews).              |
+| Do                                                                                                         | Expect                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Expand the successful card.                                                                                | The saved preview loads.                                                                                      |
+| Inspect the separate failure card.                                                                         | Its diagnostic stays visible.                                                                                 |
+| Compare generated omissions with literal lookalikes.                                                       | They follow the [text-notice provenance limits](../src/adapters/native/contract.md#text-envelope-provenance). |
+| Stop the session, move the referenced output file aside inside the fixture, reopen with `--reuse`, expand. | Retained output and an unavailable notice remain.                                                             |
+| Restore the file with the session open, toggle expansion.                                                  | The cached failure is reused.                                                                                 |
+| Run `/reload`, then expand.                                                                                | The saved preview appears. See [saved-output previews](presentation.md#saved-output-previews).                |
 
 ### History and lifecycle
 
@@ -252,7 +252,16 @@ Run these when you change the matching integration.
 
 ## Adapter validation
 
-Run these checks after changing the matching adapter. The adapter contracts they check are in the [FFF](../src/adapters/@ff-labs/pi-fff/README.md) and [pi-mcp-adapter](../src/adapters/pi-mcp-adapter/README.md) adapter READMEs.
+Run these checks after changing the matching adapter. Each adapter's README and contract, listed under [built-in adapters](adapters.md#built-in-adapters), state what the checks confirm.
+
+### Codemode
+
+Setup: a TUI session with Pi's built-in `codemode` enabled.
+
+| Do                                                         | Expect                                                                                  |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Run a short script, then a script that throws an error.    | Each finished card shows `Took` with Pi's time in `dim`, and no `Wall time` header.     |
+| Run `/reload`, then compare both cards with the live ones. | The replayed cards show the same times, because they come from Pi's saved `durationMs`. |
 
 ### FFF
 
@@ -334,6 +343,34 @@ Install `pi-mcp-adapter` separately for `mcp`; it is not a workspace dependency.
 | Set an exact-name [`original` override](../README.md#configuration).                                        | The card uses the tool owner's renderer.                      |
 
 These checks inspect retained output; the display adapter never reads the saved file.
+
+### Nested-instruction notices
+
+Setup: load pi-tool-display and `pi-nested-instructions` in a disposable workspace. Use compact mode so run summaries do not hide the notices. The [summary checks with nested instructions](#with-nested-instructions) cover counts and run placement.
+
+| Do                                                                | Expect                                                               |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Access a nested directory containing `AGENTS.md`.                 | The collapsed notice shows its action and path.                      |
+| Expand the notice with the shortcut or a fullscreen header click. | The body shows formatted Markdown without the model-facing preamble. |
+| Resize to narrow widths and compare dark and light themes.        | Text stays readable within the available width.                      |
+| Select or scroll the expanded body.                               | The notice keeps its expansion state.                                |
+
+### pi-profiles
+
+Setup: load pi-tool-display and `pi-profiles`, and start a new session where `bash` is declared and not used.
+
+| Do                                                                           | Expect                                                          |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Switch to a profile that defers `bash`, then ask the model to run a command. | The `tool_search` card reads "Searched tools" and names `bash`. |
+
+### pi-read
+
+Setup: load pi-tool-display and `pi-read`. Include repeated reads, tabs, wide characters, multiline selections, selections outside the read window, images, and failed reads.
+
+| Do                                                                                     | Expect                                                           |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Expand and collapse groups at narrow and wide terminal sizes in light and dark themes. | Expanded reads show source once, without the appended preview.   |
+| Replay the session and expand a read.                                                  | The selection remains highlighted without repeating the preview. |
 
 ## Platform limitations
 

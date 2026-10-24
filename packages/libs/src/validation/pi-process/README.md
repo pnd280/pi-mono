@@ -14,6 +14,34 @@ Validation tests must launch installed Pi without the user's credentials or sett
 
 During a Vitest run of the root config, every new workspace links the same compiled-code caches, so launches do not compile Pi and its extensions again. The [compile-cache guide](../../../docs/pi-process.md) states what launches share, when caches start empty, and why concurrent launches can share them.
 
+## Usage
+
+```ts
+import { execFile } from "node:child_process";
+import { rm } from "node:fs/promises";
+import { promisify } from "node:util";
+
+import {
+  createPiLaunch,
+  createValidationWorkspace,
+  STEP_TIMEOUT_MS
+} from "@pi-mono/libs/validation/pi-process";
+
+const directory = await createValidationWorkspace("pi-example-");
+
+try {
+  // fixtureArgs selects the consumer's offline provider, model, and resource flags.
+  const launch = await createPiLaunch({ directory, args: fixtureArgs });
+  const { stdout } = await promisify(execFile)(launch.command, [...launch.args, "--print", "hi"], {
+    ...launch.options,
+    timeout: STEP_TIMEOUT_MS
+  });
+} finally {
+  // The awaited run has exited, so the workspace can go.
+  await rm(directory, { recursive: true, force: true });
+}
+```
+
 ## Caller responsibilities
 
 - Supply fixture-only environment additions, not `process.env`.

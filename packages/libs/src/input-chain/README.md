@@ -13,9 +13,13 @@ Pi passes input through `input` handlers in extension load order, so an extensio
 
 Each callback receives a fresh event object and the context of the emission. An error in an observer or transform is [reported](../coordination/README.md#errors), and the chain continues with the previous text.
 
-Every participant registers an `input` handler, and the first one in each emission runs the chain. The chain therefore runs at the first live participant's place among Pi's `input` handlers. Extensions that do not participate still run in load order around it. For liveness, order rules, and disposal, see the [coordinator protocol](../coordination/README.md).
+The chain runs at the first live participant's place among Pi's `input` handlers, so extensions that do not participate still run in load order around it.
 
-After a [version mismatch](../coordination/README.md#version-mismatch), each participant's `input` handler runs only its own observers and transforms, so participants run in load order.
+| When you…                                                   | Read                                            |
+| ----------------------------------------------------------- | ----------------------------------------------- |
+| Choose a transform rank or check which extensions take part | [Recommended ranks](order.md#recommended-ranks) |
+| Debug where the chain runs among Pi's `input` handlers      | [Chain placement](order.md#chain-placement)     |
+| Check what changes when two library versions meet           | [Version mismatch](order.md#version-mismatch)   |
 
 ## Usage
 
@@ -34,17 +38,10 @@ export default function snippetsExtension(pi: ExtensionAPI) {
 }
 ```
 
-## Recommended ranks
-
-Leave gaps between ranks so that new participants can fit between existing ones. Each participant states its reasons in its own documentation.
-
-| Participant       | Registration       |
-| ----------------- | ------------------ |
-| pi-prompt-manager | Observer           |
-| pi-skills         | Transform at `100` |
-
 ## Caller responsibilities
 
 - Join once during the extension factory, with a stable ID such as the package name.
 - Register `input` behaviour only through the chain. A separate `input` handler still runs in load order.
 - Return `handled` only when the input must not reach the agent; later transforms and extensions do not see it.
+
+Related: the [coordinator protocol](../coordination/README.md) owns liveness, order rules, error reports, and disposal for every coordinator.

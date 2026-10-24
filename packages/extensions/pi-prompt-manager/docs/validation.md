@@ -107,13 +107,13 @@ Setup: edit only the fixture's `agent/keybindings.json` and `agent/settings.json
 
 ### Capture, reload, or session isolation
 
-| Do                                                                                      | Expect                                                                                                |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Submit `/raw-template`.                                                                 | "History" keeps the text before expansion, per the [capture rules](../README.md#capture-and-storage). |
-| Submit steering and follow-up input, then withdraw it.                                  | The captures remain.                                                                                  |
-| Reload several times, then run `/prompts` and both shortcuts.                           | Nothing is captured twice.                                                                            |
-| Run fixtures at once in the same real cwd, through a symlink alias, and in another cwd. | The first two share collections; the other cwd doesn't.                                               |
-| Switch collections.                                                                     | Searches and selections are kept.                                                                     |
+| Do                                                                                      | Expect                                                                                  |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Submit `/raw-template`.                                                                 | "History" keeps the text before expansion, per the [capture rules](storage.md#capture). |
+| Submit steering and follow-up input, then withdraw it.                                  | The captures remain.                                                                    |
+| Reload several times, then run `/prompts` and both shortcuts.                           | Nothing is captured twice.                                                              |
+| Run fixtures at once in the same real cwd, through a symlink alias, and in another cwd. | The first two share collections; the other cwd doesn't.                                 |
+| Switch collections.                                                                     | Searches and selections are kept.                                                       |
 
 ### Storage, recovery, or exact text
 

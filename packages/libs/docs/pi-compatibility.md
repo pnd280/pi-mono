@@ -77,13 +77,13 @@ The [coordinator protocol](../src/coordination/README.md) depends on these Pi ho
 - [ ] Interactive mode sets up extension shortcuts and commands after `resources_discover`.
 - [ ] Pi defers prompts sent during `agent_settled` until the emission ends.
 
-The late shortcut and command setup lets [lifecycle claims](../src/lifecycle/README.md#shortcut-claims) and the working-message command registered before it work. The deferred prompts keep the [run marks](../src/lifecycle/README.md#run-marks) of one run apart from the next.
+The late shortcut and command setup lets [lifecycle claims](../src/lifecycle/phases.md#shortcut-claims) and the working-message command registered before it work. The deferred prompts keep the [run marks](../src/lifecycle/phases.md#run-marks) of one run apart from the next.
 
 ### Working message
 
 After an upgrade, these [working message](../src/working-message/README.md) results hold:
 
-- [ ] Among live participants and participants that can still become live, the one with the lowest `ownerRank` registers `/working-message`, with the tie-breaks and the left-out-factory case in the [README](../src/working-message/README.md#behaviour).
+- [ ] Among live participants and participants that can still become live, the one with the lowest `ownerRank` registers `/working-message`, with the tie-breaks and the left-out-factory case in the [command owner rules](../src/working-message/command-owner.md#command-owner).
 - [ ] Stale or disposed handles cannot change a replacement's text.
 - [ ] When no live component or override has text, Pi's default working message returns.
 - [ ] Trusted project ordering overrides global ordering.

@@ -10,14 +10,14 @@ Reusable components receive effect callbacks rather than importing extensions or
 | Change browser options or actions       | [Browser contracts](components/browser/types.ts)                                                                               |
 | Change mounting or post-closure effects | [Host mounting](open-browser/index.ts)                                                                                         |
 | Change focused-input routing            | [Priority input adapter](responsive-custom-ui/fullscreen-input.ts) and its [host contract](../../docs/tui-fullscreen-input.md) |
+| Check browser or mounting coverage      | [Shared TUI validation](README.md#validation)                                                                                  |
 
 ## Constraints
 
 - Prepare full text outside render and input loops.
 - Keep theme colours out of cached layout.
-- Preserve logical views across host remounts.
-- Dispose logical views only on final closure.
+- Preserve logical views across host remounts, and dispose them only on final closure.
 
 ## Validation
 
-Use [package validation](../../README.md#validation) and [workspace verification](../../../../docs/agents/verification.md). If a TUI invariant is approved, put browser interaction tests in `components/browser/`, editor snapshot ordering in `open-browser/`, and host presentation lifetime in `responsive-custom-ui/`.
+Place the tests for a newly approved TUI invariant by concern: browser interaction in `components/browser/`, editor snapshot ordering in `open-browser/`, and host presentation lifetime in `responsive-custom-ui/`.

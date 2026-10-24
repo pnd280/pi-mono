@@ -2,9 +2,9 @@
 
 [Workspace development](../development.md)
 
-Never suggest or edit Pi core or upstream package files, including installed dependencies.
+Implement Pi changes in workspace extensions, through public APIs first; a runtime monkey-patch may work around an API limit. Never suggest or edit Pi core or upstream package files, including installed dependencies.
 
-Implement Pi changes through workspace extensions, and prefer public APIs. Runtime monkey-patches may work around API limits. Find installed documentation and examples in [Pi API references](pi-docs.md).
+Find installed documentation and examples in [Pi API references](pi-docs.md).
 
 ## Private-method patches
 

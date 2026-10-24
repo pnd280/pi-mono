@@ -126,7 +126,7 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 - [ ] A saved `toolResult` keeps that `durationMs`.
 - [ ] `ToolRenderContext.durationMs` supplies the final result's duration and is undefined for partial results.
 
-The [lifecycle](../../../libs/src/lifecycle/README.md#shutdown-phase) shutdown revoke stops collection and appends without awaiting.
+The [lifecycle](../../../libs/src/lifecycle/phases.md#shutdown-phase) shutdown revoke stops collection and appends without awaiting.
 
 ### Extension notifications
 

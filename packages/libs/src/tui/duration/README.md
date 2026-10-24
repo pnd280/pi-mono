@@ -2,9 +2,23 @@
 
 [Shared TUI](../README.md#usage)
 
+Elapsed times must read the same in every extension and never overstate how long work took. [`formatDuration`](index.ts) formats a measured duration in milliseconds.
+
 ## Behaviour
 
-[`formatDuration`](index.ts) formats a measured duration in milliseconds: `450ms` below one second, tenths of a second below one minute, such as `5.3s`, then `1m 5s` and `1h 2m 5s`. Values round down, so a duration never shows more time than it took.
+- Below one second, it shows milliseconds, such as `450ms`.
+- Below one minute, it shows tenths of a second, such as `5.3s`.
+- Longer durations show `1m 5s` and `1h 2m 5s`.
+- Values round down, so a duration never shows more time than it took.
+
+## Usage
+
+```ts
+import { formatDuration } from "@pi-mono/libs/tui/duration";
+
+formatDuration(5349); // "5.3s"
+formatDuration(65_300); // "1m 5s"
+```
 
 ## Caller responsibilities
 

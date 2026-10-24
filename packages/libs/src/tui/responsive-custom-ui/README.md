@@ -2,9 +2,11 @@
 
 [Shared TUI](../README.md#usage)
 
+A view that switches between inline and overlay presentations loses its state if each presentation builds a new component. Use [`openResponsiveCustomUI`](index.ts) to keep one component across those remounts.
+
 ## Behaviour
 
-Use [`openResponsiveCustomUI`](index.ts) when a view must keep its state while switching between inline and overlay presentations. It preserves one component across remounts, calling optional `dispose()` only at final closure.
+`openResponsiveCustomUI` preserves one component across remounts and calls its optional `dispose()` only at final closure.
 
 ### Fullscreen input ownership
 
@@ -16,9 +18,28 @@ Opening a component that opts in to input ownership throws when the caller suppl
 
 ### Host compatibility
 
-Priority routing uses a private [adapter](fullscreen-input.ts) that depends on internal Pi renderer properties, because public terminal listeners cannot preempt Pi's transcript listener. When you change the adapter or upgrade Pi, check the [renderer contract and registration lifetime](../../../docs/tui-fullscreen-input.md).
+Priority routing depends on internal Pi renderer properties, because public terminal listeners cannot preempt Pi's transcript listener. Missing capabilities or detected interference disable routing and call `onInputRoutingUnavailable` once per opening. The view stays open with ordinary host delivery. Arbitrary third-party input patches are unsupported.
 
-Missing capabilities or detected interference disable routing and call `onInputRoutingUnavailable` once per opening. The view stays open with ordinary host delivery. Arbitrary third-party input patches are unsupported.
+When you change the private [adapter](fullscreen-input.ts) or upgrade Pi, check the [renderer contract and registration lifetime](../../../docs/tui-fullscreen-input.md).
+
+## Usage
+
+```ts
+import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
+
+await openResponsiveCustomUI({
+  ui,
+  signal,
+  onInputRoutingUnavailable: () =>
+    ui.notify(
+      "Todo fullscreen input routing is unavailable on this host. Use regular mode if controls do not respond.",
+      "warning"
+    ),
+  useOverlay: (tui) => tui.mode !== "fullscreen" && browserLayout(tui.terminal.rows).overlay,
+  overlayOptions: { width: "100%", anchor: "center" },
+  create: (tui, theme, keybindings, done) => new TodosView({ tui, theme, keybindings, done })
+});
+```
 
 ## Caller responsibilities
 

@@ -10,6 +10,26 @@ Creates an offline `AgentSession` with Pi's real interactive containers, rendere
 
 Mutable settings and model-runtime files live in a system temporary directory. Until `dispose()`, the process environment keeps only `PATH`, `SystemRoot`, and the terminal, locale, and temporary-directory variables, and `HOME` points to a private directory, so provider credentials from the user's environment or home files cannot authenticate. The fixture disables model-network access and user resource discovery; it does not send model requests. If setup fails, it releases the acquired host and session resources, removes the temporary directory, and restores the environment before it rejects.
 
+## Usage
+
+```ts
+import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
+import { it } from "vite-plus/test";
+
+import notesExtension from "../src/index.ts";
+
+it("mounts the notes footer", async () => {
+  const fixture = await hostFixture([notesExtension], "fullscreen");
+
+  try {
+    await fixture.bind();
+    // Assert against fixture.host, fixture.ui, fixture.session, or fixture.terminal.
+  } finally {
+    await fixture.dispose();
+  }
+});
+```
+
 ## Caller responsibilities
 
 Pass extension factories and optionally `"regular"` or `"fullscreen"`. Create feature-specific settings under the returned `directory` and `agentDir`, then call `bind()` to emit session startup against the real UI. `host`, `ui`, `session`, and `terminal` expose the installed boundary for consumer assertions.

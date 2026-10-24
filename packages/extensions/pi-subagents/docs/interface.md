@@ -8,7 +8,7 @@ In TUI mode, pi-subagents shows tasks and [jobs](jobs.md) in a task panel, read-
 
 Press **Ctrl+Alt+S** or run `/subagents` to open the task panel in TUI mode. The panel has top and bottom borders, like the other custom views.
 
-If another extension claims a key that overlaps **Ctrl+Alt+S** through the [shared shortcut claims](../../../libs/src/lifecycle/README.md#shortcut-claims), neither extension gets its key, and a warning names the conflict. Use `/subagents` instead.
+If another extension claims a key that overlaps **Ctrl+Alt+S** through the [shared shortcut claims](../../../libs/src/lifecycle/phases.md#shortcut-claims), neither extension gets its key, and a warning names the conflict. Use `/subagents` instead.
 
 The panel has the same layout as the list browsers of other workspace extensions, such as pi-todo. A `View:` row lists the "all", "running", "background", and "finished" views with their counts of tasks and jobs; **Tab** and **Shift+Tab** change the view, and each view keeps its own selection.
 

@@ -2,11 +2,29 @@
 
 [Private-file integration](README.md)
 
+This reference is for library callers who place private storage and mutate records. The [README](README.md#behaviour) summarises the permission checks.
+
 ## Filesystem assumptions
+
+Network filesystems and cross-machine coordination are unsupported.
+
+- On Linux, macOS, or WSL, use trusted private parents on local storage with POSIX owner checks and enforced permissions.
+- On native Windows, keep storage inside the user profile and on the profile's volume. The [native Windows rules](#native-windows) explain why.
 
 Final-descriptor checks cannot secure untrusted parents. Create or validate storage directories with [`privateScopedDirectory`](#scoped-directories) under a trusted root that already exists. It does not create the root.
 
 Use [`boundedRead`](privacy.ts) to read file contents. It returns `undefined` for a missing file and rejects unsafe files or input above the byte limit. Choose the byte limit and validate the contents.
+
+### Native Windows
+
+Native Windows has no POSIX owner IDs. There, the library trusts the user profile's inherited ACL instead of the owner and permission checks.
+
+- The check compares directory identities, not path text, so a mounted folder or a sibling that differs only in case is outside the profile.
+- `privateScopedDirectory` refuses a directory outside the profile with `PrivateFileError` before it creates it.
+- Checks still refuse final-path links and junctions, hard-linked files, and nonregular types.
+- Checks do not check owners, change permissions, or read ACLs.
+
+The [Windows storage decision](../../docs/adr/0001-windows-private-storage.md) gives the threat model.
 
 ## Scoped directories
 

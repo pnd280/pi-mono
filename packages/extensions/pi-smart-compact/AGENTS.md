@@ -1,17 +1,11 @@
 # [pi-smart-compact](README.md) development
 
-Terms such as _fingerprint_ and _split turn_ are defined in the [compatibility guide](docs/pi-compatibility.md).
-
-| When you change…                  | Start in                                                                                           |
-| --------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Native compaction routing         | [src/native.ts](src/native.ts)                                                                     |
-| Supported Pi versions             | [src/compatibility.ts](src/compatibility.ts) and the [upgrade checklist](docs/pi-compatibility.md) |
-| Settings or summary-model routing | [src/config.ts](src/config.ts) and [src/summarize.ts](src/summarize.ts)                            |
+The [compatibility guide](docs/pi-compatibility.md) defines _fingerprint_, _between-response boundary_, _split turn_, and _default summary_.
 
 ## Must not regress
 
 - Absent settings use native selection, and invalid settings never silently select another model. Never change the conversation model or send its credentials to the configured provider. See [configuration](README.md#configuration).
-- Keep private API assumptions inside the compatibility boundary. Unknown versions and conflicting patches must fail closed. Never learn supported fingerprints from the running host.
+- Keep private API assumptions inside the compatibility boundary ([src/compatibility.ts](src/compatibility.ts)). Unknown versions and conflicting patches must fail closed. Never learn supported fingerprints from the running host.
 - Scope requests and metadata to their session and native operation. Append metadata only after Pi's final abort check, and never overwrite another extension's replacement.
 - Keep tool-batch persistence and ordinary continuation. Before the next response, append status only for skipped, cancelled, or failed attempts, and never to start another turn.
 
@@ -26,4 +20,8 @@ Terms such as _fingerprint_ and _split turn_ are defined in the [compatibility g
 
 ## Validation
 
-Run the [package checks](../../../docs/development.md#focused-validation). They use offline provider fixtures. [Testing](docs/testing.md) covers behaviour and [compatibility](docs/pi-compatibility.md) covers host boundaries.
+| When you…                                           | Read or run                                                                                                |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Run checks                                          | The [package checks](../../../docs/development.md#focused-validation). They use offline provider fixtures. |
+| Choose tests                                        | The [coverage specification](docs/testing.md).                                                             |
+| Upgrade Pi, or change a private hook or fingerprint | The [upgrade procedure and checklist](docs/pi-compatibility.md).                                           |

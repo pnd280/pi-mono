@@ -32,7 +32,7 @@ The [input chain](../../../libs/src/input-chain/README.md) runs the transform at
 
 [Format settings](../src/config.ts) and [completion](../src/autocomplete.ts) own this behaviour.
 
-The README states the [format rules](../README.md#configuration) and the [completion rules](../README.md#completion) that users see.
+The user guide states the [format rules](rules.md#expansion-format) and the [completion rules](rules.md#completion) that users see.
 
 - [ ] Pi's settings files and project trust give the documented format, and `/reload` updates it, without UI or settings writes.
 - [ ] Skill suggestions come from Pi's current autocomplete provider, and Pi's `enableSkillCommands` setting turns them off.

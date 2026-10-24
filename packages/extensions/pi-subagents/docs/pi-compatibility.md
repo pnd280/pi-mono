@@ -101,7 +101,7 @@ A handled command can start model work. Work that the connection observed must s
 
 Background results use the `custom` role, so they do not keep the child's earlier reply in its result. Live task totals use the `late_usage` delta of the custom `message_end`, because the patch's `appendUsage` call does not emit `entry_appended`.
 
-The child receives `-e` only for an absolute source path; otherwise, its settings must load the package. See [side effects](../README.md#side-effects) for the user-visible result.
+The child receives `-e` only for an absolute source path; otherwise, its settings must load the package. See [what a child inherits](children.md#what-a-child-inherits) for the user-visible result.
 
 The before-change hooks invalidate old bindings before teardown. When Pi emits no session event after a change, the [session binding](../GLOSSARY.md#tasks-and-processes) starts its tasks again at the next interaction. Ordinary messages need a snapshot refresh, because they do not emit `entry_appended`.
 
@@ -121,7 +121,7 @@ The before-change hooks invalidate old bindings before teardown. When Pi emits n
 - [ ] Supported dialog timeouts pass through RPC.
 - [ ] The exported terminal components, theme tokens, and truncation helpers retain their contracts.
 
-The registration rule that follows from the `--tools` contracts is under [boundaries](../AGENTS.md#boundaries). Fire-and-forget child UI is dropped.
+These `--tools` contracts set the registration rule in [boundaries](../AGENTS.md#boundaries): a later registration runs only when the session's docs, delivery text, or exposure changed. Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so an unchanged registration must be skipped. Fire-and-forget child UI is dropped.
 
 ### Background jobs
 

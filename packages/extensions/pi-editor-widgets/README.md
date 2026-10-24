@@ -23,9 +23,7 @@ Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; 
 
 While the fullscreen menu has focus, its controls take priority over transcript controls. If input routing is unavailable, a warning appears once per opening. The menu stays open; use regular mode if controls do not respond. On a short terminal, tall regions can still be clipped while the menu is open.
 
-Widgets and statuses can share a row, or appear in several regions at once. A row too narrow for its contents wraps whole items onto the next line instead of shrinking them. An empty widget takes no space but keeps its position.
-
-Widgets that contain Kitty or iTerm2 images use full-width rows and keep their native output intact. If the height limit falls inside one of these widgets, clipping stops before that widget.
+Widgets and statuses can share a row, or appear in several regions at once. A row too narrow for its contents wraps whole items onto the next line instead of shrinking them. For empty widgets, image widgets, and alignment, read [how rows render](docs/settings.md#how-rows-render).
 
 ### Token and context display
 
@@ -44,4 +42,8 @@ To edit layouts as JSON or set up inheritance between global and project layouts
 
 ## Validation
 
-This section is for maintainers. For interaction changes, run the [terminal checks](docs/validation.md). For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+| When you…                       | Read                                                |
+| ------------------------------- | --------------------------------------------------- |
+| Change menu or layout behaviour | [terminal checks](docs/validation.md)               |
+| Decide where a test belongs     | [test coverage](docs/testing.md)                    |
+| Upgrade Pi                      | [compatibility checklist](docs/pi-compatibility.md) |

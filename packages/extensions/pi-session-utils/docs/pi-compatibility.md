@@ -115,4 +115,4 @@ In Pi 1.3.0, authentication and providers may ignore cancellation of a [title re
 
 ### Naming APIs
 
-Compare any new naming APIs with the [source selection and naming policy](../README.md#automatic-session-names). Adopting one must keep the text limits, the explicit model choice, and the request side effects.
+Compare any new naming APIs with the [source selection and naming policy](naming.md#what-is-sent). Adopting one must keep the text limits, the explicit model choice, and the request side effects.

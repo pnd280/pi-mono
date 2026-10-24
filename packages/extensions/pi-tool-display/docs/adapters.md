@@ -12,7 +12,7 @@ Extension authors define a [display adapter](../GLOSSARY.md#interpretation) to i
 
 ## Prohibited actions
 
-Adapters must not enable or run tools, access files, persist data, modify borrowed arguments or results, or change model context. Native observation and unavailable-history notices need separate [host provenance checks](../README.md#what-is-recorded).
+Adapters must not enable or run tools, access files, persist data, modify borrowed arguments or results, or change model context. Native observation and unavailable-history notices need separate [host provenance checks](recording.md#observation).
 
 ## Add an adapter
 
@@ -22,7 +22,13 @@ Adapters must not enable or run tools, access files, persist data, modify borrow
 
    Add automated tests only for [listed invariants](testing.md#must-not-regress). Verify other adapter behaviour with the manual checks.
 
-4. Describe what users see in the tool's section of [supported tool cards](tools.md). Document compatibility, contracts, the data behind the display, limitations, and extension-specific validation in the adapter's `README.md`. Write it for the adapter's maintainers, and open it with one sentence on what users of the adapted extension see, linked to its section in supported tool cards. Use these sections in order, and omit any that has no content: "Compatibility and selection", "Arguments and results", "Display", "Limitations", and "Validation". Session-message adapters use "Compatibility and registration" for the first section. Put long manual procedures under [adapter validation](validation.md#adapter-validation) and link to them.
+4. Describe what users see in the tool's section of [supported tool cards](tools.md). Write the adapter's `README.md` for its maintainers, and keep it short:
+   - Open with one sentence on what users of the adapted extension see, linked to its section in supported tool cards.
+   - "Compatibility and selection" states the provenance and schema that the resolver checks, and what does not qualify. Session-message adapters use "Compatibility and registration".
+   - "Validation" names the automated coverage in one or two sentences and links the manual check.
+
+   Put argument and result validation, the data behind the display, and limitations in a `contract.md` next to the README, under "Arguments and results", "Display", and "Limitations", and omit any section that has no content. Put manual procedures under [adapter validation](validation.md#adapter-validation).
+
 5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).
 
 To expose an adapter factory to tool authors, export it from [`src/adapters/index.ts`](../src/adapters/index.ts).
@@ -50,7 +56,7 @@ Callbacks should return `undefined`, or reject through `supports`, rather than t
 
 ## Session-message adapters
 
-Session messages use Pi's public `registerMessageRenderer` API from this extension's entry point, not the tool resolver list. Keep message interpretation under `src/adapters/<extension-package>/` and card layout under `src/rendering/`. Import the persisted identifier and decoder from the producing package's public contract. Do not load its extension factory for rendering. The subagent adapter imports only the identifiers from `pi-subagents/constants`, because pi-subagents exports no decoder. Like its tool cards, it verifies [background results](../src/adapters/pi-subagents/README.md#background-results) and [job results](../src/adapters/pi-subagents/README.md#background-jobs) with its own schemas.
+Session messages use Pi's public `registerMessageRenderer` API from this extension's entry point, not the tool resolver list. Keep message interpretation under `src/adapters/<extension-package>/` and card layout under `src/rendering/`. Import the persisted identifier and decoder from the producing package's public contract. Do not load its extension factory for rendering. The subagent adapter imports only the identifiers from `pi-subagents/constants`, because pi-subagents exports no decoder. Like its tool cards, it verifies [background results](../src/adapters/pi-subagents/contract.md#background-results) and [job results](../src/adapters/pi-subagents/contract.md#background-jobs) with its own schemas.
 
 The [pi-nested-instructions adapter](../src/adapters/pi-nested-instructions/README.md) derives summary categories and identities from validated notice details. Its [notice card renderer](../src/rendering/notice.ts) lives with the other card layout, so notice paths share target wrapping. The host attaches their rows and summary contributions to the preceding call while retaining exploration-group boundaries. Tool renderer overrides and tool-adapter callbacks do not apply to these messages.
 
@@ -92,11 +98,11 @@ The [subagent adapter](../src/adapters/pi-subagents/README.md) demonstrates stru
 
 ## Built-in adapters
 
-Each adapter documents its contract in its own README, written for its maintainers. [Supported tool cards](tools.md) tells users how the calls of each tool appear. The [resolver list](../src/host/selection.ts) is the authoritative list for automatic tool selection.
+Each adapter has a README for its maintainers, and most have a `contract.md` beside it. [Supported tool cards](tools.md) tells users how the calls of each tool appear. The [resolver list](../src/host/selection.ts) is the authoritative list for automatic tool selection.
 
 | Source           | Adapters                                                                                                                                                                                                                                                                                                                                                                                    |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Pi native tools  | [Native contract](../src/adapters/native/README.md)                                                                                                                                                                                                                                                                                                                                         |
 | Pi built-ins     | [codemode](../src/adapters/builtin/codemode/README.md), [MCP](../src/adapters/builtin/mcp/README.md), [tool search](../src/adapters/builtin/tool-search/README.md)                                                                                                                                                                                                                          |
 | Extensions       | [FFF](../src/adapters/@ff-labs/pi-fff/README.md), [MCP adapter](../src/adapters/pi-mcp-adapter/README.md), [todo](../src/adapters/pi-todo/README.md), [selective read](../src/adapters/pi-read/README.md), [smart compact](../src/adapters/pi-smart-compact/README.md), [subagents](../src/adapters/pi-subagents/README.md), [profiles' tool search](../src/adapters/pi-profiles/README.md) |
-| Session messages | [Nested instructions](../src/adapters/pi-nested-instructions/README.md), [subagent background results](../src/adapters/pi-subagents/README.md#background-results), and [job results](../src/adapters/pi-subagents/README.md#background-jobs), registered separately (see [session-message adapters](#session-message-adapters))                                                             |
+| Session messages | [Nested instructions](../src/adapters/pi-nested-instructions/README.md), [subagent background results](../src/adapters/pi-subagents/contract.md#background-results), and [job results](../src/adapters/pi-subagents/contract.md#background-jobs), registered separately (see [session-message adapters](#session-message-adapters))                                                         |

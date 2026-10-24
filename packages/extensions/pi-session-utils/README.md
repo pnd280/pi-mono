@@ -21,44 +21,15 @@ To name a session by hand, use Pi's native `/name My session`.
 
 An _ephemeral_ session is one that isn't saved to a file, such as one started with `--no-session`.
 
-| When you…                                                                | Read                                                        |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| Run a session command while the agent is busy, or look up a parent by ID | [Session operations](docs/sessions.md)                      |
-| Use a custom session directory                                           | [Session directories](docs/sessions.md#session-directories) |
-| Want to know what cancels naming, or use print, JSON, or RPC mode        | [Automatic naming](docs/naming.md)                          |
-
 ### Session operations
 
-`persist` and `create-empty-child` work only while the agent is idle. If it's busy they fail straight away instead of queueing.
-
-`persist`:
-
-- It copies the active branch into a new file, with a new session ID.
-- It keeps the branch's parent link and the session-wide name, including a cleared name.
-- It does nothing for sessions that are already saved.
-
-`create-empty-child`:
-
-- It copies neither the conversation nor the name. The parent link is metadata only; the model doesn't see it.
-- It needs the parent saved to a file. Run `persist` first for an ephemeral session. Pi writes a session file only after the first user or assistant message, so a session with only setup may not have one yet.
-- To copy history instead, use `/clone` or `/fork`.
+`persist` copies the active branch of an ephemeral session into a new file, with a new session ID, and switches to it. `create-empty-child` switches to an empty session that records the current saved session as its parent; for an ephemeral session, run `persist` first. Both commands work only while the agent is idle. If it's busy they fail straight away instead of queueing.
 
 ### Automatic session names
 
-Naming needs [configuration](#configuration); saving and child sessions don't.
+Naming needs [configuration](#configuration); saving and child sessions don't. An unnamed session then gets one silent naming attempt per load, when a user message with non-empty text arrives. `/sesh auto-name` generates a new title at any time, even while the agent is running. Setting or clearing a name yourself stops automatic naming.
 
-- An unnamed session gets at most one automatic attempt per load, made silently when a user message with non-empty text arrives. Loading or reloading allows another attempt, at the next user message.
-- An automatic title is saved only when the agent finishes running without an abort.
-- `/sesh auto-name` generates a new title at any time, even while the agent is running.
-- Setting or clearing a name yourself stops automatic naming. The [naming guide](docs/naming.md#cancellation-and-retries) says when naming resumes and lists the other events that cancel it.
-- Generation times out after 15 seconds and isn't retried. If it fails, the name is unchanged.
-
-| Trigger           | Text from the current branch sent to the model                                  |
-| ----------------- | ------------------------------------------------------------------------------- |
-| Automatic         | The first 4,000 characters of the first non-empty user request.                 |
-| `/sesh auto-name` | The newest 4,000 characters of user and assistant text, in chronological order. |
-
-Images, tool output, and thinking are never sent. Titles are at most 80 characters.
+Naming sends at most 4,000 characters of user and assistant text from the current branch to the chosen model, and titles are at most 80 characters. Images, tool output, and thinking are never sent.
 
 ### Start a child from the CLI
 
@@ -70,10 +41,14 @@ pi --parent-session SESSION_ID
 pi --no-session --parent-session /path/to/parent.jsonl
 ```
 
-- The child starts empty, in the launch directory. Pass the parent as a path or an exact session ID; [parent lookup](docs/sessions.md#parent-lookup-from-the-cli) explains how both are resolved.
-- With `--no-session` the child is ephemeral. Saving it later with `/sesh persist` keeps its parent link.
+The child starts empty, in the launch directory. With `--no-session` the child is ephemeral; saving it later with `/sesh persist` keeps its parent link.
 
-`--parent-session` can't be combined with `--continue` (`-c`), `--resume` (`-r`), `--session`, `--session-id`, or `--fork`.
+| When you…                                                                            | Read                                                         |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Want the exact rules for `persist` and `create-empty-child`, or a busy agent         | [Session operations](docs/sessions.md)                       |
+| Pass a parent by ID, or combine `--parent-session` with other session options        | [Parent lookup](docs/sessions.md#parent-lookup-from-the-cli) |
+| Use a custom session directory                                                       | [Session directories](docs/sessions.md#session-directories)  |
+| Want to know what text is sent, what cancels naming, or use print, JSON, or RPC mode | [Automatic naming](docs/naming.md)                           |
 
 ## Configuration
 
@@ -111,7 +86,7 @@ To turn off naming only, remove `auto-title` from the global settings and from t
 - Child sessions record the parent's path without modifying the parent file.
 - `--parent-session` temporarily patches Pi in memory; see [Pi compatibility](docs/pi-compatibility.md).
 - Saving and child sessions make no model or network requests.
-- When configured, naming sends [selected conversation text](#automatic-session-names) to the chosen model, which may cost money. It writes only Pi's session-name metadata, never conversation messages or settings.
+- When configured, naming sends [selected conversation text](docs/naming.md#what-is-sent) to the chosen model, which may cost money. It writes only Pi's session-name metadata, never conversation messages or settings.
 
 ## Validation
 

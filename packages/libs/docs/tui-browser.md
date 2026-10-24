@@ -1,8 +1,23 @@
-# Collection browser keys and direct construction
+# Collection browser interaction details
 
 [Collection browser](../src/tui/components/browser/README.md) · [Shared TUI](../src/tui/README.md)
 
-This guide is for callers who remap browser keys, debug input precedence, or construct `Browser` without the [browser host](../src/tui/open-browser/README.md). The [browser README](../src/tui/components/browser/README.md) has the contracts that every caller needs.
+This guide is for callers who tune search and action timing, remap browser keys, debug input precedence, or construct `Browser` without the [browser host](../src/tui/open-browser/README.md). The [browser README](../src/tui/components/browser/README.md) has the contracts that every caller needs.
+
+## Searches and pending actions
+
+- After a query edit, the previous results stay visible while the search is pending.
+- If that search takes longer than 200 ms, a loading message replaces the results and their action hints.
+- Other searches show the loading message at once.
+- While a search is pending, only query editing, section switching, and cancellation are available.
+- While a removal or selection action is pending, only cancellation is allowed.
+
+## Details and preview
+
+- `details` show below the results for the selected item.
+- Details take at most half of the rows, and `…` marks rows that do not fit.
+- The browser wraps `details` synchronously.
+- `preview` opens a separate scrollable view. Without it, **Ctrl+P** does nothing and has no hint.
 
 ## Keys
 
@@ -27,6 +42,15 @@ Configured actions take precedence over the fixed keys below, in this order: `co
 
 - Inspection mode needs `preview`. It uses a one-based item index and permits copying, scrolling, and closure, not selection actions.
 - Below 40 columns or 10 rows, only cancellation is available.
+
+## Cancellation
+
+**Ctrl+C** never cancels. Construction throws when no cancel binding other than **Ctrl+C** remains, or when the cancel binding is also bound to copy.
+
+- Cancel returns from preview to the list, or closes from the list.
+- While loading or an action is pending, cancel closes immediately.
+- Closing does not undo effects already started by consumer callbacks.
+- The footer keeps the back or close hint first when space is limited.
 
 ## Direct construction
 

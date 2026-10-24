@@ -2,14 +2,30 @@
 
 [Shared TUI](../../README.md#usage)
 
-## Behaviour
-
 Grouped rows need branch connectors that survive wrapping and later fragments. [`renderTree`](index.ts) adds connectors to already measured rows.
+
+## Behaviour
 
 - `renderTree` omits empty items before assigning branches, aligns continuations, and clips connectors and content to width.
 - `followingSibling` continues connectors into later components' fragments.
 - `renderTreeContinuation` adds rows beneath a parent without a child branch. Its `hasChildren` option retains vertical connectors.
 - Connectors take two columns after indentation.
+
+## Usage
+
+```ts
+import { renderTree } from "@pi-mono/libs/tui/components/tree";
+
+renderTree([{ rows: ["first"] }, { rows: ["second", "wrapped"] }], { width: 80, indent: 2 });
+```
+
+The result:
+
+```text
+  ├ first
+  └ second
+    wrapped
+```
 
 ## Caller responsibilities
 

@@ -15,4 +15,4 @@ Keep Pi's content blocks and details unchanged when adding selection previews.
 
 ## Validation
 
-Use [package validation](README.md#validation) and [testing](docs/testing.md). For Pi upgrades, use the [compatibility checklist](docs/pi-compatibility.md).
+[Package validation](README.md#validation) routes tests, appearance checks, and Pi upgrades.

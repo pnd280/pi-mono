@@ -2,6 +2,15 @@
 
 [pi-prompt-manager](../README.md) · [Browser controls](controls.md)
 
+## Capture
+
+"History" captures each interactive submission, trimmed, before templates and skills expand. This includes steering and follow-up messages that you later withdraw.
+
+- Captures record the typed text before other pi-mono extensions change it, such as by pi-skills expansion, whatever the load order. Other extensions that change input run in load order, so they can change it first.
+- Slash commands handled by extensions, extension-generated input, and custom messages aren't captured. Existing session and editor history isn't imported.
+- Collections persist even with `--no-session`. Symlink aliases of a directory share storage; different directories and worktrees don't.
+- The [capture queue](#capture-queue) limits how many captures wait for storage.
+
 ## Location and privacy
 
 ```text

@@ -2,9 +2,23 @@
 
 [Library index](../../README.md#usage)
 
+Extensions that build terminal views need the same presentation and interaction code, such as browsers, settings menus, and text budgets. This module shares that code, so that a view looks and responds the same in every extension. For example, this bounds untrusted tool output to five safe rows:
+
+```ts
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { compactText } from "@pi-mono/libs/tui/text-budget";
+
+const rows = compactText(displayText(output), {
+  width,
+  maxRows: 5,
+  maxCharacters: 16 * 1024,
+  notice: (count) => (count === undefined ? "… more output" : `… ${count} more rows`)
+});
+```
+
 ## Usage
 
-Extensions that build terminal views need the same presentation and interaction code, such as browsers, settings menus, and text budgets. Import the supported TUI entry points through `@pi-mono/libs/tui/*` (see the [package exports](../../package.json)). Keep domain policy and I/O in consumers. Shared components own presentation and interaction, not persistence.
+Import the supported TUI entry points through `@pi-mono/libs/tui/*` (see the [package exports](../../package.json)). Keep domain policy and I/O in consumers. Shared components own presentation and interaction, not persistence.
 
 | Module                                                   | Responsibility                                                           |
 | -------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -24,6 +38,7 @@ Extensions that build terminal views need the same presentation and interaction 
 | [Token counts](token-count/README.md)                    | Footer-scale token count formatting                                      |
 | [Durations](duration/README.md)                          | Measured duration formatting                                             |
 | [Keybindings](keybindings/README.md)                     | Shortcut validation and canonicalisation                                 |
+| [Windowed list](components/windowed-list/README.md)      | Internal list window for the browser and settings menu, with no entry    |
 
 ## Validation
 
@@ -31,8 +46,11 @@ Use [package checks](../../README.md#validation). Layout, colours, glyphs, and c
 
 Tests in `open-browser/` and `responsive-custom-ui/` cover the [focused-input invariant](../../docs/testing.md#must-not-regress) through the real offline Pi host. These tests cover single delivery, remapped controls, focus changes, stale callbacks, remounts, abort, unrelated overlays, and effects after final closure.
 
-| When you…                                                           | Read                                                                                                                                                                                                                                                                         |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Change terminal-text sanitisation or bounded highlighting           | [Must not regress invariants](../../docs/testing.md#must-not-regress)                                                                                                                                                                                                        |
-| Change mounting, fullscreen input routing, or presentation lifetime | e2e tests in `open-browser/` and `responsive-custom-ui/`, and the [interactive host fixture](../validation/interactive-host/README.md)                                                                                                                                       |
-| Check real-terminal appearance                                      | Prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting) and tool display's [host interaction checks](../../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks) |
+The collection browser has no component tests. The [browser host tests](open-browser/index.test.ts) exercise list and preview paging, remounts, and cancellation through Pi's renderer. The [responsive custom UI validation](responsive-custom-ui/README.md#validation) lists the focus routing and lifetime tests. Consumers of the settings menu own draft, save, and host integration tests.
+
+| When you…                                                                | Read                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Change terminal-text sanitisation or bounded highlighting                | [Must not regress invariants](../../docs/testing.md#must-not-regress), with tests in [`terminal-text/index.test.ts`](terminal-text/index.test.ts) and [`code-highlight/index.test.ts`](components/code-highlight/index.test.ts) (unchanged-input fallback at highlighting limits) |
+| Change mounting, fullscreen input routing, or presentation lifetime      | e2e tests in `open-browser/` and `responsive-custom-ui/`, and the [interactive host fixture](../validation/interactive-host/README.md)                                                                                                                                            |
+| Check browser sections, actions, layout, hint footers, or windowed lists | Prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting)                                                                                                                                   |
+| Check real-terminal appearance, or the settings menu's keyboard and look | Prompt manager's [presentation scenarios](../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting) and tool display's [host interaction checks](../../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks)      |

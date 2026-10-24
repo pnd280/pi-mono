@@ -23,8 +23,11 @@ The extension does not change any other text: the preamble, tool summaries, usag
 
 The extension changes only the request that Pi sends. It does not rewrite saved sessions or credentials. In Pi 1.4.0, a complete `systemPrompt` override from another extension takes precedence over this rewrite.
 
-This changes prompt wording only. Package checks do not send live Anthropic requests.
+The extension changes prompt wording only. Package checks don't send live Anthropic requests, so provider acceptance is not verified.
 
 ## Validation
 
-Maintainers can use the [manual checks](docs/testing.md#manual-checks) and [Pi compatibility checklist](docs/pi-compatibility.md).
+| When you…           | Read                                                |
+| ------------------- | --------------------------------------------------- |
+| Change the rewrites | [manual checks](docs/testing.md#manual-checks)      |
+| Upgrade Pi          | [compatibility checklist](docs/pi-compatibility.md) |

@@ -9,7 +9,7 @@ const patch = parsePatch("@@ -1 +1 @@\n-old\n+new\n", 1024);
 console.log(patch?.hunks.length); // 1
 ```
 
-Callers supply inputs and policy.
+Callers supply inputs and policy: the helpers do not read files, resolve symlinks, or decide what to block.
 
 ## Usage
 
@@ -19,9 +19,9 @@ Choose the [exported module](package.json) for your task:
 - Discovery: [FFF provenance](src/fff-tools.ts), [search scopes](src/search-scopes.ts), [lexical paths](src/paths.ts).
 - Commands: [POSIX argument quoting](src/shell.ts).
 - Model settings: [`provider/model-id` references](src/model-reference.ts), [thinking levels](src/thinking-levels.ts).
+- Subagent results: [task envelopes](src/task-envelope.ts) format task and job results and extract their bodies.
 
-Use [task envelopes](src/task-envelope.ts) to format subagent task and job results and extract their bodies.
-
-For terminal text sanitisation and shortcut normalisation, use [terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md).
-
-Before using a helper, read its [caller boundaries](docs/caller-boundaries.md).
+| When you…                                         | Read                                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Call a helper                                     | Its [caller boundaries](docs/caller-boundaries.md): inputs, failure results, and the duties that stay with the caller     |
+| Sanitise terminal text or normalise shortcut keys | [Terminal text](../libs/src/tui/terminal-text/README.md) and [keybindings](../libs/src/tui/keybindings/README.md) in libs |
