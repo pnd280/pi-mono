@@ -109,7 +109,7 @@ export default defineConfig({
                     dependency: {
                       kind: "value",
                       source: [
-                        "@earendil-works/pi-ai/!(compat|oauth|providers)/**",
+                        "@earendil-works/pi-ai/!(compat|models|oauth|providers)/**",
                         "@earendil-works/pi-ai/providers/!(all)/**",
                         "@earendil-works/{pi-agent-core,pi-coding-agent,pi-tui}/**/*"
                       ]
