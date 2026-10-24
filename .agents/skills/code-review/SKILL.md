@@ -54,4 +54,4 @@ For each phase:
 
 ## Finish
 
-Review the cumulative diff and complete [required repository verification](../../../docs/agents/verification.md). Confirm that your changes touch no file in a locked skill and leave `skills-lock.json` unchanged; revert any such change that you made. Report the scope, important changes and keep decisions, exact checks and results, and unresolved issues. Clearly distinguish completed, not-applicable, and blocked phases.
+Review the cumulative diff and complete [required repository verification](../../../docs/agents/verification.md). Confirm that your changes touch no file in a locked skill and leave `skills-lock.json` unchanged; revert any such change that you made. Report the scope, important changes and keep decisions, exact checks and results, and unresolved issues. Give each of the six phases its own line with the phase name, its status (fixed, no findings, open, not applicable, or blocked), and a short reason or result.
