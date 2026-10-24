@@ -8,7 +8,7 @@
 
 Each scope keeps its own draft. An unset project draft inherits saved global ordering, never unsaved edits, and follows global saves until you edit it. Global drafts never inherit project ordering, and an unset global draft sorts IDs. Inheritance neither writes settings nor marks the project scope set. An explicit empty order is set and uses sorted ID order.
 
-| Key                            | Action                                                 |
+| Default key                    | Action                                                 |
 | ------------------------------ | ------------------------------------------------------ |
 | **Up** or **Down**             | Select a component, stopping at boundaries             |
 | **Shift+Up** or **Shift+Down** | Move the selected component                            |
@@ -16,7 +16,9 @@ Each scope keeps its own draft. An unset project draft inherits saved global ord
 | **Ctrl+S**                     | Save the displayed scope and apply the effective order |
 | **Escape** or **Ctrl+C**       | Close and discard all remaining unsaved drafts         |
 
-Menu keys are fixed, independent of Pi's browser bindings, and Pi keeps transcript paging.
+**Up**, **Down**, and **Escape** follow Pi's `tui.select.up`, `tui.select.down`, and `tui.select.cancel` keybindings. If you remap one of them onto another menu key, such as **Tab**, the remapped action takes that key. Remapped selection actions cannot replace **Ctrl+S** save or **Ctrl+C** close. The hints follow the resolved menu bindings.
+
+In fullscreen mode, Pi handles transcript controls before this menu. A menu key that overlaps a transcript binding does not reach the menu, even when the hint lists it.
 
 - Only saved drafts affect the message.
 - An unset scope shows "(not set)" until it is saved, even when its draft is unchanged. **Ctrl+S** also saves an unchanged draft.

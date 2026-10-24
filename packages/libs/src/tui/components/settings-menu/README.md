@@ -15,6 +15,8 @@ Scoped settings editors need a common frame for dirty-state markers, feedback, a
 
 ## Usage
 
+Build `controls` as shown in the [keybinding example](../../keybindings/README.md#usage), then pass its hints to the frame.
+
 ```ts
 import {
   renderSettingsMenu,
@@ -33,7 +35,11 @@ const lines = renderSettingsMenu({
   items: [{ key: "clock", label: "Clock", description: "Show the time" }],
   selected,
   emptyLabel: "No widgets",
-  hints: ["Ctrl+S save", "Esc close", "↑↓ select"],
+  hints: [
+    controls.hint("save", "save"),
+    controls.hint("close", "close"),
+    ...controls.navigationHints("up", "down", "select")
+  ],
   feedback: saved ? settingsSaveFeedback(false) : undefined
 });
 ```
@@ -41,7 +47,8 @@ const lines = renderSettingsMenu({
 ## Caller responsibilities
 
 - Own input, selection, drafts, persistence, and domain-specific actions.
-- Supply only available hints, with **Ctrl+S** save and the actual **Escape** action first.
+- Put the save hint and the cancel hint first.
+- Build hints from the keys that reach each action within the view, and show "unavailable" when an action has no key.
 - Keep scope `isSet` tied to successful persistence.
 - Keep `dirty` tied to the saved baseline.
 - Clear stale success on actual edits or scope switches.

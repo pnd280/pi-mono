@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, rmdirSync } from "node:fs";
 
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
+import { getKeybindings, stripTerminalSequences } from "@earendil-works/pi-tui";
 import { hostFixture } from "@pi-mono/libs/validation/interactive-host";
 import { expect, it, onTestFinished, vi } from "vite-plus/test";
 
@@ -32,6 +32,7 @@ function menuFor(fixture: Awaited<ReturnType<typeof hostFixture>>, global?: Layo
     preferences,
     coordinator,
     theme: () => fixture.ui.theme,
+    keys: getKeybindings(),
     rows: () => fixture.terminal.rows,
     requestRender,
     close

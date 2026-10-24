@@ -33,15 +33,9 @@ In regular mode the widget is always expanded, and these commands report an erro
 
 ### Working-message order
 
-While the widget is collapsed, the working message shows the active todo instead. Expanding the widget removes it. To change where it appears among other working-message items, run `/working-message`:
+While the widget is collapsed, the working message shows the active todo instead. Expanding the widget removes it. To change where it appears among other working-message items, run `/working-message`. Changes apply only when you save.
 
-| Key                          | Action                                      |
-| ---------------------------- | ------------------------------------------- |
-| **Shift+Up**, **Shift+Down** | Move the selected item.                     |
-| **Ctrl+S**                   | Save. Changes apply only when you save.     |
-| **Escape**, **Ctrl+C**       | Close the menu and discard unsaved changes. |
-
-For scopes and the other keys, see [working-message ordering](../../../libs/src/working-message/ordering.md#settings-menu).
+For scopes, controls, and keybinding precedence, see [working-message ordering](../../../libs/src/working-message/ordering.md#settings-menu).
 
 Working-message order is a separate setting, `workingMessage.order`, which `/working-message` saves. A trusted project's `order` replaces the global one. For the file format and recovery from invalid settings, see [working-message persistence](../../../libs/src/working-message/ordering.md#persistence).
 

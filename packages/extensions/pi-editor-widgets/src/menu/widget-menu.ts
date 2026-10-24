@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { matchesKey, type Component } from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 import type { SettingsScope } from "@pi-mono/libs/settings-file";
 import {
   renderSettingsMenu,
@@ -9,6 +9,7 @@ import {
   type SettingsFeedback,
   type SettingsMenuItem
 } from "@pi-mono/libs/tui/components/settings-menu";
+import { KeyControls, type KeybindingSource, type KeyControl } from "@pi-mono/libs/tui/keybindings";
 
 import type { WidgetCoordinator } from "../coordinator.ts";
 import { regions } from "../layout.ts";
@@ -18,22 +19,24 @@ import { itemLabel, regionLabel, rowSummary, viewTitle } from "./labels.ts";
 
 const minimumHeight = 10;
 const successDurationMs = 3000;
-const navigationKeys = [
-  ["escape", "back"],
-  ["ctrl+c", "close"],
-  ["tab", "switchScope"],
-  ["shift+tab", "switchScope"],
-  ["ctrl+s", "save"],
-  ["a", "add"],
-  ["shift+up", "moveUp"],
-  ["shift+down", "moveDown"],
-  ["delete", "remove"],
+
+const menuControls: readonly KeyControl<Navigation>[] = [
+  // Save and close come first, so that a remapped Pi key cannot take them.
+  { action: "save", key: "ctrl+s" },
+  { action: "close", key: "ctrl+c" },
+  { action: "back", id: "tui.select.cancel" },
+  { action: "up", id: "tui.select.up" },
+  { action: "down", id: "tui.select.down" },
+  { action: "open", id: "tui.select.confirm" },
+  { action: "switchScope", key: "tab" },
+  { action: "switchScope", key: "shift+tab" },
+  { action: "add", key: "a" },
+  { action: "moveUp", key: "shift+up" },
+  { action: "moveDown", key: "shift+down" },
+  { action: "remove", key: "delete" },
   // The Mac key labelled Delete sends Backspace; forward Delete needs Fn.
-  ["backspace", "remove"],
-  ["up", "up"],
-  ["down", "down"],
-  ["enter", "open"]
-] as const;
+  { action: "remove", key: "backspace" }
+];
 
 type Item = SettingsMenuItem & {
   editable?: boolean;
@@ -42,6 +45,7 @@ type Item = SettingsMenuItem & {
 
 export class WidgetMenu implements Component {
   readonly drafts: WidgetDrafts;
+  private readonly controls: KeyControls<Navigation>;
   private feedback: SettingsFeedback | undefined;
   private successExpiry: ReturnType<typeof setTimeout> | undefined;
   private warning: SettingsFeedback | undefined;
@@ -53,12 +57,14 @@ export class WidgetMenu implements Component {
       preferences: Preferences;
       coordinator: WidgetCoordinator;
       theme: () => Theme;
+      keys: KeybindingSource;
       rows(): number;
       requestRender(): void;
       close(): void;
     }
   ) {
     this.drafts = new WidgetDrafts(options.preferences, () => options.coordinator.contributions());
+    this.controls = new KeyControls(options.keys, menuControls);
     this.warning = settingsLoadFeedback(options.preferences.warnings);
     this.showDraft();
   }
@@ -122,7 +128,7 @@ export class WidgetMenu implements Component {
   }
 
   private actionFor(data: string): Navigation | undefined {
-    const action = navigationKeys.find(([key]) => matchesKey(data, key))?.[1];
+    const action = this.controls.actionFor(data);
 
     return action === "switchScope" && !this.options.settings.projectTrusted ? undefined : action;
   }
@@ -199,16 +205,23 @@ export class WidgetMenu implements Component {
 
   private hints(item: Item | undefined): string[] {
     const view = this.drafts.view;
+    const controls = this.controls;
 
     return [
-      "Ctrl+S save",
-      view.kind === "root" ? "Esc close" : "Esc back",
-      ...(this.options.settings.projectTrusted ? ["Tab scope"] : []),
-      ...(item ? ["↑↓ select"] : []),
-      ...(item?.action && !item.disabled ? [`Enter ${item.action}`] : []),
-      ...(view.kind === "rows" || view.kind === "contents" ? ["a add"] : []),
+      controls.hint("save", "save"),
+      // Without a back key, Ctrl+C is the only way out.
+      controls.label("back")
+        ? controls.hint("back", view.kind === "root" ? "close" : "back")
+        : controls.hint("close", "close"),
+      ...(this.options.settings.projectTrusted ? [controls.hint("switchScope", "scope")] : []),
+      ...(item ? controls.navigationHints("up", "down", "select") : []),
+      ...(item?.action && !item.disabled ? [controls.hint("open", item.action)] : []),
+      ...(view.kind === "rows" || view.kind === "contents" ? [controls.hint("add", "add")] : []),
       ...(item?.editable
-        ? ["Shift+↑↓ move", view.kind === "rows" ? "Del remove row" : "Del remove"]
+        ? [
+            ...controls.navigationHints("moveUp", "moveDown", "move"),
+            controls.hint("remove", view.kind === "rows" ? "remove row" : "remove")
+          ]
         : [])
     ];
   }
@@ -227,6 +240,7 @@ export class WidgetMenu implements Component {
     const items = this.items(snapshot);
     const view = snapshot.view;
     const item = items[view.selected];
+    const addKey = this.controls.label("add");
 
     const scopes: SettingsScope[] = this.options.settings.projectTrusted
       ? ["global", "project"]
@@ -251,7 +265,7 @@ export class WidgetMenu implements Component {
       }),
       items,
       selected: view.selected,
-      emptyLabel: `${view.kind === "rows" ? "No rows" : "Empty row"}. Press a to add.`,
+      emptyLabel: `${view.kind === "rows" ? "No rows" : "Empty row"}. ${addKey ? `Press ${addKey} to add.` : "Add unavailable."}`,
       hints: this.hints(item),
       feedback: this.feedback ?? this.warning
     });

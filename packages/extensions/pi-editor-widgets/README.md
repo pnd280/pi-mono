@@ -6,7 +6,7 @@ Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; 
 
 ## Usage
 
-1. Open `/widgets`, then choose a region, a row, and its contents.
+1. Open `/widgets`, then choose a region, a row, and its contents. The menu uses Pi's `tui.select.up`, `tui.select.down`, `tui.select.confirm`, and `tui.select.cancel` keybindings. The default keys are **Up**, **Down**, **Enter**, and **Escape**.
 2. Edit the layout with the keys shown in the menu:
 
    | Key                          | Action                                                                             |
@@ -14,12 +14,14 @@ Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; 
    | **a**                        | Add a placement.                                                                   |
    | **Shift+Up**, **Shift+Down** | Move a placement.                                                                  |
    | **Delete**, **Backspace**    | Remove a placement. Removing the last copy hides that widget.                      |
-   | **Tab**                      | Switch between global and project layouts. Project layouts need a trusted project. |
+   | **Tab**, **Shift+Tab**       | Switch between global and project layouts. Project layouts need a trusted project. |
 
    Edits preview live but aren't saved yet.
 
 3. Press **Ctrl+S** to save the layout you're viewing. If saving fails, your edits are kept so you can retry.
-4. Press **Escape** to go back, or **Ctrl+C** to close and discard unsaved edits.
+4. Use the displayed back key to go back, or **Ctrl+C** to close and discard unsaved edits. The back key also closes the menu at the region list.
+
+If you remap a Pi selection keybinding onto a menu key, such as **a** or **Tab**, the selection action takes that key. **Ctrl+S** and **Ctrl+C** always save and close. The menu hints show only the keys that work.
 
 While the fullscreen menu has focus, its controls take priority over transcript controls. If input routing is unavailable, a warning appears once per opening. The menu stays open; use regular mode if controls do not respond. On a short terminal, tall regions can still be clipped while the menu is open.
 

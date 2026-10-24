@@ -1,12 +1,7 @@
-import {
-  isKeyRelease,
-  matchesKey,
-  type KeybindingsManager,
-  type KeyId
-} from "@earendil-works/pi-tui";
-import { formatKeyLabel, navigationHints, resolveKeybindings } from "@pi-mono/libs/tui/keybindings";
+import type { KeyId } from "@earendil-works/pi-tui";
+import { KeyControls, type KeybindingSource, type KeyControl } from "@pi-mono/libs/tui/keybindings";
 
-export type PanelKeys = Pick<KeybindingsManager, "getKeys">;
+export type PanelKeys = KeybindingSource;
 
 type PanelKind = "panel" | "task" | "job";
 
@@ -37,24 +32,11 @@ const configured = [
 
 /** Navigation, hints, and fullscreen ownership use the same live bindings and precedence. */
 export class PanelControls {
-  constructor(
-    private keys: PanelKeys,
-    private kind: PanelKind
-  ) {}
+  private readonly controls: KeyControls<PanelAction>;
 
-  private bindings() {
-    const candidates = configured
-      .filter(([action]) =>
-        action === "confirm" ? this.kind === "panel" : action !== "expand" || this.kind === "task"
-      )
-      .map(([action, id]) => ({
-        action,
-        keys: this.keys.getKeys(id),
-        // Leave copying and interruption to the host, as the shared browser does.
-        ...(action === "cancel" ? { exclude: (key: KeyId) => key === "ctrl+c" } : {})
-      }));
+  constructor(keys: PanelKeys, kind: PanelKind) {
     const fixed: [PanelAction, KeyId][] =
-      this.kind === "panel"
+      kind === "panel"
         ? [
             ["nextView", "tab"],
             ["previousView", "shift+tab"],
@@ -67,41 +49,40 @@ export class PanelControls {
             ["last", "end"]
           ];
 
-    return resolveKeybindings<PanelAction>([
-      ...candidates,
-      ...fixed.map(([action, key]) => ({ action, keys: [key] }))
+    this.controls = new KeyControls<PanelAction>(keys, [
+      ...configured
+        .filter(([action]) =>
+          action === "confirm" ? kind === "panel" : action !== "expand" || kind === "task"
+        )
+        .map(([action, id]): KeyControl<PanelAction> => ({
+          action,
+          id,
+          // Leave copying and interruption to the host, as the shared browser does.
+          ...(action === "cancel" ? { exclude: (key: KeyId) => key === "ctrl+c" } : {})
+        })),
+      ...fixed.map(([action, key]) => ({ action, key }))
     ]);
   }
 
   actionFor(data: string): PanelAction | undefined {
-    if (isKeyRelease(data)) return undefined;
-
-    return this.bindings().find(({ key }) => matchesKey(data, key))?.action;
-  }
-
-  private key(action: PanelAction): string | undefined {
-    const binding = this.bindings().find((candidate) => candidate.action === action);
-
-    return binding && formatKeyLabel(binding.key);
+    return this.controls.actionFor(data);
   }
 
   hint(action: PanelAction, label: string): string {
-    const key = this.key(action);
-
-    return key ? `${key} ${label}` : `${label} unavailable`;
+    return this.controls.hint(action, label);
   }
 
   navigationHints(label: string): string[] {
-    return navigationHints(this.key("up"), this.key("down"), label);
+    return this.controls.navigationHints("up", "down", label);
   }
 
   scrollHints(): string[] {
-    const first = this.key("first");
-    const last = this.key("last");
+    const first = this.controls.label("first");
+    const last = this.controls.label("last");
 
     return [
       ...this.navigationHints("scroll"),
-      ...navigationHints(this.key("pageUp"), this.key("pageDown"), "page"),
+      ...this.controls.navigationHints("pageUp", "pageDown", "page"),
       ...(first && last
         ? [`${first}/${last} first/last`]
         : [this.hint("first", "first"), this.hint("last", "last")])

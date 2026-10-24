@@ -1,4 +1,11 @@
-import { Key, matchesKey, type KeyId } from "@earendil-works/pi-tui";
+import {
+  isKeyRelease,
+  Key,
+  matchesKey,
+  type Keybinding,
+  type KeybindingsManager,
+  type KeyId
+} from "@earendil-works/pi-tui";
 import { z } from "zod";
 
 const baseKeys = new Set<string>(Object.values(Key).filter((key) => typeof key === "string"));
@@ -56,6 +63,9 @@ function canonicalKey(value: unknown): KeyId | undefined {
 }
 
 export function formatKeyLabel(key: string): string {
+  // A capital letter alone reads as Shift plus that letter.
+  if (/^[a-z]$/.test(key)) return key;
+
   return key
     .split("+")
     .map((part) => {
@@ -69,19 +79,27 @@ export function formatKeyLabel(key: string): string {
 
 /**
  * Hint a paired up/down action from `formatKeyLabel` output; `undefined` marks a
- * direction unavailable. Plain arrow keys share one `↑↓` label.
+ * direction unavailable. Arrow keys with the same modifiers share one label, such as `↑↓` or
+ * `Shift+↑↓`.
  */
 export function navigationHints(
   up: string | undefined,
   down: string | undefined,
   label: string
 ): string[] {
-  if (up && down) return [`${up === "Up" && down === "Down" ? "↑↓" : `${up}/${down}`} ${label}`];
+  if (up && down) return [`${arrowPair(up, down) ?? `${up}/${down}`} ${label}`];
 
   return [
     up ? `${up} ${label} up` : `${label} up unavailable`,
     down ? `${down} ${label} down` : `${label} down unavailable`
   ];
+}
+
+function arrowPair(up: string, down: string): string | undefined {
+  const modifiers = up.slice(0, -"Up".length);
+  if (!up.endsWith("Up") || (modifiers && !modifiers.endsWith("+"))) return undefined;
+
+  return down === `${modifiers}Down` ? `${modifiers}↑↓` : undefined;
 }
 
 export type KeybindingCandidate<Action extends string = string> = {
@@ -159,4 +177,56 @@ export function resolveKeybindings<Action extends string>(
   }
 
   return bindings;
+}
+
+export type KeybindingSource = Pick<KeybindingsManager, "getKeys">;
+
+/** An action bound to the keys of Pi keybinding `id`, or to one fixed `key`. */
+export type KeyControl<Action extends string> =
+  | { action: Action; id: Keybinding; exclude?: (key: KeyId) => boolean }
+  | { action: Action; key: KeyId };
+
+/**
+ * Dispatch and hints of one view, resolved from its ordered controls at each call so that live
+ * keybinding changes apply. An earlier control takes the keys that overlap a later one.
+ */
+export class KeyControls<Action extends string> {
+  constructor(
+    private readonly keys: KeybindingSource,
+    private readonly controls: readonly KeyControl<Action>[]
+  ) {}
+
+  private bindings(): Array<{ action: Action; key: KeyId }> {
+    return resolveKeybindings(
+      this.controls.map((control): KeybindingCandidate<Action> =>
+        "id" in control
+          ? { ...control, keys: this.keys.getKeys(control.id) }
+          : { action: control.action, keys: [control.key] }
+      )
+    );
+  }
+
+  /** The action of a keypress; key releases have none. */
+  actionFor(data: string): Action | undefined {
+    if (isKeyRelease(data)) return undefined;
+
+    return this.bindings().find(({ key }) => matchesKey(data, key))?.action;
+  }
+
+  /** The label of the action's first key, or `undefined` when no key reaches it. */
+  label(action: Action): string | undefined {
+    const binding = this.bindings().find((candidate) => candidate.action === action);
+
+    return binding && formatKeyLabel(binding.key);
+  }
+
+  hint(action: Action, label: string): string {
+    const key = this.label(action);
+
+    return key ? `${key} ${label}` : `${label} unavailable`;
+  }
+
+  navigationHints(up: Action, down: Action, label: string): string[] {
+    return navigationHints(this.label(up), this.label(down), label);
+  }
 }

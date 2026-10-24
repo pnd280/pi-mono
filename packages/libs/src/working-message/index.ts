@@ -167,7 +167,7 @@ function installCoordinator(host: Host): Shared {
           ui,
           signal,
           useOverlay: () => false,
-          create: (tui, theme, _keys, close) => {
+          create: (tui, theme, keys, close) => {
             const view = new OrderSettingsView({
               title: "Working message",
               items: items(),
@@ -175,6 +175,7 @@ function installCoordinator(host: Host): Shared {
               initialScope: preferences.project ? "project" : "global",
               warnings: preferences.warnings,
               theme,
+              keys,
               rows: () => tui.terminal.rows,
               requestRender: () => tui.requestRender(),
               close,
