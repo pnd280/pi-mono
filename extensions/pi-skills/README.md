@@ -16,37 +16,18 @@ For a skill registered at `/skills/review/SKILL.md`, the submitted prompt become
 Use [/skill:review](</skills/review/SKILL.md>) then [/skill:review](</skills/review/SKILL.md>)
 ```
 
-The reference stays plain prompt text. Pi doesn't insert the skill's contents, and the model isn't guaranteed to read the file.
+The reference stays plain prompt text. Pi doesn't insert the skill's contents, and the model isn't guaranteed to read the file. A token expands only when it is separated by whitespace and matches a registered skill exactly.
 
-### Matching
+To complete a name, type `/skill:` at the start of any token, even mid-prompt or on a later line, and press **Tab**. **Enter** or **Tab** accepts a suggestion without submitting, and **Escape** closes the picker.
 
-- Tokens must match a registered command exactly and be separated by whitespace. This applies inside fenced code too.
-- Punctuation or backticks attached to a token stop it from matching, unless the whole token is itself a registered command.
-- Paths are inserted exactly as registered. References already in the current format, with the registered path, aren't expanded again.
-- An existing reference must be complete. If the format ends in a placeholder, the reference must be followed by whitespace or the end of the prompt, so a longer path such as `/skills/review.md.backup` isn't taken for `/skills/review.md`.
-
-### Completion
-
-In the TUI, type `/skill:` at the start of any token, including mid-prompt or on a later line, and press **Tab**.
-
-- **Enter** or **Tab** accepts a suggestion without submitting. **Escape** closes the picker.
-- Accepting replaces the whole token, including any text after the cursor, and adds one space.
-- Suggestions follow Pi's registered skills and completion order.
-- Skill names shared with an extension command or prompt template aren't suggested. Other completion still works.
-
-### What gets expanded
-
-Expansion covers what you type and extension `sendUserMessage()` calls. The prompt history of pi-prompt-manager saves the text before expansion.
-
-It doesn't cover commands that Pi handles before extensions see the input, text produced by prompt templates, or custom `sendMessage()` messages.
-
-## Compatibility
-
-The extension uses the public extension and autocomplete APIs of Pi 1.4.0.
+| When you…                                                | Read                                                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Wonder why a token didn't expand                         | [matching](docs/rules.md#matching) and [what gets expanded](docs/rules.md#what-gets-expanded) |
+| Want the details of completion and `enableSkillCommands` | [completion](docs/rules.md#completion)                                                        |
 
 ## Configuration
 
-Put the `ext.pi-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
+Set `expansionFormat` under the `ext.pi-skills` key in Pi's global settings or a trusted project's `.pi/settings.json`:
 
 ```json
 {
@@ -56,20 +37,7 @@ Put the `ext.pi-skills` key in global `~/.pi/agent/settings.json` (or `$PI_CODIN
 }
 ```
 
-`expansionFormat` sets what each token becomes. The default is `"[{command}](<{path}>)"`. The angle brackets keep paths with spaces or parentheses inside the Markdown link. Paths that contain `<`, `>`, or a line break don't make a valid link.
-
-| Placeholder | Replaced with                          | Required |
-| ----------- | -------------------------------------- | -------- |
-| `{path}`    | The registered path of the skill file. | Yes      |
-| `{command}` | The full `/skill:<name>` token.        | No       |
-
-- Placeholders may repeat. Everything else, including spaces, is literal.
-- If a leading reference could invoke a registered skill or prompt-template command, a space is added before it to keep it literal. This includes formats such as `"{command} ({path})"` and references already in the current format. Ordinary prompt-template commands still work.
-- Formats are limited to 512 characters. Invalid sections, and settings files that are too large, are ignored.
-- A trusted project's format overrides the global one.
-- Settings load on session start and `/reload`.
-
-Pi's `enableSkillCommands` setting (toggled in `/settings`) controls completion only, not expansion when you submit. Both use Pi's currently registered skills.
+The format must contain `{path}`, and can contain `{command}`. The value above is the default. For file locations, limits, and the rules for leading references, read [expansion format](docs/rules.md#expansion-format).
 
 ## Side effects
 
@@ -77,4 +45,7 @@ Only prompt text changes. Pi saves the changed prompt in its normal session stor
 
 ## Validation
 
-After you change completion, formats, or host integration, run the [terminal checks](docs/testing.md#manual-checks). The [test coverage guide](docs/testing.md) says where a test belongs.
+| When you…                                       | Read                                             |
+| ----------------------------------------------- | ------------------------------------------------ |
+| Change completion, formats, or host integration | [terminal checks](docs/testing.md#manual-checks) |
+| Decide where a test belongs                     | [test coverage](docs/testing.md)                 |

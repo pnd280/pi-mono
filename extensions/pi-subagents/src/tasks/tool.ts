@@ -22,57 +22,59 @@ const PROGRESS_INTERVAL_MS = 1_000;
 
 const ABORT_REASON = "Cancelled by supervisor";
 
-// Adapted from OpenCode at 907b3bc: the guidance from task.txt, as Pi children have no agent
-// definitions, and the background notices from task.ts, with the dash escaped for the workspace's
-// text convention.
-
-/** Configured `docs` follow the built-in guidance. */
+/**
+ * The built-in guidance states only how tasks work. Configured `docs` follow it and hold the
+ * policy, such as when to delegate, because docs can add to the guidance but cannot replace it.
+ */
 function toolGuidance(docs: string): string {
   return [
-    "Launch a new agent to handle complex, multistep tasks autonomously.",
-    "Do not delegate small lookups, such as a known file, symbol, or a narrow search.",
-    "Launch independent tasks concurrently with multiple tool calls.",
-    "Children share your working directory. Parallel tasks must not edit the same files.",
+    "Launch an agent in a separate Pi process. You receive only its final message.",
     "Each new task has a fresh conversation. Supply a detailed prompt, the expected final answer, whether to write code or research, and relevant verification commands.",
-    "Use task_id to continue a task with its previous context.",
+    "Children share your working directory, so parallel tasks must not edit the same files. Launch independent tasks concurrently with multiple tool calls.",
+    "Use task_id to continue a task with its previous context, or to send input to an active task.",
     ...(docs ? [docs] : [])
   ].join("\n\n");
 }
 
+// Adapted from OpenCode's task.ts at 907b3bc, in plain case.
 const BACKGROUND_STARTED = [
-  "The task is working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work \u2014 avoid working with the same files or topics it is using.",
-  "Work on non-overlapping tasks, or briefly tell the user what you launched and end your response."
+  "The task is working in the background. Its result arrives automatically when it finishes.",
+  "Do not sleep, poll, or ask the task for status. Do not repeat its work or work on the files or topics that it uses.",
+  "Work on something else, or briefly tell the user what you launched and end your response."
 ].join("\n");
 
 const BACKGROUND_UPDATED = [
   "Additional context sent to the running background task.",
-  "The task is still working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work \u2014 avoid working with the same files or topics it is using.",
-  "Work on non-overlapping tasks, or briefly tell the user what you sent and end your response."
+  "The task is still working in the background. Its result arrives automatically when it finishes.",
+  "Do not sleep, poll, or ask the task for status. Do not repeat its work or work on the files or topics that it uses.",
+  "Work on something else, or briefly tell the user what you sent and end your response."
 ].join("\n");
 
 function toolResult(result: Submission) {
   if (result.kind === "input")
-    return taskResult(
-      result.details,
-      result.details.background
+    return taskResult({
+      details: result.details,
+      body: result.details.background
         ? BACKGROUND_UPDATED
         : "Additional context sent to the running foreground task. Its original call will return the final result.",
-      undefined,
-      result.details.background ? "Background task updated" : "Foreground task updated"
-    );
+      summary: result.details.background ? "Background task updated" : "Foreground task updated"
+    });
   const warning = result.interrupted ? INTERRUPTED_WARNING : undefined;
 
   return result.kind === "background"
-    ? taskResult(
-        result.details,
-        BACKGROUND_STARTED,
-        result.usage,
-        "Background task started",
-        warning
-      )
-    : taskResult(result.details, result.text, result.usage, undefined, warning);
+    ? taskResult({
+        details: result.details,
+        body: BACKGROUND_STARTED,
+        usage: result.usage,
+        summary: "Background task started",
+        notice: warning
+      })
+    : taskResult({
+        details: result.details,
+        body: result.text,
+        usage: result.usage,
+        notice: warning
+      });
 }
 
 /** `current` resolves the tasks of the current session binding at each call. */

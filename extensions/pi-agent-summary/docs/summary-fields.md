@@ -46,7 +46,7 @@ Statistics are unavailable, not zero, in these cases. Expand the summary to see 
 - A source is larger than 8 MiB. A large native edit can still use its tool-provided patch.
 - The patch is larger than 128 KiB.
 - The comparison takes longer than 50 ms or has more than 2000 changed lines.
-- Keeping the file's source would take the run above 16 MiB of kept source text.
+- A file changed more than once, and keeping its original and final source would take the run above 16 MiB of retained source text. Single-operation statistics can still use the operation's patch.
 - The shared diff queue is full, or the diff worker fails.
 
 The [bounded-diff module](../../../libs/src/bounded-diff/README.md#behaviour) describes the diff limits for callers.

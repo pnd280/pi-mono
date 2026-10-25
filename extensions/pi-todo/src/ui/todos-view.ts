@@ -1,7 +1,5 @@
 import { getSettingsListTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import {
-  isKeyRelease,
-  matchesKey,
   truncateToWidth,
   type Component,
   type KeybindingsManager,
@@ -11,7 +9,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
 import { renderOverflowBorder } from "@pi-mono/libs/tui/components/text-preview";
-import { formatKeyLabel, navigationHints, resolveKeybindings } from "@pi-mono/libs/tui/keybindings";
+import { KeyControls } from "@pi-mono/libs/tui/keybindings";
 import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 
 import {
@@ -50,8 +48,6 @@ type ListLayout = {
 };
 
 type TodoAction = "cancel" | "confirm" | "up" | "down" | "pageUp" | "pageDown";
-
-type TodoBinding = { action: TodoAction; key: KeyId };
 
 type ViewLayout = {
   rows: number;
@@ -107,9 +103,18 @@ export class TodosView implements Component {
   private readonly summary: string;
   private listLayout: ListLayout | undefined;
   private detailRows: { width: number; taskId: number; rows: string[] } | undefined;
+  private readonly controls: KeyControls<TodoAction>;
 
   constructor(private readonly options: ViewOptions) {
-    if (!this.keyLabel("cancel"))
+    this.controls = new KeyControls(
+      options.keybindings,
+      configuredActions.map(([action, id]) => ({
+        action,
+        id,
+        ...(action === "cancel" ? { exclude: (key: KeyId) => key === "ctrl+c" } : {})
+      }))
+    );
+    if (!this.controls.label("cancel"))
       throw new Error(
         "Todo browser requires a cancel binding other than Ctrl+C. Fix tui.select.cancel and reload."
       );
@@ -400,63 +405,29 @@ export class TodosView implements Component {
     );
   }
 
-  private bindings(): TodoBinding[] {
-    return resolveKeybindings(
-      configuredActions.map(([action, id]) => ({
-        action,
-        keys: this.options.keybindings.getKeys(id),
-        ...(action === "cancel" ? { exclude: (key: KeyId) => key === "ctrl+c" } : {})
-      }))
-    );
-  }
-
-  private keysFor(action: TodoAction): KeyId[] {
-    return this.bindings()
-      .filter((binding) => binding.action === action)
-      .map((binding) => binding.key);
-  }
-
-  private actionFor(data: string): TodoAction | undefined {
-    if (isKeyRelease(data)) return undefined;
-
-    return this.bindings().find(({ key }) => matchesKey(data, key))?.action;
-  }
-
-  private keyLabel(action: TodoAction): string | undefined {
-    const key = this.keysFor(action)[0];
-
-    return key === undefined ? undefined : formatKeyLabel(key);
-  }
-
-  private keyHint(action: TodoAction, label: string): string {
-    const key = this.keyLabel(action);
-
-    return key ? `${key} ${label}` : `${label} unavailable`;
-  }
-
   private footerHints(bodyLength: number, capacity: number): string[] {
-    const cancel = this.keyHint("cancel", this.detail ? "back" : "close");
+    const cancel = this.controls.hint("cancel", this.detail ? "back" : "close");
     if (!this.entries.length) return [cancel];
-    const arrows = navigationHints(
-      this.keyLabel("up"),
-      this.keyLabel("down"),
-      this.detail ? "scroll" : "select"
-    );
-    const hints = [cancel, ...arrows, ...(this.detail ? [] : [this.keyHint("confirm", "details")])];
+    const arrows = this.controls.navigationHints("up", "down", this.detail ? "scroll" : "select");
+    const hints = [
+      cancel,
+      ...arrows,
+      ...(this.detail ? [] : [this.controls.hint("confirm", "details")])
+    ];
 
     if (bodyLength > capacity) {
-      hints.push(...navigationHints(this.keyLabel("pageUp"), this.keyLabel("pageDown"), "page"));
+      hints.push(...this.controls.navigationHints("pageUp", "pageDown", "page"));
     }
 
     return hints;
   }
 
   ownsFullscreenInput(data: string): boolean {
-    return this.actionFor(data) !== undefined;
+    return this.controls.actionFor(data) !== undefined;
   }
 
   handleInput(data: string): void {
-    const action = this.actionFor(data);
+    const action = this.controls.actionFor(data);
 
     if (action === "cancel") {
       if (this.detail) {

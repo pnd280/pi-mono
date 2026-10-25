@@ -1,11 +1,17 @@
 import type { MessageRenderer, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
+import { registeredBy } from "@pi-mono/utils/provenance";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
+import { OPEN_EVENT } from "pi-subagents/constants";
 import { z } from "zod";
 
-import type { BorrowedToolResult, DisplayProgress, ToolDisplayAdapter } from "../../contracts.ts";
-import { registeredBy } from "../provenance.ts";
+import type {
+  BorrowedToolResult,
+  DisplayProgress,
+  SummaryCategory,
+  ToolDisplayAdapter
+} from "../../contracts.ts";
 import { jobAdapter } from "./jobs.ts";
 
 const argsSchema = z.object({
@@ -52,7 +58,7 @@ const parametersSchema = z.object({
     .array(z.string())
     .refine((fields) => fields.includes("description") && fields.includes("prompt"))
 });
-const category = {
+const category: SummaryCategory = {
   id: "subagents",
   count: { one: "ran {n} subagent", other: "ran {n} subagents" }
 };
@@ -62,7 +68,7 @@ const abortParametersSchema = z.object({
   properties: z.object({ task_id: z.object({ type: z.literal("string") }) }),
   required: z.array(z.string()).refine((fields) => fields.includes("task_id"))
 });
-const abortCategory = {
+const abortCategory: SummaryCategory = {
   id: "subagent-aborts",
   count: { one: "aborted {n} subagent", other: "aborted {n} subagents" }
 };
@@ -125,7 +131,7 @@ function openAction(result: Parameters<NonNullable<ToolDisplayAdapter["action"]>
 
   return details?.task_id && details.binding_id
     ? {
-        event: "pi-subagents:open",
+        event: OPEN_EVENT,
         data: { task_id: details.task_id, binding_id: details.binding_id }
       }
     : undefined;

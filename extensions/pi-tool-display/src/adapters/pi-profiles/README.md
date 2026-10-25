@@ -10,18 +10,8 @@ pi-profiles always registers Pi's own `tool_search` with `createToolSearchExtens
 
 The adapter matches the tool name `tool_search`, `pi-profiles` provenance, and the parameter contract of the built-in adapter: a required string `query` and an optional number `limit`. Other tools of pi-profiles, `tool_search` tools of other npm packages, and incompatible schemas are not specialised. A local extension is identified by its path, so another extension in a `pi-profiles` directory also matches. Renderer overrides still apply; see [automatic selection](../../../docs/adapters.md#automatic-selection).
 
-## Display
-
-[Tool search from pi-profiles](../../../docs/tools.md#tool-search-from-pi-profiles) describes what users see. Cards and summaries are those of the [built-in tool search](../builtin/tool-search/README.md#display), because the tool and its `details.loaded` result are Pi's.
-
-## Limitations
-
-The result details do not record which loaded tools a profile deferred, or the other tools of a deferred group that pi-profiles also loads, so the card cannot show them.
+Cards and summaries follow the [built-in tool-search contract](../builtin/tool-search/contract.md#display), because the tool and its `details.loaded` result are Pi's.
 
 ## Validation
 
-Selection and presentation use the [manual checks](../../../docs/testing.md#manual-checks):
-
-| Do                                                                                                                                   | Expect                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| In a new session where `bash` is declared and not used, switch to a profile that defers `bash`, then ask the model to run a command. | The `tool_search` card reads "Searched tools" and names `bash`. |
+Selection and presentation use the [manual checks](../../../docs/testing.md#manual-checks). Follow the [pi-profiles terminal check](../../../docs/validation.md#pi-profiles).

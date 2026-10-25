@@ -1,7 +1,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { Browser, type BrowserOptions } from "../components/browser/index.ts";
 import { browserLayout } from "../components/browser/layout.ts";
+import type { BrowserOptions } from "../components/browser/types.ts";
+import { Browser } from "../components/browser/view.ts";
 import { openResponsiveCustomUI } from "../responsive-custom-ui/index.ts";
 
 export type OpenBrowserOptions<Item> = {

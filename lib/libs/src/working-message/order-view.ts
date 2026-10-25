@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { matchesKey, type Component } from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 
 import {
   renderSettingsMenu,
@@ -7,6 +7,7 @@ import {
   settingsSaveFailure,
   type SettingsFeedback
 } from "../tui/components/settings-menu/index.ts";
+import { KeyControls, type KeybindingSource, type KeyControl } from "../tui/keybindings/index.ts";
 
 export type OrderSettingsItem = { id: string; label: string; description: string };
 
@@ -26,11 +27,35 @@ export type OrderSettingsOptions = {
   initialScope: string;
   warnings?: readonly string[];
   theme: Pick<Theme, "fg" | "bold">;
+  keys: KeybindingSource;
   rows(): number;
   requestRender(): void;
   save(scope: string, order: readonly string[]): SettingsFeedback;
   close(): void;
 };
+
+type OrderAction =
+  | "save"
+  | "close"
+  | "up"
+  | "down"
+  | "nextScope"
+  | "previousScope"
+  | "moveUp"
+  | "moveDown";
+
+const orderControls: readonly KeyControl<OrderAction>[] = [
+  // Save and close come first, so that a remapped Pi key cannot take them.
+  { action: "save", key: "ctrl+s" },
+  { action: "close", id: "tui.select.cancel" },
+  { action: "close", key: "ctrl+c" },
+  { action: "up", id: "tui.select.up" },
+  { action: "down", id: "tui.select.down" },
+  { action: "nextScope", key: "tab" },
+  { action: "previousScope", key: "shift+tab" },
+  { action: "moveUp", key: "shift+up" },
+  { action: "moveDown", key: "shift+down" }
+];
 
 /** Scoped reorder drafts. No persistence or live application happens before Ctrl+S. */
 export class OrderSettingsView implements Component {
@@ -43,12 +68,14 @@ export class OrderSettingsView implements Component {
     selected: number;
   }[];
   private scopeIndex: number;
+  private readonly controls: KeyControls<OrderAction>;
   private feedback: SettingsFeedback | undefined;
   private warning: SettingsFeedback | undefined;
   private closed = false;
 
   constructor(private readonly options: OrderSettingsOptions) {
     if (!options.scopes.length) throw new Error("Order settings require a save scope.");
+    this.controls = new KeyControls(options.keys, orderControls);
     this.drafts = options.scopes.map((scope) => {
       const source = options.scopes.find((other) => other.id === scope.inheritFrom && other.isSet);
       const order = scope.isSet ? scope.order : (source?.order ?? scope.order);
@@ -88,22 +115,23 @@ export class OrderSettingsView implements Component {
   handleInput(data: string): void {
     if (this.closed) return;
     const draft = this.current();
+    const action = this.controls.actionFor(data);
 
-    if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) {
+    if (action === "close") {
       this.closed = true;
       this.options.close();
 
       return;
     }
 
-    if (matchesKey(data, "ctrl+s")) this.save();
-    else if (matchesKey(data, "tab") || matchesKey(data, "shift+tab")) {
-      const direction = matchesKey(data, "shift+tab") ? -1 : 1;
+    if (action === "save") this.save();
+    else if (action === "nextScope" || action === "previousScope") {
+      const direction = action === "previousScope" ? -1 : 1;
       const next = (this.scopeIndex + direction + this.drafts.length) % this.drafts.length;
       if (next !== this.scopeIndex) this.feedback = undefined;
       this.scopeIndex = next;
-    } else if (matchesKey(data, "shift+up") || matchesKey(data, "shift+down")) {
-      const next = draft.selected + (matchesKey(data, "shift+up") ? -1 : 1);
+    } else if (action === "moveUp" || action === "moveDown") {
+      const next = draft.selected + (action === "moveUp" ? -1 : 1);
       const selectedId = draft.order[draft.selected];
       const nextId = draft.order[next];
 
@@ -112,8 +140,8 @@ export class OrderSettingsView implements Component {
         draft.selected = next;
         if (this.feedback?.severity !== "error") this.feedback = undefined;
       }
-    } else if (draft.order.length && (matchesKey(data, "up") || matchesKey(data, "down"))) {
-      const delta = matchesKey(data, "up") ? -1 : 1;
+    } else if (draft.order.length && (action === "up" || action === "down")) {
+      const delta = action === "up" ? -1 : 1;
       draft.selected = Math.max(0, Math.min(draft.selected + delta, draft.order.length - 1));
     }
 
@@ -146,10 +174,21 @@ export class OrderSettingsView implements Component {
       selected: draft.selected,
       emptyLabel: "No registered components.",
       hints: [
-        "Ctrl+S save",
-        "Esc close",
-        ...(this.drafts.length > 1 ? ["Tab scope"] : []),
-        ...(draft.order.length ? ["↑↓ select", "Shift+↑↓ move"] : [])
+        this.controls.hint("save", "save"),
+        this.controls.hint("close", "close"),
+        ...(this.drafts.length > 1
+          ? [
+              this.controls.label("nextScope")
+                ? this.controls.hint("nextScope", "scope")
+                : this.controls.hint("previousScope", "scope")
+            ]
+          : []),
+        ...(draft.order.length
+          ? [
+              ...this.controls.navigationHints("up", "down", "select"),
+              ...this.controls.navigationHints("moveUp", "moveDown", "move")
+            ]
+          : [])
       ],
       feedback: this.feedback ?? this.warning
     });

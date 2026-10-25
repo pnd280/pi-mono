@@ -2,6 +2,15 @@
 
 [pi-prompt-manager](../README.md) · [Storage and recovery](storage.md)
 
+## Launch shortcuts
+
+The `shortcuts` [setting](../README.md#configuration) holds the keys that open "History" and save a draft.
+
+- Shortcuts must be valid Pi keys. Pi 1.4.0 can't dispatch modified **Escape** or modified function keys, so these keys are invalid.
+- When keys can match the same keypress, such as `tab` and `ctrl+i`, only the first is used. `history` keys come before `saveDraft` keys, so `history` wins a shared key, with a warning.
+- Pi may warn about conflicts with built-in keys, such as **Ctrl+R** for session renaming.
+- If a shortcut can match the same keypress as a shortcut of another [pi-mono](../../../../README.md) extension, such as pi-profiles, neither extension registers it, and a warning names the conflict.
+
 ## Keys and precedence
 
 Browser keys are Pi action IDs, set in `~/.pi/agent/keybindings.json` (or `$PI_CODING_AGENT_DIR/keybindings.json`); run `/reload` after changing them. They're separate from the [launch shortcuts](../README.md#configuration) that open the browser.

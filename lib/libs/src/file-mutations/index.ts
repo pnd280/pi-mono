@@ -24,7 +24,7 @@ export type { FileObservation } from "./observation.ts";
 
 export type MutationPatch = BoundedPatchResult | { status: "source-unavailable" };
 
-export interface FileMutation {
+export type FileMutation = {
   path: string;
   sequence: number;
   before: FileObservation;
@@ -32,7 +32,7 @@ export interface FileMutation {
   outcome: "success" | "failure";
   /** Call-scoped cache. Do not retain this closure: it owns the captured source. */
   patch: (limits: PatchLimits) => Promise<MutationPatch>;
-}
+};
 
 export interface MutationSink {
   maxSourceBytes: number;
@@ -40,10 +40,10 @@ export interface MutationSink {
   completed(mutation: FileMutation): void | Promise<void>;
 }
 
-export interface MutationObserver {
+export type MutationObserver = {
   eligible(session: AgentSession, name: string): boolean;
   begin(session: AgentSession, name: string, id: string): MutationSink | undefined;
-}
+};
 
 const sizeSchema = z.int().nonnegative();
 const patchSchema = z.object({ patch: z.string() });

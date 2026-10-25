@@ -20,8 +20,7 @@ import { getDepth } from "../child/depth.ts";
 import { forwardStderr, killGroupSync } from "../child/platform.ts";
 import { JOB_END_ENTRY, JOB_ENTRY, STOP_FAILURE_PREFIX } from "../constants.ts";
 import { boundedText, firstLine } from "../result.ts";
-import { JobLog } from "./log-writer.ts";
-import { formatLogTail } from "./log.ts";
+import { formatLogTail, JobLog } from "./log.ts";
 import { jobOperations } from "./process.ts";
 import {
   jobHistory,

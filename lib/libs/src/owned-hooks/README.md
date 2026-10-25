@@ -21,13 +21,35 @@ When `replace()` installs a function, it records the preceding data-property val
 - It returns `undefined` for a cycle, an ambiguous reused function, or an accessor predecessor.
 - It does not call getters.
 
-The records use weak function keys in a process-global `Symbol.for` registry because Pi reloads extension modules without a shared module cache. Restoration keeps the records, because a later wrapper can still retain a disposed wrapper.
+| When you…                                                     | Read                                                           |
+| ------------------------------------------------------------- | -------------------------------------------------------------- |
+| Decide what an `unwrapHook` result proves about a host method | [What provenance proves](provenance.md#what-provenance-proves) |
+| Gate a feature on host fingerprints                           | [Host fingerprints](provenance.md#host-fingerprints)           |
 
-Provenance records the replaced value. It does not prove that a wrapper calls it or preserves its behaviour. An unrecorded callable can be a native method or an unknown wrapper, so this result alone cannot distinguish a native fingerprint mismatch from an incomplete chain. The registry does not approve hooks.
+## Usage
 
-### Host fingerprints
+```ts
+import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
-Tool display and editor widgets apply the [host fingerprint policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints). They accept a callable endpoint with a reviewed hash, or an unknown hash when Pi's public `VERSION` matches the owner's inspected pin. On an unverified version, an unknown wrapper disables the gated feature until the pin is reviewed. On the verified version, a changed native method can be accepted as an unknown wrapper; this is the limit of the policy.
+type Renderer = { render(text: string): string };
+
+export function markRenderer(renderer: Renderer): () => void {
+  const hooks = new OwnedHooks();
+  const previous = renderer.render;
+  let active = true;
+
+  hooks.replace(renderer, "render", (text: string) => {
+    const output = previous.call(renderer, text);
+    return active ? `${output} *` : output;
+  });
+  // unwrapHook(renderer.render) now follows the record back to the original method.
+
+  return () => {
+    active = false;
+    hooks.restore();
+  };
+}
+```
 
 ## Caller responsibilities
 

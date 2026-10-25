@@ -78,10 +78,10 @@ function escapeSequence(text: string, position: number): { end: number; sgr: str
   return { end: index, sgr };
 }
 
-export interface TerminalTextSlice {
+export type TerminalTextSlice = {
   text: string;
   leadingSgr: string;
-}
+};
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 

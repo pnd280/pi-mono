@@ -1,3 +1,5 @@
+import { registeredBy } from "./provenance.ts";
+
 export type FffToolKind = "find" | "grep" | "multi";
 
 const adapters: ReadonlyMap<string, FffToolKind> = new Map([
@@ -14,13 +16,6 @@ export function fffAdapter(
   tool: { name: string; sourceInfo: { source: string; path: string } } | undefined
 ): FffToolKind | undefined {
   if (!tool) return undefined;
-  const { sourceInfo } = tool;
-  if (sourceInfo.source === "builtin" || sourceInfo.source === "sdk") return undefined;
-  const owned =
-    /^npm:@ff-labs\/pi-fff(?:@[^/]+)?$/.test(sourceInfo.source) ||
-    /(?:^|\/)@ff-labs\/pi-fff\/(?:src\/)?index\.[cm]?[jt]s$/.test(
-      sourceInfo.path.replaceAll("\\", "/")
-    );
 
-  return owned ? adapters.get(tool.name) : undefined;
+  return registeredBy(tool, "@ff-labs/pi-fff") ? adapters.get(tool.name) : undefined;
 }

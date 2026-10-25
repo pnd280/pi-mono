@@ -44,7 +44,12 @@ By default, **Ctrl+R** opens "History". The default browser bindings are:
 | **Delete** twice within 1.5 seconds | Delete the selection.                |
 | **Escape**                          | Close the preview, then the browser. |
 
-The browser needs at least 40 columns by 10 rows; below that, resize or cancel. See [controls](docs/controls.md) for search, duplicates, and deletion rules.
+The browser needs at least 40 columns by 10 rows; below that, resize or cancel.
+
+| When you…                                                             | Read                                           |
+| --------------------------------------------------------------------- | ---------------------------------------------- |
+| Rebind browser keys, or want search, duplicate, and deletion rules    | [Browser and draft commands](docs/controls.md) |
+| Need storage paths, capacities, backup, or repair after a failed read | [Storage and recovery](docs/storage.md)        |
 
 ## Configuration
 
@@ -67,12 +72,9 @@ Add an `ext.pi-prompt-manager` key to the global `~/.pi/agent/settings.json`, or
 | `historyRetention` | How many history entries to keep. Numbers are floored and clamped to 1–5,000; numeric strings are invalid. Lowering it prunes on the next captured prompt. |
 | `shortcuts`        | Keys in [Pi key syntax](https://pi.dev/docs/latest/keybindings#key-syntax). An empty list disables the action, and an invalid list uses the default.       |
 
-- Shortcuts must be valid Pi keys. Pi 1.4.0 can't dispatch modified **Escape** or modified function keys, so these keys are invalid.
-- When keys can match the same keypress, such as `tab` and `ctrl+i`, only the first is used. `history` keys come before `saveDraft` keys, so `history` wins a shared key, with a warning.
 - Each invalid field falls back to its default with a warning. Unreadable or oversized settings use all defaults.
 - Run `/reload` to apply changes. The extension never rewrites settings.
-- Pi may warn about conflicts with built-in keys, such as **Ctrl+R** for session renaming.
-- If a shortcut can match the same keypress as a shortcut of another [pi-mono](../../../README.md) extension, such as pi-profiles, neither extension registers it, and a warning names the conflict.
+- Some keys are refused or shared with other extensions or Pi's built-in keys. [Launch shortcuts](docs/controls.md#launch-shortcuts) says which key wins and when a warning appears.
 
 ## Side effects
 
@@ -80,10 +82,8 @@ The extension writes only to its own per-directory storage, and to the system cl
 
 ### Capture and storage
 
-- Captures each interactive submission, trimmed, before templates and skills expand. This includes steering and follow-up messages you later withdraw.
-- Captures record the typed text before other pi-mono extensions change it, such as by pi-skills expansion, whatever the load order. Other extensions that change input run in load order, so they can change it first.
-- Doesn't capture slash commands handled by extensions, extension-generated input, or custom messages. Existing session and editor history isn't imported.
-- Collections persist even with `--no-session`. Symlink aliases of a directory share storage; different directories and worktrees don't.
+- Each prompt that you submit in the TUI is captured, trimmed, before templates and skills expand. Slash commands that extensions handle and extension-generated input aren't captured. [Capture rules](docs/storage.md#capture) give the full list.
+- Collections persist even with `--no-session`. Each real working directory has its own collections.
 - Prompt text is stored unencrypted, protected by file permissions. See [storage and recovery](docs/storage.md) for paths, capacities, and repair.
 - Browsing may create directories and repair permissions and ACLs. Saving, capturing, and deleting write collections.
 - Notifications never include prompt text.

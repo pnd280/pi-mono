@@ -12,17 +12,7 @@ The extension's resource tools (`list_mcp_resources`, `list_mcp_resource_templat
 
 Pi 1.4.0 replaces every character outside `[A-Za-z0-9_]` with `_` and adds a hash suffix to colliding or overlong tool names. [MCP tool cards](../../../../docs/tools.md#mcp-tools) tells users which names override keys need. Default MCP exposure is `codemode`, with tool discovery through `searchTools()` or `ALL_TOOLS` rather than inline declarations.
 
-## Display
-
-[MCP tool cards](../../../../docs/tools.md#mcp-tools) describes what users see. Results and progress updates carry `details.server` and `details.tool`, which supply the unsanitised `server.tool` heading. Output uses the [MCP facts](../../../../docs/renderers.md#mcp-facts) preview. Pi's error flag marks returned MCP errors and thrown calls as failures.
-
-Thrown or blocked calls carry an empty details object. Missing details are also accepted. Other detail shapes use generic cards.
-
-The truncation warning and "Saved output" reference come from `details.fullOutputPath`. If saving failed, Pi records nothing structured, so the card adds no notice.
-
-## Limitations
-
-The adapter never reads saved output or connects to servers.
+The [adapter contract](contract.md) lists the accepted result details and the data behind each card.
 
 ## Validation
 

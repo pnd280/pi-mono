@@ -107,13 +107,13 @@ Setup: edit only the fixture's `agent/keybindings.json` and `agent/settings.json
 
 ### Capture, reload, or session isolation
 
-| Do                                                                                      | Expect                                                                                                |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Submit `/raw-template`.                                                                 | "History" keeps the text before expansion, per the [capture rules](../README.md#capture-and-storage). |
-| Submit steering and follow-up input, then withdraw it.                                  | The captures remain.                                                                                  |
-| Reload several times, then run `/prompts` and both shortcuts.                           | Nothing is captured twice.                                                                            |
-| Run fixtures at once in the same real cwd, through a symlink alias, and in another cwd. | The first two share collections; the other cwd doesn't.                                               |
-| Switch collections.                                                                     | Searches and selections are kept.                                                                     |
+| Do                                                                                      | Expect                                                                                  |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Submit `/raw-template`.                                                                 | "History" keeps the text before expansion, per the [capture rules](storage.md#capture). |
+| Submit steering and follow-up input, then withdraw it.                                  | The captures remain.                                                                    |
+| Reload several times, then run `/prompts` and both shortcuts.                           | Nothing is captured twice.                                                              |
+| Run fixtures at once in the same real cwd, through a symlink alias, and in another cwd. | The first two share collections; the other cwd doesn't.                                 |
+| Switch collections.                                                                     | Searches and selections are kept.                                                       |
 
 ### Storage, recovery, or exact text
 
@@ -147,13 +147,13 @@ Setup: on Linux, macOS, and WSL, use isolated clipboards, never someone's live c
 
 Setup: use isolated collections on each supported Linux, macOS, and WSL filesystem, including the filesystem holding the agent directory on WSL.
 
-| Do                                                                                                                                                      | Expect                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Use paths owned by another user, unsafe file types, and links.                                                                                          | Access is refused.                                           |
-| Use a filesystem that rejects [private permission repair](../../../libs/src/private-files/README.md#behaviour) or reports incorrect modes after repair. | Access is refused.                                           |
-| Open collections with incorrect modes and ACLs.                                                                                                         | Modes and ACLs are repaired.                                 |
-| Hold a collection lock while another session tries to change it.                                                                                        | The change reports contention after the two-second deadline. |
-| Read a collection while another session replaces it.                                                                                                    | Every read sees a complete old or new document.              |
+| Do                                                                                                                                           | Expect                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Use paths owned by another user, unsafe file types, and links.                                                                               | Access is refused.                                           |
+| Use a filesystem that rejects [private permission repair](../src/private-files/README.md#behaviour) or reports incorrect modes after repair. | Access is refused.                                           |
+| Open collections with incorrect modes and ACLs.                                                                                              | Modes and ACLs are repaired.                                 |
+| Hold a collection lock while another session tries to change it.                                                                             | The change reports contention after the two-second deadline. |
+| Read a collection while another session replaces it.                                                                                         | Every read sees a complete old or new document.              |
 
 Setup for native Windows: use the default system temporary directory and an isolated test profile.
 

@@ -1,17 +1,6 @@
-import {
-  isKeyRelease,
-  isKeyRepeat,
-  matchesKey,
-  type KeyId,
-  type KeybindingsManager
-} from "@earendil-works/pi-tui";
+import { isKeyRelease, isKeyRepeat, matchesKey, type KeyId } from "@earendil-works/pi-tui";
 
-import {
-  formatKeyLabel,
-  navigationHints,
-  resolveKeybindings,
-  type KeybindingCandidate
-} from "../../keybindings/index.ts";
+import { KeyControls, type KeybindingSource, type KeyControl } from "../../keybindings/index.ts";
 
 export type BrowserAction =
   | "copy"
@@ -49,38 +38,33 @@ const fixed = [
   ["switchBack", "shift+tab"]
 ] as const;
 
-export type BrowserKeys = Pick<KeybindingsManager, "getKeys">;
-
-type Binding = { action: BoundAction; key: KeyId };
+export type BrowserKeys = KeybindingSource;
 
 /** Dispatch and hints resolve the same ordered bindings, including live keybinding changes. */
 export class BrowserControls {
-  constructor(private readonly keys: BrowserKeys) {}
+  private readonly controls: KeyControls<BoundAction>;
 
-  private bindings(): Binding[] {
-    const candidates: KeybindingCandidate<BoundAction>[] = configured.map(([action, id]) => ({
-      action,
-      keys: this.keys.getKeys(id),
-      ...(action === "cancel" ? { exclude: (key: KeyId) => key === "ctrl+c" } : {})
-    }));
-    candidates.push(...fixed.map(([action, key]) => ({ action, keys: [key] })));
-
-    return resolveKeybindings(candidates);
+  constructor(keys: BrowserKeys) {
+    this.controls = new KeyControls<BoundAction>(keys, [
+      ...configured.map(([action, id]): KeyControl<BoundAction> => ({
+        action,
+        id,
+        ...(action === "cancel" ? { exclude: (key: KeyId) => key === "ctrl+c" } : {})
+      })),
+      ...fixed.map(([action, key]) => ({ action, key }))
+    ]);
   }
 
   actionFor(data: string): BrowserAction {
     if (isKeyRelease(data)) return "ignore";
-    const binding = this.bindings().find(({ key }) => matchesKey(data, key));
-    if (binding)
-      return binding.action === "delete" && isKeyRepeat(data) ? "ignore" : binding.action;
+    const action = this.controls.actionFor(data);
+    if (action) return action === "delete" && isKeyRepeat(data) ? "ignore" : action;
 
     return matchesKey(data, "ctrl+c") ? "ignore" : "search";
   }
 
   key(action: BoundAction): string | undefined {
-    const binding = this.bindings().find((candidate) => candidate.action === action);
-
-    return binding ? formatKeyLabel(binding.key) : undefined;
+    return this.controls.label(action);
   }
 
   hint(action: (typeof configured)[number][0], label: string): string;
@@ -95,6 +79,6 @@ export class BrowserControls {
   }
 
   navigationHints(label: string): string[] {
-    return navigationHints(this.key("up"), this.key("down"), label);
+    return this.controls.navigationHints("up", "down", label);
   }
 }

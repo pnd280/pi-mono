@@ -6,7 +6,7 @@ Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; 
 
 ## Usage
 
-1. Open `/widgets`, then choose a region, a row, and its contents.
+1. Open `/widgets`, then choose a region, a row, and its contents. The menu uses Pi's `tui.select.up`, `tui.select.down`, `tui.select.confirm`, and `tui.select.cancel` keybindings. The default keys are **Up**, **Down**, **Enter**, and **Escape**.
 2. Edit the layout with the keys shown in the menu:
 
    | Key                          | Action                                                                             |
@@ -14,18 +14,18 @@ Other extensions keep using Pi's ordinary `setWidget()` and `setStatus()` APIs; 
    | **a**                        | Add a placement.                                                                   |
    | **Shift+Up**, **Shift+Down** | Move a placement.                                                                  |
    | **Delete**, **Backspace**    | Remove a placement. Removing the last copy hides that widget.                      |
-   | **Tab**                      | Switch between global and project layouts. Project layouts need a trusted project. |
+   | **Tab**, **Shift+Tab**       | Switch between global and project layouts. Project layouts need a trusted project. |
 
    Edits preview live but aren't saved yet.
 
 3. Press **Ctrl+S** to save the layout you're viewing. If saving fails, your edits are kept so you can retry.
-4. Press **Escape** to go back, or **Ctrl+C** to close and discard unsaved edits.
+4. Use the displayed back key to go back, or **Ctrl+C** to close and discard unsaved edits. The back key also closes the menu at the region list.
+
+If you remap a Pi selection keybinding onto a menu key, such as **a** or **Tab**, the selection action takes that key. **Ctrl+S** and **Ctrl+C** always save and close. The menu hints show only the keys that work.
 
 While the fullscreen menu has focus, its controls take priority over transcript controls. If input routing is unavailable, a warning appears once per opening. The menu stays open; use regular mode if controls do not respond. On a short terminal, tall regions can still be clipped while the menu is open.
 
-Widgets and statuses can share a row, or appear in several regions at once. A row too narrow for its contents wraps whole items onto the next line instead of shrinking them. An empty widget takes no space but keeps its position.
-
-Widgets that contain Kitty or iTerm2 images use full-width rows and keep their native output intact. If the height limit falls inside one of these widgets, clipping stops before that widget.
+Widgets and statuses can share a row, or appear in several regions at once. A row too narrow for its contents wraps whole items onto the next line instead of shrinking them. For empty widgets, image widgets, and alignment, read [how rows render](docs/settings.md#how-rows-render).
 
 ### Token and context display
 
@@ -44,4 +44,8 @@ To edit layouts as JSON or set up inheritance between global and project layouts
 
 ## Validation
 
-This section is for maintainers. For interaction changes, run the [terminal checks](docs/validation.md). For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+| When you…                       | Read                                                |
+| ------------------------------- | --------------------------------------------------- |
+| Change menu or layout behaviour | [terminal checks](docs/validation.md)               |
+| Decide where a test belongs     | [test coverage](docs/testing.md)                    |
+| Upgrade Pi                      | [compatibility checklist](docs/pi-compatibility.md) |

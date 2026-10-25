@@ -15,9 +15,9 @@ Callers have these duties:
 - Supply whether the full filename query names an existing path, so that paths that contain spaces stay intact.
 - Own input validation, existing-path detection and error handling, scope limits, filesystem checks, exclusion application, intersections, and blocking policy.
 
-Consumers choose their own failure handling. pi-fff-guard propagates unexpected access failures, and nested discovery can keep lexical hints.
+Consumers choose their own failure handling. pi-fff-guard passes unexpected access failures from scope extraction to its decision layer, which allows the search with a diagnostic. Nested discovery can keep lexical hints.
 
-[`fff-tools`](../src/fff-tools.ts) classifies provenance and names only, not tool schemas or policy.
+[`registeredBy`](../src/provenance.ts) checks that a package registered a tool, from its npm source or entry-point path. [`fff-tools`](../src/fff-tools.ts) uses it for the official FFF package and classifies tool names. Neither checks tool schemas or applies policy.
 
 ## Paths
 
@@ -26,10 +26,6 @@ Consumers choose their own failure handling. pi-fff-guard propagates unexpected 
 ## Model references
 
 [`modelReferenceSchema`](../src/model-reference.ts) trims and validates a `provider/model-id` setting; the model ID may contain slashes. `splitModelReference` splits a valid reference at its first slash and throws `TypeError` otherwise. Callers own registry lookup, availability errors, and thinking-level support.
-
-## Shell arguments
-
-[`quotePosixShellArgument`](../src/shell.ts) quotes one NUL-free POSIX-shell argument, not whole commands or Windows shell syntax.
 
 ## Output text and UTF-8
 
@@ -47,4 +43,4 @@ Supply the expected task ID and state to `parseTaskEnvelope` from validated resu
 
 ## Patches
 
-[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers, within a byte limit that the caller supplies. When present, file headers must be an adjacent `--- ` and `+++ ` pair. Invalid patches and patches over the limit return `undefined`; a limit that is not a nonnegative safe integer throws `RangeError`. Pass parsed results to the [diff renderer](../../libs/src/tui/components/diff-view/README.md).
+[`parsePatch`](../src/patch.ts) accepts one unified patch, with or without file headers, within a byte limit that the caller supplies. When present, file headers must be an adjacent `--- ` and `+++ ` pair. Invalid patches and patches over the limit return `undefined`; a limit that is not a nonnegative safe integer throws `RangeError`.

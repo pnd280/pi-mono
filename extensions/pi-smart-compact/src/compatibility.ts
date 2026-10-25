@@ -78,12 +78,15 @@ const fingerprints = [
   }
 ];
 
+/** Each method is the unpatched original that the fingerprints must match. */
 export function assertCompatible(
   prototype: object,
-  prepare: unknown,
-  summarize: unknown,
-  automatic: unknown,
-  manual: unknown
+  {
+    prepare,
+    summarize,
+    automatic,
+    manual
+  }: { prepare: unknown; summarize: unknown; automatic: unknown; manual: unknown }
 ): void {
   const actual: Record<string, unknown> = {
     _compactBeforeNextAssistantResponse: prepare,

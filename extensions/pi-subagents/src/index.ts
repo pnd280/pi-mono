@@ -10,7 +10,8 @@ import { z } from "zod";
 import { navigationLeaf, SessionBinding, type BindingSession } from "./binding.ts";
 import { getDepth, getTaskId } from "./child/depth.ts";
 import { forwardDialog } from "./child/dialogs.ts";
-import { getPiInvocation } from "./child/invocation.ts";
+import { getPiInvocation, type PiInvocation } from "./child/invocation.ts";
+import { joinChildPrompt } from "./child/prompt.ts";
 import type * as CommandsModule from "./commands.ts";
 import { remindTasks } from "./compaction.ts";
 import { loadConfig } from "./config.ts";
@@ -50,12 +51,19 @@ const startedJobs: Counter = {
 const FOREIGN_BASH_WARNING =
   "pi-subagents: job and job_abort are off because another extension owns bash";
 
-/** The Pi adapter: it maps Pi's events, tools, and commands to the session binding. */
-export default function subagents(pi: ExtensionAPI): void {
+/**
+ * The Pi adapter: it maps Pi's events, tools, and commands to the session binding. Pi gives no
+ * options; an in-process host sets `invocation` when its own entry does not start Pi.
+ */
+export default function subagents(
+  pi: ExtensionAPI,
+  options: { invocation?: PiInvocation } = {}
+): void {
   const depth = getDepth();
   const taskId = getTaskId();
   let lateUsageWarning = installLateUsagePatch();
   const lifecycle = joinLifecycle(pi, { id: "pi-subagents" });
+  if (depth > 0 && taskId) joinChildPrompt(pi);
   const waiting = registerWorkingMessage(pi, {
     id: "pi-subagents.waiting",
     label: "Background wait",
@@ -172,7 +180,7 @@ export default function subagents(pi: ExtensionAPI): void {
       tasks: {
         depth,
         sessionId,
-        invocation: getPiInvocation(),
+        invocation: options.invocation ?? getPiInvocation(),
         launch: () => ({
           model: ctx.model && `${ctx.model.provider}/${ctx.model.id}`,
           thinking: pi.getThinkingLevel(),
@@ -235,8 +243,7 @@ export default function subagents(pi: ExtensionAPI): void {
   registerTools(true, true, "", depth === 0);
 
   /** Opens the binding on the session and selected ancestry in `ctx`, then offers its tools. */
-  const open = async (ctx: ExtensionContext) => {
-    const { docs, ...opened } = session(ctx);
+  const open = async (ctx: ExtensionContext, { docs, ...opened } = session(ctx)) => {
     await binding.open(opened);
     const { maxDepth, jobs } = opened.config;
     // Jobs apply at all depths. They run commands through Pi's built-in shell.
@@ -251,12 +258,13 @@ export default function subagents(pi: ExtensionAPI): void {
   };
 
   lifecycle.onSessionStart(async (_event, ctx, arrival) => {
+    const started = session(ctx);
     // A claim that overlaps another participant's claim is not registered, with a warning.
-    arrival.claimShortcut("ctrl+alt+s", {
+    arrival.claimShortcut(started.config.shortcut, {
       description: "Open the subagents panel",
       handler: async () => (await binding.current())?.panels.open()
     });
-    await open(ctx);
+    await open(ctx, started);
   });
   // A begun run is one chain under its marker; see ADR 0003.
   pi.on("session_before_tree", async (event, ctx) => {

@@ -10,13 +10,7 @@ The adapter matches Pi's built-in `tool_search` only: tool name `tool_search`, `
 
 SDK registrations through `createToolSearchExtension()` get an unverifiable `<inline:…>` source and keep generic cards. Replacement extensions that register their own `tool_search` are not specialised either; the [pi-profiles adapter](../../pi-profiles/README.md) matches the replacement of `pi-profiles`. Renderer overrides still apply; see [automatic selection](../../../../docs/adapters.md#automatic-selection).
 
-## Display
-
-[Tool search cards](../../../../docs/tools.md#tool-search) describes what users see. The "Loaded N tools" line and the per-name summary counts need valid, nonempty `details.loaded` names. Calls with missing or invalid `details.loaded` keep the output preview. Calls with missing, empty, or invalid `details.loaded` count as `tool_search ×N`.
-
-## Limitations
-
-The adapter never activates tools or reads the tool registry; loaded names come only from the retained result details.
+The [adapter contract](contract.md) lists the result details behind each card.
 
 ## Validation
 

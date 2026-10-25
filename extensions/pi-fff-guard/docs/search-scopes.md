@@ -51,9 +51,3 @@ With its default `followSymlinks: true` setting, FFF indexes the files below a d
 A link to a file is checked under its destination's rules.
 
 Inspection runs `git` from `PATH` and never enumerates directories. Before it compares a path with a repository root, the guard resolves aliases that are not symbolic links, such as Windows short names or letter case, because Git reports canonical roots. A symbolic link keeps its own name, and only its parent directory is resolved. If the repository found from that directory still does not contain the path, inspection fails instead of reporting the path as not ignored. A target that no longer exists is reported as missing, even when an existing parent is ignored. Symbolic-link cycles, link chains of 32 or more links, and paths with more than 128 components count as failed inspections. The [two-second deadline](../README.md#limits) also covers repository discovery and link traversal.
-
-### Inspection contract
-
-This contract is for maintainers. [`inspectGitIgnore`](../src/git-ignore.ts) takes absolute `path` and `cwd` values and the caller's signal, which carries the deadline. Relative paths throw `TypeError`. The result status is `ignored`, `not-ignored`, `missing`, `cancelled` (the signal aborted), or `unavailable`.
-
-The function makes no allow or block decision; the [search policy](../src/evaluate-search.ts) does. Never display an `unavailable` result's internal `cause`.

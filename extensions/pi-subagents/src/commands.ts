@@ -2,6 +2,7 @@ import { DEFAULT_MAX_BYTES, type ExtensionUIContext } from "@earendil-works/pi-c
 import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
+import { parseFlags } from "./flags.ts";
 import type { RunReader } from "./history/reader.ts";
 import { readLogTail } from "./jobs/log.ts";
 import type { JobRecord } from "./jobs/records.ts";
@@ -21,27 +22,16 @@ type Page<T> = { items: T[]; total: number; offset: number; next_offset: number 
 
 /** One page of `records` within the output budget, as `{ <key>, total, offset, next_offset }`. */
 function listPage<T>(key: "tasks" | "jobs", records: readonly T[], tokens: string[]): unknown {
-  const values: { offset: string | number; limit: string | number } = {
-    offset: 0,
-    limit: LIST_DEFAULT_LIMIT
-  };
-  const seen = new Set<string>();
-
-  for (let i = 0; i < tokens.length; i += 2) {
-    const flag = tokens[i];
-    const value = tokens[i + 1];
-
-    if ((flag !== "--offset" && flag !== "--limit") || value === undefined || seen.has(flag)) {
-      throw new Error(
-        `Usage: /subagents ${key === "tasks" ? "list" : "jobs"} [--offset <n>] [--limit <n>]`
-      );
-    }
-
-    seen.add(flag);
-    values[flag === "--offset" ? "offset" : "limit"] = value;
-  }
-
-  const parsed = pageSchema.safeParse(values);
+  const text = (value: string) => value;
+  const flags = parseFlags(
+    tokens,
+    { "--offset": text, "--limit": text },
+    `Usage: /subagents ${key === "tasks" ? "list" : "jobs"} [--offset <n>] [--limit <n>]`
+  );
+  const parsed = pageSchema.safeParse({
+    offset: flags["--offset"] ?? 0,
+    limit: flags["--limit"] ?? LIST_DEFAULT_LIMIT
+  });
   if (!parsed.success)
     throw new Error(
       `offset must be a non-negative safe integer; limit must be 1 to ${LIST_MAX_LIMIT}`

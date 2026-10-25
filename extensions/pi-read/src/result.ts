@@ -45,36 +45,36 @@ export type SelectiveReadDetails = ReadToolDetails & {
 export type ReadResult = AgentToolResult<SelectiveReadDetails | undefined>;
 
 /** Borrowed blocks and details are validated without replacing or mutating them. */
-export interface ReadResultView {
+export type ReadResultView = {
   readonly content: readonly Readonly<TextContent | ImageContent>[];
   readonly details?: unknown;
-}
+};
 
-export interface ReadWindow {
+export type ReadWindow = {
   offset?: number | undefined;
   limit?: number | undefined;
-}
+};
 
-export interface ReadHighlight {
+export type ReadHighlight = {
   /** Zero-based source line and UTF-16 offsets, before terminal sanitisation. */
   line: number;
   start: number;
   end: number;
-}
+};
 
-export interface ReadDocument {
+export type ReadDocument = {
   lines: string[];
   notice: string;
   firstLine: number;
   select(selection: Selection): SelectedSource & { ranges: ReadHighlight[] };
-}
+};
 
-export interface ReadTextWindow {
+export type ReadTextWindow = {
   /** Pass the native presentation's source part, with its diagnostic trailer separated. */
   highlight(text: string, selection: Selection): ReadHighlight[];
-}
+};
 
-export interface ReadInterpretation {
+export type ReadInterpretation = {
   /** Display rejects invalid contracts; producer rendering can recover the retained source. */
   valid: boolean;
   preview: { kind: "absent" } | { kind: "invalid" } | { kind: "valid"; contentIndex: number };
@@ -82,7 +82,7 @@ export interface ReadInterpretation {
   document: ReadDocument | undefined;
   /** Indexed by original content position, without flattening text or images. */
   blocks: readonly (ReadTextWindow | undefined)[];
-}
+};
 
 function sourceLines(text: string): string[] {
   const all = text === "" ? [] : text.split("\n");

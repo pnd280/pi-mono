@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests collection formats, retention and recovery, activation, clipboard helper transport, and privacy of its notifications, while libs owns the private-file protocols and the shared browser.
+This package tests collection formats, retention and recovery, activation, clipboard helper transport, privacy of its notifications, and its [private-file protocols](../src/private-files/README.md), while libs owns the shared browser.
 
 ## Must not regress
 
@@ -12,11 +12,22 @@ This package tests collection formats, retention and recovery, activation, clipb
 - **Critical, integration:** Reading history after `historyRetention` is lowered keeps every stored record; only a committed capture applies the new retention.
 - **Critical, integration:** Failed replacements leave stored bytes unchanged.
 - **Critical, integration:** The repository refuses unsafe private-file paths.
-- **Critical, integration:** The repository protects collection and directory permissions through the shared helper.
+- **Critical, integration:** The repository protects collection and directory permissions through the private-files module.
 - **Critical, integration:** Draft additions that exceed capacity are refused without evicting existing drafts.
+- **Critical, integration:** Private reads return exact bytes within the caller limit and reject larger files.
+- **Critical, integration:** Private reads and atomic writes restrict effective POSIX ACL access.
+- **Critical, integration:** Atomic replacement leaves the previous destination unchanged on every pre-commit failure.
+- **Critical, integration:** Under caller-established trusted parents, private-file access rejects foreign ownership before repairing permissions or ACLs.
+- **Critical, integration:** Private-file access rejects final-path symlinks, hard-linked files, and nonregular files without changing their permissions or contents.
+- **Critical, integration:** Private-file lock acquisition does not reclaim an existing lock, regardless of its age or the owning process's liveness.
+- **Critical, integration:** Releasing a private-file lock never removes a lock whose token or inode changed.
+- **Critical, integration:** Private-file transactions acquire the data path's lock before reading the bytes supplied to the update callback.
+- **Critical, integration:** Without POSIX owner IDs, private storage refuses a directory outside the user profile before it creates it, and works inside the profile without owner or mode checks.
 - **Critical, integration:** Deletion requires the selected UUID to stay unique in the latest locked collection, compared without regard to case, with the exact text and original `recordedAt` value and presence unchanged.
 - **High, integration:** Session expiry cancels queued and processing operations before replacement and releases active processing resources. Its cleanup waits for started atomic writes and for cancelled operations to release their locks.
 - **High, integration:** Cleanup warnings after a commit stay committed outcomes, not failed writes that the extension retries.
+- **High, integration:** Disposing a private-write lifetime cancels unstarted transactions and waits for started commits and lock cleanup.
+- **High, integration:** A private-file transaction whose post-commit cleanup or lock release fails still reports `committed`, with the warnings and cleanup errors separate.
 - **High, integration:** Copying passes the complete text, including Unicode, terminal controls, and large payloads, to the native helper's stdin without shell interpretation.
 - **High, integration:** The five-second clipboard deadline and cancellation reject the copy and prevent fallback to later helpers.
 - **High, integration:** Each clipboard helper runs in its own process group, so Ctrl+Z, which suspends Pi's group, does not stop a helper that stays as the clipboard owner.
@@ -25,7 +36,7 @@ This package tests collection formats, retention and recovery, activation, clipb
 
 ## Not tested
 
-- Capture ordering, history deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing are below the severity bar. The [manual validation checks](validation.md) cover them.
+- History deduplication, search preparation and ranking, browser rows, command syntax, and editor restore timing are below the severity bar. The [manual validation checks](validation.md) cover them. The live-input scenario also checks capture ordering as part of the capture invariant.
 - Settings parsing and fallback are below the severity bar.
 - Event-loop responsiveness during large collection processing is below the severity bar. The [interaction measurement](validation.md#interaction-measurement) covers it.
 - Libs owns the shared browser geometry.
@@ -35,4 +46,4 @@ This package tests collection formats, retention and recovery, activation, clipb
 
 ## Manual checks
 
-For delivery to the OS clipboard and filesystem permissions outside Linux, use the isolated [platform checks](validation.md#platform-checks).
+For delivery to the OS clipboard and filesystem permissions and ACL guarantees outside Linux, use the isolated [platform checks](validation.md#platform-checks).

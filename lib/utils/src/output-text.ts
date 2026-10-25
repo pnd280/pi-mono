@@ -12,11 +12,11 @@ export type OutputOmission = {
 /** Consumers own notice wording and any surrounding style resets. */
 export type OmissionFormatter = (omission: OutputOmission) => OutputText;
 
-export interface OutputText {
+export type OutputText = {
   text: string;
   /** UTF-16 ranges of inserted budget notices, never inferred from process output. */
   omissions?: readonly { readonly start: number; readonly end: number }[];
-}
+};
 
 export type OutputFragment = { kind: "output" | "omission"; text: string };
 

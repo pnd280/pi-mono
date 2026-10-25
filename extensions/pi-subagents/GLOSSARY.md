@@ -21,7 +21,7 @@ One child process of a task, from launch to exit. A resume starts a new run in t
 _Avoid_: attempt, session, turn
 
 **Child**:
-The Pi process of one run, in RPC mode. See [process shutdown](docs/shutdown.md).
+The Pi process of one run, in RPC mode. See [child processes](docs/children.md) and [process shutdown](docs/shutdown.md).
 _Avoid_: worker, subagent process
 
 **Descendant**:

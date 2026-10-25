@@ -22,16 +22,16 @@ const readSchema = z.strictObject({
 
 type ReadMarker = z.infer<typeof readSchema>;
 
-export interface SessionView {
+export type SessionView = {
   buildSessionProjection(): Pick<
     ReturnType<ExtensionContext["sessionManager"]["buildSessionProjection"]>,
     "entries"
   >;
   getBranch: ExtensionContext["sessionManager"]["getBranch"];
-}
+};
 
 /** What the canonical session projection still shows the model about nested instructions. */
-export interface Ledger {
+export type Ledger = {
   /** Records a direct-read attempt only while its exact, unchanged source call is projected. */
   markRead(
     call: Invocation,
@@ -50,7 +50,7 @@ export interface Ledger {
   current(directory: string, file: string, content: string): boolean;
   /** Directories with visible notices or direct reads. */
   directories(): string[];
-}
+};
 
 /** Raw markers are useful only while their originating call is in the projection. */
 export function ledger(session: SessionView): Ledger {

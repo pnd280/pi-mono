@@ -7,7 +7,6 @@ import type { ToolDisplayAdapter } from "../contracts.ts";
 import {
   callKey,
   isLive,
-  type CallReference,
   type DisplayCall,
   type DisplayFact,
   type DisplayGroup,
@@ -32,15 +31,15 @@ import {
 } from "../interpretation.ts";
 import { buildRunSummary, type RunSummary } from "../run-summary.ts";
 
-export interface RowHandle {
+export type RowHandle = {
   invalidate(): void;
   requestRender(): void;
   setExpanded(expanded: boolean): void;
-}
+};
 
-export interface AnimationClock {
+export type AnimationClock = {
   start(tick: () => void): () => void;
-}
+};
 
 const clock: AnimationClock = {
   start(tick) {
@@ -58,6 +57,13 @@ type MutableCall = { -readonly [Key in keyof DisplayCall]: DisplayCall[Key] };
  * schema. Returns the raw arguments when validation fails. Never modifies them.
  */
 export type ValidatedArgs = (name: string, args: unknown) => unknown;
+
+/** A call to add, with Pi's raw arguments. Not expanded and not validated by default. */
+export type CallInput = Pick<DisplayCall, "reference" | "name" | "args" | "adapter" | "origin"> &
+  Partial<Pick<DisplayCall, "expanded">> & { validated?: ValidatedArgs };
+
+/** A partial result keeps the call live and ignores the outcome and duration. */
+export type ResultStatus = { outcome: Outcome; partial?: boolean; durationMs?: number | undefined };
 
 /** Without a tool registry, callbacks receive Pi's raw arguments. */
 const withoutRegistry: ValidatedArgs = (_name, args) => args;
@@ -144,15 +150,15 @@ export class TranscriptCoordinator implements TranscriptView {
     this.mode = options.mode ?? "compact";
     this.summaries = options.summaries ?? true;
   }
-  add(
-    reference: CallReference,
-    name: string,
-    args: unknown,
-    adapter: ToolDisplayAdapter,
-    origin: DisplayCall["origin"],
+  add({
+    reference,
+    name,
+    args,
+    adapter,
+    origin,
     expanded = false,
-    validated: ValidatedArgs = withoutRegistry
-  ): DisplayCall {
+    validated = withoutRegistry
+  }: CallInput): DisplayCall {
     const key = callKey(this.runtime, reference);
     // Finalized assistant middleware can remove/reorder blocks around a streamed call.
     // Keep its runtime row identity; only historical calls use source position alone.
@@ -499,9 +505,7 @@ export class TranscriptCoordinator implements TranscriptView {
   result(
     view: DisplayCall,
     result: AgentToolResult<unknown>,
-    outcome: Outcome,
-    partial = false,
-    durationMs?: number
+    { outcome, partial = false, durationMs }: ResultStatus
   ): void {
     const call = this.mutable(view);
     if (!call || (partial && !isLive(call))) return;

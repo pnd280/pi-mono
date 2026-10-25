@@ -6,9 +6,13 @@ In TUI mode, pi-subagents shows tasks and [jobs](jobs.md) in a task panel, read-
 
 ## Task panel
 
-Press **Ctrl+Alt+S** or run `/subagents` to open the task panel in TUI mode. The panel has top and bottom borders, like the other custom views.
+Press the [`shortcut`](../README.md#configuration), **Ctrl+Alt+S** by default, or run `/subagents` to open the task panel in TUI mode. The panel has top and bottom borders, like the other custom views.
 
-If another extension claims a key that overlaps **Ctrl+Alt+S** through the [shared shortcut claims](../../../libs/src/lifecycle/README.md#shortcut-claims), neither extension gets its key, and a warning names the conflict. Use `/subagents` instead.
+The `shortcut` setting does not accept **Esc** or a function key with a modifier, such as `ctrl+escape` or `alt+f5`.
+
+If the shortcut overlaps a key claimed by pi-profiles or pi-prompt-manager, neither extension gets its shortcut, and a warning names the conflict.
+
+Pi skips a shortcut when it detects a conflict with one of its reserved keys, such as `shift+tab` under the default bindings, and shows a warning. Pi's conflict check does not detect every equivalent key combination. Use `/subagents` instead, or set another `shortcut` and run `/reload`.
 
 The panel has the same layout as the list browsers of other workspace extensions, such as pi-todo. A `View:` row lists the "all", "running", "background", and "finished" views with their counts of tasks and jobs; **Tab** and **Shift+Tab** change the view, and each view keeps its own selection.
 
@@ -85,7 +89,7 @@ The viewer shows the child's messages with Pi's chat components. Pi's built-in t
 
 ### Job log viewer
 
-The log viewer shows the end of the job's log file: at most 2,000 lines or 50 KiB, plus an `[Earlier output omitted]` line when output is excluded. While the job is active, the viewer reads the file again every second and follows new output. It reads the file once more when the job ends. Its metadata rows are:
+The log viewer shows the end of the job's log file: at most 2,000 lines or 50 KiB, plus an `[Earlier output omitted]` line when output is excluded from that window. It also retains the `[Earlier output omitted: N bytes]` marker when the [log file's size limit](jobs.md#log-files) removed output. While the job is active, the viewer reads the file again every second and follows new output. It reads the file once more when the job ends. Its metadata rows are:
 
 - `status`: a spinner and the elapsed time while the job is active. After the job ends, the outcome and the duration as for a task, then `exit code` and the exit code, or `none`.
 - `command`: each line of the command, after `$ `.
@@ -126,13 +130,13 @@ Other labelled rows show the selection, usage, error, and task ID:
 - `error`: the first line of a failure's error. Cancellation uses the warning colour, like other cancelled status details; the panel's `⊘` glyph uses the error colour, like pi-tool-display headings. See [notices and colours](../../pi-tool-display/docs/presentation.md#notices-and-colours).
 - `task`: the first eight characters of the task ID; expansion shows the full ID.
 
-Completed cards preview the first three reply lines, or all four when there are exactly four, after a blank row, with an expansion hint for the rest. A rejected call shows its error text in the same way. Long lines wrap, and labelled rows wrap under their values. When the label column would leave fewer than two columns for a value, labels appear above their values. Expansion adds `background` and `delivery` rows for non-default options, the first ten prompt lines, and retained output.
+Completed cards preview the first three reply lines, or all four when there are exactly four, after a blank row, with an expansion hint for the rest. A rejected call shows its error text in the same way. Long lines wrap, and labelled rows wrap under their values. When the label column would leave fewer than two columns for a value, labels appear above their values. Expansion adds `background` and `delivery` rows for non-default options, up to ten prompt lines, and retained output. The prompt preview uses at most 16,384 UTF-16 code units, without splitting graphemes or recognised terminal sequences.
 
 A successful `subagent_abort` card uses the same layout with the aborted task's description, `⊘ aborted after` its time, and its usage; the call itself is not shown as failed.
 
 ### Job cards
 
-A `job` card names the tool and the description on its first line. The `command` row shows the first line of the command; expansion shows the first ten lines. The `status` row shows `↗ returned; job continues in background`, and the `job` row shows the first eight characters of the job ID. Expansion shows the full ID, a `log` row with the log file path, and the returned text.
+A `job` card names the tool and the description on its first line. The `command` row shows the first line of the command; expansion shows up to ten lines. The command preview uses at most 16,384 UTF-16 code units, without splitting graphemes or recognised terminal sequences. The `status` row shows `↗ returned; job continues in background`, and the `job` row shows the first eight characters of the job ID. Expansion shows the full ID, a `log` row with the log file path, and the returned text.
 
 A `job_abort` card names the job ID and shows `⊘ aborted after` the job's time, or `already completed` or `already failed` when the job exited first.
 

@@ -102,12 +102,13 @@ export default function editorWidgets(pi: ExtensionAPI): void {
               "warning"
             ),
           useOverlay: () => false,
-          create: (tui, _theme, _keys, close) =>
+          create: (tui, _theme, keys, close) =>
             new WidgetMenu({
               settings,
               preferences,
               coordinator: current,
               theme,
+              keys,
               rows: () => tui.terminal.rows,
               requestRender: () => tui.requestRender(),
               close

@@ -72,7 +72,7 @@ If Pi exits because the terminal is gone or a fatal error occurs, pi-subagents s
 
 The supervisor saves a `pi-subagents.job` entry when a job starts and a `pi-subagents.job-end` entry when the job ends. The jobs on the selected ancestry come from these entries. A job without an end entry, such as a job that stopped at exit, shows as `cancelled`. Jobs never restart.
 
-After compaction, a hidden reminder lists these jobs; see [side effects](../README.md#side-effects). To list jobs yourself, use [`/subagents jobs`](commands.md#job-pages).
+After a successful compaction, the hidden reminder of direct task IDs also lists these jobs with their IDs, states, outcomes, and exit codes, without starting a new turn. To list jobs yourself, use [`/subagents jobs`](commands.md#job-pages).
 
 ## Log files
 

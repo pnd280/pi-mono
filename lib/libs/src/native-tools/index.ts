@@ -9,19 +9,19 @@ import {
   type SessionInternals
 } from "./compatibility.ts";
 
-export interface NativeSettings {
+export type NativeSettings = {
   cwd: string;
   shellPath?: string | undefined;
   commandPrefix?: string | undefined;
-}
+};
 
-export interface NativeToolObserver {
+export type NativeToolObserver = {
   names: readonly string[];
   eligible(session: AgentSession, name: string): boolean;
   wrap(session: AgentSession, original: ToolDefinition, settings: NativeSettings): ToolDefinition;
   refreshed?(session: AgentSession): void;
   warning?(message: string): void;
-}
+};
 
 type Replacement = {
   original: ToolDefinition;

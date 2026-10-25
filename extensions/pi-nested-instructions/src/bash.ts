@@ -13,16 +13,16 @@ import {
   type WordPart
 } from "unbash";
 
-export interface PathHint {
+export type PathHint = {
   value: string;
   cwd: string;
   kind: "directory" | "auto";
   read: boolean;
   pattern: boolean;
   expandHome?: boolean;
-}
+};
 
-interface CommandSpec {
+type CommandSpec = {
   /** Options that consume a value. */
   values?: readonly string[];
   flags?: readonly string[];
@@ -42,7 +42,7 @@ interface CommandSpec {
   counts?: boolean;
   /** Whether operands are content reads unless a listing option applies. */
   reads: boolean;
-}
+};
 
 const names = (list: string): readonly string[] => list.split(" ");
 const programOptions = { scripts: names("e regexp expression"), scriptFiles: names("f file") };
@@ -118,6 +118,8 @@ const commands: Record<string, CommandSpec> = {
   awk: { ...programOptions, values: names("v F"), patternFirst: true, reads: true }
 };
 
+const fileRedirects: ReadonlySet<Redirection["operator"]> = new Set(["<", ">", ">>", "<&", ">&"]);
+
 function supportedPart(part: WordPart): boolean {
   switch (part.type) {
     case "Literal":
@@ -183,7 +185,7 @@ function supportedCommand(command: Command): boolean {
     command.redirects.every(
       (redirect) =>
         redirect.descriptor?.type !== "FileDescriptorVariable" &&
-        ["<", ">", ">>", "<&", ">&"].includes(redirect.operator) &&
+        fileRedirects.has(redirect.operator) &&
         redirectTarget(redirect) !== undefined
     )
   );
@@ -236,12 +238,12 @@ function optionKind(
   return undefined;
 }
 
-interface Operands {
+type Operands = {
   paths: PathHint[];
   reads: boolean;
   expression: boolean;
   filesOnly: boolean;
-}
+};
 
 function parseOptions(
   spec: CommandSpec,

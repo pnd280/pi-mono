@@ -19,7 +19,7 @@ export const hostMode = Symbol.for("pi-tool-display.mode");
 // Private Pi 1.4.0 TUI contracts. Native construction belongs to libs/native-tools.
 export type RenderDefinition = ConstructorParameters<typeof ToolExecutionComponent>[4];
 
-export interface Host {
+export type Host = {
   session: AgentSession;
   ui?: TUI;
   chatContainer?: { children: Component[] };
@@ -41,7 +41,7 @@ export interface Host {
   showStatus?: (this: Host, message: string) => void;
   showExtensionNotify?: (this: Host, message: string, type?: "info" | "warning" | "error") => void;
   switchTuiMode?: (this: Host, ...args: unknown[]) => boolean;
-}
+};
 
 export const inspectedPiVersion = "1.4.0";
 

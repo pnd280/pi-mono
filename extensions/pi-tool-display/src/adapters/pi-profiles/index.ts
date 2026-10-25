@@ -1,11 +1,11 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
+import { registeredBy } from "@pi-mono/utils/provenance";
 
 import type { ToolDisplayAdapter } from "../../contracts.ts";
 import {
   toolSearchDisplayAdapter,
   toolSearchParametersSchema
 } from "../builtin/tool-search/index.ts";
-import { registeredBy } from "../provenance.ts";
 
 const profilesToolSearchDisplayAdapter: ToolDisplayAdapter = {
   ...toolSearchDisplayAdapter,

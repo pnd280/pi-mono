@@ -17,6 +17,12 @@ export type CallReference = {
 
 export type Lifecycle = "preparing" | "queued" | "executing" | "complete" | "unavailable";
 
+export const pendingLifecycles: ReadonlySet<Lifecycle> = new Set([
+  "preparing",
+  "queued",
+  "executing"
+]);
+
 export type Outcome = "success" | "failure" | "cancelled" | "unavailable";
 
 export type OperationFact = {
@@ -442,7 +448,7 @@ export function callKey(runtime: string, reference: CallReference): string {
 }
 
 export function isLive(call: DisplayCall): boolean {
-  return call.origin === "live" && ["preparing", "queued", "executing"].includes(call.lifecycle);
+  return call.origin === "live" && pendingLifecycles.has(call.lifecycle);
 }
 
 export function isCancelled(call: DisplayCall): boolean {

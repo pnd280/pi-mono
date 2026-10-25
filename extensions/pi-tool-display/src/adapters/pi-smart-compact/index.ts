@@ -1,11 +1,11 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
 import { modelReferenceSchema } from "@pi-mono/utils/model-reference";
+import { registeredBy } from "@pi-mono/utils/provenance";
 import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
 import type { InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
 import { invocationParts } from "../../invocation.ts";
-import { registeredBy } from "../provenance.ts";
 
 const compactArgsSchema = z.strictObject({ instructions: z.string().nullish() });
 const compactParametersSchema = z.object({

@@ -1,4 +1,3 @@
-import { WriteLifetime } from "@pi-mono/libs/private-files";
 import { displayText, hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
 
 import { NativeClipboardError } from "./clipboard.ts";
@@ -14,6 +13,7 @@ import {
   type Occurrence,
   type Repository
 } from "./model.ts";
+import { WriteLifetime } from "./private-files/index.ts";
 
 export type RestorationRequest = { target: Occurrence; deleteAfterRestore: boolean };
 

@@ -100,15 +100,15 @@ export class DisplayCollector {
 
       if (event.type === "tool_execution_start") display.queued(event.toolCallId);
       if (event.type === "tool_execution_update")
-        display.result(event.toolCallId, hostToolResult(event.partialResult), "success", true);
+        display.result(event.toolCallId, hostToolResult(event.partialResult), {
+          outcome: "success",
+          partial: true
+        });
       if (event.type === "tool_execution_end")
-        display.result(
-          event.toolCallId,
-          hostToolResult(event.result),
-          executionOutcome(event.isError, this.session.agent.signal),
-          false,
-          validDuration(event.durationMs) ? event.durationMs : undefined
-        );
+        display.result(event.toolCallId, hostToolResult(event.result), {
+          outcome: executionOutcome(event.isError, this.session.agent.signal),
+          durationMs: validDuration(event.durationMs) ? event.durationMs : undefined
+        });
       if (event.type === "agent_end") display.coordinator.settle();
     } catch {
       this.owner.warning("collection unavailable for this event; keeping original execution.");

@@ -6,12 +6,11 @@ import {
   visibleWidth,
   type Color
 } from "@earendil-works/pi-tui";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import type { ParsedPatch, PatchLine } from "@pi-mono/utils/patch";
 import fastDiff from "fast-diff";
 import { z } from "zod";
-
-import { displayText } from "../../terminal-text/index.ts";
-import { wrapRows } from "../../text-budget/index.ts";
 
 /**
  * Inline comparison work for one panel, counted by `comparisonWork`. Panels render again on
@@ -32,24 +31,24 @@ const RESET = /(\x1b\[0?m|\x1b\[49m)/;
 /** Changed characters on one side of a line pair, as inclusive UTF-16 offsets. */
 type ChangedSpans = readonly { startIndex: number; endIndex: number }[];
 
-interface PatchRow {
+type PatchRow = {
   old?: PatchLine | undefined;
   new?: PatchLine | undefined;
-}
+};
 
 /** One styled cell row. A changed row's background also colours the adjacent panel padding. */
-interface Cell {
+type Cell = {
   text: string;
   background?: Color | undefined;
-}
+};
 
 /** One row inside the panel padding, with the backgrounds of its padding columns. */
-interface PanelRow {
+type PanelRow = {
   text: string;
   left?: Color | undefined;
   right?: Color | undefined;
   strip?: boolean;
-}
+};
 
 /** The theme tokens the panel mixes for its surface, strips, and changed rows. */
 export type DiffViewTheme = Pick<Theme, "fg" | "bg" | "bold" | "style"> & {
@@ -59,14 +58,14 @@ export type DiffViewTheme = Pick<Theme, "fg" | "bg" | "bold" | "style"> & {
   >;
 };
 
-interface Palette {
+type Palette = {
   surface: Color;
   strip: Color;
   added: Color;
   removed: Color;
-}
+};
 
-export interface DiffViewOptions {
+export type DiffViewOptions = {
   width: number;
   expanded: boolean;
   /** At least two changed display rows in compact mode; context and structure are additional. */
@@ -82,7 +81,7 @@ export interface DiffViewOptions {
   header?: readonly string[];
   /** Styled rows for the bottom strip, after the compact notice. */
   footer?: readonly string[];
-}
+};
 
 /** Align replacements within each change block, never across context or hunk boundaries. */
 function pairPatchLines(lines: readonly PatchLine[]): PatchRow[] {
@@ -339,10 +338,10 @@ function excerptLine(
   );
 }
 
-interface HunkPreview {
+type HunkPreview = {
   rows: ReadonlySet<PatchRow>;
   excerpts: ReadonlySet<PatchRow>;
-}
+};
 
 function isChangedRow(row: PatchRow): boolean {
   return row.old?.kind === "removed" || row.new?.kind === "added";

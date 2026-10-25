@@ -285,10 +285,11 @@ function jsonContainer<Value>(value: Value): object | undefined {
 }
 
 function hasFunctionToJson<Value extends object>(value: Value): boolean {
-  return typeof (value as { toJSON?: unknown }).toJSON === "function";
+  return "toJSON" in value && typeof value.toJSON === "function";
 }
 
-function isPlainObject(value: unknown): value is object {
+/** Objects whose prototype is `Object.prototype` or `null`; arrays and class instances fail. */
+export function isPlainObject(value: unknown): value is object {
   if (!isObject(value)) return false;
   const prototype: unknown = Object.getPrototypeOf(value);
 

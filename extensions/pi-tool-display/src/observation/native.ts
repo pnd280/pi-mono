@@ -11,15 +11,15 @@ import type { NativeSettings } from "@pi-mono/libs/native-tools";
 import { OutputBuffer, type OutputBufferOptions } from "@pi-mono/libs/output-buffer";
 import { joinOutputText, outputOmission, type OutputText } from "@pi-mono/utils/output-text";
 
-import type { DisplayFact, Outcome } from "../contracts.ts";
+import type { DisplayFact, OperationFact, Outcome } from "../contracts.ts";
 import { mutationChange, OBSERVATION_BYTES } from "../diff.ts";
 import { record } from "../values.ts";
 
-export interface ObservationSink {
+export type ObservationSink = {
   started(): void;
   fact(fact: DisplayFact): void;
   preview(output: OutputText): void;
-}
+};
 
 const ignoreFailure = (action: () => void): void => {
   try {
@@ -142,8 +142,10 @@ export function observeNativeDefinition(
       const observer = sink;
       const fact = (value: DisplayFact) => ignoreFailure(() => observer.fact(value));
 
-      const terminal = (outcome: Outcome, extra = {}) =>
-        fact({ kind: "operation", outcome, ...extra });
+      const terminal = (
+        outcome: Outcome,
+        extra: Pick<OperationFact, "exitCode" | "timedOut"> = {}
+      ) => fact({ kind: "operation", outcome, ...extra });
       let definition: Pick<ToolDefinition, "execute">;
       if (original.name === "bash" || original.name === "powershell") {
         const local =

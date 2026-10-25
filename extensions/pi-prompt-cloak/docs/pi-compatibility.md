@@ -8,8 +8,8 @@
 
 Run the [manual checks](testing.md#manual-checks), then confirm each item.
 
-- [ ] The built-in `docs` heading and topic-to-file list still match the two entries in the [replacement table](../src/prompt-rewrites.ts).
+- [ ] Each built-in line in the [replacement table](../src/prompt-rewrites.ts) still matches a line of Pi's system prompt in the same section.
 - [ ] `context_with_system` runs after the `before_agent_start` and `context` handlers, with a request-local copy of the complete transcript.
-- [ ] System messages expose documentation text through `sections.docs`, with `null` for section removal.
-- [ ] Rewriting the two lines preserves all other text, section tags, removals, tool declarations, and message order.
+- [ ] System messages expose prompt text through `sections`, keyed by section name, with `null` for section removal.
+- [ ] Rewriting the listed lines preserves all other text, section tags, removals, tool declarations, and message order.
 - [ ] A complete `systemPrompt` override from another extension still has the [documented precedence](../README.md#side-effects).

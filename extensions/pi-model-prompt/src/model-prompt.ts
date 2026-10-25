@@ -24,18 +24,18 @@ const sectionSchema = z.strictObject({
   rules: z.array(z.unknown()).max(MAX_RULES).optional()
 });
 
-interface ModelRule {
+type ModelRule = {
   pattern: RegExp;
   /** Absolute file paths, in append order. */
   append: readonly string[] | undefined;
-}
+};
 
-interface ModelPromptConfig {
+type ModelPromptConfig = {
   rules: ModelRule[];
   warnings: string[];
-}
+};
 
-export interface ModelPromptSnapshot {
+export type ModelPromptSnapshot = {
   readonly warnings: readonly string[];
   /**
    * Matches `modelKey` as `provider/id` and returns the selected files' non-empty contents,
@@ -43,7 +43,7 @@ export interface ModelPromptSnapshot {
    * read, or every selected file is empty.
    */
   appendTextFor(modelKey: string): string | undefined;
-}
+};
 
 /**
  * Loads global settings and every configured file once for this session. Lookups use this

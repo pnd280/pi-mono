@@ -12,6 +12,25 @@ The buffer retains full output through `maxBytes` raw bytes. Beyond that, it kee
 - Generated notices add to source limits.
 - `finish()` flushes incomplete UTF-8.
 
+## Usage
+
+```ts
+import { OutputBuffer } from "@pi-mono/libs/output-buffer";
+
+const stderr = new OutputBuffer({
+  maxBytes: 64 * 1024,
+  edgeLines: 20,
+  lineBytes: 1024,
+  formatOmission: ({ count, unit }) => ({ text: `[${count} stderr ${unit} omitted]` })
+});
+
+child.stderr.on("data", (chunk: Buffer) => stderr.append(chunk));
+child.stderr.on("end", () => {
+  stderr.finish();
+  show(stderr.snapshot()); // OutputText: text plus notice ranges
+});
+```
+
 ## Caller responsibilities
 
 - Sanitise each complete snapshot for terminal display.
@@ -21,4 +40,4 @@ The buffer retains full output through `maxBytes` raw bytes. Beyond that, it kee
 - End with `finish()`, then `snapshot()`.
 - Supply omission messages and positive safe-integer `maxBytes`, `edgeLines`, and `lineBytes`. Other limits throw `RangeError`.
 
-Related: tool display's [native observation](../../../extensions/pi-tool-display/src/observation/native.ts) supplies stream limits and omission messages.
+Related: tool display's [native observation](../../../extensions/pi-tool-display/src/observation/native.ts) supplies stream limits and omission messages, and [pi-subagents](../../../extensions/pi-subagents/src/child/connection.ts) bounds child stderr with the library.

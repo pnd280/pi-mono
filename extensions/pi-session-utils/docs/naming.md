@@ -2,11 +2,28 @@
 
 [pi-session-utils](../README.md) · [Configuration](../README.md#configuration)
 
-The README describes [what text is sent](../README.md#automatic-session-names) and how to configure the model.
+Naming needs the `auto-title` [configuration](../README.md#configuration); saving and child sessions don't.
+
+## Attempts
+
+- An unnamed session gets at most one automatic attempt per load, made silently when a user message with non-empty text arrives. Loading or reloading allows another attempt, at the next user message.
+- An automatic title is saved only when the agent finishes running without an abort.
+- `/sesh auto-name` generates a new title at any time, even while the agent is running.
+- Setting or clearing a name yourself stops automatic naming. [Cancellation and retries](#cancellation-and-retries) says when naming resumes.
+- Generation times out after 15 seconds and isn't retried. If it fails, the name is unchanged.
+
+## What is sent
+
+| Trigger           | Text from the current branch sent to the model                                  |
+| ----------------- | ------------------------------------------------------------------------------- |
+| Automatic         | The first 4,000 characters of the first non-empty user request.                 |
+| `/sesh auto-name` | The newest 4,000 characters of user and assistant text, in chronological order. |
+
+Images, tool output, and thinking are never sent. Titles are at most 80 characters.
 
 ## Cancellation and retries
 
-The README states the [one-attempt rule](../README.md#automatic-session-names). These events cancel a generation that is in progress:
+These events cancel a generation that is in progress:
 
 | Event                           | Effect on automatic naming                                                 |
 | ------------------------------- | -------------------------------------------------------------------------- |

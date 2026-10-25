@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { genericAdapter } from "./adapters/generic.ts";
 import {
   isCancelled,
+  pendingLifecycles,
   type BorrowedToolResult,
   type DisplayCall,
   type DisplayAction,
@@ -32,7 +33,7 @@ export type GroupKey = {
 };
 
 /** Card meaning, without transcript identities or run-summary work. */
-export interface CardInterpretation {
+export type CardInterpretation = {
   /** The selected display adapter, or generic for unsupported results and failed adapters. */
   readonly adapter: ToolDisplayAdapter;
   /** Argument streaming, queueing, or execution; not proof of execution. */
@@ -40,10 +41,10 @@ export interface CardInterpretation {
   /** Cancellation outranks failure; success and unavailable metadata override neither. */
   readonly outcome: Outcome;
   readonly mcp: McpFacts | undefined;
-}
+};
 
 /** Transcript meaning. All fields use the same effective adapter. */
-export interface CallInterpretation extends CardInterpretation {
+export type CallInterpretation = CardInterpretation & {
   readonly action: DisplayAction | undefined;
   readonly exploration: readonly ExplorationItem[];
   /** Normalized against the interpretation cwd; undefined excludes the call from groups. */
@@ -51,7 +52,7 @@ export interface CallInterpretation extends CardInterpretation {
   /** Empty when the call is omitted from run summaries. */
   readonly summaryItems: readonly SummaryItem[];
   readonly summaryCategories: readonly SummaryCategory[];
-}
+};
 
 export type DisplayFailure = {
   /** `adapter`: one of its callbacks threw. `renderer`: this package's card code threw. */
@@ -238,8 +239,6 @@ function groupKey(
   return { scope, title };
 }
 
-const PENDING = new Set(["preparing", "queued", "executing"]);
-
 function cardMeaning(
   adapter: ToolDisplayAdapter,
   args: unknown,
@@ -290,7 +289,7 @@ export function interpret(
 ): CallInterpretation {
   const owner = call.adapter;
   const { args, result, name } = call;
-  const pending = PENDING.has(call.lifecycle);
+  const pending = pendingLifecycles.has(call.lifecycle);
   const recorded = isCancelled(call) ? "cancelled" : call.outcome;
 
   return evaluator.interpret((candidate): CallInterpretation => {

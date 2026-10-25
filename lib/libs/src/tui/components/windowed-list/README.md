@@ -15,6 +15,25 @@ This internal component has no package entry. The [browser](../browser/README.md
 - The native list sees only the window, so it generates no full-collection counter.
 - The result has the rendered `lines` and the window's `start` index and item `count`.
 
+## Usage
+
+```ts
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+
+import { renderWindowedList } from "../windowed-list/index.ts";
+
+const { lines, start, count } = renderWindowedList({
+  items,
+  selectedIndex: selected,
+  maxRows: 8,
+  width,
+  theme: selectListTheme,
+  format: (visible) => ({
+    items: visible.map((item) => ({ value: item.id, label: displayText(item.name) }))
+  })
+});
+```
+
 ## Caller responsibilities
 
 - Manage selection, input handling, search, page size, empty-state text, and collection-wide counters.
@@ -23,6 +42,4 @@ This internal component has no package entry. The [browser](../browser/README.md
 - Format display-safe item text.
 - Choose width-preserving styles.
 
-## Validation
-
-See [package validation](../../../../README.md#validation) and prompt manager's [presentation scenarios](../../../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting).
+Related: the [shared TUI validation](../../README.md#validation) lists the terminal scenarios for list presentation.

@@ -1,6 +1,15 @@
 import { join } from "node:path";
 
 import {
+  errorMessage,
+  limits,
+  PromptError,
+  type Collection,
+  type Mutation,
+  type MutationResult,
+  type Repository
+} from "../model.ts";
+import {
   boundedRead,
   LockTimeoutError,
   PrivateFileError,
@@ -12,17 +21,7 @@ import {
   type DirectoryScope,
   type WriteHooks,
   type WriteScope
-} from "@pi-mono/libs/private-files";
-
-import {
-  errorMessage,
-  limits,
-  PromptError,
-  type Collection,
-  type Mutation,
-  type MutationResult,
-  type Repository
-} from "../model.ts";
+} from "../private-files/index.ts";
 import { reductionGuidance } from "./collection.ts";
 import { readCollectionAsync, updateCollectionAsync } from "./processing.ts";
 

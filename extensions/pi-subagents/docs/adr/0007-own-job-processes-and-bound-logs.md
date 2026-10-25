@@ -24,7 +24,7 @@ A job remains active until cleanup and log closure finish. Cleanup failure produ
 
 ### Bounded output
 
-The [job log writer](../../src/jobs/log-writer.ts) keeps one file of at most 16 MiB, including the omission marker. On overflow it rewrites the file with the newest 8 MiB of output and a cumulative omitted-byte count, then resumes appending within the cap. Keeping half the limit avoids rewriting the retained tail for every new chunk. There is no disk line limit.
+The [job log writer](../../src/jobs/log.ts) keeps one file of at most 16 MiB, including the omission marker. On overflow it rewrites the file with the newest 8 MiB of output and a cumulative omitted-byte count, then resumes appending within the cap. Keeping half the limit avoids rewriting the retained tail for every new chunk. There is no disk line limit.
 
 The writer creates the private file exclusively and uses the same handle for every write and rewrite. It never reopens the path during compaction. A write or compaction failure fails the job. A rewrite is not an atomic snapshot. An active reader can see part of it until the next refresh. The log reader retains its regular-file, symbolic-link, and file-identity checks.
 

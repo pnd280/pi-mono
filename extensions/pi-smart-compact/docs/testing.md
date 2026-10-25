@@ -41,8 +41,8 @@ E2e checks use the installed CLI or a real SDK session with offline providers an
 
 ## Not tested
 
-- Tool output wording, outcome status messages, summary-model metadata entries, footer status, instruction-file and docs loading, routing flags, and focus placement are below the severity bar.
-- Request timeout and retry policy on configured summary requests, several `compact` calls in one tool batch, and summaries supplied by `session_before_compact` hooks are below the severity bar.
+- Footer status and docs-file loading are below the severity bar. The native scenarios also check tool acknowledgements, outcome statuses, summary-model metadata, instruction-file focus, routing flags, and configured request timeout and retry options as part of the listed invariants.
+- Several `compact` calls in one tool batch and summaries supplied by `session_before_compact` hooks are below the severity bar.
 - Whether a real model follows the instructions is not tested because it needs a real provider. The [manual checks](pi-compatibility.md#manual-checks) cover summary quality.
 - Pi owns threshold detection and the full overflow retry scheduler.
 - Interactive mounting and terminal appearance are not tested automatically. The [manual checks](#manual-checks) cover them.

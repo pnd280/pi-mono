@@ -1,6 +1,7 @@
 import type { MessageRenderer, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { parseJobEnvelope } from "@pi-mono/utils/task-envelope";
+import { OPEN_EVENT } from "pi-subagents/constants";
 import { z } from "zod";
 
 import type { BorrowedToolResult, DisplayProgress, ToolDisplayAdapter } from "../../contracts.ts";
@@ -97,7 +98,7 @@ function openAction(result: BorrowedToolResult | undefined) {
 
   return details
     ? {
-        event: "pi-subagents:open",
+        event: OPEN_EVENT,
         data: { job_id: details.job_id, binding_id: details.binding_id }
       }
     : undefined;

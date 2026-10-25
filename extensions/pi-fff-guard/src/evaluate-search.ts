@@ -47,9 +47,9 @@ export async function evaluateSearch({
   signal
 }: SearchRequest): Promise<SearchDecision> {
   const cancelled = {
-    kind: "block" as const,
+    kind: "block",
     reason: "Ignored-path detection cancelled; no replacement search was started."
-  };
+  } satisfies SearchDecision;
   if (signal?.aborted) return cancelled;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2000);

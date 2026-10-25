@@ -391,7 +391,7 @@ export class Run {
   }
 
   /** Send input to the child; false when the child was closing and nothing was sent. */
-  async input(prompt: string, delivery: "steer" | "follow_up"): Promise<boolean> {
+  async input(prompt: string, delivery: ToolDetails["delivery"]): Promise<boolean> {
     return Boolean(await this.child.input(prompt, delivery === "steer" ? "steer" : "followUp"));
   }
 
@@ -511,7 +511,8 @@ export class Run {
     if (
       event.type !== "message_end" &&
       event.type !== "agent_settled" &&
-      event.type !== "thinking_level_changed"
+      event.type !== "thinking_level_changed" &&
+      event.type !== "compaction_end"
     )
       return;
     const next = applyEvent(record, event);

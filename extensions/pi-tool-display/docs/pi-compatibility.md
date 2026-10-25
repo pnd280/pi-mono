@@ -40,7 +40,7 @@ Adapter selection treats the `resolveToolRenderers` chain as the owner's rendere
 
 ### Assistant presentation
 
-[Host binding and thinking](../src/host/assistant.ts) use the [shared prose markers](../src/rendering/assistant.ts).
+[Host binding, thinking, and prose markers](../src/host/assistant.ts) rely on these contracts.
 
 - [ ] `updateContent` creates direct `Markdown` children only for prose.
 - [ ] Those prose children have symmetric `outputPad`.
@@ -126,7 +126,7 @@ Source: [session.ts](../src/transcript/session.ts) and [saved-calls.ts](../src/t
 - [ ] A saved `toolResult` keeps that `durationMs`.
 - [ ] `ToolRenderContext.durationMs` supplies the final result's duration and is undefined for partial results.
 
-The [lifecycle](../../../libs/src/lifecycle/README.md#shutdown-phase) shutdown revoke stops collection and appends without awaiting.
+The [lifecycle](../../../libs/src/lifecycle/phases.md#shutdown-phase) shutdown revoke stops collection and appends without awaiting.
 
 ### Extension notifications
 
@@ -171,16 +171,10 @@ The `validateToolArguments` items keep [callback arguments](adapters.md#callback
 - Row and assistant source checks stay strict even when the public version matches the pin.
 - On the verified version, a changed native host method can be accepted as an unknown wrapper; version evidence cannot distinguish them. On an unverified version, an unknown wrapper disables host integration until the contracts and version pin are reviewed.
 - A public Pi mode-change API could replace the mode-switch wrappers shared with editor widgets.
-- In Pi 1.3.0, the host fingerprints were unchanged.
-- In Pi 1.3.0, the source diff covered the hooked Pi methods, the built-in MCP, tool-search, and codemode extensions, and `pi-mcp` and `pi-codemode`.
-- In Pi 1.3.0, the API and CLI suites included the offline MCP and codemode hosts. The API suite also covered session reload and later wrappers.
-- In Pi 1.3.0, the tmux smoke run covered the regular-mode `filenames` and `native-mixed` read ranges.
-- In Pi 1.3.0, offline tests covered the ownership of a `registerToolRenderer` resolver, but no live resolver was checked.
-- In Pi 1.3.0, `registerToolRenderer` could replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. It doesn't replace it yet, for three reasons. Pi also calls resolvers for HTML export. Resolvers run in extension load order, so an earlier resolver can hide this one. A resolver receives no host to claim the row's call.
 - In Pi 1.4.0, the host fingerprints were unchanged in the API and CLI builds. The extension dialog stack changed no hooked method, and selectors still toggle tool output through `toggleToolOutputExpansion`.
 - In Pi 1.4.0, the source review covered the hooked Pi methods, the row and assistant components, and the built-in MCP and codemode extensions. It did not cover the `pi-mcp` and `pi-codemode` packages.
-- In Pi 1.4.0, the API and CLI suites included the offline MCP and codemode hosts. The API suite also covered session reload and later wrappers.
-- In Pi 1.4.0, `registerToolRenderer` and `resolveToolRenderers` were unchanged, so the 1.3.0 reasons not to replace the lookup hook still apply.
+- In Pi 1.4.0, the API suite covers nested codemode execution, session reload, and later wrappers. The CLI suite checks native construction and selective-read recognition.
+- In Pi 1.4.0, `registerToolRenderer` can replace only the lookup hook, not the row, expansion, thinking, reload, or event hooks. The extension keeps its lookup hook because Pi also calls resolvers for HTML export, resolvers run in extension load order, and a resolver receives no host to claim the row's call.
 - In Pi 1.4.0, `durationMs` measures the whole `execute()` call, not only the shell or file operation, so shell and mutation durations include tool setup.
 - In Pi 1.4.0, a codemode script that cannot get a worker fails with Pi's `Script failed` header and empty `details.calls`. A source review shows that the card hides the header and keeps the error.
 - Recheck the [image-row limitation](validation.md#platform-limitations) for finalised-message image updates against each new Pi version. Compare live and replay, with and without this extension.
@@ -201,7 +195,7 @@ In Pi 1.4.0, the extension API and its declarations were unchanged, so no public
 
 ## Coverage notes
 
-- Real codemode coverage checks its adapter card, summary count, nested mutations, parent-only replay, and the absence of child display metadata.
+- Real codemode coverage checks adapter selection, four successful nested executions, a nested edit, one persisted parent result, and the absence of child display metadata.
 - No automated test covers built-in MCP discovery through codemode, deferred exposure, normalised namespaces, collision-suffixed names, built-in renderer selection, or original server and tool identities. Recheck them with the [nested-execution contracts](#nested-execution).
 - For terminal coverage, run the [manual checks](validation.md) for buffered output, thinking toggles, fullscreen summaries, compact-mode reload, and replay in both modes.
 - External adapter fixtures don't establish compatibility with the live adapters.

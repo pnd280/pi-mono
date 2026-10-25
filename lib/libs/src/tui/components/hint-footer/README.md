@@ -2,11 +2,38 @@
 
 [Shared TUI](../../README.md#usage)
 
-## Behaviour
-
 A footer must show available hints and transient feedback in a fixed height. [`renderHintFooter`](index.ts) returns rows fitted to the visible terminal width, up to `maxRows`.
 
-Messages replace hints at the same height. If a message overflows, `overflowText` replaces the final row. A width or row limit of zero returns no rows. It sends no notifications and starts no timers.
+## Behaviour
+
+- Messages replace hints at the same height.
+- If a message overflows, `overflowText` replaces the final row.
+- A width or row limit of zero returns no rows.
+- The footer sends no notifications and starts no timers.
+
+## Usage
+
+```ts
+import { renderHintFooter } from "@pi-mono/libs/tui/components/hint-footer";
+
+const rows = renderHintFooter({
+  width,
+  maxRows: 2,
+  hints: ["↑↓ select", "Enter open", "Esc close"],
+  padding: "  ",
+  separator: " · ",
+  style: (text) => theme.fg("dim", text),
+  ...(feedback
+    ? {
+        message: {
+          text: feedback,
+          style: (text) => theme.fg("warning", text),
+          overflowText: "… resize for details"
+        }
+      }
+    : {})
+});
+```
 
 ## Caller responsibilities
 
@@ -15,6 +42,4 @@ Messages replace hints at the same height. If a message overflows, `overflowText
 - Retain full messages separately from the bounded rows.
 - Own feedback expiry and delivery.
 
-## Validation
-
-See [package validation](../../../../README.md#validation) and prompt manager's [presentation scenarios](../../../../../extensions/pi-prompt-manager/docs/validation.md#presentation-preview-or-responsive-mounting).
+Related: the [settings menu](../settings-menu/README.md) renders its hints with this footer.

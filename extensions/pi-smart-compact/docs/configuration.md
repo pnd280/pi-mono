@@ -2,7 +2,7 @@
 
 [pi-smart-compact](../README.md)
 
-For the settings example, the top-level fields, and where settings live, see [configuration](../README.md#configuration).
+For the settings example and the top-level fields, see [configuration](../README.md#configuration).
 
 ## Rules
 
@@ -39,6 +39,27 @@ The `docs` setting lists UTF-8 files that tell the model how to use `context_win
 - Relative paths resolve from the directory of the settings file that lists them. Absolute and `~/` paths also work.
 - A trusted project's list replaces the global list, and an empty array removes the docs.
 - Only the selected files are read, at startup or `/reload`, each up to 1 MiB.
+
+## Where settings live
+
+Put the `ext.pi-smart-compact` key in global `~/.pi/agent/settings.json` (or `$PI_CODING_AGENT_DIR/settings.json` when set), or in `<cwd>/.pi/settings.json` of a [trusted project](https://pi.dev/docs/latest/security#understand-project-trust). Parent directories aren't searched.
+
+- A trusted project's fields override the global fields, and fields that it leaves out are inherited.
+- The extension doesn't watch settings, instruction files, or docs files, so run `/reload` after changes.
+- To use native selection in a project that inherits global rules, set `rules` to `[]` in the project's settings.
+- To remove routing entirely, remove `rules` from both participating scopes.
+- The extension has no environment variables and never writes settings.
+
+## Errors
+
+`compact` becomes unavailable until you fix the problem and run `/reload` if any of these happen:
+
+- A settings file is unreadable, malformed, or over 1 MiB.
+- A value is invalid, including a `match` that isn't a valid regular expression.
+- `ext.pi-smart-compact` or a rule contains an unknown key.
+- A selected instruction or docs file is missing or unreadable.
+
+`context_window`, without docs, and Pi's native compaction keep working. For failures of the summary model itself, see [failed attempts](requests.md#failed-attempts).
 
 ## Edge cases
 

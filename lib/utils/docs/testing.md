@@ -6,9 +6,8 @@ This package tests pure validation and transformation. [Libs](../../libs/docs/te
 
 ## Must not regress
 
-- **Critical, integration:** POSIX-shell argument quoting keeps empty strings, whitespace, Unicode, apostrophes, and shell metacharacters as literal arguments in a real Bash process, when callers supply NUL-free text and choose a POSIX shell.
 - **Critical, unit:** Lexical path containment does not treat sibling prefixes as descendants.
-- **High, unit:** FFF classification requires official provenance and recognised names, not a matching tool name alone.
+- **High, unit:** Package provenance requires the named package as the npm source or entry point, and FFF classification also requires recognised names, not a matching tool name alone.
 - **High, unit:** Model references split at the first slash, so model IDs keep their slashes.
 - **High, unit:** Model references without a provider or model ID are rejected.
 - **High, unit:** Output omission classification uses recorded ranges for generated notices, not literal lookalikes in source text.

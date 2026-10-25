@@ -77,13 +77,13 @@ The [coordinator protocol](../src/coordination/README.md) depends on these Pi ho
 - [ ] Interactive mode sets up extension shortcuts and commands after `resources_discover`.
 - [ ] Pi defers prompts sent during `agent_settled` until the emission ends.
 
-The late shortcut and command setup lets [lifecycle claims](../src/lifecycle/README.md#shortcut-claims) and the working-message command registered before it work. The deferred prompts keep the [run marks](../src/lifecycle/README.md#run-marks) of one run apart from the next.
+The late shortcut and command setup lets [lifecycle claims](../src/lifecycle/phases.md#shortcut-claims) and the working-message command registered before it work. The deferred prompts keep the [run marks](../src/lifecycle/phases.md#run-marks) of one run apart from the next.
 
 ### Working message
 
 After an upgrade, these [working message](../src/working-message/README.md) results hold:
 
-- [ ] Among live participants and participants that can still become live, the one with the lowest `ownerRank` registers `/working-message`, with the tie-breaks and the left-out-factory case in the [README](../src/working-message/README.md#behaviour).
+- [ ] Among live participants and participants that can still become live, the one with the lowest `ownerRank` registers `/working-message`, with the tie-breaks and the left-out-factory case in the [command owner rules](../src/working-message/command-owner.md#command-owner).
 - [ ] Stale or disposed handles cannot change a replacement's text.
 - [ ] When no live component or override has text, Pi's default working message returns.
 - [ ] Trusted project ordering overrides global ordering.
@@ -96,19 +96,15 @@ After an upgrade, these [working message](../src/working-message/README.md) resu
 - [ ] Offline fixtures load the installed CLI.
 - [ ] Offline fixtures accept the launcher flags.
 - [ ] The [interactive host fixture](../src/validation/interactive-host/README.md) still finds the private containers, UI-context creation, renderer mounting, and `createChatViewport` it relies on.
-- [ ] Pi focuses `editor` at startup before the renderer starts, as the interactive host fixture does. Custom-UI tests depend on this focus.
+- [ ] Pi focuses `editor` at startup before the renderer starts, as `inputHostFixture` does. Custom-UI tests depend on this focus.
 
 ## Limitations
 
-These host results were observed in the named Pi versions:
+The installed Pi 1.4.0 has these host behaviours:
 
-- In Pi 1.3.0, native construction still matches the recorded fingerprints.
-- In Pi 1.3.0, native observation is independent of the transcript tool-loadout restoration on resume, which Pi 1.3.0 added.
-- In Pi 1.3.0, custom-UI fixtures hide only their own overlay handle, matching the host.
-- In Pi 1.3.0, responsive custom UI calls `done()` without waiting for its overlay to mount.
-- In Pi 1.4.0, native construction still matches the recorded fingerprints.
-- In Pi 1.4.0, transcript restoration also activates extension tools that the branch never added or removed. It reads only the names of `_baseToolDefinitions`, so native observation stays independent of it.
-- In Pi 1.4.0, an inline custom mount that closes before Pi shows it no longer focuses the editor. A responsive view at 18 rows mounts inline, moves to an overlay, and closes the inline mount in a microtask, so the overlay saves and restores the focus that existed before. The interactive host fixture did not focus the editor, so its overlay restored no focus. The fixture now focuses the editor at startup, as Pi does. Pi itself was not affected.
+- Native construction matches the recorded fingerprints.
+- Transcript restoration also activates extension tools that the branch never added or removed. It reads only the names of `_baseToolDefinitions`, so native observation stays independent of it.
+- An inline custom mount that closes before Pi shows it changes no focus. A responsive view at 18 rows mounts inline, moves to an overlay, and closes the inline mount in a microtask, so the overlay saves and restores the focus that existed before. The input-enabled `inputHostFixture` focuses the editor at startup, as Pi does.
 
 These private dependencies could be replaced by public Pi APIs. None exists as of Pi 1.4.0.
 
@@ -116,5 +112,3 @@ These private dependencies could be replaced by public Pi APIs. None exists as o
 - Replace private fullscreen routing when a public API offers input priority scoped to focus. Pi 1.4.0 parity for the `inputListeners` mutation: None. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.
 - Revisit public contribution APIs for working-message [overwrites by non-participants](../src/working-message/README.md#behaviour).
 - Adopt public TUI components that can replace a local implementation without losing controlled state or cancellation.
-
-New storage helpers must keep the [private-file guarantees](../src/private-files/README.md).

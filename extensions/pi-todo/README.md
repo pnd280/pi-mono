@@ -26,32 +26,15 @@ The extension draws no tool cards. [pi-tool-display](../pi-tool-display/docs/too
 
 ### The `/todos` browser
 
-`/todos` opens a snapshot of the list. Reopen it to see later changes. The browser uses Pi's `tui.select.*` bindings. The keys below are defaults.
-
-| Key                      | Action                                 |
-| ------------------------ | -------------------------------------- |
-| **Up**, **Down**         | Move the selection.                    |
-| **Enter**                | Show details.                          |
-| **Escape**               | Go back, or close.                     |
-| **PageUp**, **PageDown** | Move the selection, or scroll details. |
-
-**Ctrl+C** never closes the browser. The browser opens only if `tui.select.cancel` has a usable key other than **Ctrl+C**. Pi 1.4.0 can't use modified Escape or modified function-key bindings. If no usable key is bound, fix Pi's keybindings and run `/reload`.
-
-In fullscreen mode, `/todos` is never shown as an overlay. While the view has focus, browser keys, including remapped ones, take priority over transcript controls. If Pi can't give the browser this priority, a warning appears each time you open `/todos`, and the browser stays open. If controls don't respond, use regular mode.
-
-The footer keeps back or close first when space is limited. An empty list shows only the close hint.
+`/todos` opens a read-only snapshot of the list. Move with **Up** and **Down**, press **Enter** for details, and press **Escape** to go back or close. Reopen it to see later changes. In fullscreen mode, the browser is part of the screen, not an overlay. For remapped keys and fullscreen key priority, read [browser controls](docs/controls.md#the-todos-browser).
 
 ### The widget
 
-In fullscreen mode, `/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session, and clicking the widget also toggles it.
-
-In regular mode the widget is always expanded, and these commands report an error. Your collapse preference applies again when you switch back to fullscreen.
-
-While the widget is collapsed, the working message shows the active todo instead. Expanding the widget removes it. To change where it appears among other working-message items, run `/working-message`. Move the selected item with **Shift+Up** and **Shift+Down**, and save with **Ctrl+S**. Changes apply only when you save. **Escape** or **Ctrl+C** closes the menu and discards unsaved changes. For scopes and the other keys, see [working-message ordering](../../libs/src/working-message/ordering.md#settings-menu).
+In fullscreen mode, `/todos collapse`, `/todos expand`, and `/todos toggle` control the widget for the current session, and clicking the widget also toggles it. In regular mode, the widget is always expanded. While the widget is collapsed, the working message shows the active todo instead, and `/working-message` changes where it appears.
 
 ## Configuration
 
-Add an `ext.pi-todo` key to Pi's global settings file, or to `.pi/settings.json` in the current directory of a [trusted](https://pi.dev/docs/latest/security#understand-project-trust) project. The global file is `~/.pi/agent/settings.json`, or `$PI_CODING_AGENT_DIR/settings.json` when that's set:
+Add an `ext.pi-todo` key to Pi's global settings file, or to `.pi/settings.json` in the current directory of a [trusted](https://pi.dev/docs/latest/security#understand-project-trust) project:
 
 ```json
 {
@@ -61,18 +44,17 @@ Add an `ext.pi-todo` key to Pi's global settings file, or to `.pi/settings.json`
 }
 ```
 
-- `collapseWidgetByDefault` defaults to `false` and affects fullscreen mode only.
-- A trusted project's value overrides the global one.
-- Invalid settings are ignored.
-- A settings file is ignored if it can't be read, isn't a regular file, isn't valid UTF-8 JSON, is larger than 1 MiB, or changes size while Pi reads it.
-- Settings load on session start. Widget commands never write settings.
+`collapseWidgetByDefault` sets whether the widget starts collapsed in fullscreen mode.
 
-Working-message order is a separate setting, `workingMessage.order`, which `/working-message` saves. A trusted project's `order` replaces the global one. For the file format and recovery from invalid settings, see [working-message persistence](../../libs/src/working-message/ordering.md#persistence).
+| When you…                                                       | Read                                                            |
+| --------------------------------------------------------------- | --------------------------------------------------------------- |
+| Need the settings file locations or the rules for invalid files | [settings](docs/controls.md#settings)                           |
+| Want to reorder or save the working message                     | [working-message order](docs/controls.md#working-message-order) |
 
 ## Side effects
 
 - Todo state is stored only in the `todo` tool's result details, as full snapshots in Pi sessions. The `todo` tool and `/todos` write no other files, and make no network requests.
-- Saving in `/working-message` writes the order to the global or trusted project `settings.json` shown in the menu, keeping other settings.
+- Saving in `/working-message` writes the order to the global or trusted project `settings.json` shown in the menu, and keeps other settings.
 - The extension removes terminal control characters from todo text shown in the widget, the browser, and the working message.
 - The extension rebuilds the list from the latest valid `todo` result on the current branch. [Replay](docs/todo-tool.md#replay) lists when this happens and which results it skips.
 

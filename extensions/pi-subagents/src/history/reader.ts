@@ -5,6 +5,14 @@ import type { Tasks } from "../tasks/registry.ts";
 import { branchTo, readRunAncestry } from "./sessions.ts";
 import { Transcript } from "./transcript.ts";
 
+/** The child events after which a viewed live run reloads its entries. */
+const REFRESH_EVENTS: ReadonlySet<JsonAgentSessionEvent["type"]> = new Set([
+  "entry_appended",
+  "message_end",
+  "agent_settled",
+  "compaction_end"
+]);
+
 /** A live run's read-only connection: its agent events and its child file's entries. */
 export type RunConnection = {
   readonly cwd: string;
@@ -164,10 +172,7 @@ class TaskSource {
     // Calls that another tool made are not part of the child's own transcript.
     if (!this.active || ("parentToolCallId" in event && event.parentToolCallId)) return;
     this.transcript.event(event);
-    if (
-      ["entry_appended", "message_end", "agent_settled", "auto_compaction_end"].includes(event.type)
-    )
-      this.refresh();
+    if (REFRESH_EVENTS.has(event.type)) this.refresh();
   }
 
   refresh(): void {

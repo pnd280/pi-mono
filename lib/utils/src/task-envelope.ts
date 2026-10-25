@@ -5,19 +5,19 @@
 
 export type TaskState = "queued" | "running" | "completed" | "failed" | "cancelled";
 
-export interface TaskEnvelope {
+export type TaskEnvelope = {
   id?: string | undefined;
   state: TaskState;
   /** Escaped inside the summary element; omitted when empty. */
   summary?: string | undefined;
   /** Written unescaped, so it may contain any text, including closing tags. */
   body: string;
-}
+};
 
 export type JobOutcome = "completed" | "failed" | "cancelled";
 
 /** An active job has no outcome; `exit_code` is omitted when it is unknown. */
-export interface JobEnvelope {
+export type JobEnvelope = {
   id: string;
   state: "active" | "inactive";
   outcome?: JobOutcome | undefined;
@@ -26,7 +26,7 @@ export interface JobEnvelope {
   summary?: string | undefined;
   /** Written unescaped, so it may contain any text, including closing tags. */
   body: string;
-}
+};
 
 type Frame = { head: string; open: string; close: string };
 

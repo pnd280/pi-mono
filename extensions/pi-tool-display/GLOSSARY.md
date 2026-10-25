@@ -21,7 +21,7 @@ A call shown with the generic display adapter although its tool has a display ad
 _Avoid_: plain "fallback", which also names behaviour for missing host contracts
 
 **Native observation**:
-Facts that supplement Pi's published results, collected about a verified native tool call in a live TUI, RPC, print, or JSON session, such as shell previews, outcomes, and pre-write contents. See [what is recorded](README.md#what-is-recorded).
+Facts that supplement Pi's published results, collected about a verified native tool call in a live TUI, RPC, print, or JSON session, such as shell previews, outcomes, and pre-write contents. See [observation](docs/recording.md#observation).
 _Avoid_: capture, tracking
 
 **Saved call**:

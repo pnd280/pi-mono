@@ -10,14 +10,14 @@ export type Reservation = { release(): void };
 /** Debounce for a task's debounced updates; an immediate update is sent at once. */
 const UPDATE_DEBOUNCE_MS = 100;
 
-interface RelayHost {
+type RelayHost = {
   /** This supervisor's task ID; a root supervisor has none. */
   self: string | undefined;
   /** Send a message to this process's supervisor. */
   send(message: ChildMessage): void;
   /** Send a slot reply to a direct child. */
   reply(childId: string, message: SlotReply): Promise<void>;
-}
+};
 
 /**
  * Only adjacent processes exchange messages. The root alone grants whole-tree capacity. Task

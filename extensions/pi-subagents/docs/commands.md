@@ -30,7 +30,7 @@ The fields of a task item have different scopes:
 
 `jobs` pages contain `{ jobs, total, offset, next_offset }` and use the same rules. A job item has `job_id`, `description`, `command`, `state` (`active` or `inactive`), `outcome` (`completed`, `failed`, `cancelled`, or `null` while active), `exit_code`, `started_at`, `ended_at`, and `log_file`. `exit_code` is `null` after a timeout, a cancellation, or a start failure, and while the job is active.
 
-`show <job_id>` returns `{ job_id, state, outcome, exit_code, log_file, text }`. `text` is the end of the log file, at most 2,000 log lines plus an `[Earlier output omitted]` line when needed, and short enough for the reply to fit 50 KiB. It is `null` when the log file cannot be read.
+`show <job_id>` returns `{ job_id, state, outcome, exit_code, log_file, text }`. `text` is the end of the log file, at most 2,000 log lines plus an `[Earlier output omitted]` line when needed. It also retains the `[Earlier output omitted: N bytes]` marker when the [log file's size limit](jobs.md#log-files) removed output. The text is short enough for the reply to fit 50 KiB, and is `null` when the log file cannot be read.
 
 ## Transcript digests
 

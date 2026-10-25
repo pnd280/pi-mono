@@ -1,5 +1,3 @@
-export { Browser } from "./view.ts";
-
 export type {
   BrowserOptions,
   BrowserRemoval,

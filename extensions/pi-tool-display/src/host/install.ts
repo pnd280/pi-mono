@@ -1,4 +1,4 @@
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
+import { keyText, type AgentSession } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 
 import type { DisplayAction, DisplayMode } from "../contracts.ts";
@@ -119,8 +119,11 @@ export function installHostIntegration(
 
     if (!modeHooks && configuration.valid && !modeWarning) {
       modeWarning = true;
+      const expand = keyText("app.tools.expand");
       collection.warning(
-        `mode cycling unavailable; Ctrl+O toggles ${configuration.collapsedMode} ↔ verbose.`
+        expand
+          ? `mode cycling unavailable; ${expand} toggles ${configuration.collapsedMode} ↔ verbose.`
+          : "mode cycling unavailable; app.tools.expand has no key."
       );
     }
 

@@ -74,16 +74,7 @@ There are no options or environment variables. pi-agent-summary shows the live t
 
 Maintainers check TUI changes by hand.
 
-Setup: load this extension with `pi-todo` and `pi-tool-display`, in regular and fullscreen modes.
-
-| Do                                               | Expect                                                                                                     |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| Ask the agent to run `bash`, `edit`, and `write` | The timer counts up live, and a summary appears when it settles.                                           |
-| Watch the working message during a long response | `n/s` estimates the response while text streams. After the response, it shows the run rate.                |
-| Click a summary in fullscreen; press **Ctrl+O**  | Clicking toggles one summary; **Ctrl+O** toggles all of them. Expanded summaries show statistics per file. |
-| Narrow the terminal                              | The summary wraps with a four-column indent, behind a `│` guide when the expanded file tree follows.       |
-| Emit a long milestone during a run               | Its line shows above the summary, wraps with a two-column indent, and shows again after resume.            |
-| Emit one counter twice during a run              | The summary line shows its segment with count 2 after the command count, and shows again after resume.     |
-| Abort a run, then resume the session             | The timer and rate are gone, and saved summaries show again.                                               |
-
-For maintainers, see [testing](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md).
+| When you…                                  | Read                                         |
+| ------------------------------------------ | -------------------------------------------- |
+| Change tests or check TUI changes by hand  | [Test coverage](docs/testing.md)             |
+| Upgrade Pi or change how runs are observed | [Pi compatibility](docs/pi-compatibility.md) |

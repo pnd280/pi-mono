@@ -95,31 +95,22 @@ The extension has no environment variables or CLI flags, and never writes settin
 
 ## Side effects
 
-The extension observes live tool calls and replays recorded facts. Neither changes tool execution.
+The extension observes live tool calls and replays recorded facts. Neither changes tool execution, and the extension makes no network requests.
 
 Warnings appear as Pi notifications in TUI and RPC sessions. Print and JSON sessions write them to stderr. Warnings during a TUI quit go to stderr when Pi exits, because the terminal display has already stopped.
 
 ### What is recorded
 
-In TUI, RPC, print, and JSON sessions, the extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls. It collects shell previews, outcomes, and file contents from before each write. Durations come from Pi's own results. Pi measures the whole tool execution, including setup and any file observation or patch generation. Display failures never change a tool's outcome.
-
-Native observation excludes SDK tool overrides, custom tools, and manual `!` and `!!` commands. Verified extension adapters can still contribute call provenance and summaries.
-
-Session history stores only facts that Pi's own entries lack, such as an observed operation, cancellation, a failed shell's exit code, and bounded patches. The extension keeps them in `pi-tool-display.call` entries, outside the model's context, and writes no files of its own.
-
-Files that older versions wrote under `pi-tool-display/calls/` in Pi's agent directory stay on disk. The extension no longer reads them, so you can delete them.
+The extension observes verified Pi-native `bash`, `powershell`, `edit`, and `write` calls in TUI, RPC, print, and JSON sessions. Session history keeps only facts that Pi's own entries lack, such as cancellation, a failed shell's exit code, and bounded patches, in `pi-tool-display.call` entries outside the model's context. The extension writes no files of its own, and live shell previews stay in memory only.
 
 > Patches can keep deleted text. Removed and context lines from overwritten files may remain in session history.
 
-Live shell previews stay in memory only. For the exact facts saved, read [recorded data and replay](docs/recording.md).
+Reopening a session restores these facts without rerunning tools or reading source files again. Expanding a finished shell card reads a bounded preview of Pi's temporary output file. [Resource limits](docs/presentation.md#resource-limits) bound output, previews, and patches. Large, binary, or unavailable changes never block a native operation.
 
-### Replay and saved output
-
-Reopening a session restores matching facts without rerunning tools or observing source files again. Missing facts are never guessed from output text. Durations come from Pi's saved results, so they replay on any machine. A result that Pi saved without a duration shows none.
-
-Expanding a finished shell card reads a bounded preview from Pi's temporary output file. After `/reload` or reopening a session, an aborted or timed-out shell call shows no preview, because Pi saves no output path with its result. See [saved-output previews](docs/presentation.md#saved-output-previews) for path sources, loading, and retry. The extension keeps no durable output archive and makes no network requests.
-
-[Resource limits](docs/presentation.md#resource-limits) bound output, previews, and patches. Large, binary, or unavailable changes never block a native operation.
+| When you…                                                    | Read                                                                |
+| ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| want the exact facts saved, the exclusions, and replay rules | [Recorded data and replay](docs/recording.md)                       |
+| expand a shell card after `/reload` and see no preview       | [Saved-output previews](docs/presentation.md#saved-output-previews) |
 
 ## Compatibility
 
@@ -148,4 +139,4 @@ Maintainers use these checks:
 | ------------------------------------- | ----------------------------------------------------------- |
 | change tested behaviour               | [Coverage specification](docs/testing.md)                   |
 | check clicks, keys, or layout by hand | [Terminal checks](docs/validation.md)                       |
-| check the FFF or MCP adapter by hand  | [Adapter validation](docs/validation.md#adapter-validation) |
+| check an adapter by hand              | [Adapter validation](docs/validation.md#adapter-validation) |

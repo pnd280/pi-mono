@@ -9,7 +9,6 @@ import {
   type NativeSession,
   type Prepare
 } from "./compatibility.ts";
-import { combineInstructions } from "./instructions.ts";
 import { compactionResultType, describeOutcome, runRequestedCompaction } from "./outcome.ts";
 import {
   summarizeWithOverrides,
@@ -17,6 +16,13 @@ import {
   type CompactionModelOptions
 } from "./summarize.ts";
 import type { SummaryModelEntry } from "./summary-model-entry.ts";
+
+/** Keep per-call focus last without dropping it when no file focus is configured. */
+function combineInstructions(additional: string | undefined, requested: string | undefined) {
+  if (!additional) return requested;
+
+  return requested ? `${additional}\n\n${requested}` : additional;
+}
 
 type Registration = {
   active: boolean;
@@ -143,13 +149,12 @@ export function bindNativeCompaction(
   if (!hasCompactionMethods(prototype))
     throw new Error("pi-smart-compact: missing native compaction boundary.");
   let patch = prototype[patchKey];
-  assertCompatible(
-    prototype,
-    patch?.original ?? prototype._compactBeforeNextAssistantResponse,
-    patch?.originalSummary ?? prototype._runDefaultCompaction,
-    patch?.originalAuto ?? prototype._runAutoCompaction,
-    patch?.originalManual ?? prototype.compact
-  );
+  assertCompatible(prototype, {
+    prepare: patch?.original ?? prototype._compactBeforeNextAssistantResponse,
+    summarize: patch?.originalSummary ?? prototype._runDefaultCompaction,
+    automatic: patch?.originalAuto ?? prototype._runAutoCompaction,
+    manual: patch?.originalManual ?? prototype.compact
+  });
 
   if (
     patch &&

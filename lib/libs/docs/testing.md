@@ -6,17 +6,8 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 
 ## Must not regress
 
-- **Critical, integration:** Private reads return exact bytes within the caller limit and reject larger files.
-- **Critical, integration:** Private reads and atomic writes restrict effective POSIX ACL access.
-- **Critical, integration:** Atomic replacement leaves the previous destination unchanged on every pre-commit failure.
 - **Critical, integration:** Validation launches inherit no user credentials or settings.
 - **Critical, integration:** Validation launches enforce private storage and offline environment values even when caller additions disagree.
-- **Critical, integration:** Under caller-established trusted parents, private-file access rejects foreign ownership before repairing permissions or ACLs.
-- **Critical, integration:** Private-file access rejects final-path symlinks, hard-linked files, and nonregular files without changing their permissions or contents.
-- **Critical, integration:** Private-file lock acquisition does not reclaim an existing lock, regardless of its age or the owning process's liveness.
-- **Critical, integration:** Releasing a private-file lock never removes a lock whose token or inode changed.
-- **Critical, integration:** Private-file transactions acquire the data path's lock before reading the bytes supplied to the update callback.
-- **Critical, integration:** Without POSIX owner IDs, private storage refuses a directory outside the user profile before it creates it, and works inside the profile without owner or mode checks.
 - **Critical, integration:** Settings updates preserve JSON keys that the synchronous mutator leaves untouched, including `__proto__` and `constructor`.
 - **Critical, integration:** Settings updates follow an existing symlink without replacing the link itself, and exclude a concurrent settings update through another alias of the same file.
 - **Critical, integration:** On POSIX filesystems, settings updates preserve existing permission bits even when the writer's umask would mask them.
@@ -44,8 +35,6 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - **High, integration:** Mutation observations add no post-write reads.
 - **High, integration:** Bounded patch requests refuse oversized inputs and results.
 - **High, integration:** Bounded patch requests recover after worker failure without blocking later requests or retaining unbounded queued source.
-- **High, integration:** Disposing a private-write lifetime cancels unstarted transactions and waits for started commits and lock cleanup.
-- **High, integration:** A private-file transaction whose post-commit cleanup or lock release fails still reports `committed`, with the warnings and cleanup errors separate.
 - **High, unit:** `highlightCodeBounded` returns its input unchanged when language detection or input limits prevent highlighting, so callers must supply display-safe text.
 - **High, unit:** Native hook disposal leaves later replacements by other owners intact.
 - **High, integration:** Disposing a native-tool or file-mutation subscription stops that subscription's observation callbacks without disabling surviving subscriptions.
@@ -56,10 +45,10 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - Model-facing schema projection is not tested because consumers reject invalid domain input before side effects, and only live provider checks prove that providers accept a schema.
 - Output retention, working-message contributions and ordering, scripted provider streams, and the interactive host fixture are below the severity bar.
 - [Coordinator](../src/coordination/README.md) liveness, coordinator version-mismatch behaviour, and working-message command ownership are not tested because no invariant is approved for them yet.
-- TUI layout, settings-frame presentation, and diff-row appearance are below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation) for them.
+- TUI layout and settings-frame presentation are below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation) for them.
 - Extensions own their collection formats and tool-card policies.
 - The [release check](../../../docs/development.md#release-branch) owns worker loading in the installed `release` tree, where workers get no Pi host packages.
 
 ## Manual checks
 
-Check cross-platform ACL guarantees with the [isolated platform checks](../../extensions/pi-prompt-manager/docs/validation.md#platform-checks). Check visual themes and mouse selection with the [terminal checks](../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks).
+Check visual themes and mouse selection with the [terminal checks](../../extensions/pi-tool-display/docs/validation.md#host-interaction-checks).

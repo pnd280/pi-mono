@@ -121,7 +121,8 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - macOS and Windows are not tested because the tests run only on Linux. The forced-stop failure test also needs `perl` to put a process into another process group.
 - Coordination-protocol races during settlement and stdin EOF, and reads of large branched child files, are not tested automatically. [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) records the one-time probes and the open checks for these cases.
 - A child that blocks shutdown can survive supervisor SIGKILL, because no independent watchdog exists to stop it.
-- Card appearance, the activity that cards and panel rows name, and task-list pagination are below the severity bar.
+- The wording of the `subagent` guidance and of a child's [result instructions](children.md#result-instructions) is below the severity bar. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns where the instructions appear in the system prompt.
+- Card appearance, the activity that cards and panel rows name, task-list pagination, and the panel shortcut are below the severity bar.
 - Job card appearance, the widget's job count, panel job rows, and the job log viewer are below the severity bar.
 - A job process that leaves its process group is not tested because job cleanup does not stop it.
 - A cancelled session switch and a cancelled or failed branch summary are not tested because the fixtures cancel only tree navigation and parent-session forks.

@@ -34,10 +34,10 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 
 Run the [focused checks](../../../docs/development.md#focused-validation) for `pi-fff-guard`. Tests require Git and `mkfifo`.
 
-| When you change                   | Read                                           |
-| --------------------------------- | ---------------------------------------------- |
-| Interception or search scopes     | The [coverage specification](docs/testing.md). |
-| Pi or FFF versions, or retirement | [Pi compatibility](docs/pi-compatibility.md).  |
+| When you…                               | Read                                           |
+| --------------------------------------- | ---------------------------------------------- |
+| Change interception or search scopes    | The [coverage specification](docs/testing.md). |
+| Change Pi or FFF versions, or retire it | [Pi compatibility](docs/pi-compatibility.md).  |
 
 ## Retirement
 

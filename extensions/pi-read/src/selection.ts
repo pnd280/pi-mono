@@ -29,16 +29,16 @@ export const selectionSchema = selectionInputSchema
 
 export type Selection = z.output<typeof selectionSchema>;
 
-export interface SelectedLine {
+export type SelectedLine = {
   index: number;
   before: string;
   text: string;
-}
+};
 
-export interface SelectedSource {
+export type SelectedSource = {
   lines: SelectedLine[];
   partial: boolean;
-}
+};
 
 /** Coordinates address raw code points, before terminal sanitization or tab expansion. */
 export function selectSource(

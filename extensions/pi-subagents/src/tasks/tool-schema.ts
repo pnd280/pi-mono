@@ -2,9 +2,10 @@ import { toToolSchema } from "@pi-mono/libs/tool-schema";
 import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
+import { deliverySchema } from "../result.ts";
+
 export const toolInputSchema = z.strictObject({
-  delivery: z
-    .enum(["follow_up", "steer"])
+  delivery: deliverySchema
     .optional()
     .describe(
       "For input to an active task. follow_up (default) waits until the current work finishes; steer arrives before the next atomic action."
@@ -12,9 +13,7 @@ export const toolInputSchema = z.strictObject({
   background: z
     .boolean()
     .optional()
-    .describe(
-      "Run independent work in the background and receive its result automatically. Do not sleep or poll."
-    ),
+    .describe("Run independent work in the background. Its result arrives automatically."),
   description: z.string().min(1).describe("A short (3 to 5 words) label for the task."),
   prompt: z
     .string()

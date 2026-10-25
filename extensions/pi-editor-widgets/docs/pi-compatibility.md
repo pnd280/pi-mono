@@ -48,9 +48,9 @@ If a host property below is missing, the capability check fails with a diagnosti
 
 ### Renderer and mode switching
 
-The coordinator hooks the real renderer's `requestRender` and protected `doRender` methods, restores owned hooks when Pi replaces the renderer, and rebinds after mode switches. The `switchTuiMode` gate follows recorded predecessors, including tool-display's wrapper, so both extensions can compose across reload and restoration. Keyboard input can bypass `requestRender`, so the `doRender` hook clears cached measurements once per frame, and dynamic widget content stays current across all regions.
+Pi's stable UI reference is a forwarding proxy, so hook the real renderer and rebind on mode changes, rather than patching properties on the proxy. The coordinator hooks the real renderer's `requestRender` and protected `doRender` methods, restores owned hooks when Pi replaces the renderer, and rebinds after mode switches. The `switchTuiMode` gate follows recorded predecessors, including tool-display's wrapper, so both extensions can compose across reload and restoration. Keyboard input can bypass `requestRender`, so the `doRender` hook clears cached measurements once per frame, and dynamic widget content stays current across all regions.
 
-The compositor recognises image prefixes before text measurement and preserves complete output under the [image placement policy](../README.md#usage). Image geometry, identifiers, and terminal placement remain Pi-owned.
+The compositor recognises image prefixes before text measurement and preserves complete output under the [image placement policy](settings.md#how-rows-render). Image geometry, identifiers, and terminal placement remain Pi-owned.
 
 - [ ] The stable `ui` reference is still a forwarding proxy, and `renderer` still returns the real renderer behind it.
 - [ ] The real renderer still renders each frame through its protected `doRender` method, also when keyboard input bypasses `requestRender`.
@@ -114,7 +114,7 @@ Never render an unknown context window as zero. The label shows the selected mod
 - In Pi 1.4.0, the renderer already expands visible tabs to the three columns `visibleWidth()` uses. The extension must not rewrite tabs inside OSC or APC payloads.
 - Automated fixtures use real Pi renderers and the native fullscreen dock, without startup downloads, process signal handlers, or a physical terminal. They don't establish visual quality for every component or terminal emulator.
 
-In Pi 1.4.0, the extension API and the pi-tui declarations were unchanged, so no public API replaces a private hook yet:
+These private hooks have no complete public replacements in Pi 1.4.0:
 
 | Private hook                   | Parity                              | Public API that Pi would need                                |
 | ------------------------------ | ----------------------------------- | ------------------------------------------------------------ |

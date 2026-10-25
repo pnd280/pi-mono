@@ -15,7 +15,7 @@ This package tests format trust, skill-reference expansion, and completion routi
 
 ## Not tested
 
-- Expansion matching, token replacement, cursor eligibility, per-request suggestion membership, asynchronous suggestion timing, and **Tab** routing details are below the severity bar. Use the manual checks.
+- Matching and replacement cases outside the invariants above, cursor eligibility, per-request suggestion membership, asynchronous suggestion timing, and **Tab** routing details are below the severity bar. Use the manual checks.
 
 ## Manual checks
 

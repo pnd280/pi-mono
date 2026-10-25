@@ -3,7 +3,6 @@ import {
   highlightCodeBounded,
   highlightCodeSelection
 } from "@pi-mono/libs/tui/components/code-highlight";
-import { renderDiffPanel } from "@pi-mono/libs/tui/components/diff-view";
 import { renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
@@ -22,10 +21,12 @@ import type {
   DisplayNotice,
   McpFacts,
   NestedCall,
-  ResultTextPart
+  ResultTextPart,
+  ToolFamily
 } from "../contracts.ts";
 import { changeReasonText, parseRetainedPatch } from "../diff.ts";
 import { record, stringField } from "../values.ts";
+import { renderDiffPanel } from "./diff-view/index.ts";
 import {
   bodyWidth,
   COMPACT_OUTPUT_CHARACTERS,
@@ -37,6 +38,9 @@ import {
   tree
 } from "./format.ts";
 import type { Projection } from "./types.ts";
+
+/** Families whose result text renders as details below the change. */
+const detailFamilies: ReadonlySet<ToolFamily> = new Set(["edit", "write", "shell"]);
 
 // Mutable only while preparing a body; placements read measured items.
 type TreeItem = { rows: string[]; image?: true };
@@ -835,7 +839,7 @@ function resultBody(current: BorrowedToolResult, p: Projection): ResultBody {
 
   const items: TreeItem[] = [...nested];
   const content = contentItems(current, p);
-  if (["edit", "write", "shell"].includes(p.adapter.family))
+  if (detailFamilies.has(p.adapter.family))
     appendDetails(
       items,
       content.flatMap((item) => item.rows)

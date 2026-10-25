@@ -33,12 +33,12 @@ import type {
   TranscriptMessage
 } from "../history/transcript.ts";
 
-export interface ViewerOptions {
+export type ViewerOptions = {
   ui: TUI;
   cwd: string;
   /** Renderers for tools that Pi does not build in, by name. */
   tools: ReadonlyMap<string, ToolRenderers>;
-}
+};
 
 type Expandable =
   | ToolExecutionComponent

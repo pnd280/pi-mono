@@ -1,6 +1,6 @@
-import { LatestTask } from "../../../latest-task/index.ts";
 import { TimedConfirmation } from "../../../timed-confirmation/index.ts";
 import type { BrowserAction } from "./controls.ts";
+import { LatestTask } from "./latest-task.ts";
 import type {
   BrowserOptions,
   BrowserSection,
@@ -19,6 +19,8 @@ type ViewState = { query: string; selected: string | undefined };
 
 /** After a query edit, the previous results stay visible this long before the search notice. */
 const searchNoticeDelayMs = 200;
+
+const navigationActions: ReadonlySet<BrowserAction> = new Set(["up", "down", "pageUp", "pageDown"]);
 
 export class BrowserController<Item> {
   section: BrowserSection<Item>;
@@ -353,7 +355,7 @@ export class BrowserController<Item> {
 
     if (this.status !== "ready" || this.searching) return;
 
-    if (["up", "down", "pageUp", "pageDown"].includes(action)) {
+    if (navigationActions.has(action)) {
       this.navigate(action, pageSize);
 
       return;

@@ -22,12 +22,12 @@ export type RowTarget = { kind: "card"; y: number } | { kind: "collapse" };
 
 export type RowLayout = { rows: string[]; targets: (RowTarget | undefined)[] };
 
-interface RowView {
+type RowView = {
   group(call: DisplayCall): DisplayGroup | undefined;
   run(call: DisplayCall): DisplayRun | undefined;
   summaryRole(call: DisplayCall): SummaryRole | undefined;
   collapsible(call: DisplayCall): boolean;
-}
+};
 
 /** Apply chrome to a margin, self-rendered content, and optional image rows. */
 export function layoutRow(

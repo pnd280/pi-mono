@@ -1,6 +1,6 @@
 # Keep the child process without a transport seam
 
-[pi-subagents](../../README.md#validation)
+[pi-subagents](../../README.md)
 
 `ChildRun` spawns Pi, owns the RPC connection, sets its own timers, and stops the process tree directly. An architecture review proposed a port with two adapters: the Pi process for production and a scripted in-memory child for tests, so that lifecycle races could run in process.
 

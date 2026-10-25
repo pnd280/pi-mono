@@ -4,56 +4,44 @@
 
 Extensions that keep settings in JSON files such as Pi's `settings.json` must respect project trust and must save a change without losing other fields or other writers' changes. [`@pi-mono/libs/settings-file`](index.ts) reads and updates these files.
 
-[Working-message ordering](../working-message/README.md#persistence), [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration), and the `ext.<package>` settings of other extensions use the library.
-
 ## Behaviour
 
-Reads return current content without writes; section saves make one locked change.
+- The global scope is `<agentDir>/settings.json` and the project scope is `<cwd>/.pi/settings.json`. Settings in parent directories never apply.
+- Reads return current content without writes.
+- Scoped reads and section loads read the project file only when `projectTrusted` is true.
+- A section save makes one locked change: it replaces one field and keeps unrelated fields, other writers' changes, and existing mode bits.
+- If another writer holds the lock, the save throws without retrying.
+- Malformed JSON and invalid UTF-8 are refused, never repaired. Saves also refuse dangling links; `readSettingsRecord` and section loads treat them as missing files.
+- Reads and serialised writes are limited to 1 MiB.
 
-### Scopes
-
-[`settingsPaths`](scopes.ts) returns the global path, `<agentDir>/settings.json`, and the project path, `<cwd>/.pi/settings.json`. Settings in parent directories never apply. `agentDir` defaults to Pi's agent directory.
-
-[`readScopedSettings`](scopes.ts) calls your reader for the global path, then for the project path only when `projectTrusted` is true. It returns `[global, project]`; `project` is absent for an untrusted project. Your reader decides how to parse, validate, and handle failures, and you decide how the project result overrides the global one.
-
-### Reads
-
-| Function                               | Returns                                                          | Missing file | Empty file | Unreadable | Nonregular, invalid UTF-8, over 1 MiB, or read length differs from initial size | Malformed JSON |
-| -------------------------------------- | ---------------------------------------------------------------- | ------------ | ---------- | ---------- | ------------------------------------------------------------------------------- | -------------- |
-| [`readSettingsFile`](read.ts)          | Bounded UTF-8 text from a regular file, not parsed or defaulted. | Throws       | `""`       | Throws     | `undefined`                                                                     | Not parsed     |
-| [`readSettingsRecord`](transaction.ts) | A parsed JSON object. Pi's leading BOM is accepted.              | `{}`         | `{}`       | Throws     | Throws                                                                          | Throws         |
+| When you…                                                          | Read                                                                      |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Read a whole file or both scopes, or check what a read returns     | [Scopes](reads-and-saves.md#scopes) and [reads](reads-and-saves.md#reads) |
+| Check section load warnings, save refusals, or error messages      | [Section loads and saves](reads-and-saves.md#section-loads-and-saves)     |
+| Check lock order, symlink handling, or file creation during a save | [Locked updates](reads-and-saves.md#locked-updates)                       |
 
 ### Sections
 
-[`settingsSection`](section.ts) loads and saves one field of a top-level settings section, such as `layout` in `ext.pi-editor-widgets`, in both scopes. Besides the scope options, it takes the section `key`, the `field`, the field's zod `schema`, an `invalidValue` error message, and a `loadWarning(path)` message.
+[`settingsSection`](section.ts) loads and saves one field of a top-level settings section, such as `layout` in `ext.pi-editor-widgets`, in both scopes. `load()` returns `{ global, project, warnings }`: a missing or invalid value loads as `undefined`, and an invalid one adds a `loadWarning`. `save(scope, value)` refuses a project save in an untrusted project and a value that fails the schema, then runs one locked update that replaces only its field. The [section rules](reads-and-saves.md#section-loads-and-saves) list every case.
 
-- `load()` returns `{ global, project, warnings }` and never writes. It reads the project file only when `projectTrusted` is true.
-- A missing section or field loads as `undefined`.
-- An unreadable file, a section that is not an object, or a field that fails the schema also loads as `undefined`, and adds one `loadWarning` for its terminal-safe path.
-- `save(scope, value)` refuses a project save in an untrusted project, then throws `invalidValue` for a value that fails the schema. Neither case touches the file.
-- A save replaces only its field, including an invalid old value, and keeps the rest of the section. It refuses a section that is not an object instead of repairing it.
-- A failed update throws `Check access, JSON, size and locks.`, followed by a line with `File: ` and the terminal-safe file path.
-- `paths` and `projectTrusted` expose the destinations and the trust decision, for example to label menu scopes.
+## Usage
 
-### Updates
+```ts
+import { settingsSection } from "@pi-mono/libs/settings-file";
 
-A section save runs one locked update:
+const layout = settingsSection({
+  cwd: ctx.cwd,
+  projectTrusted: ctx.isProjectTrusted(),
+  key: "ext.my-extension",
+  field: "layout",
+  schema: layoutSchema,
+  invalidValue: "Cannot save this layout: too many or invalid entries.",
+  loadWarning: (path) => `my-extension: cannot load layout settings from ${path}.`
+});
 
-1. Takes a lock.
-2. Reads the file again while holding the lock.
-3. Replaces the field.
-4. Replaces the file atomically.
-
-- If another writer holds the lock, the save throws without retrying.
-- Existing settings symlinks are followed, not replaced. A save through a symlink locks both the link path, as Pi does, and the link's final target. This excludes another save through this library, also one through a different alias of the same file. Pi's own settings writer locks only the path it uses, so it is excluded when it uses the same link path or the target path, but not when it uses a different symlink.
-- If the symlink changes while the save takes its locks, the save throws.
-- Unrelated fields and existing mode bits are kept.
-- Malformed JSON, invalid UTF-8, and dangling links are refused, never repaired.
-- Parent directories can be created. New files use mode `0600`, subject to the platform.
-
-### Limits
-
-Reads and serialised writes are limited to 1 MiB.
+const { global, project, warnings } = layout.load(); // never writes
+layout.save("project", nextLayout); // throws when untrusted, invalid, or locked
+```
 
 ## Caller responsibilities
 
@@ -61,6 +49,8 @@ Reads and serialised writes are limited to 1 MiB.
 - Use a top-level key that your feature owns, such as `ext.<package>`.
 - For sections, give the schema the field's limits, and word `invalidValue` and `loadWarning` for your feature.
 - For other reads, validate the parsed settings, and decide whether an invalid file is ignored or disables the feature. Show sanitised diagnostics specific to your feature, without exposing settings contents.
+
+Related: [working-message ordering](../working-message/README.md#persistence), [editor-widget layouts](../../../extensions/pi-editor-widgets/README.md#configuration), and the `ext.<package>` settings of other extensions use the library.
 
 ## Validation
 

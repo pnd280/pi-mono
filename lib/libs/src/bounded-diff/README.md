@@ -2,15 +2,15 @@
 
 [Library index](../../README.md#usage)
 
-Compare two file versions without blocking the main thread, within caller-chosen byte and time budgets.
+Compare two file versions without blocking the main thread, within caller-chosen byte and time budgets. [`createBoundedPatch`](index.ts) (`@pi-mono/libs/bounded-diff`) returns a unified patch or a status that says why there is none.
 
 ## Behaviour
 
-[`createBoundedPatch`](index.ts) (`@pi-mono/libs/bounded-diff`) asynchronously generates unified patches, normalising CRLF to LF and returning `binary` for NULs.
+`createBoundedPatch` asynchronously generates unified patches, normalising CRLF to LF and returning `binary` for NULs. The library does not read files; callers supply complete source text.
 
 One shared off-main-thread worker serialises requests. Request timeouts exclude queue wait. Worker startup has a separate 5-second deadline, so a request that starts a worker can wait that long before its own timeout begins. An idle worker does not keep the process alive.
 
-Active and waiting inputs share a bounded accounting budget, not a process-memory bound. Results use these statuses:
+Active and waiting inputs share a bounded accounting budget, not a process-memory bound. See the [processor](processor.ts) and [worker](worker.ts) for resource limits. Results use these statuses:
 
 | Status             | Meaning                                                               |
 | ------------------ | --------------------------------------------------------------------- |
@@ -22,7 +22,25 @@ Active and waiting inputs share a bounded accounting budget, not a process-memor
 | `queue-full`       | Admitting the request would exceed the shared accounting budget.      |
 | `worker-failed`    | Worker startup, execution, or messaging failed.                       |
 
-See the [processor](processor.ts) and [worker](worker.ts) for resource limits.
+## Usage
+
+```ts
+import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
+
+const result = await createBoundedPatch({
+  path: "src/index.ts",
+  before,
+  after,
+  maxSourceBytes: 1024 * 1024,
+  maxPatchBytes: 64 * 1024,
+  maxEditLength: 10_000,
+  contextLines: 3,
+  timeoutMs: 2000
+});
+
+if (result.status === "ready") show(result.patch);
+else warn(`No diff: ${result.status}`);
+```
 
 ## Caller responsibilities
 
@@ -38,10 +56,7 @@ Supply one options object:
 | `contextLines`    | Context lines kept around each change.          |
 | `timeoutMs`       | Deadline for the request, excluding queue wait. |
 
-See [`patchLimitsSchema`](index.ts) for accepted limits. Invalid limits throw `RangeError`.
+- Choose budget values. See [`patchLimitsSchema`](index.ts) for accepted limits. Invalid limits throw `RangeError`.
+- Classify the change and translate result statuses into diagnostics in the consumer.
 
-`PatchLimits` also applies to [file mutation observation](../file-mutations/README.md). Consumers own budget values and diagnostics.
-
-The library does not read files; callers supply complete source text.
-
-Classify the change and translate result statuses into diagnostics in the consumer. Patch parsing belongs to [`@pi-mono/utils/patch`](../../../utils/src/patch.ts), and rendering belongs to the [diff view](../tui/components/diff-view/README.md).
+Related: `PatchLimits` also applies to [file mutation observation](../file-mutations/README.md); patch parsing belongs to [`@pi-mono/utils/patch`](../../../utils/src/patch.ts), and rendering belongs to the [tool-display diff view](../../../extensions/pi-tool-display/src/rendering/diff-view/README.md).

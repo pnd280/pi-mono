@@ -1,4 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { OverlayOptions } from "@earendil-works/pi-tui";
 import { openResponsiveCustomUI } from "@pi-mono/libs/tui/responsive-custom-ui";
 
 import type { RunReader } from "../history/reader.ts";
@@ -15,7 +16,7 @@ const transcriptOverlay = {
   anchor: "center",
   width: "100%",
   maxHeight: "100%"
-} as const;
+} satisfies OverlayOptions;
 
 /** Opens one task panel at a time, until its tasks or jobs stop. */
 export class Panels {

@@ -1,0 +1,348 @@
+<!doctype html>
+<!--
+  README banner for pi-subagents. The PNGs next to this file are screenshots of it.
+  The supervisor session on the right runs the README's example prompt. The two task viewers on
+  the left show the end of each child's transcript. Each subagent card in the supervisor shows the
+  child's last reply row, and a wire joins the two rows.
+  Re-render both from the repository root:
+
+  for theme in dark light; do
+    google-chrome --headless=new --hide-scrollbars --force-device-scale-factor=2 \
+      --window-size=1280,400 --default-background-color=00000000 \
+      --screenshot="packages/extensions/pi-subagents/docs/assets/banner-$theme.png" \
+      "file://$PWD/packages/extensions/pi-subagents/docs/assets/banner.html?theme=$theme"
+  done
+
+  Fonts, colours, and the logo are those of docs/assets/hero.html; the fonts load from docs/assets/fonts/.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>pi-subagents</title>
+    <script>
+      const requested = new URLSearchParams(location.search).get("theme");
+      const prefersLight = matchMedia("(prefers-color-scheme: light)").matches;
+      document.documentElement.dataset.theme =
+        requested === "light" || requested === "dark" ? requested : prefersLight ? "light" : "dark";
+    </script>
+    <style>
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("../../../../../docs/assets/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        font-weight: 700;
+        src: url("../../../../../docs/assets/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Departure Mono";
+        src: url("../../../../../docs/assets/fonts/DepartureMono-Regular.woff2") format("woff2");
+      }
+
+      /* Colours follow pi.dev's dark (:root) and light ([data-theme="light"]) tokens. */
+      :root {
+        --bg: #161d27;
+        --grid: #d5e1f212;
+        --ink: #ebe7e4;
+        --sub: #6a9fcc;
+        --panel: #212730;
+        --panel-line: #495059;
+        --panel-shadow: #00000059;
+        --text: #d5d8db;
+        --dim: #9fa4ab;
+        --accent: #6a9fcc;
+        --add: #5db87a;
+        --del: #e8704f;
+        --string: #e1b06e;
+        /* reply rows use the tint of hero.html .change */
+        --cross: color-mix(in srgb, transparent, var(--accent) 16%);
+      }
+      :root[data-theme="light"] {
+        --bg: #ebe7e4;
+        --grid: #252f3d14;
+        --ink: #252f3d;
+        --sub: #4b607c;
+        --panel: #f4f2f0;
+        --panel-line: #8b847d59;
+        --panel-shadow: #5c575224;
+        --text: #252f3d;
+        --dim: #6b645e;
+        --accent: #4b607c;
+        --add: #2e7d4f;
+        --del: #b8432e;
+        --string: #7a4f10;
+        /* the light accent is low in chroma: it needs a stronger tint to read as blue */
+        --cross: color-mix(in srgb, transparent, var(--accent) 24%);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        background: transparent;
+      }
+      .banner {
+        position: relative;
+        width: 1280px;
+        height: 400px;
+        overflow: hidden;
+        border-radius: 12px;
+        color: var(--ink);
+        font-family: "JetBrains Mono", monospace;
+        font-variant-ligatures: none;
+        background-color: var(--bg);
+        background-image:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-position: -1px -1px;
+        background-size: 20px 20px;
+      }
+
+      .intro {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 60px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        width: 300px;
+      }
+      /* Departure Mono is drawn on an 11 px grid; multiples of 11 px keep its pixels sharp. */
+      .intro h1 {
+        margin: 28px 0 22px;
+        font:
+          400 44px/48px "Departure Mono",
+          monospace;
+      }
+      .intro p {
+        color: var(--sub);
+        font:
+          22px/30px "Departure Mono",
+          monospace;
+      }
+
+      .panel {
+        position: absolute;
+        background: var(--panel);
+        border: 1px solid var(--panel-line);
+        box-shadow: 0 14px 34px var(--panel-shadow);
+      }
+      .panel pre {
+        color: var(--text);
+        font: inherit;
+        white-space: pre;
+      }
+
+      /* The supervisor: the hero's session panel. The script sets its height and top padding. */
+      .session {
+        top: 40px;
+        left: 760px;
+        width: 472px;
+      }
+      .session pre {
+        padding: 18px 22px;
+        font-size: 15px;
+        line-height: 22px;
+      }
+
+      /* A child: the task viewer, a pi.dev header strip over the end of its transcript. */
+      .viewer {
+        left: 380px;
+        width: 340px;
+      }
+      .viewer .head {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 40px;
+        padding: 0 14px 0 17px;
+        border-bottom: 1px solid var(--panel-line);
+        background: color-mix(in srgb, var(--panel), var(--dim) 7%);
+      }
+      .viewer .head::before {
+        content: "";
+        position: absolute;
+        top: -1px;
+        bottom: -1px;
+        left: -1px;
+        width: 3px;
+        background: var(--accent);
+      }
+      .viewer .name {
+        color: var(--text);
+        font:
+          22px/22px "Departure Mono",
+          monospace;
+      }
+      .viewer .id {
+        color: var(--dim);
+        font-size: 13px;
+      }
+      .viewer pre {
+        padding: 8px 14px;
+        font-size: 13px;
+        line-height: 18px;
+      }
+      /* Pi's overflow border shows the number of rows above the visible rows. */
+      .more {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--dim);
+      }
+      .more::before,
+      .more::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--panel-line);
+      }
+
+      /* Reply rows run the full panel width so the wire meets them at the border. */
+      .reply {
+        display: block;
+        background: var(--cross);
+        font-weight: 700;
+      }
+      .session .reply {
+        margin: 0 -22px;
+        padding: 0 22px;
+      }
+      .viewer .reply {
+        margin: 0 -14px;
+        padding: 0 14px;
+      }
+      .wire {
+        position: absolute;
+        z-index: 5;
+        background: var(--accent);
+      }
+
+      b {
+        font-weight: 700;
+      }
+      .dim {
+        color: var(--dim);
+      }
+      .accent {
+        color: var(--accent);
+      }
+      .add {
+        color: var(--add);
+      }
+      .del {
+        color: var(--del);
+      }
+      .string {
+        color: var(--string);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner" id="banner">
+      <div class="intro">
+        <svg
+          width="50"
+          height="50"
+          viewBox="165.29 165.29 469.43 469.43"
+          role="img"
+          aria-label="Pi logo"
+        >
+          <path fill="#F09082" d="M165.29 165.29H517.36V400H400V282.65H165.29Z" />
+          <path fill="#4D9ABF" d="M165.29 282.65H282.65V400H400V517.36H282.65V634.72H165.29Z" />
+          <path fill="#F1BE58" d="M517.36 400H634.72V634.72H517.36Z" />
+        </svg>
+        <h1>subagents</h1>
+        <p>Each task runs in<br />its own Pi process</p>
+      </div>
+
+      <div class="panel viewer" id="parser" style="top: 40px">
+        <div class="head">
+          <span class="name">Review parser</span><span class="id">task 8f3a2c1e</span>
+        </div>
+        <pre><span class="more">↑ 214 more</span><span class="dim">•</span> <b class="accent">Subagent</b> Find callers<span class="dim"> · </span><span class="add">✓ 38.2s</span>
+<span class="dim">  └ 3 callers, all in src/json.ts.</span>
+<span class="dim">•</span> Ran vp test parser <span class="del">✗ 1 failed</span>
+<span class="reply" data-to="parser">parseList throws on a trailing comma.</span></pre>
+      </div>
+
+      <div class="panel viewer" id="docs" style="top: 216px">
+        <div class="head">
+          <span class="name">Review docs</span><span class="id">task 2b91d04f</span>
+        </div>
+        <pre><span class="more">↑ 138 more</span><span class="dim">•</span> Read README.md <span class="dim">· 3 list examples</span>
+<span class="dim">•</span> Ran parse <span class="string">"[1, 2,]"</span> <span class="del">✗ exit 1</span>
+<span class="del">  unexpected "," at 1:6</span>
+<span class="reply" data-to="docs">README shows [1, 2,], which fails.</span></pre>
+      </div>
+
+      <div class="panel session" id="session">
+        <pre><span class="accent">›</span> Ask two subagents to review the parser and
+  the docs, then summarise their findings.
+<span class="dim">•</span> <b class="accent">Subagent</b> Review parser<span class="dim"> · </span><span class="add">✓ completed 1m 12s</span>
+<span class="dim">  │ openai/gpt-6.1-sol:xhigh · ↑96k ↓5.2k $0.81</span>
+<span class="reply" data-from="parser"><span class="dim">  └</span> parseList throws on a trailing comma.</span><span class="dim">•</span> <b class="accent">Subagent</b> Review docs<span class="dim"> · </span><span class="add">✓ completed 48.5s</span>
+<span class="dim">  │ openai/gpt-6-luna:max · ↑41k ↓2.8k $0.09</span>
+<span class="reply" data-from="docs"><span class="dim">  └</span> README shows [1, 2,], which fails.</span>Both reviews found one bug. The parser rejects
+the trailing comma that the README shows.
+<span class="dim">• anthropic/claude-opus-5-5:medium · 1m 31s</span>
+<span class="dim">    delegated 2 tasks</span></pre>
+      </div>
+    </div>
+    <script>
+      const root = document.getElementById("banner");
+      const banner = root.getBoundingClientRect();
+      const box = (node) => node.getBoundingClientRect();
+      const middle = (node) => box(node).top + box(node).height / 2;
+
+      // The supervisor is as tall as both viewers. Its first card row is level with the first
+      // child's reply row, so the first wire is straight.
+      const session = document.getElementById("session");
+      const pre = session.querySelector("pre");
+      const first = document.querySelector(".reply[data-to]");
+      const shift =
+        middle(first) - middle(session.querySelector(`[data-from="${first.dataset.to}"]`));
+      pre.style.paddingTop = parseFloat(getComputedStyle(pre).paddingTop) + shift + "px";
+      session.style.height = box(document.getElementById("docs")).bottom - box(session).top + "px";
+
+      // A wire joins each child's reply row at the viewer's right edge to the matching card row at
+      // the supervisor's left edge. When the rows are not level, the wire has a vertical segment
+      // in the middle of the gap.
+      const gap = (box(first.closest(".viewer")).right + box(session).left) / 2 - banner.left;
+      for (const from of document.querySelectorAll(".reply[data-to]")) {
+        const to = document.querySelector(`.reply[data-from="${from.dataset.to}"]`);
+        const a = from.getBoundingClientRect();
+        const b = to.getBoundingClientRect();
+        const y0 = Math.round(a.top + a.height / 2 - banner.top);
+        const y1 = Math.round(b.top + b.height / 2 - banner.top);
+        const x0 = a.right - banner.left + 1;
+        const x1 = b.left - banner.left - 1;
+        const segments =
+          y0 === y1
+            ? [[x0, y0, x1 - x0, 1]]
+            : [
+                [x0, y0, gap - x0 + 1, 1],
+                [gap, Math.min(y0, y1), 1, Math.abs(y1 - y0) + 1],
+                [gap, y1, x1 - gap, 1]
+              ];
+        for (const [x, y, w, h] of segments) {
+          const wire = document.createElement("div");
+          wire.className = "wire";
+          Object.assign(wire.style, {
+            left: x + "px",
+            top: y + "px",
+            width: w + "px",
+            height: h + "px"
+          });
+          root.appendChild(wire);
+        }
+      }
+    </script>
+  </body>
+</html>

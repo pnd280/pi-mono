@@ -4,14 +4,14 @@ import { AgentSession, type ToolDefinition } from "@earendil-works/pi-coding-age
 
 // Private Pi contracts, gated by both API and installed-CLI fingerprints.
 // docs/pi-compatibility.md records the last verified Pi version.
-export interface SessionInternals {
+export type SessionInternals = {
   _cwd: string;
   _baseToolsOverride?: unknown;
   _baseToolDefinitions: Map<string, ToolDefinition>;
   _customTools: ToolDefinition[];
   _buildRuntime: (this: AgentSession, options: unknown) => void;
   _refreshToolRegistry: (this: AgentSession, options?: unknown) => void;
-}
+};
 
 export function unchangedDefinition(definition: ToolDefinition, fields: ToolDefinition): boolean {
   return (
@@ -43,7 +43,7 @@ export function inspectedConstruction(prototype: SessionInternals): boolean {
 
       return (
         typeof method === "function" &&
-        createHash("sha256").update(method.toString()).digest("hex") === hash
+        createHash("sha256").update(Function.prototype.toString.call(method)).digest("hex") === hash
       );
     })
   );

@@ -2,9 +2,9 @@
 
 [Shared TUI](../README.md#usage)
 
-## Behaviour
-
 Mounting a browser needs Pi presentation, remount survival, and post-closure effects in one call. [`openBrowser`](index.ts) mounts the [collection browser](../components/browser/README.md) through [responsive custom UI](../responsive-custom-ui/README.md), using shared browser measurements to choose inline or overlay presentation.
+
+## Behaviour
 
 - Focused fullscreen inline views route resolved browser actions through [priority input](../responsive-custom-ui/README.md#fullscreen-input-ownership) before transcript controls.
 - Overlays use ordinary Pi input delivery.
@@ -12,6 +12,16 @@ Mounting a browser needs Pi presentation, remount survival, and post-closure eff
 - Error-free, unaborted closure runs `afterClose` once, even without selection, after Pi restores the opening inline-editor snapshot.
 - When fullscreen input routing is unavailable, the browser stays open and `openBrowser` calls `onInputRoutingUnavailable`.
 - Browser action errors go to `onError`. Construction, mounting, and `afterClose` failures reject the `openBrowser` promise.
+
+## Usage
+
+The [collection browser usage](../components/browser/README.md#usage) shows a complete `openBrowser` call. Record the selection in an action, and act on it in `afterClose`:
+
+```ts
+import { openBrowser } from "@pi-mono/libs/tui/open-browser";
+
+await openBrowser({ ui: ctx.ui, signal, browser, onError, onInputRoutingUnavailable, afterClose });
+```
 
 ## Caller responsibilities
 
@@ -22,6 +32,4 @@ Mounting a browser needs Pi presentation, remount survival, and post-closure eff
 - Own session-expiry checks and operation safety.
 - Handle rejections from `openBrowser`.
 
-## Validation
-
-Use the [package checks](../../../README.md#validation). [Host tests](index.test.ts) cover paging, remounts, and cancellation. Tests of focus routing are in [responsive custom UI](../responsive-custom-ui/README.md#validation).
+Related: the [shared TUI validation](../README.md#validation) lists the host tests for paging, remounts, and cancellation, and the focus routing tests.
