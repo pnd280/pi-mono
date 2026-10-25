@@ -4,7 +4,8 @@ import {
   parseArgs,
   SessionManager,
   type Args,
-  type ExtensionAPI
+  type ExtensionAPI,
+  type SessionEntry
 } from "@earendil-works/pi-coding-agent";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
 import { z } from "zod";
@@ -16,6 +17,12 @@ const referenceSchema = z
   .min(1)
   .refine((value) => value.trim().length > 0);
 const startupClaim = Symbol.for("pi-session-utils.parent-session-startup");
+/** Entry types that a fresh session can hold; any other entry is history. */
+const FRESH_ENTRIES: ReadonlySet<SessionEntry["type"]> = new Set([
+  "model_change",
+  "thinking_level_change",
+  "session_info"
+]);
 
 function applyStartupParent(manager: SessionManager, args: Args): void {
   if (
@@ -35,11 +42,7 @@ function applyStartupParent(manager: SessionManager, args: Args): void {
     throw new Error("--parent-session requires a session file or exact session ID");
   const file = manager.getSessionFile();
   const header = manager.getHeader();
-  const hasHistory = manager
-    .getEntries()
-    .some(
-      (entry) => !["model_change", "thinking_level_change", "session_info"].includes(entry.type)
-    );
+  const hasHistory = manager.getEntries().some((entry) => !FRESH_ENTRIES.has(entry.type));
 
   if (!header || header.parentSession || hasHistory || (file && existsSync(file))) {
     throw new Error("--parent-session only applies to a fresh session");

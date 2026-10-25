@@ -2052,20 +2052,18 @@ it("executes nested codemode calls once without persisting child facts", async (
       const tui = interactiveHost(session);
       let pending = Promise.resolve();
       const events: AgentSessionEvent[] = [];
+      const rendered = new Set<AgentSessionEvent["type"]>([
+        "message_start",
+        "message_update",
+        "message_end",
+        "tool_execution_start",
+        "tool_execution_update",
+        "tool_execution_end",
+        "agent_end"
+      ]);
       const unsubscribe = session.subscribe((event) => {
         events.push(event);
-        if (
-          [
-            "message_start",
-            "message_update",
-            "message_end",
-            "tool_execution_start",
-            "tool_execution_update",
-            "tool_execution_end",
-            "agent_end"
-          ].includes(event.type)
-        )
-          pending = pending.then(() => tui.handleEvent(event));
+        if (rendered.has(event.type)) pending = pending.then(() => tui.handleEvent(event));
       });
 
       try {
