@@ -14,6 +14,14 @@ Each [task](../GLOSSARY.md#tasks-and-processes) run starts a [child](../GLOSSARY
 
 Because a child loads its own extensions, a model that an extension registers is available to it only under the conditions in [model and thinking](tasks.md#model-and-thinking).
 
+## Result instructions
+
+The supervisor receives only the child's final reply. Each child's system prompt therefore tells the child this, and asks for a final reply that gives the outcome first, then evidence as file paths with line numbers or as commands and their results, and then what the child did not verify or finish. The [child prompt](../src/child/prompt.ts) holds the exact text.
+
+- The instructions follow the text from Pi and `--append-system-prompt`, and the [pi-model-prompt](../../pi-model-prompt/README.md) and [pi-profiles](../../pi-profiles/README.md) prompts.
+- The top-level supervisor's system prompt does not get them.
+- An extension in the child that replaces the whole system prompt also removes them.
+
 ## Dialogs
 
 Child dialogs appear in the supervisor with a `[subagent: <description>]` prefix. RPC clients answer them using Pi's [extension UI protocol](https://pi.dev/docs/latest/rpc-extension-ui).

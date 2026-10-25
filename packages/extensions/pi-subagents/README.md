@@ -25,7 +25,7 @@ Ask two subagents to review the parser and the documentation, then summarise the
 
 ## Usage
 
-Your current Pi session is the supervisor. Its model calls `subagent` with a short `description` and a detailed `prompt`. Foreground calls wait for completion; `background: true` returns a task ID and delivers the result automatically. Each child starts with a fresh conversation in the same working directory. Supply the context it needs, and keep parallel edits in different files.
+Your current Pi session is the supervisor. Its model calls `subagent` with a short `description` and a detailed `prompt`. Foreground calls wait for completion; `background: true` returns a task ID and delivers the result automatically. Each child starts with a fresh conversation in the same working directory. Supply the context it needs, and keep parallel edits in different files. The child's system prompt tells it that only its final reply returns; see [result instructions](docs/children.md#result-instructions).
 
 - Set `task_id` to continue a task: an inactive task resumes, and an active task receives input. See [send input or resume](docs/tasks.md#send-input-or-resume).
 - Omit `model` and `thinking` to use the supervisor's current selection, or set `model` to `provider/id`. See [model and thinking](docs/tasks.md#model-and-thinking).

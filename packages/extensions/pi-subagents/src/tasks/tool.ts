@@ -22,34 +22,35 @@ const PROGRESS_INTERVAL_MS = 1_000;
 
 const ABORT_REASON = "Cancelled by supervisor";
 
-// Adapted from OpenCode at 907b3bc: the guidance from task.txt, as Pi children have no agent
-// definitions, and the background notices from task.ts, with the dash escaped for the workspace's
-// text convention.
-
-/** Configured `docs` follow the built-in guidance. */
+/**
+ * Configured `docs` follow the built-in guidance. A task is worth its lossy handoff only when it
+ * needs little of the supervisor's context, so the guidance selects work by context, not by size.
+ */
 function toolGuidance(docs: string): string {
   return [
-    "Launch a new agent to handle complex, multistep tasks autonomously.",
-    "Do not delegate small lookups, such as a known file, symbol, or a narrow search.",
-    "Launch independent tasks concurrently with multiple tool calls.",
-    "Children share your working directory. Parallel tasks must not edit the same files.",
-    "Each new task has a fresh conversation. Supply a detailed prompt, the expected final answer, whether to write code or research, and relevant verification commands.",
-    "Use task_id to continue a task with its previous context.",
+    "Launch an agent in a separate Pi process. You receive only its final message, so its intermediate steps stay out of your context.",
+    "Delegate work that needs little of this conversation and can return a compact result, such as an independent investigation, a review, or a change to separate files. Do the work yourself when it depends on this conversation, when you need its details rather than a summary, or when it is a small lookup, such as a known file, symbol, or a narrow search.",
+    "Split work by the context that each part needs, not by the type of work. Give coupled steps on the same files or data to one task.",
+    "Launch independent tasks concurrently with multiple tool calls. Children share your working directory, so parallel tasks must not edit the same files.",
+    "Each new task has a fresh conversation. Supply a detailed prompt, the expected final answer, whether to write code or research, explicit criteria for a review, and relevant verification commands.",
+    "A result is the child's report, not verified fact. Check the facts that your next step depends on.",
+    "Use task_id to continue a task with its previous context: ask it a follow-up question instead of starting again, or send an active task a finding that affects its work.",
     ...(docs ? [docs] : [])
   ].join("\n\n");
 }
 
+// Adapted from OpenCode's task.ts at 907b3bc, in plain case.
 const BACKGROUND_STARTED = [
-  "The task is working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work \u2014 avoid working with the same files or topics it is using.",
-  "Work on non-overlapping tasks, or briefly tell the user what you launched and end your response."
+  "The task is working in the background. Its result arrives automatically when it finishes.",
+  "Do not sleep, poll, or ask the task for status. Do not repeat its work or work on the files or topics that it uses.",
+  "Work on something else, or briefly tell the user what you launched and end your response."
 ].join("\n");
 
 const BACKGROUND_UPDATED = [
   "Additional context sent to the running background task.",
-  "The task is still working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work \u2014 avoid working with the same files or topics it is using.",
-  "Work on non-overlapping tasks, or briefly tell the user what you sent and end your response."
+  "The task is still working in the background. Its result arrives automatically when it finishes.",
+  "Do not sleep, poll, or ask the task for status. Do not repeat its work or work on the files or topics that it uses.",
+  "Work on something else, or briefly tell the user what you sent and end your response."
 ].join("\n");
 
 function toolResult(result: Submission) {

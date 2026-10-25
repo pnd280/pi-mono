@@ -123,6 +123,8 @@ The before-change hooks invalidate old bindings before teardown. When Pi emits n
 
 These `--tools` contracts set the registration rule in [boundaries](../AGENTS.md#boundaries): a later registration runs only when the session's docs, delivery text, or exposure changed. Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so an unchanged registration must be skipped. Fire-and-forget child UI is dropped.
 
+A child adds its [result instructions](children.md#result-instructions) as a prompt part at rank `300`. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns the `before_agent_start` append checks.
+
 ### Background jobs
 
 [Jobs](../GLOSSARY.md#tasks-and-processes) use Pi's public bash tool definition with owned process operations, without overriding `bash`.

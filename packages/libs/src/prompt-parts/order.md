@@ -20,3 +20,4 @@ Each participant states its reasons in its own documentation.
 | --------------- | ----- |
 | pi-model-prompt | `100` |
 | pi-profiles     | `200` |
+| pi-subagents    | `300` |

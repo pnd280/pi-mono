@@ -11,6 +11,7 @@ import { navigationLeaf, SessionBinding, type BindingSession } from "./binding.t
 import { getDepth, getTaskId } from "./child/depth.ts";
 import { forwardDialog } from "./child/dialogs.ts";
 import { getPiInvocation, type PiInvocation } from "./child/invocation.ts";
+import { joinChildPrompt } from "./child/prompt.ts";
 import type * as CommandsModule from "./commands.ts";
 import { remindTasks } from "./compaction.ts";
 import { loadConfig } from "./config.ts";
@@ -62,6 +63,7 @@ export default function subagents(
   const taskId = getTaskId();
   let lateUsageWarning = installLateUsagePatch();
   const lifecycle = joinLifecycle(pi, { id: "pi-subagents" });
+  if (depth > 0 && taskId) joinChildPrompt(pi);
   const waiting = registerWorkingMessage(pi, {
     id: "pi-subagents.waiting",
     label: "Background wait",
