@@ -26,7 +26,7 @@ import {
 import { childMessageSchema, decode, encode, type ChildMessage } from "../coordination/protocol.ts";
 import { firstLine } from "../result.ts";
 import { ChildConnection, type ProcessExit, type RpcRecord } from "./connection.ts";
-import { childArgs, type ChildSelection, type PiInvocation } from "./invocation.ts";
+import type { PiInvocation } from "./invocation.ts";
 import {
   forceStop,
   isAlive,
@@ -79,6 +79,15 @@ export type ChildResult = {
   exit: ProcessExit;
   /** A stop of the child's processes failed, so they can still run; the text names it. */
   stopError?: string;
+};
+
+type ChildSelection = {
+  model: string;
+  thinking: string;
+  trusted: boolean;
+  /** The supervisor's own extension entry; Pi loads a path that settings also name only once. */
+  extension?: string;
+  sessionFile?: string;
 };
 
 export type ChildOptions = ChildSelection & {
@@ -150,21 +159,29 @@ export class ChildRun {
   private listeners = new Set<(message: ChildMessage) => void>();
 
   constructor(private readonly options: ChildOptions) {
-    const child = spawn(
-      options.invocation.command,
-      [...options.invocation.args, ...childArgs(options)],
-      {
-        cwd: options.cwd,
-        env: {
-          ...(options.env ?? process.env),
-          [DEPTH_ENV]: String(options.depth),
-          [TASK_ID_ENV]: options.taskId
-        },
-        ...processOptions(),
-        stdio: "pipe",
-        shell: false
-      }
-    );
+    const args = [
+      ...options.invocation.args,
+      "--mode",
+      "rpc",
+      "--model",
+      options.model,
+      "--thinking",
+      options.thinking,
+      options.trusted ? "--approve" : "--no-approve"
+    ];
+    if (options.extension !== undefined) args.push("--extension", options.extension);
+    if (options.sessionFile !== undefined) args.push("--session", options.sessionFile);
+    const child = spawn(options.invocation.command, args, {
+      cwd: options.cwd,
+      env: {
+        ...(options.env ?? process.env),
+        [DEPTH_ENV]: String(options.depth),
+        [TASK_ID_ENV]: options.taskId
+      },
+      ...processOptions(),
+      stdio: "pipe",
+      shell: false
+    });
     this.connection = new ChildConnection(child);
     this.connection.subscribe((record) => this.observe(record));
     this.connection.onDrain(() => this.scheduleCollection());

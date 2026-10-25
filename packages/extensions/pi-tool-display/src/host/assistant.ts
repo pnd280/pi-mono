@@ -1,9 +1,17 @@
 import type { AssistantMessageEvent } from "@earendil-works/pi-ai";
 import type { AssistantMessageComponent } from "@earendil-works/pi-coding-agent";
-import { Container, MouseRegion, Spacer, type Component } from "@earendil-works/pi-tui";
+import {
+  Container,
+  Markdown,
+  MouseRegion,
+  sliceByColumn,
+  Spacer,
+  truncateToWidth,
+  type Component
+} from "@earendil-works/pi-tui";
 import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
+import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
-import { markAssistantProse } from "../rendering/assistant.ts";
 import { record } from "../values.ts";
 import { inspectedSource } from "./compatibility.ts";
 
@@ -114,7 +122,37 @@ function markProse(component: AssistantMessageComponent): void {
   )
     return;
 
-  markAssistantProse(container, padding);
+  container.children = container.children.map((child): Component => {
+    // Thinking Markdown is nested in a MouseRegion; diagnostics are Text.
+    if (!(child instanceof Markdown)) return child;
+
+    let cached: { width: number; source: string[]; rows: string[] } | undefined;
+
+    return {
+      invalidate() {
+        cached = undefined;
+        child.invalidate();
+      },
+      render(width) {
+        const contentWidth = Math.max(1, width - 2);
+        const source = child.render(contentWidth + padding * 2);
+        if (cached?.width === width && cached.source === source) return cached.rows;
+
+        const rows = source.map((row, index) => {
+          const prefix = index === 0 ? `${TUI_GLYPHS.bullet} ` : "  ";
+
+          return truncateToWidth(
+            `${prefix}${sliceByColumn(row, padding, contentWidth)}`,
+            width,
+            ""
+          );
+        });
+        cached = { width, source, rows };
+
+        return rows;
+      }
+    };
+  });
 }
 
 /** Preserve Pi's messages, Markdown, and toggle/click callbacks. Decorate prose

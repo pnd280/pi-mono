@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
-import type { PrivateFileUpdate } from "@pi-mono/libs/private-files";
 import { z } from "zod";
 
 import {
@@ -19,6 +18,7 @@ import {
   type Snapshot,
   type StoredEntry
 } from "../model.ts";
+import type { PrivateFileUpdate } from "../private-files/index.ts";
 
 function encode(document: Document): string {
   return JSON.stringify(document, null, 2) + "\n";

@@ -1,4 +1,5 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
+import { registeredBy } from "@pi-mono/utils/provenance";
 import {
   formatTodosSummary,
   presentCompactTaskText,
@@ -15,7 +16,6 @@ import type {
   Outcome,
   ToolDisplayAdapter
 } from "../../contracts.ts";
-import { registeredBy } from "../provenance.ts";
 
 type TaskAction = (typeof TASK_ACTIONS)[number];
 

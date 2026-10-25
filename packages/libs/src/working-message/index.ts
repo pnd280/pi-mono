@@ -7,6 +7,7 @@ import type {
 import { z } from "zod";
 
 import { Emissions, rendezvous, report, type Host, type Notify } from "../coordination/index.ts";
+import { settingsSection, type SettingsSection } from "../settings-file/index.ts";
 import {
   WorkingMessageCoordinator,
   completeOrder,
@@ -14,7 +15,6 @@ import {
   type WorkingMessageHandle
 } from "./coordinator.ts";
 import type { OrderSettingsScope } from "./order-view.ts";
-import { workingMessageSettings, type WorkingMessageSettings } from "./settings.ts";
 
 export type { WorkingMessageComponent, WorkingMessageHandle } from "./coordinator.ts";
 
@@ -58,6 +58,10 @@ type Shared = {
 const protocol = { name: "working-message", version: 1 };
 
 const ownerRankSchema = z.number();
+const orderSchema = z
+  .array(z.string().min(1).max(200))
+  .max(1000)
+  .transform((ids) => [...new Set(ids)]);
 
 const probeChannel = "pi-mono:coordinator:probe";
 
@@ -103,7 +107,7 @@ function installCoordinator(host: Host): Shared {
   const starts = new Emissions();
   const reported = new Set<string>();
   const lifetime = new AbortController();
-  let settings: WorkingMessageSettings | undefined;
+  let settings: SettingsSection<string[]> | undefined;
   let menuOpen = false;
   let commandRegistered = false;
 
@@ -244,7 +248,16 @@ function installCoordinator(host: Host): Shared {
       host.warnIfDisabled(pi.events, notify);
 
       if (starts.first(ctx)) {
-        settings = workingMessageSettings({ cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted() });
+        settings = settingsSection({
+          cwd: ctx.cwd,
+          projectTrusted: ctx.isProjectTrusted(),
+          key: "workingMessage",
+          field: "order",
+          schema: orderSchema,
+          invalidValue: "Cannot save this component order: too many or invalid component ids.",
+          loadWarning: (path) =>
+            `Cannot load working-message order from ${path}. Check access, syntax, and the 1 MiB regular-file limit.`
+        });
         const preferences = settings.load();
         coordinator.start(preferences.project ?? preferences.global ?? []);
         if (ctx.mode === "tui")

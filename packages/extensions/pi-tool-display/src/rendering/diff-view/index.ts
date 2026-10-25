@@ -6,12 +6,11 @@ import {
   visibleWidth,
   type Color
 } from "@earendil-works/pi-tui";
+import { displayText } from "@pi-mono/libs/tui/terminal-text";
+import { wrapRows } from "@pi-mono/libs/tui/text-budget";
 import type { ParsedPatch, PatchLine } from "@pi-mono/utils/patch";
 import fastDiff from "fast-diff";
 import { z } from "zod";
-
-import { displayText } from "../../terminal-text/index.ts";
-import { wrapRows } from "../../text-budget/index.ts";
 
 /**
  * Inline comparison work for one panel, counted by `comparisonWork`. Panels render again on

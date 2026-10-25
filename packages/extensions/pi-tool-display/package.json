@@ -22,6 +22,7 @@
   "dependencies": {
     "@pi-mono/libs": "workspace:*",
     "@pi-mono/utils": "workspace:*",
+    "fast-diff": "catalog:",
     "pi-nested-instructions": "workspace:*",
     "pi-read": "workspace:*",
     "pi-subagents": "workspace:*",

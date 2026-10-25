@@ -1,4 +1,3 @@
-import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
 import {
   createToolSearchExtension,
   CustomEditor,
@@ -15,19 +14,15 @@ import { splitModelReference } from "@pi-mono/utils/model-reference";
 import { labelBorder } from "./editor-label.ts";
 import type { MenuData } from "./menu.ts";
 import {
-  baseTools,
   enforcedTools,
-  isDirect,
   latestSelection,
-  loadoutRecordedAfter,
-  profileTools,
-  restoredTools,
+  planRestore,
+  planSwitch,
+  reportTools,
+  searchableTools,
   SELECTION_ENTRY,
-  TOOL_SEARCH,
-  toolMatcher,
-  usedTools,
   withGroups,
-  type Deferred,
+  type Rules,
   type Selection
 } from "./selection.ts";
 import { CLEAR, loadProfiles, type Profile, type ProfileConfig } from "./settings.ts";
@@ -37,24 +32,6 @@ const ID = "pi-profiles";
 const PROMPT_RANK = 200;
 /** After pi-nested-instructions (`100`), so the selection entry follows its startup messages. */
 const STARTUP_RANK = 200;
-
-function describeChange(
-  before: readonly string[],
-  after: readonly string[],
-  deferred: ReadonlySet<string>
-): string {
-  const off = before.filter((name) => !after.includes(name));
-  const parts = Object.entries({
-    added: after.filter((name) => !before.includes(name)),
-    removed: off.filter((name) => !deferred.has(name)),
-    deferred: off.filter((name) => deferred.has(name))
-  })
-    .filter(([, names]) => names.length > 0)
-    // Code unit order: Pi lists tools in registration order, which follows load order.
-    .map(([change, names]) => `${change} ${[...names].sort().join(", ")}`);
-
-  return parts.length > 0 ? `tools ${parts.join("; ")}` : "tools unchanged";
-}
 
 // The menu and its shared TUI components load on first use, not at startup. Concurrent opens
 // share one import: under jiti a concurrent import can return a partly evaluated module.
@@ -73,10 +50,8 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   const prompt = joinPromptParts(pi, { id: ID });
   const lifecycle = joinLifecycle(pi, { id: ID });
   let config: ProfileConfig | undefined;
-  /** The latest selection's deferred tools, which the extension's `tool_search` can load. */
-  let deferred: Deferred = [];
-  /** The latest selection's `deny` list. Its tools stay off until the next selection. */
-  let deny: readonly string[] = [];
+  /** The latest selection's deferred tools and `deny` list, in force until the next selection. */
+  let rules: Rules = { deferred: [], deny: [] };
   /** Identifies the extension's `tool_search` in `pi.getAllTools()`. */
   let searchReach: ToolInfo["reachesTools"];
   /** Aborted when the session ends, so an open menu closes and no new switch starts. */
@@ -93,19 +68,8 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   // whether a project profile defers tools.
   await createToolSearchExtension()({
     ...pi,
-    getAllTools: () => {
-      const names = new Set(deferred.flat());
-      const denied = toolMatcher(deny);
-
-      // The selection's `deny` tools stay off, so the search does not load them.
-      return pi
-        .getAllTools()
-        .filter((tool) => !denied(tool.name))
-        .map((tool) =>
-          names.has(tool.name) && isDirect(tool.exposure) ? { ...tool, exposure: "deferred" } : tool
-        );
-    },
-    setActiveTools: (names) => pi.setActiveTools(withGroups(names, pi.getActiveTools(), deferred)),
+    getAllTools: () => searchableTools(pi.getAllTools(), rules),
+    setActiveTools: (names) => pi.setActiveTools(withGroups(names, pi.getActiveTools(), rules)),
     registerTool: (tool) => {
       searchReach = tool.reachesTools;
       pi.registerTool(tool);
@@ -117,15 +81,13 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     type: "string"
   });
 
-  /** Whether the declarable `tool_search` is the extension's. */
-  const ownsToolSearch = () =>
-    searchReach !== undefined &&
-    pi
-      .getAllTools()
-      .some(
-        ({ name, exposure, reachesTools }) =>
-          name === TOOL_SEARCH && exposure !== "hidden" && reachesTools === searchReach
-      );
+  /** The Pi state that the selection plans read. */
+  const toolState = (ctx: ExtensionContext) => ({
+    branch: ctx.sessionManager.getBranch(),
+    active: pi.getActiveTools(),
+    tools: pi.getAllTools(),
+    searchReach
+  });
 
   /** The selected profile's name, which the editor shows in its top border. */
   let label: string | undefined;
@@ -163,7 +125,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   }
 
   const currentName = (ctx: ExtensionContext) =>
-    latestSelection(ctx.sessionManager.getBranch())?.selection.name;
+    latestSelection(ctx.sessionManager.getBranch())?.name;
   const findProfile = (name: string | undefined) =>
     config?.profiles.find((profile) => profile.name === name);
 
@@ -181,25 +143,6 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     const model = ctx.modelRegistry.find(provider, id);
 
     return model && ctx.modelRegistry.hasConfiguredAuth(model) ? model : undefined;
-  }
-
-  /** The tools that a switch to the profile, or to no profile, requests now. */
-  function planTools(profile: Profile | undefined, ctx: ExtensionContext) {
-    const branch = ctx.sessionManager.getBranch();
-    const before = pi.getActiveTools();
-    const base = baseTools(before, latestSelection(branch)?.selection);
-    const exposure = new Map(pi.getAllTools().map((tool) => [tool.name, tool.exposure]));
-    const next = profile
-      ? profileTools(profile, {
-          base,
-          active: before,
-          used: usedTools(branch),
-          exposure,
-          ownsToolSearch: ownsToolSearch()
-        })
-      : { tools: base, deferred: [] };
-
-    return { before, base, exposure, ...next };
   }
 
   /**
@@ -250,27 +193,14 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
     if (profile?.thinking) pi.setThinkingLevel(profile.thinking);
 
-    const plan = planTools(profile, ctx);
+    const plan = planSwitch(profile, toolState(ctx));
     pi.setActiveTools(plan.tools);
-    const tools = pi.getActiveTools();
-    deferred = plan.deferred;
-    deny = profile?.tools?.deny ?? [];
-    pi.appendEntry<Selection>(SELECTION_ENTRY, {
-      name: profile?.name,
-      // Code unit order, so that the entry does not follow load order. Restoration reads only
-      // which tools they name, and runs use the fixed tool order.
-      base: [...plan.base].sort(),
-      tools: [...tools].sort(),
-      deferred: plan.deferred
-    });
+    const result = plan.settle(pi.getActiveTools());
+    rules = result.rules;
+    pi.appendEntry<Selection>(SELECTION_ENTRY, result.entry);
     showLabel(profile?.name);
     const title = profile ? `Profile ${profile.name}` : "No profile";
-    ctx.ui.notify(
-      displayText(
-        `${source}${title}: ${describeChange(plan.before, tools, new Set(deferred.flat()))}`
-      ),
-      "info"
-    );
+    ctx.ui.notify(displayText(`${source}${title}: ${result.change}`), "info");
   }
 
   function restoreTools(
@@ -278,40 +208,17 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
     reload: boolean,
     previous?: Selection
   ): Selection | undefined {
-    const branch = ctx.sessionManager.getBranch();
-    const latest = latestSelection(branch);
-    deferred = latest?.selection.deferred ?? [];
-    deny = findProfile(latest?.selection.name)?.tools?.deny ?? [];
-    showLabel(latest?.selection.name);
-    if (!latest && !previous) return undefined;
+    const plan = planRestore(toolState(ctx), {
+      reload,
+      previous,
+      profiles: config?.profiles ?? [],
+      messages: () => ctx.sessionManager.buildSessionProjection().messages
+    });
+    rules = plan.rules;
+    showLabel(plan.selection?.name);
+    if (plan.tools) pi.setActiveTools(plan.tools);
 
-    const message = getCurrentSystemMessage(ctx.sessionManager.buildSessionProjection().messages);
-    // Pi leaves the current tools unchanged when the destination has no tool record.
-    if (!latest && message) return undefined;
-    const recorded =
-      latest && loadoutRecordedAfter(branch, latest.index)
-        ? (message?.toolsAdded ?? []).map(({ name }) => name)
-        : undefined;
-    const active = pi.getActiveTools();
-    const exposure = new Map(pi.getAllTools().map((tool) => [tool.name, tool.exposure]));
-    const tools = latest
-      ? restoredTools(latest.selection, {
-          active,
-          recorded,
-          reload,
-          exposure,
-          ownsToolSearch: ownsToolSearch()
-        })
-      : baseTools(active, previous);
-
-    // A call that turns off a tool also drops Pi's pending tools, such as MCP tools that are
-    // still connecting, so the tools are set only when they change.
-    const changed =
-      active.some((name) => !tools.includes(name)) ||
-      tools.some((name) => exposure.has(name) && !active.includes(name));
-    if (changed) pi.setActiveTools(tools);
-
-    return latest?.selection;
+    return plan.selection;
   }
 
   /** Restores the session's selection, then applies `--profile` or the default profile. */
@@ -370,7 +277,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   pi.on("session_before_tree", async (_event, ctx) => {
     // Save the selection on its original branch before Pi moves the leaf.
     await switching;
-    treeSelection = latestSelection(ctx.sessionManager.getBranch())?.selection;
+    treeSelection = latestSelection(ctx.sessionManager.getBranch());
   });
 
   pi.on("session_tree", (_event, ctx) => {
@@ -402,10 +309,8 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
    * can turn on again, and puts the active tools in a fixed order. Sets them only when they change.
    */
   function enforceTools(): void {
-    const active = pi.getActiveTools();
-    const tools = enforcedTools(active, deny, pi.getAllTools());
-    if (tools.length !== active.length || tools.some((name, index) => name !== active[index]))
-      pi.setActiveTools(tools);
+    const tools = enforcedTools(pi.getActiveTools(), pi.getAllTools(), rules);
+    if (tools) pi.setActiveTools(tools);
   }
 
   // The run's first request declares the tools that are active when before_agent_start ends.
@@ -432,36 +337,18 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
 
   /** The profiles, with the change that each switch would make now, and the state of every tool. */
   function menuData(ctx: ExtensionContext): MenuData {
-    const current = currentName(ctx);
-    const choices = [...(config?.profiles ?? []), undefined].map((profile) => {
-      const plan = planTools(profile, ctx);
-      // Pi ignores unknown and `hidden` names, as in the switch.
-      const declared = plan.tools.filter(
-        (name) => plan.exposure.has(name) && plan.exposure.get(name) !== "hidden"
-      );
+    const state = toolState(ctx);
+    const current = latestSelection(state.branch)?.name;
+    const profile = findProfile(current);
+    const choices = [...(config?.profiles ?? []), undefined].map((choice) => ({
+      name: choice?.name ?? CLEAR,
+      profile: choice,
+      current: choice?.name === current,
+      change: planSwitch(choice, state).change,
+      modelAvailable: !choice?.model || profileModel(choice.model, ctx) !== undefined
+    }));
 
-      return {
-        name: profile?.name ?? CLEAR,
-        profile,
-        current: profile?.name === current,
-        change: describeChange(plan.before, declared, new Set(plan.deferred.flat())),
-        modelAvailable: !profile?.model || profileModel(profile.model, ctx) !== undefined
-      };
-    });
-
-    const branch = ctx.sessionManager.getBranch();
-    const active = pi.getActiveTools();
-
-    return {
-      choices,
-      profile: findProfile(current),
-      tools: pi.getAllTools(),
-      active,
-      base: baseTools(active, latestSelection(branch)?.selection),
-      deferred,
-      used: usedTools(branch),
-      ownsToolSearch: ownsToolSearch()
-    };
+    return { choices, profile, tools: reportTools(state, rules, profile) };
   }
 
   pi.registerCommand("profile", {

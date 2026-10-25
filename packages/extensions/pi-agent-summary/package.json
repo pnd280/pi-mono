@@ -9,8 +9,7 @@
   "type": "module",
   "exports": {
     ".": "./index.ts",
-    "./counters": "./src/counters.ts",
-    "./milestones": "./src/milestones.ts"
+    "./counters": "./src/counters.ts"
   },
   "scripts": {
     "format": "vp fmt .",

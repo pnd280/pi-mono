@@ -24,7 +24,7 @@ Keep one logical browser, and keep Pi's own editor: install no custom editor.
 
 | When you…                                                | Read                                                                                        |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Change filesystem code                                   | The shared [mutation protocol](../../libs/src/private-files/README.md#mutation-protocol).   |
+| Change filesystem code                                   | The [mutation protocol](src/private-files/README.md#mutation-protocol).                     |
 | Change browser keys, search, deletion, or draft commands | [Controls](docs/controls.md).                                                               |
 | Change storage layout, limits, backup, or repair         | [Storage and recovery](docs/storage.md).                                                    |
 | Choose tests                                             | The [coverage specification](docs/testing.md).                                              |

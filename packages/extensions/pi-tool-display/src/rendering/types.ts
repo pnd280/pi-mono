@@ -1,6 +1,5 @@
 import type { ToolDefinition, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
-import type { DiffViewTheme } from "@pi-mono/libs/tui/components/diff-view";
 
 import type {
   BorrowedToolResult,
@@ -17,6 +16,7 @@ import type {
   TranscriptView
 } from "../contracts.ts";
 import type { CallInterpretation, DisplayFailureHandler } from "../interpretation.ts";
+import type { DiffViewTheme } from "./diff-view/index.ts";
 import type { PreparedResult } from "./result-content.ts";
 
 export type DisplayTheme = DiffViewTheme;

@@ -2,7 +2,7 @@
 
 [Private-file integration](README.md)
 
-This reference is for library callers who place private storage and mutate records. The [README](README.md#behaviour) summarises the permission checks.
+This reference is for maintainers who place private storage and mutate records. The [README](README.md#behaviour) summarises the permission checks.
 
 ## Filesystem assumptions
 
@@ -17,7 +17,7 @@ Use [`boundedRead`](privacy.ts) to read file contents. It returns `undefined` fo
 
 ### Native Windows
 
-Native Windows has no POSIX owner IDs. There, the library trusts the user profile's inherited ACL instead of the owner and permission checks.
+Native Windows has no POSIX owner IDs. There, the module trusts the user profile's inherited ACL instead of the owner and permission checks.
 
 - The check compares directory identities, not path text, so a mounted folder or a sibling that differs only in case is outside the profile.
 - `privateScopedDirectory` refuses a directory outside the profile with `PrivateFileError` before it creates it.
@@ -57,4 +57,4 @@ Pass a [`WriteLifetime`](lifetime.ts) as `scope`.
 
 Results distinguish `committed`, `unchanged`, and `failed`. They report write warnings and lock-cleanup errors separately. Translate errors and warnings in the consumer.
 
-Replacement is atomic across process crashes. The library does not fsync the containing directory, so power-loss durability is not guaranteed.
+Replacement is atomic across process crashes. The module does not fsync the containing directory, so power-loss durability is not guaranteed.

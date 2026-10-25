@@ -40,7 +40,7 @@ Adapter selection treats the `resolveToolRenderers` chain as the owner's rendere
 
 ### Assistant presentation
 
-[Host binding and thinking](../src/host/assistant.ts) use the [shared prose markers](../src/rendering/assistant.ts).
+[Host binding, thinking, and prose markers](../src/host/assistant.ts) rely on these contracts.
 
 - [ ] `updateContent` creates direct `Markdown` children only for prose.
 - [ ] Those prose children have symmetric `outputPad`.

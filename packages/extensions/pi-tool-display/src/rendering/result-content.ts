@@ -3,7 +3,6 @@ import {
   highlightCodeBounded,
   highlightCodeSelection
 } from "@pi-mono/libs/tui/components/code-highlight";
-import { renderDiffPanel } from "@pi-mono/libs/tui/components/diff-view";
 import { renderTreeContinuation } from "@pi-mono/libs/tui/components/tree";
 import { formatDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
@@ -27,6 +26,7 @@ import type {
 } from "../contracts.ts";
 import { changeReasonText, parseRetainedPatch } from "../diff.ts";
 import { record, stringField } from "../values.ts";
+import { renderDiffPanel } from "./diff-view/index.ts";
 import {
   bodyWidth,
   COMPACT_OUTPUT_CHARACTERS,

@@ -147,13 +147,13 @@ Setup: on Linux, macOS, and WSL, use isolated clipboards, never someone's live c
 
 Setup: use isolated collections on each supported Linux, macOS, and WSL filesystem, including the filesystem holding the agent directory on WSL.
 
-| Do                                                                                                                                                      | Expect                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Use paths owned by another user, unsafe file types, and links.                                                                                          | Access is refused.                                           |
-| Use a filesystem that rejects [private permission repair](../../../libs/src/private-files/README.md#behaviour) or reports incorrect modes after repair. | Access is refused.                                           |
-| Open collections with incorrect modes and ACLs.                                                                                                         | Modes and ACLs are repaired.                                 |
-| Hold a collection lock while another session tries to change it.                                                                                        | The change reports contention after the two-second deadline. |
-| Read a collection while another session replaces it.                                                                                                    | Every read sees a complete old or new document.              |
+| Do                                                                                                                                           | Expect                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Use paths owned by another user, unsafe file types, and links.                                                                               | Access is refused.                                           |
+| Use a filesystem that rejects [private permission repair](../src/private-files/README.md#behaviour) or reports incorrect modes after repair. | Access is refused.                                           |
+| Open collections with incorrect modes and ACLs.                                                                                              | Modes and ACLs are repaired.                                 |
+| Hold a collection lock while another session tries to change it.                                                                             | The change reports contention after the two-second deadline. |
+| Read a collection while another session replaces it.                                                                                         | Every read sees a complete old or new document.              |
 
 Setup for native Windows: use the default system temporary directory and an isolated test profile.
 

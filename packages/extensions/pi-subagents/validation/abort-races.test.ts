@@ -24,7 +24,6 @@ import { expect, test as caseTest, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { ResultSource, type ResultEvent } from "../src/background-result.ts";
-import * as invocation from "../src/child/invocation.ts";
 import { ChildRun } from "../src/child/run.ts";
 import { DEPTH_ENV, RESULT_MESSAGE, TASK_ID_ENV } from "../src/constants.ts";
 import type { ChildMessage } from "../src/coordination/protocol.ts";
@@ -125,10 +124,7 @@ async function fixture(
     for (const [name, value] of Object.entries(launch.options.env)) vi.stubEnv(name, value);
     vi.stubEnv(DEPTH_ENV, undefined);
     vi.stubEnv(TASK_ID_ENV, undefined);
-    vi.spyOn(invocation, "getPiInvocation").mockReturnValue({
-      command: launch.command,
-      args: [launch.args[0]!]
-    });
+    const invocation = { command: launch.command, args: [launch.args[0]!] };
     const started = Promise.withResolvers<ChildRun>();
     let drop: ((message: ChildMessage) => boolean) | undefined;
     // The spy calls the real method with each run as its receiver.
@@ -156,7 +152,10 @@ async function fixture(
       noThemes: true,
       noContextFiles: true,
       noPromptTemplates: true,
-      extensionFactories: [subagents, ...(afterSubagents ? [afterSubagents] : [])]
+      extensionFactories: [
+        (pi) => subagents(pi, { invocation }),
+        ...(afterSubagents ? [afterSubagents] : [])
+      ]
     });
     await resourceLoader.reload();
     expect(resourceLoader.getExtensions().errors).toEqual([]);

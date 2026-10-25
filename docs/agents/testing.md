@@ -58,7 +58,7 @@ Test each invariant once, at the layer that owns it. Consumers test local policy
 
 | Layer                                                                     | Owns invariants for                                                                                               |
 | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [Utils](../../packages/utils/docs/testing.md)                             | Pure validation and parsing: paths, patches, model references, search scopes, and FFF provenance.                 |
+| [Utils](../../packages/utils/docs/testing.md)                             | Pure validation and parsing: paths, patches, model references, search scopes, and package provenance.             |
 | [Libs](../../packages/libs/docs/testing.md)                               | Reusable protocols with I/O or scheduling: files, locks, settings, cancellation, terminal safety, and shared TUI. |
 | Extensions                                                                | Feature policy: schemas, activation, persistence, and the wiring of shared helpers.                               |
 | [Tool display](../../packages/extensions/pi-tool-display/docs/testing.md) | Rendering of other extensions' tool cards through its adapters.                                                   |

@@ -6,6 +6,7 @@
 | Add or change an adapter         | [Adapters](docs/adapters.md)                                                               |
 | Change clicks, keys, or layout   | [Terminal checks](docs/validation.md)                                                      |
 | Change what is saved or replayed | [Recorded data and replay](docs/recording.md)                                              |
+| Change the diff panel            | [Diff view](src/rendering/diff-view/README.md)                                             |
 | Change tests or invariants       | [Test coverage](docs/testing.md)                                                           |
 | Bump the supported Pi version    | [Compatibility](docs/pi-compatibility.md), then the host fixtures in the next row          |
 | Update host fixtures             | [API](src/host/install.test.ts) and [installed-CLI](src/host/install-cli.test.ts) fixtures |

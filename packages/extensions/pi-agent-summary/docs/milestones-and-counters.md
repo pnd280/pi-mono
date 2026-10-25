@@ -14,8 +14,6 @@ To declare a milestone, emit `{ text }`:
 pi.events.emit("pi-agent-summary:milestone", { text: "Published v1.2.0" });
 ```
 
-Workspace packages can import `milestoneChannel` and the `Milestone` type from `pi-agent-summary/milestones`.
-
 - A milestone joins only the active run. Milestones declared before the first `agent_start`, or after pi-agent-summary clears the run in its `agent_settled` handler, are dropped.
 - Text is trimmed and must have 1 to 200 characters; other payloads are ignored. Whitespace is collapsed for display, and long text wraps with a two-column indent.
 - Repeated text in one run is kept once. A run keeps its first 20 milestones and drops the rest.

@@ -9,7 +9,7 @@ import { expect, test, vi } from "vite-plus/test";
 
 import { killFixtureProcesses, processStat } from "../../validation/processes.ts";
 import { createFixtureWorkspace } from "../../validation/workspace.ts";
-import { JobLog } from "./log-writer.ts";
+import { JobLog } from "./log.ts";
 import { Jobs } from "./registry.ts";
 
 async function withJobs(

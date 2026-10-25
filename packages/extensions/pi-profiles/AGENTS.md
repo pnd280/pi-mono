@@ -1,6 +1,6 @@
 # [pi-profiles](README.md) development
 
-Keep [src/index.ts](src/index.ts) a thin Pi adapter. Selection reads, tool resolution, and deferral live in [src/selection.ts](src/selection.ts), which needs no Pi host. The `/profile` menu lives in [src/menu.ts](src/menu.ts), which loads on first use; the adapter gives it a snapshot of the profiles and tools. The menu only shows state: it switches through the same path as `/profile <name>`, after it closes, so it cannot change tools in a different way.
+Keep [src/index.ts](src/index.ts) a thin Pi adapter. It reads Pi's state, applies the decisions of [src/selection.ts](src/selection.ts), and keeps the lifecycle, the holds, the notices, and the settings reads. The selection module needs no Pi host. It decides what a switch, a restoration, and the `deny` enforcement do to the tools, what the extension's `tool_search` sees, and the state of each tool in the menu. The `/profile` menu lives in [src/menu.ts](src/menu.ts), which loads on first use; the adapter gives it a snapshot of the profiles and tools. The menu only shows state: the change that it shows for a profile comes from the plan of the switch, and it switches through the same path as `/profile <name>`, after it closes, so it cannot change tools in a different way.
 
 ## Must not regress
 

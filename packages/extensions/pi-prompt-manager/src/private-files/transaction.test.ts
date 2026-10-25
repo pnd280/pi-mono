@@ -2,9 +2,9 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
-import { STEP_TIMEOUT_MS } from "../validation/pi-process/index.ts";
 import { WriteLifetime } from "./lifetime.ts";
 import { PrivateFileTransactions, type PrivateTransactionOptions } from "./transaction.ts";
 

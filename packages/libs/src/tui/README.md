@@ -30,7 +30,6 @@ Import the supported TUI entry points through `@pi-mono/libs/tui/*` (see the [pa
 | [Text preview](components/text-preview/README.md)        | Cached preview viewport and overflow borders                             |
 | [Hint footer](components/hint-footer/README.md)          | Width-aware hints and feedback                                           |
 | [Tree](components/tree/README.md)                        | Connectors for measured rows                                             |
-| [Diff view](components/diff-view/README.md)              | Display of parsed patches                                                |
 | [Code highlighting](components/code-highlight/README.md) | Bounded syntax highlighting                                              |
 | [Text budgets](text-budget/README.md)                    | Synchronous wrapping and bounded excerpts                                |
 | [Terminal text](terminal-text/README.md)                 | Display sanitisation and unsafe-control detection                        |

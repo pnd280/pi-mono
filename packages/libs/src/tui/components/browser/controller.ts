@@ -1,6 +1,6 @@
-import { LatestTask } from "../../../latest-task/index.ts";
 import { TimedConfirmation } from "../../../timed-confirmation/index.ts";
 import type { BrowserAction } from "./controls.ts";
+import { LatestTask } from "./latest-task.ts";
 import type {
   BrowserOptions,
   BrowserSection,

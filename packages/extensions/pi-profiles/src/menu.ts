@@ -4,14 +4,7 @@ import type { BrowserOptions, BrowserSection } from "@pi-mono/libs/tui/component
 import { openBrowser } from "@pi-mono/libs/tui/open-browser";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 
-import {
-  allowPatternSelects,
-  entryNames,
-  isDirect,
-  TOOL_SEARCH,
-  toolMatcher,
-  type Deferred
-} from "./selection.ts";
+import type { ToolReport } from "./selection.ts";
 import type { Profile } from "./settings.ts";
 
 /** A configured profile, or `clear` for no profile. */
@@ -19,10 +12,7 @@ export type ProfileChoice = {
   name: string;
   profile: Profile | undefined;
   current: boolean;
-  /**
-   * The tool change that a switch would request now, in the words of the switch notice. Pi can
-   * still leave out an MCP tool that a `--tools` list does not name.
-   */
+  /** The tool change that a switch would request now, from the switch's own plan. */
   change: string;
   /** False when the profile names a model that is unknown or has no credentials. */
   modelAvailable: boolean;
@@ -32,44 +22,21 @@ export type MenuData = {
   choices: readonly ProfileChoice[];
   /** The selected profile; undefined for no profile or a profile that is no longer configured. */
   profile: Profile | undefined;
-  tools: readonly ToolInfo[];
-  active: readonly string[];
-  /** The active tools without the selected profile's changes. */
-  base: readonly string[];
-  /** The latest selection's deferred tools. */
-  deferred: Deferred;
-  used: ReadonlySet<string>;
-  ownsToolSearch: boolean;
+  /** Every registered tool, in registration order. */
+  tools: readonly ToolReport[];
 };
 
-const STATUSES = ["active", "deferred", "searchable", "off", "hidden"] as const;
+type ToolStatus = ToolReport["status"];
 
-type ToolStatus = (typeof STATUSES)[number];
+const STATUSES: readonly ToolStatus[] = ["active", "deferred", "searchable", "off", "hidden"];
 
 /** Details are display-safe text, shown below the list. */
 type MenuItem =
   | { kind: "profile"; choice: ProfileChoice; details: string }
   | { kind: "tool"; tool: ToolInfo; status: ToolStatus; details: string };
 
-function toolStatus(tool: ToolInfo, data: MenuData): ToolStatus {
-  if (tool.exposure === "hidden") return "hidden";
-  if (data.active.includes(tool.name)) return "active";
-  // A saved deferral does not override the current deny list, which tool_search applies.
-  if (searchExcludes(tool, data)) return "off";
-  if (data.deferred.flat().includes(tool.name)) return "deferred";
-
-  if (isDirect(tool.exposure)) return "off";
-
-  return "searchable";
-}
-
-/** pi-profiles' `tool_search` leaves the selected profile's `deny` tools out. */
-function searchExcludes({ name }: ToolInfo, { profile, ownsToolSearch }: MenuData): boolean {
-  return ownsToolSearch && toolMatcher(profile?.tools?.deny ?? [])(name);
-}
-
 /** Why the model can or cannot reach the tool now. */
-function reach(tool: ToolInfo, status: ToolStatus, data: MenuData): string[] {
+function reach({ tool, status, search, group }: ToolReport): string[] {
   if (status === "hidden") return ["Hidden: the model and codemode scripts cannot reach it."];
   if (status === "active")
     return [
@@ -77,8 +44,12 @@ function reach(tool: ToolInfo, status: ToolStatus, data: MenuData): string[] {
       "Its exposure and Pi's codemode mode decide whether the model can call it directly."
     ];
 
+  // Codemode scripts call inactive `codemode` and `deferred` tools. Such a tool is off only when
+  // the profile denies it, so that pi-profiles' tool_search leaves it out.
+  const scripted = tool.exposure === "codemode" || tool.exposure === "deferred";
+
   if (status === "off") {
-    if (isDirect(tool.exposure)) return ["Off: the model cannot call it or load it."];
+    if (!scripted) return ["Off: the model cannot call it or load it."];
 
     return [
       "Off: the profile denies it, so pi-profiles' tool_search cannot load it.",
@@ -89,56 +60,40 @@ function reach(tool: ToolInfo, status: ToolStatus, data: MenuData): string[] {
   const lines = [
     status === "deferred" ? "Deferred by the profile." : "Not active in Pi's tool set."
   ];
-  if (!data.active.includes(TOOL_SEARCH))
+  if (search === "inactive")
     lines.push("tool_search is not active, so the model cannot load it now.");
-  // pi-profiles' `tool_search` alone finds deferred `direct` and `model-only` tools.
-  else if (isDirect(tool.exposure) && !data.ownsToolSearch)
-    lines.push("The active tool_search cannot load it.");
+  else if (search === "cannot") lines.push("The active tool_search cannot load it.");
   else lines.push("The model can load it with tool_search.");
-  if (tool.exposure === "codemode" || tool.exposure === "deferred")
-    lines.push("Codemode scripts can call it while codemode is active.");
-  const group = data.deferred.find(
-    (entry) => typeof entry !== "string" && entry.includes(tool.name)
-  );
-  if (typeof group === "object")
-    lines.push(`It loads together with ${group.filter((name) => name !== tool.name).join(", ")}.`);
+  if (scripted) lines.push("Codemode scripts can call it while codemode is active.");
+  if (group) lines.push(`It loads together with ${group.join(", ")}.`);
 
   return lines;
 }
 
+const ALLOW_TEXT = {
+  selects: "includes it in allow",
+  unlisted: "does not include it in allow",
+  pattern: "matches an allow pattern, which turns on only direct and model-only tools"
+} as const;
+
 /** Which of the selected profile's lists name the tool. The state above shows their effect. */
-function profileRule(
-  { name, exposure }: ToolInfo,
-  { profile, base, ownsToolSearch }: MenuData
-): string[] {
-  if (!profile?.tools) return [];
-  const { allow, deny = [], defer } = profile.tools;
+function profileRule({ lists }: ToolReport, profile: Profile | undefined): string[] {
+  if (!lists || !profile) return [];
 
-  const allowRule = () => {
-    if (!allow || !toolMatcher(allow)(name)) return "does not include it in allow";
-    if (allow.includes(name) || allowPatternSelects(name, exposure, base))
-      return "includes it in allow";
-
-    return "matches an allow pattern, which turns on only direct and model-only tools";
-  };
-
-  const denied = toolMatcher(deny)(name);
-  // A tool belongs to the first `defer` entry that matches it.
-  const entry = defer?.find((entry) => toolMatcher(entryNames(entry))(name));
-  const lists = [
-    allow && allowRule(),
-    denied && "includes it in deny",
-    entry !== undefined &&
-      (typeof entry === "string" ? "includes it in defer" : "includes it in a defer group")
+  const texts = [
+    lists.allow && ALLOW_TEXT[lists.allow],
+    lists.deny && "includes it in deny",
+    lists.defer &&
+      (lists.defer === "name" ? "includes it in defer" : "includes it in a defer group")
   ].filter((text) => typeof text === "string");
-  const lines = lists.length > 0 ? [`Profile ${profile.name} ${lists.join(" and ")}.`] : [];
-  if (typeof entry === "string")
+  const lines = texts.length > 0 ? [`Profile ${profile.name} ${texts.join(" and ")}.`] : [];
+  if (lists.defer === "name")
     lines.push("A deferred tool stays active when the model called it on this branch.");
-  else if (entry)
+  else if (lists.defer === "group")
     lines.push(
       "A group is deferred only as a whole: it stays active when the model called one of its active tools on this branch."
     );
-  if (name === TOOL_SEARCH && ownsToolSearch && !denied)
+  if (lists.activatesSearch)
     lines.push("A profile activates it when it defers direct or model-only tools.");
 
   return lines;
@@ -147,12 +102,12 @@ function profileRule(
 type ToolItem = Extract<MenuItem, { kind: "tool" }>;
 
 function toolItems(data: MenuData): ToolItem[] {
-  const items = data.tools.map((tool) => {
-    const status = toolStatus(tool, data);
+  const items = data.tools.map((report) => {
+    const { tool, status } = report;
     const details = [
-      ...reach(tool, status, data),
-      ...profileRule(tool, data),
-      data.used.has(tool.name) ? "The model called it on this branch." : undefined,
+      ...reach(report),
+      ...profileRule(report, data.profile),
+      report.used ? "The model called it on this branch." : undefined,
       `Source: ${tool.sourceInfo.path}`,
       "",
       tool.description

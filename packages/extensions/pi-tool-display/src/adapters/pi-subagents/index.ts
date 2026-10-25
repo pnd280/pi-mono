@@ -1,7 +1,9 @@
 import type { MessageRenderer, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
+import { registeredBy } from "@pi-mono/utils/provenance";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
+import { OPEN_EVENT } from "pi-subagents/constants";
 import { z } from "zod";
 
 import type {
@@ -10,7 +12,6 @@ import type {
   SummaryCategory,
   ToolDisplayAdapter
 } from "../../contracts.ts";
-import { registeredBy } from "../provenance.ts";
 import { jobAdapter } from "./jobs.ts";
 
 const argsSchema = z.object({
@@ -130,7 +131,7 @@ function openAction(result: Parameters<NonNullable<ToolDisplayAdapter["action"]>
 
   return details?.task_id && details.binding_id
     ? {
-        event: "pi-subagents:open",
+        event: OPEN_EVENT,
         data: { task_id: details.task_id, binding_id: details.binding_id }
       }
     : undefined;

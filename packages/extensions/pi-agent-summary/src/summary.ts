@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
 import { counterSchema, maxCounters } from "./counters.ts";
@@ -23,16 +24,13 @@ const fileChangeSchema = z.discriminatedUnion("status", [
 
 type ThinkingLevel = ReturnType<ExtensionAPI["getThinkingLevel"]>;
 
-// The mapped type rejects both missing and unknown host thinking levels.
-const thinkingLevels = {
-  off: "off",
-  minimal: "minimal",
-  low: "low",
-  medium: "medium",
-  high: "high",
-  xhigh: "xhigh",
-  max: "max"
-} as const satisfies { [Level in ThinkingLevel]: Level };
+/** `never` when the host has a thinking level that the shared list lacks. */
+type HostLevels = ThinkingLevel extends (typeof MODEL_THINKING_LEVELS)[number]
+  ? readonly ThinkingLevel[]
+  : never;
+
+// Rejects both missing and unknown host thinking levels at compile time.
+const thinkingLevels = MODEL_THINKING_LEVELS satisfies HostLevels;
 
 // Ignore unknown fields, but never render invalid statistics from session JSON.
 export const summarySchema = z.object({

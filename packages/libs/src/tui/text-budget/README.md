@@ -39,4 +39,4 @@ const tree = renderTree([{ rows }], { width: 80, indent: 2 });
 - Reserve tree connector width before measurement.
 - Use [text preview layout](../components/text-preview/README.md#behaviour) to wrap complete text cooperatively.
 
-Related: [tree](../components/tree/README.md) owns connector placement, and [diff view](../components/diff-view/README.md) owns patch selection.
+Related: [tree](../components/tree/README.md) owns connector placement, and [diff view](../../../../extensions/pi-tool-display/src/rendering/diff-view/README.md) owns patch selection.

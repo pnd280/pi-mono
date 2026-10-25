@@ -1,5 +1,6 @@
-import type { WriteScope } from "@pi-mono/libs/private-files";
 import { z } from "zod";
+
+import type { WriteScope } from "./private-files/index.ts";
 
 export type Collection = "history" | "drafts";
 

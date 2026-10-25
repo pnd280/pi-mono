@@ -12,9 +12,9 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, it, vi } from "vite-plus/test";
 
-import { STEP_TIMEOUT_MS } from "../validation/pi-process/index.ts";
 import { PrivateFileError } from "./errors.ts";
 import { WriteLifetime } from "./lifetime.ts";
 import { boundedRead } from "./privacy.ts";

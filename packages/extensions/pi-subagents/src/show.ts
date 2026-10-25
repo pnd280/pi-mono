@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 
 import { LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT } from "./constants.ts";
+import { parseFlags } from "./flags.ts";
 import type { RunReader } from "./history/reader.ts";
 import { boundedText, detailsUsage, sumUsage, type ToolDetails } from "./result.ts";
 import type { TaskRecord } from "./tasks/records.ts";
@@ -21,23 +22,25 @@ const USAGE = "Usage: /subagents show <task_id> [--since <cursor>] [--limit <n>]
 
 function options(tokens: string[]): Options {
   if (tokens.length === 1 && tokens[0] === "--last") return { last: true, limit: 1 };
-  const result: Options = { last: false, limit: LIST_DEFAULT_LIMIT };
-  const seen = new Set<string>();
+  const flags = parseFlags(
+    tokens,
+    {
+      "--since": (value) => value,
+      "--limit": (value) => {
+        const limit = z.coerce.number().int().min(1).max(LIST_MAX_LIMIT).safeParse(value);
+        if (!limit.success) throw new Error(`limit must be 1 to ${LIST_MAX_LIMIT}`);
 
-  for (let index = 0; index < tokens.length; index += 2) {
-    const flag = tokens[index];
-    const value = tokens[index + 1];
-    if (!flag || !value || seen.has(flag)) throw new Error(USAGE);
-    seen.add(flag);
-    if (flag === "--since") result.since = value;
-    else if (flag === "--limit") {
-      const limit = z.coerce.number().int().min(1).max(LIST_MAX_LIMIT).safeParse(value);
-      if (!limit.success) throw new Error(`limit must be 1 to ${LIST_MAX_LIMIT}`);
-      result.limit = limit.data;
-    } else throw new Error(USAGE);
-  }
+        return limit.data;
+      }
+    },
+    USAGE
+  );
 
-  return result;
+  return {
+    last: false,
+    limit: flags["--limit"] ?? LIST_DEFAULT_LIMIT,
+    ...(flags["--since"] === undefined ? {} : { since: flags["--since"] })
+  };
 }
 
 function text(value: string): string {

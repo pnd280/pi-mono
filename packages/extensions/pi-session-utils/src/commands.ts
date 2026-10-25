@@ -2,9 +2,9 @@ import { existsSync, unlinkSync } from "node:fs";
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText, hasUnsafeTerminalControls } from "@pi-mono/libs/tui/terminal-text";
-import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 
 import { saveActiveBranch } from "./persist.ts";
+import { quotePosixShellArgument } from "./shell.ts";
 
 export type SessionCommandContext = Pick<
   ExtensionCommandContext,

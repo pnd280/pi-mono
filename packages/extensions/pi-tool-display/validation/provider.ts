@@ -12,12 +12,14 @@ import {
 } from "@earendil-works/pi-ai";
 import { createReadToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createFixtureStream, type FixtureStreamContext } from "@pi-mono/libs/validation/provider";
-import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 
 import { assertFixtureWorkspace, UNPACED_ENV } from "./workspace.ts";
 
 type PlannedCall = { name: string; args: JsonObject };
+
+/** Local copy of pi-session-utils shell quoting: fixtures cannot import another extension's internals. */
+const quotePosixShellArgument = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 
 /** Pauses keep streaming states visible; unpaced tests still yield between events. */
 const pause = (ms: number, signal: AbortSignal | undefined) =>

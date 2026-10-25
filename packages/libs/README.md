@@ -14,7 +14,6 @@ For pure helpers with no side effects, use [utils](../utils/README.md). Import e
 | [prompt-parts](src/prompt-parts/README.md)             | Ranked system-prompt parts appended once per run                          |
 | [lifecycle](src/lifecycle/README.md)                   | Startup barrier, shortcut claims, shutdown phase, and run marks           |
 | [settings-file](src/settings-file/README.md)           | Bounded reads, trusted scopes, and locked settings-section saves          |
-| [private-files](src/private-files/README.md)           | Permission and ACL enforcement, directory scopes, locks, atomic writes    |
 | [file-rename](src/file-rename/README.md)               | File replacement by rename, with bounded retries on Windows               |
 | [tui](src/tui/README.md)                               | Components, browser interaction, layout, terminal text, and host mounting |
 | [timed-confirmation](src/timed-confirmation/README.md) | Target comparison and confirmation deadline                               |
@@ -49,11 +48,11 @@ Callers pass options per call. The [working-message coordinator](src/working-mes
 Each library has its own effects; none makes network requests.
 
 - Storage and observation libraries read and write local files.
-- The diff library generates patches in a worker thread. On macOS, private-file access runs `/bin/chmod` to remove ACLs.
+- The diff library generates patches in a worker thread.
 - TUI libraries and hooks modify Pi's host state.
 
 ## Validation
 
 The [coverage specification](docs/testing.md) lists what is tested here.
 
-Use the [focused commands and test prerequisites](../../docs/development.md#focused-validation) with `@pi-mono/libs`. For private-storage changes, also use the [isolated platform checks](../extensions/pi-prompt-manager/docs/validation.md#platform-checks).
+Use the [focused commands and test prerequisites](../../docs/development.md#focused-validation) with `@pi-mono/libs`.

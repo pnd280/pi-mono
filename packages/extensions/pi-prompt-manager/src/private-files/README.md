@@ -1,15 +1,15 @@
 # Private-file integration
 
-[Library index](../../README.md#usage)
+[Storage and recovery](../../docs/storage.md)
 
-Extension records such as saved prompts must stay readable only by their owner, even when two Pi processes write them. [`@pi-mono/libs/private-files`](index.ts) enforces permissions and ACLs, resolves directory scopes, coordinates writers through locks, and replaces files atomically.
+Extension records such as saved prompts must stay readable only by their owner, even when two Pi processes write them. The [private-files module](index.ts) enforces permissions and ACLs, resolves directory scopes, coordinates writers through locks, and replaces files atomically.
 
 ## Behaviour
 
 - Directories use mode `0700` and files use mode `0600`.
 - Reads may repair permissions and ACLs.
 - Checks reject foreign ownership and final-path symlinks. Files also reject hard links and nonregular types.
-- Native Windows has no POSIX owner IDs, so there the library trusts the user profile's inherited ACL instead, and refuses storage outside the profile. The [native Windows rules](transactions.md#native-windows) give the details.
+- Native Windows has no POSIX owner IDs, so there the module trusts the user profile's inherited ACL instead, and refuses storage outside the profile. The [native Windows rules](transactions.md#native-windows) give the details.
 - Replacement is atomic across process crashes, but power-loss durability is not guaranteed.
 - Network filesystems and cross-machine coordination are unsupported.
 
@@ -30,13 +30,13 @@ import {
   WriteLifetime,
   boundedRead,
   privateScopedDirectory
-} from "@pi-mono/libs/private-files";
+} from "./private-files/index.ts";
 
 const maxBytes = 1024 * 1024;
 const transactions = new PrivateFileTransactions();
 const lifetime = new WriteLifetime();
 const path = async () => {
-  const scope = await privateScopedDirectory({ root: agentDir, namespace: "my-extension", key });
+  const scope = await privateScopedDirectory({ root: agentDir, namespace: "prompt-manager", key });
   return join(scope, "records.json");
 };
 
@@ -58,16 +58,16 @@ await lifetime.dispose();
 
 ## Caller responsibilities
 
-- Translate raw OS exceptions before you display them, because they can expose paths. Only the library's [PrivateFileError diagnostics](errors.ts) use fixed messages.
-- Define record schemas and storage policy in the consumer.
+- Translate raw OS exceptions before you display them, because they can expose paths. Only the module's [PrivateFileError diagnostics](errors.ts) use fixed messages.
+- Define record schemas and storage policy in the [repository](../storage/repository.ts).
 - Store records only in the locations that the [filesystem assumptions](transactions.md#filesystem-assumptions) allow.
 
 ### Mutation protocol
 
 Mutate records through [serialised transactions](transactions.md#serialised-transactions), which state when not to retry a write.
 
-Related: [pi-prompt-manager](../../../extensions/pi-prompt-manager/docs/storage.md) owns the saved-prompt schema, limits, and recovery on top of this library.
+Related: [storage and recovery](../../docs/storage.md) owns the saved-prompt schema, limits, and recovery on top of this module.
 
 ## Validation
 
-Use the [package validation commands and prerequisites](../../README.md#validation) and [isolated storage platform checks](../../../extensions/pi-prompt-manager/docs/validation.md#storage-permissions-and-writes).
+Use the [focused commands and test prerequisites](../../../../../docs/development.md#focused-validation) with `pi-prompt-manager`, and the [isolated storage platform checks](../../docs/validation.md#storage-permissions-and-writes).

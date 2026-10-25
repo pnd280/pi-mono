@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { open, unlink } from "node:fs/promises";
 
-import { renameWithRetry } from "../file-rename/index.ts";
+import { renameWithRetry } from "@pi-mono/libs/file-rename";
+
 import { checkHandle, sameFile } from "./privacy.ts";
 
 /** Tests use hooks around real I/O; production callers omit them. */

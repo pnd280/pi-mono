@@ -3,10 +3,9 @@ import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { WriteScope } from "@pi-mono/libs/private-files";
-
 import { PromptManager, type ManagerPorts } from "./manager.ts";
 import type { Collection, Document, Snapshot, StoredEntry } from "./model.ts";
+import type { WriteScope } from "./private-files/index.ts";
 import { readCollection } from "./storage/collection.ts";
 import { FileRepository } from "./storage/repository.ts";
 

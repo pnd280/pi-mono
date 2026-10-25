@@ -1,5 +1,3 @@
-import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-
 const INSTALLED = "/node_modules/";
 
 /**
@@ -9,7 +7,10 @@ const INSTALLED = "/node_modules/";
  * `@other/<package>` does not match. Package names are literal constants without
  * regular-expression syntax.
  */
-export function registeredBy(tool: ToolInfo, packageName: string): boolean {
+export function registeredBy(
+  tool: { sourceInfo: { source: string; path: string } },
+  packageName: string
+): boolean {
   const { source, path } = tool.sourceInfo;
   if (source === "builtin" || source === "sdk") return false;
   // Pi trims the package spec after `npm:`.

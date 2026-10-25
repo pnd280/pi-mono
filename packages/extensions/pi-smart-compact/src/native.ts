@@ -9,7 +9,6 @@ import {
   type NativeSession,
   type Prepare
 } from "./compatibility.ts";
-import { combineInstructions } from "./instructions.ts";
 import { compactionResultType, describeOutcome, runRequestedCompaction } from "./outcome.ts";
 import {
   summarizeWithOverrides,
@@ -17,6 +16,13 @@ import {
   type CompactionModelOptions
 } from "./summarize.ts";
 import type { SummaryModelEntry } from "./summary-model-entry.ts";
+
+/** Keep per-call focus last without dropping it when no file focus is configured. */
+function combineInstructions(additional: string | undefined, requested: string | undefined) {
+  if (!additional) return requested;
+
+  return requested ? `${additional}\n\n${requested}` : additional;
+}
 
 type Registration = {
   active: boolean;

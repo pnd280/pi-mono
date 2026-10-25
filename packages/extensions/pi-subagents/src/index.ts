@@ -10,7 +10,7 @@ import { z } from "zod";
 import { navigationLeaf, SessionBinding, type BindingSession } from "./binding.ts";
 import { getDepth, getTaskId } from "./child/depth.ts";
 import { forwardDialog } from "./child/dialogs.ts";
-import { getPiInvocation } from "./child/invocation.ts";
+import { getPiInvocation, type PiInvocation } from "./child/invocation.ts";
 import type * as CommandsModule from "./commands.ts";
 import { remindTasks } from "./compaction.ts";
 import { loadConfig } from "./config.ts";
@@ -50,8 +50,14 @@ const startedJobs: Counter = {
 const FOREIGN_BASH_WARNING =
   "pi-subagents: job and job_abort are off because another extension owns bash";
 
-/** The Pi adapter: it maps Pi's events, tools, and commands to the session binding. */
-export default function subagents(pi: ExtensionAPI): void {
+/**
+ * The Pi adapter: it maps Pi's events, tools, and commands to the session binding. Pi gives no
+ * options; an in-process host sets `invocation` when its own entry does not start Pi.
+ */
+export default function subagents(
+  pi: ExtensionAPI,
+  options: { invocation?: PiInvocation } = {}
+): void {
   const depth = getDepth();
   const taskId = getTaskId();
   let lateUsageWarning = installLateUsagePatch();
@@ -172,7 +178,7 @@ export default function subagents(pi: ExtensionAPI): void {
       tasks: {
         depth,
         sessionId,
-        invocation: getPiInvocation(),
+        invocation: options.invocation ?? getPiInvocation(),
         launch: () => ({
           model: ctx.model && `${ctx.model.provider}/${ctx.model.id}`,
           thinking: pi.getThinkingLevel(),

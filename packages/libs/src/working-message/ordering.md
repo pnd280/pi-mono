@@ -41,7 +41,7 @@ Global ordering lives in `getAgentDir()/settings.json` (honouring `PI_CODING_AGE
 }
 ```
 
-A project `order` replaces the global array; removing it restores inheritance. Unknown IDs retain their positions through temporary contributor removal. See the [settings schema](settings.ts) for order limits.
+A project `order` replaces the global array; removing it restores inheritance. Unknown IDs retain their positions through temporary contributor removal. See the [settings schema](index.ts) for order limits.
 
 Settings load at session start and when the menu opens. Invalid settings or read failures produce terminal-safe warnings and fall back to the other valid scope or sorted IDs. Opening the menu does not apply an order.
 

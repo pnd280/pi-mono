@@ -1,6 +1,6 @@
 # Diff view
 
-[Shared TUI](../../README.md#usage)
+[Presentation](../../../docs/presentation.md#diff-viewer)
 
 Showing a patch inside Pi needs rows that fit the terminal and respect expansion budgets. [`renderDiffPanel`](index.ts) renders parsed patches as a full-width panel of terminal rows.
 
@@ -13,14 +13,15 @@ Showing a patch inside Pi needs rows that fit the terminal and respect expansion
 - Patches remain unmodified.
 - Every row is exactly the supplied width.
 
-For padding, theme colours, and the strips that show header rows, hunk numbers, and footer rows, see the [diff panel layout guide](../../../../docs/tui-diff-view.md).
+For padding, theme colours, and the strips that show header rows, hunk numbers, and footer rows, see the [diff panel layout guide](../../../docs/diff-view.md).
 
 ## Usage
 
 ```ts
 import { highlightCodeBounded } from "@pi-mono/libs/tui/components/code-highlight";
-import { renderDiffPanel } from "@pi-mono/libs/tui/components/diff-view";
 import { parsePatch } from "@pi-mono/utils/patch";
+
+import { renderDiffPanel } from "./diff-view/index.ts";
 
 const parsed = parsePatch(patchText, maxPatchBytes);
 const rows =

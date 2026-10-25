@@ -1,4 +1,5 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
+import { registeredBy } from "@pi-mono/utils/provenance";
 import { interpretReadResult, retainedSelectionSchema, selectionLabel } from "pi-read/result";
 import { z } from "zod";
 
@@ -16,7 +17,6 @@ import {
   readSummaryItems,
   readTextParts
 } from "../native/read.ts";
-import { registeredBy } from "../provenance.ts";
 
 // Pi omits optional nulls before execution, but standalone cards receive raw arguments.
 function optionalArgument<T extends z.ZodType>(schema: T) {

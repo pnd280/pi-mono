@@ -2,7 +2,7 @@
 
 [Collection browser](../src/tui/components/browser/README.md) · [Shared TUI](../src/tui/README.md)
 
-This guide is for callers who tune search and action timing, remap browser keys, debug input precedence, or construct `Browser` without the [browser host](../src/tui/open-browser/README.md). The [browser README](../src/tui/components/browser/README.md) has the contracts that every caller needs.
+This guide is for callers who tune search and action timing, remap browser keys, or debug input precedence. The [browser README](../src/tui/components/browser/README.md) has the contracts that every caller needs.
 
 ## Searches and pending actions
 
@@ -52,10 +52,10 @@ Configured actions take precedence over the fixed keys below, in this order: `co
 - Closing does not undo effects already started by consumer callbacks.
 - The footer keeps the back or close hint first when space is limited.
 
-## Direct construction
+## Host lifecycle
 
-The [browser host](../src/tui/open-browser/README.md) does these steps for you. When you construct `Browser` directly:
+Only the [browser host](../src/tui/open-browser/index.ts) constructs `Browser`. It does these steps:
 
-1. Await `browser.activate()` to load the initial section.
-2. Call `browser.invalidate()` on presentation transitions. This cancels armed deletion without closing the logical browser or aborting preparation.
-3. Call `browser.dispose()` at final closure, not during remounts.
+1. It awaits `browser.activate()` to load the initial section.
+2. It calls `browser.invalidate()` on presentation transitions. This cancels armed deletion without closing the logical browser or aborting preparation.
+3. It calls `browser.dispose()` at final closure, not during remounts.

@@ -6,7 +6,7 @@ Subagent tasks from [`pi-subagents`](../../../../pi-subagents/README.md) appear 
 
 ## Compatibility and selection
 
-The adapter recognises the `pi-subagents` registering package and the projected `subagent` parameter structure, or the `subagent_abort` structure with a required `task_id` string. It recognises [job tools](contract.md#background-jobs) in the same way. Arguments and result details are validated separately, including queued calls with no task ID. From pi-subagents, this extension imports only the result message identifiers in the pure `pi-subagents/constants` module, never its extension factory. Without pi-tool-display, pi-subagents draws its own cards in Pi's tool box.
+The adapter recognises the `pi-subagents` registering package and the projected `subagent` parameter structure, or the `subagent_abort` structure with a required `task_id` string. It recognises [job tools](contract.md#background-jobs) in the same way. Arguments and result details are validated separately, including queued calls with no task ID. From pi-subagents, this extension imports only the result message identifiers and the open-action event name in the pure `pi-subagents/constants` module, never its extension factory. Without pi-tool-display, pi-subagents draws its own cards in Pi's tool box.
 
 Validated `task_id` and `binding_id` fields supply the `pi-subagents:open` action. The receiving host checks the current parent binding and task ownership; a matching logical ID alone cannot authorise an old card.
 

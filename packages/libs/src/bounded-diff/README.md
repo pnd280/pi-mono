@@ -59,4 +59,4 @@ Supply one options object:
 - Choose budget values. See [`patchLimitsSchema`](index.ts) for accepted limits. Invalid limits throw `RangeError`.
 - Classify the change and translate result statuses into diagnostics in the consumer.
 
-Related: `PatchLimits` also applies to [file mutation observation](../file-mutations/README.md); patch parsing belongs to [`@pi-mono/utils/patch`](../../../utils/src/patch.ts), and rendering belongs to the [diff view](../tui/components/diff-view/README.md).
+Related: `PatchLimits` also applies to [file mutation observation](../file-mutations/README.md); patch parsing belongs to [`@pi-mono/utils/patch`](../../../utils/src/patch.ts), and rendering belongs to the [tool-display diff view](../../../extensions/pi-tool-display/src/rendering/diff-view/README.md).

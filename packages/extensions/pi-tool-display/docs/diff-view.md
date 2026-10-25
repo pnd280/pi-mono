@@ -1,8 +1,8 @@
 # Diff panel layout
 
-[Diff view](../src/tui/components/diff-view/README.md) · [Shared TUI](../src/tui/README.md)
+[Diff view](../src/rendering/diff-view/README.md) · [Presentation](presentation.md#diff-viewer)
 
-This guide describes how [`renderDiffPanel`](../src/tui/components/diff-view/index.ts) lays out the panel. Follow it when you choose a `DiffViewTheme` or header and footer rows, or when you check rendered output.
+This guide describes how [`renderDiffPanel`](../src/rendering/diff-view/index.ts) lays out the panel. Follow it when you choose a `DiffViewTheme` or header and footer rows, or when you check rendered output.
 
 ## Surface and padding
 

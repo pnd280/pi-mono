@@ -112,5 +112,3 @@ These private dependencies could be replaced by public Pi APIs. None exists as o
 - Replace private fullscreen routing when a public API offers input priority scoped to focus. Pi 1.4.0 parity for the `inputListeners` mutation: None. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.
 - Revisit public contribution APIs for working-message [overwrites by non-participants](../src/working-message/README.md#behaviour).
 - Adopt public TUI components that can replace a local implementation without losing controlled state or cancellation.
-
-New storage helpers must keep the [private-file guarantees](../src/private-files/README.md).

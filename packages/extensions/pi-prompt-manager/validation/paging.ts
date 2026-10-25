@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { resolveDirectoryScope } from "@pi-mono/libs/private-files";
+import { resolveDirectoryScope } from "../src/private-files/index.ts";
 
 /** Initialize only new isolated fixtures, before any Pi process can access them. */
 export async function seedPagingCollections(directory: string): Promise<void> {

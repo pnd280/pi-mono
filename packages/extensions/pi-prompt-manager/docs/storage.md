@@ -35,7 +35,7 @@ Use a trusted local Linux, macOS, or WSL filesystem with POSIX owner checks and 
 - The agent root may be a symlink.
 - Opening collections may create the directories the extension manages and repair their permissions and ACLs. Other Pi directories are left alone.
 - On POSIX systems, directories use `0700`; data, temporary files, and locks use `0600`.
-- On native Windows, storage relies on the user profile's inherited ACL: owners aren't checked, and permissions aren't changed. See the [Windows storage decision](../../../libs/docs/adr/0001-windows-private-storage.md).
+- On native Windows, storage relies on the user profile's inherited ACL: owners aren't checked, and permissions aren't changed. See the [Windows storage decision](adr/0001-windows-private-storage.md).
 
 ## Manual backup and repair
 

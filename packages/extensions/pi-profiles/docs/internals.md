@@ -6,7 +6,7 @@ This reference is for maintainers who change how a selection resolves, searches,
 
 ## Tool resolution
 
-The [selection](../src/selection.ts) module owns tool resolution and deferral.
+The [selection](../src/selection.ts) module owns tool resolution, deferral, restoration, and the `deny` enforcement. Each entry point returns a full decision. The switch and the menu's change preview use the same plan, `planSwitch`.
 
 - Match `*` patterns as Pi's `--tools` does (`toolPatternRegExp` in Pi's `core/mcp-servers.js`, which Pi does not export).
 - Let an `allow` pattern turn on only `direct` and `model-only` tools, as `--tools` does, so that `codemode` exposure stays. An `allow` pattern keeps the base tools that it matches.
