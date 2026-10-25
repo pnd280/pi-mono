@@ -33,7 +33,7 @@ Only Linux support is guaranteed. Windows and macOS are not thoroughly tested.
 | [pi-abort-guard](packages/extensions/pi-abort-guard/README.md)                 | Stops a running agent only on a second **Escape**, so one stray press doesn't end the turn.           |
 | [pi-agent-summary](packages/extensions/pi-agent-summary/README.md)             | Adds a one-line summary after each run: time, models, commands, and changed files.                    |
 | [pi-editor-widgets](packages/extensions/pi-editor-widgets/README.md)           | Moves widgets and statuses above the editor, below it, or into the footer.                            |
-| [pi-prompt-cloak](packages/extensions/pi-prompt-cloak/README.md)               | Rewrites two Pi-specific system prompt lines to reduce fingerprinting by upstream providers.          |
+| [pi-prompt-cloak](packages/extensions/pi-prompt-cloak/README.md)               | Rephrases Pi-specific system prompt text to reduce fingerprinting by upstream providers.              |
 
 ## Make it your own
 
