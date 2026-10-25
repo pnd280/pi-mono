@@ -12,6 +12,8 @@ The preference is to infer types from the implementation or canonical schema and
 
 For a separately declared API/configuration fragment that will later be spread into or passed to a typed boundary, prefer checking it at its declaration with `satisfies`. Inference alone does not check the intended contract; `satisfies` checks compatibility and catches excess keys on fresh object literals while retaining useful inference. It performs no runtime validation.
 
+A literal that must name a member of an existing union, such as an event, entry, or message `type` in a membership check, needs that union as its declared type. Inference widens the array in `["message_end"].includes(event.type)` to `string[]`, so a misspelt or renamed member still type-checks. `as const` narrows the array to its own members and then rejects the wider argument. Declare the collection with the union instead, such as `ReadonlySet<JsonAgentSessionEvent["type"]>`, or compare with `===`, which rejects a literal outside the union.
+
 ## Trust boundaries
 
 At untrusted boundaries, prefer `unknown` followed by narrowing or validation. The owner favors keeping unavoidable `any` local to an interoperability gap, with runtime evidence or a concrete boundary assumption explaining each `any` or assertion. Narrowing, validation, or better modeling are preferred to casts; a casting wrapper is useful when it centralizes a documented boundary assumption or meaningful domain operation.

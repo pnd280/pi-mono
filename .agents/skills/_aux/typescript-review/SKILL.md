@@ -30,4 +30,5 @@ These rules override the companions' scope defaults, review-only mode, confirmat
 - Apply `typescript-taste` as coding-style guidance over the same scope. For stylistic choices where companions disagree, follow established project conventions first, then `typescript-taste`.
 - Keep style-only suggestions optional and separate from evidence-backed findings. A style difference alone is not a defect and does not justify unrelated cleanup.
 - Cross-check both directions: runtime assumptions against type contracts, and type guarantees against actual behavior. Feed findings back into the other pass.
+- For each defect, find why types, lint, or tests accepted it. Fix that cause within the target, or report it as a finding that names the gap.
 - Reconcile into one report, deduplicating findings by root cause. Report the target and actual coverage rather than assuming changed lines. Include runtime and type evidence, applied fixes or proposed changes, exact verification results, and unresolved findings or coverage gaps.

@@ -22,11 +22,11 @@
   "_aux/typescript-review": {
     "source": "$local",
     "skill": "typescript-review",
-    "hash": "9580c351ba5d1691abb89080b95764a1bfbea4aecba24526fa9de9866717bbf3"
+    "hash": "a7d932d864250d4ba85b34c0214b690cc265ed971c8ba41f71431a18c60a7201"
   },
   "_aux/typescript-taste": {
     "source": "$local",
     "skill": "typescript-taste",
-    "hash": "8839f338cf50fef95c5d47f45a798170e402f8a3d95d4a784bf855abdbf67734"
+    "hash": "9f190e61d6e641c84f259b9633ab6f15699cc151865d6b2c2ce50946392fbe98"
   }
 }
