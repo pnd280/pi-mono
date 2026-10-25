@@ -391,7 +391,7 @@ export class Run {
   }
 
   /** Send input to the child; false when the child was closing and nothing was sent. */
-  async input(prompt: string, delivery: "steer" | "follow_up"): Promise<boolean> {
+  async input(prompt: string, delivery: ToolDetails["delivery"]): Promise<boolean> {
     return Boolean(await this.child.input(prompt, delivery === "steer" ? "steer" : "followUp"));
   }
 

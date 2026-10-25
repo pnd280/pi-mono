@@ -7,6 +7,13 @@ import { displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import { boundedText } from "../result.ts";
 
+const DIALOG_METHODS: ReadonlySet<RpcExtensionUIRequest["method"]> = new Set([
+  "select",
+  "confirm",
+  "input",
+  "editor"
+]);
+
 /** Fire-and-forget child UI stays local; only dialog replies flow back down. */
 export async function forwardDialog(
   request: RpcExtensionUIRequest,
@@ -14,7 +21,7 @@ export async function forwardDialog(
   ui: Pick<ExtensionUIContext, "select" | "confirm" | "input" | "editor">,
   signal: AbortSignal
 ): Promise<RpcExtensionUIResponse | undefined> {
-  if (!["select", "confirm", "input", "editor"].includes(request.method)) return undefined;
+  if (!DIALOG_METHODS.has(request.method)) return undefined;
   const cancelled: RpcExtensionUIResponse = {
     type: "extension_ui_response",
     id: request.id,

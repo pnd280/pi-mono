@@ -4,7 +4,12 @@ import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
-import type { BorrowedToolResult, DisplayProgress, ToolDisplayAdapter } from "../../contracts.ts";
+import type {
+  BorrowedToolResult,
+  DisplayProgress,
+  SummaryCategory,
+  ToolDisplayAdapter
+} from "../../contracts.ts";
 import { registeredBy } from "../provenance.ts";
 import { jobAdapter } from "./jobs.ts";
 
@@ -52,7 +57,7 @@ const parametersSchema = z.object({
     .array(z.string())
     .refine((fields) => fields.includes("description") && fields.includes("prompt"))
 });
-const category = {
+const category: SummaryCategory = {
   id: "subagents",
   count: { one: "ran {n} subagent", other: "ran {n} subagents" }
 };
@@ -62,7 +67,7 @@ const abortParametersSchema = z.object({
   properties: z.object({ task_id: z.object({ type: z.literal("string") }) }),
   required: z.array(z.string()).refine((fields) => fields.includes("task_id"))
 });
-const abortCategory = {
+const abortCategory: SummaryCategory = {
   id: "subagent-aborts",
   count: { one: "aborted {n} subagent", other: "aborted {n} subagents" }
 };

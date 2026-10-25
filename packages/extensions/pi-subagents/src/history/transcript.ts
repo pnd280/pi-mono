@@ -14,12 +14,12 @@ import type { RunHistory } from "./reader.ts";
 
 export type TranscriptMessage = SessionProjection["messages"][number];
 
-export interface ToolOutput {
+export type ToolOutput = {
   content: ToolResultMessage["content"];
   details: unknown;
   isError: boolean;
   durationMs?: number;
-}
+};
 
 export type TranscriptItem =
   | { kind: "message"; key: string; message: TranscriptMessage; streaming: boolean }

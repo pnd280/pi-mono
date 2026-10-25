@@ -8,8 +8,7 @@ import { z } from "zod";
 
 import { RESULT_MESSAGE } from "../src/constants.ts";
 import { detailsSchema } from "../src/result.ts";
-import { taskRecordSchema } from "../src/tasks/records.ts";
-import { release, withFixture } from "./background-fixture.ts";
+import { release, taskList, withFixture } from "./background-fixture.ts";
 import type { Supervisor } from "./supervisor.ts";
 
 // Each test owns its workspace and processes.
@@ -47,13 +46,13 @@ async function sendUpdate(host: Supervisor, directory: string, message: string):
   await work;
 }
 
-test.each(["follow_up", "steer", "settling", "exiting"])(
+test.each(["follow_up", "steer", "settling", "exiting"] as const)(
   "preserves input and usage through %s delivery",
   async (mode) => {
     await withFixture(
       async (directory, start) => {
         const host = await start();
-        const scenario = ["settling", "exiting"].includes(mode) ? mode : "input";
+        const scenario = mode === "settling" || mode === "exiting" ? mode : "input";
         await host.reply(`background-${scenario}`);
         const initial = (await host.results())[0]!;
         const id = detailsSchema.parse(initial.details).task_id!;
@@ -111,11 +110,9 @@ test.each(["follow_up", "steer", "settling", "exiting"])(
           ).toMatch(
             /Choose a subagents fixture scenario\.\s+Input occurrences: 1; earlier context: true/
           );
-        const page = z
-          .object({ tasks: z.array(taskRecordSchema) })
-          .parse(JSON.parse((await host.command("list")).message));
-        expect(page.tasks).toHaveLength(1);
-        const session = await readFile(page.tasks[0]!.session_file, "utf8");
+        const tasks = await taskList(host);
+        expect(tasks).toHaveLength(1);
+        const session = await readFile(tasks[0]!.session_file, "utf8");
         const messages = session
           .trim()
           .split("\n")
@@ -147,10 +144,7 @@ test.for(["stopped", "live"])(
   async (mode, { expect }) => {
     await withFixture(async (directory, start) => {
       let host = await start();
-      const page = async () =>
-        z
-          .object({ tasks: z.array(taskRecordSchema) })
-          .parse(JSON.parse((await host.command("list")).message)).tasks;
+      const page = () => taskList(host);
       await host.reply(mode === "live" ? "background-owner-live" : "background-owner");
       await expect
         .poll(async () => (await page()).find((task) => task.parent_task_id !== null)?.state, {

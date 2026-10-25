@@ -7,11 +7,16 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
+import { z } from "zod";
+
 const root = resolve(import.meta.dirname, "..");
-const piManifest: unknown = JSON.parse(
-  readFileSync(join(root, "node_modules/@earendil-works/pi-coding-agent/package.json"), "utf8")
-);
-const piVersion = String(Reflect.get(Object(piManifest), "version"));
+const { version: piVersion } = z
+  .object({ version: z.string() })
+  .parse(
+    JSON.parse(
+      readFileSync(join(root, "node_modules/@earendil-works/pi-coding-agent/package.json"), "utf8")
+    )
+  );
 
 function markdownFiles(): string[] {
   const listed = execFileSync(

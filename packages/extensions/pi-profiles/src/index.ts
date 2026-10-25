@@ -4,7 +4,8 @@ import {
   CustomEditor,
   type ExtensionAPI,
   type ExtensionContext,
-  type SessionStartEvent
+  type SessionStartEvent,
+  type ToolInfo
 } from "@earendil-works/pi-coding-agent";
 import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 import { joinPromptParts } from "@pi-mono/libs/prompt-parts";
@@ -77,7 +78,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   /** The latest selection's `deny` list. Its tools stay off until the next selection. */
   let deny: readonly string[] = [];
   /** Identifies the extension's `tool_search` in `pi.getAllTools()`. */
-  let searchReach: unknown;
+  let searchReach: ToolInfo["reachesTools"];
   /** Aborted when the session ends, so an open menu closes and no new switch starts. */
   let session = new AbortController();
   /** The switch in progress. Requests, navigation, and the end of the session wait for it. */

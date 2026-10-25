@@ -20,6 +20,8 @@ type ViewState = { query: string; selected: string | undefined };
 /** After a query edit, the previous results stay visible this long before the search notice. */
 const searchNoticeDelayMs = 200;
 
+const navigationActions: ReadonlySet<BrowserAction> = new Set(["up", "down", "pageUp", "pageDown"]);
+
 export class BrowserController<Item> {
   section: BrowserSection<Item>;
   status: "loading" | "ready" | "unavailable" = "loading";
@@ -353,7 +355,7 @@ export class BrowserController<Item> {
 
     if (this.status !== "ready" || this.searching) return;
 
-    if (["up", "down", "pageUp", "pageDown"].includes(action)) {
+    if (navigationActions.has(action)) {
       this.navigate(action, pageSize);
 
       return;

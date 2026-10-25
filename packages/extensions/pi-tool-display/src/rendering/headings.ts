@@ -33,6 +33,7 @@ import type { PreparedCard, PreparedGroup } from "./types.ts";
 const COMPACT_HEADING_CHARACTERS = 16 * 1024;
 const COMPACT_HEADING_ROWS = 3;
 const COMPACT_CODE_ROWS = 10;
+const inlineParameterFamilies: ReadonlySet<ToolFamily> = new Set(["shell", "invocation"]);
 
 type HeadingColor = Parameters<Theme["fg"]>[0];
 
@@ -472,7 +473,7 @@ export function heading(p: PreparedCard): string[] {
   const parts = invocation(p);
   const rows = targetTitleRows(title, parts, p) ?? titleRows(title, invocationDetail(parts, p), p);
   if (p.code) rows.push(...headingContinuation(codeRows(p.code, p), p));
-  if (p.showParameters && p.expanded && !["shell", "invocation"].includes(p.adapter.family))
+  if (p.showParameters && p.expanded && !inlineParameterFamilies.has(p.adapter.family))
     rows.push(
       ...headingContinuation(
         wrapRows(

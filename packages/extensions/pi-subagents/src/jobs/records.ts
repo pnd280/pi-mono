@@ -42,14 +42,16 @@ export type JobAbortInput = z.infer<typeof jobAbortInputSchema>;
 
 export const jobAbortParameters = toToolSchema(jobAbortInputSchema);
 
-/** The supervisor appends one when a job starts. */
-const jobEntrySchema = z.object({
+const fields = {
   job_id: id,
   description: z.string(),
   command: z.string(),
   log_file: z.string().min(1),
   started_at: z.number()
-});
+};
+
+/** The supervisor appends one when a job starts. */
+const jobEntrySchema = z.object(fields);
 
 /** The supervisor appends one after a job's command exits. */
 const jobEndEntrySchema = z.object({
@@ -65,14 +67,6 @@ const jobEndEntrySchema = z.object({
 export type JobEntry = z.infer<typeof jobEntrySchema>;
 
 export type JobEndEntry = z.infer<typeof jobEndEntrySchema>;
-
-const fields = {
-  job_id: id,
-  description: z.string(),
-  command: z.string(),
-  log_file: z.string().min(1),
-  started_at: z.number()
-};
 
 const inactive = {
   ...fields,

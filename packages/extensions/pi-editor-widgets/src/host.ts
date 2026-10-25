@@ -18,7 +18,7 @@ import { OwnedHooks, unwrapHook } from "@pi-mono/libs/owned-hooks";
 
 type NativeComponent = Component & { dispose?(): void };
 
-export interface WidgetHost {
+export type WidgetHost = {
   session: AgentSession;
   ui: TUI;
   renderer: TUI;
@@ -40,7 +40,7 @@ export interface WidgetHost {
   createExtensionUIContext(): ExtensionContext["ui"];
   renderWidgets(): void;
   setExtensionFooter: ExtensionContext["ui"]["setFooter"];
-}
+};
 
 type StatusPrototype = { setExtensionStatus: ExtensionContext["ui"]["setStatus"] };
 

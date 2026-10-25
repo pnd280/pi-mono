@@ -8,8 +8,7 @@ import { z } from "zod";
 
 import { END_ENTRY, RESULT_MESSAGE } from "../src/constants.ts";
 import { detailsSchema } from "../src/result.ts";
-import { taskRecordSchema } from "../src/tasks/records.ts";
-import { withFixture } from "./background-fixture.ts";
+import { taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses } from "./processes.ts";
 
 // Each test owns its workspace and processes.
@@ -44,9 +43,7 @@ test("pages tool summaries on the selected ancestry once without modifying the c
       .toBe(true);
     const early = await show();
     expect(early.items).toEqual([{ type: "user", text: "activity-digest" }]);
-    const file = z
-      .object({ tasks: z.array(taskRecordSchema) })
-      .parse(JSON.parse((await host.command("list")).message)).tasks[0]!.session_file;
+    const file = (await taskList(host))[0]!.session_file;
     expect(
       parseSessionEntries(await readFile(file, "utf8")).find(
         (entry) => entry.type !== "session" && entry.id === early.cursor
@@ -105,9 +102,7 @@ test("pages tool summaries on the selected ancestry once without modifying the c
     const compacted = await show();
     expect(compacted.items.slice(0, completed.items.length)).toEqual(completed.items);
     // Two runs of the fixture's replies, and the fixture's compaction entry of 7 and 3 tokens.
-    const listed = z
-      .object({ tasks: z.array(taskRecordSchema) })
-      .parse(JSON.parse((await host.command("list")).message)).tasks[0]!.usage;
+    const listed = (await taskList(host))[0]!.usage;
 
     for (const usage of [compacted.usage, listed]) {
       expect(usage).toMatchObject({ input: 37, output: 18 });
@@ -129,9 +124,7 @@ test("pages tool summaries on the selected ancestry once without modifying the c
       text: "Activity fixture finished"
     });
     await host.prompt(`resume-id ${id}`);
-    const task = z
-      .object({ tasks: z.array(taskRecordSchema) })
-      .parse(JSON.parse((await host.command("list")).message)).tasks[0]!;
+    const task = (await taskList(host))[0]!;
     const before = await readFile(task.session_file, "utf8");
     const entries = parseSessionEntries(before).filter((entry) => entry.type !== "session");
     const first = entries[0]!;
@@ -184,10 +177,7 @@ test("returns the latest assistant text after an abort during a tool call", asyn
       })
       .toContainEqual(expect.stringContaining("sleep 600"));
     await host.command(`abort ${id}`);
-    const listed = async () =>
-      z
-        .object({ tasks: z.array(taskRecordSchema) })
-        .parse(JSON.parse((await host.command("list")).message)).tasks[0]!;
+    const listed = async () => (await taskList(host))[0]!;
     await expect
       .poll(async () => (await listed()).state, { timeout: STEP_TIMEOUT_MS })
       .toBe("inactive");

@@ -118,12 +118,11 @@ export function taskResultMessage({
   outcome: string;
   lateUsage?: LateUsage;
 }): ResultMessage {
-  const result = taskResult(
+  const result = taskResult({
     details,
-    text,
-    undefined,
-    `Background task ${outcome}: ${details.description}`
-  );
+    body: text,
+    summary: `Background task ${outcome}: ${details.description}`
+  });
 
   return {
     customType: RESULT_MESSAGE,

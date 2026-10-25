@@ -12,7 +12,7 @@ import type {
 import type { DisplayFailureHandler } from "../interpretation.ts";
 import type { ObservationSink } from "../observation/native.ts";
 import type { DisplaySettings } from "../settings.ts";
-import { TranscriptCoordinator, type ValidatedArgs } from "./coordinator.ts";
+import { TranscriptCoordinator, type ResultStatus, type ValidatedArgs } from "./coordinator.ts";
 import { DisplayHistory, type HistorySource } from "./history.ts";
 import { SavedCalls, type SavedCallsOptions } from "./saved-calls.ts";
 import { SavedOutputs } from "./saved-output.ts";
@@ -42,7 +42,7 @@ export type ToolSnapshot = {
   args: ValidatedArgs;
 };
 
-type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
+export type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
 
 type DisplaySessionOptions = {
   runtime: string;
@@ -160,23 +160,16 @@ export class DisplaySession {
    * Pi's execution event. Extensions can still replace the result before Pi saves it,
    * so the call's facts are saved with Pi's final result message.
    */
-  result(
-    id: string,
-    result: AgentToolResult<unknown>,
-    outcome: Outcome,
-    partial = false,
-    durationMs?: number
-  ): void {
-    const call = this.publish(id, result, outcome, partial, durationMs);
-    if (call && !partial) this.saved.end(call, outcome);
+  result(id: string, result: AgentToolResult<unknown>, status: ResultStatus): void {
+    const call = this.publish(id, result, status);
+    if (call && !status.partial) this.saved.end(call, status.outcome);
   }
   private publish(
     id: string,
     result: AgentToolResult<unknown>,
-    outcome: Outcome,
-    partial = false,
-    durationMs?: number
+    status: ResultStatus
   ): DisplayCall | undefined {
+    const { outcome, partial = false } = status;
     if (this.disposed) return;
     const call = this.coordinator.byId(id);
     if (!call) return;
@@ -185,7 +178,7 @@ export class DisplaySession {
         this.coordinator.fact(call, { kind: "cancellation" });
       // Keep the path first, so completion loads only the final saved output.
       this.output.retain(call, result);
-      this.coordinator.result(call, result, outcome, partial, durationMs);
+      this.coordinator.result(call, result, status);
       if (!partial) this.saved.replay(call);
     });
 
@@ -223,7 +216,10 @@ export class DisplaySession {
     if (input.kind === "result") {
       const call = coordinator.byId(input.id);
       if (call?.name !== input.name) return;
-      this.publish(input.id, input.result, input.outcome, false, input.durationMs);
+      this.publish(input.id, input.result, {
+        outcome: input.outcome,
+        durationMs: input.durationMs
+      });
       // Pi saves this message after its listeners, so facts written now precede it.
       if (origin === "live" && complete) this.saved.finish(call, input.result, input.outcome);
 
@@ -263,22 +259,22 @@ export class DisplaySession {
           toolCallId: content.id,
           ...(source ? { messageEntryId: source } : {})
         };
-        const call = coordinator.add(
+        const call = coordinator.add({
           reference,
-          content.name,
-          content.args,
-          selected,
+          name: content.name,
+          args: content.args,
+          adapter: selected,
           origin,
-          this.options.expanded(),
-          tools.args
-        );
+          expanded: this.options.expanded(),
+          validated: tools.args
+        });
         this.noticeAnchor = call;
         if (origin === "live" && complete) coordinator.update(call, "queued");
         if (call.lifecycle !== "complete" && input.interruption)
           coordinator.result(
             call,
             { content: [{ type: "text", text: input.interruption.text }], details: undefined },
-            input.interruption.outcome
+            { outcome: input.interruption.outcome }
           );
         if (origin === "historical") this.saved.replay(call);
       }

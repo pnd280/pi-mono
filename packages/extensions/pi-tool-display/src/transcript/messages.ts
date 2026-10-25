@@ -3,7 +3,7 @@ import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { instructionNotice } from "../adapters/pi-nested-instructions/notices.ts";
 import type { Outcome } from "../contracts.ts";
 import { record, stringField } from "../values.ts";
-import type { TranscriptMessage } from "./session.ts";
+import type { AssistantCall, TranscriptMessage } from "./session.ts";
 
 export function hostToolResult(value: unknown): AgentToolResult<unknown> {
   // Pi's execution events and persisted toolResult messages carry AgentToolResult media
@@ -37,8 +37,6 @@ function toolResult(value: Record<string, unknown>, input: unknown): TranscriptM
     ...(validDuration(value.durationMs) ? { durationMs: value.durationMs } : {})
   };
 }
-
-type AssistantCall = Extract<TranscriptMessage, { kind: "assistant" }>["calls"][number];
 
 function assistantCall(block: unknown, index: number): AssistantCall | undefined {
   const content = record(block);

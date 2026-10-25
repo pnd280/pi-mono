@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { DEPTH_ENV, RESULT_MESSAGE, RUN_ENTRY, TASK_ID_ENV } from "../src/constants.ts";
 import { detailsSchema } from "../src/result.ts";
-import { runRecordSchema, taskRecordSchema } from "../src/tasks/records.ts";
+import { runRecordSchema } from "../src/tasks/records.ts";
 import {
   descendantStarted,
   expectChildUsageOnce,
@@ -80,25 +80,31 @@ test("settles a child only after its background grandchild result is consumed", 
 });
 
 test("rejects nested capacity immediately and observes registration depth", async () => {
-  await fixture(async (host) => {
-    await host.prompt("nested-capacity");
-    expect(contentText((await host.results()).at(-1)!.content)).toContain(
-      "capacity reached (1 subagents running); do the work yourself"
-    );
-    await host.prompt("delegate-reply");
-    expect(detailsSchema.parse((await host.results()).at(-1)!.details).state).toBe("completed");
-  }, 1);
-  await fixture(async (host) => {
-    await host.prompt("nested-depth");
-    expect(contentText((await host.results()).at(-1)!.content)).toContain(
-      "subagent available: false"
-    );
-    await host.prompt("nested-failure");
-    const recovered = contentText((await host.results()).at(-1)!.content);
-    expect(recovered).toContain("new_session failed");
-    expect(recovered).toContain("Fixture reply");
-    expect(recovered).not.toContain("capacity reached");
-  }, 2);
+  await fixture(
+    async (host) => {
+      await host.prompt("nested-capacity");
+      expect(contentText((await host.results()).at(-1)!.content)).toContain(
+        "capacity reached (1 subagents running); do the work yourself"
+      );
+      await host.prompt("delegate-reply");
+      expect(detailsSchema.parse((await host.results()).at(-1)!.details).state).toBe("completed");
+    },
+    { maxConcurrent: 1 }
+  );
+  await fixture(
+    async (host) => {
+      await host.prompt("nested-depth");
+      expect(contentText((await host.results()).at(-1)!.content)).toContain(
+        "subagent available: false"
+      );
+      await host.prompt("nested-failure");
+      const recovered = contentText((await host.results()).at(-1)!.content);
+      expect(recovered).toContain("new_session failed");
+      expect(recovered).toContain("Fixture reply");
+      expect(recovered).not.toContain("capacity reached");
+    },
+    { maxConcurrent: 2 }
+  );
 });
 
 test("retains the child depth limit after reloading extensions", async () => {
@@ -140,67 +146,61 @@ test.for(["user abort", "turn abort", "shutdown", "SIGKILL", "blocked shutdown"]
   "stops a settling subtree on %s",
   async (action, { expect }) => {
     // With these limits, a graceful stop of the stubborn grandchild outlasts a step.
-    const limit = action === "turn abort" ? LONG_GRACE_LIMIT : undefined;
-    await fixture(
-      async (host, directory) => {
-        const work = host
-          .prompt(
-            action === "blocked shutdown" || action === "turn abort"
-              ? "nested-stubborn"
-              : "nested-slow"
+    const limits =
+      action === "turn abort"
+        ? { maxConcurrent: LONG_GRACE_LIMIT, maxDepth: LONG_GRACE_LIMIT }
+        : {};
+    await fixture(async (host, directory) => {
+      const work = host
+        .prompt(
+          action === "blocked shutdown" || action === "turn abort"
+            ? "nested-stubborn"
+            : "nested-slow"
+        )
+        .catch((error: unknown) => error);
+      await descendantStarted(host, expect);
+
+      if (action === "blocked shutdown" || action === "turn abort") {
+        // Wait until the grandchild has started its shutdown-blocking scenario.
+        for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
+          const processes = await remainingProcesses(directory, 0);
+          if (processes.some((process) => process.command.includes("sleep 600"))) break;
+          if (index === STEP_TIMEOUT_MS / 25 - 1)
+            throw new Error("Stubborn descendant did not start");
+          await setTimeout(25);
+        }
+      }
+
+      if (action === "turn abort") {
+        const abort = host.request({ type: "abort" });
+        // Only an immediate stop ends the subtree within this wait. Observe exit, not only a kill
+        // request.
+        await expect
+          .poll(
+            async () =>
+              (await fixtureProcesses(directory)).filter(
+                ({ pid }) => pid !== host.connection.process.pid
+              ),
+            { timeout: STEP_TIMEOUT_MS }
           )
-          .catch((error: unknown) => error);
-        await descendantStarted(host, expect);
+          .toEqual([]);
+        await abort;
+      } else if (action === "SIGKILL") host.connection.process.kill("SIGKILL");
+      else if (action === "shutdown") host.connection.closeInput();
+      else {
+        await host.command(`abort ${(await taskList(host))[0]!.task_id}`);
+      }
 
-        if (action === "blocked shutdown" || action === "turn abort") {
-          // Wait until the grandchild has started its shutdown-blocking scenario.
-          for (let index = 0; index < STEP_TIMEOUT_MS / 25; index++) {
-            const processes = await remainingProcesses(directory, 0);
-            if (processes.some((process) => process.command.includes("sleep 600"))) break;
-            if (index === STEP_TIMEOUT_MS / 25 - 1)
-              throw new Error("Stubborn descendant did not start");
-            await setTimeout(25);
-          }
-        }
+      await work;
 
-        if (action === "turn abort") {
-          const abort = host.request({ type: "abort" });
-          // Only an immediate stop ends the subtree within this wait. Observe exit, not only a kill
-          // request.
-          await expect
-            .poll(
-              async () =>
-                (await fixtureProcesses(directory)).filter(
-                  ({ pid }) => pid !== host.connection.process.pid
-                ),
-              { timeout: STEP_TIMEOUT_MS }
-            )
-            .toEqual([]);
-          await abort;
-        } else if (action === "SIGKILL") host.connection.process.kill("SIGKILL");
-        else if (action === "shutdown") host.connection.closeInput();
-        else {
-          const page = z
-            .object({ tasks: z.array(taskRecordSchema) })
-            .parse(JSON.parse((await host.command("list")).message));
-          await host.command(`abort ${page.tasks[0]!.task_id}`);
-        }
-
-        await work;
-
-        if (action === "shutdown" || action === "SIGKILL") {
-          await host.connection.closed;
-          expect(await remainingProcesses(directory)).toEqual([]);
-        } else {
-          const page = z
-            .object({ tasks: z.array(taskRecordSchema) })
-            .parse(JSON.parse((await host.command("list")).message));
-          expect(page.tasks.every((task) => task.state === "inactive")).toBe(true);
-        }
-      },
-      limit ?? 4,
-      limit ?? 2
-    );
+      if (action === "shutdown" || action === "SIGKILL") {
+        await host.connection.closed;
+        expect(await remainingProcesses(directory)).toEqual([]);
+      } else {
+        const tasks = await taskList(host);
+        expect(tasks.every((task) => task.state === "inactive")).toBe(true);
+      }
+    }, limits);
   }
 );
 
@@ -222,20 +222,18 @@ test("routes nested dialogs and reconstructs descendant ownership after restart"
     });
     await work;
     expect(contentText((await host.results())[0]!.content)).toContain("Dialog accepted");
-    const page = z
-      .object({ tasks: z.array(taskRecordSchema) })
-      .parse(JSON.parse((await host.command("list")).message));
-    expect(page.tasks).toHaveLength(2);
-    expect(page.tasks[1]?.parent_task_id).toBe(page.tasks[0]?.task_id);
+    const tasks = await taskList(host);
+    expect(tasks).toHaveLength(2);
+    expect(tasks[1]?.parent_task_id).toBe(tasks[0]?.task_id);
     const state = await host.state();
     await host.stop();
     const resumed = await Supervisor.start(directory, { sessionId: state.sessionId });
 
     try {
       expect(JSON.parse((await resumed.command("list")).message)).toMatchObject({
-        tasks: page.tasks
+        tasks
       });
-      expect((await resumed.command(`abort ${page.tasks[1]!.task_id}`)).notifyType).toBe("error");
+      expect((await resumed.command(`abort ${tasks[1]!.task_id}`)).notifyType).toBe("error");
     } finally {
       await resumed.stop();
     }
@@ -310,49 +308,48 @@ test("keeps earlier descendants and shows no starting descendant as stopped whil
         await restarted.stop();
       }
     },
-    4,
-    3
+    { maxDepth: 3 }
   );
 });
 
 test("routes promotion to the owner and frees subtree capacity for queued top-level work", async ({
   expect
 }) => {
-  await fixture(async (host) => {
-    const initial = host.reply("nested-foreground");
-    await descendantStarted(host, expect);
-    const page = z
-      .object({ tasks: z.array(taskRecordSchema) })
-      .parse(JSON.parse((await host.command("list")).message));
-    const [child, grandchild] = page.tasks;
-    expect(page.tasks).toHaveLength(2);
-    expect((await host.command(`background ${grandchild!.task_id}`)).notifyType).toBe("info");
-    const promoted = z
-      .object({ tasks: z.array(taskRecordSchema) })
-      .parse(JSON.parse((await host.command("list")).message));
-    expect(promoted.tasks[1]).toMatchObject({ task_id: grandchild!.task_id, background: true });
-    await host.command(`background ${child!.task_id}`);
-    await initial;
-    const after = host.records.length;
-    const queued = host.prompt("delegate-reply");
-    await host.wait(
-      (event) =>
-        event.type === "tool_execution_update" &&
-        z.object({ details: detailsSchema }).safeParse(event.partialResult).data?.details.state ===
-          "queued",
-      after
-    );
-    expect(
-      z.object({ total: z.number() }).parse(JSON.parse((await host.command("list")).message)).total
-    ).toBe(2);
-    await host.command(`abort ${child!.task_id}`);
-    await queued;
-    const result = (await host.results()).at(-1)!;
-    expect(detailsSchema.parse(result.details).state).toBe("completed");
-    const records = z
-      .object({ tasks: z.array(taskRecordSchema) })
-      .parse(JSON.parse((await host.command("list")).message));
-    expect(records.tasks).toHaveLength(3);
-    expect(records.tasks.every((task) => task.state === "inactive")).toBe(true);
-  }, 2);
+  await fixture(
+    async (host) => {
+      const initial = host.reply("nested-foreground");
+      await descendantStarted(host, expect);
+      const tasks = await taskList(host);
+      const [child, grandchild] = tasks;
+      expect(tasks).toHaveLength(2);
+      expect((await host.command(`background ${grandchild!.task_id}`)).notifyType).toBe("info");
+      expect((await taskList(host))[1]).toMatchObject({
+        task_id: grandchild!.task_id,
+        background: true
+      });
+      await host.command(`background ${child!.task_id}`);
+      await initial;
+      const after = host.records.length;
+      const queued = host.prompt("delegate-reply");
+      await host.wait(
+        (event) =>
+          event.type === "tool_execution_update" &&
+          z.object({ details: detailsSchema }).safeParse(event.partialResult).data?.details
+            .state === "queued",
+        after
+      );
+      expect(
+        z.object({ total: z.number() }).parse(JSON.parse((await host.command("list")).message))
+          .total
+      ).toBe(2);
+      await host.command(`abort ${child!.task_id}`);
+      await queued;
+      const result = (await host.results()).at(-1)!;
+      expect(detailsSchema.parse(result.details).state).toBe("completed");
+      const records = await taskList(host);
+      expect(records).toHaveLength(3);
+      expect(records.every((task) => task.state === "inactive")).toBe(true);
+    },
+    { maxConcurrent: 2 }
+  );
 });

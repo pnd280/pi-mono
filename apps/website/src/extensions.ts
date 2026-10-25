@@ -1,19 +1,19 @@
 export const repositoryUrl = "https://github.com/pnd280/pi-mono";
 
-export interface Extension {
+export type Extension = {
   name: string;
   // Follows the workspace README's extension table.
   summary: string;
   // A prompt, command, or output line, copied from the extension's README.
   sample?: { kind: "input" | "output"; text: string };
-}
+};
 
-export interface ExtensionGroup {
+export type ExtensionGroup = {
   id: string;
   title: string;
   summary: string;
   extensions: Extension[];
-}
+};
 
 export const extensionGroups: ExtensionGroup[] = [
   {

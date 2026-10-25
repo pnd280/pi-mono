@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { PROTOCOL_VERSION, RECORD_MAX_BYTES } from "../constants.ts";
-import { detailsSchema } from "../result.ts";
+import { deliverySchema, detailsSchema } from "../result.ts";
 import { taskRecordSchema } from "../tasks/records.ts";
 
 /** Protocol messages are ephemeral. Pi never persists them in either session. */
@@ -29,7 +29,7 @@ const controlRequestSchema = z.discriminatedUnion("kind", [
     kind: z.literal("input"),
     task_id: id,
     prompt: z.string().min(1),
-    delivery: z.enum(["steer", "follow_up"])
+    delivery: deliverySchema
   }),
   z.object({ kind: z.literal("abort"), task_id: id, reason: z.string().min(1) }),
   z.object({ kind: z.literal("background"), task_id: id })

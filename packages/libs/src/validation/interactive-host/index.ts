@@ -32,7 +32,7 @@ import { isolateEnvironment } from "../pi-process/environment.ts";
 
 type NativeComponent = Component & { dispose?(): void };
 
-interface FixtureHost {
+type FixtureHost = {
   session: AgentSession;
   ui: TUI;
   renderer: TuiAltScreen | TuiMainScreen;
@@ -60,7 +60,7 @@ interface FixtureHost {
   clearExtensionWidgets(): void;
   renderWidgets(): void;
   setExtensionFooter: ExtensionContext["ui"]["setFooter"];
-}
+};
 
 export async function hostFixture(
   factories: ((pi: ExtensionAPI) => void)[] = [],

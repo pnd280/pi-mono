@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../contracts.ts";
 import { record, stringField } from "../../values.ts";
+import type { NativeToolName } from "./index.ts";
 
 const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultTextPart => ({
   text,
@@ -68,7 +69,7 @@ function splitTrailer(text: string, pattern: RegExp | undefined) {
  * `highlight` marks the selection in read source text.
  */
 export function nativeResultParts(
-  name: string,
+  name: NativeToolName,
   text: string,
   input: unknown,
   context: ResultTextContext,
@@ -102,7 +103,7 @@ export function nativeResultParts(
     trailerPattern =
       /(?:^|\n\n)(\[Showing (?:lines \d+-\d+ of \d+(?: \([\d.]+[KMG]?B limit\))?|last [\d.]+[KMG]?B of line \d+ \(line is [\d.]+[KMG]?B\))\. Full output: [^\n]+\])$/;
   else if (name === "read") trailerPattern = readTrailer;
-  else if (["grep", "find", "ls"].includes(name))
+  else if (name === "grep" || name === "find" || name === "ls")
     trailerPattern =
       /(?:^|\n\n)(\[(?:\d+ (?:matches|results|entries) limit reached\.|[\d.]+[KMG]?B limit reached|Some lines truncated to \d+ chars\.)[^\n]*\])$/;
   const trailer = splitTrailer(text, trailerPattern);
@@ -116,7 +117,7 @@ export function nativeResultParts(
 }
 
 function nativeContentParts(
-  name: string,
+  name: NativeToolName,
   text: string,
   args: Record<string, unknown>,
   context: ResultTextContext,

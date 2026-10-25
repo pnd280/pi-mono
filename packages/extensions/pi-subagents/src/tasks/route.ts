@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import type { ControlRequest } from "../coordination/protocol.ts";
+import type { ChildMessage, ControlRequest } from "../coordination/protocol.ts";
 import { detailsUsage, type ToolDetails } from "../result.ts";
 import type { TaskRecord } from "./records.ts";
 import type { Run } from "./run.ts";
 
-type Delivery = "steer" | "follow_up";
+type Delivery = ToolDetails["delivery"];
 
 /** What the route reads from its supervisor binding. */
 export type RouteHost = {
@@ -27,12 +27,8 @@ export type Cancelled = {
   details: ToolDetails;
 };
 
-/** The answer to one request. A routed child's `control-reply` has the same fields. */
-type Answer = {
-  details?: ToolDetails | undefined;
-  record?: TaskRecord | undefined;
-  error?: string | undefined;
-};
+/** The answer to one request: the fields of a routed child's `control-reply`. */
+type Answer = Omit<Extract<ChildMessage, { kind: "control-reply" }>, "kind" | "request_id">;
 
 /**
  * One way to reach an active task. A request gives undefined when it did not reach the task:

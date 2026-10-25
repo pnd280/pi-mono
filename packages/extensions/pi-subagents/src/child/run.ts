@@ -37,6 +37,8 @@ import {
 
 type Begun = Extract<ChildMessage, { kind: "begun" }>;
 
+type StreamingBehavior = NonNullable<Extract<RpcCommand, { type: "prompt" }>["streamingBehavior"]>;
+
 /** The longest cleanup failure that one stderr record of a child supervisor gives. */
 const STOP_FAILURE_MAX = 4_096;
 
@@ -89,7 +91,7 @@ export type ChildOptions = ChildSelection & {
   /** Display name for a new child session. */
   sessionName?: string;
   prompt: string;
-  streamingBehavior?: "steer" | "followUp";
+  streamingBehavior?: StreamingBehavior;
   taskId: string;
   runId: string;
   /** The run to continue, with `sessionFile`; null for a new task. */
@@ -253,7 +255,7 @@ export class ChildRun {
   }
 
   /** Claim the connection synchronously before collection can close stdin. Never retry a sent prompt. */
-  async input(message: string, streamingBehavior: "steer" | "followUp") {
+  async input(message: string, streamingBehavior: StreamingBehavior) {
     if (this.closing || this.finished) return;
     this.epoch++;
     this.usageEnd = undefined;

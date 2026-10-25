@@ -3,13 +3,12 @@ import { copyFile, readFile } from "node:fs/promises";
 
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test } from "vite-plus/test";
-import { z } from "zod";
 
 import { ChildRun } from "../src/child/run.ts";
 import { RunReader } from "../src/history/reader.ts";
-import { taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
+import type { TaskRecord } from "../src/tasks/records.ts";
 import type { TaskEvent } from "../src/tasks/registry.ts";
-import { withFixture } from "./background-fixture.ts";
+import { taskList, withFixture } from "./background-fixture.ts";
 import { fixtureLaunch } from "./workspace.ts";
 
 test.skipIf(process.platform !== "linux")(
@@ -18,9 +17,7 @@ test.skipIf(process.platform !== "linux")(
     await withFixture(async (directory, start) => {
       const host = await start();
       await host.prompt("activity-pair");
-      const tasks = z
-        .object({ tasks: z.array(taskRecordSchema) })
-        .parse(JSON.parse((await host.command("list")).message)).tasks;
+      const tasks = await taskList(host);
       const task = tasks.find((item) => item.description === "Read activity task")!;
 
       // Open only a disposable copy; the source conversations must remain unchanged.

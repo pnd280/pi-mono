@@ -131,13 +131,13 @@ describe("tool display renderers", () => {
           replacement === "patch"
             ? { id: "owner:patch", family: "invocation" as const, patch: true }
             : nativeAdapter("bash")!;
-        const call = coordinator.add(
-          { messageTimestamp: 1, contentIndex: 0, toolCallId: "image-result" },
-          replacement === "patch" ? "owner_patch" : "bash",
-          { command: "fixture" },
+        const call = coordinator.add({
+          reference: { messageTimestamp: 1, contentIndex: 0, toolCallId: "image-result" },
+          name: replacement === "patch" ? "owner_patch" : "bash",
+          args: { command: "fixture" },
           adapter,
-          "live"
-        );
+          origin: "live"
+        });
         const supplied = {
           content: [
             { type: "text" as const, text: "retained text" },
@@ -146,7 +146,10 @@ describe("tool display renderers", () => {
           details: { patch: "@@ -1 +1 @@\n-old\n+new\n" }
         };
         const original = structuredClone(supplied);
-        coordinator.result(call, supplied, "success", replacement === "live preview");
+        coordinator.result(call, supplied, {
+          outcome: "success",
+          partial: replacement === "live preview"
+        });
         if (replacement === "live preview")
           coordinator.preview(call, { text: "substituted output" });
         if (replacement === "saved output")

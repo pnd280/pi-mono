@@ -35,6 +35,7 @@ import { detailsSchema } from "../src/result.ts";
 import { taskHistory, taskRecordSchema, type TaskRecord } from "../src/tasks/records.ts";
 import { release as releaseBarrier } from "./background-fixture.ts";
 import { killFixtureProcesses, remainingProcesses } from "./processes.ts";
+import { FIXTURE_MODEL } from "./provider.ts";
 import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 
 const test = caseTest.skipIf(process.platform !== "linux");
@@ -88,7 +89,7 @@ function launchCall(prompt: string) {
     fauxToolCall("subagent", {
       description: "Abort race fixture",
       prompt,
-      model: "subagents-fixture/scripted",
+      model: FIXTURE_MODEL,
       background: true
     }),
     { stopReason: "toolUse" }

@@ -143,13 +143,12 @@ export function bindNativeCompaction(
   if (!hasCompactionMethods(prototype))
     throw new Error("pi-smart-compact: missing native compaction boundary.");
   let patch = prototype[patchKey];
-  assertCompatible(
-    prototype,
-    patch?.original ?? prototype._compactBeforeNextAssistantResponse,
-    patch?.originalSummary ?? prototype._runDefaultCompaction,
-    patch?.originalAuto ?? prototype._runAutoCompaction,
-    patch?.originalManual ?? prototype.compact
-  );
+  assertCompatible(prototype, {
+    prepare: patch?.original ?? prototype._compactBeforeNextAssistantResponse,
+    summarize: patch?.originalSummary ?? prototype._runDefaultCompaction,
+    automatic: patch?.originalAuto ?? prototype._runAutoCompaction,
+    manual: patch?.originalManual ?? prototype.compact
+  });
 
   if (
     patch &&

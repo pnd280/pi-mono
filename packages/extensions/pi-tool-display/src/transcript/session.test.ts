@@ -77,7 +77,7 @@ function runLive(session: DisplaySession, history: SessionManager, call: LiveCal
   for (const fact of call.facts) sink.fact(fact);
 
   if (outcome) {
-    session.result(id, published, outcome, false, durationMs);
+    session.result(id, published, { outcome, durationMs });
     const isError = outcome !== "success";
     session.message(
       {
@@ -315,7 +315,7 @@ it("restores native facts and eligible saved previews after late contract select
       },
       "historical"
     );
-    session.result("late-native", published, "success", false, 12);
+    session.result("late-native", published, { outcome: "success", durationMs: 12 });
     const call = session.coordinator.byId("late-native")!;
     expect(call.operation).toBeUndefined();
     expect(file.read).not.toHaveBeenCalled();

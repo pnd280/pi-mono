@@ -24,7 +24,13 @@ function fixture() {
 it("rejects foreign and disposed call updates without changing retained views or notifying rows", () => {
   const { coordinator: c } = fixture();
   const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "owned" };
-  const call = c.add(reference, "bash", {}, nativeAdapter("bash")!, "live");
+  const call = c.add({
+    reference,
+    name: "bash",
+    args: {},
+    adapter: nativeAdapter("bash")!,
+    origin: "live"
+  });
   const row = rowHandle();
   c.attach(call, row);
   reference.toolCallId = "changed by caller";
@@ -36,7 +42,7 @@ it("rejects foreign and disposed call updates without changing retained views or
     c.setSavedPath(view, "/late");
     c.setSavedOutput(view, { path: "/late", text: "late preview" });
     c.fact(view, { kind: "change", change: "unavailable", reason: "binary" });
-    c.result(view, result("late result"), "failure");
+    c.result(view, result("late result"), { outcome: "failure" });
     c.expand(view, true);
   };
 
@@ -57,16 +63,28 @@ it("rejects foreign and disposed call updates without changing retained views or
 it("keeps historical missing results still and separates identical call IDs by source position", () => {
   const { coordinator: c, start } = fixture();
   const reference = { messageTimestamp: 1, contentIndex: 0, toolCallId: "duplicate" };
-  const first = c.add(reference, "read", {}, nativeAdapter("read")!, "historical");
-  c.add(reference, "read", { path: "prepared.ts" }, nativeAdapter("read")!, "historical");
+  const first = c.add({
+    reference,
+    name: "read",
+    args: {},
+    adapter: nativeAdapter("read")!,
+    origin: "historical"
+  });
+  c.add({
+    reference,
+    name: "read",
+    args: { path: "prepared.ts" },
+    adapter: nativeAdapter("read")!,
+    origin: "historical"
+  });
   expect(c.group(first)).toBeUndefined();
-  const second = c.add(
-    { ...reference, contentIndex: 1 },
-    "read",
-    { path: "other.ts" },
-    nativeAdapter("read")!,
-    "historical"
-  );
+  const second = c.add({
+    reference: { ...reference, contentIndex: 1 },
+    name: "read",
+    args: { path: "other.ts" },
+    adapter: nativeAdapter("read")!,
+    origin: "historical"
+  });
   expect(first.key).not.toBe(second.key);
   expect(c.calls.size).toBe(2);
   expect(start).not.toHaveBeenCalled();

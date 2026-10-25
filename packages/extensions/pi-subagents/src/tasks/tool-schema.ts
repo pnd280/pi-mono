@@ -2,9 +2,10 @@ import { toToolSchema } from "@pi-mono/libs/tool-schema";
 import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
+import { deliverySchema } from "../result.ts";
+
 export const toolInputSchema = z.strictObject({
-  delivery: z
-    .enum(["follow_up", "steer"])
+  delivery: deliverySchema
     .optional()
     .describe(
       "For input to an active task. follow_up (default) waits until the current work finishes; steer arrives before the next atomic action."

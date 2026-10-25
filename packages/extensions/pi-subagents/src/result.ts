@@ -19,6 +19,9 @@ export const usageSchema = z.object({
   cost: z.number()
 });
 
+/** How input reaches an active task; the tool, details, and control protocol share it. */
+export const deliverySchema = z.enum(["follow_up", "steer"]);
+
 export const detailsSchema = z.object({
   task_id: z.string().optional(),
   binding_id: z.string().optional(),
@@ -26,7 +29,7 @@ export const detailsSchema = z.object({
   model: z.string(),
   thinking: z.string(),
   background: z.boolean(),
-  delivery: z.enum(["follow_up", "steer"]),
+  delivery: deliverySchema,
   state: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
   started_at: z.number(),
   ended_at: z.number().nullable(),
@@ -96,13 +99,19 @@ export function firstLine(text: string, max = ERROR_LINE_MAX): string {
 }
 
 /** A call or message result. `notice` precedes the body; the error comes from the body alone. */
-export function taskResult(
-  input: ToolDetails,
-  body: string,
-  usage?: Usage,
-  summary?: string,
-  notice?: string
-) {
+export function taskResult({
+  details: input,
+  body,
+  usage,
+  summary,
+  notice
+}: {
+  details: ToolDetails;
+  body: string;
+  usage?: Usage | undefined;
+  summary?: string | undefined;
+  notice?: string | undefined;
+}) {
   const error = input.state === "failed" || input.state === "cancelled";
   const reason = error ? firstLine(body) : "";
   const details = reason ? { ...input, error: reason } : input;

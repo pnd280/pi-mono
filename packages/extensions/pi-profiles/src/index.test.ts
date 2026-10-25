@@ -95,12 +95,12 @@ function foreignSearch(pi: ExtensionAPI) {
   });
 }
 
-interface Request {
+type Request = {
   model: string;
   thinking: string | undefined;
   tools: string[];
   append: string | undefined;
-}
+};
 
 async function workspace(
   settings: unknown,

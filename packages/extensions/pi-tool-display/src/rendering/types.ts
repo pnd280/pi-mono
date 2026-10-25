@@ -28,7 +28,7 @@ export type DisplayContext = Omit<HostContext, "args" | "state"> & {
   state: unknown;
 };
 
-export interface ToolDisplayRenderers {
+export type ToolDisplayRenderers = {
   renderShell: "self";
   renderCall(args: unknown, theme: DisplayTheme, context: DisplayContext): Component;
   renderResult(
@@ -37,17 +37,17 @@ export interface ToolDisplayRenderers {
     theme: DisplayTheme,
     context: DisplayContext
   ): Component;
-}
+};
 
-export interface DisplayBinding {
+export type DisplayBinding = {
   call: DisplayCall;
   coordinator: TranscriptView;
-}
+};
 
-export interface ToolDisplayRendererOptions {
+export type ToolDisplayRendererOptions = {
   /** Defaults to false. Ignored when the adapter sets `alwaysShowParameters: true`. */
   showParameters?: boolean;
-}
+};
 
 export type CardRendererOptions = ToolDisplayRendererOptions & {
   binding?: DisplayBinding;

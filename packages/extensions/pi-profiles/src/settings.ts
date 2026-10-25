@@ -88,7 +88,7 @@ function readPrompts(paths: readonly string[], settingsPath: string): string[] |
 
 type Shortcut = z.output<typeof canonicalKeySchema>;
 
-export interface ProfileConfig {
+export type ProfileConfig = {
   /**
    * Valid global profiles in declaration order, each replaced in place by the project profile with
    * its name, then the other project profiles. The shortcut cycles through them in this order.
@@ -97,16 +97,16 @@ export interface ProfileConfig {
   defaultProfile: Profile | undefined;
   shortcut: Shortcut;
   warnings: string[];
-}
+};
 
 /** One file's section. Each field recovers on its own. */
-interface Section {
+type Section = {
   profiles: Profile[];
   /** The supplied value, which the merged profiles resolve. */
   defaultProfile: unknown;
   shortcut: Shortcut | undefined;
   warnings: string[];
-}
+};
 
 function readSection(path: string): Section {
   const section: Section = {

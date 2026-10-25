@@ -12,10 +12,10 @@ export const instructionNames: readonly string[] = [
   "CLAUDE.MD"
 ];
 
-export interface InstructionFiles {
+export type InstructionFiles = {
   stamp(this: void, file: string): Promise<string | undefined>;
   read(this: void, file: string): Promise<string>;
-}
+};
 
 export const instructionFiles: InstructionFiles = {
   async stamp(file) {
@@ -34,10 +34,10 @@ export const instructionFiles: InstructionFiles = {
   }
 };
 
-export interface Selection {
+export type Selection = {
   path: string;
   content?: string;
-}
+};
 
 export async function selectInstruction(
   directory: string,

@@ -15,7 +15,7 @@ import {
 import type { Profile } from "./settings.ts";
 
 /** A configured profile, or `clear` for no profile. */
-export interface ProfileChoice {
+export type ProfileChoice = {
   name: string;
   profile: Profile | undefined;
   current: boolean;
@@ -26,9 +26,9 @@ export interface ProfileChoice {
   change: string;
   /** False when the profile names a model that is unknown or has no credentials. */
   modelAvailable: boolean;
-}
+};
 
-export interface MenuData {
+export type MenuData = {
   choices: readonly ProfileChoice[];
   /** The selected profile; undefined for no profile or a profile that is no longer configured. */
   profile: Profile | undefined;
@@ -40,7 +40,7 @@ export interface MenuData {
   deferred: Deferred;
   used: ReadonlySet<string>;
   ownsToolSearch: boolean;
-}
+};
 
 const STATUSES = ["active", "deferred", "searchable", "off", "hidden"] as const;
 
@@ -221,14 +221,14 @@ const searchText = (item: MenuItem) =>
     ? `${item.choice.name} ${item.choice.profile?.description ?? "No profile"}`
     : `${item.tool.name} ${item.status} ${item.tool.exposure}`;
 
-export interface MenuOptions {
+export type MenuOptions = {
   ui: ExtensionContext["ui"];
   signal: AbortSignal;
   data: MenuData;
   /** Runs after the menu closes, when the user chose a profile. */
   onSwitch(this: void, profile: Profile | undefined): Promise<void>;
   notify(this: void, message: string, type: "error" | "warning"): void;
-}
+};
 
 /** A browser with the profiles and the current state of every tool, with details below the list. */
 export async function openMenu({ ui, signal, data, onSwitch, notify }: MenuOptions): Promise<void> {

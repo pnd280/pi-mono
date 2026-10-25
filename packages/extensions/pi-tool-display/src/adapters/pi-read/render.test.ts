@@ -18,18 +18,18 @@ it.each([
   const before = structuredClone(args);
 
   try {
-    const call = coordinator.add(
-      { messageTimestamp: 1, contentIndex: 0, toolCallId: "read" },
-      "read",
+    const call = coordinator.add({
+      reference: { messageTimestamp: 1, contentIndex: 0, toolCallId: "read" },
+      name: "read",
       args,
-      selectiveReadDisplayAdapter,
-      "historical"
-    );
+      adapter: selectiveReadDisplayAdapter,
+      origin: "historical"
+    });
     const result: AgentToolResult<unknown> = {
       content: [{ type: "text", text: "source" }],
       details: undefined
     };
-    coordinator.result(call, result, "success");
+    coordinator.result(call, result, { outcome: "success" });
     const context = {
       args,
       state: {},

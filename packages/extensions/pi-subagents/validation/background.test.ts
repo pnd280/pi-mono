@@ -10,7 +10,7 @@ import { z } from "zod";
 import { resultDetailsSchema } from "../src/background-result.ts";
 import { LATE_USAGE_KIND, RESULT_MESSAGE, RUN_ENTRY, TASKS_MESSAGE } from "../src/constants.ts";
 import { detailsSchema } from "../src/result.ts";
-import { runRecordSchema, taskRecordSchema } from "../src/tasks/records.ts";
+import { runRecordSchema } from "../src/tasks/records.ts";
 import {
   expectChildUsageOnce,
   fixture,
@@ -111,9 +111,7 @@ test.each([
         ).toHaveLength(2);
         expectChildUsageOnce(entries, 2);
       },
-      4,
-      2,
-      { "ext.pi-subagents": { maxConcurrent: 4, maxDepth: 2, resultDelivery } }
+      { settings: { "ext.pi-subagents": { maxConcurrent: 4, maxDepth: 2, resultDelivery } } }
     );
   }
 );
@@ -234,48 +232,49 @@ test("retries a failed reply without waiting for background tasks", async () => 
       expect(reply).toBeLessThan(records.findIndex(isResult));
       expect(records.findIndex(replies("background results 1"))).toBeGreaterThan(reply);
     },
-    4,
-    2,
-    { retry: { enabled: true, maxRetries: 1, baseDelayMs: 10 } }
+    { settings: { retry: { enabled: true, maxRetries: 1, baseDelayMs: 10 } } }
   );
 });
 
 test("aborts an owned task without its result and resumes it later", async () => {
-  await fixture(async (host) => {
-    await host.reply("background-slow");
-    const [task] = await taskList(host);
-    const aborts = async () =>
-      (await host.entries()).flatMap((entry) =>
-        entry.type === "message" &&
-        entry.message.role === "toolResult" &&
-        entry.message.toolName === "subagent_abort"
-          ? [entry.message]
-          : []
+  await fixture(
+    async (host) => {
+      await host.reply("background-slow");
+      const [task] = await taskList(host);
+      const aborts = async () =>
+        (await host.entries()).flatMap((entry) =>
+          entry.type === "message" &&
+          entry.message.role === "toolResult" &&
+          entry.message.toolName === "subagent_abort"
+            ? [entry.message]
+            : []
+        );
+      // The input ends the wait; the run then ends without a remaining task.
+      await host.prompt(`abort-id ${task!.task_id}`);
+      const aborted = (await aborts()).at(-1)!;
+      expect(aborted.isError).toBe(false);
+      expect(detailsSchema.parse(aborted.details)).toMatchObject({
+        task_id: task!.task_id,
+        state: "cancelled"
+      });
+      expect((await taskList(host))[0]).toMatchObject({ state: "inactive", outcome: "cancelled" });
+      await host.prompt(`abort-id ${task!.task_id}`);
+      expect(contentText((await aborts()).at(-1)!.content)).toContain("Task is inactive");
+      await host.prompt("abort-id 00000000-0000-0000-0000-000000000000");
+      expect(contentText((await aborts()).at(-1)!.content)).toContain(
+        "Task does not belong to this session"
       );
-    // The input ends the wait; the run then ends without a remaining task.
-    await host.prompt(`abort-id ${task!.task_id}`);
-    const aborted = (await aborts()).at(-1)!;
-    expect(aborted.isError).toBe(false);
-    expect(detailsSchema.parse(aborted.details)).toMatchObject({
-      task_id: task!.task_id,
-      state: "cancelled"
-    });
-    expect((await taskList(host))[0]).toMatchObject({ state: "inactive", outcome: "cancelled" });
-    await host.prompt(`abort-id ${task!.task_id}`);
-    expect(contentText((await aborts()).at(-1)!.content)).toContain("Task is inactive");
-    await host.prompt("abort-id 00000000-0000-0000-0000-000000000000");
-    expect(contentText((await aborts()).at(-1)!.content)).toContain(
-      "Task does not belong to this session"
-    );
-    // One slot proves that the abort released capacity.
-    await host.prompt(`history-id ${task!.task_id}`);
-    expect(detailsSchema.parse((await host.results()).at(-1)!.details)).toMatchObject({
-      task_id: task!.task_id,
-      state: "completed"
-    });
-    // The abort returned after the task's completion; a result would reach the following runs.
-    expect(host.records.some(isResult)).toBe(false);
-  }, 1);
+      // One slot proves that the abort released capacity.
+      await host.prompt(`history-id ${task!.task_id}`);
+      expect(detailsSchema.parse((await host.results()).at(-1)!.details)).toMatchObject({
+        task_id: task!.task_id,
+        state: "completed"
+      });
+      // The abort returned after the task's completion; a result would reach the following runs.
+      expect(host.records.some(isResult)).toBe(false);
+    },
+    { maxConcurrent: 1 }
+  );
 });
 
 test("reports a descendant's failed process cleanup in the cancelled result and the abort reply", async ({
@@ -331,9 +330,8 @@ test("reports a failed process cleanup of a task when the supervisor's session e
         await stopZombie(directory, expect);
       }
     },
-    4,
     // A child at the depth limit gets the shortest grace period before its forced stop.
-    1
+    { maxDepth: 1 }
   );
 });
 
@@ -374,10 +372,7 @@ test("promotes foreground work, retains it across turn abort, and counts late us
       (item) => detailsSchema.safeParse(item.details).data?.task_id === task.task_id
     )!;
     expect(result.usage?.totalTokens).toBe(15);
-    const page = z
-      .object({ tasks: z.array(taskRecordSchema) })
-      .parse(JSON.parse((await host.command("list")).message));
-    expect(page.tasks.find((item) => item.task_id === task.task_id)).toMatchObject({
+    expect((await taskList(host)).find((item) => item.task_id === task.task_id)).toMatchObject({
       state: "active",
       background: true
     });

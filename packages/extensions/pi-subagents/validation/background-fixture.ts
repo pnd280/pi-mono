@@ -33,9 +33,11 @@ export async function release(
 
 export async function fixture(
   body: (host: Supervisor, directory: string) => Promise<void>,
-  maxConcurrent = 4,
-  maxDepth = 2,
-  settings: Record<string, unknown> = {}
+  {
+    maxConcurrent = 4,
+    maxDepth = 2,
+    settings = {}
+  }: { maxConcurrent?: number; maxDepth?: number; settings?: Record<string, unknown> } = {}
 ) {
   const directory = await createFixtureWorkspace({
     settings: { "ext.pi-subagents": { maxConcurrent, maxDepth }, ...settings }

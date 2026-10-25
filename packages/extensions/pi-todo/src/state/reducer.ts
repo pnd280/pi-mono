@@ -42,6 +42,13 @@ type TaskCloneSource = Pick<Task, "id" | "subject" | "status"> & {
 
 type BoundedStringParam = "subject" | "description" | "inProgressLabel" | "owner";
 
+const BOUNDED_STRING_LIMITS = {
+  subject: MAX_SUBJECT_LENGTH,
+  description: MAX_DESCRIPTION_LENGTH,
+  inProgressLabel: MAX_IN_PROGRESS_LABEL_LENGTH,
+  owner: MAX_OWNER_LENGTH
+} satisfies Record<BoundedStringParam, number>;
+
 type DependencyArrayParam = "blockedBy" | "addBlockedBy" | "removeBlockedBy";
 
 const KNOWN_PARAM_KEYS = [
@@ -1080,7 +1087,7 @@ function sanitizedParams(
   for (const key of KNOWN_PARAM_KEYS) {
     const value = params[key];
 
-    if (key !== offendingParam && value !== undefined && paramFitsEmissionLimit(key, value)) {
+    if (key !== offendingParam && value !== undefined && paramFitsEmissionLimit(params, key)) {
       let independentValue = value;
       if (key === "metadata") independentValue = structuredClone(value);
       else if (Array.isArray(value)) independentValue = [...value];
@@ -1091,40 +1098,26 @@ function sanitizedParams(
   return sanitized;
 }
 
-function paramFitsEmissionLimit<Value>(key: KnownTaskMutationParam, value: Value): boolean {
+/** Schema-validated params can still exceed limits when an error result echoes them unchecked. */
+function paramFitsEmissionLimit(params: TaskMutationParams, key: KnownTaskMutationParam): boolean {
   switch (key) {
     case "subject":
-      return typeof value === "string" && value.length <= MAX_SUBJECT_LENGTH;
     case "description":
-      return typeof value === "string" && value.length <= MAX_DESCRIPTION_LENGTH;
     case "inProgressLabel":
-      return typeof value === "string" && value.length <= MAX_IN_PROGRESS_LABEL_LENGTH;
     case "owner":
-      return typeof value === "string" && value.length <= MAX_OWNER_LENGTH;
+      return (params[key]?.length ?? 0) <= BOUNDED_STRING_LIMITS[key];
     case "blockedBy":
     case "addBlockedBy":
     case "removeBlockedBy":
-      return Array.isArray(value) && value.length <= MAX_DEPENDENCIES;
+      return (params[key]?.length ?? 0) <= MAX_DEPENDENCIES;
     case "metadata":
-      return metadataFitsEmissionLimit(value);
+      return params.metadata === undefined || metadataLimitError(params.metadata) === undefined;
     case "status":
-      return typeof value === "string";
     case "id":
-      return typeof value === "number";
     case "parentId":
-      return value === null || typeof value === "number";
     case "includeDeleted":
-      return typeof value === "boolean";
+      return true;
   }
-}
-
-function metadataFitsEmissionLimit(value: unknown): boolean {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    metadataLimitError(value) === undefined
-  );
 }
 
 function firstInvalidTaskId(values: readonly number[]): number | undefined {

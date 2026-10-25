@@ -54,25 +54,29 @@ const BACKGROUND_UPDATED = [
 
 function toolResult(result: Submission) {
   if (result.kind === "input")
-    return taskResult(
-      result.details,
-      result.details.background
+    return taskResult({
+      details: result.details,
+      body: result.details.background
         ? BACKGROUND_UPDATED
         : "Additional context sent to the running foreground task. Its original call will return the final result.",
-      undefined,
-      result.details.background ? "Background task updated" : "Foreground task updated"
-    );
+      summary: result.details.background ? "Background task updated" : "Foreground task updated"
+    });
   const warning = result.interrupted ? INTERRUPTED_WARNING : undefined;
 
   return result.kind === "background"
-    ? taskResult(
-        result.details,
-        BACKGROUND_STARTED,
-        result.usage,
-        "Background task started",
-        warning
-      )
-    : taskResult(result.details, result.text, result.usage, undefined, warning);
+    ? taskResult({
+        details: result.details,
+        body: BACKGROUND_STARTED,
+        usage: result.usage,
+        summary: "Background task started",
+        notice: warning
+      })
+    : taskResult({
+        details: result.details,
+        body: result.text,
+        usage: result.usage,
+        notice: warning
+      });
 }
 
 /** `current` resolves the tasks of the current session binding at each call. */

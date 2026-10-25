@@ -34,13 +34,13 @@ export function normalizeFffPath(expression: string, cwd: string) {
   };
 }
 
-export interface FffScopeExpression {
+export type FffScopeExpression = {
   source: "path" | "query";
   value: string;
   directoryOnly: boolean;
   /** Explicit constraints require a viable path; unanchored filename queries remain fuzzy. */
   validatePath: boolean;
-}
+};
 
 /** Parse FFF's positive scope constraints and negative query terms without filesystem policy. */
 export function parseFffScopes(

@@ -150,14 +150,14 @@ export function withGroups(
   return [...new Set([...names, ...groups.flat()])];
 }
 
-export interface ToolState {
+export type ToolState = {
   base: readonly string[];
   active: readonly string[];
   used: ReadonlySet<string>;
   exposure: ReadonlyMap<string, ToolExposure>;
   /** Whether the registered `tool_search` is the extension's, which also loads deferred tools. */
   ownsToolSearch: boolean;
-}
+};
 
 /** Exposures that only the extension's `tool_search` can load while the tool is inactive. */
 export const isDirect = (exposure: ToolExposure | undefined) =>
@@ -262,7 +262,7 @@ export function profileTools(
   return { tools, deferred };
 }
 
-export interface RestoreState {
+export type RestoreState = {
   active: readonly string[];
   /** Tools of the last request when a request followed the selection. */
   recorded: readonly string[] | undefined;
@@ -270,7 +270,7 @@ export interface RestoreState {
   reload: boolean;
   exposure: ReadonlyMap<string, ToolExposure>;
   ownsToolSearch: boolean;
-}
+};
 
 /**
  * The tools to declare after Pi restored a session. Pi declares the tools of the last request on

@@ -179,7 +179,7 @@ export default function piAgentSummary(pi: SummaryExtensionAPI & LifecycleAPI): 
     const files = await finished.changes.finish();
     // A session switch or reload can occur while the net comparison runs off-thread.
     if (generation !== startedGeneration) return;
-    pi.appendEntry(summaryEntryType, {
+    pi.appendEntry<RunSummary>(summaryEntryType, {
       ...duration,
       finishedAt,
       ...(finished.models.length > 0 && { models: finished.models }),

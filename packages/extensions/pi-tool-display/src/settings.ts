@@ -28,18 +28,18 @@ export type RendererMode = z.infer<typeof rendererModeSchema>;
 /** Startup mode and programmatic collapse target; verbose is never a setting. */
 export type CollapsedMode = z.infer<typeof collapsedModeSchema>;
 
-export interface DisplaySettings {
+export type DisplaySettings = {
   valid: boolean;
   showParameters: boolean;
   collapsedMode: CollapsedMode;
   rendererOverrides: Readonly<Record<string, RendererMode>>;
   warnings: string[];
-}
+};
 
-export interface SettingsSource {
+export type SettingsSource = {
   path: string;
   settings: unknown;
-}
+};
 
 /** Validate every applicable source before merging, including values overridden later. */
 export function loadDisplaySettings(sources: readonly SettingsSource[]): DisplaySettings {

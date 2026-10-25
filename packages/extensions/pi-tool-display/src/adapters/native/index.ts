@@ -18,7 +18,7 @@ const directoryArgsSchema = z.object({
 });
 const searchArgsSchema = directoryArgsSchema.extend({ pattern: z.string() });
 
-const nativeFamilies: Readonly<Record<string, ToolFamily>> = {
+const nativeFamilies = {
   read: "read",
   grep: "search",
   find: "search",
@@ -27,12 +27,18 @@ const nativeFamilies: Readonly<Record<string, ToolFamily>> = {
   powershell: "shell",
   edit: "edit",
   write: "write"
-};
+} satisfies Readonly<Record<string, ToolFamily>>;
+
+export type NativeToolName = keyof typeof nativeFamilies;
+
+function isNativeToolName(name: string): name is NativeToolName {
+  return Object.hasOwn(nativeFamilies, name);
+}
 
 /** Tool authors assert compatibility; this function does not verify native provenance. */
 export function nativeAdapter(name: string): ToolDisplayAdapter | undefined {
-  const family = Object.hasOwn(nativeFamilies, name) ? nativeFamilies[name] : undefined;
-  if (!family) return undefined;
+  if (!isNativeToolName(name)) return undefined;
+  const family = nativeFamilies[name];
   if (family === "read") return nativeReadAdapter;
 
   // Commands and searches count every call via the family fallback; files and

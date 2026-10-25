@@ -15,17 +15,10 @@ import { z } from "zod";
 import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY } from "../src/constants.ts";
 import { readRunFile } from "../src/history/reader.ts";
 import { detailsSchema } from "../src/result.ts";
-import { endRecordSchema, runRecordSchema, taskRecordSchema } from "../src/tasks/records.ts";
-import { LONG_GRACE_LIMIT, withFixture } from "./background-fixture.ts";
+import { endRecordSchema, runRecordSchema } from "../src/tasks/records.ts";
+import { LONG_GRACE_LIMIT, taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses, remainingProcesses } from "./processes.ts";
 import type { Supervisor } from "./supervisor.ts";
-
-async function list(host: Supervisor) {
-  const notification = await host.command("list");
-  const data: unknown = JSON.parse(notification.message);
-
-  return z.object({ tasks: z.array(taskRecordSchema) }).parse(data).tasks;
-}
 
 /** The supervisor's run and end entries, which are its only task entries. */
 function isRunEntry(entry: SessionEntry): boolean {
@@ -33,6 +26,24 @@ function isRunEntry(entry: SessionEntry): boolean {
     entry.type === "custom" && (entry.customType === RUN_ENTRY || entry.customType === END_ENTRY)
   );
 }
+
+const CLEANUP_ACTIONS = [
+  "completed task",
+  "turn abort",
+  "user abort",
+  "session change",
+  "graceful exit",
+  "SIGKILL",
+  "queued turn abort"
+] as const;
+
+/** The actions that the test runs against a child that ignores aborts and holds its shutdown. */
+const STUBBORN_ACTIONS: ReadonlySet<(typeof CLEANUP_ACTIONS)[number]> = new Set([
+  "turn abort",
+  "user abort",
+  "session change",
+  "graceful exit"
+]);
 
 async function activeTask(host: Supervisor, after = 0) {
   const record = await host.wait(
@@ -81,7 +92,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           );
       }
 
-      expect((await list(host)).map((task) => task.outcome)).toEqual([
+      expect((await taskList(host)).map((task) => task.outcome)).toEqual([
         "completed",
         "completed",
         "failed",
@@ -90,21 +101,11 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     });
   });
 
-  test.for([
-    "completed task",
-    "turn abort",
-    "user abort",
-    "session change",
-    "graceful exit",
-    "SIGKILL",
-    "queued turn abort"
-  ])("cleans up children on %s", async (action, { expect }) => {
+  test.for(CLEANUP_ACTIONS)("cleans up children on %s", async (action, { expect }) => {
     await withFixture(
       async (directory, start) => {
         const host = await start();
-        const stubborn = ["turn abort", "user abort", "session change", "graceful exit"].includes(
-          action
-        );
+        const stubborn = STUBBORN_ACTIONS.has(action);
         let singleScenario = stubborn ? "delegate-stubborn" : "delegate-slow";
         if (action === "completed task") singleScenario = "delegate-shutdown-blocked";
         const scenario = action === "queued turn abort" ? "capacity" : singleScenario;
@@ -116,7 +117,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           await expect
             .poll(
               async () => {
-                const task = (await list(host))[0]!;
+                const task = (await taskList(host))[0]!;
 
                 return (await readRunFile(task)).entries.some(
                   (entry) =>
@@ -145,7 +146,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           });
         } else if (action === "session change") {
           await host.request({ type: "new_session" });
-          expect(await list(host)).toEqual([]);
+          expect(await taskList(host)).toEqual([]);
           // A run without an end entry stays cancelled in the saved session.
           const records = SessionManager.open(sessionFile).getEntries().filter(isRunEntry);
           expect(records.at(-1)).toMatchObject({
@@ -167,7 +168,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         if (action === "SIGKILL" || action === "graceful exit")
           expect(await remainingProcesses(directory)).toEqual([]);
         else {
-          const tasks = await list(host);
+          const tasks = await taskList(host);
           expect(tasks.every((task) => task.state === "inactive")).toBe(true);
           expect(await fixtureProcesses(directory)).toHaveLength(1);
           if (action === "queued turn abort") expect(tasks).toHaveLength(1);
@@ -218,7 +219,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           const anchor = (await host.entries()).at(-1)!.id;
           const oldSession = (await host.state()).sessionId;
           await host.reply("background-slow");
-          const background = (await list(host))[0]!;
+          const background = (await taskList(host))[0]!;
           // The supervisor and the background task's processes.
           const retained = new Set((await fixtureProcesses(directory)).map(({ pid }) => pid));
           const work = host.prompt("nested-stubborn").catch((error: unknown) => error);
@@ -236,7 +237,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
           }
 
           expect(
-            (await list(host)).find((task) => task.task_id === background.task_id)?.state
+            (await taskList(host)).find((task) => task.task_id === background.task_id)?.state
           ).toBe("active");
 
           if (transition === "tree") {
@@ -271,11 +272,11 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
             .toEqual([]);
           await navigation;
           await work;
-          expect(await list(host)).toEqual([]);
+          expect(await taskList(host)).toEqual([]);
           expect((await host.state()).sessionId === oldSession).toBe(transition === "tree");
           const count = (await host.entries()).filter(isRunEntry).length;
           await host.prompt("reply");
-          expect(await list(host)).toEqual([]);
+          expect(await taskList(host)).toEqual([]);
           expect((await host.entries()).filter(isRunEntry)).toHaveLength(count);
         },
         {
@@ -292,20 +293,20 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       async (directory, start) => {
         const host = await start();
         await host.prompt("delegate-remember");
-        const original = (await list(host))[0]!;
+        const original = (await taskList(host))[0]!;
         const records = (await host.entries()).filter(isRunEntry);
         const empty = records[0]!.id;
         const saved = records.at(-1)!.id;
         await host.prompt(`extend-id ${original.task_id}`);
-        expect((await list(host)).length).toBeGreaterThan(1);
+        expect((await taskList(host)).length).toBeGreaterThan(1);
         const laterBytes = await readFile(original.session_file, "utf8");
         await host.request({ type: "prompt", message: `/fixture-tree ${saved}` });
-        expect(await list(host)).toEqual([original]);
+        expect(await taskList(host)).toEqual([original]);
         await host.prompt(`history-id ${original.task_id}`);
         const resumedText = contentText((await host.results()).at(-1)!.content);
         expect(resumedText).toContain("remember");
         expect(resumedText).not.toContain("nested-background");
-        expect(await list(host)).toMatchObject([
+        expect(await taskList(host)).toMatchObject([
           {
             task_id: original.task_id,
             session_id: original.session_id,
@@ -317,10 +318,10 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
 
         const leaf = (await host.entries()).at(-1)!.id;
         await host.request({ type: "prompt", message: `/fixture-parent-fork ${leaf}` });
-        expect(await list(host)).toHaveLength(1);
+        expect(await taskList(host)).toHaveLength(1);
         expect(await fixtureProcesses(directory)).toHaveLength(1);
         await host.request({ type: "prompt", message: `/fixture-tree ${empty}` });
-        expect(await list(host)).toMatchObject([
+        expect(await taskList(host)).toMatchObject([
           { task_id: original.task_id, state: "inactive", outcome: "cancelled" }
         ]);
         expect(await fixtureProcesses(directory)).toHaveLength(1);
@@ -330,7 +331,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         expect(cancelledText).toContain("remember");
         expect(cancelledText).not.toContain("nested-background");
         expect(cancelledText.split("history-context")).toHaveLength(2);
-        expect(await list(host)).toHaveLength(1);
+        expect(await taskList(host)).toHaveLength(1);
 
         const after = host.records.length;
         const work = host.prompt("delegate-stubborn").catch((error: unknown) => error);
@@ -409,7 +410,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       };
 
       expect(await selection("delegate-reasoning")).toBe("subagents-fixture/reasoning:high");
-      const taskId = (await list(host))[0]!.task_id;
+      const taskId = (await taskList(host))[0]!.task_id;
       const launched = (await host.entries()).at(-1)!.id;
       // The scripted model has no thinking levels, so this run applies `off` but requests `low`.
       expect(await selection(`selection-id ${taskId} model=scripted thinking=low`)).toBe(
@@ -486,7 +487,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         cost: { total: 0.001 }
       });
       expect((await host.stats()).tokens.total).toBe(45);
-      const saved = (await list(host)).find((task) => task.task_id === taskId)!;
+      const saved = (await taskList(host)).find((task) => task.task_id === taskId)!;
       const { sessionId } = await host.state();
       const after = host.records.length;
       const work = host.prompt("delegate-slow").catch((error: unknown) => error);
@@ -497,7 +498,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       expect(await remainingProcesses(directory)).toEqual([]);
 
       const resumed = await start({ sessionId });
-      expect(await list(resumed)).toContainEqual(
+      expect(await taskList(resumed)).toContainEqual(
         expect.objectContaining({
           task_id: stale.task_id,
           state: "inactive",
@@ -515,15 +516,19 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         cost: { total: 0.001 }
       });
       expect((await resumed.stats()).tokens.total - before.tokens.total).toBe(45);
-      expect((await list(resumed)).find((task) => task.task_id === taskId)?.session_file).toBe(
+      expect((await taskList(resumed)).find((task) => task.task_id === taskId)?.session_file).toBe(
         saved.session_file
       );
       // The task total adds each run's own usage, also when it is restored from the session.
       const total = { input: 20, output: 10, cache_read: 0, cache_write: 0, cost: 0.002 };
-      expect((await list(resumed)).find((task) => task.task_id === taskId)?.usage).toEqual(total);
+      expect((await taskList(resumed)).find((task) => task.task_id === taskId)?.usage).toEqual(
+        total
+      );
       await resumed.stop();
       const restored = await start({ sessionId });
-      expect((await list(restored)).find((task) => task.task_id === taskId)?.usage).toEqual(total);
+      expect((await taskList(restored)).find((task) => task.task_id === taskId)?.usage).toEqual(
+        total
+      );
     });
   });
 
@@ -531,7 +536,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     await withFixture(async (_directory, start) => {
       const owner = await start();
       await owner.prompt("delegate-remember");
-      const child = (await list(owner))[0]!;
+      const child = (await taskList(owner))[0]!;
       const before = await readFile(child.session_file, "utf8");
       const other = await start();
       await other.prompt(`resume-id ${child.task_id}`);
@@ -543,7 +548,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
       expect(JSON.parse(notice.message)).toEqual({
         error: "Task does not belong to this session"
       });
-      expect(await list(other)).toEqual([]);
+      expect(await taskList(other)).toEqual([]);
       expect(await readFile(child.session_file, "utf8")).toBe(before);
     });
   });
@@ -554,7 +559,7 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     await withFixture(async (directory, start) => {
       const first = await start();
       await first.prompt("delegate-remember");
-      const task = (await list(first))[0]!;
+      const task = (await taskList(first))[0]!;
       // A fork of the supervisor session owns the same task.
       const second = await start({ fork: (await first.state()).sessionFile! });
       const runs = async () =>
@@ -658,10 +663,10 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         const work = host.prompt("capacity");
         const child = await activeTask(host);
         expect(await fixtureProcesses(directory)).toHaveLength(2);
-        expect(await list(host)).toHaveLength(1);
+        expect(await taskList(host)).toHaveLength(1);
         await host.command(`abort ${child.task_id}`);
         await work;
-        const tasks = await list(host);
+        const tasks = await taskList(host);
         expect(tasks.map((task) => task.description)).toEqual([
           "First capacity task",
           "Second capacity task",

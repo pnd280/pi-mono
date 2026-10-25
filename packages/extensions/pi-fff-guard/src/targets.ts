@@ -25,31 +25,31 @@ const searchInputSchema = z.object({
 
 type SearchInput = z.infer<typeof searchInputSchema>;
 
-interface ScopeFilter {
+type ScopeFilter = {
   root: string;
   pattern: string;
-}
+};
 
-interface Target {
+type Target = {
   /** Lexical absolute path, never the resolved dependency-store path. */
   absolute: string;
   directory: boolean;
   /** Intersected globs retain their original roots when a later scope narrows the target. */
   filters: ScopeFilter[];
-}
+};
 
-interface SearchScope {
+type SearchScope = {
   /** Unique lexical absolute paths, in first-seen order after scope filtering. */
   paths: string[];
   missing: boolean;
-}
+};
 
-interface ScopeState {
+type ScopeState = {
   targets: Target[];
   excludes: string[];
   filters: string[];
   missing: boolean;
-}
+};
 
 function resolvePath(value: string, cwd: string): string {
   return path.resolve(cwd, expandHomePath(value, homedir()));

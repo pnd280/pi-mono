@@ -23,20 +23,20 @@ import { instructionNames } from "./storage.ts";
 let bashModule: Promise<typeof BashModule> | undefined;
 const loadBash = () => (bashModule ??= import("./bash.ts"));
 
-export interface Invocation {
+export type Invocation = {
   toolCallId: string;
   /** The persisted assistant entry for a direct call; nested calls have no transcript entry. */
   callEntryId?: string;
   parentToolCallId?: string;
   toolName: string;
   input: unknown;
-  sourceInfo?: { source: string; path: string };
-}
+  sourceInfo?: NonNullable<Parameters<typeof fffAdapter>[0]>["sourceInfo"];
+};
 
-export interface Scope {
+export type Scope = {
   directories: string[];
   reads: string[];
-}
+};
 
 const inputSchema = z.object({
   path: z.string().max(65536).nullish(),

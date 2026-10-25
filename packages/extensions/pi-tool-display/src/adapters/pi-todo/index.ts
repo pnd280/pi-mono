@@ -53,6 +53,8 @@ const parametersSchema = z.object({
 
 const TOOL_TITLE = "Todos";
 
+const singleTaskActions: ReadonlySet<TaskAction> = new Set(["create", "update", "get", "delete"]);
+
 const actionVerbs = {
   create: { action: "Create", pending: "Creating", complete: "Created" },
   update: { action: "Update", pending: "Updating", complete: "Updated" },
@@ -225,7 +227,7 @@ export const todoDisplayAdapter: ToolDisplayAdapter = {
     const id =
       parsed.action === "create" && details.nextId !== undefined ? details.nextId - 1 : parsed.id;
     const task = tasks.find((task) => task.id === id);
-    if (task && ["create", "update", "get", "delete"].includes(parsed.action))
+    if (task && singleTaskActions.has(parsed.action))
       return { text: `#${task.id} ${TASK_STATUS_TEXT[task.status]} · ${progress}` };
 
     if (parsed.action === "list" && (parsed.status !== undefined || parsed.includeDeleted)) {

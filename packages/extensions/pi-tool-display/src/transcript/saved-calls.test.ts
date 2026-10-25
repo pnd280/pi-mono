@@ -71,13 +71,13 @@ function runLive({ coordinator, saved }: Fixture, history: SessionManager, input
     details: input.details
   };
   history.appendMessage(assistantMessage([fauxToolCall(name, args, { id })], 1));
-  const call = coordinator.add(
-    { messageTimestamp: 1, contentIndex: 0, toolCallId: id },
+  const call = coordinator.add({
+    reference: { messageTimestamp: 1, contentIndex: 0, toolCallId: id },
     name,
     args,
-    nativeAdapter(name)!,
-    "live"
-  );
+    adapter: nativeAdapter(name)!,
+    origin: "live"
+  });
   saved.observe(call);
   for (const fact of input.facts) saved.fact(call, fact);
   if (!outcome) return call;
@@ -86,7 +86,7 @@ function runLive({ coordinator, saved }: Fixture, history: SessionManager, input
   if (outcome === "cancelled") coordinator.fact(call, { kind: "cancellation" });
   saved.end(call, outcome);
   const isError = outcome !== "success";
-  coordinator.result(call, published, isError ? "failure" : "success", false, durationMs);
+  coordinator.result(call, published, { outcome: isError ? "failure" : "success", durationMs });
   if (input.final === false) return call;
   saved.finish(call, published, isError ? "failure" : "success");
   history.appendMessage({
@@ -115,18 +115,18 @@ function replay(history: SessionManager): Fixture {
     if (message.role === "assistant")
       for (const [index, content] of message.content.entries()) {
         if (content.type !== "toolCall") continue;
-        const call = coordinator.add(
-          {
+        const call = coordinator.add({
+          reference: {
             messageTimestamp: message.timestamp,
             contentIndex: index,
             toolCallId: content.id,
             messageEntryId: entry.id
           },
-          content.name,
-          content.arguments,
-          nativeAdapter(content.name)!,
-          "historical"
-        );
+          name: content.name,
+          args: content.arguments,
+          adapter: nativeAdapter(content.name)!,
+          origin: "historical"
+        });
         // Replay starts before any result, which a call interrupted by shutdown lacks.
         saved.replay(call);
       }
@@ -136,9 +136,7 @@ function replay(history: SessionManager): Fixture {
       coordinator.result(
         call,
         { content: message.content, details: message.details },
-        message.isError ? "failure" : "success",
-        false,
-        message.durationMs
+        { outcome: message.isError ? "failure" : "success", durationMs: message.durationMs }
       );
       saved.replay(call);
     }

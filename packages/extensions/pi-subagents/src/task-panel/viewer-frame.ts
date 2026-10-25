@@ -36,7 +36,7 @@ const MIN_DESCRIPTION_WIDTH = 16;
  */
 function titleBorder(
   theme: Theme,
-  kind: "task" | "job",
+  kind: ViewerFrame["kind"],
   description: string,
   id: string,
   width: number
