@@ -12,6 +12,8 @@ jobs:
   # docs/development.md.
   release:
     needs: check
+    # Forks do not publish a release branch or tags.
+    if: ${{ !github.event.repository.fork }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

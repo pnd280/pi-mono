@@ -63,7 +63,7 @@ Links to published Pi documentation point to the latest version, which can be ne
 
 ### Install your build
 
-Each push to `master` runs the [release workflow](docs/development.md#release-branch), which checks the workspace and builds the `release` branch. In your own repository, it builds your own `release` branch. [Install](#install) that branch with your repository in place of `pnd280/pi-mono`. GitHub turns off workflows in a new fork until you enable them on its Actions tab.
+Each push to `master` runs the [release workflow](docs/development.md#release-branch), which checks the workspace and builds the `release` branch. In a fork, the workflow runs only the checks. To use your changes, [load the extensions](#load-an-extension) from your copy by path. To build a `release` branch in your fork, remove the fork condition from the `release` job in [release.yml](.github/workflows/release.yml). A repository that is not a GitHub fork builds its `release` branch without this change. [Install](#install) that branch with your repository in place of `pnd280/pi-mono`. GitHub turns off workflows in a new fork until you enable them on its Actions tab.
 
 ### Development
 
