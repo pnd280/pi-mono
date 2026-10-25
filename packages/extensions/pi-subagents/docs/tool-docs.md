@@ -4,6 +4,8 @@
 
 Use the [`docs`](../README.md#configuration) setting to tell the model how to use the `subagent` tool, for example when to delegate or what each prompt must contain.
 
+The built-in description states only how tasks work: the supervisor receives only the final message, each new task starts with a fresh conversation, children share the working directory, and `task_id` continues a task. It sets no rule for when to delegate. The workspace's [delegation file](../../../../.resources/pi-subagents/delegation.md) is an example of such a rule.
+
 ## Where the text appears
 
 The text goes into the tool's description, so it accompanies the current tool declaration:

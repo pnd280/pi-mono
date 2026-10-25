@@ -23,18 +23,15 @@ const PROGRESS_INTERVAL_MS = 1_000;
 const ABORT_REASON = "Cancelled by supervisor";
 
 /**
- * Configured `docs` follow the built-in guidance. A task is worth its lossy handoff only when it
- * needs little of the supervisor's context, so the guidance selects work by context, not by size.
+ * The built-in guidance states only how tasks work. Configured `docs` follow it and hold the
+ * policy, such as when to delegate, because docs can add to the guidance but cannot replace it.
  */
 function toolGuidance(docs: string): string {
   return [
-    "Launch an agent in a separate Pi process. You receive only its final message, so its intermediate steps stay out of your context.",
-    "Delegate work that needs little of this conversation and can return a compact result, such as an independent investigation, a review, or a change to separate files. Do the work yourself when it depends on this conversation, when you need its details rather than a summary, or when it is a small lookup, such as a known file, symbol, or a narrow search.",
-    "Split work by the context that each part needs, not by the type of work. Give coupled steps on the same files or data to one task.",
-    "Launch independent tasks concurrently with multiple tool calls. Children share your working directory, so parallel tasks must not edit the same files.",
-    "Each new task has a fresh conversation. Supply a detailed prompt, the expected final answer, whether to write code or research, explicit criteria for a review, and relevant verification commands.",
-    "A result is the child's report, not verified fact. Check the facts that your next step depends on.",
-    "Use task_id to continue a task with its previous context: ask it a follow-up question instead of starting again, or send an active task a finding that affects its work.",
+    "Launch an agent in a separate Pi process. You receive only its final message.",
+    "Each new task has a fresh conversation. Supply a detailed prompt, the expected final answer, whether to write code or research, and relevant verification commands.",
+    "Children share your working directory, so parallel tasks must not edit the same files. Launch independent tasks concurrently with multiple tool calls.",
+    "Use task_id to continue a task with its previous context, or to send input to an active task.",
     ...(docs ? [docs] : [])
   ].join("\n\n");
 }
