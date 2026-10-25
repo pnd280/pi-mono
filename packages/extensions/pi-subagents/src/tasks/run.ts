@@ -511,7 +511,8 @@ export class Run {
     if (
       event.type !== "message_end" &&
       event.type !== "agent_settled" &&
-      event.type !== "thinking_level_changed"
+      event.type !== "thinking_level_changed" &&
+      event.type !== "compaction_end"
     )
       return;
     const next = applyEvent(record, event);

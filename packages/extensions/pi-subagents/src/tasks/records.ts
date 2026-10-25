@@ -1,8 +1,9 @@
 import type { Usage } from "@earendil-works/pi-ai";
-import type {
-  JsonAgentSessionEvent,
-  SessionEntry,
-  SessionStats
+import {
+  calculateContextTokens,
+  type JsonAgentSessionEvent,
+  type SessionEntry,
+  type SessionStats
 } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 
@@ -100,6 +101,25 @@ function contextOf(stats: SessionStats | undefined): Pick<TaskRecord, "context">
 }
 
 /**
+ * The child's context use after an event, as Pi counts it: a completed response with usage sets
+ * the tokens, and a compaction makes them unknown until the next such response.
+ */
+function liveContext(
+  context: TaskRecord["context"],
+  event: JsonAgentSessionEvent
+): TaskRecord["context"] {
+  if (!context) return context;
+  if (event.type === "compaction_end") return event.result ? { ...context, tokens: null } : context;
+  if (event.type !== "message_end") return context;
+  const { message } = event;
+  if (message.role !== "assistant") return context;
+  if (message.stopReason === "error" || message.stopReason === "aborted") return context;
+  const tokens = calculateContextTokens(message.usage);
+
+  return tokens > 0 ? { ...context, tokens } : context;
+}
+
+/**
  * A task's record at the start of a run; earlier usage, context, and the cache hit rate carry
  * over. A live run is active with the child's resolved selection. A restored run is cancelled
  * until its `end` replaces the outcome.
@@ -139,15 +159,17 @@ export function startRun(
  * An active run's record after a child event. A completed or aborted response sets the applied
  * model and thinking level; a failed one can name a virtual model that never ran. A finished
  * message adds its usage, including late background usage, and a model request with a prompt
- * sets the cache hit rate. The run's `end` replaces this live total with exact statistics.
+ * sets the cache hit rate. The context use changes as in {@link liveContext}. The run's `end`
+ * replaces these live values with exact statistics.
  */
 export function applyEvent(record: TaskRecord, event: JsonAgentSessionEvent): TaskRecord {
   if (record.state !== "active") return record;
   if (event.type === "thinking_level_changed")
     return event.level === record.thinking ? record : { ...record, thinking: event.level };
-  if (event.type !== "message_end") return record;
+  const context = liveContext(record.context, event);
+  let next = context && context !== record.context ? { ...record, context } : record;
+  if (event.type !== "message_end") return next;
   const message = event.message;
-  let next = record;
 
   if (message.role === "assistant" && message.stopReason !== "error") {
     const model = `${message.provider}/${message.model}`;
