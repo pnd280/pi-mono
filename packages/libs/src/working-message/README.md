@@ -63,4 +63,4 @@ export default function activityExtension(pi: ExtensionAPI) {
 
 ## Validation
 
-Use [library checks](../../README.md#validation). The [settings-file tests](../settings-file/README.md#validation) cover trust and file handling. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) to check ordering, `/working-message`, and the published text in real Pi, in regular and fullscreen modes.
+The [settings-file tests](../settings-file/README.md#validation) cover trust and file handling. Use the [pi-todo offline fixture](../../../extensions/pi-todo/docs/validation.md#working-message-fixture) to check ordering, `/working-message`, and the published text in real Pi, in regular and fullscreen modes.

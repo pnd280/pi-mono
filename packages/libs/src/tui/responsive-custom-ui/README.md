@@ -55,4 +55,4 @@ Related: the [browser host](../open-browser/README.md) provides `afterClose` and
 
 ## Validation
 
-Use the [package checks](../../../README.md#validation). [Routing tests](fullscreen-input.test.ts) exercise real-renderer input, focus handoff, listener interference, and renderer replacement. [Lifetime tests](lifetime.test.ts) cover cancellation and disposal. Check browser remounts and editor restoration in the [browser host tests](../open-browser/index.test.ts), and run the [terminal scenarios](../../../../extensions/pi-prompt-manager/docs/validation.md#fullscreen-paging).
+[Routing tests](fullscreen-input.test.ts) exercise real-renderer input, focus handoff, listener interference, and renderer replacement. [Lifetime tests](lifetime.test.ts) cover cancellation and disposal. Check browser remounts and editor restoration in the [browser host tests](../open-browser/index.test.ts), and run the [terminal scenarios](../../../../extensions/pi-prompt-manager/docs/validation.md#fullscreen-paging).

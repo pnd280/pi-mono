@@ -14,4 +14,4 @@ Provenance records the replaced value. It does not prove that a wrapper calls it
 
 ## Host fingerprints
 
-Tool display and editor widgets apply the [host fingerprint policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints). They accept a callable endpoint with a reviewed hash, or an unknown hash when Pi's public `VERSION` matches the owner's inspected pin. On an unverified version, an unknown wrapper disables the gated feature until the pin is reviewed. On the verified version, a changed native method can be accepted as an unknown wrapper; this is the limit of the policy.
+Tool display and editor widgets apply the [host fingerprint policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints).

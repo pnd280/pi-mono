@@ -15,7 +15,7 @@ Before you change host hooks, the renderer, or the footer, read the [compatibili
 
 ## Constraints
 
-- Keep contributors on Pi's native APIs: no registration adapter, copies of native components, ownership metadata, or Pi core changes.
+- Keep contributors on Pi's native APIs: no registration adapter, copies of native components, or ownership metadata.
 - Render each placement once, at terminal width, without shrinking widgets or probing other widths.
 - Preview drafts only through live regions (`showDraft`), never through extra renders or copies in the menu.
 - Keep the menu out of overlays.
@@ -24,8 +24,7 @@ Before you change host hooks, the renderer, or the footer, read the [compatibili
 
 ## Validation
 
-| When you…    | Read                                                                                                                                |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Choose tests | The [coverage specification](docs/testing.md).                                                                                      |
-| Run checks   | [Terminal validation](docs/validation.md).                                                                                          |
-| Upgrade Pi   | The [private host checklist](docs/pi-compatibility.md). Run the installed-host fixtures as well as tests with simulated registries. |
+| When you…  | Read                                                                                                                                |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Run checks | [Terminal validation](docs/validation.md).                                                                                          |
+| Upgrade Pi | The [private host checklist](docs/pi-compatibility.md). Run the installed-host fixtures as well as tests with simulated registries. |

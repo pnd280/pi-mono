@@ -6,7 +6,7 @@
 
 A _fingerprint_ is a hash of an inspected private Pi method's source. The [host compatibility owner](../src/host/compatibility.ts) exports `inspectedPiVersion = "1.4.0"`. Host integration follows the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) so recorded wrappers can compose across reload and restoration.
 
-For host integration, the unwrapped value must be callable. A reviewed hash accepts it on any version. A callable with an unknown hash is accepted only when Pi's public `VERSION` equals the pin. A failed gate leaves the affected feature disabled as described in the [README](../README.md#compatibility).
+For host integration, a failed gate leaves the affected feature disabled as described in the [README](../README.md#compatibility).
 
 ## Upgrade procedure
 
@@ -168,8 +168,6 @@ The `validateToolArguments` items keep [callback arguments](adapters.md#callback
 
 - Public host and observation APIs could replace the private hooks if they keep the contracts above. Trace shared-library consumers before removing a hook.
 - Public component methods such as `setExpanded` and `invalidate`, and public session and renderer-resolver calls, retain their declared contracts. They do not need private-method fingerprints. Existing row and assistant fingerprints also guard the private child-layout assumptions that display changes.
-- Row and assistant source checks stay strict even when the public version matches the pin.
-- On the verified version, a changed native host method can be accepted as an unknown wrapper; version evidence cannot distinguish them. On an unverified version, an unknown wrapper disables host integration until the contracts and version pin are reviewed.
 - A public Pi mode-change API could replace the mode-switch wrappers shared with editor widgets.
 - In Pi 1.4.0, the host fingerprints were unchanged in the API and CLI builds. The extension dialog stack changed no hooked method, and selectors still toggle tool output through `toggleToolOutputExpansion`.
 - In Pi 1.4.0, the source review covered the hooked Pi methods, the row and assistant components, and the built-in MCP and codemode extensions. It did not cover the `pi-mcp` and `pi-codemode` packages.

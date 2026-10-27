@@ -4,7 +4,7 @@
 
 ## Automated checks
 
-Use the [focused checks and prerequisites](../../../../docs/development.md#focused-validation) for `pi-prompt-manager`. Tests cover prompt policy, storage, editor effects, and SDK integration without visuals. They use temporary directories and captured clipboard input, never your settings, collections, or clipboard.
+Tests cover prompt policy, storage, editor effects, and SDK integration without visuals. They use temporary directories and captured clipboard input, never your settings, collections, or clipboard.
 
 Run the shared [browser, sizing, and remount tests](../../../libs/src/tui/README.md#validation) with `vpr '@pi-mono/libs#test' src/tui/`.
 

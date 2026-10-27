@@ -31,8 +31,6 @@ Keep naming separate from the locking and idle checks of session operations.
 
 ## Validation
 
-| When you…                | Read or run                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Run checks               | The [package checks](../../../docs/development.md#focused-validation). They use offline fixture models. |
-| Change a host assumption | The [compatibility checklist](docs/pi-compatibility.md).                                                |
-| Choose tests             | The [coverage specification](docs/testing.md).                                                          |
+| When you…                | Read                                                     |
+| ------------------------ | -------------------------------------------------------- |
+| Change a host assumption | The [compatibility checklist](docs/pi-compatibility.md). |

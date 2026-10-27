@@ -66,4 +66,4 @@ Related: [pi-tool-display](../../../extensions/pi-tool-display/README.md) observ
 
 ## Validation
 
-Use [package validation](../../README.md#validation), then check and test `pi-agent-summary` and `pi-tool-display`. The display [API](../../../extensions/pi-tool-display/src/host/install.test.ts) and [installed-CLI](../../../extensions/pi-tool-display/src/host/install-cli.test.ts) suites exercise integration.
+After changes, check and test `pi-agent-summary` and `pi-tool-display`. The display [API](../../../extensions/pi-tool-display/src/host/install.test.ts) and [installed-CLI](../../../extensions/pi-tool-display/src/host/install-cli.test.ts) suites exercise integration.

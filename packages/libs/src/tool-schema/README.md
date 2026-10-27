@@ -16,7 +16,7 @@ The adapter uses one limited compatibility profile:
 - Unsupported keywords, constrained record keys, and recursion fail tool construction rather than silently broadening inputs. The [projection implementation](index.ts) defines the exact supported keyword set.
 - Refinements and transforms still belong to runtime parsing; the tool schema does not execute them.
 
-Extend the profile only after checking the provider boundary and the [coverage policy](../../../../docs/agents/testing.md#coverage).
+Extend the profile only after checking the provider boundary.
 
 ## Usage
 
@@ -45,8 +45,7 @@ const args = input.parse({ line: 1 });
 
 The profile has [no automated coverage](../../docs/testing.md#not-tested).
 
-1. Run the [package checks](../../README.md#validation).
-2. Check the [selective-read](../../../extensions/pi-read/README.md#validation) and [todo](../../../extensions/pi-todo/README.md#validation) consumers.
-3. Check the [subagents](../../../extensions/pi-subagents/README.md#validation) consumer.
+1. Check the [selective-read](../../../extensions/pi-read/README.md#validation) and [todo](../../../extensions/pi-todo/README.md#validation) consumers.
+2. Check the [subagents](../../../extensions/pi-subagents/README.md#validation) consumer.
 
 For schema changes, also run the [tool-display checks](../../../extensions/pi-tool-display/README.md#validation), including the installed-CLI test, because display adapter recognition inspects registered parameters.

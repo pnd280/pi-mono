@@ -6,7 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [package checks](../README.md#validation) and the linked component scenarios.
+1. Run the [package checks](../../../docs/development.md#focused-validation) and the linked component scenarios.
 2. Run the affected extension consumers. Native observation changes need the display API and CLI suites. Fixtures must still run real offline Pi.
 3. Work through the checklist below.
 4. Update the "Last verified" line.

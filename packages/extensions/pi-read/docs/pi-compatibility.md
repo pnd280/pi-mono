@@ -6,7 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [package checks](../README.md#validation) and the [manual appearance checks](testing.md#manual-checks).
+1. Run the [package checks](../../../../docs/development.md#focused-validation) and the [manual appearance checks](testing.md#manual-checks).
 2. When tool schemas, shared arguments and results, or renderer integration change, also check `pi-tool-display`, including its installed-CLI test.
 3. Work through the checklist below, then update the "Last verified" line.
 

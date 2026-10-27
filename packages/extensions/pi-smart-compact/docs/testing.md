@@ -6,7 +6,7 @@ This package tests credential isolation, session ownership of compaction request
 
 ## Must not regress
 
-E2e checks use the installed CLI or a real SDK session with offline providers and disposable workspaces in the system temporary directory, never personal settings, credentials, or network calls.
+E2e checks never use personal settings or credentials.
 
 ### Model and credential isolation
 

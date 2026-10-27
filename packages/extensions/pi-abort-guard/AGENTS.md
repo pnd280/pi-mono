@@ -10,4 +10,4 @@ Preserve the documented [input behaviour](README.md#behaviour) and [editor-owner
 
 ## Validation
 
-For tests and manual checks, read [testing](docs/testing.md). For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).

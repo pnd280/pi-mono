@@ -2,8 +2,6 @@
 
 Keep [task](GLOSSARY.md#tasks-and-processes) policy and process lifecycle in this package.
 
-Use only public Pi APIs and RPC. The [late-usage](GLOSSARY.md#results) patch is the one exception; see [ADR 0002](docs/adr/0002-count-late-background-usage.md).
-
 ## Code navigation
 
 | When you change…                                               | Read                                                                                                                                                                                                                        |
@@ -38,14 +36,14 @@ Use only public Pi APIs and RPC. The [late-usage](GLOSSARY.md#results) patch is 
 - Claim a live connection before sending input; retry only when no prompt was sent.
 - A task keeps one [child file](GLOSSARY.md#history), and only a child holding the task's [writer lease](GLOSSARY.md#history) writes it.
 - Readers keep the child file in memory and never repair it. See [ADR 0003](docs/adr/0003-keep-task-history-in-child-sessions.md).
-- Runtime code must not import validation fixtures. Fixtures use the isolated shared Pi launcher and fixed offline scenarios.
-- The [tool-display adapter](../pi-tool-display/src/adapters/pi-subagents/README.md) validates tool details and job results, and both packages use the [task envelope](../../utils/src/task-envelope.ts) for result text. When you change these formats, update and test the adapter in the same change.
+- Fixtures use the isolated shared Pi launcher and fixed offline scenarios.
+- The [tool-display adapter](../pi-tool-display/src/adapters/pi-subagents/README.md) validates tool details and job results, and both packages use the [task envelope](../../utils/src/task-envelope.ts) for result text.
 
 ## Validation
 
-| When you…                                                 | Read                                                                                                                                                                                          |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Change tests, fixtures, or invariants                     | [Test coverage](docs/testing.md) and [test fixtures](validation/README.md). A new invariant or test needs user approval under the [testing policy](../../../docs/agents/testing.md#coverage). |
-| Change terminal behaviour                                 | [Manual checks](docs/validation.md)                                                                                                                                                           |
-| Change RPC requests, child-file reads, or session changes | [Installed Pi API references](../../../docs/agents/pi-docs.md)                                                                                                                                |
-| Upgrade Pi                                                | [Compatibility checklist](docs/pi-compatibility.md)                                                                                                                                           |
+| When you…                                                 | Read                                                                        |
+| --------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Change tests, fixtures, or invariants                     | [Test coverage](docs/testing.md) and [test fixtures](validation/README.md). |
+| Change terminal behaviour                                 | [Manual checks](docs/validation.md)                                         |
+| Change RPC requests, child-file reads, or session changes | [Installed Pi API references](../../../docs/agents/pi-docs.md)              |
+| Upgrade Pi                                                | [Compatibility checklist](docs/pi-compatibility.md)                         |

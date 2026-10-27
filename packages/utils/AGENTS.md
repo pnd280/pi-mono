@@ -13,4 +13,4 @@ The [README](README.md#usage) groups the exported modules by task.
 
 ## Validation
 
-Choose tests from the [coverage specification](docs/testing.md). For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).
+For Pi upgrades, follow the [compatibility checklist](docs/pi-compatibility.md).

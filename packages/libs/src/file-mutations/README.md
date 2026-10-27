@@ -67,4 +67,4 @@ Related: patch limits and statuses come from [bounded-diff](../bounded-diff/READ
 
 ## Validation
 
-Use [package validation](../../README.md#validation). Also run the `pi-agent-summary` and `pi-tool-display` checks and tests after changes.
+Run the `pi-agent-summary` and `pi-tool-display` checks and tests after changes.

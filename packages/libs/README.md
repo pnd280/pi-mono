@@ -54,5 +54,3 @@ Each library has its own effects; none makes network requests.
 ## Validation
 
 The [coverage specification](docs/testing.md) lists what is tested here.
-
-Use the [focused commands and test prerequisites](../../docs/development.md#focused-validation) with `@pi-mono/libs`.

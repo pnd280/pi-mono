@@ -4,7 +4,7 @@
 
 > Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes to statuses, regions, the footer, mode switching, the extension dialog stack, metrics, compaction thresholds, pi-tui mouse dispatch and exit restoration, and interactive mode, the fingerprint check, the offline package checks and host tests including reload, and an offline tmux run in fullscreen mode of `/widgets` before and after `/reload`, a UI reset by a `SIGTERM` shutdown while `/widgets` is open, and terminal restoration on exit. Not covered: physical-terminal checks, regular mode, mouse clicks, and the other manual checks.
 
-Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks. It needs no core or dependency edits.
+Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks.
 
 ## Upgrade checklist
 
@@ -18,7 +18,7 @@ Public APIs don't expose other extensions' registries or row placement, so this 
 
 The [host boundary](../src/host.ts) exports `inspectedPiVersion = "1.4.0"` and applies the [shared provenance and version policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) before the discovery probe. It checks the discovered receiver again before acquiring the coordinator.
 
-Each gate unwraps recorded hook predecessors. A callable with a reviewed API or bundled CLI source hash is accepted on any version. A callable with an unknown hash is accepted only when Pi's public `VERSION` equals the pin.
+Each gate unwraps recorded hook predecessors.
 
 | Method                                               | Why it needs a gate                                                                                     |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -105,7 +105,6 @@ Never render an unknown context window as zero. The label shows the selected mod
 
 - [Mouse input](../README.md#side-effects) works only in fullscreen mode. The usage widgets use `MouseRegion` to claim primary presses, and toggle on Pi's synthesised click without taking focus. Regular mode keeps the original non-interactive displays.
 - A custom footer is exclusive, not composable. Contribute through native widgets and statuses, or disable the competing footer extension.
-- On the verified version, a changed native host or renderer method can be accepted as an unknown wrapper; version evidence cannot distinguish them. On an unverified version, an unknown wrapper disables the coordinator until the contracts and version pin are reviewed.
 - Both installed renderer implementations and the current renderer are checked at acquisition. Recheck replacement renderers before rebinding their private frame hook; unrelated later host-method replacements are outside the acquisition check.
 - Copies share one native instance and render at the same terminal width. Mouse dispatch uses that width, not the compacted hit area. Drag capture after a later frame follows the component's most recent render geometry.
 - Components expose `render(width)`, not a preferred size. Each placement renders once at terminal width, and the output it occupies sets its row width. Whole widgets wrap in order without shrinking, and a full-width component takes its own row. Widgets control wrapping inside their own output.

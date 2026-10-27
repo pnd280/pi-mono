@@ -1,7 +1,5 @@
 # [Shared TUI](README.md) development
 
-Reusable components receive effect callbacks rather than importing extensions or host mounting, as the [ownership rule](README.md#usage) requires.
-
 ## Code navigation
 
 | When you…                               | Read                                                                                                                           |

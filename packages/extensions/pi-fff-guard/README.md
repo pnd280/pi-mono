@@ -32,7 +32,7 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 
 ## Validation
 
-Run the [focused checks](../../../docs/development.md#focused-validation) for `pi-fff-guard`. Tests require Git and `mkfifo`.
+The tests require Git and `mkfifo`.
 
 | When you…                               | Read                                           |
 | --------------------------------------- | ---------------------------------------------- |

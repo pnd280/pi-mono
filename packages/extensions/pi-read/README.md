@@ -61,8 +61,6 @@ With [pi-tool-display](../pi-tool-display/README.md#configuration), choose how r
 
 ## Validation
 
-Run the [focused checks](../../../docs/development.md#focused-validation) for `pi-read`.
-
 | When you…                         | Read                                                                         |
 | --------------------------------- | ---------------------------------------------------------------------------- |
 | Change selection or preview logic | The [coverage specification](docs/testing.md).                               |

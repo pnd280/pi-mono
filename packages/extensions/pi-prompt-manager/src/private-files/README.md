@@ -70,4 +70,4 @@ Related: [storage and recovery](../../docs/storage.md) owns the saved-prompt sch
 
 ## Validation
 
-Use the [focused commands and test prerequisites](../../../../../docs/development.md#focused-validation) with `pi-prompt-manager`, and the [isolated storage platform checks](../../docs/validation.md#storage-permissions-and-writes).
+Run the [isolated storage platform checks](../../docs/validation.md#storage-permissions-and-writes).

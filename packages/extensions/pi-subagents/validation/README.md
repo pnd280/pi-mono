@@ -26,4 +26,3 @@ This guide is for maintainers who write or change the e2e tests in this director
 - `results()` returns only `subagent` tool results. For `subagent_abort` and other tools, filter `entries()`.
 - `command()` returns the notification of a `/subagents` command. pi-subagents drops the notification of a session binding that is no longer current, and `command()` then fails at once.
 - Race tests hold their windows with prototype spies. [ADR 0004](../docs/adr/0004-no-child-transport-seam.md) lists the seams; move a spy with its seam.
-- Guard waits with `STEP_TIMEOUT_MS`, and give a test no time limit of its own. See the workspace [runner rules](../../../../docs/agents/testing.md#runner).

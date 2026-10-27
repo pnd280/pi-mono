@@ -46,6 +46,6 @@ Send terminal bytes with `send(data)` and force a render with `render()`. The re
 
 ## Validation
 
-Use the [library checks](../../../README.md#validation) and affected consumer suites; each suite registers only its own feature.
+Run the affected consumer suites; each suite registers only its own feature.
 
 The fixture relies on installed Pi's private containers, `mountInteractiveTui`, `createExtensionUIContext`, and `createChatViewport`. Recheck those contracts on Pi upgrades. A no-op terminal does not establish physical keyboard, mouse, or colour behaviour.

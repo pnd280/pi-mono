@@ -22,4 +22,4 @@ Block with `{ block: true, reason }`, never `terminate`.
 
 ## Validation
 
-For checks, test coverage, Pi or FFF upgrades, and retirement, start at [package validation](README.md#validation).
+For test prerequisites, test coverage, Pi or FFF upgrades, and retirement, start at [package validation](README.md#validation).

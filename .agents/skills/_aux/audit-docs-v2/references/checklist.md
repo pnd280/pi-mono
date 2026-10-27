@@ -125,6 +125,11 @@ rule: "files over 1 MiB are truncated"
 ```
 
 - [ ] Each rule is stated once; other docs link to it.
+- [ ] The copy is removed from the layer that does not own the rule: packages drop restated workspace rules; root docs drop restated module details and link the owner.
+- [ ] A doc that applies a shared rule keeps its specific facts (names, values, files, the exception) and drops only the restated general clause.
+- [ ] A step in a numbered procedure is not a repeat. Keep "Run the checks" as a step; remove only restated commands or policy.
+- [ ] Before removing an agent-doc copy, check how the agent reaches the original: an always-loaded "read X before Y" makes the copy redundant; a conditional routing row may not, so high-harm rules keep a one-line link where the agent works.
+- [ ] Copies that already disagree are reported first.
 - [ ] User-visible behavior is defined in user docs; maintainer docs link there.
 - [ ] Cross-layer ownership is one table; each package names only its own part.
 - [ ] Source links replace prose that repeats code, but non-obvious rationale and limits stay in prose.
@@ -209,6 +214,9 @@ rg -n -i '\b(seamless(ly)?|robust|powerful|effortless(ly)?|comprehensive|crucial
 
 # Em dashes per file
 rg -c '\x{2014}' -g '*.md'
+
+# Package docs that link root rule docs (candidate restatements)
+rg -n '\]\((\.\./)+docs/' -g '*.md' <package-dirs>
 
 # Word growth after a rewrite (entry docs growing past their purpose)
 git diff --stat -- '*.md'; wc -w README.md

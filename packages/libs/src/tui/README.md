@@ -41,8 +41,6 @@ Import the supported TUI entry points through `@pi-mono/libs/tui/*` (see the [pa
 
 ## Validation
 
-Use [package checks](../../README.md#validation). Layout, colours, glyphs, and convenience behaviour are below the automated-test severity bar; check them manually.
-
 Tests in `open-browser/` and `responsive-custom-ui/` cover the [focused-input invariant](../../docs/testing.md#must-not-regress) through the real offline Pi host. These tests cover single delivery, remapped controls, focus changes, stale callbacks, remounts, abort, unrelated overlays, and effects after final closure.
 
 The collection browser has no component tests. The [browser host tests](open-browser/index.test.ts) exercise list and preview paging, remounts, and cancellation through Pi's renderer. The [responsive custom UI validation](responsive-custom-ui/README.md#validation) lists the focus routing and lifetime tests. Consumers of the settings menu own draft, save, and host integration tests.

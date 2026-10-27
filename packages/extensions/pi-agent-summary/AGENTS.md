@@ -22,4 +22,3 @@ Time a [run](GLOSSARY.md) from the first `agent_start` to `agent_settled`, not t
 | When you…                    | Read                                                   |
 | ---------------------------- | ------------------------------------------------------ |
 | Change lifecycle or host use | [Pi compatibility checklist](docs/pi-compatibility.md) |
-| Change tests or invariants   | [Test coverage](docs/testing.md)                       |

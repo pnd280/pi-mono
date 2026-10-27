@@ -20,8 +20,6 @@ The [compatibility guide](docs/pi-compatibility.md) defines _fingerprint_, _betw
 
 ## Validation
 
-| When you…                                           | Read or run                                                                                                |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Run checks                                          | The [package checks](../../../docs/development.md#focused-validation). They use offline provider fixtures. |
-| Choose tests                                        | The [coverage specification](docs/testing.md).                                                             |
-| Upgrade Pi, or change a private hook or fingerprint | The [upgrade procedure and checklist](docs/pi-compatibility.md).                                           |
+| When you…                                           | Read                                                             |
+| --------------------------------------------------- | ---------------------------------------------------------------- |
+| Upgrade Pi, or change a private hook or fingerprint | The [upgrade procedure and checklist](docs/pi-compatibility.md). |

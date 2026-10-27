@@ -54,4 +54,4 @@ Related: [working-message ordering](../working-message/README.md#persistence), [
 
 ## Validation
 
-Use [package validation](../../README.md#validation) and check affected consumers. Edge cases are tested in the [transaction tests](transaction.test.ts) and [section tests](section.test.ts).
+Edge cases are tested in the [transaction tests](transaction.test.ts) and [section tests](section.test.ts).

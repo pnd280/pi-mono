@@ -38,5 +38,4 @@ Keep [src/index.ts](src/index.ts) a thin Pi adapter. It reads Pi's state, applie
 | The extension's `tool_search`                   | [Tool search](docs/internals.md#tool-search)         |
 | Resume, `/fork`, `/tree`, or `/reload` handling | [Restoration](docs/internals.md#restoration)         |
 | The editor label                                | [Editor](docs/internals.md#editor)                   |
-| Tests                                           | [Testing](docs/testing.md)                           |
 | The Pi version                                  | [Compatibility checklist](docs/pi-compatibility.md)  |

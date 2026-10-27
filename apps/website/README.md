@@ -17,6 +17,5 @@ Complete [workspace setup](../../README.md#setup), then run these commands from 
 | `vpr '@pi-mono/website#dev'`     | Starts the development server on port 3000.                     |
 | `vpr '@pi-mono/website#build'`   | Builds the client and server bundles into `apps/website/dist/`. |
 | `vpr '@pi-mono/website#preview'` | Serves the production build.                                    |
-| `vpr '@pi-mono/website#check'`   | Checks formatting, lint, and types with the workspace config.   |
 
 When you change the extension list, the hero, or the routes, read the [website development notes](AGENTS.md).
