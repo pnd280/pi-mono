@@ -33,14 +33,14 @@ Identify entry points, shared owners, dependency relationships, and user-facing 
 For each ready chunk:
 
 1. Pass its explicit paths and contract as the target to [code review](../code-review/SKILL.md), along with relevant repository guidance, audit-only mode if requested, and prior shared-contract decisions. Do not let its default diff-based scope replace the chunk, even on a clean working tree.
-2. Complete that skill's phases in order for this chunk, including applicable checks, before moving to the next. Load only the references and implementation context needed for the current work. Record justified not-applicable phases.
+2. Complete that skill's Audit and Revise phases for this chunk, including applicable checks, before moving to the next. Load only the references and implementation context needed for the current work. Record justified not-applicable audits.
 3. Follow necessary consumers outside the chunk when completing a fix. Update their coverage entries, but do not mark an entire consumer chunk reviewed because one call site was inspected. Queue unrelated discoveries under their owning chunk instead of letting the current review expand indefinitely.
 4. Record concrete findings, important keep decisions, changes, exact checks and results, and unresolved questions. Mark the chunk complete only when its review and required verification are complete; blocked work remains visible while independent work continues.
 5. Reassess the remaining chunks after shared changes. Reopen affected review conclusions or checks when their evidence is no longer valid. Continue until the ledger is exhausted, not merely until the initial sample or highest-risk package is finished.
 
 When collaboration tools are available, delegate independent chunks with explicit targets, shared decisions, evidence requirements, and disjoint edit ownership. Keep dependent chunks ordered and reconcile shared-owner changes before consumers rely on them.
 
-Keep a resumable ledger in `.tmp/`. Start it with a **Resume** section of at most 40 lines: the current chunk and phase, the next action, shared decisions, and open blockers. Below it, keep one row per chunk. Before a pause or context reset, update the Resume section and the finished chunk's row.
+Keep a resumable ledger in `.tmp/`. Start it with a **Resume** section of at most 40 lines: the current chunk, phase, and audit, the next action, shared decisions, and open blockers. Below it, keep one row per chunk. Before a pause or context reset, update the Resume section and the finished chunk's row.
 
 After a context reset, read the Resume section and the current chunk's row, then reload only the guidance and references for the current phase. Read the full ledger and inventory only to reconcile coverage at the end. Resume from that record and current source rather than repeating the inventory or treating a summary as fresh verification.
 
