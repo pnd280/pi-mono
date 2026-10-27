@@ -6,10 +6,10 @@ Implement Pi changes in workspace extensions, through public APIs first; a runti
 
 Find installed documentation and examples in [Pi API references](pi-docs.md).
 
-## Private-method patches
+## Private-method gates
 
-- Gate each patch of a private Pi method with a SHA-256 [host fingerprint](../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints). Follow that section when you add, move, or remove one.
-- `vpr check` fails until `owners` in the [fingerprint script](../../.agents/skills/pi-update/scripts/fingerprints.ts) and the hashes listed in workspace source match the installed Pi, and both owners' `inspectedPiVersion` pins match the public `VERSION` of the installed API and CLI builds. It does not check the host fingerprints table.
+- Gate each patch of, or call to, a private Pi method with a SHA-256 [host fingerprint](../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints). Follow that section when you add, move, or remove one.
+- `vpr check` fails until `owners` in the [fingerprint script](../../.agents/skills/pi-update/scripts/fingerprints.ts) and the hashes listed in workspace source match the installed Pi, and the `pi-editor-widgets` and `pi-tool-display` owners' `inspectedPiVersion` pins match the public `VERSION` of the installed API and CLI builds. It does not check the host fingerprints table.
 
 ## Version-aware gates
 

@@ -20,7 +20,7 @@ Check registry streaming, normalisation, resolved options, authentication, heade
 
 ## Host fingerprints
 
-Five owner files record reviewed SHA-256 hashes of private Pi method source. Each owner lists two hashes per method: one for the unbundled API build (`dist/`), and one for the minified installed CLI (`dist/bundle/cli.js`).
+Six owner files record reviewed SHA-256 hashes of private Pi method source. Each owner lists two hashes per method: one for the unbundled API build (`dist/`), and one for the minified installed CLI (`dist/bundle/cli.js`).
 
 Gate private methods where the native implementation can be checked without rejecting supported wrapper composition. Include called-only private dependencies: smart compaction checks immediate message appends, editor widgets check UI-context construction, and tool display checks startup expansion and status-row reuse. Public component and session methods retain their declared contracts and do not need a fingerprint merely because an extension calls them.
 
@@ -39,6 +39,7 @@ Tool-display row and assistant source checks stay strict. Mode hooks also requir
 | [`pi-editor-widgets/src/host.ts`](../../../../packages/extensions/pi-editor-widgets/src/host.ts) | `InteractiveMode`, `TuiMainScreen`, `TuiAltScreen` | `setExtensionStatus`, `renderWidgets`, `setExtensionFooter`, `createExtensionUIContext`, `switchTuiMode`, both renderers' `doRender` |
 | [`pi-tool-display/src/host/compatibility.ts`](../../../../packages/extensions/pi-tool-display/src/host/compatibility.ts) | `InteractiveMode` (`modes/interactive/interactive-mode.js`), `ToolExecutionComponent` | `getRegisteredToolDefinition`, `renderSessionItems`, `handleEvent`, `addMessageToChat`, `addCustomEntryToChat`, `maybeShowThinkingDropNotice`, `addCacheMissNotice`, `addCacheWarmingUsage`, `showExtensionNotify`, `switchTuiMode`, `updateThinkingBlockVisibility`, `getStartupExpansionState`, `showStatus`, `toggleToolOutputExpansion`, `setToolsExpanded`, `render`, `handleMouse` |
 | [`pi-tool-display/src/host/assistant.ts`](../../../../packages/extensions/pi-tool-display/src/host/assistant.ts) | `AssistantMessageComponent` (`modes/interactive/components/assistant-message.js`) | `updateContent` |
+| [`pi-skills/src/editor.ts`](../../../../packages/extensions/pi-skills/src/editor.ts) | `Editor` (`@earendil-works/pi-tui`, `components/editor.js`) | `tryTriggerAutocomplete`, `requestAutocomplete` (called, not replaced) |
 
 Run `vpr fingerprints:check` from the workspace root; `vpr check` and CI also run it. It hashes both builds of the installed Pi and marks each hash that its owner file does not list (`CHANGED`). It also marks each quoted 64-hex string in non-test TypeScript under `packages/` that the methods registered for that file do not produce (`UNCLAIMED`), and each `owners` path that no longer exists (`MISSING`); an unavailable imported pin owner fails module loading before that report. It also fails if either tool-display or editor-widgets `inspectedPiVersion` differs from the public `VERSION` reported by either installed build. It does not read the table above.
 

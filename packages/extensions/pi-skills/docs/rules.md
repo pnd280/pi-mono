@@ -19,14 +19,24 @@ Expansion doesn't cover commands that Pi handles before extensions see the input
 
 ## Completion
 
-In the TUI, type `/skill:` at the start of any token, including mid-prompt or on a later line, and press **Tab**.
+In the TUI, type `/` at the start of any whitespace-separated token, except at the start of the first line. The picker opens with skill suggestions. The text after `/` filters them with Pi's matching, so `/re` and `/skill:re` both find `review`. The picker closes when no skill matches, or when you type a space or delete the `/` with **Backspace** or **Delete**. Word deletion, undo, and some cursor jumps can leave old suggestions showing; press **Escape** to close them. Editing the token doesn't reopen the picker, and it can stay closed if you type on before the suggestions arrive. To reopen it, delete the token and type `/` again. You can also type `/skill:` at the start of any token, including mid-prompt or on a later line, and press **Tab**.
 
+- A `/` at the start of the first line keeps Pi's own slash-command picker. A `/` inside a word, such as `and/or`, opens no picker.
+- In a slash command's arguments, the command's own suggestions come first. Skill suggestions show only when the command has none.
+- With the picker closed, **Tab** on a token such as `/usr/lo` keeps Pi's file completion.
 - **Enter** or **Tab** accepts a suggestion without submitting. **Escape** closes the picker.
-- Accepting replaces the whole token, including any text after the cursor, and adds one space.
+- Accepting replaces the whole token, including any text after the cursor, with `/skill:<name>` and one space.
 - Suggestions follow Pi's registered skills and completion order.
 - Skill names shared with an extension command or prompt template aren't suggested. Other completion still works.
 
 Pi's `enableSkillCommands` setting (toggled in `/settings`) controls completion only, not expansion when you submit. Both use Pi's currently registered skills.
+
+To open the picker after `/`, the extension wraps Pi's editor and calls a private editor method. In these cases, `/` doesn't open the picker, but **Tab** after `/skill:` still completes:
+
+- The installed Pi version isn't supported, or an extension that loads earlier provides an editor that isn't Pi's. Pi shows a warning.
+- An extension that loads later provides its own editor without wrapping this one. No warning appears.
+
+The wrapped editor starts with an empty prompt history after `/reload` or a session switch, such as `/new` or `/resume`. **Up** then recalls only the prompts sent since then.
 
 ## Expansion format
 

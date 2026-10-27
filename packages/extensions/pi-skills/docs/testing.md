@@ -16,6 +16,7 @@ This package tests format trust, skill-reference expansion, and completion routi
 ## Not tested
 
 - Matching and replacement cases outside the invariants above, cursor eligibility, per-request suggestion membership, asynchronous suggestion timing, and **Tab** routing details are below the severity bar. Use the manual checks.
+- Opening the picker after a typed `/`, closing it when its token ends, and the fingerprint gate of the editor wrapper are below the severity bar: on a failure, the picker doesn't open and no text changes. Use the manual checks, and the workspace fingerprint check for the hashes.
 
 ## Manual checks
 
@@ -31,16 +32,20 @@ Setup: the launcher provides `review` and `release` skills and `sample.txt`. Sub
 
 ### Completion
 
-| Do                                                                                  | Expect                                          |
-| ----------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Press **Tab** after `Use /skill:re`, and on a later line starting with `/skill:re`. | Both complete to a skill.                       |
-| Put the cursor after `re` in `/skill:reBAD rest` and accept.                        | `reBAD` is replaced; `rest` stays.              |
-| Accept with **Enter** and with **Tab**.                                             | Neither key submits the prompt.                 |
-| Press **Escape** with the picker open.                                              | The picker closes.                              |
-| Undo an insertion.                                                                  | The insertion is removed.                       |
-| Turn skill commands off in `/settings`, then type `/skill:re`.                      | No skill suggestions appear.                    |
-| Submit `/skill:review` with skill commands off.                                     | Captured input is a link to `skills/review.md`. |
-| Turn skill commands back on in `/settings`, then complete `/skill:re`.              | Skill suggestions return.                       |
+| Do                                                                                  | Expect                                                           |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Type `Use /`, then `re`. Do the same on a later line.                               | The picker opens at `/` with skills only, and `re` filters them. |
+| Type `/` at the start of the prompt.                                                | Pi's slash-command picker opens, with non-skill commands too.    |
+| Type `and/or`, and type `Use /` followed by a space. Also delete the `/`.           | No picker stays open, and no file list appears.                  |
+| Type `Use /usr/lo`, then press **Tab**.                                             | The skill picker closes, and **Tab** completes the path.         |
+| Press **Tab** after `Use /skill:re`, and on a later line starting with `/skill:re`. | Both complete to a skill.                                        |
+| Put the cursor after `re` in `/skill:reBAD rest` and accept.                        | `reBAD` is replaced; `rest` stays.                               |
+| Accept with **Enter** and with **Tab**.                                             | Neither key submits the prompt.                                  |
+| Press **Escape** with the picker open.                                              | The picker closes.                                               |
+| Undo an insertion.                                                                  | The insertion is removed.                                        |
+| Turn skill commands off in `/settings`, then type `/skill:re`.                      | No skill suggestions appear.                                     |
+| Submit `/skill:review` with skill commands off.                                     | Captured input is a link to `skills/review.md`.                  |
+| Turn skill commands back on in `/settings`, then complete `/skill:re`.              | Skill suggestions return.                                        |
 
 ### Formats, resources, and provider composition
 

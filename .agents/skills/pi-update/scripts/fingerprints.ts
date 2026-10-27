@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as pi from "@earendil-works/pi-coding-agent";
-import { TuiAltScreen, TuiMainScreen } from "@earendil-works/pi-tui";
+import { Editor, TuiAltScreen, TuiMainScreen } from "@earendil-works/pi-tui";
 
 import { inspectedPiVersion as widgetVersion } from "../../../../packages/extensions/pi-editor-widgets/src/host.ts";
 import { inspectedPiVersion as displayVersion } from "../../../../packages/extensions/pi-tool-display/src/host/compatibility.ts";
@@ -72,6 +72,10 @@ const owners: Record<string, () => Methods> = {
   }),
   "packages/extensions/pi-tool-display/src/host/assistant.ts": () => ({
     updateContent: assistant("updateContent")
+  }),
+  "packages/extensions/pi-skills/src/editor.ts": () => ({
+    tryTriggerAutocomplete: Reflect.get(Editor.prototype, "tryTriggerAutocomplete"),
+    requestAutocomplete: Reflect.get(Editor.prototype, "requestAutocomplete")
   })
 };
 

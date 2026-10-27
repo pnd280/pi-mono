@@ -1,6 +1,6 @@
 # pi-skills
 
-Pi on its own recognises `/skill:<name>` only at the start of a prompt, where it pastes in the whole skill. With this extension, you can mention skills anywhere in a prompt: `/skill:<name>` anywhere becomes a link to the skill's file, and **Tab** completes skill names mid-prompt.
+Pi on its own recognises `/skill:<name>` only at the start of a prompt, where it pastes in the whole skill. With this extension, you can mention skills anywhere in a prompt: `/skill:<name>` anywhere becomes a link to the skill's file, and typing `/` mid-prompt opens skill completion.
 
 ## Usage
 
@@ -18,7 +18,7 @@ Use [/skill:review](</skills/review/SKILL.md>) then [/skill:review](</skills/rev
 
 The reference stays plain prompt text. Pi doesn't insert the skill's contents, and the model isn't guaranteed to read the file. A token expands only when it is separated by whitespace and matches a registered skill exactly.
 
-To complete a name, type `/skill:` at the start of any token, even mid-prompt or on a later line, and press **Tab**. **Enter** or **Tab** accepts a suggestion without submitting, and **Escape** closes the picker.
+To complete a name, type `/` at the start of any whitespace-separated token, except at the start of the first line. The picker opens with your skills, and the text after `/` filters them. You can also type `/skill:` at the start of any token, even mid-prompt or on a later line, and press **Tab**. **Enter** or **Tab** accepts a suggestion without submitting, and **Escape** closes the picker.
 
 | When you…                                                | Read                                                                                          |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
