@@ -3,12 +3,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
 
 import {
-  MAX_DEPENDENCIES,
-  MAX_DESCRIPTION_LENGTH,
+  FIELD_LIMITS,
   MAX_DETAILS_OVERHEAD_BYTES,
   MAX_METADATA_BYTES,
   MAX_SNAPSHOT_BYTES,
-  MAX_SUBJECT_LENGTH,
   MAX_TASKS
 } from "./limits.ts";
 import { TASK_DETAILS_VERSION, type Task, type TaskDetails } from "./model.ts";
@@ -127,13 +125,13 @@ describe("todo session state", () => {
     const task: Task = {
       id: 1,
       subject: "Tab-indented description",
-      description: "\t".repeat(MAX_DESCRIPTION_LENGTH / 2),
+      description: "\t".repeat(FIELD_LIMITS.description.maximum / 2),
       status: "pending"
     };
     const snapshot = { version: TASK_DETAILS_VERSION, tasks: [task], nextId: 2 };
     const restored = parseTodoStateSnapshot(snapshot);
     assert.ok(restored);
-    assert.equal(restored.tasks[0]?.description, " ".repeat(MAX_DESCRIPTION_LENGTH));
+    assert.equal(restored.tasks[0]?.description, " ".repeat(FIELD_LIMITS.description.maximum));
 
     const oversized = {
       ...snapshot,
@@ -185,7 +183,7 @@ describe("todo session state", () => {
     assert.equal(
       parseTodoStateSnapshot({
         version: TASK_DETAILS_VERSION,
-        tasks: [{ ...task, subject: "s".repeat(MAX_SUBJECT_LENGTH + 1) }],
+        tasks: [{ ...task, subject: "s".repeat(FIELD_LIMITS.subject.maximum + 1) }],
         nextId: 2
       }),
       undefined
@@ -196,7 +194,7 @@ describe("todo session state", () => {
         tasks: [
           {
             ...task,
-            blockedBy: Array.from({ length: MAX_DEPENDENCIES + 1 }, () => 2)
+            blockedBy: Array.from({ length: FIELD_LIMITS.blockedBy.maximum + 1 }, () => 2)
           },
           { id: 2, subject: "Dependency", status: "pending" }
         ],
@@ -220,7 +218,7 @@ describe("todo session state", () => {
       id: index + 1,
       subject: "x",
       status: "pending",
-      description: "d".repeat(MAX_DESCRIPTION_LENGTH)
+      description: "d".repeat(FIELD_LIMITS.description.maximum)
     }));
     const first = tasks[0];
     assert.ok(first);

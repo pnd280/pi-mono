@@ -2,8 +2,10 @@ import { fauxToolCall, type JsonObject, type JsonValue } from "@earendil-works/p
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { expect, it, vi } from "vite-plus/test";
 
+import { piFffAdapter } from "../adapters/@ff-labs/pi-fff/index.ts";
 import { fffToolInfo } from "../adapters/@ff-labs/pi-fff/test-fixture.ts";
-import { genericAdapter, nativeAdapter, piFffAdapter, piMcpAdapter } from "../adapters/index.ts";
+import { genericAdapter, nativeAdapter } from "../adapters/index.ts";
+import { piMcpAdapter } from "../adapters/pi-mcp-adapter/index.ts";
 import { mcpToolInfo } from "../adapters/pi-mcp-adapter/test-fixture.ts";
 import {
   isCancelled,

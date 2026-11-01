@@ -18,13 +18,8 @@ export function rewritePromptSection(name: string, content: string): string {
   const replacements = sectionReplacements.get(name);
   if (!replacements) return content;
 
-  const lines = content.split("\n");
-
-  for (const [index, line] of lines.entries()) {
-    // Skill names, descriptions, and paths belong to the user, not the prompt template.
-    if (name === "skills" && line === "<available_skills>") break;
-    lines[index] = replacements.get(line) ?? line;
-  }
-
-  return lines.join("\n");
+  return content
+    .split("\n")
+    .map((line) => replacements.get(line) ?? line)
+    .join("\n");
 }

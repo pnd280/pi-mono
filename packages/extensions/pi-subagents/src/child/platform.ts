@@ -13,30 +13,6 @@ const GROUP_CHECK_MS = 50;
 /** How long a group can remain after SIGKILL, such as zombies that their new parent reaps. */
 const KILL_CHECK_MS = 1_000;
 
-/** How long a child supervisor waits for stderr to take its forwarded cleanup failures. */
-const FORWARD_MS = 1_000;
-
-/** Writes to stderr before the process exits. When no reader remains (EPIPE), nothing reports it. */
-export function forwardStderr(text: string): Promise<void> {
-  // A failed write also emits an error after its callback; without a listener, it ends the process.
-  // Other errors keep that default: with no other listener, this one throws them again.
-  const onError = (error: NodeJS.ErrnoException) => {
-    if (error.code !== "EPIPE" && process.stderr.listenerCount("error") === 1) throw error;
-  };
-
-  process.stderr.on("error", onError);
-
-  return new Promise((resolve) => {
-    const timer = globalThis.setTimeout(resolve, FORWARD_MS);
-    // The listener stays until this write ends, also after the timeout, because it can still fail.
-    process.stderr.write(text, () => {
-      clearTimeout(timer);
-      setImmediate(() => process.stderr.off("error", onError));
-      resolve();
-    });
-  });
-}
-
 export function processOptions(): Pick<SpawnOptions, "detached" | "windowsHide"> {
   return process.platform === "win32" ? { detached: false, windowsHide: true } : { detached: true };
 }

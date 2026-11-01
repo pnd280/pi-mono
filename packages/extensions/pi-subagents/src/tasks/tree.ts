@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
-import { readRunFile } from "../history/reader.ts";
+import { readRunFile } from "../history/sessions.ts";
 import { stopRun, taskHistory, type TaskRecord } from "./records.ts";
 
 /** An observed tree reads child files again this often: another process can add descendants. */

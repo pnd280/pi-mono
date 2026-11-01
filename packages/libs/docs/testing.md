@@ -46,7 +46,7 @@ This package tests reusable protocols with I/O, scheduling, or terminal output; 
 - Output retention, working-message contributions and ordering, scripted provider streams, and the interactive host fixture are below the severity bar.
 - [Coordinator](../src/coordination/README.md) liveness, coordinator version-mismatch behaviour, and working-message command ownership are not tested because no invariant is approved for them yet.
 - TUI layout and settings-frame presentation are below the severity bar. Use the [shared TUI validation](../src/tui/README.md#validation) for them.
-- Extensions own their collection formats and tool-card policies.
+- Extensions own their collection formats and tool-card policies, and the validation, unreadable-file policy, and scope merge of their `readScopedSections` results.
 - The [release check](../../../docs/development.md#release-branch) owns worker loading in the installed `release` tree, where workers get no Pi host packages.
 
 ## Manual checks

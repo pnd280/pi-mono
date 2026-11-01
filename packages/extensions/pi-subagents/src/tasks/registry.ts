@@ -2,9 +2,8 @@ import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 
 import { ResultSource, taskResultMessage } from "../background-result.ts";
 import type { PiInvocation } from "../child/invocation.ts";
-import { forwardStderr } from "../child/platform.ts";
+import { forwardStopFailures } from "../child/stop-failures.ts";
 import type { SubagentsConfig } from "../config.ts";
-import { STOP_FAILURE_PREFIX } from "../constants.ts";
 import {
   errorText,
   type ChildMessage,
@@ -36,9 +35,6 @@ export type TaskEvent =
 
 export const INTERRUPTED_WARNING =
   "The resumed history ends with an incomplete tool cycle. Old calls are not replayed automatically. Completed effects remain; the model can request the operation again.";
-
-/** What a `subagent` call sets; the launch context supplies the other values. */
-export type SubmitRequest = ToolInput;
 
 /** The result of one call; the caller formats it. */
 export type Submission =
@@ -169,7 +165,7 @@ export class Tasks {
    * foreground call returns the run's result; a background or promoted call returns when its run
    * starts. Errors before the task is claimed throw; later failures return as a result.
    */
-  async submit(request: SubmitRequest, handlers: CallHandlers): Promise<Submission> {
+  async submit(request: ToolInput, handlers: CallHandlers): Promise<Submission> {
     if (handlers.signal?.aborted) throw new Error("Cancelled by turn abort");
 
     if (request.task_id !== undefined) {
@@ -193,7 +189,7 @@ export class Tasks {
    * The requested model and thinking level. A resume reuses each omitted value from the task's
    * latest run; a new task uses the supervisor's current one.
    */
-  private selection(request: SubmitRequest): Selection {
+  private selection(request: ToolInput): Selection {
     const launch = this.options.launch();
     const previous = request.task_id === undefined ? undefined : this.owned(request.task_id);
     const model = request.model ?? previous?.requested_model ?? launch.model;
@@ -399,10 +395,8 @@ export class Tasks {
     if (!failed.length) return;
 
     // Pi catches session_shutdown errors. The supervisor of this child supervisor reads the
-    // failures from its stderr. Each record starts a line, also after other output without a
-    // final newline.
-    if (this.options.depth > 0)
-      await forwardStderr(failed.map((failure) => `\n${STOP_FAILURE_PREFIX}${failure}\n`).join(""));
+    // failures from its stderr.
+    if (this.options.depth > 0) await forwardStopFailures(failed);
     throw new Error(`Task cleanup failed: ${failed.join("; ")}`);
   }
 

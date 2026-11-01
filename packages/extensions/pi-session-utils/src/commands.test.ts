@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
-import { createEmptyChild, type SessionCommandContext } from "./commands.ts";
+import { registerSesh, type SessionCommandContext } from "./test-fixture.ts";
 
 let directory: string;
 let cwd: string;
@@ -31,7 +31,7 @@ it("refuses a dangling parent link when Pi has allocated but not yet written a f
     newSession: vi.fn<SessionCommandContext["newSession"]>(),
     ui: { notify: vi.fn<SessionCommandContext["ui"]["notify"]>() }
   };
-  await createEmptyChild(ctx);
+  await registerSesh()("create-empty-child", ctx);
   expect(ctx.newSession).not.toHaveBeenCalled();
   expect(ctx.ui.notify).toHaveBeenCalledWith(expect.any(String), "error");
   expect(existsSync(ctx.sessionManager.getSessionFile()!)).toBe(false);

@@ -3,12 +3,14 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { contentText } from "@earendil-works/pi-ai";
+import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { expect, test as caseTest, type ExpectStatic } from "vite-plus/test";
 import { z } from "zod";
 
 import { resultDetailsSchema } from "../src/background-result.ts";
 import { LATE_USAGE_KIND, RESULT_MESSAGE, RUN_ENTRY, TASKS_MESSAGE } from "../src/constants.ts";
+import { jobDetailsSchema } from "../src/jobs/records.ts";
 import { detailsSchema } from "../src/result.ts";
 import { runRecordSchema } from "../src/tasks/records.ts";
 import {
@@ -31,26 +33,26 @@ const extensionErrorSchema = z.object({
   error: z.string()
 });
 
-/** The `group-zombie` fixture records the PIDs of the zombie's parent and the zombie. */
+/** The `group-zombie` child and `zombie` job record the PIDs of the zombie's parent and the zombie. */
 async function zombiePids(directory: string): Promise<number[]> {
   const recorded = await readFile(join(directory, "work", "zombie-pids"), "utf8").catch(() => "");
 
   return recorded.split(" ").filter(Boolean).map(Number);
 }
 
-/** Waits until the zombie is in the process group of the child that started its parent. */
+/** Waits until the zombie is in the process group of the child or job shell that started its parent. */
 async function zombieInGroup(directory: string, expect: ExpectStatic): Promise<void> {
   await expect
     .poll(async () => (await zombiePids(directory)).length, { timeout: STEP_TIMEOUT_MS })
     .toBe(2);
   const [parent, zombie] = await zombiePids(directory);
 
-  // The parent's parent is the child, so the zombie must be in its process group.
+  // The parent's parent is the child or job shell, so the zombie must be in its process group.
   const inGroup = async () => {
     const [owner, member] = await Promise.all([processStat(parent!), processStat(zombie!)]);
-    const child = owner && (await processStat(owner.ppid));
+    const starter = owner && (await processStat(owner.ppid));
 
-    return member?.state === "Z" && member.pgrp === child?.pgrp;
+    return member?.state === "Z" && member.pgrp === starter?.pgrp;
   };
 
   await expect.poll(inGroup, { timeout: STEP_TIMEOUT_MS }).toBe(true);
@@ -307,6 +309,42 @@ test("reports a descendant's failed process cleanup in the cancelled result and 
       await stopZombie(directory, expect);
     }
   });
+});
+
+test("reports a child supervisor's failed job cleanup at its exit in the task result", async ({
+  expect
+}) => {
+  await fixture(
+    async (host, directory) => {
+      try {
+        // The child's job leaves a zombie in the job's process group; the child exits after its
+        // final reply, which waits for `run-release`.
+        const work = host.prompt("delegate-job-zombie");
+        await zombieInGroup(directory, expect);
+        await release(directory, "run-release");
+        await work;
+        const [task] = await taskList(host);
+        const [job] = parseSessionEntries(await readFile(task!.session_file, "utf8")).flatMap(
+          (entry) =>
+            entry.type === "message" &&
+            entry.message.role === "toolResult" &&
+            entry.message.toolName === "job"
+              ? [jobDetailsSchema.parse(entry.message.details)]
+              : []
+        );
+        const result = (await host.results()).at(-1)!;
+        expect(detailsSchema.parse(result.details).state).toBe("failed");
+        expect(contentText(result.content)).toMatch(
+          new RegExp(
+            `descendant_stop failed .*: job ${job!.job_id}: Process group \\d+ still has members after SIGKILL`
+          )
+        );
+      } finally {
+        await stopZombie(directory, expect);
+      }
+    },
+    { settings: { "ext.pi-subagents": { jobs: true } } }
+  );
 });
 
 test("reports a failed process cleanup of a task when the supervisor's session ends", async ({

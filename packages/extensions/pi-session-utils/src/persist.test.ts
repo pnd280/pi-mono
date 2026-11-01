@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
-import { persistSession } from "./commands.ts";
 import { saveActiveBranch } from "./persist.ts";
+import { registerSesh } from "./test-fixture.ts";
 
 let directory: string;
 let cwd: string;
@@ -102,10 +102,11 @@ it("leaves already file-backed sessions unchanged", async () => {
   const files = new Set(readdirSync(source.getSessionDir()));
   const switchSession = vi.fn(async () => ({ cancelled: false }));
 
-  await persistSession({
+  await registerSesh()("persist", {
     cwd,
     sessionManager: source,
     isIdle: () => true,
+    newSession: vi.fn(),
     switchSession,
     ui: { notify: vi.fn() }
   });
@@ -130,10 +131,11 @@ it("removes the new file when the switch is cancelled", async () => {
   });
   const notify = vi.fn();
 
-  await persistSession({
+  await registerSesh()("persist", {
     cwd,
     sessionManager: source,
     isIdle: () => true,
+    newSession: vi.fn(),
     switchSession,
     ui: { notify }
   });
@@ -154,12 +156,13 @@ it.each(["before", "after"])(
     let path: string | undefined;
 
     await expect(
-      persistSession({
+      registerSesh()("persist", {
         cwd,
         get sessionManager() {
           return current;
         },
         isIdle: () => true,
+        newSession: vi.fn(),
         switchSession: async (sessionPath) => {
           path = sessionPath;
           if (stage === "after") current = SessionManager.open(sessionPath);

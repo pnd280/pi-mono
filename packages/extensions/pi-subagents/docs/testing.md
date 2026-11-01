@@ -25,6 +25,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** A [forced stop](shutdown.md) continues after the child exits until the child's process group is gone. A member of the group that ignores SIGTERM and outlives the child receives SIGKILL after the grace period, before the call returns.
 - **High, e2e:** A forced stop that leaves the child's process group is reported, also when another process holds the child's output pipes.
 - **High, e2e:** A child supervisor forwards a forced-stop failure among its other stderr output, so a descendant's failure reaches the task above it.
+- **High, e2e:** A child supervisor also forwards the failed cleanup of its own [job](../GLOSSARY.md#tasks-and-processes) when it exits, so the result of the task above it names the job and the failure.
 - **High, e2e:** A task's forced-stop failure during the supervisor's session end is reported as an error of the shutdown handler.
 - **High, e2e:** After a forced-stop failure, a cancelled task stays cancelled, and its result names the failure. `subagent_abort` returns the error instead of a confirmation.
 - **High, e2e:** Tree selection (including a same-path rewind), parent-session fork, and saved-session switch immediately stop owned running subtrees, including children that block shutdown and detached [descendants](../GLOSSARY.md#tasks-and-processes).
@@ -118,7 +119,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - Late updates outside the connection boundary are not tested because the [late-update test](../validation/activity.test.ts) covers only that boundary. The untested cases include a replaced terminal task view, a delayed filesystem read, an injected failed response, and other late event kinds.
 - A delayed file read of an earlier run is below the severity bar; see [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#delayed-reads).
 - Pi owns RPC framing, prompt-disposition semantics, lineage, and its internal trust enforcement.
-- macOS and Windows are not tested because the tests run only on Linux. The forced-stop failure test also needs `perl` to put a process into another process group.
+- macOS and Windows are not tested because the tests run only on Linux. The tests of failed process cleanup also need `perl` to put a process into another process group.
 - Coordination-protocol races during settlement and stdin EOF, and reads of large branched child files, are not tested automatically. [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) records the one-time probes and the open checks for these cases.
 - A child that blocks shutdown can survive supervisor SIGKILL, because no independent watchdog exists to stop it.
 - The wording of the `subagent` guidance and of a child's [result instructions](children.md#result-instructions) is below the severity bar. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns where the instructions appear in the system prompt.

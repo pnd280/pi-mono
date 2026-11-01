@@ -59,7 +59,7 @@ function notices(result: BorrowedToolResult, expanded: boolean): DisplayNotice[]
     : [];
 }
 
-export const mcpToolDisplayAdapter: ToolDisplayAdapter = {
+const mcpToolDisplayAdapter: ToolDisplayAdapter = {
   id: "builtin:mcp",
   family: "invocation",
   // MCP tool names alone may not explain the request.

@@ -13,6 +13,7 @@
     "./patch": "./src/patch.ts",
     "./output-text": "./src/output-text.ts",
     "./utf8": "./src/utf8.ts",
+    "./shell": "./src/shell.ts",
     "./task-envelope": "./src/task-envelope.ts"
   },
   "scripts": {

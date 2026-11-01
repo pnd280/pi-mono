@@ -1,6 +1,4 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type { Readable } from "node:stream";
-import { StringDecoder } from "node:string_decoder";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { contentText, type AssistantMessage } from "@earendil-works/pi-ai";
@@ -19,7 +17,6 @@ import {
   DEPTH_ENV,
   PROTOCOL_KEY,
   PROTOCOL_VERSION,
-  STOP_FAILURE_PREFIX,
   STOP_GRACE_MS,
   TASK_ID_ENV
 } from "../constants.ts";
@@ -34,13 +31,11 @@ import {
   stopRemainingGroup,
   terminateTree
 } from "./platform.ts";
+import { observeStopFailures } from "./stop-failures.ts";
 
 type Begun = Extract<ChildMessage, { kind: "begun" }>;
 
 type StreamingBehavior = NonNullable<Extract<RpcCommand, { type: "prompt" }>["streamingBehavior"]>;
-
-/** The longest cleanup failure that one stderr record of a child supervisor gives. */
-const STOP_FAILURE_MAX = 4_096;
 
 /** The longest cleanup failure that a failed run's first line gives before its other failure. */
 const CLEANUP_SUMMARY_MAX = 256;
@@ -186,7 +181,9 @@ export class ChildRun {
     this.connection.subscribe((record) => this.observe(record));
     this.connection.onDrain(() => this.scheduleCollection());
     this.connection.onError((error) => this.fail(error));
-    this.readStopFailures(child.stderr);
+    observeStopFailures(child.stderr, (message) =>
+      this.stopFailed("descendant_stop", new Error(message))
+    );
     // A member of the child's process group can outlive the child and hold the output pipes.
     child.once("exit", () => {
       this.forced ??= stopRemainingGroup(child, (error) => this.stopFailed("force_stop", error));
@@ -666,43 +663,6 @@ export class ChildRun {
     child.stderr.off("data", receive);
     child.stdout.destroy();
     child.stderr.destroy();
-  }
-
-  /**
-   * Records the failed process cleanups that a child supervisor writes to stderr, one per line. It
-   * reads the whole stream, so other output and the bounded stderr excerpt cannot hide them.
-   */
-  private readStopFailures(stderr: Readable): void {
-    const decoder = new StringDecoder("utf8");
-    // The current line while it can still be a record.
-    let line: string | undefined = "";
-
-    const add = (text: string) => {
-      if (line === undefined) return;
-      line = (line + text).slice(0, STOP_FAILURE_PREFIX.length + STOP_FAILURE_MAX);
-      if (!line.startsWith(STOP_FAILURE_PREFIX) && !STOP_FAILURE_PREFIX.startsWith(line))
-        line = undefined;
-    };
-
-    const end = () => {
-      if (line?.startsWith(STOP_FAILURE_PREFIX))
-        this.stopFailed("descendant_stop", new Error(line.slice(STOP_FAILURE_PREFIX.length)));
-      line = "";
-    };
-
-    stderr.on("data", (chunk: Buffer) => {
-      const [first = "", ...rest] = decoder.write(chunk).split("\n");
-      add(first);
-
-      for (const part of rest) {
-        end();
-        add(part);
-      }
-    });
-    stderr.once("close", () => {
-      add(decoder.end());
-      end();
-    });
   }
 
   private stopFailed(step: string, error: Error): void {

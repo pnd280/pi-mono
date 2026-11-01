@@ -13,7 +13,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
 import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY } from "../src/constants.ts";
-import { readRunFile } from "../src/history/reader.ts";
+import { readRunFile } from "../src/history/sessions.ts";
 import { detailsSchema } from "../src/result.ts";
 import { endRecordSchema, runRecordSchema } from "../src/tasks/records.ts";
 import { LONG_GRACE_LIMIT, taskList, withFixture } from "./background-fixture.ts";

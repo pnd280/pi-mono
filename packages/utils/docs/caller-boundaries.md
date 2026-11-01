@@ -23,6 +23,10 @@ Consumers choose their own failure handling. pi-fff-guard passes unexpected acce
 
 [`paths`](../src/paths.ts) works lexically, without symlink resolution or filesystem checks. Supply absolute paths where required; these helpers do not interpret tool prefixes, file URLs, or glob syntax.
 
+## Shell quoting
+
+[`quotePosixShellArgument`](../src/shell.ts) quotes text as one literal argument for a POSIX shell. Callers supply NUL-free text and must not use the result for `cmd.exe` or PowerShell.
+
 ## Model references
 
 [`modelReferenceSchema`](../src/model-reference.ts) trims and validates a `provider/model-id` setting; the model ID may contain slashes. `splitModelReference` splits a valid reference at its first slash and throws `TypeError` otherwise. Callers own registry lookup, availability errors, and thinking-level support.

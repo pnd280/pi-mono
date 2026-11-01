@@ -10,7 +10,7 @@ The model calls the `todo` tool with one of these actions: `create`, `update`, `
 
 ## Parameters
 
-The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and field limits.
+The [tool schema](../src/tool-schema.ts) holds the model-facing descriptions and applies the field limits from [limits](../src/state/limits.ts).
 
 | Parameter                         | Actions                   | Meaning                                                                                 |
 | --------------------------------- | ------------------------- | --------------------------------------------------------------------------------------- |

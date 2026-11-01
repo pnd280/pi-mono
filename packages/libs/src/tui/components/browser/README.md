@@ -2,7 +2,7 @@
 
 [Shared TUI](../../README.md#usage)
 
-Extensions that let a user pick from a collection need searchable sections, selection, previews, and actions that behave the same in every extension. The collection browser provides them; open it with [`openBrowser`](../../open-browser/README.md), and use the [browser contracts](types.ts) for options and action signatures. `@pi-mono/libs/tui/components/browser` exports only these types.
+Extensions that let a user pick from a collection need searchable sections, selection, previews, and actions that behave the same in every extension. The collection browser provides them; open it with [`openBrowser`](../../open-browser/README.md), and import the [browser contracts](types.ts) for options and action signatures from its entry.
 
 ## Behaviour
 

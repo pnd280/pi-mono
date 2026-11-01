@@ -45,7 +45,7 @@ const scriptCategory: SummaryCategory = {
   count: { one: "ran {n} script", other: "ran {n} scripts" }
 };
 
-export const codemodeDisplayAdapter: ToolDisplayAdapter = {
+const codemodeDisplayAdapter: ToolDisplayAdapter = {
   id: "builtin:codemode",
   family: "invocation",
   supports: (args) => argsSchema.safeParse(args).success,

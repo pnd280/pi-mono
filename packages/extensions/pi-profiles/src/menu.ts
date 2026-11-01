@@ -1,7 +1,10 @@
 import type { ExtensionContext, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { fuzzyFilter } from "@earendil-works/pi-tui";
-import type { BrowserOptions, BrowserSection } from "@pi-mono/libs/tui/components/browser";
-import { openBrowser } from "@pi-mono/libs/tui/open-browser";
+import {
+  openBrowser,
+  type BrowserOptions,
+  type BrowserSection
+} from "@pi-mono/libs/tui/open-browser";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
 
 import type { ToolReport } from "./selection.ts";

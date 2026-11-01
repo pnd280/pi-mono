@@ -21,6 +21,7 @@ import {
   zeroUsage,
   type FixtureStreamContext
 } from "@pi-mono/libs/validation/provider";
+import { quotePosixShellArgument } from "@pi-mono/utils/shell";
 
 import { assertFixtureWorkspace } from "./workspace.ts";
 
@@ -73,6 +74,17 @@ type Call =
   | { tool: "read"; path: string };
 
 /**
+ * A Perl script that moves to its own process group and leaves a zombie child in the group of its
+ * starter. The script reaps the zombie only on SIGTERM. A zombie ignores signals, and the script is
+ * outside that group, so a forced stop of the group cannot remove the zombie. The script records
+ * both PIDs in `zombie-pids`; the test stops it.
+ */
+const GROUP_ZOMBIE_SCRIPT =
+  "$g = getpgrp; setpgid(0, 0); $c = fork; if (!$c) { setpgid(0, $g); exit } " +
+  "$SIG{TERM} = sub { waitpid($c, 0); exit }; open F, '>', 'zombie-pids.tmp'; " +
+  "print F join(' ', $$, $c); close F; rename 'zombie-pids.tmp', 'zombie-pids'; sleep 600";
+
+/**
  * Fixed job commands; prompt text never becomes a command. They run in the supervisor's working
  * directory, where the tests create the barrier files.
  */
@@ -105,6 +117,13 @@ const JOB_COMMANDS = new Map<string, { command: string; timeout?: number }>([
     }
   ],
   ["shell", { command: `printf '%s %s' "$FIXTURE_JOB_SHELL" "$FIXTURE_JOB_PREFIX"` }],
+  // A zombie in the job's process group. Its parent holds no job pipe, and the shell waits for it.
+  [
+    "zombie",
+    {
+      command: `perl -MPOSIX -e ${quotePosixShellArgument(GROUP_ZOMBIE_SCRIPT)} >/dev/null 2>&1 & wait`
+    }
+  ],
   [
     "timeout",
     {
@@ -285,7 +304,8 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     ["delegate-selection", "selection"],
     ["delegate-trust", "report-trust"],
     ["delegate-tools", "report-tools"],
-    ["delegate-job", "job-group-hold"]
+    ["delegate-job", "job-group-hold"],
+    ["delegate-job-zombie", "job-zombie-hold"]
   ]).get(scenario);
   if (child) return [{ description: `Fixture ${child} task`, prompt: child }];
   if (scenario === "delegate-display")
@@ -804,21 +824,12 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       await writeStderr(`${STDERR_NOISE}fixture progress 50%`);
     }
 
-    // A zombie in this child's process group whose parent, in its own group, reaps it only on
-    // SIGTERM. Signals still reach the group, so a forced stop cannot end it. The parent holds the
-    // child's output pipes and records both PIDs in `zombie-pids`; the test stops it.
+    // A zombie in this child's process group. Its parent holds the child's output pipes.
     if (prompt === "group-zombie")
-      spawn(
-        "perl",
-        [
-          "-MPOSIX",
-          "-e",
-          "$g = getpgrp; setpgid(0, 0); $c = fork; if (!$c) { setpgid(0, $g); exit } " +
-            "$SIG{TERM} = sub { waitpid($c, 0); exit }; open F, '>', 'zombie-pids.tmp'; " +
-            "print F join(' ', $$, $c); close F; rename 'zombie-pids.tmp', 'zombie-pids'; sleep 600"
-        ],
-        { cwd: ctx.cwd, stdio: ["ignore", "inherit", "inherit"] }
-      );
+      spawn("perl", ["-MPOSIX", "-e", GROUP_ZOMBIE_SCRIPT], {
+        cwd: ctx.cwd,
+        stdio: ["ignore", "inherit", "inherit"]
+      });
     if (prompt === "dialog")
       // A shorter limit would decline the dialog when a loaded host answers late.
       answer = await ctx.ui.confirm("Fixture question", "Continue this child task?", {

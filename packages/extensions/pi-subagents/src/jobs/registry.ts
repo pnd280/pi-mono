@@ -17,8 +17,9 @@ import { z } from "zod";
 
 import { jobResultMessage, ResultSource } from "../background-result.ts";
 import { getDepth } from "../child/depth.ts";
-import { forwardStderr, killGroupSync } from "../child/platform.ts";
-import { JOB_END_ENTRY, JOB_ENTRY, STOP_FAILURE_PREFIX } from "../constants.ts";
+import { killGroupSync } from "../child/platform.ts";
+import { forwardStopFailures } from "../child/stop-failures.ts";
+import { JOB_END_ENTRY, JOB_ENTRY } from "../constants.ts";
 import { boundedText, firstLine } from "../result.ts";
 import { formatLogTail, JobLog } from "./log.ts";
 import { jobOperations } from "./process.ts";
@@ -477,11 +478,7 @@ export class Jobs {
 
     // Pi catches session_shutdown errors. Its supervising task needs the stderr record as well.
     if (getDepth() > 0)
-      await forwardStderr(
-        failures
-          .map(({ id, error }) => `\n${STOP_FAILURE_PREFIX}job ${id}: ${error.message}\n`)
-          .join("")
-      );
+      await forwardStopFailures(failures.map(({ id, error }) => `job ${id}: ${error.message}`));
     throw new AggregateError(
       failures.map(({ error }) => error),
       `Job cleanup failed: ${failures.map(({ error }) => error.message).join("; ")}`

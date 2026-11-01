@@ -3,14 +3,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
 
 import {
-  MAX_IN_PROGRESS_LABEL_LENGTH,
-  MAX_DEPENDENCIES,
-  MAX_DESCRIPTION_LENGTH,
+  FIELD_LIMITS,
   MAX_DETAILS_OVERHEAD_BYTES,
   MAX_LIST_LINES,
-  MAX_OWNER_LENGTH,
-  MAX_SNAPSHOT_BYTES,
-  MAX_SUBJECT_LENGTH
+  MAX_SNAPSHOT_BYTES
 } from "./limits.ts";
 import {
   TASK_DETAILS_VERSION,
@@ -44,11 +40,11 @@ describe("todo reducer", () => {
     const state = mutate(emptyTodoState(), "create", { subject: "One" }).state;
     const result = mutate(state, "update", {
       id: 1,
-      subject: "s".repeat(MAX_SUBJECT_LENGTH + 100_000),
+      subject: "s".repeat(FIELD_LIMITS.subject.maximum + 100_000),
       description: "d".repeat(10_000_000),
-      inProgressLabel: "a".repeat(MAX_IN_PROGRESS_LABEL_LENGTH + 1),
-      owner: "o".repeat(MAX_OWNER_LENGTH + 1),
-      blockedBy: Array.from({ length: MAX_DEPENDENCIES + 1 }, () => 1),
+      inProgressLabel: "a".repeat(FIELD_LIMITS.inProgressLabel.maximum + 1),
+      owner: "o".repeat(FIELD_LIMITS.owner.maximum + 1),
+      blockedBy: Array.from({ length: FIELD_LIMITS.blockedBy.maximum + 1 }, () => 1),
       metadata: { value: "m".repeat(1_000_000) },
       unknown: "u".repeat(1_000_000)
     });
@@ -65,7 +61,7 @@ describe("todo reducer", () => {
       id: index + 1,
       subject: "x",
       status: "pending",
-      description: "d".repeat(MAX_DESCRIPTION_LENGTH)
+      description: "d".repeat(FIELD_LIMITS.description.maximum)
     }));
     const metadata = { padding: "" };
     const root = tasks[0];
@@ -93,7 +89,7 @@ describe("todo reducer", () => {
     assert.match(missing.details.error ?? "", /#99999/u);
     const oversized = mutate(state, "create", {
       subject: "Too large",
-      description: "d".repeat(MAX_DESCRIPTION_LENGTH)
+      description: "d".repeat(FIELD_LIMITS.description.maximum)
     });
     assert.match(oversized.details.error ?? "", /snapshot.*bytes/u);
 

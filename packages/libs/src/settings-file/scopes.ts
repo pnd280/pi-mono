@@ -2,6 +2,8 @@ import { join } from "node:path";
 
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 
+import { readSettingsRecord } from "./transaction.ts";
+
 export type SettingsScope = "global" | "project";
 
 export type SettingsScopeOptions = {
@@ -22,16 +24,34 @@ export function settingsPaths({
   };
 }
 
-/**
- * Read global settings, then project settings only when the project is trusted.
- * The project entry takes precedence; `read` owns parsing, validation, and failure policy.
- */
-export function readScopedSettings<T>(
-  options: SettingsScopeOptions,
-  read: (path: string) => T
-): [global: T, project?: T] {
-  const paths = settingsPaths(options);
-  const global = read(paths.global);
+/** One scope's value of a top-level settings key, unvalidated. */
+export type ScopedSection = { scope: SettingsScope; path: string } & (
+  | { status: "read"; value: unknown }
+  | { status: "unreadable" }
+);
 
-  return options.projectTrusted ? [global, read(paths.project)] : [global];
+/**
+ * Read `key` from global settings, then from project settings only when the project is trusted.
+ * A missing file or key reads as `undefined`. Callers own validation, failure policy, and how the
+ * project entry overrides the global one.
+ */
+export function readScopedSections(
+  options: SettingsScopeOptions,
+  key: string
+): [global: ScopedSection] | [global: ScopedSection, project: ScopedSection] {
+  const paths = settingsPaths(options);
+
+  const read = (scope: SettingsScope): ScopedSection => {
+    const path = paths[scope];
+
+    try {
+      return { scope, path, status: "read", value: readSettingsRecord(path)[key] };
+    } catch {
+      return { scope, path, status: "unreadable" };
+    }
+  };
+
+  const global = read("global");
+
+  return options.projectTrusted ? [global, read("project")] : [global];
 }

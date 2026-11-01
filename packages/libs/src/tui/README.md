@@ -20,24 +20,24 @@ const rows = compactText(displayText(output), {
 
 Import the supported TUI entry points through `@pi-mono/libs/tui/*` (see the [package exports](../../package.json)). Keep domain policy and I/O in consumers. Shared components own presentation and interaction, not persistence.
 
-| Module                                                   | Responsibility                                                           |
-| -------------------------------------------------------- | ------------------------------------------------------------------------ |
-| [Browser](components/browser/README.md)                  | Searchable sections, selection, previews, actions, and responsive layout |
-| [Browser layout](components/browser/layout.ts)           | Inline or overlay sizing, importable without loading the browser         |
-| [Browser host](open-browser/README.md)                   | Mount a browser and apply effects after final closure                    |
-| [Responsive custom UI](responsive-custom-ui/README.md)   | Preserve a logical component across inline and overlay remounts          |
-| [Settings menu](components/settings-menu/README.md)      | Shared scoped settings frame, dirty state, feedback, and controls        |
-| [Text preview](components/text-preview/README.md)        | Cached preview viewport and overflow borders                             |
-| [Hint footer](components/hint-footer/README.md)          | Width-aware hints and feedback                                           |
-| [Tree](components/tree/README.md)                        | Connectors for measured rows                                             |
-| [Code highlighting](components/code-highlight/README.md) | Bounded syntax highlighting                                              |
-| [Text budgets](text-budget/README.md)                    | Synchronous wrapping and bounded excerpts                                |
-| [Terminal text](terminal-text/README.md)                 | Display sanitisation and unsafe-control detection                        |
-| [Glyphs](glyphs/README.md)                               | Shared activity markers and tree connector glyphs                        |
-| [Token counts](token-count/README.md)                    | Footer-scale token count formatting                                      |
-| [Durations](duration/README.md)                          | Measured duration formatting                                             |
-| [Keybindings](keybindings/README.md)                     | Shortcut validation, canonicalisation, and view key controls             |
-| [Windowed list](components/windowed-list/README.md)      | Internal list window for the browser and settings menu, with no entry    |
+| Module                                                   | Responsibility                                                         |
+| -------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [Browser](components/browser/README.md)                  | Searchable sections, selection, previews, and actions, with no entry   |
+| [Browser layout](components/browser/layout.ts)           | Inline or overlay sizing, importable without loading the browser       |
+| [Browser host](open-browser/README.md)                   | Mount a browser, apply effects after closure, and export its contracts |
+| [Responsive custom UI](responsive-custom-ui/README.md)   | Preserve a logical component across inline and overlay remounts        |
+| [Settings menu](components/settings-menu/README.md)      | Shared scoped settings frame, dirty state, feedback, and controls      |
+| [Text preview](components/text-preview/README.md)        | Cached preview viewport and overflow borders                           |
+| [Hint footer](components/hint-footer/README.md)          | Width-aware hints and feedback                                         |
+| [Tree](components/tree/README.md)                        | Connectors for measured rows                                           |
+| [Code highlighting](components/code-highlight/README.md) | Bounded syntax highlighting                                            |
+| [Text budgets](text-budget/README.md)                    | Synchronous wrapping and bounded excerpts                              |
+| [Terminal text](terminal-text/README.md)                 | Display sanitisation and unsafe-control detection                      |
+| [Glyphs](glyphs/README.md)                               | Shared activity markers and tree connector glyphs                      |
+| [Token counts](token-count/README.md)                    | Footer-scale token count formatting                                    |
+| [Durations](duration/README.md)                          | Measured duration formatting                                           |
+| [Keybindings](keybindings/README.md)                     | Shortcut validation, canonicalisation, and view key controls           |
+| [Windowed list](components/windowed-list/README.md)      | Internal list window for the browser and settings menu, with no entry  |
 
 ## Validation
 

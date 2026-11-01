@@ -28,7 +28,7 @@ Adapters must not enable or run tools, access files, persist data, modify borrow
 
 5. Add the resolver to `extensionAdapterResolvers` in [`src/host/selection.ts`](../src/host/selection.ts), following the [selection order](#automatic-selection).
 
-To expose an adapter factory to tool authors, export it from [`src/adapters/index.ts`](../src/adapters/index.ts).
+To expose a value adapter to tool authors for [standalone integration](renderers.md#explicit-contracts), export it from [`src/adapters/index.ts`](../src/adapters/index.ts). Keep resolvers out of that entry, because selection is host-internal.
 
 ### Callback arguments
 

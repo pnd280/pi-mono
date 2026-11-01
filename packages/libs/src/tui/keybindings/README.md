@@ -10,9 +10,9 @@ Extension settings accept user-typed shortcuts that must match Pi's canonical fo
 - Validation rejects modified Escape and modified function keys, because Pi 1.4.0 cannot dispatch them.
 - `resolveKeybindings` assigns keys to actions in candidate order, so dispatch and hints share one precedence. Each action gets those of its keys that are valid, not excluded by its `exclude` callback, and not taken by an earlier action.
 - A key is taken when it overlaps an earlier key, for example when **Ctrl+[** and **Escape** send the same byte. `keysOverlap` applies the same test.
-- `formatKeyLabel` turns a canonical key into a hint label, such as `Ctrl+Shift+Up`, `Esc`, or `Del`. A letter without modifiers stays lowercase, such as `a`, because a capital letter reads as Shift plus that letter.
-- `navigationHints` combines the labels of a paired up and down action into hints. Two available keys share one hint, and arrow keys with the same modifiers show as `↑↓` or, for example, `Shift+↑↓`. A missing key gives its direction an "unavailable" hint, so remapped or unbound keys are never shown as arrows.
-- `KeyControls` resolves a view's ordered controls at each call, so dispatch and hints follow live keybinding changes. A control names a Pi keybinding, with an optional `exclude` callback, or one fixed key. `actionFor` ignores key releases, `label` formats an action's first key, and `hint` shows `<key> <label>`, or `<label> unavailable` when no key reaches the action.
+- `KeyControls` resolves a view's ordered controls at each call, so dispatch and hints follow live keybinding changes. A control names a Pi keybinding, with an optional `exclude` callback, or one fixed key. `actionFor` ignores key releases, and `hint` shows `<key> <label>`, or `<label> unavailable` when no key reaches the action.
+- `KeyControls.label` formats an action's first key as a hint label, such as `Ctrl+Shift+Up`, `Esc`, or `Del`. A letter without modifiers stays lowercase, such as `a`, because a capital letter reads as Shift plus that letter.
+- `KeyControls.navigationHints` combines the labels of a paired up and down action into hints. Two available keys share one hint, and arrow keys with the same modifiers show as `↑↓` or, for example, `Shift+↑↓`. A missing key gives its direction an "unavailable" hint, so remapped or unbound keys are never shown as arrows.
 
 | When you…                                                           | Read                                                                          |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -21,17 +21,9 @@ Extension settings accept user-typed shortcuts that must match Pi's canonical fo
 ## Usage
 
 ```ts
-import {
-  canonicalKeySchema,
-  formatKeyLabel,
-  KeyControls,
-  navigationHints,
-  resolveKeybindings
-} from "@pi-mono/libs/tui/keybindings";
+import { canonicalKeySchema, KeyControls, resolveKeybindings } from "@pi-mono/libs/tui/keybindings";
 
 canonicalKeySchema.parse("Shift+Ctrl+Up"); // "ctrl+shift+up"
-formatKeyLabel("ctrl+shift+up"); // "Ctrl+Shift+Up"
-navigationHints("Up", "Down", "select"); // ["↑↓ select"]
 
 resolveKeybindings([
   { action: "back", keys: ["ctrl+["] },
@@ -48,6 +40,7 @@ const controls = new KeyControls(keys, [
   { action: "down", id: "tui.select.down" }
 ]);
 controls.actionFor(data); // "save", "close", "up", "down", or undefined
+controls.label("close"); // "Esc" with Pi's default keys
 controls.hint("save", "save"); // "Ctrl+S save"
 controls.navigationHints("up", "down", "select"); // ["↑↓ select"] with Pi's default keys
 ```

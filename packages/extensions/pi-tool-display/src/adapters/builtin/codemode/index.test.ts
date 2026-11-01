@@ -1,15 +1,25 @@
 import {
   initTheme,
   type AgentToolResult,
-  type CodemodeToolDetails
+  type CodemodeToolDetails,
+  type ToolInfo
 } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { createToolDisplayRenderers } from "pi-tool-display/renderers";
 import { beforeAll, expect, it } from "vite-plus/test";
 
 import { plainTheme as theme } from "../../../test-fixture.ts";
-import { codemodeDisplayAdapter as adapter } from "./index.ts";
+import { builtinCodemodeAdapter } from "./index.ts";
 
+// Passes the built-in `codemode` provenance and schema checks.
+const info: ToolInfo = {
+  name: "codemode",
+  exposure: "direct",
+  description: "Run JavaScript that calls other tools.",
+  parameters: { type: "object", required: ["code"], properties: { code: { type: "string" } } },
+  sourceInfo: { path: "builtin:codemode", source: "builtin", scope: "user", origin: "top-level" }
+};
+const adapter = builtinCodemodeAdapter(info)!;
 const plain = (lines: string[]) => stripTerminalSequences(lines.join("\n"));
 const HEADER = "Script completed\nWall time 0.1 seconds\nOutput:\n";
 const code = [

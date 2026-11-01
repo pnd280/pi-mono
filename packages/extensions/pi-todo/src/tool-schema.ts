@@ -1,13 +1,7 @@
 import { toToolSchema } from "@pi-mono/libs/tool-schema";
 import { z } from "zod";
 
-import {
-  MAX_IN_PROGRESS_LABEL_LENGTH,
-  MAX_DEPENDENCIES,
-  MAX_DESCRIPTION_LENGTH,
-  MAX_OWNER_LENGTH,
-  MAX_SUBJECT_LENGTH
-} from "./state/limits.ts";
+import { FIELD_LIMITS } from "./state/limits.ts";
 import { jsonMetadataSchema } from "./state/metadata.ts";
 import { TASK_ACTIONS, TASK_STATUSES } from "./state/model.ts";
 
@@ -47,32 +41,37 @@ const fields = {
 export const mutationParamsSchema = z.object(fields).partial();
 
 /** Metadata must pass the budgeted preflight before its recursive JSON parser runs. */
-export const todoInputSchema = mutationParamsSchema
-  .omit({ metadata: true })
-  .extend({ action: z.enum(TASK_ACTIONS) });
+export const todoInputSchema = mutationParamsSchema.extend({
+  action: z.enum(TASK_ACTIONS),
+  metadata: z.unknown().optional()
+});
 
 // The model view shares field names and descriptions, but bounds inputs and projects metadata.
 const modelFields = z
   .object({
     ...fields,
-    subject: fields.subject.max(MAX_SUBJECT_LENGTH).meta(fields.subject.meta() ?? {}),
+    subject: fields.subject.max(FIELD_LIMITS.subject.maximum).meta(fields.subject.meta() ?? {}),
     description: fields.description
-      .max(MAX_DESCRIPTION_LENGTH)
+      .max(FIELD_LIMITS.description.maximum)
       .meta(fields.description.meta() ?? {}),
     inProgressLabel: fields.inProgressLabel
-      .max(MAX_IN_PROGRESS_LABEL_LENGTH)
+      .max(FIELD_LIMITS.inProgressLabel.maximum)
       .meta(fields.inProgressLabel.meta() ?? {}),
     parentId: z
       .int()
       .min(1)
       .nullable()
       .meta(fields.parentId.meta() ?? {}),
-    blockedBy: fields.blockedBy.max(MAX_DEPENDENCIES).meta(fields.blockedBy.meta() ?? {}),
-    addBlockedBy: fields.addBlockedBy.max(MAX_DEPENDENCIES).meta(fields.addBlockedBy.meta() ?? {}),
+    blockedBy: fields.blockedBy
+      .max(FIELD_LIMITS.blockedBy.maximum)
+      .meta(fields.blockedBy.meta() ?? {}),
+    addBlockedBy: fields.addBlockedBy
+      .max(FIELD_LIMITS.addBlockedBy.maximum)
+      .meta(fields.addBlockedBy.meta() ?? {}),
     removeBlockedBy: fields.removeBlockedBy
-      .max(MAX_DEPENDENCIES)
+      .max(FIELD_LIMITS.removeBlockedBy.maximum)
       .meta(fields.removeBlockedBy.meta() ?? {}),
-    owner: fields.owner.max(MAX_OWNER_LENGTH).meta(fields.owner.meta() ?? {}),
+    owner: fields.owner.max(FIELD_LIMITS.owner.maximum).meta(fields.owner.meta() ?? {}),
     metadata: z.record(z.string(), z.unknown()).meta(fields.metadata.meta() ?? {})
   })
   .partial();

@@ -62,7 +62,7 @@ function canonicalKey(value: unknown): KeyId | undefined {
   return canonicalKeySchema.safeParse(value).data;
 }
 
-export function formatKeyLabel(key: string): string {
+function formatKeyLabel(key: string): string {
   // A capital letter alone reads as Shift plus that letter.
   if (/^[a-z]$/.test(key)) return key;
 
@@ -82,7 +82,7 @@ export function formatKeyLabel(key: string): string {
  * direction unavailable. Arrow keys with the same modifiers share one label, such as `↑↓` or
  * `Shift+↑↓`.
  */
-export function navigationHints(
+function navigationHints(
   up: string | undefined,
   down: string | undefined,
   label: string

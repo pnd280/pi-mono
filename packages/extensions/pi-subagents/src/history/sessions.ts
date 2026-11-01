@@ -231,24 +231,35 @@ export async function checkSession(task: Pick<TaskRecord, "session_file" | "sess
     throw new Error("Subagent session identity does not match its task");
 }
 
+/** One run's history: its child file's entries from the root to the run's final leaf. */
+export type RunHistory = {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly entries: readonly SessionEntry[];
+};
+
 /**
- * A run's ancestry in its task's child file: the entries from the root to the run's final leaf, or
- * with `beforeRun` to the parent of the run's marker. An active task's ancestry is empty while its
- * file does not exist, because Pi writes a new session file with its first response.
+ * Read a run's history from its task's child file. The read keeps the file in memory and never
+ * repairs it. An active task's history is empty while its file does not exist, because Pi writes a
+ * new session file with its first response. With `descendants`, the history names the task's
+ * descendants: an active run's history then ends before its marker, because the file names the run
+ * before the run's live record arrives, and that run's descendants come only from live records.
  */
-export async function readRunAncestry(
+export async function readRunFile(
   task: TaskRecord,
-  beforeRun: boolean
-): Promise<{ cwd: string; entries: SessionEntry[] }> {
+  { descendants = false }: { descendants?: boolean } = {}
+): Promise<RunHistory> {
+  const runId = task.run_id;
   const session = await readSession(task.session_file);
-  if (!session && task.state === "active") return { cwd: "", entries: [] };
+  if (!session && task.state === "active") return { runId, cwd: "", entries: [] };
   if (session && session.id !== task.session_id)
     throw new Error("Subagent session identity does not match its task");
-  const leafId = session && runLeaf(session.entries, task.run_id);
+  const leafId = session && runLeaf(session.entries, runId);
   if (!session || leafId === undefined) throw new Error(UNAVAILABLE);
-  const end = beforeRun
-    ? (session.entries.find((entry) => isMarker(entry, task.run_id))?.parentId ?? null)
-    : leafId;
+  const end =
+    descendants && task.state === "active"
+      ? (session.entries.find((entry) => isMarker(entry, runId))?.parentId ?? null)
+      : leafId;
 
-  return { cwd: session.cwd, entries: branchTo(session.entries, end) };
+  return { runId, cwd: session.cwd, entries: branchTo(session.entries, end) };
 }
