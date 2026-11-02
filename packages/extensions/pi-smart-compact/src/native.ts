@@ -270,7 +270,7 @@ export function bindNativeCompaction(
   }
 
   if (patch.registrations.has(manager)) {
-    throw new Error("pi-smart-compact is already bound to this session.");
+    throw new Error("pi-smart-compact: already bound to this session.");
   }
 
   const registration: Registration = { active: true, selection, onSummarized };

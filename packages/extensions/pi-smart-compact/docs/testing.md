@@ -22,6 +22,7 @@ E2e checks never use personal settings or credentials.
 - **Critical, e2e:** A requested compaction reported as failed or cancelled before native persistence preserves the existing conversation context, apart from its outcome status.
 - **High, e2e:** Cancelling a requested compaction without aborting the agent run allows continuation with a cancellation status.
 - **High, e2e:** Aborting the whole agent run prevents a further conversation-model request.
+- **High, e2e:** Summary-model metadata is appended only after Pi's final abort check. A late abort leaves the branch unchanged, and another extension's retained `appendCompaction` replacement stays in place.
 - **High, unit:** An unexpected native exception propagates without an extension outcome status.
 
 ### Session isolation
@@ -44,6 +45,7 @@ E2e checks never use personal settings or credentials.
 - Footer status and docs-file loading are below the severity bar. The native scenarios also check tool acknowledgements, outcome statuses, summary-model metadata, instruction-file focus, routing flags, and configured request timeout and retry options as part of the listed invariants.
 - Several `compact` calls in one tool batch and summaries supplied by `session_before_compact` hooks are below the severity bar.
 - Whether a real model follows the instructions is not tested because it needs a real provider. The [manual checks](pi-compatibility.md#manual-checks) cover summary quality.
+- The [libs settings files](../../../libs/src/settings-file/README.md) own the parsing and size limit of settings files, and the exclusion of untrusted-project and parent-directory settings.
 - Pi owns threshold detection and the full overflow retry scheduler.
 - Interactive mounting and terminal appearance are not tested automatically. The [manual checks](#manual-checks) cover them.
 - Pi owns RPC display.

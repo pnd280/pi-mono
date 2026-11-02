@@ -74,6 +74,46 @@ const traceSchema = z.object({
 
 type Trace = z.infer<typeof traceSchema>[];
 
+/** Run the bundled CLI with the extension and the offline provider, then read its trace. */
+async function runPi(directory: string, scenario: string, args: string[]) {
+  const tracePath = join(directory, "trace.jsonl");
+  const launch = await createPiLaunch({
+    directory,
+    env: { PI_NATIVE_COMPACTION_TRACE: tracePath, PI_NATIVE_COMPACTION_CASE: scenario },
+    args: [
+      "--no-extensions",
+      "--no-skills",
+      "--no-themes",
+      "--no-prompt-templates",
+      "--no-context-files",
+      "-e",
+      fileURLToPath(new URL("../index.ts", import.meta.url)),
+      "-e",
+      fileURLToPath(new URL("./provider.ts", import.meta.url)),
+      "--provider",
+      "native-compaction-fixture",
+      "--model",
+      "scripted",
+      "--print",
+      ...args
+    ]
+  });
+  const child = promisify(execFile)(launch.command, launch.args, {
+    ...launch.options,
+    timeout: STEP_TIMEOUT_MS,
+    maxBuffer: 2 * 1024 * 1024
+  });
+  child.child.stdin?.end();
+  const { stdout, stderr } = await child;
+  assert.equal(stderr, "");
+  const trace: Trace = (await readFile(tracePath, "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => traceSchema.parse(JSON.parse(line)));
+
+  return { stdout, trace };
+}
+
 function checkCompactionLifecycle(trace: Trace) {
   const reasonEvents = new Set([
     "public:compaction_start",
@@ -472,7 +512,6 @@ it.concurrent.each(toolCases)(
     const directory = await createValidationWorkspace("pi-native-compaction-");
 
     try {
-      const tracePath = join(directory, "trace.jsonl");
       const sessionPath = join(directory, "session.jsonl");
       await writeFile(
         join(directory, "agent", "settings.json"),
@@ -502,50 +541,20 @@ it.concurrent.each(toolCases)(
           }
         })
       );
-      const launch = await createPiLaunch({
-        directory,
-        env: { PI_NATIVE_COMPACTION_TRACE: tracePath, PI_NATIVE_COMPACTION_CASE: scenario },
-        args: [
-          "--no-extensions",
-          "--no-skills",
-          "--no-themes",
-          "--no-prompt-templates",
-          "--no-context-files",
-          "--tools",
-          "compact,fixture_work",
-          "-e",
-          fileURLToPath(new URL("../index.ts", import.meta.url)),
-          "-e",
-          fileURLToPath(new URL("./provider.ts", import.meta.url)),
-          "--provider",
-          "native-compaction-fixture",
-          "--model",
-          "scripted",
-          "--thinking",
-          activeThinking(config !== undefined),
-          "--session",
-          sessionPath,
-          "--print",
-          "--mode",
-          mode,
-          "Do the fixture work, compact using the tool, and finish the task."
-        ]
-      });
-      const child = promisify(execFile)(launch.command, launch.args, {
-        ...launch.options,
-        timeout: STEP_TIMEOUT_MS,
-        maxBuffer: 2 * 1024 * 1024
-      });
-      child.child.stdin?.end();
-      const { stdout, stderr } = await child;
-      assert.equal(stderr, "");
+      const { stdout, trace } = await runPi(directory, scenario, [
+        "--tools",
+        "compact,fixture_work",
+        "--thinking",
+        activeThinking(config !== undefined),
+        "--session",
+        sessionPath,
+        "--mode",
+        mode,
+        "Do the fixture work, compact using the tool, and finish the task."
+      ]);
 
       checkOutput(stdout, mode, scenario, attempts);
 
-      const trace = (await readFile(tracePath, "utf8"))
-        .trim()
-        .split("\n")
-        .map((line) => traceSchema.parse(JSON.parse(line)));
       const ofType = (type: string) => trace.filter((event) => event.type === type);
       checkCompactionLifecycle(trace);
       assert.equal(ofType("provider:summary").length, summaries);
@@ -617,7 +626,6 @@ it.concurrent.each([
     const directory = await createValidationWorkspace("pi-manual-compact-cli-");
 
     try {
-      const tracePath = join(directory, "trace.jsonl");
       const sessionPath = join(directory, "session.jsonl");
       await writeFile(join(directory, "agent", "focus.txt"), "Preserve FILE_FOCUS_MARKER.\n");
       await writeFile(
@@ -633,48 +641,15 @@ it.concurrent.each([
           retry: { enabled: false }
         })
       );
-      const launch = await createPiLaunch({
-        directory,
-        env: {
-          PI_NATIVE_COMPACTION_TRACE: tracePath,
-          PI_NATIVE_COMPACTION_CASE: "manual-split"
-        },
-        args: [
-          "--no-extensions",
-          "--no-skills",
-          "--no-themes",
-          "--no-prompt-templates",
-          "--no-context-files",
-          "-e",
-          fileURLToPath(new URL("../index.ts", import.meta.url)),
-          "-e",
-          fileURLToPath(new URL("./provider.ts", import.meta.url)),
-          "--provider",
-          "native-compaction-fixture",
-          "--model",
-          "scripted",
-          "--thinking",
-          "high",
-          "--session",
-          sessionPath,
-          "--print",
-          "--mode",
-          "json",
-          entry === "manual" ? "/fixture_manual_compact" : "/fixture_auto_compact"
-        ]
-      });
-      const child = promisify(execFile)(launch.command, launch.args, {
-        ...launch.options,
-        timeout: STEP_TIMEOUT_MS,
-        maxBuffer: 2 * 1024 * 1024
-      });
-      child.child.stdin?.end();
-      const { stderr } = await child;
-      assert.equal(stderr, "");
-      const trace = (await readFile(tracePath, "utf8"))
-        .trim()
-        .split("\n")
-        .map((line) => traceSchema.parse(JSON.parse(line)));
+      const { trace } = await runPi(directory, "manual-split", [
+        "--thinking",
+        "high",
+        "--session",
+        sessionPath,
+        "--mode",
+        "json",
+        entry === "manual" ? "/fixture_manual_compact" : "/fixture_auto_compact"
+      ]);
       const requests = trace.filter((entry) => entry.type === "provider:summary");
       const provider = "summary-compaction-fixture";
       assert.equal(requests.length, 1);

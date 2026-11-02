@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import type { Api, Model } from "@earendil-works/pi-ai";
 import {
   compact,
@@ -7,6 +5,7 @@ import {
   type AgentSession,
   type SessionBeforeCompactEvent
 } from "@earendil-works/pi-coding-agent";
+import { inspectedSource } from "@pi-mono/libs/owned-hooks";
 
 // Pi does not export its virtual-model predicate from the public entry point.
 export const virtualModelApi = "pi-virtual";
@@ -97,14 +96,7 @@ export function assertCompatible(
     manualCompact: manual
   };
   const inspected = fingerprints.some((expected) =>
-    Object.entries(expected).every(([key, hash]) => {
-      const method = actual[key];
-
-      return (
-        typeof method === "function" &&
-        createHash("sha256").update(Function.prototype.toString.call(method)).digest("hex") === hash
-      );
-    })
+    Object.entries(expected).every(([key, hash]) => inspectedSource(actual[key], new Set([hash])))
   );
 
   if (VERSION !== "1.4.0" || !inspected) {
