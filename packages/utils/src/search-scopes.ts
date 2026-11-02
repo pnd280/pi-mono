@@ -18,7 +18,10 @@ export function isFilenameFilter(expression: string): boolean {
 }
 
 /** FFF strips local anchors; bare filenames remain recursive filters. */
-export function normalizeFffPath(expression: string, cwd: string) {
+export function normalizeFffPath(
+  expression: string,
+  cwd: string
+): { value: string; directoryOnly: boolean } {
   // FFF gives absolute paths `/` separators, as on Windows, before it classifies them.
   const absolute = path.isAbsolute(expression);
   const portable = absolute ? expression.split(path.sep).join("/") : expression;

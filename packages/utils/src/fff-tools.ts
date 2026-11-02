@@ -2,7 +2,7 @@ import { registeredBy } from "./provenance.ts";
 
 export type FffToolKind = "find" | "grep" | "multi";
 
-const adapters: ReadonlyMap<string, FffToolKind> = new Map([
+const toolKinds: ReadonlyMap<string, FffToolKind> = new Map([
   ["fffind", "find"],
   ["ffgrep", "grep"],
   ["fff-multi-grep", "multi"],
@@ -17,5 +17,5 @@ export function fffAdapter(
 ): FffToolKind | undefined {
   if (!tool) return undefined;
 
-  return registeredBy(tool, "@ff-labs/pi-fff") ? adapters.get(tool.name) : undefined;
+  return registeredBy(tool, "@ff-labs/pi-fff") ? toolKinds.get(tool.name) : undefined;
 }

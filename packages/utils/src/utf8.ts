@@ -33,8 +33,9 @@ export function decodeUtf8Window(
   }
 
   let start = 0;
+  // A clipped character leaves at most three continuation bytes; later ones are invalid source.
   if (boundary === "tail")
-    while (start < buffer.length && (buffer.readUInt8(start) & 0xc0) === 0x80) start++;
+    while (start < Math.min(3, buffer.length) && (buffer.readUInt8(start) & 0xc0) === 0x80) start++;
 
   return { text: buffer.subarray(start).toString("utf8"), omittedBytes: start };
 }
