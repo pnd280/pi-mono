@@ -1,4 +1,4 @@
-import { rm, symlink } from "node:fs/promises";
+import { access, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
@@ -103,6 +103,16 @@ describe("Git authority", () => {
     expect((await detect("node_modules/linked/missing.ts")).status).toBe("missing");
     await symlink("missing", join(directory.root, "node_modules/broken"));
     expect((await detect("node_modules/broken")).status).toBe("missing");
+  });
+
+  it("runs no command from an inspected repository's core.fsmonitor setting", async () => {
+    const marker = join(directory.root, "fsmonitor-ran");
+    external.git("add", "src/main.ts");
+    external.git("config", "core.fsmonitor", `touch '${marker}'`);
+    expect((await inspect(join(external.root, "src/main.ts"), directory.root)).status).toBe(
+      "not-ignored"
+    );
+    await expect(access(marker)).rejects.toThrow();
   });
 
   it("reports cancellation when the caller's signal aborts during inspection", async () => {

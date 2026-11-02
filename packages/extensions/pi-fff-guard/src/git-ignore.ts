@@ -3,6 +3,7 @@ import { lstat, readlink, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 import type { ExecResult } from "@earendil-works/pi-coding-agent";
+import { hasErrorCode } from "@pi-mono/utils/errors";
 import { absolutePathSchema, containsPath } from "@pi-mono/utils/paths";
 import { z } from "zod";
 
@@ -54,7 +55,9 @@ function runGit(
       delete env[key];
     const child = execFile(
       "git",
-      args,
+      // Inspected paths can lie in untrusted repositories, and check-ignore would run the command
+      // in their `core.fsmonitor` setting while it reads the index.
+      ["-c", "core.fsmonitor=false", ...args],
       {
         cwd,
         env,
@@ -197,9 +200,7 @@ export async function inspectGitIgnore({
     if (signal.aborted) return { status: "cancelled" };
     // Only probes of the inspected path mean missing; a failed Git spawn is unavailable.
     if (
-      error instanceof Error &&
-      "code" in error &&
-      (error.code === "ENOENT" || error.code === "ENOTDIR") &&
+      hasErrorCode(error, "ENOENT", "ENOTDIR") &&
       "syscall" in error &&
       (error.syscall === "stat" || error.syscall === "lstat" || error.syscall === "readlink")
     )

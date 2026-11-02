@@ -6,9 +6,8 @@ This package tests interception, the missing-target and ignore policy, and allow
 
 ## Must not regress
 
-Fixtures that run Git keep their isolation checks, so inherited Git selectors cannot change a real repository.
-
 - **Critical, integration:** Fixture Git commands never write to a repository, index, or configuration selected by inherited `GIT_*` environment variables.
+- **Critical, integration:** Ignore inspection of a path inside an untrusted repository runs no command from that repository's configuration, such as `core.fsmonitor`.
 - **Critical, unit:** Delivered diagnostics contain no terminal controls.
 - **High, unit:** Only official FFF registrations are intercepted, including override names and tools registered after startup.
 - **High, unit:** Built-in tools and lookalike registrations pass through.
