@@ -2,8 +2,6 @@
 
 [pi-skills](../README.md)
 
-This guide lists when a `/skill:<name>` token expands, how completion behaves, and the rules for `expansionFormat`. The [package README](../README.md) shows the normal use.
-
 ## Matching
 
 - Tokens must match a registered command exactly and be separated by whitespace. This applies inside fenced code too.
@@ -19,12 +17,15 @@ Expansion doesn't cover commands that Pi handles before extensions see the input
 
 ## Completion
 
-In the TUI, type `/` at the start of any whitespace-separated token, except at the start of the first line. The picker opens with skill suggestions. The text after `/` filters them with Pi's matching, so `/re` and `/skill:re` both find `review`. The picker closes when no skill matches, or when you type a space or delete the `/` with **Backspace** or **Delete**. Word deletion, undo, and some cursor jumps can leave old suggestions showing; press **Escape** to close them. Editing the token doesn't reopen the picker, and it can stay closed if you type on before the suggestions arrive. To reopen it, delete the token and type `/` again. You can also type `/skill:` at the start of any token, including mid-prompt or on a later line, and press **Tab**.
+In the TUI, type `/` at the start of any whitespace-separated token, except at the start of the first line. The picker opens with skill suggestions. The text after `/` filters them with Pi's matching, so `/re` and `/skill:re` both find `review`. You can also type `/skill:` at the start of any token, including mid-prompt or on a later line, and press **Tab**.
 
 - A `/` at the start of the first line keeps Pi's own slash-command picker. A `/` inside a word, such as `and/or`, opens no picker.
 - In a slash command's arguments, the command's own suggestions come first. Skill suggestions show only when the command has none.
 - With the picker closed, **Tab** on a token such as `/usr/lo` keeps Pi's file completion.
 - **Enter** or **Tab** accepts a suggestion without submitting. **Escape** closes the picker.
+- The picker closes when no skill matches, when you type a space, or when you delete the `/` with **Backspace** or **Delete**.
+- Word deletion, undo, and some cursor jumps can leave old suggestions showing. Press **Escape** to close them.
+- Editing the token doesn't reopen the picker, and the picker can stay closed if you type on before the suggestions arrive. To reopen it, delete the token and type `/` again.
 - Accepting replaces the whole token, including any text after the cursor, with `/skill:<name>` and one space.
 - Suggestions follow Pi's registered skills and completion order.
 - Skill names shared with an extension command or prompt template aren't suggested. Other completion still works.

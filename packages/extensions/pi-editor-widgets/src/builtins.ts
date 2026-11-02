@@ -146,13 +146,7 @@ export function builtinText(
   session: AgentSession,
   footer: ReadonlyFooterDataProvider,
   theme: Theme,
-  {
-    contextDisplay = "regular",
-    tokensDisplay = "regular"
-  }: {
-    contextDisplay?: UsageDisplay;
-    tokensDisplay?: UsageDisplay;
-  } = {}
+  { contextDisplay, tokensDisplay }: { contextDisplay: UsageDisplay; tokensDisplay: UsageDisplay }
 ): Map<string, string> {
   const model = session.model;
   let modelText = "no-model";

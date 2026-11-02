@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
 
-import { createBoundedPatch } from "@pi-mono/libs/bounded-diff";
+import { createBoundedPatch, PATCH_QUEUE_BYTES } from "@pi-mono/libs/bounded-diff";
 import {
   observedSource,
   type FileMutation,
@@ -11,12 +11,9 @@ import {
 } from "@pi-mono/libs/file-mutations";
 import { parsePatch } from "@pi-mono/utils/patch";
 import { relativeDisplayPath } from "@pi-mono/utils/paths";
-import { z } from "zod";
 
 import type { FileChange } from "./summary.ts";
 
-const WRITE_FAILURE = "File write failed; final contents were not observed.";
-const EXTERNAL_CHANGE = "File changed outside native edit and write between observed operations.";
 const RETAINED_BYTES = 16 * 1024 * 1024;
 const PATCH_LIMITS = {
   maxSourceBytes: 8 * 1024 * 1024,
@@ -26,6 +23,31 @@ const PATCH_LIMITS = {
   contextLines: 4
 };
 
+const WRITE_FAILURE = "File write failed; final contents were not observed.";
+const EXTERNAL_CHANGE = "File changed outside native edit and write between observed operations.";
+const NET_SOURCE_UNAVAILABLE = "Complete source unavailable for net comparison.";
+const BINARY = "Binary content.";
+const SOURCE_TOO_LARGE = `Source exceeds the ${PATCH_LIMITS.maxSourceBytes / 1024 / 1024} MiB observation budget.`;
+
+// `satisfies Record` requires a reason for every unavailable status that libs reports.
+const patchReasons = {
+  "source-unavailable": "Complete source unavailable for comparison.",
+  "source-too-large": SOURCE_TOO_LARGE,
+  binary: BINARY,
+  "patch-too-large": `Patch exceeds the ${PATCH_LIMITS.maxPatchBytes / 1024} KiB retention limit.`,
+  "budget-exceeded": `Diff generation exceeded ${PATCH_LIMITS.timeoutMs} ms or ${PATCH_LIMITS.maxEditLength} changed lines.`,
+  "queue-full": `Diff queue exceeds its ${PATCH_QUEUE_BYTES / 1024 / 1024} MiB memory budget.`,
+  "worker-failed": "Diff worker failed to start or complete the comparison."
+} satisfies Record<Exclude<MutationPatch["status"], "ready">, string>;
+
+const sourceReasons = {
+  "too-large": SOURCE_TOO_LARGE,
+  "invalid-utf8": "Source is not valid UTF-8.",
+  changed: "Source changed during observation.",
+  "not-file": "Target is not a regular file.",
+  unavailable: "Source could not be read."
+} satisfies Record<Exclude<FileObservation["status"], "ready" | "missing">, string>;
+
 function statistics(path: string, result: MutationPatch): FileChange {
   if (result.status === "ready") {
     const patch = parsePatch(result.patch, PATCH_LIMITS.maxPatchBytes);
@@ -34,36 +56,14 @@ function statistics(path: string, result: MutationPatch): FileChange {
     return { path, status: "unavailable", reason: "Invalid tool patch." };
   }
 
-  const reasons = {
-    "source-unavailable": "Complete source unavailable for comparison.",
-    "source-too-large": "Source exceeds the 8 MiB observation budget.",
-    binary: "Binary content.",
-    "patch-too-large": "Patch exceeds the 128 KiB retention limit.",
-    "budget-exceeded": "Diff generation exceeded 50 ms or 2000 changed lines.",
-    "queue-full": "Diff queue exceeds its 64 MiB memory budget.",
-    "worker-failed": "Diff worker failed to start or complete the comparison."
-  };
-
-  return { path, status: "unavailable", reason: reasons[result.status] };
+  return { path, status: "unavailable", reason: patchReasons[result.status] };
 }
 
 function sourceReason(source: FileObservation): string | undefined {
-  switch (source.status) {
-    case "ready":
-      return source.text.includes("\0") ? "Binary content." : undefined;
-    case "missing":
-      return undefined;
-    case "too-large":
-      return "Source exceeds the 8 MiB observation budget.";
-    case "invalid-utf8":
-      return "Source is not valid UTF-8.";
-    case "changed":
-      return "Source changed during observation.";
-    case "not-file":
-      return "Target is not a regular file.";
-    case "unavailable":
-      return "Source could not be read.";
-  }
+  if (source.status === "ready") return source.text.includes("\0") ? BINARY : undefined;
+  if (source.status === "missing") return undefined;
+
+  return sourceReasons[source.status];
 }
 
 async function mutationStatistics(path: string, mutation: FileMutation): Promise<FileChange> {
@@ -113,8 +113,7 @@ function continuityReason(links: Link[]): string | undefined {
     if (ordered[index - 1]?.failed) return WRITE_FAILURE;
     const previous = ordered[index - 1]?.after;
     const next = ordered[index]?.before;
-    if (previous === undefined || next === undefined)
-      return "Complete source unavailable for net comparison.";
+    if (previous === undefined || next === undefined) return NET_SOURCE_UNAVAILABLE;
     if (previous !== next) return EXTERNAL_CHANGE;
   }
 
@@ -139,17 +138,14 @@ type ObservedFile = {
 /** Retains only the baseline/latest source; tool patches and intermediate snapshots stay call-scoped. */
 export class RunChanges implements MutationSink {
   readonly maxSourceBytes = PATCH_LIMITS.maxSourceBytes;
-  private files = new Map<string, ObservedFile>();
+  private readonly files = new Map<string, ObservedFile>();
   private retainedBytes = 0;
-  private cwd: string;
+  private readonly cwd: string;
 
   constructor(
     cwd: string,
-    private maxRetainedBytes = RETAINED_BYTES
+    private readonly maxRetainedBytes = RETAINED_BYTES
   ) {
-    if (!z.int().nonnegative().safeParse(maxRetainedBytes).success)
-      throw new RangeError("Retained source budget must be a nonnegative safe integer.");
-
     // Mutation paths are canonical. Canonicalise cwd the same way, so a symlinked cwd (macOS
     // /var -> /private/var) or a Windows 8.3 short name still displays files relative to it.
     try {
@@ -221,11 +217,8 @@ export class RunChanges implements MutationSink {
 
   async finish(): Promise<FileChange[]> {
     const changes: FileChange[] = [];
-    const files = this.files;
-    this.files = new Map();
-    this.retainedBytes = 0;
 
-    for (const [path, file] of files) {
+    for (const [path, file] of this.files) {
       // Check continuity first: an unobserved revert must not hide native changes as "unchanged".
       const reason =
         file.retentionReason ??
@@ -239,7 +232,7 @@ export class RunChanges implements MutationSink {
         changes.push({
           path,
           status: "unavailable",
-          reason: reason ?? "Complete source unavailable for net comparison."
+          reason: reason ?? NET_SOURCE_UNAVAILABLE
         });
       else
         changes.push(

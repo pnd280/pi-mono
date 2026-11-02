@@ -1,4 +1,4 @@
-import { formatDuration } from "@pi-mono/libs/tui/duration";
+import { formatRunningDuration } from "@pi-mono/libs/tui/duration";
 
 export class AgentTimer {
   private startedAt: number | undefined;
@@ -16,12 +16,7 @@ export class AgentTimer {
     this.startedAt = at;
     if (!showWorkingMessage) return;
 
-    // The live timer ticks once a second, so it shows whole seconds.
-    const update = () => {
-      const seconds = Math.floor(this.elapsed() / 1000);
-
-      this.setText(seconds ? formatDuration(seconds * 1000) : "0s");
-    };
+    const update = () => this.setText(formatRunningDuration(this.elapsed()));
 
     update();
     this.interval = setInterval(update, 1000);

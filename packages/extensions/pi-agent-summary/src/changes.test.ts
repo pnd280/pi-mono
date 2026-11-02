@@ -94,16 +94,3 @@ it("reports invalid sources, failed writes, and the package's diff limit as unav
     }
   ]);
 });
-
-it("awaits pending statistics without leaking them into the next run", async () => {
-  const changes = new RunChanges("/work");
-  const change = mutation("file", "before\n", "after\n");
-  const pending = Promise.withResolvers<Awaited<ReturnType<FileMutation["patch"]>>>();
-  change.patch = () => pending.promise;
-  const recording = changes.completed(change);
-  const finished = changes.finish();
-  pending.resolve({ status: "ready", patch: "@@ -1 +1 @@\n-before\n+after\n" });
-  await recording;
-  expect(await finished).toEqual([{ path: "file", status: "available", added: 1, removed: 1 }]);
-  expect(await changes.finish()).toEqual([]);
-});

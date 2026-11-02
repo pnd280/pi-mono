@@ -295,8 +295,8 @@ function latestEntry(
 /**
  * Whether a request followed the selection at `index`, so that the transcript records its tools.
  * Pi adds a system message before a request that changes the tools or the prompt, and can omit it
- * when both stay, so a response also counts. Without either, the recorded tools predate the selection. A compaction
- * checkpoint copies the earlier record, so it does not count.
+ * when both stay, so a response also counts. Without either, the recorded tools predate the
+ * selection. A compaction checkpoint copies the earlier record, so it does not count.
  */
 function loadoutRecordedAfter(branch: readonly SessionEntry[], index: number): boolean {
   return branch
@@ -321,6 +321,16 @@ function usedTools(branch: readonly SessionEntry[]): Set<string> {
 
 const exposures = (tools: readonly ToolInfo[]) =>
   new Map(tools.map((tool) => [tool.name, tool.exposure]));
+
+/** Whether `tools` declares a registered, non-hidden `tool_search`. */
+function declaresSearch(
+  tools: readonly string[],
+  exposure: ReadonlyMap<string, ToolExposure>
+): boolean {
+  const search = exposure.get(TOOL_SEARCH);
+
+  return search !== undefined && search !== "hidden" && tools.includes(TOOL_SEARCH);
+}
 
 /** Whether the declarable `tool_search` is the extension's, which also loads deferred tools. */
 const ownsToolSearch = ({ tools, searchReach }: ToolState) =>
@@ -517,9 +527,7 @@ function profileTools(
   }
 
   if (direct.length > 0 && !tools.includes(TOOL_SEARCH)) tools.push(TOOL_SEARCH);
-  const searchExposure = state.exposure.get(TOOL_SEARCH);
-  const searchDeclared =
-    searchExposure !== undefined && searchExposure !== "hidden" && tools.includes(TOOL_SEARCH);
+  const searchDeclared = declaresSearch(tools, state.exposure);
   if (!searchDeclared) tools.push(...native);
 
   const off = [...direct, ...(searchDeclared ? native : [])];
@@ -597,9 +605,7 @@ function restoredTools(selection: Selection, state: RestoreState): string[] {
     tools = state.active.filter((name) => recorded.includes(name) || !known.has(name));
   } else tools = [...selection.tools];
 
-  const searchExposure = state.exposure.get(TOOL_SEARCH);
-  const searchDeclared =
-    searchExposure !== undefined && searchExposure !== "hidden" && tools.includes(TOOL_SEARCH);
+  const searchDeclared = declaresSearch(tools, state.exposure);
 
   // Without a declared `tool_search`, no deferred tool can load again. Without the extension's
   // copy, deferred `direct` tools and groups still need restoration.

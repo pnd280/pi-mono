@@ -6,6 +6,7 @@ import {
   type BrowserSection
 } from "@pi-mono/libs/tui/open-browser";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 import type { ToolReport } from "./selection.ts";
 import type { Profile } from "./settings.ts";
@@ -248,8 +249,7 @@ export async function openMenu({ ui, signal, data, onSwitch, notify }: MenuOptio
     ui,
     signal,
     browser,
-    onError: (error) =>
-      notify(displayText(error instanceof Error ? error.message : String(error)), "error"),
+    onError: (error) => notify(displayText(errorMessage(error)), "error"),
     onInputRoutingUnavailable: () =>
       notify(
         "Fullscreen input routing is unavailable. Use regular mode if controls do not respond.",

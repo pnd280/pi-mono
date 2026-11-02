@@ -9,6 +9,7 @@ import {
 import { joinLifecycle } from "@pi-mono/libs/lifecycle";
 import { joinPromptParts } from "@pi-mono/libs/prompt-parts";
 import { compactDisplayText, displayText } from "@pi-mono/libs/tui/terminal-text";
+import { errorMessage } from "@pi-mono/utils/errors";
 import { splitModelReference } from "@pi-mono/utils/model-reference";
 
 import { labelBorder } from "./editor-label.ts";
@@ -298,11 +299,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
   );
 
   // The coordinator calls parts after every hold, such as a switch, has settled.
-  prompt.part(PROMPT_RANK, (ctx) =>
-    findProfile(currentName(ctx))
-      ?.prompts.filter((text) => text !== "")
-      .join("\n\n")
-  );
+  prompt.part(PROMPT_RANK, (ctx) => findProfile(currentName(ctx))?.prompts.join("\n\n"));
 
   /**
    * Turns off the selection's `deny` tools, which other extensions, `tool_search`, or `--tools`
@@ -383,8 +380,7 @@ export default async function profiles(pi: ExtensionAPI): Promise<void> {
             notify: (message, type) => ui.notify(message, type)
           });
         } catch (error) {
-          if (!signal.aborted)
-            ui.notify(displayText(error instanceof Error ? error.message : String(error)), "error");
+          if (!signal.aborted) ui.notify(displayText(errorMessage(error)), "error");
         }
 
         return;

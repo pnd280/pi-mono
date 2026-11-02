@@ -139,7 +139,9 @@ function readSection(scoped: ScopedSection): Section {
 
   const profiles = fields.profiles.safeParse(parsed.data.profiles);
   if (!profiles.success)
-    section.warnings.push(`profiles is invalid; expected at most ${MAX_PROFILES} entries`);
+    section.warnings.push(
+      `profiles is invalid; expected an array of at most ${MAX_PROFILES} profiles`
+    );
 
   for (const [index, rawProfile] of (profiles.data ?? []).entries()) {
     const profile = profileSchema.safeParse(rawProfile);

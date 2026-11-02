@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
-
 import type { Editor, EditorComponent } from "@earendil-works/pi-tui";
+import { inspectedSource } from "@pi-mono/libs/owned-hooks";
 
 type InlineEditor = EditorComponent &
   Pick<Editor, "getLines" | "getCursor" | "isShowingAutocomplete">;
@@ -20,16 +19,12 @@ const fingerprints = [
   }
 ];
 
-function sha256(method: unknown): string | undefined {
-  if (typeof method !== "function") return undefined;
-
-  return createHash("sha256").update(Function.prototype.toString.call(method)).digest("hex");
-}
-
 /** Pi's regular completion request, as after a typed letter, for a reviewed editor only. */
 function findTrigger(editor: EditorComponent): (() => void) | undefined {
   const reviewed = fingerprints.some((expected) =>
-    Object.entries(expected).every(([name, hash]) => sha256(Reflect.get(editor, name)) === hash)
+    Object.entries(expected).every(([name, hash]) =>
+      inspectedSource(Reflect.get(editor, name), new Set([hash]))
+    )
   );
   const trigger: unknown = Reflect.get(editor, "tryTriggerAutocomplete");
 
