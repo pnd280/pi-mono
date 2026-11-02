@@ -58,7 +58,7 @@ type ViewLayout = {
   footer: string[];
 };
 
-const EMPTY_TODOS_MESSAGE = "○ No todos yet. Ask the agent to add some!";
+const EMPTY_TODOS_MESSAGE = "No todos yet. Ask the agent to add some.";
 
 const configuredActions = [
   ["cancel", "tui.select.cancel"],

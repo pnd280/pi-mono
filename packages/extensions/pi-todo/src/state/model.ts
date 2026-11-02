@@ -1,4 +1,4 @@
-import type { JsonObject, JsonValue, TextContent } from "@earendil-works/pi-ai";
+import type { JsonObject, TextContent } from "@earendil-works/pi-ai";
 import type { z } from "zod";
 
 import type { mutationParamsSchema } from "../tool-schema.ts";
@@ -32,9 +32,7 @@ export type TodoState = {
   nextId: number;
 };
 
-export type TaskMutationParams = z.output<typeof mutationParamsSchema> & {
-  [key: string]: JsonValue | undefined;
-};
+export type TaskMutationParams = z.output<typeof mutationParamsSchema>;
 
 export type TaskDetails = {
   version: typeof TASK_DETAILS_VERSION;

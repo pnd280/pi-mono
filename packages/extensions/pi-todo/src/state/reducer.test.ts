@@ -36,7 +36,7 @@ describe("todo reducer", () => {
     assert.equal(parseTodoStateSnapshot(listed.details)?.tasks.length, taskCount);
   });
 
-  it("bounds limit errors without echoing offending or unknown params", () => {
+  it("bounds limit errors without echoing offending params", () => {
     const state = mutate(emptyTodoState(), "create", { subject: "One" }).state;
     const result = mutate(state, "update", {
       id: 1,
@@ -45,8 +45,7 @@ describe("todo reducer", () => {
       inProgressLabel: "a".repeat(FIELD_LIMITS.inProgressLabel.maximum + 1),
       owner: "o".repeat(FIELD_LIMITS.owner.maximum + 1),
       blockedBy: Array.from({ length: FIELD_LIMITS.blockedBy.maximum + 1 }, () => 1),
-      metadata: { value: "m".repeat(1_000_000) },
-      unknown: "u".repeat(1_000_000)
+      metadata: { value: "m".repeat(1_000_000) }
     });
 
     assert.match(result.details.error ?? "", /subject.*characters/u);

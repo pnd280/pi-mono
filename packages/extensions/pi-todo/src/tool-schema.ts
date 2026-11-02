@@ -24,9 +24,7 @@ const fields = {
   addBlockedBy: z
     .array(z.number())
     .describe("Todo IDs to add to blockedBy (update only, additive merge)"),
-  removeBlockedBy: z
-    .array(z.number())
-    .describe("Todo IDs to remove from blockedBy (update only, additive merge)"),
+  removeBlockedBy: z.array(z.number()).describe("Todo IDs to remove from blockedBy (update only)"),
   owner: z.string().describe("Agent/owner assigned to this todo"),
   metadata: jsonMetadataSchema.describe(
     "Arbitrary metadata; pass null value for a key to delete that key on update"

@@ -5,9 +5,9 @@ import {
   FIELD_LIMITS,
   MAX_DETAILS_OVERHEAD_BYTES,
   MAX_SNAPSHOT_BYTES,
-  MAX_TASKS
+  MAX_TASKS,
+  serializedValueFitsLimit
 } from "./limits.ts";
-import { serializedValueFitsLimit } from "./limits.ts";
 import { jsonMetadataSchema } from "./metadata.ts";
 import { TASK_DETAILS_VERSION, TASK_STATUSES, type TodoState } from "./model.ts";
 import {

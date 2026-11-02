@@ -1,10 +1,7 @@
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
 
-import {
-  presentTaskMetadata,
-  sanitizeTaskDescription,
-  sanitizeTaskMutationParams
-} from "../text.ts";
+import { presentTaskMetadata, sanitizeTaskDescription } from "../text.ts";
+import { mutationParamsSchema } from "../tool-schema.ts";
 import {
   deriveTaskHierarchy,
   isTaskId,
@@ -17,9 +14,7 @@ import {
   MAX_LIST_LINES,
   MAX_SNAPSHOT_BYTES,
   MAX_TASK_DEPTH,
-  MAX_TASKS
-} from "./limits.ts";
-import {
+  MAX_TASKS,
   fieldLimitFailure,
   metadataLimitError,
   serializedValueFitsLimit,
@@ -42,20 +37,8 @@ type TaskCloneSource = Pick<Task, "id" | "subject" | "status"> & {
   [Key in Exclude<keyof Task, "id" | "subject" | "status">]?: Task[Key] | undefined;
 };
 
-const KNOWN_PARAM_KEYS = [
-  "subject",
-  "description",
-  "inProgressLabel",
-  "status",
-  "parentId",
-  "blockedBy",
-  "addBlockedBy",
-  "removeBlockedBy",
-  "owner",
-  "metadata",
-  "id",
-  "includeDeleted"
-] as const satisfies readonly (keyof TaskMutationParams)[];
+// Derived from the schema so that a new parameter is echoed in result details.
+const KNOWN_PARAM_KEYS = mutationParamsSchema.keyof().options;
 
 type KnownTaskMutationParam = (typeof KNOWN_PARAM_KEYS)[number];
 
@@ -428,6 +411,18 @@ export function applyTaskInput(
   }
 
   return errorResult(state, action, params, limitError ?? "metadata must be JSON-serializable");
+}
+
+function sanitizeTaskMutationParams(params: TaskMutationParams): TaskMutationParams {
+  const sanitized = { ...params };
+  if (params.subject !== undefined) sanitized.subject = compactDisplayText(params.subject);
+  if (params.description !== undefined)
+    sanitized.description = sanitizeTaskDescription(params.description);
+  if (params.inProgressLabel !== undefined)
+    sanitized.inProgressLabel = compactDisplayText(params.inProgressLabel);
+  if (params.owner !== undefined) sanitized.owner = compactDisplayText(params.owner);
+
+  return sanitized;
 }
 
 /** Applies parsed params whose metadata already passed the bounded preflight. */
