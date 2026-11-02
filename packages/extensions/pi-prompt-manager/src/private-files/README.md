@@ -59,7 +59,7 @@ await lifetime.dispose();
 ## Caller responsibilities
 
 - Translate raw OS exceptions before you display them, because they can expose paths. Only the module's [PrivateFileError diagnostics](errors.ts) use fixed messages.
-- Define record schemas and storage policy in the [repository](../storage/repository.ts).
+- Define record schemas and storage policy outside this module. Prompt manager keeps them in its [model](../model.ts) and [collection rules](../storage/collection.ts).
 - Store records only in the locations that the [filesystem assumptions](transactions.md#filesystem-assumptions) allow.
 
 ### Mutation protocol

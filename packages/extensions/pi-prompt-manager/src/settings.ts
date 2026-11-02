@@ -78,7 +78,7 @@ function resolveShortcuts(settings: Settings, warnings: string[]) {
 }
 
 /** The caller must establish TUI mode before calling this global-only reader. */
-export async function loadSettings(agentDir: string) {
+export function loadSettings(agentDir: string) {
   let raw: Record<string, unknown>;
 
   try {

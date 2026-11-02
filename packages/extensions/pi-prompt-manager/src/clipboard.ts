@@ -86,13 +86,6 @@ function runHelper(helper: NativeHelper, text: string, signal: AbortSignal): Pro
     const abort = () =>
       finish(new NativeClipboardError("Clipboard operation cancelled or timed out."));
     signal.addEventListener("abort", abort, { once: true });
-
-    if (signal.aborted) {
-      abort();
-
-      return;
-    }
-
     child.once("error", () =>
       finish(new NativeClipboardError("Native clipboard helper could not start."))
     );
