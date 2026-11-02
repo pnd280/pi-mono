@@ -2,6 +2,8 @@ import { renameSync } from "node:fs";
 import { rename } from "node:fs/promises";
 import { setTimeout } from "node:timers/promises";
 
+import { hasErrorCode } from "@pi-mono/utils/errors";
+
 const ATTEMPTS = 10;
 const sleeper = new Int32Array(new SharedArrayBuffer(4));
 
@@ -13,9 +15,7 @@ function retryable(error: unknown, attempt: number): boolean {
   return (
     process.platform === "win32" &&
     attempt < ATTEMPTS &&
-    error instanceof Error &&
-    "code" in error &&
-    (error.code === "EPERM" || error.code === "EACCES" || error.code === "EBUSY")
+    hasErrorCode(error, "EPERM", "EACCES", "EBUSY")
   );
 }
 

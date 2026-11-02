@@ -7,6 +7,7 @@ import {
   type StopReason,
   type Usage
 } from "@earendil-works/pi-ai";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 type FixtureModel = Pick<Model<Api>, "api" | "provider" | "id">;
 
@@ -73,8 +74,11 @@ export function createFixtureStream({
         events,
         text(text) {
           const contentIndex = message.content.length;
-          message.content.push({ type: "text", text });
+          // Pi's protocol starts a text block empty; only the delta fills it.
+          const block = { type: "text" as const, text: "" };
+          message.content.push(block);
           events.push({ type: "text_start", contentIndex, partial: message });
+          block.text = text;
           events.push({ type: "text_delta", contentIndex, delta: text, partial: message });
           events.push({ type: "text_end", contentIndex, content: text, partial: message });
         }
@@ -85,7 +89,7 @@ export function createFixtureStream({
     } catch (error) {
       const reason = signal?.aborted ? "aborted" : "error";
       message.stopReason = reason;
-      message.errorMessage = error instanceof Error ? error.message : String(error);
+      message.errorMessage = errorMessage(error);
       events.push({ type: "error", reason, error: message });
     } finally {
       events.end();

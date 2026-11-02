@@ -11,7 +11,8 @@ Extensions that let a user pick from a collection need searchable sections, sele
 - Stable item keys preserve selection through section switches and refresh.
 - Pending searches and actions limit input to safe controls, such as cancellation.
 - `details` show below the results for the selected item, and `preview` opens a separate scrollable view.
-- The browser uses Pi's selection keybindings plus fixed keys for sections, preview, removal, and the alternate action.
+- The browser uses Pi's selection and copy keybindings plus fixed keys for sections, preview, removal, and the alternate action.
+- A hint shows "unavailable" when a higher-priority binding takes its action's key.
 - **Ctrl+C** never cancels. Cancel returns from preview to the list, or closes from the list.
 - Closing does not undo effects already started by consumer callbacks.
 - Late results cannot reopen a closed browser. Only the newest section search commits its results; the [latest-task helper](latest-task.ts) discards obsolete ones without aborting their work.

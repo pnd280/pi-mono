@@ -16,12 +16,13 @@ The buffer retains full output through `maxBytes` raw bytes. Beyond that, it kee
 
 ```ts
 import { OutputBuffer } from "@pi-mono/libs/output-buffer";
+import { outputOmission } from "@pi-mono/utils/output-text";
 
 const stderr = new OutputBuffer({
   maxBytes: 64 * 1024,
   edgeLines: 20,
   lineBytes: 1024,
-  formatOmission: ({ count, unit }) => ({ text: `[${count} stderr ${unit} omitted]` })
+  formatOmission: ({ count, unit }) => outputOmission(`[${count} stderr ${unit} omitted]`)
 });
 
 child.stderr.on("data", (chunk: Buffer) => stderr.append(chunk));
@@ -38,6 +39,7 @@ child.stderr.on("end", () => {
 - Use one instance per stream.
 - Append new chunks, never replacement snapshots.
 - End with `finish()`, then `snapshot()`.
-- Supply omission messages and positive safe-integer `maxBytes`, `edgeLines`, and `lineBytes`. Other limits throw `RangeError`.
+- Mark each omission message with `outputOmission`, so that the returned ranges cover the notice. Unmarked text reads as process output.
+- Supply positive safe-integer `maxBytes`, `edgeLines`, and `lineBytes`. Other limits throw `RangeError`.
 
 Related: tool display's [native observation](../../../extensions/pi-tool-display/src/observation/native.ts) supplies stream limits and omission messages, and [pi-subagents](../../../extensions/pi-subagents/src/child/connection.ts) bounds child stderr with the library.

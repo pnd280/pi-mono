@@ -70,30 +70,29 @@ export async function hostFixture(
   const agentDir = join(directory, "agent");
   const resources: { session?: AgentSession; host?: FixtureHost } = {};
 
+  // Every step runs even when an earlier one throws, so a failing disposer leaks nothing.
   const dispose = async () => {
-    try {
-      await resources.session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
-      resources.host?.clearExtensionWidgets();
-      resources.host?.setExtensionFooter(undefined);
-    } finally {
+    const steps = [
+      () => resources.session?.extensionRunner.emit({ type: "session_shutdown", reason: "quit" }),
+      () => resources.host?.clearExtensionWidgets(),
+      () => resources.host?.setExtensionFooter(undefined),
+      () => resources.host?.footerDataProvider.dispose(),
+      () => resources.host?.ui.stop(),
+      () => resources.session?.dispose(),
+      () => rm(directory, { recursive: true, force: true }),
+      () => vi.unstubAllEnvs()
+    ];
+    const errors: unknown[] = [];
+
+    for (const step of steps) {
       try {
-        try {
-          resources.host?.footerDataProvider.dispose();
-        } finally {
-          try {
-            resources.host?.ui.stop();
-          } finally {
-            resources.session?.dispose();
-          }
-        }
-      } finally {
-        try {
-          await rm(directory, { recursive: true, force: true });
-        } finally {
-          vi.unstubAllEnvs();
-        }
+        await step();
+      } catch (error) {
+        errors.push(error);
       }
     }
+
+    if (errors.length) throw new AggregateError(errors, "Host fixture cleanup failed.");
   };
 
   let ready = false;

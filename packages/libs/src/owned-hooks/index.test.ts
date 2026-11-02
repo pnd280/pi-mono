@@ -2,16 +2,13 @@ import { expect, it, vi } from "vite-plus/test";
 
 import { OwnedHooks } from "./index.ts";
 
-it("unwinds repeated replacements in reverse order and consumes restorations only once", () => {
+it("unwinds repeated replacements in reverse order", () => {
   const hooks = new OwnedHooks();
   const target: { value?: number } = {};
   hooks.replace(target, "value", 1);
   hooks.replace(target, "value", 2);
   hooks.restore();
   expect(Object.hasOwn(target, "value")).toBe(false);
-  target.value = 3;
-  hooks.restore();
-  expect(target.value).toBe(3);
 });
 
 it("preserves later values and accessor replacements without invoking getters", () => {

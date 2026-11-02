@@ -6,6 +6,7 @@ import type {
   ExtensionHandler,
   SessionShutdownEvent
 } from "@earendil-works/pi-coding-agent";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 import { rendezvous } from "../coordination/index.ts";
 import { LifecycleCoordinator, type StartupHandler } from "./coordinator.ts";
@@ -87,7 +88,7 @@ export function joinLifecycle(pi: LifecycleAPI, options: { id: string }): Lifecy
               if (!revoked) throw error;
               throw new AggregateError(
                 [revoked.error, error],
-                `revoke failed: ${message(revoked.error)}; cleanup failed: ${message(error)}`
+                `revoke failed: ${errorMessage(revoked.error)}; cleanup failed: ${errorMessage(error)}`
               );
             }
 
@@ -127,8 +128,4 @@ function registration(
     remove?.();
     off();
   };
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

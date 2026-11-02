@@ -12,7 +12,8 @@ This reference is for library callers who interpret mutation sources, outcomes, 
 - A `ready` observation holds the whole file and preserves BOMs.
 - Invalid UTF-8, nonregular, oversized, changed, missing, and unreadable files return a status without text.
 - Source reads follow symlinks without permission repair.
-- Source reads refuse nonregular files such as FIFOs without blocking.
+- Write pre-reads refuse nonregular files such as FIFOs without blocking.
+- Edits reuse Pi's native read, so the source limit bounds the retained text, not the read.
 - Size and timestamp checks are not atomic snapshots.
 
 ## Outcomes

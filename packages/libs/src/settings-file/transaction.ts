@@ -11,6 +11,7 @@ import {
 import { createRequire } from "node:module";
 import { basename, dirname, join } from "node:path";
 
+import { hasErrorCode } from "@pi-mono/utils/errors";
 import type * as ProperLockfile from "proper-lockfile";
 import { z } from "zod";
 
@@ -35,7 +36,7 @@ export function isSettingsRecord(value: unknown): value is Record<string, unknow
 }
 
 function missing(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
+  return hasErrorCode(error, "ENOENT");
 }
 
 export function readSettingsRecord(path: string): Record<string, unknown> {

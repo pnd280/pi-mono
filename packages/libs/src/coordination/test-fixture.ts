@@ -28,7 +28,7 @@ export const loadOrders: ["a" | "b", "a" | "b"][] = [
 /** Rank order (`b`, `a`) is opposite to ID order, so an order by ID or by load fails a row. */
 export const ranks = { a: 200, b: 100 };
 
-export type ProviderRequest = { systemPrompt: string; userText: string };
+type ProviderRequest = { systemPrompt: string; userText: string };
 
 /**
  * An offline SDK session that loads `extensions` in order and binds them with a UI, so

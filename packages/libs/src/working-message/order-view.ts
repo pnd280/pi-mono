@@ -9,7 +9,7 @@ import {
 } from "../tui/components/settings-menu/index.ts";
 import { KeyControls, type KeybindingSource, type KeyControl } from "../tui/keybindings/index.ts";
 
-export type OrderSettingsItem = { id: string; label: string; description: string };
+type OrderSettingsItem = { id: string; label: string; description: string };
 
 export type OrderSettingsScope = {
   id: string;
@@ -20,7 +20,7 @@ export type OrderSettingsScope = {
   inheritFrom?: string;
 };
 
-export type OrderSettingsOptions = {
+type OrderSettingsOptions = {
   title: string;
   items: readonly OrderSettingsItem[];
   scopes: readonly OrderSettingsScope[];

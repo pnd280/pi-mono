@@ -2,7 +2,7 @@
 
 [@pi-mono/libs](../README.md)
 
-> Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes, the fingerprint check, package checks, and offline tests of the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager, and an offline tmux run of the prompt manager browser between the 19-row inline and 18-row overlay layouts, with input, selection, and editor focus kept after each remount and after the overlay closes. Not covered: live-provider schema acceptance; platform-specific checks; a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation); and terminal checks of stacked extension dialogs over an inline custom view, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
+> Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes, the fingerprint check, package checks, and offline tests of the native-tools consumers in tool display and agent summary and the browser consumers in todo and prompt manager, and an offline tmux run of the prompt manager browser. Not covered: live-provider schema acceptance; platform-specific checks; a resumed session with tool modifiers and [native observation](../../extensions/pi-tool-display/GLOSSARY.md#interpretation); and terminal checks of stacked extension dialogs over an inline custom view, literal-plus shortcuts, and the browser search cursor with `showHardwareCursor`.
 
 ## Upgrade procedure
 
@@ -104,6 +104,7 @@ The installed Pi 1.4.0 has these host behaviours:
 
 - Native construction matches the recorded fingerprints.
 - Transcript restoration also activates extension tools that the branch never added or removed. It reads only the names of `_baseToolDefinitions`, so native observation stays independent of it.
+- In the offline tmux run, the prompt manager browser kept input, selection, and editor focus after each remount between the 19-row inline and 18-row overlay layouts, and after the overlay closed.
 - An inline custom mount that closes before Pi shows it changes no focus. A responsive view at 18 rows mounts inline, moves to an overlay, and closes the inline mount in a microtask, so the overlay saves and restores the focus that existed before. The input-enabled `inputHostFixture` focuses the editor at startup, as Pi does.
 
 These private dependencies could be replaced by public Pi APIs. None exists as of Pi 1.4.0.

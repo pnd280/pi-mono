@@ -22,7 +22,7 @@ it("allows small changes in large files but bounds source, patch, and edit dista
   expect(result.status).toBe("ready");
   if (result.status !== "ready") throw new Error(result.status);
   expect(parsePatch(result.patch, budgets.maxPatchBytes)).toMatchObject({ added: 1, removed: 1 });
-  expect((await change("before", "éé", { maxSourceBytes: 3 })).status).toBe("source-too-large");
+  expect((await change("", "éé", { maxSourceBytes: 3 })).status).toBe("source-too-large");
   expect((await change("before", "after", { maxPatchBytes: 1 })).status).toBe("patch-too-large");
   // 500 line edits exceed the edit budget; a smaller budget keeps the search cheap.
   expect(
@@ -31,12 +31,20 @@ it("allows small changes in large files but bounds source, patch, and edit dista
   expect((await change("\0", "new")).status).toBe("binary");
 });
 
-it("survives worker heap exhaustion and starts a healthy worker for the next request", async () => {
+it("survives worker heap exhaustion, bounds queued source, and serves later requests", async () => {
   const before = "a\n".repeat(2_000_000) + "before\n";
   const exhausted = change(before, before.replace("before\n", "after\n"), {
     maxSourceBytes: 8 * 1024 * 1024
   });
+  // Each large request retains 32 MiB of queued source; the second exceeds the shared budget.
+  // A 1 ms deadline keeps the admitted one from doing real work.
+  const large = "a".repeat(8 * 1024 * 1024);
+  const largeLimits = { maxSourceBytes: large.length, timeoutMs: 1 };
+  const admitted = change(large, large, largeLimits);
+  expect(await change(large, large, largeLimits)).toEqual({ status: "queue-full" });
   const queued = change("before", "after");
   expect(await exhausted).toEqual({ status: "worker-failed" });
+  expect((await admitted).status).not.toBe("queue-full");
   expect((await queued).status).toBe("ready");
+  expect((await change(large, large, largeLimits)).status).not.toBe("queue-full");
 });

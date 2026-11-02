@@ -14,4 +14,7 @@ Provenance records the replaced value. It does not prove that a wrapper calls it
 
 ## Host fingerprints
 
-Tool display and editor widgets apply the [host fingerprint policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints).
+Tool display and editor widgets apply the [host fingerprint policy](../../../../.agents/skills/pi-update/references/compatibility-checks.md#host-fingerprints) through two helpers. The owners keep the reviewed hashes and the `inspectedPiVersion` pin.
+
+- `inspectedSource(method, hashes)` is true only when `method` is a function whose SHA-256 source hash is in `hashes`.
+- `hookCompatible(value, hashes, inspectedPiVersion)` follows `unwrapHook(value)` to the deepest recorded predecessor. It is true when that value is a function and either its source hash is in `hashes` or Pi's public `VERSION` equals `inspectedPiVersion`.

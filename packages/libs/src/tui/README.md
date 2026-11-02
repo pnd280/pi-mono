@@ -35,7 +35,7 @@ Import the supported TUI entry points through `@pi-mono/libs/tui/*` (see the [pa
 | [Terminal text](terminal-text/README.md)                 | Display sanitisation and unsafe-control detection                      |
 | [Glyphs](glyphs/README.md)                               | Shared activity markers and tree connector glyphs                      |
 | [Token counts](token-count/README.md)                    | Footer-scale token count formatting                                    |
-| [Durations](duration/README.md)                          | Measured duration formatting                                           |
+| [Durations](duration/README.md)                          | Measured and running duration formatting                               |
 | [Keybindings](keybindings/README.md)                     | Shortcut validation, canonicalisation, and view key controls           |
 | [Windowed list](components/windowed-list/README.md)      | Internal list window for the browser and settings menu, with no entry  |
 

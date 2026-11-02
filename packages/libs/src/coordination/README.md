@@ -13,11 +13,11 @@ Pi runs extension handlers in load order, so extensions that share an event can 
 
 ## Order and liveness
 
-- Callbacks run in ascending rank. Equal ranks run in participant ID order, and then in registration order within the participant. Join and load order never decide.
+- Ranked callbacks (input transforms, prompt parts, and startup commits) run in ascending rank. Equal ranks run in participant ID order, and then in registration order within the participant. Join and load order never decide.
 - A participant becomes live when its own `session_start` handler runs. Only callbacks of live participants run.
 - Pi runs no handler of an extension whose factory failed, or of an extension that the loader leaves out after its factory ran. Neither extension becomes live, so neither changes the result for live participants.
 - Participant IDs start with a letter or digit, use only letters, digits, and `._:/-`, and have up to 200 characters. When a second live participant has the same ID, its `session_start` handler throws, and no participant with that ID takes part.
-- Each registration returns a function that removes it. A removed callback does not run, also when another callback removed it earlier in the same dispatch. Other participants keep their registrations.
+- Input observers, input transforms, and prompt parts return a function that removes the registration, and a working-message handle's `dispose()` removes its component. Startup commits and shortcut claims cannot be removed. A removed callback does not run, also when another callback removed it earlier in the same dispatch. Other participants keep their registrations.
 
 ## Errors
 
