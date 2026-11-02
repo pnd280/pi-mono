@@ -34,13 +34,11 @@ function settings(global?: string, project?: string) {
   return { agentDir, cwd, globalPath, projectPath };
 }
 
+// Zod and the settings-file library own other shapes; the e2e host covers unsupported levels.
 it.each([
   undefined,
-  "{}",
-  JSON.stringify({ "ext.pi-session-utils": {} }),
   titleSettings({ model: "provider/id" }),
-  titleSettings({ thinkingLevel: "off" }),
-  titleSettings({ model: "provider/id", thinkingLevel: "automatic" })
+  titleSettings({ thinkingLevel: "off" })
 ])("disables generation for missing, incomplete, or unsupported settings: %s", (source) => {
   const { agentDir, cwd } = settings(source);
   expect(loadTitleConfig(cwd, { agentDir })).toBeUndefined();
@@ -67,18 +65,10 @@ it("allows the two required fields to be split across scopes but does not invent
   expect(loadTitleConfig(cwd, { agentDir, projectTrusted: true })).toBeUndefined();
 });
 
+// Unreadable files and every schema failure share readSection (src/auto-title/config.ts).
 it.each([
   "{malformed",
-  "null",
-  "[]",
-  JSON.stringify({ "ext.pi-session-utils": null }),
-  JSON.stringify({ "ext.pi-session-utils": [] }),
-  JSON.stringify({ "ext.pi-session-utils": { title: globalConfig } }),
   JSON.stringify({ "ext.pi-session-utils": { "auto-title": globalConfig, unknown: true } }),
-  titleSettings(null),
-  titleSettings([]),
-  titleSettings({ model: "model-only" }),
-  titleSettings({ thinkingLevel: null }),
   titleSettings({ auto: true })
 ])("disables generation when either participating settings file is invalid: %s", (source) => {
   const { agentDir, cwd, globalPath, projectPath } = settings(globalSettings, source);

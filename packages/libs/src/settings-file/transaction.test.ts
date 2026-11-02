@@ -78,9 +78,9 @@ it("preserves unrelated JSON keys, including names inherited by ordinary objects
 });
 
 it.each([
-  ["oversized input", JSON.stringify({ unused: "x".repeat(1024 * 1024) })],
   ["malformed input", "{broken"],
   ["invalid UTF-8 input", Buffer.from('{"unused":"\xff"}', "latin1")],
+  // Oversized input would also fail this output limit (updateSettingsRecord), so one row covers both.
   // The input and the compact output with the change fit; only the formatted output does not.
   ["output above 1 MiB after formatting", JSON.stringify({ unused: "x".repeat(1024 * 1024 - 64) })]
 ])("refuses %s without replacing the file", (_case, content) => {

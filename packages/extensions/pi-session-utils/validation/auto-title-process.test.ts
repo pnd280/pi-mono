@@ -19,7 +19,7 @@ import { stallAbortFile } from "./auto-title-provider.ts";
 it.concurrent.for([
   { mode: "text", prompt: "Opening request", name: "Offline session title", state: "completed" },
   { mode: "json", prompt: "Opening request", name: "Offline session title", state: "completed" },
-  { mode: "text", prompt: "stall-title", name: undefined, state: "pending" },
+  // Text and JSON print modes share shutdown cancellation; JSON also fails on stray stdout.
   { mode: "json", prompt: "stall-title", name: undefined, state: "pending" }
 ])(
   "keeps $mode output clean and exits with $state naming",

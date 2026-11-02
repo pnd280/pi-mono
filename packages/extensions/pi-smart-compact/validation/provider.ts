@@ -15,11 +15,13 @@ import { createFixtureStream } from "@pi-mono/libs/validation/provider";
 
 export default function offlineFixture(pi: ExtensionAPI) {
   const tracePath = process.env.PI_NATIVE_COMPACTION_TRACE;
-  const scenario = process.env.PI_NATIVE_COMPACTION_CASE ?? "success";
-  if (!tracePath) throw new Error("Offline fixture requires PI_NATIVE_COMPACTION_TRACE.");
+  const scenario = process.env.PI_NATIVE_COMPACTION_CASE;
+  if (!tracePath || !scenario)
+    throw new Error(
+      "Offline fixture requires PI_NATIVE_COMPACTION_TRACE and PI_NATIVE_COMPACTION_CASE."
+    );
   let session: AgentSession | undefined;
   let mainRequests = 0;
-  let summaryRequests = 0;
   let workCalls = 0;
   let idleWaitResolved = false;
   let unsubscribe: (() => void) | undefined;
@@ -30,8 +32,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
   let hadOwnStream = false;
   let hadOwnDefault = false;
   let hadOwnEmit = false;
-  const instructions =
-    scenario === "success" ? undefined : "Preserve NATIVE_FOCUS_MARKER and the remaining tests.";
+  const instructions = "Preserve NATIVE_FOCUS_MARKER and the remaining tests.";
   // The original method is invoked with its original session receiver via apply().
   // oxlint-disable-next-line typescript/unbound-method
   const originalPrompt = AgentSession.prototype.prompt;
@@ -168,14 +169,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
     unsubscribe?.();
   });
 
-  pi.registerCommand("fixture_manual_compact", {
-    description: "Exercise the native manual compaction entry point offline.",
-    handler: async () => {
-      if (!session) throw new Error("Missing fixture session");
-      await session.compact(instructions);
-      trace("fixture:entry");
-    }
-  });
   pi.registerCommand("fixture_auto_compact", {
     description: "Exercise the native threshold compaction entry point offline.",
     handler: async () => {
@@ -217,7 +210,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
             .filter((entry) => entry.role === "user")
             .map((entry) => contentText(entry.content))
             .join("\n");
-          summaryRequests++;
           trace("provider:summary", {
             ...requestDetails,
             summaryKind: prompt.includes("# Instructions\nThe messages above")
@@ -226,8 +218,6 @@ export default function offlineFixture(pi: ExtensionAPI) {
             additionalFocusCount: prompt.split("Additional focus:").length - 1,
             focus: /\n\nAdditional focus: ([\s\S]*)$/u.exec(prompt)?.[1]
           });
-          if (scenario === "failure") throw new Error("Offline summary failure");
-          if (scenario === "retry" && summaryRequests === 1) throw new Error("terminated");
 
           if (["abort", "escape"].includes(scenario)) {
             const timer = setTimeout(() => {
@@ -275,7 +265,7 @@ export default function offlineFixture(pi: ExtensionAPI) {
         }
 
         for (const [index, name] of calls.entries()) {
-          const arguments_ = name === "compact" && instructions ? { instructions } : {};
+          const arguments_ = name === "compact" ? { instructions } : {};
           const call = fauxToolCall(name, arguments_, { id: `call-${mainRequests}-${index}` });
           const contentIndex = message.content.length;
           message.content.push(call);

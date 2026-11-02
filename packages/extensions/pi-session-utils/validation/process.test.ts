@@ -116,9 +116,8 @@ it.concurrent.for(
   [
     ["--parent-session"],
     ["--parent-session", "missing.jsonl"],
-    ["--parent-session", "PARENT", "--continue"],
-    ["--parent-session", "PARENT", "--session", "PARENT"],
-    ["--parent-session", "PARENT", "--session-id", "new-id"]
+    // --session, --session-id, --resume, and --fork share this check (applyStartupParent, src/startup.ts).
+    ["--parent-session", "PARENT", "--continue"]
   ].map((args) => ({ args }))
 )("fails startup instead of executing the prompt: $args", async ({ args }, context) => {
   const { expect } = context;

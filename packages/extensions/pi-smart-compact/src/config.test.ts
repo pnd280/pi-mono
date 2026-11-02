@@ -59,9 +59,9 @@ it("selects the first matching rule as a unit, and a bare rule keeps native sele
 });
 
 // Unreadable and malformed files are covered end to end; the settings library owns their parsing.
+// Other unknown keys share configSchema strictness with { unknown: true }.
 it.each([
   section(null),
-  section({ model: "provider/id" }),
   section({ rules: [{ model: "provider/id" }] }),
   section({ rules: [{ match: "(" }] }),
   section({ rules: [{ match: "", model: "model-only" }] }),

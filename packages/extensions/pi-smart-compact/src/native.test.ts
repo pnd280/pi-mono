@@ -138,27 +138,27 @@ it.each([
   }
 });
 
-it.each(["_runDefaultCompaction", "_runAutoCompaction", "compact"])(
-  "rolls back if %s cannot be patched",
-  (method) => {
-    const prototype = AgentSession.prototype;
-    const patched = [boundary, "_runDefaultCompaction", "_runAutoCompaction", "compact"];
-    const originals = patched.map((name): unknown => Reflect.get(prototype, name));
-    const descriptor = Object.getOwnPropertyDescriptor(prototype, method);
-    assert.ok(descriptor);
-    Object.defineProperty(prototype, method, { ...descriptor, writable: false });
+// All replacements share one rollback (hooks.restore in bindNativeCompaction, src/native.ts);
+// failing on the last one requires every earlier hook to be restored.
+it("rolls back if compact cannot be patched", () => {
+  const method = "compact";
+  const prototype = AgentSession.prototype;
+  const patched = [boundary, "_runDefaultCompaction", "_runAutoCompaction", "compact"];
+  const originals = patched.map((name): unknown => Reflect.get(prototype, name));
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, method);
+  assert.ok(descriptor);
+  Object.defineProperty(prototype, method, { ...descriptor, writable: false });
 
-    try {
-      assert.throws(() => bindNativeCompaction({}, unexpectedSummary), /writable data properties/);
-      assert.deepEqual(
-        patched.map((name): unknown => Reflect.get(prototype, name)),
-        originals
-      );
-    } finally {
-      Object.defineProperty(prototype, method, descriptor);
-    }
+  try {
+    assert.throws(() => bindNativeCompaction({}, unexpectedSummary), /writable data properties/);
+    assert.deepEqual(
+      patched.map((name): unknown => Reflect.get(prototype, name)),
+      originals
+    );
+  } finally {
+    Object.defineProperty(prototype, method, descriptor);
   }
-);
+});
 
 it("does not publish an outcome after its session binding is disposed", async () => {
   const manager = { buildSessionProjection: () => context, getBranch: () => [] };
@@ -192,6 +192,7 @@ it("does not publish an outcome after its session binding is disposed", async ()
   }
 });
 
+// Each row breaks a separate comparison in the conflict check (bindNativeCompaction, src/native.ts).
 it.each([boundary, "_runDefaultCompaction", "_runAutoCompaction", "compact"])(
   "does not overwrite a later %s wrapper and restores ownership after it is removed",
   (method) => {

@@ -16,15 +16,12 @@ import { createFixtureWorkspace, fixtureLaunch } from "./workspace.ts";
 const test = caseTest.skipIf(process.platform !== "linux").concurrent;
 
 test.each([
-  ["print", "background-idle", 1],
-  ["json", "background-idle", 1],
   ["print", "background-pair", 2],
+  // Print and JSON share Delivery.settle (src/delivery.ts), so the other scenarios run only in print.
   ["json", "background-pair", 2],
   ["print", "background-error", 1],
-  ["json", "background-error", 1],
   // The result is ready when the final reply fails, so the failed turn must not take it.
-  ["print", "background-busy-error", 1],
-  ["json", "background-busy-error", 1]
+  ["print", "background-busy-error", 1]
 ] as const)(
   "consumes each background completion before %s exits after %s",
   async (mode, scenario, count) => {

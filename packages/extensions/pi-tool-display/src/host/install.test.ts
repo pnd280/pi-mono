@@ -952,46 +952,45 @@ it("keeps real SDK base overrides generic despite their builtin source label", a
   );
 });
 
-it.each(["original", "generic", false])(
-  "avoids native observation of live calls for override %s",
-  async (mode) => {
-    await withSession(
-      async ({ session }) => {
-        // Observed, these calls would save an exit code and a creation fact.
-        const shellArgs = { command: 'printf "%s" "$TOOL_DISPLAY_TEST"; exit 3' };
-        const writeArgs = { path: "new.txt", content: "unchanged execution" };
-        const expected = await session.agent.state.tools
-          .find((tool) => tool.name === "bash")!
-          .execute("original-result", shellArgs);
-        await session.bindExtensions({ mode: "tui" });
-        const faux = await fauxModel(session, "display-override");
-        faux.setResponses([
-          fauxAssistantMessage([
-            fauxToolCall("bash", shellArgs, { id: "override-shell" }),
-            fauxToolCall("write", writeArgs, { id: "override-write" })
-          ]),
-          fauxAssistantMessage("done")
-        ]);
-        await session.prompt("Run the native calls");
-        expect(toolResults(session)).toMatchObject([
-          { toolCallId: "override-shell", isError: true, content: expected.content },
-          { toolCallId: "override-write", isError: false }
-        ]);
-        expect(await readFile(join(session.sessionManager.getCwd(), writeArgs.path), "utf8")).toBe(
-          writeArgs.content
-        );
-        expect(saved(session, CALL_TYPE)).toEqual([]);
-        await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
-        expect(saved(session, CALL_TYPE)).toEqual([]);
-      },
-      {
-        rendererOverrides: Object.fromEntries(
-          ["read", "bash", "powershell", "edit", "write"].map((name) => [name, mode])
-        )
-      }
-    );
-  }
-);
+// "original" overrides share the non-"auto" check in Collection.eligible (src/host/collection.ts);
+// the headless test's reload covers its invalid-settings check.
+it("avoids native observation of live calls for a generic override", async () => {
+  await withSession(
+    async ({ session }) => {
+      // Observed, these calls would save an exit code and a creation fact.
+      const shellArgs = { command: 'printf "%s" "$TOOL_DISPLAY_TEST"; exit 3' };
+      const writeArgs = { path: "new.txt", content: "unchanged execution" };
+      const expected = await session.agent.state.tools
+        .find((tool) => tool.name === "bash")!
+        .execute("original-result", shellArgs);
+      await session.bindExtensions({ mode: "tui" });
+      const faux = await fauxModel(session, "display-override");
+      faux.setResponses([
+        fauxAssistantMessage([
+          fauxToolCall("bash", shellArgs, { id: "override-shell" }),
+          fauxToolCall("write", writeArgs, { id: "override-write" })
+        ]),
+        fauxAssistantMessage("done")
+      ]);
+      await session.prompt("Run the native calls");
+      expect(toolResults(session)).toMatchObject([
+        { toolCallId: "override-shell", isError: true, content: expected.content },
+        { toolCallId: "override-write", isError: false }
+      ]);
+      expect(await readFile(join(session.sessionManager.getCwd(), writeArgs.path), "utf8")).toBe(
+        writeArgs.content
+      );
+      expect(saved(session, CALL_TYPE)).toEqual([]);
+      await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+      expect(saved(session, CALL_TYPE)).toEqual([]);
+    },
+    {
+      rendererOverrides: Object.fromEntries(
+        ["read", "bash", "powershell", "edit", "write"].map((name) => [name, "generic"])
+      )
+    }
+  );
+});
 
 it("refreshes native binding across two reconstructed reloads and preserves dynamic owners on removal", async () => {
   await withSession(async ({ session, extensionFactories, assertNoRegistration }) => {
@@ -1628,7 +1627,8 @@ it.each([
   }
 );
 
-it.each(["rpc", "print", "json"] as const)(
+// Print and JSON share the non-TUI, no-UI branch of the session_start handler (src/index.ts).
+it.each(["rpc", "print"] as const)(
   "collects native facts in %s with trusted overrides and middleware, without TUI hooks, through reload",
   async (mode) => {
     const original = host.getRegisteredToolDefinition;

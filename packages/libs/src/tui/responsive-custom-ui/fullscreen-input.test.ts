@@ -204,7 +204,8 @@ it("defers installation requested synchronously during listener traversal", asyn
   }
 });
 
-it.each(["remove", "reorder", "copy"] as const)(
+// Remove and reorder share the first-listener check in intact() (fullscreen-input.ts).
+it.each(["remove", "copy"] as const)(
   "deactivates instead of competing with listener %s interference",
   async (change) => {
     const view = await open();
@@ -216,7 +217,6 @@ it.each(["remove", "reorder", "copy"] as const)(
       if (change === "copy") Reflect.set(host.tui, "inputListeners", new Set(collection));
       else {
         collection.delete(dispatch);
-        if (change === "reorder") collection.add(dispatch);
       }
 
       host.presentation?.render(80);

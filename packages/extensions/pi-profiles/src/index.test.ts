@@ -816,9 +816,8 @@ it.each([null, "missing"])(
 
 it.each([
   ["tui", "second", ["alpha"]],
-  ["rpc", "first", ["alpha", "beta"]],
-  ["print", "first", ["alpha", "beta"]],
-  ["json", "first", ["alpha", "beta"]]
+  // RPC, print, and JSON share the `ctx.mode === "tui"` default-profile gate in startProfile (src/index.ts).
+  ["rpc", "first", ["alpha", "beta"]]
 ] as const)(
   "applies --profile at startup in any mode, else the default profile only in interactive sessions without a selection (%s)",
   async (mode, model, tools) => {

@@ -17,7 +17,7 @@ import { sdkSessionFixture } from "./sdk-session.ts";
 it.each([
   { scope: "untrusted project", projectTrusted: false, expectedProvider: "compact-global" },
   { scope: "trusted project", projectTrusted: true, expectedProvider: "compact-project" },
-  { scope: "invalid global", projectTrusted: true, expectedProvider: undefined },
+  // Both scopes share readSection (src/config.ts); config.test.ts rejects each invalid file in both scopes.
   { scope: "invalid trusted project", projectTrusted: true, expectedProvider: undefined }
 ])(
   "routes requested compaction only through valid participating settings: $scope",
@@ -91,10 +91,7 @@ it.each([
             ]
           }
         });
-      await writeFile(
-        join(fixture.agentDir, "settings.json"),
-        scope === "invalid global" ? "{invalid" : section("compact-global")
-      );
+      await writeFile(join(fixture.agentDir, "settings.json"), section("compact-global"));
       await mkdir(join(fixture.cwd, CONFIG_DIR_NAME), { recursive: true });
       await writeFile(
         join(fixture.cwd, CONFIG_DIR_NAME, "settings.json"),

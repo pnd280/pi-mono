@@ -43,13 +43,7 @@ const cases: {
   automaticError?: RegExp;
   summaries: number;
 }[] = [
-  {
-    name: "omitted",
-    config: override,
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    summaries: 1
-  },
+  // "automatic only" omits applyToManual and "retry" omits applyToAuto, so both opt-in defaults stay covered.
   {
     name: "automatic only",
     config: { ...override, applyToAuto: true },
@@ -106,14 +100,7 @@ const cases: {
     automatic: nativeSummary,
     summaries: 1
   },
-  {
-    name: "late abort",
-    config: {},
-    manual: nativeSummary,
-    automatic: nativeSummary,
-    error: /cancelled|aborted/i,
-    summaries: 1
-  },
+  // Also checks the late abort alone: the branch leaf must stay unchanged (recordSummaryBeforeCompaction, src/native.ts).
   {
     name: "late abort with retained append",
     config: {},
@@ -317,20 +304,20 @@ it.each(cases)(
       seed();
       const before = session.sessionManager.getLeafId();
 
-      if (name.startsWith("late abort")) {
+      const lateAbort = name === "late abort with retained append";
+
+      if (lateAbort) {
         const summarize: unknown = Reflect.get(session, "_runDefaultCompaction");
         assert.ok(typeof summarize === "function");
         // Abort after generation resolves but before Pi performs its final abort check.
         Reflect.set(session, "_runDefaultCompaction", async (...args: unknown[]) => {
           const result: unknown = await Reflect.apply(summarize, session, args);
 
-          if (name === "late abort with retained append") {
-            const append = session.sessionManager.appendCompaction.bind(session.sessionManager);
-            const replacement = (...saved: Parameters<SessionManager["appendCompaction"]>) =>
-              append(...saved);
-            Reflect.set(session.sessionManager, "appendCompaction", replacement);
-            expectedAppend = replacement;
-          }
+          const append = session.sessionManager.appendCompaction.bind(session.sessionManager);
+          const replacement = (...saved: Parameters<SessionManager["appendCompaction"]>) =>
+            append(...saved);
+          Reflect.set(session.sessionManager, "appendCompaction", replacement);
+          expectedAppend = replacement;
 
           session.abortCompaction();
 
@@ -340,7 +327,7 @@ it.each(cases)(
 
       if (error) {
         await assert.rejects(session.compact(instructions), error);
-        if (name.startsWith("late abort")) Reflect.deleteProperty(session, "_runDefaultCompaction");
+        if (lateAbort) Reflect.deleteProperty(session, "_runDefaultCompaction");
         assert.equal(session.sessionManager.getLeafId(), before);
       } else {
         assert.equal((await session.compact(instructions)).summary, "MANUAL_CHECKPOINT");

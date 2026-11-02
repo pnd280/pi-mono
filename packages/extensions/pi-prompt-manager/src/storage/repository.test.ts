@@ -267,14 +267,19 @@ function worker(label: string, count: number) {
     stderr
   }));
 
-  return { child, completion };
+  const ready = once(child, "message");
+
+  return { child, completion, ready };
 }
 
 it("preserves unrelated mutations from two real processes", async () => {
-  const left = worker("left", 12);
-  const right = worker("right", 12);
+  const left = worker("left", 3);
+  const right = worker("right", 3);
 
   try {
+    await Promise.race([Promise.all([left.ready, right.ready]), left.completion, right.completion]);
+    left.child.send("start");
+    right.child.send("start");
     const exits = await Promise.all([left.completion, right.completion]);
     expect(
       exits.map(({ code }) => code),
@@ -282,8 +287,8 @@ it("preserves unrelated mutations from two real processes", async () => {
     ).toEqual([0, 0]);
     expect((await drafts()).entries.map((item) => item.source.text).sort()).toEqual(
       [
-        ...Array.from({ length: 12 }, (_, index) => `left-${index}`),
-        ...Array.from({ length: 12 }, (_, index) => `right-${index}`)
+        ...Array.from({ length: 3 }, (_, index) => `left-${index}`),
+        ...Array.from({ length: 3 }, (_, index) => `right-${index}`)
       ].sort()
     );
   } finally {

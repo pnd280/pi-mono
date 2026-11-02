@@ -5,6 +5,7 @@ import { setTimeout } from "node:timers/promises";
 import { contentText } from "@earendil-works/pi-ai";
 import {
   parseSessionEntries,
+  type RpcExtensionUIRequest,
   SessionManager,
   type SessionEntry
 } from "@earendil-works/pi-coding-agent";
@@ -622,72 +623,74 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     });
   });
 
-  /** Editor answers to the shown prefill, which is sanitised and cut. */
-  const EDITOR_ANSWERS = {
-    // The shown prefill unchanged, as Pi's RPC client can return it.
-    editor: (shown: string) => shown,
-    // Pi's editor returns the text with line ends normalised, tabs expanded, and trimmed.
-    "normalised editor": (shown: string) =>
-      shown.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").trim(),
-    // An edit by whitespace only reaches the child as typed.
-    "edited editor": (shown: string) => ` ${shown}`
-  };
+  test("forwards child dialogs and delivers their answers", async () => {
+    await withFixture(async (_directory, start) => {
+      const host = await start();
+      const editor = (answer: (shown: string) => string) => (request: RpcExtensionUIRequest) =>
+        request.method === "editor" ? answer(request.prefill!) : "";
+      const dialogs: ReadonlyArray<{
+        scenario: string;
+        method: RpcExtensionUIRequest["method"];
+        answer: (request: RpcExtensionUIRequest) => boolean | string;
+        result: string;
+      }> = [
+        {
+          scenario: "delegate-dialog",
+          method: "confirm",
+          answer: () => true,
+          result: "Dialog accepted"
+        },
+        {
+          // Distinct child options can collide after terminal sanitisation.
+          scenario: "delegate-selection",
+          method: "select",
+          answer: (request) => (request.method === "select" ? request.options[1]! : ""),
+          result: "Selected second option"
+        },
+        // Editor answers to the shown prefill, which is sanitised and cut. Pi's RPC client can
+        // return the shown prefill unchanged.
+        {
+          scenario: "delegate-editor",
+          method: "editor",
+          answer: editor((shown) => shown),
+          result: "Editor prefill kept"
+        },
+        // Pi's editor returns the text with line ends normalised, tabs expanded, and trimmed.
+        {
+          scenario: "delegate-editor",
+          method: "editor",
+          answer: editor((shown) => shown.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").trim()),
+          result: "Editor prefill kept"
+        },
+        // An edit by whitespace only reaches the child as typed.
+        {
+          scenario: "delegate-editor",
+          method: "editor",
+          answer: editor((shown) => ` ${shown}`),
+          result: "Editor prefill changed"
+        }
+      ];
 
-  test.each(["confirm", "select", "editor", "normalised editor", "edited editor"] as const)(
-    "forwards a child %s dialog and delivers its answer",
-    async (dialog) => {
-      await withFixture(async (_directory, start) => {
-        const host = await start();
-        const method = dialog === "confirm" || dialog === "select" ? dialog : "editor";
-        const work = host.prompt(
-          { confirm: "delegate-dialog", select: "delegate-selection", editor: "delegate-editor" }[
-            method
-          ]
-        );
+      for (const { scenario, method, answer, result } of dialogs) {
+        // Each dialog has its own cursor, so an earlier request cannot answer this step.
+        const after = host.records.length;
+        const work = host.prompt(scenario);
         const request = await host.wait(
-          (record) => record.type === "extension_ui_request" && record.method === method
+          (record) => record.type === "extension_ui_request" && record.method === method,
+          after
         );
         if (request.type !== "extension_ui_request") throw new Error("Missing dialog request");
-
-        if (request.method === "confirm") {
-          expect(request).toMatchObject({
-            title: "[subagent: Fixture dialog task] Fixture question",
-            message: "Continue this child task?",
-            timeout: STEP_TIMEOUT_MS
-          });
-          await host.connection.respond({
-            type: "extension_ui_response",
-            id: request.id,
-            confirmed: true
-          });
-        } else if (request.method === "select") {
-          // Distinct child options can collide after terminal sanitisation.
-          await host.connection.respond({
-            type: "extension_ui_response",
-            id: request.id,
-            value: request.options[1]!
-          });
-        } else if (request.method === "editor" && dialog !== "confirm" && dialog !== "select") {
-          await host.connection.respond({
-            type: "extension_ui_response",
-            id: request.id,
-            value: EDITOR_ANSWERS[dialog](request.prefill!)
-          });
-        }
-
-        await work;
-        expect(contentText((await host.results()).at(-1)!.content)).toContain(
-          {
-            confirm: "Dialog accepted",
-            select: "Selected second option",
-            editor: "Editor prefill kept",
-            "normalised editor": "Editor prefill kept",
-            "edited editor": "Editor prefill changed"
-          }[dialog]
+        const value = answer(request);
+        await host.connection.respond(
+          typeof value === "boolean"
+            ? { type: "extension_ui_response", id: request.id, confirmed: value }
+            : { type: "extension_ui_response", id: request.id, value }
         );
-      });
-    }
-  );
+        await work;
+        expect(contentText((await host.results()).at(-1)!.content), result).toContain(result);
+      }
+    });
+  });
 
   test("respects capacity, admits queued launches FIFO, and rejects a full queue", async ({
     expect

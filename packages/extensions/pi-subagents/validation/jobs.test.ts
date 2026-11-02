@@ -158,35 +158,36 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
     });
   });
 
-  test.each(["busy", "settling after an abort"])(
-    "J1: delivers one job result while %s",
-    async (mode) => {
-      await withJobs(async (directory, start) => {
-        const host = await start();
-        const after = host.records.length;
-        // The job ends while the scripted model holds the run.
-        const work = host.prompt("job-fast-hold").catch((error: unknown) => error);
-        await host.wait(isJobEnd, after);
-        if (mode === "busy") await release(directory, "run-release");
-        else await host.request({ type: "abort" });
-        await work;
+  test("J1: delivers one job result while busy and while settling after an abort", async () => {
+    await withJobs(async (directory, start) => {
+      const host = await start();
+      // Busy: the job ends while the scripted model holds the run.
+      let after = host.records.length;
+      let work = host.prompt("job-fast-hold");
+      await host.wait(isJobEnd, after);
+      await release(directory, "run-release");
+      await work;
+      const records = host.records.slice(after);
+      // The result continues the same run.
+      expect(records.filter((record) => record.type === "agent_settled")).toHaveLength(1);
+      expect(records.findIndex(replies("background results 1"))).toBeGreaterThan(
+        records.findIndex(isJobResult)
+      );
+      expect(await host.jobResults()).toHaveLength(1);
 
-        if (mode === "busy") {
-          const records = host.records.slice(after);
-          // The result continues the same run.
-          expect(records.filter((record) => record.type === "agent_settled")).toHaveLength(1);
-          expect(records.findIndex(replies("background results 1"))).toBeGreaterThan(
-            records.findIndex(isJobResult)
-          );
-        } else {
-          await settledAfterJobResult(host, after);
-          await host.wait(replies("Idle continuation prepared: true"), after);
-        }
-
-        expect(await host.jobResults()).toHaveLength(1);
-      });
-    }
-  );
+      // Settling after an abort: the model holds the run again until the abort.
+      await rm(join(directory, "work", "run-release"));
+      after = host.records.length;
+      work = host.prompt("job-fast-hold").catch(() => undefined);
+      await host.wait(isJobEnd, after);
+      await host.request({ type: "abort" });
+      await work;
+      await settledAfterJobResult(host, after);
+      await host.wait(replies("Idle continuation prepared: true"), after);
+      expect(host.records.slice(after).filter(isJobResult)).toHaveLength(1);
+      expect(await host.jobResults()).toHaveLength(2);
+    });
+  });
 
   test.each(["turn_end", "settle"] as const)(
     "J1: with resultDelivery %s, delivers a job result that arrives during a tool turn once in the same run",
@@ -289,16 +290,19 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
     });
   });
 
-  test.each(["tree", "fork", "switch", "reload", "graceful exit"])(
-    "J2: %s stops the job's process group without a result",
-    async (action) => {
-      await withJobs(async (directory, start) => {
-        const host = await start();
-        await host.prompt("reply");
-        const saved = (await host.state()).sessionFile!;
-        await host.request({ type: "new_session" });
-        await host.prompt("reply");
-        const anchor = (await host.entries()).at(-1)!.id;
+  test("J2: tree, fork, switch, reload, and graceful exit each stop the job's process group without a result", async () => {
+    await withJobs(async (directory, start) => {
+      const host = await start();
+      await host.prompt("reply");
+      const saved = (await host.state()).sessionFile!;
+      await host.request({ type: "new_session" });
+      await host.prompt("reply");
+      const anchor = (await host.entries()).at(-1)!.id;
+
+      // Tree and fork use the anchor of this session; graceful exit ends the supervisor, so it runs last.
+      for (const action of ["tree", "fork", "switch", "reload", "graceful exit"]) {
+        // Each step starts its own job, so a group left by an earlier step cannot pass this check.
+        await rm(join(directory, "work", "job-group"), { force: true });
         await host.prompt("job-group");
         const group = await jobGroup(directory);
 
@@ -315,11 +319,11 @@ describe.skipIf(process.platform !== "linux").concurrent("background jobs", () =
           expect(await host.connection.closed).toMatchObject({ code: 0, signal: null });
         }
 
-        expect(await groupGone(group)).toBe(true);
-        expect(host.records.some(isJobResult)).toBe(false);
-      });
-    }
-  );
+        expect(await groupGone(group), action).toBe(true);
+        expect(host.records.some(isJobResult), action).toBe(false);
+      }
+    });
+  });
 
   test("J2: a child's exit stops its job's process group", async () => {
     await withJobs(async (directory, start) => {

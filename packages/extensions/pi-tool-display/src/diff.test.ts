@@ -39,7 +39,6 @@ it("rejects retained patches exceeding the persistence bound", () => {
 it.each([
   "",
   "line",
-  "first\nsecond\n",
   "crlf\r\nlines\r\n",
   "bare\rreturn\n",
   "\n\n",

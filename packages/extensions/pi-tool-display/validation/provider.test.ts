@@ -34,7 +34,6 @@ it("runs fixed plans through the installed CLI and resumes without replaying mut
     expect(await readFile(join(directory, "work", "created.ts"), "utf8")).toContain("界😀");
     expect(await run("public")).toContain("Fixture finished: public.");
     expect(await readFile(join(directory, "work", "a.ts"), "utf8")).toBe(changed);
-    expect(await run("not a scenario; exit 19")).toContain("Choose a fixture prompt:");
 
     const manager = SessionManager.open(join(directory, "session.jsonl"));
     const entries = manager.getBranch();

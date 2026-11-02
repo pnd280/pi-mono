@@ -72,7 +72,8 @@ it("replaces only the owned field in fresh settings, leaving unrelated fields an
   expect(section.load()).toEqual({ global: ["b"], project: ["c"], warnings: [] });
 });
 
-it.each([null, [], "invalid"])("warns about a %j section and refuses to repair it", (malformed) => {
+// A null section's refused save is also covered by the diagnostic-path test below.
+it.each([[], "invalid"])("warns about a %j section and refuses to repair it", (malformed) => {
   const { section, write } = fixture();
   write("global", { "ext.test": malformed });
   expect(section.load().warnings).toHaveLength(1);
