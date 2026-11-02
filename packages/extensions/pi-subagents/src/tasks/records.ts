@@ -9,7 +9,8 @@ import { z } from "zod";
 
 import { lateUsageOf } from "../background-result.ts";
 import { END_ENTRY, RECORD_MAX_BYTES, RUN_ENTRY } from "../constants.ts";
-import { detailsUsage, firstLine, sumUsage, usageSchema } from "../result.ts";
+import { usageSchema } from "../details.ts";
+import { detailsUsage, firstLine, sumUsage } from "../result.ts";
 
 const id = z.string().min(1).max(1024);
 const outcome = z.enum(["completed", "failed", "cancelled"]);

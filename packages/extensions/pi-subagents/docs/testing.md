@@ -29,7 +29,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** A task's forced-stop failure during the supervisor's session end is reported as an error of the shutdown handler.
 - **High, e2e:** After a forced-stop failure, a cancelled task stays cancelled, and its result names the failure. `subagent_abort` returns the error instead of a confirmation.
 - **High, e2e:** Tree selection (including a same-path rewind), parent-session fork, and saved-session switch immediately stop owned running subtrees, including children that block shutdown and detached [descendants](../GLOSSARY.md#tasks-and-processes).
-- **High, e2e:** Late captures, completions, and controls cannot affect the replacement binding after a session change.
+- **High, e2e:** After a session change, late completions of the replaced binding's tasks and a late `/subagents` command of the replaced binding, such as an abort, cannot affect the replacement binding.
 - **High, e2e:** After another extension cancels a tree navigation or a parent-session fork, `/subagents list` and new `subagent` calls work on the same ancestry, and a job result that waited arrives once in the next run.
 - **High, e2e:** When a session change starts while the run waits for a [held job](jobs.md#held-jobs), the wait ends and the job continues. If another extension cancels the change, the job's result arrives once in the next run.
 - **High, e2e:** Ordinary foreground abort stops only its foreground subtree, and new messages leave children running.
@@ -55,6 +55,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** Only one process, the holder of the [writer lease](../GLOSSARY.md#history), writes a task's child file. A forked supervisor cannot resume a task while the original child runs, also after the original supervisor is killed, and the file stays unchanged.
 - **High, e2e:** After the lease writers exit, the next resume succeeds and removes the stale lease entries.
 - **High, integration:** After a release cannot remove its lease entry, the same process can take the lease again, and a lease that it holds still excludes another writer.
+- **High, integration:** A contender for the writer lease never removes a lease entry that its holder replaced while the contender checked the entry's processes.
 - **High, integration:** History and lease reads reject non-regular files without blocking and enforce byte limits.
 - **High, e2e:** (S6) Descendant records read from child session files preserve ownership across restart.
 - **High, e2e:** (S10) While a task runs, also after a restart, `list` still shows the descendants of the task's earlier runs, and it never shows a descendant that is starting or running as stopped.
@@ -107,6 +108,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **Critical, e2e:** (R2) Only the supervisor that launched a task resumes it after it stops; ancestors and foreign supervisors cannot.
 - **High, e2e:** A supervisor cannot resume or abort another supervisor's tasks, and no input reaches them.
 - **High, e2e:** Child dialogs reach the supervisor's client, and answers reach the requesting child with the selected value preserved even when sanitised labels collide.
+- **High, e2e:** An editor dialog submitted with its forwarded prefill unchanged returns the child's prefill exactly, also when the supervisor shows the prefill sanitised and cut.
 - **High, e2e:** (S6) Abort and background commands reach only owned descendants, and nested dialog answers return to the requesting child.
 - **High, e2e:** (R1) Active-task input reaches the same conversation once across running, settling, and exit races, without another capacity slot or duplicate usage or completion.
 - **High, e2e:** (R1) The result of a run that took active-task input keeps the final reply that the input followed, before the input's reply.
@@ -118,6 +120,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 
 - Late updates outside the connection boundary are not tested because the [late-update test](../validation/activity.test.ts) covers only that boundary. The untested cases include a replaced terminal task view, a delayed filesystem read, an injected failed response, and other late event kinds.
 - A delayed file read of an earlier run is below the severity bar; see [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#delayed-reads).
+- Late active-task input from a replaced binding is not tested, because holding a `subagent` call across a session change needs a timing guess.
 - Pi owns RPC framing, prompt-disposition semantics, lineage, and its internal trust enforcement.
 - macOS and Windows are not tested because the tests run only on Linux. The tests of failed process cleanup also need `perl` to put a process into another process group.
 - Coordination-protocol races during settlement and stdin EOF, and reads of large branched child files, are not tested automatically. [ADR 0003](adr/0003-keep-task-history-in-child-sessions.md#runtime-checks) records the one-time probes and the open checks for these cases.

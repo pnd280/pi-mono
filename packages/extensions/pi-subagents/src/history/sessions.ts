@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
+import { hasErrorCode } from "@pi-mono/utils/errors";
 import { z } from "zod";
 
 import { MARKER_ENTRY } from "../constants.ts";
@@ -188,7 +189,7 @@ async function readSession(file: string): Promise<Parsed | undefined> {
   try {
     handle = await open(file, constants.O_RDONLY | constants.O_NONBLOCK);
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
+    if (hasErrorCode(error, "ENOENT")) return undefined;
     throw error;
   }
 

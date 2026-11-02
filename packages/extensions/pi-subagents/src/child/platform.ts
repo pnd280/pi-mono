@@ -2,6 +2,8 @@ import { execFileSync, spawn, type ChildProcess, type SpawnOptions } from "node:
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 
+import { hasErrorCode } from "@pi-mono/utils/errors";
+
 import { KILL_GRACE_MS } from "../constants.ts";
 
 /**
@@ -26,7 +28,7 @@ function signalProcess(pid: number, signal: NodeJS.Signals): void {
     process.kill(pid, signal);
   } catch (error) {
     // Exit can race the timer. Other errors must reach the run's diagnostics.
-    if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) throw error;
+    if (!hasErrorCode(error, "ESRCH")) throw error;
   }
 }
 
@@ -46,16 +48,17 @@ export function killGroupSync(child: ChildProcess): void {
   } else signalProcess(-pid, "SIGKILL");
 }
 
-/** Freeze the live owned tree before discovery, including separately detached descendants. */
-export function terminateTree(child: ChildProcess, onError: (error: Error) => void): void {
+/**
+ * Freeze the live owned tree before discovery, including separately detached descendants. On
+ * Windows, it returns the pending `taskkill` stop.
+ */
+export function terminateTree(
+  child: ChildProcess,
+  onError: (error: Error) => void
+): Promise<void> | undefined {
   const root = child.pid;
-  if (root === undefined || !isAlive(child)) return;
-
-  if (process.platform === "win32") {
-    void forceStop(child, onError);
-
-    return;
-  }
+  if (root === undefined || !isAlive(child)) return undefined;
+  if (process.platform === "win32") return forceStop(child, onError);
 
   const owned = new Set([root]);
   const groups = new Set([root]);
@@ -100,6 +103,8 @@ export function terminateTree(child: ChildProcess, onError: (error: Error) => vo
       }
     }
   }
+
+  return undefined;
 }
 
 /**
@@ -179,9 +184,8 @@ function signalGroup(pgid: number, signal: NodeJS.Signals | 0): "sent" | "gone" 
 
     return "sent";
   } catch (error) {
-    const code = error instanceof Error && "code" in error ? error.code : undefined;
-    if (code === "ESRCH") return "gone";
-    if (code === "EPERM") return "denied";
+    if (hasErrorCode(error, "ESRCH")) return "gone";
+    if (hasErrorCode(error, "EPERM")) return "denied";
     throw error;
   }
 }

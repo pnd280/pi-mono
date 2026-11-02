@@ -2,7 +2,7 @@ import { toToolSchema } from "@pi-mono/libs/tool-schema";
 import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
 import { z } from "zod";
 
-import { deliverySchema } from "../result.ts";
+import { deliverySchema } from "../details.ts";
 
 export const toolInputSchema = z.strictObject({
   delivery: deliverySchema

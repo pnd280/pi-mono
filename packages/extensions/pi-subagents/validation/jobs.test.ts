@@ -7,13 +7,13 @@ import { promisify } from "node:util";
 
 import { contentText } from "@earendil-works/pi-ai";
 import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
+import { hasErrorCode } from "@pi-mono/utils/errors";
 import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
 import type { RpcRecord } from "../src/child/connection.ts";
 import { JOB_END_ENTRY, JOB_RESULT_MESSAGE, TASKS_MESSAGE } from "../src/constants.ts";
-import { jobDetailsSchema } from "../src/jobs/records.ts";
-import { detailsSchema } from "../src/result.ts";
+import { detailsSchema, jobDetailsSchema } from "../src/details.ts";
 import { release, replies, withFixture } from "./background-fixture.ts";
 import { killFixtureProcesses, processStat, remainingProcesses } from "./processes.ts";
 import type { Supervisor } from "./supervisor.ts";
@@ -106,7 +106,7 @@ function groupAlive(group: number): boolean {
 
     return true;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ESRCH") return false;
+    if (hasErrorCode(error, "ESRCH")) return false;
     throw error;
   }
 }

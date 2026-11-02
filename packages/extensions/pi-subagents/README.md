@@ -47,7 +47,7 @@ Set [`jobs`](#configuration) to `true` to give the model the `job` and `job_abor
 
 ### Commands and task panel
 
-Press the [`shortcut`](#configuration), **Ctrl+Alt+S** by default, or run `/subagents` to open the task panel in TUI mode; elsewhere, `/subagents` returns the first JSON page. The panel lists task trees and jobs, and **Enter** opens a read-only transcript or log viewer. Other `/subagents` subcommands list, show, abort, and move work to the background. See [commands](docs/commands.md) and [task panel, viewers, and cards](docs/interface.md).
+Press the [`shortcut`](#configuration), **Ctrl+Alt+S** by default, or run `/subagents` to open the task panel in TUI mode; in RPC mode, `/subagents` returns the first JSON page. The panel lists task trees and jobs, and **Enter** opens a read-only transcript or log viewer. Other `/subagents` subcommands list, show, abort, and move work to the background. See [commands](docs/commands.md) and [task panel, viewers, and cards](docs/interface.md).
 
 ## Configuration
 

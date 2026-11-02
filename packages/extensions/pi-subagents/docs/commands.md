@@ -2,11 +2,11 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-The `/subagents` command lists, inspects, and controls tasks and [jobs](jobs.md). Commands produce one JSON notification outside model context. RPC clients send slash commands through `prompt`, including while the supervisor is working. Errors return `{ "error": "…" }`.
+The `/subagents` command lists, inspects, and controls tasks and [jobs](jobs.md). In TUI and RPC modes, commands produce one JSON notification outside model context. Print and JSON modes show no notifications, so commands there return nothing. RPC clients send slash commands through `prompt`, including while the supervisor is working. Errors return `{ "error": "…" }`.
 
 | Command                                                      | Result                                                                                                                  |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `/subagents`                                                 | The [task panel](interface.md) in TUI mode; the first page elsewhere.                                                   |
+| `/subagents`                                                 | The [task panel](interface.md) in TUI mode; the first page in RPC mode.                                                 |
 | `/subagents list [--offset <n>] [--limit <n>]`               | A JSON page in depth-first launch order.                                                                                |
 | `/subagents show <task_id> [--since <cursor>] [--limit <n>]` | A compact transcript digest with cumulative child usage.                                                                |
 | `/subagents show <task_id> --last`                           | The text and entry cursor of the latest assistant message with content; both fields are `null` when absent.             |

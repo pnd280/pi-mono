@@ -17,7 +17,7 @@ Keep [task](GLOSSARY.md#tasks-and-processes) policy and process lifecycle in thi
 | [Background result](GLOSSARY.md#results) content or late usage | [`ResultSource`](src/background-result.ts) and the [late-usage patch](src/late-usage.ts)                                                                                                                                    |
 | When background results arrive                                 | [`Delivery`](src/delivery.ts), [ADR 0001](docs/adr/0001-hold-run-for-background-results.md), and [ADR 0006](docs/adr/0006-deliver-background-results-at-turn-end.md)                                                        |
 | [Jobs](GLOSSARY.md#tasks-and-processes)                        | [Jobs](src/jobs/registry.ts), [tools](src/jobs/tool.ts), [ADR 0005](docs/adr/0005-background-jobs.md), [ADR 0007](docs/adr/0007-own-job-processes-and-bound-logs.md), [ADR 0008](docs/adr/0008-hold-run-for-marked-jobs.md) |
-| Tool details, cards, or result text                            | [result](src/result.ts), [card renderers](src/tasks/render.ts), and the consumers under [Boundaries](#boundaries)                                                                                                           |
+| Tool details, cards, or result text                            | [details](src/details.ts), [result](src/result.ts), [card renderers](src/tasks/render.ts), and the consumers under [Boundaries](#boundaries)                                                                                |
 | The `subagent` guidance or a child's result instructions       | [tool](src/tasks/tool.ts) and the [child prompt](src/child/prompt.ts)                                                                                                                                                       |
 | The task panel, viewers, or widget                             | [`Panels`](src/task-panel/panels.ts), [`TaskPanel`](src/task-panel/panel.ts), and the [widget](src/widget.ts)                                                                                                               |
 
@@ -37,7 +37,7 @@ Keep [task](GLOSSARY.md#tasks-and-processes) policy and process lifecycle in thi
 - A task keeps one [child file](GLOSSARY.md#history), and only a child holding the task's [writer lease](GLOSSARY.md#history) writes it.
 - Readers keep the child file in memory and never repair it. See [ADR 0003](docs/adr/0003-keep-task-history-in-child-sessions.md).
 - Fixtures use the isolated shared Pi launcher and fixed offline scenarios.
-- The [tool-display adapter](../pi-tool-display/src/adapters/pi-subagents/README.md) validates tool details and job results, and both packages use the [task envelope](../../utils/src/task-envelope.ts) for result text.
+- The [tool-display adapter](../pi-tool-display/src/adapters/pi-subagents/README.md) validates tool details and job results with the `pi-subagents/details` [contract](src/details.ts), which imports only Zod. Both packages use the [task envelope](../../utils/src/task-envelope.ts) for result text.
 
 ## Validation
 

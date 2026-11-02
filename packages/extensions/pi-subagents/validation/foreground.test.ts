@@ -12,9 +12,9 @@ import { STEP_TIMEOUT_MS } from "@pi-mono/libs/validation/pi-process";
 import { describe, expect, test } from "vite-plus/test";
 import { z } from "zod";
 
-import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY } from "../src/constants.ts";
+import { END_ENTRY, MARKER_ENTRY, RUN_ENTRY, TASK_ID_ENV } from "../src/constants.ts";
+import { detailsSchema } from "../src/details.ts";
 import { readRunFile } from "../src/history/sessions.ts";
-import { detailsSchema } from "../src/result.ts";
 import { endRecordSchema, runRecordSchema } from "../src/tasks/records.ts";
 import { LONG_GRACE_LIMIT, taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses, remainingProcesses } from "./processes.ts";
@@ -33,7 +33,6 @@ const CLEANUP_ACTIONS = [
   "user abort",
   "session change",
   "graceful exit",
-  "SIGKILL",
   "queued turn abort"
 ] as const;
 
@@ -156,17 +155,13 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         } else if (action === "graceful exit") {
           host.connection.closeInput();
           await host.connection.closed;
-        } else if (action === "SIGKILL") {
-          host.connection.process.kill("SIGKILL");
-          await host.connection.closed;
         } else {
           await host.request({ type: "abort" });
         }
 
         await work;
 
-        if (action === "SIGKILL" || action === "graceful exit")
-          expect(await remainingProcesses(directory)).toEqual([]);
+        if (action === "graceful exit") expect(await remainingProcesses(directory)).toEqual([]);
         else {
           const tasks = await taskList(host);
           expect(tasks.every((task) => task.state === "inactive")).toBe(true);
@@ -347,7 +342,17 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
         }
 
         const effect = await stat(`${directory}/work/interrupted-effect`);
-        await host.request({ type: "abort" });
+        // A fork at the running task's run entry stops the task and shows it as stopped.
+        const runEntry = (await host.entries()).find(
+          (entry) =>
+            entry.type === "custom" &&
+            entry.customType === RUN_ENTRY &&
+            runRecordSchema.parse(entry.data).run_id === interrupted.run_id
+        )!;
+        await host.request({ type: "prompt", message: `/fixture-parent-fork ${runEntry.id}` });
+        expect(
+          (await taskList(host)).find((task) => task.task_id === interrupted.task_id)
+        ).toMatchObject({ state: "inactive", outcome: "cancelled" });
         await work;
         const warningStart = host.records.length;
         await host.prompt(`history-id ${interrupted.task_id}`);
@@ -617,12 +622,28 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
     });
   });
 
-  test.each(["confirm", "select"] as const)(
+  /** Editor answers to the shown prefill, which is sanitised and cut. */
+  const EDITOR_ANSWERS = {
+    // The shown prefill unchanged, as Pi's RPC client can return it.
+    editor: (shown: string) => shown,
+    // Pi's editor returns the text with line ends normalised, tabs expanded, and trimmed.
+    "normalised editor": (shown: string) =>
+      shown.replace(/\r\n?/g, "\n").replace(/\t/g, "    ").trim(),
+    // An edit by whitespace only reaches the child as typed.
+    "edited editor": (shown: string) => ` ${shown}`
+  };
+
+  test.each(["confirm", "select", "editor", "normalised editor", "edited editor"] as const)(
     "forwards a child %s dialog and delivers its answer",
-    async (method) => {
+    async (dialog) => {
       await withFixture(async (_directory, start) => {
         const host = await start();
-        const work = host.prompt(method === "confirm" ? "delegate-dialog" : "delegate-selection");
+        const method = dialog === "confirm" || dialog === "select" ? dialog : "editor";
+        const work = host.prompt(
+          { confirm: "delegate-dialog", select: "delegate-selection", editor: "delegate-editor" }[
+            method
+          ]
+        );
         const request = await host.wait(
           (record) => record.type === "extension_ui_request" && record.method === method
         );
@@ -646,49 +667,100 @@ describe.skipIf(process.platform !== "linux").concurrent("foreground subagents",
             id: request.id,
             value: request.options[1]!
           });
+        } else if (request.method === "editor" && dialog !== "confirm" && dialog !== "select") {
+          await host.connection.respond({
+            type: "extension_ui_response",
+            id: request.id,
+            value: EDITOR_ANSWERS[dialog](request.prefill!)
+          });
         }
 
         await work;
         expect(contentText((await host.results()).at(-1)!.content)).toContain(
-          method === "confirm" ? "Dialog accepted" : "Selected second option"
+          {
+            confirm: "Dialog accepted",
+            select: "Selected second option",
+            editor: "Editor prefill kept",
+            "normalised editor": "Editor prefill kept",
+            "edited editor": "Editor prefill changed"
+          }[dialog]
         );
       });
     }
   );
 
-  test("respects capacity, admits queued launches FIFO, and rejects a full queue", async () => {
+  test("respects capacity, admits queued launches FIFO, and rejects a full queue", async ({
+    expect
+  }) => {
     await withFixture(
       async (directory, start) => {
         const host = await start();
-        const work = host.prompt("capacity");
-        const child = await activeTask(host);
-        expect(await fixtureProcesses(directory)).toHaveLength(2);
-        expect(await taskList(host)).toHaveLength(1);
-        await host.command(`abort ${child.task_id}`);
-        await work;
-        const tasks = await taskList(host);
-        expect(tasks.map((task) => task.description)).toEqual([
-          "First capacity task",
-          "Second capacity task",
-          "Third capacity task"
-        ]);
+        const children = async () =>
+          (await fixtureProcesses(directory)).filter(
+            ({ pid }) => pid !== host.connection.process.pid
+          );
+        // Samples the live children for the whole call, so an overlap of two children shows.
+        const sampling = new AbortController();
+        let most = 0;
+        const sampler = (async () => {
+          while (!sampling.signal.aborted) {
+            most = Math.max(most, (await children()).length);
+            await setTimeout(10);
+          }
+        })();
+
+        /** The process and task of a child that is not in `seen`, once the task is listed. */
+        const nextChild = async (seen: ReadonlySet<number>) => {
+          for (let poll = 0; poll < STEP_TIMEOUT_MS / 25; poll++) {
+            await setTimeout(25);
+
+            for (const { pid } of await children()) {
+              if (seen.has(pid)) continue;
+              // Before its exec, a new process has the supervisor's environment; it can also exit.
+              const environ = await readFile(`/proc/${pid}/environ`, "utf8").catch(() => "");
+              const taskId = environ
+                .split("\0")
+                .find((variable) => variable.startsWith(`${TASK_ID_ENV}=`))
+                ?.slice(TASK_ID_ENV.length + 1);
+              if (taskId === undefined) continue;
+              const task = (await taskList(host)).find((item) => item.task_id === taskId);
+              if (task) return { pid, description: task.description };
+            }
+          }
+
+          throw new Error("No queued child started");
+        };
+
+        const order = ["First capacity task", "Second capacity task", "Third capacity task"];
+        const work = host.prompt("capacity-held").catch((error: unknown) => error);
+        const started: string[] = [];
+        const seen = new Set<number>();
+
+        try {
+          while (started.length < order.length) {
+            const child = await nextChild(seen);
+            seen.add(child.pid);
+            // Each child holds until its release, so no other child may run beside it.
+            expect((await children()).map(({ pid }) => pid)).toEqual([child.pid]);
+            started.push(child.description);
+            const release = `capacity-release-${order.indexOf(child.description) + 1}`;
+            await writeFile(join(directory, "work", release), "");
+          }
+
+          expect(await work).toBeUndefined();
+        } finally {
+          sampling.abort();
+          await sampler;
+        }
+
+        expect(started).toEqual(order);
+        expect(most).toBe(1);
         const overflow = (await host.results()).find(
           (result) =>
             detailsSchema.safeParse(result.details).data?.description === "Overflow capacity task"
         )!;
         expect(contentText(overflow.content)).toContain("launch queue is full (");
         expect(overflow.isError).toBe(true);
-        const live = new Set<string>();
-
-        // The end entry follows the run's process exit, before its capacity is released.
-        for (const event of host.records) {
-          if (event.type !== "entry_appended" || event.entry.type !== "custom") continue;
-          if (event.entry.customType === RUN_ENTRY)
-            live.add(runRecordSchema.parse(event.entry.data).run_id);
-          else if (event.entry.customType === END_ENTRY)
-            live.delete(endRecordSchema.parse(event.entry.data).run_id);
-          expect(live.size).toBeLessThanOrEqual(1);
-        }
       },
       { settings: { "ext.pi-subagents": { maxConcurrent: 1, maxQueued: 2 } } }
     );

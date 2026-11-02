@@ -10,8 +10,7 @@ import { z } from "zod";
 
 import { resultDetailsSchema } from "../src/background-result.ts";
 import { LATE_USAGE_KIND, RESULT_MESSAGE, RUN_ENTRY, TASKS_MESSAGE } from "../src/constants.ts";
-import { jobDetailsSchema } from "../src/jobs/records.ts";
-import { detailsSchema } from "../src/result.ts";
+import { detailsSchema, jobDetailsSchema } from "../src/details.ts";
 import { runRecordSchema } from "../src/tasks/records.ts";
 import {
   expectChildUsageOnce,

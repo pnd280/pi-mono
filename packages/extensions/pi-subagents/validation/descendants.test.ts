@@ -8,7 +8,7 @@ import { expect, test as caseTest, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { DEPTH_ENV, RESULT_MESSAGE, RUN_ENTRY, TASK_ID_ENV } from "../src/constants.ts";
-import { detailsSchema } from "../src/result.ts";
+import { detailsSchema } from "../src/details.ts";
 import { runRecordSchema } from "../src/tasks/records.ts";
 import {
   descendantStarted,
@@ -316,12 +316,32 @@ test("routes promotion to the owner and frees subtree capacity for queued top-le
   expect
 }) => {
   await fixture(
-    async (host) => {
+    async (host, directory) => {
       const initial = host.reply("nested-foreground");
       await descendantStarted(host, expect);
       const tasks = await taskList(host);
       const [child, grandchild] = tasks;
       expect(tasks).toHaveLength(2);
+      // Another supervisor cannot promote or abort the descendant.
+      const other = await Supervisor.start(directory);
+
+      try {
+        for (const command of ["background", "abort"]) {
+          const notice = await other.command(`${command} ${grandchild!.task_id}`);
+          expect(notice.notifyType).toBe("error");
+          expect(JSON.parse(notice.message)).toEqual({
+            error: "Task does not belong to this session"
+          });
+        }
+      } finally {
+        await other.stop();
+      }
+
+      expect((await taskList(host))[1]).toMatchObject({
+        task_id: grandchild!.task_id,
+        state: "active",
+        background: false
+      });
       expect((await host.command(`background ${grandchild!.task_id}`)).notifyType).toBe("info");
       expect((await taskList(host))[1]).toMatchObject({
         task_id: grandchild!.task_id,

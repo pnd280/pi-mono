@@ -7,7 +7,7 @@ import { test as caseTest } from "vite-plus/test";
 import { z } from "zod";
 
 import { END_ENTRY, RESULT_MESSAGE } from "../src/constants.ts";
-import { detailsSchema } from "../src/result.ts";
+import { detailsSchema } from "../src/details.ts";
 import { taskList, withFixture } from "./background-fixture.ts";
 import { fixtureProcesses } from "./processes.ts";
 

@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import type { ChildMessage, ControlRequest } from "../coordination/protocol.ts";
-import { detailsUsage, type ToolDetails } from "../result.ts";
+import type { ToolDetails } from "../details.ts";
+import { detailsUsage } from "../result.ts";
 import type { TaskRecord } from "./records.ts";
 import type { Run } from "./run.ts";
 

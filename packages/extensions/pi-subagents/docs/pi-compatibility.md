@@ -119,9 +119,10 @@ The before-change hooks invalidate old bindings before teardown. When Pi emits n
 - [ ] On reload, Pi rebuilds the chat before `session_start`, and the tools registered at load supply the cards of replayed calls.
 - [ ] RPC `select`, `confirm`, `input`, and `editor` requests and replies still map to `ctx.ui`.
 - [ ] Supported dialog timeouts pass through RPC.
+- [ ] `ctx.ui.editor` still takes no abort signal, and the interactive editor still expands tabs, normalises line ends, and trims the text that it returns.
 - [ ] The exported terminal components, theme tokens, and truncation helpers retain their contracts.
 
-These `--tools` contracts set the registration rule in [boundaries](../AGENTS.md#boundaries): a later registration runs only when the session's docs, delivery text, or exposure changed. Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so an unchanged registration must be skipped. Fire-and-forget child UI is dropped.
+These `--tools` contracts set the registration rule in [boundaries](../AGENTS.md#boundaries): a later registration runs only when the session's docs, delivery text, or exposure changed. Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so an unchanged registration must be skipped. Fire-and-forget child UI is dropped. Because `ctx.ui.editor` takes no signal, a forwarded editor stays open after its run is cancelled, and `editorText` in the [dialog forwarder](../src/child/dialogs.ts) copies the editor's whitespace changes to detect an unchanged prefill; when Pi adds an editor signal, pass it and close the editor on cancellation.
 
 A child adds its [result instructions](children.md#result-instructions) as a prompt part at rank `300`. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns the `before_agent_start` append checks.
 

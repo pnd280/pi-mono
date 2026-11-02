@@ -1,6 +1,6 @@
 import { keyHint, type Theme, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { MouseRegion, truncateToWidth, type Component } from "@earendil-works/pi-tui";
-import { formatDuration } from "@pi-mono/libs/tui/duration";
+import { formatDuration, formatRunningDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { displayLine, wrapRows } from "@pi-mono/libs/tui/text-budget";
@@ -8,7 +8,7 @@ import { formatTokenCount } from "@pi-mono/libs/tui/token-count";
 import { parseTaskEnvelope } from "@pi-mono/utils/task-envelope";
 import { z } from "zod";
 
-import { detailsSchema, type ToolDetails } from "../result.ts";
+import { detailsSchema, type ToolDetails } from "../details.ts";
 
 /** The task or job that a click on a card opens. */
 export type CardState = { id?: string | undefined; bindingId?: string | undefined };
@@ -78,10 +78,9 @@ const SHORT_ID = 8;
 
 /** A recorded duration, or a running timer in whole seconds while `endedAt` is null. */
 export function elapsed(startedAt: number, endedAt: number | null): string {
-  if (endedAt !== null) return formatDuration(endedAt - startedAt);
-  const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-
-  return seconds ? formatDuration(seconds * 1000) : "0s";
+  return endedAt === null
+    ? formatRunningDuration(Date.now() - startedAt)
+    : formatDuration(endedAt - startedAt);
 }
 
 /** An ID as a collapsed card shows it; the cut must save more than the ellipsis. */
@@ -150,16 +149,16 @@ function taskStatus(details: ToolDetails, time: string): Pick<Facts, "status" | 
     return {
       status:
         details.state === "queued"
-          ? "↗ returned; task waits for capacity in background"
-          : "↗ returned; task continues in background",
+          ? `${TUI_GLYPHS.returned.background} returned; task waits for capacity in background`
+          : `${TUI_GLYPHS.returned.background} returned; task continues in background`,
       color: "accent"
     };
   if (details.returned === "input")
     return {
       status:
         details.delivery === "steer"
-          ? "↪ steered the running task"
-          : "↪ input queued for the running task",
+          ? `${TUI_GLYPHS.returned.input} steered the running task`
+          : `${TUI_GLYPHS.returned.input} input queued for the running task`,
       color: "accent"
     };
   if (details.state === "queued")

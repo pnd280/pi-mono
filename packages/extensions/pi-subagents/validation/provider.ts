@@ -50,6 +50,12 @@ const RUN_HELD = "run-held";
 /** A `background-idle` supervisor creates this file after its final turn for its child. */
 const IDLE_RELEASE = "idle-release";
 
+/** An editor prefill that the supervisor shows sanitised and cut: tabs, CRLF, and over 2,000 lines. */
+const EDITOR_PREFILL = Array.from(
+  { length: 2001 },
+  (_, index) => `\tLine ${index}\u001b[31m red\u001b[0m`
+).join("\r\n");
+
 /** More stderr output than the 16 KiB and 20 edge lines that a supervisor keeps. */
 const STDERR_NOISE = `${"fixture stderr noise ".repeat(30)}\n`.repeat(30);
 
@@ -302,6 +308,7 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
     ["delegate-remember", "remember"],
     ["delegate-dialog", "dialog"],
     ["delegate-selection", "selection"],
+    ["delegate-editor", "editor"],
     ["delegate-trust", "report-trust"],
     ["delegate-tools", "report-tools"],
     ["delegate-job", "job-group-hold"],
@@ -331,6 +338,14 @@ function supervisorPlan(scenario: string, completed = 0): Call[] | undefined {
       { description: "First capacity task", prompt: "slow" },
       { description: "Second capacity task", prompt: "reply" },
       { description: "Third capacity task", prompt: "reply" },
+      { description: "Overflow capacity task", prompt: "reply" }
+    ];
+  // Each child holds until the test creates its `capacity-release-<n>`.
+  if (scenario === "capacity-held")
+    return [
+      { description: "First capacity task", prompt: "capacity-hold-1" },
+      { description: "Second capacity task", prompt: "capacity-hold-2" },
+      { description: "Third capacity task", prompt: "capacity-hold-3" },
       { description: "Overflow capacity task", prompt: "reply" }
     ];
   const resumed = /^resume-id ([0-9a-f-]{36})$/.exec(scenario)?.[1];
@@ -374,9 +389,12 @@ async function holdToolTurn(
 
 /**
  * Keeps a child running: `finite` briefly; `finite-idle` also until `idle-release`;
- * `finite-late` and `input-hold` until `run-release`.
+ * `finite-late` and `input-hold` until `run-release`; `capacity-hold-<n>` until
+ * `capacity-release-<n>`.
  */
 async function holdChildReply(scenario: string, signal: AbortSignal | undefined): Promise<void> {
+  const held = /^capacity-hold-(\d)$/.exec(scenario)?.[1];
+  if (held) await runRelease(signal, `capacity-release-${held}`);
   if (["finite", "finite-idle"].includes(scenario)) await setTimeout(1500, undefined, { signal });
   // The result reaches the supervisor only after its final turn, so that turn cannot take it.
   if (scenario === "finite-idle") await runRelease(signal, IDLE_RELEASE);
@@ -491,6 +509,7 @@ function plainResponse(
 
   if (scenario === "dialog") return answer ? "Dialog accepted" : "Dialog declined";
   if (scenario === "selection") return answer ? "Selected second option" : "Selected wrong option";
+  if (scenario === "editor") return answer ? "Editor prefill kept" : "Editor prefill changed";
   if (scenario === "report-trust")
     return JSON.stringify({
       approve: process.argv.includes("--approve"),
@@ -839,6 +858,8 @@ export default async function subagentsFixture(pi: ExtensionAPI): Promise<void> 
       answer =
         (await ctx.ui.select("Fixture selection", ["Same", "\u001b[31mSame\u001b[0m"])) ===
         "\u001b[31mSame\u001b[0m";
+    if (prompt === "editor")
+      answer = (await ctx.ui.editor("Fixture editor", EDITOR_PREFILL)) === EDITOR_PREFILL;
 
     return { systemPrompt: `${event.systemPrompt}\nSUBAGENTS_PREPARED_CONTEXT` };
   });

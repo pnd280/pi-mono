@@ -34,9 +34,9 @@ A child supervisor writes the failed stops of its own tasks and jobs to stderr b
 
 ## Immediate stop
 
-Navigation and foreground abort use a separate immediate path. Unix stops the live owned tree during process discovery, then sends SIGKILL to its groups and descendants; Windows uses forced tree termination.
+Navigation and foreground abort use a separate immediate path. Unix stops the live owned tree during process discovery, then sends SIGKILL to its groups and descendants; Windows uses forced tree termination, and starts no second `taskkill` while one runs.
 
-In both paths, capacity remains reserved until process exit is observed, and on Linux and macOS, until any forced stop of the child's process group ends.
+In both paths, capacity remains reserved until process exit is observed and any forced stop ends: on Linux and macOS, the stop of the child's process group; on Windows, `taskkill`. When a forced stop fails while the child still runs, the child keeps its capacity slot until it exits.
 
 ## Supervisor hard exit
 

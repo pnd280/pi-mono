@@ -11,8 +11,8 @@ import {
   type SlotReply
 } from "../coordination/protocol.ts";
 import { Relay } from "../coordination/relay.ts";
+import type { ToolDetails } from "../details.ts";
 import type { RunConnection } from "../history/reader.ts";
-import type { ToolDetails } from "../result.ts";
 import type { TaskRecord } from "./records.ts";
 import { Route, type Cancelled } from "./route.ts";
 import {

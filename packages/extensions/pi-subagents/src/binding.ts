@@ -1,4 +1,5 @@
 import type { ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 import type { SubagentsConfig } from "./config.ts";
 import type { Delivery } from "./delivery.ts";
@@ -32,7 +33,7 @@ export type BindingSession = {
 };
 
 /** The tasks, jobs, and views of a binding, until a session change stops the tasks. */
-export type Bound = {
+type Bound = {
   readonly tasks: Tasks;
   readonly jobs: Jobs;
   readonly reader: RunReader;
@@ -202,11 +203,7 @@ export class SessionBinding {
     const failures = stopped.flatMap((result): unknown[] =>
       result.status === "rejected" ? [result.reason] : []
     );
-    if (failures.length)
-      throw new AggregateError(
-        failures,
-        failures.map((error) => (error instanceof Error ? error.message : String(error))).join("; ")
-      );
+    if (failures.length) throw new AggregateError(failures, failures.map(errorMessage).join("; "));
   }
 
   private async openTasks(opened: Opened): Promise<Bound> {
@@ -217,7 +214,7 @@ export class SessionBinding {
         if (this.isCurrent(tasks)) session.append(type, data);
       },
       warn: (message) => {
-        if (this.isCurrent(tasks)) session.warn(message);
+        if (this.isCurrent(tasks)) session.warn(`pi-subagents: ${message}`);
       }
     });
     const reader = new RunReader(tasks);

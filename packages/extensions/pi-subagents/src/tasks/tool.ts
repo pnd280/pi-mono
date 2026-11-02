@@ -6,7 +6,8 @@ import type {
 import { formatTaskEnvelope } from "@pi-mono/utils/task-envelope";
 
 import { forwardDialog } from "../child/dialogs.ts";
-import { taskResult, type ToolDetails } from "../result.ts";
+import type { ToolDetails } from "../details.ts";
+import { taskResult } from "../result.ts";
 import { INTERRUPTED_WARNING, type Submission, type Tasks } from "./registry.ts";
 import { createRenderers, type CardState } from "./render.ts";
 import {

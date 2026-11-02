@@ -12,6 +12,7 @@ import {
   type SessionStats
 } from "@earendil-works/pi-coding-agent";
 import { compactDisplayText } from "@pi-mono/libs/tui/terminal-text";
+import { errorMessage } from "@pi-mono/utils/errors";
 
 import {
   DEPTH_ENV,
@@ -85,7 +86,7 @@ type ChildSelection = {
   sessionFile?: string;
 };
 
-export type ChildOptions = ChildSelection & {
+type ChildOptions = ChildSelection & {
   invocation: PiInvocation;
   cwd: string;
   env?: NodeJS.ProcessEnv;
@@ -239,7 +240,11 @@ export class ChildRun {
       this.cancellation ??= reason;
       this.closing = true;
       clearTimeout(this.stopTimer);
-      terminateTree(this.connection.process, (error) => this.stopFailed("terminate_tree", error));
+      const stop = () =>
+        terminateTree(this.connection.process, (error) => this.stopFailed("terminate_tree", error));
+      // Unix stops the tree at once. On Windows, a pending `taskkill` of the tree is already this stop.
+      if (process.platform === "win32") this.forced ??= stop();
+      else void stop();
     }
 
     return this.done;
@@ -575,7 +580,7 @@ export class ChildRun {
     if (this.finished || this.failure || this.cancellation !== undefined) return;
     this.failure = {
       step: this.step,
-      message: error instanceof Error ? error.message : String(error)
+      message: errorMessage(error)
     };
     this.stop();
   }
