@@ -1,6 +1,7 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import type { ReactNode } from "react";
 
 import { extensionCount } from "#/extensions.ts";
 
@@ -49,7 +50,7 @@ export const Route = createRootRoute({
   shellComponent: RootDocument
 });
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -63,7 +64,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           }}
           plugins={[
             {
-              name: "Tanstack Router",
+              name: "TanStack Router",
               render: <TanStackRouterDevtoolsPanel />
             }
           ]}

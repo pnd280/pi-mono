@@ -8,4 +8,4 @@ The page shares its look with the [README hero](../../docs/assets/hero.html). `s
 
 ## Routes
 
-The dev server and the build regenerate `src/routeTree.gen.ts` from the files in `src/routes/`. Commit the regenerated file with route changes, because type checks import it. To regenerate it without a build, run `vpr '@pi-mono/website#generate-routes'`.
+The dev server and the build regenerate `src/routeTree.gen.ts` from the files in `src/routes/`. Commit the regenerated file with route changes, because type checks import it. Regenerate it with `vpr '@pi-mono/website#build'`; the TanStack Router CLI (`tsr generate`) omits the `@tanstack/react-start` type registration that the Start plugin adds.
