@@ -57,23 +57,26 @@ it("saves the active branch with a new header, preserving entries and context", 
   expect(source.getSessionFile()).toBeUndefined();
 });
 
-it.each(["Renamed session", ""])(
-  "preserves the current session-wide name after navigating away from its metadata: %s",
+it.each(["Renamed", ""])(
+  "preserves the current session-wide name and labels after navigating away from their metadata: %s",
   (name) => {
     const source = SessionManager.inMemory(cwd);
     source.appendSessionInfo("Old title");
     const selected = source.appendMessage(user("selected"));
+    const labelled = source.appendLabelChange(selected, "Old label");
     source.appendMessage(user("abandoned"));
     source.appendSessionInfo(name);
-    source.branch(selected);
+    source.appendLabelChange(selected, name);
+    source.branch(labelled);
     const branch = structuredClone(source.getBranch());
     const entries = structuredClone(source.getEntries());
 
     const saved = SessionManager.open(saveActiveBranch(cwd, source));
 
     expect(saved.getSessionName()).toBe(name || undefined);
+    expect(saved.getLabel(selected)).toBe(name || undefined);
     expect(saved.getEntries().slice(0, branch.length)).toEqual(branch);
-    expect(saved.getBranch().at(-1)?.parentId).toBe(selected);
+    expect(saved.getBranch()[branch.length]?.parentId).toBe(labelled);
     expect(userContent(saved)).toEqual(["selected"]);
     expect(source.getEntries()).toEqual(entries);
     expect(source.getBranch()).toEqual(branch);

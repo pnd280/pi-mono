@@ -21,7 +21,8 @@ Session replacement must preserve saved data and parent links while giving namin
 - [ ] `getBranch()` keeps the order of the active path.
 - [ ] Pi can reopen the resulting JSONL and keep appending to it.
 - [ ] `getSessionName()` reads the latest session-wide metadata, including an explicit clear, regardless of the active branch.
-- [ ] The saved snapshot keeps that name and any existing `parentSession`.
+- [ ] `getLabel()` reads the latest label of an entry, including an explicit clear, regardless of the active branch.
+- [ ] The saved snapshot keeps that name, those labels, and any existing `parentSession`.
 
 ### Commands
 
@@ -107,7 +108,7 @@ In Pi 1.4.0, in-memory session managers don't remember a custom directory. [Sess
 
 ### Copying JSONL
 
-If Pi adds a public API to save in-memory sessions, use it instead of copying JSONL. Keep the branch state, the current session-wide name, lineage, and cleanup after a cancelled switch.
+If Pi adds a public API to save in-memory sessions, use it instead of copying JSONL. Keep the branch state, the current session-wide name and labels, lineage, and cleanup after a cancelled switch.
 
 ### Cancellation
 
