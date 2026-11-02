@@ -17,9 +17,9 @@ The [replacement table](src/prompt-rewrites.ts) lists the current rewrites. No c
 
 ## Side effects
 
-The extension changes only the request that Pi sends. It does not rewrite saved sessions or credentials. In Pi 1.4.0, a complete `systemPrompt` override from another extension takes precedence over the rewrites.
+The extension changes only the prompt wording of the request that Pi sends. It does not rewrite saved sessions or credentials. In Pi 1.4.0, a complete `systemPrompt` override from another extension takes precedence over the rewrites.
 
-The extension changes prompt wording only. Whether Anthropic accepts the rewritten prompt is not verified with live requests.
+No live request has verified that Anthropic accepts the rewritten prompt.
 
 ## Validation
 

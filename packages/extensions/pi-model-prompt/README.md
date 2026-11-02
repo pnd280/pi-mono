@@ -27,7 +27,12 @@ pi-model-prompt adds the files of the first matching rule that sets `append` aft
 
 ## Configuration
 
-pi-model-prompt reads only the global settings and ignores project settings. Each rule has a `match` regular expression, tested against `provider/modelId`, and an `append` list of file paths. Relative paths resolve against the settings file's directory. Run `/reload` after you edit settings or files. An SDK host that sets a custom agent directory must also set `PI_CODING_AGENT_DIR` to it, because the extension reads settings from `PI_CODING_AGENT_DIR` or `~/.pi/agent`.
+Each rule has a `match` regular expression, tested against `provider/modelId`, and an `append` list of file paths.
+
+- pi-model-prompt reads only the global settings and ignores project settings.
+- Relative paths resolve against the settings file's directory.
+- Run `/reload` after you edit settings or files.
+- The extension reads settings from `PI_CODING_AGENT_DIR` or `~/.pi/agent`. An SDK host that sets a custom agent directory must also set `PI_CODING_AGENT_DIR` to it.
 
 | When you…                                                                  | Read                                                                     |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |

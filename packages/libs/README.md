@@ -53,4 +53,4 @@ Each library has its own effects; none makes network requests.
 
 ## Validation
 
-The [coverage specification](docs/testing.md) lists what is tested here.
+The [test coverage](docs/testing.md) lists the invariants that must not regress.

@@ -2,7 +2,7 @@
 
 [pi-subagents](../README.md) · [Glossary](../GLOSSARY.md)
 
-The `/subagents` command lists, inspects, and controls tasks and [jobs](jobs.md). In TUI and RPC modes, commands produce one JSON notification outside model context. Print and JSON modes show no notifications, so commands there return nothing. RPC clients send slash commands through `prompt`, including while the supervisor is working. Errors return `{ "error": "…" }`.
+The `/subagents` command lists, inspects, and controls tasks and [jobs](jobs.md). In TUI and RPC modes, each command except the TUI task panel produces one JSON notification outside model context. Print and JSON modes show no notifications, so commands there return nothing. RPC clients send slash commands through `prompt`, including while the supervisor is working. Errors return `{ "error": "…" }`.
 
 | Command                                                      | Result                                                                                                                  |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |

@@ -20,9 +20,19 @@ A bug fix alone does not warrant a new test. If the fixed behaviour is not liste
 
 ### Severity
 
-Critical severity covers loss or corruption of user or session data; credentials or secrets sent or shown to the wrong destination; bypass of a trust or security boundary, such as untrusted project settings, path escape, symlinks, or file ownership; an irreversible or destructive action.
+Critical severity covers:
 
-High severity covers a silent wrong result that the user or model is unlikely to notice, such as wrong model context, lost input, or wrong saved facts; ignored cancellation or abort; a broken Pi startup or session; state or resources leaking across sessions.
+- loss or corruption of user or session data
+- credentials or secrets sent or shown to the wrong destination
+- bypass of a trust or security boundary, such as untrusted project settings, path escape, symlinks, or file ownership
+- an irreversible or destructive action
+
+High severity covers:
+
+- a silent wrong result that the user or model is unlikely to notice, such as wrong model context, lost input, or wrong saved facts
+- ignored cancellation or abort
+- a broken Pi startup or session
+- state or resources leaking across sessions
 
 Layout, wording, colours, glyphs, UI ordering, cosmetic limits, and convenience behaviour are below the bar. Verify them with manual checks.
 

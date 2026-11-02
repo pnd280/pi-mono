@@ -71,7 +71,7 @@ pi-profiles refuses a switch while the agent runs, and does not apply a profile 
 
 ### Tools
 
-A profile declares the tools in `allow`, or else the base tools: the tools that are declared without a profile. pi-profiles keeps the `deny` tools off, and stops declaring `defer` tools that the branch has not used and that `tool_search` can load again.
+Declared tools are the tools that Pi sends to the model with each request. A profile declares the tools in `allow`, or else the base tools: the tools that are declared without a profile. pi-profiles keeps the `deny` tools off, and stops declaring `defer` tools that the branch has not used and that `tool_search` can load again.
 
 This profile defers the GitHub MCP tools that the branch has not used, so the model loads them with `tool_search` when it needs them, and keeps `bash` off:
 

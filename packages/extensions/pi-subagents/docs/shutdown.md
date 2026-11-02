@@ -6,7 +6,7 @@ A [child](../GLOSSARY.md#tasks-and-processes) stops after completion, cancellati
 
 ## Graceful stop
 
-Completion closes child stdin; cancellation also clears queued input and requests abort. On explicit task cancellation, the supervisor reads the final usage before it closes stdin. It does not wait for blocked settle handlers.
+Completion closes child stdin; cancellation also clears queued input and requests abort. On explicit task cancellation, the supervisor reads the final usage before it closes stdin. It does not wait for blocked settle handlers. After a cancelled child exits, an active supervisor records the task's cancellation; for what the viewer then shows, see the [task viewer](interface.md#task-viewer).
 
 Cancellation, the usage read, and shutdown share the same grace period. The grace period is 5 seconds plus 7 seconds per possible remaining descendant level, bounded by `maxDepth` and `maxConcurrent`. With default limits, children receive 12 seconds and grandchildren 5 seconds.
 
@@ -34,7 +34,7 @@ A child supervisor writes the failed stops of its own tasks and jobs to stderr b
 
 ## Immediate stop
 
-Navigation and foreground abort use a separate immediate path. Unix stops the live owned tree during process discovery, then sends SIGKILL to its groups and descendants; Windows uses forced tree termination, and starts no second `taskkill` while one runs.
+Navigation and foreground abort use a separate immediate path. On Unix, the supervisor sends SIGSTOP to the child's process group and to each descendant as it discovers it, so that a stopped parent cannot start another child. It then sends SIGKILL to the collected groups and descendants. Windows uses forced tree termination, and starts no second `taskkill` while one runs.
 
 In both paths, capacity remains reserved until process exit is observed and any forced stop ends: on Linux and macOS, the stop of the child's process group; on Windows, `taskkill`. When a forced stop fails while the child still runs, the child keeps its capacity slot until it exits.
 
@@ -42,7 +42,7 @@ In both paths, capacity remains reserved until process exit is observed and any 
 
 When Pi exits without a session shutdown, for example on some terminal-loss or fatal-error paths, pi-subagents attempts a best-effort stop of its owned jobs, which cannot wait for termination or log writes. See [job process cleanup](jobs.md#process-cleanup) and [job limits](jobs.md#limits).
 
-Design: [ADR 0007](adr/0007-own-job-processes-and-bound-logs.md).
+The decision is in [ADR 0007](adr/0007-own-job-processes-and-bound-logs.md).
 
 ## Limits
 
@@ -52,4 +52,3 @@ Design: [ADR 0007](adr/0007-own-job-processes-and-bound-logs.md).
 - After the child exits, only the remaining members of its process group keep the group's number. If they all exit between a check and the next signal, and the system gives the number to a new group, that signal reaches the new group. Node.js has no process-group handle that prevents this.
 - On Windows, the supervisor stops no process after the child's own exit; a process that holds the child's output pipes then delays the run's result until it exits.
 - On Windows, `taskkill /T` finds descendants through their parent process, so a descendant whose parent already exited is not stopped.
-- After a cancelled child exits, an active supervisor records the task's cancellation. The viewer retains saved tool results and reported response errors; other unfinished calls show "Interrupted" after any partial output. It does not invent an execution result or a duration.

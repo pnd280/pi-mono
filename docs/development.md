@@ -14,7 +14,9 @@ The pre-commit hook rejects em dashes (U+2014) in staged text outside `.agents/s
 
 ## Code and tooling
 
-Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts). Lint warnings fail checks. Packages extend the compiler options in [tsconfig.base.json](../tsconfig.base.json); the root [tsconfig.json](../tsconfig.json) applies them to `.scripts/`, the pi-update scripts, and `vite.config.ts`. Tests follow the [runner convention](agents/testing.md#runner).
+Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts). Lint warnings fail checks. Tests follow the [runner convention](agents/testing.md#runner).
+
+Packages extend the compiler options in [tsconfig.base.json](../tsconfig.base.json). The root [tsconfig.json](../tsconfig.json) applies them to `.scripts/`, the pi-update scripts, and `vite.config.ts`.
 
 Fix implementation diagnostics without weakening shared checks; explain narrow exceptions.
 
@@ -54,7 +56,7 @@ Use `vpr check` for the repository's `stylish` lint format; the built-in `vp che
 
 ### Test caching
 
-Package tests are uncached by default. If investigating cache misses, run `vpr -r --cache test` twice and inspect `vp run --last-details`. Mutable workspace fixtures can invalidate cache inputs; see [filesystem fixtures](agents/testing.md#filesystem-fixtures).
+Package tests are uncached by default. To investigate cache misses, run `vpr -r --cache test` twice and inspect `vp run --last-details`. Mutable workspace fixtures can invalidate cache inputs; see [filesystem fixtures](agents/testing.md#filesystem-fixtures).
 
 ## Packages and dependencies
 
@@ -68,7 +70,13 @@ Keep runtime code independent of package-local `validation/` fixtures. Across pa
 
 Keep shared development tooling and Pi host packages in root `devDependencies`; declare package-specific dependencies locally. Use `workspace:*` for local packages and `catalog:` for external versions in [pnpm-workspace.yaml](../pnpm-workspace.yaml). Pi `peerDependencies` use `catalog:pi-host` to retain host-supplied versions independently of development versions.
 
-Runtime code can import only the host entry points that Pi supplies to installed extensions: the `@earendil-works/pi-ai` root, `/compat`, `/models`, `/oauth`, and `/providers/all`; the roots of `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`, and `@earendil-works/pi-coding-agent`; and `typebox` with `/compile` and `/value`. Inside the workspace, other subpaths resolve to the development copy in `node_modules`, so lint rejects value imports of them in runtime code. Type imports are allowed, because TypeScript removes them before Pi runs the code. Worker files get none of these entry points, because Node loads them without Pi's loader, so lint rejects value imports of them in the worker entries that `vite.config.ts` lists. Lint does not follow the modules that a worker entry imports; the [release check](#release-branch) finds those failures.
+Runtime code can import only the host entry points that Pi supplies to installed extensions:
+
+- the `@earendil-works/pi-ai` root, `/compat`, `/models`, `/oauth`, and `/providers/all`
+- the roots of `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`, and `@earendil-works/pi-coding-agent`
+- `typebox` with `/compile` and `/value`
+
+Inside the workspace, other subpaths resolve to the development copy in `node_modules`, so lint rejects value imports of them in runtime code. Type imports are allowed, because TypeScript removes them before Pi runs the code. Worker files get none of these entry points, because Node loads them without Pi's loader, so lint rejects value imports of them in the worker entries that `vite.config.ts` lists. Lint does not follow the modules that a worker entry imports; the [release check](#release-branch) finds those failures.
 
 Use `vp add --save-catalog`, `vp remove`, or `vp update`; include pnpm lockfile changes.
 
@@ -88,11 +96,21 @@ Set `pi.extensions` to `["./index.ts"]`; include the wrapper in `tsconfig.json` 
 
 ### Release branch
 
-Users [install](../README.md#install) the generated `release` branch. Pull requests run [check.yml](../.github/workflows/check.yml). On each push to `master`, [release.yml](../.github/workflows/release.yml) runs the same checks first. When they pass, its `release` job builds the tree with [build-release.ts](../.scripts/build-release.ts) and commits it to `release` when the tree changed. Workflow runs can reach the `release` job out of order, so the job publishes only when its commit is still the head of `master`. The job's concurrency group keeps all pending jobs (`queue: max`), so a late older run cannot cancel the pending job for the current commit. The job never force-pushes, so commits that users installed stay available. In a fork, the `release` job does not run, so forks do not publish a `release` branch or tags.
+Users [install](../README.md#install) the generated `release` branch. Pull requests run [check.yml](../.github/workflows/check.yml). On each push to `master`, [release.yml](../.github/workflows/release.yml) runs the same checks first. When they pass, its `release` job builds the tree with [build-release.ts](../.scripts/build-release.ts) and commits it to `release` when the tree changed.
+
+- Workflow runs can reach the `release` job out of order, so the job publishes only when its commit is still the head of `master`.
+- The job's concurrency group keeps all pending jobs (`queue: max`), so a late older run cannot cancel the pending job for the current commit.
+- The job never force-pushes, so commits that users installed stay available.
+- In a fork, the `release` job does not run, so forks do not publish a `release` branch or tags.
 
 To release a version, raise `version` in the root `package.json`. The job tags the first `release` commit that has a version `v<version>`, if that tag does not exist yet. Tags never move, so a tag always names the same build. A push without a version change moves only the branch.
 
-The build includes every package under `packages/` and `packages/extensions/`, so a new extension needs no release change. `pnpm pack` replaces the `workspace:` and `catalog:` specifiers, which npm rejects. The build removes tests, `validation/` fixtures, `AGENTS.md`, `tsconfig.json`, scripts, and development dependencies. Then it installs a copy outside the workspace with Pi's npm command and starts the Pi CLI with every extension and an offline model. An extension that fails to load fails the job. The offline model also starts both worker threads from the installed copy, because this startup-only print run would not otherwise start them, and it fails the job when one does not answer.
+The build includes every package under `packages/` and `packages/extensions/`, so a new extension needs no release change. It runs these steps:
+
+1. Pack each package with `pnpm pack`, which replaces the `workspace:` and `catalog:` specifiers that npm rejects.
+2. Remove tests, `validation/` fixtures, `AGENTS.md`, `tsconfig.json`, scripts, and development dependencies.
+3. Install a copy outside the workspace with Pi's npm command.
+4. Start the Pi CLI with every extension and an offline model. An extension that fails to load fails the job. The offline model also starts both worker threads from the installed copy, because this startup-only print run would not otherwise start them, and it fails the job when one does not answer.
 
 Must not regress ([testing policy](agents/testing.md#coverage)):
 

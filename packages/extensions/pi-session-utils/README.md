@@ -19,11 +19,9 @@ In a conversation started with `pi --no-session`, wait until the agent is idle, 
 
 To name a session by hand, use Pi's native `/name My session`.
 
-An _ephemeral_ session is one that isn't saved to a file, such as one started with `--no-session`.
-
 ### Session operations
 
-`persist` copies the active branch of an ephemeral session into a new file, with a new session ID, and switches to it. `create-empty-child` switches to an empty session that records the current saved session as its parent; for an ephemeral session, run `persist` first. Both commands work only while the agent is idle. If it's busy they fail straight away instead of queueing.
+An _ephemeral_ session is one that isn't saved to a file, such as one started with `--no-session`. `persist` copies the active branch of an ephemeral session into a new file, with a new session ID, and switches to it. `create-empty-child` switches to an empty session that records the current saved session as its parent; for an ephemeral session, run `persist` first. Both commands work only while the agent is idle. If it's busy they fail straight away instead of queueing.
 
 ### Automatic session names
 
@@ -52,7 +50,7 @@ The child starts empty, in the launch directory. With `--no-session` the child i
 
 ## Configuration
 
-To turn on naming, add `auto-title` under an `ext.pi-session-utils` key in global or trusted project [settings.json](https://pi.dev/docs/latest/settings), naming a model available in Pi:
+To turn on naming, add `auto-title` under an `ext.pi-session-utils` key in Pi's [settings.json](https://pi.dev/docs/latest/settings), naming a model available in Pi:
 
 ```json
 {

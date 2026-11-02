@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests the trust boundary for project settings, what a switch declares and appends, `*` patterns, deferral and groups, `deny` against later tool changes, restoration on each branch, and where `--profile` and the default profile apply, and Pi owns model and thinking persistence, tool restoration from the transcript, and project-trust resolution.
+This package tests the trust boundary for project settings, what a switch declares and appends, `*` patterns, deferral and groups, `deny` against later tool changes, restoration on each branch, and where `--profile` and the default profile apply. Pi owns model and thinking persistence, tool restoration from the transcript, and project-trust resolution.
 
 ## Must not regress
 

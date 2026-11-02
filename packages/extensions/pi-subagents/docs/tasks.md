@@ -20,7 +20,10 @@ A resume continues the task's latest run on the selected ancestry. For what the 
 
 Omit `model` and `thinking` to use the supervisor's current selection for a new task. A model override uses `provider/id`; Pi resolves it and the provider validates availability.
 
-The child resolves the model with the extensions that it loads itself; see [what a child inherits](children.md#what-a-child-inherits). A [virtual model](https://pi.dev/docs/latest/virtual-models), or another model that an extension registers, is available to a child only when the child's settings load that extension. This also applies when the supervisor's current selection is a virtual model. A model from the supervisor's `-e` or from SDK code is not available: an unknown provider, such as `router/auto`, fails the launch, and an ID under a known provider, such as `openai-codex/auto`, can reach that provider as an unlisted model ID.
+The child resolves the model with the extensions that it loads itself; see [what a child inherits](children.md#what-a-child-inherits). A [virtual model](https://pi.dev/docs/latest/virtual-models), or another model that an extension registers, is available to a child only when the child's settings load that extension. This also applies when the supervisor's current selection is a virtual model. A model from the supervisor's `-e` or from SDK code is not available to the child:
+
+- An unknown provider, such as `router/auto`, fails the launch.
+- An ID under a known provider, such as `openai-codex/auto`, can reach that provider as an unlisted model ID.
 
 On resume, each omitted value repeats the value that the task's latest run requested, so later changes to the supervisor's selection do not apply. For example, a run that requested `high` on a model without thinking levels applies `off`, and a resume that selects a reasoning model requests `high` again.
 

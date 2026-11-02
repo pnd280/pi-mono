@@ -49,3 +49,4 @@ Only prompt text changes. Pi saves the changed prompt in its normal session stor
 | ----------------------------------------------- | ------------------------------------------------ |
 | Change completion, formats, or host integration | [terminal checks](docs/testing.md#manual-checks) |
 | Decide where a test belongs                     | [test coverage](docs/testing.md)                 |
+| Upgrade Pi                                      | [Pi compatibility](docs/pi-compatibility.md)     |

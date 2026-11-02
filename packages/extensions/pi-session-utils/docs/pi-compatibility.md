@@ -20,8 +20,8 @@ Session replacement must preserve saved data and parent links while giving namin
 - [ ] `SessionManager.create()` provides a new header and path.
 - [ ] `getBranch()` keeps the order of the active path.
 - [ ] Pi can reopen the resulting JSONL and keep appending to it.
-- [ ] `getSessionName()` reads the latest session-wide metadata, including an explicit clear, regardless of the active branch.
-- [ ] `getLabel()` reads the latest label of an entry, including an explicit clear, regardless of the active branch.
+- [ ] `getSessionName()` reads the latest session-wide metadata, including an explicit clear, even when it is outside the active branch.
+- [ ] `getLabel()` reads the latest label of an entry, including an explicit clear, even when it is outside the active branch.
 - [ ] The saved snapshot keeps that name, those labels, and any existing `parentSession`.
 
 ### Commands
@@ -29,10 +29,11 @@ Session replacement must preserve saved data and parent links while giving namin
 [Commands](../src/commands.ts):
 
 - [ ] `isIdle()` reports active runs and other busy states, so persistence and child creation can reject them at once.
-- [ ] Naming stays independent of idle checks and session-operation locking.
 - [ ] `switchSession()` and `newSession({ parentSession })` supply a fresh `withSession` context.
 - [ ] `switchSession()` and `newSession({ parentSession })` report cancellation before replacement.
 - [ ] `newSession()` leaves out the parent's conversation and name.
+
+Naming stays independent of idle checks and session-operation locking.
 
 ### Startup hook
 
@@ -43,8 +44,9 @@ Session replacement must preserve saved data and parent links while giving namin
 - [ ] The first `buildSessionContext()` runs after flags are filled in, but before JSON headers, extension binding, or prompts.
 - [ ] `getHeader()` returns the live, writable header before a new session file is written.
 - [ ] Pi turns failures while building the startup context into nonzero exits.
-- [ ] The one-shot hook is restored before forwarding or throwing.
 - [ ] Reload and replacement don't apply the CLI flag again.
+
+The one-shot hook is restored before forwarding or throwing.
 
 ### Parent lookup
 

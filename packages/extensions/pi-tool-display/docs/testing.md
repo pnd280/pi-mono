@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Glossary](../GLOSSARY.md)
 
-This package tests settings trust, delegated execution through its private Pi host access, [saved call facts](../GLOSSARY.md#interpretation), and hook ownership across reload and disposal; libs and utils own shared budgets and algorithms, and producers own their result contracts, such as [`pi-read/result`](../../pi-read/docs/result.md).
+This package tests settings trust, delegated execution through its private Pi host access, [saved call facts](../GLOSSARY.md#interpretation), and hook ownership across reload and disposal. Libs and utils own shared budgets and algorithms, and producers own their result contracts, such as [`pi-read/result`](../../pi-read/docs/result.md).
 
 ## Must not regress
 
@@ -52,7 +52,7 @@ This package tests settings trust, delegated execution through its private Pi ho
 
 ## Not tested
 
-- The full presentation matrix for [call interpretation](../GLOSSARY.md#interpretation), adapter recognition and fallback, [exploration groups and runs](../GLOSSARY.md#transcript-structure), cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks) and preview caching, and nested-instruction notice cards is below the severity bar; use the [manual checks](#manual-checks). Safety tests make limited assertions about recognition, interpretation, and rendered text.
+- The full presentation matrix is below the severity bar. It includes [call interpretation](../GLOSSARY.md#interpretation), adapter recognition and fallback, [exploration groups and runs](../GLOSSARY.md#transcript-structure), cards, labels, pending markers, diffs and previews, saved-output reads (budgets and file-state checks), preview caching, and nested-instruction notice cards. Use the [manual checks](#manual-checks) for them. Safety tests make limited assertions about recognition, interpretation, and rendered text.
 - Libs and utils own shared algorithms and budgets.
 - Live MCP and FFF search requests are not tested because they need paid or live services.
 - Pi and the producing extensions own upstream tool execution matrices.

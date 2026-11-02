@@ -8,7 +8,7 @@ Callers of `pi-read/result` use `interpretReadResult(result, window)` to validat
 
 The caller supplies typed, borrowed text and image blocks through `ReadResultView`. The interpreter validates `details` without replacing any blocks or unrelated metadata. Display callers still validate their outer result shape and arguments.
 
-- `valid` is false for malformed details or preview provenance. Display rejects these contracts. The producer renderer recovers their retained source.
+- `valid` is false for malformed details or preview provenance. The pi-tool-display adapter rejects these results, and pi-read's own renderer recovers their retained source.
 - `preview.kind` distinguishes `absent`, `invalid`, and `valid`. An invalid marker is not equivalent to an absent marker.
 - A valid marker has a positive safe `sourceBlocks` count, exactly one following preview block, and an all-text result. `preview.contentIndex` identifies that trailing block.
 - `sourceContent` borrows the original blocks. Only valid provenance excludes the preview. Unmarked text, including preview-heading lookalikes, is never hidden.

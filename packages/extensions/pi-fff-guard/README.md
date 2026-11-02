@@ -20,7 +20,10 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 
 ### Limits
 
-- Inspection has a two-second deadline. It fails for paths or filters with more than 128 components, and for link chains of 32 or more links. If inspection fails and no other target is blocked, the guard allows the call and shows a diagnostic in the UI or on stderr. If you cancel, the guard blocks the call.
+- Inspection has a two-second deadline.
+- Inspection fails for paths or filters with more than 128 components, and for link chains of 32 or more links.
+- If inspection fails and no other target is blocked, the guard allows the call and shows a diagnostic in the UI or on stderr.
+- If you cancel, the guard blocks the call.
 - Tools that wrap FFF must dispatch child calls through Pi hooks; calling `execute()` directly skips the guard.
 - Slash commands and `@` autocomplete aren't checked.
 
@@ -34,10 +37,10 @@ For rooted globs, exclusions, repositories, and symlinks, see [search scopes](do
 
 The tests require Git and `mkfifo`.
 
-| When you…                               | Read                                           |
-| --------------------------------------- | ---------------------------------------------- |
-| Change interception or search scopes    | The [coverage specification](docs/testing.md). |
-| Change Pi or FFF versions, or retire it | [Pi compatibility](docs/pi-compatibility.md).  |
+| When you…                                      | Read                                         |
+| ---------------------------------------------- | -------------------------------------------- |
+| Change interception or search scopes           | [Test coverage](docs/testing.md)             |
+| Change Pi or FFF versions, or retire the guard | [Pi compatibility](docs/pi-compatibility.md) |
 
 ## Retirement
 

@@ -96,4 +96,9 @@ Requires macOS `pbcopy`, Wayland `wl-copy`, X11 `xclip` or `xsel`, or WSL `power
 
 ## Validation
 
-This section is for maintainers. The [coverage specification](docs/testing.md) defines what the tests protect. Prerequisites, offline fixtures, and platform checks are in the [validation guidance](docs/validation.md).
+For maintainers:
+
+| When you…                                        | Read                                      |
+| ------------------------------------------------ | ----------------------------------------- |
+| Check what the tests protect                     | [Coverage specification](docs/testing.md) |
+| Need prerequisites, fixtures, or platform checks | [Validation guidance](docs/validation.md) |

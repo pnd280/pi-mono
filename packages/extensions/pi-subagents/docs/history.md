@@ -12,7 +12,7 @@ The tasks stop before the change, so they also stop when another extension cance
 
 ## Runs and entries
 
-A task keeps one child session file for its whole life, and that file is the only copy of its conversation. A run is one child process, from launch to exit.
+A task keeps one child session file for its whole life, and that file is the only copy of its conversation. The `session_file` field of [`/subagents list`](commands.md#task-pages) gives its full path. A run is one child process, from launch to exit.
 
 - The supervisor saves a `run` entry when a child starts and an `end` entry when it exits; it saves no other task state.
 - The latest run of a task on the selected ancestry sets its state.
@@ -49,4 +49,3 @@ History reads and resume check that the file's session ID matches the task. Inva
 
 - Task entries over 1 MiB are ignored during recovery.
 - History reads accept only regular files and are limited to 64 MiB for each child file.
-- The full child session path is available in the list response.

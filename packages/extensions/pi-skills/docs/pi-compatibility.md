@@ -46,10 +46,13 @@ The user guide states the [format rules](rules.md#expansion-format) and the [com
 
 The [editor wrapper](../src/editor.ts) composes with an earlier extension's editor factory and wraps the instance's `handleInput`. Pi's editor has no public way to open completion, so the wrapper calls the private `tryTriggerAutocomplete`. Its fingerprints also cover `requestAutocomplete`, which receives the request options.
 
-- [ ] Pi's editor still opens its picker for a typed `/` only at the start of the message, and still removes `/` from provider `triggerCharacters`. If Pi adds a public way to open completion, replace the private call.
+- [ ] Pi's editor still opens its picker for a typed `/` only at the start of the message.
+- [ ] Pi's editor still removes `/` from provider `triggerCharacters`.
 - [ ] `tryTriggerAutocomplete()` without arguments starts a request with `force: false`, so a single suggestion opens the picker instead of being inserted.
-- [ ] While the picker is open, Pi's editor sends a new request after typing, **Backspace**, **Delete**, and arrow moves, but not after word or line deletion, undo, or a jump to the line start. The provider closes skill suggestions when the token ends, because Pi would list files there.
+- [ ] While the picker is open, Pi's editor sends a new request after typing, **Backspace**, **Delete**, and arrow moves, but not after word or line deletion, undo, or a jump to the line start.
 - [ ] An editor with other method source stays unchanged, and Pi shows one warning.
+
+The provider closes skill suggestions when the token ends, because Pi would list files there.
 
 ### Lifecycle
 
@@ -58,5 +61,5 @@ The [editor wrapper](../src/editor.ts) composes with an earlier extension's edit
 ## Limitations
 
 - In Pi 1.4.0, native skill insertion runs only for prompts that begin exactly with `/skill:`, after the input hook. Prompt-template expansion also follows the input hook. The leading-reference checkboxes above cover both.
-- In Pi 1.4.0, the editor removes `/` from provider `triggerCharacters` and has no public method that opens completion. The `/` trigger depends on the fingerprinted private call above.
+- In Pi 1.4.0, the editor removes `/` from provider `triggerCharacters` and has no public method that opens completion. The `/` trigger depends on the fingerprinted private call above. If Pi adds a public way to open completion, replace the private call.
 - In Pi 1.4.0, Pi's editor submits after **Enter** accepts any suggestion whose prefix starts with `/`, and uses that same check to choose the slash-command list layout. Inline skill suggestions therefore return the prefix without its slash, so they don't submit, and their description column uses the editor's default width rather than the slash-command width.

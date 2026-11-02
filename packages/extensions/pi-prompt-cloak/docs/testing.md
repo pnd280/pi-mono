@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package has no automated tests. The manual checks cover the prompt lines in the [replacement table](../src/prompt-rewrites.ts), and Pi owns prompt construction and request-local transcript copies.
+This package has no automated tests. The manual checks cover the prompt lines in the [replacement table](../src/prompt-rewrites.ts). Pi owns prompt construction and request-local transcript copies.
 
 ## Must not regress
 

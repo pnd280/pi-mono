@@ -36,5 +36,5 @@ Display extensions can decode notices with the `pi-nested-instructions/notices` 
 
 | When you…                                    | Read                                                                                                               |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Change adapter policy, selection, or refresh | [coverage specification](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md)                         |
+| Change adapter policy, selection, or refresh | The [coverage specification](docs/testing.md) and [Pi compatibility](docs/pi-compatibility.md).                    |
 | Change notice presentation                   | The [pi-tool-display adapter checks](../pi-tool-display/src/adapters/pi-nested-instructions/README.md#validation). |

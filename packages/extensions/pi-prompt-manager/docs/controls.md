@@ -17,7 +17,10 @@ Browser keys are Pi action IDs, set in `~/.pi/agent/keybindings.json` (or `$PI_C
 
 ### Cancellation safety
 
-**Ctrl+C** never cancels, even when bound to `tui.select.cancel`, though it can perform another configured action such as copy. The browser opens only if some key other than **Ctrl+C**, not also used for copy, is bound to cancel. No **Escape** override is added.
+**Ctrl+C** never cancels, even when bound to `tui.select.cancel`, though it can perform another configured action such as copy.
+
+- The browser opens only when `tui.select.cancel` has a key that is neither **Ctrl+C** nor a copy key.
+- The extension adds no **Escape** override.
 
 ### Action precedence
 
@@ -80,7 +83,7 @@ Only one view can be open per session.
 Press **Delete** twice within 1.5 seconds on the same entry.
 
 - Any other actionable input, a refresh, a resize, or the time running out cancels the confirmation.
-- Key repeat and key release events can't confirm. Legacy terminals can't reliably tell a held Delete from two presses.
+- Key repeat and key release events can't confirm. Legacy terminals can't reliably tell a held **Delete** from two presses.
 - Deletion hints appear only when the selection can be removed.
 
 While deleting:

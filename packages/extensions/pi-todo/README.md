@@ -1,6 +1,6 @@
 # pi-todo
 
-Follow the model's plan and progress through a todo list for multi-step work. The list shows in a widget above the editor, and `/todos` opens a read-only browser. Todos are saved in the session, so they follow branches and survive compaction.
+In multi-step work, the model's plan and progress scroll past in the transcript. pi-todo keeps them in a todo list that shows in a widget above the editor, and `/todos` opens a read-only browser. Todos are saved in the session, so they follow branches and survive compaction.
 
 During a four-step fix, the widget shows:
 
@@ -56,7 +56,6 @@ Add an `ext.pi-todo` key to Pi's global settings file, or to `.pi/settings.json`
 - Todo state is stored only in the `todo` tool's result details, as full snapshots in Pi sessions. The `todo` tool and `/todos` write no other files, and make no network requests.
 - Saving in `/working-message` writes the order to the global or trusted project `settings.json` shown in the menu, and keeps other settings.
 - The extension removes terminal control characters from todo text shown in the widget, the browser, and the working message.
-- The extension rebuilds the list from the latest valid `todo` result on the current branch. [Replay](docs/todo-tool.md#replay) lists when this happens and which results it skips.
 
 ## Validation
 

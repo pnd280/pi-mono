@@ -16,8 +16,6 @@ The adapter uses one limited compatibility profile:
 - Unsupported keywords, constrained record keys, and recursion fail tool construction rather than silently broadening inputs. The [projection implementation](index.ts) defines the exact supported keyword set.
 - Refinements and transforms still belong to runtime parsing; the tool schema does not execute them.
 
-Extend the profile only after checking the provider boundary.
-
 ## Usage
 
 ```ts

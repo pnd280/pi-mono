@@ -22,4 +22,4 @@ Pi 1.4.0 cannot dispatch modified Escape or modified function keys. Validation r
 
 ## The plus key
 
-A final `+` names the plus key, as in `+` or `ctrl++`. Pi 1.4.0 dispatches these bindings; `ctrl++` needs the Kitty keyboard protocol or modifyOtherKeys.
+A final `+` names the plus key, as in `+` or `ctrl++`. Pi 1.4.0 dispatches these bindings; `ctrl++` needs the Kitty keyboard protocol or `modifyOtherKeys`.

@@ -20,8 +20,6 @@ Handlers in [activation](../src/runtime.ts) and the [tool](../src/tool.ts) assum
 - [ ] Only interactive TTY sessions activate the extension.
 - [ ] Pi's public `parseArgs` still distinguishes flags from option values for the activation check.
 - [ ] Pi accepts the tool's model-facing schema.
-- [ ] Mutations stay atomic.
-- [ ] Result details stay fully replayable.
 - [ ] Tool cards render without custom tool renderers.
 - [ ] With `exposure: "model-only"`, direct calls stay replayable.
 - [ ] With `exposure: "model-only"`, nested calls through `ctx.tools` or `ctx.executeTool()` can't change todos.

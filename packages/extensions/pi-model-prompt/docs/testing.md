@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage)
 
-This package tests global-only settings, preservation of other append text, and safe warnings, and Pi owns `APPEND_SYSTEM.md` discovery, transcript recording, prompt caching, and project-trust resolution.
+This package tests global-only settings, preservation of other append text, and safe warnings. Pi owns `APPEND_SYSTEM.md` discovery, transcript recording, prompt caching, and project-trust resolution.
 
 ## Must not regress
 

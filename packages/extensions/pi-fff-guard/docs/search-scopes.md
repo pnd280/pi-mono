@@ -6,7 +6,7 @@ The guard reads the path, exclusion, and pattern fields of each FFF call to find
 
 ## Paths and filters
 
-The guard checks explicit `path` values and multi-grep constraints for missing or ignored targets, including broken links. The guard handles exclusions differently; see [globs and exclusions](#globs-and-exclusions). Relative paths resolve from the session cwd, and `~/` expands to the home directory.
+The guard checks explicit `path` values and multi-grep constraints for missing or ignored targets, including broken links. Exclusions follow the rules in [globs and exclusions](#globs-and-exclusions). Relative paths resolve from the session cwd, and `~/` expands to the home directory.
 
 In `path` and `exclude`, FFF strips `./` and absolute prefixes inside the workspace. Like FFF, the guard reads Windows `\` separators in absolute paths as `/` separators, and doesn't convert relative paths:
 
@@ -22,7 +22,8 @@ The guard trims `path` without splitting it and preserves existing explicit `fff
 
 ## Globs and exclusions
 
-- FFF glob syntax takes precedence even when the same literal path exists; bare filename filters remain recursive.
+- FFF glob syntax takes precedence even when the same literal path exists.
+- Bare filename filters remain recursive.
 - Like FFF, the guard matches a glob that contains `/` but not `**` against the whole path, and its `*`, `?`, and bracket expressions also match `/`. For example, `node_modules/*.ts` includes `node_modules/dependency/file.ts`, and the exclusion `node_modules/*` removes every file below `node_modules/`.
 - In a glob with `**`, the other wildcards match within one path component, as in FFF.
 - For globs, the guard validates only the fixed directory prefix before the first wildcard. It does not require matching files.
@@ -50,4 +51,10 @@ With its default `followSymlinks: true` setting, FFF indexes the files below a d
 
 A link to a file is checked under its destination's rules.
 
-Inspection runs `git` from `PATH` and never enumerates directories. Before it compares a path with a repository root, the guard resolves aliases that are not symbolic links, such as Windows short names or letter case, because Git reports canonical roots. A symbolic link keeps its own name, and only its parent directory is resolved. If the repository found from that directory still does not contain the path, inspection fails instead of reporting the path as not ignored. A target that no longer exists is reported as missing, even when an existing parent is ignored. Symbolic-link cycles, link chains of 32 or more links, and paths with more than 128 components count as failed inspections. The [two-second deadline](../README.md#limits) also covers repository discovery and link traversal.
+Inspection runs `git` from `PATH` and never enumerates directories.
+
+- Before it compares a path with a repository root, the guard resolves aliases that are not symbolic links, such as Windows short names or letter case, because Git reports canonical roots.
+- A symbolic link keeps its own name, and only its parent directory is resolved. If the repository found from that directory still does not contain the path, inspection fails instead of reporting the path as not ignored.
+- A target that no longer exists is reported as missing, even when an existing parent is ignored.
+- Symbolic-link cycles, link chains of 32 or more links, and paths with more than 128 components count as failed inspections.
+- The [two-second deadline](../README.md#limits) also covers repository discovery and link traversal.

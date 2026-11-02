@@ -61,8 +61,8 @@ With [pi-tool-display](../pi-tool-display/README.md#configuration), choose how r
 
 ## Validation
 
-| When you…                         | Read                                                                         |
-| --------------------------------- | ---------------------------------------------------------------------------- |
-| Change selection or preview logic | The [coverage specification](docs/testing.md).                               |
-| Change how reads look             | The [manual appearance checks](docs/testing.md#manual-checks), done by hand. |
-| Upgrade Pi                        | [Pi compatibility](docs/pi-compatibility.md).                                |
+| When you…                         | Read                                                      |
+| --------------------------------- | --------------------------------------------------------- |
+| Change selection or preview logic | [Test coverage](docs/testing.md)                          |
+| Change how reads look             | [Manual appearance checks](docs/testing.md#manual-checks) |
+| Upgrade Pi                        | [Pi compatibility](docs/pi-compatibility.md)              |

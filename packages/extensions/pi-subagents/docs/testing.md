@@ -14,7 +14,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **High, e2e:** Launch failures include the failed step, exit code, and stderr.
 - **High, e2e:** Active children stay within configured [capacity](../GLOSSARY.md#tasks-and-processes), and queued launches start in FIFO order.
 - **High, e2e:** A launch into a full queue fails with `launch queue is full`.
-- **High, e2e:** (S3) Descendants respect configured depth and whole-tree capacity. Full nested launches fail immediately, and failed or exited subtree slots let the top-level FIFO continue.
+- **High, e2e:** (S3) Descendants respect configured depth and whole-tree capacity. When capacity is full, a nested launch fails immediately, and the slots of a failed or exited subtree let the top-level FIFO queue continue.
 - **High, e2e:** (S3) A resumed child has `subagent` and `subagent_abort` below `maxDepth` and does not have them at `maxDepth`, also when its session recorded them.
 - **High, e2e:** When an extension that loads earlier turns `subagent`, `subagent_abort`, `job`, or `job_abort` off at session start, they stay off. The session-start registration with the session's docs and exposure does not turn them on again.
 
@@ -87,7 +87,7 @@ This package tests [task](../GLOSSARY.md#tasks-and-processes) policy through rea
 - **Critical, e2e:** (J4) `job` uses the `shellPath` and `shellCommandPrefix` settings.
 - **Critical, e2e:** (J4) When another extension owns `bash`, `job` and `job_abort` are hidden.
 - **Critical, integration:** (J5) The job log reader refuses a symbolic link, a special file, and a file that replaced the log path after the reader checked it.
-- **High, e2e:** (J1) A [job](../GLOSSARY.md#tasks-and-processes) delivers exactly one background result to its supervisor when the supervisor is busy, idle, or settling after an abort.
+- **High, e2e:** (J1) A job delivers exactly one background result to its supervisor when the supervisor is busy, idle, or settling after an abort.
 - **High, e2e:** (J1) The supervisor settles while a job without `hold_run` runs.
 - **High, e2e:** (J6) A print run waits for a [held job](jobs.md#held-jobs), and the job's result continues the run before it ends.
 - **High, e2e:** (J1) A timeout gives a `failed` result.

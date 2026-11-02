@@ -2,7 +2,7 @@
 
 [Settings-file access](README.md)
 
-This reference is for library callers who need the exact read results, section rules, and save steps. The [README](README.md#behaviour) summarises them.
+Read this when you need the exact read results, section rules, or save steps.
 
 ## Scopes
 

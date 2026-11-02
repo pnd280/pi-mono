@@ -56,7 +56,7 @@ MCP server tools from Pi's built-in MCP extension appear as cards with the serve
 
 - Pending calls show Pi's tool name, such as `mcp__exa__web_search_exa`. Sanitised names can end in a hash and are never decoded.
 - When a result or progress update names the server and tool, the heading switches to the unsanitised `server.tool`, even when the result has no content.
-- Arguments always stay visible, regardless of `showParameters`.
+- Arguments stay visible, even with `showParameters: false`.
 - Output uses the ordinary [MCP output preview](renderers.md#mcp-facts). Returned MCP errors and thrown calls show as failures.
 - Thrown or blocked calls keep Pi's tool name.
 - When Pi truncated the output and saved it, compact cards add an "MCP output truncated; expand to inspect retained output." warning and a "Saved output" reference. Expanded cards keep Pi's warning and reference in the retained output, without adding them again.
@@ -115,7 +115,7 @@ Missing or invalid counts give a bounded output preview. Failed and partial resu
 MCP tool calls from [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) get cards that show the resolved `server.tool` name, the arguments, and script operation counts.
 
 - Gateway summaries show the action and target.
-- All MCP cards show arguments whatever `showParameters` says, because names alone may not identify the call. Long arguments and scripts use [previews](presentation.md#card-layout) until expanded.
+- All MCP cards show arguments, even with `showParameters: false`, because names alone may not identify the call. Long arguments and scripts use [previews](presentation.md#card-layout) until expanded.
 - JSON strings are shown as given, never parsed or repaired.
 - The heading shows the resolved `server.tool` when the result records it, and otherwise the requested name.
 - MCP calls stay individual cards outside exploration groups. Calls other than scripts use output previews.

@@ -24,7 +24,8 @@ Before you change host hooks, the renderer, or the footer, read the [compatibili
 
 ## Validation
 
-| When you…  | Read                                                                                                                                |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Run checks | [Terminal validation](docs/validation.md).                                                                                          |
-| Upgrade Pi | The [private host checklist](docs/pi-compatibility.md). Run the installed-host fixtures as well as tests with simulated registries. |
+| When you…                                   | Read                                                                                                                                |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Add or change tests                         | [Test coverage](docs/testing.md).                                                                                                   |
+| Change menu, layout, or rendering behaviour | [Terminal validation](docs/validation.md).                                                                                          |
+| Upgrade Pi                                  | The [private host checklist](docs/pi-compatibility.md). Run the installed-host fixtures as well as tests with simulated registries. |

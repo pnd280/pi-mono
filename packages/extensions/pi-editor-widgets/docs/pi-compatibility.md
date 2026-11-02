@@ -4,7 +4,7 @@
 
 > Last verified against Pi 1.4.0 with a source review of the Pi 1.3.0 to 1.4.0 changes to statuses, regions, the footer, mode switching, the extension dialog stack, metrics, compaction thresholds, pi-tui mouse dispatch and exit restoration, and interactive mode, the fingerprint check, the offline package checks and host tests including reload, and an offline tmux run in fullscreen mode of `/widgets` before and after `/reload`, a UI reset by a `SIGTERM` shutdown while `/widgets` is open, and terminal restoration on exit. Not covered: physical-terminal checks, regular mode, mouse clicks, and the other manual checks.
 
-Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks.
+Public APIs don't expose other extensions' registries or row placement, so this extension uses narrowly scoped runtime hooks. The _coordinator_ ([`WidgetCoordinator`](../src/coordinator.ts)) installs the region, footer, mode, and renderer hooks and takes over the widget regions and the footer for a session.
 
 ## Upgrade checklist
 

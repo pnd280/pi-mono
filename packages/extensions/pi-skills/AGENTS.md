@@ -11,9 +11,6 @@
 
 ## Validation
 
-| When you change…               | Read                                                |
-| ------------------------------ | --------------------------------------------------- |
-| Completion, formats, or wiring | [terminal checks](docs/testing.md#manual-checks)    |
-| Supported Pi versions          | [compatibility checklist](docs/pi-compatibility.md) |
+For terminal checks, test coverage, and Pi upgrades, start at [package validation](README.md#validation).
 
 Keep the real-editor test for **Enter** acceptance; provider-only checks cannot prove that interaction.

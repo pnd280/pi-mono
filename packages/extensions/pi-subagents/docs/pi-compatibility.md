@@ -12,7 +12,7 @@
 
 ## Checklist
 
-The backend depends on Pi's public lifecycle and RPC ordering, while [task](../GLOSSARY.md#tasks-and-processes) ownership and [capacity](../GLOSSARY.md#tasks-and-processes) belong to this package.
+The child-process backend depends on Pi's public lifecycle and RPC ordering, while [task](../GLOSSARY.md#tasks-and-processes) ownership and [capacity](../GLOSSARY.md#tasks-and-processes) belong to this package.
 
 ### Launch and stop
 
@@ -122,7 +122,9 @@ The before-change hooks invalidate old bindings before teardown. When Pi emits n
 - [ ] `ctx.ui.editor` still takes no abort signal, and the interactive editor still expands tabs, normalises line ends, and trims the text that it returns.
 - [ ] The exported terminal components, theme tokens, and truncation helpers retain their contracts.
 
-These `--tools` contracts set the registration rule in [boundaries](../AGENTS.md#boundaries): a later registration runs only when the session's docs, delivery text, or exposure changed. Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so an unchanged registration must be skipped. Fire-and-forget child UI is dropped. Because `ctx.ui.editor` takes no signal, a forwarded editor stays open after its run is cancelled, and `editorText` in the [dialog forwarder](../src/child/dialogs.ts) copies the editor's whitespace changes to detect an unchanged prefill; when Pi adds an editor signal, pass it and close the editor on cancellation.
+These `--tools` contracts set the registration rule in [boundaries](../AGENTS.md#boundaries): a later registration runs only when the session's docs, delivery text, or exposure changed. Without `--tools`, Pi activates a tool again only when its exposure changes to `model-only`, so active tools that another extension chose at `session_start` stay. With `--tools`, Pi activates every listed tool again on any registration, so an unchanged registration must be skipped.
+
+Fire-and-forget child UI is dropped. Because `ctx.ui.editor` takes no signal, a forwarded editor stays open after its run is cancelled, and `editorText` in the [dialog forwarder](../src/child/dialogs.ts) copies the editor's whitespace changes to detect an unchanged prefill; when Pi adds an editor signal, pass it and close the editor on cancellation.
 
 A child adds its [result instructions](children.md#result-instructions) as a prompt part at rank `300`. The libs [prompt-parts](../../../libs/src/prompt-parts/README.md) coordinator owns the `before_agent_start` append checks.
 
@@ -155,7 +157,7 @@ The job wrapper must supply the command prefix and resolved shell path explicitl
 
 The registry's synchronous Node `exit` hook covers Pi exits that skip `session_shutdown`, and stays active until group cleanup ends. No private Pi tracker API is imported. Job output stays in the owned bounded writer and result tail.
 
-## Background and viewer contracts
+### Background and viewer contracts
 
 The offline tests exercise background waits in `agent_end`, slash commands during settle waits, abort and stdin-EOF cleanup, print and JSON settling, and prepared idle RPC context. The [SDK race cases](../validation/abort-races.test.ts) cover background results at abort boundaries, aborts after process exit, and descendant cancellation acknowledgements. Use the [manual checks](validation.md) for the TUI path. Recheck these contracts on upgrade:
 

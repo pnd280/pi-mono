@@ -31,6 +31,4 @@ Keep naming separate from the locking and idle checks of session operations.
 
 ## Validation
 
-| When you…                | Read                                                     |
-| ------------------------ | -------------------------------------------------------- |
-| Change a host assumption | The [compatibility checklist](docs/pi-compatibility.md). |
+When you change a host assumption, work through the [compatibility checklist](docs/pi-compatibility.md).

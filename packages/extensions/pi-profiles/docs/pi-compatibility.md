@@ -82,7 +82,7 @@ Recheck each row of the [MCP tools](tools.md#mcp-tools) tables against these con
 - [ ] The built-in MCP extension does not declare `codemode` and `tool_search` again when a server connects by itself.
 - [ ] `autoEnableCodemode: false` stops only `codemode` from being declared again.
 - [ ] Pi restores tools whose server has not connected as pending, and declares pending tools when they register.
-- [ ] `setActiveToolsByName()` drops the pending tools when it removes a tool (`_pendingToolNames`).
+- [ ] `setActiveToolsByName()` drops all pending tools when a call turns off a tool (`_pendingToolNames`).
 
 ### Prompt and lifecycle coordinators
 
@@ -100,7 +100,6 @@ The [selection](../src/selection.ts) module relies on these contracts.
 - [ ] On `/reload`, Pi keeps the active tools and adds new `defaultTools` entries.
 - [ ] On `/reload`, Pi restores neither the model nor the thinking level from the branch.
 - [ ] On `/reload`, Pi turns on again the `direct` and `model-only` extension tools without `defaultActive: false` (`includeAllExtensionTools` in `reload()`).
-- [ ] `setActiveToolsByName()` drops all pending tools when a call turns off a tool.
 - [ ] Pi records tool changes in a system message before the request that first uses them (`agent-loop.js` in pi-agent-core, `agent-session.js`).
 - [ ] Pi can omit the system message when neither the tools nor the prompt changed.
 - [ ] A compaction checkpoint copies the latest system message (`appendCompaction` in `session-manager.js`).

@@ -134,14 +134,14 @@ Run these on real operating systems and filesystems. Fixture stdin and Linux-onl
 
 Setup: on Linux, macOS, and WSL, use isolated clipboards, never someone's live clipboard. Capturing fixture stdin doesn't test the OS clipboard.
 
-| Do                                                              | Expect                                                         |
-| --------------------------------------------------------------- | -------------------------------------------------------------- |
-| Copy complete Unicode, large text, and terminal controls.       | The native clipboard matches the complete source.              |
-| Make all native helper dependencies unavailable, then copy.     | Copying reports a failure.                                     |
-| End the session during an active copy.                          | The copy is cancelled.                                         |
-| Let a helper exceed the five-second deadline.                   | Copying reports a timeout.                                     |
-| On Linux, copy, press Ctrl+Z, paste in the shell, then `fg`.    | The paste does not wait for Pi to resume.                      |
-| On macOS, copy Unicode with `LANG` unset, then with `LC_ALL=C`. | The native clipboard matches the Unicode source in both cases. |
+| Do                                                               | Expect                                                         |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| Copy complete Unicode, large text, and terminal controls.        | The native clipboard matches the complete source.              |
+| Make all native helper dependencies unavailable, then copy.      | Copying reports a failure.                                     |
+| End the session during an active copy.                           | The copy is cancelled.                                         |
+| Let a helper exceed the five-second deadline.                    | Copying reports a timeout.                                     |
+| On Linux, copy, press **Ctrl+Z**, paste in the shell, then `fg`. | The paste does not wait for Pi to resume.                      |
+| On macOS, copy Unicode with `LANG` unset, then with `LC_ALL=C`.  | The native clipboard matches the Unicode source in both cases. |
 
 ### Storage permissions and writes
 

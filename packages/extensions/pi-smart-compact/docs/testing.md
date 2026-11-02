@@ -2,7 +2,7 @@
 
 [Package](../README.md) · [Testing policy](../../../../docs/agents/testing.md#coverage) · [Compatibility and terms](pi-compatibility.md)
 
-This package tests credential isolation, session ownership of compaction requests, the distinction between cancellation and failure, and ownership of the native hooks it replaces; Pi owns summarisation and provider behaviour.
+This package tests credential isolation, session ownership of compaction requests, the distinction between cancellation and failure, and ownership of the native hooks it replaces; Pi owns summarisation and provider behaviour. The native scenarios also check tool acknowledgements, outcome statuses, summary-model metadata, instruction-file focus, routing flags, and configured request timeout and retry options as part of the invariants below.
 
 ## Must not regress
 
@@ -42,7 +42,7 @@ E2e checks never use personal settings or credentials.
 
 ## Not tested
 
-- Footer status, docs-file loading, and the text of `context_window` results are below the severity bar. The native scenarios also check tool acknowledgements, outcome statuses, summary-model metadata, instruction-file focus, routing flags, and configured request timeout and retry options as part of the listed invariants.
+- Footer status, docs-file loading, and the text of `context_window` results are below the severity bar.
 - Several `compact` calls in one tool batch and summaries supplied by `session_before_compact` hooks are below the severity bar.
 - Whether a real model follows the instructions is not tested because it needs a real provider. The [manual checks](pi-compatibility.md#manual-checks) cover summary quality.
 - The [libs settings files](../../../libs/src/settings-file/README.md) own the parsing and size limit of settings files, and the exclusion of untrusted-project and parent-directory settings.

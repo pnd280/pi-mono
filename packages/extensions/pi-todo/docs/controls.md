@@ -2,7 +2,7 @@
 
 [pi-todo](../README.md)
 
-This guide lists the controls and limits of the `/todos` browser, the widget, and the `ext.pi-todo` settings. The [package README](../README.md) gives the overview.
+You read todos in the `/todos` browser and the widget, and the `ext.pi-todo` settings choose how the widget starts. The [package README](../README.md) gives the overview.
 
 ## The `/todos` browser
 

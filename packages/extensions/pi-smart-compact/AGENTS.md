@@ -22,4 +22,5 @@ The [compatibility guide](docs/pi-compatibility.md) defines _fingerprint_, _betw
 
 | When you…                                           | Read                                                             |
 | --------------------------------------------------- | ---------------------------------------------------------------- |
+| Add or change tests                                 | [Test coverage](docs/testing.md).                                |
 | Upgrade Pi, or change a private hook or fingerprint | The [upgrade procedure and checklist](docs/pi-compatibility.md). |

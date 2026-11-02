@@ -6,7 +6,7 @@
 
 ## Upgrade procedure
 
-1. Run the [package checks](../../../docs/development.md#focused-validation) and the linked component scenarios.
+1. Run the [package checks](../../../docs/development.md#focused-validation) and the component scenarios in the [shared TUI validation](../src/tui/README.md#validation).
 2. Run the affected extension consumers. Native observation changes need the display API and CLI suites. Fixtures must still run real offline Pi.
 3. Work through the checklist below.
 4. Update the "Last verified" line.
@@ -17,7 +17,7 @@ Check both API and installed-CLI consumers wherever a library depends on Pi's ho
 
 ### Tool schemas
 
-[Tool schemas](../src/tool-schema/README.md):
+After an upgrade, these [tool schema](../src/tool-schema/README.md) results hold:
 
 - [ ] Pi accepts the TypeBox parameters that `toToolSchema` projects from Zod input.
 - [ ] Hidden metadata stays excluded after TypeBox composition.
@@ -91,7 +91,9 @@ After an upgrade, these [working message](../src/working-message/README.md) resu
 
 ### Offline fixtures
 
-- [ ] [Offline fixtures](../README.md#offline-validation) match the real provider message and stream contracts.
+The [offline fixtures](../README.md#offline-validation) depend on these Pi contracts:
+
+- [ ] Offline fixtures match the real provider message and stream contracts.
 - [ ] Offline fixtures isolate authentication.
 - [ ] Offline fixtures load the installed CLI.
 - [ ] Offline fixtures accept the launcher flags.
@@ -109,7 +111,7 @@ The installed Pi 1.4.0 has these host behaviours:
 
 These private dependencies could be replaced by public Pi APIs. None exists as of Pi 1.4.0.
 
-- Replace the [private native-observation hooks](../src/native-tools/compatibility.ts) when Pi offers public native-observation APIs, and validate both the display and summary consumers. Pi 1.4.0 parity for `_buildRuntime` and `_refreshToolRegistry`: None. Pi would need a public hook that wraps or observes built-in tool definitions at construction and reload and keeps their `sourceInfo`.
-- Replace private fullscreen routing when a public API offers input priority scoped to focus. Pi 1.4.0 parity for the `inputListeners` mutation: None. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.
+- Replace the [private native-observation hooks](../src/native-tools/compatibility.ts) when Pi offers public native-observation APIs, and validate both the display and summary consumers. Pi 1.4.0 has no public counterpart for `_buildRuntime` and `_refreshToolRegistry`. Pi would need a public hook that wraps or observes built-in tool definitions at construction and reload and keeps their `sourceInfo`.
+- Replace private fullscreen routing when a public API offers input priority scoped to focus. Pi 1.4.0 has no public counterpart for the `inputListeners` mutation. Check todo and prompt-manager paging through the installed CLI, and confirm that working-message menus in todo and agent-summary keep ordinary input routing.
 - Revisit public contribution APIs for working-message [overwrites by non-participants](../src/working-message/README.md#behaviour).
 - Adopt public TUI components that can replace a local implementation without losing controlled state or cancellation.
