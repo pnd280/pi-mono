@@ -15,13 +15,13 @@ Task, abort, and job cards use the shared [progress card](../../../docs/adapters
 
 ## Background results
 
-The adapter also renders the `pi-subagents.result` session message through Pi's public message-renderer API. It validates the message details with the same details schema as tool results. Valid results use the [card renderer](../../rendering/subagent-result.ts) with the standalone `subagent` card layout, and a fullscreen click emits the same `pi-subagents:open` action. [Background results](../../../docs/tools.md#background-results) describes what users see.
+The adapter also renders the `pi-subagents.result` session message through Pi's public message-renderer API. It validates the message details with the same details schema as tool results. Both task and job details schemas come from the pure [`pi-subagents/details`](../../../../pi-subagents/src/details.ts) contract. Valid results use the [card renderer](../../rendering/subagent-result.ts) with the standalone `subagent` card layout, and a fullscreen click emits the same `pi-subagents:open` action. [Background results](../../../docs/tools.md#background-results) describes what users see.
 
 Without pi-tool-display, pi-subagents registers no message renderer, so Pi shows its default message box.
 
 ## Background jobs
 
-[jobs.ts](jobs.ts) recognises `job` by the projected `command` and `description` strings, the `timeout` number, the `hold_run` boolean, and the required `command` and `description`. It recognises `job_abort` by a required `job_id` string. Strict Zod schemas validate the arguments. A separate schema validates the job details: active details have `exit_code` and `ended_at` set to `null`, and inactive details have an `outcome` of `completed`, `failed`, or `cancelled`.
+[jobs.ts](jobs.ts) recognises `job` by the projected `command` and `description` strings, the `timeout` number, the `hold_run` boolean, and the required `command` and `description`. It recognises `job_abort` by a required `job_id` string. Strict Zod schemas validate the arguments. The job details schema of `pi-subagents/details` validates the details: active details have `exit_code` and `ended_at` set to `null`, and inactive details have an `outcome` of `completed`, `failed`, or `cancelled`.
 
 [Job cards](../../../docs/tools.md#job-cards) and [job results](../../../docs/tools.md#job-results) describe what users see. A job result card shows the run time from `started_at` to `ended_at`.
 

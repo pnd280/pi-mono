@@ -12,4 +12,4 @@ See [automatic selection](../../../docs/adapters.md#automatic-selection) for ren
 
 ## Validation
 
-Follow the [pi-mcp-adapter terminal check](../../../docs/validation.md#pi-mcp-adapter). It needs `pi-mcp-adapter` installed separately, uses an offline stdio server, and keeps MCP caches and output inside the fixture.
+The [colocated test](index.test.ts) checks that MCP facts keep the published media order without changing the borrowed result. Follow the [pi-mcp-adapter terminal check](../../../docs/validation.md#pi-mcp-adapter). It needs `pi-mcp-adapter` installed separately, uses an offline stdio server, and keeps MCP caches and output inside the fixture.

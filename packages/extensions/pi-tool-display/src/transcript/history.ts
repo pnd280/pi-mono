@@ -3,8 +3,8 @@ import type { SessionEntry, SessionManager } from "@earendil-works/pi-coding-age
 import { record } from "../values.ts";
 import { CALL_TYPE, parseCallRecord, type CallRecord } from "./metadata.ts";
 
-/** Identifies a call by its assistant entry and tool-call ID. */
-export function callKey(entry: string, toolCallId: string): string {
+/** Identifies a saved call by its assistant entry and tool-call ID. */
+export function recordKey(entry: string, toolCallId: string): string {
   return JSON.stringify([entry, toolCallId]);
 }
 
@@ -26,7 +26,7 @@ export class DisplayHistory {
       const data = record(entry.data);
 
       if (typeof data.entry === "string" && typeof data.toolCallId === "string") {
-        const key = callKey(data.entry, data.toolCallId);
+        const key = recordKey(data.entry, data.toolCallId);
         this.records.set(key, entry.data);
         this.parsed.delete(key);
       }
@@ -87,7 +87,7 @@ export class DisplayHistory {
 
   callRecord(entry: string, toolCallId: string): CallRecord | undefined {
     this.sync();
-    const key = callKey(entry, toolCallId);
+    const key = recordKey(entry, toolCallId);
     if (this.parsed.has(key)) return this.parsed.get(key);
     const parsed = this.records.has(key) ? parseCallRecord(this.records.get(key)) : undefined;
     this.parsed.set(key, parsed);

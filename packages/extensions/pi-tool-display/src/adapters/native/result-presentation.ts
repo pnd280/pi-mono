@@ -1,9 +1,8 @@
 import type { CodeSelectionRange } from "@pi-mono/libs/tui/components/code-highlight";
-import { displayText } from "@pi-mono/libs/tui/terminal-text";
 import { z } from "zod";
 
 import type { DisplayNotice, ResultTextContext, ResultTextPart } from "../../contracts.ts";
-import { record, stringField } from "../../values.ts";
+import { record } from "../../values.ts";
 import type { NativeToolName } from "./index.ts";
 
 const part = (text: string, kind: ResultTextPart["kind"] = "output"): ResultTextPart => ({
@@ -146,7 +145,8 @@ function nativeContentParts(
   else if (name === "find") empty = "No files found matching pattern";
   else if (name === "grep") empty = "No matches found";
   if (text === empty) return [part(text, "annotation")];
-  const path = stringField(args.path);
+  // Raw, like Pi's result text; rendering sanitises each part.
+  const path = typeof args.path === "string" ? args.path : "";
   let confirmation: string | undefined;
   if (name === "write") confirmation = "Successfully wrote to ";
   else if (name === "edit" && Array.isArray(args.edits))
@@ -182,13 +182,9 @@ export function nativeResultNotices(details: unknown): DisplayNotice[] {
   if (data.truncation?.truncated)
     warning("Tool output truncated by pi; expand to inspect retained output.");
 
-  if (data.fullOutputPath !== undefined) {
-    notices.push({
-      kind: "reference",
-      label: "Saved output",
-      value: displayText(data.fullOutputPath)
-    });
-  }
+  // Raw, so the card can match the call's saved path; rendering sanitises the value.
+  if (data.fullOutputPath !== undefined)
+    notices.push({ kind: "reference", label: "Saved output", value: data.fullOutputPath });
 
   if (data.matchLimitReached !== undefined) warning("Match limit reached.");
   if (data.resultLimitReached !== undefined) warning("Result limit reached.");

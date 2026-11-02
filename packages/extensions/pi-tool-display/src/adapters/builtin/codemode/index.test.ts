@@ -30,16 +30,6 @@ const code = [
 ].join("\n");
 const args = { code };
 
-function result(
-  details: CodemodeToolDetails,
-  content: AgentToolResult<unknown>["content"] = [
-    { type: "text", text: HEADER },
-    { type: "text", text: "nested-output" }
-  ]
-): AgentToolResult<unknown> {
-  return { content, details };
-}
-
 const calls: CodemodeToolDetails["calls"] = [
   { id: "p/1", name: "read", args: '{"path":"nested.txt"}', status: "ok", durationMs: 4 },
   {
@@ -52,10 +42,7 @@ const calls: CodemodeToolDetails["calls"] = [
   }
 ];
 
-function renderContext(
-  expanded: boolean,
-  overrides: { isPartial?: boolean; isError?: boolean } = {}
-) {
+function renderContext(expanded: boolean) {
   return {
     args,
     state: {},
@@ -70,18 +57,13 @@ function renderContext(
     isError: false,
     durationMs: undefined,
     outputPad: 1,
-    invalidate() {},
-    ...overrides
+    invalidate() {}
   };
 }
 
-function render(
-  supplied: AgentToolResult<unknown>,
-  expanded: boolean,
-  overrides: { isPartial?: boolean; isError?: boolean } = {}
-) {
+function render(supplied: AgentToolResult<unknown>, expanded: boolean) {
   const renderers = createToolDisplayRenderers("codemode", adapter);
-  const context = renderContext(expanded, overrides);
+  const context = renderContext(expanded);
   const call = renderers.renderCall(args, theme, context);
   const body = renderers.renderResult(supplied, context, theme, context);
 
@@ -92,10 +74,13 @@ beforeAll(() => initTheme("dark", false));
 
 it("keeps codemode arguments unchanged while rendering compact and expanded cards", () => {
   const before = structuredClone(args);
-  const supplied = result({ calls }, [
-    { type: "text", text: HEADER },
-    { type: "text", text: "distinct-result-body" }
-  ]);
+  const supplied: AgentToolResult<unknown> = {
+    content: [
+      { type: "text", text: HEADER },
+      { type: "text", text: "distinct-result-body" }
+    ],
+    details: { calls } satisfies CodemodeToolDetails
+  };
   render(supplied, false);
   render(supplied, true);
   expect(args).toEqual(before);

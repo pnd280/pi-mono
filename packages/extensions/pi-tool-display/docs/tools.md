@@ -41,7 +41,7 @@ Scripts from Pi's built-in `codemode` tool appear as cards with the highlighted 
 - Multiple calls with positive costs add a "Model calls" total.
 - Finished scripts show Pi's measured script time, such as `Took 1.5s`. It stays `dim` when the script fails or is cancelled, because it states no outcome.
 - The output follows without Pi's `Script completed` or `Script failed` header when that header is the first text block. Output from separate `text()` calls shares one compact preview. Failed scripts keep Pi's error output.
-- Compact cards name Pi's saved output file as "Saved output", like other cards. Expanded output already ends with Pi's reference.
+- When Pi truncated the output and saved it, compact cards add a "Script output truncated; expand to inspect retained output." warning and a "Saved output" reference, like MCP cards. Expanded output already ends with Pi's reference.
 
 In summary lines, each script counts once as `ran 1 script`, with failures as `(1 failed)`. The calls that a script makes do not count, because they never reach the transcript and their truncated argument previews cannot identify files.
 

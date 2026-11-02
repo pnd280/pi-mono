@@ -1,15 +1,12 @@
-import { createHash } from "node:crypto";
-
 import {
   InteractiveMode,
   ToolExecutionComponent,
-  VERSION,
   type AgentSession,
   type AssistantMessageComponent,
   type AgentSessionEvent
 } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import { unwrapHook } from "@pi-mono/libs/owned-hooks";
+import { hookCompatible, inspectedSource } from "@pi-mono/libs/owned-hooks";
 
 import type { DisplayMode } from "../contracts.ts";
 
@@ -95,15 +92,12 @@ const hostHookHashes = {
 };
 
 /** Unknown wrappers are supported only on the inspected Pi version. */
-export function hostHooksCompatible(host: Host): boolean {
-  return Object.entries(hostHookHashes).every(([name, hashes]) => {
-    const method = unwrapHook(Reflect.get(host, name));
-
-    return (
-      typeof method === "function" &&
-      (inspectedSource(method, hashes) || VERSION === inspectedPiVersion)
-    );
-  });
+export function hostHooksCompatible<H extends Host>(
+  host: H
+): host is H & Required<Pick<Host, keyof typeof hostHookHashes>> {
+  return Object.entries(hostHookHashes).every(([name, hashes]) =>
+    hookCompatible(Reflect.get(host, name), hashes, inspectedPiVersion)
+  );
 }
 
 // Pi 1.4.0: toggleToolOutputExpansion only negates toolOutputExpanded through
@@ -129,14 +123,6 @@ const modeHookHashes = {
     "d85be3dbecebd5e1573f709505d2a7f1a715c86b8f4e22a1b738f9732caa2a4b"
   ])
 };
-
-/** True when a private Pi method's source matches an inspected fingerprint. */
-export function inspectedSource(method: unknown, hashes: ReadonlySet<string>): boolean {
-  return (
-    typeof method === "function" &&
-    hashes.has(createHash("sha256").update(Function.prototype.toString.call(method)).digest("hex"))
-  );
-}
 
 /** Expansion and its private startup/status dependencies must match inspected sources. */
 export function modeHooksCompatible(host: Host): boolean {

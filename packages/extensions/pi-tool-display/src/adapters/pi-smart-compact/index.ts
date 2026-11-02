@@ -1,7 +1,10 @@
 import type { ToolInfo } from "@earendil-works/pi-coding-agent";
-import { modelReferenceSchema } from "@pi-mono/utils/model-reference";
 import { registeredBy } from "@pi-mono/utils/provenance";
-import { MODEL_THINKING_LEVELS } from "@pi-mono/utils/thinking-levels";
+import {
+  compactAcknowledgement,
+  compactDetailsSchema,
+  contextUsageSchema
+} from "pi-smart-compact/result";
 import { z } from "zod";
 
 import type { InvocationPart, ToolDisplayAdapter } from "../../contracts.ts";
@@ -13,26 +16,12 @@ const compactParametersSchema = z.object({
   required: z.tuple([]).optional(),
   properties: z.strictObject({ instructions: z.object({ type: z.literal("string") }) })
 });
-const compactDetailsSchema = z
-  .object({
-    scheduled: z.literal(true),
-    modelOverride: modelReferenceSchema.optional(),
-    thinkingLevel: z.enum(MODEL_THINKING_LEVELS).optional()
-  })
-  .refine(
-    (details) => (details.modelOverride === undefined) === (details.thinkingLevel === undefined)
-  );
 
 const contextArgsSchema = z.strictObject({});
 const contextParametersSchema = z.object({
   type: z.literal("object"),
   required: z.tuple([]).optional(),
   properties: z.strictObject({})
-});
-const usageSchema = z.object({
-  tokens: z.number().nonnegative().nullable(),
-  contextWindow: z.number().positive(),
-  percent: z.number().nonnegative().nullable()
 });
 // The first NumberFormat loads locale data (~2 ms), so build it at the first summary, not at startup.
 let numberFormat: Intl.NumberFormat | undefined;
@@ -61,7 +50,7 @@ export const smartCompactDisplayAdapter: ToolDisplayAdapter = {
     const details = compactDetailsSchema.safeParse(result.details).data;
     // Enrich only the published acknowledgement, never failures or arbitrary output.
     if (
-      text === "Compaction requested." &&
+      text === compactAcknowledgement &&
       !isError &&
       !isPartial &&
       !isCancelled &&
@@ -96,7 +85,7 @@ export const contextWindowDisplayAdapter: ToolDisplayAdapter = {
       : invocationParts("context_window", args, "invocation"),
   summary(result, { args, outcome }) {
     if (outcome !== "success" || !contextArgsSchema.safeParse(args).success) return undefined;
-    const usage = usageSchema.safeParse(result.details).data;
+    const usage = contextUsageSchema.safeParse(result.details).data;
     if (!usage) return undefined;
     const capacity = formatNumber(usage.contextWindow);
     const tokens =

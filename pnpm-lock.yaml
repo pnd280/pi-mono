@@ -640,6 +640,9 @@ importers:
       pi-read:
         specifier: workspace:*
         version: link:../pi-read
+      pi-smart-compact:
+        specifier: workspace:*
+        version: link:../pi-smart-compact
       pi-subagents:
         specifier: workspace:*
         version: link:../pi-subagents

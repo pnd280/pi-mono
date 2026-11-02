@@ -9,11 +9,10 @@ import {
   truncateToWidth,
   type Component
 } from "@earendil-works/pi-tui";
-import { OwnedHooks } from "@pi-mono/libs/owned-hooks";
+import { inspectedSource, OwnedHooks } from "@pi-mono/libs/owned-hooks";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 
 import { record } from "../values.ts";
-import { inspectedSource } from "./compatibility.ts";
 
 // Pi 1.4.0 updateContent creates direct Markdown children only for prose, using
 // outputPad on both sides, and one MouseRegion per nonempty consecutive thinking

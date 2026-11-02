@@ -47,7 +47,7 @@ function envelope(text: string, kind: FffToolKind): Envelope {
   };
 }
 
-/** The FFF 0.10.6 text envelope carries diagnostics absent from its numeric details. */
+/** The FFF 0.11.0 text envelope carries diagnostics absent from its numeric details. */
 export function fffResultParts(
   text: string,
   kind: FffToolKind,

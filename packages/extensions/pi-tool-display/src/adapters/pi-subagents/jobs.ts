@@ -2,6 +2,7 @@ import type { MessageRenderer, ToolInfo } from "@earendil-works/pi-coding-agent"
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { parseJobEnvelope } from "@pi-mono/utils/task-envelope";
 import { OPEN_EVENT } from "pi-subagents/constants";
+import { inactiveJobDetailsSchema, jobDetailsSchema } from "pi-subagents/details";
 import { z } from "zod";
 
 import type { BorrowedToolResult, DisplayProgress, ToolDisplayAdapter } from "../../contracts.ts";
@@ -30,35 +31,12 @@ const abortParametersSchema = z.object({
   properties: z.object({ job_id: z.object({ type: z.literal("string") }) }),
   required: z.array(z.string()).refine((fields) => fields.includes("job_id"))
 });
-const fields = {
-  job_id: z.string().min(1),
-  binding_id: z.string().min(1),
-  description: z.string(),
-  command: z.string(),
-  log_file: z.string().min(1),
-  started_at: z.number().nonnegative()
-};
-const activeSchema = z.object({
-  ...fields,
-  state: z.literal("active"),
-  exit_code: z.null(),
-  ended_at: z.null()
-});
-const inactiveSchema = z.object({
-  ...fields,
-  state: z.literal("inactive"),
-  outcome: z.enum(["completed", "failed", "cancelled"]),
-  exit_code: z.number().nullable(),
-  ended_at: z.number().nonnegative().nullable(),
-  error: z.string().optional()
-});
-const detailsSchema = z.discriminatedUnion("state", [activeSchema, inactiveSchema]);
 // A result message carries no call arguments; its card arguments come from the details.
 const messageArgsSchema = z.object({ description: z.string(), command: z.string() });
 
-type Details = z.infer<typeof detailsSchema>;
+type Inactive = z.infer<typeof inactiveJobDetailsSchema>;
 
-type Inactive = z.infer<typeof inactiveSchema>;
+type ResultMessage = Pick<Parameters<MessageRenderer>[0], "content" | "details">;
 
 /** Job IDs are UUIDs; the collapsed card shows their first group. */
 const shortId = (id: string) => id.slice(0, 8);
@@ -70,7 +48,11 @@ function expandedFields(id: string | undefined, timeout?: number): DisplayProgre
   ];
 }
 
-function times(details: Details): Pick<DisplayProgress, "startedAt" | "endedAt"> {
+/** The run time of a task or job; an unended one has no end time. */
+export function times(details: {
+  started_at: number;
+  ended_at: number | null;
+}): Pick<DisplayProgress, "startedAt" | "endedAt"> {
   return {
     startedAt: details.started_at,
     ...(details.ended_at === null ? {} : { endedAt: details.ended_at })
@@ -94,7 +76,7 @@ function ending(details: Inactive): string {
 }
 
 function openAction(result: BorrowedToolResult | undefined) {
-  const details = detailsSchema.safeParse(result?.details).data;
+  const details = jobDetailsSchema.safeParse(result?.details).data;
 
   return details
     ? {
@@ -106,7 +88,7 @@ function openAction(result: BorrowedToolResult | undefined) {
 
 /** Strips the job envelope when it matches the validated details. */
 const envelopeText: NonNullable<ToolDisplayAdapter["textParts"]> = (text, _args, context) => {
-  const details = detailsSchema.safeParse(context.result.details).data;
+  const details = jobDetailsSchema.safeParse(context.result.details).data;
   const body =
     details &&
     parseJobEnvelope(text, {
@@ -124,7 +106,7 @@ const jobDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-subagents:job",
   family: "invocation",
   supports: (args, result) =>
-    argsSchema.safeParse(args).success && detailsSchema.safeParse(result.details).success,
+    argsSchema.safeParse(args).success && jobDetailsSchema.safeParse(result.details).success,
   invocation: (args) => [
     { kind: "value", text: argsSchema.safeParse(args).data?.description ?? "Job" }
   ],
@@ -132,7 +114,7 @@ const jobDisplayAdapter: ToolDisplayAdapter = {
   action: (_args, result) => openAction(result),
   progress: (value, result) => {
     const args = argsSchema.partial().safeParse(value).data;
-    const details = detailsSchema.safeParse(result?.details).data;
+    const details = jobDetailsSchema.safeParse(result?.details).data;
     if (!args || (result && !details)) return;
 
     if (!details)
@@ -148,7 +130,11 @@ const jobDisplayAdapter: ToolDisplayAdapter = {
       label: "Job",
       description: details.description,
       identity: details.command,
-      status: { glyph: "↗", text: "returned; job continues in background", tone: "returned" },
+      status: {
+        glyph: TUI_GLYPHS.returned.background,
+        text: "returned; job continues in background",
+        tone: "returned"
+      },
       secondary: shortId(details.job_id),
       fields: expandedFields(details.job_id, args.timeout)
     };
@@ -160,7 +146,8 @@ const jobAbortDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-subagents:job_abort",
   family: "invocation",
   supports: (args, result) =>
-    abortArgsSchema.safeParse(args).success && inactiveSchema.safeParse(result.details).success,
+    abortArgsSchema.safeParse(args).success &&
+    inactiveJobDetailsSchema.safeParse(result.details).success,
   invocation: (args) => [
     { kind: "value", text: abortArgsSchema.safeParse(args).data?.job_id ?? "Job" }
   ],
@@ -168,7 +155,7 @@ const jobAbortDisplayAdapter: ToolDisplayAdapter = {
   action: (_args, result) => openAction(result),
   progress: (value, result) => {
     const args = abortArgsSchema.partial().safeParse(value).data;
-    const details = inactiveSchema.safeParse(result?.details).data;
+    const details = inactiveJobDetailsSchema.safeParse(result?.details).data;
     if (!args || (result && !details)) return;
 
     if (!details)
@@ -200,12 +187,13 @@ export const jobResultDisplayAdapter: ToolDisplayAdapter = {
   id: "pi-subagents:job-result",
   family: "invocation",
   supports: (args, result) =>
-    messageArgsSchema.safeParse(args).success && inactiveSchema.safeParse(result.details).success,
+    messageArgsSchema.safeParse(args).success &&
+    inactiveJobDetailsSchema.safeParse(result.details).success,
   invocation: (args) => [
     { kind: "value", text: messageArgsSchema.safeParse(args).data?.description ?? "Job" }
   ],
   outcome: (result) => {
-    const outcome = inactiveSchema.safeParse(result.details).data?.outcome;
+    const outcome = inactiveJobDetailsSchema.safeParse(result.details).data?.outcome;
 
     if (outcome === "failed") return "failure";
 
@@ -214,7 +202,7 @@ export const jobResultDisplayAdapter: ToolDisplayAdapter = {
   textParts: envelopeText,
   action: (_args, result) => openAction(result),
   progress: (_args, result) => {
-    const details = inactiveSchema.safeParse(result?.details).data;
+    const details = inactiveJobDetailsSchema.safeParse(result?.details).data;
     if (!details) return;
 
     return {
@@ -231,21 +219,26 @@ export const jobResultDisplayAdapter: ToolDisplayAdapter = {
   }
 };
 
+/** A result message as a borrowed tool result, keeping its content and details. */
+export function messageResult({ content, details }: ResultMessage): BorrowedToolResult {
+  return {
+    content: typeof content === "string" ? [{ type: "text", text: content }] : content,
+    details
+  };
+}
+
 /** Pure: a job result message as card input; undefined unless its details match. */
 export function jobResultCard(
-  message: Pick<Parameters<MessageRenderer>[0], "content" | "details">
+  message: ResultMessage
 ): { args: { description: string; command: string }; result: BorrowedToolResult } | undefined {
-  const details = inactiveSchema.safeParse(message.details).data;
-  if (!details) return undefined;
-  const { content } = message;
+  const details = inactiveJobDetailsSchema.safeParse(message.details).data;
 
-  return {
-    args: { description: details.description, command: details.command },
-    result: {
-      content: typeof content === "string" ? [{ type: "text", text: content }] : content,
-      details: message.details
-    }
-  };
+  return details
+    ? {
+        args: { description: details.description, command: details.command },
+        result: messageResult(message)
+      }
+    : undefined;
 }
 
 /** Expects a tool already verified as registered by pi-subagents. */

@@ -249,16 +249,15 @@ export function installHostIntegration(
       "addCacheMissNotice",
       "addCacheWarmingUsage",
       "addCustomEntryToChat"
-    ] as const) {
-      const insert = prototype[key];
-      if (typeof insert !== "function") continue;
-      hooks.replace(prototype, key, observeInsertion(insert));
-    }
+    ] as const)
+      hooks.replace(prototype, key, observeInsertion(prototype[key]));
 
     // Pi also uses showStatus for thinking toggles, which must not split runs.
-    const notify = prototype.showExtensionNotify;
-    if (typeof notify === "function")
-      hooks.replace(prototype, "showExtensionNotify", observeInsertion(notify));
+    hooks.replace(
+      prototype,
+      "showExtensionNotify",
+      observeInsertion(prototype.showExtensionNotify)
+    );
 
     if (modeHooks && originalToggle && originalSetExpanded) {
       hooks.replace(prototype, "toggleToolOutputExpansion", function (this: Host) {
@@ -284,67 +283,60 @@ export function installHostIntegration(
 
     // Pi switches renderers from /settings and back to regular before printing on exit.
     const switchMode = prototype.switchTuiMode;
-    if (typeof switchMode === "function")
-      hooks.replace(prototype, "switchTuiMode", function (this: Host, ...args: unknown[]) {
-        const result = switchMode.apply(this, args);
-        const binding = active ? hosts.get(this) : undefined;
-        binding?.display.coordinator.setSummaries(summaries(this, rowChrome));
+    hooks.replace(prototype, "switchTuiMode", function (this: Host, ...args: unknown[]) {
+      const result = switchMode.apply(this, args);
+      const binding = active ? hosts.get(this) : undefined;
+      binding?.display.coordinator.setSummaries(summaries(this, rowChrome));
 
-        return result;
-      });
+      return result;
+    });
 
     const thinkingVisibility = prototype.updateThinkingBlockVisibility;
-    if (typeof thinkingVisibility === "function")
-      hooks.replace(prototype, "updateThinkingBlockVisibility", function (this: Host) {
-        const binding = active ? hosts.get(this) : undefined;
-        // A global toggle visits every assistant row. Reconcile only after all
-        // boundaries reflect final visibility, never through intermediate merges.
-        if (binding) return binding.display.coordinator.batch(() => thinkingVisibility.call(this));
+    hooks.replace(prototype, "updateThinkingBlockVisibility", function (this: Host) {
+      const binding = active ? hosts.get(this) : undefined;
+      // A global toggle visits every assistant row. Reconcile only after all
+      // boundaries reflect final visibility, never through intermediate merges.
+      if (binding) return binding.display.coordinator.batch(() => thinkingVisibility.call(this));
 
-        return thinkingVisibility.call(this);
-      });
+      return thinkingVisibility.call(this);
+    });
 
     const addMessage = prototype.addMessageToChat;
-    if (typeof addMessage === "function")
-      hooks.replace(prototype, "addMessageToChat", function (this: Host, value, options) {
-        return rowsFor(this).addMessage(value, () => addMessage.call(this, value, options));
-      });
+    hooks.replace(prototype, "addMessageToChat", function (this: Host, value, options) {
+      return rowsFor(this).addMessage(value, () => addMessage.call(this, value, options));
+    });
     const reconstruct = prototype.renderSessionItems;
     const handle = prototype.handleEvent;
-    if (typeof reconstruct === "function" && typeof handle === "function") {
-      hooks.replace(prototype, "renderSessionItems", function (this: Host, items, options) {
-        // Pi appends replay slices around a boundary compaction summary. Retain
-        // earlier rows and their ownership until the host clears the transcript.
-        const binding = active
-          ? ensure(this, this.chatContainer?.children.length === 0)
-          : undefined;
-        if (!binding) return reconstruct.call(this, items, options);
-        const result = binding.display.reconstruct(() => {
-          for (const item of items)
-            binding.display.message(binding.messages.read(item), "historical");
+    hooks.replace(prototype, "renderSessionItems", function (this: Host, items, options) {
+      // Pi appends replay slices around a boundary compaction summary. Retain
+      // earlier rows and their ownership until the host clears the transcript.
+      const binding = active ? ensure(this, this.chatContainer?.children.length === 0) : undefined;
+      if (!binding) return reconstruct.call(this, items, options);
+      const result = binding.display.reconstruct(() => {
+        for (const item of items)
+          binding.display.message(binding.messages.read(item), "historical");
 
-          // Pi discovers visible assistant/notice boundaries while creating rows.
-          // Reconcile once after those insertions, before binding expansion state.
-          return reconstruct.call(this, items, options);
-        });
-
-        binding.rows.bind();
-
-        return result;
+        // Pi discovers visible assistant/notice boundaries while creating rows.
+        // Reconcile once after those insertions, before binding expansion state.
+        return reconstruct.call(this, items, options);
       });
-      hooks.replace(prototype, "handleEvent", async function (this: Host, event) {
-        const binding = ensure(this);
 
-        if (binding) {
-          if (event.type === "message_update")
-            trackThinkingCompletion(this.streamingComponent, event.assistantMessageEvent);
-          // The collector deduplicates the public event if its subscriber ran first.
-          binding.collector.event(event);
-        }
+      binding.rows.bind();
 
-        await rowsFor(this).handleEvent(event.type, () => handle.call(this, event));
-      });
-    } else collection.warning("transcript row contract unavailable; grouping disabled.");
+      return result;
+    });
+    hooks.replace(prototype, "handleEvent", async function (this: Host, event) {
+      const binding = ensure(this);
+
+      if (binding) {
+        if (event.type === "message_update")
+          trackThinkingCompletion(this.streamingComponent, event.assistantMessageEvent);
+        // The collector deduplicates the public event if its subscriber ran first.
+        binding.collector.event(event);
+      }
+
+      await rowsFor(this).handleEvent(event.type, () => handle.call(this, event));
+    });
     prototype[hostHook] = dispose;
 
     return dispose;

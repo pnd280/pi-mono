@@ -7,7 +7,7 @@ Adapter maintainers use this contract when they change how results become cards.
 ## Display
 
 - The call list comes from `details.calls`, also in partial results. A result without valid `details.calls` shows no call list.
-- The "Saved output" reference comes from `details.fullOutputPath`.
+- The compact truncation warning and "Saved output" reference come from `details.fullOutputPath`, which Pi sets only for truncated output that it saved.
 - The card hides Pi's `Script completed` or `Script failed` header only when it is the first text block.
 - The script time comes from Pi's `durationMs`, not from that header.
 

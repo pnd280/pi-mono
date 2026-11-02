@@ -1,4 +1,4 @@
-import { formatDuration } from "@pi-mono/libs/tui/duration";
+import { formatDuration, formatRunningDuration } from "@pi-mono/libs/tui/duration";
 import { TUI_GLYPHS } from "@pi-mono/libs/tui/glyphs";
 import { displayText, sliceTerminalText } from "@pi-mono/libs/tui/terminal-text";
 import { displayLine, wrapHangingRows, wrapRows } from "@pi-mono/libs/tui/text-budget";
@@ -31,12 +31,12 @@ function elapsed(progress: DisplayProgress, now: number, final: boolean): Elapse
     return { text: formatDuration(Math.max(0, endedAt - startedAt)), staleAt: Infinity };
   // A final result without an end time has no duration to show.
   if (final) return { text: "", staleAt: Infinity };
-  // A running timer ticks in whole seconds.
-  const seconds = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const ms = Math.max(0, now - startedAt);
 
+  // A running timer ticks in whole seconds.
   return {
-    text: seconds ? formatDuration(seconds * 1000) : "0s",
-    staleAt: startedAt + (seconds + 1) * 1000
+    text: formatRunningDuration(ms),
+    staleAt: startedAt + (Math.floor(ms / 1000) + 1) * 1000
   };
 }
 

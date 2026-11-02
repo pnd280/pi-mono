@@ -143,7 +143,7 @@ function toolKind(tool: ToolInfo): ToolKind | undefined {
   return kind;
 }
 
-/** pi-mcp-adapter 2.33.0: registration provenance, then each public tool schema. */
+/** Registration provenance, then each public tool schema; the README names the inspected version. */
 export function piMcpAdapter(tool: ToolInfo | undefined): ToolDisplayAdapter | undefined {
   if (!tool || !registeredBy(tool, "pi-mcp-adapter")) return undefined;
   const kind = toolKind(tool);

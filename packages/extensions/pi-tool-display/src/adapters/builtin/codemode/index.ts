@@ -8,6 +8,7 @@ import type {
   SummaryCategory,
   ToolDisplayAdapter
 } from "../../../contracts.ts";
+import { truncationNotices } from "../../truncation.ts";
 
 const TOOL_NAME = "codemode";
 const SOURCE_PATH = "builtin:codemode";
@@ -72,13 +73,13 @@ const codemodeDisplayAdapter: ToolDisplayAdapter = {
 
     return [{ kind: isError ? "error" : "output", text }];
   },
-  // Expanded output already ends with Pi's full-output reference.
+  // Pi saves the output only when it truncates it.
   notices(result, expanded) {
     const path = expanded
       ? undefined
       : detailsSchema.safeParse(result.details).data?.fullOutputPath;
 
-    return path ? [{ kind: "reference", label: "Saved output", value: path }] : [];
+    return path ? truncationNotices("Script", path) : [];
   },
   // Count each script once; its nested calls never reach the transcript.
   summaryItems: () => [{ category: scriptCategory.id }],
