@@ -15,13 +15,19 @@ import { fileURLToPath } from "node:url";
 
 import * as pi from "@earendil-works/pi-coding-agent";
 import { Editor, TuiAltScreen, TuiMainScreen } from "@earendil-works/pi-tui";
+import { z } from "zod";
 
 import { inspectedPiVersion as widgetVersion } from "../../../../packages/extensions/pi-editor-widgets/src/host.ts";
 import { inspectedPiVersion as displayVersion } from "../../../../packages/extensions/pi-tool-display/src/host/compatibility.ts";
 
 type Methods = Record<string, unknown>;
 
-type Fingerprints = { version: string; hashes: Record<string, Record<string, string>> };
+const fingerprintsSchema = z.object({
+  version: z.string(),
+  hashes: z.record(z.string(), z.record(z.string(), z.string()))
+});
+
+type Fingerprints = z.infer<typeof fingerprintsSchema>;
 
 const session = (name: string): unknown => Reflect.get(pi.AgentSession.prototype, name);
 const mode = (name: string): unknown => Reflect.get(pi.InteractiveMode.prototype, name);
@@ -131,9 +137,7 @@ function parse(stderr: string): Fingerprints {
   const line = stderr.split("\n").find((entry) => entry.startsWith("FINGERPRINTS "));
   if (!line) throw new Error(`The bundled CLI printed no fingerprints:\n${stderr}`);
 
-  // The line comes from this script's own extension pass.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return JSON.parse(line.slice("FINGERPRINTS ".length)) as Fingerprints;
+  return fingerprintsSchema.parse(JSON.parse(line.slice("FINGERPRINTS ".length)));
 }
 
 /** Build an inspection-only invocation without inheriting credentials or project resources. */

@@ -14,7 +14,7 @@ The pre-commit hook rejects em dashes (U+2014) in staged text outside `.agents/s
 
 ## Code and tooling
 
-Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts). Lint warnings fail checks. Tests follow the [runner convention](agents/testing.md#runner).
+Vite+ runs formatting, lint, types, and tests through root [vite.config.ts](../vite.config.ts). Lint warnings fail checks. Packages extend the compiler options in [tsconfig.base.json](../tsconfig.base.json); the root [tsconfig.json](../tsconfig.json) applies them to `.scripts/`, the pi-update scripts, and `vite.config.ts`. Tests follow the [runner convention](agents/testing.md#runner).
 
 Fix implementation diagnostics without weakening shared checks; explain narrow exceptions.
 

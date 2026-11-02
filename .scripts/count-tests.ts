@@ -1,4 +1,5 @@
-#!/usr/bin/env node
+// Count the collected tests and test files of each workspace package, without running them.
+// Usage: node .scripts/count-tests.ts
 import { execFileSync } from "node:child_process";
 import { globSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
@@ -9,25 +10,31 @@ const root = resolve(import.meta.dirname, "..");
 const manifestSchema = z.object({ name: z.string().min(1) });
 const collectionSchema = z.array(z.object({ file: z.string().min(1) }));
 
-function countTests() {
+type Owner = { name: string; directory: string; tests: number; files: Set<string> };
+
+function manifestOwner(manifest: string): Owner {
+  return {
+    name: manifestSchema.parse(JSON.parse(readFileSync(join(root, manifest), "utf8"))).name,
+    directory: join(root, dirname(manifest)) + sep,
+    tests: 0,
+    files: new Set()
+  };
+}
+
+function countTests(): void {
   const packages = globSync(["packages/*/package.json", "packages/extensions/*/package.json"], {
     cwd: root
   })
-    .map((manifest) => ({
-      name: manifestSchema.parse(JSON.parse(readFileSync(join(root, manifest), "utf8"))).name,
-      directory: join(root, dirname(manifest)) + sep,
-      tests: 0,
-      files: new Set()
-    }))
+    .map(manifestOwner)
     .sort((a, b) => a.name.localeCompare(b.name));
+  // The root test include also collects workspace tooling tests, such as the pi-update scripts.
+  const owners = [...packages, manifestOwner("package.json")];
 
-  /** @param {string} file */
-  function owner(file) {
-    const entry = packages.find((pkg) => resolve(root, file).startsWith(pkg.directory));
+  function owner(file: string): Owner {
+    const path = resolve(root, file);
+    const entry = owners.find((candidate) => path.startsWith(candidate.directory));
 
-    if (!entry) {
-      throw new Error(`No workspace package owns test file: ${file}`);
-    }
+    if (!entry) throw new Error(`No workspace package owns test file: ${file}`);
 
     return entry;
   }
@@ -36,11 +43,7 @@ function countTests() {
   mkdirSync(temporaryRoot, { recursive: true });
   const temporaryDirectory = mkdtempSync(join(temporaryRoot, "count-tests-"));
 
-  /**
-   * @param {string} name
-   * @param {string[]} options
-   */
-  function collect(name, options) {
+  function collect(name: string, options: string[]): z.infer<typeof collectionSchema> {
     const output = join(temporaryDirectory, `${name}.json`);
     execFileSync("vp", ["test", "list", "--passWithNoTests", ...options, `--json=${output}`], {
       cwd: root,
@@ -66,20 +69,22 @@ function countTests() {
 
   const rows = [
     ["Package", "Tests", "Files"],
-    ...packages.map((pkg) => [pkg.name, String(pkg.tests), String(pkg.files.size)]),
+    ...owners.map((entry) => [entry.name, String(entry.tests), String(entry.files.size)]),
     [
       "Total",
-      String(packages.reduce((sum, pkg) => sum + pkg.tests, 0)),
-      String(packages.reduce((sum, pkg) => sum + pkg.files.size, 0))
+      String(owners.reduce((sum, entry) => sum + entry.tests, 0)),
+      String(owners.reduce((sum, entry) => sum + entry.files.size, 0))
     ]
   ];
-  const widths = rows[0].map((_, column) => Math.max(...rows.map((row) => row[column].length)));
+  const widths = ["Package", "Tests", "Files"].map((_, column) =>
+    Math.max(...rows.map((row) => row[column]?.length ?? 0))
+  );
 
   for (const row of rows) {
     console.log(
       row
         .map((value, column) =>
-          column === 0 ? value.padEnd(widths[column]) : value.padStart(widths[column])
+          column === 0 ? value.padEnd(widths[column] ?? 0) : value.padStart(widths[column] ?? 0)
         )
         .join("  ")
     );
