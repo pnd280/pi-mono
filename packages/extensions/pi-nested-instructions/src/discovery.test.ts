@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { discover, refresh } from "./discovery.ts";
 import { readType } from "./ledger.ts";
-import { decodeNotice, digest, noticeEntry } from "./notices.ts";
+import { decodeNotice, noticeEntry } from "./notices.ts";
 import { instructionFiles, type InstructionFiles } from "./storage.ts";
 import { fixture } from "./test-fixture.ts";
 
@@ -84,7 +84,8 @@ it("marks failed attempts too, and never treats directory listings as loaded con
 
 it.each([
   "shortened",
-  noticeEntry("/altered", { path: "/altered/AGENTS.md", content: "rules" }, "loaded", "/").content
+  noticeEntry("/altered", { action: "loaded", path: "/altered/AGENTS.md", content: "rules" }, "/")
+    .content
 ])(
   "reloads notices replaced with %j, omitted by context edits, or compacted away",
   async (replacement) => {
@@ -108,23 +109,21 @@ it.each([
 
 it.each([
   ["version 2", { version: 2 }],
-  ["removed stamp", { stamp: "legacy" }],
-  ["removed fileDigest", { fileDigest: digest("rules") }]
+  ["unknown key", { stamp: "unknown" }]
 ])("ignores %s notice metadata without deleting its original text", async (_name, invalid) => {
   const file = await fs.write("pkg/AGENTS.md", "rules");
   const current = noticeEntry(
     path.dirname(file),
-    { path: file, content: "rules" },
-    "loaded",
+    { action: "loaded", path: file, content: "rules" },
     fs.cwd
   );
-  const legacy = { ...current, details: { ...decodeNotice(current).notice, ...invalid } };
-  fs.append([legacy]);
-  expect(decodeNotice(legacy)).toEqual({ notice: undefined, body: current.content });
+  const rejected = { ...current, details: { ...decodeNotice(current).notice, ...invalid } };
+  fs.append([rejected]);
+  expect(decodeNotice(rejected)).toEqual({ notice: undefined, body: current.content });
   expect(await refresh(fs.cwd, fs.manager, files)).toEqual([]);
   expect(notices(await run())).toMatchObject([{ version: 3, path: file }]);
   expect(fs.manager.getBranch()).toContainEqual(
-    expect.objectContaining({ content: current.content, details: legacy.details })
+    expect.objectContaining({ content: current.content, details: rejected.details })
   );
 });
 
